@@ -236,28 +236,29 @@
       margin-left: 5px;
     }
 
-    /* Make action links stand out */
+    /* Make action links stand out - use theme color */
     .classes-container li a {
-      color: #01535b;
+      color: var(--org-primary-color, #01535b);
       text-decoration: none;
       font-weight: 600;
     }
 
     .classes-container li a:hover {
       text-decoration: underline;
+      color: var(--org-primary-hover, #014a51);
     }
 
     /* Special styling for Create and Here links in the no-classes message */
     .classes-container li a[href="/common/manageClassSubjectAndGradYr"],
     .classes-container li a[href="/enrollment/manageEnrollment"] {
-      color: #1a73e8;
+      color: var(--org-primary-color, #1a73e8);
       font-weight: 700;
       text-decoration: underline;
     }
 
     .classes-container li a[href="/common/manageClassSubjectAndGradYr"]:hover,
     .classes-container li a[href="/enrollment/manageEnrollment"]:hover {
-      color: #0d47a1;
+      color: var(--org-primary-hover, #0d47a1);
       text-decoration: underline;
     }
 

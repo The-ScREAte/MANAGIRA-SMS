@@ -134,7 +134,7 @@
   }
   .collapsible-btn {
     width: 100%;
-    background: #01535b;
+    background: var(--org-primary-color, #01535b);
     color: #fff;
     border: none;
     outline: none;
@@ -148,6 +148,9 @@
     font-weight: bold;
     border-radius: 5px;
     transition: none;
+  }
+  .collapsible-btn:hover {
+    background: var(--org-primary-hover, #014a51);
   }
   .collapsible-btn .arrow {
     font-size: 18px;
