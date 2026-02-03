@@ -1,0 +1,271 @@
+<style>
+  .report-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  .report-header {
+    background: linear-gradient(135deg, #0f5a66 0%, #6fd3c4 100%);
+    color: white;
+    padding: 28px;
+    border-radius: 12px;
+    margin-bottom: 28px;
+    box-shadow: 0 4px 12px rgba(15, 90, 102, 0.15);
+  }
+
+  .report-header h1 {
+    margin: 0 0 8px 0;
+    font-size: 26px;
+    font-weight: 700;
+  }
+
+  .report-header p {
+    margin: 0;
+    opacity: 0.95;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .report-form-card {
+    background: white;
+    border-radius: 12px;
+    padding: 28px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    border: 1px solid #e2e8f0;
+  }
+
+  .form-field {
+    margin-bottom: 24px;
+  }
+
+  .form-label {
+    display: block;
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+
+  .form-label .required {
+    color: #ef4444;
+  }
+
+  .form-input,
+  .form-select,
+  .form-textarea {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 15px;
+    font-family: inherit;
+    transition: all 0.3s ease;
+  }
+
+  .form-select {
+    cursor: pointer;
+    background-color: white;
+  }
+
+  .form-textarea {
+    min-height: 150px;
+    resize: vertical;
+  }
+
+  .form-input:focus,
+  .form-select:focus,
+  .form-textarea:focus {
+    outline: none;
+    border-color: #6fd3c4;
+    box-shadow: 0 0 0 3px rgba(111, 211, 196, 0.1);
+  }
+
+  .form-hint {
+    font-size: 13px;
+    color: #64748b;
+    margin-top: 6px;
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 2px solid #e2e8f0;
+  }
+
+  .btn-primary {
+    padding: 14px 28px;
+    background: linear-gradient(135deg, #0f5a66 0%, #6fd3c4 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(15, 90, 102, 0.2);
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(15, 90, 102, 0.3);
+  }
+
+  .btn-secondary {
+    padding: 14px 28px;
+    background: white;
+    color: #475569;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 15px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-block;
+  }
+
+  .btn-secondary:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+  }
+
+  .info-box {
+    background: #f0f9ff;
+    border-left: 4px solid #0ea5e9;
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 24px;
+  }
+
+  .info-box p {
+    margin: 0;
+    color: #0c4a6e;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  @media (max-width: 768px) {
+    .report-container {
+      padding: 16px;
+    }
+
+    .report-header {
+      padding: 20px;
+    }
+
+    .report-header h1 {
+      font-size: 22px;
+    }
+
+    .report-form-card {
+      padding: 20px;
+    }
+
+    .form-actions {
+      flex-direction: column;
+    }
+
+    .btn-primary, .btn-secondary {
+      width: 100%;
+      text-align: center;
+    }
+  }
+</style>
+
+<div class="report-container">
+  <div class="report-header">
+    <h1>📝 Submit Report or Complaint</h1>
+    <p>Have a concern or question about your child? Let us know and we'll get back to you as soon as possible.</p>
+  </div>
+
+  <div class="info-box">
+    <p>💡 <strong>Your feedback matters!</strong> Use this form to report concerns, ask questions, or share feedback about your children's education and well-being.</p>
+  </div>
+
+  <div class="report-form-card">
+    <form action="/guardian/report" method="POST">
+      <div class="form-field">
+        <label class="form-label">
+          Select Child <span class="required">*</span>
+        </label>
+        <select name="studentId" class="form-select" required>
+          <option value="">-- Select a student --</option>
+          <% children.forEach(child => { %>
+              <option value="<%= child.student_id %>"><%= child.first_name %> <%= child.last_name %></option>
+          <% }); %>
+          <option value="general">General (Not about a specific child)</option>
+        </select>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label">
+          Report Type <span class="required">*</span>
+        </label>
+        <select name="reportType" class="form-select" required>
+          <option value="">-- Select type --</option>
+          <option value="academic">Academic Concern</option>
+          <option value="behavior">Behavior Issue</option>
+          <option value="attendance">Attendance Question</option>
+          <option value="health">Health/Medical Concern</option>
+          <option value="bullying">Bullying/Safety Concern</option>
+          <option value="teacher">Teacher Communication</option>
+          <option value="facilities">Facilities/Resources</option>
+          <option value="feedback">General Feedback</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label">
+          Subject <span class="required">*</span>
+        </label>
+        <input 
+          type="text" 
+          name="subject" 
+          class="form-input" 
+          placeholder="Brief description of your concern"
+          required
+          maxlength="255"
+        />
+        <div class="form-hint">Enter a short title summarizing your report</div>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label">
+          Message <span class="required">*</span>
+        </label>
+        <textarea 
+          name="message" 
+          class="form-textarea" 
+          placeholder="Please provide detailed information about your concern or question..."
+          required
+        ></textarea>
+        <div class="form-hint">Please be as specific as possible to help us address your concern effectively</div>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label">Copy Staff Members (optional)</label>
+        <div style="background:#f8f9fa;padding:12px;border-radius:8px;border:1px solid #e2e8f0;">
+          <% if (staff && staff.length > 0) { %>
+            <% staff.forEach(person => { %>
+              <div style="display:flex;align-items:center;margin-bottom:8px;">
+                <input type="checkbox" name="cc_recipients" value="<%= person.user_id %>" id="staff_<%= person.user_id %>" style="margin-right:8px;" />
+                <label for="staff_<%= person.user_id %>"><%= person.first_name %> <%= person.last_name %> <span style="color:#7f8c8d;font-size:13px;margin-left:6px;">(<%= person.role %>)</span></label>
+              </div>
+            <% }); %>
+          <% } else { %>
+            <div style="color:#64748b;">No staff available to copy.</div>
+          <% } %>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">📨 Submit Report</button>
+        <a href="/guardian/dashboard" class="btn-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>

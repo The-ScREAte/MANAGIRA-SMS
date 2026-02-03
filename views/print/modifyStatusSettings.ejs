@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Modify Status Settings</title>
+  <style>
+      :root {
+        --font-family: "Inter", sans-serif;
+      }
+
+
+    body {
+      font-family: var(--font-family);
+    }
+    h2 {
+      color: #333;
+      text-align: center;
+    }
+
+    .form-container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.05);
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    input[type="date"],
+    select {
+      width: 100%;
+      padding: 8px;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    .form-checkbox-group {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .form-actions {
+      margin-top: 30px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      color: white;
+      background: #01535b;
+      cursor: pointer;
+      border-radius: 5px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .btn-danger {
+      background: #c0392b;
+    }
+
+    .link-to-next-back {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+
+
+    @media (max-width: 768px) {
+      .form-container {
+        padding: 15px;
+        margin: 0 10px;
+        overflow-x: auto;
+      }
+
+      .form-actions {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .btn {
+        width: 100%;
+      }
+
+      .form-checkbox-group {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style></head>
+  <br>
+  <% if (success_msg) { %>
+    <div class="alert alert-success"><%= success_msg %></div>
+<% } %>
+<% if (error_msg) { %>
+    <div class="alert alert-danger"><%= error_msg %></div>
+<% } %>
+<body>
+
+
+  <div class="link-to-next-back">
+    <a href="/print/reportSettings?classId=<%= classId %>&termId=<%= termId %>" class="btn btn-primary">Back</a>
+  </div>
+  <hr>
+
+  <h2>Modify Status Settings</h2>
+
+  <form method="POST" action="/print/updatePromotionSettings">
+    <input type="hidden" name="classId" value="<%= classId %>">
+    <input type="hidden" name="termId" value="<%= termId %>"> <!-- ✅ TermId added for navigation -->
+    <input type="hidden" name="mode" value="update">
+
+    <div class="form-group">
+      <label for="promotedClass">Promoted Class</label>
+      <select name="promotedClass" required>
+        <% enrolledClasses.sort((a, b) => a.class_id - b.class_id).forEach(c => { %>
+          <option value="<%= c.class_id %>" <%= setting?.promoted_class == c.class_id ? "selected" : "" %>><%= c.class_name %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="repeatedClass">Repeated Class</label>
+      <select name="repeatedClass" required>
+        <% enrolledClasses.sort((a, b) => a.class_id - b.class_id).forEach(c => { %>
+          <option value="<%= c.class_id %>" <%= setting?.repeated_class == c.class_id ? "selected" : "" %>><%= c.class_name %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="cutOffPoint">Cut Off Point</label>
+      <input type="number" name="cutOffPoint" value="<%= setting?.cut_off_point || '' %>">
+    </div>
+
+    <div class="form-group">
+      <label for="schoolReopenDate">School Reopen Date</label>
+      <input type="date" name="schoolReopenDate" value="<%= setting?.school_reopen_date ? new Date(setting.school_reopen_date).toISOString().split('T')[0] : '' %>">
+    </div>
+
+    <div class="form-checkbox-group">
+      <label>
+        <input type="checkbox" name="activatePromotion" <%= setting?.activate_promotion ? "checked" : "" %>>
+        Activate Promotion
+      </label>
+    </div>
+
+    <div class="form-group">
+      <label>Apply Status Settings To:</label>
+      <% enrolledClasses.sort((a, b) => a.class_id - b.class_id).forEach(c => { %>
+        <div class="form-checkbox-group">
+          <label for="class-<%= c.class_id %>"><%= c.class_name %></label>
+          <input type="radio" name="selectedStatusClasses" value="<%= c.class_id %>" <%= settingClasses?.includes(c.class_id) ? "checked" : "" %>>
+        </div>
+      <% }) %>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn">Update Settings</button>
+      <a 
+        href="/print/deleteStatusSettings?classId=<%= classId %>&termId=<%= termId %>" 
+        class="btn btn-danger" 
+        onclick="return confirm('Are you sure you want to delete this status setting?');">
+        Delete
+      </a>
+    </div>
+  </form>
+</body>
+</html>

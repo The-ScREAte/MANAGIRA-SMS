@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Service Pricing Management</title>
+    <style>
+      :root {
+        --font-family: "Inter", sans-serif;
+      }
+
+      body {
+        font-family: var(--font-family);
+        background-color: #f4f7fa;
+        color: #222;
+        margin: 0;
+        line-height: 1.6;
+      }
+      
+      .admin-header {
+        background: linear-gradient(90deg, #01535b 60%, #0e7c86 100%);
+        color: #fff;
+        padding: 24px 0 16px 0;
+        text-align: center;
+        margin-bottom: 0;
+        box-shadow: 0 2px 8px rgba(1,83,91,0.08);
+      }
+      
+      .admin-header h1 {
+        margin: 0;
+        font-size: 2.2rem;
+        letter-spacing: 1px;
+        font-weight: 700;
+      }
+      
+      .container {
+        max-width: 1400px;
+        margin: 40px auto;
+        padding: 0 20px;
+        display: flex;
+        gap: 24px;
+        align-items: flex-start;
+      }
+      
+      /* Create three main columns using flexbox */
+      .column-1 {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      
+      .column-2 {
+        flex: 1;
+      }
+      
+      .column-3 {
+        flex: 1;
+      }
+      
+      .form-container {
+        background: #fff;
+        padding: 32px 24px;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(1,83,91,0.08);
+        transition: all 0.3s ease;
+        border: 1px solid #e8f4f8;
+        height: fit-content;
+      }
+      
+      .form-container:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 32px rgba(1,83,91,0.12);
+      }
+      
+      .form-container h2 {
+        color: #01535b;
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin: 0 0 20px 0;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #e8f4f8;
+      }
+      
+      .plan-container {
+        background: #fff;
+        padding: 24px;
+        margin-bottom: 20px;
+        border-radius: 10px;
+        box-shadow: 0 2px 12px rgba(1,83,91,0.06);
+        border: 1px solid #e8f4f8;
+        transition: all 0.2s ease;
+      }
+      
+      .plan-container:hover {
+        box-shadow: 0 4px 20px rgba(1,83,91,0.1);
+      }
+      
+      /* Grid layout for better organization */
+      .pricing-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        gap: 24px;
+        margin-bottom: 40px;
+      }
+      
+      .settings-section {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+      }
+      
+      .plans-section {
+        grid-column: 1 / -1;
+        background: #fff;
+        padding: 32px 24px;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(1,83,91,0.08);
+        border: 1px solid #e8f4f8;
+      }
+      
+      .plans-section h2 {
+        color: #01535b;
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin: 0 0 24px 0;
+        padding-bottom: 12px;
+        border-bottom: 2px solid #e8f4f8;
+      }
+      
+      .plans-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 20px;
+      }
+      .plan-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      .action-btn {
+        padding: 10px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        border: none;
+        color: white;
+        font-weight: 500;
+        font-size: 1rem;
+        transition: background 0.2s;
+      }
+      .delete-btn {
+        background: #e74c3c;
+      }
+      .update-btn {
+        background: #f39c12;
+      }
+      .toggle-btn {
+        background: #27ae60;
+      }
+      .feature-list {
+        list-style: none;
+        padding: 0;
+      }
+      .feature-list li {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 7px 0;
+        border-bottom: 1px solid #f0f0f0;
+      }
+      .feature-list li:last-child {
+        border-bottom: none;
+      }
+      .action-icon {
+        cursor: pointer;
+        font-size: 18px;
+        padding: 6px 12px;
+        border-radius: 5px;
+        background: #eaf7ff;
+        color: #01535b;
+        transition: background 0.2s, color 0.2s;
+      }
+      .action-icon:hover {
+        background: #b6e0fe;
+        color: #0e7c86;
+      }
+      .notice {
+        background-color: #e7f3fe;
+        color: #0c5460;
+        border: 1px solid #bee5eb;
+        border-radius: 7px;
+        padding: 18px;
+        margin-bottom: 24px;
+      }
+      .notice h2 {
+        font-size: 1.1rem;
+        margin: 0 0 10px;
+        font-weight: bold;
+      }
+      /* Additional responsive CSS improvements */
+      label {
+        font-weight: 600;
+        margin-bottom: 8px;
+        display: block;
+        color: #01535b;
+        font-size: 14px;
+      }
+      
+      input[type="text"],
+      input[type="number"],
+      input[type="date"],
+      select {
+        width: 100%;
+        padding: 12px;
+        margin-bottom: 16px;
+        border: 1px solid #d1e3e8;
+        border-radius: 8px;
+        font-size: 14px;
+        background: #f9fbfc;
+        transition: all 0.2s ease;
+        box-sizing: border-box;
+      }
+      
+      input[type="text"]:focus,
+      input[type="number"]:focus,
+      input[type="date"]:focus,
+      select:focus {
+        outline: none;
+        border-color: #01535b;
+        box-shadow: 0 0 0 3px rgba(1, 83, 91, 0.1);
+        background: #fff;
+      }
+      
+      button {
+        width: 100%;
+        padding: 14px;
+        background: #01535b;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        margin-top: 8px;
+      }
+      
+      button:hover {
+        background: #0e7c86;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(1, 83, 91, 0.2);
+      }
+      
+      button:active {
+        transform: translateY(0);
+      }
+      
+      button:disabled {
+        background: #94a3b8;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+      
+      /* Responsive breakpoints */
+      @media (max-width: 1200px) {
+        .container {
+          flex-direction: column;
+          gap: 20px;
+        }
+        
+        .column-1 {
+          display: flex;
+          flex-direction: row;
+          gap: 20px;
+        }
+        
+        .column-1 .form-container {
+          flex: 1;
+        }
+      }
+      
+      @media (max-width: 768px) {
+        .container {
+          flex-direction: column;
+          padding: 0 16px;
+          gap: 16px;
+          margin: 20px auto;
+        }
+        
+        .column-1 {
+          flex-direction: column;
+          gap: 16px;
+        }
+        
+        .form-container {
+          padding: 24px 20px;
+        }
+        
+        .admin-header h1 {
+          font-size: 1.8rem;
+        }
+      }
+      
+      @media (max-width: 480px) {
+        .container {
+          padding: 0 12px;
+          gap: 12px;
+        }
+        
+        .column-1 {
+          gap: 12px;
+        }
+        
+        .form-container {
+          padding: 20px 16px;
+        }
+        
+        .admin-header {
+          padding: 16px 0 12px 0;
+        }
+        
+        .admin-header h1 {
+          font-size: 1.6rem;
+        }
+      }
+      select:focus {
+        border: 1.5px solid #0e7c86;
+        outline: none;
+      }
+      button[type="submit"] {
+        background: #01535b;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 12px 0;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 8px;
+        transition: background 0.2s;
+      }
+      button[type="submit"]:hover {
+        background: #0e7c86;
+      }
+      .plan-description {
+        width: 100%;
+        margin-top: 5px;
+        padding: 8px;
+        border-radius: 5px;
+        border: 1px solid #d1e3e8;
+        background: #f9fbfc;
+        font-size: 1rem;
+      }
+      /* Responsive Design */
+      @media (max-width: 1024px) {
+        .container {
+          max-width: 98vw;
+          padding: 0 6px;
+          gap: 6px 16px;
+        }
+        .form-container,
+        .plan-container {
+          padding: 14px 6px 10px 6px;
+        }
+      }
+      @media (max-width: 700px) {
+        .admin-header h1 {
+          font-size: 1.3rem;
+        }
+        .container {
+          padding: 0 2px;
+          gap: 4px;
+        }
+        .form-container,
+        .plan-container {
+          padding: 10px 2px 8px 2px;
+        }
+        .plan-description {
+          font-size: 0.95rem;
+        }
+      }
+      @media (max-width: 600px) {
+        .admin-header {
+          padding: 16px 0 10px 0;
+        }
+        .admin-header h1 {
+          font-size: 1.1rem;
+        }
+        .container {
+          margin-top: 10px;
+          gap: 4px;
+        }
+        .form-container,
+        .plan-container {
+          padding: 7px 0 6px 0;
+        }
+        .plan-description {
+          font-size: 0.9rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <%- include('../partials/flash') %>
+
+    <div class="admin-header">
+      <h1>Service Pricing Management</h1>
+    </div>
+    <!-- Notice Section -->
+    <!-- <div class="notice">
+      <h2>📢 Notice:</h2>
+      <p>
+        Quick Steps to Add a New Feature with examples. please check the
+        ADDFEATUREREADME.MD IN THE ROOT
+      </p>
+    </div> -->
+    
+
+    
+    <div class="container">
+      <!-- Column 1: Three stacked containers -->
+      <div class="column-1">
+        <div class="form-container">
+          <h2>Free Trial Settings</h2>
+          <form action="/admin/updateFreeTrialSettings" method="POST" id="free-trial-form">
+            <label for="free_trial_enabled">Enable Free Trial:</label>
+            <select name="free_trial_enabled" id="free_trial_enabled">
+              <option value="true" <% if (typeof freeTrialEnabled !== 'undefined' && freeTrialEnabled === 'true') { %>selected<% } %>>Yes</option>
+              <option value="false" <% if (typeof freeTrialEnabled === 'undefined' || freeTrialEnabled !== 'true') { %>selected<% } %>>No</option>
+            </select>
+            <label for="free_trial_days">Trial Duration:</label>
+            <select name="free_trial_days" id="free_trial_days" required>
+              <option value="5_minutes" <% if (typeof freeTrialDays !== 'undefined' && freeTrialDays === '5_minutes') { %>selected<% } %>>5 Minutes</option>
+              <option value="1" <% if (typeof freeTrialDays !== 'undefined' && freeTrialDays === '1') { %>selected<% } %>>1 Day</option>
+              <option value="7" <% if (typeof freeTrialDays === 'undefined' || freeTrialDays === '7') { %>selected<% } %>>7 Days</option>
+              <option value="14" <% if (typeof freeTrialDays !== 'undefined' && freeTrialDays === '14') { %>selected<% } %>>14 Days</option>
+              <option value="30" <% if (typeof freeTrialDays !== 'undefined' && freeTrialDays === '30') { %>selected<% } %>>30 Days</option>
+              <option value="60" <% if (typeof freeTrialDays !== 'undefined' && freeTrialDays === '60') { %>selected<% } %>>60 Days</option>
+              <option value="90" <% if (typeof freeTrialDays !== 'undefined' && freeTrialDays === '90') { %>selected<% } %>>90 Days</option>
+              <option value="120" <% if (typeof freeTrialDays !== 'undefined' && freeTrialDays === '120') { %>selected<% } %>>120 Days</option>
+            </select>
+            <button type="submit">Save Free Trial Settings</button>
+          </form>
+        </div>
+
+        <div class="form-container">
+          <h2>Billing Interval</h2>
+          <form action="/admin/updateBillingInterval" method="POST" id="billing-interval-form">
+            <label for="billing_interval">Billing Interval:</label>
+            <select name="billing_interval" id="billing_interval">
+              <option value="5_minutes" <% if (typeof billingInterval !== 'undefined' && billingInterval === '5_minutes') { %>selected<% } %>>5 Minutes</option>
+              <option value="daily" <% if (typeof billingInterval !== 'undefined' && billingInterval === 'daily') { %>selected<% } %>>Daily</option>
+              <option value="weekly" <% if (typeof billingInterval !== 'undefined' && billingInterval === 'weekly') { %>selected<% } %>>Weekly</option>
+              <option value="monthly" <% if (typeof billingInterval === 'undefined' || billingInterval === 'monthly') { %>selected<% } %>>Monthly</option>
+              <option value="yearly" <% if (typeof billingInterval !== 'undefined' && billingInterval === 'yearly') { %>selected<% } %>>Yearly</option>
+              <option value="2_years" <% if (typeof billingInterval !== 'undefined' && billingInterval === '2_years') { %>selected<% } %>>2 Years</option>
+              <option value="3_years" <% if (typeof billingInterval !== 'undefined' && billingInterval === '3_years') { %>selected<% } %>>3 Years</option>
+            </select>
+            <button type="submit">Save Billing Interval</button>
+          </form>
+        </div>
+
+        <div class="form-container">
+          <h2>🔄 Recalculate Plan Totals</h2>
+          <p>Use this button if plan total costs seem incorrect or after making multiple feature price changes:</p>
+          <button 
+            class="action-btn update-btn" 
+            id="recalculate-totals-btn"
+            style="background: #28a745; color: white; padding: 10px 20px; font-size: 16px;"
+          >
+            Recalculate All Plan Totals
+          </button>
+        </div>
+      </div>
+
+      <!-- Column 2: Feature Pricing -->
+      <div class="column-2">
+        <div class="form-container">
+          <h2>Feature Pricing</h2>
+          <form action="/admin/setFeaturePrice" method="POST">
+            <label>Select Feature:</label>
+            <select name="featureId" required>
+              <% features.slice().sort((a, b) => a.feature_name.localeCompare(b.feature_name)).forEach(feature => { %>
+                <option value="<%= feature.id %>">
+                  <%= feature.feature_name %>
+                </option>
+              <% }) %>
+            </select>
+
+            <label>Price (GHS):</label>
+            <input type="number" name="priceUsd" step="0.01" required />
+
+            <button type="submit">Set Price</button>
+          </form>
+          <ul class="feature-list">
+            <% features.slice().sort((a, b) => a.feature_name.localeCompare(b.feature_name)).forEach(feature => { %>
+              <li>
+                <%= feature.feature_name %> (₵<%= feature.price_usd %>)
+                <span
+                  class="action-icon remove-feature-from-list"
+                  data-featureid="<%= feature.id %>"
+                >-</span>
+              </li>
+            <% }) %>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Column 3: Manage Plans -->
+      <div class="column-3">
+        <div class="form-container">
+          <h2>Manage Plans</h2>
+          <% plans.forEach(plan => { %>
+            <div class="plan-container">
+              <p><strong>Plan:</strong> <%= plan.plan_name %></p>
+              <p>
+                <strong>Description:</strong>
+                <input
+                  type="text"
+                  class="plan-description"
+                  data-planid="<%= plan.plan_id %>"
+                  value="<%= plan.description %>"
+                />
+              </p>
+              <p><strong>Features:</strong></p>
+              <ul class="feature-list">
+                <% plan.features.slice().sort((a, b) => a.feature_name.localeCompare(b.feature_name)).forEach(feature => { %>
+                  <li>
+                    <%= feature.feature_name %> (₵<%= feature.price_usd %>)
+                    <span
+                      class="action-icon remove-feature"
+                      data-planid="<%= plan.plan_id %>"
+                      data-featureid="<%= feature.id %>"
+                    >-</span>
+                  </li>
+                <% }) %>
+              </ul>
+              <p><strong>Total Cost: ₵<%= plan.total_cost %></strong></p>
+              <div class="feature-input">
+                <select class="feature-select" data-planid="<%= plan.plan_id %>">
+                  <% features.slice().sort((a, b) => a.feature_name.localeCompare(b.feature_name)).forEach(feature => { %>
+                    <% if (!plan.features.some(f => f.id === feature.id)) { %>
+                      <option value="<%= feature.id %>">
+                        <%= feature.feature_name %> (₵<%= feature.price_usd %>)
+                      </option>
+                    <% } %>
+                  <% }); %>
+                </select>
+                <span
+                  class="action-icon add-feature"
+                  data-planid="<%= plan.plan_id %>"
+                >+</span>
+              </div>
+              <div class="plan-actions">
+                <button class="update-btn" data-planid="<%= plan.plan_id %>">
+                  Update
+                </button>
+                <input
+                  type="checkbox"
+                  class="toggle-status"
+                  data-planid="<%= plan.plan_id %>"
+                  <% if (plan.is_active) { %>checked<% } %>
+                /> Active
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        function confirmAction(message, callback) {
+          if (confirm(message)) {
+            callback();
+          }
+        }
+
+        // Recalculate All Plan Totals
+        document.getElementById("recalculate-totals-btn").addEventListener("click", function () {
+          confirmAction(
+            "Are you sure you want to recalculate all plan total costs? This will update the totals based on current feature prices.",
+            () => {
+              fetch("/admin/recalculateAllPlanTotals", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+              })
+                .then(() => location.reload())
+                .catch((error) => {
+                  console.error("Error:", error);
+                  alert("Failed to recalculate plan totals. Please try again.");
+                });
+            }
+          );
+        });
+
+        // Remove Feature from a Plan
+        document.querySelectorAll(".remove-feature").forEach((element) => {
+          element.addEventListener("click", function () {
+            const planId = this.dataset.planid;
+            const featureId = this.dataset.featureid;
+
+            confirmAction(
+              "Are you sure you want to remove this feature from the plan? Logs are kept as history for this page.",
+              () => {
+                fetch("/admin/removeFeatureFromPlan", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ planId, featureId }),
+                })
+                  .then((response) => response.json())
+                  .then((data) => {
+                    if (data.success) {
+                      this.closest("li").remove(); // Remove from UI
+                      updateTotalCost(planId, -parseFloat(data.featurePrice));
+                    } else {
+                      alert("Failed to remove feature.");
+                    }
+                  })
+                  .catch((error) => console.error("Error:", error));
+              }
+            );
+          });
+        });
+
+        // Remove Feature from Database (Feature List)
+        document
+          .querySelectorAll(".remove-feature-from-list")
+          .forEach((element) => {
+            element.addEventListener("click", function () {
+              const featureId = this.dataset.featureid;
+
+              confirmAction(
+                "Are you sure you want to delete this feature permanently? Logs are kept as history for this page.",
+                () => {
+                  fetch("/admin/deleteFeature", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ featureId }),
+                  })
+                    .then((response) => response.json())
+                    .then((data) => {
+                      if (data.success) {
+                        this.closest("li").remove(); // Remove from UI
+                      } else {
+                        alert("Failed to delete feature.");
+                      }
+                    })
+                    .catch((error) => console.error("Error:", error));
+                }
+              );
+            });
+          });
+
+        // Add Feature to Plan
+        document.querySelectorAll(".add-feature").forEach((element) => {
+          element.addEventListener("click", function () {
+            const planId = this.dataset.planid;
+            const featureSelect = document.querySelector(
+              `.feature-select[data-planid='${planId}']`
+            );
+            const featureId = featureSelect.value;
+
+            confirmAction(
+              "Are you sure you want to add this feature to the plan? Logs are kept as history for this page.",
+              () => {
+                fetch("/admin/addFeatureToPlan", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ planId, featureId }),
+                })
+                  .then((response) => response.json())
+                  .then((data) => {
+                    if (data.success) {
+                      location.reload(); // Reload to reflect change
+                    } else {
+                      alert("Failed to add feature.");
+                    }
+                  })
+                  .catch((error) => console.error("Error:", error));
+              }
+            );
+          });
+        });
+
+        // Delete a Plan
+        document.querySelectorAll(".delete-btn").forEach((element) => {
+          element.addEventListener("click", function () {
+            const planId = this.dataset.planid;
+
+            confirmAction(
+              "Are you sure you want to delete this plan permanently? Logs are kept as history for this page.",
+              () => {
+                fetch("/admin/deletePlan", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ planId }),
+                })
+                  .then((response) => response.json())
+                  .then((data) => {
+                    if (data.success) {
+                      location.reload();
+                    } else {
+                      alert("Failed to delete plan.");
+                    }
+                  })
+                  .catch((error) => console.error("Error:", error));
+              }
+            );
+          });
+        });
+
+        // Toggle Plan Status (Activate/Deactivate)
+        document.querySelectorAll(".toggle-status").forEach((element) => {
+          element.addEventListener("change", function () {
+            const planId = this.dataset.planid;
+            const action = this.checked ? "activate" : "deactivate";
+
+            confirmAction(
+              `Are you sure you want to ${action} this plan? Logs are kept as history for this page.`,
+              () => {
+                fetch("/admin/togglePlanStatus", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ planId }),
+                })
+                  .then(() => location.reload())
+                  .catch((error) => console.error("Error:", error));
+              }
+            );
+          });
+        });
+
+        // Update Plan Description
+        document.querySelectorAll(".update-btn").forEach((element) => {
+          element.addEventListener("click", function () {
+            const planId = this.dataset.planid;
+            const description = document.querySelector(
+              `.plan-description[data-planid='${planId}']`
+            ).value;
+
+            confirmAction(
+              "Are you sure you want to update this plan's description? Logs are kept as history for this page.",
+              () => {
+                fetch("/admin/updatePlanDescription", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ planId, description }),
+                })
+                  .then(() => location.reload())
+                  .catch((error) => console.error("Error:", error));
+              }
+            );
+          });
+        });
+
+        // Update Total Cost dynamically
+        function updateTotalCost(planId, priceChange) {
+          const totalCostElement = document.querySelector(
+            `#total-cost-${planId}`
+          );
+          if (totalCostElement) {
+            let currentTotal = parseFloat(totalCostElement.innerText);
+            totalCostElement.innerText = (currentTotal + priceChange).toFixed(
+              2
+            );
+          }
+        }
+      });
+    </script>
+  </body>
+</html>

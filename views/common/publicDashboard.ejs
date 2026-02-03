@@ -1,0 +1,2945 @@
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title><%= title %></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      href="https://cdn.quilljs.com/1.3.6/quill.snow.css"
+      rel="stylesheet"
+    />
+
+    <style>
+/* =========================================================
+   1. GLOBAL DESIGN TOKENS & TYPOGRAPHY (BASE)
+   ========================================================= */
+:root{
+  --font-family:"Inter",system-ui,sans-serif;
+
+  --title-xl:36px;
+  --title-lg:26px;
+  --title-md:20px;
+
+  --text-base:15px;
+  --text-sm:13px;
+
+  --radius-lg:18px;
+  --radius-md:14px;
+  --radius-sm:10px;
+}
+
+body{ font-family:var(--font-family); }
+
+h1{ font-size:var(--title-xl); }
+h2{ font-size:var(--title-lg); }
+h3{ font-size:var(--title-md); font-weight:800; }
+
+p{
+  font-size:var(--text-base);
+  line-height:1.7;
+  font-weight:400;
+}
+
+.content-section p{ max-width:68ch; }
+
+/* =========================================================
+   2. BASE COMPONENTS (THEME-AGNOSTIC)
+   ========================================================= */
+
+/* Cards */
+.card,
+.gallery-card,
+.draggable-item,
+.event-card,
+.announcement-card{
+  border-radius:var(--radius-md);
+  border:none;
+  box-shadow:0 6px 18px rgba(0,0,0,0.08);
+}
+
+/* Layout containers */
+.public-dashboard-container{
+  position:relative;
+  width:96%;
+  margin:auto;
+}
+
+.public-dashboard-header{
+  margin-top:50px;
+}
+
+/* Sections */
+.content-section{
+  margin-bottom:72px;
+}
+
+
+/* =========================================================
+   3. CAROUSEL / HERO (BASE) — UPDATED (PROFESSIONAL + RESPONSIVE)
+   Replace your existing carousel CSS with this whole block
+   ========================================================= */
+
+.custom-carousel{
+  position:relative;
+  width:100%;
+
+  /* ✅ Responsive height: not too tall on desktop, good on mobile */
+  height: clamp(280px, 42vw, 520px);
+
+  overflow:hidden;
+  border-radius:14px;
+  margin-bottom:20px;
+
+  box-shadow:0 18px 30px rgba(0,0,0,0.12);
+  background:#01535b; /* fallback behind images */
+  cursor:pointer;
+}
+
+/* School banner (kept as original if you re-enable HTML) */
+.school-banner{
+  position:absolute;
+  top:30px;
+  left:50%;
+  transform:translateX(-50%);
+  width:500px;
+  background-color:rgba(0,0,0,0.30);
+  border-radius:10px;
+  padding:10px;
+  z-index:4;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-start;
+  opacity:0.9;
+}
+.school-banner img{
+  width:100%;
+  max-height:230px;
+  object-fit:contain;
+}
+.school-banner p{
+  color:#fff;
+  font-size:1.5rem;
+  font-weight:bolder;
+  text-align:center;
+  margin-top:10px;
+}
+
+/* Slide structure */
+.slide-container{
+  height:100%;
+  width:100%;
+  position:relative;
+}
+
+.slide{
+  position:absolute;
+  inset:0;
+  opacity:0;
+  transition:opacity .45s ease-in-out;
+  background-color:#01535b; /* prevent blank space */
+}
+
+.slide.active{
+  opacity:1;
+  z-index:1;
+}
+
+.slide-image{
+  width:100%;
+  height:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+  box-sizing:border-box;
+}
+
+.slide-image img{
+  width:100%;
+  height:100%;
+
+  /* ✅ looks best for photos (fills hero) */
+object-fit:contain;
+  object-position:center;
+
+  display:block;
+}
+
+/* Caption (clean + readable, one line) */
+.slide .caption{
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+
+  padding:14px 18px;
+  color:#fff;
+  font-size: clamp(0.9rem, 1.2vw, 1.1rem);
+  font-weight:700;
+  letter-spacing:0.2px;
+
+  background: linear-gradient(
+    to top,
+    rgba(0,0,0,0.78),
+    rgba(0,0,0,0.25)
+  );
+
+  text-align:center;           /* ✅ centered */
+  display:flex;                /* ✅ centered even when wrapped */
+  justify-content:center;
+  align-items:center;
+
+  white-space: normal;         /* ✅ allow wrapping */
+  overflow-wrap: anywhere;     /* ✅ break long words safely */
+  line-height: 1.35;
+
+  /* optional: prevents caption from becoming too tall */
+  max-height: 28%;
+  overflow: hidden;
+
+  z-index:2;
+}
+
+/* Controls (modern size) */
+.carousel-control{
+  position:absolute;
+  top:50%;
+  transform:translateY(-50%);
+  z-index:3;
+
+  height:46px;
+  width:46px;
+  border-radius:12px;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  background:rgba(0,0,0,0.35);
+  color:#fff;
+  cursor:pointer;
+
+  transition:transform .12s ease, background .12s ease;
+}
+
+.carousel-control:hover{
+  background:rgba(0,0,0,0.55);
+  transform:translateY(-50%) scale(1.05);
+}
+
+.carousel-control.prev{ left:14px; }
+.carousel-control.next{ right:14px; }
+
+/* ✅ Mobile polish */
+@media (max-width:768px){
+  .custom-carousel{
+    height: clamp(240px, 62vw, 360px);
+    border-radius:12px;
+  }
+
+  .carousel-control{
+    height:40px;
+    width:40px;
+    border-radius:10px;
+  }
+
+  .slide .caption{
+    padding:10px 12px;
+  }
+
+  /* Optional: smaller school banner on mobile if you enable it */
+  .school-banner{
+    width:180px;
+    top:18px;
+  }
+  .school-banner img{ max-height:120px; }
+  .school-banner p{ font-size:1rem; }
+}
+
+
+/* =========================================================
+   4. MODAL (BASE)
+   ========================================================= */
+.modal{
+  display:none;
+  position:fixed;
+  z-index:1000;
+  left:0;
+  top:0;
+  width:100%;
+  height:100%;
+  background-color:rgba(255, 255, 255, 0.8);
+  justify-content:center;
+  align-items:center;
+  transition:opacity .3s ease;
+}
+
+.modal-content{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:10px;
+  width:95%;
+  height:auto;
+  max-width:600px;
+  max-height:90vh;
+  text-align:center;
+  background:#ffffff;
+  padding:20px;
+  border-radius:15px;
+  position:relative;
+  box-shadow:0 10px 30px rgba(0,0,0,0.3);
+}
+
+.modalImageContainer{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  background-color:#ffffff;
+  width:100%;
+  height:320px;
+  max-width:100%;
+  max-height:320px;
+  border-radius:8px;
+  margin-bottom:16px;
+}
+#modalImage{
+  max-width:100%;
+  max-height:100%;
+  border-radius:8px;
+}
+
+#modalCaption{
+  margin-top:8px;
+  font-size:1rem;
+  line-height:1.6;
+  padding:10px 0 0 0;
+  text-align:left;
+  color:#000000;
+  overflow-y:auto;
+  width:100%;
+  max-height:120px;
+  box-sizing:border-box;
+}
+
+.close-button{
+  position:absolute;
+  top:10px;
+  right:15px;
+  font-size:50px;
+  cursor:pointer;
+  font-weight:bold;
+}
+.close-button:hover{
+  color:red;
+  scale:1.2;
+}
+
+/* =========================================================
+   5. GALLERY (BASE)
+   ========================================================= */
+.image-container{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+  gap:20px;
+  padding:20px 40px;
+  justify-content:center;
+  justify-items:center;
+  max-width:90%;
+  margin:0 auto;
+}
+
+/* ===============================
+   CLASSIC — GALLERY GRID (UPDATED)
+   Large: 4  | Medium: 3 | Small: 2
+   + 1-line caption
+   + extra top padding so it doesn't touch the line/header
+   =============================== */
+
+/* Give the gallery section breathing room (fixes the “touching” at the top) */
+body[data-pd-theme="classic"] .content-section.wf1-section {
+  padding-top: 22px !important;
+}
+
+/* Extra spacing between the title underline and the grid */
+body[data-pd-theme="classic"] .content-section.wf1-section > h2 {
+  margin-bottom: 18px !important;
+}
+
+/* GRID: default = LARGE (4 columns) */
+body[data-pd-theme="classic"] .wf1-gallery,
+body[data-pd-theme="classic"] .wf3-gallery-grid,
+body[data-pd-theme="classic"] .wf4-gallery-compact,
+body[data-pd-theme="classic"] .image-container {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 16px !important;
+
+  /* keeps it from becoming too wide on big monitors */
+  max-width: 1280px !important;
+  margin: 0 auto !important;
+  padding: 0 16px !important;
+}
+
+/* MEDIUM screens = 3 columns */
+@media (max-width: 1100px) {
+  body[data-pd-theme="classic"] .wf1-gallery,
+  body[data-pd-theme="classic"] .wf3-gallery-grid,
+  body[data-pd-theme="classic"] .wf4-gallery-compact,
+  body[data-pd-theme="classic"] .image-container {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    max-width: 1100px !important;
+  }
+}
+
+/* SMALL screens = 2 columns */
+@media (max-width: 700px) {
+  body[data-pd-theme="classic"] .wf1-gallery,
+  body[data-pd-theme="classic"] .wf3-gallery-grid,
+  body[data-pd-theme="classic"] .wf4-gallery-compact,
+  body[data-pd-theme="classic"] .image-container {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+    padding: 0 12px !important;
+  }
+}
+
+/* Cards should fill the grid cell neatly */
+body[data-pd-theme="classic"] .gallery-card {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  border-radius: 14px !important;
+}
+
+/* ===== Responsive image height (smooth scaling) ===== */
+body[data-pd-theme="classic"] .gallery-card-image-section {
+  /* fluid: grows with screen width but stays within limits */
+  height: clamp(120px, 14vw, 180px) !important;
+}
+
+@media (max-width: 1100px) {
+  body[data-pd-theme="classic"] .gallery-card-image-section {
+    height: clamp(115px, 18vw, 170px) !important;
+  }
+}
+
+@media (max-width: 700px) {
+  body[data-pd-theme="classic"] .gallery-card-image-section {
+    height: clamp(105px, 26vw, 150px) !important;
+  }
+}
+
+
+body[data-pd-theme="classic"] .gallery-card-image-section img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+
+/* Caption = ONE LINE ONLY with ellipsis */
+body[data-pd-theme="classic"] .gallery-card .caption {
+  background: rgba(1, 83, 91, 0.88) !important;
+  color: #fff !important;
+  padding: 10px 12px !important;
+  font-size: 0.92rem !important;
+  font-weight: 600 !important;
+
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.gallery-card:hover{ transform:scale(1.03); }
+
+.gallery-card-image-section{
+  width:100%;
+  height:140px;
+  overflow:hidden;
+}
+.gallery-card-image-section img{
+  width:100%;
+  height:100%;
+object-fit:contain;
+  border-radius:10px 10px 0 0;
+  cursor:pointer;
+}
+
+.gallery-card .caption{
+  color:#fff;
+  font-size:1rem;
+  margin-top:10px;
+  background:rgba(20,30,40,0.65);
+  border-top:none;
+  font-weight:500;
+  text-align:left;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+/* =========================================================
+   6. ARTICLES (UPDATED)
+   - Horizontal scroll (like before)
+   - 3 visible on large screens
+   - 2 visible on medium + small
+   - Same card size + nice snapping
+   ========================================================= */
+
+/* Apply the same horizontal scroll behavior to ALL article containers */
+.text-container,
+.wf1-articles,
+.wf2-articles-scroll,
+.wf3-articles-masonry,
+.wf4-stories-grid{
+  display:flex;
+  gap:16px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  scroll-behavior:smooth;
+  -webkit-overflow-scrolling:touch;
+
+  padding: 12px 16px 18px;
+  margin: 0 auto;
+  max-width: 1280px;
+
+  /* optional: feels premium */
+  scroll-snap-type: x mandatory;
+}
+
+/* 3 cards visible on large screens */
+.text-container .draggable-item,
+.wf1-articles .draggable-item,
+.wf2-articles-scroll .draggable-item,
+.wf3-articles-masonry .draggable-item,
+.wf4-stories-grid .draggable-item{
+  flex: 0 0 calc((100% - 32px) / 3); /* 3 cards with 2 gaps */
+  min-width: 320px;                 /* protects small laptop widths */
+  max-width: 420px;                 /* prevents huge cards on big monitors */
+
+  height: 420px;                    /* same height always */
+  background:#fff;
+  border-radius:14px;
+  box-shadow:0 6px 18px rgba(0,0,0,0.10);
+  padding:18px;
+
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+
+  scroll-snap-align: start;
+}
+
+/* 2 cards on medium + small */
+@media (max-width: 1100px){
+  .text-container .draggable-item,
+  .wf1-articles .draggable-item,
+  .wf2-articles-scroll .draggable-item,
+  .wf3-articles-masonry .draggable-item,
+  .wf4-stories-grid .draggable-item{
+    flex: 0 0 calc((100% - 16px) / 2); /* 2 cards with 1 gap */
+    max-width: 520px;
+    height: 400px;
+  }
+}
+
+@media (max-width: 700px){
+  .text-container,
+  .wf1-articles,
+  .wf2-articles-scroll,
+  .wf3-articles-masonry,
+  .wf4-stories-grid{
+    gap:12px;
+    padding: 10px 12px 16px;
+  }
+
+  .text-container .draggable-item,
+  .wf1-articles .draggable-item,
+  .wf2-articles-scroll .draggable-item,
+  .wf3-articles-masonry .draggable-item,
+  .wf4-stories-grid .draggable-item{
+    flex: 0 0 calc((100% - 12px) / 2);
+    min-width: 260px;
+    height: 360px;
+    padding:14px;
+  }
+}
+
+/* Title styling */
+.draggable-item h3{
+  margin:0 0 10px 0;
+  color:#01535b;
+  font-size:1.15rem;
+  font-weight:800;
+  text-align:center;
+  line-height:1.25;
+
+  display:-webkit-box;
+  -webkit-line-clamp:2;     /* keeps title neat */
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+
+/* Make the article body scroll INSIDE the card */
+.draggable-item .ql-editor{
+  flex:1;
+  overflow-y:auto;
+  overflow-x:hidden;
+
+  padding: 12px;
+  border-radius:10px;
+  background: #fbfbfb;
+
+  font-size:1rem;
+  line-height:1.65;
+  color:#333;
+}
+
+/* Nice scrollbar */
+.draggable-item .ql-editor::-webkit-scrollbar{ width:8px; }
+.draggable-item .ql-editor::-webkit-scrollbar-track{
+  background:#e9e9e9; border-radius:10px;
+}
+.draggable-item .ql-editor::-webkit-scrollbar-thumb{
+  background:#01535b; border-radius:10px;
+}
+
+/* =========================================================
+   7. EVENTS + ANNOUNCEMENTS + ABOUT (FINAL)
+   ✅ Fixed sizes
+   ✅ Long text scrolls INSIDE cards
+   ✅ Page scroll stays normal on small screens
+   ✅ NO hover effects
+   ✅ Announcements are smaller
+   ✅ About aligned like the rest (no cornering)
+   ========================================================= */
+
+/* Consistent content width like Gallery */
+body[data-pd-theme="classic"] .content-section{
+  max-width:1280px;
+  margin:0 auto 72px auto;
+  padding:0 16px;
+}
+
+/* Headings aligned (no corner/indent) */
+body[data-pd-theme="classic"] .content-section > h2{
+  margin:0 0 18px 0 !important;
+  text-align:left;
+  font-size:1.8rem;
+  color:#222;
+  border-bottom:3px solid #01535b;
+  padding-bottom:8px;
+}
+
+/* Horizontal scroller (Events + Announcements) */
+.events-section,
+.announcements-section,
+.wf1-events,
+.wf1-announcements,
+.wf2-events-priority,
+.wf2-announcements-list,
+.wf3-events-grid,
+.wf3-announcements-feed,
+.wf4-announcements-grid{
+  display:flex;
+  gap:16px;
+
+  overflow-x:auto;
+  overflow-y:visible;                 /* ✅ don't trap vertical scrolling */
+  -webkit-overflow-scrolling:touch;
+  scroll-behavior:smooth;
+
+  padding:10px 0;
+  justify-content:flex-start;
+  align-items:stretch;
+
+  touch-action: pan-y;                /* ✅ vertical swipe scrolls page */
+}
+
+/* Optional snapping feel (safe) */
+.events-section,
+.announcements-section,
+.wf1-events,
+.wf1-announcements{
+  scroll-snap-type:x mandatory;
+}
+.event-card,
+.announcement-card{
+  scroll-snap-align:start;
+}
+
+/* =========================
+   FIXED SIZE CARDS
+   ========================= */
+
+/* Events (normal size) */
+.event-card{
+  flex:0 0 420px;
+  height:240px;
+  background:#fff;
+  border-radius:14px;
+  padding:18px;
+  box-shadow:0 6px 15px rgba(0,0,0,0.12);
+
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  color:#222;
+}
+
+/* Announcements (smaller) */
+.announcement-card{
+  flex:0 0 320px;      /* ✅ smaller width */
+  height:190px;        /* ✅ smaller height */
+  background:#fff;
+  border-radius:14px;
+  padding:12px;        /* ✅ tighter padding */
+  box-shadow:0 6px 15px rgba(0,0,0,0.12);
+
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  color:#222;
+}
+
+/* NO hover effects */
+.event-card:hover,
+.announcement-card:hover{
+  transform:none !important;
+}
+
+/* Titles */
+.event-card h3,
+.announcement-card h3{
+  font-size:1.15rem;
+  color:#01535b;
+  margin:0 0 10px 0;
+  line-height:1.25;
+  flex:0 0 auto;
+}
+
+/* Text */
+.event-card p,
+.announcement-card p{
+  margin:0;
+  font-size:1rem;
+  color:#555;
+  line-height:1.55;
+}
+
+/* ✅ Event details scroll inside card */
+.event-card p:last-of-type{
+  margin-top:10px;
+  flex:1 1 auto;
+  overflow:auto;
+  padding-right:6px;
+  touch-action: pan-y;
+}
+
+/* ✅ Announcement message scroll inside card */
+.announcement-card p{
+  flex:1 1 auto;
+  overflow:auto;
+  padding-right:6px;
+  touch-action: pan-y;
+
+  font-size:0.95rem;   /* ✅ slightly smaller text */
+  line-height:1.5;
+}
+
+/* Inside-card scrollbar */
+.event-card p:last-of-type::-webkit-scrollbar,
+.announcement-card p::-webkit-scrollbar{
+  width:8px;
+}
+.event-card p:last-of-type::-webkit-scrollbar-thumb,
+.announcement-card p::-webkit-scrollbar-thumb{
+  background:rgba(1,83,91,0.35);
+  border-radius:10px;
+}
+
+/* Horizontal scrollbar styling */
+.events-section::-webkit-scrollbar,
+.announcements-section::-webkit-scrollbar,
+.wf1-events::-webkit-scrollbar,
+.wf1-announcements::-webkit-scrollbar{
+  height:8px;
+}
+.events-section::-webkit-scrollbar-track,
+.announcements-section::-webkit-scrollbar-track,
+.wf1-events::-webkit-scrollbar-track,
+.wf1-announcements::-webkit-scrollbar-track{
+  background:#eaeaea;
+  border-radius:10px;
+}
+.events-section::-webkit-scrollbar-thumb,
+.announcements-section::-webkit-scrollbar-thumb,
+.wf1-events::-webkit-scrollbar-thumb,
+.wf1-announcements::-webkit-scrollbar-thumb{
+  background:#01535b;
+  border-radius:10px;
+}
+
+/* =========================
+   ABOUT (aligned + clean)
+   ========================= */
+#about-us{
+  max-width:1280px;
+  margin:0 auto 72px auto;
+  padding:0 16px;
+}
+
+#about-us p,
+body[data-pd-theme="classic"] .content-section.wf1-section#about-us > p{
+  margin:12px 0 0 0 !important;
+  max-width:78ch;
+  color:#333;
+  line-height:1.75;
+
+  /* remove any old corner/indent rules */
+  margin-left:0 !important;
+  margin-right:0 !important;
+}
+
+/* =========================
+   MOBILE
+   ========================= */
+@media (max-width:768px){
+  body[data-pd-theme="classic"] .content-section > h2{
+    font-size:1.6rem;
+  }
+
+  .event-card{
+    flex:0 0 280px;
+    height:210px;
+    padding:14px;
+  }
+
+  .announcement-card{
+    flex:0 0 240px;   /* smaller on mobile */
+    height:170px;
+    padding:10px;
+  }
+
+  .announcement-card p{
+    font-size:0.9rem;
+  }
+}
+
+
+
+/* =========================================================
+   8. THEME LAYER
+   ONLY Classic is ACTIVE.
+   Other themes are COMMENTED and we’ll do later.
+   ========================================================= */
+
+/* -------- Classic (CURRENT / ORIGINAL) -------- */
+body[data-pd-theme="classic"]{
+  background:#ffffff;
+  color:#222;
+}
+
+/* =========================================================
+   MODERN (LIGHT BLUE) THEME — UPDATED (AFFECTS HERO TOO)
+   Activates only when data-pd-theme="modern"
+   ========================================================= */
+
+body[data-pd-theme="modern"]{
+  background: linear-gradient(180deg, #eaf6ff 0%, #f7fbff 55%, #ffffff 100%);
+  color:#0f172a;
+}
+
+/* Same widths + spacing */
+body[data-pd-theme="modern"] .content-section{
+  max-width:1280px;
+  margin:0 auto 72px auto;
+  padding:0 16px;
+}
+
+/* Headings */
+body[data-pd-theme="modern"] .content-section > h2{
+  margin:0 0 18px 0;
+  text-align:left;
+  font-size:1.85rem;
+  font-weight:900;
+  letter-spacing:0.2px;
+
+  color:#0b3a67;
+  border-bottom:4px solid #38bdf8; /* sky */
+  padding-bottom:10px;
+}
+
+/* =========================================================
+   HERO (Carousel area + top header + register button)
+   ========================================================= */
+
+/* Reduce the “empty” feel at top + make it feel like a hero zone */
+body[data-pd-theme="modern"] .public-dashboard-header{
+  margin-top:34px; /* slightly tighter than classic */
+}
+
+/* HERO wrapper: adds a soft glow behind the carousel section */
+body[data-pd-theme="modern"] #carouselExample{
+  position:relative;
+}
+
+/* Carousel: light-blue glass frame */
+body[data-pd-theme="modern"] .custom-carousel{
+  background: radial-gradient(circle at 20% 0%, rgba(56,189,248,0.45), rgba(14,165,233,0.25), rgba(2,132,199,0.12));
+  border: 1px solid rgba(56,189,248,0.45);
+  box-shadow: 0 20px 50px rgba(2,132,199,0.22);
+}
+
+/* Slide background so blank space looks premium while images load */
+body[data-pd-theme="modern"] .slide{
+  background: linear-gradient(135deg, rgba(2,132,199,0.20), rgba(14,165,233,0.10));
+}
+
+/* Caption: modern glass ribbon */
+body[data-pd-theme="modern"] .slide .caption{
+  background: linear-gradient(to top, rgba(2,132,199,0.90), rgba(2,132,199,0.25));
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+/* Carousel controls: sky buttons */
+body[data-pd-theme="modern"] .carousel-control{
+  background: rgba(14,165,233,0.25);
+  border: 1px solid rgba(56,189,248,0.55);
+  color:#fff;
+}
+body[data-pd-theme="modern"] .carousel-control:hover{
+  background: rgba(14,165,233,0.40);
+}
+
+/* Optional: if you ever re-enable the school banner, make it match */
+body[data-pd-theme="modern"] .school-banner{
+  background: rgba(2,132,199,0.28);
+  border: 1px solid rgba(56,189,248,0.45);
+  backdrop-filter: blur(10px);
+}
+body[data-pd-theme="modern"] .school-banner p{
+  text-shadow: 0 2px 10px rgba(0,0,0,0.25);
+}
+
+/* Register button “hero CTA” polish */
+body[data-pd-theme="modern"] .blinking-btn{
+  background: linear-gradient(90deg, #0ea5e9, #38bdf8);
+  color:#ffffff;
+  border: none;
+  border-radius: 14px;
+  padding: 14px 18px;
+  font-weight: 900;
+  box-shadow: 0 16px 30px rgba(2,132,199,0.24);
+  cursor:pointer;
+}
+body[data-pd-theme="modern"] .blinking-btn:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 18px 34px rgba(2,132,199,0.28);
+}
+
+/* =========================================================
+   Cards (Gallery/Articles/Events/Announcements)
+   ========================================================= */
+
+body[data-pd-theme="modern"] .card,
+body[data-pd-theme="modern"] .gallery-card,
+body[data-pd-theme="modern"] .draggable-item,
+body[data-pd-theme="modern"] .event-card,
+body[data-pd-theme="modern"] .announcement-card{
+  background: rgba(255,255,255,0.92);
+  border: 1px solid rgba(56,189,248,0.35);
+  box-shadow: 0 14px 30px rgba(2, 132, 199, 0.14);
+}
+
+/* ✅ Gallery grid (same behavior) */
+body[data-pd-theme="modern"] .wf1-gallery,
+body[data-pd-theme="modern"] .wf3-gallery-grid,
+body[data-pd-theme="modern"] .wf4-gallery-compact,
+body[data-pd-theme="modern"] .image-container{
+  display:grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap:16px;
+  max-width:1280px;
+  margin:0 auto;
+  padding:0 16px;
+}
+
+@media (max-width:1100px){
+  body[data-pd-theme="modern"] .wf1-gallery,
+  body[data-pd-theme="modern"] .wf3-gallery-grid,
+  body[data-pd-theme="modern"] .wf4-gallery-compact,
+  body[data-pd-theme="modern"] .image-container{
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width:700px){
+  body[data-pd-theme="modern"] .wf1-gallery,
+  body[data-pd-theme="modern"] .wf3-gallery-grid,
+  body[data-pd-theme="modern"] .wf4-gallery-compact,
+  body[data-pd-theme="modern"] .image-container{
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap:12px;
+    padding:0 12px;
+  }
+}
+
+/* Gallery images: cover (modern look) */
+body[data-pd-theme="modern"] .gallery-card-image-section img{
+  width:100%;
+  height:100%;
+  object-fit: cover;
+  display:block;
+}
+
+/* Gallery caption */
+body[data-pd-theme="modern"] .gallery-card .caption{
+  background: rgba(14,165,233,0.92);
+  color:#ffffff;
+  font-weight: 700;
+  padding:10px 12px;
+  font-size:0.95rem;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Articles */
+body[data-pd-theme="modern"] .draggable-item h3{
+  color:#0b3a67;
+}
+body[data-pd-theme="modern"] .draggable-item .ql-editor{
+  background: rgba(2,132,199,0.06);
+  color:#0f172a;
+}
+
+/* Events + announcements text */
+body[data-pd-theme="modern"] .event-card h3,
+body[data-pd-theme="modern"] .announcement-card h3{
+  color:#0b3a67;
+}
+body[data-pd-theme="modern"] .event-card p,
+body[data-pd-theme="modern"] .announcement-card p{
+  color: rgba(15,23,42,0.82);
+}
+
+/* About text */
+body[data-pd-theme="modern"] #about-us p{
+  color: rgba(15,23,42,0.88);
+}
+
+/* =========================================================
+   Modal (match modern)
+   ========================================================= */
+body[data-pd-theme="modern"] .modal{
+  background-color: rgba(234,246,255,0.88);
+}
+body[data-pd-theme="modern"] .modal-content{
+  background: rgba(255,255,255,0.96);
+  border: 1px solid rgba(56,189,248,0.35);
+}
+
+/* ---------- MODERN (Light Blue) ---------- */
+body[data-pd-theme="modern"] .sticky-nav{
+  background: rgba(234,246,255,0.92);
+  border-bottom: 1px solid rgba(56,189,248,0.35);
+  box-shadow: 0 10px 24px rgba(2,132,199,0.10);
+  backdrop-filter: blur(10px);
+}
+
+body[data-pd-theme="modern"] .sticky-nav a{
+  color:#0b3a67;
+  font-weight:800;
+}
+
+body[data-pd-theme="modern"] .sticky-nav a:hover{
+  color:#0284c7;
+}
+
+body[data-pd-theme="modern"] .sticky-nav a::after{
+  background: linear-gradient(90deg, #0ea5e9, #38bdf8);
+}
+
+/* =========================================================
+   GOLD (LIGHT GOLD) THEME
+   Activates only when data-pd-theme="gold"
+   ========================================================= */
+
+body[data-pd-theme="gold"]{
+  background: linear-gradient(180deg, #fff9e6 0%, #ffffff 55%, #ffffff 100%);
+  color:#1f2937;
+}
+
+/* Same widths + spacing */
+body[data-pd-theme="gold"] .content-section{
+  max-width:1280px;
+  margin:0 auto 72px auto;
+  padding:0 16px;
+}
+
+/* Headings */
+body[data-pd-theme="gold"] .content-section > h2{
+  margin:0 0 18px 0;
+  text-align:left;
+  font-size:1.85rem;
+  font-weight:900;
+  letter-spacing:0.2px;
+
+  color:#7a5c00;
+  border-bottom:4px solid rgba(245,158,11,0.65);
+  padding-bottom:10px;
+}
+
+/* HERO (carousel) */
+body[data-pd-theme="gold"] .custom-carousel{
+  background: radial-gradient(circle at 20% 0%,
+    rgba(245,158,11,0.35),
+    rgba(234,179,8,0.18),
+    rgba(255,255,255,0.10)
+  );
+  border: 1px solid rgba(245,158,11,0.30);
+  box-shadow: 0 20px 50px rgba(120,90,10,0.18);
+}
+
+body[data-pd-theme="gold"] .slide{
+  background: linear-gradient(135deg, rgba(245,158,11,0.18), rgba(234,179,8,0.08));
+}
+
+body[data-pd-theme="gold"] .slide .caption{
+  background: linear-gradient(to top, rgba(120,90,10,0.92), rgba(120,90,10,0.20));
+  font-weight: 900;
+  letter-spacing: 0.2px;
+}
+
+/* Carousel controls */
+body[data-pd-theme="gold"] .carousel-control{
+  background: rgba(245,158,11,0.18);
+  border: 1px solid rgba(245,158,11,0.35);
+  color:#fff;
+}
+body[data-pd-theme="gold"] .carousel-control:hover{
+  background: rgba(245,158,11,0.30);
+}
+
+/* Cards */
+body[data-pd-theme="gold"] .card,
+body[data-pd-theme="gold"] .gallery-card,
+body[data-pd-theme="gold"] .draggable-item,
+body[data-pd-theme="gold"] .event-card,
+body[data-pd-theme="gold"] .announcement-card{
+  background: rgba(255,255,255,0.92);
+  border: 1px solid rgba(245,158,11,0.20);
+  box-shadow: 0 14px 30px rgba(120,90,10,0.12);
+}
+
+/* Gallery caption */
+body[data-pd-theme="gold"] .gallery-card .caption{
+  background: rgba(245,158,11,0.92);
+  color:#1f2937;
+  font-weight: 900;
+  padding:10px 12px;
+  font-size:0.95rem;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Articles */
+body[data-pd-theme="gold"] .draggable-item h3{ color:#7a5c00; }
+body[data-pd-theme="gold"] .draggable-item .ql-editor{
+  background: rgba(245,158,11,0.06);
+  color:#1f2937;
+}
+
+/* Events + announcements text */
+body[data-pd-theme="gold"] .event-card h3,
+body[data-pd-theme="gold"] .announcement-card h3{
+  color:#7a5c00;
+}
+body[data-pd-theme="gold"] .event-card p,
+body[data-pd-theme="gold"] .announcement-card p{
+  color: rgba(31,41,55,0.82);
+}
+
+/* Modal */
+body[data-pd-theme="gold"] .modal{
+  background-color: rgba(255,249,230,0.90);
+}
+body[data-pd-theme="gold"] .modal-content{
+  background: rgba(255,255,255,0.96);
+  border: 1px solid rgba(245,158,11,0.22);
+}
+
+/* ---------- GOLD NAV ---------- */
+body[data-pd-theme="gold"] .sticky-nav{
+  background: rgba(255,249,230,0.92);
+  border-bottom: 1px solid rgba(245,158,11,0.22);
+  box-shadow: 0 10px 24px rgba(120,90,10,0.10);
+  backdrop-filter: blur(10px);
+}
+
+body[data-pd-theme="gold"] .sticky-nav a{
+  color:#7a5c00;
+  font-weight:900;
+}
+
+body[data-pd-theme="gold"] .sticky-nav a:hover{
+  color:#f59e0b;
+}
+
+body[data-pd-theme="gold"] .sticky-nav a::after{
+  background: linear-gradient(90deg, #f59e0b, #eab308);
+}
+/* ✅ GOLD — GALLERY GRID (same structure as modern/minimal/bold) */
+body[data-pd-theme="gold"] .wf1-gallery,
+body[data-pd-theme="gold"] .wf3-gallery-grid,
+body[data-pd-theme="gold"] .wf4-gallery-compact,
+body[data-pd-theme="gold"] .image-container{
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 16px !important;
+  max-width: 1280px !important;
+  margin: 0 auto !important;
+  padding: 0 16px !important;
+}
+
+@media (max-width:1100px){
+  body[data-pd-theme="gold"] .wf1-gallery,
+  body[data-pd-theme="gold"] .wf3-gallery-grid,
+  body[data-pd-theme="gold"] .wf4-gallery-compact,
+  body[data-pd-theme="gold"] .image-container{
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width:700px){
+  body[data-pd-theme="gold"] .wf1-gallery,
+  body[data-pd-theme="gold"] .wf3-gallery-grid,
+  body[data-pd-theme="gold"] .wf4-gallery-compact,
+  body[data-pd-theme="gold"] .image-container{
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+    padding: 0 12px !important;
+  }
+}
+
+/* Make each card fill its grid cell nicely */
+body[data-pd-theme="gold"] .gallery-card{
+  width: 100% !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  border-radius: 14px !important;
+}
+
+/* Image area height (consistent look) */
+body[data-pd-theme="gold"] .gallery-card-image-section{
+  height: clamp(120px, 14vw, 180px) !important;
+}
+body[data-pd-theme="gold"] .gallery-card-image-section img{
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+
+/* =========================================================
+   RED THEME (Deep Red + Soft Rose)
+   Activates only when data-pd-theme="red"
+   ========================================================= */
+
+body[data-pd-theme="red"]{
+  background: linear-gradient(180deg, #fff1f2 0%, #ffffff 55%, #ffffff 100%);
+  color:#1f2937;
+}
+
+/* Same widths + spacing */
+body[data-pd-theme="red"] .content-section{
+  max-width:1280px;
+  margin:0 auto 72px auto;
+  padding:0 16px;
+}
+
+/* Headings */
+body[data-pd-theme="red"] .content-section > h2{
+  margin:0 0 18px 0;
+  text-align:left;
+  font-size:1.85rem;
+  font-weight:900;
+  letter-spacing:0.2px;
+
+  color:#7f1d1d;
+  border-bottom:4px solid rgba(220,38,38,0.55);
+  padding-bottom:10px;
+}
+
+/* HERO (carousel) */
+body[data-pd-theme="red"] .custom-carousel{
+  background: radial-gradient(circle at 20% 0%,
+    rgba(220,38,38,0.30),
+    rgba(244,63,94,0.16),
+    rgba(255,255,255,0.10)
+  );
+  border: 1px solid rgba(220,38,38,0.25);
+  box-shadow: 0 20px 50px rgba(127,29,29,0.16);
+}
+
+body[data-pd-theme="red"] .slide{
+  background: linear-gradient(135deg, rgba(220,38,38,0.16), rgba(244,63,94,0.08));
+}
+
+body[data-pd-theme="red"] .slide .caption{
+  background: linear-gradient(to top, rgba(127,29,29,0.92), rgba(127,29,29,0.20));
+  font-weight: 900;
+  letter-spacing: 0.2px;
+}
+
+/* Carousel controls */
+body[data-pd-theme="red"] .carousel-control{
+  background: rgba(220,38,38,0.18);
+  border: 1px solid rgba(220,38,38,0.32);
+  color:#fff;
+}
+body[data-pd-theme="red"] .carousel-control:hover{
+  background: rgba(220,38,38,0.30);
+}
+
+/* Cards */
+body[data-pd-theme="red"] .card,
+body[data-pd-theme="red"] .gallery-card,
+body[data-pd-theme="red"] .draggable-item,
+body[data-pd-theme="red"] .event-card,
+body[data-pd-theme="red"] .announcement-card{
+  background: rgba(255,255,255,0.94);
+  border: 1px solid rgba(220,38,38,0.16);
+  box-shadow: 0 14px 30px rgba(127,29,29,0.10);
+}
+
+/* ✅ RED — GALLERY GRID (complete) */
+body[data-pd-theme="red"] .wf1-gallery,
+body[data-pd-theme="red"] .wf3-gallery-grid,
+body[data-pd-theme="red"] .wf4-gallery-compact,
+body[data-pd-theme="red"] .image-container{
+  display:grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap:16px !important;
+  max-width:1280px !important;
+  margin:0 auto !important;
+  padding:0 16px !important;
+}
+@media (max-width:1100px){
+  body[data-pd-theme="red"] .wf1-gallery,
+  body[data-pd-theme="red"] .wf3-gallery-grid,
+  body[data-pd-theme="red"] .wf4-gallery-compact,
+  body[data-pd-theme="red"] .image-container{
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+@media (max-width:700px){
+  body[data-pd-theme="red"] .wf1-gallery,
+  body[data-pd-theme="red"] .wf3-gallery-grid,
+  body[data-pd-theme="red"] .wf4-gallery-compact,
+  body[data-pd-theme="red"] .image-container{
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap:12px !important;
+    padding:0 12px !important;
+  }
+}
+
+/* Gallery cards fill the grid cell */
+body[data-pd-theme="red"] .gallery-card{
+  width:100% !important;
+  margin:0 !important;
+  overflow:hidden !important;
+  border-radius:14px !important;
+}
+
+/* Image sizing */
+body[data-pd-theme="red"] .gallery-card-image-section{
+  height: clamp(120px, 14vw, 180px) !important;
+}
+body[data-pd-theme="red"] .gallery-card-image-section img{
+  width:100% !important;
+  height:100% !important;
+  object-fit: cover !important;
+  display:block !important;
+}
+
+/* Gallery caption */
+body[data-pd-theme="red"] .gallery-card .caption{
+  background: rgba(220,38,38,0.92) !important;
+  color:#ffffff !important;
+  font-weight: 800 !important;
+  padding:10px 12px !important;
+  font-size:0.95rem !important;
+
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Articles */
+body[data-pd-theme="red"] .draggable-item h3{ color:#7f1d1d; }
+body[data-pd-theme="red"] .draggable-item .ql-editor{
+  background: rgba(220,38,38,0.06);
+  color:#1f2937;
+}
+
+/* Events + announcements */
+body[data-pd-theme="red"] .event-card h3,
+body[data-pd-theme="red"] .announcement-card h3{ color:#7f1d1d; }
+body[data-pd-theme="red"] .event-card p,
+body[data-pd-theme="red"] .announcement-card p{ color: rgba(31,41,55,0.82); }
+
+/* Modal */
+body[data-pd-theme="red"] .modal{
+  background-color: rgba(255,241,242,0.92);
+}
+body[data-pd-theme="red"] .modal-content{
+  background: rgba(255,255,255,0.96);
+  border: 1px solid rgba(220,38,38,0.18);
+}
+
+/* Sticky nav */
+body[data-pd-theme="red"] .sticky-nav{
+  background: rgba(255,241,242,0.92);
+  border-bottom: 1px solid rgba(220,38,38,0.16);
+  box-shadow: 0 10px 24px rgba(127,29,29,0.08);
+  backdrop-filter: blur(10px);
+}
+body[data-pd-theme="red"] .sticky-nav a{
+  color:#7f1d1d;
+  font-weight:900;
+}
+body[data-pd-theme="red"] .sticky-nav a:hover{
+  color:#dc2626;
+}
+body[data-pd-theme="red"] .sticky-nav a::after{
+  background: linear-gradient(90deg, #dc2626, #fb7185);
+}
+
+
+
+/* =========================================================
+   BROWN THEME (Coffee + Cream)
+   Activates only when data-pd-theme="brown"
+   ========================================================= */
+
+body[data-pd-theme="brown"]{
+  background: linear-gradient(180deg, #fff7ed 0%, #ffffff 55%, #ffffff 100%);
+  color:#1f2937;
+}
+
+/* Same widths + spacing */
+body[data-pd-theme="brown"] .content-section{
+  max-width:1280px;
+  margin:0 auto 72px auto;
+  padding:0 16px;
+}
+
+/* Headings */
+body[data-pd-theme="brown"] .content-section > h2{
+  margin:0 0 18px 0;
+  text-align:left;
+  font-size:1.85rem;
+  font-weight:900;
+  letter-spacing:0.2px;
+
+  color:#5b3a1f; /* coffee */
+  border-bottom:4px solid rgba(180,83,9,0.55); /* amber-brown */
+  padding-bottom:10px;
+}
+
+/* HERO (carousel) */
+body[data-pd-theme="brown"] .custom-carousel{
+  background: radial-gradient(circle at 20% 0%,
+    rgba(180,83,9,0.28),
+    rgba(234,88,12,0.14),
+    rgba(255,255,255,0.10)
+  );
+  border: 1px solid rgba(180,83,9,0.22);
+  box-shadow: 0 20px 50px rgba(90,58,31,0.14);
+}
+
+body[data-pd-theme="brown"] .slide{
+  background: linear-gradient(135deg, rgba(180,83,9,0.14), rgba(234,88,12,0.07));
+}
+
+body[data-pd-theme="brown"] .slide .caption{
+  background: linear-gradient(to top, rgba(91,58,31,0.92), rgba(91,58,31,0.20));
+  font-weight: 900;
+  letter-spacing: 0.2px;
+}
+
+/* Carousel controls */
+body[data-pd-theme="brown"] .carousel-control{
+  background: rgba(180,83,9,0.18);
+  border: 1px solid rgba(180,83,9,0.28);
+  color:#fff;
+}
+body[data-pd-theme="brown"] .carousel-control:hover{
+  background: rgba(180,83,9,0.30);
+}
+
+/* Cards */
+body[data-pd-theme="brown"] .card,
+body[data-pd-theme="brown"] .gallery-card,
+body[data-pd-theme="brown"] .draggable-item,
+body[data-pd-theme="brown"] .event-card,
+body[data-pd-theme="brown"] .announcement-card{
+  background: rgba(255,255,255,0.94);
+  border: 1px solid rgba(180,83,9,0.14);
+  box-shadow: 0 14px 30px rgba(90,58,31,0.10);
+}
+
+/* ✅ BROWN — GALLERY GRID (complete) */
+body[data-pd-theme="brown"] .wf1-gallery,
+body[data-pd-theme="brown"] .wf3-gallery-grid,
+body[data-pd-theme="brown"] .wf4-gallery-compact,
+body[data-pd-theme="brown"] .image-container{
+  display:grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap:16px !important;
+  max-width:1280px !important;
+  margin:0 auto !important;
+  padding:0 16px !important;
+}
+@media (max-width:1100px){
+  body[data-pd-theme="brown"] .wf1-gallery,
+  body[data-pd-theme="brown"] .wf3-gallery-grid,
+  body[data-pd-theme="brown"] .wf4-gallery-compact,
+  body[data-pd-theme="brown"] .image-container{
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+@media (max-width:700px){
+  body[data-pd-theme="brown"] .wf1-gallery,
+  body[data-pd-theme="brown"] .wf3-gallery-grid,
+  body[data-pd-theme="brown"] .wf4-gallery-compact,
+  body[data-pd-theme="brown"] .image-container{
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap:12px !important;
+    padding:0 12px !important;
+  }
+}
+
+/* Gallery cards fill the grid cell */
+body[data-pd-theme="brown"] .gallery-card{
+  width:100% !important;
+  margin:0 !important;
+  overflow:hidden !important;
+  border-radius:14px !important;
+}
+
+/* Image sizing */
+body[data-pd-theme="brown"] .gallery-card-image-section{
+  height: clamp(120px, 14vw, 180px) !important;
+}
+body[data-pd-theme="brown"] .gallery-card-image-section img{
+  width:100% !important;
+  height:100% !important;
+  object-fit: cover !important;
+  display:block !important;
+}
+
+/* Gallery caption */
+body[data-pd-theme="brown"] .gallery-card .caption{
+  background: rgba(180,83,9,0.92) !important;
+  color:#ffffff !important;
+  font-weight: 800 !important;
+  padding:10px 12px !important;
+  font-size:0.95rem !important;
+
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Articles */
+body[data-pd-theme="brown"] .draggable-item h3{ color:#5b3a1f; }
+body[data-pd-theme="brown"] .draggable-item .ql-editor{
+  background: rgba(180,83,9,0.06);
+  color:#1f2937;
+}
+
+/* Events + announcements */
+body[data-pd-theme="brown"] .event-card h3,
+body[data-pd-theme="brown"] .announcement-card h3{ color:#5b3a1f; }
+body[data-pd-theme="brown"] .event-card p,
+body[data-pd-theme="brown"] .announcement-card p{ color: rgba(31,41,55,0.82); }
+
+/* Modal */
+body[data-pd-theme="brown"] .modal{
+  background-color: rgba(255,247,237,0.92);
+}
+body[data-pd-theme="brown"] .modal-content{
+  background: rgba(255,255,255,0.96);
+  border: 1px solid rgba(180,83,9,0.16);
+}
+
+/* Sticky nav */
+body[data-pd-theme="brown"] .sticky-nav{
+  background: rgba(255,247,237,0.92);
+  border-bottom: 1px solid rgba(180,83,9,0.14);
+  box-shadow: 0 10px 24px rgba(90,58,31,0.08);
+  backdrop-filter: blur(10px);
+}
+body[data-pd-theme="brown"] .sticky-nav a{
+  color:#5b3a1f;
+  font-weight:900;
+}
+body[data-pd-theme="brown"] .sticky-nav a:hover{
+  color:#b45309;
+}
+body[data-pd-theme="brown"] .sticky-nav a::after{
+  background: linear-gradient(90deg, #b45309, #ea580c);
+}
+
+
+/* =========================================================
+   ROYAL PURPLE THEME (Purple + Soft Pink)
+   ✅ Replace the old "minimal" block with THIS whole block.
+   ✅ Activates when: data-pd-theme="minimal"
+   ========================================================= */
+
+body[data-pd-theme="minimal"]{
+  /* royal lavender wash */
+  background: radial-gradient(circle at 18% 0%, rgba(168, 85, 247, 0.18), rgba(236, 72, 153, 0.10), rgba(255,255,255,0) 55%),
+              linear-gradient(180deg, #f7f1ff 0%, #fff6fb 45%, #ffffff 100%);
+  color:#1f1430;
+}
+
+/* Same widths + spacing */
+body[data-pd-theme="minimal"] .content-section{
+  max-width:1280px;
+  margin:0 auto 72px auto;
+  padding:0 16px;
+}
+
+/* Headings: royal underline */
+body[data-pd-theme="minimal"] .content-section > h2{
+  margin:0 0 18px 0;
+  text-align:left;
+  font-size:1.85rem;
+  font-weight:900;
+  letter-spacing:0.2px;
+
+  color:#4c1d95; /* deep purple */
+  border-bottom:4px solid rgba(236,72,153,0.75); /* soft pink */
+  padding-bottom:10px;
+}
+
+/* =========================================================
+   HERO (Carousel + top header + CTA)
+   ========================================================= */
+
+body[data-pd-theme="minimal"] .public-dashboard-header{
+  margin-top:34px;
+}
+
+/* Carousel: royal glass frame */
+body[data-pd-theme="minimal"] .custom-carousel{
+  background: radial-gradient(circle at 22% 0%, rgba(168,85,247,0.38), rgba(236,72,153,0.20), rgba(76,29,149,0.10));
+  border: 1px solid rgba(168,85,247,0.32);
+  box-shadow: 0 22px 55px rgba(76,29,149,0.18);
+}
+
+/* Slide background so loading gaps still look premium */
+body[data-pd-theme="minimal"] .slide{
+  background: linear-gradient(135deg, rgba(76,29,149,0.16), rgba(236,72,153,0.10));
+}
+
+/* Caption: royal ribbon */
+body[data-pd-theme="minimal"] .slide .caption{
+  background: linear-gradient(to top, rgba(76,29,149,0.92), rgba(236,72,153,0.30));
+  font-weight: 900;
+  letter-spacing: 0.2px;
+}
+
+/* Carousel controls: purple buttons */
+body[data-pd-theme="minimal"] .carousel-control{
+  background: rgba(168,85,247,0.22);
+  border: 1px solid rgba(236,72,153,0.35);
+  color:#fff;
+}
+body[data-pd-theme="minimal"] .carousel-control:hover{
+  background: rgba(168,85,247,0.34);
+}
+
+/* If you re-enable school banner later, match it */
+body[data-pd-theme="minimal"] .school-banner{
+  background: rgba(76,29,149,0.22);
+  border: 1px solid rgba(236,72,153,0.30);
+  backdrop-filter: blur(10px);
+}
+body[data-pd-theme="minimal"] .school-banner p{
+  text-shadow: 0 2px 10px rgba(0,0,0,0.25);
+}
+
+/* Register button “hero CTA” */
+body[data-pd-theme="minimal"] .blinking-btn{
+  background: linear-gradient(90deg, #7c3aed, #ec4899);
+  color:#ffffff;
+  border:none;
+  border-radius:14px;
+  padding:14px 18px;
+  font-weight:900;
+  box-shadow: 0 18px 34px rgba(76,29,149,0.20);
+  cursor:pointer;
+}
+body[data-pd-theme="minimal"] .blinking-btn:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 22px 40px rgba(76,29,149,0.24);
+}
+
+/* =========================================================
+   Cards (Gallery/Articles/Events/Announcements)
+   ========================================================= */
+
+body[data-pd-theme="minimal"] .card,
+body[data-pd-theme="minimal"] .gallery-card,
+body[data-pd-theme="minimal"] .draggable-item,
+body[data-pd-theme="minimal"] .event-card,
+body[data-pd-theme="minimal"] .announcement-card{
+  background: rgba(255,255,255,0.94);
+  border: 1px solid rgba(168,85,247,0.22);
+  box-shadow: 0 14px 30px rgba(76,29,149,0.12);
+}
+
+/* ✅ Gallery grid (same as others) */
+body[data-pd-theme="minimal"] .wf1-gallery,
+body[data-pd-theme="minimal"] .wf3-gallery-grid,
+body[data-pd-theme="minimal"] .wf4-gallery-compact,
+body[data-pd-theme="minimal"] .image-container{
+  display:grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap:16px;
+  max-width:1280px;
+  margin:0 auto;
+  padding:0 16px;
+}
+
+@media (max-width:1100px){
+  body[data-pd-theme="minimal"] .wf1-gallery,
+  body[data-pd-theme="minimal"] .wf3-gallery-grid,
+  body[data-pd-theme="minimal"] .wf4-gallery-compact,
+  body[data-pd-theme="minimal"] .image-container{
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width:700px){
+  body[data-pd-theme="minimal"] .wf1-gallery,
+  body[data-pd-theme="minimal"] .wf3-gallery-grid,
+  body[data-pd-theme="minimal"] .wf4-gallery-compact,
+  body[data-pd-theme="minimal"] .image-container{
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap:12px;
+    padding:0 12px;
+  }
+}
+
+/* Gallery images: cover */
+body[data-pd-theme="minimal"] .gallery-card-image-section img{
+  width:100%;
+  height:100%;
+  object-fit: cover;
+  display:block;
+}
+
+/* Gallery caption: purple→pink */
+body[data-pd-theme="minimal"] .gallery-card .caption{
+  background: linear-gradient(90deg, rgba(124,58,237,0.92), rgba(236,72,153,0.85));
+  color:#ffffff;
+  font-weight: 800;
+  padding:10px 12px;
+  font-size:0.95rem;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Articles */
+body[data-pd-theme="minimal"] .draggable-item h3{
+  color:#4c1d95;
+}
+body[data-pd-theme="minimal"] .draggable-item .ql-editor{
+  background: rgba(124,58,237,0.06);
+  color:#1f1430;
+}
+
+/* Scrollbar tint for article body */
+body[data-pd-theme="minimal"] .draggable-item .ql-editor::-webkit-scrollbar-thumb{
+  background: rgba(124,58,237,0.55);
+}
+
+/* Events + announcements */
+body[data-pd-theme="minimal"] .event-card h3,
+body[data-pd-theme="minimal"] .announcement-card h3{
+  color:#4c1d95;
+}
+body[data-pd-theme="minimal"] .event-card p,
+body[data-pd-theme="minimal"] .announcement-card p{
+  color: rgba(31,20,48,0.80);
+}
+
+/* About */
+body[data-pd-theme="minimal"] #about-us p{
+  color: rgba(31,20,48,0.88);
+}
+
+/* =========================================================
+   Modal (match royal theme)
+   ========================================================= */
+body[data-pd-theme="minimal"] .modal{
+  background-color: rgba(247,241,255,0.90);
+}
+body[data-pd-theme="minimal"] .modal-content{
+  background: rgba(255,255,255,0.96);
+  border: 1px solid rgba(168,85,247,0.22);
+}
+body[data-pd-theme="minimal"] #modalCaption{
+  color:#1f1430;
+}
+
+/* ---------- MINIMAL (Royal Purple + Soft Pink) ---------- */
+body[data-pd-theme="minimal"] .sticky-nav{
+  background: rgba(247,241,255,0.92);
+  border-bottom: 1px solid rgba(168,85,247,0.22);
+  box-shadow: 0 10px 24px rgba(76,29,149,0.12);
+  backdrop-filter: blur(10px);
+}
+
+body[data-pd-theme="minimal"] .sticky-nav a{
+  color:#4c1d95;          /* royal purple */
+  font-weight:900;
+}
+
+body[data-pd-theme="minimal"] .sticky-nav a:hover{
+  color:#ec4899;          /* soft pink */
+}
+
+body[data-pd-theme="minimal"] .sticky-nav a::after{
+  background: linear-gradient(90deg, #7c3aed, #ec4899);
+}
+
+
+/* =========================================================
+   BOLD CLASSIC (NEW THEME)
+   Activates only when data-pd-theme="bold"
+   ========================================================= */
+
+body[data-pd-theme="bold"]{
+  background: #0b1020;
+  color: #eef2ff;
+}
+
+/* Keep all layout widths consistent (same as classic) */
+body[data-pd-theme="bold"] .content-section{
+  max-width:1280px;
+  margin:0 auto 72px auto;
+  padding:0 16px;
+}
+
+/* Headings: bold + loud underline */
+body[data-pd-theme="bold"] .content-section > h2{
+  margin:0 0 18px 0;
+  text-align:left;
+  font-size:1.9rem;
+  font-weight:900;
+  letter-spacing:0.2px;
+
+  color:#ffffff;
+  border-bottom:4px solid #ffb703;
+  padding-bottom:10px;
+}
+
+/* Cards: stronger contrast + bolder borders */
+body[data-pd-theme="bold"] .card,
+body[data-pd-theme="bold"] .gallery-card,
+body[data-pd-theme="bold"] .draggable-item,
+body[data-pd-theme="bold"] .event-card,
+body[data-pd-theme="bold"] .announcement-card{
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.14);
+  box-shadow: 0 16px 34px rgba(0,0,0,0.45);
+  backdrop-filter: blur(10px);
+}
+
+/* Carousel: darker base so images pop */
+body[data-pd-theme="bold"] .custom-carousel{
+  background:#111827;
+  box-shadow: 0 20px 45px rgba(0,0,0,0.55);
+  border: 1px solid rgba(255,255,255,0.10);
+}
+
+/* Carousel caption: bold ribbon */
+body[data-pd-theme="bold"] .slide .caption{
+  background: linear-gradient(to top, rgba(0,0,0,0.92), rgba(0,0,0,0.25));
+  font-weight: 900;
+  letter-spacing: 0.2px;
+}
+
+/* Carousel controls: louder */
+body[data-pd-theme="bold"] .carousel-control{
+  background: rgba(255,183,3,0.22);
+  border: 1px solid rgba(255,183,3,0.35);
+}
+body[data-pd-theme="bold"] .carousel-control:hover{
+  background: rgba(255,183,3,0.35);
+}
+
+/* ✅ Gallery grid for bold (same structure as classic, but NOT scoped to classic) */
+body[data-pd-theme="bold"] .wf1-gallery,
+body[data-pd-theme="bold"] .wf3-gallery-grid,
+body[data-pd-theme="bold"] .wf4-gallery-compact,
+body[data-pd-theme="bold"] .image-container{
+  display:grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap:16px;
+  max-width:1280px;
+  margin:0 auto;
+  padding:0 16px;
+}
+
+@media (max-width:1100px){
+  body[data-pd-theme="bold"] .wf1-gallery,
+  body[data-pd-theme="bold"] .wf3-gallery-grid,
+  body[data-pd-theme="bold"] .wf4-gallery-compact,
+  body[data-pd-theme="bold"] .image-container{
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width:700px){
+  body[data-pd-theme="bold"] .wf1-gallery,
+  body[data-pd-theme="bold"] .wf3-gallery-grid,
+  body[data-pd-theme="bold"] .wf4-gallery-compact,
+  body[data-pd-theme="bold"] .image-container{
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap:12px;
+    padding:0 12px;
+  }
+}
+
+/* Gallery image: cover to look “bold” (no blank bars) */
+body[data-pd-theme="bold"] .gallery-card-image-section img{
+  width:100%;
+  height:100%;
+  object-fit: cover;
+  display:block;
+}
+
+/* Gallery caption: bold pill */
+body[data-pd-theme="bold"] .gallery-card .caption{
+  background: linear-gradient(90deg, rgba(255,183,3,0.92), rgba(255,0,110,0.78));
+  color:#0b1020;
+  font-weight: 900;
+  padding:10px 12px;
+  font-size:0.95rem;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Articles: keep your horizontal scroll, but darker editor */
+body[data-pd-theme="bold"] .draggable-item h3{
+  color:#ffb703;
+}
+
+body[data-pd-theme="bold"] .draggable-item .ql-editor{
+  background: rgba(0,0,0,0.25);
+  color:#e5e7eb;
+}
+
+/* Events + announcements scrollers stay same behavior */
+body[data-pd-theme="bold"] .event-card h3,
+body[data-pd-theme="bold"] .announcement-card h3{
+  color:#ffb703;
+}
+
+body[data-pd-theme="bold"] .event-card p,
+body[data-pd-theme="bold"] .announcement-card p{
+  color: rgba(255,255,255,0.85);
+}
+
+/* About text */
+body[data-pd-theme="bold"] #about-us p{
+  color: rgba(255,255,255,0.88);
+}
+
+/* Modal (optional: make it match dark theme) */
+body[data-pd-theme="bold"] .modal{
+  background-color: rgba(0,0,0,0.65);
+}
+body[data-pd-theme="bold"] .modal-content{
+  background: #0f172a;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.12);
+}
+body[data-pd-theme="bold"] #modalCaption{
+  color:#fff;
+}
+
+/* =========================================================
+   9. RESPONSIVE (ORIGINAL)
+   ========================================================= */
+
+/* Medium screens (tablets) */
+@media screen and (max-width:1024px){
+  .custom-carousel{ height:550px; }
+
+  .school-banner{
+    top:20px;
+    left:50%;
+    transform:translateX(-50%);
+    width:180px;
+    background-color:rgba(0,0,0,0.3);
+    border-radius:10px;
+    padding:10px;
+    z-index:4;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:flex-start;
+    opacity:0.7;
+  }
+
+  .school-banner img{
+    width:100%;
+    max-height:120px;
+    object-fit:contain;
+    opacity:0.8;
+  }
+
+  .school-banner p{
+    color:white;
+    font-size:1.2rem;
+    font-weight:bold;
+    text-align:center;
+    margin-top:10px;
+    text-shadow:1px 1px 4px rgba(0,0,0,0.7);
+  }
+
+  .text-container,
+  .image-container,
+  .events-section,
+  .announcements-section{
+    max-width:95%;
+    margin:0 auto;
+  }
+
+  #about-us p{
+    margin-left:50px;
+    margin-right:50px;
+  }
+
+  .content-section h2{ margin-left:50px; }
+
+  .image-container{ grid-template-columns:repeat(2,1fr); }
+
+  .gallery-card .caption{ padding-top:10px; }
+
+  .draggable-item{ padding:15px; }
+
+  .public-dashboard-header{
+    text-align:center;
+  }
+
+  .slide-image{ padding:3px; }
+  .slide-image img{
+    width:109%;
+    height:112%;
+    object-fit:contain;
+  }
+
+  .modal-content{
+    width:90%;
+    height:85%;
+    max-width:900px;
+    padding:12px;
+    gap:8px;
+  }
+
+  .modalImageContainer{
+    width:55%;
+    height:100%;
+  }
+
+  #modalCaption{
+    font-size:1.1rem;
+    margin-top:30px;
+    padding:15px;
+    width:45%;
+  }
+
+  main{
+    width:100%;
+  }
+
+  .close-button{ font-size:45px; }
+}
+
+/* Small screens (mobile) */
+@media screen and (max-width:768px){
+  .slide .caption{ font-size:0.8rem; }
+
+  .custom-carousel{
+    height:300px;
+    position:relative;
+    overflow:hidden;
+  }
+
+  .school-banner{
+    top:15px;
+    left:50%;
+    transform:translateX(-50%);
+    width:120px;
+    background-color:rgba(0,0,0,0.35);
+    border-radius:8px;
+    padding:8px;
+    z-index:4;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    opacity:0.7;
+  }
+
+  .school-banner img{
+    width:100%;
+    max-height:90px;
+    object-fit:contain;
+    opacity:0.9;
+  }
+
+  .school-banner p{
+    color:white;
+    font-size:0.8rem;
+    font-weight:bold;
+    text-align:center;
+    margin-top:6px;
+    text-shadow:1px 1px 4px rgba(0,0,0,0.7);
+  }
+
+  .text-container,
+  .image-container,
+  .events-section,
+  .announcements-section{
+    max-width:100%;
+    padding:1px;
+  }
+
+  .image-container{
+    grid-template-columns:repeat(2,1fr);
+    gap:15px;
+  }
+
+  .gallery-card-image-section{ margin-bottom:0; }
+
+  .draggable-item{ padding:15px; }
+
+  .draggable-item{
+    flex:0 0 300px;
+    height:350px;
+    margin:0 8px;
+    padding:15px;
+  }
+
+  .draggable-item h1,
+  .draggable-item h2,
+  .draggable-item h3{
+    font-size:1.1rem;
+    margin-bottom:8px;
+  }
+
+  .event-card{
+    flex:0 0 280px;
+    min-height:180px;
+    padding:15px;
+    margin:0 8px;
+    color:#222;
+  }
+
+  .event-card h3{
+    font-size:1.1rem;
+    margin-bottom:6px;
+  }
+
+  .event-card p{
+    font-size:0.9rem;
+    line-height:1.4;
+  }
+
+  .announcement-card{
+    flex:0 0 280px;
+    min-height:180px;
+    padding:15px;
+    margin:0 8px;
+    color:#222;
+  }
+
+  .announcement-card h3{
+    font-size:1.1rem;
+    margin-bottom:6px;
+  }
+
+  .announcement-card p{
+    font-size:0.9rem;
+    line-height:1.4;
+  }
+
+  .text-container,
+  .events-section,
+  .announcements-section{
+    padding:10px 15px;
+    gap:10px;
+  }
+
+  .public-dashboard-header{
+    margin-top:15px;
+    text-align:center;
+  }
+
+  #about-us p{
+    margin-left:20px;
+    margin-right:20px;
+  }
+
+  .content-section h2{
+    margin-left:20px;
+    font-size:1.6rem;
+  }
+
+  .carousel-control{
+    font-size:2rem;
+    height:3.5rem;
+    width:3.5rem;
+  }
+
+  .slide-image{ padding:0px; }
+  .slide-image img{
+    width:108%;
+    height:110%;
+    object-fit:contain;
+  }
+
+  .modal-content{
+    flex-direction:column;
+    width:90%;
+    height:auto;
+    max-height:85%;
+    overflow-y:auto;
+    margin:20px;
+    padding:20px;
+  }
+
+  .modalImageContainer{
+    width:100%;
+    height:auto;
+    max-height:45vh;
+    padding:5px;
+    border-radius:10px 10px 0 0;
+  }
+
+  #modalImage{
+    max-width:100%;
+    max-height:100%;
+    object-fit:contain;
+  }
+
+  #modalCaption{
+    font-size:1.1rem;
+    padding:20px;
+    margin-top:0;
+    text-align:left;
+    line-height:1.6;
+    width:100%;
+    height:auto;
+    min-height:200px;
+    background-color:#f9f9f9;
+    border-radius:0 0 10px 10px;
+    box-sizing:border-box;
+    color:#111;
+  }
+
+  .close-button{
+    font-size:36px;
+    top:10px;
+    right:10px;
+  }
+}
+
+/* Extra small screens */
+@media screen and (max-width:480px){
+  .blinking-btn{
+    font-size:0.8rem;
+    padding:8px 12px;
+    max-width:85vw;
+    line-height:1.2;
+  }
+
+  .public-dashboard-container{
+    width:98%;
+    margin:auto;
+  }
+}
+
+</style>
+
+  </head>
+  <body data-pd-theme="<%= publicDashboardTheme || 'classic' %>" data-pd-layout="<%= publicDashboardLayout || 'wireframe1' %>">
+    <%- include('../partials/flash') %>
+    <% if (req.query.success === '1') { %>
+      <div class="alert alert-success">Registration and payment completed successfully!</div>
+    <% } %>
+    
+    <div class="public-dashboard-container">
+      <div class="public-dashboard-header">
+        <% if (req.session && req.session.userRole === 'Manager') { %>
+        <a class="edit-public-dashboard" href="/account/managePublicContent">
+          <button>Edit Public/Organization Website</button>
+        </a> 
+        <% } %>
+      </div>
+
+      <!-- 🔹 Image Modal -->
+      <div id="imageModal" class="modal">
+        <div class="modal-content">
+          <span class="close-button">&times;</span>
+          <div class="modalImageContainer">
+            <img id="modalImage" src="" alt="Full Image" />
+          </div>
+          <div id="modalCaption"></div>
+        </div>
+      </div>
+
+      <!-- Slideshow Section -->
+      <% if (slideshowImages.length > 0) { %>
+      <div class="custom-carousel" id="carouselExample">
+        <!-- <div class="school-banner">
+          <img src="<%= orgDetails.logo %>" alt="school logo" />
+          <p><%= orgDetails.motto %></p>
+        </div> -->
+        <% slideshowImages.forEach((slide, index) => { %>
+        <div class="slide <%= index === 0 ? 'active' : '' %>">
+          <div class="slide-container">
+            <div class="slide-image">
+              <img src="<%= slide.image_url %>" alt="Slideshow Image" />
+            </div>
+          </div>
+          <div class="caption <%= index === 0 ? 'active' : '' %>">
+            <%= slide.caption %>
+          </div>
+        </div>
+        <% }); %>
+        <i
+          class="fa-solid fa-circle-arrow-left carousel-control prev"
+          id="carouselPrevBtn"
+        ></i>
+        <i
+          class="fa-solid fa-circle-arrow-right carousel-control next"
+          id="carouselNextBtn"
+        ></i>
+      </div>
+      <% } %>
+      <%
+      const now = new Date(); 
+      const startDate = orgDetails?.registration_start_date ? new Date(orgDetails.registration_start_date) : null;
+      const endDate = orgDetails?.registration_end_date ? new Date(orgDetails.registration_end_date) : null;
+      const isEnabled = orgDetails?.public_registration_enabled;
+      const isWithinRange = startDate && endDate && startDate <= now && now <= endDate;
+      const orgId = orgDetails?.organization_id;
+    %>
+    
+    <% if (isEnabled && isWithinRange && orgId) { %>
+      <div style="text-align: center; margin: 20px 0;">
+        <a href="/common/publicRegister?organizationId=<%= orgDetails.organization_id %>">
+          <button id="registerNowBtn" class="blinking-btn">
+            <span class="desktop-text">🚨 Register Now — Between <%= startDate.toDateString() %> and <%= endDate.toDateString() %></span>
+            <span class="mobile-text">🚨 Register Now<br>📅 <%= startDate.toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) %> - <%= endDate.toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'}) %></span>
+          </button>
+        </a>
+      </div>
+    <% } else if (!orgId) { %>
+      <p style="text-align: center; color: red;">Missing organization ID — registration link is not available.</p>
+    <% } %>
+    
+      <!-- Container for all draggable sections -->
+      <div id="dashboard-sections"></div>
+
+      <% const pdLayout = (publicDashboardLayout || 'wireframe1'); %>
+
+      <% if (pdLayout === 'wireframe1') { %>
+        <!-- WIREFRAME 1: Linear / Traditional School Website - Simple vertical flow -->
+        
+        <!-- Gallery -->
+        <div class="content-section wf1-section">
+          <h2>Gallery 📷</h2>
+          <div class="wf1-gallery">
+            <% orderedItems.filter(item => item.id === 'image-gallery').forEach(item => { %>
+              <% item.data.forEach(image => { %>
+                <div class="gallery-card">
+                  <div class="gallery-card-image-section">
+                    <img src="<%= image.image_url %>" alt="Content Image" />
+                  </div>
+                  <div class="caption"><%= image.caption %></div>
+                </div>
+              <% }); %>
+            <% }); %>
+          </div>
+        </div>
+
+        <!-- Articles (Simple cards) -->
+        <div class="content-section wf1-section">
+          <h2>Articles 📝</h2>
+          <div class="wf1-articles">
+            <% orderedItems.filter(item => item.id === 'text-articles').forEach(item => { %>
+              <% item.data.forEach(text => { %>
+                <div class="draggable-item wf1-article-card">
+                  <h3><%= text.heading %></h3>
+                  <div class="ql-editor"><%- text.paragraph %></div>
+                </div>
+              <% }); %>
+            <% }); %>
+          </div>
+        </div>
+
+        <!-- Events (Simple list) -->
+        <div class="content-section wf1-section">
+          <h2>Upcoming Events</h2>
+          <div class="wf1-events">
+            <% orderedItems.filter(item => item.type === 'events').forEach(item => { %>
+              <% item.data.forEach((event) => { %>
+                <div class="event-card wf1-event-card">
+                  <h3><%= event.name %></h3>
+                  <p><strong>Date:</strong> <%= new Date(event.event_date).toISOString().split('T')[0] %></p>
+                  <p><%= event.details %></p>
+                </div>
+              <% }); %>
+            <% }); %>
+          </div>
+        </div>
+
+        <!-- Announcements -->
+        <div class="content-section wf1-section">
+          <h2>Announcements 📢</h2>
+          <div class="wf1-announcements">
+            <% orderedItems.filter(item => item.type === 'announcements').forEach(item => { %>
+              <% item.data.forEach((announcement) => { %>
+                <% if (announcement.visibility === "public" || announcement.visibility === "both") { %>
+                  <div class="announcement-card">
+                    <p><%= announcement.message %></p>
+                  </div>
+                <% } %>
+              <% }); %>
+            <% }); %>
+          </div>
+        </div>
+
+        <!-- About Us -->
+     <div class="content-section wf1-section" id="about-us">
+  <h2>About Us</h2>
+  <p><%= orgDetails.aboutus %></p>
+</div>
+
+      <% } else if (pdLayout === 'wireframe2') { %>
+        <!-- WIREFRAME 2: Split Dashboard - Gallery LEFT + Events RIGHT -->
+        
+        <!-- Top Split: Gallery (Left) + Events (Right) -->
+        <div class="wf2-hero-split">
+          <div class="wf2-left-panel">
+            <h2>Gallery 📷</h2>
+            <div class="wf2-gallery-masonry">
+              <% orderedItems.filter(item => item.id === 'image-gallery').forEach(item => { %>
+                <% item.data.slice(0, 6).forEach(image => { %>
+                  <div class="gallery-card wf2-gallery-item">
+                    <div class="gallery-card-image-section">
+                      <img src="<%= image.image_url %>" alt="Content Image" />
+                    </div>
+                    <div class="caption"><%= image.caption %></div>
+                  </div>
+                <% }); %>
+              <% }); %>
+            </div>
+          </div>
+
+          <div class="wf2-right-panel">
+            <h2>⚡ Upcoming Events</h2>
+            <div class="wf2-events-priority">
+              <% orderedItems.filter(item => item.type === 'events').forEach(item => { %>
+                <% item.data.forEach((event) => { %>
+                  <div class="event-card wf2-event-badge">
+                    <div class="wf2-event-date-badge">
+                      <%= new Date(event.event_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %>
+                    </div>
+                    <div class="wf2-event-content">
+                      <h3><%= event.name %></h3>
+                      <p><%= event.details %></p>
+                    </div>
+                  </div>
+                <% }); %>
+              <% }); %>
+            </div>
+          </div>
+        </div>
+
+        <!-- Articles Below (Horizontal Scroll Cards) -->
+        <div class="content-section wf2-articles-section">
+          <h2>Latest Articles</h2>
+          <div class="wf2-articles-scroll">
+            <% orderedItems.filter(item => item.id === 'text-articles').forEach(item => { %>
+              <% item.data.forEach(text => { %>
+                <div class="draggable-item wf2-article-card">
+                  <h3><%= text.heading %></h3>
+                  <div class="ql-editor"><%- text.paragraph %></div>
+                </div>
+              <% }); %>
+            <% }); %>
+          </div>
+        </div>
+
+        <!-- Announcements (Isolated Side Column) -->
+        <div class="content-section wf2-announcements-sidebar">
+          <h2>📢 Important Announcements</h2>
+          <div class="wf2-announcements-list">
+            <% orderedItems.filter(item => item.type === 'announcements').forEach(item => { %>
+              <% item.data.forEach((announcement) => { %>
+                <% if (announcement.visibility === "public" || announcement.visibility === "both") { %>
+                  <div class="announcement-card wf2-announcement-badge">
+                    <span class="wf2-announcement-icon">🔔</span>
+                    <p><%= announcement.message %></p>
+                  </div>
+                <% } %>
+              <% }); %>
+            <% }); %>
+          </div>
+        </div>
+
+        <!-- About Us -->
+        <div class="content-section wf1-section">
+          <h2>About Us</h2>
+          <p><%= orgDetails.aboutus %></p>
+        </div>
+
+      <% } else if (pdLayout === 'wireframe3') { %>
+        <!-- WIREFRAME 3: Content-First - Articles CENTER + Announcements RIGHT -->
+        
+        <!-- Gallery Full Width -->
+        <div class="content-section wf3-gallery-section">
+          <h2>Gallery 📷</h2>
+          <div class="wf3-gallery-grid">
+            <% orderedItems.filter(item => item.id === 'image-gallery').forEach(item => { %>
+              <% item.data.forEach(image => { %>
+                <div class="gallery-card">
+                  <div class="gallery-card-image-section">
+                    <img src="<%= image.image_url %>" alt="Content Image" />
+                  </div>
+                  <div class="caption"><%= image.caption %></div>
+                </div>
+              <% }); %>
+            <% }); %>
+          </div>
+        </div>
+
+        <!-- Articles (CENTER) + Announcements (RIGHT SIDEBAR) -->
+        <div class="wf3-content-split">
+          <div class="wf3-articles-main">
+            <h2>📝 Featured Articles</h2>
+            <div class="wf3-articles-masonry">
+              <% orderedItems.filter(item => item.id === 'text-articles').forEach(item => { %>
+                <% item.data.forEach(text => { %>
+                  <div class="draggable-item wf3-article-card">
+                    <h3><%= text.heading %></h3>
+                    <div class="ql-editor"><%- text.paragraph %></div>
+                  </div>
+                <% }); %>
+              <% }); %>
+            </div>
+          </div>
+
+          <div class="wf3-announcements-sidebar">
+            <div class="wf3-announcements-sticky">
+              <h2>📢 Announcements</h2>
+              <div class="wf3-announcements-feed">
+                <% orderedItems.filter(item => item.type === 'announcements').forEach(item => { %>
+                  <% item.data.forEach((announcement) => { %>
+                    <% if (announcement.visibility === "public" || announcement.visibility === "both") { %>
+                      <div class="announcement-card wf3-announcement-pill">
+                        <div class="wf3-announcement-marker"></div>
+                        <p><%= announcement.message %></p>
+                      </div>
+                    <% } %>
+                  <% }); %>
+                <% }); %>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Events Stacked Below -->
+        <div class="content-section wf3-events-section">
+          <h2>Upcoming Events</h2>
+          <div class="wf3-events-grid">
+            <% orderedItems.filter(item => item.type === 'events').forEach(item => { %>
+              <% item.data.forEach((event) => { %>
+                <div class="event-card wf3-event-card">
+                  <h3><%= event.name %></h3>
+                  <p><strong>Date:</strong> <%= new Date(event.event_date).toISOString().split('T')[0] %></p>
+                  <p><%= event.details %></p>
+                </div>
+              <% }); %>
+            <% }); %>
+          </div>
+        </div>
+
+        <!-- About Us -->
+        <div class="content-section wf1-section">
+          <h2>About Us</h2>
+          <p><%= orgDetails.aboutus %></p>
+        </div>
+
+      <% } else if (pdLayout === 'wireframe4') { %>
+        <!-- WIREFRAME 4: Narrative Flow - Timeline & Storytelling -->
+        
+        <!-- Gallery Compact -->
+        <div class="content-section wf4-gallery-section">
+          <h2>Our Story in Pictures 📷</h2>
+          <div class="wf4-gallery-compact">
+            <% orderedItems.filter(item => item.id === 'image-gallery').forEach(item => { %>
+              <% item.data.forEach(image => { %>
+                <div class="gallery-card wf4-gallery-item">
+                  <div class="gallery-card-image-section">
+                    <img src="<%= image.image_url %>" alt="Content Image" />
+                  </div>
+                  <div class="caption"><%= image.caption %></div>
+                </div>
+              <% }); %>
+            <% }); %>
+          </div>
+        </div>
+
+        <!-- Events as TIMELINE (Paired Blocks) -->
+        <div class="content-section wf4-timeline-section">
+          <h2>📅 Event Timeline</h2>
+          <div class="wf4-timeline-container">
+            <% orderedItems.filter(item => item.type === 'events').forEach((item, idx) => { %>
+              <% item.data.forEach((event, eventIdx) => { %>
+                <div class="wf4-timeline-block <%= eventIdx % 2 === 0 ? 'wf4-timeline-left' : 'wf4-timeline-right' %>">
+                  <div class="wf4-timeline-marker">
+                    <div class="wf4-timeline-dot"></div>
+                  </div>
+                  <div class="wf4-timeline-card">
+                    <div class="wf4-timeline-date">
+                      <%= new Date(event.event_date).toLocaleDateString('en-US', { 
+                        weekday: 'short',
+                        month: 'long', 
+                        day: 'numeric', 
+                        year: 'numeric' 
+                      }) %>
+                    </div>
+                    <h3><%= event.name %></h3>
+                    <p><%= event.details %></p>
+                  </div>
+                </div>
+              <% }); %>
+            <% }); %>
+          </div>
+        </div>
+
+        <!-- Announcements as Highlight Cards -->
+        <div class="content-section wf4-announcements-section">
+          <h2>🔔 Important Updates</h2>
+          <div class="wf4-announcements-grid">
+            <% orderedItems.filter(item => item.type === 'announcements').forEach(item => { %>
+              <% item.data.forEach((announcement) => { %>
+                <% if (announcement.visibility === "public" || announcement.visibility === "both") { %>
+                  <div class="wf4-announcement-card">
+                    <div class="wf4-announcement-header">
+                      <span class="wf4-announcement-badge">NEW</span>
+                    </div>
+                    <p><%= announcement.message %></p>
+                  </div>
+                <% } %>
+              <% }); %>
+            <% }); %>
+          </div>
+        </div>
+
+        <!-- About Us EXPANDED (More Prominent) -->
+        <div class="content-section wf4-about-section">
+          <h2>Our Mission & Values</h2>
+          <div class="wf4-about-content">
+            <div class="wf4-about-main">
+              <p class="wf4-about-lead"><%= orgDetails.aboutus %></p>
+            </div>
+            <div class="wf4-about-values">
+              <h3>What We Stand For</h3>
+              <ul>
+                <li><strong>Excellence:</strong> Committed to academic and personal growth</li>
+                <li><strong>Innovation:</strong> Building future leaders with modern approaches</li>
+                <li><strong>Community:</strong> Fostering connections and collaboration</li>
+                <li><strong>Integrity:</strong> Upholding trust and ethical values</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Articles ("Our Stories") -->
+        <div class="content-section wf4-stories-section">
+          <h2>📖 Our Stories</h2>
+          <div class="wf4-stories-grid">
+            <% orderedItems.filter(item => item.id === 'text-articles').forEach(item => { %>
+              <% item.data.forEach(text => { %>
+                <div class="draggable-item wf4-story-card">
+                  <h3><%= text.heading %></h3>
+                  <div class="ql-editor"><%- text.paragraph %></div>
+                </div>
+              <% }); %>
+            <% }); %>
+          </div>
+        </div>
+
+      <% } else { %>
+        <!-- Fallback: Interactive layout (original scroll-based) -->
+        <div class="content-section draggable-section" id="image-gallery" data-section-id="image-gallery">
+          <h2>Gallery 📷</h2>
+          <div class="image-container">
+            <% orderedItems.filter(item => item.id === 'image-gallery').forEach(item => { %>
+              <% item.data.forEach(image => { %>
+                <div class="gallery-card">
+                  <div class="gallery-card-image-section">
+                    <img src="<%= image.image_url %>" alt="Content Image" />
+                  </div>
+                  <div class="caption"><%= image.caption %></div>
+                </div>
+              <% }); %>
+            <% }); %>
+          </div>
+        </div>
+
+        <div class="content-section draggable-section" id="text-articles" data-section-id="text-articles">
+          <h2>Articles 📝</h2>
+          <div class="text-container">
+            <% orderedItems.filter(item => item.id === 'text-articles').forEach(item => { %>
+              <% item.data.forEach(text => { %>
+                <div class="draggable-item">
+                  <h3><%= text.heading %></h3>
+                  <div class="ql-editor"><%- text.paragraph %></div>
+                </div>
+              <% }); %>
+            <% }); %>
+          </div>
+        </div>
+
+        <div class="content-section draggable-section" id="events" data-section-id="events">
+          <h2>Upcoming Events</h2>
+          <div class="events-section">
+            <% orderedItems.filter(item => item.type === 'events').forEach(item => { %>
+              <% item.data.forEach((event) => { %>
+                <div class="event-card">
+                  <h3><%= event.name %></h3>
+                  <p><strong>Date:</strong> <%= new Date(event.event_date).toISOString().split('T')[0] %></p>
+                  <p><%= event.details %></p>
+                </div>
+              <% }); %>
+            <% }); %>
+          </div>
+        </div>
+
+        <div class="content-section draggable-section" id="announcements" data-section-id="announcements">
+          <h2>Announcements 📢</h2>
+          <div class="announcements-section">
+            <% orderedItems.filter(item => item.type === 'announcements').forEach(item => { %>
+              <% item.data.forEach((announcement) => { %>
+                <% if (announcement.visibility === "public" || announcement.visibility === "both") { %>
+                  <div class="announcement-card">
+                    <p><%= announcement.message %></p>
+                  </div>
+                <% } %>
+              <% }); %>
+            <% }); %>
+          </div>
+        </div>
+
+        <div class="content-section draggable-section" id="about-us" data-section-id="about-us">
+          <h2>About Us</h2>
+          <p><%= orgDetails.aboutus %></p>
+        </div>
+      <% } %>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const slides = document.querySelectorAll("#carouselExample .slide");
+        const captions = document.querySelectorAll("#carouselExample .caption");
+        const prevBtn = document.getElementById("carouselPrevBtn");
+        const nextBtn = document.getElementById("carouselNextBtn");
+
+        let currentIndex = 0;
+
+        function showSlide(newIndex) {
+          if (newIndex < 0) newIndex = slides.length - 1;
+          if (newIndex >= slides.length) newIndex = 0;
+          slides.forEach((slide) => slide.classList.remove("active"));
+          captions.forEach((caption) => caption.classList.remove("active"));
+          slides[newIndex].classList.add("active");
+          captions[newIndex].classList.add("active");
+          currentIndex = newIndex;
+        }
+
+        prevBtn.addEventListener("click", () => showSlide(currentIndex - 1));
+        nextBtn.addEventListener("click", () => showSlide(currentIndex + 1));
+
+        // Automatic slide change every 5 seconds
+        setInterval(() => {
+          showSlide(currentIndex + 1);
+        }, 5000);
+
+        // Initialize the first slide
+        if (slides.length > 0) slides[currentIndex].classList.add("active");
+        if (captions.length > 0) captions[currentIndex].classList.add("active");
+      });
+
+      // Function to save the order of draggable sections
+      document.addEventListener("DOMContentLoaded", function () {
+        const saveOrderButton = document.getElementById("save-order-btn");
+        let draggedSection = null;
+
+        // Enable dragging for all sections
+        document.querySelectorAll(".draggable-section").forEach((section) => {
+          section.addEventListener("dragstart", (e) => {
+            draggedSection = section;
+            section.classList.add("dragging");
+            setTimeout(() => section.classList.add("hidden"), 0);
+          });
+
+          section.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            const afterElement = getDragAfterElement(e.clientY);
+            if (afterElement == null) {
+              document.body.appendChild(draggedSection); // Append to end if last
+            } else {
+              afterElement.parentNode.insertBefore(
+                draggedSection,
+                afterElement
+              );
+            }
+          });
+
+          section.addEventListener("dragend", () => {
+            draggedSection.classList.remove("dragging", "hidden");
+          });
+        });
+
+        function getDragAfterElement(y) {
+          const draggableElements = [
+            ...document.querySelectorAll(".draggable-section:not(.dragging)"),
+          ];
+          return draggableElements.reduce(
+            (closest, child) => {
+              const box = child.getBoundingClientRect();
+              const offset = y - box.top - box.height / 2;
+              if (offset < 0 && offset > closest.offset) {
+                return { offset, element: child };
+              } else {
+                return closest;
+              }
+            },
+            { offset: Number.NEGATIVE_INFINITY }
+          ).element;
+        }
+
+        function saveSectionOrder() {
+          const sectionOrder = [
+            ...document.querySelectorAll(".draggable-section"),
+          ].map((section) => section.dataset.sectionId);
+
+          fetch("/common/save-order", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ order: sectionOrder }),
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              if (data.success) {
+                alert("Order saved successfully!");
+              } else {
+                alert("❌ Failed to save section order.");
+              }
+            })
+            .catch((error) => console.error("Error saving order:", error));
+        }
+
+        // ✅ Save Order when clicking the button
+        if (saveOrderButton) {
+          saveOrderButton.addEventListener("click", saveSectionOrder);
+        }
+      });
+
+      /*Modal Logic*/
+
+      document.addEventListener("DOMContentLoaded", function () {
+        const modal = document.getElementById("imageModal");
+        const modalImage = document.getElementById("modalImage");
+        const modalCaption = document.getElementById("modalCaption");
+        const closeButton = document.querySelector(".close-button");
+
+        function openModal(imageSrc, captionText) {
+          modal.style.display = "flex"; // Show modal
+          modalImage.src = imageSrc;
+          modalCaption.textContent = captionText || "No caption available"; // Default if missing
+        }
+
+        function closeModal() {
+          modal.style.display = "none"; // Hide modal
+        }
+
+        closeButton.addEventListener("click", closeModal);
+
+        // Close modal when clicking outside of modal content
+        modal.addEventListener("click", function (event) {
+          if (event.target === modal) {
+            closeModal();
+          }
+        });
+
+        // ✅ Use event delegation for dynamically loaded elements
+        document.addEventListener("click", function (event) {
+          let target = event.target;
+
+          // 🔹 If clicking on a slideshow image
+          if (target.closest(".slide-image img")) {
+            let imageSrc = target.src;
+            let captionText =
+              target.closest(".slide").querySelector(".caption")?.textContent ||
+              "No caption";
+            openModal(imageSrc, captionText);
+          }
+
+// 🔹 If clicking on ANY gallery image (works for wf1/wf2/wf3/wf4 + fallback)
+const galleryImg = target.closest(".gallery-card-image-section img");
+if (galleryImg) {
+  const imageSrc = galleryImg.src;
+
+  // caption is full in DOM; CSS only truncates display
+  const captionText =
+    galleryImg.closest(".gallery-card")?.querySelector(".caption")?.textContent?.trim()
+    || "No caption";
+
+  openModal(imageSrc, captionText);
+}
+        });
+      });
+    </script>
+  </body>
+</html>

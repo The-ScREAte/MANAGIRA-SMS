@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Super Admin Dashboard</title>
+    <style>
+      :root {
+        --font-family: "Inter", sans-serif;
+      }
+
+      body {
+        font-family: var(--font-family);
+        background-color: #f9f9f9;
+        margin: 0;
+        color: #333;
+      }
+
+      .content-container {
+        max-width: 1100px; /* Adjusted width for better layout */
+        margin: 40px auto;
+        padding: 20px;
+        background-color: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      h2 {
+        text-align: center;
+        color: #333;
+        margin-bottom: 20px;
+      }
+
+      h2 {
+        font-size: 1.8rem;
+      }
+
+      .link-to-next-back {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 20px;
+      }
+
+      .link-to-next-back a {
+        padding: 10px 15px;
+        background-color: #007bff;
+        color: white;
+        text-decoration: none;
+        border-radius: 5px;
+        font-size: 0.9rem;
+        transition: background-color 0.2s;
+      }
+
+      .link-to-next-back a:hover {
+        background-color: #0056b3;
+      }
+
+      .credentials-form-container,
+      .created-credentials-container {
+        margin-top: 20px;
+        background-color: #f9f9f9;
+        border-radius: 8px;
+        padding: 20px;
+      }
+
+      label {
+        font-size: 0.9rem;
+        color: #333;
+        margin-bottom: 5px;
+        display: block;
+      }
+
+      input[type="text"],
+      input[type="email"],
+      select {
+        width: 100%;
+        padding: 8px;
+        font-size: 0.9rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        margin-bottom: 15px;
+      }
+
+      button {
+        padding: 10px 15px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: background-color 0.2s;
+      }
+
+      button:hover {
+        background-color: #0056b3;
+      }
+
+      .credentials-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+      }
+
+      .credentials-table th,
+      .credentials-table td {
+        border: 1px solid #ddd;
+        padding: 10px;
+        text-align: left;
+        font-size: 0.9rem;
+      }
+
+      .credentials-table th {
+        background-color: #f1f1f1;
+        color: #555;
+        font-weight: bold;
+      }
+
+      .actions-column {
+        display: flex;
+        justify-content: space-evenly;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .inline-form {
+        display: inline;
+        margin: 0;
+      }
+
+      .btn {
+        padding: 8px 12px;
+        font-size: 0.8rem;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        text-align: center;
+        text-decoration: none;
+      }
+
+      .btn-edit {
+        background-color: #28a745;
+        color: white;
+        transition: background-color 0.2s;
+      }
+
+      .btn-edit:hover {
+        background-color: #218838;
+      }
+
+      .btn-hold {
+        background-color: #ffc107;
+        color: black;
+        transition: background-color 0.2s;
+      }
+
+      .btn-hold:hover {
+        background-color: #e0a800;
+      }
+
+      .btn-resume {
+        background-color: #17a2b8;
+        color: white;
+        transition: background-color 0.2s;
+      }
+
+      .btn-resume:hover {
+        background-color: #138496;
+      }
+
+      .btn-danger {
+        background-color: #dc3545;
+        color: white;
+        transition: background-color 0.2s;
+      }
+
+      .btn-danger:hover {
+        background-color: #c82333;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="content-container">
+      <h1>Super Admin Dashboard</h1>
+
+      <%- include('../partials/flash') %>
+
+      <hr />
+      <div class="credentials-form-container">
+        <h2>Create Admin Credentials</h2>
+        <form id="createAdminForm" action="/admin/createAdmin" method="post">
+          <div class="form-group">
+            <label for="firstName">First Name:</label>
+            <input type="text" id="firstName" name="firstName" required />
+          </div>
+          <div class="form-group">
+            <label for="lastName">Last Name:</label>
+            <input type="text" id="lastName" name="lastName" required />
+          </div>
+          <div class="form-group">
+            <label for="adminEmail">Email:</label>
+            <input type="email" id="adminEmail" name="adminEmail" required />
+          </div>
+          <div class="form-group">
+            <label for="adminRole">Role:</label>
+            <select id="adminRole" name="adminRole" required>
+              <option value="Mini Admin">Admin</option>
+              <option value="Admin">Super Admin</option>
+            </select>
+          </div>
+          <button type="submit">Create Admin User</button>
+        </form>
+      </div>
+
+      <div class="created-credentials-container">
+        <h2>Created Credentials</h2>
+        <% if (admins.length > 0) { %>
+        <table class="credentials-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% admins.forEach(admin => { %>
+            <tr>
+              <td><%= admin.first_name %> <%= admin.last_name %></td>
+              <td><%= admin.email %></td>
+              <td><%= admin.account_type %></td>
+              <td><%= admin.on_hold ? 'On Hold' : 'Active' %></td>
+              <td class="actions-column">
+                <a
+                  href="/admin/editAdminUser/<%= admin.user_id %>"
+                  class="btn btn-edit"
+                  >Edit</a
+                >
+                <form
+                  action="/admin/toggleAdminHoldStatus"
+                  method="POST"
+                  class="inline-form"
+                >
+                  <input
+                    type="hidden"
+                    name="userId"
+                    value="<%= admin.user_id %>"
+                  />
+                  <button
+                    type="submit"
+                    class="btn <%= admin.on_hold ? 'btn-resume' : 'btn-hold' %>"
+                  >
+                    <%= admin.on_hold ? 'Resume' : 'Hold' %>
+                  </button>
+                </form>
+              </td>
+            </tr>
+            <% }); %>
+          </tbody>
+        </table>
+        <% } else { %>
+        <p>No admin users found.</p>
+        <% } %>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Super Admin Dashboard</title>
+    <style>
+      :root {
+        --font-family: "Inter", sans-serif;
+      }
+
+
+      /* Global Styling */
+      body {
+        font-family: var(--font-family);
+        background-color: #f9f9f9;
+        margin: 0;
+        color: #333;
+      }
+
+      .content-container {
+        max-width: 1200px; /* Increased width of the container */
+        margin: 40px auto;
+        padding: 20px;
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .link-to-next-back {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin-bottom: 20px;
+      }
+
+      .link-to-next-back a {
+        padding: 10px 15px;
+        background-color: #4a90e2;
+        color: #fff;
+        text-decoration: none;
+        border-radius: 5px;
+        font-size: 1rem;
+      }
+
+      .link-to-next-back a:hover {
+        background-color: #357ab8;
+      }
+
+      .applications-container,
+      .deleted-tickets-container {
+        margin-top: 20px;
+      }
+
+      .application-summary,
+      .deleted-ticket-summary {
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        margin-bottom: 15px;
+        background-color: #f7f7f7;
+      }
+
+      .application-summary p,
+      .deleted-ticket-summary p {
+        margin: 0;
+        font-size: 1rem;
+        display: flex;
+        justify-content: space-between;
+      }
+
+      .expand-button {
+        background: none;
+        border: none;
+        color: #4a90e2;
+        font-size: 1.2rem;
+        cursor: pointer;
+      }
+
+      .expand-button:hover {
+        color: #357ab8;
+      }
+
+      button {
+        padding: 10px 15px;
+        background-color: #4a90e2;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 0.9rem;
+      }
+
+      button:hover {
+        background-color: #357ab8;
+      }
+    </style>
+    <script>
+      function toggleDetails(id) {
+        const details = document.getElementById(`details-${id}`);
+        details.style.display =
+          details.style.display === "none" ? "block" : "none";
+      }
+
+      function confirmAction(event, action, itemId) {
+        event.preventDefault(); // Prevent form submission
+        let message = "";
+
+        if (action === "restore") {
+          message = `Are you sure you want to restore this item (ID: ${itemId})?`;
+        } else if (action === "delete") {
+          message = `Are you sure you want to permanently delete this item (ID: ${itemId})? This action cannot be undone.`;
+        }
+
+        if (confirm(message)) {
+          event.target.submit(); // Proceed with form submission
+        }
+      }
+    </script>
+  </head>
+
+  <body>
+    <div class="content-container">
+      <div class="link-to-next-back">
+        <a href="/admin/superSettings" class="nav-link">Settings</a>
+      </div>
+
+      <hr />
+      <h1>Super Admin Dashboard</h1>
+
+      <%- include('../partials/flash') %>
+
+      <!-- Deleted Applications Section -->
+      <div class="applications-container">
+        <h2>Deleted Applications</h2>
+        <% if (deletedAccounts && deletedAccounts.length > 0) { %> <%
+        deletedAccounts.forEach(function(account) { %>
+        <div class="application-summary">
+          <p>
+            Organization: <%= account.organization_name %>
+            <button
+              class="expand-button"
+              onclick="toggleDetails('<%= account.organization_id %>')"
+            >
+              ⯆
+            </button>
+          </p>
+          <div
+            id="details-<%= account.organization_id %>"
+            style="display: none"
+          >
+            <p>First Name: <%= account.first_name %></p>
+            <p>Last Name: <%= account.last_name %></p>
+            <p>Email: <%= account.email %></p>
+            <p>Organization Name: <%= account.organization_name %></p>
+            <p>Organization Address: <%= account.organization_address %></p>
+            <p>Organization Phone: <%= account.organization_phone %></p>
+            <form
+              action="/admin/restore"
+              method="post"
+              onsubmit="confirmAction(event, 'restore', '<%= account.organization_id %>')"
+            >
+              <input
+                type="hidden"
+                name="orgId"
+                value="<%= account.organization_id %>"
+              />
+              <button type="submit">Restore</button>
+            </form>
+            <form
+              action="/admin/permanentlyDelete"
+              method="post"
+              onsubmit="confirmAction(event, 'delete', '<%= account.organization_id %>')"
+            >
+              <input
+                type="hidden"
+                name="orgId"
+                value="<%= account.organization_id %>"
+              />
+              <button
+                type="submit"
+                style="background-color: #e74c3c; color: #fff"
+              >
+                Delete Permanently
+              </button>
+            </form>
+          </div>
+        </div>
+        <% }); %> <% } else { %>
+        <p>No deleted applications available.</p>
+        <% } %>
+      </div>
+
+      <hr />
+
+      <!-- Deleted Tickets Section -->
+      <div class="deleted-tickets-container">
+        <h2>Deleted Tickets</h2>
+        <% if (deletedTickets && deletedTickets.length > 0) { %> <%
+        deletedTickets.forEach(function(ticket) { %>
+        <div class="deleted-ticket-summary">
+          <p>
+            Ticket #<%= ticket.thread_id %> - <%= ticket.name %> (<%=
+            ticket.organization || 'N/A' %>)
+            <button
+              class="expand-button"
+              onclick="toggleDetails('<%= ticket.thread_id %>')"
+            >
+              ⯆
+            </button>
+          </p>
+          <div id="details-<%= ticket.thread_id %>" style="display: none">
+            <p>Email: <%= ticket.email %></p>
+            <p>Phone: <%= ticket.phone || 'N/A' %></p>
+            <p>
+              Last Updated: <%= new Date(ticket.last_updated).toLocaleString()
+              %>
+            </p>
+            <h4>Messages:</h4>
+            <ul>
+              <% ticket.messages.forEach(message => { %>
+              <li><%= message %></li>
+              <% }) %>
+            </ul>
+            <form
+              action="/admin/restoreMessage"
+              method="POST"
+              onsubmit="confirmAction(event, 'restore', '<%= ticket.thread_id %>')"
+            >
+              <input
+                type="hidden"
+                name="threadId"
+                value="<%= ticket.thread_id %>"
+              />
+              <button
+                type="submit"
+                style="background-color: #2ecc71; color: #fff"
+              >
+                Restore
+              </button>
+            </form>
+            <form
+              action="/admin/permanentDeleteMessage"
+              method="POST"
+              onsubmit="confirmAction(event, 'delete', '<%= ticket.thread_id %>')"
+            >
+              <input
+                type="hidden"
+                name="threadId"
+                value="<%= ticket.thread_id %>"
+              />
+              <button
+                type="submit"
+                style="background-color: #e74c3c; color: #fff"
+              >
+                Delete Permanently
+              </button>
+            </form>
+          </div>
+        </div>
+        <% }); %> <% } else { %>
+        <p>No deleted tickets available.</p>
+        <% } %>
+      </div>
+    </div>
+  </body>
+</html>

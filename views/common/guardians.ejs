@@ -1,0 +1,127 @@
+<div class="student-management-system" style="padding: 24px; max-width: 1400px; margin: 0 auto;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+    <h1 style="margin: 0; color: #0f2d32; font-size: 28px;">Guardian Management</h1>
+  </div>
+
+  <div class="student-form-card" style="margin-bottom: 24px; padding: 20px;">
+    <input type="text" id="searchGuardian" class="form-input" placeholder="🔍 Search by name, email, or phone..." 
+           style="max-width: 100%; font-size: 15px; padding: 12px 16px;">
+  </div>
+
+  <% if (!guardians.length) { %>
+    <div class="student-form-card" style="text-align: center; padding: 40px;">
+      <p style="color: #64748b; font-size: 16px;">No guardians found in the system.</p>
+    </div>
+  <% } else { %>
+    <div class="student-form-card" style="padding: 0; overflow: hidden;">
+      <div class="table-responsive" style="overflow-x: auto;">
+        <table class="data-table" style="width: 100%; border-collapse: collapse; background: white;">
+          <thead style="background: linear-gradient(135deg, #0f5a66 0%, #6fd3c4 100%); color: white;">
+            <tr>
+              <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 14px;">Photo</th>
+              <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 14px;">Name</th>
+              <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 14px;">Email</th>
+              <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 14px;">Phone</th>
+              <th style="padding: 16px 12px; text-align: center; font-weight: 600; font-size: 14px;">Students</th>
+              <th style="padding: 16px 12px; text-align: center; font-weight: 600; font-size: 14px;">Portal Access</th>
+              <th style="padding: 16px 12px; text-align: center; font-weight: 600; font-size: 14px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="guardianTableBody">
+            <% guardians.forEach((guardian, index) => { %>
+              <tr class="guardian-row" data-name="<%= guardian.first_name %> <%= guardian.last_name %>" 
+                  data-email="<%= guardian.email || '' %>" 
+                  data-phone="<%= guardian.phone || '' %>"
+                  style="border-bottom: 1px solid #e2e8f0; transition: background-color 0.2s; <%= index % 2 === 0 ? 'background: #f8fafc;' : 'background: white;' %>">
+                <td style="padding: 14px 12px;">
+                  <img src="<%= guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? guardian.image_url : '/images/profilePlaceholder.png' %>" 
+                       alt="Guardian" 
+                       style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid #e2e8f0;">
+                </td>
+                <td style="padding: 14px 12px;">
+                  <strong style="color: #0f2d32; font-size: 15px;"><%= guardian.first_name %> <%= guardian.last_name || '' %></strong>
+                </td>
+                <td style="padding: 14px 12px; color: #475569;">
+                  <%= guardian.email || '-' %>
+                </td>
+                <td style="padding: 14px 12px; color: #475569;">
+                  <%= guardian.phone || '-' %>
+                </td>
+                <td style="padding: 14px 12px; text-align: center;">
+                  <span style="background: linear-gradient(135deg, #6fd3c4, #4fc3af); color: white; padding: 6px 14px; border-radius: 16px; font-size: 13px; font-weight: 700; box-shadow: 0 2px 4px rgba(111, 211, 196, 0.3);">
+                    <%= guardian.student_count %>
+                  </span>
+                </td>
+                <td style="padding: 14px 12px; text-align: center;">
+                  <% if (guardian.has_portal_access) { %>
+                    <span style="color: #10b981; font-weight: 600; font-size: 14px;">✓ Active</span>
+                  <% } else { %>
+                    <span style="color: #94a3b8; font-size: 14px;">No Access</span>
+                  <% } %>
+                </td>
+                <td style="padding: 14px 12px; text-align: center;">
+                  <a href="/common/guardianDetails?guardianId=<%= guardian.guardian_id %>" 
+                     class="secondary-button" 
+                     style="padding: 10px 20px; font-size: 14px; display: inline-block;">
+                    View Details
+                  </a>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% } %>
+</div>
+
+<style>
+  /* Prevent global table styles (e.g., studentDetails.css) from washing out headers */
+  .data-table thead th {
+    background: linear-gradient(135deg, #0f5a66 0%, #6fd3c4 100%);
+    color: #ffffff;
+  }
+
+  .guardian-row:hover {
+    background: #e0f7f4 !important;
+    cursor: pointer;
+  }
+
+  @media (max-width: 768px) {
+    .student-management-system {
+      padding: 16px !important;
+    }
+
+    .data-table th,
+    .data-table td {
+      padding: 12px 10px !important;
+      font-size: 13px;
+      vertical-align: middle;
+    }
+
+    /* Keep the table usable on mobile via horizontal scroll */
+    .table-responsive {
+      -webkit-overflow-scrolling: touch;
+    }
+  }
+</style>
+
+<script>
+  // Search functionality
+  document.getElementById('searchGuardian').addEventListener('input', function(e) {
+    const searchTerm = e.target.value.toLowerCase();
+    const rows = document.querySelectorAll('.guardian-row');
+    
+    rows.forEach(row => {
+      const name = row.dataset.name.toLowerCase();
+      const email = row.dataset.email.toLowerCase();
+      const phone = row.dataset.phone.toLowerCase();
+      
+      if (name.includes(searchTerm) || email.includes(searchTerm) || phone.includes(searchTerm)) {
+        row.style.display = '';
+      } else {
+        row.style.display = 'none';
+      }
+    });
+  });
+</script>

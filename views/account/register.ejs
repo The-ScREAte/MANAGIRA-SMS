@@ -1,0 +1,304 @@
+<%- include('../partials/flash') %>
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Register Your Organization</title>
+<script src="/js/script.js" defer></script>
+<style>
+      :root {
+        --font-family: "Inter", sans-serif;
+      }
+
+
+  .container {
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  }
+
+
+
+
+
+
+
+  form {
+    width: 90%;
+    max-width: 750px;
+    margin: 0 auto;
+  }
+  h1, h2 {
+    font-family: var(--font-family);
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 15px;
+  }
+  h2 { margin-top: 30px; }
+  .form-group { margin-bottom: 15px; }
+  .form-group label { display: block; font-weight: bold; margin-bottom: 5px; }
+  .form-group input {
+    width: 100%; padding: 10px;
+    border: 1px solid #ddd; border-radius: 4px;
+  }
+  .btn-primary {
+    background-color: #01535b; color: #fff;
+    padding: 10px 15px; border: none; border-radius: 4px;
+    cursor: pointer; width: 100%;
+  }
+  .btn-primary:hover { background-color: #01535b; }
+  .password-strength { font-size: 0.9rem; margin-top: 5px; font-weight: bold; }
+  .password-strength.weak { color: red; }
+  .password-strength.medium { color: orange; }
+  .password-strength.strong { color: green; }
+  .password-note { font-size: 0.8rem; color: #666; margin-top: 5px; }
+  .password-note ul { margin: 5px 0 0 20px; padding: 0; }
+  .password-note ul li { font-size: 0.8rem; line-height: 1.2rem; color: #333; }
+  .plan-selection-message {
+    display: none;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+  .notice {
+    background-color: #e7f3fe; color: #0c5460;
+    border: 1px solid #bee5eb; border-radius: 5px;
+    padding: 15px; margin-bottom: 20px;
+  }
+/* Fix checkboxes inside .form-group so they don't stretch */
+.form-group input[type="checkbox"] {
+  width: auto;
+  display: inline-block;
+  
+  margin: 0 8px 0 0;   /* small space before the text */
+  border: 0;
+  box-shadow: none;
+  vertical-align: middle;
+}
+
+/* Terms row: keep checkbox + text side-by-side */
+.form-group.terms {
+  display: flex;
+  align-items: center;
+  padding-left: 4px;
+  gap: 6px;
+}
+
+/* Override the default block label in .form-group for this row */
+.form-group.terms label {
+  display: inline;      /* inline so it sits next to the checkbox */
+  margin: 0;
+  font-weight: normal;  /* only the link will be bold */
+  white-space: normal;  /* allow natural wrapping */
+}
+
+/* Link styling */
+.form-group.terms a {
+  color: #01535b;
+  font-weight: bold;
+  text-decoration: underline;
+  transition: color .2s ease-in-out;
+}
+.form-group.terms a:hover {
+  color: #013f45;
+  text-decoration: none;
+}
+
+
+</style>
+</head>
+
+<body>
+<div class="container">
+  <form action="/account/register" method="post" enctype="multipart/form-data" onsubmit="return confirmRegistration()">
+    <input type="hidden" name="preferredPlanId" value="<%= preferredPlanId || '' %>">
+    <input type="hidden" name="trialRequested" value="<%= trialRequested ? '1' : '' %>">
+    <input type="hidden" name="preferredPlanName" value="<%= preferredPlanName || '' %>">
+    <% const hasPreselectedPlan = !!(preferredPlanId && preferredPlanName); %>
+    <% if (hasPreselectedPlan && trialRequested) { %>
+      <div class="notice" style="margin-bottom: 20px;">
+        You're requesting a free trial of our premium experience. Register your organization below so we can capture the verification charge and activate your trial.
+      </div>
+    <% } else if (hasPreselectedPlan) { %>
+      <div class="notice" style="margin-bottom: 20px;">
+        You've chosen the <strong><%= preferredPlanName %></strong> plan. Register your organization below to continue straight to payment.
+      </div>
+    <% } else if (trialRequested) { %>
+      <div class="notice" style="margin-bottom: 20px;">
+        You're requesting a premium free trial. Register below so we can verify your card with the refundable GHS 1.00 charge and activate the trial.
+      </div>
+    <% } %>
+    <h1>Register Your Organization</h1>
+
+    <!-- Personal Details -->
+    <h2>Person Completing Application</h2>
+    <div class="form-group">
+      <label for="firstName">First Name:</label>
+      <input type="text" name="firstName" id="firstName" placeholder="Enter your first name" required
+        value="<%= formData?.firstName || '' %>">
+    </div>
+    <div class="form-group">
+      <label for="lastName">Last Name:</label>
+      <input type="text" name="lastName" id="lastName" placeholder="Enter your last name" required
+        value="<%= formData?.lastName || '' %>">
+    </div>
+
+    <!-- Organization Details -->
+    <h2>Organization Information</h2>
+    <div class="form-group">
+      <label for="orgName">Organization Name:</label>
+      <input type="text" name="orgName" id="orgName" placeholder="Enter your organization's name" required
+        value="<%= formData?.orgName || '' %>">
+    </div>
+    <div class="form-group">
+      <label for="orgNickName">Organization Nickname:</label>
+      <p>This will determine the URL of your school. Keep it short. All in lowercase and no space.</p>
+
+      <input type="text" name="orgNickName" id="orgNickName" placeholder="Enter your organization's nickname eg.abbreviation(ttc)"
+        minlength="3" maxlength="15" pattern="[a-z]+" title="3-15 lowercase letters (a-z). No numbers, spaces, or special characters."
+        required value="<%= formData?.orgNickName || '' %>">
+    </div>
+    <div class="form-group">
+      <label for="orgAddress">Organization Address:</label>
+      <input type="text" name="orgAddress" id="orgAddress" placeholder="Enter your organization's address" required
+        value="<%= formData?.orgAddress || '' %>">
+    </div>
+    <div class="form-group">
+      <label for="orgPhone">Organization Phone:</label>
+      <input type="text" name="orgPhone" id="orgPhone" placeholder="Enter your organization's phone number" required
+        value="<%= formData?.orgPhone || '' %>">
+    </div>
+
+    <div class="notice">
+      <p>Proof of existence can be any valid document, like a certificate or website. Your account may be placed on hold or blocked if not legitimate.</p>
+    </div>
+    <div class="form-group">
+      <label for="proof1">Proof of Existence (Required):</label>
+      <input type="file" name="proof1" id="proof1" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" required>
+    </div>
+    <div class="form-group">
+      <label for="proof2">Additional Proof (Optional):</label>
+      <input type="file" name="proof2" id="proof2" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+    </div>
+
+    <!-- Login Credentials -->
+    <h2>Sign-In Credentials</h2>
+    <div class="form-group">
+      <label for="email">Email:</label>
+      <input type="email" name="email" id="email" placeholder="e.g., user@example.com" required
+        value="<%= formData?.email || '' %>">
+    </div>
+    <div class="form-group">
+      <label for="confirmEmail">Confirm Email:</label>
+      <input type="email" name="confirmEmail" id="confirmEmail" placeholder="Re-enter your email" required
+        value="<%= formData?.confirmEmail || '' %>">
+    </div>
+    <div class="form-group">
+      <label for="password">Password:</label>
+      <input type="password" name="password" id="password" placeholder="e.g., Example@123" required
+        oninput="checkPasswordStrength(this.value)"
+        value="<%= formData?.password || '' %>">
+      <p id="password-strength" class="password-strength"></p>
+      <p class="password-note">
+        Password must be at least 6 characters long and include:
+        <ul>
+          <li>At least one uppercase letter (A-Z)</li>
+          <li>At least one lowercase letter (a-z)</li>
+          <li>At least one number (0-9)</li>
+          <li>At least one special character (!@#$%^&*)</li>
+        </ul>
+      </p>
+    </div>
+    <div class="form-group">
+      <label for="confirmPassword">Confirm Password:</label>
+      <input type="password" name="confirmPassword" id="confirmPassword" placeholder="Re-enter your password" required
+        value="<%= formData?.confirmPassword || '' %>">
+    </div>
+    <div>
+      <input type="checkbox" id="show-password"> Show Password
+    </div>
+
+    <div class="form-group terms">
+  <input type="checkbox" id="termsCheckbox" name="termsCheckbox" required>
+  <label for="termsCheckbox">
+    I agree to the <a href="/legal/terms-of-service" target="_blank">Terms of Service</a>
+  </label>
+</div>
+
+
+
+
+
+
+
+    <button type="submit" class="btn-primary">Proceed to Payment</button>
+  </form>
+</div>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const formEl = document.querySelector("form");
+    const passwordInput = document.getElementById("password");
+    const confirmPasswordInput = document.getElementById("confirmPassword");
+    const emailInput = document.getElementById("email");
+    const confirmEmailInput = document.getElementById("confirmEmail");
+    const strengthText = document.getElementById("password-strength");
+    const showPwToggle = document.getElementById("show-password");
+
+    function checkPasswordStrength(password) {
+      const weak = /.{6,}/;
+      const medium = /^(?=.*[A-Za-z])(?=.*\d).{6,}$/;
+      const strong = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{6,}$/;
+      if (!strengthText) return;
+      if (strong.test(password)) {
+        strengthText.textContent = 'Strong Password 💪';
+        strengthText.className = 'password-strength strong';
+      } else if (medium.test(password)) {
+        strengthText.textContent = 'Medium Strength Password ⚠️';
+        strengthText.className = 'password-strength medium';
+      } else if (weak.test(password)) {
+        strengthText.textContent = 'Weak Password ❌';
+        strengthText.className = 'password-strength weak';
+      } else {
+        strengthText.textContent = '';
+        strengthText.className = 'password-strength';
+      }
+    }
+
+    if (passwordInput) {
+      passwordInput.addEventListener("input", function () {
+        checkPasswordStrength(this.value);
+      });
+    }
+
+    if (formEl) {
+      formEl.addEventListener("submit", function (event) {
+        if (passwordInput && confirmPasswordInput) {
+          if (passwordInput.value.length < 6) {
+            alert('⚠️ Password must be at least 6 characters long.');
+            event.preventDefault();
+          } else if (passwordInput.value !== confirmPasswordInput.value) {
+            alert('⚠️ Passwords do not match. Please try again.');
+            event.preventDefault();
+          }
+        }
+        if (emailInput && confirmEmailInput && emailInput.value.trim() !== confirmEmailInput.value.trim()) {
+          alert('⚠️ Email addresses do not match. Please try again.');
+          event.preventDefault();
+        }
+      });
+    }
+
+    if (showPwToggle && passwordInput && confirmPasswordInput) {
+      showPwToggle.addEventListener("change", function () {
+        const type = this.checked ? "text" : "password";
+        passwordInput.type = type;
+        confirmPasswordInput.type = type;
+      });
+    }
+  });
+</script>
+</body>
+</html>

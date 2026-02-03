@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Add Classes and Subjects</title>
+    <style>
+      .link-to-manage {
+        text-align: center;
+        margin-bottom: 20px;
+      }
+      .link-to-manage a {
+        display: inline-block;
+        padding: 10px 20px;
+        background-color: #01535b;
+        color: #fff;
+        text-decoration: none;
+        border-radius: 5px;
+        transition: background-color 0.3s ease;
+      }
+      .link-to-manage a:hover {
+        background-color: #01535b;
+      }
+      .separator {
+        border-bottom: 1px solid #ccc;
+        margin: 20px 0;
+      }
+
+      .notice {
+        background-color: #e7f3fe;
+        color: #0c5460;
+        border: 1px solid #bee5eb;
+        border-radius: 5px;
+        padding: 15px;
+        margin-bottom: 20px;
+      }
+      .notice h2 {
+        font-size: 18px;
+        margin: 0 0 10px;
+        font-weight: bold;
+      }
+
+      .add-class-page {
+        background: #f7f9fb;
+      }
+
+      .add-class-page .container {
+        max-width: 1100px;
+        margin: 0 auto 40px;
+        padding: 0 16px 120px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 20px;
+        align-items: start;
+      }
+
+      .add-class-page fieldset {
+        background: #ffffff;
+        border: 1px solid #e0e0e0;
+        border-radius: 12px;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+        padding: 18px;
+        height: 100%;
+        box-sizing: border-box;
+      }
+
+      .add-class-page legend {
+        font-weight: 700;
+        padding: 0;
+      }
+
+      .add-class-page h1 {
+        text-align: center;
+        margin: 0 0 12px;
+        color: #222;
+        font-size: 1.25rem;
+      }
+
+      .add-class-page button,
+      .add-class-page input,
+      .add-class-page textarea,
+      .add-class-page select {
+        width: 100%;
+        box-sizing: border-box;
+      }
+      .add-button {
+        cursor: pointer;
+        color: green;
+        font-weight: bold;
+        font-size: 25px;
+      }
+
+      /* Three-dot menu styles */
+      .input-with-menu {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+
+      .input-with-menu label {
+        font-size: 13px;
+        white-space: nowrap;
+        min-width: fit-content;
+      }
+
+      .input-with-menu input {
+        flex: 1;
+      }
+
+      .field-menu-container {
+        position: relative;
+        display: inline-block;
+      }
+
+      .field-menu-button {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 5px 10px;
+        color: #666;
+        line-height: 1;
+      }
+
+      .field-menu-button:hover {
+        color: #01535b;
+      }
+
+      .field-menu-dropdown {
+        display: none;
+        position: absolute;
+        right: 0;
+        top: 100%;
+        background-color: white;
+        min-width: 150px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        border-radius: 6px;
+        z-index: 1000;
+        overflow: hidden;
+      }
+
+      .field-menu-dropdown.show {
+        display: block;
+      }
+
+      .field-menu-item {
+        padding: 12px 16px;
+        cursor: pointer;
+        border: none;
+        background: none;
+        width: 100%;
+        text-align: left;
+        font-size: 14px;
+        color: #333;
+        transition: background-color 0.2s;
+      }
+
+      .field-menu-item:hover {
+        background-color: #f5f5f5;
+      }
+
+      .field-menu-item.delete {
+        color: #dc3545;
+      }
+
+      .field-menu-item.delete:hover {
+        background-color: #fee;
+      }
+    </style>
+  </head>
+  <body class="add-class-page">
+    <!-- Flash Messages -->
+    <%- include('../partials/flash') %>
+    <br />
+    <!-- Add the link to the Manage Class, Subject & Graduation Year Group page -->
+    <div class="link-to-manage">
+      <a href="/common/manageClassSubjectAndGradYr">Back</a>
+    </div>
+
+    <!-- Horizontal line separator -->
+    <div class="separator"></div>
+
+    <div class="container">
+      <!-- Add Class Section -->
+      <fieldset>
+        <h1>Add Class</h1>
+        <div class="notice">
+          <h2>Notice:</h2>
+          <p>
+            Please make sure you have classes before assigning subjects. These
+            classes will be applied across your organization.
+          </p>
+        </div>
+        <legend>Class</legend>
+        <form action="/common/addClass" method="post" id="classForm">
+          <div id="class-fields">
+            <div class="input-with-menu">
+              <label>Class<br>Name:</label>
+              <input
+                type="text"
+                name="className[]"
+                required
+                placeholder="Enter class name (e.g., Grade 1, Standard A, Class 1)"
+              />
+            </div>
+          </div>
+          <span class="add-button" onclick="addClassField()">+</span>
+
+          <button type="submit">Add Class</button>
+        </form>
+      </fieldset>
+
+      <!-- Add Subject Section -->
+      <fieldset>
+        <h1>Add Subject</h1>
+        <div class="notice">
+          <h2>Notice:</h2>
+          <p>
+            Add subjects to your selected classes. Subjects will only be applied
+            to the classes you choose.
+          </p>
+        </div>
+        <legend>Subject</legend>
+        <form action="/common/addSubject" method="post" id="subjectForm">
+          <div id="subject-fields">
+            <div data-subject-index="0">
+              <div class="input-with-menu">
+                <label>Subject<br>Name:</label>
+                <input
+                  type="text"
+                  name="subjectName[]"
+                  required
+                  placeholder="Enter subject name (e.g., Mathematics, History)"
+                />
+              </div>
+              <label>Assign to Class:</label>
+              <div>
+                <input type="checkbox" class="select-all-checkbox" /> Select All <br>
+                <% classes.forEach(function(cls) { %>
+                  <input
+                    type="checkbox"
+                    class="class-checkbox"
+                    name="classId[0][]"
+                    value="<%= cls.class_id %>"
+                  />
+                  <%= cls.class_name %> <br>
+                <% }); %>
+              </div>
+            </div>
+          </div>
+              <span class="add-button" onclick="addSubjectField()">+</span>
+
+          <button type="submit">Add Subject</button>
+        </form>
+      </fieldset>
+
+      <!-- Add Graduation Year Group Section -->
+      <fieldset>
+        <h1>Add Graduation Year Group</h1>
+        <div class="notice">
+          <h2>Notice:</h2>
+          <p>
+            Set a school year group to indicate the year students will graduate.
+            This is important for managing student identification and records.
+          </p>
+        </div>
+        <legend>Graduation Year Group</legend>
+        <form
+          action="/common/addGraduationYearGroup"
+          method="post"
+          id="graduationYearGroupForm"
+        >
+          <div id="graduationYear-fields">
+            <div class="input-with-menu">
+              <label>Graduation<br>Year:</label>
+              <input
+                type="number"
+                name="graduationYear[]"
+                min="2000"
+                max="2100"
+                required
+                placeholder="Enter graduation year (e.g., 2025)"
+              />
+            </div>
+          </div>
+          <span class="add-button" onclick="addGraduationYearField()">+</span>
+          <button type="submit">Add Graduation Year Group</button>
+        </form>
+      </fieldset>
+    </div>
+
+    <script>
+      function toggleFieldMenu(event, button) {
+        event.stopPropagation();
+        const dropdown = button.nextElementSibling;
+        const isCurrentlyShown = dropdown.classList.contains('show');
+        
+        // Close all other open menus
+        document.querySelectorAll('.field-menu-dropdown.show').forEach(menu => {
+          menu.classList.remove('show');
+        });
+        
+        // Toggle current menu
+        if (!isCurrentlyShown) {
+          dropdown.classList.add('show');
+        }
+      }
+
+      // Close dropdown when clicking outside
+      document.addEventListener('click', function(event) {
+        if (!event.target.closest('.field-menu-container')) {
+          document.querySelectorAll('.field-menu-dropdown.show').forEach(menu => {
+            menu.classList.remove('show');
+          });
+        }
+      });
+
+      function addClassField() {
+        const classFields = document.getElementById("class-fields");
+        const newField = document.createElement("div");
+        newField.innerHTML = `
+            <div class="input-with-menu">
+                <label>Class<br>Name:</label>
+                <input type="text" name="className[]" required placeholder="Enter class name (e.g., Grade 1, Standard A)">
+                <div class="field-menu-container">
+                    <button type="button" class="field-menu-button" onclick="toggleFieldMenu(event, this)">
+                        ⋮
+                    </button>
+                    <div class="field-menu-dropdown">
+                        <button type="button" class="field-menu-item delete" onclick="removeField(this)">
+                            Remove
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        classFields.appendChild(newField);
+      }
+
+      function addSubjectField() {
+        const subjectFields = document.getElementById("subject-fields");
+        const subjectIndex = subjectFields.children.length;
+        const newField = document.createElement("div");
+        newField.setAttribute('data-subject-index', subjectIndex);
+        newField.innerHTML = `
+            <div class="input-with-menu">
+                <label>Subject<br>Name:</label>
+                <input type="text" name="subjectName[]" required placeholder="Enter subject name (e.g., Mathematics, History)">
+                <div class="field-menu-container">
+                    <button type="button" class="field-menu-button" onclick="toggleFieldMenu(event, this)">
+                        ⋮
+                    </button>
+                    <div class="field-menu-dropdown">
+                        <button type="button" class="field-menu-item delete" onclick="removeField(this)">
+                            Remove
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <label>Assign to Class:</label>
+            <div>
+                <input type="checkbox" class="select-all-checkbox"> Select All <br>
+                <% classes.forEach(function(cls) { %>
+                    <input type="checkbox" class="class-checkbox" name="classId[${subjectIndex}][]" value="<%= cls.class_id %>"> <%= cls.class_name %> <br>
+                <% }); %>
+            </div>
+        `;
+        subjectFields.appendChild(newField);
+
+        const newSelectAllCheckbox = newField.querySelector(
+          ".select-all-checkbox"
+        );
+        newSelectAllCheckbox.addEventListener("change", handleSelectAll);
+      }
+
+      function addGraduationYearField() {
+        const graduationYearFields = document.getElementById(
+          "graduationYear-fields"
+        );
+        const newField = document.createElement("div");
+        newField.innerHTML = `
+            <div class="input-with-menu">
+                <label>Graduation<br>Year:</label>
+                <input type="number" name="graduationYear[]" min="2000" max="2100" required placeholder="Enter graduation year (e.g., 2020)">
+                <div class="field-menu-container">
+                    <button type="button" class="field-menu-button" onclick="toggleFieldMenu(event, this)">
+                        ⋮
+                    </button>
+                    <div class="field-menu-dropdown">
+                        <button type="button" class="field-menu-item delete" onclick="removeField(this)">
+                            Remove
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        graduationYearFields.appendChild(newField);
+      }
+
+
+
+      // Collapsible toggle logic
+      document.querySelectorAll('.collapsible-toggle').forEach(function(toggle) {
+        toggle.addEventListener('click', function() {
+          var content = toggle.nextElementSibling;
+          if (content) content.classList.toggle('show');
+        });
+      });
+
+
+      function handleSelectAll(event) {
+        const selectAllCheckbox = event.target;
+        // Find the parent div and then get all class-checkbox within it
+        const container = selectAllCheckbox.closest('div');
+        const checkboxes = container.querySelectorAll('.class-checkbox');
+        checkboxes.forEach((checkbox) => {
+          checkbox.checked = selectAllCheckbox.checked;
+        });
+      }
+
+      document.querySelectorAll('.select-all-checkbox').forEach((checkbox) => {
+        checkbox.addEventListener('change', handleSelectAll);
+      });
+
+
+      document.getElementById("subjectForm").addEventListener("submit", function (e) {
+        // Only checkboxes in visible dropdowns
+        const checkboxes = document.querySelectorAll('.class-checkbox');
+        const isChecked = Array.from(checkboxes).some((checkbox) => checkbox.checked);
+        if (!isChecked) {
+          e.preventDefault();
+          alert("Please select at least one class to assign the subject.");
+        }
+      });
+
+    // CSS for collapsible
+    const style = document.createElement('style');
+    style.innerHTML = `
+      .class-collapsible-container { position: relative; display: inline-block; }
+      .collapsible-toggle {
+        background: #01535b;
+        color: #fff;
+        border: none;
+        border-radius: 5px;
+        padding: 6px 16px;
+        cursor: pointer;
+        font-size: 15px;
+        margin-bottom: 5px;
+      }
+      .collapsible-content {
+        display: none;
+        position: relative;
+        background: #fff;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        min-width: 220px;
+        max-height: 220px;
+        overflow-y: auto;
+        z-index: 10;
+        padding: 8px 0;
+        margin-top: 5px;
+      }
+      .collapsible-content.show { display: block; }
+      .collapsible-item {
+        display: flex;
+        align-items: center;
+        padding: 6px 16px;
+        cursor: pointer;
+        font-size: 15px;
+      }
+      .collapsible-item input[type="checkbox"] {
+        margin-right: 8px;
+      }
+    `;
+    document.head.appendChild(style);
+
+      function removeField(button) {
+        // Find the parent container div that holds the entire field
+        const fieldContainer = button.closest('#class-fields > div, #subject-fields > div, #graduationYear-fields > div');
+        if (fieldContainer) {
+          fieldContainer.remove();
+        }
+      }
+    </script>
+  </body>
+</html>

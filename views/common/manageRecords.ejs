@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= title %></title>
+    <style>
+      :root {
+        --font-family: "Inter", sans-serif;
+      }
+
+      .manage-records-page {
+        font-family: var(--font-family);
+      }
+
+      .manage-records-page .container {
+        width: 100%;
+        max-width: 1040px;
+        margin: 0 auto 40px;
+        padding: 0 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .manage-records-page fieldset {
+        width: 100%;
+        max-width: 760px;
+        box-sizing: border-box;
+      }
+
+      .manage-records-page .note-section {
+        width: 100%;
+        max-width: 960px;
+      }
+
+
+      .public-dashboard-container {
+        margin-top: 20px;
+        width: 90%;
+        max-width: 1200px;
+        margin: auto;
+      }
+
+      .current-year-indicator,
+      .current-term-indicator {
+        height: 5px;
+        width: 8px;
+        background-color: rgb(0, 201, 0);
+        border-radius: 50%;
+        display: inline-block;
+  width: 15px;
+  margin-right: 6px;
+        padding: 10px;
+      }
+      .school-year-wrapper {
+        max-width: 600px;
+        width: 100%;
+        margin: 20px auto;
+        background: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .term-section-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 10px;
+        padding: 8px 0 0 0;
+      }
+
+      .term-section-header label {
+        font-size: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
+        margin: 0;
+      }
+
+      .term-section-header input[type="radio"] {
+        margin: 0;
+      }
+
+      .term-section fieldset {
+        position: relative;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(1,83,91,0.07);
+        border: 1px solid #e0e0e0;
+        padding: 18px 16px 14px 16px;
+        margin-bottom: 18px;
+      }
+
+      .arrow {
+        margin-left: auto;
+        font-size: 18px;
+      }
+
+      .save-button,
+      .delete-button {
+        background-color: #01535b;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: not-allowed;
+      }
+
+      .save-button:enabled,
+      .delete-button:hover {
+        cursor: pointer;
+        background-color: #01535b;
+      }
+
+      .delete-button {
+        background-color: #dc3545;
+        margin-top: 10px;
+      }
+
+      .delete-button:hover {
+        background-color: #c82333;
+      }
+
+      /* Three-dot menu styles */
+      .term-menu-container {
+        position: relative;
+        display: inline-block;
+        margin-left: auto;
+      }
+
+      .term-menu-button {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 5px 10px;
+        color: #666;
+        line-height: 1;
+      }
+
+      .term-menu-button:hover {
+        color: #01535b;
+      }
+
+      .term-menu-dropdown {
+        display: none;
+        position: absolute;
+        right: 0;
+        top: 100%;
+        background-color: white;
+        min-width: 150px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        border-radius: 6px;
+        z-index: 1000;
+        overflow: hidden;
+      }
+
+      .term-menu-dropdown.show {
+        display: block;
+      }
+
+      .term-menu-item {
+        padding: 12px 16px;
+        cursor: pointer;
+        border: none;
+        background: none;
+        width: 100%;
+        text-align: left;
+        font-size: 14px;
+        color: #333;
+        transition: background-color 0.2s;
+      }
+
+      .term-menu-item:hover {
+        background-color: #f5f5f5;
+      }
+
+      .term-menu-item.delete {
+        color: #dc3545;
+      }
+
+      .term-menu-item.delete:hover {
+        background-color: #fee;
+      }
+
+      /* School year header styles */
+      .school-year-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+        padding: 10px 0;
+      }
+
+      .school-year-header label {
+        font-size: 14px;
+        margin: 0;
+      }
+
+      .school-year-header .year-label {
+        font-size: 13px;
+        line-height: 1.2;
+        white-space: nowrap;
+      }
+
+      .school-year-header input[type="text"] {
+        flex: 1;
+        max-width: 200px;
+        font-size: 14px;
+        padding: 6px 8px;
+      }
+
+      .school-year-header .current-label {
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
+      }
+
+      .school-year-header .current-label input[type="radio"] {
+        margin: 0;
+      }
+
+      .year-menu-container {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .create-link {
+        display: inline-block;
+        background-color: #28a745;
+        color: white;
+        padding: 10px 15px;
+        border-radius: 5px;
+        text-decoration: none;
+      }
+
+      .create-link:hover {
+        background-color: #218838;
+      }
+      .create-link:hover {
+        background-color: #218838;
+      }
+
+      hr {
+        border: 1px solid #ccc;
+        margin: 20px 0;
+      }
+      .note-section {
+        background-color: #fff3cd;
+        border-left: 6px solid #ffecb5;
+        padding: 15px;
+        margin-bottom: 15px;
+        position: relative;
+        border-radius: 5px;
+        width: 70%;
+        margin: 0 auto;
+        text-align: center;
+      }
+      .close-note {
+        position: absolute;
+        top: -10px;
+        right: 1%;
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        width: 10%;
+        height: 5%;
+        color: red;
+      }
+      .close-note:hover {
+        color: tomato;
+        background-color: #fff3cd;
+      }
+    </style>
+    <style>
+      body {
+        font-family: var(--font-family);
+      }
+    </style>
+  </head>
+  <body class="manage-records-page">
+    <br />
+    <%- include('../partials/flash') %>
+    <div class="note-section" id="noteSection">
+      <button class="close-note" onclick="closeNote()">&times;</button>
+      <p>
+        <strong>Note:</strong> Use this page to manage school years and terms.
+        You can add, edit, delete, and set the current school year or term.
+      </p>
+    </div>
+
+    <br />
+    <!-- Add the link to the Register School Year page -->
+    <div class="link-to-next-back">
+      <a href="/common/registerSchoolYear" class="create-link"
+        >Create School Year</a
+      >
+    </div>
+    <hr />
+
+    <div class="container">
+      <fieldset>
+        <h1>Manage School Years and Terms</h1>
+        <legend>School Years</legend>
+
+        <div id="schoolYearContainer">
+          <% schoolYears.forEach(function(year) { %>
+          <div
+            class="school-year-wrapper <%= year.current ? 'current-year-wrapper' : '' %>"
+            id="yearWrapper<%= year.id %>"
+          >
+            <form
+              action="/common/updateSchoolYearAndTerms"
+              method="post"
+              class="school-year-form"
+              onsubmit="return validateAndConfirmChanges(this)"
+            >
+              <input type="hidden" name="yearId" value="<%= year.id %>" />
+              <div
+                class="school-year-header"
+                onclick="toggleTerms('<%= year.id %>')"
+              >
+                <label class="year-label" style="display: flex; align-items: center; gap: 6px;">
+                  <% if (year.current) { %>
+                  <span class="current-year-indicator"></span>
+                  <% } %>
+                  School<br>Year:
+                </label>
+                <input
+                  type="text"
+                  name="year_label"
+                  value="<%= year.year_label %>"
+                  required
+                  onclick="event.stopPropagation()"
+                />
+                <label class="current-label">
+                  <input 
+                    type="radio" 
+                    name="currentYear" 
+                    value="<%= year.id %>"
+                    <%= year.current ? 'checked' : '' %>
+                    onclick="event.stopPropagation()"
+                  > 
+                  Current
+                </label>
+                
+                <div class="year-menu-container">
+                  <span class="arrow" id="arrow<%= year.id %>">&#9660;</span>
+                  
+                  <!-- Three-dot menu for delete school year -->
+                  <div class="term-menu-container" onclick="event.stopPropagation()">
+                    <button type="button" class="term-menu-button" onclick="toggleYearMenu(event, this)">
+                      ⋮
+                    </button>
+                    <div class="term-menu-dropdown">
+                      <button
+                        type="button"
+                        class="term-menu-item delete"
+                        onclick="deleteSchoolYear('<%= year.id %>', this)"
+                      >
+                        Delete School Year
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                class="term-section"
+                id="termSection<%= year.id %>"
+                style="display: '<%= year.current ? 'block' : 'none' %>'"
+              >
+                <% year.terms.forEach(function(term) { %>
+                <fieldset style="position: relative">
+                  <legend>Term / Semester</legend>
+
+                  <input
+                    type="hidden"
+                    name="termIds[]"
+                    value="<%= term.term_id %>"
+                  />
+                  <div class="term-section-header">
+                    <% if (term.current) { %>
+                    <span class="current-term-indicator"></span>
+                    <% } %>
+                    <input
+                      type="text"
+                      name="termNames[]"
+                      value="<%= term.term_name %>"
+                      placeholder="Term / Semester Name"
+                      required
+                    />
+                    <label>
+                      <input type="radio" name="currentTerm" value="<%=
+                      term.term_id %>" <%= term.current ? 'checked' : '' %>>
+                      Current
+                    </label>
+                    
+                    <!-- Three-dot menu for delete option -->
+                    <div class="term-menu-container">
+                      <button type="button" class="term-menu-button" onclick="toggleTermMenu(event, this)">
+                        ⋮
+                      </button>
+                      <div class="term-menu-dropdown">
+                        <button
+                          type="button"
+                          class="term-menu-item delete"
+                          onclick="deleteTerm('<%= term.term_id %>', this)"
+                        >
+                          Delete Term
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="date-fields">
+                    <div>
+                      <label>Start Date:</label>
+                      <input
+                        type="date"
+                        name="startDates[]"
+                        value="<%= new Date(term.start_date).toISOString().slice(0, 10) %>"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label>End Date:</label>
+                      <input
+                        type="date"
+                        name="endDates[]"
+                        value="<%= new Date(term.end_date).toISOString().slice(0, 10) %>"
+                        required
+                      />
+                    </div>
+                  </div>
+                </fieldset>
+                <% }); %>
+              </div>
+
+              <a href="#" onclick="addTermToSchoolYear('<%= year.id %>')"
+                >Add Term / Semester</a
+              >
+
+              <button type="submit" class="save-button">Save Changes</button>
+            </form>
+          </div>
+          <hr />
+          <% }); %>
+        </div>
+      </fieldset>
+    </div>
+
+    <script>
+      // Toggle terms visibility
+      function toggleTerms(yearId) {
+        const termSection = document.getElementById(`termSection${yearId}`);
+        const arrow = document.getElementById(`arrow${yearId}`);
+
+        if (termSection.style.display === "none") {
+          termSection.style.display = "block";
+          arrow.innerHTML = "&#9650;"; // Change to up arrow
+        } else {
+          termSection.style.display = "none";
+          arrow.innerHTML = "&#9660;"; // Change to down arrow
+        }
+      }
+
+      // Validation to ensure the current term belongs to the selected current school year
+      function validateAndConfirmChanges(form) {
+        const currentYearSelected = form.querySelector(
+          'input[type="radio"][name="currentYear"]:checked'
+        );
+        const currentTermSelected = form.querySelector(
+          'input[type="radio"][name="currentTerm"]:checked'
+        );
+
+        // --- Prevent overlapping term dates ---
+        const startDates = Array.from(form.querySelectorAll('input[name="startDates[]"]'));
+        const endDates = Array.from(form.querySelectorAll('input[name="endDates[]"]'));
+        const termNames = Array.from(form.querySelectorAll('input[name="termNames[]"]'));
+        let ranges = [];
+        for (let i = 0; i < startDates.length; i++) {
+          const start = new Date(startDates[i].value);
+          const end = new Date(endDates[i].value);
+          if (start > end) {
+            alert(`Start date must be before end date for term: ${termNames[i].value}`);
+            return false;
+          }
+          ranges.push({start, end, name: termNames[i].value});
+        }
+        // Check for overlaps
+        for (let i = 0; i < ranges.length; i++) {
+          for (let j = i + 1; j < ranges.length; j++) {
+            if (
+              (ranges[i].start <= ranges[j].end && ranges[i].end >= ranges[j].start)
+            ) {
+              alert(`Date ranges for terms "${ranges[i].name}" and "${ranges[j].name}" overlap. Please correct them.`);
+              return false;
+            }
+          }
+        }
+        // --- End overlap check ---
+
+        if (currentYearSelected) {
+          const currentYearId = parseInt(currentYearSelected.value, 10);
+          // Try to get the year label from the input field in the same form
+          let yearLabel = '';
+          const yearLabelInput = form.querySelector('input[name="year_label"]');
+          if (yearLabelInput) {
+            yearLabel = yearLabelInput.value;
+          }
+          // Ensure that the selected current term belongs to the current year
+          if (currentTermSelected) {
+            const termSection = document.getElementById(
+              `termSection${currentYearId}`
+            );
+            if (!termSection) {
+              alert(
+                `The selected current term does not belong to the selected current school year. Please correct your selection.`
+              );
+              return false; // Prevent form submission
+            }
+            const selectedTermId = parseInt(currentTermSelected.value, 10);
+            const validTermIds = Array.from(
+              termSection.querySelectorAll(
+                'input[type="hidden"][name="termIds[]"]'
+              )
+            ).map((termInput) => parseInt(termInput.value, 10));
+            if (!validTermIds.includes(selectedTermId)) {
+              alert(
+                `The selected current term does not belong to the selected current school year. Please correct your selection.`
+              );
+              return false; // Prevent form submission
+            }
+          } else {
+            if (yearLabel) {
+              alert(
+                `School year "${yearLabel}" is set as current, but no term is selected as current. Please select a term.`
+              );
+            } else {
+              alert(
+                `A school year is set as current, but no term is selected as current. Please select a term for the current school year.`
+              );
+            }
+            return false; // Prevent form submission
+          }
+        }
+
+        return confirm(
+          `You are about to save changes to the school year. Do you want to proceed?`
+        );
+      }
+
+      function closeNote() {
+        document.getElementById("noteSection").style.display = "none";
+      }
+
+      // Toggle three-dot menu for term actions
+      function toggleTermMenu(event, button) {
+        event.stopPropagation();
+        const dropdown = button.nextElementSibling;
+        const isCurrentlyShown = dropdown.classList.contains('show');
+        
+        // Close all other open menus
+        document.querySelectorAll('.term-menu-dropdown.show').forEach(menu => {
+          menu.classList.remove('show');
+        });
+        
+        // Toggle current menu
+        if (!isCurrentlyShown) {
+          dropdown.classList.add('show');
+        }
+      }
+
+      // Toggle three-dot menu for school year actions
+      function toggleYearMenu(event, button) {
+        event.stopPropagation();
+        const dropdown = button.nextElementSibling;
+        const isCurrentlyShown = dropdown.classList.contains('show');
+        
+        // Close all other open menus
+        document.querySelectorAll('.term-menu-dropdown.show').forEach(menu => {
+          menu.classList.remove('show');
+        });
+        
+        // Toggle current menu
+        if (!isCurrentlyShown) {
+          dropdown.classList.add('show');
+        }
+      }
+
+      // Delete school year function
+      async function deleteSchoolYear(yearId, button) {
+        if (!confirm('Are you sure you want to delete this school year?')) {
+          return;
+        }
+
+        try {
+          const response = await fetch('/common/deleteSchoolYear', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ yearId: yearId })
+          });
+
+          if (response.ok) {
+            alert('School year deleted successfully.');
+            window.location.reload();
+          } else {
+            const data = await response.json();
+            alert(data.message || 'Failed to delete school year.');
+          }
+        } catch (err) {
+          alert('An error occurred while deleting the school year.');
+          console.error(err);
+        }
+      }
+
+      // Close dropdown when clicking outside
+      document.addEventListener('click', function(event) {
+        if (!event.target.closest('.term-menu-container')) {
+          document.querySelectorAll('.term-menu-dropdown.show').forEach(menu => {
+            menu.classList.remove('show');
+          });
+        }
+      });
+
+      document.addEventListener("DOMContentLoaded", function () {
+        let schoolYearContainer = document.getElementById(
+          "schoolYearContainer"
+        );
+
+        let schoolYearWrappers = Array.from(
+          schoolYearContainer.getElementsByClassName("school-year-wrapper")
+        );
+
+        // Sort school years by year label
+        schoolYearWrappers.sort((a, b) => {
+          let yearA = parseInt(
+            a.querySelector('input[name="year_label"]').value
+          );
+          let yearB = parseInt(
+            b.querySelector('input[name="year_label"]').value
+          );
+          return yearA - yearB;
+        });
+
+        // Re-append sorted elements to the container
+        schoolYearContainer.innerHTML = "";
+        schoolYearWrappers.forEach((wrapper) => {
+          schoolYearContainer.appendChild(wrapper);
+        });
+
+        // Sort terms within each school year
+        schoolYearWrappers.forEach((schoolYearWrapper) => {
+          let termSections =
+            schoolYearWrapper.getElementsByClassName("term-section");
+
+          Array.from(termSections).forEach((termSection) => {
+            let termFields = Array.from(
+              termSection.getElementsByTagName("fieldset")
+            );
+
+            termFields.sort((a, b) => {
+              let termA = a.querySelector('input[name="termNames[]"]').value;
+              let termB = b.querySelector('input[name="termNames[]"]').value;
+              return termA.localeCompare(termB);
+            });
+
+            termSection.innerHTML = "";
+            termFields.forEach((termField) => {
+              termSection.appendChild(termField);
+            });
+          });
+        });
+      });
+
+      function addTermToSchoolYear(yearId) {
+        event.preventDefault();
+        const termSection = document.getElementById(`termSection${yearId}`);
+        const termDiv = document.createElement("fieldset");
+        termDiv.innerHTML = `
+          <legend>Term / Semester</legend>
+          <input type="hidden" name="termIds[]" value="" />
+          <div class="term-section-header">
+            <input type="text" name="termNames[]" placeholder="Term / Semester Name" required />
+            <label>
+              <input type="radio" name="currentTerm" value=""> Current
+            </label>
+          </div>
+          <div class="date-fields">
+            <div>
+              <label>Start Date:</label>
+              <input type="date" name="startDates[]" required />
+            </div>
+            <div>
+              <label>End Date:</label>
+              <input type="date" name="endDates[]" required />
+            </div>
+          </div>
+        `;
+        termSection.appendChild(termDiv);
+      }
+
+      // async function deleteTerm(termId, button) {
+      //   // Prevent deleting the last term in the school year
+      //   const termSection =
+      //     button.closest(".term-section") ||
+      //     button.closest("form").querySelector(".term-section");
+      //   const termFieldsets = termSection.querySelectorAll("fieldset");
+      //   if (termFieldsets.length <= 1) {
+      //     alert(
+      //       "A school year must have at least one term. You cannot delete the last term."
+      //     );
+      //     return;
+      //   }
+
+      //   if (!termId || termId === "") {
+      //     // No termId means it's a new, unsaved term – just remove from DOM
+      //     const fieldset = button.closest("fieldset");
+      //     fieldset.remove();
+      //     return;
+      //   }
+
+      //   if (!confirm("Are you sure you want to delete this term?")) {
+      //     return;
+      //   }
+
+      //   button.disabled = true;
+      //   button.textContent = "Deleting...";
+      //   try {
+      //     const response = await fetch("/common/deleteTerm", {
+      //       method: "POST",
+      //       headers: { "Content-Type": "application/json" },
+      //       body: JSON.stringify({ term_id: termId }),
+      //     });
+      //     const data = await response.json();
+      //     if (data.success) {
+      //       const fieldset = button.closest("fieldset");
+      //       fieldset.remove();
+      //       alert("Term deleted successfully.");
+      //     } else {
+      //       alert(data.message || "Failed to delete term.");
+      //       button.disabled = false;
+      //       button.textContent = "Delete Term";
+      //     }
+      //   } catch (err) {
+      //     alert("An error occurred while deleting the term.");
+      //     button.disabled = false;
+      //     button.textContent = "Delete Term";
+      //   }
+      // }
+    </script>
+  </body>
+</html>

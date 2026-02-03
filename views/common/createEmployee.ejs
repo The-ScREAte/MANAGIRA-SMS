@@ -1,0 +1,291 @@
+<head>
+  <script>
+              function toggleClassCollapse(id) {
+          const collapseDiv = document.getElementById('collapse-' + id);
+          const arrow = document.getElementById('arrow-' + id);
+          if (collapseDiv.style.display === 'none') {
+            collapseDiv.style.display = 'block';
+            arrow.innerHTML = '&#9660;'; // Down arrow
+          } else {
+            collapseDiv.style.display = 'none';
+            arrow.innerHTML = '&#9654;'; // Right arrow
+          }
+        }
+    // Fetch subjects for the selected class
+    async function fetchSubjects(classId, containerId) {
+      try {
+        const response = await fetch(
+          `/common/getSubjectsByClass?classId=${classId}`
+        );
+        const subjects = await response.json();
+        const container = document.getElementById(containerId);
+
+        container.innerHTML = "";
+        if (subjects.length > 0) {
+          // Add Select All for subjects
+          const selectAllSubjectsCheckbox = document.createElement("input");
+          selectAllSubjectsCheckbox.type = "checkbox";
+          selectAllSubjectsCheckbox.id = `selectAllSubjects-${classId}`;
+          selectAllSubjectsCheckbox.addEventListener("change", function () {
+            const subjectCheckboxes = document.querySelectorAll(
+              `#${containerId} input[type="checkbox"]`
+            );
+            subjectCheckboxes.forEach((cb) => (cb.checked = this.checked));
+          });
+
+          const label = document.createElement("label");
+          label.textContent = "Select All Subjects";
+
+          const selectAllDiv = document.createElement("div");
+          selectAllDiv.classList.add("subject-checkbox");
+          selectAllDiv.appendChild(selectAllSubjectsCheckbox);
+          selectAllDiv.appendChild(label);
+          container.appendChild(selectAllDiv);
+
+          subjects.forEach((subject) => {
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.name = "subjects";
+            checkbox.value = subject.subject_id;
+
+            const label = document.createElement("label");
+            label.textContent = subject.subject_name;
+
+            const div = document.createElement("div");
+            div.classList.add("subject-checkbox"); // Align the checkboxes and labels
+            div.appendChild(checkbox);
+            div.appendChild(label);
+
+            container.appendChild(div);
+          });
+        } else {
+          container.innerHTML = "No subjects available for this class.";
+        }
+      } catch (error) {
+        console.error("Error fetching subjects:", error);
+      }
+    }
+
+    // Toggle subjects for the class
+    function toggleSubjects(classId, containerId) {
+      const container = document.getElementById(containerId);
+      const checkbox = document.querySelector(
+        `input[name="classes"][value="${classId}"]`
+      );
+      if (checkbox.checked) {
+        fetchSubjects(classId, containerId);
+        container.style.display = "block";
+      } else {
+        container.style.display = "none";
+      }
+    }
+
+     // ✅ Add confirmation dialog to the employee creation form
+  document.addEventListener("DOMContentLoaded", () => {
+    const createEmployeeForm = document.querySelector("form[action='/common/createEmployee']");
+    if (createEmployeeForm) {
+      createEmployeeForm.addEventListener("submit", function (e) {
+        const confirmed = confirm("Are you sure you want to create this employee? Please confirm.");
+        if (!confirmed) {
+          e.preventDefault(); // Cancel form submission if not confirmed
+        }
+      });
+    }
+  });
+  </script>
+</head>
+
+<style>
+      :root {
+        --font-family: "Inter", sans-serif;
+      }
+
+
+  body {
+    font-family: var(--font-family);
+  }
+  /* Form styling */
+  .form-group {
+    margin-bottom: 15px;
+  }
+
+  label {
+    display: inline-block;
+    width: 150px;
+    font-weight: bold;
+  }
+
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  select {
+    padding: 8px;
+    width: 250px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+
+    .class-collapsible {
+    margin-bottom: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: #f9f9f9;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .collapsible-btn {
+    width: 100%;
+    background: #01535b;
+    color: #fff;
+    border: none;
+    outline: none;
+    padding: 12px 16px;
+    font-size: 16px;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    font-weight: bold;
+    border-radius: 5px;
+    transition: none;
+  }
+  .collapsible-btn .arrow {
+    font-size: 18px;
+    margin-left: 8px;
+    transition: transform 0.2s;
+  }
+  .class-checkboxes {
+    padding: 10px 20px 10px 30px;
+    background: #fff;
+    border-top: 1px solid #eee;
+  }
+
+  .class-container {
+    margin-bottom: 20px;
+  }
+
+  .class-checkbox {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .class-checkbox label {
+    margin-left: 10px;
+  }
+
+  .subject-container {
+    margin-left: 30px;
+    margin-top: 10px;
+  }
+
+  .subject-container div {
+    margin-bottom: 5px;
+  }
+
+  .create-employee-container {
+    padding: 20px;
+  }
+
+  .checkbox-group {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .checkbox-group label {
+    margin-bottom: 5px;
+  }
+
+  .line-divider {
+    width: 100%;
+    border-top: 2px solid #ddd;
+    margin: 20px 0;
+  }
+
+  /* Align subject checkboxes */
+  .subject-checkbox {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+  }
+
+  .subject-checkbox label {
+    margin-left: 10px; /* Adjust space between checkbox and label */
+  }
+  .global-form {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  }
+</style>
+<body>
+  <%- include('../partials/flash') %> <% if (req.session && req.session.userRole
+  !== 'Teacher' && req.session.userRole !== 'Supervisor') { %>
+  <br />
+  <div class="link-to-next-back">
+    <a href="/common/manageEmployees">Manage Employees</a>
+  </div>
+  <div class="separator"></div>
+  <% } %>
+
+  <h1>Create Employee</h1>
+
+  <form class="global-form" action="/common/createEmployee" method="post">
+    <div class="form-group">
+      <label for="firstName">First Name:</label>
+      <input type="text" id="firstName" name="firstName" required />
+    </div>
+    <div class="form-group">
+      <label for="lastName">Last Name:</label>
+      <input type="text" id="lastName" name="lastName" required />
+    </div>
+    <div class="form-group">
+      <label for="email">Email:</label>
+      <input type="email" id="email" name="email" required />
+    </div>
+
+    <div class="form-group">
+      <label for="account_type">Role:</label>
+      <select id="account_type" name="account_type" required>
+        <option value="">-- Select Role --</option>
+        <option value="Manager">Manager</option>
+        <option value="Supervisor">Supervisor</option>
+        <option value="Teacher">Teacher</option>
+      </select>
+    </div>
+
+    <div class="class-container">
+      <h3>Assign Classes and Subjects:</h3>
+
+        <div class="class-collapsible">
+      <button type="button" class="collapsible-btn" onclick="toggleClassCollapse('all-classes')">
+        <span>Show/Hide Classes</span>
+        <span class="arrow" id="arrow-all-classes">&#9654;</span>
+      </button>
+      <div class="class-checkboxes" id="collapse-all-classes" style="display: none;">
+        <% classes.forEach(cls => { %>
+          <div class="class-checkbox">
+            <input
+              type="checkbox"
+              name="classes"
+              value="<%= cls.class_id %>"
+              onchange="toggleSubjects('<%= cls.class_id %>', 'subjects-container-<%= cls.class_id %>')"
+              id="class_<%= cls.class_id %>"
+            />
+            <label for="class_<%= cls.class_id %>"><%= cls.class_name %></label>
+          </div>
+          <div
+            id="subjects-container-<%= cls.class_id %>"
+            class="subject-container"
+            style="display: none"
+          ></div>
+        <% }); %>
+      </div>
+    </div>
+    </div>
+
+    <button type="submit">Create Employee</button>
+  </form>
+</body>

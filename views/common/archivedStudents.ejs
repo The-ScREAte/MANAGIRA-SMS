@@ -1,0 +1,240 @@
+<div class="archived-graduation-year-group-container">
+    <br>
+    <div class="link-to-next-back">
+        <a href="/common/closeGraduationYearGroup" class="btn btn-primary">
+            Back to Closed Graduation Year Groups Page
+        </a>
+    </div>
+    <hr>
+
+    <!-- Notice Section -->
+    <div class="notice-container">
+        <p class="notice-text">
+            This page contains records of:
+        </p>
+        <ul class="notice-list">
+            <li>Students grouped by their graduation year whose records need to remain secure.</li>
+            <li>Students who may no longer be active but whose information needs to be safely preserved.</li>
+        </ul>
+    </div>
+    <hr>
+
+    <h1>Graduated / Inactive Students</h1>
+
+    <!-- Search Bar Section -->
+    <div class="search-container">
+        <input
+            type="text"
+            id="search-student"
+            class="search-input"
+            placeholder="🔎 Search for a student by name..."
+            oninput="showSuggestions(this.value)"
+        />
+        <div id="search-suggestions" class="suggestions hidden"></div>
+    </div>
+    <hr>
+
+    <% archivedGroups.forEach((group, index) => { %>
+        <form action="/common/unarchiveStudents" method="POST" onsubmit="return confirmAction('Are you sure you want to unarchive selected students? They will appear back in your organization and changes could be made to their information. Do you still want to do this?');">
+            <!-- Graduation Year Group Header -->
+            <h2 class="group-header">
+                <span class="toggle-icon" data-target="archived-group-<%= index %>">➕</span>
+                <%= group.name %>
+            </h2>
+
+            <!-- Students List -->
+            <ul id="archived-group-<%= index %>" class="student-list hidden">
+                <% group.students.forEach(student => { %>
+                    <li
+                        class="student-item"
+                        data-name="<%= student.first_name.toLowerCase() %> <%= student.last_name.toLowerCase() %>"
+                        data-group="<%= index %>"
+                    >
+                        <input type="checkbox" name="students" value="<%= student.student_id %>">
+                        <a href="/common/studentInfo?studentId=<%= student.student_id %>">
+                            <%= student.first_name %> <%= student.last_name %>
+                        </a>
+                    </li>
+                <% }) %>
+            </ul>
+
+            <!-- Submit Button -->
+            <button type="submit" name="action" value="unarchive" class="hidden btn btn-primary">Unarchive Selected</button>
+        </form>
+    <% }) %>
+</div>
+
+<script>
+    // Confirmation dialog for form submission
+    function confirmAction(message) {
+        return confirm(message);
+    }
+
+    // Show suggestions as user types
+    function showSuggestions(query) {
+        const suggestionsBox = document.getElementById('search-suggestions');
+        const studentItems = document.querySelectorAll('.student-item');
+
+        // Reset suggestions
+        suggestionsBox.innerHTML = '';
+        suggestionsBox.classList.add('hidden');
+
+        if (query.trim() === '') return;
+
+        const suggestions = Array.from(studentItems)
+            .filter(item => item.getAttribute('data-name').includes(query.toLowerCase()))
+            .map(item => {
+                const studentName = item.getAttribute('data-name');
+                return `<div class="suggestion-item" onclick="selectStudent('${studentName}', ${item.getAttribute('data-group')})">${studentName}</div>`;
+            });
+
+        if (suggestions.length > 0) {
+            suggestionsBox.innerHTML = suggestions.join('');
+            suggestionsBox.classList.remove('hidden');
+        }
+    }
+
+    // Select student from suggestions
+    function selectStudent(studentName, groupIndex) {
+        const studentItems = document.querySelectorAll('.student-item');
+        const suggestionsBox = document.getElementById('search-suggestions');
+
+        // Reset styles
+        studentItems.forEach(item => (item.style.backgroundColor = ''));
+
+        // Find the student and highlight
+        const studentItem = Array.from(studentItems).find(
+            item => item.getAttribute('data-name') === studentName
+        );
+        if (studentItem) {
+            studentItem.style.backgroundColor = '#ffeb3b'; // Highlight selected student
+
+            // Expand the corresponding group
+            const group = document.getElementById(`archived-group-${groupIndex}`);
+            const toggleIcon = document.querySelector(`[data-target="archived-group-${groupIndex}"]`);
+            const submitButton = group.nextElementSibling;
+
+            if (group.classList.contains('hidden')) {
+                group.classList.remove('hidden');
+                submitButton.classList.remove('hidden');
+                toggleIcon.textContent = '➖';
+            }
+        }
+
+        // Clear search bar and hide suggestions
+        document.getElementById('search-student').value = '';
+        suggestionsBox.classList.add('hidden');
+    }
+
+    // Toggle visibility for groups
+    const toggleIcons = document.querySelectorAll('.toggle-icon');
+    toggleIcons.forEach(icon => {
+        icon.addEventListener('click', () => {
+            const targetId = icon.getAttribute('data-target');
+            const targetElement = document.getElementById(targetId);
+            const submitButton = targetElement.nextElementSibling;
+
+            if (targetElement.classList.contains('hidden')) {
+                targetElement.classList.remove('hidden');
+                submitButton.classList.remove('hidden');
+                icon.textContent = '➖';
+            } else {
+                targetElement.classList.add('hidden');
+                submitButton.classList.add('hidden');
+                icon.textContent = '➕';
+            }
+        });
+    });
+</script>
+
+<style>
+      :root {
+        --font-family: "Inter", sans-serif;
+      }
+
+
+    /* Search Section */
+    .search-container {
+        margin-bottom: 20px;
+        text-align: center;
+        width: 400px;
+    }
+
+    .search-input {
+        width: 40%; /* Compact layout */
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 14px;
+    }
+
+    .suggestions {
+        position: absolute;
+        top: 50px;
+        left: 30%;
+        width: 40%; /* Matches search bar size */
+        background-color: #fff;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+    }
+
+    .suggestion-item {
+        padding: 10px;
+        cursor: pointer;
+    }
+
+    .suggestion-item:hover {
+        background-color: #f0f0f0;
+    }
+
+    .hidden {
+        display: none;
+    }
+
+    /* Notice Section Styling */
+    .notice-container {
+        background-color: #b9e8f9;
+        color: #000000;
+        border: 1px solid #01535b;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+    }
+
+    .notice-text {
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+
+    .notice-list {
+        list-style-type: disc;
+        padding-left: 20px;
+    }
+
+    .notice-list li {
+        margin-bottom: 5px;
+    }
+
+    /* General Styling */
+    .btn {
+        margin-top: 10px;
+    }
+
+    .btn.btn-primary {
+        background-color: #01535b;
+        border-color: #01535b;
+    }
+
+    .btn.btn-primary:hover {
+        background-color: #01535b;
+        border-color: #004085;
+    }
+</style>
+<style>
+    body {
+        font-family: var(--font-family);
+      }
+      
+</style>

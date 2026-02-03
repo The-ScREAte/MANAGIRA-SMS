@@ -1,0 +1,468 @@
+<style>
+:root {
+  --border: #e5e7eb;
+  --muted: #6b7280;
+  --bg: #f9fafb;
+  --primary: #026972;
+  --text: #111827;
+  --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
+}
+
+body {
+  background: #fff;
+  font-family: var(--font-family);
+}
+
+.dashboard-shell {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px 16px 40px;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.card-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.card-body {
+  padding: 16px;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.card-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.card-subtext {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.nav-card {
+  padding: 0;
+}
+
+.nav-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.nav-header h3 {
+  margin: 4px 0 0;
+  font-size: 18px;
+}
+
+.nav-close {
+  border: 1px solid var(--border);
+  background: transparent;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 14px;
+  display: none;
+}
+
+.side-nav {
+  padding: 12px;
+}
+
+.nav-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.nav-section-label {
+  margin: 8px 2px 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: var(--text);
+  text-decoration: none;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.nav-link:hover {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+}
+
+.nav-link.active {
+  background: #e5e7eb;
+  border-color: #d1d5db;
+}
+
+.nav-toggle {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+  margin-bottom: 12px;
+}
+
+.hamburger-icon {
+  position: relative;
+  width: 16px;
+  height: 2px;
+  background: #111827;
+  display: inline-block;
+}
+
+.hamburger-icon::before,
+.hamburger-icon::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  width: 16px;
+  height: 2px;
+  background: #111827;
+}
+
+.hamburger-icon::before { top: -5px; }
+.hamburger-icon::after { top: 5px; }
+
+.nav-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 998;
+}
+
+.nav-overlay.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.meta-tile {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #f9fafb;
+}
+
+.meta-label { color: var(--muted); font-size: 12px; margin: 0 0 4px; }
+.meta-value { margin: 0; font-weight: 600; color: var(--text); }
+
+.section-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  margin-top: 16px;
+}
+
+.section-title {
+  margin: 0 0 6px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.section-subtext {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.teacher-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+}
+
+.teacher-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+}
+
+.teacher-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+.teacher-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.student-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.student-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.student-index {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.student-link {
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.student-link:hover { color: var(--primary); }
+
+@media (max-width: 960px) {
+  .dashboard-grid { grid-template-columns: 1fr; }
+  .nav-toggle { display: inline-flex; }
+  .nav-card {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 260px;
+    height: 100vh;
+    transform: translateX(-110%);
+    transition: transform 0.2s ease;
+    z-index: 999;
+  }
+  .nav-card.open { transform: translateX(0); }
+  .nav-close { display: inline-flex; }
+  .dashboard-shell { padding-top: 12px; }
+}
+</style>
+
+<body>
+  <div class="dashboard-shell">
+    <button class="nav-toggle" type="button">
+      <span class="hamburger-icon" aria-hidden="true"></span>
+      <span>Class Tools</span>
+    </button>
+
+    <div class="dashboard-grid">
+      <aside class="card nav-card" id="class-tools-panel">
+        <div class="nav-header">
+          <div>
+            <p class="eyebrow">Navigation</p>
+            <h3>Class Tools</h3>
+          </div>
+          <button class="nav-close" type="button" aria-label="Close navigation">×</button>
+        </div>
+        <div class="side-nav">
+          <ul class="nav-list">
+            <% if (allowedFeatures.includes('Attendance tracking feature') && (userRole !== "Teacher" || isMainTeacher)) { %>
+              <li><a class="nav-link" href="/common/attendanceCollection?classId=<%= classId %>&termId=<%= currentTerm.term_id %>">Attendance</a></li>
+            <% } %>
+
+            <li class="nav-section-label">Subjects</li>
+            <% if (subjects.length > 0) { %>
+              <% subjects.forEach(function(subject) { %>
+                <li>
+                  <a class="nav-link" href="/common/assessment?classId=<%= classId %>&subjectId=<%= subject.subject_id %>">
+                    <%= subject.subject_name %>
+                  </a>
+                </li>
+              <% }); %>
+            <% } else { %>
+              <li class="card-subtext" style="padding: 4px 2px;">No subjects added yet.</li>
+            <% } %>
+          </ul>
+        </div>
+      </aside>
+
+      <div class="nav-overlay" id="class-tools-overlay"></div>
+
+      <main class="card">
+        <div class="card-header">
+          <p class="eyebrow">Class</p>
+          <h1 class="page-title" id="className"><%= className %></h1>
+          <% if (graduationYearGroup) { %>
+            <p class="card-subtext"><%= graduationYearGroup %></p>
+          <% } %>
+        </div>
+
+        <div class="card-body">
+          <div class="meta-grid">
+            <div class="meta-tile">
+              <p class="meta-label">School Year</p>
+              <p class="meta-value"><%= schoolYear.year_label %></p>
+            </div>
+            <div class="meta-tile">
+              <p class="meta-label">Term</p>
+              <p class="meta-value"><%= currentTerm.term_name %></p>
+            </div>
+            <div class="meta-tile">
+              <p class="meta-label">Start Date</p>
+              <p class="meta-value"><%= new Date(currentTerm.start_date).toISOString().split('T')[0] %></p>
+            </div>
+            <div class="meta-tile">
+              <p class="meta-label">End Date</p>
+              <p class="meta-value"><%= new Date(currentTerm.end_date).toISOString().split('T')[0] %></p>
+            </div>
+          </div>
+
+          <div class="section-card">
+            <div class="section-title">Teachers</div>
+            <p class="section-subtext">Main teacher can mark attendance.</p>
+            <div class="teacher-list">
+              <% employees.forEach(function(employee) { %>
+                <div class="teacher-card">
+                  <% if (employee.main) { %>
+                    <span class="teacher-dot" title="Main teacher"></span>
+                  <% } else { %>
+                    <span style="width:10px; height:10px;"></span>
+                  <% } %>
+                  <span class="teacher-name"><%= employee.name %></span>
+                  <% if (req.session && req.session.userRole !== 'Teacher' && req.session.userRole !== 'Supervisor') { %>
+                    <input type="radio" name="main_employee" value="<%= employee.user_id %>" <% if (employee.main) { %> checked <% } %> onchange="setMainEmployee('<%= classId %>', '<%= employee.user_id %>')" style="margin-left:auto;">
+                  <% } %>
+                </div>
+              <% }); %>
+            </div>
+          </div>
+
+          <div class="section-card">
+            <div class="section-title">Students in <%= currentTerm.term_name %></div>
+            <p class="section-subtext">Tap a student to view details.</p>
+            <ul class="student-list">
+              <% if (students.length > 0) { %>
+                <% students.forEach(function(student, index) { %>
+                  <li>
+                    <div class="student-row">
+                      <span class="student-index">#<%= index + 1 %></span>
+                      <a class="student-link" href="/common/studentDetails?studentId=<%= student.student_id %>&termId=<%= currentTerm.term_id %>&classId=<%= classId %>">
+                        <%= student.first_name %> <%= student.last_name %>
+                      </a>
+                    </div>
+                  </li>
+                <% }); %>
+              <% } else { %>
+                <li class="card-subtext">No students enrolled for this term yet.</li>
+              <% } %>
+            </ul>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    function setMainEmployee(classId, userId) {
+      const confirmationMessage = "Are you sure you want to set this teacher as the main teacher for this class? The main teacher will have full access and is the only teacher who can mark attendance.";
+      if (!confirm(confirmationMessage)) return;
+
+      fetch('/common/setMainEmployee', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ class_id: classId, main_employee: userId })
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            alert('Main class teacher set successfully');
+          } else {
+            alert('Failed to set main class teacher');
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          alert('Error setting main employee');
+        });
+    }
+
+    const navToggle = document.querySelector('.nav-toggle');
+    const navPanel = document.getElementById('class-tools-panel');
+    const navOverlay = document.getElementById('class-tools-overlay');
+    const navClose = document.querySelector('.nav-close');
+    const navLinks = document.querySelectorAll('.nav-link');
+
+    function openNav() {
+      if (navPanel) navPanel.classList.add('open');
+      if (navOverlay) navOverlay.classList.add('show');
+    }
+
+    function closeNav() {
+      if (navPanel) navPanel.classList.remove('open');
+      if (navOverlay) navOverlay.classList.remove('show');
+    }
+
+    if (navToggle) navToggle.addEventListener('click', openNav);
+    if (navOverlay) navOverlay.addEventListener('click', closeNav);
+    if (navClose) navClose.addEventListener('click', closeNav);
+    if (navLinks && navLinks.length) {
+      navLinks.forEach(link => link.addEventListener('click', closeNav));
+    }
+  </script>
+</body>

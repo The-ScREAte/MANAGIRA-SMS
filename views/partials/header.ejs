@@ -1,0 +1,1125 @@
+
+<style>
+  :root {
+    --header-height: 64px;
+    --header-pad-y: 6px;
+    --header-pad-x: 16px;
+    --logo-size: 58px;
+    --text-color: #333;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    padding-top: calc(var(--header-height) + 16px);
+  }
+
+  header#top-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: auto;
+    min-height: var(--header-height);
+    box-sizing: border-box;
+    background: #ededed;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    width: 100%;
+    padding: var(--header-pad-y) var(--header-pad-x);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    z-index: 9999;
+  }
+
+  .header-mobile-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 12px;
+    min-height: var(--header-height);
+    flex-wrap: nowrap;
+  }
+
+  .header-mobile-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .siteName {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-color);
+    min-width: 120px;
+    flex-shrink: 0;
+  }
+
+  .siteName .logo {
+    height: var(--logo-size);
+    width: auto;
+    max-height: var(--logo-size);
+    max-width: 140px;
+    object-fit: contain;
+  }
+
+  .org-names {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .org-names h3 {
+    margin: 0;
+    line-height: 1.2;
+  }
+
+  .org-names .org-full-name {
+    display: block;
+    font-size: 1.25rem;
+    font-weight: 600;
+    max-width: 240px;
+    color: var(--text-color);
+  }
+
+  .org-names .org-nickname {
+    display: none;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text-color);
+    white-space: nowrap;
+  }
+
+  #tools {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: auto;
+    position: relative;
+    flex: 0 0 auto;
+    width: auto;
+    justify-content: flex-end;
+    height: 100%;
+    flex-shrink: 0;
+    flex-wrap: nowrap;
+  }
+
+  #tools li a {
+    text-decoration: none;
+    color: #074c53;
+    padding-left: 15px;
+  }
+
+  #tools a.header-welcome {
+    display: block;
+    font-size: 0.95rem;
+    text-decoration: none;
+    color: #074c53;
+  }
+
+  .hamburger-container {
+    display: inline-block;
+  }
+
+  .search-bar-container {
+    flex: 0 0 auto;
+    width: 260px;
+    max-width: 320px;
+    margin-left: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-self: stretch;
+    height: 100%;
+  }
+
+  .search-bar {
+    position: relative;
+    width: 100%;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    height: 100%;
+  }
+
+  .search-autofill-trap {
+    position: absolute;
+    left: -10000px;
+    top: auto;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 16px;
+    color: #667085;
+    line-height: 1;
+    pointer-events: none;
+  }
+
+  #search-input {
+    width: 100%;
+    padding: 6px 10px 6px 38px;
+    height: 34px;
+    line-height: 1.2;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    outline: none;
+    font-size: 0.95rem;
+    transition: border-color 0.2s ease;
+    display: block;
+    box-sizing: border-box;
+    margin: 0 auto;
+  }
+
+  #search-input:focus {
+    border-color: #026972;
+  }
+
+  .search-results-dropdown {
+    display: none;
+    position: absolute;
+    top: 110%;
+    left: 0;
+    background: #fff;
+    border: 1px solid #ccc;
+    width: 100%;
+    z-index: 10000;
+    max-height: 800px;
+    overflow-y: auto;
+    border-radius: 4px;
+  }
+
+  .search-result-item {
+    padding: 12px 16px;
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+  }
+
+  .search-result-item:hover {
+    background-color: #f2f2f2;
+  }
+
+  .search-result-item a {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .search-result-item img {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    margin-right: 15px;
+    object-fit: cover;
+  }
+
+  .nav-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: white;
+    border-radius: 5px;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+    z-index: 10001;
+    display: none;
+    flex-direction: column;
+    width: 200px;
+  }
+
+  header#top-header .nav-menu .nav-item {
+    padding: 10px 12px;
+    margin: 3px 0;
+  }
+
+  header#top-header .nav-menu .nav-item a {
+    padding: 6px 8px;
+  }
+
+  header#top-header .nav-menu .nav-item a.nav-item-link {
+    font-weight: 600;
+    border-radius: 4px;
+  }
+
+  .sticky-nav {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background: #4499a1;
+    color: white;
+    z-index: 9998;
+    padding: 8px 0;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  }
+
+  .sticky-nav ul {
+    list-style: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+    margin: 0;
+    gap: 20px;
+  }
+
+  .sticky-nav ul li a {
+    color: white;
+    text-decoration: none;
+    padding: 10px 15px;
+    font-size: 14px;
+    font-weight: bold;
+    white-space: nowrap;
+    transition: background 0.3s ease;
+  }
+
+  .sticky-nav ul li a:hover,
+  .sticky-nav ul li a.active {
+    background: #004b5e;
+    border-radius: 5px;
+  }
+
+  .flash-wrapper {
+    position: fixed !important;
+    top: auto !important;
+    bottom: 92px !important; /* sit above chatbot toggle */
+    right: 24px !important;
+    left: auto !important;
+    transform: none !important;
+    z-index: 10002 !important;
+    pointer-events: none;
+    width: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    max-width: 420px;
+  }
+
+  .flash-message {
+    pointer-events: auto;
+    margin: 0;
+    width: min(420px, calc(100vw - 48px));
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    animation: slideDown 0.3s ease-out;
+  }
+
+  .flash-message.success {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+  }
+
+  .flash-message.error {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+  }
+
+  .flash-message.info {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+  }
+
+  .flash-content {
+    flex: 1;
+    margin-right: 12px;
+  }
+
+  .flash-close {
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: bold;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+    user-select: none;
+  }
+
+  .flash-close:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+  }
+
+  @keyframes slideDown {
+    from {
+      transform: translateY(-100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  /* 🔹 Navigation Menu */
+  .nav-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: white;
+    border-radius: 5px;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+    z-index: 10001;
+    display: none;
+    flex-direction: column;
+    width: 200px;
+  }
+
+  /* 🔹 Sticky Navigation */
+  .sticky-nav {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background: #4499a1;
+    color: white;
+    z-index: 9998;
+    padding: 8px 0;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  }
+
+  .sticky-nav ul {
+    list-style: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+    margin: 0;
+    gap: 20px;
+    overflow-x: unset;
+  }
+
+  .sticky-nav ul li a {
+    color: white;
+    text-decoration: none;
+    padding: 10px 15px;
+    font-size: 14px;
+    font-weight: bold;
+    white-space: nowrap;
+    transition: background 0.3s ease;
+  }
+
+  .sticky-nav ul li a:hover,
+  .sticky-nav ul li a.active {
+    background: #004b5e;
+    border-radius: 5px;
+  }
+
+  /* 🔹 Search Bar */
+  .search-bar {
+    position: relative;
+    margin-right: 5px;
+  }
+
+  .search-bar-container {
+    margin-left: auto;
+  }
+
+
+  .search-results-dropdown {
+    display: none;
+    position: absolute;
+    top: 110%;
+    left: 0;
+    background: #fff;
+    border: 1px solid #ccc;
+    width: 100%;
+    z-index: 10000;
+    max-height: 800px;
+    overflow-y: auto;
+    border-radius: 4px;
+  }
+
+  .search-result-item {
+    padding: 12px 16px;
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+  }
+
+  .search-result-item:hover {
+    background-color: #f2f2f2;
+  }
+
+  .search-result-item a {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .search-result-item img {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    margin-right: 15px;
+    object-fit: cover;
+  }
+
+  /* 🔹 Hamburger Menu */
+  .hamburger-container {
+    display: inline-block;
+    margin-left: 20px;
+  }
+
+  /* 🔹 Main Header */
+    header#top-header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: #ededed;
+      /* Remove any blur or transparency for a solid, professional look */
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      width: 100vw;
+      min-height: 68px;
+      padding: 10px 15px;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0;
+      z-index: 9999;
+      display: flex;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      background-color: #ededed !important;
+    }
+
+  header#top-header .siteName {
+    display: flex;
+    align-items: center;
+    font-size: 1.5em;
+    font-weight: bold;
+    margin: 0;
+    min-width: 100px;
+    min-height: 1em;
+    flex-shrink: 0;
+  }
+
+  header#top-header .siteName a {
+    text-decoration: none;
+    color: #333;
+  }
+
+  header#top-header .siteName .logo {
+    width: 75px;
+    height: auto;
+    max-height: 60px;
+    object-fit: contain;
+  }
+
+  header#top-header #tools {
+    display: flex;
+    align-items: center;
+    right: 15px;
+    position: relative;
+    margin-left: auto;
+    gap: 16px;
+  }
+
+  header#top-header #tools li a {
+    text-decoration: none;
+    color: #074c53;
+    padding-left: 15px;
+  }
+  
+  header#top-header #tools a.header-welcome {
+    display: block;
+  }
+
+  .header-mobile-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 0;
+  }
+
+  .header-mobile-left {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .search-bar-and-tools {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+  }
+
+  @media (max-width: 1024px) {
+    :root {
+      --header-height: 60px;
+      --header-pad-x: 14px;
+      --logo-size: 52px;
+    }
+
+    body {
+      padding-top: calc(var(--header-height) + 14px);
+    }
+
+    .siteName {
+      font-size: 1rem;
+    }
+
+    .org-names .org-full-name {
+      font-size: 1.1rem;
+      max-width: 200px;
+    }
+
+    .search-bar-container {
+      width: 220px;
+      max-width: 260px;
+      margin: 0;
+    }
+
+    #tools a.header-welcome {
+      font-size: 0.9rem;
+    }
+  }
+
+  @media (max-width: 768px) {
+    :root {
+      --header-height: 56px;
+      --header-pad-y: 6px;
+      --header-pad-x: 12px;
+      --logo-size: 46px;
+    }
+
+    body {
+      padding-top: calc(var(--header-height) + 12px);
+      padding-bottom: 60px;
+    }
+
+    .header-mobile-row {
+      gap: 8px;
+    }
+
+    .header-mobile-left {
+      gap: 8px;
+    }
+
+    .org-names .org-full-name {
+      display: none;
+    }
+
+    .org-names .org-nickname {
+      display: block;
+      font-size: 1.05rem;
+    }
+
+    .search-bar-container {
+      width: 200px;
+      max-width: 220px;
+      margin: 0;
+      align-self: center;
+      height: auto;
+    }
+
+    .search-bar {
+      height: auto;
+    }
+
+    #search-input {
+      height: 32px;
+      font-size: 0.9rem;
+    }
+
+    #tools a.header-welcome {
+      display: none;
+    }
+
+    .hamburger {
+      padding: 8px 10px;
+      border-radius: 6px;
+      box-sizing: border-box;
+    }
+
+    .sticky-nav {
+      position: fixed;
+      bottom: 0;
+      top: auto;
+      left: 0;
+      width: 100%;
+      padding: 6px 0;
+      box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .sticky-nav ul {
+      gap: 0;
+      overflow-x: auto;
+    }
+
+    .sticky-nav ul li {
+      flex-grow: 1;
+      text-align: center;
+    }
+
+    .sticky-nav ul li a {
+      display: inline-block;
+      padding: 10px 6px;
+      font-size: 12px;
+      width: 100%;
+    }
+
+    .flash-wrapper {
+      top: 60px !important; /* Adjusted for smaller header */
+      bottom: auto !important;
+      right: 10px !important;
+      left: 10px !important;
+      transform: none !important;
+      align-items: stretch;
+      width: auto;
+      max-width: none;
+    }
+
+    .flash-message {
+      margin: 0 0 8px 0;
+      max-width: calc(100vw - 20px);
+      width: calc(100% - 20px);
+      font-size: 13px;
+      padding: 10px 14px;
+    }
+
+    .flash-close {
+      font-size: 16px;
+      padding: 2px 6px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    :root {
+      --logo-size: 40px;
+    }
+
+    .siteName {
+      font-size: 0.95rem;
+    }
+
+    .org-names .org-nickname {
+      font-size: 0.98rem;
+      max-width: 120px;
+    }
+
+    #search-input {
+      height: 30px;
+      font-size: 0.85rem;
+      padding-left: 34px;
+    }
+  }
+</style>
+
+<header id="top-header">
+  <%
+    const normalizeLogoSrc = (logo) => {
+      if (!logo) return "";
+      if (/^https?:\/\//i.test(logo)) return logo;
+      if (logo.startsWith("/")) return logo;
+      return `/${logo}`;
+    };
+  %>
+  <% const isPublicDashboard = url && url.includes('/publicDashboard'); %>
+  <% const dashboardHref = req.session && req.session.userRole === 'Guardian' ? '/guardian/dashboard' : '/common/orgDashboard'; %>
+  <div class="header-mobile-row">
+    <div class="header-mobile-left">
+      <span class="siteName">
+        <% if (typeof orgHeaderLogo !== 'undefined' && orgHeaderLogo) { %>
+          <a href="<%= dashboardHref %>" title="Go to dashboard">
+            <img src="<%= normalizeLogoSrc(orgHeaderLogo) %>" alt="Organization Logo" class="logo" />
+          </a>
+        <% } else if (!session.firstName) { %>
+          <!-- Only show Managira logo when not logged in -->
+          <a
+            href="<%= isPublicDashboard ? BASE_URL : '/' %>"
+            title="Return to home page"
+          >
+            <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+          </a>
+        <% } else if (session.logo) { %>
+          <!-- Only show Org logo when logged in -->
+          <a href="<%= dashboardHref %>" title="Go to dashboard">
+            <img src="<%= normalizeLogoSrc(session.logo) %>" alt="Organization Logo" class="logo" />
+          </a>
+        <% } %>
+        <!-- Move org name/nickname outside <a> for better flex and visibility -->
+        <div class="org-names">
+          <a href="<%= dashboardHref %>" title="Go to dashboard">
+            <h3 class="org-full-name">
+              <% if (typeof orgHeaderName !== 'undefined' && orgHeaderName) { %>
+                <%= orgHeaderName %>
+              <% } else if (session.organizationName) { %>
+                <%= session.organizationName %>
+              <% } %>
+            </h3>
+            <h3 class="org-nickname">
+              <% if (typeof orgHeaderNickname !== 'undefined' && orgHeaderNickname) { %>
+                <%= orgHeaderNickname %>
+              <% } else if (session.orgNickName) { %>
+                <%= session.orgNickName %>
+              <% } %>
+            </h3>
+          </a>
+        </div>
+      </span>
+    </div>
+    <div id="tools">
+      <% if (session.firstName) { %>
+      <% if (req.session.userRole !== 'Guardian') { %>
+      <div class="search-bar-container">
+        <form class="search-bar" id="search-form" autocomplete="off" aria-label="Search">
+          <i class="fa-solid fa-magnifying-glass search-icon" aria-hidden="true"></i>
+          <input
+            type="search"
+            id="search-input"
+            name="search_query"
+            placeholder="Search"
+            autocomplete="new-password"
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
+            inputmode="search"
+            aria-autocomplete="none"
+            data-form-type="other"
+            data-lpignore="true"
+            data-1p-ignore="true"
+            data-bwignore="true"
+          />
+          <div id="search-results" class="search-results-dropdown"></div>
+        </form>
+      </div>
+      <% } %>
+      <a href="#" title="Go to management page" class="header-welcome"
+        >Hello, <%= session.firstName %>!</a
+      >
+      <div class="hamburger-container">
+        <div class="hamburger" id="hamburger">
+          <span class="bar"></span>
+          <span class="bar"></span>
+          <span class="bar"></span>
+        </div>
+      </div>
+                  <ul class="nav-menu" id="nav-menu">
+      <% if (req.session && req.session.userRole === 'Guardian') { %>
+        <!-- Guardian-only menu -->
+        <li class="nav-item"><a href="/guardian/dashboard">Dashboard</a></li>
+        <li class="nav-item"><a href="/common/publicDashboard?organizationId=<%= req.session.organizationId %>">Public Dashboard</a></li>
+        <li class="nav-item"><a href="/guardian/reports">My Reports</a></li>
+        <li class="nav-item"><a href="/guardian/settings" class="nav-item-link">Settings</a></li>
+        <li class="nav-item"><a href="/account/logout" class="logout">Logout</a></li>
+      <% } else { %>
+        <% if (req.session && req.session.userRole !== 'Teacher' &&
+        req.session.userRole !== 'Supervisor') { %>
+        <li class="nav-item">
+          <a
+            href="#"
+            class="submenu-toggle management"
+            data-target="management-submenu"
+          >
+            Management Tools <span class="arrow">&#9660;</span>
+          </a>
+          <ul class="management-links submenu" id="management-submenu">
+            <li><a href="/common/manageRecords">School Year Management</a></li>
+            <li>
+              <a href="/common/manageClassSubjectAndGradYr"
+                >Class, Subjects & Graduation Year</a
+              >
+            </li>
+            <li>
+              <a
+                href="/common/createTest?organizationId=<%= session.organizationId %>&termId=<%= currentTerm ? currentTerm.term_id : '' %>"
+                >Create & Manage Assessment Scores</a
+              >
+            </li>
+            <li><a href="/common/createEmployee">Employee Management</a></li>
+            <li><a href="/common/guardians">Guardian Management</a></li>
+            <li>
+              <a href="/enrollment/manageEnrollment">Enrollment Management</a>
+            </li>
+            <li><a href="/promotion/apply">Promotion/Repetition Manager</a>
+            </li>
+            <li>
+              <a href="/account/managePublicContent"
+                >Edit Public/Organization Website</a
+              >
+            </li>
+          </ul>
+        </li>
+        <% } %> <% if (req.session && req.session.userRole !== 'Teacher') { %>
+        <li class="nav-item">
+          <a
+            href="#"
+            class="submenu-toggle reports"
+            data-target="admission-submenu"
+          >
+            Admissions <span class="arrow">&#9660;</span>
+          </a>
+          <ul class="management-links submenu" id="admission-submenu">
+            <li><a href="/common/addStudent">Create Student</a></li>
+            <li><a href="/common/admissionPending">Pending Admissions</a></li>
+          </ul>
+        </li>
+        <% } %> <% if (req.session && req.session.userRole !== 'Teacher') { %>
+        <li class="nav-item">
+          <a
+            href="#"
+            class="submenu-toggle reports"
+            data-target="reports-submenu"
+          >
+            Reports <span class="arrow">&#9660;</span>
+          </a>
+          <ul class="management-links submenu" id="reports-submenu">
+            <li><a href="/common/management">Term Management</a></li>
+            <li><a href="/print/migration">Data Migration</a></li>
+            <% if (allowedFeatures.includes("Organization Analytics & Insights"))
+            { %>
+            <li><a href="/stats/organization">Organization Stats</a></li>
+            <% } %>
+          </ul>
+        </li>
+        <% } %>
+        <li class="nav-item">
+          <a href="/account/settings" class="nav-item-link">Settings</a>
+        </li>
+        <li class="nav-item">
+          <a href="/account/logout" class="logout">Logout</a>
+        </li>
+      <% } %>
+    </ul>
+    <% } else { %>
+    <a id="loginbutton" title="Click to log in" href="/account/login"
+      >Login | Register</a>
+    <% } %>
+  </div>
+</div>
+  
+
+  <% if (typeof url !== 'undefined' && url.includes('/publicDashboard')) { %>
+  <nav class="sticky-nav">
+    <ul>
+      <li><a href="#image-gallery">Gallery</a></li>
+      <li><a href="#text-articles">Articles</a></li>
+      <li><a href="#events">Events</a></li>
+      <li><a href="#announcements">Announcements</a></li>
+      <li><a href="#about-us">About Us</a></li>
+    </ul>
+  </nav>
+  <% } %>
+</header>
+
+<script>
+  const CURRENT_TERM_ID =
+    "<%= currentTerm?.term_id || session.currentTermId || '' %>";
+</script>
+
+<script>
+  // ...removed log for clean background operation...
+    "🧠 Current Term ID:",
+    "<%= currentTerm ? currentTerm.term_id : 'Not set' %>"
+  
+</script>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const hamburger = document.getElementById("hamburger");
+    const navMenu = document.getElementById("nav-menu");
+    const submenuToggles = document.querySelectorAll(".submenu-toggle");
+    const searchInput = document.getElementById("search-input");
+    const searchResults = document.getElementById("search-results");
+    const searchForm = document.getElementById("search-form");
+
+    // 🔧 Dynamic Organization Nickname Sizing for Mobile
+    function adjustOrgNameSize() {
+      const orgNickname = document.querySelector('.org-names .org-nickname');
+      if (!orgNickname) return;
+      
+      const isMobile = window.innerWidth <= 768;
+      if (!isMobile) return; // Only adjust on mobile
+      
+      const text = orgNickname.textContent || orgNickname.innerText;
+      const textLength = text.length;
+      
+      // Reset to default
+      orgNickname.style.fontSize = '';
+      
+      // Adjust font size based on text length
+      if (textLength > 15) {
+        orgNickname.style.fontSize = '0.75em';
+      } else if (textLength > 12) {
+        orgNickname.style.fontSize = '0.8em';
+      } else if (textLength > 8) {
+        orgNickname.style.fontSize = '0.85em';
+      } else {
+        orgNickname.style.fontSize = '0.9em';
+      }
+    }
+
+    // Apply sizing on load and resize
+    adjustOrgNameSize();
+    window.addEventListener('resize', adjustOrgNameSize);
+
+    hamburger.addEventListener("click", () => {
+      hamburger.classList.toggle("active");
+      navMenu.classList.toggle("show");
+    });
+
+    submenuToggles.forEach((toggle) => {
+      toggle.addEventListener("click", (e) => {
+        e.preventDefault();
+        const target = document.getElementById(toggle.dataset.target);
+        const arrow = toggle.querySelector(".arrow");
+
+        submenuToggles.forEach((otherToggle) => {
+          const otherArrow = otherToggle.querySelector(".arrow");
+          const otherTarget = document.getElementById(
+            otherToggle.dataset.target
+          );
+          if (otherTarget !== target) {
+            otherTarget.classList.remove("show");
+            otherArrow.classList.remove("open");
+          }
+        });
+
+        arrow.classList.toggle("open");
+        target.classList.toggle("show");
+      });
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest("#hamburger") && !e.target.closest("#nav-menu")) {
+        hamburger.classList.remove("active");
+        navMenu.classList.remove("show");
+      }
+    });
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+    // 🔍 Global Search
+    if (searchForm) {
+      searchForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+      });
+    }
+
+    if (searchInput) {
+      searchInput.setAttribute("readonly", "readonly");
+      const unlockSearchInput = () => {
+        searchInput.removeAttribute("readonly");
+      };
+      searchInput.addEventListener("focus", () => {
+        setTimeout(unlockSearchInput, 0);
+      });
+      searchInput.addEventListener("mousedown", unlockSearchInput);
+      searchInput.addEventListener("touchstart", unlockSearchInput, { passive: true });
+
+      searchInput.addEventListener("input", async (event) => {
+        const query = event.target.value.trim();
+
+        if (query.length > 0) {
+          try {
+            const response = await fetch(
+              `/enrollment/searchUsers?query=${query}`
+            );
+            const results = await response.json();
+
+            if (results.users.length > 0) {
+              searchResults.innerHTML = results.users
+                .map((user) => {
+                  const image =
+                    user.image_url &&
+                    user.image_url !== "profilePlaceholder.png"
+                      ? user.image_url
+                      : "/images/profilePlaceholder.png";
+
+                  if (user.type === "student") {
+                    return `<div class="search-result-item">
+                      <a href="/common/studentDetails?studentId=${
+                        user.student_id
+                      }&classId=${user.class_id}&termId=${CURRENT_TERM_ID}">
+                                <img src="${image}" alt="User Image">
+                                ${escapeHtml(user.first_name)} ${escapeHtml(
+                      user.last_name
+                    )} (Student - ${escapeHtml(user.class_name)})
+                              </a>
+                            </div>`;
+                  } else if (user.type === "employee") {
+                    return `<div class="search-result-item">
+                              <a href="/common/employeeDetails?userId=${
+                                user.user_id
+                              }">
+                                <img src="${image}" alt="User Image">
+                                ${escapeHtml(user.first_name)} ${escapeHtml(
+                      user.last_name
+                    )} (${escapeHtml(user.account_type)})
+                              </a>
+                            </div>`;
+                  }
+                })
+                .join("");
+              searchResults.style.display = "block";
+            } else {
+              searchResults.innerHTML =
+                '<div class="search-result-item">No results found.</div>';
+              searchResults.style.display = "block";
+            }
+          } catch (error) {
+            console.error("Error fetching search results:", error);
+          }
+        } else {
+          searchResults.innerHTML = "";
+          searchResults.style.display = "none";
+        }
+      });
+
+      document.addEventListener("click", (e) => {
+        if (!e.target.closest(".search-bar-container")) {
+          searchResults.style.display = "none";
+        }
+      });
+    }
+  });
+</script>
+
+
+
+
+
+
+
+
