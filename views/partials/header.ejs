@@ -131,15 +131,30 @@
   }
 
   .search-bar-container {
+    position: relative;
+    z-index: 11020;
     flex: 0 0 auto;
-    width: 260px;
-    max-width: 320px;
+    width: 220px;
+    max-width: 260px;
     margin-left: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     align-self: stretch;
     height: 100%;
+  }
+
+  .mobile-welcome {
+    display: none;
+    padding: 8px 12px;
+    font-weight: 700;
+    color: var(--org-primary-color);
+  }
+
+  .mobile-welcome .welcome-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
   }
 
   .search-bar {
@@ -194,12 +209,12 @@
   .search-results-dropdown {
     display: none;
     position: absolute;
-    top: 110%;
+    top: calc(100% + 6px);
     left: 0;
     background: #fff;
     border: 1px solid #ccc;
     width: 100%;
-    z-index: 10000;
+    z-index: 11025;
     max-height: 800px;
     overflow-y: auto;
     border-radius: 4px;
@@ -229,7 +244,7 @@
     width: 45px;
     height: 45px;
     border-radius: 50%;
-    margin-right: 15px;
+    margin-right: 5px;
     object-fit: cover;
   }
 
@@ -239,15 +254,15 @@
     right: 0;
     background: white;
     border-radius: 5px;
-    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
-    z-index: 10001;
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.2);
+    z-index: 11010;
     display: none;
     flex-direction: column;
-    width: 200px;
+    width: 220px;
   }
 
   header#top-header .nav-menu .nav-item {
-    padding: 10px 12px;
+    padding: 2px 5px;
     margin: 3px 0;
   }
 
@@ -265,7 +280,7 @@
     align-items: center;
     color: var(--org-primary-color);
     font-weight: 600;
-    padding: 10px 12px;
+    padding: 2px 5px;
     border-radius: 6px;
     transition: all 0.2s ease;
   }
@@ -498,7 +513,7 @@
     width: 45px;
     height: 45px;
     border-radius: 50%;
-    margin-right: 15px;
+    margin-right: 5px;
     object-fit: cover;
   }
 
@@ -519,7 +534,7 @@
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
       width: 100vw;
       min-height: 68px;
-      padding: 10px 15px;
+      padding: 2px 5px;
       flex-direction: row;
       align-items: center;
       justify-content: space-between;
@@ -557,16 +572,15 @@
   header#top-header #tools {
     display: flex;
     align-items: center;
-    right: 15px;
+    right: 0px;
     position: relative;
     margin-left: auto;
-    gap: 16px;
   }
 
   header#top-header #tools li a {
     text-decoration: none;
     color: #074c53;
-    padding-left: 15px;
+    padding-left: 0px;
   }
   
   header#top-header #tools a.header-welcome {
@@ -632,8 +646,8 @@
     :root {
       --header-height: 56px;
       --header-pad-y: 6px;
-      --header-pad-x: 12px;
-      --logo-size: 46px;
+      --header-pad-x: 8px;
+      --logo-size: 40px;
     }
 
     body {
@@ -641,12 +655,29 @@
       padding-bottom: 60px;
     }
 
+    header#top-header {
+    padding: 10px 10px;    }
+
     .header-mobile-row {
-      gap: 8px;
+      gap: 6px;
     }
 
     .header-mobile-left {
-      gap: 8px;
+      gap: 6px;
+      flex-shrink: 1;
+      min-width: 0;
+    }
+
+    .siteName {
+      gap: 6px;
+      min-width: 0;
+      flex-shrink: 1;
+    }
+
+    .org-names {
+      min-width: 0;
+      flex-shrink: 1;
+      overflow: hidden;
     }
 
     .org-names .org-full-name {
@@ -655,15 +686,32 @@
 
     .org-names .org-nickname {
       display: block;
-      font-size: 1.05rem;
+      font-size: 0.9rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 100px;
     }
 
     .search-bar-container {
-      width: 200px;
-      max-width: 220px;
+      width: 130px;
+      max-width: 150px;
       margin: 0;
       align-self: center;
       height: auto;
+      flex-shrink: 0;
+    }
+
+    .mobile-welcome {
+      display: block;
+    }
+
+    a.header-welcome {
+      display: none !important;
+    }
+
+    #tools {
+      gap: 0;
     }
 
     .search-bar {
@@ -671,8 +719,9 @@
     }
 
     #search-input {
-      height: 32px;
-      font-size: 0.9rem;
+      height: 30px;
+      font-size: 0.85rem;
+      padding-left: 32px;
     }
 
     #tools a.header-welcome {
@@ -680,9 +729,13 @@
     }
 
     .hamburger {
-      padding: 8px 10px;
+      padding: 6px 8px;
       border-radius: 6px;
       box-sizing: border-box;
+    }
+
+    .hamburger-container {
+      flex-shrink: 0;
     }
 
     .sticky-nav {
@@ -849,6 +902,9 @@
         </div>
       </div>
                   <ul class="nav-menu" id="nav-menu">
+        <li class="nav-item mobile-welcome">
+          <span class="welcome-label">Hello, <%= session.firstName %>!</span>
+        </li>
       <% if (req.session && req.session.userRole === 'Guardian') { %>
         <!-- Guardian-only menu -->
         <li class="nav-item"><a href="/guardian/dashboard" class="management-link">
@@ -968,7 +1024,7 @@
 </script>
 
 <script>
-  document.addEventListener("DOMContentLoaded", () => {
+  function initHeaderMenu() {
     const hamburger = document.getElementById("hamburger");
     const navMenu = document.getElementById("nav-menu");
     const submenuToggles = document.querySelectorAll(".submenu-toggle");
@@ -1009,10 +1065,19 @@
     // Hamburger menu toggle with stopPropagation to prevent conflicts
     // Only add listeners if elements exist (prevents errors on hub pages)
     if (hamburger && navMenu) {
+      const toggleNavMenu = (open) => {
+        navMenu.classList.toggle("show", open);
+        navMenu.style.display = open ? "block" : "none";
+      };
+
+      // Initialize closed state explicitly
+      toggleNavMenu(false);
+
       hamburger.addEventListener("click", (e) => {
         e.stopPropagation();
-        hamburger.classList.toggle("active");
-        navMenu.classList.toggle("show");
+        const shouldOpen = !navMenu.classList.contains("show");
+        hamburger.classList.toggle("active", shouldOpen);
+        toggleNavMenu(shouldOpen);
       });
 
       // Prevent clicks inside nav menu from bubbling to document
@@ -1045,7 +1110,7 @@
       document.addEventListener("click", (e) => {
         if (!e.target.closest("#hamburger") && !e.target.closest("#nav-menu")) {
           hamburger.classList.remove("active");
-          navMenu.classList.remove("show");
+          toggleNavMenu(false);
         }
       });
     }
@@ -1141,7 +1206,13 @@
         }
       });
     }
-  });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initHeaderMenu);
+  } else {
+    initHeaderMenu();
+  }
 </script>
 
 

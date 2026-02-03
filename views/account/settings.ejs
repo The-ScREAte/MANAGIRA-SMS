@@ -1,3 +1,24 @@
+<%
+  const themeColor = (typeof session !== 'undefined' && session && session.themeColor) ? session.themeColor : 'teal';
+  const themeColors = {
+    teal: { primary: '#01535b', hover: '#014a51' },
+    blue: { primary: '#2563eb', hover: '#1d4ed8' },
+    green: { primary: '#2d5f4f', hover: '#245043' },
+    purple: { primary: '#7c3aed', hover: '#6d28d9' },
+    indigo: { primary: '#4f46e5', hover: '#4338ca' },
+    rose: { primary: '#8b2635', hover: '#7a212e' },
+    amber: { primary: '#d97706', hover: '#b45309' },
+    slate: { primary: '#334155', hover: '#1e293b' },
+    classic: { primary: '#01535b', hover: '#014a51' },
+    bold: { primary: '#0b1020', hover: '#ffb703' },
+    modern: { primary: '#2563eb', hover: '#1d4ed8' },
+    minimal: { primary: '#7c3aed', hover: '#6d28d9' },
+    gold: { primary: '#d4a017', hover: '#b8860b' },
+    red: { primary: '#e11d48', hover: '#be123c' },
+    brown: { primary: '#7c4a03', hover: '#5c3802' }
+  };
+  const currentTheme = themeColors[themeColor] || themeColors.teal;
+%>
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -9,12 +30,15 @@
         --border: #e5e7eb;
         --muted: #6b7280;
         --bg: #f9fafb;
-        --primary: #026972;
+        --primary: <%= currentTheme.primary %>;
+        --primary-hover: <%= currentTheme.hover %>;
+        --org-primary-color: <%= currentTheme.primary %>;
+        --org-primary-hover: <%= currentTheme.hover %>;
         --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
       }
 
       body {
-        background: #fff;
+        background: #f9fafb;
         font-family: var(--font-family);
       }
 
@@ -35,6 +59,9 @@
         background: #fff;
         height: fit-content;
         align-self: start;
+        position: sticky;
+        top: 80px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
       }
 
       .settings-nav-header {
@@ -48,6 +75,8 @@
       .settings-nav h3 {
         margin: 0;
         font-size: 18px;
+        color: var(--primary);
+        font-weight: 700;
       }
 
       .nav-list {
@@ -67,7 +96,7 @@
         align-items: center;
         gap: 8px;
         padding: 6px 10px;
-        border-radius: 5px;
+        border-radius: 8px;
         color: #111827;
         text-decoration: none;
         border: 1px solid transparent;
@@ -76,16 +105,23 @@
         cursor: pointer;
         font: inherit;
         text-align: left;
+        font-weight: 600;
+        transition: all 0.2s ease;
       }
 
       .nav-link:hover {
         background: #f3f4f6;
-        border-color: #e5e7eb;
+        border-color: var(--border);
       }
 
       .nav-link.active {
-        background: #e5e7eb;
-        border-color: #d1d5db;
+        background: var(--primary);
+        border-color: var(--primary);
+        color: #fff;
+      }
+
+      .nav-link svg {
+        color: inherit;
       }
 
       .settings-main{
@@ -386,6 +422,8 @@
         border-radius: 3px;
         border: 1px solid var(--border);
         background: #fff;
+        color: var(--primary);
+        box-shadow: 0 1px 2px rgba(0,0,0,0.04);
         cursor: pointer;
         font: inherit;
         margin-bottom: 12px;
@@ -444,7 +482,7 @@
         opacity: 0;
         pointer-events: none;
         transition: opacity 0.2s ease;
-        z-index: 999;
+        z-index: 1000;
       }
 
       .settings-nav-overlay.show {
@@ -923,7 +961,7 @@
           height: 100vh;
           transform: translateX(-110%);
           transition: transform 0.2s ease;
-          z-index: 1000;
+          z-index: 1001;
         }
 
         .settings-nav.open {

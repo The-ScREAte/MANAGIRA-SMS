@@ -115,6 +115,79 @@ li {
   text-align: left; /* Keep the list items left-aligned */
 }
 
+.class-item {
+  position: relative;
+}
+
+.class-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.teacher-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-left: 4px;
+  padding: 2px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, var(--org-primary-color, #01535b), var(--org-primary-hover, #014a51));
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.teacher-toggle:hover {
+  transform: scale(1.1);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+}
+
+.toggle-arrow {
+  transition: transform 0.3s ease;
+  color: #fff;
+  stroke: #fff;
+}
+
+.toggle-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+.teachers-list {
+  margin-top: 12px;
+  padding-left: 28px;
+  animation: slideDown 0.3s ease-out;
+  border-left: 3px solid var(--org-primary-color, #01535b);
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.teacher-entry {
+  padding: 6px 8px;
+  font-size: 0.95em;
+  color: #333;
+  background: #f5f5f5;
+  margin-bottom: 4px;
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+.teacher-entry:hover {
+  background: #e8e8e8;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Optional: Styling for employees and other class details */
 .on-hold {
   color: red;
@@ -131,7 +204,7 @@ li {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 40px 16px;
+  padding: 0px 5px;
 }
 
 .welcome-card {
@@ -306,6 +379,10 @@ li {
 
 /* Mobile view: make grid-row elements stack vertically */
 @media screen and (max-width: 768px) {
+  main {
+    padding: 0 !important;
+  }
+
   /* Stack dashboard header elements */
   .public-dashboard-header {
     grid-template-columns: 1fr;

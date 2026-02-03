@@ -85,16 +85,27 @@
             <h2>Enrolled Classes</h2>
             <ul>
               <% if (classes && classes.length > 0) { %>
-                <% classes.forEach(function(cls) { %>
-                  <li>
-                    <a href="/common/classDashboard?classId=<%= cls.class_id %>"><%= cls.class_name %></a>
-                    - <b>Teachers:</b>
-                    <% cls.employees.forEach(function(emp, index) { %>
-                      <% if (emp.main) { %><span class="main">•</span><% } %>
-                      <% if (emp.reset_password_token) { %><span class="yellow-dot" title="Has not set password">•</span><% } %>
-                      <% if (emp.on_hold) { %><span class="on-hold">•</span><% } %>
-                      <%= emp.name %><%= index < cls.employees.length - 1 ? ' | ' : '' %>
-                    <% }); %>
+                <% classes.forEach(function(cls, clsIndex) { %>
+                  <li class="class-item">
+                    <div class="class-header">
+                      <a href="/common/classDashboard?classId=<%= cls.class_id %>"><%= cls.class_name %></a>
+                      - <b>Teachers:</b>
+                      <span class="teacher-toggle" onclick="toggleTeachers(<%= clsIndex %>)" title="Click to show/hide teachers">
+                        <svg class="toggle-arrow" id="arrow-<%= clsIndex %>" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                      </span>
+                    </div>
+                    <div class="teachers-list" id="teachers-<%= clsIndex %>" style="display: none;">
+                      <% cls.employees.forEach(function(emp, index) { %>
+                        <div class="teacher-entry">
+                          <% if (emp.main) { %><span class="main" title="Main teacher">•</span><% } %>
+                          <% if (emp.reset_password_token) { %><span class="yellow-dot" title="Has not set password">•</span><% } %>
+                          <% if (emp.on_hold) { %><span class="on-hold" title="On hold">•</span><% } %>
+                          <%= emp.name %>
+                        </div>
+                      <% }); %>
+                    </div>
                   </li>
                 <% }); %>
               <% } else { %>
@@ -215,6 +226,19 @@
       const flash = document.getElementById("admin-flash");
       if (flash) {
         flash.style.display = "none";
+      }
+    }
+
+    function toggleTeachers(index) {
+      const teachersList = document.getElementById('teachers-' + index);
+      const arrow = document.getElementById('arrow-' + index);
+      
+      if (teachersList.style.display === 'none' || teachersList.style.display === '') {
+        teachersList.style.display = 'block';
+        arrow.classList.add('expanded');
+      } else {
+        teachersList.style.display = 'none';
+        arrow.classList.remove('expanded');
       }
     }
   </script>

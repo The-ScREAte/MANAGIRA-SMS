@@ -1,15 +1,30 @@
+<%
+  const themeColor = (typeof session !== 'undefined' && session && session.themeColor) ? session.themeColor : 'teal';
+  const themeColors = {
+    teal: { primary: '#01535b', hover: '#014a51' },
+    blue: { primary: '#2563eb', hover: '#1d4ed8' },
+    green: { primary: '#2d5f4f', hover: '#245043' },
+    purple: { primary: '#7c3aed', hover: '#6d28d9' },
+    indigo: { primary: '#4f46e5', hover: '#4338ca' },
+    rose: { primary: '#8b2635', hover: '#7a212e' },
+    amber: { primary: '#d97706', hover: '#b45309' },
+    slate: { primary: '#334155', hover: '#1e293b' }
+  };
+  const currentTheme = themeColors[themeColor] || themeColors.teal;
+%>
 <style>
 :root {
   --border: #e5e7eb;
   --muted: #6b7280;
   --bg: #f9fafb;
-  --primary: #026972;
+  --primary: <%= currentTheme.primary %>;
+  --primary-hover: <%= currentTheme.hover %>;
   --text: #111827;
   --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
 }
 
 body {
-  background: #fff;
+  background: var(--bg);
   font-family: var(--font-family);
 }
 
@@ -30,6 +45,7 @@ body {
   background: #fff;
   border: 1px solid var(--border);
   border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
 }
 
 .card-header {
@@ -72,6 +88,8 @@ body {
 
 .nav-card {
   padding: 0;
+  position: sticky;
+  top: 80px;
 }
 
 .nav-header {
@@ -137,8 +155,9 @@ body {
 }
 
 .nav-link.active {
-  background: #e5e7eb;
-  border-color: #d1d5db;
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
 }
 
 .nav-toggle {
@@ -211,6 +230,8 @@ body {
   border-radius: 12px;
   padding: 14px;
   margin-top: 16px;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
 }
 
 .section-title {
