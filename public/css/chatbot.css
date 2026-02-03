@@ -339,7 +339,7 @@
 }
 
 .message-user .message-bubble {
-  background: #01535b;
+  background: var(--org-primary-color, #01535b);
   color: white;
   border-bottom-right-radius: 6px;
 }
@@ -361,12 +361,12 @@
 
 .faq-item:hover {
   background: #f8f9fa;
-  border-color: #01535b;
+  border-color: var(--org-primary-color, #01535b);
 }
 
 .faq-question {
   font-weight: 600;
-  color: #01535b;
+  color: var(--org-primary-color, #01535b);
   font-size: 13px;
   margin-bottom: 4px;
 }
@@ -454,12 +454,12 @@
   margin-bottom: 6px;
   cursor: pointer;
   font-size: 13px;
-  color: #01535b;
+  color: var(--org-primary-color, #01535b);
   transition: all 0.2s ease;
 }
 
 .suggestion-item:hover {
-  background: #01535b;
+  background: var(--org-primary-color, #01535b);
   color: white;
 }
 
@@ -494,11 +494,11 @@
 }
 
 .chatbot-input:focus {
-  border-color: #01535b;
+  border-color: var(--org-primary-color, #01535b);
 }
 
 .chatbot-send {
-  background: #01535b;
+  background: var(--org-primary-color, #01535b);
   border: none;
   border-radius: 50%;
   width: 40px;
@@ -511,7 +511,7 @@
 }
 
 .chatbot-send:hover {
-  background: #013c44;
+  background: var(--org-primary-hover, #013c44);
 }
 
 .chatbot-send:disabled {
@@ -583,7 +583,7 @@
 }
 
 .welcome-message h4 {
-  color: #01535b;
+  color: var(--org-primary-color, #01535b);
   margin: 0 0 12px 0;
   font-size: 18px;
   font-weight: 600;
@@ -608,7 +608,7 @@
 .popular-questions h5 {
   font-size: 14px;
   font-weight: 600;
-  color: #01535b;
+  color: var(--org-primary-color, #01535b);
   margin-bottom: 8px;
 }
 
@@ -626,8 +626,8 @@
 
 .popular-question:hover {
   background: #f8f9fa;
-  border-color: #01535b;
-  color: #01535b;
+  border-color: var(--org-primary-color, #01535b);
+  color: var(--org-primary-color, #01535b);
 }
 
 /* Loading Animation */
@@ -642,7 +642,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #01535b;
+  background: var(--org-primary-color, #01535b);
   animation: typing 1.4s infinite ease-in-out;
 }
 

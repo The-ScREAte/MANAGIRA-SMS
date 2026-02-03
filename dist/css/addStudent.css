@@ -1,0 +1,12 @@
+/* add student */
+.add-student-container {
+  padding: 20px;
+}
+
+.error {
+  color: red;
+}
+
+.success {
+  color: green;
+}

@@ -1,0 +1,27 @@
+/* register school year */
+.school-year-registration-container {
+  width: 90%;
+  max-width: 600px;
+  margin: 20px auto;
+  padding: 20px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+.term-dates {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 5px;
+}
+
+.term-dates input {
+  width: 48%;
+}
+
+.class-checkbox-container {
+  margin-top: 10px;
+}
+
+.class-checkbox-container label {
+  display: inline-block;
+  margin-right: 10px;
+}

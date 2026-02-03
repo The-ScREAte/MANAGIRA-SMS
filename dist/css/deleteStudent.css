@@ -1,0 +1,39 @@
+/* delete student */
+.delete-student-container {
+  padding: 20px;
+}
+
+.student-details {
+  margin-bottom: 20px;
+}
+
+.student-details p {
+  margin: 5px 0;
+}
+
+.btn-delete {
+  background-color: #d9534f;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+.btn-delete:hover {
+  background-color: #c9302c;
+}
+
+.btn-cancel {
+  background-color: #f0ad4e;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  cursor: pointer;
+  border-radius: 5px;
+  margin-left: 10px;
+}
+
+.btn-cancel:hover {
+  background-color: #ec971f;
+}

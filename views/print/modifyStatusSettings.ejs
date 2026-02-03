@@ -67,12 +67,17 @@
       padding: 10px 20px;
       border: none;
       color: white;
-      background: #01535b;
+      background: var(--org-primary-color, #01535b);
       cursor: pointer;
       border-radius: 5px;
       text-align: center;
       text-decoration: none;
       display: inline-block;
+      transition: background 0.2s ease;
+    }
+
+    .btn:hover {
+      background: var(--org-primary-hover, #014a51);
     }
 
     .btn-danger {

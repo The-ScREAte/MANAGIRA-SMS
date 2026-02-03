@@ -49,7 +49,7 @@ h6 {
 .link-to-next-back a {
   display: inline-block;
   padding: 10px 20px;
-  background-color: #01535b;
+  background-color: var(--org-primary-color, #01535b);
   color: #fff;
   text-decoration: none;
   border-radius: 5px;
@@ -57,7 +57,7 @@ h6 {
 }
 
 .link-to-next-back a:hover {
-  background-color: #002a25;
+  background-color: var(--org-primary-hover, #002a25);
   text-decoration: none;
   cursor: pointer;
 }

@@ -52,17 +52,18 @@
       }
 
       button {
-        background: #01535b;
+        background: var(--org-primary-color, #01535b);
         color: white;
         padding: 12px;
         border: none;
         border-radius: 5px;
         cursor: pointer;
         font-size: 16px;
+        transition: background 0.2s ease;
       }
 
       button:hover {
-        background: #01535b;
+        background: var(--org-primary-hover, #014a51);
       }
 
       .uploaded-files {
@@ -84,7 +85,7 @@
       }
 
       .uploaded-files a {
-        color: #01535b;
+        color: var(--org-primary-color, #01535b);
         text-decoration: none;
       }
 

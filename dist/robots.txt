@@ -1,0 +1,19 @@
+User-agent: *
+Allow: /
+Allow: /legal/
+Allow: /common/publicDashboard
+
+# Sitemap
+Sitemap: https://www.managira.com/sitemap.xml
+
+# Block access to admin and private areas
+Disallow: /admin/
+Disallow: /account/
+Disallow: /enrollment/
+Disallow: /common/orgDashboard
+Disallow: /common/addStudent
+Disallow: /common/manageRecords
+Disallow: /print/
+Disallow: /promotion/
+Disallow: /stats/
+Disallow: /transcript/
