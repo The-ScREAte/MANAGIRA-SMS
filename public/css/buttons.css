@@ -1,32 +1,35 @@
-/* ============================================
-   MANAGIRA UNIFIED BUTTON SYSTEM
-   All buttons across the app are controlled here
-   ============================================ */
+/* =============================================
+   UNIFIED BUTTON SYSTEM FOR MANAGIRA
+   =============================================
+   This file controls ALL button styles across the app.
+   Button colors are dynamically set by the organization's theme.
+   The theme is injected via inline CSS in head.ejs.
+   ============================================= */
 
 :root {
-  /* Primary Button Colors */
-  --btn-primary-bg: #01535b;
-  --btn-primary-bg-hover: #013a40;
+  /* Primary Button Colors - These are overridden by organization theme */
+  --btn-primary-bg: var(--org-primary-color, #01535b);
+  --btn-primary-bg-hover: var(--org-primary-hover, #014a51);
   --btn-primary-text: #ffffff;
   
   /* Secondary/Outline Button Colors */
   --btn-secondary-bg: #ffffff;
-  --btn-secondary-bg-hover: #01535b;
-  --btn-secondary-border: #01535b;
-  --btn-secondary-text: #01535b;
+  --btn-secondary-bg-hover: var(--org-primary-color, #01535b);
+  --btn-secondary-border: var(--org-primary-color, #01535b);
+  --btn-secondary-text: var(--org-primary-color, #01535b);
   --btn-secondary-text-hover: #ffffff;
   
-  /* Danger/Delete Button Colors */
+  /* Danger/Delete Button Colors - Always red for consistency */
   --btn-danger-bg: #dc2626;
   --btn-danger-bg-hover: #b91c1c;
   --btn-danger-text: #ffffff;
   
-  /* Success Button Colors */
+  /* Success Button Colors - Always green */
   --btn-success-bg: #16a34a;
   --btn-success-bg-hover: #15803d;
   --btn-success-text: #ffffff;
   
-  /* Warning Button Colors */
+  /* Warning Button Colors - Always amber */
   --btn-warning-bg: #f59e0b;
   --btn-warning-bg-hover: #d97706;
   --btn-warning-text: #ffffff;

@@ -141,9 +141,27 @@
   <% if (shouldLoadGoogleFont && selectedFont !== 'Inter') { %>
   <link href="https://fonts.googleapis.com/css2?family=<%= normalizedFont %>:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <% } %>
+  <%
+    // Theme color mapping for organization buttons
+    const themeColor = (typeof session !== 'undefined' && session && session.themeColor) ? session.themeColor : 'teal';
+    const themeColors = {
+      teal: { primary: '#01535b', hover: '#014a51' },
+      blue: { primary: '#2563eb', hover: '#1d4ed8' },
+      green: { primary: '#2d5f4f', hover: '#245043' },
+      purple: { primary: '#7c3aed', hover: '#6d28d9' },
+      indigo: { primary: '#4f46e5', hover: '#4338ca' },
+      rose: { primary: '#8b2635', hover: '#7a212e' },
+      amber: { primary: '#d97706', hover: '#b45309' },
+      slate: { primary: '#334155', hover: '#1e293b' }
+    };
+    const currentTheme = themeColors[themeColor] || themeColors.teal;
+  %>
   <style>
     :root {
       --font-family: "<%= selectedFont %>", <%= fallbackFamily %>;
+      /* Organization Theme Colors */
+      --org-primary-color: <%= currentTheme.primary %>;
+      --org-primary-hover: <%= currentTheme.hover %>;
     }
   </style>
 

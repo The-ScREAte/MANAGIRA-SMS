@@ -131,6 +131,7 @@ const fetchUserInfo = async (req, res, next) => {
                         req.session.organizationName = organization.organization_name;
                         req.session.logo = organization.logo;
                         req.session.fontStyle = organization.font_style;
+                        req.session.themeColor = organization.theme_color || 'teal';
                     }
                 }
             }
