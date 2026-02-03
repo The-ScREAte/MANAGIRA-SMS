@@ -6013,35 +6013,20 @@ const commonController = {
 
   management: async (req, res, db) => {
     try {
-      const schoolYears = await db.query(`
-                SELECT sy.*, t.*
-                FROM school_years sy
-                LEFT JOIN terms t ON t.year_id = sy.id
-                ORDER BY sy.year_label DESC, t.start_date ASC;
-            `);
+      // Get current term for assessment link
+      const termResult = await db.query(`
+        SELECT t.term_id, t.term_name
+        FROM terms t
+        JOIN school_years sy ON t.school_year_id = sy.id
+        WHERE sy.organization_id = $1 AND sy.current = TRUE AND t.current = TRUE
+        LIMIT 1
+      `, [req.session.organizationId]);
+      
+      const currentTerm = termResult.rows.length > 0 ? termResult.rows[0] : null;
 
-      let structuredSchoolYears = {};
-      schoolYears.rows.forEach((row) => {
-        if (!structuredSchoolYears[row.id]) {
-          structuredSchoolYears[row.id] = {
-            id: row.id,
-            year_label: row.year_label,
-            terms: [],
-          };
-        }
-        if (row.term_id) {
-          structuredSchoolYears[row.id].terms.push({
-            term_id: row.term_id,
-            term_name: row.term_name,
-            start_date: row.start_date,
-            end_date: row.end_date,
-          });
-        }
-      });
-
-      res.render("common/management", {
+      res.render("common/managementTools", {
         title: "Management Tools",
-        schoolYears: Object.values(structuredSchoolYears),
+        currentTerm: currentTerm,
       });
     } catch (error) {
       console.error("Error fetching management data:", error);
