@@ -505,5 +505,15 @@ module.exports = (db) => {
     commonController.searchGuardiansApi(req, res, db)
   );
 
+  // Admissions Hub
+  router.get("/admissions", checkFeatureAccess, isAuthenticated, (req, res) =>
+    commonController.admissionsHub(req, res, db)
+  );
+
+  // Reports Hub
+  router.get("/reports", checkFeatureAccess, isAuthenticated, (req, res) =>
+    commonController.reportsHub(req, res, db)
+  );
+
   return router;
 };
