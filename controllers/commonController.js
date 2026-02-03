@@ -6898,6 +6898,30 @@ const commonController = {
       return res.status(500).json({ success: false, error: 'Error sending password setup email: ' + error.message });
     }
   },
+
+  // Admissions Hub
+  admissionsHub: async (req, res, db) => {
+    try {
+      res.render("common/admissionsHub", {
+        title: "Admissions",
+      });
+    } catch (error) {
+      console.error("Error loading admissions hub:", error);
+      res.status(500).send("Failed to load admissions page");
+    }
+  },
+
+  // Reports Hub
+  reportsHub: async (req, res, db) => {
+    try {
+      res.render("common/reportsHub", {
+        title: "Reports",
+      });
+    } catch (error) {
+      console.error("Error loading reports hub:", error);
+      res.status(500).send("Failed to load reports page");
+    }
+  },
 };
 
 
