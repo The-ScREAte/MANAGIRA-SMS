@@ -1,0 +1,86 @@
+/* manage class subject and grad year */
+.manage-records-page .container {
+  /* display: flex; */
+  justify-content: center;
+  /* min-height: 80vh; */
+  width: 100%;
+  margin-top: 20px;
+  margin-bottom: 20px;
+}
+
+.manage-records-page fieldset {
+  margin: 10px;
+  padding: 20px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background-color: #fff;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  width: 90%;
+  max-width: 600px;
+}
+
+.manage-records-page form,
+.manage-records-page .delete-link {
+  margin-top: 10px;
+}
+
+.manage-records-page .delete-link {
+  display: block;
+  color: red;
+  text-decoration: none;
+  margin-top: 5px;
+}
+
+.manage-records-page .delete-link:hover {
+  text-decoration: underline;
+}
+
+.manage-records-page button,
+.manage-records-page select,
+.manage-records-page input[type="text"] {
+  padding: 8px;
+  margin-top: 5px;
+}
+
+.manage-records-page legend {
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+.separator {
+  border-bottom: 1px solid #ccc;
+  margin: 20px 0;
+}
+
+/* Mobile view adjustments */
+@media (max-width: 768px) {
+  .manage-records-page .container {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+.separator {
+  border-bottom: 1px solid #ccc;
+  margin: 20px 0;
+}
+
+.manage-records-page .center-link {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.manage-records-page .center-link button {
+  margin: 0 10px;
+  padding: 5px 10px; /* Adjusted padding for a smaller button */
+  border: none;
+  background-color: #01535b;
+  color: white;
+  cursor: pointer;
+  border-radius: 5px;
+  transition: background-color 0.3s ease;
+}
+
+.manage-records-page .center-link button:hover {
+  background-color: #01535b;
+}

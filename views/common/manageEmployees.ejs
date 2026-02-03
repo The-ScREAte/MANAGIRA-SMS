@@ -1,0 +1,247 @@
+<head>
+    <style>
+      :root {
+        --font-family: "Inter", sans-serif;
+      }
+
+
+            body {
+                font-family: var(--font-family);
+                background: #f6f8fa;
+                margin: 0;
+            }
+            h1 {
+                text-align: center;
+                font-size: 2rem;
+                margin: 30px 0 20px 0;
+            }
+            .link-to-next-back {
+                display: flex;
+                justify-content: center;
+                margin-bottom: 20px;
+            }
+            .link-to-next-back a {
+                padding: 12px 28px;
+                background: #01535b;
+                color: #fff;
+                border-radius: 6px;
+                font-size: 1rem;
+                text-decoration: none;
+                box-shadow: 0 2px 8px rgba(1,83,91,0.08);
+                transition: background 0.2s;
+            }
+            .link-to-next-back a:hover {
+                background: #013a40;
+            }
+            table {
+                width: 95%;
+                margin: 0 auto 40px auto;
+                border-collapse: separate;
+                border-spacing: 0;
+                background: #fff;
+                box-shadow: 0 2px 12px rgba(1,83,91,0.07);
+                border-radius: 10px;
+                overflow: hidden;
+            }
+            th, td {
+                padding: 14px 10px;
+                text-align: left;
+                font-size: 1rem;
+            }
+            th {
+                background: #01535b;
+                color: #fff;
+                font-weight: 600;
+                border-bottom: 2px solid #013a40;
+            }
+            tr:nth-child(even) {
+                background: #f2f7fa;
+            }
+            tr:hover {
+                background: #e0f7fa;
+            }
+            .yellow-dot {
+                display: inline-block;
+                width: 12px;
+                height: 12px;
+                background-color: #ffeb3b;
+                border-radius: 50%;
+                margin-left: 6px;
+                vertical-align: middle;
+            }
+            a.modify-link {
+                color: #43a047;
+                font-weight: bold;
+                text-decoration: none;
+                padding: 6px 14px;
+                border-radius: 4px;
+                background: #e8f5e9;
+                transition: background 0.2s, color 0.2s;
+            }
+            a.modify-link:hover {
+                background: #43a047;
+                color: #fff;
+            }
+            .hold-status {
+                color: #e53935;
+                font-weight: bold;
+                background: #ffebee;
+                padding: 4px 10px;
+                border-radius: 4px;
+                margin-left: 8px;
+                font-size: 0.95em;
+            }
+
+            .collapsible-btn {
+                width: 100%;
+                background: #01535b;
+                color: #fff;
+                border: none;
+                outline: none;
+                padding: 8px 12px;
+                font-size: 15px;
+                text-align: left;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                cursor: pointer;
+                border-radius: 5px;
+                margin-bottom: 6px;
+                transition: none;
+            }
+            .collapsible-btn:hover,
+            .collapsible-btn:focus {
+                background: #01535b;
+                color: #fff;
+                box-shadow: none;
+            }
+            .collapsible-btn .arrow {
+                font-size: 18px;
+                margin-left: 8px;
+                transition: transform 0.2s;
+            }
+            .collapsible-content {
+                background: #f2f7fa;
+                border-radius: 6px;
+                margin-top: 6px;
+                padding: 8px 12px;
+            }
+            @media (max-width: 768px) {
+                table, thead, tbody, th, td, tr {
+                    display: block;
+                }
+                th {
+                    display: none;
+                }
+                td {
+                    text-align: right;
+                    padding-left: 50%;
+                    position: relative;
+                    font-size: 1rem;
+                }
+                td:before {
+                    content: attr(data-label);
+                    position: absolute;
+                    left: 10px;
+                    width: calc(50% - 20px);
+                    white-space: nowrap;
+                    text-align: left;
+                    font-weight: bold;
+                    color: #01535b;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <%- include('../partials/flash') %>
+        <br />
+        <div class="link-to-next-back">
+            <a href="/common/createEmployee">Add Employee</a>
+        </div>
+        <hr />
+
+        <h1><%= title %></h1>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>First Name</th>
+                    <th>Last Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Classes</th>
+                    <th>Subjects</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% employees.forEach((employee, idx) => { %>
+                <tr>
+                    <td data-label="Status">
+                        <% if (employee.reset_password_token) { %> Password not yet set
+                        <span class="yellow-dot" title="Password not yet set"></span>
+                        <% } %>
+                    </td>
+                    <td data-label="First Name"><%= employee.first_name %></td>
+                    <td data-label="Last Name"><%= employee.last_name %></td>
+                    <td data-label="Email"><%= employee.email %></td>
+                    <td data-label="Role"><%= employee.account_type %></td>
+                    <td data-label="Classes">
+                        <button type="button" class="collapsible-btn" onclick="toggleEmployeeCollapse('classes', '<%= idx %>')">
+                            Show/Hide Classes
+                            <span class="arrow" id="arrow-classes-<%= idx %>">&#9654;</span>
+                        </button>
+                        <div class="collapsible-content" id="collapse-classes-<%= idx %>" style="display:none;">
+                            <ul>
+                                <% (employee.classes || []).forEach(cls => { %>
+                                <li><%= cls.class_name %></li>
+                                <% }); %>
+                            </ul>
+                        </div>
+                    </td>
+                    <td data-label="Subjects">
+                        <button type="button" class="collapsible-btn" onclick="toggleEmployeeCollapse('subjects', '<%= idx %>')">
+                            Show/Hide Subjects
+                            <span class="arrow" id="arrow-subjects-<%= idx %>">&#9654;</span>
+                        </button>
+                        <div class="collapsible-content" id="collapse-subjects-<%= idx %>" style="display:none;">
+                            <% (employee.classes || []).forEach(cls => { %>
+                                <div style="margin-bottom:8px;">
+                                    <strong><%= cls.class_name %>:</strong>
+                                    <ul>
+                                        <% (cls.subjects || []).forEach(sub => { %>
+                                            <li><%= sub.subject_name %></li>
+                                        <% }); %>
+                                    </ul>
+                                </div>
+                            <% }); %>
+                        </div>
+                    </td>
+                    <td data-label="Actions">
+                        <a href="/common/modifyEmployee?userId=<%= employee.user_id %>" class="modify-link">Modify</a>
+                        <% if (employee.on_hold) { %>
+                        <span class="hold-status">Hold</span>
+                        <% } %>
+                    </td>
+                </tr>
+                <% }); %>
+            </tbody>
+        </table>
+
+        <script>
+            function toggleEmployeeCollapse(type, idx) {
+                const collapseDiv = document.getElementById('collapse-' + type + '-' + idx);
+                const arrow = document.getElementById('arrow-' + type + '-' + idx);
+                if (collapseDiv && arrow) {
+                    if (collapseDiv.style.display === 'none') {
+                        collapseDiv.style.display = 'block';
+                        arrow.innerHTML = '&#9660;';
+                    } else {
+                        collapseDiv.style.display = 'none';
+                        arrow.innerHTML = '&#9654;';
+                    }
+                }
+            }
+        </script>
+    </body>

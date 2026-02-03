@@ -1,0 +1,588 @@
+<style>
+  .academic-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  .student-header {
+    background: linear-gradient(135deg, #0f5a66 0%, #6fd3c4 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 12px rgba(15, 90, 102, 0.15);
+  }
+
+  .student-header-content {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+
+  .student-avatar-large {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid white;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  }
+
+  .student-header-info {
+    flex: 1;
+    min-width: 250px;
+  }
+
+  .student-header-info h1 {
+    margin: 0 0 8px 0;
+    font-size: 28px;
+    font-weight: 700;
+  }
+
+  .student-header-info p {
+    margin: 4px 0;
+    opacity: 0.95;
+    font-size: 15px;
+  }
+
+  .student-info-grid {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.3s;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+
+  .back-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateX(-3px);
+  }
+
+  .section-card {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e2e8f0;
+  }
+
+  .section-card h2 {
+    margin: 0 0 20px 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #e2e8f0;
+  }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+  }
+
+  .info-item {
+    padding: 12px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+  }
+
+  .info-label {
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 600;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .info-value {
+    font-size: 15px;
+    color: #1e293b;
+    font-weight: 600;
+  }
+
+  .teacher-card {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 16px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 12px;
+  }
+
+  .teacher-card h4 {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+    color: #0f5a66;
+  }
+
+  .teacher-card p {
+    margin: 4px 0;
+    font-size: 14px;
+    color: #475569;
+  }
+
+  .attendance-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+  }
+
+  .attendance-table th,
+  .attendance-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .attendance-table th {
+    background: #f8fafc;
+    font-weight: 600;
+    color: #475569;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .attendance-table tr:hover {
+    background: #f8fafc;
+  }
+
+  .status-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-block;
+  }
+
+  .status-present {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .status-absent {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+
+  .status-late {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .status-excused {
+    background: #dbeafe;
+    color: #1e40af;
+  }
+
+  .assessment-table {
+    width: auto;
+    min-width: 100%;
+    border-collapse: collapse;
+  }
+
+  .assessment-table th,
+  .assessment-table td {
+    padding: 10px 8px;
+    text-align: center;
+    border: 1px solid #e2e8f0;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .assessment-table th {
+    background: #0f5a66;
+    color: white;
+    font-weight: 600;
+    padding: 12px 8px;
+    vertical-align: middle;
+  }
+
+  .assessment-table td:first-child,
+  .assessment-table th:first-child {
+    text-align: left;
+    font-weight: 600;
+    min-width: 100px;
+  }
+
+  .grade-badge {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-weight: 700;
+    display: inline-block;
+  }
+
+  .grade-A {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .grade-B {
+    background: #dbeafe;
+    color: #1e40af;
+  }
+
+  .grade-C {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .grade-D {
+    background: #fed7aa;
+    color: #9a3412;
+  }
+
+  .grade-F {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+
+  .no-data {
+    text-align: center;
+    padding: 40px;
+    color: #64748b;
+    font-style: italic;
+  }
+
+  .term-selector {
+    background: rgba(255, 255, 255, 0.15);
+    padding: 6px 10px;
+    border-radius: 8px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .term-selector form {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .term-selector label {
+    font-weight: 600;
+    color: white;
+    margin: 0;
+    white-space: nowrap;
+    font-size: 12px;
+    opacity: 0.95;
+  }
+
+  .term-selector select {
+    padding: 6px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    background: rgba(255, 255, 255, 0.95);
+    cursor: pointer;
+    min-width: 140px;
+    color: #1e293b;
+    height: 32px;
+  }
+
+  .term-selector button {
+    padding: 5px 10px;
+    background: rgba(255, 255, 255, 0.25);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    font-size: 11px;
+    height: 32px;
+    line-height: 1;
+  }
+
+  .term-selector button:hover {
+    background: rgba(255, 255, 255, 0.35);
+  }
+
+  @media (max-width: 768px) {
+    .academic-container {
+      padding: 12px;
+    }
+
+    .student-header-content {
+      flex-direction: column;
+      text-align: center;
+    }
+
+    .student-avatar-large {
+      width: 80px;
+      height: 80px;
+    }
+
+    .student-header-info h1 {
+      font-size: 22px;
+    }
+
+    .student-header-info p {
+      font-size: 14px;
+    }
+
+    .student-info-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .student-info-grid p {
+      margin: 0;
+      font-size: 13px;
+    }
+
+    .section-card {
+      padding: 16px;
+    }
+
+    .info-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .term-selector {
+      padding: 12px;
+    }
+
+    .term-selector form {
+      gap: 8px;
+    }
+
+    .term-selector label {
+      font-size: 13px;
+    }
+
+    .term-selector select {
+      font-size: 13px;
+      padding: 7px 10px;
+    }
+
+    .term-selector button {
+      font-size: 12px;
+      padding: 7px 10px;
+    }
+
+    .assessment-table th,
+    .assessment-table td {
+      padding: 8px 5px;
+      font-size: 12px;
+    }
+
+    .assessment-table th {
+      padding: 10px 5px;
+    }
+
+    .back-btn {
+      width: 100%;
+      text-align: center;
+      margin-top: 12px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .info-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .info-item {
+      padding: 10px;
+    }
+
+    .info-label {
+      font-size: 11px;
+    }
+
+    .info-value {
+      font-size: 14px;
+    }
+
+    .section-card h2 {
+      font-size: 17px;
+    }
+
+    .section-card h3 {
+      font-size: 14px;
+    }
+
+    .assessment-table th,
+    .assessment-table td {
+      padding: 6px 4px;
+      font-size: 11px;
+    }
+
+    .grade-badge {
+      padding: 3px 8px;
+      font-size: 11px;
+    }
+  }
+</style>
+
+<div class="academic-container">
+  <!-- Student Header -->
+  <div class="student-header">
+    <div class="student-header-content">
+      <div style="display: flex; gap: 20px; align-items: center;">
+        <img 
+          src="<%= student.image_url && student.image_url !== 'profilePlaceholder.png' ? student.image_url : '/images/profilePlaceholder.png' %>" 
+          alt="<%= student.first_name %> <%= student.last_name %>"
+          class="student-avatar-large"
+        />
+        <div class="student-header-info">
+          <h1><%= student.first_name %> <%= student.last_name %></h1>
+          <div class="student-info-grid">
+            <p><strong>Class:</strong> <%= enrolledClassForTerm || 'Not enrolled' %></p>
+            <p><strong>Term:</strong> <%= termNameForPage %></p>
+            <p><strong>Student ID:</strong> <%= student.student_id %></p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Term Selector -->
+      <div class="term-selector">
+        <form method="GET" action="/guardian/academic-details">
+          <input type="hidden" name="studentId" value="<%= student.student_id %>" />
+          <label>Term:</label>
+          <select name="termId" id="termSelect">
+            <% terms.forEach(term => { %>
+              <option value="<%= term.term_id %>" <%= term.term_id == selectedTermId ? 'selected' : '' %>>
+                <%= term.term_name %>
+              </option>
+            <% }) %>
+          </select>
+          <button type="submit">Load</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Teacher Information -->
+  <div class="section-card">
+    <h2>👨‍🏫 Teacher Information</h2>
+    <% if (mainTeacher) { %>
+      <div style="margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0;">
+        <p style="margin: 4px 0; font-size: 14px;"><strong style="color: #0f5a66;">Main Class Teacher:</strong> <%= mainTeacher.first_name %> <%= mainTeacher.last_name %></p>
+        <p style="margin: 4px 0; font-size: 13px; color: #64748b;">📧 <%= mainTeacher.email || 'Not provided' %></p>
+      </div>
+    <% } else { %>
+      <p class="no-data">No main teacher assigned</p>
+    <% } %>
+
+    <% if (subjectTeachers && subjectTeachers.length > 0) { %>
+      <h3 style="margin: 16px 0 12px 0; font-size: 15px; color: #475569; font-weight: 600;">Subject Teachers</h3>
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
+        <% subjectTeachers.forEach(teacher => { %>
+          <div style="padding: 8px 12px; background: #f8fafc; border-radius: 6px; border-left: 3px solid #0f5a66; min-width: 0;">
+            <span style="font-weight: 600; color: #1e293b; font-size: 14px;"><%= teacher.subject_name %>:</span>
+            <span style="color: #64748b; font-size: 14px; margin-left: 8px;">
+              <% if (teacher.first_name) { %>
+                <%= teacher.first_name %> <%= teacher.last_name %>
+              <% } else { %>
+                No teacher assigned
+              <% } %>
+            </span>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+
+  <!-- Attendance Summary -->
+  <div class="section-card">
+    <h2>📅 Attendance Summary</h2>
+    <% if (attendance && attendance.length > 0) { %>
+      <div class="info-grid">
+        <div class="info-item">
+          <div class="info-label">Total Days</div>
+          <div class="info-value"><%= attendanceSummary.totalDays %></div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Present</div>
+          <div class="info-value" style="color: #16a34a;"><%= attendanceSummary.present %></div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Absent</div>
+          <div class="info-value" style="color: #dc2626;"><%= attendanceSummary.absent %></div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Attendance Rate</div>
+          <div class="info-value" style="color: #0f5a66;"><%= attendanceSummary.attendanceRate %>%</div>
+        </div>
+      </div>
+    <% } else { %>
+      <p class="no-data">No attendance records found for this term</p>
+    <% } %>
+  </div>
+
+  <!-- Current Term Assessments -->
+  <div class="section-card">
+    <h2>📊 Current Term Performance</h2>
+    <% if (subjects && subjects.length > 0) { %>
+      <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+        <table class="assessment-table">
+          <thead>
+            <tr>
+              <th style="position: sticky; left: 0; background: #0f5a66; z-index: 2;">Subject</th>
+              <% uniqueAssessments.forEach(assessment => { %>
+                <th><%= assessment.title %><br><span style="font-size: 11px; opacity: 0.9;">(<%= assessment.max_score %>)</span></th>
+              <% }) %>
+              <th>Total</th>
+              <th>%</th>
+              <th>Grade</th>
+              <th>Position</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% subjects.forEach(subject => { %>
+              <tr>
+                <td style="position: sticky; left: 0; background: white; z-index: 1;"><%= subject.subject_name %></td>
+                <% uniqueAssessments.forEach(uniqueAssessment => { 
+                  const assessment = subject.assessments.find(a => a.title === uniqueAssessment.title);
+                %>
+                  <td><%= assessment && assessment.score !== null ? assessment.score : '-' %></td>
+                <% }) %>
+                <td><strong><%= subject.totalScore || 0 %>/<%= subject.totalMaxScore || 0 %></strong></td>
+                <td><strong><%= subject.totalPercentage !== null ? subject.totalPercentage.toFixed(1) + '%' : '-' %></strong></td>
+                <td>
+                  <% if (subject.grade) { %>
+                    <span class="grade-badge grade-<%= subject.grade %>"><%= subject.grade %></span>
+                  <% } else { %>
+                    -
+                  <% } %>
+                </td>
+                <td><strong><%= subject.position || '-' %></strong></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-top: 12px; font-size: 12px; color: #64748b; font-style: italic;">💡 Swipe left to see more columns</p>
+    <% } else { %>
+      <p class="no-data">No assessment data available for this term</p>
+    <% } %>
+  </div>
+
+</div>

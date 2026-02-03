@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Add New Test</title>
+  <style>
+      :root {
+        --font-family: "Inter", sans-serif;
+      }
+
+
+    main {
+      text-align: center;
+      margin: 0 auto;
+      width: 100%;
+      max-width: 100vw;
+      padding-bottom: 32px;
+    }
+    body {
+      font-family: var(--font-family);
+      background: #fff;
+      margin: 0;
+      /* padding: 32px 32px 0 32px; */
+      box-sizing: border-box;
+    }
+    .main-content {
+      width: 100%;
+      max-width: 2200px;
+      margin: 0 auto;
+      box-sizing: border-box;
+    }
+    #test-forms {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 18px;
+      overflow-x: auto;
+      padding-bottom: 10px;
+      padding-left: 24px;
+      padding-right: 32px;
+      justify-content: flex-start;
+      align-items: flex-start;
+      width: 100%;
+    }
+    .test-form {
+      flex: 0 0 440px;
+      box-sizing: border-box;
+      background-color: #fff;
+      border: 1px solid #e0e0e0;
+      box-shadow: 0 2px 12px rgba(1,83,91,0.12);
+      padding: 28px 24px 22px 24px;
+      margin-bottom: 10px;
+      min-width: 340px;
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+    .test-form:focus-within {
+      box-shadow: none;
+      border-color: #e0e0e0;
+    }
+    .form-group {
+      margin-bottom: 12px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .form-group label {
+      margin-bottom: 6px;
+      font-weight: 500;
+      font-size: 1rem;
+      color: #222;
+    }
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #cfd8dc;
+      border-radius: 5px;
+      font-size: 1rem;
+      background: #f7f7f7;
+      box-sizing: border-box;
+      color: #222;
+    }
+    .form-group input:focus,
+    .form-group select:focus {
+      border-color: #01535b;
+      box-shadow: 0 0 0 2px #01535b33;
+      outline: none;
+    }
+    .collapsible-btn {
+      width: 70%;
+      margin: 0 auto 8px auto;
+      background: #01535b;
+      color: #fff;
+      border: none;
+      outline: none;
+      padding: 7px 14px;
+      font-size: 15px;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      cursor: pointer;
+      border-radius: 5px;
+      transition: none;
+    }
+    .collapsible-btn .arrow {
+      font-size: 18px;
+      margin-left: 8px;
+      transition: transform 0.2s;
+    }
+    .collapsible-content {
+      background: #f9f9f9;
+      border-radius: 6px;
+      margin-top: 6px;
+      padding: 16px 18px 16px 18px;
+      width: 100%;
+    }
+    .collapsible-btn:hover,
+    .collapsible-btn:focus {
+      background: #01535b;
+      color: #fff;
+      box-shadow: none;
+    }
+    .class-container {
+      margin-bottom: 10px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .class-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      color: #222;
+      margin-bottom: 2px;
+    }
+    .class-checkbox input[type="checkbox"] {
+      margin: 0 0 0 2px;
+      /* accent-color: #01535b; */
+      width: 18px;
+      height: 18px;
+    }
+    .class-checkbox label {
+      font-weight: 400;
+      color: #222;
+      font-size: 1rem;
+      margin: 0;
+      padding: 0;
+    }
+    .subject-container label {
+      font-weight: 400;
+      color: #222;
+      font-size: 1rem;
+      margin: 0;
+      padding: 0;
+    }
+    .form-group.checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      justify-content: flex-start;
+      width: 100%;
+      padding-left: 2px;
+      flex-direction: row;
+    }
+    .form-group.checkbox-group label {
+      font-weight: 500;
+      color: #01535b;
+      font-size: 1rem;
+      margin: 0;
+      padding: 0;
+    }
+    .center-link {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .center-link button {
+      padding: 10px 28px;
+      border: none;
+      background-color: #01535b;
+      color: white;
+      cursor: pointer;
+      border-radius: 6px;
+      font-size: 1rem;
+      font-weight: 500;
+      width: auto;
+      min-width: 120px;
+      box-shadow: 0 2px 8px rgba(1,83,91,0.08);
+      transition: background 0.2s;
+      margin: 0 auto;
+      display: inline-block;
+    }
+    .center-link button:hover {
+      background-color: #013a44;
+    }
+    .main-heading {
+      text-align: center;
+      font-size: 1.6rem;
+      margin: 18px 0 10px 0;
+      color: #01535b;
+      font-weight: 600;
+    }
+    .notice {
+      background-color: #e7f3fe;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+      border-radius: 7px;
+      padding: 15px 18px;
+      margin: 0 auto 20px auto;
+      max-width: 480px;
+      word-break: break-word;
+      text-align: center;
+      font-size: 1rem;
+      box-shadow: 0 2px 8px rgba(1,83,91,0.07);
+    }
+    .add-remove-btn-row {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      margin: 30px 0 20px 0;
+      padding: 20px 0;
+    }
+
+    .add-test-link {
+      color: #01535b;
+      font-size: 1.1rem;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      padding: 8px 12px;
+      border-radius: 4px;
+    }
+
+    .add-test-link:hover {
+      color: #013a44;
+      text-decoration: underline;
+      background-color: rgba(1, 83, 91, 0.05);
+    }
+
+    .add-test-link:active {
+      color: #00272e;
+    }
+
+    .add-button, .remove-button {
+      background: linear-gradient(135deg, #01535b, #013a44);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 14px 36px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(1,83,91,0.25);
+      transition: all 0.3s ease;
+      margin: 0 auto;
+      display: inline-block;
+      min-width: 200px;
+      width: auto;
+      letter-spacing: 0.5px;
+    }
+    .add-button:hover, .remove-button:hover {
+      background: linear-gradient(135deg, #013a44, #01535b);
+      transform: translateY(-3px);
+      box-shadow: 0 6px 18px rgba(1,83,91,0.35);
+    }
+    .add-button:active, .remove-button:active {
+      transform: translateY(-1px);
+      box-shadow: 0 3px 8px rgba(1,83,91,0.3);
+    }
+    .remove-button {
+      background: #e53935;
+    }
+    .remove-button:hover {
+      background: #b71c1c;
+    }
+    .submit-btn {
+      background: linear-gradient(135deg, #01535b, #013a44);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 16px 48px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(1,83,91,0.25);
+      transition: all 0.3s ease;
+      margin: 20px auto 32px auto;
+      display: block;
+      min-width: 220px;
+      width: auto;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .submit-btn:hover {
+      background: linear-gradient(135deg, #013a44, #01535b);
+      transform: translateY(-3px);
+      box-shadow: 0 6px 18px rgba(1,83,91,0.35);
+    }
+    .submit-btn:active {
+      transform: translateY(-1px);
+      box-shadow: 0 3px 8px rgba(1,83,91,0.3);
+    }
+
+    /* Three-dot menu for removing test forms */
+    .test-name-with-menu {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      width: 100%;
+      margin-bottom: 12px;
+    }
+
+    .test-name-with-menu .form-group {
+      flex: 1;
+      margin-bottom: 0;
+      min-width: 0; /* Allow it to shrink */
+    }
+
+    .test-form > .form-group {
+      width: calc(100% - 24px); /* Updated to match new menu width */
+    }
+
+    .test-menu-container {
+      position: relative;
+      display: inline-block;
+      flex-shrink: 0;
+      margin-top: 0;
+      padding-top: 0;
+      width: 24px; /* Reduced width */
+    }
+
+    .test-menu-button {
+      background: none;
+      border: none;
+      font-size: 18px; /* Smaller size */
+      cursor: pointer;
+      padding: 0 5px;
+      color: #666;
+      line-height: 1;
+      margin-top: 0;
+      width: 100%;
+      font-weight: bold;
+      font-family: Arial, sans-serif;
+    }
+
+    .test-menu-button:hover {
+      color: #01535b;
+    }
+
+    .test-menu-dropdown {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: 100%;
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      min-width: 150px;
+      z-index: 1000;
+      margin-top: 4px;
+    }
+
+    .test-menu-dropdown.show {
+      display: block;
+    }
+
+    .test-menu-item {
+      display: block;
+      width: 100%;
+      padding: 12px 16px;
+      border: none;
+      background: none;
+      text-align: left;
+      cursor: pointer;
+      font-size: 0.95rem;
+      color: #333;
+      transition: background-color 0.2s;
+    }
+
+    .test-menu-item:hover {
+      background-color: #f5f5f5;
+    }
+
+    .test-menu-item.delete {
+      color: #dc3545;
+    }
+
+    .test-menu-item.delete:hover {
+      background-color: #ffebee;
+    }
+
+    /* ===========================================
+       MOBILE RESPONSIVE STYLES
+       =========================================== */
+    @media (max-width: 768px) {
+      body {
+        padding: 0;
+      }
+
+      .main-content {
+        padding: 0;
+      }
+
+      .main-heading {
+        font-size: 1.3rem;
+        margin: 12px 16px 8px 16px;
+        padding: 0;
+      }
+
+      .notice {
+        margin: 0 16px 16px 16px;
+        max-width: calc(100% - 32px);
+        padding: 12px 14px;
+        font-size: 0.9rem;
+      }
+
+      .center-link {
+        margin: 0 16px 16px 16px;
+      }
+
+      .center-link button {
+        width: 100%;
+        padding: 12px 20px;
+        font-size: 1rem;
+      }
+
+      #test-forms {
+        flex-direction: column;
+        flex-wrap: nowrap;
+        padding: 0 16px 16px 16px;
+        gap: 16px;
+        overflow-x: visible;
+      }
+
+      .test-form {
+        flex: 1 1 auto;
+        width: 100%;
+        min-width: unset;
+        max-width: 100%;
+        padding: 20px 16px 18px 16px;
+        margin-bottom: 0;
+      }
+
+      .form-group {
+        margin-bottom: 10px;
+      }
+
+      .form-group label {
+        font-size: 0.95rem;
+        margin-bottom: 5px;
+      }
+
+      .form-group input,
+      .form-group select {
+        font-size: 0.95rem;
+        padding: 10px;
+      }
+
+      .collapsible-btn {
+        width: 100%;
+        font-size: 0.95rem;
+        padding: 10px 12px;
+      }
+
+      .collapsible-content {
+        padding: 12px 14px;
+      }
+
+      .class-checkbox label,
+      .subject-container label {
+        font-size: 0.95rem;
+      }
+
+      .form-group.checkbox-group label {
+        font-size: 0.95rem;
+      }
+
+      .add-remove-btn-row {
+        flex-direction: column;
+        gap: 10px;
+        margin: 12px 0;
+      }
+
+      .add-button,
+      .remove-button {
+        width: 100%;
+        min-width: unset;
+        padding: 12px 20px;
+        font-size: 1rem;
+      }
+
+      .submit-btn {
+        width: calc(100% - 32px);
+        margin: 16px auto 20px auto;
+        padding: 12px 20px;
+        font-size: 1rem;
+      }
+    }
+
+    /* Very small screens */
+    @media (max-width: 480px) {
+      .main-heading {
+        font-size: 1.2rem;
+        margin: 10px 12px 8px 12px;
+      }
+
+      .notice {
+        margin: 0 12px 12px 12px;
+        max-width: calc(100% - 24px);
+        padding: 10px 12px;
+        font-size: 0.85rem;
+      }
+
+      .center-link {
+        margin: 0 12px 12px 12px;
+      }
+
+      #test-forms {
+        padding: 0 12px 12px 12px;
+        gap: 12px;
+      }
+
+      .test-form {
+        padding: 16px 12px;
+      }
+
+      .form-group label {
+        font-size: 0.9rem;
+      }
+
+      .form-group input,
+      .form-group select {
+        font-size: 0.9rem;
+        padding: 9px;
+      }
+
+      .collapsible-btn {
+        font-size: 0.9rem;
+        padding: 9px 10px;
+      }
+
+      .class-checkbox label,
+      .subject-container label,
+      .form-group.checkbox-group label {
+        font-size: 0.9rem;
+      }
+    }
+  </style>
+</head>
+<body>
+    <div class="main-content">
+      <main>
+        <br />
+        <%- include('../partials/flash') %>
+        <BR>
+        <div class="center-link">
+          <button
+            onclick="location.href='/common/manageAssessment?organizationId=<%= organizationId %>&termId=<%= termId %>'"
+          >
+            Manage Assessment
+          </button>
+        </div>
+        <hr />
+        <h3 class="main-heading" style="color:#222;">Add New Test</h3>
+        <div class="notice">
+          <p>
+            You must enroll classes for this term before you can create assessment scores, as scores are applied to enrolled classes.
+            If you haven’t done so yet, <a href="/enrollment/enroll">click here to enroll classes</a>.
+          </p>
+        </div>
+        <form id="addTestForm">
+          <input type="hidden" name="organizationId" value="<%= organizationId %>" />
+          <input type="hidden" name="termId" value="<%= termId %>" />
+          <div id="test-forms">
+            <!-- Initial Test Form -->
+            <div class="test-form" id="test-form-1" style="margin-left:auto; margin-right:auto;">
+              <div class="test-name-with-menu">
+                <div class="form-group">
+                  <label>Test Name:</label>
+                  <input type="text" name="testName[]" required />
+                </div>
+                <div class="test-menu-container">
+                  <button type="button" class="test-menu-button" onclick="toggleTestMenu(event, this)">
+                    ⋮
+                  </button>
+                  <div class="test-menu-dropdown">
+                    <button type="button" class="test-menu-item delete" onclick="removeTestForm(this)">
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Test Weight (%):</label>
+                <input type="number" name="testWeight[]" step="0.1" required />
+              </div>
+              <div class="form-group">
+                <label>Score Out Of:</label>
+                <input type="number" name="maxScore[]" required />
+              </div>
+              <div class="form-group">
+                <label>Category:</label>
+                <select name="category[]" required>
+                  <option value="Class Assessment">Class Assessment</option>
+                  <option value="Exams Assessment">Exams Assessment</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <h4 style="text-align:center; margin-bottom:8px;">Assign Test to Classes and Subjects</h4>
+              <button type="button" class="collapsible-btn" onclick="toggleClassListCollapse('class-list-1', 'arrow-class-list-1')">
+                Show/Hide Classes
+                <span class="arrow" id="arrow-class-list-1">&#9654;</span>
+              </button>
+              <div class="collapsible-content" id="class-list-1" style="display:none;">
+                <div class="class-checkbox">
+                  <input type="checkbox" id="selectAllClassesAndSubjects-1" onchange="toggleSelectAllClassesAndSubjects(1)" />
+                  <label for="selectAllClassesAndSubjects-1">Select All</label>
+                </div>
+                <div class="class-container">
+                  <% classes.forEach((cls) => { %>
+                    <div class="class-checkbox">
+                      <input type="checkbox" name="classes-1[]" value="<%= cls.class_id %>"
+                        onchange="toggleSubjects('subjects-container-<%= cls.class_id %>-1', this)">
+                      <label><%= cls.class_name %></label>
+                    </div>
+                    <div id="subjects-container-<%= cls.class_id %>-1" class="subject-container" style="display: none;">
+                      <% subjects.forEach(subject => { if (subject.class_id === cls.class_id) { %>
+                        <div>
+                          <input type="checkbox" class="subject-checkbox-<%= cls.class_id %>-1"
+                            name="subjects-1[]" value="<%= cls.class_id %>-<%= subject.subject_id %>">
+                          <label><%= subject.subject_name %></label>
+                        </div>
+                      <% } }); %>
+                    </div>
+                  <% }); %>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="add-remove-btn-row">
+            <a href="javascript:void(0)" class="add-test-link" onclick="addTestForm()">+ Add Another Form</a>
+          </div>
+          <button type="submit" class="submit-btn">Add Tests</button>
+        </form>
+      </main>
+    </div>
+ 
+  <script>
+    let testFormCount = 1;
+
+    function addTestForm() {
+      testFormCount++;
+      const testFormsContainer = document.getElementById("test-forms");
+      const newTestForm = document.createElement("div");
+      newTestForm.classList.add("test-form");
+      newTestForm.id = `test-form-${testFormCount}`;
+      newTestForm.innerHTML = `
+        <div class="test-name-with-menu">
+          <div class="form-group">
+            <label>Test Name:</label>
+            <input type="text" name="testName[]" required>
+          </div>
+          <div class="test-menu-container">
+            <button type="button" class="test-menu-button" onclick="toggleTestMenu(event, this)">
+              ⋮
+            </button>
+            <div class="test-menu-dropdown">
+              <button type="button" class="test-menu-item delete" onclick="removeTestForm(this)">
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Test Weight (%):</label>
+          <input type="number" name="testWeight[]" step="0.1" required>
+        </div>
+        <div class="form-group">
+          <label>Score Out Of:</label>
+          <input type="number" name="maxScore[]" required>
+        </div>
+        <div class="form-group">
+          <label>Category:</label>
+          <select name="category[]" required>
+            <option value="Class Assessment">Class Assessment</option>
+            <option value="Exams Assessment">Exams Assessment</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <h4 style="text-align:center; margin-bottom:8px;">Assign Test to Classes and Subjects</h4>
+        <button type="button" class="collapsible-btn" onclick="toggleClassListCollapse('class-list-${testFormCount}', 'arrow-class-list-${testFormCount}')">
+          Show/Hide Classes
+          <span class="arrow" id="arrow-class-list-${testFormCount}">&#9654;</span>
+        </button>
+        <div class="collapsible-content" id="class-list-${testFormCount}" style="display:none;">
+          <div class="form-group">
+            <input type="checkbox" id="selectAllClassesAndSubjects-${testFormCount}" onchange="toggleSelectAllClassesAndSubjects(${testFormCount})">
+            <label>Select All</label>
+          </div>
+          <div class="class-container">
+            <% classes.forEach((cls) => { %>
+              <div class="class-checkbox">
+                <input type="checkbox" name="classes-${testFormCount}[]" value="<%= cls.class_id %>"
+                  onchange="toggleSubjects('subjects-container-<%= cls.class_id %>-${testFormCount}', this)">
+                <label><%= cls.class_name %></label>
+              </div>
+              <div id="subjects-container-<%= cls.class_id %>-${testFormCount}" class="subject-container" style="display: none;">
+                <% subjects.forEach(subject => { if (subject.class_id === cls.class_id) { %>
+                  <div>
+                    <input type="checkbox" class="subject-checkbox-<%= cls.class_id %>-${testFormCount}"
+                      name="subjects-${testFormCount}[]" value="<%= cls.class_id %>-<%= subject.subject_id %>">
+                    <label><%= subject.subject_name %></label>
+                  </div>
+                <% } }); %>
+              </div>
+            <% }); %>
+          </div>
+        </div>`;
+      testFormsContainer.appendChild(newTestForm);
+    }
+
+    function toggleTestMenu(event, button) {
+      event.stopPropagation();
+      const dropdown = button.nextElementSibling;
+      const isCurrentlyShown = dropdown.classList.contains('show');
+      
+      // Close all other open menus
+      document.querySelectorAll('.test-menu-dropdown.show').forEach(menu => {
+        menu.classList.remove('show');
+      });
+      
+      // Toggle current menu
+      if (!isCurrentlyShown) {
+        dropdown.classList.add('show');
+      }
+    }
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(event) {
+      if (!event.target.closest('.test-menu-container')) {
+        document.querySelectorAll('.test-menu-dropdown.show').forEach(menu => {
+          menu.classList.remove('show');
+        });
+      }
+    });
+
+    function removeTestForm(button) {
+      const testForm = button.closest('.test-form');
+      if (testForm) testForm.remove();
+    }
+
+    function toggleSubjects(containerId, checkbox) {
+      const container = document.getElementById(containerId);
+      container.style.display = checkbox.checked ? "block" : "none";
+    }
+
+    function toggleSelectAllClassesAndSubjects(formNumber) {
+      const selectAll = document.getElementById(`selectAllClassesAndSubjects-${formNumber}`);
+      const classCheckboxes = document.querySelectorAll(`[name="classes-${formNumber}[]"]`);
+      const subjectCheckboxes = document.querySelectorAll(`[name="subjects-${formNumber}[]"]`);
+      classCheckboxes.forEach(cb => {
+        cb.checked = selectAll.checked;
+        toggleSubjects(`subjects-container-${cb.value}-${formNumber}`, cb);
+      });
+      subjectCheckboxes.forEach(cb => cb.checked = selectAll.checked);
+    }
+
+    async function handleFormSubmit(event) {
+      event.preventDefault();
+      const formData = new FormData(document.getElementById("addTestForm"));
+      const organizationId = formData.get("organizationId");
+      const termId = formData.get("termId");
+      const tests = [];
+      const testNames = formData.getAll("testName[]");
+      const testWeights = formData.getAll("testWeight[]");
+      const maxScores = formData.getAll("maxScore[]");
+      const categories = formData.getAll("category[]");
+
+      // Check if there's at least one test with data
+      if (testNames.length === 0 || !testNames.some(name => name.trim() !== '')) {
+        alert('Please add at least one test before submitting.');
+        return;
+      }
+
+      // Validate each test has required fields filled
+      for (let i = 0; i < testNames.length; i++) {
+        if (!testNames[i] || !testNames[i].trim()) {
+          alert(`Test ${i + 1}: Please enter a test name.`);
+          return;
+        }
+        if (!testWeights[i] || testWeights[i] <= 0) {
+          alert(`Test ${i + 1}: Please enter a valid test weight.`);
+          return;
+        }
+        if (!maxScores[i] || maxScores[i] <= 0) {
+          alert(`Test ${i + 1}: Please enter a valid maximum score.`);
+          return;
+        }
+        
+        const classes = formData.getAll(`classes-${i + 1}[]`);
+        const subjects = formData.getAll(`subjects-${i + 1}[]`);
+        if (classes.length === 0 || subjects.length === 0) {
+          alert(`Test ${i + 1} must have at least one class and subject.`);
+          return;
+        }
+        tests.push({
+          testName: testNames[i],
+          testWeight: testWeights[i],
+          maxScore: maxScores[i],
+          category: categories[i],
+          classes,
+          subjects
+        });
+      }
+
+      try {
+        const response = await fetch(`/common/createTest?organizationId=${organizationId}&termId=${termId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ organizationId, termId, tests }),
+        });
+        const result = await response.json();
+        if (response.ok) {
+          alert(result.message);
+          location.href = `/common/manageAssessment?organizationId=${organizationId}&termId=${termId}`;
+        } else {
+          alert(`Error: ${result.error}`);
+        }
+      } catch (err) {
+        console.error(err);
+        alert("An unexpected error occurred.");
+      }
+    }
+
+    document.getElementById("addTestForm").addEventListener("submit", handleFormSubmit);
+
+    function toggleClassListCollapse(contentId, arrowId) {
+      const collapseDiv = document.getElementById(contentId);
+      const arrow = document.getElementById(arrowId);
+      if (collapseDiv && arrow) {
+        if (collapseDiv.style.display === 'none') {
+          collapseDiv.style.display = 'block';
+          arrow.innerHTML = '&#9660;';
+        } else {
+          collapseDiv.style.display = 'none';
+          arrow.innerHTML = '&#9654;';
+        }
+      }
+    }
+  </script>
+</body>
+</html>

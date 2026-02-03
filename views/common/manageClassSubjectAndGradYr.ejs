@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" / >
+    <title>Manage Class, Subject & Graduation Year</title>
+    <style>
+      :root {
+        --font-family: "Inter", sans-serif;
+      }
+
+      body {
+        font-family: var(--font-family);
+      }
+
+      .class-subject-page {
+        font-family: var(--font-family);
+        background: #f7f9fb;
+      }
+
+      .class-subject-page .container {
+        max-width: 1100px;
+        margin: 0 auto 48px;
+        padding: 0 16px 120px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 20px;
+        align-items: start;
+      }
+
+      .class-subject-page fieldset {
+        background: #ffffff;
+        border: 1px solid #e0e0e0;
+        border-radius: 12px;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+        padding: 18px;
+        height: 100%;
+        box-sizing: border-box;
+      }
+
+      .class-subject-page legend {
+        font-weight: 700;
+        padding: 0;
+      }
+
+      .class-subject-page h1 {
+        text-align: center;
+        margin: 0 0 16px;
+        color: #222;
+      }
+      .separator {
+        border-bottom: 1px solid #ccc;
+        margin: 20px 0;
+      }
+      .note {
+        background-color: #fff3cd;
+        border-left: 6px solid #ffecb5;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-radius: 5px;
+        text-align: center;
+        display: none;
+      }
+      .form-container {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .form-container input[type="text"] {
+        flex-grow: 1;
+        margin-right: 10px;
+      }
+      .form-container a {
+        text-decoration: none;
+        display: inline-block;
+        text-align: center;
+      }
+      .delete-link {
+        color: red;
+        margin-left: 10px;
+        cursor: pointer;
+      }
+      .subject-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .icon-form-vertical {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+      }
+      .icon-form-vertical input[type="text"] {
+        margin-bottom: 8px;
+      }
+      .icon-btn-row {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-start;
+      }
+            .icon-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        background: #01535b;
+        color: #fff;
+        padding: 10px 20px;
+        margin-top: 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 15px;
+        transition: box-shadow 0.2s, background 0.2s;
+        text-decoration: none;
+      }
+      .icon-btn.delete-btn {
+        background: #e53935;
+        color: #fff;
+        border: none;
+      }
+      .icon-btn i {
+        font-size: 18px;
+        color: #fff;
+      }
+      .icon-btn.update-btn:hover {
+        box-shadow: 0 0 4px #01535b;
+        background: #013a40;
+      }
+      .icon-btn.delete-btn:hover {
+        box-shadow: 0 0 4px #e53935;
+        background: #b71c1c;
+      }
+      .collapsible-wrapper {
+        display: none;
+      }
+      .collapsible-btn {
+        width: 100%;
+        background: #01535b;
+        color: #fff;
+        border: none;
+        outline: none;
+        padding: 8px 12px;
+        font-size: 15px;
+        text-align: left;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+        border-radius: 5px;
+        margin-bottom: 6px;
+        transition: none;
+      }
+      .collapsible-btn .arrow {
+        font-size: 18px;
+        margin-left: 8px;
+        transition: transform 0.2s;
+      }
+      .collapsible-content {
+        background: #f2f7fa;
+        border-radius: 6px;
+        margin-top: 6px;
+        padding: 8px 12px;
+      }
+      .collapsible-btn:hover,
+      .collapsible-btn:focus {
+        background: #01535b;
+        color: #fff;
+        box-shadow: none;
+      }
+      @media (max-width: 900px) {
+        .collapsible-wrapper {
+          display: block;
+        }
+        .regular-class-list {
+          display: none;
+        }
+      }
+      @media (min-width: 901px) {
+        .collapsible-wrapper {
+          display: none;
+        }
+        .regular-class-list {
+          display: block;
+        }
+      }
+
+      /* Three-dot menu styles */
+      .input-with-menu {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+
+      .input-with-menu input[type="text"] {
+        flex: 1;
+        margin-bottom: 0 !important;
+      }
+
+      .menu-container {
+        position: relative;
+        display: inline-block;
+      }
+
+      .menu-button {
+        background: none;
+        border: none;
+        font-size: 18px;
+        cursor: pointer;
+        padding: 8px 6px;
+        color: #666;
+        transition: color 0.2s;
+        width: 24px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .menu-button:hover {
+        color: #01535b;
+      }
+
+      .menu-dropdown {
+        display: none;
+        position: absolute;
+        right: 0;
+        top: 100%;
+        background-color: white;
+        min-width: 120px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        border-radius: 6px;
+        z-index: 1000;
+        overflow: hidden;
+        margin-top: 4px;
+      }
+
+      .menu-dropdown.show {
+        display: block;
+      }
+
+      .menu-item {
+        width: 100%;
+        padding: 10px 16px;
+        text-align: left;
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 14px;
+        color: #333;
+        transition: background-color 0.2s;
+      }
+
+      .menu-item:hover {
+        background-color: #f5f5f5;
+      }
+
+      .menu-item.delete {
+        color: #e53935;
+      }
+
+      .menu-item.delete:hover {
+        background-color: #ffebee;
+      }
+    </style>
+  </head>
+  <body class="class-subject-page">
+    <br />
+
+    <!-- Flash Messages -->
+    <%- include('../partials/flash') %>
+
+    <br />
+    <!-- Add the link to the Add Class and Subject page -->
+    <div class="link-to-next-back">
+      <a href="/common/addClassSubject"
+        >Add Class, Subject & Graduation Year Group</a
+      >
+    </div>
+    <hr />
+
+
+    <h1 style="text-align:center; color:#222; margin-bottom:24px;">Manage classes and subjects</h1>
+
+    <% if (classes.length === 0 && graduationYearGroups.length === 0) { %>
+    <div id="noDataNote" class="note" style="display: block">
+      No classes created yet. Click on the above button to create them.
+    </div>
+    <% } %>
+
+    <div class="container">
+      <% if (classes.length > 0) { %>
+      <fieldset>
+        <legend>Classes</legend>
+        <div class="collapsible-wrapper">
+          <button type="button" class="collapsible-btn" onclick="toggleAllClassesCollapse()">
+            Show/Hide All Classes
+            <span class="arrow" id="arrow-all-classes">&#9654;</span>
+          </button>
+          <div class="collapsible-content" id="collapse-all-classes" style="display:none;">
+            <% classes.forEach(cls => { %>
+            <div class="form-container">
+              <form
+                action="/common/editClass"
+                method="post"
+                class="icon-form-vertical"
+              >
+                <input type="hidden" name="classId" value="<%= cls.class_id %>" />
+                <div class="input-with-menu">
+                  <input
+                    type="text"
+                    name="newClassName"
+                    value="<%= cls.class_name %>"
+                  />
+                  <div class="menu-container">
+                    <button type="button" class="menu-button" onclick="toggleMenu(event, this)">
+                      ⋮
+                    </button>
+                    <div class="menu-dropdown">
+                      <button type="button" class="menu-item delete" onclick="confirmDelete('/common/deleteClass?classId=<%= cls.class_id %>')">
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div class="icon-btn-row">
+                  <button type="submit" class="icon-btn update-btn" title="Update">
+                    Update
+                  </button>
+                </div>
+              </form>
+            </div>
+            <% }); %>
+          </div>
+        </div>
+        <div class="regular-class-list">
+          <% classes.forEach(cls => { %>
+          <div class="form-container">
+            <form
+              action="/common/editClass"
+              method="post"
+              class="icon-form-vertical"
+            >
+              <input type="hidden" name="classId" value="<%= cls.class_id %>" />
+              <div class="input-with-menu">
+                <input
+                  type="text"
+                  name="newClassName"
+                  value="<%= cls.class_name %>"
+                />
+                <div class="menu-container">
+                  <button type="button" class="menu-button" onclick="toggleMenu(event, this)">
+                    ⋮
+                  </button>
+                  <div class="menu-dropdown">
+                    <button type="button" class="menu-item delete" onclick="confirmDelete('/common/deleteClass?classId=<%= cls.class_id %>')">
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="icon-btn-row">
+                <button type="submit" class="icon-btn update-btn" title="Update">
+                  Update
+                </button>
+              </div>
+            </form>
+          </div>
+          <% }); %>
+        </div>
+      </fieldset>
+      <% } %> <% if (classes.length > 0) { %>
+      <fieldset>
+        <legend>Subjects</legend>
+        <form>
+          <select id="classSelect" name="classId" onchange="fetchSubjects()">
+            <option value="">Select a Class</option>
+            <% classes.forEach(function(cls) { %>
+            <option value="<%= cls.class_id %>"><%= cls.class_name %></option>
+            <% }); %>
+          </select>
+          <div id="subjectsContainer"></div>
+        </form>
+      </fieldset>
+      <% } %> <% if (graduationYearGroups.length > 0) { %>
+      <fieldset>
+        <legend>Graduation Year Groups</legend>
+        <% graduationYearGroups.forEach(group => { %>
+        <div class="form-container">
+          <form
+            action="/common/editGraduationYearGroup"
+            method="post"
+            class="icon-form-vertical"
+          >
+            <input type="hidden" name="id" value="<%= group.id %>" />
+            <div class="input-with-menu">
+              <input type="text" name="newName" value="<%= group.name %>" />
+              <div class="menu-container">
+                <button type="button" class="menu-button" onclick="toggleMenu(event, this)">
+                  ⋮
+                </button>
+                <div class="menu-dropdown">
+                  <button type="button" class="menu-item delete" onclick="confirmDelete('/common/deleteGraduationYearGroup?id=<%= group.id %>')">
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="icon-btn-row">
+              <button type="submit" class="icon-btn update-btn" title="Update">
+                Update
+              </button>
+            </div>
+          </form>
+        </div>
+        <% }); %>
+      </fieldset>
+      <% } %>
+    </div>
+
+    <script>
+      function confirmDelete(url) {
+        const confirmation = confirm(
+          "Warning: Deleting this will also delete related information like subjects, assessments, and student data. Are you sure you want to proceed?"
+        );
+        if (confirmation) {
+          window.location.href = url;
+        }
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
+      function fetchSubjects() {
+        const classId = document.getElementById("classSelect").value;
+        if (!classId) {
+          document.getElementById("subjectsContainer").innerHTML = "";
+          return;
+        }
+
+        fetch(`/common/getSubjectsByClass?classId=${classId}`)
+          .then((response) => response.json())
+          .then((subjects) => {
+            const subjectsContainer =
+              document.getElementById("subjectsContainer");
+            subjectsContainer.innerHTML = "";
+
+            if (subjects.length === 0) {
+              subjectsContainer.innerHTML = '<div style="color:#888; margin:16px 0;">No subjects have been assigned to this class.</div>';
+              return;
+            }
+            subjects.forEach((subject) => {
+              const subjectElement = document.createElement("div");
+              subjectElement.classList.add("subject-item");
+              subjectElement.innerHTML = `
+                <form action="/common/editSubject" method="post" class="icon-form-vertical" style="display:inline;">
+                  <input type="hidden" name="subjectId" value="${escapeHtml(subject.subject_id)}">
+                  <div class="input-with-menu">
+                    <input type="text" name="newName" value="${escapeHtml(subject.subject_name)}">
+                    <div class="menu-container">
+                      <button type="button" class="menu-button" onclick="toggleMenu(event, this)">
+                        ⋮
+                      </button>
+                      <div class="menu-dropdown">
+                        <button type="button" class="menu-item delete" onclick="confirmDelete('/common/deleteSubject?subjectId=${escapeHtml(subject.subject_id)}')">
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="icon-btn-row">
+                    <button type="submit" class="icon-btn update-btn" title="Update">Update</button>
+                  </div>
+                </form>
+              `;
+              subjectsContainer.appendChild(subjectElement);
+            });
+          })
+          .catch((error) => {
+            console.error("Error fetching subjects:", error);
+            alert("Failed to load subjects.");
+          });
+      }
+
+      function toggleAllClassesCollapse() {
+        const collapseDiv = document.getElementById('collapse-all-classes');
+        const arrow = document.getElementById('arrow-all-classes');
+        if (collapseDiv && arrow) {
+          if (collapseDiv.style.display === 'none') {
+            collapseDiv.style.display = 'block';
+            arrow.innerHTML = '&#9660;';
+          } else {
+            collapseDiv.style.display = 'none';
+            arrow.innerHTML = '&#9654;';
+          }
+        }
+      }
+
+      function toggleMenu(event, button) {
+        event.stopPropagation();
+        const dropdown = button.nextElementSibling;
+        const isCurrentlyShown = dropdown.classList.contains('show');
+        
+        // Close all other open menus
+        document.querySelectorAll('.menu-dropdown.show').forEach(menu => {
+          menu.classList.remove('show');
+        });
+        
+        // Toggle current menu
+        if (!isCurrentlyShown) {
+          dropdown.classList.add('show');
+        }
+      }
+
+      // Close dropdown when clicking outside
+      document.addEventListener('click', function(event) {
+        if (!event.target.closest('.menu-container')) {
+          document.querySelectorAll('.menu-dropdown.show').forEach(menu => {
+            menu.classList.remove('show');
+          });
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,947 @@
+
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add New Students</title>
+    <style>
+      :root {
+        --font-family: "Inter", sans-serif;
+      }
+
+      body {
+        background-color: #f4f6f8;
+        font-family: var(--font-family);
+        color: #1f2933;
+      }
+
+      .student-management-system {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 40px 24px 64px;
+      }
+
+      .student-management-system h1 {
+        text-align: center;
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 32px;
+        color: #0f2d32;
+      }
+
+      .student-forms-grid {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 24px;
+        margin-bottom: 40px;
+        overflow-x: auto;
+        padding-bottom: 12px;
+        scroll-snap-type: x mandatory;
+      }
+
+      .student-forms-grid::-webkit-scrollbar {
+        height: 6px;
+      }
+
+      .student-forms-grid::-webkit-scrollbar-thumb {
+        background: #b0c4c8;
+        border-radius: 999px;
+      }
+
+      .student-forms-grid {
+        -ms-overflow-style: none;
+        scrollbar-width: thin;
+      }
+
+      .student-form-card {
+        position: relative;
+        background: #ffffff;
+        border: 1px solid #d2dadd;
+        border-radius: 12px;
+        padding: 28px 24px;
+        box-shadow: 0 14px 28px rgba(15, 45, 50, 0.08);
+        flex: 0 0 360px;
+        max-width: 360px;
+        scroll-snap-align: start;
+      }
+
+      .form-header {
+        position: relative;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 20px;
+      }
+
+      /* Three-dot menu styles */
+      .form-menu-container {
+        position: relative;
+        display: inline-block;
+      }
+
+      .form-menu-button {
+        background: none;
+        border: none;
+        font-size: 20px;
+        cursor: pointer;
+        padding: 4px 8px;
+        color: #666;
+        transition: color 0.2s;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+      }
+
+      .form-menu-button:hover {
+        color: #dc2626;
+        background-color: #fee;
+      }
+
+      .form-menu-dropdown {
+        display: none;
+        position: absolute;
+        right: 0;
+        top: 100%;
+        background-color: white;
+        min-width: 120px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        border-radius: 6px;
+        z-index: 1000;
+        overflow: hidden;
+        margin-top: 4px;
+      }
+
+      .form-menu-dropdown.show {
+        display: block;
+      }
+
+      .form-menu-item {
+        width: 100%;
+        padding: 10px 16px;
+        text-align: left;
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 14px;
+        color: #dc2626;
+        transition: background-color 0.2s;
+      }
+
+      .form-menu-item:hover {
+        background-color: #ffebee;
+      }
+
+      .delete-form-btn {
+        position: absolute;
+        top: -14px;
+        right: -14px;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #dc2626;
+        color: #fff;
+        border: none;
+        cursor: pointer;
+        display: none; /* Hidden by default, shown only on larger screens if needed */
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        box-shadow: 0 8px 18px rgba(220, 38, 38, 0.24);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .delete-form-btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 10px 24px rgba(220, 38, 38, 0.32);
+      }
+
+      .form-field-group {
+        margin-bottom: 18px;
+      }
+
+      .form-label {
+        display: block;
+        font-size: 0.95rem;
+        font-weight: 600;
+        margin-bottom: 6px;
+        color: #0f2d32;
+      }
+
+      .form-input {
+        width: 100%;
+        padding: 12px 16px;
+        border: 1px solid #cbd5e0;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        background-color: #ffffff;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .form-input:focus {
+        border-color: #01535b;
+        box-shadow: 0 0 0 3px rgba(1, 83, 91, 0.18);
+        outline: none;
+      }
+
+      .form-input::placeholder {
+        color: #94a3b8;
+      }
+
+      .form-select {
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%2301535b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='4 7 10 13 16 7'%3e%3c/polyline%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 16px center;
+        background-size: 16px;
+        padding-right: 48px;
+        cursor: pointer;
+      }
+
+      select.form-input::-ms-expand {
+        display: none;
+      }
+
+      .enrollment-option-group {
+        margin: 24px 0;
+        padding: 18px 20px;
+        background: #f0f5f6;
+        border-radius: 10px;
+        border: 1px solid #d2dadd;
+      }
+
+      .enrollment-option-group h3 {
+        margin: 0 0 12px;
+        font-size: 1rem;
+        color: #0f2d32;
+      }
+
+      .enrollment-radio {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 10px 0;
+        font-weight: 500;
+      }
+
+      .enrollment-radio input[type="radio"] {
+        accent-color: #01535b;
+      }
+
+      .subjects-collapsible {
+        margin-top: 12px;
+      }
+
+      .collapsible-btn {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #01535b;
+        color: #ffffff;
+        border: none;
+        border-radius: 8px 8px 0 0;
+        padding: 12px 18px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s ease, transform 0.2s ease;
+      }
+
+      .collapsible-btn:hover {
+        background: #013f49;
+      }
+
+      .caret-icon {
+        font-size: 18px;
+        transition: transform 0.2s ease;
+      }
+
+      .collapsible-btn[aria-expanded="true"] {
+        border-radius: 8px 8px 0 0;
+      }
+
+      .collapsible-btn[aria-expanded="true"] .caret-icon {
+        transform: rotate(90deg);
+      }
+
+      .subjects-content {
+        border: 1px solid #d2dadd;
+        border-top: none;
+        border-radius: 0 0 8px 8px;
+        background: #ffffff;
+        padding: 18px;
+        display: none;
+      }
+
+      .subjects-content p {
+        margin: 0;
+        color: #52606d;
+      }
+
+      .subjects-content label {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 500;
+        color: #1f2933;
+        margin: 6px 0;
+      }
+
+      .guardians-section {
+        margin-top: 28px;
+        padding: 24px;
+        border: 1px solid #d2dadd;
+        border-radius: 10px;
+        background: #f9fbfc;
+      }
+
+      .guardians-section h4 {
+        margin: 0 0 16px;
+        font-size: 1.05rem;
+        color: #0f2d32;
+      }
+
+      .guardians-container > div {
+        margin-bottom: 16px;
+      }
+
+      .form-action-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        max-width: 420px;
+        margin: 0 auto;
+      }
+
+      .primary-button,
+      .secondary-button {
+        width: 100%;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        padding: 14px 24px;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, color 0.2s ease;
+      }
+
+      .primary-button {
+        background: #01535b;
+        color: #ffffff;
+        border: none;
+        box-shadow: 0 10px 18px rgba(1, 83, 91, 0.18);
+      }
+
+      .primary-button:hover {
+        background: #013f49;
+        box-shadow: 0 12px 22px rgba(1, 83, 91, 0.24);
+      }
+
+      .secondary-button {
+        background: #ffffff;
+        color: #01535b;
+        border: 1px solid #01535b;
+        box-shadow: 0 6px 14px rgba(1, 83, 91, 0.08);
+      }
+
+      .secondary-button:hover {
+        background: #01535b;
+        color: #ffffff;
+        box-shadow: 0 10px 18px rgba(1, 83, 91, 0.16);
+      }
+
+      input[type="file"].form-input {
+        padding: 10px 12px;
+      }
+
+      @media (max-width: 768px) {
+        .student-management-system {
+          padding: 32px 16px 48px;
+        }
+
+        .student-management-system h1 {
+          font-size: 1.6rem;
+        }
+
+        .student-forms-grid {
+          flex-direction: column;
+          align-items: center;
+          overflow-x: visible;
+        }
+
+        /* Center single form on small screens */
+        .student-forms-grid:has(.student-form-card:only-child) {
+          justify-content: center;
+        }
+
+        .student-form-card {
+          padding: 24px 20px;
+          flex-basis: 100%;
+          max-width: 100%;
+          width: 100%;
+        }
+
+        .form-action-buttons {
+          max-width: 100%;
+        }
+
+        .primary-button,
+        .secondary-button {
+          font-size: 0.95rem;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .student-management-system {
+          padding: 24px 12px 40px;
+        }
+
+        .student-management-system h1 {
+          font-size: 1.4rem;
+          margin-bottom: 24px;
+        }
+
+        .student-form-card {
+          padding: 20px 16px;
+        }
+
+        .form-label {
+          font-size: 0.9rem;
+        }
+
+        .form-input {
+          padding: 10px 14px;
+          font-size: 0.9rem;
+        }
+
+        .primary-button,
+        .secondary-button {
+          font-size: 0.9rem;
+          padding: 12px 20px;
+        }
+
+        .collapsible-btn {
+          font-size: 0.9rem;
+          padding: 10px 16px;
+        }
+
+        .enrollment-radio {
+          font-size: 0.9rem;
+        }
+      }
+
+      /* Guardian autocomplete styles */
+      .guardian-row {
+        position: relative;
+        margin-top: 12px;
+        padding: 14px;
+        border: 1px solid #d2dadd;
+        border-radius: 10px;
+        background: #f8fafc;
+      }
+
+      .guardian-suggestions {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 48px;
+        background: #fff;
+        border: 1px solid #cbd5e0;
+        border-radius: 10px;
+        z-index: 9999;
+        max-height: 240px;
+        overflow-y: auto;
+        display: none;
+      }
+
+      .guardian-suggestion-item {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        padding: 10px 12px;
+        cursor: pointer;
+      }
+
+      .guardian-suggestion-item:hover {
+        background: #f1f5f9;
+      }
+
+      .guardian-suggestion-item img {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        object-fit: cover;
+      }
+
+      .guardian-meta {
+        font-size: 12px;
+        color: #64748b;
+      }
+    </style>
+  </head>
+  <body>
+    <%- include('../partials/flash') %>
+  
+    <div class="student-management-system">
+      <h1>Add New Students</h1>
+      
+      <form action="/common/addStudent" method="post" enctype="multipart/form-data" onsubmit="confirmAddStudent(event)">
+        <div class="student-forms-grid" id="studentFormsContainer"></div>
+        
+        <div class="form-action-buttons">
+          <button type="button" class="secondary-button" id="addStudentBtn">+ Add Another Form</button>
+          <button type="submit" class="primary-button">Save</button>
+        </div>
+      </form>
+  
+      <template id="studentFormTemplate">
+        <div class="student-form-card">
+          <div class="form-header">
+            <div style="flex: 1;"></div>
+            <div class="form-menu-container">
+              <button type="button" class="form-menu-button" onclick="toggleFormMenu(event, this)">
+                ⋮
+              </button>
+              <div class="form-menu-dropdown">
+                <button type="button" class="form-menu-item" onclick="removeStudentForm(this)">
+                  Remove Form
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <div class="enrollment-option-group">
+            <div class="enrollment-radio">
+              <input type="radio" name="enrollmentType___INDEX__" value="current" checked>
+              <label>Current Term Enrollment</label>
+            </div>
+            <div class="enrollment-radio">
+              <input type="radio" name="enrollmentType___INDEX__" value="future">
+              <label>Future Term Enrollment</label>
+            </div>
+          </div>
+  
+          <div class="future-enrollment-section" id="futureEnrollmentSection-__INDEX__" style="display: none;">
+            <div class="form-field-group">
+              <label class="form-label">School Year</label>
+              <select class="form-input form-select" name="schoolYearId___INDEX__">
+                <option value="">Select School Year</option>
+                <% schoolYears.forEach(year => { %>
+                  <option value="<%= year.school_year_id %>" data-terms='<%- JSON.stringify(year.terms) %>'>
+                    <%= year.year_label %>
+                  </option>
+                <% }) %>
+              </select>
+            </div>
+  
+            <div class="form-field-group">
+              <label class="form-label">Term</label>
+              <select class="form-input form-select" name="termId___INDEX__">
+                <option value="">Select Term</option>
+              </select>
+            </div>
+          </div>
+  
+          <div class="form-field-group">
+            <label class="form-label">First Name</label>
+            <input type="text" class="form-input" name="firstName___INDEX__" required>
+          </div>
+  
+          <div class="form-field-group">
+            <label class="form-label">Last Name</label>
+            <input type="text" class="form-input" name="lastName___INDEX__" required>
+          </div>
+  
+          <div class="form-field-group">
+            <label class="form-label">Date of Birth</label>
+            <input type="date" class="form-input" name="dateOfBirth___INDEX__" required>
+          </div>
+
+          <div class="form-field-group">
+            <label class="form-label">Gender</label>
+            <select class="form-input form-select" name="gender___INDEX__" required>
+              <option value="">Select Gender</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+            </select>
+          </div>
+  
+          <!-- Restored Hometown Field -->
+          <div class="form-field-group">
+            <label class="form-label">Hometown</label>
+            <input type="text" class="form-input" name="hometown___INDEX__">
+          </div>
+  
+          <div class="form-field-group">
+            <label class="form-label">Class</label>
+            <select class="form-input form-select" name="classId___INDEX__" required>
+              <option value="">Select Class</option>
+              <% classes.forEach(cls => { %>
+                <option value="<%= cls.class_id %>"><%= cls.class_name %></option>
+              <% }) %>
+            </select>
+          </div>
+  
+          <div class="form-field-group">
+            <label class="form-label">Graduation Year Group</label>
+            <select class="form-input form-select" name="graduationYearGroupId___INDEX__" required>
+              <option value="">Select Group</option>
+              <% graduationYearGroups.forEach(g => { %>
+                <option value="<%= g.id %>"><%= g.name %></option>
+              <% }) %>
+            </select>
+          </div>
+  
+          <div class="form-field-group">
+            <label class="form-label">Subjects</label>
+            <div class="subjects-collapsible" id="subjectsCollapsible-__INDEX__">
+              <button type="button" class="collapsible-btn" onclick="toggleSubjectsCollapsible(__INDEX__)" aria-expanded="false">
+              <span class="collapsible-label">Show Subjects</span>
+              <span class="caret-icon" aria-hidden="true">&#9654;</span>
+            </button>
+              <div class="subjects-content" id="subjectsContainer-__INDEX__" style="display:none;">
+                <p>Select class to load subjects</p>
+              </div>
+            </div>
+          </div>
+  
+          <div class="form-field-group">
+            <label class="form-label">Student Image</label>
+            <input type="file" class="form-input" name="studentImage___INDEX__">
+          </div>
+  
+          <div class="guardians-section">
+            <h4>Guardians</h4>
+            <div class="guardians-container"></div>
+            <button type="button" class="secondary-button" onclick="addGuardian(this)">Add Guardian</button>
+          </div>
+        </div>
+      </template>
+    </div> <!-- Closing student-management-system div -->
+
+  
+    <script>
+      // Helper functions for guardian autocomplete
+      function escapeHtml(str) {
+        return String(str || "").replace(/[&<>"']/g, (m) => ({
+          "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+        }[m]));
+      }
+
+      function bindGuardianAutocomplete(guardianRow) {
+        const searchInput = guardianRow.querySelector(".guardian-search");
+        const suggestions = guardianRow.querySelector(".guardian-suggestions");
+        const hiddenId = guardianRow.querySelector('input[type="hidden"][name^="guardianProfileId_"]');
+
+        if (!searchInput || !suggestions || !hiddenId) return;
+
+        let debounceTimer = null;
+
+        async function fetchMatches(q) {
+          const res = await fetch(`/common/api/guardians/search?q=${encodeURIComponent(q)}`);
+          return res.json();
+        }
+
+        function closeSuggestions() {
+          suggestions.style.display = "none";
+          suggestions.innerHTML = "";
+        }
+
+        searchInput.addEventListener("input", () => {
+          const q = searchInput.value.trim();
+          hiddenId.value = ""; // typing means "not selected yet"
+
+          clearTimeout(debounceTimer);
+          if (q.length < 2) return closeSuggestions();
+
+          debounceTimer = setTimeout(async () => {
+            const data = await fetchMatches(q);
+            const items = (data && data.guardians) ? data.guardians : [];
+
+            if (!items.length) return closeSuggestions();
+
+            suggestions.innerHTML = items.map(g => {
+              const fullName = `${escapeHtml(g.first_name)} ${escapeHtml(g.last_name)}`.trim();
+              const meta = `${escapeHtml(g.phone || "")}${g.email ? " • " + escapeHtml(g.email) : ""}`;
+              const img = g.image_url ? escapeHtml(g.image_url) : "/images/profilePlaceholder.png";
+              return `
+                <div class="guardian-suggestion-item"
+                     data-id="${g.guardian_id}"
+                     data-first="${escapeHtml(g.first_name)}"
+                     data-last="${escapeHtml(g.last_name)}"
+                     data-phone="${escapeHtml(g.phone)}"
+                     data-email="${escapeHtml(g.email)}">
+                  <img src="${img}" />
+                  <div>
+                    <div><strong>${fullName}</strong></div>
+                    <div class="guardian-meta">${meta}</div>
+                  </div>
+                </div>
+              `;
+            }).join("");
+
+            suggestions.style.display = "block";
+
+            // click select
+            suggestions.querySelectorAll(".guardian-suggestion-item").forEach(el => {
+              el.addEventListener("click", () => {
+                hiddenId.value = el.dataset.id || "";
+
+                // Fill the fields for convenience
+                guardianRow.querySelector(`input[name^="guardianFirstName_"]`).value = el.dataset.first || "";
+                guardianRow.querySelector(`input[name^="guardianLastName_"]`).value = el.dataset.last || "";
+                guardianRow.querySelector(`input[name^="guardianPhone_"]`).value = el.dataset.phone || "";
+                guardianRow.querySelector(`input[name^="guardianEmail_"]`).value = el.dataset.email || "";
+
+                closeSuggestions();
+              });
+            });
+          }, 250);
+        });
+
+        // close when clicking outside
+        document.addEventListener("click", (e) => {
+          if (!guardianRow.contains(e.target)) closeSuggestions();
+        });
+      }
+
+      function toggleSubjectsCollapsible(index) {
+        const container = document.getElementById(`subjectsContainer-${index}`);
+        const btn = document.querySelector(`#subjectsCollapsible-${index} .collapsible-btn`);
+        if (!container || !btn) return;
+
+        const shouldExpand = container.style.display === "none" || container.style.display === "";
+        container.style.display = shouldExpand ? "block" : "none";
+        setSubjectsToggleState(btn, shouldExpand);
+      }
+
+      function setSubjectsToggleState(button, expanded) {
+        if (!button) return;
+        const label = button.querySelector(".collapsible-label");
+        button.setAttribute("aria-expanded", expanded ? "true" : "false");
+        if (label) {
+          label.textContent = expanded ? "Hide Subjects" : "Show Subjects";
+        }
+      }
+      const organizationId = "<%= organizationId %>";
+      const allSchoolYears = <%- JSON.stringify(schoolYears) %>;
+      let studentIndex = 0;
+    
+      function confirmAddStudent(event) {
+        if (!confirm("Are you sure you want to add all students?")) {
+          event.preventDefault();
+        }
+      }
+    
+      async function loadSubjectsForClass(index, classId) {
+        const container = document.getElementById(`subjectsContainer-${index}`);
+        const collapsibleBtn = document.querySelector(`#subjectsCollapsible-${index} .collapsible-btn`);
+        if (!container) return;
+
+        if (!classId) {
+          container.innerHTML = "<p>Select class to load subjects.</p>";
+          container.style.display = "none";
+          if (collapsibleBtn) setSubjectsToggleState(collapsibleBtn, false);
+          return;
+        }
+
+        try {
+          const response = await fetch(`/common/getSubjectsForClass?classId=${classId}&organizationId=${organizationId}`);
+          const subjectsData = await response.json();
+
+          if (Array.isArray(subjectsData) && subjectsData.length > 0) {
+            let html = `<label><input type=\"checkbox\" id=\"selectAllSubjects-${index}\"> Select All</label><br>`;
+            subjectsData.forEach(subject => {
+              html += `<label><input type=\"checkbox\" name=\"subjects_${index}[]\" value=\"${subject.subject_id}\"> ${subject.subject_name}</label><br>`;
+            });
+            container.innerHTML = html;
+            container.style.display = "block";
+            if (collapsibleBtn) setSubjectsToggleState(collapsibleBtn, true);
+
+            document.getElementById(`selectAllSubjects-${index}`).addEventListener("change", function () {
+              const checkboxes = container.querySelectorAll(`input[name=\"subjects_${index}[]\"]`);
+              checkboxes.forEach(cb => cb.checked = this.checked);
+            });
+          } else {
+            container.innerHTML = "<p>No subjects found for the selected class.</p>";
+            container.style.display = "block";
+            if (collapsibleBtn) setSubjectsToggleState(collapsibleBtn, true);
+          }
+        } catch (err) {
+          console.error("Error loading subjects:", err);
+          container.innerHTML = "<p>Error loading subjects.</p>";
+          container.style.display = "block";
+          if (collapsibleBtn) setSubjectsToggleState(collapsibleBtn, true);
+        }
+      }
+    
+      function bindSchoolYearTerms(index) {
+        const yearSelect = document.querySelector(`#schoolYear-${index}`);
+        const termSelect = document.querySelector(`#term-${index}`);
+        if (!yearSelect || !termSelect) return;
+    
+        yearSelect.addEventListener("change", function () {
+          const terms = JSON.parse(this.options[this.selectedIndex].getAttribute("data-terms") || "[]");
+          termSelect.innerHTML = '<option value="">Select a term</option>';
+          terms.forEach(term => {
+            const opt = document.createElement("option");
+            opt.value = term.term_id;
+            opt.textContent = term.term_name;
+            termSelect.appendChild(opt);
+          });
+        });
+      }
+    
+// Add this function to your existing JavaScript
+function toggleFormMenu(event, button) {
+  event.stopPropagation();
+  const dropdown = button.nextElementSibling;
+  const isCurrentlyShown = dropdown.classList.contains('show');
+  
+  // Close all other open menus
+  document.querySelectorAll('.form-menu-dropdown.show').forEach(menu => {
+    menu.classList.remove('show');
+  });
+  
+  // Toggle current menu
+  if (!isCurrentlyShown) {
+    dropdown.classList.add('show');
+  }
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(event) {
+  if (!event.target.closest('.form-menu-container')) {
+    document.querySelectorAll('.form-menu-dropdown.show').forEach(menu => {
+      menu.classList.remove('show');
+    });
+  }
+});
+
+function removeStudentForm(button) {
+  if (confirm('Remove this student form?')) {
+    const formCard = button.closest('.student-form-card');
+    if (formCard) {
+      formCard.style.opacity = '0';
+      formCard.style.transform = 'translateX(100%)';
+      setTimeout(() => formCard.remove(), 300);
+    }
+  }
+}
+
+// Modify the addStudentForm function to include proper indexing
+function addStudentForm() {
+  const container = document.getElementById("studentFormsContainer");
+  const template = document.getElementById("studentFormTemplate").innerHTML;
+  const currentIndex = studentIndex;
+  const html = template.replace(/__INDEX__/g, currentIndex);
+
+  const div = document.createElement("div");
+  div.className = "student-form";
+  div.setAttribute("data-index", currentIndex);
+  div.innerHTML = html;
+  container.appendChild(div);
+
+  // Rest of your existing addStudentForm logic
+  bindEnrollmentToggle(currentIndex);
+  bindSchoolYearTerms(currentIndex);
+
+  const classSelect = div.querySelector(`select[name="classId_${currentIndex}"]`);
+  if (classSelect) {
+    classSelect.addEventListener("change", () => loadSubjectsForClass(currentIndex, classSelect.value));
+  }
+
+  studentIndex++;
+}    
+      function bindEnrollmentToggle(index) {
+        const current = document.querySelector(`input[name="enrollmentType_${index}"][value="current"]`);
+        const future = document.querySelector(`input[name="enrollmentType_${index}"][value="future"]`);
+        const section = document.querySelector(`#futureEnrollmentSection-${index}`);
+        if (current && future && section) {
+          current.addEventListener("change", () => section.style.display = "none");
+          future.addEventListener("change", () => section.style.display = "block");
+        }
+      }
+    
+      function addGuardian(button) {
+        const block = button.closest(".student-form");
+        const index = block.getAttribute("data-index");
+        const container = block.querySelector(".guardians-container");
+        const count = container.children.length;
+    
+        const html = `
+          <div class="guardian-row">
+            <div class="form-field-group">
+              <label class="form-label">Search Existing Guardian (name / phone / email)</label>
+              <input type="text" class="form-input guardian-search"
+                placeholder="Type at least 2 letters..." autocomplete="off" />
+              <div class="guardian-suggestions"></div>
+
+              <!-- This is what actually tells backend "use existing guardian" -->
+              <input type="hidden" name="guardianProfileId_${index}_${count}" value="" />
+            </div>
+
+            <div class="form-field-group">
+              <label class="form-label">Guardian ${count + 1} First Name</label>
+              <input type="text" class="form-input" name="guardianFirstName_${index}_${count}" />
+            </div>
+
+            <div class="form-field-group">
+              <label class="form-label">Last Name</label>
+              <input type="text" class="form-input" name="guardianLastName_${index}_${count}" />
+            </div>
+
+            <div class="form-field-group">
+              <label class="form-label">Phone</label>
+              <input type="text" class="form-input" name="guardianPhone_${index}_${count}" />
+            </div>
+
+            <div class="form-field-group">
+              <label class="form-label">Email</label>
+              <input type="email" class="form-input" name="guardianEmail_${index}_${count}" />
+            </div>
+
+            <div class="form-field-group">
+              <label class="form-label">Address</label>
+              <input type="text" class="form-input" name="guardianAddress_${index}_${count}" />
+            </div>
+
+            <div class="form-field-group">
+              <label class="form-label">Hometown</label>
+              <input type="text" class="form-input" name="guardianHometown_${index}_${count}" />
+            </div>
+
+            <div class="form-field-group">
+              <label class="form-label">Guardian Photo (optional)</label>
+              <input type="file" class="form-input" name="guardianImage_${index}_${count}" />
+            </div>
+
+            <div class="form-field-group">
+              <label class="form-label">Parent Portal Password (optional)</label>
+              <input type="password" class="form-input" name="guardianPortalPassword_${index}_${count}"
+                placeholder="Set a password so parent can login" />
+              <div class="guardian-meta">If password is set + (email or phone), guardian can login to the Parent Portal.</div>
+            </div>
+          </div>
+        `;
+        const g = document.createElement("div");
+        g.innerHTML = html;
+        container.appendChild(g);
+        
+        // Bind autocomplete to the newly added guardian row
+        bindGuardianAutocomplete(g.querySelector(".guardian-row"));
+      }
+    
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("addStudentBtn").addEventListener("click", addStudentForm);
+        addStudentForm();
+      });
+    </script>
+  </body>
+  </html>
+

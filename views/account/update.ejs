@@ -1,0 +1,267 @@
+<h1 class="account-update-title">Update Account Information</h1>
+<%- include('../partials/flash') %> <% if (req.session && req.session.userRole
+!== 'Teacher' && req.session.userRole !== 'Supervisor') { %>
+
+<div class="account-update-actions">
+  <div class="link-to-next-back">
+    <a
+      href="/account/confirm-password?redirect=/account/update-card"
+      class="btn-primary"
+      >Update Payment Method</a
+    >
+  </div>
+
+  <div class="link-to-next-back">
+    <!-- Redirect to confirm password page before updating the card -->
+    <a href="/account/update-plan" class="btn-primary">Upgrade Plan</a>
+  </div>
+</div>
+
+<% } %>
+
+<div class="account-update-shell">
+  <div class="account-update-card">
+    <form id="updateForm" action="/account/update" method="POST">
+    <div class="form-group">
+      <label for="firstName">First Name:</label>
+      <input
+        type="text"
+        id="firstName"
+        name="firstName"
+        value="<%= userDetails.first_name %>"
+        pattern="[A-Za-z\s]+"
+        title="First name should only contain letters and spaces."
+        required
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="lastName">Last Name:</label>
+      <input
+        type="text"
+        id="lastName"
+        name="lastName"
+        pattern="[A-Za-z\s]+"
+        title="Last name should only contain letters and spaces."
+        value="<%= userDetails.last_name %>"
+        required
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="email">Email: (leave blank to keep current)</label>
+      <input
+        type="email"
+        id="email"
+        name="email"
+        value="<%= userDetails.email %>"
+        required
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="password">New Password (optional):</label>
+      <input type="password" id="password" name="password" />
+    </div>
+
+    <div class="form-group">
+      <label for="confirmPassword">Confirm New Password:</label>
+      <input type="password" id="confirmPassword" name="confirmPassword" />
+    </div>
+
+    <div class="form-group">
+      <input type="checkbox" id="showPassword" /> Show Password
+    </div>
+
+    <div class="form-group" id="passwordMatchMessage" style="display: none">
+      <p>Passwords do not match.</p>
+    </div>
+
+    <div class="form-group" id="noChangesMessage" style="display: none">
+      <p>No changes made.</p>
+    </div>
+      <button type="submit" class="btn-primary">Update</button>
+    </form>
+  </div>
+</div>
+
+<% if (req.session && req.session.userRole !== 'Teacher' && req.session.userRole
+!== 'Supervisor') { %>
+
+<!-- Show "Cancel Subscription" button ONLY if the org is NOT on hold AND has no scheduled hold date -->
+<% if (!orgDetails.on_hold && !orgDetails.scheduled_hold_date) { %>
+<div class="link-to-next-back">
+  <a
+    href="/account/confirm-password?redirect=cancel-subscription"
+    class="btn-danger"
+    >Cancel Subscription</a
+  >
+</div>
+<% } %>
+
+<!-- Show "Resume Subscription" button ONLY if the org has a scheduled hold date -->
+<% if (orgDetails.scheduled_hold_date) { %>
+<div class="link-to-next-back">
+  <form action="/account/resume-or-cancel-cancellation" method="POST">
+    <button type="submit" class="btn-primary">Resume Subscription</button>
+  </form>
+</div>
+<% } %> <% } %>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const updateForm = document.getElementById("updateForm");
+
+    const originalValues = {
+      firstName: updateForm.firstName.value,
+      lastName: updateForm.lastName.value,
+      email: updateForm.email.value,
+    };
+
+    updateForm.addEventListener("submit", (event) => {
+      const { password, confirmPassword } = updateForm;
+      const matchMsg = document.getElementById("passwordMatchMessage");
+      const noChangeMsg = document.getElementById("noChangesMessage");
+
+      // Reset messages
+      matchMsg.style.display = "none";
+      noChangeMsg.style.display = "none";
+
+      // Check password match
+      if (password.value && password.value !== confirmPassword.value) {
+        matchMsg.style.display = "block";
+        event.preventDefault();
+        return;
+      }
+
+      // Check if any field has changed
+      const changed =
+        updateForm.firstName.value !== originalValues.firstName ||
+        updateForm.lastName.value !== originalValues.lastName ||
+        updateForm.email.value !== originalValues.email ||
+        password.value; // new password is a change
+
+      if (!changed) {
+        noChangeMsg.style.display = "block";
+        event.preventDefault();
+      }
+    });
+
+    // Toggle show password
+    document
+      .getElementById("showPassword")
+      .addEventListener("change", function () {
+        const type = this.checked ? "text" : "password";
+        updateForm.password.type = type;
+        updateForm.confirmPassword.type = type;
+      });
+  });
+</script>
+
+<style>
+      :root {
+        --font-family: "Inter", sans-serif;
+      }
+
+  .account-update-title {
+    text-align: center;
+    margin: 0 0 12px;
+    font-size: 26px;
+    font-weight: 700;
+  }
+
+  .account-update-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 12px 0 8px;
+  }
+
+  .account-update-shell {
+    max-width: 720px;
+    margin: 0 auto 32px;
+    padding: 0 12px;
+  }
+
+  .account-update-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+    padding: 24px;
+  }
+
+  #updateForm {
+    display: grid;
+    gap: 14px;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .form-group label {
+    font-weight: 600;
+  }
+
+  .form-group input[type="text"],
+  .form-group input[type="email"],
+  .form-group input[type="password"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #cfd8dc;
+    border-radius: 8px;
+    font-size: 15px;
+  }
+
+  .form-group input[type="checkbox"] {
+    width: auto;
+    align-self: flex-start;
+  }
+
+  #passwordMatchMessage p,
+  #noChangesMessage p {
+    color: #d93025;
+    margin: 0;
+    font-weight: 600;
+  }
+
+  #updateForm button[type="submit"] {
+    margin-top: 6px;
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+  }
+
+
+  /* Small Screen Styles */
+  @media (max-width: 768px) {
+    /* Ensure container fits small screens */
+    .container {
+      max-width: 90%;
+      margin: 20px auto;
+      padding: 15px;
+      border-radius: 6px;
+    }
+
+    /* Reduce spacing for link buttons */
+    .link-to-next-back {
+      text-align: center;
+      margin: 10px 0;
+    }
+
+    .account-update-card {
+      padding: 18px;
+      border-radius: 10px;
+    }
+  }
+</style>
+
+<style>
+  body {
+    font-family: var(--font-family);
+  }
+</style>

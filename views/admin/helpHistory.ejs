@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Help History</title>
+    <style>
+      :root {
+        --font-family: "Inter", sans-serif;
+      }
+
+
+        body {
+            font-family: var(--font-family);
+            background-color: #f9f9f9;
+            margin: 0;
+            color: #333;
+        }
+
+        .content-container {
+            max-width: 1100px;
+            margin: 40px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+    
+
+        .ticket-table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .ticket-table th,
+        .ticket-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .ticket-table th {
+            background-color: #01535b;
+            color: #fff;
+            text-transform: uppercase;
+            font-size: 14px;
+        }
+
+        .ticket-summary {
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .ticket-summary .arrow {
+            float: right;
+            font-size: 16px;
+            transition: transform 0.3s ease;
+        }
+
+        .ticket-summary .arrow.expanded {
+            transform: rotate(90deg);
+        }
+
+        .ticket-details {
+            display: none;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            margin-top: 10px;
+        }
+
+        .details-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .info-container, .messages-container {
+            padding: 15px;
+            border-radius: 8px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+        }
+
+        .messages-container ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        button:hover {
+            opacity: 0.8;
+        }
+
+        .btn-reopen {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .btn-delete {
+            background-color: #e74c3c;
+            color: white;
+        }
+    </style>
+    <script>
+        function toggleDetails(ticketId) {
+            const details = document.getElementById(`details-${ticketId}`);
+            const arrow = document.getElementById(`arrow-${ticketId}`);
+            if (details.style.display === "none" || !details.style.display) {
+                details.style.display = "grid";
+                arrow.classList.add("expanded");
+            } else {
+                details.style.display = "none";
+                arrow.classList.remove("expanded");
+            }
+        }
+
+        function confirmReopen(event, ticketId) {
+            event.preventDefault();
+            if (confirm(`Are you sure you want to reopen ticket #${ticketId}?`)) {
+                event.target.submit();
+            }
+        }
+
+        function confirmDelete(event, ticketId) {
+            event.preventDefault();
+            if (confirm(`Are you sure you want to delete ticket #${ticketId} permanently?`)) {
+                event.target.submit();
+            }
+        }
+    </script>
+</head>
+<body>
+    <div class="content-container">
+        <h1>Help History</h1>
+        <table class="ticket-table">
+            <thead>
+                <tr>
+                    <th>Ticket #</th>
+                    <th>Status</th>
+                    <th>Name</th>
+                    <th>Organization</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% threads.filter(thread => thread.is_resolved).forEach(thread => { %>
+                    <tr class="ticket-summary" onclick="toggleDetails('<%= thread.thread_id %>')">
+                        <td>#<%= thread.thread_id %> <span id="arrow-<%= thread.thread_id %>" class="arrow">▶</span></td>
+                        <td class="status-closed">Closed</td>
+                        <td><%= thread.name %></td>
+                        <td><%= thread.organization || 'N/A' %></td>
+                    </tr>
+                    <tr id="details-<%= thread.thread_id %>" class="ticket-details">
+                        <td colspan="4">
+                            <div class="details-container">
+                                <!-- Info Section -->
+                                <div class="info-container">
+                                    <p><strong>Email:</strong> <%= thread.email %></p>
+                                    <p><strong>Phone:</strong> <%= thread.phone || 'N/A' %></p>
+                                    <p><strong>Status:</strong> Closed</p>
+                                    <p><strong>Last Updated:</strong> <%= new Date(thread.last_updated).toLocaleString() %></p>
+                                </div>
+                                <!-- Messages Section -->
+                                <div class="messages-container">
+                                    <h3>Messages</h3>
+                                    <ul>
+                                        <% thread.messages.forEach(message => { %>
+                                            <li><%= message %></li>
+                                        <% }) %>
+                                    </ul>
+                                </div>
+                                <!-- Actions -->
+                                <div>
+                                    <form action="/admin/reopenThread" method="POST" onsubmit="confirmReopen(event, '<%= thread.thread_id %>')">
+                                        <input type="hidden" name="threadId" value="<%= thread.thread_id %>">
+                                        <button type="submit" class="btn-reopen">Reopen</button>
+                                    </form>
+                                    <form action="/admin/deleteThread" method="POST" onsubmit="confirmDelete(event, '<%= thread.thread_id %>')">
+                                        <input type="hidden" name="threadId" value="<%= thread.thread_id %>">
+                                        <button type="submit" class="btn-delete">Delete</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                <% }); %>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

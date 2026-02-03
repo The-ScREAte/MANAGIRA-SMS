@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <style>
+      :root {
+        --font-family: "Inter", sans-serif;
+      }
+
+
+        body {
+            font-family: var(--font-family);
+          }
+          
+    </style>
+    <style>
+        body {
+            background-color: #f8f9fa;
+            margin: 0;
+            text-align: center;
+        }
+
+        .container {
+            width: 80%;
+            margin: 30px auto;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        .current-school-year {
+            margin-bottom: 30px;
+        }
+
+        .term-list {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            list-style: none;
+            padding: 0;
+            margin: 10px 0;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            font-size: 14px;
+            color: white;
+            background-color: #01535b;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn:hover {
+            background-color: #01535b;
+        }
+
+        .collapsible-container {
+            margin-top: 20px;
+            width: 80%;
+            margin: 30px auto;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+
+        .collapsible-header {
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #f8f9fa;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+
+        .collapsible-header:hover {
+            background-color: #e9ecef;
+        }
+
+        .collapsible-content {
+            display: none;
+            margin-top: 10px;
+        }
+
+        .collapsible-content .term-list {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .toggle-icon {
+            margin-left: 10px;
+            font-size: 16px;
+            color: #555;
+            transition: transform 0.3s ease;
+        }
+
+        .toggle-icon.open {
+            transform: rotate(45deg);
+        }
+    </style>
+</head>
+<body>
+    <br />
+
+    <h1><%= title %></h1>
+
+    <div class="container">
+        <!-- Current School Year -->
+        <% if (currentSchoolYear) { %>
+            <div class="current-school-year">
+                <div class="section-title">Current School Year: <%= currentSchoolYear.year_label %></div>
+                <ul class="term-list">
+                    <% currentSchoolYear.terms.forEach(term => { %>
+                        <li>
+                            <a href="/common/termDetails/<%= term.term_id %>" class="btn"><%= term.term_name %></a>
+                        </li>
+                    <% }) %>
+                </ul>
+            </div>
+        <% } %>
+        </div>
+
+        <!-- Other School Years -->
+        <% if (otherSchoolYears && otherSchoolYears.length > 0) { %>
+            <div class="collapsible-container">
+                <div class="collapsible-header" onclick="toggleCollapsible('other-school-years')">
+                    Other School Years <span id="other-school-years-icon" class="toggle-icon">+</span>
+                </div>
+                <div id="other-school-years" class="collapsible-content">
+                    <% otherSchoolYears.forEach(schoolYear => { %>
+                        <div class="collapsible">
+                            <div class="collapsible-header" onclick="toggleCollapsible('<%= schoolYear.year_label %>')">
+                                <%= schoolYear.year_label %> <span id="<%= schoolYear.year_label %>-icon" class="toggle-icon">+</span>
+                            </div>
+                            <div id="<%= schoolYear.year_label %>" class="collapsible-content">
+                                <ul class="term-list">
+                                    <% schoolYear.terms.forEach(term => { %>
+                                        <li>
+                                            <a href="/common/termDetails/<%= term.term_id %>" class="btn"><%= term.term_name %></a>
+                                        </li>
+                                    <% }) %>
+                                </ul>
+                            </div>
+                        </div>
+                    <% }) %>
+                </div>
+            </div>
+        <% } else { %>
+            <p>No other school years available.</p>
+        <% } %>
+    </div>
+
+    <script>
+        function toggleCollapsible(id) {
+            const content = document.getElementById(id);
+            const icon = document.getElementById(`${id}-icon`);
+            if (content.style.display === "block") {
+                content.style.display = "none";
+                icon.textContent = "+";
+            } else {
+                content.style.display = "block";
+                icon.textContent = "−";
+            }
+        }
+    </script>
+</body>
+</html>

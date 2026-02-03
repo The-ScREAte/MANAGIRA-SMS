@@ -1,0 +1,69 @@
+<h1>Login</h1>
+<%- include('../partials/flash') %>
+
+
+<form id="loginForm" action="/account/login" method="post">
+  <div class="form-group">
+    <label for="email">Email:</label>
+    <input type="email" id="email" name="email" placeholder="Email" required />
+  </div>
+  <div class="form-group">
+    <label for="password">Password:</label>
+    <input type="password" id="password" name="password" required />
+    <div><input type="checkbox" id="show-password" /> Show Password</div>
+  </div>
+  <button type="submit">Login</button>
+  <p>Don't have an account? <a href="/account/service-plan?new=1">Register Now</a></p>
+  <p><a href="/account/forget-password">Forget Password?</a></p>
+  <br>
+    <div style="font-weight: 700; color: #0f2d32; margin-bottom: 6px;">Parents / Guardians Login</div>
+  <div style="margin-top: 10px;">
+    <a href="/account/guardian-login" style="display:inline-block; padding: 10px 14px; border-radius: 10px; background: linear-gradient(135deg, #0f5a66 0%, #6fd3c4 100%); color: #fff; text-decoration: none; font-weight: 600; font-size: 14px;">Login as Parent</a>
+  </div>
+</form>
+<style>
+  #loginForm {
+    width: 400px;
+    margin: 0 auto;
+    padding: 20px;
+    box-shadow: 0 2px 5px rgba(128, 19, 19, 0.1);
+    border-radius: 10px;
+  }
+
+  #loginForm a {
+    text-decoration: none;
+    color: rgb(54, 104, 86);
+    transition: color 0.3s ease, text-decoration 0.2s ease;
+
+  }
+
+  #loginForm a:hover {
+    text-decoration: underline;
+    color: rgb(26, 237, 194);
+  }
+
+  @media (max-width: 480px) {
+    form {
+      width: 95%;
+      padding: 20px;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+    }
+
+    .form-group input {
+      font-size: 0.95rem;
+      padding: 8px;
+    }
+
+    button {
+      font-size: 1rem;
+      padding: 10px;
+    }
+
+    p {
+      font-size: 0.9rem;
+    }
+  }
+</style>

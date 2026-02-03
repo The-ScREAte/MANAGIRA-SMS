@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Register School Year</title>
+    <style>
+      :root {
+        --font-family: "Inter", sans-serif;
+      }
+
+      .register-school-year-page {
+        font-family: var(--font-family);
+      }
+
+      .register-school-year-page .container {
+        width: 100%;
+        max-width: 780px;
+        margin: 0 auto 40px;
+        padding: 0 16px;
+        display: flex;
+        justify-content: center;
+      }
+
+      .register-school-year-page fieldset {
+        width: 100%;
+        box-sizing: border-box;
+        background: #fff;
+        border: 1px solid #e0e0e0;
+        border-radius: 12px;
+        padding: 22px;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+      }
+
+      .register-school-year-page h1 {
+        margin-top: 0;
+        margin-bottom: 10px;
+        text-align: center;
+      }
+
+      .register-school-year-page legend {
+        font-weight: 700;
+        padding: 0;
+      }
+
+      .register-school-year-page form {
+        display: grid;
+        gap: 14px;
+      }
+
+      .register-school-year-page input[type="text"],
+      .register-school-year-page input[type="date"] {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #cfd8dc;
+        border-radius: 8px;
+        font-size: 15px;
+        box-sizing: border-box;
+      }
+
+      .register-school-year-page button[type="submit"] {
+        width: 100%;
+        padding: 12px;
+        border-radius: 10px;
+      }
+
+      .register-school-year-page a {
+        color: #01535b;
+      }
+
+
+      .link-to-manage-records {
+        text-align: center;
+        margin-bottom: 20px;
+      }
+      .link-to-manage-records a {
+        display: inline-block;
+        padding: 10px 20px;
+        background-color: #01535b;
+        color: #fff;
+        text-decoration: none;
+        border-radius: 5px;
+        transition: background-color 0.3s ease;
+      }
+      .link-to-manage-records a:hover {
+        background-color: #01535b;
+      }
+      .separator {
+        border-bottom: 1px solid #ccc;
+        margin: 20px 0;
+      }
+
+      /* Aligning the checkbox and class labels in the "Classes" section */
+      .classes {
+        margin-top: 10px;
+      }
+
+      .classes label {
+        font-weight: bold;
+        display: block;
+      }
+      /* Styling for term container */
+      #termsContainer .term {
+        border: 1px solid #ccc;
+        padding: 15px;
+        margin-bottom: 10px;
+        position: relative;
+        border-radius: 5px;
+      }
+
+      #termsContainer .term fieldset {
+        position: relative;
+      }
+
+      #termsContainer .term .term-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 15px;
+      }
+
+      #termsContainer .term .term-header input[type="text"] {
+        flex: 1;
+      }
+
+      #termsContainer .term .classes div {
+        display: flex;
+        align-items: center;
+        margin-bottom: 5px;
+      }
+
+      #termsContainer .term .classes div input[type="checkbox"] {
+        margin-right: 10px;
+      }
+
+      /* Three-dot menu for term delete */
+      .term-menu-container {
+        position: relative;
+        display: inline-block;
+      }
+
+      .term-menu-button {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 5px 10px;
+        color: #666;
+        line-height: 1;
+      }
+
+      .term-menu-button:hover {
+        color: #01535b;
+      }
+
+      .term-menu-dropdown {
+        display: none;
+        position: absolute;
+        right: 0;
+        top: 100%;
+        background-color: white;
+        min-width: 150px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        border-radius: 6px;
+        z-index: 1000;
+        overflow: hidden;
+      }
+
+      .term-menu-dropdown.show {
+        display: block;
+      }
+
+      .term-menu-item {
+        padding: 12px 16px;
+        cursor: pointer;
+        border: none;
+        background: none;
+        width: 100%;
+        text-align: left;
+        font-size: 14px;
+        color: #333;
+        transition: background-color 0.2s;
+      }
+
+      .term-menu-item:hover {
+        background-color: #f5f5f5;
+      }
+
+      .term-menu-item.delete {
+        color: #dc3545;
+      }
+
+      .term-menu-item.delete:hover {
+        background-color: #fee;
+      }
+
+      .flash-message {
+        padding: 15px;
+        margin: 10px 0;
+        border: 1px solid transparent;
+        border-radius: 5px;
+        text-align: center;
+      }
+      .flash-message.success {
+        background-color: #d4edda;
+        color: #155724;
+        border-color: #c3e6cb;
+      }
+      .flash-message.error {
+        background-color: #f8d7da;
+        color: #721c24;
+        border-color: #f5c6cb;
+      }
+    </style>
+    <style>
+      body {
+        font-family: var(--font-family);
+      }
+    </style>
+  </head>
+  <body class="register-school-year-page">
+    <%- include('../partials/flash') %>
+    <br />
+
+    <div class="link-to-manage-records">
+      <a href="/common/manageRecords">Back</a>
+    </div>
+
+    <div class="separator"></div>
+
+    <div class="container">
+      <fieldset>
+        <h1>Register School Year</h1>
+        <legend>School Years</legend>
+        <form
+          id="registerSchoolYearForm"
+          action="/common/registerSchoolYear"
+          method="POST"
+          onsubmit="return validateRegisterSchoolYearForm(this)"
+        >
+          <input
+            type="text"
+            name="schoolYear"
+            placeholder="Enter School Year eg. 2001-2002"
+            required
+          />
+
+          <div id="termsContainer">
+            <!-- Term inputs will be added here dynamically -->
+          </div>
+
+          <a href="#" onclick="addTerm()">Add Term / Semester</a>
+          <button type="submit">Register Year and Terms</button>
+        </form>
+      </fieldset>
+    </div>
+
+    <script>
+      const classes = <%- JSON.stringify(classes) %>; // Inject classes from the backend
+
+      // Prevent form submission if no term is added
+      document.getElementById('registerSchoolYearForm').addEventListener('submit', function(event) {
+        const termsContainer = document.getElementById('termsContainer');
+        if (termsContainer.children.length === 0) {
+          event.preventDefault();
+          // Use flash message system: set a hidden input and submit, or just alert for now
+          alert('Please add at least one term or semester.');
+          return false;
+        }
+      });
+
+      // This function dynamically adds a new term
+      function addTerm() {
+          event.preventDefault();
+          const termsContainer = document.getElementById('termsContainer');
+          const termIndex = termsContainer.children.length;
+          const termDiv = document.createElement('div');
+          termDiv.className = 'term';
+          termDiv.innerHTML = `
+              <fieldset>
+                  <legend>Term ${termIndex + 1}</legend>
+                  
+                  <div class="term-header">
+                      <input type="text" name="terms[${termIndex}][termName]" placeholder="Term Name eg. 1st Semester or Term 1" required>
+                      
+                      <!-- Three-dot menu for delete -->
+                      <div class="term-menu-container">
+                          <button type="button" class="term-menu-button" onclick="toggleTermDeleteMenu(event, this)">
+                              ⋮
+                          </button>
+                          <div class="term-menu-dropdown">
+                              <button type="button" class="term-menu-item delete" onclick="removeField(this)">
+                                  Delete Term
+                              </button>
+                          </div>
+                      </div>
+                  </div>
+                  
+                  <label>Start Date:</label>
+                  <input type="date" name="terms[${termIndex}][startDate]" required>
+                  <label>End Date:</label>
+                  <input type="date" name="terms[${termIndex}][endDate]" required>
+              </fieldset>
+          `;
+          termsContainer.appendChild(termDiv);
+          // Populate classes for the new term
+          addClassToTerm(termIndex);
+      }
+
+      function toggleTermDeleteMenu(event, button) {
+        event.stopPropagation();
+        const dropdown = button.nextElementSibling;
+        const isCurrentlyShown = dropdown.classList.contains('show');
+        
+        // Close all other open menus
+        document.querySelectorAll('.term-menu-dropdown.show').forEach(menu => {
+          menu.classList.remove('show');
+        });
+        
+        // Toggle current menu
+        if (!isCurrentlyShown) {
+          dropdown.classList.add('show');
+        }
+      }
+
+      // Close dropdown when clicking outside
+      document.addEventListener('click', function(event) {
+        if (!event.target.closest('.term-menu-container')) {
+          document.querySelectorAll('.term-menu-dropdown.show').forEach(menu => {
+            menu.classList.remove('show');
+          });
+        }
+      });
+
+      function removeField(button) {
+            button.closest(".term").remove();
+        }
+      // Function to populate class checkboxes for each term
+      function addClassToTerm(termIndex) {
+          const termClassesDiv = document.getElementById(`termClasses${termIndex}`);
+          termClassesDiv.innerHTML = ''; // Clear any previous content
+          if (classes.length === 0) {
+              termClassesDiv.innerHTML = 'No classes available.';
+              return;
+          }
+          // Dynamically create checkboxes for each class
+          classes.forEach(cls => {
+              const div = document.createElement('div');
+              const checkbox = document.createElement('input');
+              checkbox.type = 'checkbox';
+              checkbox.name = `terms[${termIndex}][selectedClasses][]`;
+              checkbox.value = cls.class_id;
+              const label = document.createElement('label');
+              label.innerText = cls.class_name;
+              div.appendChild(checkbox);
+              div.appendChild(label);
+              termClassesDiv.appendChild(div);
+          });
+      }
+      // --- Prevent overlapping term dates on register ---
+      function validateRegisterSchoolYearForm(form) {
+        const startDates = Array.from(form.querySelectorAll('input[name^="terms"][name$="[startDate]"]'));
+        const endDates = Array.from(form.querySelectorAll('input[name^="terms"][name$="[endDate]"]'));
+        const termNames = Array.from(form.querySelectorAll('input[name^="terms"][name$="[termName]"]'));
+        let ranges = [];
+        for (let i = 0; i < startDates.length; i++) {
+          const start = new Date(startDates[i].value);
+          const end = new Date(endDates[i].value);
+          if (start > end) {
+            alert(`Start date must be before end date for term: ${termNames[i].value}`);
+            return false;
+          }
+          ranges.push({start, end, name: termNames[i].value});
+        }
+        // Check for overlaps
+        for (let i = 0; i < ranges.length; i++) {
+          for (let j = i + 1; j < ranges.length; j++) {
+            if (
+              (ranges[i].start <= ranges[j].end && ranges[i].end >= ranges[j].start)
+            ) {
+              alert(`Date ranges for terms "${ranges[i].name}" and "${ranges[j].name}" overlap. Please correct them.`);
+              return false;
+            }
+          }
+        }
+        return true;
+      }
+    </script>
+  </body>
+</html>

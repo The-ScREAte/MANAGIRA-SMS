@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Enrollment Page</title>
+    <style>
+      :root {
+        --font-family: "Inter", sans-serif;
+      }
+
+      body {
+        font-family: var(--font-family);
+        margin: 0;
+      }
+        .card {
+          background: #fff;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+          border-radius: 12px;
+          padding: 32px 24px;
+          margin: 0 auto 32px auto;
+          max-width: 500px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+
+        .collapsible {
+          width: 80%;
+          margin: 0 auto 20px auto;
+          text-align: center;
+        }
+        .collapsible-btn {
+          background: #01535b;
+          color: #fff;
+          border: none;
+          border-radius: 5px;
+          padding: 8px 18px;
+          cursor: pointer;
+          margin-bottom: 10px;
+          transition: background 0.3s;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+          font-size: 1rem;
+      }
+      .arrow {
+        display: inline-block;
+        margin-left: 8px;
+        transition: transform 0.3s;
+      }
+      .arrow.expanded {
+        transform: rotate(90deg);
+      }
+
+        .collapsible-btn:hover {
+          background: #013c44;
+        }
+        .collapsible-content {
+          display: none;
+          margin-top: 10px;
+        }
+        .collapsible-content.active {
+          display: flex;
+          flex-direction: column;
+          justify-content: start;
+        }
+
+        .form-actions button[type="button"] {
+          width: auto;
+          min-width: 0;
+          padding: 10px 28px;
+          display: inline-block;
+        }
+
+      main {
+        text-align: center;
+        margin: 0 auto;
+        width: 90%;
+        max-width: 1000px;
+      }
+
+      h1,
+      h3,
+      h4 {
+        text-align: center;
+      }
+
+      .form-group {
+        margin-bottom: 15px;
+        text-align: left;
+        min-width: 90%;
+      }
+
+      label {
+        font-weight: bold;
+      }
+
+      select,
+      input[type="text"],
+      input[type="number"] {
+        width: 100%;
+        padding: 8px;
+        margin-top: 5px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      #schoolYear,
+      #term {
+        width: 90%;
+        max-width: 350px;
+        margin-left: auto;
+        margin-right: auto;
+        display: block;
+      }
+
+      .center-link {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 20px;
+      }
+
+      .center-link button {
+        margin: 0 10px;
+        padding: 10px 20px;
+        border: none;
+        background-color: #01535b;
+        color: white;
+        cursor: pointer;
+        border-radius: 5px;
+        transition: background-color 0.3s ease;
+      }
+
+      .center-link button:hover {
+        background-color: #013c44;
+      }
+
+      .checkbox-container,
+      .select-all-container,
+      .checkbox-container {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-start;
+        text-align: left;
+        gap: 10px;
+        margin-bottom: 10px;
+        width: 100%;
+      }
+
+      .student-list {
+        display: none;
+        padding-left: 15px;
+        border-left: 2px solid #ccc;
+        margin-left: 10px;
+      }
+
+      .student-list.visible {
+        display: block;
+      }
+
+      .form-actions {
+        margin-top: 20px;
+        display: flex;
+        justify-content: center;
+      }
+
+      button[type="button"] {
+        padding: 10px 20px;
+        background-color: #01535b;
+        color: white;
+        border: none;
+        cursor: pointer;
+        margin: 0 5px;
+        border-radius: 5px;
+      }
+
+      button[type="button"]:hover {
+        background-color: #013c44;
+      }
+
+      .alert-success,
+      .alert-danger {
+        padding: 10px;
+        margin-bottom: 15px;
+        border-radius: 5px;
+        text-align: center;
+      }
+
+      .alert-success {
+        background-color: #d4edda;
+        color: #155724;
+      }
+
+      .alert-danger {
+        background-color: #f8d7da;
+        color: #721c24;
+      }
+
+      @media screen and (max-width: 768px) {
+        /* .checkbox-container,
+        .select-all-container {
+          flex-direction: column;
+          align-items: flex-start;
+        } */
+
+        .form-actions {
+          flex-direction: column;
+        }
+
+        .center-link {
+          flex-direction: column;
+        }
+
+        .center-link button {
+          margin-bottom: 10px;
+        }
+      }
+
+      .search-result-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: 5px 0;
+        padding: 3px 0;
+        border-bottom: 1px solid #ddd;
+      }
+
+      .search-result-container button {
+        background-color: #01535b;
+        color: #fff;
+        border: none;
+        border-radius: 3px;
+        font-size: 12px;
+        padding: 3px 6px; /* smaller size */
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+      }
+
+      .search-result-container button:hover {
+        background-color: #013c44;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <%- include('../partials/flash') %>
+      <br />
+      <div class="center-link">
+        <button onclick="location.href='/enrollment/manageEnrollment'">
+          Manage Enrollments
+        </button>
+      </div>
+      <hr style="margin: 18px auto; width: 60%; border: 0; border-top: 1.5px solid #eee;" />
+      <h1>Enrollment Classes and Students</h1>
+
+        <form id="enrollmentForm" class="card">
+        <!-- School Year -->
+        <div class="form-group">
+          <label for="schoolYear">Select School Year:</label>
+          <select id="schoolYear" name="schoolYearId" required>
+            <option value="">Select a school year</option>
+            <% schoolYears.forEach(schoolYear => { %>
+            <option
+              value="<%= schoolYear.school_year_id %>"
+              data-terms="<%= JSON.stringify(schoolYear.terms) %>"
+            >
+              <%= schoolYear.year_label %>
+            </option>
+            <% }); %>
+          </select>
+        </div>
+
+        <!-- Term -->
+        <div class="form-group">
+          <label for="term">Select Term:</label>
+          <select id="term" name="termId" required>
+            <option value="">Select a term</option>
+          </select>
+        </div>
+
+        <!-- Classes and Students -->
+        <h3>Select Classes and Students</h3>
+        <div class="collapsible">
+          <button type="button" class="collapsible-btn" onclick="toggleCollapsible()">
+            <span>Show/Hide Classes</span>
+            <span id="arrowIcon" class="arrow">&#9654;</span>
+          </button>
+          <div id="collapsibleContent" class="collapsible-content">
+            <div class="select-all-container">
+              <input
+                type="checkbox"
+                id="selectAllClasses"
+                onclick="selectAllClassesAndStudents()"
+              />
+              <label for="selectAllClasses">Select All Classes and Students</label>
+            </div>
+            <% classes.forEach(cls => { %>
+            <div class="checkbox-container">
+              <input
+                type="checkbox"
+                id="class_<%= cls.class_id %>"
+                name="selectedClasses[]"
+                value="<%= cls.class_id %>"
+                onchange="toggleStudents('<%= cls.class_id %>')"
+              />
+              <label for="class_<%= cls.class_id %>"><%= cls.class_name %></label>
+            </div>
+
+            <div id="students_<%= cls.class_id %>" class="student-list">
+              <div class="select-all-container">
+                <input
+                  type="checkbox"
+                  id="selectAllStudents_<%= cls.class_id %>"
+                  onclick="selectAllStudents('<%= cls.class_id %>')"
+                />
+                <label for="selectAllStudents_<%= cls.class_id %>">
+                  Select All Students in <%= cls.class_name %>
+                </label>
+              </div>
+
+              <!-- Existing enrolled students -->
+              <div id="studentsContainer_<%= cls.class_id %>">
+                <% cls.enrolledStudents.forEach(student => { %>
+                <div class="checkbox-container">
+                  <input
+                    type="checkbox"
+                    id="student_<%= student.student_id %>"
+                    name="selectedStudents[<%= cls.class_id %>][]"
+                    value="<%= student.student_id %>"
+                  />
+                  <label for="student_<%= student.student_id %>">
+                    <%= student.first_name %> <%= student.last_name %>
+                  </label>
+                </div>
+                <% }); %>
+              </div>
+
+              <!-- Divider for searched students -->
+              <hr id="divider_<%= cls.class_id %>" style="display: none" />
+
+              <!-- Container for newly added students from search -->
+              <div id="searchedStudentsContainer_<%= cls.class_id %>"></div>
+
+              <!-- Search bar for additional students -->
+              <div class="form-group">
+                <label for="searchInput_<%= cls.class_id %>"
+                  >Search and Add Students:</label
+                >
+                <input
+                  type="text"
+                  id="searchInput_<%= cls.class_id %>"
+                  placeholder="Type name to search"
+                  oninput="searchStudents('<%= cls.class_id %>')"
+                />
+              </div>
+              <div
+                id="searchResults_<%= cls.class_id %>"
+                class="search-results"
+              ></div>
+            </div>
+            <% }); %>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" onclick="enrollStudents()">Enroll</button>
+        </div>
+      </form>
+    </main>
+
+    <script>
+      function toggleCollapsible() {
+        var content = document.getElementById('collapsibleContent');
+        var arrow = document.getElementById('arrowIcon');
+        content.classList.toggle('active');
+        arrow.classList.toggle('expanded', content.classList.contains('active'));
+      }
+      document
+        .getElementById("schoolYear")
+        .addEventListener("change", function () {
+          const selectedOption = this.options[this.selectedIndex];
+          const terms = JSON.parse(selectedOption.getAttribute("data-terms"));
+          const termSelect = document.getElementById("term");
+          termSelect.innerHTML = '<option value="">Select a term</option>';
+          if (terms && terms.length > 0) {
+            terms.forEach((term) => {
+              termSelect.innerHTML += `<option value="${term.term_id}">${term.term_name}</option>`;
+            });
+          }
+        });
+
+      function toggleStudents(classId) {
+        const classCheckbox = document.getElementById(`class_${classId}`);
+        const studentList = document.getElementById(`students_${classId}`);
+        if (classCheckbox.checked) {
+          studentList.classList.add("visible");
+        } else {
+          studentList.classList.remove("visible");
+          const studentCheckboxes = studentList.querySelectorAll(
+            'input[type="checkbox"]'
+          );
+          studentCheckboxes.forEach((cb) => (cb.checked = false));
+        }
+      }
+
+      function selectAllClassesAndStudents() {
+        const selectAllCheckbox = document.getElementById("selectAllClasses");
+        const classCheckboxes = document.querySelectorAll(
+          'input[name="selectedClasses[]"]'
+        );
+        const studentCheckboxes = document.querySelectorAll(
+          'input[name^="selectedStudents"]'
+        );
+        classCheckboxes.forEach((cb) => {
+          cb.checked = selectAllCheckbox.checked;
+          toggleStudents(cb.value);
+        });
+        studentCheckboxes.forEach(
+          (cb) => (cb.checked = selectAllCheckbox.checked)
+        );
+      }
+
+      function selectAllStudents(classId) {
+        const selectAllStudentsCheckbox = document.getElementById(
+          `selectAllStudents_${classId}`
+        );
+        const studentCheckboxes =
+          document.querySelectorAll(`#studentsContainer_${classId} input[type="checkbox"],
+          #searchedStudentsContainer_${classId} input[type="checkbox"]`);
+        studentCheckboxes.forEach((cb) => {
+          cb.checked = selectAllStudentsCheckbox.checked;
+        });
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
+      async function searchStudents(classId) {
+        const query = document
+          .getElementById(`searchInput_${classId}`)
+          .value.trim();
+        const resultsContainer = document.getElementById(
+          `searchResults_${classId}`
+        );
+        if (query.length < 2) {
+          resultsContainer.innerHTML = "";
+          return;
+        }
+        const response = await fetch(
+          `/enrollment/searchUsers?query=${encodeURIComponent(query)}`
+        );
+        const data = await response.json();
+        resultsContainer.innerHTML = "";
+        data.users
+          .filter((user) => user.type === "student")
+          .forEach((student) => {
+            const studentElement = document.createElement("div");
+            studentElement.classList.add("search-result-container");
+            studentElement.innerHTML = `
+            <span>${escapeHtml(student.first_name)} ${escapeHtml(
+              student.last_name
+            )} (Will be added to ${escapeHtml(student.class_name)})</span>
+            <button type="button" onclick="addStudentToClass('${classId}', ${
+              student.student_id
+            }, '${escapeHtml(student.first_name)} ${escapeHtml(
+              student.last_name
+            )} (${escapeHtml(student.class_name)})')">
+              ➕ Add
+            </button>`;
+            resultsContainer.appendChild(studentElement);
+          });
+      }
+
+      function addStudentToClass(classId, studentId, studentName) {
+        // Remove student from all other class containers
+        document
+          .querySelectorAll('.student-list input[type="checkbox"]')
+          .forEach((cb) => {
+            if (cb.value === studentId.toString()) {
+              const container = cb.closest(".checkbox-container");
+              if (container) container.remove();
+            }
+          });
+
+        // Add student to the new class's container
+        const container = document.getElementById(
+          `searchedStudentsContainer_${classId}`
+        );
+        const divider = document.getElementById(`divider_${classId}`);
+        divider.style.display = "block";
+        const studentElement = document.createElement("div");
+        studentElement.classList.add("checkbox-container");
+        studentElement.innerHTML = `
+                <input type="checkbox" id="student_${studentId}_added_${classId}" name="selectedStudents[${classId}][]" value="${studentId}" checked>
+                <label for="student_${studentId}_added_${classId}">${studentName} (added)</label>`;
+        container.appendChild(studentElement);
+
+        // Clear search
+        document.getElementById(`searchInput_${classId}`).value = "";
+        document.getElementById(`searchResults_${classId}`).innerHTML = "";
+      }
+
+      async function enrollStudents() {
+        const formElement = document.getElementById("enrollmentForm");
+        const formData = new FormData(formElement);
+
+        const selectedClasses = formData.getAll("selectedClasses[]");
+        const selectedStudents = {};
+        formData.forEach((value, key) => {
+          if (key.startsWith("selectedStudents[")) {
+            const classId = key.match(/selectedStudents\[(\d+)\]/)[1];
+            if (!selectedStudents[classId]) selectedStudents[classId] = [];
+            selectedStudents[classId].push(value);
+          }
+        });
+
+        const termId = formData.get("termId");
+        const schoolYearId = formData.get("schoolYearId");
+
+        if (!termId || !schoolYearId || selectedClasses.length === 0) {
+          alert("Please select a school year, term, and at least one class.");
+          return;
+        }
+
+        const rsp = await fetch("/enrollment/enroll", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            selectedClasses,
+            selectedStudents,
+            termId,
+            schoolYearId,
+          }),
+        });
+
+        const json = await rsp.json();
+        if (json.conflicts && json.conflicts.length > 0) {
+          let msg = "Some students are already in other classes:\n\n";
+          json.conflicts.forEach((c) => {
+            msg += `- ${c.studentName}: in "${c.currentClass}", moving to "${c.newClass}"\n`;
+          });
+          msg += "\nDo you want to move them to the new class?";
+          if (confirm(msg)) {
+            const confirmRsp = await fetch(
+              `/enrollment/enroll?confirmMove=true`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  selectedClasses,
+                  selectedStudents,
+                  termId,
+                  schoolYearId,
+                }),
+              }
+            );
+            const confirmJson = await confirmRsp.json();
+            alert(confirmJson.message);
+            if (confirmRsp.ok) location.reload();
+          } else {
+            alert("No changes were made.");
+          }
+        } else {
+          alert(json.message);
+          if (rsp.ok) location.reload();
+        }
+      }
+    </script>
+  </body>
+</html>

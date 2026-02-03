@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= title %></title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+      :root {
+        --font-family: "Inter", sans-serif;
+      }
+
+      body {
+        font-family: var(--font-family);
+      }
+    </style>
+
+    <style>
+      body {
+        font-family: var(--font-family);
+        background-color: #f4f4f9;
+        color: #333;
+        margin: 0;
+      }
+
+      .migration-container {
+        max-width: 1400px;
+        margin: auto;
+        text-align: center;
+      }
+
+      .upload-section {
+        width: 50%;
+        margin: auto;
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      form {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      input[type="file"] {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+      }
+
+      button {
+        background: #01535b;
+        color: white;
+        padding: 12px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+      }
+
+      button:hover {
+        background: #01535b;
+      }
+
+      .uploaded-files {
+        margin-top: 30px;
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .uploaded-files ul {
+        list-style: none;
+        padding: 0;
+      }
+
+      .uploaded-files li {
+        padding: 10px;
+        border-bottom: 1px solid #eee;
+      }
+
+      .uploaded-files a {
+        color: #01535b;
+        text-decoration: none;
+      }
+
+      /* File Preview */
+      #filePreviewContainer {
+        margin-top: 30px;
+        display: none;
+        text-align: center;
+      }
+
+      #filePreview {
+        border: 1px solid #ccc;
+        width: 100%;
+        height: 500px;
+      }
+
+      #csvPreview {
+        display: none;
+        border: 1px solid #ccc;
+        width: 100%;
+        height: 800px;
+        overflow: auto;
+        padding: 10px;
+        background: #fff;
+        text-align: left;
+        white-space: pre-wrap;
+        font-family: var(--font-family);
+      }
+
+      .highlight {
+        background-color: yellow;
+      }
+
+      /* Notice Section */
+      .notice {
+        background-color: #e7f3fe;
+        color: #0c5460;
+        border: 1px solid #bee5eb;
+        border-radius: 5px;
+        padding: 15px;
+        margin-bottom: 20px;
+      }
+      .notice h2 {
+        font-size: 18px;
+        margin: 0 0 10px;
+        font-weight: bold;
+      }
+      /* Small Screen Styles */
+      @media (max-width: 768px) {
+        body {
+          font-size: 1rem;
+          margin: 0;
+        }
+
+        h1 {
+          font-size: 1.8rem;
+          text-align: center;
+          margin: 15px 0;
+        }
+
+        .migration-container {
+          width: 95%;
+          padding: 10px;
+        }
+
+        .upload-section {
+          width: 100%;
+          padding: 15px;
+          box-shadow: none;
+        }
+
+        .uploaded-files {
+          padding: 15px;
+          width: 100%;
+        }
+
+        input[type="file"] {
+          font-size: 0.9rem;
+          padding: 10px;
+        }
+
+        button {
+          font-size: 1rem;
+          padding: 12px;
+          width: 100%;
+          border-radius: 5px;
+        }
+
+        .notice {
+          font-size: 0.95rem;
+          padding: 10px;
+        }
+
+        .flash-message {
+          font-size: 1rem;
+          text-align: center;
+          padding: 10px;
+        }
+
+        /* File Preview */
+        #filePreviewContainer {
+          padding: 10px;
+        }
+
+        #filePreview,
+        #csvPreview {
+          height: 300px;
+        }
+
+        #searchFileContent {
+          width: 100%;
+          font-size: 1rem;
+          padding: 8px;
+        }
+
+        /* Uploaded File List */
+        .uploaded-files ul {
+          padding: 0;
+        }
+
+        .uploaded-files li {
+          font-size: 0.95rem;
+          padding: 8px;
+        }
+
+        .uploaded-files a {
+          font-size: 0.9rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <%- include('../partials/flash') %>
+
+    <div class="migration-container">
+      <h1>Data Migration</h1>
+
+      <!-- Notice Section -->
+      <div class="notice">
+        <h2>Notice:</h2>
+        <p>
+          This page is designed to store and manage all data files migrated from
+          a different platform to our system. The files are securely stored and
+          accessible only to those with the correct permissions. Organizations
+          can use this section to retrieve essential records anytime.
+        </p>
+      </div>
+
+      <!-- Upload Section -->
+      <div class="upload-section">
+        <h3>Upload File</h3>
+        <form
+          action="/print/upload"
+          method="POST"
+          enctype="multipart/form-data"
+        >
+          <input
+            type="file"
+            name="file"
+            id="file"
+            accept=".csv,.pdf"
+            required
+          />
+          <button type="submit">Upload</button>
+        </form>
+      </div>
+
+      <!-- Uploaded Files -->
+      <div class="uploaded-files">
+        <h3>Uploaded Files</h3>
+        <% if (Array.isArray(uploadedFiles) && uploadedFiles.length > 0) { %>
+        <ul>
+          <% uploadedFiles.forEach(file => { %>
+          <li>
+            <strong><%= file.file_name %></strong> -
+            <a href="#" class="view-file" data-file="<%= file.s3_url %>"
+              >View</a
+            >
+            | <a href="<%= file.s3_url %>" download>Download</a> |
+            <a href="#" class="delete-file" data-file="<%= file.file_name %>"
+              >Delete</a
+            >
+          </li>
+          <% }) %>
+        </ul>
+        <% } else { %>
+        <p>No files uploaded yet.</p>
+        <% } %>
+      </div>
+
+      <!-- File Preview -->
+      <div id="filePreviewContainer">
+        <h3>File Preview</h3>
+        <input
+          type="text"
+          id="searchFileContent"
+          placeholder="Search inside file..."
+        />
+        <iframe id="filePreview"></iframe>
+        <pre id="csvPreview"></pre>
+      </div>
+    </div>
+
+    <script>
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+      $(document).ready(function () {
+        // 📌 Handle file preview
+        $(".view-file").click(async function (e) {
+          e.preventDefault();
+          var fileUrl = $(this).data("file");
+
+          if (!fileUrl) {
+            console.error("❌ Error: File URL missing.");
+            alert("Error: File URL missing.");
+            return;
+          }
+
+          let fileExtension = fileUrl.split(".").pop().toLowerCase();
+          $("#filePreviewContainer").show();
+          $("#searchFileContent").val("");
+
+          if (fileExtension === "pdf") {
+            $("#filePreview").attr("src", fileUrl).show();
+            $("#csvPreview").hide();
+          } else if (fileExtension === "csv") {
+            $("#filePreview").hide();
+            $("#csvPreview").show().text("Loading...");
+
+            try {
+              let response = await fetch(fileUrl);
+              let csvText = await response.text();
+              $("#csvPreview").text(csvText);
+            } catch (error) {
+              console.error("❌ Error loading CSV file:", error);
+              $("#csvPreview").text("Error loading CSV file.");
+            }
+          } else {
+            alert("Unsupported file type.");
+          }
+        });
+
+        // 🔍 Search inside the previewed file content
+        $("#searchFileContent").on("input", function () {
+          let searchValue = $(this).val().toLowerCase();
+          let content = $("#csvPreview").text();
+
+          if (!searchValue) {
+            $("#csvPreview").html(content);
+            return;
+          }
+
+          let highlightedText = content.replace(
+            new RegExp(escapeHtml(searchValue), "gi"),
+            (match) => `<span class="highlight">${match}</span>`
+          );
+
+          $("#csvPreview").html(highlightedText);
+        });
+
+        // ❌ Delete Confirmation
+        $(".delete-file").click(function (e) {
+          e.preventDefault();
+          if (confirm("Are you sure you want to delete this file?")) {
+            window.location.href = "/print/delete/" + $(this).data("file");
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

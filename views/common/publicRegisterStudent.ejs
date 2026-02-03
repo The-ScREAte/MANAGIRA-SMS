@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Public Student Registration</title>
+<style>
+      :root {
+        --font-family: "Inter", sans-serif;
+      }
+
+
+  .registration-container {
+    max-width: 1000px;
+    margin: 40px auto;
+    padding: 30px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+    font-family: var(--font-family);
+  }
+  .form-header {
+    text-align: center;
+    margin-bottom: 25px;
+  }
+  .form-group {
+    margin-bottom: 20px;
+  }
+  .form-group label {
+    font-weight: 500;
+    display: block;
+    margin-bottom: 5px;
+  }
+  .form-group input,
+  .form-group select {
+    width: 100%;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+  }
+  .form-actions {
+    text-align: center;
+    margin-top: 30px;
+  }
+  .form-actions button {
+    background-color: #2563eb;
+    color: white;
+    padding: 12px 30px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1rem;
+  }
+  .guardians-section {
+    margin-top: 25px;
+    padding: 15px;
+    border: 1px solid #eee;
+    border-radius: 6px;
+    background: #f9f9f9;
+  }
+  #registrationFormSection {
+    display: none;
+  }
+  #paymentFormContainer {
+    display: none;
+    margin-top: 30px;
+  }
+  .back-button {
+    margin-bottom: 20px;
+    background: #ddd;
+    padding: 5px 10px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  .remove-guardian {
+    background: #f44336;
+    color: white;
+    border: none;
+    margin-top: 5px;
+    cursor: pointer;
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 0.9rem;
+  }
+
+  .loader-container {
+    display: none; /* Start hidden */
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    background: rgba(255, 255, 255, 0.9);
+    z-index: 10000;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .loader-circle {
+    border: 6px solid #f3f3f3;
+    border-top: 6px solid #2563eb;
+    border-radius: 50%;
+    width: 50px; height: 50px;
+    animation: spin 0.8s linear infinite;
+  }
+  .loader-text {
+    margin-top: 15px;
+    font-size: 1.1rem;
+    color: #2563eb;
+    font-weight: bold;
+  }
+  @keyframes spin { 
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+</style>
+</head>
+<body>
+  <%- include('../partials/flash') %>
+  
+  <div class="registration-container">
+    <!-- Welcome Section -->
+    <div id="welcomeSection">
+      <h1 class="form-header">Welcome to <%= orgDetails.organization_name %></h1>
+      <p style="font-size: 1.1rem;">
+        <strong><%= orgDetails.organization_name %></strong> has opened applications for new students. We're thrilled you're considering joining us!
+        <br /><br />
+        The non-refundable application fee is <strong><%= orgDetails.public_registration_currency %> <%= orgDetails.public_registration_price %></strong> and will be collected before submitting your registration.
+        <br /><br />
+        After submission, you may receive a follow-up email, text or phone call from us for verification before final enrollment. Other relevant information will be communicated later.
+        <br /><br />
+        <strong>Make sure you provide all required information and upload a recent image of the student for proper identification.</strong>
+      </p>
+      <div class="form-actions">
+        <button onclick="startRegistration()">Next</button>
+      </div>
+    </div>
+  
+    <!-- Registration Section -->
+    <div id="registrationFormSection" style="display: none;">
+      <h2 class="form-header">Student Registration Form</h2>
+      <form id="registrationForm" enctype="multipart/form-data">
+        <input type="hidden" name="organizationId" value="<%= organizationId %>" />
+  
+        <div class="form-group">
+          <label>First Name</label>
+          <input type="text" name="firstName" required />
+        </div>
+        <div class="form-group">
+          <label>Last Name</label>
+          <input type="text" name="lastName" required />
+        </div>
+        <div class="form-group">
+          <label>Date of Birth</label>
+          <input type="date" name="dateOfBirth" required />
+        </div>
+        <div class="form-group">
+          <label>Gender</label>
+          <select name="gender" required>
+            <option value="">Select Gender</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Hometown</label>
+          <input type="text" name="hometown" />
+        </div>
+        <div class="form-group">
+          <label>Class</label>
+          <select name="classId" id="classId" required>
+            <option value="">Select Class</option>
+            <% classes.forEach(cls => { %>
+              <option value="<%= cls.class_id %>"><%= cls.class_name %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Student Image</label>
+          <input type="file" name="studentImage" required />
+        </div>
+  
+        <div id="guardiansContainer">
+          <div class="guardians-section guardian-entry">
+            <h4>Guardian Details</h4>
+            <div class="form-group">
+              <label>Guardian First Name</label>
+              <input type="text" name="guardianFirstName0" />
+            </div>
+            <div class="form-group">
+              <label>Guardian Last Name</label>
+              <input type="text" name="guardianLastName0" />
+            </div>
+            <div class="form-group">
+              <label>Guardian Phone</label>
+              <input type="text" name="guardianPhone0" />
+            </div>
+            <div class="form-group">
+              <label>Guardian Email</label>
+              <input type="email" name="guardianEmail0" />
+            </div>
+            <div class="form-group">
+              <label>Guardian Hometown</label>
+              <input type="text" name="guardianHometown0" />
+            </div>
+          </div>
+        </div>
+  
+        <div style="margin-top: 10px;">
+          <button type="button" onclick="addGuardian()">+ Add Another Guardian</button>
+        </div>
+  
+        <div class="form-actions">
+          <button type="button" onclick="continueToPayment()">Continue to Payment</button>
+        </div>
+      </form>
+    </div>
+  
+ <!-- Payment Section -->
+ <div id="paymentFormContainer" style="display: none;">
+  <button class="back-button" onclick="backToRegistration()">← Back to Registration</button>
+  <h3>Payment</h3>
+  <p>The non-refundable application fee is <strong><%= orgDetails.public_registration_currency %> <%= orgDetails.public_registration_price %></strong>.</p>
+
+  <div class="form-group">
+    <label>Select Payment Method (Bank or MoMo)</label>
+    <select id="orgPaymentMethod" name="orgPaymentMethod" required>
+      <option value="">-- Choose Payment Account --</option>
+      <% (paystackSubaccounts || []).forEach(account => { %>
+        <option value="<%= account.subaccount_code %>">
+          <%= account.account_type.toUpperCase() %>: <%= account.business_name %> - <%= account.account_number || account.momo_number %> <%= account.bank_name ? '(' + account.bank_name + ')' : (account.momo_provider ? '(' + account.momo_provider + ')' : '') %>
+        </option>
+      <% }) %>
+    </select>
+  </div>
+
+  <div class="form-actions">
+    <button type="button" onclick="submitRegistration()">Submit Registration & Pay</button>
+  </div>
+  <!-- Loader (hidden initially) -->
+  <div id="loader" class="loader-container">
+    <div class="loader-circle"></div>
+    <div class="loader-text">Redirecting...</div>
+  </div>
+</div>
+
+
+</div>
+
+  <script>
+    let guardianCount = 1;
+    
+    function startRegistration() {
+      document.getElementById("welcomeSection").style.display = "none";
+      document.getElementById("registrationFormSection").style.display = "block";
+    }
+    
+    function backToRegistration() {
+      document.getElementById("paymentFormContainer").style.display = "none";
+      document.getElementById("registrationFormSection").style.display = "block";
+    }
+    
+    function continueToPayment() {
+      const form = document.getElementById('registrationForm');
+      if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+      }
+      document.getElementById("registrationFormSection").style.display = "none";
+      document.getElementById("paymentFormContainer").style.display = "block";
+    }
+    
+    async function submitRegistration() {
+      // Show the loader immediately
+      document.getElementById('loader').style.display = 'flex';
+    
+      const form = document.getElementById('registrationForm');
+      const formData = new FormData(form);
+    
+      const paymentMethodId = document.getElementById('orgPaymentMethod').value;
+      if (!paymentMethodId) {
+        alert('Please select a payment account.');
+        document.getElementById('loader').style.display = 'none';
+        return;
+      }
+      formData.append('paymentMethodId', paymentMethodId);
+    
+      try {
+        const res = await fetch('/common/publicRegister?organizationId=<%= organizationId %>', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+    
+        if (data.success) {
+          const paymentRes = await fetch('/common/initializePayment', {
+            method: 'POST',
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              subaccountId: paymentMethodId,
+              amount: data.amount,
+              organizationId: "<%= organizationId %>"
+            })
+          });
+    
+          const paymentData = await paymentRes.json();
+    
+          if (paymentData.success && paymentData.payment_link) {
+            window.location.href = paymentData.payment_link;
+          } else {
+            alert('Error initializing payment. Please try again.');
+            document.getElementById('loader').style.display = 'none';
+          }
+        } else {
+          alert('Registration failed: ' + data.error);
+          document.getElementById('loader').style.display = 'none';
+        }
+      } catch (err) {
+        console.error('Error:', err);
+        alert('Error. Please try again.');
+        document.getElementById('loader').style.display = 'none';
+      }
+    }
+    </script>

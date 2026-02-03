@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Data Export</title>
+  </head>
+  <body>
+    <h1>Data Export</h1>
+    <%- include('../partials/flash') %>
+
+    <form action="/admin/generate-organization-csv" method="POST">
+      <select name="organizationId" required>
+        <% organizations.forEach(org => { %>
+        <option value="<%= org.organization_id %>">
+          <%= org.organization_name %>
+        </option>
+        <% }) %>
+      </select>
+      <button type="submit" name="format" value="csv">Download CSV</button>
+      <button type="submit" name="format" value="pdf">Download PDF</button>
+    </form>
+  </body>
+</html>

@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Manage Enrollments</title>
+    <style>
+      :root {
+        --font-family: "Inter", sans-serif;
+      }
+
+      .manage-enrollment-page {
+        font-family: var(--font-family);
+        background: #f7f9fb;
+      }
+
+
+      .modify-btn {
+        background: #e8f5e9;
+        color: #43a047;
+        font-weight: bold;
+        border: none;
+        border-radius: 6px;
+        padding: 8px 22px;
+        font-size: 1rem;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(1,83,91,0.08);
+        transition: background 0.2s;
+      }
+      .modify-btn:hover {
+        background: #43a047;
+        color: #fff;
+      }
+      .collapsible-btn {
+        width: 100%;
+        background: #01535b;
+        color: #fff;
+        border: none;
+        outline: none;
+        padding: 10px 18px;
+        font-size: 1rem;
+        text-align: left;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+        border-radius: 8px;
+        margin-bottom: 8px;
+        transition: background 0.2s;
+      }
+      .collapsible-btn .arrow {
+        font-size: 20px;
+        margin-left: 12px;
+        transition: transform 0.2s;
+      }
+      .collapsible-btn:hover,
+      .collapsible-btn:focus {
+        background: #01424a;
+        color: #fff;
+        box-shadow: none;
+      }
+      .collapsible-content {
+        background: #f9f9f9;
+        border-radius: 6px;
+        margin-top: 6px;
+        padding: 8px 12px;
+        width: 100%;
+      }
+      .main-content {
+        max-width: 1200px;
+        margin: 0 auto 32px;
+        padding: 0 20px;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      body {
+        font-family: var(--font-family);
+      }
+    </style>
+    <style>
+      table {
+        width: 100%;
+        margin-top: 20px;
+        border-collapse: collapse;
+        background: #fff;
+        border-radius: 10px 10px 0 0;
+        box-shadow: 0 2px 12px rgba(1,83,91,0.12);
+        min-width: 900px;
+      }
+      th,
+      td {
+        padding: 14px 10px;
+        text-align: left;
+        font-size: 1rem;
+        border: 1px solid #d3e2e5;
+        background: #fff;
+      }
+      th {
+        background: #01535b;
+        color: #fff;
+        font-weight: 600;
+        border-bottom: 2px solid #013a40;
+        text-align: center;
+      }
+      tr:nth-child(even) td {
+        background: #f2f7fa;
+      }
+      tr:hover td {
+        background: #e0f7fa;
+      }
+      .center {
+        text-align: center;
+      }
+      .action-links {
+        text-align: center;
+        margin-bottom: 20px;
+      }
+      .link-button {
+        text-decoration: none;
+        background-color: #01535b;
+        color: #fff;
+        padding: 5px 10px;
+        border-radius: 5px;
+        transition: background-color 0.3s ease;
+      }
+      .link-button:hover {
+        background-color: #01535b;
+      }
+      .green-dot {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        background-color: rgb(0, 201, 0);
+        border-radius: 50%;
+        margin-right: 5px;
+      }
+      .notice-message {
+        background-color: #f5cece;
+        color: #333;
+        padding: 10px;
+        border-left: 5px solid #000000;
+        margin-bottom: 20px;
+      }
+      .class-container {
+        margin-top: 10px;
+        cursor: pointer;
+        user-select: none;
+      }
+      .class-arrow {
+        font-size: 16px;
+        margin-right: 5px;
+      }
+      .student-list {
+        list-style-type: none;
+        padding-left: 20px;
+        display: none; /* Hidden by default */
+      }
+      .student-checkbox {
+        display: flex;
+        align-items: center;
+      }
+      .student-checkbox label {
+        margin-left: 5px;
+      }
+
+      /* Table wrapper for horizontal scrolling on small screens */
+      .table-wrapper {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      /* Mobile responsive styles */
+      @media (max-width: 768px) {
+        .main-content {
+          padding: 0 16px;
+        }
+
+        h1.center {
+          font-size: 1.5rem;
+          margin: 16px 0;
+        }
+
+        .link-to-next-back {
+          margin: 12px 0;
+        }
+
+        .link-button {
+          display: inline-block;
+          padding: 10px 16px;
+          font-size: 0.95rem;
+        }
+
+        .notice-message {
+          font-size: 0.9rem;
+          padding: 12px;
+          margin-bottom: 16px;
+        }
+
+        table {
+          min-width: 700px;
+          font-size: 0.9rem;
+        }
+
+        th, td {
+          padding: 10px 8px;
+          font-size: 0.9rem;
+        }
+
+        .collapsible-btn {
+          padding: 8px 12px;
+          font-size: 0.9rem;
+        }
+
+        .collapsible-btn .arrow {
+          font-size: 16px;
+        }
+
+        .modify-btn {
+          padding: 6px 16px;
+          font-size: 0.9rem;
+          white-space: nowrap;
+        }
+
+        .class-container {
+          font-size: 0.9rem;
+        }
+
+        .student-checkbox label {
+          font-size: 0.9rem;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .main-content {
+          padding: 0 12px;
+        }
+
+        h1.center {
+          font-size: 1.3rem;
+          margin: 12px 0;
+        }
+
+        .link-button {
+          padding: 8px 14px;
+          font-size: 0.85rem;
+        }
+
+        .notice-message {
+          font-size: 0.85rem;
+          padding: 10px;
+        }
+
+        table {
+          min-width: 650px;
+          font-size: 0.85rem;
+        }
+
+        th, td {
+          padding: 8px 6px;
+          font-size: 0.85rem;
+        }
+
+        .collapsible-btn {
+          padding: 6px 10px;
+          font-size: 0.85rem;
+        }
+
+        .modify-btn {
+          padding: 5px 12px;
+          font-size: 0.85rem;
+        }
+
+        .class-container {
+          font-size: 0.85rem;
+        }
+
+        .student-checkbox label {
+          font-size: 0.85rem;
+        }
+      }
+
+      @media (max-width: 360px) {
+        h1.center {
+          font-size: 1.2rem;
+        }
+
+        .link-button {
+          padding: 8px 12px;
+          font-size: 0.8rem;
+        }
+
+        table {
+          min-width: 600px;
+          font-size: 0.8rem;
+        }
+
+        th, td {
+          padding: 6px 4px;
+          font-size: 0.8rem;
+        }
+
+        .collapsible-btn {
+          padding: 6px 8px;
+          font-size: 0.8rem;
+        }
+
+        .modify-btn {
+          padding: 4px 10px;
+          font-size: 0.8rem;
+        }
+      }
+    </style>
+  </head>
+  <body class="manage-enrollment-page">
+    <br />
+    <div class="link-to-next-back">
+      <a href="/enrollment/enroll" class="link-button">Add Enrollment</a>
+    </div>
+
+    <hr />
+
+    <h1 class="center">Manage Enrollments</h1>
+
+    <% if (noEnrollmentForCurrentSemester) { %>
+    <div class="notice-message">
+      There are no claases and students enrolled in this current semester. If
+      you're in the wrong semester, please click
+      <a href="/common/manageRecords">here</a> to select or create the correct
+      semester and school year. Otherwise, click
+      <a href="/enrollment/enroll">here</a> to enroll the Classes and students
+      for this Semester.
+    </div>
+    <% } %> <%- include('../partials/flash') %>
+
+  <div class="main-content">
+    <div class="table-wrapper">
+  <table>
+      <thead>
+        <tr>
+          <th>School Year</th>
+          <th>Term</th>
+          <th>Classes with Enrolled Students</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% enrollments.forEach(enrollment => { %>
+        <tr>
+          <td>
+            <% if (enrollment.is_current_year) { %>
+            <span class="green-dot"></span>
+            <% } %> <%= enrollment.school_year %>
+          </td>
+          <td>
+            <% if (enrollment.is_current_term) { %>
+            <span class="green-dot"></span>
+            <% } %> <%= enrollment.term %>
+          </td>
+          <td>
+            <button type="button" class="collapsible-btn" onclick="toggleClassListCollapse('class-list-<%= enrollment.enrollment_id %>')">
+              Show/Hide Classes
+              <span class="arrow" id="arrow-class-list-<%= enrollment.enrollment_id %>">&#9654;</span>
+            </button>
+            <div class="collapsible-content" id="class-list-<%= enrollment.enrollment_id %>" style="display:none;">
+              <% enrollment.classes.forEach((cls, index) => { %>
+                <div class="class-container" id="classContainer_<%= enrollment.enrollment_id %>_<%= index %>">
+                  <span class="class-arrow" id="arrow_<%= enrollment.enrollment_id %>_<%= index %>">↓</span>
+                  <strong><%= cls.class_name %></strong>
+                </div>
+                <ul id="studentList_<%= enrollment.enrollment_id %>_<%= index %>" class="student-list">
+                  <% cls.enrolled_students.forEach(student => { %>
+                    <li class="student-checkbox">
+                      <input type="checkbox" checked disabled />
+                      <label><%= student.first_name %> <%= student.last_name %></label>
+                    </li>
+                  <% }); %>
+                </ul>
+              <% }); %>
+            </div>
+          </td>
+          <td>
+            <a
+              href="/enrollment/modifyEnrollment/<%= enrollment.enrollment_id %>"
+              class="modify-btn"
+            >Modify</a>
+          </td>
+        </tr>
+        <% }); %>
+      </tbody>
+  </table>
+    </div>
+  </div>
+
+    <script>
+      function toggleClassListCollapse(id) {
+        var content = document.getElementById(id);
+        var arrow = document.getElementById('arrow-' + id);
+        if (content.style.display === 'none') {
+          content.style.display = 'block';
+          arrow.innerHTML = '&#9660;';
+        } else {
+          content.style.display = 'none';
+          arrow.innerHTML = '&#9654;';
+        }
+      }
+      document.addEventListener("DOMContentLoaded", function () {
+        document
+          .querySelectorAll(".class-container")
+          .forEach(function (classContainer) {
+            classContainer.addEventListener("click", function () {
+              const [_, enrollmentId, index] = this.id.split("_");
+              const studentList = document.getElementById(
+                `studentList_${enrollmentId}_${index}`
+              );
+              const arrow = document.getElementById(
+                `arrow_${enrollmentId}_${index}`
+              );
+
+              if (studentList.style.display === "none") {
+                studentList.style.display = "block";
+                arrow.textContent = "↑";
+              } else {
+                studentList.style.display = "none";
+                arrow.textContent = "↓";
+              }
+            });
+          });
+      });
+    </script>
+  </body>
+</html>

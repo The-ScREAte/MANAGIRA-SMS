@@ -1,0 +1,593 @@
+<style>
+  /* Navigation Bar Styles */
+  .nav-header {
+    border-bottom: 1px solid #e5e7eb;
+    background: white;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+
+  .nav-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 1rem;
+  }
+
+  .nav-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 0;
+    flex-wrap: wrap;
+  }
+
+  .nav-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #111827;
+    margin: 0;
+    white-space: nowrap;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 0.5rem;
+    margin-left: auto;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .nav-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    text-decoration: none;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .nav-link.active {
+    background-color: #0f5a66;
+    color: white;
+  }
+
+  .nav-link:not(.active) {
+    color: #374151;
+    background-color: transparent;
+  }
+
+  .nav-link:not(.active):hover {
+    background-color: #f3f4f6;
+    color: #111827;
+  }
+
+  .nav-link svg {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+  }
+
+  .dashboard-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .guardian-profile-card {
+    background: linear-gradient(135deg, #0f5a66 0%, #6fd3c4 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 12px rgba(15, 90, 102, 0.12);
+    display: flex;
+    gap: 16px;
+    align-items: center;
+  }
+
+  .guardian-avatar-wrapper {
+    flex-shrink: 0;
+  }
+
+  .guardian-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+
+  .guardian-details {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .guardian-name {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 4px 0;
+    line-height: 1.2;
+  }
+
+  .guardian-subtitle {
+    margin: 0 0 12px 0;
+    opacity: 0.95;
+    font-size: 13px;
+  }
+
+  .guardian-info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .guardian-info-item {
+    background: rgba(255, 255, 255, 0.15);
+    padding: 8px 10px;
+    border-radius: 6px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .guardian-info-label {
+    font-size: 10px;
+    opacity: 0.85;
+    margin-bottom: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+  }
+
+  .guardian-info-value {
+    font-size: 14px;
+    font-weight: 600;
+    word-break: break-word;
+    line-height: 1.3;
+  }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    gap: 12px;
+  }
+
+  .section-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .student-count-badge {
+    background: linear-gradient(135deg, #0f5a66 0%, #6fd3c4 100%);
+    color: white;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    box-shadow: 0 2px 4px rgba(15, 90, 102, 0.2);
+  }
+
+  .children-section {
+    width: 100%;
+  }
+
+  .children-grid {
+    display: grid;
+    gap: 18px;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  }
+
+  .child-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    border: 1px solid #e2e8f0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .child-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(135deg, #0f5a66 0%, #6fd3c4 100%);
+  }
+
+  .child-header {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    margin-bottom: 18px;
+  }
+
+  .child-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #0f5a66;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    flex-shrink: 0;
+  }
+
+  .child-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .child-info h3 {
+    margin: 0 0 6px 0;
+    font-size: 17px;
+    font-weight: 700;
+    color: #1e293b;
+    word-break: break-word;
+  }
+
+  .class-badge {
+    background: #f1f5f9;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #0f5a66;
+    display: inline-block;
+  }
+
+  .view-progress-btn {
+    display: block;
+    width: 100%;
+    padding: 12px 18px;
+    background: linear-gradient(135deg, #0f5a66 0%, #6fd3c4 100%);
+    color: white;
+    text-decoration: none;
+    border-radius: 10px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 14px;
+    box-shadow: 0 2px 4px rgba(15, 90, 102, 0.2);
+  }
+
+  .no-students-message {
+    text-align: center;
+    padding: 60px 24px;
+    background: linear-gradient(to bottom, #f8fafc, white);
+    border-radius: 16px;
+    border: 2px dashed #cbd5e1;
+  }
+
+  .no-students-icon {
+    font-size: 56px;
+    margin-bottom: 12px;
+    opacity: 0.8;
+  }
+
+  .no-students-message h3 {
+    color: #475569;
+    font-size: 18px;
+    margin: 0 0 8px 0;
+    font-weight: 600;
+  }
+
+  .no-students-message p {
+    color: #64748b;
+    font-size: 14px;
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  @media (max-width: 768px) {
+    .dashboard-container {
+      padding: 12px;
+    }
+
+    .guardian-profile-card {
+      flex-direction: column;
+      text-align: center;
+      padding: 20px;
+      margin-bottom: 20px;
+      align-items: center;
+    }
+
+    .guardian-avatar-wrapper {
+      margin-bottom: 12px;
+    }
+
+    .guardian-avatar {
+      width: 90px;
+      height: 90px;
+    }
+
+    .guardian-name {
+      font-size: 20px;
+    }
+
+    .guardian-subtitle {
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+
+    .guardian-info-grid {
+      grid-template-columns: 1fr;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .guardian-info-item {
+      padding: 10px;
+      text-align: left;
+    }
+
+    .guardian-info-value {
+      font-size: 13px;
+    }
+
+    .section-header {
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: 19px;
+    }
+
+    .student-count-badge {
+      padding: 5px 12px;
+      font-size: 12px;
+    }
+
+    .children-section {
+      margin-top: 0;
+    }
+
+    .children-grid {
+      grid-template-columns: 1fr;
+      gap: 14px;
+      width: 100%;
+    }
+
+    .child-card {
+      padding: 16px;
+      width: 100%;
+    }
+
+    .child-header {
+      gap: 12px;
+    }
+
+    .child-avatar {
+      width: 56px;
+      height: 56px;
+      border-width: 2px;
+    }
+
+    .child-info h3 {
+      font-size: 16px;
+    }
+
+    .class-badge {
+      font-size: 11px;
+      padding: 4px 10px;
+    }
+
+    .view-progress-btn {
+      padding: 11px 16px;
+      font-size: 13px;
+    }
+
+    .no-students-message {
+      padding: 40px 20px;
+    }
+
+    .no-students-icon {
+      font-size: 48px;
+    }
+
+    .no-students-message h3 {
+      font-size: 16px;
+    }
+
+    .no-students-message p {
+      font-size: 13px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .nav-title {
+      font-size: 1.25rem;
+    }
+
+    .nav-links {
+      margin-left: 0;
+      width: 100%;
+      justify-content: flex-start;
+    }
+
+    .nav-link {
+      font-size: 0.813rem;
+      padding: 0.5rem 0.625rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .nav-container {
+      padding: 0 0.75rem;
+    }
+
+    .nav-content {
+      padding: 0.75rem 0;
+      gap: 0.75rem;
+    }
+
+    .nav-title {
+      font-size: 1.125rem;
+    }
+
+    .nav-links {
+      gap: 0.375rem;
+    }
+
+    .nav-link {
+      font-size: 0.75rem;
+      padding: 0.438rem 0.5rem;
+      gap: 0.25rem;
+    }
+
+    .nav-link svg {
+      width: 0.875rem;
+      height: 0.875rem;
+    }
+
+    .dashboard-container {
+      padding: 10px;
+    }
+
+    .guardian-profile-card {
+      padding: 16px;
+      border-radius: 12px;
+    }
+
+    .guardian-avatar {
+      width: 80px;
+      height: 80px;
+      border-width: 3px;
+    }
+
+    .guardian-name {
+      font-size: 18px;
+    }
+
+    .guardian-info-grid {
+      margin-top: 12px;
+      grid-template-columns: repeat(2, 1fr) !important;
+      gap: 6px;
+    }
+
+    .guardian-info-item {
+      padding: 6px 8px;
+      min-width: 0;
+    }
+
+    .guardian-info-value {
+      font-size: 13px;
+      word-break: break-word;
+      overflow-wrap: break-word;
+    }
+
+    .section-title {
+      font-size: 17px;
+    }
+
+    .children-grid {
+      gap: 12px;
+    }
+
+    .child-card {
+      padding: 14px;
+      border-radius: 10px;
+    }
+
+    .child-header {
+      margin-bottom: 14px;
+    }
+  }
+</style>
+
+<div class="dashboard-container">
+  <!-- Guardian Profile Card -->
+  <div class="guardian-profile-card">
+    <div class="guardian-avatar-wrapper">
+      <img 
+        src="<%= guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? guardian.image_url : '/images/profilePlaceholder.png' %>" 
+        alt="<%= guardian.first_name %> <%= guardian.last_name %>"
+        class="guardian-avatar"
+      />
+    </div>
+    <div class="guardian-details">
+      <h1 class="guardian-name">Hello, <%= guardian.first_name %> <%= guardian.last_name || '' %>!</h1>
+      <p class="guardian-subtitle">Welcome to your Parent Portal Dashboard</p>
+      
+      <div class="guardian-info-grid">
+        <div class="guardian-info-item">
+          <div class="guardian-info-label">Email</div>
+          <div class="guardian-info-value"><%= guardian.email || guardian.login_email || 'Not provided' %></div>
+        </div>
+        <div class="guardian-info-item">
+          <div class="guardian-info-label">Phone</div>
+          <div class="guardian-info-value"><%= guardian.phone || 'Not provided' %></div>
+        </div>
+        <div class="guardian-info-item">
+          <div class="guardian-info-label">Address</div>
+          <div class="guardian-info-value"><%= guardian.address || 'Not provided' %></div>
+        </div>
+        <div class="guardian-info-item">
+          <div class="guardian-info-label">Hometown</div>
+          <div class="guardian-info-value"><%= guardian.hometown || 'Not provided' %></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Children Section -->
+  <div class="children-section">
+    <% if (!children.length) { %>
+      <div class="no-students-message">
+        <div class="no-students-icon">📚</div>
+        <h3>No Linked Students Found</h3>
+        <p>Please contact your school administrator to link your children to your account.</p>
+      </div>
+    <% } else { %>
+      <div class="section-header">
+        <h2 class="section-title">My Children</h2>
+        <% if (children.length > 0) { %>
+          <span class="student-count-badge"><%= children.length %> Student<%= children.length !== 1 ? 's' : '' %></span>
+        <% } %>
+      </div>
+      
+      <div class="children-grid">
+        <% children.forEach(child => { %>
+          <div class="child-card">
+            <div class="child-header">
+              <img 
+                src="<%= child.image_url && child.image_url !== 'profilePlaceholder.png' ? child.image_url : '/images/profilePlaceholder.png' %>" 
+                alt="<%= child.first_name %> <%= child.last_name %>"
+                class="child-avatar"
+              />
+              <div class="child-info">
+                <h3><%= child.first_name %> <%= child.last_name %></h3>
+                <span class="class-badge"><%= child.class_name || 'No class assigned' %></span>
+              </div>
+            </div>
+
+            <a 
+              class="view-progress-btn"
+              href="/guardian/academic-details?studentId=<%= child.student_id %>&termId=<%= currentTermId || '' %>">
+              📊 View Academic Details
+            </a>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+</div>

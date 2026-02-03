@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= title %></title>
+    <style>
+      :root {
+        --font-family: "Inter", sans-serif;
+      }
+
+      body {
+          font-family: var(--font-family);
+        }
+        
+  </style>
+    <style>
+      body {
+        background-color: #f4f4f4;
+        margin: 0;
+      }
+
+      .container {
+        width: 90%;
+        margin: 30px auto;
+        padding: 20px;
+        background-color: #fff;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        border-radius: 8px;
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      .header img {
+        width: 80px;
+        height: 80px;
+        object-fit: contain;
+      }
+
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+        text-align: center;
+      }
+
+      .note {
+        margin-bottom: 20px;
+        text-align: center;
+        color: #555;
+        font-size: 16px;
+      }
+
+      .form-section {
+        margin-bottom: 40px;
+      }
+
+      .subject-container {
+        margin-bottom: 20px;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        background-color: #f9f9f9;
+      }
+
+      .subject-header {
+        display: flex;
+        align-items: center;
+        font-weight: bold;
+      }
+
+      .subject-header input {
+        margin-right: 10px;
+      }
+
+      .assessment-container {
+        margin-left: 20px;
+        margin-top: 10px;
+        display: none; /* Hidden by default */
+      }
+
+      .assessment-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 5px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+      }
+
+        table, th, td {
+            border: 1px solid #01535b;
+        }
+
+      th {
+        background-color: #badbff;
+        color: #000000;
+        padding: 10px;
+        vertical-align: middle;
+      }
+
+      td {
+        padding: 8px;
+        text-align: center;
+      }
+
+      .rotated-header {
+        writing-mode: vertical-rl; /* Rotate text */
+        transform: rotate(180deg); /* Adjust for correct alignment */
+        text-align: center;
+        white-space: nowrap;
+      }
+
+        .btn {
+            display: block;
+            width: fit-content;
+            margin: 20px auto;
+            padding: 10px 20px;
+            background-color: #01535b;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background-color: #01535b;
+        }
+
+      .no-data {
+        text-align: center;
+        font-size: 16px;
+        color: #888;
+      }
+
+      @media print {
+        body * {
+          visibility: hidden;
+        }
+
+        .print-section,
+        .print-section * {
+          visibility: visible;
+        }
+
+        .print-section {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          padding: 20px; /* Add padding to ensure content doesn't touch the edges */
+          box-sizing: border-box;
+        }
+
+        table {
+          page-break-inside: auto; /* Prevents breaking table rows between pages */
+        }
+
+        tr {
+          page-break-inside: avoid; /* Keeps rows intact */
+          page-break-after: auto;
+        }
+
+            th, td {
+                border: 1px solid #000; /* Keeps borders consistent in print */
+            }
+        }
+
+        @media (max-width: 768px) {
+       
+        
+            .container {
+                width: 100%;
+                padding: 10px;
+                margin: 5px auto;
+                border-radius: 6px;
+                box-shadow: none;
+                overflow-x: auto; /* Enables horizontal scrolling */
+            }
+        
+            .header img {
+                width: 70px;
+                height: 70px;
+            }
+        
+            h1, h2, h3 {
+                text-align: center;
+                margin-bottom: 10px;
+            }
+        
+            .note {
+                font-size: 1rem;
+                padding: 10px;
+            }
+        
+            .form-section {
+                margin-bottom: 20px;
+            }
+        
+            .subject-container {
+                padding: 8px;
+            }
+        
+            .subject-header {
+                font-size: 1rem;
+            }
+        
+            .assessment-container {
+                margin-left: 10px;
+                font-size: 0.9rem;
+            }
+        
+            /* Enables table scrolling without breaking layout */
+            .merit-sheet {
+                overflow-x: auto;
+                max-width: 100%;
+            }
+        
+            table {
+                width: max-content; /* Allows scrolling instead of shrinking */
+                border-collapse: collapse;
+                white-space: nowrap;
+            }
+        
+            th, td {
+                padding: 8px;
+                border: 1px solid #000;
+            }
+        
+            .rotated-header {
+                writing-mode: vertical-rl;
+                transform: rotate(180deg);
+                text-align: center;
+                white-space: nowrap;
+            }
+        
+            /* Ensure buttons stay visible and accessible */
+            .btn {
+                width: 100%;
+                max-width: 300px;
+                margin: 10px auto;
+                font-size: 1rem;
+                text-align: center;
+                display: block;
+            }
+        }
+        
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <!-- Form Section -->
+      <% if (!meritSheet || meritSheet.length === 0) { %>
+      <div class="form-section">
+        <div class="header">
+          <% if (session.logo) { %>
+          <img src="<%= session.logo %>" alt="School Logo" />
+          <% } %>
+          <h1><%= orgName %></h1>
+          <h2>School Year: <%= schoolYear %></h2>
+          <h3>Term: <%= termName %> | Class: <%= className %></h3>
+        </div>
+        <div class="note">
+          <p>
+            Please select all the subjects and assessments you need for the
+            merit sheet, then click "Generate Merit Sheet."
+          </p>
+        </div>
+        <div
+          id="formMessage"
+          style="
+            display: none;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            text-align: center;
+          "
+        >
+          <!-- Message will be inserted here -->
+        </div>
+
+        <form
+          id="meritSheetForm"
+          onsubmit="return validateMeritSheetForm()"
+          action="/print/generateMeritSheet"
+          method="POST"
+        >
+          <input type="hidden" name="classId" value="<%= classId %>" />
+          <input type="hidden" name="termId" value="<%= termId %>" />
+
+          <% subjects.forEach(subject => { %>
+          <div class="subject-container">
+            <div class="subject-header">
+              <input
+                type="checkbox"
+                name="selectedSubjects[]"
+                value="<%= subject.subject_id %>"
+                onclick="toggleAssessments('<%= subject.subject_id %>', this)"
+              />
+              <label><%= subject.subject_name %></label>
+            </div>
+            <div
+              id="assessment-container-<%= subject.subject_id %>"
+              class="assessment-container"
+            >
+              <% if (subject.assessments.length > 0) { %> <%
+              subject.assessments.forEach(assessment => { %>
+              <div class="assessment-item">
+                <input
+                  type="checkbox"
+                  name="selectedAssessments[]"
+                  value="<%= assessment.assessment_id %>"
+                />
+                <label
+                  ><%= assessment.title %> (<%= assessment.weight %>%)</label
+                >
+              </div>
+              <% }); %> <% } else { %>
+              <p>No assessments available.</p>
+              <% } %>
+            </div>
+          </div>
+          <% }); %>
+          <button type="submit" class="btn">Generate Merit Sheet</button>
+        </form>
+      </div>
+      <% } %>
+
+      <!-- Merit Sheet Section -->
+      <% if (meritSheet && meritSheet.length > 0) { %>
+      <div class="print-section">
+        <div class="header">
+          <% if (session.logo) { %>
+          <img src="<%= session.logo %>" alt="School Logo" />
+          <% } %>
+          <h1><%= orgName %></h1>
+          <h2>School Year: <%= schoolYear %></h2>
+          <h3>Term: <%= termName %> | Class: <%= className %></h3>
+          <h2>Class Order of Merit Sheet</h2>
+        </div>
+
+        <div class="merit-sheet">
+          <table>
+            <thead>
+              <tr>
+                <th class="rotated-header">S/N</th>
+                <th class="rotated-header">Student ID</th>
+                <th class="rotated-header">Student Name</th>
+                <% subjects.forEach(subject => { %> <%
+                subject.assessments.forEach(assessment => { %>
+                <th class="rotated-header">
+                  <%= subject.subject_name %> - <%= assessment.title %>
+                </th>
+                <th class="rotated-header">Grade</th>
+                <% }); %> <% }); %>
+                <th class="rotated-header">Total Score</th>
+                <th class="rotated-header">Average</th>
+                <th class="rotated-header">Position</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% meritSheet.forEach((student, index) => { %>
+              <tr>
+                <td><%= index + 1 %></td>
+                <td><%= student.studentId %></td>
+                <td><%= student.name %></td>
+                <% student.scores.forEach(subject => { %> <%
+                subject.assessments.forEach(assessment => { %>
+                <td>
+                  <%= (assessment.score !== '-' && assessment.score !== null) ?
+                  parseFloat(assessment.score).toFixed(2) : '-' %>
+                </td>
+                <td><%= assessment.grade || '-' %></td>
+                <% }); %> <% }); %>
+                <td><%= student.totalScore %></td>
+                <td><%= student.averageScore %></td>
+                <td><%= student.position %></td>
+              </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+
+        <button class="btn" onclick="window.print()">Print Report</button>
+      </div>
+      <% } %>
+    </div>
+
+    <script>
+      function toggleAssessments(subjectId, checkbox) {
+        const assessmentContainer = document.getElementById(
+          `assessment-container-${subjectId}`
+        );
+        assessmentContainer.style.display = checkbox.checked ? "block" : "none";
+      }
+      function showFormMessage(message) {
+        const msgBox = document.getElementById("formMessage");
+        msgBox.innerText = message;
+        msgBox.style.display = "block";
+
+        // Auto-hide after 30 seconds
+        setTimeout(() => {
+          msgBox.style.display = "none";
+          msgBox.innerText = "";
+        }, 20000);
+      }
+
+      function validateMeritSheetForm() {
+        const subjectCheckboxes = document.querySelectorAll(
+          'input[name="selectedSubjects[]"]'
+        );
+        const assessmentCheckboxes = document.querySelectorAll(
+          'input[name="selectedAssessments[]"]'
+        );
+
+        const isSubjectSelected = Array.from(subjectCheckboxes).some(
+          (cb) => cb.checked
+        );
+        const isAssessmentSelected = Array.from(assessmentCheckboxes).some(
+          (cb) => cb.checked
+        );
+
+        if (!isSubjectSelected || !isAssessmentSelected) {
+          showFormMessage(
+            "Please select at least one subject and one assessment before generating the merit sheet."
+          );
+          return false;
+        }
+
+        return true;
+      }
+    </script>
+  </body>
+</html>

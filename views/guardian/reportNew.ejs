@@ -1,0 +1,259 @@
+<%- include('../layout', { body: `
+<style>
+  .report-form-container {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  
+  .form-header {
+    margin-bottom: 30px;
+  }
+  
+  .form-header h1 {
+    font-size: 28px;
+    color: #2c3e50;
+    margin: 0 0 10px 0;
+  }
+  
+  .form-header p {
+    color: #7f8c8d;
+    margin: 0;
+  }
+  
+  .report-form {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 30px;
+  }
+  
+  .form-group {
+    margin-bottom: 25px;
+  }
+  
+  .form-group label {
+    display: block;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+  
+  .form-group label.required::after {
+    content: ' *';
+    color: #e74c3c;
+  }
+  
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  
+  .form-group textarea {
+    min-height: 120px;
+    resize: vertical;
+  }
+  
+  .form-group input:focus,
+  .form-group select:focus,
+  .form-group textarea:focus {
+    outline: none;
+    border-color: #27ae60;
+  }
+  
+  .cc-section {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 6px;
+    margin-bottom: 25px;
+  }
+  
+  .cc-section h3 {
+    font-size: 16px;
+    color: #2c3e50;
+    margin: 0 0 15px 0;
+  }
+  
+  .cc-section p {
+    font-size: 13px;
+    color: #7f8c8d;
+    margin: 0 0 15px 0;
+  }
+  
+  .staff-list {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 10px;
+    background: white;
+  }
+  
+  .staff-item {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    margin-bottom: 5px;
+  }
+  
+  .staff-item input[type="checkbox"] {
+    width: auto;
+    margin-right: 10px;
+  }
+  
+  .staff-item label {
+    margin: 0;
+    font-weight: normal;
+    cursor: pointer;
+    flex: 1;
+  }
+  
+  .staff-role {
+    font-size: 12px;
+    color: #7f8c8d;
+    margin-left: 5px;
+  }
+  
+  .form-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: flex-end;
+  }
+  
+  .btn {
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    font-size: 14px;
+    text-decoration: none;
+    display: inline-block;
+  }
+  
+  .btn-primary {
+    background: #27ae60;
+    color: white;
+  }
+  
+  .btn-primary:hover {
+    background: #229954;
+  }
+  
+  .btn-secondary {
+    background: #95a5a6;
+    color: white;
+  }
+  
+  .btn-secondary:hover {
+    background: #7f8c8d;
+  }
+  
+  @media (max-width: 768px) {
+    .report-form {
+      padding: 20px;
+    }
+    
+    .form-actions {
+      flex-direction: column;
+    }
+    
+    .btn {
+      width: 100%;
+      text-align: center;
+    }
+  }
+</style>
+
+<div class="report-form-container">
+  <div class="form-header">
+    <h1>Submit a Report</h1>
+    <p>Communicate with teachers, managers, and supervisors about your child's progress</p>
+  </div>
+  
+  <form action="/guardian/reports/create" method="POST" class="report-form">
+    <div class="form-group">
+      <label for="student_id" class="required">Select Student</label>
+      <select name="student_id" id="student_id" required>
+        <option value="">-- Choose a student --</option>
+        <% students.forEach(student => { %>
+          <option value="<%= student.student_id %>">
+            <%= student.first_name %> <%= student.last_name %> 
+            <% if (student.class_name) { %>(<%=student.class_name %>)<% } %>
+          </option>
+        <% }); %>
+      </select>
+    </div>
+    
+    <div class="form-group">
+      <label for="subject" class="required">Subject</label>
+      <input 
+        type="text" 
+        name="subject" 
+        id="subject" 
+        placeholder="e.g., Academic Performance, Attendance Issue, etc."
+        required
+        maxlength="255"
+      >
+    </div>
+    
+    <div class="form-group">
+      <label for="priority" class="required">Priority</label>
+      <select name="priority" id="priority" required>
+        <option value="normal" selected>Normal</option>
+        <option value="high">High</option>
+        <option value="urgent">Urgent</option>
+        <option value="low">Low</option>
+      </select>
+    </div>
+    
+    <div class="form-group">
+      <label for="message" class="required">Message</label>
+      <textarea 
+        name="message" 
+        id="message" 
+        placeholder="Describe your concern or inquiry in detail..."
+        required
+      ></textarea>
+    </div>
+    
+    <div class="cc-section">
+      <h3>📧 Copy (CC) Staff Members</h3>
+      <p>Select teachers, managers, or supervisors you want to notify about this report. They will be able to view and respond to this conversation.</p>
+      
+      <div class="staff-list">
+        <% if (staff && staff.length > 0) { %>
+          <% staff.forEach(person => { %>
+            <div class="staff-item">
+              <input 
+                type="checkbox" 
+                name="cc_recipients" 
+                value="<%= person.user_id %>" 
+                id="staff_<%= person.user_id %>"
+              >
+              <label for="staff_<%= person.user_id %>">
+                <%= person.first_name %> <%= person.last_name %>
+                <span class="staff-role">(<%= person.role %>)</span>
+              </label>
+            </div>
+          <% }); %>
+        <% } else { %>
+          <p style="text-align: center; color: #7f8c8d; padding: 20px;">No staff members available</p>
+        <% } %>
+      </div>
+    </div>
+    
+    <div class="form-actions">
+      <a href="/guardian/reports" class="btn btn-secondary">Cancel</a>
+      <button type="submit" class="btn btn-primary">Submit Report</button>
+    </div>
+  </form>
+</div>
+` }); %>

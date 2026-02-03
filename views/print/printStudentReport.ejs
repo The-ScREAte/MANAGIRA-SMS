@@ -1,0 +1,656 @@
+
+<head>
+    <meta charset="UTF-8">
+    <title>Student Report</title>
+  
+    <style>
+      :root {
+        --font-family: "Inter", sans-serif;
+      }
+
+
+        body {
+            font-family: var(--font-family);
+          }
+        .actions {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .student-report-background {
+            position: relative;
+            width: 100%;
+        }   
+
+        .student-report-background::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('<%= session.logo %>');
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: 300px 300px;
+            opacity: 0.09;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .student-report {
+            position: relative;
+            z-index: 1;
+            border: 1px solid #ccc;
+            padding: 10px 20px 20px 20px;
+            margin-bottom: 10px;
+            background-color: #fff;
+            max-width: 800px;
+            margin: 5px auto 10px auto;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            page-break-after: always;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 13px;
+            text-align: center;
+        }
+
+        .header img.logo,
+        .header img.student-image {
+            width: 55px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        .header h1,
+        .header h2,
+        .header h3 {
+            margin: 0;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 5px;
+            text-align: left;
+            font-size: 11px;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+/* Ensure remarks and signature are aligned in a single row */
+.remarks-signature-wrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 50px;
+    width: 100%;
+}
+
+/* Ensure remarks section remains flexible and aligned */
+.remarks {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+/* Improve alignment for each remark line */
+.remark-line {
+    display: flex;
+    align-items: center;
+    position: relative;
+    width: 100%;
+    padding-bottom: 2px;
+}
+
+/* Label styling for perfect alignment */
+.remark-line label {
+    font-size: 14px;
+    color: #333;
+    white-space: nowrap;
+    min-width: 150px; /* Ensures consistent spacing */
+    font-weight: bold;
+}
+
+/* Restore the dotted lines directly inside textarea */
+.remark-line textarea {
+    position: relative;
+    top: 10px;
+    flex-grow: 1;
+    border: none;
+    font-size: 14px;
+    padding: 0px 5px;
+    background: none;
+    outline: none;
+    width: 100%;
+    height: 22px;
+    line-height: 22px;
+    text-align: left;
+    font-family: var(--font-family);
+    overflow: hidden;
+    text-overflow: ellipsis; /* Adds "..." if the text overflows */
+    border-bottom: 1px dotted #333; /* ✅ Dotted line now applied here */
+}
+
+/* Ensure dropdown is properly positioned */
+.remark-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+    display: none;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+/* Ensure dropdown options are well spaced */
+.remark-dropdown-option {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.remark-dropdown-option:hover {
+    background-color: #f0f0f0;
+}
+
+
+
+/* Proper positioning of the signature section */
+.signature-info {
+    position: relative;
+    top: 80px;
+    width: 30%;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.signature-info img {
+    max-width: 120px;
+    height: auto;
+    display: block;
+    margin-bottom: 5px;
+}
+
+
+        .promotion-table select {
+            width: auto;
+            padding: 5px;
+            border: none;
+            background: none;
+            font-size: 14px;
+            appearance: none;
+        }
+
+        .grade-interpretation {
+            border: 1px solid #000;
+            font-size: 11px;
+            max-width: 600px;
+            margin: 5px auto;
+            line-height: 1.5;
+            position: relative;
+            top: 15px;
+        }
+
+        .grade-interpretation h6 {
+            margin: 1px;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .grade-interpretation-content {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .grade-interpretation-item {
+            display: inline-block;
+        }
+
+        @media print {
+            @page {
+                size: A4 portrait;
+                margin: 6mm 8mm 10mm 8mm;
+            }
+
+            body * {
+                visibility: hidden;
+            }
+
+            .student-report-background,
+            .student-report-background * {
+                visibility: visible;
+            }
+
+            .student-report {
+                width: 100%;
+                margin: 0 0 2mm 0;
+                padding: 2mm 4mm 2mm 4mm;
+                page-break-after: always;
+                box-sizing: border-box;
+                display: flex;
+                flex-direction: column;
+                justify-content: flex-start;
+                overflow: visible;
+            }
+            .student-report:first-of-type {
+                margin-top: 0 !important;
+                padding-top: 0 !important;
+            }
+
+            .student-report * {
+                font-size: 95% !important;
+                box-sizing: border-box;
+            }
+
+            .actions, .actions-no-print {
+                display: none !important;
+            }
+
+            .grade-interpretation {
+                border: 1px solid #000;
+                font-size: 11px;
+                max-width: 600px;
+                margin: 5px auto;
+                line-height: 1.5;
+                position: relative;
+                top: 15px;
+            }
+        }
+        @media (max-width: 768px) {
+
+
+
+    .header {
+        flex-direction: column;
+        text-align: center;
+    }
+
+ 
+        .student-report {
+            width: 100%;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+    
+        .info table, 
+        .subjects table,
+        .promotion-table {
+            overflow-x: auto;
+            display: block;
+        }
+    
+        th, td {
+            font-size: 12px;
+            padding: 5px;
+        }}
+
+        .actions-no-print {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+          }
+          
+          .actions-left,
+          .actions-right {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+          }
+          
+          .actions-no-print a {
+            margin: 5px;
+            display: inline-block;
+            padding: 5px 5px;
+            background-color: #01535b;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+          }
+          
+          .actions-no-print a:hover {
+            background-color: #002a25;
+            text-decoration: none;
+            cursor: pointer;
+          }
+          
+
+    </style>
+</head>
+<body>
+    <br>
+    <div class="actions-no-print">
+        <div class="actions-left">
+          <a href="#" class="btn btn-primary" onclick="window.print()">Print Report</a>    
+          <a href="/print/reportSettings?classId=<%= classId %>&termId=<%= termId %>" class="btn btn-primary">Report Settings</a>   
+        </div>
+      
+        <div class="actions-right">
+          <a href="#" class="btn btn-success" id="saveChangesLink">Save Changes</a>
+        </div>
+      </div>
+      <hr>
+       
+      
+      
+
+    <% if (students.length === 0) { %>
+        <p>No student data available</p>
+    <% } else { %>
+        <% students.forEach((student) => { %>
+            <div class="student-report" id="report-<%= student.student_id %>" data-student-id="<%= student.student_id %>">
+                <div class="student-report-background">
+                    <div class="header">
+                        <% if (session.logo) { %>
+                            <img src="<%= session.logo %>" alt="Organization Logo" class="logo" />
+                        <% } else { %>
+                            <img src="/images/default_logo.png" alt="Default Logo" class="logo" />
+                        <% } %>
+
+                        <div class="school-info">
+                            <h1><%= orgName %></h1>
+                            <h3><%= orgAddress %></h3>
+                            <h3><%= email %> | <%= orgPhone %></h3>
+                        </div>
+
+                        <% if (student.image_url && student.image_url !== 'profilePlaceholder.png') { %>
+                            <img src="<%= student.image_url %>?v=<%= new Date().getTime() %>" alt="Student Image" class="student-image">
+                        <% } else { %>
+                            <img src="/images/profilePlaceholder.png" alt="Placeholder Image" class="student-image">
+                        <% } %>
+                    </div>
+
+                    <div class="info">
+                        <table>
+                            <tr>
+                                <td>Student Name:</td>
+                                <td><%= student.first_name %> <%= student.last_name %></td>
+                                <td>Term:</td>
+                                <td><%= term ? term.term_name : 'No term available' %></td>
+                            </tr>
+                            <tr>
+                                <td>Student ID:</td>
+                                <td><%= student.student_id %></td>
+                                <td>School Year:</td>
+                                <td><%= schoolYearLabel %></td>
+                            </tr>
+                            <tr>
+                                <td>Class:</td>
+                                <td><%= student.class_name %></td>
+                                <td>Position in Class:</td>
+                                <td><%= student.positionInClass %></td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <div class="subjects">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Subject</th>
+                                    <th>Class Score</th>
+                                    <th>Exams Score</th>
+                                    <th>Other Score</th>
+                                    <th>Total Score</th>
+                                    <th>Total Percentage</th>
+                                    <th>Grade</th>
+                                    <th>Position</th>
+                                    <th>Remarks</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% (student.subjects || []).forEach(subject => { %>
+                                    <tr>
+                                        <td><%= subject.subject_name %></td>
+                                        <td><%= subject.classAssessmentScore || '-' %></td>
+                                        <td><%= subject.examsAssessmentScore || '-' %></td>
+                                        <td><%= subject.otherAssessmentScore || '-' %></td>
+                                        <td><%= subject.totalScore || '-' %></td>
+                                        <td><%= subject.totalPercentage || '-' %></td>
+                                        <td><%= subject.grade || '-' %></td>
+                                        <td><%= subject.position || '-' %></td>
+                                        <td><%= subject.remarks || '-' %></td>
+                                    </tr>
+                                <% }); %>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="attendance-info">
+                        <table class="promotion-table">
+                            <tr>
+                                <td>Overall Percentage:</td>
+                                <td><%= student.overallPercentage %> %</td>
+                                <td>Attendance:</td>
+                                <td><%= student.attendance.presentDays %>/<%= student.attendance.totalDays %></td>
+                                <td>Vacation Date:</td>
+                                <td><%= termEndDate %></td>
+                                <td>School Reopens:</td>
+                                <td>
+                                  <% 
+                                    const parsedReopenDate = new Date(schoolReopenDate);
+                                    const formattedReopenDate = !isNaN(parsedReopenDate) ? parsedReopenDate.toLocaleDateString() : "-";
+                                  %>
+                                  <%= formattedReopenDate %>
+                                </td>
+                                                            </tr>
+                            <% if (activatePromotion) { %>
+                                <tr>
+                                    <td>
+                                        <select name="promotionStatus-<%= student.student_id %>" id="promotionStatus-<%= student.student_id %>" onchange="updateClass('<%= student.student_id %>')">
+                                            <option value="Promoted" <%= student.promotionStatus === 'Promoted' ? 'selected' : '' %>>Promoted To:</option>
+                                            <option value="Repeated" <%= student.promotionStatus === 'Repeated' ? 'selected' : '' %>>Repeated In:</option>
+                                        </select>
+                                    </td>
+                                    <td id="promotionClass-<%= student.student_id %>" data-class-id="<%= student.promotionClassId || '' %>"><%= student.promotionClass %></td>
+                                </tr>
+                            <% } %>
+                        </table>
+                    </div>
+
+                 
+                    <div class="remarks-signature-wrapper">
+                        <!-- Remarks Section -->
+                        <div class="remarks">
+                            <div class="remarks-container">
+                                <% const remarkTypes = ['conductRemarks', 'attitudeRemarks', 'interestRemarks', 'teacherRemarks']; %>
+                    
+                                <% remarkTypes.forEach((remarkType) => { %>
+                                    <div class="remark-line">
+                                        <label for="<%= remarkType %>-<%= student.student_id %>">
+                                            <%= remarkType.replace(/([a-z])([A-Z])/g, '$1 $2') %>:
+
+                                            <span class="remark-arrow" id="arrow-<%= remarkType %>-<%= student.student_id %>" 
+                                                onclick="toggleDropdown('<%= remarkType %>', <%= student.student_id %>)">
+                                              ▼
+                                          </span>
+                                        </label>
+                                        
+                                        <textarea id="<%= remarkType %>-<%= student.student_id %>" 
+                                                  name="<%= remarkType %>-<%= student.student_id %>"
+                                                  onfocus="this.select();"><%= student[remarkType] ? student[remarkType] : '' %></textarea>
+                                                                         
+                                        
+                                        <div class="remark-dropdown" id="dropdown-<%= remarkType %>-<%= student.student_id %>">
+                                            <% (remarks[remarkType.replace('Remarks', '').toLowerCase()] || []).forEach(function (remark) { %>
+                                                <div class="remark-dropdown-option" 
+                                                     onclick="selectRemark('<%= remarkType %>', <%= student.student_id %>, '<%= remark.remark %>')">
+                                                    <%= remark.remark %>
+                                                </div>
+                                            <% }); %>
+                                        </div>
+                                    </div>
+                                <% }); %>
+                                
+                            </div>
+                        </div>
+                    
+                        <!-- Signature Section (DO NOT TOUCH) -->
+                        <div class="signature-info">
+                            <% if (signatureImageUrl) { %>
+                                <img src="<%= signatureImageUrl %>" alt="Signature Image">
+                            <% } else { %>
+                                <p>No signature available.</p>
+                            <% } %>
+                            <h3>Signature</h3>
+                        </div>
+                    </div>
+                    
+                    
+                    
+                    <div class="grade-interpretation">
+                        <h6>Interpretation of Grades:</h6>
+                        <div class="grade-interpretation-content">
+                            <% scoreRemarks.forEach(function (remark) { %>
+                                <span class="grade-interpretation-item">  <%= - remark.fromPercentage %> to <%= remark.toPercentage %> = <%= remark.remark %></span>
+                            <% }); %>
+                        </div>
+                    </div> 
+                </div>
+            </div>
+        <% }); %>
+    <% } %>
+
+    <script>
+        document.addEventListener('input', function (e) {
+            if (e.target.tagName === 'TEXTAREA') {
+                e.target.style.height = 'auto';
+                e.target.style.height = e.target.scrollHeight + 'px';
+            }
+        });
+        
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('textarea').forEach(function (textarea) {
+                textarea.style.height = 'auto';
+                textarea.style.height = textarea.scrollHeight + 'px';
+            });
+        });
+
+    // Toggle dropdowns properly
+function toggleDropdown(remarkType, studentId) {
+    // Close any open dropdowns
+    document.querySelectorAll('.remark-dropdown').forEach(dropdown => {
+        if (dropdown.id !== `dropdown-${remarkType}-${studentId}`) {
+            dropdown.style.display = 'none';
+        }
+    });
+
+    // Open or close the clicked dropdown
+    const dropdown = document.getElementById(`dropdown-${remarkType}-${studentId}`);
+    if (dropdown) {
+        dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+    }
+}
+        
+       // Select remark from dropdown
+function selectRemark(remarkType, studentId, remark) {
+    const textarea = document.getElementById(`${remarkType}-${studentId}`);
+    textarea.value = remark;
+    
+    // Auto-expand textarea if needed
+    textarea.style.height = 'auto';
+    textarea.style.height = textarea.scrollHeight + 'px';
+    
+    // Close dropdown after selection
+    toggleDropdown(remarkType, studentId);
+}
+        
+function updateClass(studentId) {
+    const statusSelect = document.getElementById('promotionStatus-' + studentId);
+    const selectedStatus = statusSelect.value;
+    const classCell = document.getElementById('promotionClass-' + studentId);
+
+    const promotedClassName = '<%= promotedClass %>';
+    const repeatedClassName = '<%= repeatedClass %>';
+    const promotedClassId = '<%= promotedClassId %>';  // ⚠️ Make sure you pass this in EJS
+    const repeatedClassId = '<%= repeatedClassId %>';  // ⚠️ Make sure you pass this in EJS
+
+    if (selectedStatus === 'Promoted') {
+        classCell.innerHTML = promotedClassName;
+        classCell.setAttribute('data-class-id', promotedClassId);  // ✅ Update data-class-id
+    } else if (selectedStatus === 'Repeated') {
+        classCell.innerHTML = repeatedClassName;
+        classCell.setAttribute('data-class-id', repeatedClassId);  // ✅ Update data-class-id
+    }
+}
+
+
+        // Save changes
+        document.getElementById('saveChangesLink').addEventListener('click', async (e) => {
+            e.preventDefault(); // prevent link navigation
+        
+            const studentReports = Array.from(document.querySelectorAll('.student-report')).map((report) => {
+              const studentId = report.getAttribute('data-student-id');
+              if (!studentId || isNaN(studentId)) {
+                console.error('Invalid or missing student ID:', report);
+                return null;
+              }
+        
+              // ✅ Get promotion status
+              const promotionStatusElement = document.getElementById(`promotionStatus-${studentId}`);
+              const promotionStatus = promotionStatusElement ? promotionStatusElement.value.trim() : null;
+        
+              // ✅ Get class name element (which also holds the class ID if you add data-class-id there)
+              const promotionClassCell = document.getElementById(`promotionClass-${studentId}`);
+              const promotionClassId = promotionClassCell ? promotionClassCell.getAttribute('data-class-id') : null;
+        
+              return {
+                studentId: parseInt(studentId, 10),
+                conductRemarks: document.getElementById(`conductRemarks-${studentId}`).value.trim(),
+                attitudeRemarks: document.getElementById(`attitudeRemarks-${studentId}`).value.trim(),
+                interestRemarks: document.getElementById(`interestRemarks-${studentId}`).value.trim(),
+                teacherRemarks: document.getElementById(`teacherRemarks-${studentId}`).value.trim(),
+                promotionStatus,   // ✅ added
+                promotionClassId,  // ✅ added (may be null)
+              };
+            }).filter(Boolean);
+        
+            if (studentReports.length === 0) {
+              alert('No valid reports to save.');
+              return;
+            }
+        
+            try {
+              const response = await fetch(`/print/saveReportChanges?classId=<%= classId %>&termId=<%= termId %>`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ studentReports }),
+              });
+        
+              if (response.ok) {
+                alert('Changes saved successfully.');
+              } else {
+                alert('Failed to save changes.');
+              }
+            } catch (error) {
+              console.error('Error saving changes:', error);
+            }
+          });
+    </script>
+</body>
+

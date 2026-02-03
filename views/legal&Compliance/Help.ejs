@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= title %></title>
+    <style>
+      :root {
+        --font-family: "Inter", sans-serif;
+      }
+
+      body {
+        background: linear-gradient(120deg, #f4f8fb 0%, #eaf1fb 100%);
+        color: #222;
+        font-family: var(--font-family);
+        min-height: 100vh;
+        margin: 0;
+        padding-top: 100px; /* Add padding for header when present */
+        box-sizing: border-box;
+      }
+
+      *, *::before, *::after {
+        box-sizing: border-box;
+      }
+
+      h1 {
+        text-align: center;
+        color: #2563eb;
+        font-size: 2.2em;
+        font-weight: 700;
+        letter-spacing: 1px;
+        margin-top: 2.5rem;
+        margin-bottom: 1.2rem;
+      }
+
+      .contact-info {
+        max-width: 540px;
+        margin: 0 auto 1.5rem auto;
+        font-size: 1.08em;
+        color: #444;
+        background: #fff;
+        border-radius: 18px;
+        box-shadow: 0 4px 32px rgba(30,41,59,0.10);
+        padding: 1.5rem 2rem 1.2rem 2rem;
+      }
+      .contact-info p {
+        margin-bottom: 12px;
+      }
+      .contact-info a {
+        color: #2563eb;
+        text-decoration: underline;
+        transition: color 0.2s;
+      }
+      .contact-info a:hover {
+        color: #01535b;
+      }
+
+      form {
+        max-width: 540px;
+        margin: 0 auto 2.5rem auto;
+        background: #fff;
+        border-radius: 18px;
+        box-shadow: 0 4px 32px rgba(30,41,59,0.10);
+        padding: 2.2rem 2.2rem 1.5rem 2.2rem;
+      }
+
+      .form-group {
+        margin-bottom: 18px;
+      }
+      .form-group label {
+        display: block;
+        margin-bottom: 7px;
+        font-weight: 600;
+        color: #222;
+      }
+      .form-group input,
+      .form-group textarea {
+        width: 100%;
+        padding: 11px 13px;
+        border: 1.5px solid #e0e7ef;
+        border-radius: 7px;
+        font-size: 1em;
+        background: #f7fafd;
+        transition: border-color 0.2s;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        box-sizing: border-box;
+      }
+      .form-group textarea {
+        resize: vertical;
+        height: 120px;
+      }
+
+      button[type="submit"] {
+        display: block;
+        width: 100%;
+        padding: 14px;
+        background: linear-gradient(90deg, #2563eb 0%, #43cea2 100%);
+        color: #fff;
+        border: none;
+        border-radius: 7px;
+        font-size: 1.15em;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(37,99,235,0.08);
+        transition: all 0.2s ease;
+        margin-top: 10px;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+      }
+      button[type="submit"]:hover {
+        background: linear-gradient(90deg, #43cea2 0%, #2563eb 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(37,99,235,0.15);
+      }
+      button[type="submit"]:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 6px rgba(37,99,235,0.1);
+      }
+      
+      /* Focus styles for accessibility */
+      .form-group input:focus,
+      .form-group textarea:focus {
+        border-color: #2563eb;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+      }
+      
+      button[type="submit"]:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(37,99,235,0.3);
+      }
+
+      /* Tablet and Mobile Styles */
+      @media (max-width: 768px) {
+        body {
+          padding: 10px;
+        }
+        
+        h1 {
+          font-size: 1.8rem;
+          text-align: center;
+          margin: 1rem 0;
+          padding: 0 10px;
+        }
+        
+        .contact-info {
+          max-width: 95%;
+          margin: 0 auto 1rem auto;
+          padding: 1.2rem;
+          border-radius: 12px;
+        }
+        
+        .contact-info p {
+          font-size: 0.95rem;
+          line-height: 1.5;
+        }
+        
+        form {
+          max-width: 95%;
+          margin: 0 auto 1.5rem auto;
+          padding: 1.5rem;
+          border-radius: 12px;
+        }
+        
+        .form-group {
+          margin-bottom: 15px;
+        }
+        
+        .form-group label {
+          font-size: 1rem;
+          margin-bottom: 8px;
+        }
+        
+        .form-group input,
+        .form-group textarea {
+          font-size: 16px; /* Prevents zoom on iOS */
+          padding: 12px 15px;
+          border-radius: 8px;
+          min-height: 44px; /* Touch target size */
+        }
+        
+        .form-group textarea {
+          min-height: 100px;
+          resize: vertical;
+        }
+        
+        button[type="submit"] {
+          font-size: 1.1rem;
+          padding: 15px;
+          border-radius: 8px;
+          width: 100%;
+          min-height: 48px; /* Touch target size */
+          margin-top: 15px;
+        }
+      }
+
+      /* Mobile Phone Styles */
+      @media (max-width: 480px) {
+        body {
+          padding: 5px;
+        }
+        
+        h1 {
+          font-size: 1.5rem;
+          margin: 0.5rem 0;
+        }
+        
+        .contact-info {
+          max-width: 98%;
+          padding: 1rem;
+          border-radius: 10px;
+          text-align: left;
+        }
+        
+        .contact-info p {
+          font-size: 0.9rem;
+          line-height: 1.4;
+          margin-bottom: 10px;
+        }
+        
+        form {
+          max-width: 98%;
+          padding: 1rem;
+          border-radius: 10px;
+        }
+        
+        .form-group {
+          margin-bottom: 12px;
+        }
+        
+        .form-group label {
+          font-size: 0.95rem;
+          font-weight: 600;
+        }
+        
+        .form-group input,
+        .form-group textarea {
+          font-size: 16px; /* Prevents zoom on iOS */
+          padding: 12px;
+          border-radius: 6px;
+          min-height: 44px;
+        }
+        
+        .form-group textarea {
+          min-height: 90px;
+        }
+        
+        button[type="submit"] {
+          font-size: 1rem;
+          padding: 14px;
+          border-radius: 6px;
+          min-height: 48px;
+          margin-top: 10px;
+        }
+      }
+
+      /* Very Small Mobile Styles */
+      @media (max-width: 320px) {
+        h1 {
+          font-size: 1.3rem;
+        }
+        
+        .contact-info,
+        form {
+          max-width: 99%;
+          padding: 0.8rem;
+        }
+        
+        .form-group input,
+        .form-group textarea {
+          padding: 10px;
+          font-size: 16px;
+        }
+        
+        button[type="submit"] {
+          padding: 12px;
+          font-size: 0.95rem;
+        }
+      }
+
+      /* Header responsive padding adjustments */
+      @media (max-width: 768px) {
+        body {
+          padding-top: 95px; /* Mobile header height + spacing */
+        }
+      }
+
+      @media (max-width: 480px) {
+        body {
+          padding-top: 100px; /* Extra padding for small phones */
+        }
+      }
+
+      @media (max-width: 360px) {
+        body {
+          padding-top: 105px; /* More padding for very small phones */
+        }
+      }
+
+      @media (max-width: 320px) {
+        body {
+          padding-top: 110px; /* Maximum padding for smallest phones */
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <%- include('../partials/header') %>
+    <br>
+    <h1>Contact Us</h1>
+
+    <%- include('../partials/flash') %>
+
+    <div class="contact-info">
+      <p>
+        For a quicker response, please visit our
+        <a href="/legal/faq">FAQ page</a> or visit our
+        <a href="https://www.youtube.com/">YouTube Page</a> for an easy step by
+        step process of each action on Managira..
+      </p>
+      <p>otherwise contact Support Phone: +1 (555) 123-4567</p>
+    </div>
+
+    <form action="/legal/help" method="POST">
+      <div class="form-group">
+        <label for="name">Help Seekers Full Name:</label>
+        <input type="text" id="name" name="name" required autocomplete="name" />
+      </div>
+      <div class="form-group">
+        <label for="organization">Which Organization do you belong to:</label>
+        <input type="text" id="organization" name="organization" autocomplete="organization" />
+      </div>
+      <div class="form-group">
+        <label for="phone">Phone:</label>
+        <input type="tel" id="phone" name="phone" required autocomplete="tel" />
+      </div>
+      <div class="form-group">
+        <label for="email">Email:</label>
+        <input type="email" id="email" name="email" required autocomplete="email" />
+      </div>
+      <div class="form-group">
+        <label for="message">Message:</label>
+        <textarea id="message" name="message" required placeholder="Please describe your issue or question in detail..."></textarea>
+      </div>
+      <button type="submit">Seek Help</button>
+    </form>
+  </body>
+</html>
