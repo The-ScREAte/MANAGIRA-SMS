@@ -1,3 +1,9 @@
+<%
+  // Ensure messages object exists for flash partial
+  if (typeof messages === 'undefined') {
+    var messages = { success: [], error: [], info: [] };
+  }
+%>
 <link rel="stylesheet" href="/css/admin.css" />
 
 <style>
