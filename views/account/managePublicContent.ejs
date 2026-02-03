@@ -157,7 +157,7 @@
 
   .image-content-form button {
     padding: 10px 15px;
-    background-color: #01535b;
+    background-color: var(--org-primary-color);
     color: white;
     border: none;
     border-radius: 5px;
@@ -167,7 +167,7 @@
   }
 
   .image-content-form button:hover {
-    background-color: #01535b;
+    background-color: var(--org-primary-hover);
   }
 
   .delete-link {
@@ -339,7 +339,7 @@
 
   /* highlight selected card */
   .theme-card:has(input:checked) {
-    border-color: #01535b;
+    border-color: var(--org-primary-color);
     box-shadow: 0 12px 20px rgba(1, 83, 91, 0.16);
   }
 
@@ -391,7 +391,7 @@
     padding: 10px 18px;
     border: 0;
     border-radius: 10px;
-    background: var(--org-primary-color, #01535b);
+    background: var(--org-primary-color);
     color: #fff;
     font-weight: 700;
     cursor: pointer;
@@ -399,7 +399,7 @@
   }
 
   .theme-save-btn:hover {
-    background: var(--org-primary-hover, #014a51);
+    background: var(--org-primary-hover);
     transform: translateY(-1px);
   }
 
@@ -569,23 +569,9 @@
         <div class="theme-title">Classic Teal</div>
         <div class="swatches">
           <span class="swatch" style="background:#01535b;"></span>
-          <span class="swatch" style="background:#eaf2ff;"></span>
+          <span class="swatch" style="background:#014a51;"></span>
         </div>
         <div class="theme-desc">Great for most schools.</div>
-      </div>
-    </label>
-
-        <!-- Bold Sunrise -->
-    <label class="theme-card">
-      <input class="theme-radio" type="radio" name="publicDashboardTheme" value="bold"
-        <%= publicDashboardTheme === 'bold' ? 'checked' : '' %> />
-      <div class="theme-meta">
-        <div class="theme-title">Bold DarkSunrise</div>
-        <div class="swatches">
-          <span class="swatch" style="background:#ffb703;"></span>
-          <span class="swatch" style="background:#0b1020;"></span>
-        </div>
-        <div class="theme-desc">Black with Deep Gold Theme.</div>
       </div>
     </label>
 
@@ -597,9 +583,23 @@
         <div class="theme-title">Modern Blue</div>
         <div class="swatches">
           <span class="swatch" style="background:#2563eb;"></span>
-          <span class="swatch" style="background:#f7f9fb;"></span>
+          <span class="swatch" style="background:#1d4ed8;"></span>
         </div>
         <div class="theme-desc">Light blue theme.</div>
+      </div>
+    </label>
+
+    <!-- Forest Green -->
+    <label class="theme-card">
+      <input class="theme-radio" type="radio" name="publicDashboardTheme" value="green"
+        <%= publicDashboardTheme === 'green' ? 'checked' : '' %> />
+      <div class="theme-meta">
+        <div class="theme-title">Forest Green</div>
+        <div class="swatches">
+          <span class="swatch" style="background:#2d5f4f;"></span>
+          <span class="swatch" style="background:#245043;"></span>
+        </div>
+        <div class="theme-desc">Natural green theme.</div>
       </div>
     </label>
 
@@ -611,53 +611,65 @@
         <div class="theme-title">Minimal Purple</div>
         <div class="swatches">
           <span class="swatch" style="background:#7c3aed;"></span>
-          <span class="swatch" style="background:#f7f1ff;"></span>
+          <span class="swatch" style="background:#6d28d9;"></span>
         </div>
-        <div class="theme-desc">PUrple Theme.</div>
+        <div class="theme-desc">Purple theme.</div>
       </div>
     </label>
 
-
-
-    <!-- Gold Accent -->
+    <!-- Deep Indigo -->
     <label class="theme-card">
-      <input class="theme-radio" type="radio" name="publicDashboardTheme" value="gold"
-        <%= publicDashboardTheme === 'gold' ? 'checked' : '' %> />
+      <input class="theme-radio" type="radio" name="publicDashboardTheme" value="indigo"
+        <%= publicDashboardTheme === 'indigo' ? 'checked' : '' %> />
       <div class="theme-meta">
-        <div class="theme-title">Gold Accent</div>
+        <div class="theme-title">Deep Indigo</div>
         <div class="swatches">
-          <span class="swatch" style="background:#ffd700;"></span>
-          <span class="swatch" style="background:#fffbe6;"></span>
+          <span class="swatch" style="background:#4f46e5;"></span>
+          <span class="swatch" style="background:#4338ca;"></span>
         </div>
-        <div class="theme-desc">Gold Theme.</div>
+        <div class="theme-desc">Rich indigo theme.</div>
       </div>
     </label>
 
-    <!-- Red Energy -->
+    <!-- Rose Red -->
     <label class="theme-card">
-      <input class="theme-radio" type="radio" name="publicDashboardTheme" value="red"
-        <%= publicDashboardTheme === 'red' ? 'checked' : '' %> />
+      <input class="theme-radio" type="radio" name="publicDashboardTheme" value="rose"
+        <%= publicDashboardTheme === 'rose' ? 'checked' : '' %> />
       <div class="theme-meta">
-        <div class="theme-title">Red Energy</div>
+        <div class="theme-title">Rose Red</div>
         <div class="swatches">
-          <span class="swatch" style="background:#e11d48;"></span>
-          <span class="swatch" style="background:#fff1f2;"></span>
+          <span class="swatch" style="background:#8b2635;"></span>
+          <span class="swatch" style="background:#7a212e;"></span>
         </div>
-        <div class="theme-desc">Light red theme.</div>
+        <div class="theme-desc">Deep rose theme.</div>
       </div>
     </label>
 
-    <!-- Brown Earth -->
+    <!-- Amber Gold -->
     <label class="theme-card">
-      <input class="theme-radio" type="radio" name="publicDashboardTheme" value="brown"
-        <%= publicDashboardTheme === 'brown' ? 'checked' : '' %> />
+      <input class="theme-radio" type="radio" name="publicDashboardTheme" value="amber"
+        <%= publicDashboardTheme === 'amber' ? 'checked' : '' %> />
       <div class="theme-meta">
-        <div class="theme-title">Brown Earth</div>
+        <div class="theme-title">Amber Gold</div>
         <div class="swatches">
-          <span class="swatch" style="background:#7c4a03;"></span>
-          <span class="swatch" style="background:#f5ede3;"></span>
+          <span class="swatch" style="background:#d97706;"></span>
+          <span class="swatch" style="background:#b45309;"></span>
         </div>
-        <div class="theme-desc">Brown Theme.</div>
+        <div class="theme-desc">Warm amber theme.</div>
+      </div>
+    </label>
+
+    <!-- Slate Gray -->
+    <label class="theme-card">
+      <input class="theme-radio" type="radio" name="publicDashboardTheme" value="slate"
+        <%= publicDashboardTheme === 'slate' ? 'checked' : '' %> />
+      <div class="theme-meta">
+        <div class="theme-title">Slate Gray</div>
+        <div class="swatches">
+          <span class="swatch" style="background:#334155;"></span>
+          <span class="swatch" style="background:#1e293b;"></span>
+        </div>
+        <div class="theme-desc">Professional slate theme.</div>
       </div>
     </label>
 
@@ -697,7 +709,7 @@
                         </div>
                         <div style="text-align: center; margin-top: 25px;">
                             <button type="button" id="addMoreFilesBtn" style="display:none; margin-right: 10px; padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer;">Add More Images</button>
-                            <button type="submit" style="padding: 10px 30px; background-color: var(--org-primary-color, #01535b); color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;">Upload Content</button>
+                            <button type="submit" class="btn btn-primary">Upload Content</button>
                         </div>
                     </form>
                 </div>
@@ -775,7 +787,7 @@
                         <textarea id="paragraph" name="paragraph" style="display: none;" required></textarea>
                     </div>
                     <div style="text-align: center; margin-top: 25px;">
-                        <button type="submit" style="padding: 10px 30px; background-color: var(--org-primary-color, #01535b); color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;">Add Text Section</button>
+                        <button type="submit" class="btn btn-primary">Add Text Section</button>
                     </div>
                 </form>
             </div>
@@ -836,7 +848,7 @@
                         </select>
                     </div>
                     <div style="text-align: center; margin-top: 25px;">
-                        <button type="submit" style="padding: 10px 30px; background-color: var(--org-primary-color, #01535b); color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;">Create Event</button>
+                        <button type="submit" class="btn btn-primary">Create Event</button>
                     </div>
                 </form>
             </div>
@@ -897,7 +909,7 @@
                         </select>
                     </div>
                     <div style="text-align: center; margin-top: 25px;">
-                        <button type="submit" style="padding: 10px 30px; background-color: var(--org-primary-color, #01535b); color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;">Post Announcement</button>
+                        <button type="submit" class="btn btn-primary">Post Announcement</button>
                     </div>
                 </form>
             </div>
@@ -946,7 +958,7 @@
 
                 <!-- Submit Button -->
                 <div style="text-align: center; margin-top: 25px;">
-                    <button type="submit" id="aboutUsBtn" style="padding: 10px 30px; background-color: var(--org-primary-color, #01535b); color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;">
+                    <button type="submit" id="aboutUsBtn" class="btn btn-primary">
                         <%= orgDetails.aboutus && orgDetails.motto ? 'Update About Us' : 'Add About Us' %>
                     </button>
                 </div>
@@ -996,7 +1008,7 @@
                 </div>
                 
                 <div style="text-align: center; margin-top: 25px; margin-bottom: 20px;">
-                    <button type="submit" style="padding: 10px 30px; background-color: var(--org-primary-color, #01535b); color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;">Update Registration Settings</button>
+                    <button type="submit" class="btn btn-primary">Update Registration Settings</button>
                 </div>
                 
                 <div class="notice">
@@ -1122,11 +1134,11 @@
                 <form action="/account/updatePublicDashboardLayout" method="POST" style="max-width: 1100px; margin: 0 auto;">
                     <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
                         <!-- Wireframe 1 -->
-                        <label style="border: 2px solid <%= (publicDashboardLayout || 'wireframe1') === 'wireframe1' ? '#01535b' : '#ddd' %>; border-radius: 12px; padding: 16px; background: #fff; cursor: pointer; transition: all 0.2s;">
+                        <label class="layout-option <%= (publicDashboardLayout || 'wireframe1') === 'wireframe1' ? 'selected' : '' %>">
                             <div style="display:flex; gap: 10px; align-items:flex-start;">
                                 <input type="radio" name="publicDashboardLayout" value="wireframe1" <%= (publicDashboardLayout || 'wireframe1') === 'wireframe1' ? 'checked' : '' %> style="margin-top: 4px;" />
                                 <div>
-                                    <div style="font-weight: 700; color:#01535b; margin-bottom: 6px;">Wireframe 1 – Traditional</div>
+                                    <div class="layout-title">Wireframe 1 – Traditional</div>
                                     <div style="color:#666; font-size: 0.88rem; line-height: 1.4; margin-bottom: 8px;">
                                         <strong>Linear / Single Flow</strong><br/>
                                         Hero → Gallery → Articles → Events → Announcements → About Us
@@ -1141,11 +1153,11 @@
                         </label>
 
                         <!-- Wireframe 2 -->
-                        <label style="border: 2px solid <%= publicDashboardLayout === 'wireframe2' ? '#01535b' : '#ddd' %>; border-radius: 12px; padding: 16px; background: #fff; cursor: pointer; transition: all 0.2s;">
+                        <label class="layout-option <%= publicDashboardLayout === 'wireframe2' ? 'selected' : '' %>">
                             <div style="display:flex; gap: 10px; align-items:flex-start;">
                                 <input type="radio" name="publicDashboardLayout" value="wireframe2" <%= publicDashboardLayout === 'wireframe2' ? 'checked' : '' %> style="margin-top: 4px;" />
                                 <div>
-                                    <div style="font-weight: 700; color:#01535b; margin-bottom: 6px;">Wireframe 2 – Split Dashboard</div>
+                                    <div class="layout-title">Wireframe 2 – Split Dashboard</div>
                                     <div style="color:#666; font-size: 0.88rem; line-height: 1.4; margin-bottom: 8px;">
                                         <strong>Gallery + Events Priority</strong><br/>
                                         Hero → Gallery (left) + Events (right) → Articles → Announcements → About Us
@@ -1160,11 +1172,11 @@
                         </label>
 
                         <!-- Wireframe 3 -->
-                        <label style="border: 2px solid <%= publicDashboardLayout === 'wireframe3' ? '#01535b' : '#ddd' %>; border-radius: 12px; padding: 16px; background: #fff; cursor: pointer; transition: all 0.2s;">
+                        <label class="layout-option <%= publicDashboardLayout === 'wireframe3' ? 'selected' : '' %>">
                             <div style="display:flex; gap: 10px; align-items:flex-start;">
                                 <input type="radio" name="publicDashboardLayout" value="wireframe3" <%= publicDashboardLayout === 'wireframe3' ? 'checked' : '' %> style="margin-top: 4px;" />
                                 <div>
-                                    <div style="font-weight: 700; color:#01535b; margin-bottom: 6px;">Wireframe 3 – Content-First</div>
+                                    <div class="layout-title">Wireframe 3 – Content-First</div>
                                     <div style="color:#666; font-size: 0.88rem; line-height: 1.4; margin-bottom: 8px;">
                                         <strong>Announcement-Aware</strong><br/>
                                         Hero → Gallery → Articles (center) + Announcements (right) → Events → About Us
@@ -1179,11 +1191,11 @@
                         </label>
 
                         <!-- Wireframe 4 -->
-                        <label style="border: 2px solid <%= publicDashboardLayout === 'wireframe4' ? '#01535b' : '#ddd' %>; border-radius: 12px; padding: 16px; background: #fff; cursor: pointer; transition: all 0.2s;">
+                        <label class="layout-option <%= publicDashboardLayout === 'wireframe4' ? 'selected' : '' %>">
                             <div style="display:flex; gap: 10px; align-items:flex-start;">
                                 <input type="radio" name="publicDashboardLayout" value="wireframe4" <%= publicDashboardLayout === 'wireframe4' ? 'checked' : '' %> style="margin-top: 4px;" />
                                 <div>
-                                    <div style="font-weight: 700; color:#01535b; margin-bottom: 6px;">Wireframe 4 – Narrative Flow</div>
+                                    <div class="layout-title">Wireframe 4 – Narrative Flow</div>
                                     <div style="color:#666; font-size: 0.88rem; line-height: 1.4; margin-bottom: 8px;">
                                         <strong>Timeline & Storytelling</strong><br/>
                                         Hero → Gallery → Events (timeline) → Announcements (highlights) → About Us (expanded)
@@ -1199,7 +1211,7 @@
                     </div>
 
                     <div style="display:flex; justify-content:center; margin-top: 20px;">
-                        <button type="submit" style="padding: 12px 24px; border-radius: 8px; border: 0; background: var(--org-primary-color, #01535b); color:#fff; font-weight: 700; cursor:pointer; font-size: 1rem;">Save Website Layout</button>
+                        <button type="submit" class="btn btn-primary">Save Website Layout</button>
                     </div>
                 </form>
             </div>
@@ -1286,6 +1298,47 @@
 
             closeAnnouncementButton.addEventListener("click", function () {
                 hideAnnouncementForm();
+            });
+        });
+
+
+        // Dynamic Theme Preview - Update button colors when theme is selected
+        document.addEventListener('DOMContentLoaded', function() {
+            const themeRadios = document.querySelectorAll('.theme-radio');
+            const themeColorMap = {
+                'classic': { primary: '#01535b', hover: '#014a51' },
+                'modern': { primary: '#2563eb', hover: '#1d4ed8' },
+                'green': { primary: '#2d5f4f', hover: '#245043' },
+                'minimal': { primary: '#7c3aed', hover: '#6d28d9' },
+                'indigo': { primary: '#4f46e5', hover: '#4338ca' },
+                'rose': { primary: '#8b2635', hover: '#7a212e' },
+                'amber': { primary: '#d97706', hover: '#b45309' },
+                'slate': { primary: '#334155', hover: '#1e293b' }
+            };
+
+            themeRadios.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    const selectedTheme = this.value;
+                    const colors = themeColorMap[selectedTheme];
+                    
+                    if (colors) {
+                        // Update CSS variables for immediate preview
+                        document.documentElement.style.setProperty('--org-primary-color', colors.primary);
+                        document.documentElement.style.setProperty('--org-primary-hover', colors.hover);
+                        
+                        // Also update button-related variables that reference org colors
+                        document.documentElement.style.setProperty('--btn-primary-bg', colors.primary);
+                        document.documentElement.style.setProperty('--btn-primary-bg-hover', colors.hover);
+                        document.documentElement.style.setProperty('--btn-secondary-bg-hover', colors.primary);
+                        document.documentElement.style.setProperty('--btn-secondary-border', colors.primary);
+                        document.documentElement.style.setProperty('--btn-secondary-text', colors.primary);
+                        document.documentElement.style.setProperty('--link-color', colors.primary);
+                        document.documentElement.style.setProperty('--link-hover-color', colors.hover);
+                        document.documentElement.style.setProperty('--accent-bg', colors.primary);
+                        
+                        console.log('Theme changed to:', selectedTheme, 'Colors:', colors);
+                    }
+                });
             });
         });
 

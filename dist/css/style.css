@@ -401,8 +401,8 @@ form textarea {
 }
 
 .management-links a:hover {
-  background-color: #5aa4aa;
-  color: #ffffff; /* White text on blue background when hovering */
+  background-color: var(--org-primary-color);
+  color: #ffffff; /* White text on org color background when hovering */
 }
 
 /* Index page specific styles */
@@ -574,9 +574,9 @@ form textarea {
 /* Success */
 .flash-message.success,
 .flash-success {
-  background-color: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
+  background: linear-gradient(135deg, var(--org-primary-color), var(--org-primary-hover));
+  color: white;
+  border: 1px solid var(--org-primary-hover);
 }
 
 /* Error */

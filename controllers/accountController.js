@@ -2822,7 +2822,7 @@ const accountController = {
 
       return res.json({ success: true });
     } catch (error) {
-      console.error('ƒ?O Error verifying password:', error);
+      console.error('ï¿½?O Error verifying password:', error);
       return res.status(500).json({
         success: false,
         message: 'An unexpected error occurred. Please try again.',
@@ -3216,7 +3216,7 @@ const accountController = {
       const guardianAcc = await db.query(
         `
         SELECT ga.*, gp.first_name, gp.last_name,
-               o.organization_id, o.organization_name, o.nickname, o.logo, o.font_style, o.deleted, o.on_hold
+               o.organization_id, o.organization_name, o.nickname, o.logo, o.font_style, o.theme_color, o.deleted, o.on_hold
         FROM guardian_accounts ga
         JOIN guardian_profiles gp ON gp.guardian_id = ga.guardian_id
         JOIN organizations o ON o.organization_id = ga.organization_id
@@ -3281,6 +3281,7 @@ const accountController = {
         req.session.orgNickName = ga.nickname;
         req.session.logo = ga.logo;
         req.session.fontStyle = ga.font_style;
+        req.session.themeColor = ga.theme_color || 'teal';
 
         req.session.firstName = ga.first_name;
         req.session.lastName = ga.last_name;
@@ -4375,7 +4376,20 @@ const accountController = {
   updatePublicDashboardThemePost: async (req, res) => {
     const organizationId = req.session.organizationId;
     const theme = (req.body?.publicDashboardTheme || "").trim();
-    const allowedThemes = new Set(["classic", "modern", "minimal", "bold", "gold", "red", "brown"]);
+    
+    // Map public theme values to organization button theme values
+    const themeMapping = {
+      'classic': 'teal',
+      'modern': 'blue',
+      'green': 'green',
+      'minimal': 'purple',
+      'indigo': 'indigo',
+      'rose': 'rose',
+      'amber': 'amber',
+      'slate': 'slate'
+    };
+    
+    const allowedThemes = new Set(Object.keys(themeMapping));
 
     if (!organizationId) {
       req.flash("error", "Missing organization.");
@@ -4410,6 +4424,7 @@ const accountController = {
 
       const payload = { order, theme };
 
+      // Update public dashboard theme
       await db.query(
         `INSERT INTO organization_dashboard (organization_id, order_data)
          VALUES ($1, $2)
@@ -4417,6 +4432,16 @@ const accountController = {
          DO UPDATE SET order_data = EXCLUDED.order_data`,
         [organizationId, payload]
       );
+
+      // Update organization button theme color
+      const orgThemeColor = themeMapping[theme];
+      await db.query(
+        "UPDATE organizations SET theme_color = $1 WHERE organization_id = $2",
+        [orgThemeColor, organizationId]
+      );
+
+      // Update session with new theme color
+      req.session.themeColor = orgThemeColor;
 
       req.flash("success", "Website style updated successfully.");
       return res.redirect("/account/managePublicContent");
@@ -5938,11 +5963,11 @@ const accountController = {
         return res.json(payload);
       }
 
-      console.error("ƒ?O Card tokenization failed:", chargeResponse.data);
+      console.error("ï¿½?O Card tokenization failed:", chargeResponse.data);
       return res.status(400).json(payload);
     } catch (error) {
       console.error(
-        "ƒ?O Error in card tokenization:",
+        "ï¿½?O Error in card tokenization:",
         error.response?.data || error.message
       );
 
@@ -5992,7 +6017,7 @@ const accountController = {
       return res.status(400).json(payload);
     } catch (error) {
       console.error(
-        "ƒ?O Error submitting card PIN:",
+        "ï¿½?O Error submitting card PIN:",
         error.response?.data || error.message
       );
 
@@ -6042,7 +6067,7 @@ const accountController = {
       return res.status(400).json(payload);
     } catch (error) {
       console.error(
-        "ƒ?O Error submitting OTP:",
+        "ï¿½?O Error submitting OTP:",
         error.response?.data || error.message
       );
 
@@ -6092,7 +6117,7 @@ const accountController = {
       return res.status(400).json(payload);
     } catch (error) {
       console.error(
-        "ƒ?O Error submitting phone number:",
+        "ï¿½?O Error submitting phone number:",
         error.response?.data || error.message
       );
 

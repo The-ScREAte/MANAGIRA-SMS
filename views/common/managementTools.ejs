@@ -10,8 +10,8 @@
         --border: #e5e7eb;
         --muted: #6b7280;
         --bg: #f9fafb;
-        --primary: var(--org-primary-color, #01535b);
-        --primary-hover: var(--org-primary-hover, #014a51);
+        --primary: var(--org-primary-color);
+        --primary-hover: var(--org-primary-hover);
         --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
       }
 
@@ -245,6 +245,8 @@
         width: auto;
         font-weight: 600;
         color: var(--primary);
+        position: relative;
+        z-index: 10003;
       }
 
       .hamburger-icon {
@@ -297,7 +299,7 @@
         opacity: 0;
         pointer-events: none;
         transition: opacity 0.2s ease;
-        z-index: 999;
+        z-index: 10004;
       }
 
       .management-nav-overlay.show {
@@ -325,7 +327,7 @@
           width: 300px;
           max-width: 85vw;
           border-radius: 0;
-          z-index: 1000;
+          z-index: 10005;
           transform: translateX(-100%);
           transition: transform 0.3s ease;
           padding: 20px;
@@ -492,7 +494,7 @@
             </div>
 
             <div style="margin-top: 24px;">
-              <a href="/common/manageRecords" class="action-btn">
+              <a href="/common/manageRecords?organizationId=<%= session.organizationId %>" class="action-btn">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
                 </svg>
@@ -537,7 +539,7 @@
             </div>
 
             <div style="margin-top: 24px;">
-              <a href="/common/manageClassSubjectAndGradYr" class="action-btn">
+              <a href="/common/manageClassSubjectAndGradYr?organizationId=<%= session.organizationId %>" class="action-btn">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
                 </svg>
@@ -627,7 +629,7 @@
             </div>
 
             <div style="margin-top: 24px;">
-              <a href="/common/createEmployee" class="action-btn">
+              <a href="/common/createEmployee?organizationId=<%= session.organizationId %>" class="action-btn">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
                 </svg>
@@ -672,7 +674,7 @@
             </div>
 
             <div style="margin-top: 24px;">
-              <a href="/common/guardians" class="action-btn">
+              <a href="/common/guardians?organizationId=<%= session.organizationId %>" class="action-btn">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
                 </svg>
@@ -717,7 +719,7 @@
             </div>
 
             <div style="margin-top: 24px;">
-              <a href="/enrollment/manageEnrollment" class="action-btn">
+              <a href="/enrollment/manageEnrollment?organizationId=<%= session.organizationId %>" class="action-btn">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
                 </svg>
@@ -762,7 +764,7 @@
             </div>
 
             <div style="margin-top: 24px;">
-              <a href="/promotion/apply" class="action-btn">
+              <a href="/promotion/apply?organizationId=<%= session.organizationId %>" class="action-btn">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
                 </svg>
@@ -807,7 +809,7 @@
             </div>
 
             <div style="margin-top: 24px;">
-              <a href="/account/managePublicContent" class="action-btn">
+              <a href="/account/managePublicContent?organizationId=<%= session.organizationId %>" class="action-btn">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
                 </svg>
