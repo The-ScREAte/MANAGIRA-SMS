@@ -161,19 +161,23 @@ input[type="password"] {
   border-radius: 4px;
 }
 
+/* Base button - inherits from buttons.css */
 button {
-  color: Black;
+  color: var(--btn-primary-text, white);
+  background-color: var(--btn-primary-bg, #01535b);
   padding: 10px 15px;
   border: none;
-  border-radius: 5px;
+  border-radius: var(--btn-radius, 8px);
   cursor: pointer;
   margin-top: 20px;
   width: 100%;
+  font-weight: 600;
+  transition: all 0.2s ease;
 }
 
 button:hover {
-  background-color: #3c9199;
-  color: white;
+  background-color: var(--btn-primary-bg-hover, #013a40);
+  color: var(--btn-primary-text, white);
 }
 
 /* Link styling */
@@ -221,19 +225,25 @@ form label {
   margin-bottom: 20px;
 }
 
-/* Button styling */
+/* Button styling - use unified button system */
 button[type="submit"] {
-  background-color: #01535b;
-  color: white;
-  border: none;
-  padding: 10px 20px;
+  background-color: var(--btn-primary-bg, #01535b);
+  color: var(--btn-primary-text, white);
+  border: 2px solid var(--btn-primary-bg, #01535b);
+  padding: 12px 24px;
   cursor: pointer;
-  border-radius: 5px;
+  border-radius: var(--btn-radius, 8px);
   margin-top: 20px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(1, 83, 91, 0.2);
 }
 
 button[type="submit"]:hover {
-  background-color: #52bcc6;
+  background-color: var(--btn-primary-bg-hover, #013a40);
+  border-color: var(--btn-primary-bg-hover, #013a40);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(1, 83, 91, 0.28);
 }
 
 form input[type="text"],

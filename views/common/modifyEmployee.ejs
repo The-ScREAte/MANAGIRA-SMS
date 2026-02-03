@@ -72,16 +72,21 @@
         margin-bottom: 18px;
         box-sizing: border-box;
     }
-    .modify-employee-card button[type="submit"] {
+    .modify-employee-card .btn {
         display: block;
-        margin: 18px auto 0 auto;
-        padding: 10px 24px;
-        background-color: #01535b;
-        color: #fff;
-        border: none;
-        border-radius: 5px;
-        font-size: 16px;
-        cursor: pointer;
+        margin: 12px auto 0 auto;
+        width: 100%;
+        max-width: 280px;
+    }
+    .modify-employee-card .btn-danger {
+        background-color: var(--btn-danger-bg, #dc2626);
+        color: var(--btn-danger-text, #fff);
+        border-color: var(--btn-danger-bg, #dc2626);
+    }
+    .modify-employee-card .btn-warning {
+        background-color: var(--btn-warning-bg, #f59e0b);
+        color: var(--btn-warning-text, #fff);
+        border-color: var(--btn-warning-bg, #f59e0b);
     }
     .collapsible-btn {
         width: 100%;
@@ -184,13 +189,13 @@
         </div>
       </div>
     </div>
-    <button type="submit">Save Changes</button>
+    <button type="submit" class="btn btn-primary">Save Changes</button>
   </form>
   <form action="/common/deleteEmployee/<%= user.user_id %>" method="post" onsubmit="return confirm('Are you sure you want to delete this employee?');">
-      <button type="submit">Delete Employee</button>
+      <button type="submit" class="btn btn-danger">Delete Employee</button>
   </form>
   <form action="/common/toggleHoldEmployee/<%= user.user_id %>" method="post">
-      <button type="submit"><%= user.on_hold ? 'Resume' : 'Hold' %> Employee</button>
+      <button type="submit" class="btn btn-warning"><%= user.on_hold ? 'Resume' : 'Hold' %> Employee</button>
   </form>
 </div>
 
