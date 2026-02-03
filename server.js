@@ -29,6 +29,8 @@ const pgSession = require("connect-pg-simple")(session);
 const setAllowedFeatures = require("./middleware/setAllowedFeatures");
 const setAllowedRoles = require("./middleware/setAllowedRoles");
 const setThemeColor = require("./middleware/setThemeColor");
+const compression = require("compression");
+const { setCacheHeaders, preloadCache } = require("./middleware/cacheMiddleware");
 
 // **Dynamic BASE_URL Logic**
 const BASE_URL =
@@ -89,7 +91,10 @@ app.use(async (req, res, next) => {
   next();
 });
 
-// Middleware to serve static files from the uploads directory
+// Enable gzip compression for faster loading
+app.use(compression());
+
+// Middleware to serve static files from the uploads directory with caching
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 if (process.env.NODE_ENV === "production") {
@@ -150,13 +155,18 @@ app.use(setCurrentTerm);
 app.use(setAllowedFeatures);
 app.use(setAllowedRoles);
 app.use(setThemeColor);
+app.use(preloadCache);
 
 // Template engine setup
 app.use(expressLayouts);
 app.set("view engine", "ejs");
 
-// Static files and parsing middleware
-app.use(express.static("public"));
+// Static files with long-term caching
+app.use(express.static("public", {
+  maxAge: '1d',
+  etag: true,
+  lastModified: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

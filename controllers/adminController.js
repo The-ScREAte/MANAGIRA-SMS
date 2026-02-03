@@ -8,20 +8,28 @@ const fs = require("fs");
 const PDFDocument = require("pdfkit");
 const { uploadToS3, deleteFromS3 } = require("../config/s3");
 const he = require("he");
+const cacheManager = require("../utils/cacheManager");
 
 const adminController = {
   adminDashboard: async (req, res) => {
     try {
-      // Fetch organizations, including subdomain
-      const result = await db.query(`
-                SELECT organization_id, organization_name, on_hold, hold_by, 
-                       first_name, last_name, email, organization_address, 
-                       organization_phone, proof_of_existence_1, proof_of_existence_2, subdomain
-                FROM organizations 
-                WHERE deleted = false
-            `);
-
-      const applications = result.rows;
+      // Use cache for organizations list - refreshes in background
+      const applications = await cacheManager.getOrFetch(
+        'admin',
+        'organizations:list',
+        async () => {
+          const result = await db.query(`
+            SELECT organization_id, organization_name, on_hold, hold_by, 
+                   first_name, last_name, email, organization_address, 
+                   organization_phone, proof_of_existence_1, proof_of_existence_2, subdomain
+            FROM organizations 
+            WHERE deleted = false
+            ORDER BY organization_name ASC
+          `);
+          return result.rows;
+        },
+        { ttl: 300 } // 5 minute cache
+      );
 
       res.render("admin/dashboard", {
         title: "Admin Dashboard",
@@ -151,6 +159,9 @@ const adminController = {
       );
       const organization = result.rows[0];
 
+      // Invalidate cache after update
+      cacheManager.invalidate('admin', 'organizations:list');
+
       req.flash("success", "Organization put on hold successfully by Admin.");
 
       // Send email notification to the organization
@@ -177,6 +188,9 @@ const adminController = {
       );
       const organization = result.rows[0];
 
+      // Invalidate cache after update
+      cacheManager.invalidate('admin', 'organizations:list');
+
       req.flash("success", "Organization resumed successfully.");
 
       await sendEmailNotification(
@@ -201,6 +215,9 @@ const adminController = {
         [orgId]
       );
       const organization = result.rows[0];
+
+      // Invalidate cache after update
+      cacheManager.invalidate('admin', 'organizations:list');
 
       req.flash("success", "Organization deleted successfully.");
 

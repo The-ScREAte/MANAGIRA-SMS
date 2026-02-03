@@ -11,29 +11,50 @@ module.exports = (db) => {
     router.use(fetchUserInfo);
 
     // Route: /org/:organization_id (for super admin to view org dashboard)
+    // This route works in both development and production
     router.get('/org/:organization_id', ensureAdmin, async (req, res) => {
         const organizationId = req.params.organization_id;
-    // ...removed log for clean background operation...
+        
+        // Validate organization_id is a valid number
+        const orgIdNum = parseInt(organizationId, 10);
+        if (isNaN(orgIdNum)) {
+            req.flash('error', 'Invalid organization ID.');
+            return res.redirect('/admin');
+        }
         
         try {
+            // Verify the organization exists
+            const orgCheck = await db.query(
+                'SELECT organization_id, organization_name FROM organizations WHERE organization_id = $1 AND deleted = false',
+                [orgIdNum]
+            );
+            
+            if (orgCheck.rows.length === 0) {
+                req.flash('error', 'Organization not found.');
+                return res.redirect('/admin');
+            }
+            
             // Store the original admin session data before switching
             req.session.originalAdminUserId = req.session.userId;
             req.session.originalAccountType = req.session.accountType;
             
             // Set up session for the org (for dashboard logic)
-            req.session.organizationId = parseInt(organizationId, 10);
+            req.session.organizationId = orgIdNum;
             req.session.userRole = 'Admin';
             req.session.superAdminOrgSwitch = true;
             
-            // ...removed log for clean background operation...
-            
-            // Keep the original user session for authentication
-            // Don't clear req.session.user if it exists
-            
-            // Redirect to the orgDashboard logic (will redirect to correct schoolYear/term)
-            return res.redirect('/common/orgDashboard');
+            // Save session before redirect to ensure it persists
+            req.session.save((err) => {
+                if (err) {
+                    console.error('Session save error:', err);
+                    req.flash('error', 'Failed to switch to organization.');
+                    return res.redirect('/admin');
+                }
+                // Redirect to the orgDashboard logic (will redirect to correct schoolYear/term)
+                return res.redirect('/common/orgDashboard');
+            });
         } catch (error) {
-            // ...removed error log for clean background operation...
+            console.error('Error switching to organization:', error);
             req.flash('error', 'Failed to load organization dashboard.');
             res.redirect('/admin');
         }
