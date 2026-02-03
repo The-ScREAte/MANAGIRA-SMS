@@ -969,10 +969,19 @@
     adjustOrgNameSize();
     window.addEventListener('resize', adjustOrgNameSize);
 
-    hamburger.addEventListener("click", () => {
+    // Hamburger menu toggle with stopPropagation to prevent conflicts
+    hamburger.addEventListener("click", (e) => {
+      e.stopPropagation();
       hamburger.classList.toggle("active");
       navMenu.classList.toggle("show");
     });
+
+    // Prevent clicks inside nav menu from bubbling to document
+    if (navMenu) {
+      navMenu.addEventListener("click", (e) => {
+        e.stopPropagation();
+      });
+    }
 
     submenuToggles.forEach((toggle) => {
       toggle.addEventListener("click", (e) => {

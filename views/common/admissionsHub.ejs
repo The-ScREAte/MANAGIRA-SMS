@@ -521,6 +521,9 @@
         const navClose = document.getElementById('hub-nav-close');
         const overlay = document.getElementById('hub-nav-overlay');
 
+        // Only initialize if elements exist
+        if (!navToggle || !nav || !overlay) return;
+
         navLinks.forEach(link => {
           link.addEventListener('click', function() {
             const sectionId = this.getAttribute('data-section');
@@ -529,7 +532,8 @@
             this.classList.add('active');
             
             sections.forEach(s => s.classList.remove('active'));
-            document.getElementById(sectionId).classList.add('active');
+            const targetSection = document.getElementById(sectionId);
+            if (targetSection) targetSection.classList.add('active');
 
             if (window.innerWidth <= 900) {
               nav.classList.remove('open');
@@ -540,17 +544,20 @@
           });
         });
 
-        navToggle.addEventListener('click', function() {
+        navToggle.addEventListener('click', function(e) {
+          e.stopPropagation();
           nav.classList.add('open');
           overlay.classList.add('show');
         });
 
-        navClose.addEventListener('click', function() {
+        navClose.addEventListener('click', function(e) {
+          e.stopPropagation();
           nav.classList.remove('open');
           overlay.classList.remove('show');
         });
 
-        overlay.addEventListener('click', function() {
+        overlay.addEventListener('click', function(e) {
+          e.stopPropagation();
           nav.classList.remove('open');
           overlay.classList.remove('show');
         });

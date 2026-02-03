@@ -412,6 +412,7 @@ a.modify-link:hover,
 .dashboard-buttons-wrap {
   display: flex;
   justify-content: center;
+  width: 100%;
   margin-bottom: 16px;
 }
 

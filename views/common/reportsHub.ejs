@@ -573,6 +573,9 @@
         const navClose = document.getElementById('hub-nav-close');
         const overlay = document.getElementById('hub-nav-overlay');
 
+        // Only initialize if elements exist
+        if (!navToggle || !nav || !overlay) return;
+
         navLinks.forEach(link => {
           link.addEventListener('click', function() {
             const sectionId = this.getAttribute('data-section');
@@ -593,17 +596,20 @@
           });
         });
 
-        navToggle.addEventListener('click', function() {
+        navToggle.addEventListener('click', function(e) {
+          e.stopPropagation();
           nav.classList.add('open');
           overlay.classList.add('show');
         });
 
-        navClose.addEventListener('click', function() {
+        navClose.addEventListener('click', function(e) {
+          e.stopPropagation();
           nav.classList.remove('open');
           overlay.classList.remove('show');
         });
 
-        overlay.addEventListener('click', function() {
+        overlay.addEventListener('click', function(e) {
+          e.stopPropagation();
           nav.classList.remove('open');
           overlay.classList.remove('show');
         });
