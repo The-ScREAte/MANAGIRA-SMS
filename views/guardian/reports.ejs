@@ -11,42 +11,53 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 25px;
+    flex-wrap: wrap;
+    gap: 15px;
   }
   
   .reports-header h1 {
-    font-size: 28px;
-    color: #2c3e50;
+    font-size: 1.75rem;
+    color: var(--guardian-text-primary, #1e293b);
     margin: 0;
+    font-weight: 700;
   }
   
   .btn-new-report {
-    background: #27ae60;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--guardian-gradient, linear-gradient(135deg, #0f5a66 0%, #6fd3c4 100%));
     color: white;
     padding: 12px 24px;
-    border-radius: 6px;
+    border-radius: 10px;
     text-decoration: none;
-    font-weight: 500;
-    transition: background 0.2s;
+    font-weight: 600;
+    font-size: 0.9rem;
+    box-shadow: 0 2px 8px rgba(15, 90, 102, 0.2);
+    transition: all 0.2s ease;
   }
   
   .btn-new-report:hover {
-    background: #229954;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(15, 90, 102, 0.3);
   }
   
   .report-card {
-    background: white;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
+    background: var(--guardian-bg-primary, white);
+    border: 1px solid var(--guardian-border, #e2e8f0);
+    border-radius: 12px;
     padding: 20px;
-    margin-bottom: 15px;
-    transition: box-shadow 0.2s;
+    margin-bottom: 16px;
+    transition: all 0.2s ease;
     text-decoration: none;
     display: block;
     color: inherit;
   }
   
   .report-card:hover {
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    border-color: var(--guardian-primary, #0f5a66);
+    transform: translateY(-2px);
   }
   
   .report-header-info {
@@ -57,25 +68,26 @@
   }
   
   .report-subject {
-    font-size: 18px;
+    font-size: 1.1rem;
     font-weight: 600;
-    color: #2c3e50;
-    margin: 0 0 5px 0;
+    color: var(--guardian-text-primary, #1e293b);
+    margin: 0 0 6px 0;
   }
   
   .report-meta {
     display: flex;
-    gap: 15px;
-    font-size: 14px;
-    color: #7f8c8d;
+    gap: 16px;
+    font-size: 0.85rem;
+    color: var(--guardian-text-secondary, #64748b);
     margin-bottom: 10px;
+    flex-wrap: wrap;
   }
   
   .report-message-preview {
-    color: #555;
-    font-size: 14px;
-    line-height: 1.5;
-    margin: 10px 0;
+    color: var(--guardian-text-secondary, #64748b);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    margin: 12px 0;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
@@ -86,73 +98,126 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid #f0f0f0;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--guardian-border, #e2e8f0);
   }
   
   .status-badge {
-    padding: 4px 12px;
-    border-radius: 12px;
-    font-size: 12px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.75rem;
     font-weight: 600;
     text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
   
   .status-open {
-    background: #fef5e7;
-    color: #f39c12;
+    background: #fef3c7;
+    color: #d97706;
   }
   
   .status-in_progress {
-    background: #ebf5fb;
-    color: #3498db;
+    background: #dbeafe;
+    color: #2563eb;
   }
   
   .status-resolved {
-    background: #eafaf1;
-    color: #27ae60;
+    background: #d1fae5;
+    color: #059669;
   }
   
   .status-closed {
-    background: #f4f6f7;
-    color: #7f8c8d;
+    background: #f3f4f6;
+    color: #6b7280;
   }
   
   .reply-count {
-    font-size: 13px;
-    color: #7f8c8d;
+    font-size: 0.85rem;
+    color: var(--guardian-text-muted, #94a3b8);
+    display: flex;
+    align-items: center;
+    gap: 4px;
   }
   
   .empty-state {
     text-align: center;
-    padding: 60px 20px;
-    color: #7f8c8d;
+    padding: 60px 24px;
+    background: linear-gradient(to bottom, var(--guardian-bg-secondary, #f8fafc), var(--guardian-bg-primary, white));
+    border-radius: 16px;
+    border: 2px dashed var(--guardian-border-hover, #cbd5e1);
   }
   
-  .empty-state i {
-    font-size: 48px;
-    margin-bottom: 15px;
+  .empty-state-icon {
+    font-size: 56px;
+    margin-bottom: 16px;
     display: block;
   }
   
+  .empty-state h3 {
+    color: var(--guardian-text-secondary, #64748b);
+    font-size: 1.125rem;
+    margin: 0 0 8px;
+    font-weight: 600;
+  }
+  
+  .empty-state p {
+    color: var(--guardian-text-muted, #94a3b8);
+    font-size: 0.9rem;
+    margin: 0 0 20px;
+    line-height: 1.5;
+  }
+  
   @media (max-width: 768px) {
+    .reports-container {
+      padding: 16px;
+    }
+    
     .reports-header {
       flex-direction: column;
-      gap: 15px;
       align-items: stretch;
+    }
+    
+    .reports-header h1 {
+      font-size: 1.5rem;
     }
     
     .btn-new-report {
       text-align: center;
+      justify-content: center;
+    }
+    
+    .report-meta {
+      flex-direction: column;
+      gap: 6px;
+    }
+    
+    .report-footer {
+      flex-direction: column;
+      gap: 12px;
+      align-items: flex-start;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .reports-container {
+      padding: 12px;
+    }
+    
+    .report-card {
+      padding: 16px;
+    }
+    
+    .report-subject {
+      font-size: 1rem;
     }
   }
 </style>
 
 <div class="reports-container">
   <div class="reports-header">
-    <h1>My Reports</h1>
-    <a href="/guardian/reports/new" class="btn-new-report">+ Submit New Report</a>
+    <h1>📋 My Reports</h1>
+    <a href="/guardian/reports/new" class="btn-new-report">➕ Submit New Report</a>
   </div>
   
   <% if (reports && reports.length > 0) { %>
@@ -177,17 +242,17 @@
             <%= report.status.replace('_', ' ') %>
           </span>
           <span class="reply-count">
-            <%= report.reply_count %> <%= report.reply_count === '1' ? 'reply' : 'replies' %>
+            💬 <%= report.reply_count %> <%= report.reply_count === '1' ? 'reply' : 'replies' %>
           </span>
         </div>
       </a>
     <% }); %>
   <% } else { %>
     <div class="empty-state">
-      <i>📋</i>
+      <span class="empty-state-icon">📋</span>
       <h3>No reports yet</h3>
-      <p>Submit your first report to communicate with the school staff</p>
-      <a href="/guardian/reports/new" class="btn-new-report" style="display: inline-block; margin-top: 15px;">Submit Report</a>
+      <p>Submit your first report to communicate with the school staff about your child's progress</p>
+      <a href="/guardian/reports/new" class="btn-new-report">➕ Submit Report</a>
     </div>
   <% } %>
 </div>

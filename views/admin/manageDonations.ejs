@@ -1,155 +1,189 @@
-<h1>Donation Management</h1>
-
-<form method="POST" action="/admin/donations" enctype="multipart/form-data" class="donation-form">
-  <input type="text" name="title" placeholder="Title" required />
-  <textarea name="description" placeholder="Description" required></textarea>
-  <input type="url" name="external_link" placeholder="External Donation Link" required />
-  <input type="file" name="image" accept="image/*" required />
-  <button type="submit">Add Donation</button>
-</form>
-
-<hr />
-
-<div class="donation-wrapper">
-  <% if (donations.length === 0) { %>
-    <p>No donations yet.</p>
-  <% } else { %>
-    <% donations.forEach(d => { %>
-      <div class="donation-card">
-        <% if (d.image_url) { %>
-          <img src="<%= d.image_url %>" alt="Donation image" class="donation-image" />
-        <% } %>
-        <h3><%= d.title %></h3>
-        <p><%= d.description %></p>
-        <a href="<%= d.external_link %>" class="donation-link" target="_blank">Donation Link</a>
-        <form action="/admin/donations/delete/<%= d.id %>?imageKey=<%= d.s3_key %>" method="POST">
-          <button type="submit" class="delete-btn" onclick="return confirm('Delete this donation and its image?')">Delete</button>
-        </form>
-      </div>
-    <% }) %>
-  <% } %>
-</div>
+<link rel="stylesheet" href="/css/admin.css" />
 
 <style>
-  h1 {
+  .donations-container {
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+
+  .page-header {
     text-align: center;
-    color: #2c3e50;
-    font-size: 2rem;
-    margin: 40px auto 20px auto;
+    margin-bottom: 32px;
+  }
+
+  .page-header h1 {
+    color: var(--admin-text-primary, #111827);
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin: 0;
   }
 
   .donation-form {
     max-width: 600px;
-    margin: 0 auto 50px auto;
-    padding: 20px;
-    background-color: #fefefe;
-    border-left: 4px solid #16a085;
-    border-radius: 6px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    margin: 0 auto 40px;
+    padding: 24px;
+    background-color: #fff;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
   }
 
   .donation-form input,
   .donation-form textarea {
     width: 100%;
-    margin-bottom: 12px;
-    padding: 10px;
-    font-size: 1rem;
-    border-radius: 4px;
-    border: 1px solid #ccc;
-  }
-
-  .donation-form button {
-    background-color: var(--btn-primary-bg, #16a085);
-    color: var(--btn-primary-text, white);
-    padding: 12px 24px;
-    font-size: 1rem;
-    font-weight: 600;
-    border: none;
+    margin-bottom: 16px;
+    padding: 12px;
+    font-size: 0.9rem;
     border-radius: 8px;
-    cursor: pointer;
-    width: 100%;
-    transition: all 0.2s ease;
-    box-shadow: 0 4px 12px rgba(22, 160, 133, 0.2);
+    border: 1px solid #d1d5db;
+    font-family: inherit;
+    box-sizing: border-box;
   }
 
-  .donation-form button:hover {
-    background-color: var(--btn-primary-bg-hover, #138d75);
-    transform: translateY(-1px);
-    box-shadow: 0 6px 16px rgba(22, 160, 133, 0.28);
+  .donation-form input:focus,
+  .donation-form textarea:focus {
+    outline: none;
+    border-color: var(--admin-success, #059669);
+    box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
+  }
+
+  .donation-form textarea {
+    min-height: 100px;
+    resize: vertical;
   }
 
   .donation-wrapper {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 30px;
-    padding: 0 20px 60px 20px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 24px;
+    padding: 0 0 40px;
   }
 
   .donation-card {
     background: #ffffff;
-    border-left: 4px solid #27ae60;
-    width: 300px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
     padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.07);
-    text-align: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .donation-card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    border-color: var(--admin-success, #059669);
   }
 
   .donation-card img.donation-image {
     width: 100%;
     height: 180px;
     object-fit: cover;
-    border-radius: 4px;
-    margin-bottom: 15px;
+    border-radius: 8px;
+    margin-bottom: 16px;
   }
 
   .donation-card h3 {
-    font-size: 1.2rem;
-    margin: 10px 0 8px 0;
-    color: #2c3e50;
+    font-size: 1.15rem;
+    margin: 0 0 8px;
+    color: var(--admin-text-primary, #111827);
+    font-weight: 600;
   }
 
   .donation-card p {
-    font-size: 0.95rem;
-    color: #555;
-    margin-bottom: 10px;
+    font-size: 0.9rem;
+    color: var(--admin-text-secondary, #4b5563);
+    margin: 0 0 16px;
+    line-height: 1.5;
+    flex: 1;
   }
 
   .donation-link {
     display: inline-block;
-    margin: 10px 0;
-    font-size: 0.95rem;
-    color: #2980b9;
+    margin-bottom: 16px;
+    font-size: 0.9rem;
+    color: var(--admin-primary, #2563eb);
     text-decoration: none;
+    font-weight: 500;
   }
 
   .donation-link:hover {
     text-decoration: underline;
   }
 
-  .delete-btn {
-    background-color: var(--btn-danger-bg, #e74c3c);
-    color: var(--btn-danger-text, white);
-    padding: 10px 18px;
-    border: none;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 8px rgba(231, 76, 60, 0.2);
+  .donation-card form {
+    margin: 0;
   }
 
-  .delete-btn:hover {
-    background-color: var(--btn-danger-bg-hover, #c0392b);
-    transform: translateY(-1px);
+  .empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: var(--admin-text-secondary, #4b5563);
+    padding: 40px 20px;
+    background: #f9fafb;
+    border-radius: 10px;
   }
 
-  @media screen and (max-width: 700px) {
+  @media (max-width: 768px) {
+    .donation-wrapper {
+      grid-template-columns: 1fr;
+    }
+
+    .donation-form {
+      margin: 0 10px 32px;
+      padding: 20px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .page-header h1 {
+      font-size: 1.4rem;
+    }
+
     .donation-card {
-      width: 100%;
-      max-width: 90vw;
+      padding: 16px;
     }
   }
 </style>
+
+<div class="donations-container">
+  <div class="page-header">
+    <h1>💝 Donation Management</h1>
+  </div>
+
+  <%- include('../partials/flash') %>
+
+  <form method="POST" action="/admin/donations" enctype="multipart/form-data" class="donation-form">
+    <input type="text" name="title" placeholder="Campaign Title" required />
+    <textarea name="description" placeholder="Campaign Description" required></textarea>
+    <input type="url" name="external_link" placeholder="External Donation Link (e.g., GoFundMe)" required />
+    <input type="file" name="image" accept="image/*" required />
+    <button type="submit" class="admin-btn admin-btn-success admin-btn-lg" style="width: 100%;">
+      + Add Donation Campaign
+    </button>
+  </form>
+
+  <div class="donation-wrapper">
+    <% if (donations.length === 0) { %>
+      <div class="empty-state">
+        <p>No donation campaigns yet. Create one above!</p>
+      </div>
+    <% } else { %>
+      <% donations.forEach(d => { %>
+        <div class="donation-card">
+          <% if (d.image_url) { %>
+            <img src="<%= d.image_url %>" alt="<%= d.title %>" class="donation-image" />
+          <% } %>
+          <h3><%= d.title %></h3>
+          <p><%= d.description %></p>
+          <a href="<%= d.external_link %>" class="donation-link" target="_blank">🔗 View Donation Link</a>
+          <form action="/admin/donations/delete/<%= d.id %>?imageKey=<%= d.s3_key %>" method="POST">
+            <button type="submit" class="admin-btn admin-btn-delete admin-btn-sm" onclick="return confirm('Delete this donation campaign and its image?')" style="width: 100%;">
+              🗑 Delete Campaign
+            </button>
+          </form>
+        </div>
+      <% }) %>
+    <% } %>
+  </div>
+</div>
