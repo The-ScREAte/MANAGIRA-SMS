@@ -1,0 +1,400 @@
+/**
+ * Admin-Specific Button Styles
+ * Professional, distinct button styling for admin pages
+ */
+
+/* CSS Variables for Admin Theme */
+:root {
+  /* Primary Admin Colors */
+  --admin-primary: #2563eb;
+  --admin-primary-hover: #1d4ed8;
+  --admin-primary-light: #dbeafe;
+  
+  /* Action Colors */
+  --admin-success: #059669;
+  --admin-success-hover: #047857;
+  --admin-success-light: #d1fae5;
+  
+  --admin-warning: #d97706;
+  --admin-warning-hover: #b45309;
+  --admin-warning-light: #fef3c7;
+  
+  --admin-danger: #dc2626;
+  --admin-danger-hover: #b91c1c;
+  --admin-danger-light: #fee2e2;
+  
+  --admin-info: #0891b2;
+  --admin-info-hover: #0e7490;
+  --admin-info-light: #cffafe;
+  
+  /* Neutral Colors */
+  --admin-neutral: #6b7280;
+  --admin-neutral-hover: #4b5563;
+  --admin-neutral-light: #f3f4f6;
+  
+  /* Text Colors */
+  --admin-text-primary: #111827;
+  --admin-text-secondary: #4b5563;
+  --admin-text-light: #9ca3af;
+}
+
+/* Base Admin Button */
+.admin-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25;
+  border-radius: 0.5rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.admin-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.admin-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.admin-btn:focus {
+  outline: 2px solid var(--admin-primary);
+  outline-offset: 2px;
+}
+
+/* Primary Button - Main Actions */
+.admin-btn-primary {
+  background: linear-gradient(135deg, var(--admin-primary) 0%, #3b82f6 100%);
+  color: white;
+}
+
+.admin-btn-primary:hover {
+  background: linear-gradient(135deg, var(--admin-primary-hover) 0%, var(--admin-primary) 100%);
+  color: white;
+}
+
+/* Success/Approve Button */
+.admin-btn-success,
+.admin-btn-approve {
+  background: linear-gradient(135deg, var(--admin-success) 0%, #10b981 100%);
+  color: white;
+}
+
+.admin-btn-success:hover,
+.admin-btn-approve:hover {
+  background: linear-gradient(135deg, var(--admin-success-hover) 0%, var(--admin-success) 100%);
+  color: white;
+}
+
+/* Resume Button */
+.admin-btn-resume {
+  background: linear-gradient(135deg, var(--admin-info) 0%, #06b6d4 100%);
+  color: white;
+}
+
+.admin-btn-resume:hover {
+  background: linear-gradient(135deg, var(--admin-info-hover) 0%, var(--admin-info) 100%);
+  color: white;
+}
+
+/* Warning/Hold Button */
+.admin-btn-warning,
+.admin-btn-hold {
+  background: linear-gradient(135deg, var(--admin-warning) 0%, #f59e0b 100%);
+  color: white;
+}
+
+.admin-btn-warning:hover,
+.admin-btn-hold:hover {
+  background: linear-gradient(135deg, var(--admin-warning-hover) 0%, var(--admin-warning) 100%);
+  color: white;
+}
+
+/* Danger/Delete Button */
+.admin-btn-danger,
+.admin-btn-delete {
+  background: linear-gradient(135deg, var(--admin-danger) 0%, #ef4444 100%);
+  color: white;
+}
+
+.admin-btn-danger:hover,
+.admin-btn-delete:hover {
+  background: linear-gradient(135deg, var(--admin-danger-hover) 0%, var(--admin-danger) 100%);
+  color: white;
+}
+
+/* Neutral/Secondary Button */
+.admin-btn-secondary,
+.admin-btn-neutral {
+  background: var(--admin-neutral-light);
+  color: var(--admin-text-primary);
+  border: 1px solid #e5e7eb;
+}
+
+.admin-btn-secondary:hover,
+.admin-btn-neutral:hover {
+  background: #e5e7eb;
+  color: var(--admin-text-primary);
+}
+
+/* Edit Button */
+.admin-btn-edit {
+  background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
+  color: white;
+}
+
+.admin-btn-edit:hover {
+  background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
+  color: white;
+}
+
+/* View/Details Button */
+.admin-btn-view,
+.admin-btn-details {
+  background: linear-gradient(135deg, #64748b 0%, #94a3b8 100%);
+  color: white;
+}
+
+.admin-btn-view:hover,
+.admin-btn-details:hover {
+  background: linear-gradient(135deg, #475569 0%, #64748b 100%);
+  color: white;
+}
+
+/* Outline Variants */
+.admin-btn-outline-primary {
+  background: transparent;
+  color: var(--admin-primary);
+  border: 2px solid var(--admin-primary);
+}
+
+.admin-btn-outline-primary:hover {
+  background: var(--admin-primary);
+  color: white;
+}
+
+.admin-btn-outline-danger {
+  background: transparent;
+  color: var(--admin-danger);
+  border: 2px solid var(--admin-danger);
+}
+
+.admin-btn-outline-danger:hover {
+  background: var(--admin-danger);
+  color: white;
+}
+
+/* Size Variants */
+.admin-btn-sm {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+}
+
+.admin-btn-lg {
+  padding: 0.875rem 1.75rem;
+  font-size: 1rem;
+}
+
+/* Button Group */
+.admin-btn-group {
+  display: inline-flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* Icon Button */
+.admin-btn-icon {
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+}
+
+.admin-btn-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* Admin Card Styles */
+.admin-card {
+  background: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+}
+
+.admin-card-header {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.admin-card-body {
+  padding: 1.5rem;
+}
+
+.admin-card-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+/* Admin Table */
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 0.875rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.admin-table th {
+  background: #f9fafb;
+  font-weight: 600;
+  color: var(--admin-text-secondary);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.admin-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.admin-table .actions-cell {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+/* Status Badges */
+.admin-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 9999px;
+}
+
+.admin-badge-success {
+  background: var(--admin-success-light);
+  color: var(--admin-success);
+}
+
+.admin-badge-warning {
+  background: var(--admin-warning-light);
+  color: var(--admin-warning);
+}
+
+.admin-badge-danger {
+  background: var(--admin-danger-light);
+  color: var(--admin-danger);
+}
+
+.admin-badge-info {
+  background: var(--admin-info-light);
+  color: var(--admin-info);
+}
+
+.admin-badge-neutral {
+  background: var(--admin-neutral-light);
+  color: var(--admin-neutral);
+}
+
+/* Admin Form Styles */
+.admin-form-group {
+  margin-bottom: 1.25rem;
+}
+
+.admin-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--admin-text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.admin-input,
+.admin-select,
+.admin-textarea {
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  background: white;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.admin-input:focus,
+.admin-select:focus,
+.admin-textarea:focus {
+  outline: none;
+  border-color: var(--admin-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* Loading States */
+.admin-btn-loading {
+  position: relative;
+  color: transparent;
+  pointer-events: none;
+}
+
+.admin-btn-loading::after {
+  content: '';
+  position: absolute;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid white;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: admin-spin 0.6s linear infinite;
+}
+
+@keyframes admin-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .admin-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.8125rem;
+  }
+  
+  .admin-btn-group {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .admin-btn-group .admin-btn {
+    width: 100%;
+  }
+  
+  .admin-table {
+    display: block;
+    overflow-x: auto;
+  }
+  
+  .admin-table .actions-cell {
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+}

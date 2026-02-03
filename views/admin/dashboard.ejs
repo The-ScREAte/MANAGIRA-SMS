@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="/css/admin.css" />
     <script>
       function toggleDetails(id) {
         const details = document.getElementById(`details-${id}`);
@@ -39,135 +40,129 @@
       }
 
       .content-container {
-        max-width: 1100px;
+        max-width: 1200px;
         margin: 40px auto;
-        padding: 20px;
+        padding: 24px;
         background-color: #ffffff;
-        border-radius: 10px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        border-radius: 12px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
       }
 
       h1 {
         text-align: center;
-        color: #333;
-        margin-bottom: 20px;
+        color: var(--admin-text-primary, #111827);
+        margin-bottom: 24px;
+        font-size: 1.75rem;
+        font-weight: 700;
       }
 
       .applications-container {
-        margin-top: 20px;
+        margin-top: 24px;
       }
 
       .application-summary {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 15px;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        margin-bottom: 15px;
-        background-color: #f9f9f9;
-        transition: box-shadow 0.3s ease;
+        padding: 16px 20px;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        margin-bottom: 12px;
+        background-color: #ffffff;
+        transition: all 0.2s ease;
       }
 
       .application-summary:hover {
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        border-color: var(--admin-primary, #2563eb);
       }
 
       .org-link {
-        font-size: 1.2rem;
-        font-weight: bold;
-        color: #01535b;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--admin-primary, #2563eb);
         text-decoration: none;
         flex: 1;
+        transition: color 0.2s;
       }
 
       .org-link:hover {
-        text-decoration: underline;
+        color: var(--admin-primary-hover, #1d4ed8);
+        text-decoration: none;
       }
 
       .status-info {
         display: flex;
         align-items: center;
+        gap: 8px;
+        margin-right: 16px;
       }
 
       .status-indicator {
-        width: 14px;
-        height: 14px;
+        width: 12px;
+        height: 12px;
         border-radius: 50%;
-        margin-right: 8px;
+        box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
       }
 
       .status-indicator.active {
-        background-color: green;
+        background-color: var(--admin-success, #059669);
+        box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.2);
       }
 
       .status-indicator.on-hold {
-        background-color: orange;
+        background-color: var(--admin-warning, #d97706);
+        box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.2);
       }
 
       .hold-info {
-        font-size: 0.9rem;
-        padding: 10px;
-        color: #666;
-      }
-
-      .expand-button {
-        padding: 8px 12px;
-        width: 100px;
-        background-color: #c6d3fd;
-        border: 1px solid #0d0808;
-        color: #010d1a;
-        font-size: 1rem;
-        border-radius: 4px;
-        cursor: pointer;
-        transition: background-color 0.3s ease;
-      }
-
-      .expand-button:hover {
-        background-color: #dce0fc;
+        font-size: 0.8rem;
+        color: var(--admin-warning, #d97706);
+        font-weight: 500;
       }
 
       .application-details {
         display: none;
-        padding: 15px;
-        background-color: #ffffff;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        margin-top: 10px;
+        padding: 20px;
+        background-color: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        margin-top: 8px;
+        margin-bottom: 16px;
       }
 
       .application-details p {
-        margin: 5px 0;
-        font-size: 0.95rem;
+        margin: 8px 0;
+        font-size: 0.9rem;
+        color: var(--admin-text-secondary, #4b5563);
+      }
+
+      .application-details p strong {
+        color: var(--admin-text-primary, #111827);
       }
 
       .thumbnail {
         width: 100px;
         height: 100px;
         cursor: pointer;
-        margin: 10px 0;
-        border-radius: 5px;
-        border: 1px solid #ddd;
-        transition: transform 0.3s, box-shadow 0.3s;
+        margin: 10px 5px 10px 0;
+        border-radius: 8px;
+        border: 2px solid #e5e7eb;
+        transition: transform 0.2s, box-shadow 0.2s;
+        object-fit: cover;
       }
 
       .thumbnail:hover {
-        transform: scale(1.2);
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        border-color: var(--admin-primary, #2563eb);
       }
 
-      button {
-        padding: 6px 12px;
-        background-color: #007bff;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.9rem;
-      }
-
-      button:hover {
-        background-color: #0056b3;
+      .detail-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 16px;
+        flex-wrap: wrap;
       }
 
       /* Modal Styles */
@@ -178,14 +173,17 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background-color: rgba(0, 0, 0, 0.8);
+        background-color: rgba(0, 0, 0, 0.85);
         z-index: 1000;
+        align-items: center;
+        justify-content: center;
       }
 
       .modal-content {
         margin: auto;
         display: block;
         max-width: 90%;
+        max-height: 90vh;
         border-radius: 8px;
       }
 
@@ -196,10 +194,36 @@
         font-size: 2rem;
         color: white;
         cursor: pointer;
+        transition: color 0.2s;
       }
 
       .close:hover {
-        color: #bbb;
+        color: #e5e7eb;
+      }
+
+      @media (max-width: 768px) {
+        .application-summary {
+          flex-wrap: wrap;
+          gap: 12px;
+        }
+        
+        .org-link {
+          flex: 1 1 100%;
+        }
+        
+        .status-info {
+          margin-right: 0;
+        }
+        
+        .detail-actions {
+          flex-direction: column;
+        }
+        
+        .detail-actions form,
+        .detail-actions button,
+        .detail-actions .admin-btn {
+          width: 100%;
+        }
       }
     </style>
   </head>
@@ -233,7 +257,7 @@
 
           <!-- Expand button on the right -->
           <button
-            class="expand-button"
+            class="admin-btn admin-btn-view"
             onclick="toggleDetails('<%= application.organization_id %>')"
           >
             Details
@@ -258,7 +282,7 @@
             <% if (application.proof_of_existence_1 && application.proof_of_existence_1.toLowerCase().endsWith('.pdf')) { %>
               <embed src="<%= application.proof_of_existence_1 %>" type="application/pdf" width="100%" height="400px" />
               <br/>
-              <a href="<%= application.proof_of_existence_1 %>" target="_blank">Open PDF in new tab</a>
+              <a href="<%= application.proof_of_existence_1 %>" target="_blank" class="admin-btn admin-btn-sm admin-btn-secondary">Open PDF in new tab</a>
             <% } else if (application.proof_of_existence_1) { %>
               <img
                 src="<%= application.proof_of_existence_1 %>"
@@ -273,7 +297,7 @@
             <% if (application.proof_of_existence_2 && application.proof_of_existence_2.toLowerCase().endsWith('.pdf')) { %>
               <embed src="<%= application.proof_of_existence_2 %>" type="application/pdf" width="100%" height="400px" />
               <br/>
-              <a href="<%= application.proof_of_existence_2 %>" target="_blank">Open PDF in new tab</a>
+              <a href="<%= application.proof_of_existence_2 %>" target="_blank" class="admin-btn admin-btn-sm admin-btn-secondary">Open PDF in new tab</a>
             <% } else if (application.proof_of_existence_2) { %>
               <img
                 src="<%= application.proof_of_existence_2 %>"
@@ -284,49 +308,54 @@
             <% } %>
           </div>
 
-          <% if (application.on_hold) { %>
-          <form
-            action="/admin/resume"
-            method="post"
-            style="display: inline"
-            onsubmit="return confirmAction('resume', '<%= application.organization_name %>');"
-          >
-            <input
-              type="hidden"
-              name="orgId"
-              value="<%= application.organization_id %>"
-            />
-            <button type="submit">Resume</button>
-          </form>
-          <% } else { %>
-          <form
-            action="/admin/hold"
-            method="post"
-            style="display: inline"
-            onsubmit="return confirmAction('put on hold', '<%= application.organization_name %>');"
-          >
-            <input
-              type="hidden"
-              name="orgId"
-              value="<%= application.organization_id %>"
-            />
-            <button type="submit">Put on Hold</button>
-          </form>
-          <% } %>
+          <div class="detail-actions">
+            <% if (application.on_hold) { %>
+            <form
+              action="/admin/resume"
+              method="post"
+              onsubmit="return confirmAction('resume', '<%= application.organization_name %>');"
+            >
+              <input
+                type="hidden"
+                name="orgId"
+                value="<%= application.organization_id %>"
+              />
+              <button type="submit" class="admin-btn admin-btn-resume">
+                ▶ Resume
+              </button>
+            </form>
+            <% } else { %>
+            <form
+              action="/admin/hold"
+              method="post"
+              onsubmit="return confirmAction('put on hold', '<%= application.organization_name %>');"
+            >
+              <input
+                type="hidden"
+                name="orgId"
+                value="<%= application.organization_id %>"
+              />
+              <button type="submit" class="admin-btn admin-btn-hold">
+                ⏸ Put on Hold
+              </button>
+            </form>
+            <% } %>
 
-          <form
-            action="/admin/delete"
-            method="post"
-            style="display: inline"
-            onsubmit="return confirmAction('delete', '<%= application.organization_name %>');"
-          >
-            <input
-              type="hidden"
-              name="orgId"
-              value="<%= application.organization_id %>"
-            />
-            <button type="submit">Delete</button>
-          </form>
+            <form
+              action="/admin/delete"
+              method="post"
+              onsubmit="return confirmAction('delete', '<%= application.organization_name %>');"
+            >
+              <input
+                type="hidden"
+                name="orgId"
+                value="<%= application.organization_id %>"
+              />
+              <button type="submit" class="admin-btn admin-btn-delete">
+                🗑 Delete
+              </button>
+            </form>
+          </div>
         </div>
         <% }); %> <% } else { %>
         <p>No organizations found.</p>
