@@ -1,78 +1,280 @@
-<div class="student-management-system">
-  <h1><%= student.first_name %> <%= student.last_name %> — Progress</h1>
+<style>
+  .progress-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px;
+  }
 
-  <div style="display:flex; gap:12px; align-items:center; margin-bottom:18px;">
-    <% var img = '/images/profilePlaceholder.png'; %>
-    <% if (student.image_url && student.image_url !== 'profilePlaceholder.png') { %>
-      <% if (student.image_url.indexOf('http') === 0 || student.image_url.indexOf('/') === 0) { %>
-        <% img = student.image_url; %>
-      <% } else { %>
-        <% img = '/' + student.image_url; %>
+  .progress-header {
+    background: var(--guardian-gradient, linear-gradient(135deg, #0f5a66 0%, #6fd3c4 100%));
+    color: white;
+    padding: 24px;
+    border-radius: 12px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 12px rgba(15, 90, 102, 0.15);
+  }
+
+  .progress-header h1 {
+    margin: 0 0 16px;
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+
+  .student-info-row {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+  }
+
+  .student-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .student-meta {
+    flex: 1;
+  }
+
+  .student-meta .class-name {
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-bottom: 4px;
+  }
+
+  .student-meta .grad-group {
+    opacity: 0.9;
+    font-size: 0.9rem;
+  }
+
+  .content-card {
+    background: white;
+    border: 1px solid var(--guardian-border, #e2e8f0);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  }
+
+  .content-card h3 {
+    margin: 0 0 16px;
+    color: var(--guardian-text-primary, #1e293b);
+    font-size: 1.1rem;
+    font-weight: 600;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--guardian-primary, #0f5a66);
+  }
+
+  .term-selector {
+    margin-bottom: 24px;
+  }
+
+  .term-selector select {
+    width: 100%;
+    max-width: 300px;
+    padding: 12px 16px;
+    border: 2px solid var(--guardian-border, #e2e8f0);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .term-selector select:focus {
+    outline: none;
+    border-color: var(--guardian-primary-light, #6fd3c4);
+    box-shadow: 0 0 0 3px rgba(111, 211, 196, 0.1);
+  }
+
+  .scores-table {
+    width: 100%;
+    border-collapse: collapse;
+    overflow: hidden;
+    border-radius: 8px;
+  }
+
+  .scores-table th,
+  .scores-table td {
+    padding: 14px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--guardian-border, #e2e8f0);
+  }
+
+  .scores-table th {
+    background: var(--guardian-bg-secondary, #f8fafc);
+    font-weight: 600;
+    color: var(--guardian-text-secondary, #64748b);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .scores-table td {
+    color: var(--guardian-text-primary, #1e293b);
+    font-size: 0.9rem;
+  }
+
+  .scores-table tbody tr:hover {
+    background: var(--guardian-bg-secondary, #f8fafc);
+  }
+
+  .scores-table td:not(:first-child) {
+    text-align: right;
+  }
+
+  .scores-table th:not(:first-child) {
+    text-align: right;
+  }
+
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    background: white;
+    color: var(--guardian-text-secondary, #64748b);
+    border: 2px solid var(--guardian-border, #e2e8f0);
+    border-radius: 10px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+  }
+
+  .back-btn:hover {
+    background: var(--guardian-bg-secondary, #f8fafc);
+    border-color: var(--guardian-border-hover, #cbd5e1);
+  }
+
+  @media (max-width: 768px) {
+    .progress-container {
+      padding: 16px;
+    }
+
+    .progress-header {
+      padding: 20px;
+    }
+
+    .progress-header h1 {
+      font-size: 1.25rem;
+    }
+
+    .student-info-row {
+      flex-direction: column;
+      text-align: center;
+    }
+
+    .content-card {
+      padding: 16px;
+    }
+
+    .scores-table {
+      display: block;
+      overflow-x: auto;
+    }
+
+    .scores-table th,
+    .scores-table td {
+      padding: 10px 12px;
+      font-size: 0.85rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .progress-container {
+      padding: 12px;
+    }
+
+    .student-avatar {
+      width: 60px;
+      height: 60px;
+    }
+  }
+</style>
+
+<div class="progress-container">
+  <div class="progress-header">
+    <h1><%= student.first_name %> <%= student.last_name %> — Progress</h1>
+    <div class="student-info-row">
+      <% var img = '/images/profilePlaceholder.png'; %>
+      <% if (student.image_url && student.image_url !== 'profilePlaceholder.png') { %>
+        <% if (student.image_url.indexOf('http') === 0 || student.image_url.indexOf('/') === 0) { %>
+          <% img = student.image_url; %>
+        <% } else { %>
+          <% img = '/' + student.image_url; %>
+        <% } %>
       <% } %>
-    <% } %>
-    <img src="<%= img %>" style="width:70px;height:70px;border-radius:50%;object-fit:cover;" />
-    <div>
-      <div style="font-weight:700;"><%= student.class_name || 'No class' %></div>
-      <div style="color:#64748b;">Graduation Group: <%= (student.grad_year_group_name || 'N/A') %></div>
+      <img src="<%= img %>" alt="<%= student.first_name %>" class="student-avatar" />
+      <div class="student-meta">
+        <div class="class-name"><%= student.class_name || 'No class assigned' %></div>
+        <div class="grad-group">Graduation Group: <%= (student.grad_year_group_name || 'N/A') %></div>
+      </div>
     </div>
   </div>
 
-  <form method="GET" action="/guardian/student" style="margin-bottom:18px;">
-    <input type="hidden" name="studentId" value="<%= student.student_id %>" />
-    <label class="form-label">Select Term</label>
-    <select class="form-input form-select" name="termId" onchange="this.form.submit()">
-      <% terms.forEach(t => { %>
-        <option value="<%= t.term_id %>" <%= String(t.term_id)===String(selectedTermId) ? 'selected' : '' %>>
-          <%= t.term_name %>
-        </option>
-      <% }) %>
-    </select>
-  </form>
+  <div class="content-card term-selector">
+    <form method="GET" action="/guardian/student">
+      <input type="hidden" name="studentId" value="<%= student.student_id %>" />
+      <label style="display: block; font-weight: 600; color: #64748b; margin-bottom: 8px; font-size: 0.875rem;">Select Term</label>
+      <select name="termId" onchange="this.form.submit()">
+        <% terms.forEach(t => { %>
+          <option value="<%= t.term_id %>" <%= String(t.term_id)===String(selectedTermId) ? 'selected' : '' %>>
+            <%= t.term_name %>
+          </option>
+        <% }) %>
+      </select>
+    </form>
+  </div>
 
-  <div class="student-form-card" style="max-width:none;">
-    <h3 style="margin-top:0;">Teachers</h3>
+  <div class="content-card">
+    <h3>👨‍🏫 Teachers</h3>
     <% if (mainTeacher) { %>
-      <p><strong>Main Teacher:</strong> <%= mainTeacher.first_name %> <%= mainTeacher.last_name %> (<%= mainTeacher.email || 'no email' %>)</p>
+      <p style="margin: 0; color: #475569;"><strong>Main Teacher:</strong> <%= mainTeacher.first_name %> <%= mainTeacher.last_name %> (<%= mainTeacher.email || 'no email' %>)</p>
+    <% } else { %>
+      <p style="margin: 0; color: #94a3b8;">No main teacher assigned.</p>
     <% } %>
   </div>
 
-  <div class="student-form-card" style="max-width:none; margin-top:16px;">
-    <h3 style="margin-top:0;">Subject Scores</h3>
+  <div class="content-card">
+    <h3>📊 Subject Scores</h3>
 
     <% if (!subjects.length) { %>
-      <p>No subjects found.</p>
-    <% } %>
-
-    <div style="overflow:auto;">
-      <table style="width:100%; border-collapse:collapse;">
-        <thead>
-          <tr>
-            <th style="text-align:left; padding:10px; border-bottom:1px solid #e2e8f0;">Subject</th>
-            <th style="text-align:right; padding:10px; border-bottom:1px solid #e2e8f0;">Score</th>
-            <th style="text-align:right; padding:10px; border-bottom:1px solid #e2e8f0;">Out Of</th>
-            <th style="text-align:right; padding:10px; border-bottom:1px solid #e2e8f0;">% / Grade</th>
-            <th style="text-align:right; padding:10px; border-bottom:1px solid #e2e8f0;">Position</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% subjects.forEach(s => { %>
+      <p style="color: #94a3b8; text-align: center; padding: 20px;">No subjects found for this term.</p>
+    <% } else { %>
+      <div style="overflow: auto;">
+        <table class="scores-table">
+          <thead>
             <tr>
-              <td style="padding:10px; border-bottom:1px solid #f1f5f9;"><%= s.subject_name %></td>
-              <td style="padding:10px; border-bottom:1px solid #f1f5f9; text-align:right;"><%= s.totalScore.toFixed(1) %></td>
-              <td style="padding:10px; border-bottom:1px solid #f1f5f9; text-align:right;"><%= s.totalMaxScore.toFixed(1) %></td>
-              <td style="padding:10px; border-bottom:1px solid #f1f5f9; text-align:right;">
-                <%= (s.totalPercentage !== null ? s.totalPercentage.toFixed(1) + '%' : '-') %>
-                <%= (s.grade ? ' / ' + s.grade : '') %>
-              </td>
-              <td style="padding:10px; border-bottom:1px solid #f1f5f9; text-align:right;"><%= s.position %></td>
+              <th>Subject</th>
+              <th>Score</th>
+              <th>Out Of</th>
+              <th>% / Grade</th>
+              <th>Position</th>
             </tr>
-          <% }) %>
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            <% subjects.forEach(s => { %>
+              <tr>
+                <td><%= s.subject_name %></td>
+                <td><%= s.totalScore.toFixed(1) %></td>
+                <td><%= s.totalMaxScore.toFixed(1) %></td>
+                <td>
+                  <%= (s.totalPercentage !== null ? s.totalPercentage.toFixed(1) + '%' : '-') %>
+                  <%= (s.grade ? ' / ' + s.grade : '') %>
+                </td>
+                <td><%= s.position %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
   </div>
 
-  <div style="margin-top:16px;">
-    <a class="secondary-button" href="/guardian/dashboard">Back to Children</a>
-  </div>
+  <a class="back-btn" href="/guardian/dashboard">← Back to Dashboard</a>
 </div>

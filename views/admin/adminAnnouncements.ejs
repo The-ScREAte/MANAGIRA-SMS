@@ -1,118 +1,205 @@
-<h1>Admin Announcements</h1>
-
-<form method="POST" action="/admin/announcements">
-  <input type="text" name="title" placeholder="Title" required />
-  <textarea name="description" placeholder="Description" required></textarea>
-  <button type="submit">Create Announcement</button>
-</form>
-
-<hr />
-
-<div class="announcement-list">
-  <% if (announcements.length === 0) { %>
-    <p>No announcements yet.</p>
-  <% } else { %>
-    <h2>General Announcements</h2>
-    <% announcements.filter(a => !a.organization_id).forEach(a => { %>
-      <div class="announcement-card">
-        <h3><%= a.title %></h3>
-        <p><%= a.description %></p>
-        <form action="/admin/announcements/toggle/<%= a.id %>" method="POST" style="display: inline-block;">
-          <button type="submit"><%= a.is_active ? 'Deactivate' : 'Activate' %></button>
-        </form>
-        <form action="/admin/announcements/delete/<%= a.id %>" method="POST" style="display: inline-block;">
-          <button type="submit" onclick="return confirm('Delete this announcement?')">Delete</button>
-        </form>
-      </div>
-    <% }) %>
-
-    <hr style="border-top: 2px dashed #8e44ad; margin: 30px 0;">
-
-    <h2>Organization-specific Announcements</h2>
-    <% announcements.filter(a => a.organization_id).forEach(a => { %>
-      <div class="announcement-card">
-        <h3><%= a.title %></h3>
-        <p><%= a.description %></p>
-        <form action="/admin/announcements/toggle/<%= a.id %>" method="POST" style="display: inline-block;">
-          <button type="submit"><%= a.is_active ? 'Deactivate' : 'Activate' %></button>
-        </form>
-        <form action="/admin/announcements/delete/<%= a.id %>" method="POST" style="display: inline-block;">
-          <button type="submit" onclick="return confirm('Delete this announcement?')">Delete</button>
-        </form>
-      </div>
-    <% }) %>
-  <% } %>
-</div>
+<link rel="stylesheet" href="/css/admin.css" />
 
 <style>
-  h1 {
+  .announcements-container {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .page-header {
     text-align: center;
-    margin-top: 30px;
-    color: #2c3e50;
+    margin-bottom: 32px;
   }
 
-  form {
-    max-width: 600px;
-    margin: 20px auto;
-    padding: 20px;
-    background: #fafafa;
-    border-left: 4px solid #8e44ad;
-    border-radius: 6px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  .page-header h1 {
+    color: var(--admin-text-primary, #111827);
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin: 0;
   }
 
-  form input, form textarea {
+  .announcement-form {
+    background: #fff;
+    padding: 24px;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+    border: 1px solid #e5e7eb;
+    margin-bottom: 32px;
+  }
+
+  .announcement-form input,
+  .announcement-form textarea {
     width: 100%;
-    margin: 10px 0;
-    padding: 10px;
-    font-size: 1rem;
-    border-radius: 4px;
-    border: 1px solid #ccc;
+    margin-bottom: 16px;
+    padding: 12px;
+    font-size: 0.9rem;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    font-family: inherit;
+    box-sizing: border-box;
   }
 
-  .announcement-list {
-    max-width: 800px;
-    margin: 30px auto;
+  .announcement-form input:focus,
+  .announcement-form textarea:focus {
+    outline: none;
+    border-color: var(--admin-primary, #2563eb);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  }
+
+  .announcement-form textarea {
+    min-height: 100px;
+    resize: vertical;
+  }
+
+  .section-title {
+    font-size: 1.25rem;
+    color: var(--admin-text-primary, #111827);
+    margin: 32px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--admin-primary, #2563eb);
+    font-weight: 600;
   }
 
   .announcement-card {
-    border: 1px solid #ddd;
-    padding: 20px;
-    margin-bottom: 20px;
-    border-radius: 5px;
     background: #fff;
-  }
-
-  .announcement-card h3 {
-    margin-top: 0;
-    color: #333;
-  }
-
-  .announcement-card form button {
-    margin-right: 10px;
-    padding: 8px 16px;
-    font-weight: 600;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
+    border: 1px solid #e5e7eb;
+    padding: 20px;
+    margin-bottom: 16px;
+    border-radius: 10px;
     transition: all 0.2s ease;
   }
 
-  .announcement-card form button[type="submit"]:first-of-type {
-    background: var(--btn-primary-bg, #2980b9);
-    color: var(--btn-primary-text, white);
+  .announcement-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border-color: var(--admin-primary, #2563eb);
   }
 
-  .announcement-card form button[type="submit"]:first-of-type:hover {
-    background: var(--btn-primary-bg-hover, #21618c);
+  .announcement-card h3 {
+    margin: 0 0 8px;
+    color: var(--admin-text-primary, #111827);
+    font-size: 1.1rem;
+    font-weight: 600;
   }
 
-  .announcement-card form:last-child button {
-    background: var(--btn-danger-bg, #dc2626);
-    color: var(--btn-danger-text, white);
+  .announcement-card p {
+    color: var(--admin-text-secondary, #4b5563);
+    margin: 0 0 16px;
+    line-height: 1.6;
   }
 
-  .announcement-card form:last-child button:hover {
-    background: var(--btn-danger-bg-hover, #b91c1c);
+  .announcement-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .announcement-actions form {
+    margin: 0;
+    padding: 0;
+    background: none;
+    box-shadow: none;
+    border: none;
+  }
+
+  .empty-state {
+    text-align: center;
+    color: var(--admin-text-secondary, #4b5563);
+    padding: 40px 20px;
+    background: #f9fafb;
+    border-radius: 10px;
+  }
+
+  .section-divider {
+    border: none;
+    border-top: 2px dashed var(--admin-info, #0891b2);
+    margin: 32px 0;
+  }
+
+  @media (max-width: 768px) {
+    .announcement-actions {
+      flex-direction: column;
+    }
+
+    .announcement-actions .admin-btn {
+      width: 100%;
+    }
   }
 </style>
+
+<div class="announcements-container">
+  <div class="page-header">
+    <h1>📢 Admin Announcements</h1>
+  </div>
+
+  <%- include('../partials/flash') %>
+
+  <form method="POST" action="/admin/announcements" class="announcement-form">
+    <input type="text" name="title" placeholder="Announcement Title" required />
+    <textarea name="description" placeholder="Announcement Description" required></textarea>
+    <button type="submit" class="admin-btn admin-btn-primary admin-btn-lg" style="width: 100%;">
+      + Create Announcement
+    </button>
+  </form>
+
+  <% if (announcements.length === 0) { %>
+    <div class="empty-state">
+      <p>No announcements yet. Create one above!</p>
+    </div>
+  <% } else { %>
+    <h2 class="section-title">🌐 General Announcements</h2>
+    <% const generalAnnouncements = announcements.filter(a => !a.organization_id); %>
+    <% if (generalAnnouncements.length === 0) { %>
+      <div class="empty-state">
+        <p>No general announcements.</p>
+      </div>
+    <% } else { %>
+      <% generalAnnouncements.forEach(a => { %>
+        <div class="announcement-card">
+          <h3><%= a.title %></h3>
+          <p><%= a.description %></p>
+          <div class="announcement-actions">
+            <form action="/admin/announcements/toggle/<%= a.id %>" method="POST">
+              <button type="submit" class="admin-btn admin-btn-sm <%= a.is_active ? 'admin-btn-hold' : 'admin-btn-success' %>">
+                <%= a.is_active ? '⏸ Deactivate' : '▶ Activate' %>
+              </button>
+            </form>
+            <form action="/admin/announcements/delete/<%= a.id %>" method="POST">
+              <button type="submit" class="admin-btn admin-btn-sm admin-btn-delete" onclick="return confirm('Delete this announcement?')">
+                🗑 Delete
+              </button>
+            </form>
+          </div>
+        </div>
+      <% }) %>
+    <% } %>
+
+    <hr class="section-divider">
+
+    <h2 class="section-title">🏫 Organization-specific Announcements</h2>
+    <% const orgAnnouncements = announcements.filter(a => a.organization_id); %>
+    <% if (orgAnnouncements.length === 0) { %>
+      <div class="empty-state">
+        <p>No organization-specific announcements.</p>
+      </div>
+    <% } else { %>
+      <% orgAnnouncements.forEach(a => { %>
+        <div class="announcement-card">
+          <h3><%= a.title %></h3>
+          <p><%= a.description %></p>
+          <div class="announcement-actions">
+            <form action="/admin/announcements/toggle/<%= a.id %>" method="POST">
+              <button type="submit" class="admin-btn admin-btn-sm <%= a.is_active ? 'admin-btn-hold' : 'admin-btn-success' %>">
+                <%= a.is_active ? '⏸ Deactivate' : '▶ Activate' %>
+              </button>
+            </form>
+            <form action="/admin/announcements/delete/<%= a.id %>" method="POST">
+              <button type="submit" class="admin-btn admin-btn-sm admin-btn-delete" onclick="return confirm('Delete this announcement?')">
+                🗑 Delete
+              </button>
+            </form>
+          </div>
+        </div>
+      <% }) %>
+    <% } %>
+  <% } %>
+</div>
