@@ -7,7 +7,7 @@
   right: 20px;
   width: 52px;
   height: 52px;
-  background: linear-gradient(135deg, var(--org-primary-color, #01535b) 0%, var(--org-primary-hover, #013c44) 100%);
+  background: linear-gradient(135deg, var(--org-primary-color) 0%, var(--org-primary-hover) 100%);
   border-radius: 50%;
   border: none;
   cursor: pointer;

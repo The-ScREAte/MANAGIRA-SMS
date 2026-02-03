@@ -322,7 +322,7 @@ form textarea {
 /* Management tools dropdown */
 /* Dropdown and Arrow Styling */
 .submenu-toggle {
-  color: #1a73e8; /* Distinct color for main menu items */
+  color: var(--org-primary-color); /* Org theme color for main menu items */
   font-weight: bold;
   cursor: pointer;
   display: inline-flex;
@@ -333,17 +333,17 @@ form textarea {
 }
 
 .submenu-toggle:hover {
-  background-color: #4f9fa7;
+  background-color: var(--org-primary-color);
   color: #ffffff;
 }
 
 /* Specific styling for 'Management Tools', 'Settings', and 'Logout' links */
 .submenu-toggle.management {
-  color: #e60000; /* Bright red for 'Management Tools' */
+  color: var(--org-primary-color);
 }
 
 .submenu-toggle.settings {
-  color: #4a9aa1; /* Blue for 'Settings' */
+  color: var(--org-primary-color);
 }
 
 .nav-item a.logout {
@@ -356,7 +356,7 @@ form textarea {
 }
 
 .nav-item a.logout:hover {
-  background-color: #5b989e;
+  background-color: var(--org-primary-color);
   color: #ffffff;
 }
 
