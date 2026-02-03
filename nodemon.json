@@ -1,6 +1,0 @@
-{
-  "watch": ["views", "public", "routes", "controllers", "jobs"],
-  "ext": "js,ejs,css",
-  "ignore": ["node_modules/*", "uploads/*"],
-  "exec": "node server.js"
-}
