@@ -851,11 +851,37 @@
                   <ul class="nav-menu" id="nav-menu">
       <% if (req.session && req.session.userRole === 'Guardian') { %>
         <!-- Guardian-only menu -->
-        <li class="nav-item"><a href="/guardian/dashboard">Dashboard</a></li>
-        <li class="nav-item"><a href="/common/publicDashboard?organizationId=<%= req.session.organizationId %>">Public Dashboard</a></li>
-        <li class="nav-item"><a href="/guardian/reports">My Reports</a></li>
-        <li class="nav-item"><a href="/guardian/settings" class="nav-item-link">Settings</a></li>
-        <li class="nav-item"><a href="/account/logout" class="logout">Logout</a></li>
+        <li class="nav-item"><a href="/guardian/dashboard" class="management-link">
+          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+          </svg>
+          Dashboard
+        </a></li>
+        <li class="nav-item"><a href="/common/publicDashboard?organizationId=<%= req.session.organizationId %>" class="management-link">
+          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+          </svg>
+          Public Dashboard
+        </a></li>
+        <li class="nav-item"><a href="/guardian/reports" class="management-link">
+          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          </svg>
+          My Reports
+        </a></li>
+        <li class="nav-item"><a href="/guardian/settings" class="nav-item-link management-link">
+          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          </svg>
+          Settings
+        </a></li>
+        <li class="nav-item"><a href="/account/logout" class="logout management-link" style="color:#dc2626;">
+          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+          </svg>
+          Logout
+        </a></li>
       <% } else { %>
         <% if (req.session && req.session.userRole !== 'Teacher' &&
         req.session.userRole !== 'Supervisor') { %>
@@ -890,10 +916,21 @@
         </li>
         <% } %>
         <li class="nav-item">
-          <a href="/account/settings" class="nav-item-link">Settings</a>
+          <a href="/account/settings" class="nav-item-link management-link">
+            <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+            Settings
+          </a>
         </li>
         <li class="nav-item">
-          <a href="/account/logout" class="logout">Logout</a>
+          <a href="/account/logout" class="logout management-link" style="color:#dc2626;">
+            <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+            </svg>
+            Logout
+          </a>
         </li>
       <% } %>
     </ul>
@@ -970,47 +1007,48 @@
     window.addEventListener('resize', adjustOrgNameSize);
 
     // Hamburger menu toggle with stopPropagation to prevent conflicts
-    hamburger.addEventListener("click", (e) => {
-      e.stopPropagation();
-      hamburger.classList.toggle("active");
-      navMenu.classList.toggle("show");
-    });
+    // Only add listeners if elements exist (prevents errors on hub pages)
+    if (hamburger && navMenu) {
+      hamburger.addEventListener("click", (e) => {
+        e.stopPropagation();
+        hamburger.classList.toggle("active");
+        navMenu.classList.toggle("show");
+      });
 
-    // Prevent clicks inside nav menu from bubbling to document
-    if (navMenu) {
+      // Prevent clicks inside nav menu from bubbling to document
       navMenu.addEventListener("click", (e) => {
         e.stopPropagation();
       });
-    }
 
-    submenuToggles.forEach((toggle) => {
-      toggle.addEventListener("click", (e) => {
-        e.preventDefault();
-        const target = document.getElementById(toggle.dataset.target);
-        const arrow = toggle.querySelector(".arrow");
+      submenuToggles.forEach((toggle) => {
+        toggle.addEventListener("click", (e) => {
+          e.preventDefault();
+          const target = document.getElementById(toggle.dataset.target);
+          const arrow = toggle.querySelector(".arrow");
 
-        submenuToggles.forEach((otherToggle) => {
-          const otherArrow = otherToggle.querySelector(".arrow");
-          const otherTarget = document.getElementById(
-            otherToggle.dataset.target
-          );
-          if (otherTarget !== target) {
-            otherTarget.classList.remove("show");
-            otherArrow.classList.remove("open");
-          }
+          submenuToggles.forEach((otherToggle) => {
+            const otherArrow = otherToggle.querySelector(".arrow");
+            const otherTarget = document.getElementById(
+              otherToggle.dataset.target
+            );
+            if (otherTarget !== target) {
+              otherTarget.classList.remove("show");
+              otherArrow.classList.remove("open");
+            }
+          });
+
+          arrow.classList.toggle("open");
+          target.classList.toggle("show");
         });
-
-        arrow.classList.toggle("open");
-        target.classList.toggle("show");
       });
-    });
 
-    document.addEventListener("click", (e) => {
-      if (!e.target.closest("#hamburger") && !e.target.closest("#nav-menu")) {
-        hamburger.classList.remove("active");
-        navMenu.classList.remove("show");
-      }
-    });
+      document.addEventListener("click", (e) => {
+        if (!e.target.closest("#hamburger") && !e.target.closest("#nav-menu")) {
+          hamburger.classList.remove("active");
+          navMenu.classList.remove("show");
+        }
+      });
+    }
 
     function escapeHtml(str) {
       return String(str)

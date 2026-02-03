@@ -544,6 +544,7 @@ const adminController = {
       res.render("admin/helpMessages", {
         title: "Help Messages",
         threads: threads.rows,
+        messages: req.flash(),
         showFooterTopSection: true
       });
     } catch (error) {
@@ -1227,8 +1228,8 @@ const adminController = {
     res.render("admin/manageEmployment", {
       title: "Manage Employment",
       jobs: jobs.rows,
-      success: req.flash("success"),
-      error: req.flash("error"),
+      messages: req.flash(),
+      showFooterTopSection: true
     });
   },
 
@@ -1294,8 +1295,8 @@ const adminController = {
     res.render("admin/manageDonations", {
       title: "Manage Donations",
       donations: donations.rows,
-      success: req.flash("success"),
-      error: req.flash("error"),
+      messages: req.flash(),
+      showFooterTopSection: true
     });
   },
 
