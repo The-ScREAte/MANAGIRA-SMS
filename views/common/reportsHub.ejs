@@ -286,7 +286,7 @@
         margin-bottom: 16px;
       }
 
-      .hamburger-icon {
+      .hub-nav-toggle .hub-hamburger-icon {
         position: relative;
         width: 18px;
         height: 2px;
@@ -294,8 +294,8 @@
         display: inline-block;
       }
 
-      .hamburger-icon::before,
-      .hamburger-icon::after {
+      .hub-nav-toggle .hub-hamburger-icon::before,
+      .hub-nav-toggle .hub-hamburger-icon::after {
         content: "";
         position: absolute;
         left: 0;
@@ -304,8 +304,8 @@
         background: var(--primary);
       }
 
-      .hamburger-icon::before { top: -6px; }
-      .hamburger-icon::after { top: 6px; }
+      .hub-nav-toggle .hub-hamburger-icon::before { top: -6px; }
+      .hub-nav-toggle .hub-hamburger-icon::after { top: 6px; }
 
       .hub-nav-close {
         display: none;
@@ -397,7 +397,7 @@
       <div class="hub-layout">
         <!-- Mobile Toggle -->
         <button class="hub-nav-toggle" id="hub-nav-toggle">
-          <span class="hamburger-icon"></span>
+          <span class="hub-hamburger-icon"></span>
           <span>Menu</span>
         </button>
 

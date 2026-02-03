@@ -310,7 +310,7 @@
         margin-bottom: 16px;
       }
 
-      .hamburger-icon {
+      .management-nav-toggle .hub-hamburger-icon {
         position: relative;
         width: 18px;
         height: 2px;
@@ -318,8 +318,8 @@
         display: inline-block;
       }
 
-      .hamburger-icon::before,
-      .hamburger-icon::after {
+      .management-nav-toggle .hub-hamburger-icon::before,
+      .management-nav-toggle .hub-hamburger-icon::after {
         content: "";
         position: absolute;
         left: 0;
@@ -328,8 +328,8 @@
         background: var(--primary);
       }
 
-      .hamburger-icon::before { top: -6px; }
-      .hamburger-icon::after { top: 6px; }
+      .management-nav-toggle .hub-hamburger-icon::before { top: -6px; }
+      .management-nav-toggle .hub-hamburger-icon::after { top: 6px; }
 
       .management-nav-close {
         display: none;
@@ -433,7 +433,7 @@
       <div class="management-layout">
         <!-- Mobile Toggle Button -->
         <button class="management-nav-toggle" id="management-nav-toggle">
-          <span class="hamburger-icon"></span>
+          <span class="hub-hamburger-icon"></span>
           <span>Menu</span>
         </button>
 

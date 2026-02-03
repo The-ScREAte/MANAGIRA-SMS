@@ -120,10 +120,16 @@ li {
 }
 
 .class-header {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.class-header a,
+.class-header b {
+  white-space: nowrap;
 }
 
 .teacher-toggle {
@@ -225,6 +231,21 @@ li {
   justify-content: center;
   align-items: center;
   padding: 5px;
+}
+
+/* Large screen: add right offset to tools */
+@media screen and (min-width: 992px) {
+  #tools {
+    right: 45px;
+  }
+}
+
+/* Small screen: remove padding from org dashboard container */
+@media screen and (max-width: 768px) {
+  .org-dashboard-container {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
 }
 
 .welcome-card {
