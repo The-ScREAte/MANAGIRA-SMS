@@ -2,6 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const accountController = require("../controllers/accountController");
+const themeController = require("../controllers/themeController");
 const accountValidation = require("../validation/accountValidation");
 const { isAuthenticated } = require("../middleware/authMiddleware");
 const { upload } = require("../middleware/s3Upload");
@@ -104,6 +105,9 @@ router.post("/personalization/name", checkFeatureAccess, isAuthenticated, (req, 
 );
 router.post("/personalization/font", checkFeatureAccess, isAuthenticated, (req, res) =>
   accountController.updateFontPost(req, res, db)
+);
+router.post("/personalization/theme", isAuthenticated, (req, res) =>
+  themeController.updateThemePost(req, res)
 );
 router.post(
   "/personalization/nickname",

@@ -28,6 +28,7 @@ const expressLayouts = require("express-ejs-layouts");
 const pgSession = require("connect-pg-simple")(session);
 const setAllowedFeatures = require("./middleware/setAllowedFeatures");
 const setAllowedRoles = require("./middleware/setAllowedRoles");
+const setThemeColor = require("./middleware/setThemeColor");
 
 // **Dynamic BASE_URL Logic**
 const BASE_URL =
@@ -148,6 +149,7 @@ app.use(async (req, res, next) => {
 app.use(setCurrentTerm);
 app.use(setAllowedFeatures);
 app.use(setAllowedRoles);
+app.use(setThemeColor);
 
 // Template engine setup
 app.use(expressLayouts);
