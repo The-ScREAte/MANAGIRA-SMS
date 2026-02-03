@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Management Tools</title>
+    <link rel="stylesheet" href="/css/buttons.css" />
+    <style>
+      :root {
+        --border: #e5e7eb;
+        --muted: #6b7280;
+        --bg: #f9fafb;
+        --primary: var(--org-primary-color, #01535b);
+        --primary-hover: var(--org-primary-hover, #014a51);
+        --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
+      }
+
+      body {
+        background: #fff;
+        font-family: var(--font-family);
+        margin: 0;
+        padding: 0;
+      }
+
+      .management-layout {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        gap: 24px;
+        max-width: 1300px;
+        margin: 0 auto 40px;
+        padding: 20px;
+        align-items: start;
+      }
+
+      .management-nav {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px 12px;
+        background: #fff;
+        height: fit-content;
+        align-self: start;
+        position: sticky;
+        top: 100px;
+      }
+
+      .management-nav-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin: 4px 12px 12px;
+        width: 100%;
+      }
+
+      .management-nav h3 {
+        margin: 0;
+        font-size: 18px;
+        color: var(--primary);
+        font-weight: 700;
+      }
+
+      .nav-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 4px;
+      }
+
+      .nav-list li {
+        margin: 0;
+      }
+
+      .nav-link {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        border-radius: 8px;
+        color: #374151;
+        text-decoration: none;
+        border: 1px solid transparent;
+        width: 100%;
+        background: transparent;
+        cursor: pointer;
+        font: inherit;
+        text-align: left;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+      }
+
+      .nav-link:hover {
+        background: #f3f4f6;
+        border-color: #e5e7eb;
+      }
+
+      .nav-link.active {
+        background: var(--primary);
+        color: #fff;
+        border-color: var(--primary);
+      }
+
+      .nav-link.active:hover {
+        background: var(--primary-hover);
+      }
+
+      .nav-link svg {
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+      }
+
+      .management-main {
+        padding: 20px 0 0 0;
+      }
+
+      .management-main h1 {
+        margin: 0 0 6px 0;
+        font-size: 28px;
+        text-align: left;
+        color: #111827;
+      }
+
+      .management-main p.lead {
+        margin: 0 0 24px 0;
+        color: var(--muted);
+        font-size: 15px;
+      }
+
+      .management-section {
+        display: none;
+      }
+
+      .management-section.active {
+        display: block;
+      }
+
+      .section-card {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 24px;
+        background: #fff;
+        margin-bottom: 20px;
+      }
+
+      .section-card h2 {
+        margin: 0 0 8px 0;
+        font-size: 20px;
+        color: #111827;
+      }
+
+      .section-card p {
+        margin: 0 0 20px 0;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.6;
+      }
+
+      .action-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 24px;
+        background: var(--primary);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        font-size: 15px;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .action-btn:hover {
+        background: var(--primary-hover);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      }
+
+      .action-btn svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      /* Feature highlights grid */
+      .features-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 16px;
+        margin-top: 16px;
+      }
+
+      .feature-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 16px;
+        background: #f9fafb;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+      }
+
+      .feature-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        background: var(--primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      .feature-icon svg {
+        width: 20px;
+        height: 20px;
+        color: #fff;
+      }
+
+      .feature-content h4 {
+        margin: 0 0 4px 0;
+        font-size: 14px;
+        color: #111827;
+      }
+
+      .feature-content p {
+        margin: 0;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      /* Mobile navigation toggle */
+      .management-nav-toggle {
+        display: none;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 16px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: #fff;
+        cursor: pointer;
+        font: inherit;
+        margin-bottom: 16px;
+        width: auto;
+        font-weight: 600;
+        color: var(--primary);
+      }
+
+      .hamburger-icon {
+        position: relative;
+        width: 18px;
+        height: 2px;
+        background: var(--primary);
+        display: inline-block;
+      }
+
+      .hamburger-icon::before,
+      .hamburger-icon::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        width: 18px;
+        height: 2px;
+        background: var(--primary);
+      }
+
+      .hamburger-icon::before {
+        top: -6px;
+      }
+
+      .hamburger-icon::after {
+        top: 6px;
+      }
+
+      .management-nav-close {
+        display: none;
+        background: transparent;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 6px 8px;
+        margin-left: auto;
+        line-height: 1;
+        width: auto;
+        color: #6b7280;
+      }
+
+      .management-nav-close:hover {
+        color: #111827;
+      }
+
+      .management-nav-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.35);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease;
+        z-index: 999;
+      }
+
+      .management-nav-overlay.show {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      /* Responsive Design */
+      @media (max-width: 900px) {
+        .management-layout {
+          grid-template-columns: 1fr;
+          gap: 0;
+          padding: 16px;
+        }
+
+        .management-nav-toggle {
+          display: flex;
+        }
+
+        .management-nav {
+          position: fixed;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          width: 300px;
+          max-width: 85vw;
+          border-radius: 0;
+          z-index: 1000;
+          transform: translateX(-100%);
+          transition: transform 0.3s ease;
+          padding: 20px;
+          overflow-y: auto;
+        }
+
+        .management-nav.open {
+          transform: translateX(0);
+        }
+
+        .management-nav-close {
+          display: block;
+        }
+
+        .management-nav-header {
+          margin-bottom: 20px;
+        }
+      }
+
+      @media (max-width: 600px) {
+        .management-main h1 {
+          font-size: 22px;
+        }
+
+        .section-card {
+          padding: 16px;
+        }
+
+        .section-card h2 {
+          font-size: 18px;
+        }
+
+        .features-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .action-btn {
+          width: 100%;
+          justify-content: center;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <%- include('../partials/header') %>
+
+    <div class="management-nav-overlay" id="management-nav-overlay"></div>
+
+    <div class="management-layout">
+      <!-- Mobile Toggle Button -->
+      <button class="management-nav-toggle" id="management-nav-toggle">
+        <span class="hamburger-icon"></span>
+        <span>Menu</span>
+      </button>
+
+      <!-- Sidebar Navigation -->
+      <nav class="management-nav" id="management-nav">
+        <div class="management-nav-header">
+          <h3>Management Tools</h3>
+          <button class="management-nav-close" id="management-nav-close">&times;</button>
+        </div>
+        <ul class="nav-list">
+          <li>
+            <button class="nav-link active" data-section="school-year">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+              </svg>
+              School Year Management
+            </button>
+          </li>
+          <li>
+            <button class="nav-link" data-section="classes">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+              </svg>
+              Classes & Graduation Year
+            </button>
+          </li>
+          <li>
+            <button class="nav-link" data-section="assessments">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+              </svg>
+              Assessment Scores
+            </button>
+          </li>
+          <li>
+            <button class="nav-link" data-section="employees">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+              </svg>
+              Employee Management
+            </button>
+          </li>
+          <li>
+            <button class="nav-link" data-section="guardians">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+              </svg>
+              Guardian Management
+            </button>
+          </li>
+          <li>
+            <button class="nav-link" data-section="enrollment">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
+              </svg>
+              Enrollment Management
+            </button>
+          </li>
+          <li>
+            <button class="nav-link" data-section="promotion">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"></path>
+              </svg>
+              Promotion/Repetition
+            </button>
+          </li>
+          <li>
+            <button class="nav-link" data-section="website">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+              </svg>
+              Edit Public Website
+            </button>
+          </li>
+        </ul>
+      </nav>
+
+      <!-- Main Content Area -->
+      <main class="management-main">
+        <!-- School Year Management Section -->
+        <section class="management-section active" id="school-year">
+          <h1>School Year Management</h1>
+          <p class="lead">Manage your academic years, terms, and school calendar settings.</p>
+          
+          <div class="section-card">
+            <h2>Academic Records</h2>
+            <p>View and manage all school years, create new academic periods, and configure term settings for your institution.</p>
+            
+            <div class="features-grid">
+              <div class="feature-item">
+                <div class="feature-icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                  </svg>
+                </div>
+                <div class="feature-content">
+                  <h4>Create School Years</h4>
+                  <p>Set up new academic years with custom start and end dates.</p>
+                </div>
+              </div>
+              <div class="feature-item">
+                <div class="feature-icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                  </svg>
+                </div>
+                <div class="feature-content">
+                  <h4>Term Management</h4>
+                  <p>Define terms/semesters within each school year.</p>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top: 24px;">
+              <a href="/common/manageRecords" class="action-btn">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+                </svg>
+                Manage School Years
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <!-- Classes & Graduation Year Section -->
+        <section class="management-section" id="classes">
+          <h1>Classes, Subjects & Graduation Year</h1>
+          <p class="lead">Configure your institution's classes, subjects, and graduation year groups.</p>
+          
+          <div class="section-card">
+            <h2>Academic Structure</h2>
+            <p>Set up and manage the structure of your institution including classes, subjects offered, and graduation cohorts.</p>
+            
+            <div class="features-grid">
+              <div class="feature-item">
+                <div class="feature-icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5"></path>
+                  </svg>
+                </div>
+                <div class="feature-content">
+                  <h4>Class Management</h4>
+                  <p>Create and organize classes for your school.</p>
+                </div>
+              </div>
+              <div class="feature-item">
+                <div class="feature-icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                  </svg>
+                </div>
+                <div class="feature-content">
+                  <h4>Subject Configuration</h4>
+                  <p>Define subjects and assign them to classes.</p>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top: 24px;">
+              <a href="/common/manageClassSubjectAndGradYr" class="action-btn">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+                </svg>
+                Manage Classes & Subjects
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <!-- Assessment Scores Section -->
+        <section class="management-section" id="assessments">
+          <h1>Assessment Score Management</h1>
+          <p class="lead">Create and manage tests, exams, and other assessment types.</p>
+          
+          <div class="section-card">
+            <h2>Assessment Configuration</h2>
+            <p>Set up assessment structures, grading scales, and manage student scores across all subjects.</p>
+            
+            <div class="features-grid">
+              <div class="feature-item">
+                <div class="feature-icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                  </svg>
+                </div>
+                <div class="feature-content">
+                  <h4>Create Assessments</h4>
+                  <p>Define tests, quizzes, and exam types.</p>
+                </div>
+              </div>
+              <div class="feature-item">
+                <div class="feature-icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                  </svg>
+                </div>
+                <div class="feature-content">
+                  <h4>Score Entry</h4>
+                  <p>Enter and manage student assessment scores.</p>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top: 24px;">
+              <a href="/common/createTest?organizationId=<%= session.organizationId %>&termId=<%= currentTerm ? currentTerm.term_id : '' %>" class="action-btn">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+                </svg>
+                Manage Assessments
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <!-- Employee Management Section -->
+        <section class="management-section" id="employees">
+          <h1>Employee Management</h1>
+          <p class="lead">Manage staff, teachers, and administrative personnel.</p>
+          
+          <div class="section-card">
+            <h2>Staff Administration</h2>
+            <p>Add, modify, and manage employee records including teachers, supervisors, and other staff members.</p>
+            
+            <div class="features-grid">
+              <div class="feature-item">
+                <div class="feature-icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
+                  </svg>
+                </div>
+                <div class="feature-content">
+                  <h4>Add Employees</h4>
+                  <p>Register new staff members to the system.</p>
+                </div>
+              </div>
+              <div class="feature-item">
+                <div class="feature-icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                  </svg>
+                </div>
+                <div class="feature-content">
+                  <h4>Role Assignment</h4>
+                  <p>Assign roles and permissions to staff.</p>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top: 24px;">
+              <a href="/common/createEmployee" class="action-btn">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+                </svg>
+                Manage Employees
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <!-- Guardian Management Section -->
+        <section class="management-section" id="guardians">
+          <h1>Guardian Management</h1>
+          <p class="lead">Manage parent and guardian accounts and relationships.</p>
+          
+          <div class="section-card">
+            <h2>Guardian Administration</h2>
+            <p>View and manage guardian accounts, their linked students, and communication preferences.</p>
+            
+            <div class="features-grid">
+              <div class="feature-item">
+                <div class="feature-icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197"></path>
+                  </svg>
+                </div>
+                <div class="feature-content">
+                  <h4>Guardian Accounts</h4>
+                  <p>Manage parent/guardian login credentials.</p>
+                </div>
+              </div>
+              <div class="feature-item">
+                <div class="feature-icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
+                  </svg>
+                </div>
+                <div class="feature-content">
+                  <h4>Student Links</h4>
+                  <p>Connect guardians to their students.</p>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top: 24px;">
+              <a href="/common/guardians" class="action-btn">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+                </svg>
+                Manage Guardians
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <!-- Enrollment Management Section -->
+        <section class="management-section" id="enrollment">
+          <h1>Enrollment Management</h1>
+          <p class="lead">Configure and manage student enrollment forms and settings.</p>
+          
+          <div class="section-card">
+            <h2>Enrollment Settings</h2>
+            <p>Set up online enrollment forms, customize required fields, and manage enrollment periods.</p>
+            
+            <div class="features-grid">
+              <div class="feature-item">
+                <div class="feature-icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                  </svg>
+                </div>
+                <div class="feature-content">
+                  <h4>Enrollment Forms</h4>
+                  <p>Customize your online enrollment forms.</p>
+                </div>
+              </div>
+              <div class="feature-item">
+                <div class="feature-icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                </div>
+                <div class="feature-content">
+                  <h4>Enrollment Periods</h4>
+                  <p>Set open/close dates for enrollment.</p>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top: 24px;">
+              <a href="/enrollment/manageEnrollment" class="action-btn">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+                </svg>
+                Manage Enrollment
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <!-- Promotion/Repetition Section -->
+        <section class="management-section" id="promotion">
+          <h1>Promotion & Repetition Manager</h1>
+          <p class="lead">Manage student grade promotions and repetitions.</p>
+          
+          <div class="section-card">
+            <h2>Student Progression</h2>
+            <p>Promote students to the next grade level or manage repetitions based on academic performance.</p>
+            
+            <div class="features-grid">
+              <div class="feature-item">
+                <div class="feature-icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"></path>
+                  </svg>
+                </div>
+                <div class="feature-content">
+                  <h4>Bulk Promotions</h4>
+                  <p>Promote multiple students at once.</p>
+                </div>
+              </div>
+              <div class="feature-item">
+                <div class="feature-icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                  </svg>
+                </div>
+                <div class="feature-content">
+                  <h4>Repetition Rules</h4>
+                  <p>Set criteria for student repetition.</p>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top: 24px;">
+              <a href="/promotion/apply" class="action-btn">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+                </svg>
+                Manage Promotions
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <!-- Edit Public Website Section -->
+        <section class="management-section" id="website">
+          <h1>Edit Public/Organization Website</h1>
+          <p class="lead">Customize your organization's public-facing website and dashboard.</p>
+          
+          <div class="section-card">
+            <h2>Website Customization</h2>
+            <p>Personalize your public dashboard, add announcements, upload images, and configure the appearance of your organization's website.</p>
+            
+            <div class="features-grid">
+              <div class="feature-item">
+                <div class="feature-icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
+                  </svg>
+                </div>
+                <div class="feature-content">
+                  <h4>Theme Colors</h4>
+                  <p>Customize your website's color scheme.</p>
+                </div>
+              </div>
+              <div class="feature-item">
+                <div class="feature-icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                  </svg>
+                </div>
+                <div class="feature-content">
+                  <h4>Images & Media</h4>
+                  <p>Upload images and manage media content.</p>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top: 24px;">
+              <a href="/account/managePublicContent" class="action-btn">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+                </svg>
+                Edit Website
+              </a>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <%- include('../partials/footer') %>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const navLinks = document.querySelectorAll('.nav-link');
+        const sections = document.querySelectorAll('.management-section');
+        const navToggle = document.getElementById('management-nav-toggle');
+        const nav = document.getElementById('management-nav');
+        const navClose = document.getElementById('management-nav-close');
+        const overlay = document.getElementById('management-nav-overlay');
+
+        // Section navigation
+        navLinks.forEach(link => {
+          link.addEventListener('click', function() {
+            const sectionId = this.getAttribute('data-section');
+            
+            // Update active states
+            navLinks.forEach(l => l.classList.remove('active'));
+            this.classList.add('active');
+            
+            sections.forEach(s => s.classList.remove('active'));
+            document.getElementById(sectionId).classList.add('active');
+
+            // Close mobile nav if open
+            if (window.innerWidth <= 900) {
+              nav.classList.remove('open');
+              overlay.classList.remove('show');
+            }
+
+            // Update URL hash
+            history.replaceState(null, null, '#' + sectionId);
+          });
+        });
+
+        // Mobile navigation toggle
+        navToggle.addEventListener('click', function() {
+          nav.classList.add('open');
+          overlay.classList.add('show');
+        });
+
+        navClose.addEventListener('click', function() {
+          nav.classList.remove('open');
+          overlay.classList.remove('show');
+        });
+
+        overlay.addEventListener('click', function() {
+          nav.classList.remove('open');
+          overlay.classList.remove('show');
+        });
+
+        // Handle initial hash
+        if (window.location.hash) {
+          const sectionId = window.location.hash.substring(1);
+          const targetLink = document.querySelector(`.nav-link[data-section="${sectionId}"]`);
+          if (targetLink) {
+            targetLink.click();
+          }
+        }
+      });
+    </script>
+  </body>
+</html>

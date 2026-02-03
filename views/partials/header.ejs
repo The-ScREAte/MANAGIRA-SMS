@@ -260,6 +260,25 @@
     border-radius: 4px;
   }
 
+  header#top-header .nav-menu .nav-item a.management-link {
+    display: flex;
+    align-items: center;
+    color: var(--org-primary-color, #01535b);
+    font-weight: 600;
+    padding: 10px 12px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+  }
+
+  header#top-header .nav-menu .nav-item a.management-link:hover {
+    background: var(--org-primary-color, #01535b);
+    color: #fff;
+  }
+
+  header#top-header .nav-menu .nav-item a.management-link svg {
+    color: inherit;
+  }
+
   .sticky-nav {
     position: absolute;
     top: 100%;
@@ -841,41 +860,16 @@
         <% if (req.session && req.session.userRole !== 'Teacher' &&
         req.session.userRole !== 'Supervisor') { %>
         <li class="nav-item">
-          <a
-            href="#"
-            class="submenu-toggle management"
-            data-target="management-submenu"
-          >
-            Management Tools <span class="arrow">&#9660;</span>
+          <a href="/common/management" class="nav-item-link management-link">
+            <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+            Management Tools
           </a>
-          <ul class="management-links submenu" id="management-submenu">
-            <li><a href="/common/manageRecords">School Year Management</a></li>
-            <li>
-              <a href="/common/manageClassSubjectAndGradYr"
-                >Class, Subjects & Graduation Year</a
-              >
-            </li>
-            <li>
-              <a
-                href="/common/createTest?organizationId=<%= session.organizationId %>&termId=<%= currentTerm ? currentTerm.term_id : '' %>"
-                >Create & Manage Assessment Scores</a
-              >
-            </li>
-            <li><a href="/common/createEmployee">Employee Management</a></li>
-            <li><a href="/common/guardians">Guardian Management</a></li>
-            <li>
-              <a href="/enrollment/manageEnrollment">Enrollment Management</a>
-            </li>
-            <li><a href="/promotion/apply">Promotion/Repetition Manager</a>
-            </li>
-            <li>
-              <a href="/account/managePublicContent"
-                >Edit Public/Organization Website</a
-              >
-            </li>
-          </ul>
         </li>
-        <% } %> <% if (req.session && req.session.userRole !== 'Teacher') { %>
+        <% } %>
+        <% if (req.session && req.session.userRole !== 'Teacher') { %>
         <li class="nav-item">
           <a
             href="#"
