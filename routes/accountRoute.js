@@ -157,7 +157,7 @@ router.post("/update-about-us", isAuthenticated, (req, res) =>
   accountController.updateAboutUsSection(req, res, db)
 );
 
-// Public Dashboard Theme
+// School Website Theme
 router.post(
   "/updatePublicDashboardTheme",
   checkFeatureAccess,
@@ -165,7 +165,7 @@ router.post(
   (req, res) => accountController.updatePublicDashboardThemePost(req, res, db)
 );
 
-// Public Dashboard Layout
+// School Website Layout
 router.post(
   "/updatePublicDashboardLayout",
   checkFeatureAccess,
@@ -193,6 +193,11 @@ router.get("/settings", isAuthenticated, (req, res) =>
 );
 router.post("/settings/profile", isAuthenticated, (req, res) =>
   accountController.updateProfileNamePost(req, res, db)
+);
+router.post("/settings/profile-image", 
+  isAuthenticated, 
+  upload.single("profileImage"),
+  (req, res) => accountController.updateProfileImagePost(req, res, db)
 );
 router.post("/settings/security/email", isAuthenticated, (req, res) =>
   accountController.updateSecurityEmailPost(req, res, db)

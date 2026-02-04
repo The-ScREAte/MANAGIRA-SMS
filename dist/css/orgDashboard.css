@@ -117,32 +117,23 @@ li {
 
 .class-item {
   position: relative;
+  display: block;
 }
 
 .class-header {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.teacher-toggle {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  margin-left: 4px;
-  padding: 2px;
-  border-radius: 4px;
-  background: linear-gradient(135deg, var(--org-primary-color, #01535b), var(--org-primary-hover, #014a51));
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  gap: 6px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.teacher-toggle:hover {
-  transform: scale(1.1);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+.class-header a,
+.class-header b {
+  white-space: nowrap;
 }
+
 
 .toggle-arrow {
   transition: transform 0.3s ease;
@@ -155,12 +146,23 @@ li {
 }
 
 .teachers-list {
-  margin-top: 12px;
-  padding-left: 28px;
+  margin-top: 8px;
+  margin-left: 28px;
+  padding-left: 16px;
   animation: slideDown 0.3s ease-out;
   border-left: 3px solid var(--org-primary-color, #01535b);
   padding-top: 6px;
   padding-bottom: 6px;
+  display: block;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.teachers-list.show {
+  max-height: 500px;
+  opacity: 1;
 }
 
 .teacher-entry {
@@ -472,16 +474,29 @@ li {
 
   .dashboard-buttons {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: center;
     width: 100%;
-    gap: 8px;
+    gap: 12px;
   }
 
   .dashboard-buttons button {
     max-width: 44%;
     font-size: 0.8rem;
   }
+}
 
+/* Medium and large screens: keep side-by-side layout */
+@media screen and (min-width: 769px) {
+  .dashboard-buttons {
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+  }
 
+  .grid-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+  }
 }

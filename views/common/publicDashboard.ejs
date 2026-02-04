@@ -27,7 +27,9 @@
   --radius-sm:10px;
 }
 
-body{ font-family:var(--font-family); }
+body{ 
+  font-family:var(--font-family);
+}
 
 h1{ font-size:var(--title-xl); }
 h2{ font-size:var(--title-lg); }
@@ -238,9 +240,10 @@ object-fit:contain;
   }
 
   .carousel-control{
-    height:40px;
-    width:40px;
-    border-radius:10px;
+    height:32px;
+    width:32px;
+    border-radius:8px;
+    font-size: 20px;
   }
 
   .slide .caption{
@@ -2296,20 +2299,14 @@ body[data-pd-theme="bold"] #modalCaption{
 </style>
 
   </head>
-  <body data-pd-theme="<%= publicDashboardTheme || 'classic' %>" data-pd-layout="<%= publicDashboardLayout || 'wireframe1' %>">
+  <body data-page="publicDashboard" data-pd-theme="<%= publicDashboardTheme || 'classic' %>" data-pd-layout="<%= publicDashboardLayout || 'wireframe1' %>">
     <%- include('../partials/flash') %>
     <% if (req.query.success === '1') { %>
       <div class="alert alert-success">Registration and payment completed successfully!</div>
     <% } %>
     
     <div class="public-dashboard-container">
-      <div class="public-dashboard-header">
-        <% if (req.session && req.session.userRole === 'Manager') { %>
-        <a class="edit-public-dashboard" href="/account/managePublicContent">
-          <button>Edit Public/Organization Website</button>
-        </a> 
-        <% } %>
-      </div>
+      <div class="public-dashboard-header"></div>
 
       <!-- 🔹 Image Modal -->
       <div id="imageModal" class="modal">
@@ -2382,7 +2379,7 @@ body[data-pd-theme="bold"] #modalCaption{
         <!-- WIREFRAME 1: Linear / Traditional School Website - Simple vertical flow -->
         
         <!-- Gallery -->
-        <div class="content-section wf1-section">
+        <div class="content-section wf1-section" id="image-gallery">
           <h2>Gallery 📷</h2>
           <div class="wf1-gallery">
             <% orderedItems.filter(item => item.id === 'image-gallery').forEach(item => { %>
@@ -2399,7 +2396,7 @@ body[data-pd-theme="bold"] #modalCaption{
         </div>
 
         <!-- Articles (Simple cards) -->
-        <div class="content-section wf1-section">
+        <div class="content-section wf1-section" id="text-articles">
           <h2>Articles 📝</h2>
           <div class="wf1-articles">
             <% orderedItems.filter(item => item.id === 'text-articles').forEach(item => { %>
@@ -2414,7 +2411,7 @@ body[data-pd-theme="bold"] #modalCaption{
         </div>
 
         <!-- Events (Simple list) -->
-        <div class="content-section wf1-section">
+        <div class="content-section wf1-section" id="events">
           <h2>Upcoming Events</h2>
           <div class="wf1-events">
             <% orderedItems.filter(item => item.type === 'events').forEach(item => { %>
@@ -2430,7 +2427,7 @@ body[data-pd-theme="bold"] #modalCaption{
         </div>
 
         <!-- Announcements -->
-        <div class="content-section wf1-section">
+        <div class="content-section wf1-section" id="announcements">
           <h2>Announcements 📢</h2>
           <div class="wf1-announcements">
             <% orderedItems.filter(item => item.type === 'announcements').forEach(item => { %>

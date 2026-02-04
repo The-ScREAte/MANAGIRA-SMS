@@ -2,13 +2,17 @@
   <%- include('../partials/flash') %>
 
   <br />
-  <div class="dashboard-buttons-wrap">
-    <div class="dashboard-buttons">
-      <button id="orgDashboardBtn" class="active">Org Dashboard</button>
+  <div class="org-nav-wrap">
+    <div class="org-nav-buttons">
+      <button id="orgDashboardBtn" class="org-nav-button active">Org Dashboard</button>
 
       <% if (Array.isArray(allowedFeatures) && (allowedFeatures.includes("School Website") || allowedFeatures.includes("SchoolWebsite"))) { %>
-        <button id="publicDashboardBtn" onclick="window.location.href='/common/publicDashboard?organizationId=<%= organizationId %>'">
-          Public Dashboard
+        <button
+          id="publicDashboardBtn"
+          class="org-nav-button"
+          onclick="window.location.href='/common/publicDashboard?organizationId=<%= organizationId %>'"
+        >
+          School Website
         </button>
       <% } %>
     </div>
@@ -91,7 +95,7 @@
                       <a href="/common/classDashboard?classId=<%= cls.class_id %>"><%= cls.class_name %></a>
                       - <b>Teachers:</b>
                       <span class="teacher-toggle" onclick="toggleTeachers(<%= clsIndex %>)" title="Click to show/hide teachers">
-                        <svg class="toggle-arrow" id="arrow-<%= clsIndex %>" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <svg class="toggle-arrow" id="arrow-<%= clsIndex %>" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                           <polyline points="9 18 15 12 9 6"></polyline>
                         </svg>
                       </span>
@@ -157,17 +161,31 @@
           <div class="events-container">
             <h2>Events</h2>
             <ul>
-              <hr />
-              <% if (events && events.length > 0) { %> <%
-              events.forEach(function(event) { %>
-              <li>
-                <strong><%= event.name %></strong> - <%= new
-                Date(event.event_date).toISOString().split('T')[0] %> <br /><%=
-                event.details %>
-                <hr />
-              </li>
-              <% }); %> <% } else { %>
-              <li>No events found</li>
+              <% if (events && events.length > 0) { %>
+                <% events.forEach(function(event, eventIndex) { %>
+                  <li class="event-item" id="event-item-<%= eventIndex %>">
+                    <div class="event-header" onclick="toggleEvent(<%= eventIndex %>)" style="cursor: pointer;">
+                      <div class="event-title-row">
+                        <strong><%= event.name %></strong> - <%= new Date(event.event_date).toISOString().split('T')[0] %>
+                        <span class="event-toggle" title="Click to show/hide details">
+                          <svg class="toggle-arrow" id="event-arrow-<%= eventIndex %>" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                          </svg>
+                        </span>
+                      </div>
+                      <div class="event-preview" id="event-preview-<%= eventIndex %>"><%= event.details.substring(0, 60) %>...</div>
+                    </div>
+                  
+                    <div class="event-details" id="event-details-<%= eventIndex %>" style="display: none;">
+                      <%= event.details %>
+                    </div>
+                    <% if (eventIndex < events.length - 1) { %>
+                      <hr class="event-divider">
+                    <% } %>
+                  </li>
+                <% }); %>
+              <% } else { %>
+                <li>No events found</li>
               <% } %>
             </ul>
           </div>
@@ -178,13 +196,29 @@
           <div class="announcements-container">
             <h2>Announcements</h2>
             <ul>
-              <hr />
-              <% if (announcements && announcements.length > 0) { %> <%
-              announcements.forEach(function(announcement) { %>
-              <li><%= announcement.message %></li>
-              <hr />
-              <% }); %> <% } else { %>
-              <li>No announcements found</li>
+              <% if (announcements && announcements.length > 0) { %>
+                <% announcements.forEach(function(announcement, announcementIndex) { %>
+                  <li class="announcement-item" id="announcement-item-<%= announcementIndex %>">
+                    <div class="announcement-header" onclick="toggleAnnouncement(<%= announcementIndex %>)" style="cursor: pointer;">
+                      <div class="announcement-preview-row">
+                        <span class="announcement-preview" id="announcement-preview-<%= announcementIndex %>"><%= announcement.message.substring(0, 60) %>...</span>
+                        <span class="announcement-toggle" title="Click to show/hide full message">
+                          <svg class="toggle-arrow" id="announcement-arrow-<%= announcementIndex %>" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                          </svg>
+                        </span>
+                      </div>
+                    </div>
+                    <div class="announcement-full" id="announcement-full-<%= announcementIndex %>" style="display: none;">
+                      <%= announcement.message %>
+                    </div>
+                    <% if (announcementIndex < announcements.length - 1) { %>
+                      <hr class="announcement-divider">
+                    <% } %>
+                  </li>
+                <% }); %>
+              <% } else { %>
+                <li>No announcements found</li>
               <% } %>
             </ul>
           </div>
@@ -232,18 +266,199 @@
     function toggleTeachers(index) {
       const teachersList = document.getElementById('teachers-' + index);
       const arrow = document.getElementById('arrow-' + index);
-      
-      if (teachersList.style.display === 'none' || teachersList.style.display === '') {
-        teachersList.style.display = 'block';
-        arrow.classList.add('expanded');
-      } else {
-        teachersList.style.display = 'none';
+      const isOpen = teachersList.classList.contains('show');
+
+      // Close all other teacher lists
+      document.querySelectorAll('.teachers-list').forEach((list, idx) => {
+        if (idx !== index && list.classList.contains('show')) {
+          list.classList.remove('show');
+          const otherArrow = document.getElementById('arrow-' + idx);
+          if (otherArrow) otherArrow.classList.remove('expanded');
+          setTimeout(() => {
+            if (!list.classList.contains('show')) {
+              list.style.display = 'none';
+            }
+          }, 400);
+        }
+      });
+
+      if (isOpen) {
+        teachersList.classList.remove('show');
         arrow.classList.remove('expanded');
+        setTimeout(() => {
+          if (!teachersList.classList.contains('show')) {
+            teachersList.style.display = 'none';
+          }
+        }, 400);
+      } else {
+        teachersList.style.display = 'block';
+        requestAnimationFrame(() => {
+          teachersList.classList.add('show');
+          arrow.classList.add('expanded');
+        });
+      }
+    }
+
+    function toggleEvent(index) {
+      const eventDetails = document.getElementById('event-details-' + index);
+      const eventPreview = document.getElementById('event-preview-' + index);
+      const eventItem = document.getElementById('event-item-' + index);
+      const arrow = document.getElementById('event-arrow-' + index);
+      const isOpen = eventDetails.classList.contains('show');
+
+      // Close all other event details
+      document.querySelectorAll('.event-details').forEach((details, idx) => {
+        if (idx !== index && details.classList.contains('show')) {
+          details.classList.remove('show');
+          const otherArrow = document.getElementById('event-arrow-' + idx);
+          const otherPreview = document.getElementById('event-preview-' + idx);
+          const otherItem = document.getElementById('event-item-' + idx);
+          if (otherArrow) otherArrow.classList.remove('expanded');
+          if (otherPreview) otherPreview.style.display = 'block';
+          if (otherItem) otherItem.classList.remove('expanded');
+          setTimeout(() => {
+            if (!details.classList.contains('show')) {
+              details.style.display = 'none';
+            }
+          }, 400);
+        }
+      });
+
+      if (isOpen) {
+        eventDetails.classList.remove('show');
+        arrow.classList.remove('expanded');
+        eventPreview.style.display = 'block';
+        eventItem.classList.remove('expanded');
+        setTimeout(() => {
+          if (!eventDetails.classList.contains('show')) {
+            eventDetails.style.display = 'none';
+          }
+        }, 400);
+      } else {
+        eventDetails.style.display = 'block';
+        eventPreview.style.display = 'none';
+        eventItem.classList.add('expanded');
+        requestAnimationFrame(() => {
+          eventDetails.classList.add('show');
+          arrow.classList.add('expanded');
+        });
+      }
+    }
+
+    function toggleAnnouncement(index) {
+      const announcementFull = document.getElementById('announcement-full-' + index);
+      const announcementPreview = document.getElementById('announcement-preview-' + index);
+      const announcementItem = document.getElementById('announcement-item-' + index);
+      const arrow = document.getElementById('announcement-arrow-' + index);
+      const isOpen = announcementFull.classList.contains('show');
+
+      // Close all other announcements
+      document.querySelectorAll('.announcement-full').forEach((full, idx) => {
+        if (idx !== index && full.classList.contains('show')) {
+          full.classList.remove('show');
+          const otherArrow = document.getElementById('announcement-arrow-' + idx);
+          const otherPreview = document.getElementById('announcement-preview-' + idx);
+          const otherItem = document.getElementById('announcement-item-' + idx);
+          if (otherArrow) otherArrow.classList.remove('expanded');
+          if (otherPreview) otherPreview.style.display = 'inline';
+          if (otherItem) otherItem.classList.remove('expanded');
+          setTimeout(() => {
+            if (!full.classList.contains('show')) {
+              full.style.display = 'none';
+            }
+          }, 400);
+        }
+      });
+
+      if (isOpen) {
+        announcementFull.classList.remove('show');
+        arrow.classList.remove('expanded');
+        announcementPreview.style.display = 'inline';
+        announcementItem.classList.remove('expanded');
+        setTimeout(() => {
+          if (!announcementFull.classList.contains('show')) {
+            announcementFull.style.display = 'none';
+          }
+        }, 400);
+      } else {
+        announcementFull.style.display = 'block';
+        announcementPreview.style.display = 'none';
+        announcementItem.classList.add('expanded');
+        requestAnimationFrame(() => {
+          announcementFull.classList.add('show');
+          arrow.classList.add('expanded');
+        });
       }
     }
   </script>
 
   <style>
+    /* Scoped styles for org dashboard nav buttons (unique classes to avoid conflicts) */
+    .org-nav-wrap {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      margin-bottom: 16px;
+    }
+
+    .org-nav-buttons {
+      display: flex;
+      gap: 12px;
+      flex-wrap: nowrap;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .org-nav-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 18px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border: 2px solid var(--org-primary-color, #01535b);
+      border-radius: 8px;
+      background-color: #ffffff;
+      color: var(--org-primary-color, #01535b);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      width: auto;
+      margin: 0;
+      flex: 0 0 auto;
+      min-width: 150px;
+      text-align: center;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+    }
+
+    .org-nav-button:hover {
+      background-color: rgba(1, 83, 91, 0.08);
+      border-color: var(--org-primary-hover, #014a51);
+      color: var(--org-primary-hover, #014a51);
+    }
+
+    .org-nav-button.active {
+      background-color: var(--org-primary-color, #01535b);
+      color: #ffffff;
+      border-color: var(--org-primary-color, #01535b);
+    }
+
+    @media (max-width: 768px) {
+      .org-nav-wrap {
+        padding: 0 8px;
+      }
+
+      .org-nav-buttons {
+        width: 100%;
+        flex-wrap: nowrap;
+      }
+
+      .org-nav-button {
+        flex: 1 1 50%;
+        font-size: 0.88rem;
+        min-width: 0;
+      }
+    }
+
       :root {
         --font-family: "Inter", sans-serif;
       }
@@ -314,7 +529,7 @@
       }
       .classes-container li {
         font-size: 1rem;
-        padding: 8px 0;
+        padding: 0;
       }
     }
 

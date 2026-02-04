@@ -104,9 +104,11 @@
         background: transparent;
         cursor: pointer;
         font: inherit;
-        text-align: left;
+        text-align: right;
         font-weight: 600;
         transition: all 0.2s ease;
+        flex-direction: row-reverse;
+        justify-content: flex-end;
       }
 
       .nav-link:hover {
@@ -1128,6 +1130,46 @@
           <h1>Profile</h1>
           <p class="lead">View and manage your profile information.</p>
 
+          <!-- Profile Image Upload Section -->
+          <div class="card profile-card">
+            <h4>Profile Picture</h4>
+            <small>Upload or update your profile image</small>
+            <form action="/account/settings/profile-image" method="POST" enctype="multipart/form-data">
+              <input type="hidden" name="redirectTo" value="/account/settings" />
+              <div class="content-row profile-row">
+                <div class="employee-info">
+                  <div class="avatar">
+                    <% if (user?.image_url && user.image_url !== 'profilePlaceholder.png') { %>
+                      <img src="<%= user.image_url %>" alt="Profile" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+                    <% } else { %>
+                      <%= (user?.first_name ? user.first_name[0] : 'P') %>
+                    <% } %>
+                  </div>
+                  <div>
+                      <p><%= user?.first_name || '' %><%= user?.last_name ? ` ${user.last_name}` : '' %></p>
+                      <p class="text-muted-sm">Current profile picture</p>
+                  </div>
+                </div>
+                <div class="profile-fields">
+                  <div class="field-group">
+                    <label class="form-label" for="profile-image">Choose New Image</label>
+                    <input
+                      type="file"
+                      id="profile-image"
+                      name="profileImage"
+                      accept="image/*"
+                      class="form-input"
+                    />
+                    <p class="text-muted-sm" style="margin-top: 8px;">Upload a new image to replace your current profile picture</p>
+                  </div>
+                  <div class="form-actions">
+                    <button class="btn-primary btn-link" type="submit">Upload Profile Picture</button>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+
           <div class="card profile-card">
             <h4>Employee Information</h4>
             <form action="/account/settings/profile" method="POST">
@@ -1135,7 +1177,11 @@
               <div class="content-row profile-row">
                 <div class="employee-info">
                   <div class="avatar">
-                    <%= (user?.first_name ? user.first_name[0] : 'P') %>
+                    <% if (user?.image_url && user.image_url !== 'profilePlaceholder.png') { %>
+                      <img src="<%= user.image_url %>" alt="Profile" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+                    <% } else { %>
+                      <%= (user?.first_name ? user.first_name[0] : 'P') %>
+                    <% } %>
                   </div>
                   <div>
                       <p><%= user?.first_name || '' %><%= user?.last_name ? ` ${user.last_name}` : '' %></p>

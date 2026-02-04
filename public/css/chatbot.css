@@ -24,6 +24,22 @@
   box-shadow: 0 6px 30px rgba(1, 83, 91, 0.6);
 }
 
+/* Hide chatbot on public dashboard - all screens */
+body[data-page="publicDashboard"] .chatbot-toggle,
+body[data-page="publicDashboard"] .chatbot-container {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Hide chatbot when URL contains publicDashboard */
+[data-page*="publicDashboard"] .chatbot-toggle,
+[data-page*="publicDashboard"] .chatbot-container {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
 .chatbot-toggle svg {
   width: 30px;
   height: 30px;

@@ -159,6 +159,7 @@ app.use(preloadCache);
 
 // Template engine setup
 app.use(expressLayouts);
+app.set("layout", "layout"); // Set default layout file
 app.set("view engine", "ejs");
 
 // Static files with long-term caching

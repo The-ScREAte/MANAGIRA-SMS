@@ -20,554 +20,542 @@
   };
   const currentTheme = themeColors[themeColor] || themeColors.teal;
 %>
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Admissions | Managira</title>
-    <link rel="icon" href="/images/favicon_io/favicon.ico" type="image/x-icon" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
-    <link rel="stylesheet" href="/css/style.css" />
-    <link rel="stylesheet" href="/css/buttons.css" />
-    <style>
-      :root {
-        --border: #e5e7eb;
-        --muted: #6b7280;
-        --bg: #f9fafb;
-        --primary: <%= currentTheme.primary %>;
-        --primary-hover: <%= currentTheme.hover %>;
-        --org-primary-color: <%= currentTheme.primary %>;
-        --org-primary-hover: <%= currentTheme.hover %>;
-        --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
-      }
 
-      * { box-sizing: border-box; }
+<style>
+  :root {
+    --border: #e5e7eb;
+    --muted: #6b7280;
+    --bg: #f9fafb;
+    --primary: <%= currentTheme.primary %>;
+    --primary-hover: <%= currentTheme.hover %>;
+    --org-primary-color: <%= currentTheme.primary %>;
+    --org-primary-hover: <%= currentTheme.hover %>;
+  }
 
-      html, body {
-        margin: 0;
-        padding: 0;
-        min-height: 100vh;
-      }
+  body {
+    background: #f9fafb;
+  }
 
-      body {
-        background: #f9fafb;
-        font-family: var(--font-family);
-        display: flex;
-        flex-direction: column;
-      }
+  main {
+    padding: 0 !important;
+    max-width: none !important;
+  }
 
-      .hub-wrapper {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-      }
+  .hub-wrapper {
+    width: 100%;
+    min-height: calc(100vh - 68px);
+  }
 
-      .hub-layout {
-        display: grid;
-        grid-template-columns: 260px 1fr;
-        gap: 24px;
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 24px 20px 40px;
-        flex: 1;
-        align-items: start;
-      }
+  .hub-layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 24px;
+    max-width: 1200px;
+    margin: 0 auto 40px;
+    padding: 0 20px;
+    align-items: start;
+  }
 
-      .hub-nav {
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 20px 16px;
-        background: #fff;
-        height: fit-content;
-        position: sticky;
-        top: 80px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-      }
+  .hub-nav {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 12px;
+    background: #fff;
+    height: fit-content;
+    position: sticky;
+    top: 80px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
 
-      .hub-nav-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 16px;
-        padding: 0 4px;
-      }
+  .hub-nav-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 4px 12px 12px;
+    width: 100%;
+  }
 
-      .hub-nav h3 {
-        margin: 0;
-        font-size: 18px;
-        color: var(--primary);
-        font-weight: 700;
-      }
+  .hub-nav h3 {
+    margin: 0;
+    font-size: 18px;
+    color: var(--primary);
+    font-weight: 700;
+  }
 
-      .nav-list {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-        display: grid;
-        gap: 4px;
-      }
+  .nav-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 2px;
+  }
 
-      .nav-link {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 12px 14px;
-        border-radius: 8px;
-        color: #374151;
-        text-decoration: none;
-        border: 1px solid transparent;
-        width: 100%;
-        background: transparent;
-        cursor: pointer;
-        font: inherit;
-        text-align: left;
-        font-size: 14px;
-        font-weight: 500;
-        transition: all 0.2s ease;
-      }
+  .nav-list li {
+    margin: 0;
+  }
 
-      .nav-link:hover {
-        background: #f3f4f6;
-        border-color: #e5e7eb;
-      }
+  .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    color: #111827;
+    text-decoration: none;
+    border: 1px solid transparent;
+    width: 100%;
+    background: transparent;
+    cursor: pointer;
+    font: inherit;
+    text-align: right;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+  }
 
-      .nav-link.active {
-        background: var(--primary);
-        color: #fff;
-        border-color: var(--primary);
-      }
+  .nav-link:hover {
+    background: #f3f4f6;
+    border-color: #e5e7eb;
+  }
 
-      .nav-link.active:hover {
-        background: var(--primary-hover);
-      }
+  .nav-link.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+  }
 
-      .nav-link svg {
-        width: 20px;
-        height: 20px;
-        flex-shrink: 0;
-      }
+  .nav-link.active:hover {
+    background: var(--primary-hover);
+  }
 
-      .hub-main {
-        background: #fff;
-        border-radius: 12px;
-        border: 1px solid var(--border);
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        overflow: hidden;
-      }
+  .nav-link svg {
+    color: inherit;
+  }
 
-      .section-header {
-        padding: 24px 28px 20px;
-        border-bottom: 1px solid var(--border);
-        background: linear-gradient(135deg, #f9fafb 0%, #fff 100%);
-      }
+  .hub-main {
+    padding: 0;
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    overflow: hidden;
+  }
 
-      .section-header h1 {
-        margin: 0 0 6px 0;
-        font-size: 24px;
-        color: #111827;
-        font-weight: 700;
-      }
+  .section-header {
+    padding: 24px 28px 20px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(135deg, #f9fafb 0%, #fff 100%);
+  }
 
-      .section-header p {
-        margin: 0;
-        color: var(--muted);
-        font-size: 15px;
-      }
+  .section-header h1 {
+    margin: 0 0 6px 0;
+    font-size: 24px;
+    color: #111827;
+    font-weight: 700;
+  }
 
-      .section-content {
-        padding: 24px 28px;
-      }
+  .section-header p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 15px;
+  }
 
-      .hub-section {
-        display: none;
-      }
+  .section-content {
+    padding: 24px 28px;
+  }
 
-      .hub-section.active {
-        display: block;
-      }
+  .hub-section {
+    display: none;
+  }
 
-      .action-btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 12px 24px;
-        background: var(--primary);
-        color: #fff;
-        border: none;
-        border-radius: 8px;
-        font-size: 15px;
-        font-weight: 600;
-        text-decoration: none;
-        cursor: pointer;
-        transition: all 0.2s ease;
-      }
+  .hub-section.active {
+    display: block;
+  }
 
-      .action-btn:hover {
-        background: var(--primary-hover);
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        color: #fff;
-      }
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
 
-      .action-btn svg {
-        width: 18px;
-        height: 18px;
-      }
+  .feature-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 18px;
+    background: #f9fafb;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    transition: all 0.2s ease;
+  }
 
-      .features-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-        gap: 16px;
-        margin-bottom: 24px;
-      }
+  .feature-item:hover {
+    border-color: var(--primary);
+    background: #fff;
+  }
 
-      .feature-item {
-        display: flex;
-        align-items: flex-start;
-        gap: 14px;
-        padding: 18px;
-        background: #f9fafb;
-        border-radius: 10px;
-        border: 1px solid var(--border);
-        transition: all 0.2s ease;
-      }
+  .feature-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
 
-      .feature-item:hover {
-        border-color: var(--primary);
-        background: #fff;
-      }
+  .feature-icon svg {
+    width: 22px;
+    height: 22px;
+    color: #fff;
+    stroke: #fff;
+  }
 
-      .feature-icon {
-        width: 44px;
-        height: 44px;
-        border-radius: 10px;
-        background: var(--primary);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-      }
+  .feature-content h4 {
+    margin: 0 0 4px 0;
+    font-size: 15px;
+    color: #111827;
+    font-weight: 600;
+  }
 
-      .feature-icon svg {
-        width: 22px;
-        height: 22px;
-        color: #fff;
-        stroke: #fff;
-      }
+  .feature-content p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
 
-      .feature-content h4 {
-        margin: 0 0 4px 0;
-        font-size: 15px;
-        color: #111827;
-        font-weight: 600;
-      }
+  .action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
 
-      .feature-content p {
-        margin: 0;
-        font-size: 13px;
-        color: var(--muted);
-        line-height: 1.5;
-      }
+  .action-btn:hover {
+    background: var(--primary-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    color: #fff;
+  }
 
-      /* Mobile navigation */
-      .hub-nav-toggle {
-        display: none;
-        align-items: center;
-        gap: 10px;
-        padding: 12px 16px;
-        border-radius: 8px;
-        border: 1px solid var(--border);
-        background: #fff;
-        cursor: pointer;
-        font: inherit;
-        font-weight: 600;
-        color: var(--primary);
-        margin-bottom: 16px;
-      }
+  .action-btn svg {
+    width: 18px;
+    height: 18px;
+  }
 
-      .hub-nav-toggle .hub-hamburger-icon {
-        position: relative;
-        width: 18px;
-        height: 2px;
-        background: var(--primary);
-        display: inline-block;
-      }
+  /* Mobile navigation */
+  .hub-nav-toggle {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: #fff;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 16px;
+  }
 
-      .hub-nav-toggle .hub-hamburger-icon::before,
-      .hub-nav-toggle .hub-hamburger-icon::after {
-        content: "";
-        position: absolute;
-        left: 0;
-        width: 18px;
-        height: 2px;
-        background: var(--primary);
-      }
+  .hub-nav-toggle .hub-hamburger-icon {
+    position: relative;
+    width: 18px;
+    height: 2px;
+    background: var(--primary);
+    display: inline-block;
+  }
 
-      .hub-nav-toggle .hub-hamburger-icon::before { top: -6px; }
-      .hub-nav-toggle .hub-hamburger-icon::after { top: 6px; }
+  .hub-nav-toggle .hub-hamburger-icon::before,
+  .hub-nav-toggle .hub-hamburger-icon::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    width: 18px;
+    height: 2px;
+    background: var(--primary);
+  }
 
-      .hub-nav-close {
-        display: none;
-        background: transparent;
-        border: none;
-        font-size: 24px;
-        cursor: pointer;
-        padding: 4px 8px;
-        color: #6b7280;
-        line-height: 1;
-      }
+  .hub-nav-toggle .hub-hamburger-icon::before { top: -6px; }
+  .hub-nav-toggle .hub-hamburger-icon::after { top: 6px; }
 
-      .hub-nav-overlay {
-        position: fixed;
-        inset: 0;
-        background: rgba(15, 23, 42, 0.4);
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 0.25s ease;
-        z-index: 1000;
-      }
+  .hub-nav-close {
+    display: none;
+    background: transparent;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 4px 8px;
+    color: #6b7280;
+    line-height: 1;
+  }
 
-      .hub-nav-overlay.show {
-        opacity: 1;
-        pointer-events: auto;
-      }
+  .hub-nav-close:hover {
+    color: #111827;
+  }
 
-      @media (max-width: 900px) {
-        .hub-layout {
-          grid-template-columns: 1fr;
-          gap: 0;
-          padding: 16px;
-        }
+  .hub-nav-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.4);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+    z-index: 1000;
+  }
 
-        .hub-nav-toggle {
-          display: flex;
-        }
+  .hub-nav-overlay.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
 
-        .hub-nav {
-          position: fixed;
-          left: 0;
-          top: 0;
-          bottom: 0;
-          width: 280px;
-          max-width: 85vw;
-          border-radius: 0;
-          z-index: 1001;
-          transform: translateX(-100%);
-          transition: transform 0.3s ease;
-          padding: 20px;
-          overflow-y: auto;
-        }
+  @media (max-width: 900px) {
+    .hub-layout {
+      grid-template-columns: 1fr;
+      gap: 0;
+      padding: 16px;
+    }
 
-        .hub-nav.open {
-          transform: translateX(0);
-        }
+    .hub-nav-toggle {
+      display: flex;
+    }
 
-        .hub-nav-close {
-          display: block;
-        }
+    .hub-nav {
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 300px;
+      max-width: 85vw;
+      border-radius: 0;
+      z-index: 1001;
+      transform: translateX(-100%);
+      transition: transform 0.3s ease;
+      padding: 20px;
+      overflow-y: auto;
+    }
 
-        .section-header, .section-content {
-          padding: 20px;
-        }
+    .hub-nav.open {
+      transform: translateX(0);
+    }
 
-        .section-header h1 {
-          font-size: 20px;
-        }
-      }
+    .hub-nav-close {
+      display: block;
+    }
 
-      @media (max-width: 600px) {
-        .features-grid {
-          grid-template-columns: 1fr;
-        }
+    .section-header {
+      padding: 20px;
+    }
 
-        .action-btn {
-          width: 100%;
-          justify-content: center;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <%- include('../partials/header') %>
+    .section-content {
+      padding: 20px;
+    }
 
-    <div class="hub-nav-overlay" id="hub-nav-overlay"></div>
+    .section-header h1 {
+      font-size: 20px;
+    }
+  }
 
-    <div class="hub-wrapper">
-      <div class="hub-layout">
-        <!-- Mobile Toggle -->
-        <button class="hub-nav-toggle" id="hub-nav-toggle">
-          <span class="hub-hamburger-icon"></span>
-          <span>Menu</span>
-        </button>
+  @media (max-width: 600px) {
+    .features-grid {
+      grid-template-columns: 1fr;
+    }
 
-        <!-- Sidebar -->
-        <nav class="hub-nav" id="hub-nav">
-          <div class="hub-nav-header">
-            <h3>Admissions</h3>
-            <button class="hub-nav-close" id="hub-nav-close">&times;</button>
-          </div>
-          <ul class="nav-list">
-            <li>
-              <button class="nav-link active" data-section="create-student">
+    .action-btn {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+</style>
+
+<div class="hub-nav-overlay" id="hub-nav-overlay"></div>
+
+<div class="hub-wrapper">
+  <div class="hub-layout">
+    <!-- Mobile Toggle Button -->
+    <button class="hub-nav-toggle" id="hub-nav-toggle">
+      <span class="hub-hamburger-icon"></span>
+      <span>Menu</span>
+    </button>
+
+    <!-- Sidebar -->
+    <nav class="hub-nav" id="hub-nav">
+      <div class="hub-nav-header">
+        <h3>Admissions</h3>
+        <button class="hub-nav-close" id="hub-nav-close">&times;</button>
+      </div>
+      <ul class="nav-list">
+        <li>
+          <button class="nav-link active" data-section="create-student">
+            Create Student
+          </button>
+        </li>
+        <li>
+          <button class="nav-link" data-section="pending">
+            Pending Admissions
+          </button>
+        </li>
+      </ul>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="hub-main">
+      <!-- Create Student Section -->
+      <section class="hub-section active" id="create-student">
+        <div class="section-header">
+          <h1>Create Student</h1>
+          <p>Add new students to your organization.</p>
+        </div>
+        <div class="section-content">
+          <div class="features-grid">
+            <div class="feature-item">
+              <div class="feature-icon">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
                 </svg>
-                Create Student
-              </button>
-            </li>
-            <li>
-              <button class="nav-link" data-section="pending">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                Pending Admissions
-              </button>
-            </li>
-          </ul>
-        </nav>
-
-        <!-- Main Content -->
-        <main class="hub-main">
-          <!-- Create Student Section -->
-          <section class="hub-section active" id="create-student">
-            <div class="section-header">
-              <h1>Create Student</h1>
-              <p>Add new students to your organization.</p>
-            </div>
-            <div class="section-content">
-              <div class="features-grid">
-                <div class="feature-item">
-                  <div class="feature-icon">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
-                    </svg>
-                  </div>
-                  <div class="feature-content">
-                    <h4>Quick Registration</h4>
-                    <p>Instantly register students with essential details.</p>
-                  </div>
-                </div>
-                <div class="feature-item">
-                  <div class="feature-icon">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                    </svg>
-                  </div>
-                  <div class="feature-content">
-                    <h4>Complete Profile</h4>
-                    <p>Add guardian info, medical records, and more.</p>
-                  </div>
-                </div>
               </div>
-              <a href="/common/addStudent" class="action-btn">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                </svg>
-                Add New Student
-              </a>
-            </div>
-          </section>
-
-          <!-- Pending Admissions Section -->
-          <section class="hub-section" id="pending">
-            <div class="section-header">
-              <h1>Pending Admissions</h1>
-              <p>Review and approve student applications.</p>
-            </div>
-            <div class="section-content">
-              <div class="features-grid">
-                <div class="feature-item">
-                  <div class="feature-icon">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
-                    </svg>
-                  </div>
-                  <div class="feature-content">
-                    <h4>Review Applications</h4>
-                    <p>View and verify student information.</p>
-                  </div>
-                </div>
-                <div class="feature-item">
-                  <div class="feature-icon">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                  </div>
-                  <div class="feature-content">
-                    <h4>Approve/Reject</h4>
-                    <p>Accept or decline pending applications.</p>
-                  </div>
-                </div>
+              <div class="feature-content">
+                <h4>Quick Registration</h4>
+                <p>Instantly register students with essential details.</p>
               </div>
-              <a href="/common/admissionPending" class="action-btn">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-                </svg>
-                View Pending Applications
-              </a>
             </div>
-          </section>
-        </main>
-      </div>
-    </div>
+            <div class="feature-item">
+              <div class="feature-icon">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+              </div>
+              <div class="feature-content">
+                <h4>Complete Profile</h4>
+                <p>Add guardian info, medical records, and more.</p>
+              </div>
+            </div>
+          </div>
+          <a href="/common/addStudent" class="action-btn">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+            </svg>
+            Add New Student
+          </a>
+        </div>
+      </section>
 
-    <script>
-      document.addEventListener('DOMContentLoaded', function() {
-        const navLinks = document.querySelectorAll('.nav-link');
-        const sections = document.querySelectorAll('.hub-section');
-        const navToggle = document.getElementById('hub-nav-toggle');
-        const nav = document.getElementById('hub-nav');
-        const navClose = document.getElementById('hub-nav-close');
-        const overlay = document.getElementById('hub-nav-overlay');
+      <!-- Pending Admissions Section -->
+      <section class="hub-section" id="pending">
+        <div class="section-header">
+          <h1>Pending Admissions</h1>
+          <p>Review and approve student applications.</p>
+        </div>
+        <div class="section-content">
+          <div class="features-grid">
+            <div class="feature-item">
+              <div class="feature-icon">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                </svg>
+              </div>
+              <div class="feature-content">
+                <h4>Review Applications</h4>
+                <p>View and verify student information.</p>
+              </div>
+            </div>
+            <div class="feature-item">
+              <div class="feature-icon">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+              </div>
+              <div class="feature-content">
+                <h4>Approve/Reject</h4>
+                <p>Accept or decline pending applications.</p>
+              </div>
+            </div>
+          </div>
+          <a href="/common/admissionPending" class="action-btn">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+            </svg>
+            View Pending Admissions
+          </a>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
 
-        // Only initialize if elements exist
-        if (!navToggle || !nav || !overlay) return;
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const navLinks = document.querySelectorAll('.nav-link');
+    const sections = document.querySelectorAll('.hub-section');
+    const navToggle = document.getElementById('hub-nav-toggle');
+    const nav = document.getElementById('hub-nav');
+    const navClose = document.getElementById('hub-nav-close');
+    const overlay = document.getElementById('hub-nav-overlay');
 
-        navLinks.forEach(link => {
-          link.addEventListener('click', function() {
-            const sectionId = this.getAttribute('data-section');
-            
-            navLinks.forEach(l => l.classList.remove('active'));
-            this.classList.add('active');
-            
-            sections.forEach(s => s.classList.remove('active'));
-            const targetSection = document.getElementById(sectionId);
-            if (targetSection) targetSection.classList.add('active');
+    // Only initialize if elements exist
+    if (!navToggle || !nav || !overlay) return;
 
-            if (window.innerWidth <= 900) {
-              nav.classList.remove('open');
-              overlay.classList.remove('show');
-            }
+    // Section navigation
+    navLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        const sectionId = this.getAttribute('data-section');
+        
+        navLinks.forEach(l => l.classList.remove('active'));
+        this.classList.add('active');
+        
+        sections.forEach(s => s.classList.remove('active'));
+        const targetSection = document.getElementById(sectionId);
+        if (targetSection) targetSection.classList.add('active');
 
-            history.replaceState(null, null, '#' + sectionId);
-          });
-        });
-
-        navToggle.addEventListener('click', function(e) {
-          e.stopPropagation();
-          nav.classList.add('open');
-          overlay.classList.add('show');
-        });
-
-        navClose.addEventListener('click', function(e) {
-          e.stopPropagation();
+        if (window.innerWidth <= 900) {
           nav.classList.remove('open');
           overlay.classList.remove('show');
-        });
-
-        overlay.addEventListener('click', function(e) {
-          e.stopPropagation();
-          nav.classList.remove('open');
-          overlay.classList.remove('show');
-        });
-
-        if (window.location.hash) {
-          const sectionId = window.location.hash.substring(1);
-          const targetLink = document.querySelector(`.nav-link[data-section="${sectionId}"]`);
-          if (targetLink) targetLink.click();
         }
+
+        history.replaceState(null, null, '#' + sectionId);
       });
-    </script>
-  </body>
-</html>
+    });
+
+    // Mobile navigation toggle
+    navToggle.addEventListener('click', function(e) {
+      e.stopPropagation();
+      nav.classList.add('open');
+      overlay.classList.add('show');
+    });
+
+    navClose.addEventListener('click', function(e) {
+      e.stopPropagation();
+      nav.classList.remove('open');
+      overlay.classList.remove('show');
+    });
+
+    overlay.addEventListener('click', function(e) {
+      e.stopPropagation();
+      nav.classList.remove('open');
+      overlay.classList.remove('show');
+    });
+
+    // Handle initial hash
+    if (window.location.hash) {
+      const sectionId = window.location.hash.substring(1);
+      const targetLink = document.querySelector(`.nav-link[data-section="${sectionId}"]`);
+      if (targetLink) {
+        targetLink.click();
+      }
+    }
+  });
+</script>

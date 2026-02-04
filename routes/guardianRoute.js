@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { isGuardianAuthenticated } = require("../middleware/guardianAuthMiddleware");
 const guardianController = require("../controllers/guardianController");
+const { upload } = require("../middleware/s3Upload");
 
 module.exports = (db) => {
   router.get("/dashboard", isGuardianAuthenticated, (req, res) =>
@@ -24,8 +25,13 @@ module.exports = (db) => {
     guardianController.settingsGet(req, res, db)
   );
 
-  router.post("/settings", isGuardianAuthenticated, (req, res) =>
-    guardianController.settingsPost(req, res, db)
+  router.post("/settings", 
+    isGuardianAuthenticated,
+    upload.fields([
+      { name: 'guardianImage', maxCount: 1 },
+      { name: 'studentImage', maxCount: 1 }
+    ]),
+    (req, res) => guardianController.settingsPost(req, res, db)
   );
 
   router.get("/report", isGuardianAuthenticated, (req, res) =>

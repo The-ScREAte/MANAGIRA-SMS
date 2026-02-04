@@ -9,12 +9,16 @@ const notFound = (req, res, next) => {
 };
 
 const globalErrorHandler = (err, req, res, next) => {
-    const status = err.status || 500;
-    const message = err.message || 'Internal Server Error';
+    const rawMessage = err && err.message ? err.message : 'Internal Server Error';
+    const isNetworkError = err && (err.code === 'ENOTFOUND' || /getaddrinfo ENOTFOUND/i.test(rawMessage));
+    const status = isNetworkError ? 503 : (err.status || 500);
+    const message = isNetworkError
+        ? 'We’re having trouble connecting to the server. Please check your internet connection and try again.'
+        : rawMessage;
 
     // Log only non-404 errors to avoid repeated terminal clutter
     if (status !== 404) {
-        console.error(`[Error] ${status}: ${message}`);
+        console.error(`[Error] ${status}: ${rawMessage}`);
     }
 
     // Ensure flash messages are not overwritten by error handling

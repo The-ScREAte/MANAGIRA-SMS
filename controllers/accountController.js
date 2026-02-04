@@ -3588,6 +3588,55 @@ const accountController = {
     }
   },
 
+  updateProfileImagePost: async (req, res, db) => {
+    if (!req.session.user || !req.session.organizationId) {
+      req.flash("error", "You must be logged in.");
+      return res.redirect("/account/login");
+    }
+
+    const { redirectTo } = req.body;
+    const orgId = req.session.organizationId;
+    const userId = req.session.user.user_id;
+    const isOrgAccount = req.session.accountType === "Organization";
+
+    if (!req.file) {
+      req.flash("error", "Please select an image to upload.");
+      return res.redirect(redirectTo || "/account/settings");
+    }
+
+    try {
+      // Upload image to S3
+      const s3Key = `images/profiles/${orgId}/${req.file.originalname}`;
+      const imageUrl = await uploadToS3(req.file, s3Key);
+
+      // Update database
+      if (isOrgAccount) {
+        await db.query(
+          "UPDATE organizations SET image_url = $1 WHERE organization_id = $2",
+          [imageUrl, orgId]
+        );
+      } else {
+        await db.query(
+          "UPDATE users SET image_url = $1 WHERE user_id = $2 AND organization_id = $3",
+          [imageUrl, userId, orgId]
+        );
+      }
+
+      // Update session
+      if (req.session.user) {
+        req.session.user.image_url = imageUrl;
+      }
+      req.session.save();
+
+      req.flash("success", "Profile picture updated successfully!");
+      return res.redirect(redirectTo || "/account/settings");
+    } catch (error) {
+      console.error("Error updating profile image:", error);
+      req.flash("error", "Failed to update profile picture.");
+      return res.redirect(redirectTo || "/account/settings");
+    }
+  },
+
   updateSecurityEmailPost: async (req, res, db) => {
     if (!req.session.user || !req.session.organizationId) {
       req.flash("error", "You must be logged in.");
@@ -4250,7 +4299,7 @@ const accountController = {
         [organizationId, school_year_id, term_id]
       );
 
-      // Load current public dashboard theme/layout from organization_dashboard
+      // Load current school website theme/layout from organization_dashboard
       let publicDashboardTheme = "classic";
       let publicDashboardLayout = "wireframe1";
       try {
@@ -4367,7 +4416,7 @@ const accountController = {
       req.flash("success", "Website layout updated successfully.");
       return res.redirect("/account/managePublicContent");
     } catch (error) {
-      console.error("Error updating public dashboard layout:", error);
+      console.error("Error updating school website layout:", error);
       req.flash("error", "Failed to update website layout.");
       return res.redirect("/account/managePublicContent");
     }
@@ -4424,7 +4473,7 @@ const accountController = {
 
       const payload = { order, theme };
 
-      // Update public dashboard theme
+      // Update school website theme
       await db.query(
         `INSERT INTO organization_dashboard (organization_id, order_data)
          VALUES ($1, $2)
@@ -4446,7 +4495,7 @@ const accountController = {
       req.flash("success", "Website style updated successfully.");
       return res.redirect("/account/managePublicContent");
     } catch (error) {
-      console.error("Error updating public dashboard theme:", error);
+      console.error("Error updating school website theme:", error);
       req.flash("error", "Failed to update website style.");
       return res.redirect("/account/managePublicContent");
     }

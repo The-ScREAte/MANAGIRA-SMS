@@ -6,12 +6,12 @@
   }
 
   .settings-header {
-    background: linear-gradient(135deg, #0f5a66 0%, #6fd3c4 100%);
+    background: linear-gradient(135deg, var(--org-primary-color, #0f5a66) 0%, var(--org-primary-hover, #6fd3c4) 100%);
     color: white;
     padding: 28px;
     border-radius: 12px;
     margin-bottom: 28px;
-    box-shadow: 0 4px 12px rgba(15, 90, 102, 0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
   }
 
   .settings-header h1 {
@@ -91,7 +91,7 @@
 
   .btn-primary {
     padding: 14px 28px;
-    background: linear-gradient(135deg, #0f5a66 0%, #6fd3c4 100%);
+    background: linear-gradient(135deg, var(--org-primary-color, #0f5a66) 0%, var(--org-primary-hover, #6fd3c4) 100%);
     color: white;
     border: none;
     border-radius: 8px;
@@ -99,12 +99,12 @@
     font-size: 15px;
     cursor: pointer;
     transition: all 0.3s ease;
-    box-shadow: 0 2px 4px rgba(15, 90, 102, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   }
 
   .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(15, 90, 102, 0.3);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
   }
 
   .btn-secondary {
@@ -166,7 +166,75 @@
   </div>
 
   <div class="settings-form-card">
-    <form action="/guardian/settings" method="POST">
+    <form action="/guardian/settings" method="POST" enctype="multipart/form-data">
+      
+      <!-- Guardian Profile Image Section -->
+      <div class="student-image-section">
+        <h2>👤 Your Profile Image</h2>
+        <div class="form-field">
+          <label class="form-label">Upload Your Profile Picture</label>
+          <input 
+            type="file" 
+            name="guardianImage" 
+            class="form-input" 
+            accept="image/*"
+          />
+          <div class="image-preview-container">
+            <img 
+              src="<%= guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? guardian.image_url : '/images/profilePlaceholder.png' %>" 
+              alt="Guardian Profile"
+              class="image-preview"
+            />
+            <div class="image-upload-info">
+              <p>Current profile picture</p>
+              <p style="font-size: 12px;">Upload a new image to replace this one</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Student Image Upload Section -->
+      <% if (students && students.length > 0) { %>
+      <div class="student-image-section">
+        <h2>👨‍👩‍👧‍👦 Update Student Images</h2>
+        <div class="form-field" style="margin-bottom: 16px;">
+          <label class="form-label">Select Student</label>
+          <select name="studentId" id="studentSelect" class="form-input" onchange="updateStudentPreview()">
+            <option value="">-- Select a student to update their image --</option>
+            <% students.forEach(student => { %>
+              <option 
+                value="<%= student.student_id %>" 
+                data-image="<%= student.image_url && student.image_url !== 'profilePlaceholder.png' ? student.image_url : '/images/profilePlaceholder.png' %>">
+                <%= student.first_name %> <%= student.last_name %>
+              </option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="form-field" id="studentImageUpload" style="display: none;">
+          <label class="form-label">Upload Student Image</label>
+          <input 
+            type="file" 
+            name="studentImage" 
+            class="form-input" 
+            accept="image/*"
+          />
+          <div class="image-preview-container">
+            <img 
+              src="/images/profilePlaceholder.png" 
+              alt="Student"
+              id="studentImagePreview"
+              class="image-preview"
+            />
+            <div class="image-upload-info">
+              <p id="studentImageInfo">Select a student to see their current image</p>
+              <p style="font-size: 12px;">Upload a new image to replace it</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <% } %>
+
       <div class="form-section">
         <h2 class="form-section-title">Personal Information</h2>
         
@@ -253,3 +321,25 @@
     </form>
   </div>
 </div>
+
+<script>
+function updateStudentPreview() {
+  const select = document.getElementById('studentSelect');
+  const uploadSection = document.getElementById('studentImageUpload');
+  const preview = document.getElementById('studentImagePreview');
+  const info = document.getElementById('studentImageInfo');
+  
+  if (select.value) {
+    const selectedOption = select.options[select.selectedIndex];
+    const imageUrl = selectedOption.dataset.image;
+    
+    preview.src = imageUrl;
+    info.textContent = `Current image for ${selectedOption.text}`;
+    uploadSection.style.display = 'block';
+  } else {
+    uploadSection.style.display = 'none';
+    preview.src = '/images/profilePlaceholder.png';
+    info.textContent = 'Select a student to see their current image';
+  }
+}
+</script>

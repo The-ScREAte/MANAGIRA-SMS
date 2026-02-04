@@ -4,6 +4,8 @@ function getOrdinalSuffix(n) {
   return s[(v - 20) % 10] || s[v] || s[0];
 }
 
+const { uploadToS3, deleteFromS3 } = require("../middleware/s3Upload");
+
 module.exports = {
   dashboardGet: async (req, res, db) => {
     const organizationId = req.session.organizationId;
@@ -501,9 +503,20 @@ module.exports = {
 
       const guardian = guardianProfile.rows[0];
 
+      // Get guardian's students
+      const students = await db.query(
+        `SELECT s.student_id, s.first_name, s.last_name, s.image_url
+         FROM guardians g
+         JOIN students s ON g.student_id = s.student_id
+         WHERE g.guardian_id = $1 AND g.organization_id = $2
+         ORDER BY s.first_name ASC`,
+        [guardianId, organizationId]
+      );
+
       return res.render("guardian/settings", {
         title: "Settings",
         guardian: guardian,
+        students: students.rows,
         messages: req.flash(),
         req,
       });
@@ -517,9 +530,40 @@ module.exports = {
   settingsPost: async (req, res, db) => {
     const organizationId = req.session.organizationId;
     const guardianId = req.session.guardianId;
-    const { firstName, lastName, phone, email, address, hometown } = req.body;
+    const { firstName, lastName, phone, email, address, hometown, studentId } = req.body;
 
     try {
+      // Handle guardian profile image upload
+      let guardianImageUrl = null;
+      if (req.files && req.files['guardianImage']) {
+        const guardianImageFile = req.files['guardianImage'][0];
+        const s3Key = `images/guardians/${organizationId}/${guardianImageFile.originalname}`;
+        guardianImageUrl = await uploadToS3(guardianImageFile, s3Key);
+        
+        // Update guardian profile image
+        await db.query(
+          `UPDATE guardian_profiles 
+           SET image_url = $1, updated_at = NOW()
+           WHERE guardian_id = $2 AND organization_id = $3`,
+          [guardianImageUrl, guardianId, organizationId]
+        );
+      }
+
+      // Handle student image upload if a student was selected
+      if (studentId && req.files && req.files['studentImage']) {
+        const studentImageFile = req.files['studentImage'][0];
+        const s3Key = `images/studentimages/${organizationId}/${studentImageFile.originalname}`;
+        const studentImageUrl = await uploadToS3(studentImageFile, s3Key);
+        
+        // Update student image
+        await db.query(
+          `UPDATE students 
+           SET image_url = $1
+           WHERE student_id = $2 AND organization_id = $3`,
+          [studentImageUrl, studentId, organizationId]
+        );
+      }
+
       // Update guardian profile
       await db.query(
         `UPDATE guardian_profiles 

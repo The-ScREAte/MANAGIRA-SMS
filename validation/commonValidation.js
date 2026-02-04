@@ -197,7 +197,7 @@ const validateCreateEmployeesResult = (req, res, next) => {
   next();
 };
 
-// validating event and announcement create and updates on public dashboard edit
+// validating event and announcement create and updates on school website edit
 const validateEvent = [
   check("eventName")
     .trim()

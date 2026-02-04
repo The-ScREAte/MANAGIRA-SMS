@@ -206,26 +206,28 @@
     border-color: #026972;
   }
 
-  .search-results-dropdown {
-    display: none;
-    position: absolute;
-    top: calc(100% + 6px);
-    left: 0;
-    background: #fff;
-    border: 1px solid #ccc;
-    width: 100%;
-    z-index: 11025;
-    max-height: 800px;
-    overflow-y: auto;
-    border-radius: 4px;
-  }
-
   .search-result-item {
     padding: 12px 16px;
     cursor: pointer;
     font-size: 1rem;
     display: flex;
     align-items: center;
+  }
+
+  .search-result-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .search-result-title {
+    font-weight: 600;
+    color: #111827;
+  }
+
+  .search-result-subtitle {
+    font-size: 0.9rem;
+    color: #6b7280;
   }
 
   .search-result-item:hover {
@@ -294,42 +296,59 @@
     color: inherit;
   }
 
-  .sticky-nav {
+  /* Public dashboard sticky nav styled as outline pills (matches tab look) */
+  header#top-header .sticky-nav {
     position: absolute;
     top: 100%;
     left: 0;
     width: 100%;
-    background: var(--org-primary-color);
-    color: white;
+    background: transparent;
+    color: var(--org-primary-color);
     z-index: 9998;
-    padding: 8px 0;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    padding: 0;
+    box-shadow: none;
+    border-bottom: none;
   }
 
-  .sticky-nav ul {
+  header#top-header .sticky-nav ul {
     list-style: none;
     display: flex;
     justify-content: center;
     align-items: center;
     padding: 0;
     margin: 0;
-    gap: 20px;
+    gap: 2px;
   }
 
-  .sticky-nav ul li a {
-    color: white;
+  header#top-header .sticky-nav ul li a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: var(--org-primary-color, #01535b);
+    background: rgba(255, 255, 255, 0.9);
+    border: 2px solid var(--org-primary-color, #01535b);
+    border-radius: 10px;
     text-decoration: none;
-    padding: 10px 15px;
-    font-size: 14px;
-    font-weight: bold;
+    padding: 8px 14px;
+    font-size: 13.5px;
+    font-weight: 700;
     white-space: nowrap;
-    transition: background 0.3s ease;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   }
 
-  .sticky-nav ul li a:hover,
-  .sticky-nav ul li a.active {
-    background: var(--org-primary-hover);
-    border-radius: 5px;
+  header#top-header .sticky-nav ul li a .nav-icon {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+  }
+
+  header#top-header .sticky-nav ul li a:hover,
+  header#top-header .sticky-nav ul li a.active {
+    background: var(--org-primary-color, #01535b);
+    color: #ffffff;
+    border-color: var(--org-primary-color, #01535b);
   }
 
   .flash-wrapper {
@@ -430,11 +449,12 @@
     top: 100%;
     left: 0;
     width: 100%;
-    background: var(--org-primary-color);
-    color: white;
+    background: linear-gradient(180deg, rgba(1, 83, 91, 0.10), rgba(1, 83, 91, 0.05));
+    color: var(--org-primary-color, #01535b);
     z-index: 9998;
     padding: 8px 0;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 6px rgba(1, 83, 91, 0.08);
+    border-bottom: 1px solid var(--org-primary-color, #01535b);
   }
 
   .sticky-nav ul {
@@ -474,19 +494,24 @@
     margin-left: auto;
   }
 
-
   .search-results-dropdown {
     display: none;
     position: absolute;
-    top: 110%;
+    top: calc(100% + 4px);
     left: 0;
     background: #fff;
-    border: 1px solid #ccc;
+    border: 1px solid #d1d5db;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     width: 100%;
-    z-index: 10000;
-    max-height: 800px;
+    min-width: 280px;
+    z-index: 11025;
+    max-height: 400px;
     overflow-y: auto;
-    border-radius: 4px;
+    border-radius: 8px;
+  }
+
+  .search-results-dropdown[style*="display: block"] {
+    display: block !important;
   }
 
   .search-result-item {
@@ -572,7 +597,7 @@
   header#top-header #tools {
     display: flex;
     align-items: center;
-    right: 0px;
+    right: 45px;
     position: relative;
     margin-left: auto;
   }
@@ -712,6 +737,11 @@
 
     #tools {
       gap: 0;
+      right: 0;
+    }
+
+    header#top-header #tools {
+      right: 0;
     }
 
     .search-bar {
@@ -739,30 +769,55 @@
     }
 
     .sticky-nav {
-      position: fixed;
-      bottom: 0;
-      top: auto;
+      position: fixed !important;
+      bottom: 0 !important;
+      top: auto !important;
       left: 0;
       width: 100%;
-      padding: 6px 0;
-      box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
+      padding: 0;
+      background: transparent;
+      border-top: none;
+      box-shadow: none;
+      backdrop-filter: none;
+      z-index: 9999;
     }
 
     .sticky-nav ul {
-      gap: 0;
-      overflow-x: auto;
+      display: flex;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      justify-content: center;
+      align-items: center;
+      gap: 2px;
+      padding: 8px 12px;
+      overflow-x: hidden;
+      max-width: 100%;
     }
 
     .sticky-nav ul li {
-      flex-grow: 1;
+      flex: 0 0 auto;
       text-align: center;
     }
 
     .sticky-nav ul li a {
-      display: inline-block;
-      padding: 10px 6px;
-      font-size: 12px;
-      width: 100%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+      font-size: 11.5px;
+      min-width: 40px;
+      min-height: 40px;
+      border-radius: 50%;
+    }
+
+    .sticky-nav ul li a .nav-text {
+      display: none;
+    }
+
+    .sticky-nav ul li a .nav-icon {
+      width: 20px;
+      height: 20px;
+      margin: 0;
     }
 
     .flash-wrapper {
@@ -895,13 +950,13 @@
         >Hello, <%= session.firstName %>!</a
       >
       <div class="hamburger-container">
-        <div class="hamburger" id="hamburger">
+        <div class="hamburger header-hamburger" id="header-hamburger">
           <span class="bar"></span>
           <span class="bar"></span>
           <span class="bar"></span>
         </div>
       </div>
-                  <ul class="nav-menu" id="nav-menu">
+                  <ul class="nav-menu header-nav-menu" id="header-nav-menu">
         <li class="nav-item mobile-welcome">
           <span class="welcome-label">Hello, <%= session.firstName %>!</span>
         </li>
@@ -1001,13 +1056,90 @@
   <% if (typeof url !== 'undefined' && url.includes('/publicDashboard')) { %>
   <nav class="sticky-nav">
     <ul>
-      <li><a href="#image-gallery">Gallery</a></li>
-      <li><a href="#text-articles">Articles</a></li>
-      <li><a href="#events">Events</a></li>
-      <li><a href="#announcements">Announcements</a></li>
-      <li><a href="#about-us">About Us</a></li>
+      <li>
+        <a href="#image-gallery">
+          <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+            <polyline points="21 15 16 10 5 21"></polyline>
+          </svg>
+          <span class="nav-text">Gallery</span>
+        </a>
+      </li>
+      <li>
+        <a href="#text-articles">
+          <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+          <span class="nav-text">Articles</span>
+        </a>
+      </li>
+      <li>
+        <a href="#events">
+          <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+          <span class="nav-text">Events</span>
+        </a>
+      </li>
+      <li>
+        <a href="#announcements">
+          <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+          <span class="nav-text">Announcements</span>
+        </a>
+      </li>
+      <li>
+        <a href="#about-us">
+          <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+          </svg>
+          <span class="nav-text">About Us</span>
+        </a>
+      </li>
     </ul>
   </nav>
+  <script>
+    // Smooth scroll for sticky nav links
+    document.addEventListener('DOMContentLoaded', function() {
+      const stickyNavLinks = document.querySelectorAll('.sticky-nav a[href^="#"]');
+      
+      stickyNavLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+          e.preventDefault();
+          const targetId = this.getAttribute('href').substring(1);
+          const targetElement = document.getElementById(targetId);
+          
+          if (targetElement) {
+            // Calculate offset based on screen size
+            const isMobile = window.innerWidth <= 768;
+            const offset = isMobile ? 80 : 100; // Account for sticky nav height
+            const targetPosition = targetElement.getBoundingClientRect().top + window.pageYOffset - offset;
+            
+            window.scrollTo({
+              top: targetPosition,
+              behavior: 'smooth'
+            });
+            
+            // Add active state to clicked nav item
+            stickyNavLinks.forEach(l => l.classList.remove('active'));
+            this.classList.add('active');
+          }
+        });
+      });
+    });
+  </script>
   <% } %>
 </header>
 
@@ -1025,8 +1157,8 @@
 
 <script>
   function initHeaderMenu() {
-    const hamburger = document.getElementById("hamburger");
-    const navMenu = document.getElementById("nav-menu");
+    const hamburger = document.getElementById("header-hamburger");
+    const navMenu = document.getElementById("header-nav-menu");
     const submenuToggles = document.querySelectorAll(".submenu-toggle");
     const searchInput = document.getElementById("search-input");
     const searchResults = document.getElementById("search-results");
@@ -1108,7 +1240,7 @@
       });
 
       document.addEventListener("click", (e) => {
-        if (!e.target.closest("#hamburger") && !e.target.closest("#nav-menu")) {
+        if (!e.target.closest("#header-hamburger") && !e.target.closest("#header-nav-menu")) {
           hamburger.classList.remove("active");
           toggleNavMenu(false);
         }
@@ -1149,40 +1281,62 @@
             const response = await fetch(
               `/enrollment/searchUsers?query=${query}`
             );
-            const results = await response.json();
+            const payload = await response.json();
+            const items = Array.isArray(payload.results) ? payload.results : [];
 
-            if (results.users.length > 0) {
-              searchResults.innerHTML = results.users
-                .map((user) => {
+            if (items.length > 0) {
+              searchResults.innerHTML = items
+                .map((item) => {
                   const image =
-                    user.image_url &&
-                    user.image_url !== "profilePlaceholder.png"
-                      ? user.image_url
+                    item.image_url && item.image_url !== "profilePlaceholder.png"
+                      ? item.image_url
                       : "/images/profilePlaceholder.png";
 
-                  if (user.type === "student") {
-                    return `<div class="search-result-item">
-                      <a href="/common/studentDetails?studentId=${
-                        user.student_id
-                      }&classId=${user.class_id}&termId=${CURRENT_TERM_ID}">
-                                <img src="${image}" alt="User Image">
-                                ${escapeHtml(user.first_name)} ${escapeHtml(
-                      user.last_name
-                    )} (Student - ${escapeHtml(user.class_name)})
-                              </a>
-                            </div>`;
-                  } else if (user.type === "employee") {
-                    return `<div class="search-result-item">
-                              <a href="/common/employeeDetails?userId=${
-                                user.user_id
-                              }">
-                                <img src="${image}" alt="User Image">
-                                ${escapeHtml(user.first_name)} ${escapeHtml(
-                      user.last_name
-                    )} (${escapeHtml(user.account_type)})
-                              </a>
-                            </div>`;
+                  const title = `${escapeHtml(item.first_name || "")}${
+                    item.last_name ? " " + escapeHtml(item.last_name) : ""
+                  }` || escapeHtml(item.subject_name || item.class_name || "");
+
+                  let subtitle = "";
+                  let href = "#";
+
+                  switch (item.type) {
+                    case "student":
+                      subtitle = `Student${item.class_name ? ` • ${escapeHtml(item.class_name)}` : ""}`;
+                      href = `/common/studentDetails?studentId=${item.id}&classId=${
+                        item.class_id || ""
+                      }&termId=${CURRENT_TERM_ID}`;
+                      break;
+                    case "employee":
+                      subtitle = item.account_type ? escapeHtml(item.account_type) : "Employee";
+                      href = `/common/employeeDetails?userId=${item.id}`;
+                      break;
+                    case "guardian":
+                      subtitle = "Guardian";
+                      href = `/common/guardianDetails?guardianId=${item.id}`;
+                      break;
+                    case "class":
+                      subtitle = "Class";
+                      href = `/common/classDashboard?classId=${item.id}`;
+                      break;
+                    case "subject":
+                      subtitle = "Subject";
+                      href = `/common/manageClassSubjectAndGradYr#subject-${item.id}`;
+                      break;
+                    default:
+                      subtitle = "";
                   }
+
+                  const displayTitle = title || escapeHtml(item.subject_name || item.class_name || "");
+
+                  return `<div class="search-result-item">
+                            <a href="${href}">
+                              <img src="${image}" alt="Result Image">
+                              <div class="search-result-text">
+                                <div class="search-result-title">${displayTitle}</div>
+                                <div class="search-result-subtitle">${subtitle}</div>
+                              </div>
+                            </a>
+                          </div>`;
                 })
                 .join("");
               searchResults.style.display = "block";

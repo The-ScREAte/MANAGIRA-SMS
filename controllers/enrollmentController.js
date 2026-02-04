@@ -432,32 +432,89 @@ const enrollmentController = {
         }
     },
         searchUsers: async (req, res, db) => {
-            const query = req.query.query;
-    
-            if (!query) {
-                return res.status(400).json({ error: 'No search query provided.' });
-            }
-    
-            try {
-                const searchQuery = `
-                    SELECT s.student_id, s.first_name, s.last_name, s.image_url, c.class_name, c.class_id
-                    FROM students s
-                    LEFT JOIN classes c ON s.class_id = c.class_id
-                    WHERE (s.first_name ILIKE $1 OR s.last_name ILIKE $1 OR CONCAT(s.first_name, ' ', s.last_name) ILIKE $1)
-                    AND s.organization_id = $2
-                    ORDER BY s.first_name, s.last_name
-                `;
-    
-                const values = [`%${query}%`, req.session.organizationId];
-    
-                const result = await db.query(searchQuery, values);
-                const users = result.rows;
-    
-                res.status(200).json({ users });
-            } catch (error) {
-                console.error('Error fetching users for search:', error);
-                res.status(500).json({ error: 'Failed to fetch users.' });
-            }
+          const query = req.query.query;
+
+          if (!query) {
+            return res.status(400).json({ error: 'No search query provided.' });
+          }
+
+          const likeQuery = `%${query}%`;
+          const orgId = req.session.organizationId;
+
+          try {
+            const [studentsRes, employeesRes, guardiansRes, classesRes, subjectsRes] = await Promise.all([
+              db.query(
+                `
+                  SELECT 'student' AS type, s.student_id AS id, s.first_name, s.last_name, s.image_url,
+                     c.class_name, c.class_id, NULL::text AS account_type, NULL::text AS subject_name
+                  FROM students s
+                  LEFT JOIN classes c ON s.class_id = c.class_id
+                  WHERE s.organization_id = $2
+                  AND (
+                    s.first_name ILIKE $1 OR s.last_name ILIKE $1 OR CONCAT(s.first_name, ' ', s.last_name) ILIKE $1
+                  )
+                `,
+                [likeQuery, orgId]
+              ),
+              db.query(
+                `
+                  SELECT 'employee' AS type, u.user_id AS id, u.first_name, u.last_name, NULL::text AS image_url,
+                     NULL::text AS class_name, NULL::int AS class_id, u.account_type, NULL::text AS subject_name
+                  FROM users u
+                  WHERE u.organization_id = $2
+                  AND (
+                    u.first_name ILIKE $1 OR u.last_name ILIKE $1 OR CONCAT(u.first_name, ' ', u.last_name) ILIKE $1
+                  )
+                `,
+                [likeQuery, orgId]
+              ),
+              db.query(
+                `
+                  SELECT 'guardian' AS type, g.guardian_id AS id, g.first_name, g.last_name, g.image_url,
+                     NULL::text AS class_name, NULL::int AS class_id, NULL::text AS account_type, NULL::text AS subject_name
+                  FROM guardians g
+                  WHERE g.organization_id = $2
+                  AND (
+                    g.first_name ILIKE $1 OR g.last_name ILIKE $1 OR CONCAT(g.first_name, ' ', g.last_name) ILIKE $1
+                  )
+                `,
+                [likeQuery, orgId]
+              ),
+              db.query(
+                `
+                  SELECT 'class' AS type, c.class_id AS id, c.class_name AS first_name, '' AS last_name, NULL::text AS image_url,
+                     c.class_name, c.class_id, NULL::text AS account_type, NULL::text AS subject_name
+                  FROM classes c
+                  WHERE c.organization_id = $2
+                  AND c.class_name ILIKE $1
+                `,
+                [likeQuery, orgId]
+              ),
+              db.query(
+                `
+                  SELECT 'subject' AS type, s.subject_id AS id, s.subject_name AS first_name, '' AS last_name, NULL::text AS image_url,
+                     NULL::text AS class_name, NULL::int AS class_id, NULL::text AS account_type, s.subject_name AS subject_name
+                  FROM subjects s
+                  WHERE s.organization_id = $2
+                  AND s.subject_name ILIKE $1
+                `,
+                [likeQuery, orgId]
+              ),
+            ]);
+
+            const results = [
+              ...studentsRes.rows,
+              ...employeesRes.rows,
+              ...guardiansRes.rows,
+              ...classesRes.rows,
+              ...subjectsRes.rows,
+            ];
+
+            res.status(200).json({ results });
+          } catch (error) {
+            console.error('Error fetching users for search:', error);
+            res.status(500).json({ error: 'Failed to fetch users.' });
+          }
         },
   
 

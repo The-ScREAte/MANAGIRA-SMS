@@ -538,13 +538,7 @@
 </head>
 <body class="manage-public-page">
     <br>
-            <h1>Manage Public Dashboard Content</h1>
-
-    <div class="manage-public-header">
-        <div class="link-to-next-back">
-            <a href="/common/publicDashboard?organizationId=<%= organizationId %>" class="btn btn-primary"><i class="fa-solid fa-chevron-left"></i>Back</a>
-        </div>
-    </div>
+            <h1>Manage School Website Content</h1>
     
     <%- include('../partials/flash') %>
 
@@ -715,7 +709,7 @@
                 </div>
             <div class="images-content-container">
                 <% if (images.length === 0) { %>
-                    <p> No images have been uploaded to the public dashboard yet</p>
+                    <p> No images have been uploaded to the school website yet</p>
                 <% } else { %>
                     <h3>Content Images</h3>
                     <div class="standalone-images">
@@ -1128,7 +1122,7 @@
                     <h2 style="margin: 0;">Website Layout</h2>
                 </div>
                 <p style="text-align:center; color:#666; margin: 8px 0 18px;">
-                    Choose the arrangement of sections on your Public Dashboard. Colors stay the same.
+                    Choose the arrangement of sections on your School Website. Colors stay the same.
                 </p>
 
                 <form action="/account/updatePublicDashboardLayout" method="POST" style="max-width: 1100px; margin: 0 auto;">

@@ -1,0 +1,625 @@
+<%
+  // Theme color mapping for organization buttons
+  const themeColor = (typeof session !== 'undefined' && session && session.themeColor) ? session.themeColor : 'teal';
+  const themeColors = {
+    teal: { primary: '#01535b', hover: '#014a51' },
+    blue: { primary: '#2563eb', hover: '#1d4ed8' },
+    green: { primary: '#2d5f4f', hover: '#245043' },
+    purple: { primary: '#7c3aed', hover: '#6d28d9' },
+    indigo: { primary: '#4f46e5', hover: '#4338ca' },
+    rose: { primary: '#8b2635', hover: '#7a212e' },
+    amber: { primary: '#d97706', hover: '#b45309' },
+    slate: { primary: '#334155', hover: '#1e293b' },
+    classic: { primary: '#01535b', hover: '#014a51' },
+    bold: { primary: '#0b1020', hover: '#ffb703' },
+    modern: { primary: '#2563eb', hover: '#1d4ed8' },
+    minimal: { primary: '#7c3aed', hover: '#6d28d9' },
+    gold: { primary: '#d4a017', hover: '#b8860b' },
+    red: { primary: '#e11d48', hover: '#be123c' },
+    brown: { primary: '#7c4a03', hover: '#5c3802' }
+  };
+  const currentTheme = themeColors[themeColor] || themeColors.teal;
+%>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reports | Managira</title>
+    <link rel="icon" href="/images/favicon_io/favicon.ico" type="image/x-icon" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <link rel="stylesheet" href="/css/buttons.css" />
+    <style>
+      :root {
+        --border: #e5e7eb;
+        --muted: #6b7280;
+        --bg: #f9fafb;
+        --primary: <%= currentTheme.primary %>;
+        --primary-hover: <%= currentTheme.hover %>;
+        --org-primary-color: <%= currentTheme.primary %>;
+        --org-primary-hover: <%= currentTheme.hover %>;
+        --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+      }
+
+      body {
+        background: #f9fafb;
+        font-family: var(--font-family);
+        display: flex;
+        flex-direction: column;
+      }
+
+      .hub-wrapper {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .hub-layout {
+        display: grid;
+        grid-template-columns: 260px 1fr;
+        gap: 24px;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 24px 20px 40px;
+        flex: 1;
+        align-items: start;
+      }
+
+      .hub-nav {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 20px 16px;
+        background: #fff;
+        height: fit-content;
+        position: sticky;
+        top: 80px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      }
+
+      .hub-nav-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+        padding: 0 4px;
+      }
+
+      .hub-nav h3 {
+        margin: 0;
+        font-size: 18px;
+        color: var(--primary);
+        font-weight: 700;
+      }
+
+      .nav-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 4px;
+      }
+
+      .nav-link {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        border-radius: 8px;
+        color: #374151;
+        text-decoration: none;
+        border: 1px solid transparent;
+        width: 100%;
+        background: transparent;
+        cursor: pointer;
+        font: inherit;
+        text-align: left;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+      }
+
+      .nav-link:hover {
+        background: #f3f4f6;
+        border-color: #e5e7eb;
+      }
+
+      .nav-link.active {
+        background: var(--primary);
+        color: #fff;
+        border-color: var(--primary);
+      }
+
+      .nav-link.active:hover {
+        background: var(--primary-hover);
+      }
+
+      .nav-link svg {
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+      }
+
+      .hub-main {
+        background: #fff;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        overflow: hidden;
+      }
+
+      .section-header {
+        padding: 24px 28px 20px;
+        border-bottom: 1px solid var(--border);
+        background: linear-gradient(135deg, #f9fafb 0%, #fff 100%);
+      }
+
+      .section-header h1 {
+        margin: 0 0 6px 0;
+        font-size: 24px;
+        color: #111827;
+        font-weight: 700;
+      }
+
+      .section-header p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 15px;
+      }
+
+      .section-content {
+        padding: 24px 28px;
+      }
+
+      .hub-section {
+        display: none;
+      }
+
+      .hub-section.active {
+        display: block;
+      }
+
+      .action-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 24px;
+        background: var(--primary);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        font-size: 15px;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .action-btn:hover {
+        background: var(--primary-hover);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        color: #fff;
+      }
+
+      .action-btn svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      .features-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+
+      .feature-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        padding: 18px;
+        background: #f9fafb;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        transition: all 0.2s ease;
+      }
+
+      .feature-item:hover {
+        border-color: var(--primary);
+        background: #fff;
+      }
+
+      .feature-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        background: var(--primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      .feature-icon svg {
+        width: 22px;
+        height: 22px;
+        color: #fff;
+        stroke: #fff;
+      }
+
+      .feature-content h4 {
+        margin: 0 0 4px 0;
+        font-size: 15px;
+        color: #111827;
+        font-weight: 600;
+      }
+
+      .feature-content p {
+        margin: 0;
+        font-size: 13px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      /* Mobile navigation */
+      .hub-nav-toggle {
+        display: none;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 16px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: #fff;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 600;
+        color: var(--primary);
+        margin-bottom: 16px;
+      }
+
+      .hub-nav-toggle .hub-hamburger-icon {
+        position: relative;
+        width: 18px;
+        height: 2px;
+        background: var(--primary);
+        display: inline-block;
+      }
+
+      .hub-nav-toggle .hub-hamburger-icon::before,
+      .hub-nav-toggle .hub-hamburger-icon::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        width: 18px;
+        height: 2px;
+        background: var(--primary);
+      }
+
+      .hub-nav-toggle .hub-hamburger-icon::before { top: -6px; }
+      .hub-nav-toggle .hub-hamburger-icon::after { top: 6px; }
+
+      .hub-nav-close {
+        display: none;
+        background: transparent;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 4px 8px;
+        color: #6b7280;
+        line-height: 1;
+      }
+
+      .hub-nav-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.4);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.25s ease;
+        z-index: 1000;
+      }
+
+      .hub-nav-overlay.show {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      @media (max-width: 900px) {
+        .hub-layout {
+          grid-template-columns: 1fr;
+          gap: 0;
+          padding: 16px;
+        }
+
+        .hub-nav-toggle {
+          display: flex;
+        }
+
+        .hub-nav {
+          position: fixed;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          width: 280px;
+          max-width: 85vw;
+          border-radius: 0;
+          z-index: 1001;
+          transform: translateX(-100%);
+          transition: transform 0.3s ease;
+          padding: 20px;
+          overflow-y: auto;
+        }
+
+        .hub-nav.open {
+          transform: translateX(0);
+        }
+
+        .hub-nav-close {
+          display: block;
+        }
+
+        .section-header, .section-content {
+          padding: 20px;
+        }
+
+        .section-header h1 {
+          font-size: 20px;
+        }
+      }
+
+      @media (max-width: 600px) {
+        .features-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .action-btn {
+          width: 100%;
+          justify-content: center;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <%- include('../partials/header') %>
+
+    <div class="hub-nav-overlay" id="hub-nav-overlay"></div>
+
+    <div class="hub-wrapper">
+      <div class="hub-layout">
+        <!-- Mobile Toggle -->
+        <button class="hub-nav-toggle" id="hub-nav-toggle">
+          <span class="hub-hamburger-icon"></span>
+          <span>Menu</span>
+        </button>
+
+        <!-- Sidebar -->
+        <nav class="hub-nav" id="hub-nav">
+          <div class="hub-nav-header">
+            <h3>Reports</h3>
+            <button class="hub-nav-close" id="hub-nav-close">&times;</button>
+          </div>
+          <ul class="nav-list">
+            <li>
+              <button class="nav-link active" data-section="term-management">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                Term Management
+              </button>
+            </li>
+            <li>
+              <button class="nav-link" data-section="data-migration">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                </svg>
+                Data Migration
+              </button>
+            </li>
+            <% if (typeof allowedFeatures !== 'undefined' && allowedFeatures.includes('Statistics')) { %>
+            <li>
+              <button class="nav-link" data-section="org-stats">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+                Organization Stats
+              </button>
+            </li>
+            <% } %>
+          </ul>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="hub-main">
+          <!-- Term Management Section -->
+          <section class="hub-section active" id="term-management">
+            <div class="section-header">
+              <h1>Term Management</h1>
+              <p>Generate terminal reports and merit sheets for students.</p>
+            </div>
+            <div class="section-content">
+              <div class="features-grid">
+                <div class="feature-item">
+                  <div class="feature-icon">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                  </div>
+                  <div class="feature-content">
+                    <h4>Terminal Reports</h4>
+                    <p>Generate end-of-term academic reports.</p>
+                  </div>
+                </div>
+                <div class="feature-item">
+                  <div class="feature-icon">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path>
+                    </svg>
+                  </div>
+                  <div class="feature-content">
+                    <h4>Merit Sheets</h4>
+                    <p>Create honor roll and merit listings.</p>
+                  </div>
+                </div>
+              </div>
+              <a href="/common/closeSchoolYear" class="action-btn">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                Terminal Report & Merit Sheet
+              </a>
+            </div>
+          </section>
+
+          <!-- Data Migration Section -->
+          <section class="hub-section" id="data-migration">
+            <div class="section-header">
+              <h1>Data Migration</h1>
+              <p>Import and export student data between systems.</p>
+            </div>
+            <div class="section-content">
+              <div class="features-grid">
+                <div class="feature-item">
+                  <div class="feature-icon">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                    </svg>
+                  </div>
+                  <div class="feature-content">
+                    <h4>Import Data</h4>
+                    <p>Upload student records from CSV files.</p>
+                  </div>
+                </div>
+                <div class="feature-item">
+                  <div class="feature-icon">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                  </div>
+                  <div class="feature-content">
+                    <h4>Export Data</h4>
+                    <p>Download records for backup or transfer.</p>
+                  </div>
+                </div>
+              </div>
+              <a href="/print/migration" class="action-btn">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                </svg>
+                Data Migration
+              </a>
+            </div>
+          </section>
+
+          <!-- Organization Stats Section -->
+          <% if (typeof allowedFeatures !== 'undefined' && allowedFeatures.includes('Statistics')) { %>
+          <section class="hub-section" id="org-stats">
+            <div class="section-header">
+              <h1>Organization Statistics</h1>
+              <p>View detailed analytics and insights about your organization.</p>
+            </div>
+            <div class="section-content">
+              <div class="features-grid">
+                <div class="feature-item">
+                  <div class="feature-icon">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                  </div>
+                  <div class="feature-content">
+                    <h4>Enrollment Trends</h4>
+                    <p>Track student enrollment over time.</p>
+                  </div>
+                </div>
+                <div class="feature-item">
+                  <div class="feature-icon">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                  </div>
+                  <div class="feature-content">
+                    <h4>Performance Analytics</h4>
+                    <p>View academic performance metrics.</p>
+                  </div>
+                </div>
+              </div>
+              <a href="/stats/organization" class="action-btn">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+                View Statistics
+              </a>
+            </div>
+          </section>
+          <% } %>
+        </main>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const navLinks = document.querySelectorAll('.nav-link');
+        const sections = document.querySelectorAll('.hub-section');
+        const navToggle = document.getElementById('hub-nav-toggle');
+        const nav = document.getElementById('hub-nav');
+        const navClose = document.getElementById('hub-nav-close');
+        const overlay = document.getElementById('hub-nav-overlay');
+
+        // Only initialize if elements exist
+        if (!navToggle || !nav || !overlay) return;
+
+        navLinks.forEach(link => {
+          link.addEventListener('click', function() {
+            const sectionId = this.getAttribute('data-section');
+            
+            navLinks.forEach(l => l.classList.remove('active'));
+            this.classList.add('active');
+            
+            sections.forEach(s => s.classList.remove('active'));
+            const targetSection = document.getElementById(sectionId);
+            if (targetSection) targetSection.classList.add('active');
+
+            if (window.innerWidth <= 900) {
+              nav.classList.remove('open');
+              overlay.classList.remove('show');
+            }
+
+            history.replaceState(null, null, '#' + sectionId);
+          });
+        });
+
+        navToggle.addEventListener('click', function(e) {
+          e.stopPropagation();
+          nav.classList.add('open');
+          overlay.classList.add('show');
+        });
+
+        navClose.addEventListener('click', function(e) {
+          e.stopPropagation();
+          nav.classList.remove('open');
+          overlay.classList.remove('show');
+        });
+
+        overlay.addEventListener('click', function(e) {
+          e.stopPropagation();
+          nav.classList.remove('open');
+          overlay.classList.remove('show');
+        });
+
+        if (window.location.hash) {
+          const sectionId = window.location.hash.substring(1);
+          const targetLink = document.querySelector(`.nav-link[data-section="${sectionId}"]`);
+          if (targetLink) targetLink.click();
+        }
+      });
+    </script>
+  </body>
+</html>

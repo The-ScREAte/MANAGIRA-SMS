@@ -47,7 +47,7 @@ const checkFeatureAccess = async (req, res, next) => {
       if (planAccess.length === 0) {
   // ...removed warn for clean background operation...
         if (isPublicDashboard) {
-          return res.status(403).send("This organization does not support public dashboard access.");
+          return res.status(403).send("This organization does not support school website access.");
         } else {
           req.flash('error', 'Your plan does not support this feature.');
           return res.redirect('/common/orgDashboard');

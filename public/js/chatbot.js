@@ -12,6 +12,10 @@ class ManagiraChatbot {
   }
 
   init() {
+    // Don't initialize chatbot on public dashboard
+    if (document.body.getAttribute('data-page') === 'publicDashboard') {
+      return;
+    }
     this.createChatbotHTML();
     this.bindEvents();
     this.loadPopularQuestions();

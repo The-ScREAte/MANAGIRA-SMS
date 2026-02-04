@@ -218,6 +218,11 @@
       margin-bottom: 0;
     }
 
+    /* Hide footer bottom section on mobile for public dashboard only */
+    body[data-page="publicDashboard"] .footer-bottom-section {
+      display: none;
+    }
+
     .footer-logo {
       height: 72px;
       margin-bottom: 6px;

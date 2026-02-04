@@ -872,9 +872,9 @@ const commonController = {
               .filter(Boolean)
           : items;
 
-      // Render the public dashboard page
+      // Render the school website page
       res.render("common/publicDashboard", {
-        title: "Public Dashboard",
+        title: "School Website",
         slideshowImages, // Pass slideshow images separately
         orderedItems,
         orgDetails,
@@ -887,8 +887,8 @@ const commonController = {
       });
     } catch (error) {
       // ...removed error log for clean background operation...
-      req.flash("error", "Failed to load public dashboard data.");
-      res.status(500).send("Failed to load public dashboard data.");
+      req.flash("error", "Failed to load School website data.");
+      res.status(500).send("Failed to load school website data.");
     }
   },
 

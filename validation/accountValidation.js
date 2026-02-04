@@ -237,7 +237,7 @@ const validateNicknameResult = (req, res, next) => {
   next();
 };
 
-// Validate public dashboard edit addTextSection
+// Validate school website edit addTextSection
 const validateTextSection = [
   check("heading")
     .trim()
