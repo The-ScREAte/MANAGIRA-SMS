@@ -2,303 +2,508 @@
 
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Register Your Organization</title>
-<script src="/js/script.js" defer></script>
-<style>
-      :root {
-        --font-family: "Inter", sans-serif;
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register Your Organization</title>
+  <script src="/js/script.js" defer></script>
+  <style>
+    :root {
+      --font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --primary: #01535b;
+      --primary-hover: #014a51;
+      --primary-light: rgba(1, 83, 91, 0.08);
+      --text-primary: #1e293b;
+      --text-secondary: #64748b;
+      --border: #e2e8f0;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --error: #dc2626;
+      --success: #059669;
+      --warning: #d97706;
+      --info-bg: #e7f3fe;
+      --info-border: #bee5eb;
+      --info-text: #0c5460;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-family);
+      background: var(--bg-page);
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    .register-container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .register-card {
+      background: var(--bg-card);
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+      padding: 40px 36px;
+      border: 1px solid var(--border);
+    }
+
+    .register-header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .register-header h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .register-header p {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
+    .notice {
+      background: var(--info-bg);
+      color: var(--info-text);
+      border: 1px solid var(--info-border);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 28px;
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin: 28px 0 20px 0;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title svg {
+      width: 20px;
+      height: 20px;
+      color: var(--primary);
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: block;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+      font-size: 0.9rem;
+    }
+
+    .form-hint {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      font-size: 1rem;
+      font-family: inherit;
+      transition: all 0.2s ease;
+      background: var(--bg-card);
+      color: var(--text-primary);
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-light);
+    }
+
+    .form-input::placeholder {
+      color: var(--text-secondary);
+      opacity: 0.7;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 520px) {
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .password-strength {
+      font-size: 0.85rem;
+      margin-top: 8px;
+      font-weight: 600;
+    }
+
+    .password-strength.weak { color: var(--error); }
+    .password-strength.medium { color: var(--warning); }
+    .password-strength.strong { color: var(--success); }
+
+    .password-requirements {
+      background: #f8fafc;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-top: 12px;
+      border: 1px solid var(--border);
+    }
+
+    .password-requirements p {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .password-requirements ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    .password-requirements li {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .password-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+
+    .password-toggle input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      accent-color: var(--primary);
+    }
+
+    .terms-group {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 16px;
+      background: #f8fafc;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      margin-top: 24px;
+    }
+
+    .terms-group input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin-top: 2px;
+      cursor: pointer;
+      accent-color: var(--primary);
+      flex-shrink: 0;
+    }
+
+    .terms-group label {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .terms-group a {
+      color: var(--primary);
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .terms-group a:hover {
+      text-decoration: underline;
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 16px 24px;
+      background: linear-gradient(135deg, var(--primary) 0%, #0a6d77 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 1.05rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(1, 83, 91, 0.25);
+      margin-top: 28px;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(1, 83, 91, 0.35);
+    }
+
+    .login-link {
+      text-align: center;
+      margin-top: 24px;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    .login-link a {
+      color: var(--primary);
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .login-link a:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 520px) {
+      .register-card {
+        padding: 32px 24px;
       }
 
+      .register-header h1 {
+        font-size: 1.5rem;
+      }
 
-  .container {
-    margin: 0 auto;
-    padding: 20px;
-    background-color: #fff;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-  }
-
-
-
-
-
-
-
-  form {
-    width: 90%;
-    max-width: 750px;
-    margin: 0 auto;
-  }
-  h1, h2 {
-    font-family: var(--font-family);
-    font-weight: bold;
-    color: #333;
-    margin-bottom: 15px;
-  }
-  h2 { margin-top: 30px; }
-  .form-group { margin-bottom: 15px; }
-  .form-group label { display: block; font-weight: bold; margin-bottom: 5px; }
-  .form-group input {
-    width: 100%; padding: 10px;
-    border: 1px solid #ddd; border-radius: 4px;
-  }
-  .btn-primary {
-    background-color: #01535b; color: #fff;
-    padding: 10px 15px; border: none; border-radius: 4px;
-    cursor: pointer; width: 100%;
-  }
-  .btn-primary:hover { background-color: #01535b; }
-  .password-strength { font-size: 0.9rem; margin-top: 5px; font-weight: bold; }
-  .password-strength.weak { color: red; }
-  .password-strength.medium { color: orange; }
-  .password-strength.strong { color: green; }
-  .password-note { font-size: 0.8rem; color: #666; margin-top: 5px; }
-  .password-note ul { margin: 5px 0 0 20px; padding: 0; }
-  .password-note ul li { font-size: 0.8rem; line-height: 1.2rem; color: #333; }
-  .plan-selection-message {
-    display: none;
-  }
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-  .notice {
-    background-color: #e7f3fe; color: #0c5460;
-    border: 1px solid #bee5eb; border-radius: 5px;
-    padding: 15px; margin-bottom: 20px;
-  }
-/* Fix checkboxes inside .form-group so they don't stretch */
-.form-group input[type="checkbox"] {
-  width: auto;
-  display: inline-block;
-  
-  margin: 0 8px 0 0;   /* small space before the text */
-  border: 0;
-  box-shadow: none;
-  vertical-align: middle;
-}
-
-/* Terms row: keep checkbox + text side-by-side */
-.form-group.terms {
-  display: flex;
-  align-items: center;
-  padding-left: 4px;
-  gap: 6px;
-}
-
-/* Override the default block label in .form-group for this row */
-.form-group.terms label {
-  display: inline;      /* inline so it sits next to the checkbox */
-  margin: 0;
-  font-weight: normal;  /* only the link will be bold */
-  white-space: normal;  /* allow natural wrapping */
-}
-
-/* Link styling */
-.form-group.terms a {
-  color: #01535b;
-  font-weight: bold;
-  text-decoration: underline;
-  transition: color .2s ease-in-out;
-}
-.form-group.terms a:hover {
-  color: #013f45;
-  text-decoration: none;
-}
-
-
-</style>
+      .form-input {
+        padding: 12px 14px;
+      }
+    }
+  </style>
 </head>
-
 <body>
-<div class="container">
-  <form action="/account/register" method="post" enctype="multipart/form-data" onsubmit="return confirmRegistration()">
-    <input type="hidden" name="preferredPlanId" value="<%= preferredPlanId || '' %>">
-    <input type="hidden" name="trialRequested" value="<%= trialRequested ? '1' : '' %>">
-    <input type="hidden" name="preferredPlanName" value="<%= preferredPlanName || '' %>">
-    <% const hasPreselectedPlan = !!(preferredPlanId && preferredPlanName); %>
-    <% if (hasPreselectedPlan && trialRequested) { %>
-      <div class="notice" style="margin-bottom: 20px;">
-        You're requesting a free trial of our premium experience. Register your organization below so we can capture the verification charge and activate your trial.
+  <div class="register-container">
+    <div class="register-card">
+      <div class="register-header">
+        <h1>Register Your Organization</h1>
+        <p>Create your account to get started with Managira</p>
       </div>
-    <% } else if (hasPreselectedPlan) { %>
-      <div class="notice" style="margin-bottom: 20px;">
-        You've chosen the <strong><%= preferredPlanName %></strong> plan. Register your organization below to continue straight to payment.
-      </div>
-    <% } else if (trialRequested) { %>
-      <div class="notice" style="margin-bottom: 20px;">
-        You're requesting a premium free trial. Register below so we can verify your card with the refundable GHS 1.00 charge and activate the trial.
-      </div>
-    <% } %>
-    <h1>Register Your Organization</h1>
 
-    <!-- Personal Details -->
-    <h2>Person Completing Application</h2>
-    <div class="form-group">
-      <label for="firstName">First Name:</label>
-      <input type="text" name="firstName" id="firstName" placeholder="Enter your first name" required
-        value="<%= formData?.firstName || '' %>">
-    </div>
-    <div class="form-group">
-      <label for="lastName">Last Name:</label>
-      <input type="text" name="lastName" id="lastName" placeholder="Enter your last name" required
-        value="<%= formData?.lastName || '' %>">
-    </div>
+      <form action="/account/register" method="post" enctype="multipart/form-data" onsubmit="return confirmRegistration()">
+        <input type="hidden" name="preferredPlanId" value="<%= preferredPlanId || '' %>">
+        <input type="hidden" name="trialRequested" value="<%= trialRequested ? '1' : '' %>">
+        <input type="hidden" name="preferredPlanName" value="<%= preferredPlanName || '' %>">
+        
+        <% const hasPreselectedPlan = !!(preferredPlanId && preferredPlanName); %>
+        <% if (hasPreselectedPlan && trialRequested) { %>
+          <div class="notice">
+            ✨ You're requesting a <strong>free trial</strong> of our premium experience. Register your organization below to activate your trial.
+          </div>
+        <% } else if (hasPreselectedPlan) { %>
+          <div class="notice">
+            📋 You've chosen the <strong><%= preferredPlanName %></strong> plan. Register your organization below to continue to payment.
+          </div>
+        <% } else if (trialRequested) { %>
+          <div class="notice">
+            ✨ You're requesting a <strong>premium free trial</strong>. Register below to verify your card and activate the trial.
+          </div>
+        <% } %>
 
-    <!-- Organization Details -->
-    <h2>Organization Information</h2>
-    <div class="form-group">
-      <label for="orgName">Organization Name:</label>
-      <input type="text" name="orgName" id="orgName" placeholder="Enter your organization's name" required
-        value="<%= formData?.orgName || '' %>">
-    </div>
-    <div class="form-group">
-      <label for="orgNickName">Organization Nickname:</label>
-      <p>This will determine the URL of your school. Keep it short. All in lowercase and no space.</p>
+        <h2 class="section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          Personal Details
+        </h2>
 
-      <input type="text" name="orgNickName" id="orgNickName" placeholder="Enter your organization's nickname eg.abbreviation(ttc)"
-        minlength="3" maxlength="15" pattern="[a-z]+" title="3-15 lowercase letters (a-z). No numbers, spaces, or special characters."
-        required value="<%= formData?.orgNickName || '' %>">
-    </div>
-    <div class="form-group">
-      <label for="orgAddress">Organization Address:</label>
-      <input type="text" name="orgAddress" id="orgAddress" placeholder="Enter your organization's address" required
-        value="<%= formData?.orgAddress || '' %>">
-    </div>
-    <div class="form-group">
-      <label for="orgPhone">Organization Phone:</label>
-      <input type="text" name="orgPhone" id="orgPhone" placeholder="Enter your organization's phone number" required
-        value="<%= formData?.orgPhone || '' %>">
-    </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="firstName">First Name</label>
+            <input type="text" name="firstName" id="firstName" class="form-input" placeholder="John" required value="<%= formData?.firstName || '' %>">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="lastName">Last Name</label>
+            <input type="text" name="lastName" id="lastName" class="form-input" placeholder="Doe" required value="<%= formData?.lastName || '' %>">
+          </div>
+        </div>
 
-    <div class="notice">
-      <p>Proof of existence can be any valid document, like a certificate or website. Your account may be placed on hold or blocked if not legitimate.</p>
-    </div>
-    <div class="form-group">
-      <label for="proof1">Proof of Existence (Required):</label>
-      <input type="file" name="proof1" id="proof1" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" required>
-    </div>
-    <div class="form-group">
-      <label for="proof2">Additional Proof (Optional):</label>
-      <input type="file" name="proof2" id="proof2" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
-    </div>
+        <h2 class="section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+          </svg>
+          Organization Information
+        </h2>
 
-    <!-- Login Credentials -->
-    <h2>Sign-In Credentials</h2>
-    <div class="form-group">
-      <label for="email">Email:</label>
-      <input type="email" name="email" id="email" placeholder="e.g., user@example.com" required
-        value="<%= formData?.email || '' %>">
-    </div>
-    <div class="form-group">
-      <label for="confirmEmail">Confirm Email:</label>
-      <input type="email" name="confirmEmail" id="confirmEmail" placeholder="Re-enter your email" required
-        value="<%= formData?.confirmEmail || '' %>">
-    </div>
-    <div class="form-group">
-      <label for="password">Password:</label>
-      <input type="password" name="password" id="password" placeholder="e.g., Example@123" required
-        oninput="checkPasswordStrength(this.value)"
-        value="<%= formData?.password || '' %>">
-      <p id="password-strength" class="password-strength"></p>
-      <p class="password-note">
-        Password must be at least 6 characters long and include:
-        <ul>
-          <li>At least one uppercase letter (A-Z)</li>
-          <li>At least one lowercase letter (a-z)</li>
-          <li>At least one number (0-9)</li>
-          <li>At least one special character (!@#$%^&*)</li>
-        </ul>
+        <div class="form-group">
+          <label class="form-label" for="orgName">Organization Name</label>
+          <input type="text" name="orgName" id="orgName" class="form-input" placeholder="My School Name" required value="<%= formData?.orgName || '' %>">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="orgNickName">Organization Nickname</label>
+          <input type="text" name="orgNickName" id="orgNickName" class="form-input" placeholder="myschool" minlength="3" maxlength="15" pattern="[a-z]+" title="3-15 lowercase letters only" required value="<%= formData?.orgNickName || '' %>">
+          <p class="form-hint">This determines your URL. Use 3-15 lowercase letters only (e.g., ttc, myschool)</p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="orgAddress">Organization Address</label>
+          <input type="text" name="orgAddress" id="orgAddress" class="form-input" placeholder="123 Main Street, City" required value="<%= formData?.orgAddress || '' %>">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="orgPhone">Organization Phone</label>
+          <input type="text" name="orgPhone" id="orgPhone" class="form-input" placeholder="+1 234 567 8900" required value="<%= formData?.orgPhone || '' %>">
+        </div>
+
+        <div class="notice" style="margin-top: 20px;">
+          <strong>📄 Proof of Existence:</strong> Upload any valid document (certificate, registration document, or website screenshot) to verify your organization.
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="proof1">Proof of Existence *</label>
+            <input type="file" name="proof1" id="proof1" class="form-input" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="proof2">Additional Proof (Optional)</label>
+            <input type="file" name="proof2" id="proof2" class="form-input" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+          </div>
+        </div>
+
+        <h2 class="section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          Sign-In Credentials
+        </h2>
+
+        <div class="form-group">
+          <label class="form-label" for="email">Email</label>
+          <input type="email" name="email" id="email" class="form-input" placeholder="you@example.com" required value="<%= formData?.email || '' %>">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="confirmEmail">Confirm Email</label>
+          <input type="email" name="confirmEmail" id="confirmEmail" class="form-input" placeholder="Confirm your email" required value="<%= formData?.confirmEmail || '' %>">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">Password</label>
+          <input type="password" name="password" id="password" class="form-input" placeholder="Create a strong password" required oninput="checkPasswordStrength(this.value)" value="<%= formData?.password || '' %>">
+          <p id="password-strength" class="password-strength"></p>
+          <div class="password-requirements">
+            <p>Password must include:</p>
+            <ul>
+              <li>At least 6 characters</li>
+              <li>One uppercase letter (A-Z)</li>
+              <li>One lowercase letter (a-z)</li>
+              <li>One number (0-9)</li>
+              <li>One special character (!@#$%^&*)</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="confirmPassword">Confirm Password</label>
+          <input type="password" name="confirmPassword" id="confirmPassword" class="form-input" placeholder="Re-enter your password" required value="<%= formData?.confirmPassword || '' %>">
+        </div>
+
+        <label class="password-toggle">
+          <input type="checkbox" id="show-password" />
+          Show passwords
+        </label>
+
+        <div class="terms-group">
+          <input type="checkbox" id="termsCheckbox" name="termsCheckbox" required>
+          <label for="termsCheckbox">
+            I agree to the <a href="/legal/terms-of-service" target="_blank">Terms of Service</a> and <a href="/legal/privacy-policy" target="_blank">Privacy Policy</a>
+          </label>
+        </div>
+
+        <button type="submit" class="btn-primary">Proceed to Payment</button>
+      </form>
+
+      <p class="login-link">
+        Already have an account? <a href="/account/login">Sign in</a>
       </p>
     </div>
-    <div class="form-group">
-      <label for="confirmPassword">Confirm Password:</label>
-      <input type="password" name="confirmPassword" id="confirmPassword" placeholder="Re-enter your password" required
-        value="<%= formData?.confirmPassword || '' %>">
-    </div>
-    <div>
-      <input type="checkbox" id="show-password"> Show Password
-    </div>
+  </div>
 
-    <div class="form-group terms">
-  <input type="checkbox" id="termsCheckbox" name="termsCheckbox" required>
-  <label for="termsCheckbox">
-    I agree to the <a href="/legal/terms-of-service" target="_blank">Terms of Service</a>
-  </label>
-</div>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const formEl = document.querySelector("form");
+      const passwordInput = document.getElementById("password");
+      const confirmPasswordInput = document.getElementById("confirmPassword");
+      const emailInput = document.getElementById("email");
+      const confirmEmailInput = document.getElementById("confirmEmail");
+      const strengthText = document.getElementById("password-strength");
+      const showPwToggle = document.getElementById("show-password");
 
-
-
-
-
-
-
-    <button type="submit" class="btn-primary">Proceed to Payment</button>
-  </form>
-</div>
-<script>
-  document.addEventListener("DOMContentLoaded", function () {
-    const formEl = document.querySelector("form");
-    const passwordInput = document.getElementById("password");
-    const confirmPasswordInput = document.getElementById("confirmPassword");
-    const emailInput = document.getElementById("email");
-    const confirmEmailInput = document.getElementById("confirmEmail");
-    const strengthText = document.getElementById("password-strength");
-    const showPwToggle = document.getElementById("show-password");
-
-    function checkPasswordStrength(password) {
-      const weak = /.{6,}/;
-      const medium = /^(?=.*[A-Za-z])(?=.*\d).{6,}$/;
-      const strong = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{6,}$/;
-      if (!strengthText) return;
-      if (strong.test(password)) {
-        strengthText.textContent = 'Strong Password 💪';
-        strengthText.className = 'password-strength strong';
-      } else if (medium.test(password)) {
-        strengthText.textContent = 'Medium Strength Password ⚠️';
-        strengthText.className = 'password-strength medium';
-      } else if (weak.test(password)) {
-        strengthText.textContent = 'Weak Password ❌';
-        strengthText.className = 'password-strength weak';
-      } else {
-        strengthText.textContent = '';
-        strengthText.className = 'password-strength';
+      function checkPasswordStrength(password) {
+        const weak = /.{6,}/;
+        const medium = /^(?=.*[A-Za-z])(?=.*\d).{6,}$/;
+        const strong = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{6,}$/;
+        if (!strengthText) return;
+        if (strong.test(password)) {
+          strengthText.textContent = 'Strong Password 💪';
+          strengthText.className = 'password-strength strong';
+        } else if (medium.test(password)) {
+          strengthText.textContent = 'Medium Strength ⚠️';
+          strengthText.className = 'password-strength medium';
+        } else if (weak.test(password)) {
+          strengthText.textContent = 'Weak Password ❌';
+          strengthText.className = 'password-strength weak';
+        } else {
+          strengthText.textContent = '';
+          strengthText.className = 'password-strength';
+        }
       }
-    }
 
-    if (passwordInput) {
-      passwordInput.addEventListener("input", function () {
-        checkPasswordStrength(this.value);
-      });
-    }
+      if (passwordInput) {
+        passwordInput.addEventListener("input", function () {
+          checkPasswordStrength(this.value);
+        });
+      }
 
-    if (formEl) {
-      formEl.addEventListener("submit", function (event) {
-        if (passwordInput && confirmPasswordInput) {
-          if (passwordInput.value.length < 6) {
-            alert('⚠️ Password must be at least 6 characters long.');
-            event.preventDefault();
-          } else if (passwordInput.value !== confirmPasswordInput.value) {
-            alert('⚠️ Passwords do not match. Please try again.');
+      if (formEl) {
+        formEl.addEventListener("submit", function (event) {
+          if (passwordInput && confirmPasswordInput) {
+            if (passwordInput.value.length < 6) {
+              alert('⚠️ Password must be at least 6 characters long.');
+              event.preventDefault();
+            } else if (passwordInput.value !== confirmPasswordInput.value) {
+              alert('⚠️ Passwords do not match.');
+              event.preventDefault();
+            }
+          }
+          if (emailInput && confirmEmailInput && emailInput.value.trim() !== confirmEmailInput.value.trim()) {
+            alert('⚠️ Email addresses do not match.');
             event.preventDefault();
           }
-        }
-        if (emailInput && confirmEmailInput && emailInput.value.trim() !== confirmEmailInput.value.trim()) {
-          alert('⚠️ Email addresses do not match. Please try again.');
-          event.preventDefault();
-        }
-      });
-    }
+        });
+      }
 
-    if (showPwToggle && passwordInput && confirmPasswordInput) {
-      showPwToggle.addEventListener("change", function () {
-        const type = this.checked ? "text" : "password";
-        passwordInput.type = type;
-        confirmPasswordInput.type = type;
-      });
-    }
-  });
-</script>
+      if (showPwToggle && passwordInput && confirmPasswordInput) {
+        showPwToggle.addEventListener("change", function () {
+          const type = this.checked ? "text" : "password";
+          passwordInput.type = type;
+          confirmPasswordInput.type = type;
+        });
+      }
+    });
+  </script>
 </body>
 </html>

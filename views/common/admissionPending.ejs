@@ -1,175 +1,423 @@
 <style>
-    table {
-      width: 100%;
-      max-width: 1200px;
-      margin: 0 auto 40px;
-      border-collapse: collapse;
-      border: 1px solid #ddd;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-      background-color: #fff;
+  :root {
+    --font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --primary: var(--org-primary-color, #01535b);
+    --primary-hover: var(--org-primary-hover, #014a51);
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --border: #e2e8f0;
+    --bg-page: #f8fafc;
+    --bg-card: #ffffff;
+    --success: #059669;
+    --error: #dc2626;
+    --info: #3b82f6;
+  }
 
+  body {
+    font-family: var(--font-family);
+    background: var(--bg-page);
+  }
+
+  .pending-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 16px 60px;
+  }
+
+  .page-header {
+    background: linear-gradient(135deg, var(--primary, #01535b) 0%, #0a7a86 100%);
+    border-radius: 16px;
+    padding: 28px 32px;
+    color: white;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 20px rgba(1, 83, 91, 0.2);
+  }
+
+  .page-header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0 0 6px 0;
+  }
+
+  .page-header p {
+    opacity: 0.9;
+    font-size: 0.9rem;
+    margin: 0;
+  }
+
+  .pending-table-card {
+    background: var(--bg-card);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  }
+
+  .pending-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .pending-table th,
+  .pending-table td {
+    padding: 16px 20px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .pending-table th {
+    background: #f8fafc;
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+  }
+
+  .pending-table td {
+    font-size: 0.95rem;
+    color: var(--text-primary);
+  }
+
+  .pending-table tr:hover td {
+    background: #f8fafc;
+  }
+
+  .pending-table tr:last-child td {
+    border-bottom: none;
+  }
+
+  .view-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 18px;
+    background: var(--info);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .view-btn:hover {
+    background: #2563eb;
+    transform: translateY(-1px);
+  }
+
+  /* Student Details Modal */
+  #studentDetailsContainer {
+    max-width: 700px;
+    margin: 0 auto 40px;
+    background: var(--bg-card);
+    padding: 0;
+    border-radius: 16px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  #studentDetailsContainer main {
+    position: relative;
+  }
+
+  #studentDetailsContainer h1 {
+    background: linear-gradient(135deg, var(--primary, #01535b) 0%, #0a7a86 100%);
+    color: white;
+    margin: 0;
+    padding: 24px 28px;
+    font-size: 1.25rem;
+  }
+
+  #studentDetailsContainer form {
+    padding: 28px;
+  }
+
+  #studentDetailsContainer .form-group {
+    margin-bottom: 20px;
+  }
+
+  #studentDetailsContainer label {
+    display: block;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+  }
+
+  #studentDetailsContainer input[type="text"],
+  #studentDetailsContainer input[type="date"],
+  #studentDetailsContainer input[type="file"],
+  #studentDetailsContainer select {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    transition: border-color 0.2s;
+  }
+
+  #studentDetailsContainer input:focus,
+  #studentDetailsContainer select:focus {
+    outline: none;
+    border-color: var(--primary, #01535b);
+  }
+
+  #studentDetailsContainer .checkbox-group {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+    padding: 12px;
+    background: #f8fafc;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+
+  #studentDetailsContainer .checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+    font-size: 0.9rem;
+    margin: 0;
+  }
+
+  #studentDetailsContainer .guardian-section {
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 24px 0;
+  }
+
+  #studentDetailsContainer .guardian-section legend {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--text-primary);
+    padding: 0 8px;
+  }
+
+  #studentDetailsContainer .guardian {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+
+  #studentDetailsContainer .form-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+  }
+
+  #studentDetailsContainer .form-actions button {
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+  }
+
+  #studentDetailsContainer button[onclick*="saveChanges"] {
+    background: var(--info);
+    color: white;
+  }
+
+  #studentDetailsContainer button[type="submit"] {
+    background: var(--success);
+    color: white;
+  }
+
+  #studentDetailsContainer .delete-button {
+    background: var(--error);
+    color: white;
+  }
+
+  #studentDetailsContainer .form-actions button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+
+  .close-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    color: white;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .close-btn:hover {
+    background: rgba(255,255,255,0.3);
+  }
+
+  @media (max-width: 768px) {
+    .pending-table, .pending-table thead, .pending-table tbody,
+    .pending-table th, .pending-table td, .pending-table tr {
+      display: block;
     }
-  
-    th, td {
-      padding: 12px 18px;
-      text-align: left;
-      border-bottom: 1px solid #eee;
+
+    .pending-table thead {
+      display: none;
     }
-  
-    th { 
-      background-color: #f9f9f9;
-      font-weight: 600;
+
+    .pending-table tr {
+      margin-bottom: 16px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      background: white;
     }
-  
-    tr:hover {
-      background-color: #f5f5f5;
-    }
-  
-    button {
-      padding: 6px 14px;
-      background: #2563eb;
-      color: #fff;
+
+    .pending-table td {
+      padding: 8px 0;
       border: none;
-      border-radius: 4px;
-      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
-  
-    button:hover {
-      opacity: 0.9;
+
+    .pending-table td::before {
+      content: attr(data-label);
+      font-weight: 600;
+      color: var(--text-secondary);
+      font-size: 0.8rem;
     }
-  
-    h1 {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-  
-    #studentDetailsContainer {
-      max-width: 600px;
-      margin: 0 auto 40px;
-      background: #fff;
-      padding: 30px;
-      border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }
-    /* Responsive tweaks */
-@media (max-width: 768px) {
-  th, td {
-    font-size: 13px;
-    padding: 8px 10px;
   }
+</style>
 
-  button {
-    padding: 5px 10px;
-    font-size: 13px;
-  }
+<%- include('../partials/flash') %>
 
-  h1 {
-    font-size: 1.3rem;
-  }
-}
-  </style>
-  
+<div class="pending-page">
+  <div class="page-header">
+    <h1>📋 Pending Admissions</h1>
+    <p>Review and approve student applications</p>
+  </div>
 
-  <%- include('../partials/flash') %>
+  <div id="studentDetailsContainer" style="display: none;"></div>
 
-  <!-- AJAX Student Detail Display -->
-  <div id="studentDetailsContainer" style="margin-top: 30px; display: none;"></div>
-  <h1>Pending Student Admissions</h1>
-  
-  <table>
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>DOB</th>
-        <th>Gender</th>
-        <th>Class</th>
-        <th>Year Group</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody>
-      <% pendingStudents.forEach(student => { %>
+  <div class="pending-table-card">
+    <table class="pending-table">
+      <thead>
         <tr>
-          <td><%= student.first_name %> <%= student.last_name %></td>
-          <td><%= student.date_of_birth.toISOString().split('T')[0] %></td>
-          <td><%= student.gender %></td>
-          <td><%= student.class_name %></td>
-          <td><%= student.graduation_group || "N/A" %></td>
-          <td>
-            <button onclick="loadStudentDetails(<%= student.pending_id %>)">View</button>
+          <th>Student Name</th>
+          <th>Date of Birth</th>
+          <th>Gender</th>
+          <th>Class</th>
+          <th>Year Group</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% pendingStudents.forEach(student => { %>
+        <tr>
+          <td data-label="Name"><strong><%= student.first_name %> <%= student.last_name %></strong></td>
+          <td data-label="DOB"><%= student.date_of_birth.toISOString().split('T')[0] %></td>
+          <td data-label="Gender"><%= student.gender %></td>
+          <td data-label="Class"><%= student.class_name %></td>
+          <td data-label="Year Group"><%= student.graduation_group || "N/A" %></td>
+          <td data-label="Action">
+            <button class="view-btn" onclick="loadStudentDetails(<%= student.pending_id %>)">👁️ Review</button>
           </td>
         </tr>
-      <% }) %>
-    </tbody>
-  </table>
-  
-  <script>
-  let hasChanges = false;
-  
-  async function loadStudentDetails(id) {
-    const container = document.getElementById('studentDetailsContainer');
-    container.innerHTML = 'Loading...';
-    container.style.display = 'block';
-  
-    try {
-      const res = await fetch(`/common/getPendingStudentDetails/${id}`);
-      const data = await res.json();
-      const student = data.student;
-      const guardians = data.guardians;
-      const subjects = data.subjects;
-      const allSubjects = data.allSubjects;
-      const classes = data.classes;
-      const gradGroups = data.graduationYearGroups;
-      const schoolYears = data.schoolYears;
-      const studentSubjects = subjects.map(s => s.subject_id);
-      const imageUrl = student.image_url && student.image_url !== 'profilePlaceholder.png'
-        ? student.image_url
-        : '/images/profilePlaceholder.png';
-  
-      container.innerHTML = `
-        <main style="position: relative;">
-          <button type="button" onclick="closeStudentForm()" style="position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border: none; border-radius: 50%; background-color: #e11d48; color: white; font-size: 18px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">×</button>
-          <h1>Edit Pending Student</h1>
-          <form id="pendingReviewForm" method="POST" enctype="multipart/form-data">
-            <div class="form-group">
-              <label>Enrollment Type:</label><br>
-              <label><input type="radio" name="enrollmentType" value="current" ${student.enrollment_type === 'current' ? 'checked' : ''}> Current Term</label>
-              <label><input type="radio" name="enrollmentType" value="future" ${student.enrollment_type === 'future' ? 'checked' : ''}> Future Term</label>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+let hasChanges = false;
+
+async function loadStudentDetails(id) {
+  const container = document.getElementById('studentDetailsContainer');
+  container.innerHTML = '<div style="padding: 40px; text-align: center; color: #64748b;">Loading...</div>';
+  container.style.display = 'block';
+  container.scrollIntoView({ behavior: 'smooth' });
+
+  try {
+    const res = await fetch(`/common/getPendingStudentDetails/${id}`);
+    const data = await res.json();
+    const student = data.student;
+    const guardians = data.guardians;
+    const subjects = data.subjects;
+    const allSubjects = data.allSubjects;
+    const classes = data.classes;
+    const gradGroups = data.graduationYearGroups;
+    const schoolYears = data.schoolYears;
+    const studentSubjects = subjects.map(s => s.subject_id);
+    const imageUrl = student.image_url && student.image_url !== 'profilePlaceholder.png'
+      ? student.image_url : '/images/profilePlaceholder.png';
+
+    container.innerHTML = `
+      <main>
+        <button type="button" class="close-btn" onclick="closeStudentForm()">×</button>
+        <h1>📝 Review Student Application</h1>
+        <form id="pendingReviewForm" method="POST" enctype="multipart/form-data">
+          <div class="form-group">
+            <label>Enrollment Type:</label>
+            <div style="display: flex; gap: 20px; margin-top: 8px;">
+              <label style="display: flex; align-items: center; gap: 6px; font-weight: 500;">
+                <input type="radio" name="enrollmentType" value="current" ${student.enrollment_type === 'current' ? 'checked' : ''}> Current Term
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-weight: 500;">
+                <input type="radio" name="enrollmentType" value="future" ${student.enrollment_type === 'future' ? 'checked' : ''}> Future Term
+              </label>
             </div>
-  
-            <div class="form-group future-enrollment-section">
-              <label>School Year:</label>
-              <select name="schoolYearId" id="schoolYearSelect" onchange="updateTermOptions(this)">
-                <option value="">Select School Year</option>
-                ${schoolYears.map(year => `
-                  <option value="${year.school_year_id}" data-terms='${JSON.stringify(year.terms)}' ${year.school_year_id === student.school_year_id ? 'selected' : ''}>${year.year_label}</option>
-                `).join('')}
-              </select>
-  
-              <label>Term:</label>
-              <select name="termId" id="termSelect">
-                <option value="">Select Term</option>
-                ${(schoolYears.find(y => y.school_year_id === student.school_year_id)?.terms || []).map(term => `
-                  <option value="${term.term_id}" ${term.term_id === student.term_id ? 'selected' : ''}>${term.term_name}</option>
-                `).join('')}
-              </select>
-            </div>
-  
+          </div>
+
+          <div class="form-group future-enrollment-section">
+            <label>School Year:</label>
+            <select name="schoolYearId" id="schoolYearSelect" onchange="updateTermOptions(this)">
+              <option value="">Select School Year</option>
+              ${schoolYears.map(year => `
+                <option value="${year.school_year_id}" data-terms='${JSON.stringify(year.terms)}' ${year.school_year_id === student.school_year_id ? 'selected' : ''}>${year.year_label}</option>
+              `).join('')}
+            </select>
+          </div>
+
+          <div class="form-group future-enrollment-section">
+            <label>Term:</label>
+            <select name="termId" id="termSelect">
+              <option value="">Select Term</option>
+              ${(schoolYears.find(y => y.school_year_id === student.school_year_id)?.terms || []).map(term => `
+                <option value="${term.term_id}" ${term.term_id === student.term_id ? 'selected' : ''}>${term.term_name}</option>
+              `).join('')}
+            </select>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
             <div class="form-group">
               <label>First Name:</label>
               <input type="text" name="first_name" value="${student.first_name}" onchange="hasChanges=true">
             </div>
-  
             <div class="form-group">
               <label>Last Name:</label>
               <input type="text" name="last_name" value="${student.last_name}" onchange="hasChanges=true">
             </div>
-  
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
             <div class="form-group">
               <label>Date of Birth:</label>
               <input type="date" name="date_of_birth" value="${new Date(student.date_of_birth).toISOString().split('T')[0]}" onchange="hasChanges=true">
             </div>
-  
             <div class="form-group">
               <label>Gender:</label>
               <select name="gender" onchange="hasChanges=true">
@@ -177,243 +425,166 @@
                 <option value="Female" ${student.gender === 'Female' ? 'selected' : ''}>Female</option>
               </select>
             </div>
-  
-            <div class="form-group">
-              <label>Hometown:</label>
-              <input type="text" name="hometown" value="${student.hometown || ''}" onchange="hasChanges=true">
-            </div>
-  
+          </div>
+
+          <div class="form-group">
+            <label>Hometown:</label>
+            <input type="text" name="hometown" value="${student.hometown || ''}" onchange="hasChanges=true">
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
             <div class="form-group">
               <label>Class:</label>
               <select name="class_id" onchange="hasChanges=true">
                 ${classes.map(c => `<option value="${c.class_id}" ${c.class_id === student.class_id ? 'selected' : ''}>${c.class_name}</option>`).join('')}
               </select>
             </div>
-  
             <div class="form-group">
               <label>Graduation Year Group:</label>
               <select name="graduation_year_group_id" onchange="hasChanges=true">
                 ${gradGroups.map(g => `<option value="${g.id}" ${g.id === student.graduation_year_group_id ? 'selected' : ''}>${g.name}</option>`).join('')}
               </select>
             </div>
-  
-        <div class="form-group">
-  <label>Student Image:</label><br>
-  ${student.image_url && student.image_url !== 'profilePlaceholder.png'
-    ? `
-      <img src="${imageUrl}" width="100" style="border: 1px solid #ccc; border-radius: 6px; margin-bottom: 10px;">
-      <br>
-      <a href="#" onclick="deleteStudentImage(${student.pending_id}); return false;" class="delete-button">Delete Image</a>
-    `
-    : `
-      <input type="file" name="studentImage" />
-    `}
-</div>
+          </div>
 
-  
-            <div class="form-group">
-              <label>Subjects:</label>
-              <div class="checkbox-group">
-                ${allSubjects.map(s => `
-                  <label><input type="checkbox" name="subjects" value="${s.subject_id}" ${studentSubjects.includes(s.subject_id) ? 'checked' : ''}> ${s.subject_name}</label>
-                `).join('')}
-              </div>
+          <div class="form-group">
+            <label>Student Image:</label>
+            ${student.image_url && student.image_url !== 'profilePlaceholder.png'
+              ? `<div style="display: flex; align-items: center; gap: 16px;">
+                  <img src="${imageUrl}" width="80" style="border-radius: 10px; border: 1px solid #e2e8f0;">
+                  <a href="#" onclick="deleteStudentImage(${student.pending_id}); return false;" style="color: #dc2626; font-weight: 600;">Delete Image</a>
+                </div>`
+              : `<input type="file" name="studentImage" />`}
+          </div>
+
+          <div class="form-group">
+            <label>Subjects:</label>
+            <div class="checkbox-group">
+              ${allSubjects.map(s => `
+                <label><input type="checkbox" name="subjects" value="${s.subject_id}" ${studentSubjects.includes(s.subject_id) ? 'checked' : ''}> ${s.subject_name}</label>
+              `).join('')}
             </div>
-  
-            <fieldset class="guardian-section">
-              <legend>Guardians</legend>
-              <div id="guardiansContainer">
-                ${guardians.map((g, i) => `
-                  <div class="guardian">
-                    <label>Guardian ${i + 1} First Name:</label>
-                    <input type="text" name="guardianFirstName${i}" value="${g.first_name || ''}" onchange="hasChanges=true">
-                    <label>Last Name:</label>
-                    <input type="text" name="guardianLastName${i}" value="${g.last_name || ''}" onchange="hasChanges=true">
-                    <label>Phone:</label>
-                    <input type="text" name="guardianPhone${i}" value="${g.phone || ''}" onchange="hasChanges=true">
-                    <label>Email:</label>
-                    <input type="text" name="guardianEmail${i}" value="${g.email || ''}" onchange="hasChanges=true">
-                    <label>Hometown:</label>
-                    <input type="text" name="guardianHometown${i}" value="${g.hometown || ''}" onchange="hasChanges=true">
-                    <button type="button" onclick="this.parentElement.remove()">Remove Guardian</button>
+          </div>
+
+          <fieldset class="guardian-section">
+            <legend>👨‍👩‍👧 Guardians</legend>
+            <div id="guardiansContainer">
+              ${guardians.map((g, i) => `
+                <div class="guardian">
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div><label>First Name:</label><input type="text" name="guardianFirstName${i}" value="${g.first_name || ''}" onchange="hasChanges=true"></div>
+                    <div><label>Last Name:</label><input type="text" name="guardianLastName${i}" value="${g.last_name || ''}" onchange="hasChanges=true"></div>
+                    <div><label>Phone:</label><input type="text" name="guardianPhone${i}" value="${g.phone || ''}" onchange="hasChanges=true"></div>
+                    <div><label>Email:</label><input type="text" name="guardianEmail${i}" value="${g.email || ''}" onchange="hasChanges=true"></div>
                   </div>
-                `).join('')}
-              </div>
-              <button type="button" onclick="addGuardian()">+ Add Guardian</button>
-            </fieldset>
-  
-            <div class="form-actions">
-              <button type="button" onclick="saveChanges(${student.pending_id})">Save Changes</button>
-              <button type="submit" onclick="return confirmApprove(event, ${student.pending_id})">Approve</button>
-              <button type="button" onclick="rejectStudent(${student.pending_id})" class="delete-button">Reject</button>
+                  <div style="margin-top: 12px;"><label>Hometown:</label><input type="text" name="guardianHometown${i}" value="${g.hometown || ''}" onchange="hasChanges=true"></div>
+                  <button type="button" onclick="this.closest('.guardian').remove()" style="margin-top: 12px; background: #fee2e2; color: #dc2626; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer;">Remove</button>
+                </div>
+              `).join('')}
             </div>
-          </form>
-        </main>
-      `;
-  
-      toggleEnrollmentFields();
-      document.querySelectorAll('input[name="enrollmentType"]').forEach(el => {
-        el.addEventListener("change", toggleEnrollmentFields);
-      });
-    } catch (err) {
-      console.error(err);
-      container.innerHTML = '<p>Error loading student details.</p>';
-    }
-  }
-  
-  function toggleEnrollmentFields() {
-    const selected = document.querySelector('input[name="enrollmentType"]:checked');
-    const section = document.querySelector('.future-enrollment-section');
-    if (!selected || selected.value === "current") {
-      section.style.display = "none";
-    } else {
-      section.style.display = "block";
-    }
-  }
-  
-  function updateTermOptions(selectEl) {
-    const terms = JSON.parse(selectEl.options[selectEl.selectedIndex].getAttribute("data-terms") || "[]");
-    const termSelect = document.getElementById("termSelect");
-    termSelect.innerHTML = '<option value="">Select Term</option>';
-    terms.forEach(term => {
-      const opt = document.createElement("option");
-      opt.value = term.term_id;
-      opt.textContent = term.term_name;
-      termSelect.appendChild(opt);
-    });
-  }
-  
-  function confirmApprove(e, id) {
-    if (hasChanges) {
-      e.preventDefault();
-      alert("⚠️ Please save your changes first before approving.");
-      return false;
-    }
-  
-    // Validate required fields
-    const schoolYearSelect = document.getElementById("schoolYearSelect");
-    const termSelect = document.getElementById("termSelect");
-    const graduationYearGroup = document.querySelector('select[name="graduation_year_group_id"]');
-  
-    const enrollmentType = document.querySelector('input[name="enrollmentType"]:checked')?.value;
-  
-    if (enrollmentType === "future") {
-      if (!schoolYearSelect.value) {
-        e.preventDefault();
-        alert("⚠️ Please select a School Year for future enrollment.");
-        return false;
-      }
-      if (!termSelect.value) {
-        e.preventDefault();
-        alert("⚠️ Please select a Term for future enrollment.");
-        return false;
-      }
-    }
-  
-    if (!graduationYearGroup.value) {
-      e.preventDefault();
-      alert("⚠️ Please select a Graduation Year Group before approving.");
-      return false;
-    }
-  
-    const confirmed = confirm("✅ Are you sure you want to approve this student's admission?\n\nThis will finalize the admission and notify the guardians.");
-    if (confirmed) {
-      document.getElementById('pendingReviewForm').action = `/common/admissionPending/approve/${id}`;
-      return true;
-    } else {
-      e.preventDefault();
-      return false;
-    }
-  }
-  
-  
-  function rejectStudent(id) {
-    if (confirm("⚠️ Are you sure you want to reject this application?\n\nThis will delete all related information and notify the guardians.")) {
-      fetch(`/common/admissionPending/reject/${id}`, { method: 'POST' })
-        .then(() => location.reload())
-        .catch(err => alert("❌ Failed to reject student."));
-    }
-  }
-  
-  function deleteStudentImage(pendingId) {
-    if (!confirm("🗑️ Are you sure you want to delete this student’s profile image?\n\nYou can upload a new one after this.")) return;
-  
-    fetch(`/common/deletePendingStudentImage/${pendingId}`, { method: 'POST' })
-    .then(res => {
-        if (res.ok) {
-          alert("✅ Image deleted successfully.");
-          loadStudentDetails(pendingId); // reload details to show upload field
-        } else {
-          alert("❌ Failed to delete image.");
-        }
-      })
-      .catch(err => {
-        console.error("Error deleting image:", err);
-        alert("❌ Error deleting image.");
-      });
-  }
-  
-  function saveChanges(id) {
-    if (!confirm("💾 Do you want to save the changes made to this student's details?\n\nPlease confirm all fields are correct.")) return;
-  
-    const form = document.getElementById("pendingReviewForm");
-    const formData = new FormData(form);
-  
-    fetch(`/common/savePendingStudentChanges/${id}`, {
-      method: "POST",
-      body: formData
-    })
-      .then(async res => {
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(`Server error: ${res.status} - ${text}`);
-        }
-        return res.json();
-      })
-      .then(data => {
-        if (data.success) {
-          alert("✅ Changes saved successfully.");
-          hasChanges = false;
-        } else {
-          alert("❌ Failed to save changes.");
-        }
-      })
-      .catch(err => {
-        console.error("Error saving changes:", err);
-        alert("❌ Failed to save changes.");
-      });
-  }
-    
-  function closeStudentForm() {
-    const container = document.getElementById("studentDetailsContainer");
-    container.innerHTML = '';
-    container.style.display = 'none';
-    hasChanges = false;
-  }
-  
-  function addGuardian() {
-    const container = document.getElementById("guardiansContainer");
-    const index = container.querySelectorAll(".guardian").length;
-  
-    const html = `
-      <div class="guardian">
-        <label>Guardian ${index + 1} First Name:</label>
-        <input type="text" name="guardianFirstName${index}" onchange="hasChanges=true">
-        <label>Last Name:</label>
-        <input type="text" name="guardianLastName${index}" onchange="hasChanges=true">
-        <label>Phone:</label>
-        <input type="text" name="guardianPhone${index}" onchange="hasChanges=true">
-        <label>Email:</label>
-        <input type="text" name="guardianEmail${index}" onchange="hasChanges=true">
-        <label>Hometown:</label>
-        <input type="text" name="guardianHometown${index}" onchange="hasChanges=true">
-        <button type="button" onclick="this.parentElement.remove()">Remove Guardian</button>
-      </div>
+            <button type="button" onclick="addGuardian()" style="margin-top: 12px; background: #01535b; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer;">+ Add Guardian</button>
+          </fieldset>
+
+          <div class="form-actions">
+            <button type="button" onclick="saveChanges(${student.pending_id})">💾 Save Changes</button>
+            <button type="submit" onclick="return confirmApprove(event, ${student.pending_id})">✅ Approve</button>
+            <button type="button" onclick="rejectStudent(${student.pending_id})" class="delete-button">❌ Reject</button>
+          </div>
+        </form>
+      </main>
     `;
-    const g = document.createElement("div");
-    g.innerHTML = html;
-    container.appendChild(g);
+
+    toggleEnrollmentFields();
+    document.querySelectorAll('input[name="enrollmentType"]').forEach(el => {
+      el.addEventListener("change", toggleEnrollmentFields);
+    });
+  } catch (err) {
+    console.error(err);
+    container.innerHTML = '<div style="padding: 40px; text-align: center; color: #dc2626;">Error loading student details.</div>';
   }
+}
 
+function toggleEnrollmentFields() {
+  const selected = document.querySelector('input[name="enrollmentType"]:checked');
+  document.querySelectorAll('.future-enrollment-section').forEach(section => {
+    section.style.display = (!selected || selected.value === "current") ? "none" : "block";
+  });
+}
 
-  </script>
+function updateTermOptions(selectEl) {
+  const terms = JSON.parse(selectEl.options[selectEl.selectedIndex].getAttribute("data-terms") || "[]");
+  const termSelect = document.getElementById("termSelect");
+  termSelect.innerHTML = '<option value="">Select Term</option>';
+  terms.forEach(term => {
+    const opt = document.createElement("option");
+    opt.value = term.term_id;
+    opt.textContent = term.term_name;
+    termSelect.appendChild(opt);
+  });
+}
+
+function confirmApprove(e, id) {
+  if (hasChanges) {
+    e.preventDefault();
+    alert("⚠️ Please save your changes first before approving.");
+    return false;
+  }
+  const confirmed = confirm("✅ Are you sure you want to approve this admission?");
+  if (confirmed) {
+    document.getElementById('pendingReviewForm').action = `/common/admissionPending/approve/${id}`;
+    return true;
+  }
+  e.preventDefault();
+  return false;
+}
+
+function rejectStudent(id) {
+  if (confirm("⚠️ Are you sure you want to reject this application?")) {
+    fetch(`/common/admissionPending/reject/${id}`, { method: 'POST' })
+      .then(() => location.reload())
+      .catch(() => alert("❌ Failed to reject student."));
+  }
+}
+
+function deleteStudentImage(pendingId) {
+  if (!confirm("🗑️ Delete this student's profile image?")) return;
+  fetch(`/common/deletePendingStudentImage/${pendingId}`, { method: 'POST' })
+    .then(res => { if (res.ok) loadStudentDetails(pendingId); else alert("❌ Failed to delete image."); })
+    .catch(() => alert("❌ Error deleting image."));
+}
+
+function saveChanges(id) {
+  if (!confirm("💾 Save changes?")) return;
+  const form = document.getElementById("pendingReviewForm");
+  const formData = new FormData(form);
+  fetch(`/common/savePendingStudentChanges/${id}`, { method: "POST", body: formData })
+    .then(res => res.json())
+    .then(data => { if (data.success) { alert("✅ Saved!"); hasChanges = false; } else alert("❌ Failed to save."); })
+    .catch(() => alert("❌ Failed to save."));
+}
+
+function closeStudentForm() {
+  const container = document.getElementById("studentDetailsContainer");
+  container.innerHTML = '';
+  container.style.display = 'none';
+  hasChanges = false;
+}
+
+function addGuardian() {
+  const container = document.getElementById("guardiansContainer");
+  const index = container.querySelectorAll(".guardian").length;
+  const div = document.createElement("div");
+  div.className = "guardian";
+  div.innerHTML = `
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+      <div><label>First Name:</label><input type="text" name="guardianFirstName${index}" onchange="hasChanges=true"></div>
+      <div><label>Last Name:</label><input type="text" name="guardianLastName${index}" onchange="hasChanges=true"></div>
+      <div><label>Phone:</label><input type="text" name="guardianPhone${index}" onchange="hasChanges=true"></div>
+      <div><label>Email:</label><input type="text" name="guardianEmail${index}" onchange="hasChanges=true"></div>
+    </div>
+    <div style="margin-top: 12px;"><label>Hometown:</label><input type="text" name="guardianHometown${index}" onchange="hasChanges=true"></div>
+    <button type="button" onclick="this.closest('.guardian').remove()" style="margin-top: 12px; background: #fee2e2; color: #dc2626; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer;">Remove</button>
+  `;
+  container.appendChild(div);
+}
+</script>

@@ -1,69 +1,314 @@
-<h1>Login</h1>
-<%- include('../partials/flash') %>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Managira</title>
+  <style>
+    :root {
+      --font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --primary: #01535b;
+      --primary-hover: #014a51;
+      --primary-light: rgba(1, 83, 91, 0.08);
+      --text-primary: #1e293b;
+      --text-secondary: #64748b;
+      --border: #e2e8f0;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --error: #dc2626;
+      --success: #059669;
+    }
 
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-<form id="loginForm" action="/account/login" method="post">
-  <div class="form-group">
-    <label for="email">Email:</label>
-    <input type="email" id="email" name="email" placeholder="Email" required />
-  </div>
-  <div class="form-group">
-    <label for="password">Password:</label>
-    <input type="password" id="password" name="password" required />
-    <div><input type="checkbox" id="show-password" /> Show Password</div>
-  </div>
-  <button type="submit" class="btn btn-primary btn-block">Login</button>
-  <p>Don't have an account? <a href="/account/service-plan?new=1">Register Now</a></p>
-  <p><a href="/account/forget-password">Forget Password?</a></p>
-  <br>
-    <div style="font-weight: 700; color: #0f2d32; margin-bottom: 6px;">Parents / Guardians Login</div>
-  <div style="margin-top: 10px;">
-    <a href="/account/guardian-login" style="display:inline-block; padding: 10px 14px; border-radius: 10px; background: linear-gradient(135deg, #0f5a66 0%, #6fd3c4 100%); color: #fff; text-decoration: none; font-weight: 600; font-size: 14px;">Login as Parent</a>
-  </div>
-</form>
-<style>
-  #loginForm {
-    width: 400px;
-    margin: 0 auto;
-    padding: 20px;
-    box-shadow: 0 2px 5px rgba(128, 19, 19, 0.1);
-    border-radius: 10px;
-  }
-
-  #loginForm a {
-    text-decoration: none;
-    color: rgb(54, 104, 86);
-    transition: color 0.3s ease, text-decoration 0.2s ease;
-
-  }
-
-  #loginForm a:hover {
-    text-decoration: underline;
-    color: rgb(26, 237, 194);
-  }
-
-  @media (max-width: 480px) {
-    form {
-      width: 95%;
+    body {
+      font-family: var(--font-family);
+      background: var(--bg-page);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
       padding: 20px;
     }
 
-    h1 {
-      font-size: 1.8rem;
+    .login-container {
+      width: 100%;
+      max-width: 420px;
     }
 
-    .form-group input {
+    .login-card {
+      background: var(--bg-card);
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+      padding: 40px 32px;
+      border: 1px solid var(--border);
+    }
+
+    .login-header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .login-header h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .login-header p {
+      color: var(--text-secondary);
       font-size: 0.95rem;
-      padding: 8px;
     }
 
-    button {
-      font-size: 1rem;
-      padding: 10px;
+    .form-group {
+      margin-bottom: 20px;
     }
 
-    p {
+    .form-label {
+      display: block;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 8px;
       font-size: 0.9rem;
     }
-  }
-</style>
+
+    .form-input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      font-size: 1rem;
+      font-family: inherit;
+      transition: all 0.2s ease;
+      background: var(--bg-card);
+      color: var(--text-primary);
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-light);
+    }
+
+    .form-input::placeholder {
+      color: var(--text-secondary);
+      opacity: 0.7;
+    }
+
+    .password-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+
+    .password-toggle input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      accent-color: var(--primary);
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 14px 24px;
+      background: linear-gradient(135deg, var(--primary) 0%, #0a6d77 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(1, 83, 91, 0.25);
+      margin-top: 8px;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(1, 83, 91, 0.35);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .login-links {
+      text-align: center;
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    .login-links p {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .login-links a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+      transition: color 0.2s ease;
+    }
+
+    .login-links a:hover {
+      color: var(--primary-hover);
+      text-decoration: underline;
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      margin: 24px 0;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .divider span {
+      padding: 0 16px;
+    }
+
+    .guardian-login-section {
+      text-align: center;
+    }
+
+    .guardian-login-section p {
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+      font-size: 0.9rem;
+    }
+
+    .btn-guardian {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 24px;
+      background: linear-gradient(135deg, #0f5a66 0%, #6fd3c4 100%);
+      color: white;
+      text-decoration: none;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(15, 90, 102, 0.2);
+    }
+
+    .btn-guardian:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(15, 90, 102, 0.3);
+    }
+
+    @media (max-width: 480px) {
+      .login-card {
+        padding: 32px 24px;
+      }
+
+      .login-header h1 {
+        font-size: 1.5rem;
+      }
+
+      .form-input {
+        padding: 12px 14px;
+      }
+
+      .btn-primary {
+        padding: 12px 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-card">
+      <div class="login-header">
+        <h1>Welcome Back</h1>
+        <p>Sign in to your organization account</p>
+      </div>
+
+      <%- include('../partials/flash') %>
+
+      <form id="loginForm" action="/account/login" method="post">
+        <div class="form-group">
+          <label class="form-label" for="email">Email Address</label>
+          <input 
+            type="email" 
+            id="email" 
+            name="email" 
+            class="form-input" 
+            placeholder="you@example.com" 
+            required 
+            autocomplete="email"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">Password</label>
+          <input 
+            type="password" 
+            id="password" 
+            name="password" 
+            class="form-input" 
+            placeholder="Enter your password" 
+            required 
+            autocomplete="current-password"
+          />
+          <label class="password-toggle">
+            <input type="checkbox" id="show-password" />
+            Show password
+          </label>
+        </div>
+
+        <button type="submit" class="btn-primary">Sign In</button>
+      </form>
+
+      <div class="login-links">
+        <p>Don't have an account? <a href="/account/service-plan?new=1">Register Now</a></p>
+        <p><a href="/account/forget-password">Forgot Password?</a></p>
+      </div>
+
+      <div class="divider"><span>or</span></div>
+
+      <div class="guardian-login-section">
+        <p>Parents / Guardians</p>
+        <a href="/account/guardian-login" class="btn-guardian">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+          Login as Parent
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('show-password').addEventListener('change', function() {
+      const passwordInput = document.getElementById('password');
+      passwordInput.type = this.checked ? 'text' : 'password';
+    });
+  </script>
+</body>
+</html>

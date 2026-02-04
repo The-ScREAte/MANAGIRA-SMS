@@ -6,597 +6,832 @@
   <title><%= title %></title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-      :root {
-        --font-family: "Inter", sans-serif;
-      }
+    :root {
+      --font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --primary: #01535b;
+      --primary-light: rgba(1, 83, 91, 0.1);
+      --text-primary: #1e293b;
+      --text-secondary: #64748b;
+      --border: #e2e8f0;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --error: #ef4444;
+      --info: #3b82f6;
+    }
 
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
     body {
-        font-family: var(--font-family);
-      }
-      
-</style>
-  <style>
-    /* General Styling */
+      font-family: var(--font-family);
+      background: var(--bg-page);
+      color: var(--text-primary);
+      line-height: 1.5;
+    }
 
-    @tailwind base;
-    @tailwind components;
-    @tailwind utilities;
-    
-    @layer base {
-      /* ... keep existing code */
-    }
-    
-    @layer base {
-      * {
-        @apply border-border;
-      }
-    
-      body {
-        @apply bg-background text-foreground;
-      }
-    }
-    
-    /* Organization Stats Dashboard Styles */
-    .organization-stats-title {
-      font-size: 1.6rem;
-      font-weight: 600;
-      color: #2c3e50;
-      margin: 1.5rem 0;
-      padding: 0 1rem;
-      text-align: center;
-    }
-    
-    /* Stats boxes layout */
-    .stats-container {
-      display: flex;
-      justify-content: center;
-      flex-wrap: wrap;
-      gap: 15px;
-      margin: 1.25rem auto;
-      max-width: 1200px;
-      padding: 0 1rem;
-    }
-    
-    /* Individual stat box styling */
-    .stat-box {
-      background-color: white;
-      border-radius: 8px;
-      box-shadow: 0 3px 6px rgba(0, 0, 0, 0.08);
-      padding: 1rem 0.75rem;
-      flex: 1;
-      min-width: 130px;
-      max-width: 200px;
-      transition: all 0.2s ease;
-      border: 1px solid rgba(0, 0, 0, 0.05);
-    }
-    
-    .stat-box:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 5px 12px rgba(0, 0, 0, 0.1);
-    }
-    
-    .stat-box h2 {
-      font-size: 0.9rem;
-      color: #666;
-      margin: 0 0 0.5rem 0;
-      font-weight: 500;
-    }
-    
-    .stat-box p {
-      font-size: 1.5rem;
-      margin: 0;
-      color: #2c3e50;
-      font-weight: 600;
-    }
-    
-    /* Charts layout */
-    .side-by-side-charts {
-      display: flex;
-      justify-content: center;
-      flex-wrap: wrap;
-      gap: 20px;
-      margin: 1.5rem auto;
+    .stats-page {
       max-width: 1400px;
-      padding: 0 1rem;
+      margin: 0 auto;
+      padding: 24px 20px 60px;
     }
-    
-    /* Chart container styling */
-    .chart-container {
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 3px 6px rgba(0, 0, 0, 0.08);
-      padding: 1.25rem;
-      flex: 1;
-      min-width: 300px;
-      width: calc(50% - 20px);
-      max-width: 600px;
+
+    /* Header */
+    .stats-header {
+      background: linear-gradient(135deg, var(--primary) 0%, #0a7a86 100%);
+      border-radius: 16px;
+      padding: 32px;
+      color: white;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 20px rgba(1, 83, 91, 0.25);
+    }
+
+    .stats-header h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin-bottom: 8px;
       display: flex;
-      flex-direction: column;
       align-items: center;
-      border: 1px solid rgba(0, 0, 0, 0.05);
+      gap: 12px;
+    }
+
+    .stats-header p {
+      opacity: 0.9;
+      font-size: 0.95rem;
+    }
+
+    /* Controls */
+    .controls-bar {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+
+    .control-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      cursor: pointer;
       transition: all 0.2s ease;
     }
-    
-    .chart-container:hover {
-      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+
+    .control-btn:hover {
+      border-color: var(--primary);
+      color: var(--primary);
     }
-    
-    .chart-container h2, .chart-container h3 {
-      align-self: flex-start;
+
+    .control-btn.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+    }
+
+    .control-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* Forms */
+    .form-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+      display: none;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    .form-panel.show {
+      display: block;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+
+    .form-group {
+      flex: 1;
+      min-width: 180px;
+    }
+
+    .form-group label {
+      display: block;
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .form-group select {
       width: 100%;
-      font-size: 1.1rem;
-      color: #2c3e50;
-      margin: 0 0 1rem 0;
-      padding-bottom: 0.75rem;
-      border-bottom: 1px solid #f0f0f0;
+      padding: 10px 14px;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      background: var(--bg-card);
+      cursor: pointer;
+      transition: border-color 0.2s;
     }
-    
-    .chart-container canvas {
+
+    .form-group select:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    .form-submit-btn {
+      padding: 10px 24px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .form-submit-btn:hover {
+      background: #014a51;
+      transform: translateY(-1px);
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: var(--primary);
+    }
+
+    .stat-card:nth-child(2)::before { background: var(--success); }
+    .stat-card:nth-child(3)::before { background: var(--info); }
+    .stat-card:nth-child(4)::before { background: var(--warning); }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    }
+
+    .stat-label {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1.2;
+    }
+
+    /* Charts Section */
+    .charts-section {
+      margin-bottom: 32px;
+    }
+
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+      gap: 20px;
+    }
+
+    @media (max-width: 600px) {
+      .charts-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .chart-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    .chart-card h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .chart-card canvas {
       width: 100% !important;
       max-height: 300px;
     }
-    
-    /* Media queries for responsive design */
-    @media screen and (max-width: 768px) {
-      .side-by-side-charts {
-        gap: 15px;
-      }
-      
-      .chart-container {
-        min-width: 250px;
-        padding: 1rem;
-      }
-      
-      .stat-box {
-        min-width: 110px;
-        padding: 0.75rem;
-      }
+
+    /* Compare Section */
+    .compare-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-top: 32px;
     }
-    
-    @media screen and (max-width: 480px) {
-      .stats-container {
-        gap: 10px;
+
+    .compare-section h2 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .checkbox-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 10px;
+      margin: 16px 0;
+    }
+
+    .checkbox-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .checkbox-item:hover {
+      border-color: var(--primary);
+      background: var(--primary-light);
+    }
+
+    .checkbox-item input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--primary);
+    }
+
+    .checkbox-item label {
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    /* Comparison Results */
+    #classComparisonResults {
+      margin-top: 24px;
+    }
+
+    .comparison-table {
+      overflow-x: auto;
+      margin-bottom: 24px;
+    }
+
+    .comparison-table table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    .comparison-table th,
+    .comparison-table td {
+      padding: 14px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .comparison-table th {
+      background: #f8fafc;
+      font-weight: 600;
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .comparison-table td {
+      font-weight: 500;
+    }
+
+    .comparison-table tr:hover td {
+      background: #f8fafc;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .stats-page {
+        padding: 16px;
       }
-      
-      .stat-box {
-        min-width: 100px;
-        max-width: 45%;
-        padding: 0.75rem 0.5rem;
+
+      .stats-header {
+        padding: 24px;
+        border-radius: 12px;
       }
-      
-      .stat-box h2 {
-        font-size: 0.8rem;
+
+      .stats-header h1 {
+        font-size: 1.4rem;
       }
-      
-      .stat-box p {
-        font-size: 1.3rem;
+
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
       }
-      
-      .chart-container {
+
+      .stat-value {
+        font-size: 1.5rem;
+      }
+
+      .charts-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .form-row {
+        flex-direction: column;
+      }
+
+      .form-group {
         min-width: 100%;
-        padding: 0.75rem;
-      }
-      
-      .chart-container h2, .chart-container h3 {
-        font-size: 0.95rem;
-      }
-      
-      .organization-stats-title {
-        font-size: 1.3rem;
       }
     }
-        
+
+    @media (max-width: 480px) {
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .controls-bar {
+        flex-direction: column;
+      }
+
+      .control-btn {
+        width: 100%;
+        justify-content: center;
+      }
+    }
   </style>
-  
 </head>
 <body>
-<br>
-  <!-- 🔘 Control Buttons -->
-  <div class="center-link">
-    <button class="compare-btn" id="toggleTermFormBtn">Select Term</button>
-    <% if (allowedFeatures.includes("Class Base Analytics & Insights")) { %> 
-    <button class="compare-btn" id="toggleClassFormBtn">Compare Classes</button>
+  <div class="stats-page">
+    <!-- Header -->
+    <% if (currentTerm) { %>
+    <div class="stats-header">
+      <h1>📊 Organization Statistics</h1>
+      <p><%= selectedSchoolYear.year_label %> • <%= currentTerm.term_name %></p>
+    </div>
+    <% } else { %>
+    <div class="stats-header">
+      <h1>📊 Organization Statistics</h1>
+      <p>Select a term to view detailed analytics</p>
+    </div>
+    <% } %>
+
+    <!-- Controls -->
+    <div class="controls-bar">
+      <button class="control-btn" id="toggleTermFormBtn">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+        </svg>
+        Select Term
+      </button>
+      <% if (allowedFeatures.includes("Class Base Analytics & Insights")) { %>
+      <button class="control-btn" id="toggleClassFormBtn">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+        </svg>
+        Compare Classes
+      </button>
+      <% } %>
+    </div>
+
+    <!-- Term Selection Form -->
+    <form id="termSelectionForm" class="form-panel" action="/stats/organization" method="GET">
+      <div class="form-row">
+        <div class="form-group">
+          <label>School Year</label>
+          <select name="selectedSchoolYearId" id="schoolYearSelect" required>
+            <% schoolYears.forEach(year => { %>
+              <option value="<%= year.school_year_id %>" 
+                data-terms='<%= JSON.stringify(year.terms) %>'
+                <%= selectedSchoolYear.school_year_id === year.school_year_id ? 'selected' : '' %>>
+                <%= year.year_label %>
+              </option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Term</label>
+          <select name="selectedTermId" id="termSelect" required></select>
+        </div>
+        <button class="form-submit-btn" type="submit">Show Stats</button>
+      </div>
+    </form>
+
+    <% if (currentTerm) { %>
+    <!-- Stats Cards -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">👨‍🎓 Total Students</div>
+        <div class="stat-value"><%= organizationData.total_students %></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">👩‍🏫 Total Employees</div>
+        <div class="stat-value"><%= organizationData.total_employees %></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">🏫 Total Classes</div>
+        <div class="stat-value"><%= organizationData.total_classes %></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">📚 Total Subjects</div>
+        <div class="stat-value"><%= organizationData.total_subjects %></div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-section">
+      <h2 class="section-title">📈 Performance Overview</h2>
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h3>📊 Attendance by Class</h3>
+          <canvas id="attendanceChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>📝 Assessment Performance</h3>
+          <canvas id="assessmentChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="charts-section">
+      <h2 class="section-title">📊 Class & Growth Analytics</h2>
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h3>🏆 Top Performing Classes</h3>
+          <canvas id="topPerformingClassesChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>📈 Organization Growth</h3>
+          <canvas id="organizationGrowthChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="charts-section">
+      <h2 class="section-title">👥 Demographics</h2>
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h3>👫 Gender Distribution</h3>
+          <canvas id="genderDistributionChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>🏫 Students Per Class</h3>
+          <canvas id="studentCountChart"></canvas>
+        </div>
+      </div>
+    </div>
+    <% } %>
+
+    <!-- Class Comparison Section -->
+    <% if (allowedFeatures.includes("Class Base Analytics & Insights")) { %>
+    <div id="classComparisonForm" class="compare-section" style="display: none;">
+      <h2>📊 Compare Classes</h2>
+      
+      <div class="form-row">
+        <div class="form-group">
+          <label>School Year</label>
+          <select id="compareSchoolYearSelect" name="schoolYear" required>
+            <option value="">Select a school year</option>
+            <% schoolYears.forEach(year => { %>
+              <option value="<%= year.school_year_id %>" data-terms='<%= JSON.stringify(year.terms) %>'>
+                <%= year.year_label %>
+              </option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Term</label>
+          <select id="compareTermSelect" name="termId" required>
+            <option value="">Select a term</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="classSelection" class="checkbox-grid"></div>
+
+      <button class="form-submit-btn" id="compareClassesBtn">Compare Selected Classes</button>
+    </div>
+
+    <div id="classComparisonResults" style="display: none;">
+      <h2 class="section-title">📈 Class Performance Comparison</h2>
+
+      <div class="comparison-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Class</th>
+              <th>Enrolled</th>
+              <th>Avg Score</th>
+              <th>Pass</th>
+              <th>Fail</th>
+            </tr>
+          </thead>
+          <tbody id="classComparisonTableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="chart-card">
+        <h3>📊 Visual Comparison</h3>
+        <canvas id="classComparisonChart"></canvas>
+      </div>
+    </div>
     <% } %>
   </div>
-  <hr>
 
-  <form id="termSelectionForm" action="/stats/organization" method="GET" style="display: none;">
-    <label>School Year:</label>
-    <select name="selectedSchoolYearId" id="schoolYearSelect" required>
-      <% schoolYears.forEach(year => { %>
-        <option value="<%= year.school_year_id %>" 
-          data-terms='<%= JSON.stringify(year.terms) %>'
-          <%= selectedSchoolYear.school_year_id === year.school_year_id ? 'selected' : '' %>>
-          <%= year.year_label %>
-        </option>
-      <% }) %>
-    </select>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      // Toggle Forms
+      document.getElementById("toggleTermFormBtn")?.addEventListener("click", function() {
+        const form = document.getElementById("termSelectionForm");
+        const isShowing = form.classList.toggle("show");
+        this.classList.toggle("active", isShowing);
+      });
 
-    <label>Term:</label>
-    <select name="selectedTermId" id="termSelect" required></select>
+      document.getElementById("toggleClassFormBtn")?.addEventListener("click", function() {
+        const form = document.getElementById("classComparisonForm");
+        const isShowing = form.style.display === "none";
+        form.style.display = isShowing ? "block" : "none";
+        this.classList.toggle("active", isShowing);
+      });
 
-    <button class="compare-btn" type="submit">Show Stats</button>
-  </form>
-
-  <!-- 📊 Organization Stats -->
-  <% if (currentTerm) { %>
-    <h1>📊 Organization Stats - <%= selectedSchoolYear.year_label %> - <%= currentTerm.term_name %></h1>
-    <div class="stats-container">
-      <div class="stat-box"><h2>Total Students</h2><p><%= organizationData.total_students %></p></div>
-      <div class="stat-box"><h2>Total Employees</h2><p><%= organizationData.total_employees %></p></div>
-      <div class="stat-box"><h2>Total Classes</h2><p><%= organizationData.total_classes %></p></div>
-      <div class="stat-box"><h2>Total Subjects</h2><p><%= organizationData.total_subjects %></p></div>
-    </div>
-
-    <!-- 📈 Charts -->
-    <div class="side-by-side-charts">
-      <div class="chart-container">
-        <h2>📊 Attendance Overview</h2>
-        <canvas id="attendanceChart"></canvas>
-      </div>
-      <div class="chart-container">
-        <h2>📊 Assessment Performance</h2>
-        <canvas id="assessmentChart"></canvas>
-      </div>
-    </div>
-
-    <div class="side-by-side-charts">
-      <div class="chart-container">
-        <h2>📈 Top Performing Classes</h2>
-        <canvas id="topPerformingClassesChart"></canvas>
-      </div>
-      <div class="chart-container">
-        <h2>📈 Organization Growth</h2>
-        <canvas id="organizationGrowthChart"></canvas>
-      </div>
-    </div>
-    
-    <div class="side-by-side-charts">
-    
-      <div class="chart-container">
-        <h2>👫 Gender Distribution</h2>
-        <canvas id="genderDistributionChart"></canvas>
-      </div>
-
-      <div class="chart-container">
-        <h2>🏫 Students Per Class</h2>
-        <canvas id="studentCountChart"></canvas>
-      </div>
-    
-    </div>
-    
-  <% } %>
-
-<!-- 🆚 Compare Classes -->
- 
-<!-- 🆚 Class Comparison Form -->
-<form id="classComparisonForm" style="display: none;">
-  <h2>📊 Compare Classes</h2>
-
-  <div class="form-group">
-    <label for="compareSchoolYearSelect">School Year</label>
-    <select id="compareSchoolYearSelect" name="schoolYear" required>
-      <option value="">Select a school year</option>
-      <% schoolYears.forEach(year => { %>
-        <option value="<%= year.school_year_id %>" data-terms='<%= JSON.stringify(year.terms) %>'>
-          <%= year.year_label %>
-        </option>
-      <% }) %>
-    </select>
-  </div>
-
-  <div class="form-group">
-    <label for="compareTermSelect">Term</label>
-    <select id="compareTermSelect" name="termId" required>
-      <option value="">Select a term</option>
-    </select>
-  </div>
-
-  <div class="form-group" id="classSelection">
-    <!-- Dynamically loaded class checkboxes will appear here -->
-  </div>
-
-  <button class="compare-btn" type="submit">Compare</button>
-</form>
-
-<!-- 📈 Class Comparison Results -->
-<div id="classComparisonResults" style="display: none; margin-top: 30px;">
-  <h2>📈 Class Performance Comparison</h2>
-
-  <div class="comparison-table">
-    <table>
-      <thead>
-        <tr>
-          <th>Class</th>
-          <th>Enrolled</th>
-          <th>Avg Score</th>
-          <th>Pass</th>
-          <th>Fail</th>
-        </tr>
-      </thead>
-      <tbody id="classComparisonTableBody">
-        <!-- Filled dynamically via JS -->
-      </tbody>
-    </table>
-  </div>
-
-  <br>
-
-  <div class="chart-container">
-    <h3>📊 Visual Comparison</h3>
-    <canvas id="classComparisonChart"></canvas>
-  </div>
-</div>
-
-
-<script>
-  document.addEventListener("DOMContentLoaded", () => {
-    // 🔄 Toggle Forms Visibility
-    document.getElementById("toggleTermFormBtn")?.addEventListener("click", () => {
-      const form = document.getElementById("termSelectionForm");
-      form.style.display = form.style.display === "none" ? "block" : "none";
-    });
-  
-    document.getElementById("toggleClassFormBtn")?.addEventListener("click", () => {
-      const form = document.getElementById("classComparisonForm");
-      form.style.display = form.style.display === "none" ? "block" : "none";
-    });
-  
-    // 🏫 Utility: Load Terms into Select Dropdown
-    function loadTerms(selectElement, targetTermSelect) {
-      const terms = JSON.parse(selectElement.selectedOptions[0]?.dataset.terms || "[]");
-      targetTermSelect.innerHTML = '<option value="">Select a term</option>';
-      terms.forEach(term => {
-        const exists = Array.from(targetTermSelect.options).some(opt => opt.value === String(term.term_id));
-        if (!exists) {
+      // Load Terms
+      function loadTerms(selectElement, targetTermSelect) {
+        const terms = JSON.parse(selectElement.selectedOptions[0]?.dataset.terms || "[]");
+        targetTermSelect.innerHTML = '<option value="">Select a term</option>';
+        terms.forEach(term => {
           const option = document.createElement("option");
           option.value = term.term_id;
           option.textContent = term.term_name;
           targetTermSelect.appendChild(option);
+        });
+      }
+
+      const schoolYearSelect = document.getElementById("schoolYearSelect");
+      const termSelect = document.getElementById("termSelect");
+      if (schoolYearSelect?.value) loadTerms(schoolYearSelect, termSelect);
+      schoolYearSelect?.addEventListener("change", () => loadTerms(schoolYearSelect, termSelect));
+
+      const compareSchoolYearSelect = document.getElementById("compareSchoolYearSelect");
+      const compareTermSelect = document.getElementById("compareTermSelect");
+      compareSchoolYearSelect?.addEventListener("change", () => loadTerms(compareSchoolYearSelect, compareTermSelect));
+      
+      compareTermSelect?.addEventListener("change", function () {
+        const termId = this.value;
+        const classSelection = document.getElementById("classSelection");
+        classSelection.innerHTML = "";
+        if (!termId) return;
+        
+        fetch(`/stats/classes/${termId}`)
+          .then(res => res.json())
+          .then(classes => {
+            if (!classes.length) {
+              classSelection.innerHTML = "<p style='color: #64748b; padding: 16px;'>No classes available for this term.</p>";
+              return;
+            }
+            classes.forEach(cls => {
+              const item = document.createElement("div");
+              item.className = "checkbox-item";
+              item.innerHTML = `
+                <input type="checkbox" name="selectedClasses" value="${cls.class_id}" id="class-${cls.class_id}">
+                <label for="class-${cls.class_id}">${cls.class_name}</label>
+              `;
+              classSelection.appendChild(item);
+            });
+          })
+          .catch(err => console.error("Failed to load classes:", err));
+      });
+
+      // Compare Classes
+      document.getElementById("compareClassesBtn")?.addEventListener("click", () => {
+        const selectedClasses = Array.from(document.querySelectorAll("input[name='selectedClasses']:checked"))
+          .map(cb => parseInt(cb.value));
+        if (!selectedClasses.length) {
+          alert("Please select at least one class.");
+          return;
+        }
+
+        fetch("/stats/class-comparison", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ selectedClasses })
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (!data.length) {
+              alert("No comparison data available.");
+              return;
+            }
+            
+            document.getElementById("classComparisonForm").style.display = "none";
+            document.getElementById("classComparisonResults").style.display = "block";
+            
+            const tbody = document.getElementById("classComparisonTableBody");
+            tbody.innerHTML = data.map(cls => `
+              <tr>
+                <td><strong>${cls.class_name}</strong></td>
+                <td>${cls.enrolled_students}</td>
+                <td>${Number(cls.average_score).toFixed(1)}%</td>
+                <td style="color: #10b981;">${cls.pass_count}</td>
+                <td style="color: #ef4444;">${cls.fail_count}</td>
+              </tr>
+            `).join("");
+            
+            const existingChart = Chart.getChart("classComparisonChart");
+            if (existingChart) existingChart.destroy();
+            
+            new Chart(document.getElementById("classComparisonChart"), {
+              type: "bar",
+              data: {
+                labels: data.map(c => c.class_name),
+                datasets: [
+                  { label: "Enrolled", data: data.map(c => c.enrolled_students), backgroundColor: "#3b82f6" },
+                  { label: "Avg Score", data: data.map(c => c.average_score), backgroundColor: "#10b981" },
+                  { label: "Pass", data: data.map(c => c.pass_count), backgroundColor: "#0ea5e9" },
+                  { label: "Fail", data: data.map(c => c.fail_count), backgroundColor: "#ef4444" }
+                ]
+              },
+              options: { 
+                responsive: true, 
+                plugins: {
+                  legend: { position: 'top' }
+                },
+                scales: { y: { beginAtZero: true } } 
+              }
+            });
+          })
+          .catch(err => console.error("Failed to compare classes:", err));
+      });
+
+      // Chart Configuration
+      const chartDefaults = {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: {
+              boxWidth: 12,
+              padding: 16,
+              font: { size: 12 }
+            }
+          }
+        }
+      };
+
+      <% if (attendanceByClass?.length) { %>
+      new Chart(document.getElementById("attendanceChart"), {
+        type: "bar",
+        data: {
+          labels: <%- JSON.stringify(attendanceByClass.map(c => c.class_name)) %>,
+          datasets: [
+            { label: "Present", data: <%- JSON.stringify(attendanceByClass.map(c => c.present_days)) %>, backgroundColor: "#10b981" },
+            { label: "Absent", data: <%- JSON.stringify(attendanceByClass.map(c => c.absent_days)) %>, backgroundColor: "#ef4444" }
+          ]
+        },
+        options: { ...chartDefaults, scales: { y: { beginAtZero: true } } }
+      });
+      <% } %>
+
+      <% if (assessmentByClass?.length) { %>
+      new Chart(document.getElementById("assessmentChart"), {
+        type: "bar",
+        data: {
+          labels: <%- JSON.stringify(assessmentByClass.map(c => c.class_name)) %>,
+          datasets: [
+            { label: "Avg Score", data: <%- JSON.stringify(assessmentByClass.map(c => c.average_score)) %>, backgroundColor: "#8b5cf6" },
+            { label: "Pass", data: <%- JSON.stringify(assessmentByClass.map(c => c.pass_count)) %>, backgroundColor: "#10b981" },
+            { label: "Fail", data: <%- JSON.stringify(assessmentByClass.map(c => c.fail_count)) %>, backgroundColor: "#ef4444" }
+          ]
+        },
+        options: { ...chartDefaults, scales: { y: { beginAtZero: true } } }
+      });
+      <% } %>
+
+      <% if (topPerformingClasses?.length) { %>
+      new Chart(document.getElementById("topPerformingClassesChart"), {
+        type: "bar",
+        data: {
+          labels: <%- JSON.stringify(topPerformingClasses.map(c => c.class_name)) %>,
+          datasets: [{ 
+            label: "Average Score", 
+            data: <%- JSON.stringify(topPerformingClasses.map(c => c.average_score)) %>, 
+            backgroundColor: ["#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444"] 
+          }]
+        },
+        options: { ...chartDefaults, scales: { y: { beginAtZero: true } } }
+      });
+      <% } %>
+
+      <% if (organizationGrowth?.length) { %>
+      new Chart(document.getElementById("organizationGrowthChart"), {
+        type: "line",
+        data: {
+          labels: <%- JSON.stringify(organizationGrowth.map(y => y.year_label)) %>,
+          datasets: [
+            { label: "Students", data: <%- JSON.stringify(organizationGrowth.map(y => y.total_students)) %>, borderColor: "#10b981", backgroundColor: "rgba(16, 185, 129, 0.1)", fill: true, tension: 0.3 },
+            { label: "Employees", data: <%- JSON.stringify(organizationGrowth.map(y => y.total_employees)) %>, borderColor: "#3b82f6", backgroundColor: "rgba(59, 130, 246, 0.1)", fill: true, tension: 0.3 },
+            { label: "Classes", data: <%- JSON.stringify(organizationGrowth.map(y => y.total_classes)) %>, borderColor: "#f59e0b", backgroundColor: "rgba(245, 158, 11, 0.1)", fill: true, tension: 0.3 }
+          ]
+        },
+        options: { ...chartDefaults, scales: { y: { beginAtZero: true } } }
+      });
+      <% } %>
+
+      <% if (genderDistribution?.length) { %>
+      new Chart(document.getElementById("genderDistributionChart"), {
+        type: "doughnut",
+        data: {
+          labels: <%- JSON.stringify(genderDistribution.map(g => g.gender)) %>,
+          datasets: [{ 
+            data: <%- JSON.stringify(genderDistribution.map(g => g.count)) %>, 
+            backgroundColor: ["#3b82f6", "#ec4899", "#f59e0b"],
+            borderWidth: 0
+          }]
+        },
+        options: { 
+          ...chartDefaults,
+          cutout: '60%'
         }
       });
-    }
-  
-    // Term & Class Loading
-    const schoolYearSelect = document.getElementById("schoolYearSelect");
-    const termSelect = document.getElementById("termSelect");
-    if (schoolYearSelect?.value) loadTerms(schoolYearSelect, termSelect);
-    schoolYearSelect?.addEventListener("change", () => loadTerms(schoolYearSelect, termSelect));
-  
-    const compareSchoolYearSelect = document.getElementById("compareSchoolYearSelect");
-    const compareTermSelect = document.getElementById("compareTermSelect");
-    compareSchoolYearSelect?.addEventListener("change", () => loadTerms(compareSchoolYearSelect, compareTermSelect));
-    compareTermSelect?.addEventListener("change", function () {
-      const termId = this.value;
-      const classSelection = document.getElementById("classSelection");
-      classSelection.innerHTML = "";
-      if (!termId) return;
-      fetch(`/stats/classes/${termId}`)
-        .then(res => res.json())
-        .then(classes => {
-          if (!classes.length) return classSelection.innerHTML = "<p>No classes available for this term.</p>";
-          classes.forEach(cls => {
-            const label = document.createElement("label");
-            const checkbox = document.createElement("input");
-            checkbox.type = "checkbox";
-            checkbox.name = "selectedClasses";
-            checkbox.value = cls.class_id;
-            label.append(checkbox, ` ${cls.class_name}`);
-            classSelection.appendChild(label);
-          });
-        })
-        .catch(err => console.error("❌ Failed to load classes:", err));
-    });
-  
-    // 🆚 Compare Classes
-    document.getElementById("classComparisonForm")?.addEventListener("submit", (e) => {
-      e.preventDefault();
-      const selectedClasses = Array.from(document.querySelectorAll("input[name='selectedClasses']:checked"))
-        .map(cb => parseInt(cb.value));
-      if (!selectedClasses.length) return alert("Please select at least one class.");
-  
-      fetch("/stats/class-comparison", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ selectedClasses })
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (!data.length) return alert("No comparison data available.");
-          document.getElementById("classComparisonForm").style.display = "none";
-          document.getElementById("classComparisonResults").style.display = "block";
-          const tbody = document.getElementById("classComparisonTableBody");
-          tbody.innerHTML = data.map(cls => `
-            <tr>
-              <td>${cls.class_name}</td>
-              <td>${cls.enrolled_students}</td>
-              <td>${Number(cls.average_score).toFixed(2)}%</td>
-              <td>${cls.pass_count}</td>
-              <td>${cls.fail_count}</td>
-            </tr>
-          `).join("");
-          const existingChart = Chart.getChart("classComparisonChart");
-          if (existingChart) existingChart.destroy();
-          new Chart(document.getElementById("classComparisonChart"), {
-            type: "bar",
-            data: {
-              labels: data.map(c => c.class_name),
-              datasets: [
-                { label: "Enrolled", data: data.map(c => c.enrolled_students), backgroundColor: "#007bff" },
-                { label: "Avg Score", data: data.map(c => c.average_score), backgroundColor: "#28a745" },
-                { label: "Pass", data: data.map(c => c.pass_count), backgroundColor: "#17a2b8" },
-                { label: "Fail", data: data.map(c => c.fail_count), backgroundColor: "#dc3545" }
-              ]
-            },
-            options: { responsive: true, scales: { y: { beginAtZero: true } } }
-          });
-        })
-        .catch(err => console.error("❌ Failed to compare classes:", err));
-    });
-  
-    // 📊 Render All Charts
-    <% if (attendanceByClass?.length) { %>
-    new Chart(document.getElementById("attendanceChart"), {
-      type: "bar",
-      data: {
-        labels: <%- JSON.stringify(attendanceByClass.map(c => c.class_name)) %>,
-        datasets: [
-          { label: "Present Days", data: <%- JSON.stringify(attendanceByClass.map(c => c.present_days)) %>, backgroundColor: "#4CAF50" },
-          { label: "Absent Days", data: <%- JSON.stringify(attendanceByClass.map(c => c.absent_days)) %>, backgroundColor: "#F44336" }
-        ]
-      },
-      options: { responsive: true, scales: { y: { beginAtZero: true } } }
-    });
-    <% } %>
-  
-    <% if (assessmentByClass?.length) { %>
-    new Chart(document.getElementById("assessmentChart"), {
-      type: "bar",
-      data: {
-        labels: <%- JSON.stringify(assessmentByClass.map(c => c.class_name)) %>,
-        datasets: [
-          { label: "Avg Score", data: <%- JSON.stringify(assessmentByClass.map(c => c.average_score)) %>, backgroundColor: "#E91E63" },
-          { label: "Pass Count", data: <%- JSON.stringify(assessmentByClass.map(c => c.pass_count)) %>, backgroundColor: "#28a745" },
-          { label: "Fail Count", data: <%- JSON.stringify(assessmentByClass.map(c => c.fail_count)) %>, backgroundColor: "#dc3545" }
-        ]
-      },
-      options: { responsive: true, scales: { y: { beginAtZero: true } } }
-    });
-    <% } %>
-  
-    <% if (topPerformingClasses?.length) { %>
-    new Chart(document.getElementById("topPerformingClassesChart"), {
-      type: "bar",
-      data: {
-        labels: <%- JSON.stringify(topPerformingClasses.map(c => c.class_name)) %>,
-        datasets: [{ label: "Avg Score", data: <%- JSON.stringify(topPerformingClasses.map(c => c.average_score)) %>, backgroundColor: "#3e95cd" }]
-      },
-      options: { responsive: true, scales: { y: { beginAtZero: true } } }
-    });
-    <% } %>
-  
-    <% if (organizationGrowth?.length) { %>
-    new Chart(document.getElementById("organizationGrowthChart"), {
-      type: "line",
-      data: {
-        labels: <%- JSON.stringify(organizationGrowth.map(y => y.year_label)) %>,
-        datasets: [
-          { label: "Students", data: <%- JSON.stringify(organizationGrowth.map(y => y.total_students)) %>, borderColor: "#4CAF50", fill: false },
-          { label: "Employees", data: <%- JSON.stringify(organizationGrowth.map(y => y.total_employees)) %>, borderColor: "#2196F3", fill: false },
-          { label: "Classes", data: <%- JSON.stringify(organizationGrowth.map(y => y.total_classes)) %>, borderColor: "#FFC107", fill: false }
-        ]
-      },
-      options: { responsive: true, scales: { y: { beginAtZero: true } } }
-    });
-    <% } %>
-  
-    <% if (enrollmentOverTerms?.length) { %>
-    new Chart(document.getElementById("enrollmentOverTermsChart"), {
-      type: "line",
-      data: {
-        labels: <%- JSON.stringify(enrollmentOverTerms.map(t => t.term_name)) %>,
-        datasets: [{ label: "Enrolled Students", data: <%- JSON.stringify(enrollmentOverTerms.map(t => t.total_students)) %>, borderColor: "#FF9800", fill: false }]
-      },
-      options: { responsive: true, scales: { y: { beginAtZero: true } } }
-    });
-    <% } %>
-  
-    <% if (genderDistribution?.length) { %>
-    new Chart(document.getElementById("genderDistributionChart"), {
-      type: "pie",
-      data: {
-        labels: <%- JSON.stringify(genderDistribution.map(g => g.gender)) %>,
-        datasets: [{ label: "Gender", data: <%- JSON.stringify(genderDistribution.map(g => g.count)) %>, backgroundColor: ["#42A5F5", "#EF5350", "#FFCA28"] }]
-      },
-      options: { responsive: true }
-    });
-    <% } %>
-  
-    <% if (employeeRoles?.length) { %>
-    new Chart(document.getElementById("employeeRolesChart"), {
-      type: "pie",
-      data: {
-        labels: <%- JSON.stringify(employeeRoles.map(r => r.role)) %>,
-        datasets: [{ label: "Employees", data: <%- JSON.stringify(employeeRoles.map(r => r.count)) %>, backgroundColor: ["#66BB6A", "#FFA726", "#29B6F6", "#AB47BC", "#FF7043"] }]
-      },
-      options: { responsive: true }
-    });
-    <% } %>
-  
-    <% if (classStrengthProfile?.length) { %>
-    new Chart(document.getElementById("classStrengthChart"), {
-      type: "radar",
-      data: {
-        labels: <%- JSON.stringify(classStrengthProfile.map(s => s.subject_name)) %>,
-        datasets: [{
-          label: "Avg Score",
-          data: <%- JSON.stringify(classStrengthProfile.map(s => s.avg_score)) %>,
-          backgroundColor: "rgba(54, 162, 235, 0.2)",
-          borderColor: "rgba(54, 162, 235, 1)",
-          borderWidth: 2
-        }]
-      },
-      options: { responsive: true, scales: { r: { beginAtZero: true } } }
-    });
-    <% } %>
-  
-    <% if (studentCountPerClass?.length) { %>
-    new Chart(document.getElementById("studentCountChart"), {
-      type: "bar",
-      data: {
-        labels: <%- JSON.stringify(studentCountPerClass.map(c => c.class_name)) %>,
-        datasets: [{ label: "Students", data: <%- JSON.stringify(studentCountPerClass.map(c => c.student_count)) %>, backgroundColor: "#42A5F5" }]
-      },
-      options: { responsive: true, scales: { y: { beginAtZero: true } } }
-    });
-    <% } %>
-  });
-  </script>
+      <% } %>
 
-  <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      function createChart(id, config) {
-        const canvas = document.getElementById(id);
-        if (canvas) {
-          const existing = Chart.getChart(id);
-          if (existing) existing.destroy();
-          new Chart(canvas, config);
-        }
-      }
-  
       <% if (studentCountPerClass?.length) { %>
-        createChart("studentCountChart", {
-          type: "bar",
-          data: {
-            labels: <%- JSON.stringify(studentCountPerClass.map(c => c.class_name)) %>,
-            datasets: [{
-              label: "Students",
-              data: <%- JSON.stringify(studentCountPerClass.map(c => c.student_count)) %>,
-              backgroundColor: "#42A5F5"
-            }]
-          },
-          options: { responsive: true, scales: { y: { beginAtZero: true } } }
-        });
-      <% } %>
-  
-      <% if (classStrengthProfile?.length) { %>
-        createChart("classStrengthChart", {
-          type: "radar",
-          data: {
-            labels: <%- JSON.stringify(classStrengthProfile.map(s => s.subject_name)) %>,
-            datasets: [{
-              label: "Avg Score",
-              data: <%- JSON.stringify(classStrengthProfile.map(s => s.avg_score)) %>,
-              backgroundColor: "rgba(54, 162, 235, 0.2)",
-              borderColor: "rgba(54, 162, 235, 1)",
-              borderWidth: 2
-            }]
-          },
-          options: { responsive: true, scales: { r: { beginAtZero: true } } }
-        });
+      new Chart(document.getElementById("studentCountChart"), {
+        type: "bar",
+        data: {
+          labels: <%- JSON.stringify(studentCountPerClass.map(c => c.class_name)) %>,
+          datasets: [{ 
+            label: "Students", 
+            data: <%- JSON.stringify(studentCountPerClass.map(c => c.student_count)) %>, 
+            backgroundColor: "#3b82f6" 
+          }]
+        },
+        options: { ...chartDefaults, scales: { y: { beginAtZero: true } } }
+      });
       <% } %>
     });
   </script>
-  
-  
+</body>
+</html>
