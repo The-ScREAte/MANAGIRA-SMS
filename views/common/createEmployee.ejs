@@ -1,77 +1,268 @@
 <head>
+  <style>
+    :root {
+      --font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --primary: var(--org-primary-color, #01535b);
+      --primary-hover: var(--org-primary-hover, #014a51);
+      --primary-light: rgba(1, 83, 91, 0.08);
+      --text-primary: #1e293b;
+      --text-secondary: #64748b;
+      --border: #e2e8f0;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --error: #dc2626;
+      --success: #059669;
+      --info-bg: #e7f3fe;
+      --info-text: #0c5460;
+    }
+
+    body {
+      font-family: var(--font-family);
+      background: var(--bg-page);
+    }
+
+    .create-employee-page {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 24px 16px 60px;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      background: var(--primary);
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+      margin-bottom: 24px;
+    }
+
+    .back-link:hover {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+    }
+
+    .form-card {
+      background: var(--bg-card);
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .form-header {
+      background: linear-gradient(135deg, var(--primary) 0%, #0a7a86 100%);
+      color: white;
+      padding: 28px 32px;
+    }
+
+    .form-header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin: 0 0 6px 0;
+    }
+
+    .form-header p {
+      opacity: 0.9;
+      font-size: 0.9rem;
+      margin: 0;
+    }
+
+    .form-content {
+      padding: 28px 32px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: block;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+      font-size: 0.9rem;
+    }
+
+    .form-input,
+    .form-select {
+      width: 100%;
+      padding: 14px 16px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      font-size: 1rem;
+      font-family: inherit;
+      transition: all 0.2s ease;
+      background: var(--bg-card);
+      color: var(--text-primary);
+    }
+
+    .form-input:focus,
+    .form-select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-light);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 500px) {
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .classes-section {
+      margin-top: 24px;
+    }
+
+    .section-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+    }
+
+    .collapsible-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .collapsible-btn:hover {
+      background: var(--primary-hover);
+    }
+
+    .collapsible-content {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      margin-top: 12px;
+    }
+
+    .class-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .class-checkbox:last-child {
+      border-bottom: none;
+    }
+
+    .class-checkbox input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    .class-checkbox label {
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+
+    .subject-container {
+      margin-left: 28px;
+      padding: 12px;
+      background: white;
+      border-radius: 8px;
+      margin-top: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 16px 24px;
+      background: linear-gradient(135deg, var(--primary) 0%, #0a7a86 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(1, 83, 91, 0.2);
+      margin-top: 24px;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(1, 83, 91, 0.3);
+    }
+  </style>
   <script>
-              function toggleClassCollapse(id) {
-          const collapseDiv = document.getElementById('collapse-' + id);
-          const arrow = document.getElementById('arrow-' + id);
-          if (collapseDiv.style.display === 'none') {
-            collapseDiv.style.display = 'block';
-            arrow.innerHTML = '&#9660;'; // Down arrow
-          } else {
-            collapseDiv.style.display = 'none';
-            arrow.innerHTML = '&#9654;'; // Right arrow
-          }
-        }
-    // Fetch subjects for the selected class
+    function toggleClassCollapse(id) {
+      const collapseDiv = document.getElementById('collapse-' + id);
+      const arrow = document.getElementById('arrow-' + id);
+      if (collapseDiv.style.display === 'none') {
+        collapseDiv.style.display = 'block';
+        arrow.innerHTML = '▾';
+      } else {
+        collapseDiv.style.display = 'none';
+        arrow.innerHTML = '▸';
+      }
+    }
+
     async function fetchSubjects(classId, containerId) {
       try {
-        const response = await fetch(
-          `/common/getSubjectsByClass?classId=${classId}`
-        );
+        const response = await fetch(`/common/getSubjectsByClass?classId=${classId}`);
         const subjects = await response.json();
         const container = document.getElementById(containerId);
-
         container.innerHTML = "";
+        
         if (subjects.length > 0) {
-          // Add Select All for subjects
-          const selectAllSubjectsCheckbox = document.createElement("input");
-          selectAllSubjectsCheckbox.type = "checkbox";
-          selectAllSubjectsCheckbox.id = `selectAllSubjects-${classId}`;
-          selectAllSubjectsCheckbox.addEventListener("change", function () {
-            const subjectCheckboxes = document.querySelectorAll(
-              `#${containerId} input[type="checkbox"]`
-            );
-            subjectCheckboxes.forEach((cb) => (cb.checked = this.checked));
-          });
-
-          const label = document.createElement("label");
-          label.textContent = "Select All Subjects";
-
           const selectAllDiv = document.createElement("div");
-          selectAllDiv.classList.add("subject-checkbox");
-          selectAllDiv.appendChild(selectAllSubjectsCheckbox);
-          selectAllDiv.appendChild(label);
+          selectAllDiv.className = "class-checkbox";
+          selectAllDiv.innerHTML = `
+            <input type="checkbox" id="selectAllSubjects-${classId}" 
+              onchange="document.querySelectorAll('#${containerId} input[type=checkbox]').forEach(cb => cb.checked = this.checked)">
+            <label><strong>Select All Subjects</strong></label>
+          `;
           container.appendChild(selectAllDiv);
 
-          subjects.forEach((subject) => {
-            const checkbox = document.createElement("input");
-            checkbox.type = "checkbox";
-            checkbox.name = "subjects";
-            checkbox.value = subject.subject_id;
-
-            const label = document.createElement("label");
-            label.textContent = subject.subject_name;
-
+          subjects.forEach(subject => {
             const div = document.createElement("div");
-            div.classList.add("subject-checkbox"); // Align the checkboxes and labels
-            div.appendChild(checkbox);
-            div.appendChild(label);
-
+            div.className = "class-checkbox";
+            div.innerHTML = `
+              <input type="checkbox" name="subjects" value="${subject.subject_id}" id="subject-${subject.subject_id}">
+              <label for="subject-${subject.subject_id}">${subject.subject_name}</label>
+            `;
             container.appendChild(div);
           });
         } else {
-          container.innerHTML = "No subjects available for this class.";
+          container.innerHTML = "<p style='color: #64748b; font-size: 0.9rem;'>No subjects available for this class.</p>";
         }
       } catch (error) {
         console.error("Error fetching subjects:", error);
       }
     }
 
-    // Toggle subjects for the class
     function toggleSubjects(classId, containerId) {
       const container = document.getElementById(containerId);
-      const checkbox = document.querySelector(
-        `input[name="classes"][value="${classId}"]`
-      );
+      const checkbox = document.querySelector(`input[name="classes"][value="${classId}"]`);
       if (checkbox.checked) {
         fetchSubjects(classId, containerId);
         container.style.display = "block";
@@ -80,215 +271,82 @@
       }
     }
 
-     // ✅ Add confirmation dialog to the employee creation form
-  document.addEventListener("DOMContentLoaded", () => {
-    const createEmployeeForm = document.querySelector("form[action='/common/createEmployee']");
-    if (createEmployeeForm) {
-      createEmployeeForm.addEventListener("submit", function (e) {
-        const confirmed = confirm("Are you sure you want to create this employee? Please confirm.");
-        if (!confirmed) {
-          e.preventDefault(); // Cancel form submission if not confirmed
-        }
-      });
-    }
-  });
+    document.addEventListener("DOMContentLoaded", () => {
+      const form = document.querySelector("form[action='/common/createEmployee']");
+      if (form) {
+        form.addEventListener("submit", function(e) {
+          if (!confirm("Are you sure you want to create this employee?")) {
+            e.preventDefault();
+          }
+        });
+      }
+    });
   </script>
 </head>
-
-<style>
-      :root {
-        --font-family: "Inter", sans-serif;
-      }
-
-
-  body {
-    font-family: var(--font-family);
-  }
-  /* Form styling */
-  .form-group {
-    margin-bottom: 15px;
-  }
-
-  label {
-    display: inline-block;
-    width: 150px;
-    font-weight: bold;
-  }
-
-  input[type="text"],
-  input[type="email"],
-  input[type="password"],
-  select {
-    padding: 8px;
-    width: 250px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-  }
-
-    .class-collapsible {
-    margin-bottom: 10px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    background: #f9f9f9;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-  }
-  .collapsible-btn {
-    width: 100%;
-    background: var(--org-primary-color);
-    color: #fff;
-    border: none;
-    outline: none;
-    padding: 12px 16px;
-    font-size: 16px;
-    text-align: left;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    cursor: pointer;
-    font-weight: bold;
-    border-radius: 5px;
-    transition: none;
-  }
-  .collapsible-btn:hover {
-    background: var(--org-primary-hover);
-  }
-  .collapsible-btn .arrow {
-    font-size: 18px;
-    margin-left: 8px;
-    transition: transform 0.2s;
-  }
-  .class-checkboxes {
-    padding: 10px 20px 10px 30px;
-    background: #fff;
-    border-top: 1px solid #eee;
-  }
-
-  .class-container {
-    margin-bottom: 20px;
-  }
-
-  .class-checkbox {
-    display: flex;
-    align-items: center;
-    margin-bottom: 10px;
-  }
-
-  .class-checkbox label {
-    margin-left: 10px;
-  }
-
-  .subject-container {
-    margin-left: 30px;
-    margin-top: 10px;
-  }
-
-  .subject-container div {
-    margin-bottom: 5px;
-  }
-
-  .create-employee-container {
-    padding: 20px;
-  }
-
-  .checkbox-group {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .checkbox-group label {
-    margin-bottom: 5px;
-  }
-
-  .line-divider {
-    width: 100%;
-    border-top: 2px solid #ddd;
-    margin: 20px 0;
-  }
-
-  /* Align subject checkboxes */
-  .subject-checkbox {
-    display: flex;
-    align-items: center;
-    margin-bottom: 5px;
-  }
-
-  .subject-checkbox label {
-    margin-left: 10px; /* Adjust space between checkbox and label */
-  }
-  .global-form {
-    max-width: 600px;
-    margin: 0 auto;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-  }
-</style>
-<body>
-  <%- include('../partials/flash') %> <% if (req.session && req.session.userRole
-  !== 'Teacher' && req.session.userRole !== 'Supervisor') { %>
-  <br />
-  <div class="link-to-next-back">
-    <a href="/common/manageEmployees">Manage Employees</a>
-  </div>
-  <div class="separator"></div>
+<body class="create-employee-page">
+  <%- include('../partials/flash') %>
+  
+  <% if (req.session && req.session.userRole !== 'Teacher' && req.session.userRole !== 'Supervisor') { %>
+  <a href="/common/manageEmployees" class="back-link">← Manage Employees</a>
   <% } %>
 
-  <h1>Create Employee</h1>
-
-  <form class="global-form" action="/common/createEmployee" method="post">
-    <div class="form-group">
-      <label for="firstName">First Name:</label>
-      <input type="text" id="firstName" name="firstName" required />
-    </div>
-    <div class="form-group">
-      <label for="lastName">Last Name:</label>
-      <input type="text" id="lastName" name="lastName" required />
-    </div>
-    <div class="form-group">
-      <label for="email">Email:</label>
-      <input type="email" id="email" name="email" required />
+  <div class="form-card">
+    <div class="form-header">
+      <h1>👤 Create Employee</h1>
+      <p>Add a new staff member to your organization</p>
     </div>
 
-    <div class="form-group">
-      <label for="account_type">Role:</label>
-      <select id="account_type" name="account_type" required>
-        <option value="">-- Select Role --</option>
-        <option value="Manager">Manager</option>
-        <option value="Supervisor">Supervisor</option>
-        <option value="Teacher">Teacher</option>
-      </select>
-    </div>
-
-    <div class="class-container">
-      <h3>Assign Classes and Subjects:</h3>
-
-        <div class="class-collapsible">
-      <button type="button" class="collapsible-btn" onclick="toggleClassCollapse('all-classes')">
-        <span>Show/Hide Classes</span>
-        <span class="arrow" id="arrow-all-classes">&#9654;</span>
-      </button>
-      <div class="class-checkboxes" id="collapse-all-classes" style="display: none;">
-        <% classes.forEach(cls => { %>
-          <div class="class-checkbox">
-            <input
-              type="checkbox"
-              name="classes"
-              value="<%= cls.class_id %>"
-              onchange="toggleSubjects('<%= cls.class_id %>', 'subjects-container-<%= cls.class_id %>')"
-              id="class_<%= cls.class_id %>"
-            />
-            <label for="class_<%= cls.class_id %>"><%= cls.class_name %></label>
+    <div class="form-content">
+      <form action="/common/createEmployee" method="post">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="firstName">First Name</label>
+            <input type="text" id="firstName" name="firstName" class="form-input" required placeholder="John">
           </div>
-          <div
-            id="subjects-container-<%= cls.class_id %>"
-            class="subject-container"
-            style="display: none"
-          ></div>
-        <% }); %>
-      </div>
-    </div>
-    </div>
+          <div class="form-group">
+            <label class="form-label" for="lastName">Last Name</label>
+            <input type="text" id="lastName" name="lastName" class="form-input" required placeholder="Doe">
+          </div>
+        </div>
 
-    <button type="submit" class="btn btn-primary btn-block">Create Employee</button>
-  </form>
+        <div class="form-group">
+          <label class="form-label" for="email">Email Address</label>
+          <input type="email" id="email" name="email" class="form-input" required placeholder="john.doe@example.com">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="account_type">Role</label>
+          <select id="account_type" name="account_type" class="form-select" required>
+            <option value="">-- Select Role --</option>
+            <option value="Manager">Manager</option>
+            <option value="Supervisor">Supervisor</option>
+            <option value="Teacher">Teacher</option>
+          </select>
+        </div>
+
+        <div class="classes-section">
+          <h3 class="section-title">📚 Assign Classes & Subjects</h3>
+          
+          <button type="button" class="collapsible-btn" onclick="toggleClassCollapse('all-classes')">
+            <span>Show/Hide Classes</span>
+            <span id="arrow-all-classes">▸</span>
+          </button>
+          
+          <div class="collapsible-content" id="collapse-all-classes" style="display: none;">
+            <% classes.forEach(cls => { %>
+            <div class="class-checkbox">
+              <input type="checkbox" name="classes" value="<%= cls.class_id %>" 
+                id="class_<%= cls.class_id %>"
+                onchange="toggleSubjects('<%= cls.class_id %>', 'subjects-container-<%= cls.class_id %>')">
+              <label for="class_<%= cls.class_id %>"><%= cls.class_name %></label>
+            </div>
+            <div id="subjects-container-<%= cls.class_id %>" class="subject-container" style="display: none"></div>
+            <% }); %>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary">Create Employee</button>
+      </form>
+    </div>
+  </div>
 </body>
