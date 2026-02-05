@@ -121,42 +121,93 @@
     display: inline-block;
   }
 
-  .btn-secondary:hover {
-    background: #f8fafc;
-    border-color: #cbd5e1;
-  }
-
-  @media (max-width: 768px) {
-    .settings-container {
-      padding: 16px;
+    .btn-secondary:hover {
+      background: #f8fafc;
+      border-color: #cbd5e1;
     }
 
-    .settings-header {
+    /* Image upload sections */
+    .student-image-section {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
       padding: 20px;
+      margin-bottom: 24px;
     }
 
-    .settings-header h1 {
-      font-size: 22px;
+    .student-image-section h2 {
+      margin: 0 0 16px 0;
+      font-size: 17px;
+      font-weight: 700;
+      color: #1e293b;
     }
 
-    .settings-form-card {
-      padding: 20px;
-    }
-
-    .form-row {
-      grid-template-columns: 1fr;
+    .image-preview-container {
+      display: flex;
+      align-items: center;
       gap: 16px;
+      margin-top: 12px;
+      padding: 16px;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
     }
 
-    .form-actions {
-      flex-direction: column;
+    .image-preview {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid #e2e8f0;
     }
 
-    .btn-primary, .btn-secondary {
-      width: 100%;
-      text-align: center;
+    .image-upload-info p {
+      margin: 0;
+      color: #64748b;
+      font-size: 14px;
     }
-  }
+
+    .image-upload-info p:first-child {
+      font-weight: 600;
+      color: #334155;
+    }
+
+    @media (max-width: 768px) {
+      .settings-container {
+        padding: 16px;
+      }
+
+      .settings-header {
+        padding: 20px;
+      }
+
+      .settings-header h1 {
+        font-size: 22px;
+      }
+
+      .settings-form-card {
+        padding: 20px;
+      }
+
+      .form-row {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+
+      .form-actions {
+        flex-direction: column;
+      }
+
+      .btn-primary, .btn-secondary {
+        width: 100%;
+        text-align: center;
+      }
+
+      .image-preview-container {
+        flex-direction: column;
+        text-align: center;
+      }
+    }
 </style>
 
 <div class="settings-container">

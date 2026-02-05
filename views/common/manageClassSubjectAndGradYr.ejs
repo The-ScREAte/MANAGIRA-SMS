@@ -7,21 +7,78 @@
     <style>
       :root {
         --font-family: "Inter", sans-serif;
+        --border: #e5e7eb;
+        --muted: #6b7280;
+        --bg: #f9fafb;
       }
 
       body {
         font-family: var(--font-family);
+        background: var(--bg);
+        margin: 0;
+        padding: 0;
       }
 
       .class-subject-page {
-        font-family: var(--font-family);
-        background: #f7f9fb;
+        min-height: 100vh;
+      }
+
+      .page-header {
+        background: linear-gradient(135deg, var(--org-primary-color) 0%, var(--org-primary-hover) 100%);
+        color: white;
+        padding: 24px 20px;
+        text-align: center;
+        margin-bottom: 24px;
+      }
+
+      .page-header h1 {
+        margin: 0 0 8px 0;
+        font-size: 28px;
+        font-weight: 700;
+      }
+
+      .page-header p {
+        margin: 0;
+        opacity: 0.9;
+        font-size: 15px;
+      }
+
+      .action-bar {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+        padding: 0 16px;
+      }
+
+      .action-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 24px;
+        background: var(--org-primary-color);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        font-size: 15px;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .action-btn:hover {
+        background: var(--org-primary-hover);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        color: #fff;
       }
 
       .class-subject-page .container {
         max-width: 1100px;
         margin: 0 auto 48px;
-        padding: 0 16px 120px;
+        padding: 0 16px 60px;
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
         gap: 20px;
@@ -30,23 +87,19 @@
 
       .class-subject-page fieldset {
         background: #ffffff;
-        border: 1px solid #e0e0e0;
+        border: 1px solid var(--border);
         border-radius: 12px;
-        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
-        padding: 18px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        padding: 20px;
         height: 100%;
         box-sizing: border-box;
       }
 
       .class-subject-page legend {
         font-weight: 700;
-        padding: 0;
-      }
-
-      .class-subject-page h1 {
-        text-align: center;
-        margin: 0 0 16px;
-        color: #222;
+        font-size: 16px;
+        color: #111827;
+        padding: 0 8px;
       }
       .separator {
         border-bottom: 1px solid #ccc;
@@ -263,29 +316,27 @@
       .menu-item.delete:hover {
         background-color: #ffebee;
       }
-    </style>
   </head>
   <body class="class-subject-page">
-    <br />
-
-    <!-- Flash Messages -->
     <%- include('../partials/flash') %>
 
-    <br />
-    <!-- Add the link to the Add Class and Subject page -->
-    <div class="link-to-next-back">
-      <a href="/common/addClassSubject"
-        >Add Class, Subject & Graduation Year Group</a
-      >
+    <div class="page-header">
+      <h1>Manage Classes & Subjects</h1>
+      <p>Configure classes, subjects, and graduation year groups</p>
     </div>
-    <hr />
 
-
-    <h1 style="text-align:center; color:#222; margin-bottom:24px;">Manage classes and subjects</h1>
+    <div class="action-bar">
+      <a href="/common/addClassSubject" class="action-btn">
+        <svg style="width:18px;height:18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+        </svg>
+        Add Class, Subject & Grad Year
+      </a>
+    </div>
 
     <% if (classes.length === 0 && graduationYearGroups.length === 0) { %>
-    <div id="noDataNote" class="note" style="display: block">
-      No classes created yet. Click on the above button to create them.
+    <div class="note" style="display: block; background: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px 20px; border-radius: 0 8px 8px 0; max-width: 800px; margin: 0 auto 24px; text-align: center;">
+      <p style="margin: 0; color: #92400e;">No classes created yet. Click the button above to create them.</p>
     </div>
     <% } %>
 

@@ -98,7 +98,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 10px;
+    padding: 8px 12px;
     border-radius: 8px;
     color: #111827;
     text-decoration: none;
@@ -107,11 +107,13 @@
     background: transparent;
     cursor: pointer;
     font: inherit;
-    text-align: right;
+    text-align: left;
     font-weight: 600;
+    font-size: 14px;
     transition: all 0.2s ease;
-    flex-direction: row-reverse;
-    justify-content: flex-end;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .nav-link:hover {
@@ -425,37 +427,37 @@
       <ul class="nav-list">
         <li>
           <button class="nav-link active" data-section="school-year">
-            Manage School Year
+            School Year
           </button>
         </li>
         <li>
           <button class="nav-link" data-section="graduation">
-            Manage Graduation Years
+            Graduation Years
           </button>
         </li>
         <li>
           <button class="nav-link" data-section="employees">
-            Manage Employee
+            Employees
           </button>
         </li>
         <li>
           <button class="nav-link" data-section="guardians">
-            Manage Guardian
+            Guardians
           </button>
         </li>
         <li>
           <button class="nav-link" data-section="enrollment">
-            Manage Enrollment
+            Enrollment
           </button>
         </li>
         <li>
           <button class="nav-link" data-section="promotion">
-            Manage Promotion/Repetition
+            Promotions
           </button>
         </li>
         <li>
           <button class="nav-link" data-section="public-website">
-            Customize School
+            Customize
           </button>
         </li>
       </ul>
