@@ -7,198 +7,177 @@
     <style>
       :root {
         --font-family: "Inter", sans-serif;
+        --border: #e5e7eb;
+        --muted: #6b7280;
+        --bg: #f9fafb;
+      }
+
+      body {
+        font-family: var(--font-family);
+        background: var(--bg);
+        margin: 0;
+        padding: 0;
       }
 
       .manage-records-page {
-        font-family: var(--font-family);
+        min-height: 100vh;
+      }
+
+      .page-header {
+        background: linear-gradient(135deg, var(--org-primary-color) 0%, var(--org-primary-hover) 100%);
+        color: white;
+        padding: 24px 20px;
+        text-align: center;
+        margin-bottom: 24px;
+      }
+
+      .page-header h1 {
+        margin: 0 0 8px 0;
+        font-size: 28px;
+        font-weight: 700;
+      }
+
+      .page-header p {
+        margin: 0;
+        opacity: 0.9;
+        font-size: 15px;
       }
 
       .manage-records-page .container {
         width: 100%;
-        max-width: 1040px;
+        max-width: 900px;
         margin: 0 auto 40px;
         padding: 0 16px;
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 16px;
+        gap: 20px;
+      }
+
+      .action-bar {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
+      }
+
+      .action-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 24px;
+        background: var(--org-primary-color);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        font-size: 15px;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .action-btn:hover {
+        background: var(--org-primary-hover);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        color: #fff;
+      }
+
+      .note-section {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border-left: 4px solid #f59e0b;
+        padding: 16px 20px;
+        margin-bottom: 20px;
+        position: relative;
+        border-radius: 0 8px 8px 0;
+        width: 100%;
+        max-width: 860px;
+        text-align: left;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      }
+
+      .note-section p {
+        margin: 0;
+        color: #92400e;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      .close-note {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background: none;
+        border: none;
+        font-size: 20px;
+        cursor: pointer;
+        color: #92400e;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+        width: auto;
+        padding: 4px;
+      }
+
+      .close-note:hover {
+        opacity: 1;
       }
 
       .manage-records-page fieldset {
         width: 100%;
         max-width: 760px;
         box-sizing: border-box;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
       }
 
-      .manage-records-page .note-section {
-        width: 100%;
-        max-width: 960px;
+      .manage-records-page fieldset h1 {
+        margin: 0 0 16px 0;
+        font-size: 22px;
+        color: #111827;
       }
 
-
-      .public-dashboard-container {
-        margin-top: 20px;
-        width: 90%;
-        max-width: 1200px;
-        margin: auto;
+      .manage-records-page legend {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--muted);
+        padding: 0 8px;
       }
 
-      .current-year-indicator,
-      .current-term-indicator {
-        height: 5px;
-        width: 8px;
-        background-color: rgb(0, 201, 0);
-        border-radius: 50%;
-        display: inline-block;
-  width: 15px;
-  margin-right: 6px;
-        padding: 10px;
-      }
       .school-year-wrapper {
-        max-width: 600px;
+        max-width: 100%;
         width: 100%;
-        margin: 20px auto;
+        margin: 0 0 20px 0;
         background: #fff;
         padding: 20px;
-        border-radius: 8px;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        border: 1px solid var(--border);
       }
 
-      .term-section-header {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-top: 10px;
-        padding: 8px 0 0 0;
+      .school-year-wrapper.current-year-wrapper {
+        border-color: var(--org-primary-color);
+        box-shadow: 0 0 0 2px rgba(1, 83, 91, 0.1);
       }
 
-      .term-section-header label {
-        font-size: 12px;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        white-space: nowrap;
-        margin: 0;
-      }
-
-      .term-section-header input[type="radio"] {
-        margin: 0;
-      }
-
-      .term-section fieldset {
-        position: relative;
-        background: #fff;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(1,83,91,0.07);
-        border: 1px solid #e0e0e0;
-        padding: 18px 16px 14px 16px;
-        margin-bottom: 18px;
-      }
-
-      .arrow {
-        margin-left: auto;
-        font-size: 18px;
-      }
-
-      .save-button,
-      .delete-button {
-        background-color: var(--org-primary-color);
-        color: white;
-        padding: 10px 20px;
-        border: none;
-        border-radius: 4px;
-        cursor: not-allowed;
-      }
-
-      .save-button:enabled,
-      .delete-button:hover {
-        cursor: pointer;
-        background-color: var(--org-primary-hover);
-      }
-
-      .delete-button {
-        background-color: #dc3545;
-        margin-top: 10px;
-      }
-
-      .delete-button:hover {
-        background-color: #c82333;
-      }
-
-      /* Three-dot menu styles */
-      .term-menu-container {
-        position: relative;
-        display: inline-block;
-        margin-left: auto;
-      }
-
-      .term-menu-button {
-        background: none;
-        border: none;
-        font-size: 24px;
-        cursor: pointer;
-        padding: 5px 10px;
-        color: #666;
-        line-height: 1;
-      }
-
-      .term-menu-button:hover {
-        color: #01535b;
-      }
-
-      .term-menu-dropdown {
-        display: none;
-        position: absolute;
-        right: 0;
-        top: 100%;
-        background-color: white;
-        min-width: 150px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        border-radius: 6px;
-        z-index: 1000;
-        overflow: hidden;
-      }
-
-      .term-menu-dropdown.show {
-        display: block;
-      }
-
-      .term-menu-item {
-        padding: 12px 16px;
-        cursor: pointer;
-        border: none;
-        background: none;
-        width: 100%;
-        text-align: left;
-        font-size: 14px;
-        color: #333;
-        transition: background-color 0.2s;
-      }
-
-      .term-menu-item:hover {
-        background-color: #f5f5f5;
-      }
-
-      .term-menu-item.delete {
-        color: #dc3545;
-      }
-
-      .term-menu-item.delete:hover {
-        background-color: #fee;
-      }
-
-      /* School year header styles */
       .school-year-header {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 12px;
         cursor: pointer;
         padding: 10px 0;
+        flex-wrap: wrap;
       }
 
       .school-year-header label {
         font-size: 14px;
         margin: 0;
+        font-weight: 600;
+        color: #374151;
       }
 
       .school-year-header .year-label {
@@ -210,20 +189,33 @@
       .school-year-header input[type="text"] {
         flex: 1;
         max-width: 200px;
-        font-size: 14px;
-        padding: 6px 8px;
+        font-size: 15px;
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
       }
 
       .school-year-header .current-label {
-        font-size: 12px;
+        font-size: 13px;
         display: flex;
         align-items: center;
-        gap: 4px;
+        gap: 6px;
         white-space: nowrap;
+        color: var(--muted);
       }
 
       .school-year-header .current-label input[type="radio"] {
         margin: 0;
+      }
+
+      .current-year-indicator,
+      .current-term-indicator {
+        height: 10px;
+        width: 10px;
+        background-color: #10b981;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 6px;
       }
 
       .year-menu-container {
@@ -233,84 +225,242 @@
         gap: 8px;
       }
 
-      .create-link {
+      .arrow {
+        font-size: 16px;
+        color: var(--muted);
+        transition: transform 0.2s;
+      }
+
+      .term-section fieldset {
+        position: relative;
+        background: #f9fafb;
+        border-radius: 10px;
+        box-shadow: none;
+        border: 1px solid var(--border);
+        padding: 16px;
+        margin-bottom: 16px;
+      }
+
+      .term-section-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 8px;
+        padding: 8px 0 0 0;
+        flex-wrap: wrap;
+      }
+
+      .term-section-header label {
+        font-size: 13px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
+        margin: 0;
+        color: var(--muted);
+      }
+
+      .term-section-header input[type="radio"] {
+        margin: 0;
+      }
+
+      .term-section-header input[type="text"] {
+        flex: 1;
+        min-width: 150px;
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 14px;
+      }
+
+      .date-fields {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-top: 12px;
+      }
+
+      .date-fields > div {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .date-fields label {
+        font-size: 13px;
+        color: var(--muted);
+        font-weight: 500;
+      }
+
+      .date-fields input[type="date"] {
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 14px;
+      }
+
+      .term-menu-container {
+        position: relative;
         display: inline-block;
-        background-color: #28a745;
+        margin-left: auto;
+      }
+
+      .term-menu-button {
+        background: none;
+        border: none;
+        font-size: 20px;
+        cursor: pointer;
+        padding: 4px 8px;
+        color: var(--muted);
+        line-height: 1;
+        border-radius: 4px;
+        transition: all 0.2s;
+      }
+
+      .term-menu-button:hover {
+        color: var(--org-primary-color);
+        background: #f3f4f6;
+      }
+
+      .term-menu-dropdown {
+        display: none;
+        position: absolute;
+        right: 0;
+        top: 100%;
+        background-color: white;
+        min-width: 150px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        border-radius: 8px;
+        z-index: 1000;
+        overflow: hidden;
+        margin-top: 4px;
+      }
+
+      .term-menu-dropdown.show {
+        display: block;
+      }
+
+      .term-menu-item {
+        padding: 10px 16px;
+        cursor: pointer;
+        border: none;
+        background: none;
+        width: 100%;
+        text-align: left;
+        font-size: 14px;
+        color: #374151;
+        transition: background-color 0.2s;
+      }
+
+      .term-menu-item:hover {
+        background-color: #f5f5f5;
+      }
+
+      .term-menu-item.delete {
+        color: #dc2626;
+      }
+
+      .term-menu-item.delete:hover {
+        background-color: #fef2f2;
+      }
+
+      .save-button {
+        background: var(--org-primary-color);
         color: white;
-        padding: 10px 15px;
-        border-radius: 5px;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 15px;
+        font-weight: 600;
+        margin-top: 16px;
+        transition: all 0.2s;
+      }
+
+      .save-button:hover {
+        background: var(--org-primary-hover);
+      }
+
+      .save-button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .school-year-form a {
+        display: inline-block;
+        margin-top: 12px;
+        color: var(--org-primary-color);
+        font-weight: 500;
+        font-size: 14px;
         text-decoration: none;
       }
 
-      .create-link:hover {
-        background-color: #218838;
-      }
-      .create-link:hover {
-        background-color: #218838;
+      .school-year-form a:hover {
+        text-decoration: underline;
       }
 
-      hr {
-        border: 1px solid #ccc;
-        margin: 20px 0;
-      }
-      .note-section {
-        background-color: #fff3cd;
-        border-left: 6px solid #ffecb5;
-        padding: 15px;
-        margin-bottom: 15px;
-        position: relative;
-        border-radius: 5px;
-        width: 70%;
-        margin: 0 auto;
-        text-align: center;
-      }
-      .close-note {
-        position: absolute;
-        top: -10px;
-        right: 1%;
-        background: none;
-        border: none;
-        font-size: 24px;
-        cursor: pointer;
-        width: 10%;
-        height: 5%;
-        color: red;
-      }
-      .close-note:hover {
-        color: tomato;
-        background-color: #fff3cd;
-      }
-    </style>
-    <style>
-      body {
-        font-family: var(--font-family);
+      @media (max-width: 600px) {
+        .page-header {
+          padding: 20px 16px;
+        }
+
+        .page-header h1 {
+          font-size: 22px;
+        }
+
+        .school-year-header {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .school-year-header input[type="text"] {
+          max-width: 100%;
+          width: 100%;
+        }
+
+        .date-fields {
+          grid-template-columns: 1fr;
+        }
+
+        .action-bar {
+          flex-direction: column;
+        }
+
+        .action-btn {
+          width: 100%;
+          justify-content: center;
+        }
       }
     </style>
   </head>
   <body class="manage-records-page">
-    <br />
     <%- include('../partials/flash') %>
+
+    <div class="page-header">
+      <h1>Manage School Years & Terms</h1>
+      <p>Configure academic periods and term schedules</p>
+    </div>
+
+    <div class="action-bar">
+      <a href="/common/registerSchoolYear" class="action-btn">
+        <svg style="width:18px;height:18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+        </svg>
+        Create School Year
+      </a>
+    </div>
+
     <div class="note-section" id="noteSection">
       <button class="close-note" onclick="closeNote()">&times;</button>
       <p>
-        <strong>Note:</strong> Use this page to manage school years and terms.
-        You can add, edit, delete, and set the current school year or term.
+        <strong>Note:</strong> Use this page to manage school years and terms. You can add, edit, delete, and set the current school year or term.
       </p>
     </div>
 
-    <br />
-    <!-- Add the link to the Register School Year page -->
-    <div class="link-to-next-back">
-      <a href="/common/registerSchoolYear" class="create-link"
-        >Create School Year</a
-      >
-    </div>
-    <hr />
-
     <div class="container">
       <fieldset>
-        <h1>Manage School Years and Terms</h1>
-        <legend>School Years</legend>
+        <h1>School Years</h1>
+        <legend>Manage Your Academic Years</legend>
 
         <div id="schoolYearContainer">
           <% schoolYears.forEach(function(year) { %>
