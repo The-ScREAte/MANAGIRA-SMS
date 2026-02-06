@@ -98,7 +98,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 12px;
+    padding: 6px 10px;
     border-radius: 8px;
     color: #111827;
     text-decoration: none;
@@ -107,13 +107,12 @@
     background: transparent;
     cursor: pointer;
     font: inherit;
-    text-align: left;
+    text-align: right;
     font-weight: 600;
     font-size: 14px;
     transition: all 0.2s ease;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
   }
 
   .nav-link:hover {

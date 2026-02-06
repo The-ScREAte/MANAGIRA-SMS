@@ -1493,7 +1493,7 @@ const commonController = {
 
   publicRegisterStudentPost: async (req, res, db) => {
     const { body } = req;
-    const file = req.file;
+    const files = req.files;
     const organizationId =
       req.query.organizationId ||
       (req.schoolDetails && req.schoolDetails.organization_id);
@@ -1528,11 +1528,20 @@ const commonController = {
         public_registration_currency: currency,
       } = orgResult.rows[0];
 
-      // Upload image to S3 if provided
+      // Upload student image to S3 if provided
       let imageUrl = "profilePlaceholder.png";
-      if (file) {
+      if (files && files.studentImage && files.studentImage[0]) {
+        const file = files.studentImage[0];
         const s3Key = `images/studentimages/${organizationId}/${file.originalname}`;
         imageUrl = await uploadToS3(file, s3Key);
+      }
+
+      // Handle guardian image upload if new guardian
+      let guardianImageUrl = null;
+      if (files && files.guardianImage0 && files.guardianImage0[0]) {
+        const guardianFile = files.guardianImage0[0];
+        const s3Key = `images/guardians/${organizationId}/${guardianFile.originalname}`;
+        guardianImageUrl = await uploadToS3(guardianFile, s3Key);
       }
 
       // Insert pending student record right away
@@ -1559,21 +1568,32 @@ const commonController = {
 
       const pendingStudentId = insertResult.rows[0].pending_id;
 
-      // Save guardians
-      const guardians = extractGuardians(body);
-      for (const guardian of guardians) {
+      // Check if using existing guardian or creating new
+      if (body.existingGuardianId) {
+        // Link to existing guardian
         await db.query(
-          `INSERT INTO pending_guardians (pending_id, first_name, last_name, phone, email, hometown)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
-          [
-            pendingStudentId,
-            guardian.firstName,
-            guardian.lastName,
-            guardian.phone,
-            guardian.email,
-            guardian.hometown,
-          ]
+          `INSERT INTO pending_student_guardians (pending_student_id, guardian_id)
+           VALUES ($1, $2)`,
+          [pendingStudentId, body.existingGuardianId]
         );
+      } else {
+        // Save new guardian with image
+        const guardians = extractGuardians(body);
+        for (const guardian of guardians) {
+          await db.query(
+            `INSERT INTO pending_guardians (pending_id, first_name, last_name, phone, email, hometown, image_url)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [
+              pendingStudentId,
+              guardian.firstName,
+              guardian.lastName,
+              guardian.phone,
+              guardian.email,
+              guardian.hometown,
+              guardianImageUrl || 'profilePlaceholder.png',
+            ]
+          );
+        }
       }
 
       // Save subjects
@@ -7067,6 +7087,41 @@ const searchGuardiansApi = async (req, res, db) => {
   }
 };
 
+// Public guardian search (no authentication required)
+const searchGuardiansPublic = async (req, res, db) => {
+  try {
+    const organizationId = req.query.organizationId;
+    const q = (req.query.q || "").trim();
+
+    if (!organizationId) return res.status(400).json({ guardians: [] });
+    if (q.length < 2) return res.json({ guardians: [] });
+
+    const like = `%${q}%`;
+
+    const result = await db.query(
+      `
+      SELECT guardian_id, first_name, last_name, phone, email, image_url
+      FROM guardian_profiles
+      WHERE organization_id = $1
+        AND (
+          CONCAT_WS(' ', first_name, last_name) ILIKE $2
+          OR phone ILIKE $2
+          OR email ILIKE $2
+        )
+      ORDER BY updated_at DESC, guardian_id DESC
+      LIMIT 8
+      `,
+      [organizationId, like]
+    );
+
+    return res.json({ guardians: result.rows });
+  } catch (e) {
+    console.error('Public guardian search error:', e);
+    return res.status(500).json({ guardians: [] });
+  }
+};
+
+
 // Send welcome email to new guardian with password setup
 const sendGuardianWelcomeEmail = async (guardianEmail, guardianFirstName, guardianLastName, studentName, organizationName, organizationId, guardianId) => {
   try {
@@ -7213,6 +7268,7 @@ module.exports = {
   sendInviteEmail,
   sendPasswordSetSuccessEmail,
   searchGuardiansApi,
+  searchGuardiansPublic,
   sendGuardianWelcomeEmail,
   sendGuardianStudentAddedEmail,
 };

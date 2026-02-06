@@ -66,10 +66,18 @@ module.exports = (db) => {
   );
   router.post(
     "/publicRegister",
-    upload.single("studentImage"),
+    upload.fields([
+      { name: 'studentImage', maxCount: 1 },
+      { name: 'guardianImage0', maxCount: 1 }
+    ]),
     commonValidation.validatePublicRegister,
     commonValidation.validatePublicRegisterResult,
     (req, res) => commonController.publicRegisterStudentPost(req, res, db)
+  );
+
+  // Public guardian search (no auth required)
+  router.get("/searchGuardiansPublic", (req, res) =>
+    commonController.searchGuardiansPublic(req, res, db)
   );
 
   router.post("/initializePayment", (req, res) =>

@@ -114,6 +114,123 @@
     100% { transform: rotate(360deg); }
   }
 
+  /* Guardian Check Section */
+  .guardian-check-section {
+    text-align: center;
+    padding: 30px;
+    background: #f9f9f9;
+    border-radius: 8px;
+    margin: 20px 0;
+  }
+  .guardian-check-buttons {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin-top: 20px;
+  }
+  .guardian-check-buttons button {
+    padding: 15px 40px;
+    font-size: 1.1rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  .btn-yes {
+    background: #10b981;
+    color: white;
+  }
+  .btn-yes:hover {
+    background: #059669;
+  }
+  .btn-no {
+    background: #2563eb;
+    color: white;
+  }
+  .btn-no:hover {
+    background: #1d4ed8;
+  }
+
+  /* Guardian Search */
+  .guardian-search-container {
+    margin: 20px 0;
+    padding: 20px;
+    background: #f9f9f9;
+    border-radius: 8px;
+  }
+  .guardian-search-input {
+    width: 100%;
+    padding: 12px;
+    font-size: 1rem;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    margin-bottom: 10px;
+  }
+  .guardian-suggestions {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    max-height: 300px;
+    overflow-y: auto;
+    display: none;
+  }
+  .guardian-suggestions.show {
+    display: block;
+  }
+  .guardian-suggestion-item {
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .guardian-suggestion-item:hover {
+    background: #f0f9ff;
+  }
+  .guardian-suggestion-item img {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+  .guardian-suggestion-info {
+    flex: 1;
+  }
+  .guardian-suggestion-name {
+    font-weight: 600;
+    color: #333;
+  }
+  .guardian-suggestion-details {
+    font-size: 0.9rem;
+    color: #666;
+  }
+  .selected-guardian-display {
+    background: #ecfdf5;
+    border: 2px solid #10b981;
+    border-radius: 8px;
+    padding: 15px;
+    margin: 15px 0;
+    display: none;
+  }
+  .selected-guardian-display.show {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+  }
+  .selected-guardian-display img {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+  .image-preview {
+    max-width: 200px;
+    max-height: 200px;
+    margin-top: 10px;
+    border-radius: 8px;
+  }
+
 </style>
 </head>
 <body>
@@ -140,6 +257,42 @@
     <!-- Registration Section -->
     <div id="registrationFormSection" style="display: none;">
       <h2 class="form-header">Student Registration Form</h2>
+      
+      <!-- Guardian Check Section -->
+      <div id="guardianCheckSection" class="guardian-check-section">
+        <h3>Guardian Information</h3>
+        <p style="font-size: 1.05rem; margin: 15px 0;">Do you already have a child enrolled in this school?</p>
+        <div class="guardian-check-buttons">
+          <button class="btn-yes" onclick="guardianExists(true)">Yes, I have a child here</button>
+          <button class="btn-no" onclick="guardianExists(false)">No, I'm new</button>
+        </div>
+      </div>
+
+      <!-- Guardian Search (shown if YES) -->
+      <div id="guardianSearchSection" style="display: none;">
+        <div class="guardian-search-container">
+          <h4>Search for Your Information</h4>
+          <p style="color: #666; margin-bottom: 10px;">Type your name, phone number, or email to find your guardian profile</p>
+          <input 
+            type="text" 
+            id="guardianSearchInput" 
+            class="guardian-search-input" 
+            placeholder="Search by name, phone, or email..."
+            autocomplete="off"
+          />
+          <div id="guardianSuggestions" class="guardian-suggestions"></div>
+          
+          <div id="selectedGuardianDisplay" class="selected-guardian-display">
+            <img id="selectedGuardianImg" src="/images/profilePlaceholder.png" alt="Guardian">
+            <div>
+              <div class="guardian-suggestion-name" id="selectedGuardianName"></div>
+              <div class="guardian-suggestion-details" id="selectedGuardianDetails"></div>
+            </div>
+            <button type="button" class="remove-guardian" onclick="clearGuardianSelection()">Change</button>
+          </div>
+        </div>
+      </div>
+
       <form id="registrationForm" enctype="multipart/form-data">
         <input type="hidden" name="organizationId" value="<%= organizationId %>" />
   
@@ -181,33 +334,40 @@
           <input type="file" name="studentImage" required />
         </div>
   
-        <div id="guardiansContainer">
+        <div id="guardiansContainer" style="display: none;">
           <div class="guardians-section guardian-entry">
             <h4>Guardian Details</h4>
+            <input type="hidden" id="existingGuardianId" name="existingGuardianId" value="" />
+            
             <div class="form-group">
               <label>Guardian First Name</label>
-              <input type="text" name="guardianFirstName0" />
+              <input type="text" id="guardianFirstName0" name="guardianFirstName0" />
             </div>
             <div class="form-group">
               <label>Guardian Last Name</label>
-              <input type="text" name="guardianLastName0" />
+              <input type="text" id="guardianLastName0" name="guardianLastName0" />
             </div>
             <div class="form-group">
               <label>Guardian Phone</label>
-              <input type="text" name="guardianPhone0" />
+              <input type="text" id="guardianPhone0" name="guardianPhone0" />
             </div>
             <div class="form-group">
               <label>Guardian Email</label>
-              <input type="email" name="guardianEmail0" />
+              <input type="email" id="guardianEmail0" name="guardianEmail0" />
             </div>
             <div class="form-group">
               <label>Guardian Hometown</label>
-              <input type="text" name="guardianHometown0" />
+              <input type="text" id="guardianHometown0" name="guardianHometown0" />
+            </div>
+            <div class="form-group">
+              <label>Guardian Photo (Optional)</label>
+              <input type="file" id="guardianImage0" name="guardianImage0" accept="image/*" onchange="previewGuardianImage(this)" />
+              <img id="guardianImagePreview" class="image-preview" style="display: none;" />
             </div>
           </div>
         </div>
   
-        <div style="margin-top: 10px;">
+        <div style="margin-top: 10px; display: none;" id="addGuardianBtn">
           <button type="button" onclick="addGuardian()">+ Add Another Guardian</button>
         </div>
   
@@ -298,7 +458,7 @@
             method: 'POST',
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              subaccountId: paymentMethodId,
+              subaccountCode: paymentMethodId,
               amount: data.amount,
               organizationId: "<%= organizationId %>"
             })
@@ -322,4 +482,109 @@
         document.getElementById('loader').style.display = 'none';
       }
     }
+
+    // Guardian check functions
+    let hasExistingGuardian = false;
+    let searchTimeout = null;
+
+    function guardianExists(exists) {
+      hasExistingGuardian = exists;
+      document.getElementById('guardianCheckSection').style.display = 'none';
+      
+      if (exists) {
+        // Show search section
+        document.getElementById('guardianSearchSection').style.display = 'block';
+        document.getElementById('guardiansContainer').style.display = 'none';
+      } else {
+        // Show new guardian form
+        document.getElementById('guardianSearchSection').style.display = 'none';
+        document.getElementById('guardiansContainer').style.display = 'block';
+        document.getElementById('addGuardianBtn').style.display = 'block';
+      }
+    }
+
+    function previewGuardianImage(input) {
+      const preview = document.getElementById('guardianImagePreview');
+      if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          preview.src = e.target.result;
+          preview.style.display = 'block';
+        };
+        reader.readAsDataURL(input.files[0]);
+      }
+    }
+
+    // Guardian search functionality
+    document.addEventListener('DOMContentLoaded', function() {
+      const searchInput = document.getElementById('guardianSearchInput');
+      if (searchInput) {
+        searchInput.addEventListener('input', function() {
+          clearTimeout(searchTimeout);
+          const query = this.value.trim();
+          
+          if (query.length < 2) {
+            document.getElementById('guardianSuggestions').classList.remove('show');
+            return;
+          }
+          
+          searchTimeout = setTimeout(() => searchGuardians(query), 300);
+        });
+      }
+    });
+
+    async function searchGuardians(query) {
+      try {
+        const res = await fetch(`/common/searchGuardiansPublic?q=${encodeURIComponent(query)}&organizationId=<%= organizationId %>`);
+        const data = await res.json();
+        
+        const suggestionsDiv = document.getElementById('guardianSuggestions');
+        suggestionsDiv.innerHTML = '';
+        
+        if (data.guardians && data.guardians.length > 0) {
+          data.guardians.forEach(guardian => {
+            const item = document.createElement('div');
+            item.className = 'guardian-suggestion-item';
+            item.innerHTML = `
+              <img src="${guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? guardian.image_url : '/images/profilePlaceholder.png'}" alt="Guardian">
+              <div class="guardian-suggestion-info">
+                <div class="guardian-suggestion-name">${guardian.first_name} ${guardian.last_name}</div>
+                <div class="guardian-suggestion-details">${guardian.phone || ''} ${guardian.email || ''}</div>
+              </div>
+            `;
+            item.onclick = () => selectGuardian(guardian);
+            suggestionsDiv.appendChild(item);
+          });
+          suggestionsDiv.classList.add('show');
+        } else {
+          suggestionsDiv.innerHTML = '<div style="padding: 12px; text-align: center; color: #666;">No guardians found</div>';
+          suggestionsDiv.classList.add('show');
+        }
+      } catch (err) {
+        console.error('Search error:', err);
+      }
+    }
+
+    function selectGuardian(guardian) {
+      // Hide search suggestions
+      document.getElementById('guardianSuggestions').classList.remove('show');
+      document.getElementById('guardianSearchInput').value = '';
+      
+      // Show selected guardian
+      const display = document.getElementById('selectedGuardianDisplay');
+      document.getElementById('selectedGuardianImg').src = guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? guardian.image_url : '/images/profilePlaceholder.png';
+      document.getElementById('selectedGuardianName').textContent = `${guardian.first_name} ${guardian.last_name}`;
+      document.getElementById('selectedGuardianDetails').textContent = `${guardian.phone || ''} ${guardian.email || ''}`;
+      display.classList.add('show');
+      
+      // Set hidden field with guardian ID
+      document.getElementById('existingGuardianId').value = guardian.guardian_id;
+    }
+
+    function clearGuardianSelection() {
+      document.getElementById('selectedGuardianDisplay').classList.remove('show');
+      document.getElementById('existingGuardianId').value = '';
+      document.getElementById('guardianSearchInput').value = '';
+    }
+    
     </script>

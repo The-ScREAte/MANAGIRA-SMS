@@ -25,7 +25,7 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    background: linear-gradient(135deg, var(--org-primary-color, #0f5a66) 0%, var(--org-primary-hover, #6fd3c4) 100%);
+    background: var(--primary);
     color: white;
     padding: 12px 24px;
     border-radius: 10px;
@@ -37,8 +37,9 @@
   }
   
   .btn-new-report:hover {
+    background: var(--primary-hover);
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(15, 90, 102, 0.3);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
   }
   
   .report-card {
@@ -55,7 +56,7 @@
   
   .report-card:hover {
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-    border-color: var(--guardian-primary, #0f5a66);
+    border-color: var(--primary);
     transform: translateY(-2px);
   }
   

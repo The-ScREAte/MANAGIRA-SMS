@@ -6,10 +6,32 @@
   <title><%= title %></title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
+    <%
+      const themeColor = (typeof session !== 'undefined' && session && session.themeColor) ? session.themeColor : 'teal';
+      const themeColors = {
+        teal: { primary: '#01535b', hover: '#014a51' },
+        blue: { primary: '#2563eb', hover: '#1d4ed8' },
+        green: { primary: '#2d5f4f', hover: '#245043' },
+        purple: { primary: '#7c3aed', hover: '#6d28d9' },
+        indigo: { primary: '#4f46e5', hover: '#4338ca' },
+        rose: { primary: '#8b2635', hover: '#7a212e' },
+        amber: { primary: '#d97706', hover: '#b45309' },
+        slate: { primary: '#334155', hover: '#1e293b' },
+        classic: { primary: '#01535b', hover: '#014a51' },
+        bold: { primary: '#0b1020', hover: '#ffb703' },
+        modern: { primary: '#2563eb', hover: '#1d4ed8' },
+        minimal: { primary: '#7c3aed', hover: '#6d28d9' },
+        gold: { primary: '#d4a017', hover: '#b8860b' },
+        red: { primary: '#e11d48', hover: '#be123c' },
+        brown: { primary: '#7c4a03', hover: '#5c3802' }
+      };
+      const currentTheme = themeColors[themeColor] || themeColors.teal;
+    %>
     :root {
       --font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      --primary: #01535b;
-      --primary-light: rgba(1, 83, 91, 0.1);
+      --primary: <%= currentTheme.primary %>;
+      --primary-hover: <%= currentTheme.hover %>;
+      --primary-light: <%= currentTheme.primary %>1a;
       --text-primary: #1e293b;
       --text-secondary: #64748b;
       --border: #e2e8f0;
@@ -42,16 +64,35 @@
 
     /* Header */
     .stats-header {
-      background: linear-gradient(135deg, var(--primary) 0%, #0a7a86 100%);
+      background: var(--primary);
       border-radius: 16px;
-      padding: 32px;
+      padding: 40px;
       color: white;
-      margin-bottom: 24px;
-      box-shadow: 0 4px 20px rgba(1, 83, 91, 0.25);
+      margin-bottom: 32px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stats-header::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 300px;
+      height: 300px;
+      background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+      border-radius: 50%;
+      transform: translate(30%, -30%);
+    }
+
+    .stats-header-content {
+      position: relative;
+      z-index: 1;
     }
 
     .stats-header h1 {
-      font-size: 1.75rem;
+      font-size: 2rem;
       font-weight: 700;
       margin-bottom: 8px;
       display: flex;
@@ -60,8 +101,9 @@
     }
 
     .stats-header p {
-      opacity: 0.9;
-      font-size: 0.95rem;
+      opacity: 0.95;
+      font-size: 1rem;
+      font-weight: 500;
     }
 
     /* Controls */
@@ -69,53 +111,63 @@
       display: flex;
       gap: 12px;
       flex-wrap: wrap;
-      margin-bottom: 24px;
+      margin-bottom: 32px;
     }
 
     .control-btn {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 12px 20px;
+      padding: 14px 24px;
       background: var(--bg-card);
       border: 2px solid var(--border);
       border-radius: 10px;
-      font-size: 0.9rem;
+      font-size: 0.95rem;
       font-weight: 600;
       color: var(--text-primary);
       cursor: pointer;
       transition: all 0.2s ease;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
     }
 
     .control-btn:hover {
       border-color: var(--primary);
       color: var(--primary);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     }
 
     .control-btn.active {
       background: var(--primary);
       border-color: var(--primary);
       color: white;
+      box-shadow: 0 4px 12px var(--primary-light);
     }
 
     .control-btn svg {
-      width: 18px;
-      height: 18px;
+      width: 20px;
+      height: 20px;
     }
 
     /* Forms */
     .form-panel {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 24px;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 32px;
       display: none;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
     }
 
     .form-panel.show {
       display: block;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     .form-row {
@@ -156,37 +208,41 @@
     }
 
     .form-submit-btn {
-      padding: 10px 24px;
+      padding: 12px 28px;
       background: var(--primary);
       color: white;
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
       font-weight: 600;
+      font-size: 0.95rem;
       cursor: pointer;
       transition: all 0.2s;
+      box-shadow: 0 4px 12px var(--primary-light);
     }
 
     .form-submit-btn:hover {
-      background: #014a51;
-      transform: translateY(-1px);
+      background: var(--primary-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px var(--primary-light);
     }
 
     /* Stats Grid */
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-      margin-bottom: 32px;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+      margin-bottom: 40px;
     }
 
     .stat-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 20px;
-      transition: all 0.2s ease;
+      border-radius: 16px;
+      padding: 28px 24px;
+      transition: all 0.3s ease;
       position: relative;
       overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
     }
 
     .stat-card::before {
@@ -197,6 +253,7 @@
       right: 0;
       height: 4px;
       background: var(--primary);
+      border-radius: 16px 16px 0 0;
     }
 
     .stat-card:nth-child(2)::before { background: var(--success); }
@@ -204,46 +261,51 @@
     .stat-card:nth-child(4)::before { background: var(--warning); }
 
     .stat-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+      transform: translateY(-4px);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+      border-color: var(--primary);
     }
 
     .stat-label {
-      font-size: 0.85rem;
+      font-size: 0.875rem;
       color: var(--text-secondary);
-      font-weight: 500;
-      margin-bottom: 8px;
+      font-weight: 600;
+      margin-bottom: 12px;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     .stat-value {
-      font-size: 2rem;
+      font-size: 2.5rem;
       font-weight: 700;
       color: var(--text-primary);
-      line-height: 1.2;
+      line-height: 1;
     }
 
     /* Charts Section */
     .charts-section {
-      margin-bottom: 32px;
+      margin-bottom: 40px;
     }
 
     .section-title {
-      font-size: 1.25rem;
+      font-size: 1.5rem;
       font-weight: 700;
       color: var(--text-primary);
-      margin-bottom: 16px;
+      margin-bottom: 24px;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid var(--border);
     }
 
     .charts-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
-      gap: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+      gap: 24px;
     }
 
     @media (max-width: 600px) {
@@ -255,61 +317,71 @@
     .chart-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 24px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+      transition: all 0.3s ease;
+    }
+
+    .chart-card:hover {
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+      transform: translateY(-2px);
     }
 
     .chart-card h3 {
-      font-size: 1rem;
-      font-weight: 600;
+      font-size: 1.125rem;
+      font-weight: 700;
       color: var(--text-primary);
-      margin-bottom: 16px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid var(--border);
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
     }
 
     .chart-card canvas {
       width: 100% !important;
-      max-height: 300px;
+      max-height: 320px;
     }
 
     /* Compare Section */
     .compare-section {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 24px;
-      margin-top: 32px;
+      border-radius: 16px;
+      padding: 32px;
+      margin-top: 40px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
     }
 
     .compare-section h2 {
-      font-size: 1.25rem;
+      font-size: 1.5rem;
       font-weight: 700;
-      margin-bottom: 20px;
+      margin-bottom: 24px;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
+      color: var(--text-primary);
+      padding-bottom: 16px;
+      border-bottom: 2px solid var(--border);
     }
 
     .checkbox-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: 10px;
-      margin: 16px 0;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px;
+      margin: 20px 0;
     }
 
     .checkbox-item {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 10px 14px;
+      gap: 10px;
+      padding: 14px 16px;
       background: #f8fafc;
-      border: 1px solid var(--border);
-      border-radius: 8px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
       cursor: pointer;
       transition: all 0.2s;
     }
@@ -317,58 +389,69 @@
     .checkbox-item:hover {
       border-color: var(--primary);
       background: var(--primary-light);
+      transform: translateY(-1px);
     }
 
     .checkbox-item input[type="checkbox"] {
-      width: 18px;
-      height: 18px;
+      width: 20px;
+      height: 20px;
       accent-color: var(--primary);
+      cursor: pointer;
     }
 
     .checkbox-item label {
-      font-size: 0.9rem;
-      font-weight: 500;
+      font-size: 0.95rem;
+      font-weight: 600;
       cursor: pointer;
+      color: var(--text-primary);
     }
 
     /* Comparison Results */
     #classComparisonResults {
-      margin-top: 24px;
+      margin-top: 32px;
     }
 
     .comparison-table {
       overflow-x: auto;
-      margin-bottom: 24px;
+      margin-bottom: 32px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
     }
 
     .comparison-table table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.9rem;
+      font-size: 0.95rem;
+      background: var(--bg-card);
     }
 
     .comparison-table th,
     .comparison-table td {
-      padding: 14px 16px;
+      padding: 16px 20px;
       text-align: left;
       border-bottom: 1px solid var(--border);
     }
 
     .comparison-table th {
       background: #f8fafc;
-      font-weight: 600;
-      color: var(--text-secondary);
-      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      font-size: 0.875rem;
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
 
     .comparison-table td {
-      font-weight: 500;
+      font-weight: 600;
+      color: var(--text-primary);
     }
 
     .comparison-table tr:hover td {
       background: #f8fafc;
+    }
+
+    .comparison-table tr:last-child td {
+      border-bottom: none;
     }
 
     /* Responsive */
@@ -428,13 +511,17 @@
     <!-- Header -->
     <% if (currentTerm) { %>
     <div class="stats-header">
-      <h1>📊 Organization Statistics</h1>
-      <p><%= selectedSchoolYear.year_label %> • <%= currentTerm.term_name %></p>
+      <div class="stats-header-content">
+        <h1>📊 Organization Statistics</h1>
+        <p><%= selectedSchoolYear.year_label %> • <%= currentTerm.term_name %></p>
+      </div>
     </div>
     <% } else { %>
     <div class="stats-header">
-      <h1>📊 Organization Statistics</h1>
-      <p>Select a term to view detailed analytics</p>
+      <div class="stats-header-content">
+        <h1>📊 Organization Statistics</h1>
+        <p>Select a term to view detailed analytics</p>
+      </div>
     </div>
     <% } %>
 
