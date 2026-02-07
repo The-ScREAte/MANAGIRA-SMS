@@ -1882,7 +1882,7 @@ adminController.hubCreatePost = async (req, res) => {
             <ul style="font-size:15px;line-height:1.8;color:#444;">
               <li>Hub Name: ${hubName}</li>
               <li>Hub Nickname: ${hubNickname}</li>
-              <li>Hub URL: https://${hubNickname}.managira.com</li>
+              <li>Hub Login: ${baseUrl}/hub/login</li>
               <li>Email: ${hubEmail}</li>
               <li>Max Organizations: ${maxOrganizations || 5}</li>
             </ul>

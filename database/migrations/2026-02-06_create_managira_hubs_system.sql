@@ -130,6 +130,42 @@ CREATE TRIGGER update_hubs_modtime
     FOR EACH ROW
     EXECUTE FUNCTION update_hub_modified_column();
 
+CREATE TRIGGER update_hub_invitations_modtime
+    BEFORE UPDATE ON hub_organization_invitations
+    FOR EACH ROW
+    EXECUTE FUNCTION update_hub_modified_column();
+
+-- =====================================================
+-- 7. CREATE USEFUL VIEW FOR HUB ORGANIZATIONS
+-- =====================================================
+CREATE OR REPLACE VIEW hub_organizations_view AS
+SELECT 
+    o.organization_id,
+    o.organization_name,
+    o.nickname as org_nickname,
+    o.organization_email,
+    o.first_name,
+    o.last_name,
+    o.phone,
+    o.created_at as org_created_at,
+    o.on_hold as org_on_hold,
+    o.deleted as org_deleted,
+    o.is_hub_member,
+    o.joined_hub_at,
+    mh.hub_id,
+    mh.hub_name,
+    mh.hub_nickname,
+    mh.hub_email,
+    mh.plan_id as hub_plan_id,
+    mh.hub_branding_enabled,
+    mh.hub_footer_text,
+    mh.on_hold as hub_on_hold,
+    p.plan_name as hub_plan_name
+FROM organizations o
+JOIN managira_hubs mh ON o.hub_id = mh.hub_id
+LEFT JOIN plans p ON mh.plan_id = p.id
+WHERE o.is_hub_member = true AND o.deleted = false;
+
 -- =====================================================
 -- MIGRATION COMPLETE
 -- =====================================================

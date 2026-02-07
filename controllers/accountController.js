@@ -6820,12 +6820,12 @@ const accountController = {
       // Validate required fields
       if (!organization_nickname || !admin_email || !admin_password || !admin_first_name || !admin_last_name) {
         req.flash('error', 'Please fill in all required fields.');
-        return res.redirect(`/accept-hub-invitation/${token}`);
+        return res.redirect(`/account/accept-hub-invitation/${token}`);
       }
 
       if (!accept_terms) {
         req.flash('error', 'You must accept the terms and conditions.');
-        return res.redirect(`/accept-hub-invitation/${token}`);
+        return res.redirect(`/account/accept-hub-invitation/${token}`);
       }
 
       // Get invitation details
@@ -6858,7 +6858,7 @@ const accountController = {
 
       if (nicknameCheck.rows.length > 0) {
         req.flash('error', 'This subdomain is already taken. Please choose another.');
-        return res.redirect(`/accept-hub-invitation/${token}`);
+        return res.redirect(`/account/accept-hub-invitation/${token}`);
       }
 
       // Check if admin email exists
@@ -6869,7 +6869,7 @@ const accountController = {
 
       if (emailCheck.rows.length > 0) {
         req.flash('error', 'This email is already registered. Please use a different email.');
-        return res.redirect(`/accept-hub-invitation/${token}`);
+        return res.redirect(`/account/accept-hub-invitation/${token}`);
       }
 
       // Hash password
@@ -6969,7 +6969,7 @@ const accountController = {
               </ol>
               
               <div style="text-align: center;">
-                <a href="${process.env.APP_URL || 'http://localhost:5000'}/login" class="button">Go to Dashboard</a>
+                <a href="${process.env.APP_URL || 'http://localhost:4000'}/login" class="button">Go to Dashboard</a>
               </div>
               
               <p style="margin-top: 30px;">If you have any questions, please contact your hub administrator at ${invitation.hub_email}.</p>
