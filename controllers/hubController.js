@@ -233,7 +233,7 @@ const hubController = {
     } catch (error) {
       console.error('Error loading hub dashboard:', error);
       req.flash('error', 'Error loading dashboard.');
-      res.redirect('/hub/dashboard');
+      res.redirect('/hub/login');
     }
   },
 
