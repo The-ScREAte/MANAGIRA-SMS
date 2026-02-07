@@ -1,356 +1,216 @@
+<%- include('../partials/flash') %>
+
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title><%= title %> - <%= hub.hub_name %></title>
-    <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %> - <%= hub.hub_name %></title>
+  <style>
+    :root {
+      --primary: #01535b;
+      --primary-hover: #014a51;
+      --text-primary: #111827;
+      --text-secondary: #6b7280;
+      --border: #e5e7eb;
+      --bg: #f9fafb;
+    }
 
-      body {
-        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-        min-height: 100vh;
-        padding: 20px;
-      }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
-      .container {
-        max-width: 800px;
-        margin: 0 auto;
-        background: white;
-        border-radius: 15px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-        overflow: hidden;
-      }
+    body {
+      font-family: "Inter", -apple-system, sans-serif;
+      background: var(--bg);
+      min-height: 100vh;
+      padding: 24px 20px;
+    }
 
-      .header {
-        background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%);
-        color: white;
-        padding: 30px;
-        text-align: center;
-      }
+    .container {
+      max-width: 680px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
 
-      .header h1 {
-        font-size: 28px;
-        margin-bottom: 5px;
-      }
+    .header {
+      background: var(--primary);
+      color: white;
+      padding: 24px 28px;
+    }
 
-      .header p {
-        opacity: 0.9;
-        font-size: 14px;
-      }
+    .back-link {
+      display: inline-block;
+      color: rgba(255,255,255,0.8);
+      text-decoration: none;
+      margin-bottom: 10px;
+      font-size: 0.85rem;
+    }
 
-      .back-link {
-        display: inline-block;
-        color: white;
-        text-decoration: none;
-        margin-bottom: 15px;
-        opacity: 0.9;
-        transition: opacity 0.2s;
-      }
+    .back-link:hover { color: white; }
 
-      .back-link:hover {
-        opacity: 1;
-      }
+    .header h1 { font-size: 1.35rem; margin-bottom: 4px; }
+    .header p { opacity: 0.85; font-size: 0.9rem; }
 
-      .content {
-        padding: 40px;
-      }
+    .content { padding: 28px; }
 
-      .alert {
-        padding: 15px;
-        border-radius: 8px;
-        margin-bottom: 25px;
-      }
+    .info-card {
+      background: var(--bg);
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+      border: 1px solid var(--border);
+    }
 
-      .alert-success {
-        background: #d4edda;
-        border-left: 4px solid #28a745;
-        color: #155724;
-      }
+    .info-card h3 { color: var(--primary); margin-bottom: 10px; font-size: 1rem; }
 
-      .alert-error {
-        background: #f8d7da;
-        border-left: 4px solid #dc3545;
-        color: #721c24;
-      }
+    .org-limit {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: white;
+      padding: 12px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
 
-      .alert-info {
-        background: #d1ecf1;
-        border-left: 4px solid #0c5460;
-        color: #0c5460;
-      }
+    .org-limit-text { font-size: 0.9rem; color: var(--text-primary); }
+    .org-limit-count { font-size: 1.25rem; font-weight: 700; color: var(--primary); }
 
-      .info-card {
-        background: #f8f9fa;
-        padding: 20px;
-        border-radius: 10px;
-        margin-bottom: 30px;
-        border-left: 4px solid #01535b;
-      }
+    .form-section { margin-bottom: 24px; }
 
-      .info-card h3 {
-        color: #01535b;
-        margin-bottom: 10px;
-        font-size: 18px;
-      }
+    .form-section h3 {
+      color: var(--text-primary);
+      margin-bottom: 14px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      font-size: 1rem;
+    }
 
-      .info-card p {
-        color: #666;
-        line-height: 1.6;
-        margin-bottom: 10px;
-      }
+    .form-group { margin-bottom: 16px; }
 
-      .org-limit {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        background: white;
-        padding: 15px;
-        border-radius: 8px;
-        border: 2px solid #01535b;
-      }
+    .form-group label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--text-primary);
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
 
-      .org-limit-text {
-        font-size: 16px;
-        color: #333;
-      }
+    .form-group label .required { color: #dc2626; }
 
-      .org-limit-count {
-        font-size: 24px;
-        font-weight: bold;
-        color: #01535b;
-      }
+    .form-group input,
+    .form-group textarea {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
 
-      .form-section {
-        margin-bottom: 30px;
-      }
+    .form-group input:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(1,83,91,0.06);
+    }
 
-      .form-section h3 {
-        color: #333;
-        margin-bottom: 20px;
-        padding-bottom: 10px;
-        border-bottom: 2px solid #f0f0f0;
-        font-size: 20px;
-      }
+    .form-group textarea { min-height: 100px; resize: vertical; }
+    .form-group small { display: block; margin-top: 4px; color: var(--text-secondary); font-size: 0.8rem; }
 
-      .form-group {
-        margin-bottom: 20px;
-      }
+    .button-group { display: flex; gap: 12px; margin-top: 24px; }
 
-      .form-group label {
-        display: block;
-        margin-bottom: 8px;
-        color: #333;
-        font-weight: 500;
-      }
+    .btn {
+      padding: 10px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+      text-decoration: none;
+      display: inline-block;
+      text-align: center;
+      font-family: inherit;
+    }
 
-      .form-group label span.required {
-        color: #dc3545;
-      }
+    .btn-primary { background: var(--primary); color: white; flex: 1; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-secondary { background: #f3f4f6; color: var(--text-primary); }
+    .btn-secondary:hover { background: #e5e7eb; }
 
-      .form-group input,
-      .form-group textarea {
-        width: 100%;
-        padding: 12px;
-        border: 2px solid #e0e0e0;
-        border-radius: 8px;
-        font-size: 15px;
-        transition: border-color 0.2s;
-      }
+    @media (max-width: 600px) {
+      .content { padding: 20px; }
+      .button-group { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <a href="/hub/dashboard" class="back-link">&larr; Back to Dashboard</a>
+      <h1>Invite Organization</h1>
+      <p>Invite a new organization to join <%= hub.hub_name %></p>
+    </div>
 
-      .form-group input:focus,
-      .form-group textarea:focus {
-        outline: none;
-        border-color: #01535b;
-      }
-
-      .form-group textarea {
-        min-height: 120px;
-        resize: vertical;
-        font-family: inherit;
-      }
-
-      .form-group small {
-        display: block;
-        margin-top: 5px;
-        color: #666;
-        font-size: 13px;
-      }
-
-      .button-group {
-        display: flex;
-        gap: 15px;
-        margin-top: 30px;
-      }
-
-      .btn {
-        padding: 14px 30px;
-        border: none;
-        border-radius: 8px;
-        font-size: 16px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.2s;
-        text-decoration: none;
-        display: inline-block;
-        text-align: center;
-      }
-
-      .btn-primary {
-        background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%);
-        color: white;
-        flex: 1;
-      }
-
-      .btn-primary:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(1, 83, 91, 0.3);
-      }
-
-      .btn-secondary {
-        background: #6c757d;
-        color: white;
-      }
-
-      .btn-secondary:hover {
-        background: #5a6268;
-      }
-
-      @media (max-width: 768px) {
-        .content {
-          padding: 20px;
-        }
-
-        .header h1 {
-          font-size: 24px;
-        }
-
-        .button-group {
-          flex-direction: column;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <div class="header">
-        <a href="/hub/dashboard" class="back-link">← Back to Dashboard</a>
-        <h1><%= title %></h1>
-        <p>Invite a new organization to join <%= hub.hub_name %></p>
+    <div class="content">
+      <div class="info-card">
+        <h3>Organization Limit</h3>
+        <div class="org-limit">
+          <span class="org-limit-text">Current / Maximum</span>
+          <span class="org-limit-count"><%= currentOrgCount %> / <%= maxOrganizations %></span>
+        </div>
+        <% if (currentOrgCount >= maxOrganizations - 2 && currentOrgCount < maxOrganizations) { %>
+          <p style="color: #d97706; margin-top: 10px; font-size: 0.85rem; font-weight: 500;">
+            ⚠ Approaching your limit. Consider upgrading your plan.
+          </p>
+        <% } %>
       </div>
 
-      <div class="content">
-        <%- include('../partials/flash') %>
-
-        <div class="info-card">
-          <h3>Organization Limit</h3>
-          <div class="org-limit">
-            <span class="org-limit-text">Current / Maximum Organizations</span>
-            <span class="org-limit-count"><%= currentOrgCount %> / <%= maxOrganizations %></span>
+      <form action="/hub/organizations/invite" method="POST">
+        <div class="form-section">
+          <h3>Organization Information</h3>
+          <div class="form-group">
+            <label for="organization_name">Organization Name <span class="required">*</span></label>
+            <input type="text" id="organization_name" name="organization_name" placeholder="e.g., St. Mary's School" required>
+            <small>The official name of the institution</small>
           </div>
-          <% if (currentOrgCount >= maxOrganizations - 2 && currentOrgCount < maxOrganizations) { %>
-            <p style="color: #ffc107; margin-top: 15px; font-weight: 500;">
-              ⚠️ You are approaching your organization limit. Consider upgrading your plan.
-            </p>
-          <% } %>
         </div>
 
-        <form action="/hub/organizations/invite" method="POST">
-          <!-- Organization Information -->
-          <div class="form-section">
-            <h3>Organization Information</h3>
-            
-            <div class="form-group">
-              <label for="organization_name">
-                Organization Name <span class="required">*</span>
-              </label>
-              <input
-                type="text"
-                id="organization_name"
-                name="organization_name"
-                placeholder="e.g., St. Mary's School"
-                required
-              />
-              <small>The official name of the educational institution</small>
-            </div>
+        <div class="form-section">
+          <h3>Contact Person</h3>
+          <div class="form-group">
+            <label for="contact_person_name">Full Name <span class="required">*</span></label>
+            <input type="text" id="contact_person_name" name="contact_person_name" placeholder="e.g., John Doe" required>
           </div>
-
-          <!-- Contact Person Information -->
-          <div class="form-section">
-            <h3>Contact Person Details</h3>
-            
-            <div class="form-group">
-              <label for="contact_person_name">
-                Full Name <span class="required">*</span>
-              </label>
-              <input
-                type="text"
-                id="contact_person_name"
-                name="contact_person_name"
-                placeholder="e.g., John Doe"
-                required
-              />
-            </div>
-
-            <div class="form-group">
-              <label for="contact_person_email">
-                Email Address <span class="required">*</span>
-              </label>
-              <input
-                type="email"
-                id="contact_person_email"
-                name="contact_person_email"
-                placeholder="e.g., admin@stmarys.edu"
-                required
-              />
-              <small>The invitation will be sent to this email address</small>
-            </div>
-
-            <div class="form-group">
-              <label for="contact_person_phone">
-                Phone Number
-              </label>
-              <input
-                type="tel"
-                id="contact_person_phone"
-                name="contact_person_phone"
-                placeholder="e.g., +234 800 000 0000"
-              />
-            </div>
+          <div class="form-group">
+            <label for="contact_person_email">Email Address <span class="required">*</span></label>
+            <input type="email" id="contact_person_email" name="contact_person_email" placeholder="e.g., admin@stmarys.edu" required>
+            <small>The invitation will be sent to this email</small>
           </div>
-
-          <!-- Personal Message -->
-          <div class="form-section">
-            <h3>Invitation Message (Optional)</h3>
-            
-            <div class="form-group">
-              <label for="message">
-                Personal Message
-              </label>
-              <textarea
-                id="message"
-                name="message"
-                placeholder="Add a personal message to include in the invitation email..."
-              ></textarea>
-              <small>This message will be displayed in the invitation email</small>
-            </div>
+          <div class="form-group">
+            <label for="contact_person_phone">Phone Number</label>
+            <input type="tel" id="contact_person_phone" name="contact_person_phone" placeholder="e.g., +234 800 000 0000">
           </div>
+        </div>
 
-          <div class="button-group">
-            <button type="submit" class="btn btn-primary">
-              Send Invitation
-            </button>
-            <a href="/hub/dashboard" class="btn btn-secondary">
-              Cancel
-            </a>
+        <div class="form-section">
+          <h3>Message (Optional)</h3>
+          <div class="form-group">
+            <label for="message">Personal Message</label>
+            <textarea id="message" name="message" placeholder="Add a note to include in the invitation email..."></textarea>
           </div>
-        </form>
-      </div>
+        </div>
+
+        <div class="button-group">
+          <button type="submit" class="btn btn-primary">Send Invitation</button>
+          <a href="/hub/dashboard" class="btn btn-secondary">Cancel</a>
+        </div>
+      </form>
     </div>
-  </body>
+  </div>
+</body>
 </html>

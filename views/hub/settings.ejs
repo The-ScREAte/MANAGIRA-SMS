@@ -8,114 +8,118 @@
   <title>Hub Settings - Managira</title>
   <link rel="stylesheet" href="/css/style.css">
   <style>
-    .hub-container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 24px;
+    :root {
+      --primary: #01535b;
+      --primary-hover: #014a51;
+      --text-primary: #111827;
+      --text-secondary: #6b7280;
+      --border: #e5e7eb;
+      --bg: #f9fafb;
     }
+
+    body { background: var(--bg); font-family: "Inter", -apple-system, sans-serif; }
+
+    .hub-container { max-width: 1200px; margin: 0 auto; padding: 24px 20px; }
 
     .hub-header {
-      background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%);
+      background: var(--primary);
       color: white;
-      padding: 32px;
-      border-radius: 16px;
-      margin-bottom: 32px;
+      padding: 28px 32px;
+      border-radius: 12px;
+      margin-bottom: 24px;
     }
 
-    .hub-header h1 {
-      font-size: 2rem;
-      margin-bottom: 8px;
-    }
+    .hub-header h1 { font-size: 1.5rem; margin-bottom: 4px; font-weight: 700; }
+    .hub-header p { opacity: 0.85; font-size: 0.9rem; }
 
-    .hub-nav {
-      display: flex;
-      gap: 16px;
-      margin-bottom: 32px;
-      flex-wrap: wrap;
-    }
+    .hub-nav { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
 
     .hub-nav a {
-      padding: 12px 24px;
+      padding: 8px 18px;
       background: white;
-      border: 2px solid #e2e8f0;
-      border-radius: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
       text-decoration: none;
-      color: #1e293b;
+      color: var(--text-primary);
       font-weight: 600;
-      transition: all 0.2s;
+      font-size: 0.9rem;
+      transition: all 0.15s;
     }
 
-    .hub-nav a:hover,
-    .hub-nav a.active {
-      background: #01535b;
+    .hub-nav a:hover, .hub-nav a.active {
+      background: var(--primary);
       color: white;
-      border-color: #01535b;
+      border-color: var(--primary);
     }
 
     .settings-card {
       background: white;
-      border-radius: 12px;
-      padding: 32px;
-      margin-bottom: 24px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 24px;
+      margin-bottom: 20px;
+      border: 1px solid var(--border);
     }
 
     .settings-card h2 {
-      font-size: 1.5rem;
+      font-size: 1.15rem;
       margin-bottom: 16px;
-      color: #1e293b;
+      color: var(--text-primary);
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
     }
 
-    .form-group {
-      margin-bottom: 24px;
-    }
+    .form-group { margin-bottom: 16px; }
 
     .form-label {
       display: block;
       font-weight: 600;
-      color: #1e293b;
-      margin-bottom: 8px;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+      font-size: 0.85rem;
     }
 
     .form-input {
       width: 100%;
-      padding: 12px 16px;
-      border: 2px solid #e2e8f0;
-      border-radius: 10px;
-      font-size: 1rem;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-family: inherit;
     }
 
     .form-input:focus {
       outline: none;
-      border-color: #01535b;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(1, 83, 91, 0.06);
     }
 
     .btn-primary {
-      padding: 12px 24px;
-      background: #01535b;
+      padding: 10px 20px;
+      background: var(--primary);
       color: white;
       border: none;
-      border-radius: 10px;
-      font-size: 1rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
       font-weight: 600;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: background 0.15s;
+      font-family: inherit;
     }
 
-    .btn-primary:hover {
-      background: #014a51;
-      transform: translateY(-1px);
-    }
+    .btn-primary:hover { background: var(--primary-hover); }
 
     .info-box {
-      background: #f0f9ff;
-      border: 1px solid #bae6fd;
-      padding: 16px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      padding: 14px 16px;
       border-radius: 8px;
-      margin-bottom: 24px;
-      color: #0c4a6e;
+      margin-bottom: 16px;
+      color: var(--text-primary);
+      font-size: 0.9rem;
+      line-height: 1.8;
     }
+
+    .info-box strong { color: var(--primary); }
   </style>
 </head>
 <body>
@@ -135,8 +139,8 @@
       <h2>Hub Information</h2>
       <div class="info-box">
         <strong>Hub Name:</strong> <%= hub.hub_name %><br>
-        <strong>Hub Nickname:</strong> <%= hub.hub_nickname %><br>
-        <strong>Hub URL:</strong> https://<%= hub.hub_nickname %>.managira.com<br>
+        <strong>Nickname:</strong> <%= hub.hub_nickname %><br>
+        <strong>URL:</strong> https://<%= hub.hub_nickname %>.managira.com<br>
         <strong>Plan:</strong> <%= hub.plan_name || 'No plan assigned' %><br>
         <strong>Max Organizations:</strong> <%= hub.max_organizations %>
       </div>
@@ -149,22 +153,18 @@
           <label class="form-label">First Name</label>
           <input type="text" name="firstName" class="form-input" value="<%= hub.first_name %>" required>
         </div>
-
         <div class="form-group">
           <label class="form-label">Last Name</label>
           <input type="text" name="lastName" class="form-input" value="<%= hub.last_name %>" required>
         </div>
-
         <div class="form-group">
           <label class="form-label">Phone</label>
           <input type="text" name="hubPhone" class="form-input" value="<%= hub.hub_phone || '' %>">
         </div>
-
         <div class="form-group">
           <label class="form-label">Address</label>
           <input type="text" name="hubAddress" class="form-input" value="<%= hub.hub_address || '' %>">
         </div>
-
         <button type="submit" class="btn-primary">Update Profile</button>
       </form>
     </div>
@@ -176,17 +176,14 @@
           <label class="form-label">Current Password</label>
           <input type="password" name="currentPassword" class="form-input" required>
         </div>
-
         <div class="form-group">
           <label class="form-label">New Password</label>
           <input type="password" name="newPassword" class="form-input" required minlength="6">
         </div>
-
         <div class="form-group">
           <label class="form-label">Confirm New Password</label>
           <input type="password" name="confirmPassword" class="form-input" required minlength="6">
         </div>
-
         <button type="submit" class="btn-primary">Change Password</button>
       </form>
     </div>

@@ -8,301 +8,184 @@
   <title>Hub Dashboard - Managira</title>
   <link rel="stylesheet" href="/css/style.css">
   <style>
-    .hub-container {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 24px;
+    :root {
+      --primary: #01535b;
+      --primary-hover: #014a51;
+      --text-primary: #111827;
+      --text-secondary: #6b7280;
+      --border: #e5e7eb;
+      --bg: #f9fafb;
     }
+
+    body { background: var(--bg); font-family: "Inter", -apple-system, sans-serif; }
+
+    .hub-container { max-width: 1200px; margin: 0 auto; padding: 24px 20px; }
 
     .hub-header {
-      background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%);
+      background: var(--primary);
       color: white;
-      padding: 32px;
-      border-radius: 16px;
-      margin-bottom: 32px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      padding: 28px 32px;
+      border-radius: 12px;
+      margin-bottom: 24px;
     }
 
-    .hub-header h1 {
-      font-size: 2rem;
-      margin-bottom: 8px;
-    }
+    .hub-header h1 { font-size: 1.5rem; margin-bottom: 4px; font-weight: 700; }
+    .hub-header p { opacity: 0.85; font-size: 0.9rem; }
 
-    .hub-header p {
-      opacity: 0.9;
-      font-size: 1.1rem;
-    }
-
-    .hub-nav {
-      display: flex;
-      gap: 16px;
-      margin-bottom: 32px;
-      flex-wrap: wrap;
-    }
+    .hub-nav { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
 
     .hub-nav a {
-      padding: 12px 24px;
+      padding: 8px 18px;
       background: white;
-      border: 2px solid #e2e8f0;
-      border-radius: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
       text-decoration: none;
-      color: #1e293b;
+      color: var(--text-primary);
       font-weight: 600;
-      transition: all 0.2s;
+      font-size: 0.9rem;
+      transition: all 0.15s;
     }
 
-    .hub-nav a:hover,
-    .hub-nav a.active {
-      background: #01535b;
+    .hub-nav a:hover, .hub-nav a.active {
+      background: var(--primary);
       color: white;
-      border-color: #01535b;
+      border-color: var(--primary);
     }
 
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 24px;
-      margin-bottom: 32px;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
     }
 
     .stat-card {
       background: white;
-      padding: 24px;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-      border: 1px solid #e2e8f0;
+      padding: 20px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
     }
 
     .stat-card h3 {
-      font-size: 0.9rem;
-      color: #64748b;
-      margin-bottom: 8px;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
       font-weight: 600;
-    }
-
-    .stat-card .stat-value {
-      font-size: 2.5rem;
-      font-weight: 700;
-      color: #01535b;
-      margin-bottom: 4px;
-    }
-
-    .stat-card .stat-label {
-      font-size: 0.85rem;
-      color: #94a3b8;
-    }
-
-    .organizations-table {
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-      overflow: hidden;
-      border: 1px solid #e2e8f0;
-    }
-
-    .organizations-table h2 {
-      padding: 24px;
-      border-bottom: 1px solid #e2e8f0;
-      font-size: 1.5rem;
-      color: #1e293b;
-    }
-
-    .table-container {
-      overflow-x: auto;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    th, td {
-      padding: 16px 24px;
-      text-align: left;
-    }
-
-    th {
-      background: #f8fafc;
-      font-weight: 600;
-      color: #475569;
-      font-size: 0.9rem;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
 
-    td {
-      border-top: 1px solid #e2e8f0;
-      color: #1e293b;
+    .stat-value { font-size: 2rem; font-weight: 700; color: var(--primary); }
+    .stat-label { font-size: 0.8rem; color: #94a3b8; margin-top: 2px; }
+
+    .section-card {
+      background: white;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      margin-bottom: 20px;
+      overflow: hidden;
     }
 
-    tr:hover {
-      background: #f8fafc;
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
     }
+
+    .section-header h2 { font-size: 1.1rem; color: var(--text-primary); margin: 0; }
+
+    .table-container { overflow-x: auto; }
+
+    table { width: 100%; border-collapse: collapse; }
+
+    th, td { padding: 12px 20px; text-align: left; font-size: 0.9rem; }
+
+    th {
+      background: var(--bg);
+      font-weight: 600;
+      color: #475569;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    td { border-top: 1px solid var(--border); color: var(--text-primary); }
+    tr:hover td { background: var(--bg); }
 
     .badge {
       display: inline-block;
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 0.8rem;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 0.78rem;
       font-weight: 600;
-    }
-
-    .badge-success {
-      background: #d1fae5;
+      background: #ecfdf5;
       color: #065f46;
     }
 
     .btn {
       display: inline-block;
-      padding: 10px 20px;
-      border-radius: 8px;
+      padding: 8px 16px;
+      border-radius: 6px;
       font-weight: 600;
       text-decoration: none;
-      transition: all 0.2s;
+      transition: all 0.15s;
       border: none;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 0.85rem;
+      font-family: inherit;
     }
 
-    .btn-primary {
-      background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%);
-      color: white;
-    }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: var(--primary-hover); }
 
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 5px 15px rgba(1, 83, 91, 0.3);
-    }
+    .btn-sm { padding: 5px 10px; font-size: 0.8rem; }
+    .btn-danger { background: #dc2626; color: white; }
+    .btn-danger:hover { background: #b91c1c; }
+    .btn-secondary { background: #6b7280; color: white; }
+    .btn-secondary:hover { background: #4b5563; }
 
-    .btn-sm {
-      padding: 6px 12px;
-      font-size: 13px;
-    }
+    .action-buttons { display: flex; gap: 6px; }
 
-    .btn-danger {
-      background: #dc3545;
-      color: white;
-    }
-
-    .btn-danger:hover {
-      background: #c82333;
-    }
-
-    .btn-secondary {
-      background: #6c757d;
-      color: white;
-    }
-
-    .btn-secondary:hover {
-      background: #5a6268;
-    }
-
-    .action-buttons {
-      display: flex;
-      gap: 8px;
-    }
-
-    .header-actions {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 24px;
-      border-bottom: 1px solid #e2e8f0;
-    }
-
-    .header-actions h2 {
-      margin: 0;
-      font-size: 1.5rem;
-      color: #1e293b;
-    }
-
-    .no-data {
-      padding: 60px 24px;
-      text-align: center;
-      color: #64748b;
-    }
-
-    .invitations-section {
-      background: white;
-      border-radius: 12px;
-      margin-bottom: 24px;
-      border: 1px solid #e2e8f0;
-    }
-
-    .invitations-section h3 {
-      padding: 20px 24px;
-      border-bottom: 1px solid #e2e8f0;
-      color: #1e293b;
-      margin: 0;
-    }
+    .no-data { padding: 48px 20px; text-align: center; color: #94a3b8; }
 
     .invitation-item {
-      padding: 20px 24px;
-      border-bottom: 1px solid #e2e8f0;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 16px;
     }
 
-    .invitation-item:last-child {
-      border-bottom: none;
-    }
+    .invitation-item:last-child { border-bottom: none; }
 
-    .invitation-info h4 {
-      margin: 0 0 5px 0;
-      color: #1e293b;
-    }
-
-    .invitation-info p {
-      margin: 3px 0;
-      color: #64748b;
-      font-size: 14px;
-    }
+    .invitation-info h4 { margin: 0 0 4px 0; color: var(--text-primary); font-size: 0.95rem; }
+    .invitation-info p { margin: 2px 0; color: var(--text-secondary); font-size: 0.82rem; }
 
     .invitation-status {
       display: inline-block;
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 12px;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 0.75rem;
       font-weight: 600;
       background: #fef3c7;
       color: #92400e;
     }
 
     @media (max-width: 768px) {
-      .stats-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .table-container {
-        overflow-x: scroll;
-      }
-
-      .action-buttons {
-        flex-direction: column;
-      }
-
-      .header-actions {
-        flex-direction: column;
-        gap: 15px;
-        align-items: flex-start;
-      }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .table-container { overflow-x: scroll; }
+      table { min-width: 700px; }
+      .action-buttons { flex-direction: column; }
+      .section-header { flex-direction: column; gap: 10px; align-items: flex-start; }
+      .invitation-item { flex-direction: column; align-items: flex-start; }
     }
 
-    .btn-link {
-      color: #01535b;
-      text-decoration: none;
-      font-weight: 600;
-    }
-
-    .btn-link:hover {
-      text-decoration: underline;
-    }
-
-    .no-data {
-      padding: 48px;
-      text-align: center;
-      color: #94a3b8;
+    @media (max-width: 480px) {
+      .stats-grid { grid-template-columns: 1fr; }
+      .hub-container { padding: 16px 12px; }
     }
   </style>
 </head>
@@ -310,7 +193,7 @@
   <div class="hub-container">
     <div class="hub-header">
       <h1>Welcome, <%= hub.first_name %>!</h1>
-      <p><%= hub.hub_name %> • <%= hub.hub_nickname %>.managira.com</p>
+      <p><%= hub.hub_name %> &middot; <%= hub.hub_nickname %>.managira.com</p>
     </div>
 
     <div class="hub-nav">
@@ -321,50 +204,48 @@
 
     <div class="stats-grid">
       <div class="stat-card">
-        <h3>TOTAL ORGANIZATIONS</h3>
+        <h3>Organizations</h3>
         <div class="stat-value"><%= orgCount %></div>
         <div class="stat-label">of <%= hub.max_organizations %> max</div>
       </div>
-
       <div class="stat-card">
-        <h3>TOTAL STUDENTS</h3>
+        <h3>Students</h3>
         <div class="stat-value"><%= totalStudents.toLocaleString() %></div>
         <div class="stat-label">Across all organizations</div>
       </div>
-
       <div class="stat-card">
-        <h3>TOTAL STAFF</h3>
+        <h3>Staff</h3>
         <div class="stat-value"><%= totalTeachers.toLocaleString() %></div>
-        <div class="stat-label">Teachers and administrators</div>
+        <div class="stat-label">Teachers & administrators</div>
       </div>
-
       <div class="stat-card">
-        <h3>TOTAL CLASSES</h3>
+        <h3>Classes</h3>
         <div class="stat-value"><%= totalClasses.toLocaleString() %></div>
         <div class="stat-label">Active classes</div>
       </div>
     </div>
 
-    <!-- Pending Invitations Section -->
     <% if (pendingInvitations && pendingInvitations.length > 0) { %>
-    <div class="invitations-section">
-      <h3>Pending Invitations (<%= pendingInvitations.length %>)</h3>
+    <div class="section-card">
+      <div class="section-header">
+        <h2>Pending Invitations (<%= pendingInvitations.length %>)</h2>
+      </div>
       <% pendingInvitations.forEach(invitation => { %>
         <div class="invitation-item">
           <div class="invitation-info">
             <h4><%= invitation.organization_name %></h4>
-            <p><strong>Contact:</strong> <%= invitation.contact_person_name %> (<%= invitation.contact_person_email %>)</p>
-            <p><strong>Sent:</strong> <%= new Date(invitation.created_at).toLocaleDateString() %> | <strong>Expires:</strong> <%= new Date(invitation.expires_at).toLocaleDateString() %></p>
+            <p><%= invitation.contact_person_name %> &middot; <%= invitation.contact_person_email %></p>
+            <p>Sent: <%= new Date(invitation.created_at).toLocaleDateString() %> &middot; Expires: <%= new Date(invitation.expires_at).toLocaleDateString() %></p>
             <span class="invitation-status">Pending</span>
           </div>
           <div class="action-buttons">
-            <form action="/hub/organizations/resend-invite" method="POST" style="display: inline;">
+            <form action="/hub/organizations/resend-invite" method="POST" style="display:inline;">
               <input type="hidden" name="invitationId" value="<%= invitation.invitation_id %>">
               <button type="submit" class="btn btn-secondary btn-sm">Resend</button>
             </form>
-            <form action="/hub/organizations/cancel-invitation" method="POST" style="display: inline;">
+            <form action="/hub/organizations/cancel-invitation" method="POST" style="display:inline;">
               <input type="hidden" name="invitationId" value="<%= invitation.invitation_id %>">
-              <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to cancel this invitation?')">Cancel</button>
+              <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Cancel this invitation?')">Cancel</button>
             </form>
           </div>
         </div>
@@ -372,21 +253,18 @@
     </div>
     <% } %>
 
-    <!-- Organizations Table -->
-    <div class="organizations-table">
-      <div class="header-actions">
-        <h2>Your Organizations (<%= orgCount %> / <%= hub.max_organizations %>)</h2>
-        <a href="/hub/organizations/invite" class="btn btn-primary">
-          + Invite Organization
-        </a>
+    <div class="section-card">
+      <div class="section-header">
+        <h2>Organizations (<%= orgCount %> / <%= hub.max_organizations %>)</h2>
+        <a href="/hub/organizations/invite" class="btn btn-primary">+ Invite Organization</a>
       </div>
       <div class="table-container">
         <% if (organizations.length > 0) { %>
           <table>
             <thead>
               <tr>
-                <th>Organization Name</th>
-                <th>Contact Person</th>
+                <th>Organization</th>
+                <th>Contact</th>
                 <th>Email</th>
                 <th>Students</th>
                 <th>Staff</th>
@@ -400,20 +278,18 @@
                 <tr>
                   <td>
                     <strong><%= org.organization_name %></strong><br>
-                    <small style="color: #64748b;"><%= org.nickname %>.<%= hub.hub_nickname %>.managira.com</small>
+                    <small style="color: var(--text-secondary);"><%= org.nickname %>.<%= hub.hub_nickname %>.managira.com</small>
                   </td>
                   <td><%= org.first_name %> <%= org.last_name %></td>
                   <td><%= org.organization_email %></td>
-                  <td><span class="badge badge-success"><%= org.student_count %></span></td>
-                  <td><span class="badge badge-success"><%= org.teacher_count %></span></td>
-                  <td><span class="badge badge-success"><%= org.class_count %></span></td>
+                  <td><span class="badge"><%= org.student_count %></span></td>
+                  <td><span class="badge"><%= org.teacher_count %></span></td>
+                  <td><span class="badge"><%= org.class_count %></span></td>
                   <td><%= org.joined_hub_at ? new Date(org.joined_hub_at).toLocaleDateString() : 'N/A' %></td>
                   <td>
-                    <form action="/hub/organizations/remove" method="POST" style="display: inline;">
+                    <form action="/hub/organizations/remove" method="POST" style="display:inline;">
                       <input type="hidden" name="organizationId" value="<%= org.organization_id %>">
-                      <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to remove <%= org.organization_name %> from your hub? This will make them independent.')">
-                        Remove
-                      </button>
+                      <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Remove <%= org.organization_name %>? They will become independent.')">Remove</button>
                     </form>
                   </td>
                 </tr>
@@ -422,8 +298,8 @@
           </table>
         <% } else { %>
           <div class="no-data">
-            <p>📋 No organizations yet.</p>
-            <p style="margin-top: 10px;">
+            <p>No organizations yet.</p>
+            <p style="margin-top: 8px;">
               <a href="/hub/organizations/invite" class="btn btn-primary">Invite Your First Organization</a>
             </p>
           </div>
