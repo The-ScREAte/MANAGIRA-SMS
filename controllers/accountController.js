@@ -6761,6 +6761,321 @@ const accountController = {
       res.status(500).json({ success: false, message: "Update failed." });
     }
   },
+
+  // GET - Display hub invitation acceptance page
+  hubInvitationAcceptGet: async (req, res) => {
+    try {
+      const { token } = req.params;
+
+      // Validate token
+      const invitationResult = await db.query(
+        `SELECT hoi.*, mh.hub_name, mh.hub_nickname, mh.hub_email, mh.plan_id, p.plan_name
+         FROM hub_organization_invitations hoi
+         JOIN managira_hubs mh ON hoi.hub_id = mh.hub_id
+         LEFT JOIN plans p ON mh.plan_id = p.id
+         WHERE hoi.invitation_token = $1 AND hoi.status = 'pending'`,
+        [token]
+      );
+
+      if (invitationResult.rows.length === 0) {
+        req.flash('error', 'Invalid or expired invitation link.');
+        return res.redirect('/login');
+      }
+
+      const invitation = invitationResult.rows[0];
+
+      // Check if invitation has expired
+      if (new Date(invitation.expires_at) < new Date()) {
+        req.flash('error', 'This invitation has expired. Please contact the hub for a new invitation.');
+        return res.redirect('/login');
+      }
+
+      res.render('account/hubInvitation', {
+        title: 'Accept Hub Invitation',
+        invitation,
+        token,
+        showFooterTopSection: true
+      });
+    } catch (error) {
+      console.error('Error loading hub invitation:', error);
+      req.flash('error', 'An error occurred while loading the invitation.');
+      res.redirect('/login');
+    }
+  },
+
+  // POST - Process hub invitation acceptance
+  hubInvitationAcceptPost: async (req, res) => {
+    try {
+      const { token } = req.params;
+      const {
+        organization_nickname,
+        admin_email,
+        admin_password,
+        admin_first_name,
+        admin_last_name,
+        admin_phone,
+        accept_terms
+      } = req.body;
+
+      // Validate required fields
+      if (!organization_nickname || !admin_email || !admin_password || !admin_first_name || !admin_last_name) {
+        req.flash('error', 'Please fill in all required fields.');
+        return res.redirect(`/accept-hub-invitation/${token}`);
+      }
+
+      if (!accept_terms) {
+        req.flash('error', 'You must accept the terms and conditions.');
+        return res.redirect(`/accept-hub-invitation/${token}`);
+      }
+
+      // Get invitation details
+      const invitationResult = await db.query(
+        `SELECT hoi.*, mh.hub_name, mh.hub_id, mh.plan_id
+         FROM hub_organization_invitations hoi
+         JOIN managira_hubs mh ON hoi.hub_id = mh.hub_id
+         WHERE hoi.invitation_token = $1 AND hoi.status = 'pending'`,
+        [token]
+      );
+
+      if (invitationResult.rows.length === 0) {
+        req.flash('error', 'Invalid or expired invitation.');
+        return res.redirect('/login');
+      }
+
+      const invitation = invitationResult.rows[0];
+
+      // Check expiration
+      if (new Date(invitation.expires_at) < new Date()) {
+        req.flash('error', 'This invitation has expired.');
+        return res.redirect('/login');
+      }
+
+      // Check if nickname is available
+      const nicknameCheck = await db.query(
+        'SELECT organization_id FROM organizations WHERE nickname = $1',
+        [organization_nickname.toLowerCase()]
+      );
+
+      if (nicknameCheck.rows.length > 0) {
+        req.flash('error', 'This subdomain is already taken. Please choose another.');
+        return res.redirect(`/accept-hub-invitation/${token}`);
+      }
+
+      // Check if admin email exists
+      const emailCheck = await db.query(
+        'SELECT user_id FROM users WHERE email = $1',
+        [admin_email]
+      );
+
+      if (emailCheck.rows.length > 0) {
+        req.flash('error', 'This email is already registered. Please use a different email.');
+        return res.redirect(`/accept-hub-invitation/${token}`);
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(admin_password, 10);
+
+      // Create organization
+      const orgResult = await db.query(
+        `INSERT INTO organizations 
+         (organization_name, nickname, organization_email, contact_email, first_name, last_name, 
+          phone, hub_id, is_hub_member, joined_hub_at, plan_id, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, CURRENT_TIMESTAMP, $9, CURRENT_TIMESTAMP)
+         RETURNING organization_id`,
+        [
+          invitation.organization_name,
+          organization_nickname.toLowerCase(),
+          invitation.contact_person_email,
+          invitation.contact_person_email,
+          invitation.contact_person_name.split(' ')[0] || invitation.contact_person_name,
+          invitation.contact_person_name.split(' ').slice(1).join(' ') || '',
+          invitation.contact_person_phone || '',
+          invitation.hub_id,
+          invitation.plan_id
+        ]
+      );
+
+      const organizationId = orgResult.rows[0].organization_id;
+
+      // Create admin user
+      await db.query(
+        `INSERT INTO users 
+         (organization_id, email, first_name, last_name, phone, password, role, isActive, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, 'admin', true, CURRENT_TIMESTAMP)`,
+        [organizationId, admin_email, admin_first_name, admin_last_name, admin_phone || '', hashedPassword]
+      );
+
+      // Update invitation status
+      await db.query(
+        `UPDATE hub_organization_invitations 
+         SET status = 'accepted', updated_at = CURRENT_TIMESTAMP 
+         WHERE invitation_id = $1`,
+        [invitation.invitation_id]
+      );
+
+      // Log hub activity
+      await db.query(
+        `INSERT INTO hub_activity_logs (hub_id, action_type, target_organization_id, description, performed_by, ip_address)
+         VALUES ($1, 'invitation_accepted', $2, $3, $4, $5)`,
+        [
+          invitation.hub_id,
+          organizationId,
+          `Organization ${invitation.organization_name} accepted invitation`,
+          admin_email,
+          req.ip
+        ]
+      );
+
+      // Send welcome email to organization admin
+      const welcomeEmailHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+            .button { display: inline-block; padding: 12px 30px; background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%); color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+            .info-box { background: white; padding: 15px; border-left: 4px solid #01535b; margin: 20px 0; }
+            .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🎉 Welcome to Managira SMS!</h1>
+            </div>
+            <div class="content">
+              <p>Dear ${admin_first_name},</p>
+              
+              <p>Congratulations! Your organization <strong>${invitation.organization_name}</strong> has successfully joined the <strong>${invitation.hub_name}</strong> hub on Managira SMS.</p>
+              
+              <div class="info-box">
+                <h3>Your Organization Details</h3>
+                <p><strong>Organization:</strong> ${invitation.organization_name}</p>
+                <p><strong>Subdomain:</strong> ${organization_nickname}.${invitation.hub_nickname}.managira.com</p>
+                <p><strong>Admin Email:</strong> ${admin_email}</p>
+                <p><strong>Hub:</strong> ${invitation.hub_name}</p>
+              </div>
+              
+              <h3>Next Steps</h3>
+              <ol>
+                <li>Log in to your organization dashboard</li>
+                <li>Complete your organization profile</li>
+                <li>Set up your academic terms and classes</li>
+                <li>Add teachers and staff</li>
+                <li>Start enrolling students</li>
+              </ol>
+              
+              <div style="text-align: center;">
+                <a href="${process.env.APP_URL || 'http://localhost:5000'}/login" class="button">Go to Dashboard</a>
+              </div>
+              
+              <p style="margin-top: 30px;">If you have any questions, please contact your hub administrator at ${invitation.hub_email}.</p>
+              
+              <p>Welcome aboard!</p>
+              <p><strong>The Managira Team</strong></p>
+            </div>
+            <div class="footer">
+              <p>&copy; ${new Date().getFullYear()} Managira SMS. All rights reserved.</p>
+              <p>Empowering Education Through Technology</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      // Send email notification
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT),
+        secure: process.env.SMTP_SECURE === "true",
+        auth: {
+          user: process.env.ADMIN_NOTIFY_EMAIL_USER,
+          pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
+        },
+      });
+
+      await transporter.sendMail({
+        from: process.env.NOTIFY_EMAIL_USER,
+        to: admin_email,
+        subject: `Welcome to ${invitation.hub_name} Hub - Managira SMS`,
+        html: welcomeEmailHtml,
+        attachments: [
+          {
+            filename: "managira.png",
+            path: path.join(__dirname, "../public/images/managira.png"),
+            cid: "managira_logo",
+          },
+        ],
+      });
+
+      // Notify hub
+      const hubNotificationHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+            .info-box { background: white; padding: 15px; border-left: 4px solid #28a745; margin: 20px 0; }
+            .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>New Organization Joined!</h1>
+            </div>
+            <div class="content">
+              <p>Good news!</p>
+              
+              <p><strong>${invitation.organization_name}</strong> has accepted your invitation and joined your hub.</p>
+              
+              <div class="info-box">
+                <h3>Organization Details</h3>
+                <p><strong>Name:</strong> ${invitation.organization_name}</p>
+                <p><strong>Subdomain:</strong> ${organization_nickname}.${invitation.hub_nickname}.managira.com</p>
+                <p><strong>Admin:</strong> ${admin_first_name} ${admin_last_name}</p>
+                <p><strong>Email:</strong> ${admin_email}</p>
+                <p><strong>Joined:</strong> ${new Date().toLocaleDateString()}</p>
+              </div>
+              
+              <p>You can now manage this organization from your hub dashboard.</p>
+            </div>
+            <div class="footer">
+              <p>&copy; ${new Date().getFullYear()} Managira SMS. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      await transporter.sendMail({
+        from: process.env.NOTIFY_EMAIL_USER,
+        to: invitation.hub_email,
+        subject: `${invitation.organization_name} Joined Your Hub`,
+        html: hubNotificationHtml,
+        attachments: [
+          {
+            filename: "managira.png",
+            path: path.join(__dirname, "../public/images/managira.png"),
+            cid: "managira_logo",
+          },
+        ],
+      });
+
+      req.flash('success', `Welcome! Your organization has been set up successfully. Please log in with your credentials.`);
+      res.redirect('/login');
+    } catch (error) {
+      console.error('Error accepting hub invitation:', error);
+      req.flash('error', 'An error occurred while processing your invitation.');
+      res.redirect('/login');
+    }
+  },
 };
 
 accountController.sendBrandedReceiptEmail = sendBrandedReceiptEmail;

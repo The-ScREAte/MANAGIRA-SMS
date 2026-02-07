@@ -239,6 +239,16 @@ module.exports = (db) => {
     router.get('/data-export', ensureAdmin, adminController.dataExportPage);
     router.post('/generate-organization-csv', ensureAdmin, adminController.generateOrganizationCSV);
 
+    // Hub Management Routes
+    router.get('/hubs', ensureAdmin, adminController.hubsListGet);
+    router.get('/hubs/create', ensureAdmin, adminController.hubCreateGet);
+    router.post('/hubs/create', ensureAdmin, adminController.hubCreatePost);
+    router.get('/hubs/:hubId/edit', ensureAdmin, adminController.hubEditGet);
+    router.post('/hubs/:hubId/edit', ensureAdmin, adminController.hubEditPost);
+    router.post('/hubs/hold', ensureAdmin, adminController.hubHoldPost);
+    router.post('/hubs/resume', ensureAdmin, adminController.hubResumePost);
+    router.post('/hubs/delete', ensureAdmin, adminController.hubDeletePost);
+    router.get('/hubs/:hubId/organizations', ensureAdmin, adminController.hubOrganizationsGet);
 
     return router;
 };

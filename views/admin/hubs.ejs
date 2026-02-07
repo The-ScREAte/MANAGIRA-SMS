@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Hubs - Admin</title>
+  <link rel="stylesheet" href="/css/admin.css">
+  <style>
+    .hub-container {
+      max-width: 1400px;
+      margin: 40px auto;
+      padding: 24px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    }
+
+    .hub-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 32px;
+    }
+
+    .hub-header h1 {
+      font-size: 2rem;
+      color: #111827;
+      margin: 0;
+    }
+
+    .btn-create {
+      padding: 12px 24px;
+      background: #01535b;
+      color: white;
+      text-decoration: none;
+      border-radius: 10px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .btn-create:hover {
+      background: #014a51;
+      transform: translateY(-1px);
+    }
+
+    .hubs-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 24px;
+    }
+
+    .hubs-table th,
+    .hubs-table td {
+      padding: 16px;
+      text-align: left;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .hubs-table th {
+      background: #f9fafb;
+      font-weight: 600;
+      color: #374151;
+      text-transform: uppercase;
+      font-size: 0.85rem;
+      letter-spacing: 0.5px;
+    }
+
+    .hubs-table tr:hover {
+      background: #f9fafb;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .badge-active {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .badge-hold {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .badge-deleted {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-action {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .btn-edit {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+
+    .btn-edit:hover {
+      background: #bfdbfe;
+    }
+
+    .btn-hold {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .btn-hold:hover {
+      background: #fde68a;
+    }
+
+    .btn-delete {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .btn-delete:hover {
+      background: #fecaca;
+    }
+
+    .btn-view {
+      background: #e0e7ff;
+      color: #3730a3;
+    }
+
+    .btn-view:hover {
+      background: #c7d2fe;
+    }
+
+    .no-hubs {
+      text-align: center;
+      padding: 48px;
+      color: #6b7280;
+    }
+  </style>
+</head>
+<body>
+  <%- include('../partials/flash') %>
+
+  <div class="hub-container">
+    <div class="hub-header">
+      <h1>Manage Hubs</h1>
+      <a href="/admin/hubs/create" class="btn-create">+ Create New Hub</a>
+    </div>
+
+    <% if (hubs.length > 0) { %>
+      <table class="hubs-table">
+        <thead>
+          <tr>
+            <th>Hub Name</th>
+            <th>Contact</th>
+            <th>Email</th>
+            <th>Plan</th>
+            <th>Organizations</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% hubs.forEach(hub => { %>
+            <tr>
+              <td>
+                <strong><%= hub.hub_name %></strong><br>
+                <small style="color: #6b7280;"><%= hub.hub_nickname %>.managira.com</small>
+              </td>
+              <td><%= hub.first_name %> <%= hub.last_name %></td>
+              <td><%= hub.hub_email %></td>
+              <td><%= hub.plan_name || 'No plan' %></td>
+              <td>
+                <span class="badge badge-active"><%= hub.org_count %> / <%= hub.max_organizations %></span>
+              </td>
+              <td>
+                <% if (hub.deleted) { %>
+                  <span class="badge badge-deleted">Deleted</span>
+                <% } else if (hub.on_hold) { %>
+                  <span class="badge badge-hold">On Hold</span>
+                <% } else { %>
+                  <span class="badge badge-active">Active</span>
+                <% } %>
+              </td>
+              <td>
+                <div class="actions">
+                  <a href="/admin/hubs/<%= hub.hub_id %>/edit" class="btn-action btn-edit">Edit</a>
+                  <a href="/admin/hubs/<%= hub.hub_id %>/organizations" class="btn-action btn-view">View Orgs</a>
+                  
+                  <% if (!hub.on_hold && !hub.deleted) { %>
+                    <form action="/admin/hubs/hold" method="POST" style="display: inline;" onsubmit="return confirm('Put this hub on hold?')">
+                      <input type="hidden" name="hubId" value="<%= hub.hub_id %>">
+                      <button type="submit" class="btn-action btn-hold">Hold</button>
+                    </form>
+                  <% } %>
+                  
+                  <% if (hub.on_hold && !hub.deleted) { %>
+                    <form action="/admin/hubs/resume" method="POST" style="display: inline;">
+                      <input type="hidden" name="hubId" value="<%= hub.hub_id %>">
+                      <button type="submit" class="btn-action btn-edit">Resume</button>
+                    </form>
+                  <% } %>
+                  
+                  <% if (!hub.deleted) { %>
+                    <form action="/admin/hubs/delete" method="POST" style="display: inline;" onsubmit="return confirm('Delete this hub? Organizations under it will be unlinked.')">
+                      <input type="hidden" name="hubId" value="<%= hub.hub_id %>">
+                      <button type="submit" class="btn-action btn-delete">Delete</button>
+                    </form>
+                  <% } %>
+                </div>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    <% } else { %>
+      <div class="no-hubs">
+        <p>No hubs created yet. Click "Create New Hub" to get started.</p>
+      </div>
+    <% } %>
+
+    <div style="margin-top: 32px; text-align: center;">
+      <a href="/admin" style="color: #01535b; text-decoration: none; font-weight: 600;">← Back to Admin Dashboard</a>
+    </div>
+  </div>
+</body>
+</html>

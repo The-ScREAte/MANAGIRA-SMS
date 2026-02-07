@@ -22,7 +22,11 @@ const isAuthenticated = async (req, res, next) => {
         // 2. Validate organization status first
         if (req.session.organizationId) {
             const org = await db.query(
-                'SELECT deleted, on_hold FROM organizations WHERE organization_id = $1',
+                `SELECT o.deleted, o.on_hold, o.is_hub_member, o.hub_id,
+                        mh.hub_name, mh.hub_nickname, mh.hub_email, mh.hub_footer_text, mh.on_hold as hub_on_hold
+                 FROM organizations o
+                 LEFT JOIN managira_hubs mh ON o.hub_id = mh.hub_id
+                 WHERE o.organization_id = $1`,
                 [req.session.organizationId]
             );
             
@@ -31,11 +35,35 @@ const isAuthenticated = async (req, res, next) => {
                 req.flash('error', 'Organization not found');
                 return res.redirect('/account/login');
             }
+
+            const orgData = org.rows[0];
             
-            if (org.rows[0].deleted || org.rows[0].on_hold) {
+            if (orgData.deleted || orgData.on_hold) {
                 req.session.destroy();
                 req.flash('error', 'Account suspended. Contact support.');
                 return res.redirect('/account/login');
+            }
+
+            // Check if hub is on hold (for hub members)
+            if (orgData.is_hub_member && orgData.hub_on_hold) {
+                req.session.destroy();
+                req.flash('error', 'Your hub is currently on hold. Contact hub administrator.');
+                return res.redirect('/account/login');
+            }
+
+            // Store hub information in session for hub members
+            if (orgData.is_hub_member && orgData.hub_id) {
+                req.session.isHubMember = true;
+                req.session.hubName = orgData.hub_name;
+                req.session.hubNickname = orgData.hub_nickname;
+                req.session.hubEmail = orgData.hub_email;
+                req.session.hubFooterText = orgData.hub_footer_text;
+            } else {
+                req.session.isHubMember = false;
+                req.session.hubName = null;
+                req.session.hubNickname = null;
+                req.session.hubEmail = null;
+                req.session.hubFooterText = null;
             }
         }
 

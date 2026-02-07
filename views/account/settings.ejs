@@ -1002,7 +1002,9 @@
         <ul class="nav-list">
           <li><button class="nav-link active" data-target="customize">Customize Organization</button></li>
           <li><button class="nav-link" data-target="profile">Profile</button></li>
-          <li><button class="nav-link" data-target="billing">Billing &amp; Plan</button></li>
+          <% if (!session.isHubMember) { %>
+            <li><button class="nav-link" data-target="billing">Billing &amp; Plan</button></li>
+          <% } %>
           <li><button class="nav-link" data-target="security">Security</button></li>
         </ul>
       </aside>
@@ -1222,6 +1224,7 @@
           </div>
         </section>
 
+        <% if (!session.isHubMember) { %>
         <section id="billing" class="settings-section">
           <h1>Billing &amp; Plan</h1>
           <p class="lead">Manage your subscription and payment information.</p>
@@ -1281,6 +1284,29 @@
             </div>
           </div>
         </section>
+        <% } else { %>
+        <section id="hub-billing-info" class="settings-section">
+          <h1>Hub Billing Information</h1>
+          <p class="lead">Your billing is managed by your hub.</p>
+
+          <div class="card" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-left: 4px solid #01535b;">
+            <h4 style="color: #01535b;">🏢 Hub-Managed Organization</h4>
+            <p>Your organization is part of the <strong><%= session.hubName %></strong> hub.</p>
+            <p>All billing and subscription management is handled by your hub administrator.</p>
+            
+            <div style="margin-top: 20px; padding: 15px; background: white; border-radius: 8px;">
+              <p style="margin: 5px 0;"><strong>Hub Name:</strong> <%= session.hubName %></p>
+              <p style="margin: 5px 0;"><strong>Hub Contact:</strong> <%= session.hubEmail %></p>
+              <p style="margin: 5px 0;"><strong>Current Plan:</strong> <%= planName || 'Professional' %> (Provided by Hub)</p>
+            </div>
+
+            <p style="margin-top: 20px; color: #666;">
+              For billing questions or to change your plan, please contact your hub administrator at 
+              <a href="mailto:<%= session.hubEmail %>" style="color: #01535b; font-weight: 600;"><%= session.hubEmail %></a>
+            </p>
+          </div>
+        </section>
+        <% } %>
 
         <section id="security" class="settings-section">
           <h1>Security</h1>

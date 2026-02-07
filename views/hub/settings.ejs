@@ -1,0 +1,195 @@
+<%- include('../partials/flash') %>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hub Settings - Managira</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .hub-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .hub-header {
+      background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%);
+      color: white;
+      padding: 32px;
+      border-radius: 16px;
+      margin-bottom: 32px;
+    }
+
+    .hub-header h1 {
+      font-size: 2rem;
+      margin-bottom: 8px;
+    }
+
+    .hub-nav {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+    }
+
+    .hub-nav a {
+      padding: 12px 24px;
+      background: white;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      text-decoration: none;
+      color: #1e293b;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .hub-nav a:hover,
+    .hub-nav a.active {
+      background: #01535b;
+      color: white;
+      border-color: #01535b;
+    }
+
+    .settings-card {
+      background: white;
+      border-radius: 12px;
+      padding: 32px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      border: 1px solid #e2e8f0;
+    }
+
+    .settings-card h2 {
+      font-size: 1.5rem;
+      margin-bottom: 16px;
+      color: #1e293b;
+    }
+
+    .form-group {
+      margin-bottom: 24px;
+    }
+
+    .form-label {
+      display: block;
+      font-weight: 600;
+      color: #1e293b;
+      margin-bottom: 8px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      font-size: 1rem;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: #01535b;
+    }
+
+    .btn-primary {
+      padding: 12px 24px;
+      background: #01535b;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary:hover {
+      background: #014a51;
+      transform: translateY(-1px);
+    }
+
+    .info-box {
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+      color: #0c4a6e;
+    }
+  </style>
+</head>
+<body>
+  <div class="hub-container">
+    <div class="hub-header">
+      <h1>Hub Settings</h1>
+      <p>Manage your hub profile and preferences</p>
+    </div>
+
+    <div class="hub-nav">
+      <a href="/hub/dashboard">Dashboard</a>
+      <a href="/hub/settings" class="active">Settings</a>
+      <a href="/hub/logout">Logout</a>
+    </div>
+
+    <div class="settings-card">
+      <h2>Hub Information</h2>
+      <div class="info-box">
+        <strong>Hub Name:</strong> <%= hub.hub_name %><br>
+        <strong>Hub Nickname:</strong> <%= hub.hub_nickname %><br>
+        <strong>Hub URL:</strong> https://<%= hub.hub_nickname %>.managira.com<br>
+        <strong>Plan:</strong> <%= hub.plan_name || 'No plan assigned' %><br>
+        <strong>Max Organizations:</strong> <%= hub.max_organizations %>
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <h2>Profile Settings</h2>
+      <form action="/hub/settings/profile" method="POST">
+        <div class="form-group">
+          <label class="form-label">First Name</label>
+          <input type="text" name="firstName" class="form-input" value="<%= hub.first_name %>" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Last Name</label>
+          <input type="text" name="lastName" class="form-input" value="<%= hub.last_name %>" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Phone</label>
+          <input type="text" name="hubPhone" class="form-input" value="<%= hub.hub_phone || '' %>">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Address</label>
+          <input type="text" name="hubAddress" class="form-input" value="<%= hub.hub_address || '' %>">
+        </div>
+
+        <button type="submit" class="btn-primary">Update Profile</button>
+      </form>
+    </div>
+
+    <div class="settings-card">
+      <h2>Change Password</h2>
+      <form action="/hub/settings/password" method="POST">
+        <div class="form-group">
+          <label class="form-label">Current Password</label>
+          <input type="password" name="currentPassword" class="form-input" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">New Password</label>
+          <input type="password" name="newPassword" class="form-input" required minlength="6">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Confirm New Password</label>
+          <input type="password" name="confirmPassword" class="form-input" required minlength="6">
+        </div>
+
+        <button type="submit" class="btn-primary">Change Password</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

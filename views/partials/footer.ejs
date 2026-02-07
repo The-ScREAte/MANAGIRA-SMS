@@ -55,7 +55,11 @@
 
       </div>
       <div class="footer-copy">
-        &copy; <%= new Date().getFullYear() %> ScREAte / Managira
+        <% if (session && session.isHubMember && session.hubFooterText) { %>
+          <%= session.hubFooterText %>
+        <% } else { %>
+          &copy; <%= new Date().getFullYear() %> ScREAte / Managira
+        <% } %>
       </div>
     </div>
   </div>

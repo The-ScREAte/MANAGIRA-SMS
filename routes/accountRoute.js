@@ -306,4 +306,8 @@ router.post(
   accountController.addFlutterwaveAccountPost
 );
 
+// Hub Invitation Routes
+router.get("/accept-hub-invitation/:token", accountController.hubInvitationAcceptGet);
+router.post("/accept-hub-invitation/:token", accountController.hubInvitationAcceptPost);
+
 module.exports = router;

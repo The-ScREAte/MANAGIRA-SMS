@@ -233,6 +233,19 @@
 
       <%- include('../partials/flash') %>
 
+      <!-- Hub Management Link -->
+      <div style="margin-bottom: 24px; text-align: center;">
+        <a href="/admin/hubs" style="display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%); color: white; text-decoration: none; border-radius: 10px; font-weight: 600; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); transition: all 0.2s;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          Manage Hubs
+        </a>
+      </div>
+
       <div class="applications-container">
         <% if (applications && applications.length > 0) { %> <%
         applications.forEach(function(application) { %>

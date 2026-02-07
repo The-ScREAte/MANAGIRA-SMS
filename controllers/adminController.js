@@ -1757,6 +1757,336 @@ async function sendPasswordSetSuccessEmail(email, firstName, lastName) {
   await transporter.sendMail(mailOptions);
 }
 
+// =====================================================
+// HUB MANAGEMENT FUNCTIONS
+// =====================================================
+
+// List all hubs
+adminController.hubsListGet = async (req, res) => {
+  try {
+    const hubsResult = await db.query(`
+      SELECT h.*, p.plan_name, p.total_cost,
+             (SELECT COUNT(*) FROM organizations WHERE hub_id = h.hub_id AND deleted = false AND is_hub_member = true) as org_count
+      FROM managira_hubs h
+      LEFT JOIN plans p ON h.plan_id = p.id
+      WHERE h.deleted = false
+      ORDER BY h.created_at DESC
+    `);
+
+    res.render('admin/hubs', {
+      title: 'Manage Hubs',
+      hubs: hubsResult.rows,
+      messages: req.flash(),
+      showFooterTopSection: true
+    });
+  } catch (error) {
+    console.error('Error fetching hubs:', error);
+    req.flash('error', 'Error loading hubs.');
+    res.redirect('/admin');
+  }
+};
+
+// Create hub form
+adminController.hubCreateGet = async (req, res) => {
+  try {
+    const plansResult = await db.query('SELECT * FROM plans WHERE is_active = true ORDER BY id');
+    
+    res.render('admin/hubCreate', {
+      title: 'Create New Hub',
+      plans: plansResult.rows,
+      messages: req.flash(),
+      showFooterTopSection: true
+    });
+  } catch (error) {
+    console.error('Error loading hub create form:', error);
+    req.flash('error', 'Error loading form.');
+    res.redirect('/admin/hubs');
+  }
+};
+
+// Create hub
+adminController.hubCreatePost = async (req, res) => {
+  const { hubName, hubNickname, hubEmail, firstName, lastName, hubPhone, hubAddress, planId, maxOrganizations, hubFooterText } = req.body;
+
+  try {
+    // Validate required fields
+    if (!hubName || !hubNickname || !hubEmail || !firstName || !lastName) {
+      req.flash('error', 'All required fields must be filled.');
+      return res.redirect('/admin/hubs/create');
+    }
+
+    // Check if nickname is already taken
+    const nicknameCheck = await db.query(
+      'SELECT hub_id FROM managira_hubs WHERE hub_nickname = $1',
+      [hubNickname]
+    );
+
+    if (nicknameCheck.rows.length > 0) {
+      req.flash('error', 'Hub nickname is already taken.');
+      return res.redirect('/admin/hubs/create');
+    }
+
+    // Check if email is already taken
+    const emailCheck = await db.query(
+      `SELECT hub_email FROM managira_hubs WHERE hub_email = $1
+       UNION
+       SELECT email FROM organizations WHERE email = $1
+       UNION
+       SELECT email FROM users WHERE email = $1`,
+      [hubEmail]
+    );
+
+    if (emailCheck.rows.length > 0) {
+      req.flash('error', 'Email is already in use.');
+      return res.redirect('/admin/hubs/create');
+    }
+
+    // Generate password setup token
+    const token = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    const tokenExpiration = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+    // Insert hub
+    const result = await db.query(
+      `INSERT INTO managira_hubs 
+       (hub_name, hub_nickname, hub_email, first_name, last_name, hub_phone, hub_address, 
+        plan_id, max_organizations, hub_footer_text, reset_password_token, reset_password_expires, created_by_admin_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       RETURNING hub_id`,
+      [hubName, hubNickname, hubEmail, firstName, lastName, hubPhone, hubAddress, 
+       planId || null, maxOrganizations || 5, hubFooterText || '', hashedToken, tokenExpiration, req.session.userId]
+    );
+
+    const hubId = result.rows[0].hub_id;
+
+    // Send setup email
+    const baseUrl = req.protocol + '://' + req.get('host');
+    const setupUrl = `${baseUrl}/hub/setup-password?token=${token}`;
+
+    const emailHtml = `
+      <div style="background:#f4fbfa;padding:40px 0;">
+        <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px #b2e2d6;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
+          <div style="background:#6fd3c4;padding:24px 0 24px 32px;display:flex;align-items:center;">
+            <img src="cid:managira_logo" alt="Managira Logo" style="height:60px;display:block;">
+          </div>
+          <div style="padding:36px 32px 32px 32px;">
+            <div style="color:#6fd3c4;font-size:24px;font-weight:600;margin-bottom:16px;letter-spacing:1px;">Welcome to Managira Hub</div>
+            <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Dear <b>${firstName} ${lastName}</b>,</p>
+            <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Your Managira Hub <b>${hubName}</b> has been created successfully!</p>
+            <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">To get started, please set up your password by clicking the button below:</p>
+            <div style="text-align:center;margin:32px 0;">
+              <a href="${setupUrl}" style="display:inline-block;padding:14px 32px;background:#6fd3c4;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:16px;">Set Up Password</a>
+            </div>
+            <p style="font-size:14px;color:#666;margin-bottom:18px;">Or copy this link: <br><span style="color:#1ca34a;">${setupUrl}</span></p>
+            <p style="font-size:16px;line-height:1.6;margin-bottom:18px;"><strong>Hub Details:</strong></p>
+            <ul style="font-size:15px;line-height:1.8;color:#444;">
+              <li>Hub Name: ${hubName}</li>
+              <li>Hub Nickname: ${hubNickname}</li>
+              <li>Hub URL: https://${hubNickname}.managira.com</li>
+              <li>Email: ${hubEmail}</li>
+              <li>Max Organizations: ${maxOrganizations || 5}</li>
+            </ul>
+            <p style="font-size:14px;color:#d97706;margin-top:24px;"><strong>Note:</strong> This link will expire in 7 days. Please complete your setup before then.</p>
+            <p style="color:#b80000;font-size:16px;font-weight:bold;margin-top:32px;text-align:center;letter-spacing:1px;">THIS IS A NO-REPLY MESSAGE. PLEASE DO NOT REPLY TO THIS EMAIL.</p>
+          </div>
+          <div style="background:#e6f7ec;color:#888;text-align:center;padding:18px 0;font-size:13px;">&copy; ${new Date().getFullYear()} Managira. All rights reserved.</div>
+        </div>
+      </div>
+    `;
+
+    const transporter = nodemailer.createTransporter({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT),
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: {
+        user: process.env.ADMIN_NOTIFY_EMAIL_USER,
+        pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
+      },
+    });
+
+    await transporter.sendMail({
+      from: process.env.NOTIFY_EMAIL_USER,
+      to: hubEmail,
+      subject: 'Welcome to Managira Hub - Set Up Your Password',
+      html: emailHtml,
+      attachments: [{
+        filename: 'managira.png',
+        path: path.join(__dirname, '../public/images/managira.png'),
+        cid: 'managira_logo'
+      }]
+    });
+
+    req.flash('success', 'Hub created successfully! Setup instructions sent to the hub email.');
+    res.redirect('/admin/hubs');
+  } catch (error) {
+    console.error('Error creating hub:', error);
+    req.flash('error', 'Error creating hub.');
+    res.redirect('/admin/hubs/create');
+  }
+};
+
+// Edit hub form
+adminController.hubEditGet = async (req, res) => {
+  const { hubId } = req.params;
+
+  try {
+    const hubResult = await db.query(
+      'SELECT * FROM managira_hubs WHERE hub_id = $1',
+      [hubId]
+    );
+
+    if (hubResult.rows.length === 0) {
+      req.flash('error', 'Hub not found.');
+      return res.redirect('/admin/hubs');
+    }
+
+    const plansResult = await db.query('SELECT * FROM plans WHERE is_active = true ORDER BY id');
+
+    res.render('admin/hubEdit', {
+      title: 'Edit Hub',
+      hub: hubResult.rows[0],
+      plans: plansResult.rows,
+      messages: req.flash(),
+      showFooterTopSection: true
+    });
+  } catch (error) {
+    console.error('Error loading hub edit form:', error);
+    req.flash('error', 'Error loading form.');
+    res.redirect('/admin/hubs');
+  }
+};
+
+// Update hub
+adminController.hubEditPost = async (req, res) => {
+  const { hubId } = req.params;
+  const { hubName, hubNickname, firstName, lastName, hubPhone, hubAddress, planId, maxOrganizations, hubFooterText, hubBrandingEnabled } = req.body;
+
+  try {
+    // Check if nickname is taken by another hub
+    const nicknameCheck = await db.query(
+      'SELECT hub_id FROM managira_hubs WHERE hub_nickname = $1 AND hub_id != $2',
+      [hubNickname, hubId]
+    );
+
+    if (nicknameCheck.rows.length > 0) {
+      req.flash('error', 'Hub nickname is already taken by another hub.');
+      return res.redirect(`/admin/hubs/${hubId}/edit`);
+    }
+
+    await db.query(
+      `UPDATE managira_hubs 
+       SET hub_name = $1, hub_nickname = $2, first_name = $3, last_name = $4, 
+           hub_phone = $5, hub_address = $6, plan_id = $7, max_organizations = $8, 
+           hub_footer_text = $9, hub_branding_enabled = $10, updated_at = NOW()
+       WHERE hub_id = $11`,
+      [hubName, hubNickname, firstName, lastName, hubPhone, hubAddress, 
+       planId || null, maxOrganizations || 5, hubFooterText || '', 
+       hubBrandingEnabled === 'on', hubId]
+    );
+
+    req.flash('success', 'Hub updated successfully.');
+    res.redirect('/admin/hubs');
+  } catch (error) {
+    console.error('Error updating hub:', error);
+    req.flash('error', 'Error updating hub.');
+    res.redirect(`/admin/hubs/${hubId}/edit`);
+  }
+};
+
+// Put hub on hold
+adminController.hubHoldPost = async (req, res) => {
+  const { hubId } = req.body;
+
+  try {
+    await db.query(
+      'UPDATE managira_hubs SET on_hold = true, updated_at = NOW() WHERE hub_id = $1',
+      [hubId]
+    );
+
+    req.flash('success', 'Hub put on hold successfully.');
+    res.redirect('/admin/hubs');
+  } catch (error) {
+    console.error('Error holding hub:', error);
+    req.flash('error', 'Error putting hub on hold.');
+    res.redirect('/admin/hubs');
+  }
+};
+
+// Resume hub
+adminController.hubResumePost = async (req, res) => {
+  const { hubId } = req.body;
+
+  try {
+    await db.query(
+      'UPDATE managira_hubs SET on_hold = false, updated_at = NOW() WHERE hub_id = $1',
+      [hubId]
+    );
+
+    req.flash('success', 'Hub resumed successfully.');
+    res.redirect('/admin/hubs');
+  } catch (error) {
+    console.error('Error resuming hub:', error);
+    req.flash('error', 'Error resuming hub.');
+    res.redirect('/admin/hubs');
+  }
+};
+
+// Delete hub
+adminController.hubDeletePost = async (req, res) => {
+  const { hubId } = req.body;
+
+  try {
+    await db.query(
+      'UPDATE managira_hubs SET deleted = true, updated_at = NOW() WHERE hub_id = $1',
+      [hubId]
+    );
+
+    req.flash('success', 'Hub deleted successfully.');
+    res.redirect('/admin/hubs');
+  } catch (error) {
+    console.error('Error deleting hub:', error);
+    req.flash('error', 'Error deleting hub.');
+    res.redirect('/admin/hubs');
+  }
+};
+
+// View hub organizations
+adminController.hubOrganizationsGet = async (req, res) => {
+  const { hubId } = req.params;
+
+  try {
+    const hubResult = await db.query('SELECT * FROM managira_hubs WHERE hub_id = $1', [hubId]);
+    
+    if (hubResult.rows.length === 0) {
+      req.flash('error', 'Hub not found.');
+      return res.redirect('/admin/hubs');
+    }
+
+    const orgsResult = await db.query(
+      `SELECT o.*,
+              (SELECT COUNT(*) FROM students WHERE organization_id = o.organization_id) as student_count,
+              (SELECT COUNT(*) FROM users WHERE organization_id = o.organization_id) as teacher_count,
+              (SELECT COUNT(*) FROM classes WHERE organization_id = o.organization_id) as class_count
+       FROM organizations o
+       WHERE o.hub_id = $1 AND o.deleted = false AND o.is_hub_member = true
+       ORDER BY o.organization_name ASC`,
+      [hubId]
+    );
+
+    res.render('admin/hubOrganizations', {
+      title: 'Hub Organizations',
+      hub: hubResult.rows[0],
+      organizations: orgsResult.rows,
+      messages: req.flash(),
+      showFooterTopSection: true
+    });
+  } catch (error) {
+    console.error('Error loading hub organizations:', error);
+    req.flash('error', 'Error loading organizations.');
+    res.redirect('/admin/hubs');
+  }
+};
+
 module.exports = {
   ...adminController,
   sendAdminInviteEmail,

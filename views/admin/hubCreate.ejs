@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Hub - Admin</title>
+  <link rel="stylesheet" href="/css/admin.css">
+  <style>
+    .create-container {
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 32px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    }
+
+    h1 {
+      font-size: 2rem;
+      color: #111827;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: #6b7280;
+      margin-bottom: 32px;
+    }
+
+    .form-section {
+      margin-bottom: 32px;
+    }
+
+    .form-section h2 {
+      font-size: 1.25rem;
+      color: #374151;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #e5e7eb;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: block;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 8px;
+      font-size: 0.9rem;
+    }
+
+    .form-label.required::after {
+      content: " *";
+      color: #dc2626;
+    }
+
+    .form-input, .form-select, .form-textarea {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      outline: none;
+      border-color: #01535b;
+      box-shadow: 0 0 0 3px rgba(1, 83, 91, 0.1);
+    }
+
+    .form-hint {
+      font-size: 0.85rem;
+      color: #6b7280;
+      margin-top: 4px;
+    }
+
+    .form-actions {
+      display: flex;
+      gap: 16px;
+      justify-content: flex-end;
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid #e5e7eb;
+    }
+
+    .btn {
+      padding: 12px 32px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .btn-primary {
+      background: #01535b;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #014a51;
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: #f3f4f6;
+      color: #374151;
+    }
+
+    .btn-secondary:hover {
+      background: #e5e7eb;
+    }
+
+    .info-box {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+      color: #1e40af;
+    }
+  </style>
+</head>
+<body>
+  <%- include('../partials/flash') %>
+
+  <div class="create-container">
+    <h1>Create New Hub</h1>
+    <p class="subtitle">Create a new Managira Hub to manage multiple organizations</p>
+
+    <div class="info-box">
+      <strong>Note:</strong> After creation, an email will be sent to the hub email with instructions to set up their password.
+    </div>
+
+    <form action="/admin/hubs/create" method="POST">
+      <div class="form-section">
+        <h2>Hub Information</h2>
+
+        <div class="form-group">
+          <label class="form-label required" for="hubName">Hub Name</label>
+          <input type="text" name="hubName" id="hubName" class="form-input" placeholder="e.g., Ghana Education Hub" required>
+          <p class="form-hint">Full name of the hub organization</p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label required" for="hubNickname">Hub Nickname</label>
+          <input type="text" name="hubNickname" id="hubNickname" class="form-input" placeholder="e.g., ghanaedu" pattern="[a-z0-9]+" minlength="3" maxlength="20" required>
+          <p class="form-hint">Lowercase letters and numbers only. This will be the subdomain: <strong>nickname.managira.com</strong></p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label required" for="hubEmail">Hub Email</label>
+          <input type="email" name="hubEmail" id="hubEmail" class="form-input" placeholder="hub@example.com" required>
+          <p class="form-hint">Primary contact email for this hub</p>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h2>Contact Person</h2>
+
+        <div class="form-group">
+          <label class="form-label required" for="firstName">First Name</label>
+          <input type="text" name="firstName" id="firstName" class="form-input" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label required" for="lastName">Last Name</label>
+          <input type="text" name="lastName" id="lastName" class="form-input" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="hubPhone">Phone</label>
+          <input type="text" name="hubPhone" id="hubPhone" class="form-input" placeholder="+233 123 456 789">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="hubAddress">Address</label>
+          <input type="text" name="hubAddress" id="hubAddress" class="form-input" placeholder="123 Main Street, City">
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h2>Hub Configuration</h2>
+
+        <div class="form-group">
+          <label class="form-label" for="planId">Subscription Plan</label>
+          <select name="planId" id="planId" class="form-select">
+            <option value="">No plan (assign later)</option>
+            <% plans.forEach(plan => { %>
+              <option value="<%= plan.id %>"><%= plan.plan_name %> - $<%= plan.total_cost || 0 %>/month</option>
+            <% }); %>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label required" for="maxOrganizations">Max Organizations</label>
+          <input type="number" name="maxOrganizations" id="maxOrganizations" class="form-input" value="5" min="1" required>
+          <p class="form-hint">Maximum number of organizations this hub can manage</p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="hubFooterText">Hub Footer Text</label>
+          <textarea name="hubFooterText" id="hubFooterText" class="form-textarea" rows="3" placeholder="Optional text to display in organization footers"></textarea>
+          <p class="form-hint">This text will appear in the footer of all organizations under this hub</p>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <a href="/admin/hubs" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">Create Hub</button>
+      </div>
+    </form>
+  </div>
+</body>
+</html>

@@ -7,6 +7,7 @@ require("dotenv").config();
 const passport = require("passport");
 const db = require("./config/db");
 require("./config/passport")(passport);
+require("./config/passportHub")(passport); // Hub authentication
 require("./utils/promotionJob");
 require("./jobs/scheduler"); // Start the billing scheduler
 require("./jobs/keepAlive"); // Start the keep-alive scheduler
@@ -50,40 +51,102 @@ app.use(async (req, res, next) => {
     return next();
   }
 
-  // 🛑 Skip subdomain logic for admin routes and specific account routes only
-  if (req.url.startsWith('/admin') || req.url.startsWith('/account')) {
+  // 🛑 Skip subdomain logic for admin routes, hub routes, and specific account routes
+  if (req.url.startsWith('/admin') || req.url.startsWith('/account') || req.url.startsWith('/hub')) {
     return next();
   }
 
   const baseDomain = "managira.com";
   let subdomain = null;
+  let hubSubdomain = null;
 
   if (host.endsWith(baseDomain)) {
     const parts = host.split(".");
 
-    if (parts.length > 2 && parts[0] !== "www") {
-      subdomain = parts[0]; // e.g. myschool.managira.com
-    }
-
+    // Check for root domain
     if (host === baseDomain || host === `www.${baseDomain}`) {
       req.isRootDomain = true;
+      return next();
+    }
+
+    // Determine subdomain structure
+    if (parts.length === 3 && parts[0] !== "www") {
+      // Single level: org.managira.com
+      subdomain = parts[0];
+    } else if (parts.length === 4) {
+      // Two levels: org.hub.managira.com
+      subdomain = parts[0];
+      hubSubdomain = parts[1];
     }
   }
 
+  // Fetch organization and hub details
   if (subdomain) {
     try {
-      const result = await db.query(
-        "SELECT * FROM organizations WHERE nickname = $1",
-        [subdomain]
-      );
+      let orgQuery;
+      let queryParams;
+
+      if (hubSubdomain) {
+        // Two-level subdomain: org.hub.managira.com
+        orgQuery = `
+          SELECT o.*, mh.hub_name, mh.hub_nickname, mh.hub_email, mh.plan_id as hub_plan_id,
+                 mh.hub_branding_enabled, mh.hub_footer_text, mh.on_hold as hub_on_hold
+          FROM organizations o
+          JOIN managira_hubs mh ON o.hub_id = mh.hub_id
+          WHERE o.nickname = $1 AND mh.hub_nickname = $2 AND o.is_hub_member = true AND o.deleted = false
+        `;
+        queryParams = [subdomain, hubSubdomain];
+      } else {
+        // Single-level subdomain: org.managira.com
+        orgQuery = `
+          SELECT o.*, 
+                 CASE WHEN o.hub_id IS NOT NULL THEN mh.hub_name ELSE NULL END as hub_name,
+                 CASE WHEN o.hub_id IS NOT NULL THEN mh.hub_nickname ELSE NULL END as hub_nickname,
+                 CASE WHEN o.hub_id IS NOT NULL THEN mh.hub_email ELSE NULL END as hub_email,
+                 CASE WHEN o.hub_id IS NOT NULL THEN mh.plan_id ELSE NULL END as hub_plan_id,
+                 CASE WHEN o.hub_id IS NOT NULL THEN mh.hub_branding_enabled ELSE false END as hub_branding_enabled,
+                 CASE WHEN o.hub_id IS NOT NULL THEN mh.hub_footer_text ELSE NULL END as hub_footer_text,
+                 CASE WHEN o.hub_id IS NOT NULL THEN mh.on_hold ELSE false END as hub_on_hold
+          FROM organizations o
+          LEFT JOIN managira_hubs mh ON o.hub_id = mh.hub_id
+          WHERE o.nickname = $1 AND o.deleted = false
+        `;
+        queryParams = [subdomain];
+      }
+
+      const result = await db.query(orgQuery, queryParams);
 
       if (result.rows.length > 0) {
-        req.schoolDetails = result.rows[0];
+        const org = result.rows[0];
+        req.schoolDetails = org;
+        
+        // Set hub context if organization is a hub member
+        if (org.is_hub_member && org.hub_id) {
+          req.isHubMember = true;
+          req.hubDetails = {
+            hubId: org.hub_id,
+            hubName: org.hub_name,
+            hubNickname: org.hub_nickname,
+            hubEmail: org.hub_email,
+            hubPlanId: org.hub_plan_id,
+            hubBrandingEnabled: org.hub_branding_enabled,
+            hubFooterText: org.hub_footer_text,
+            hubOnHold: org.hub_on_hold
+          };
+
+          // Check if hub is on hold
+          if (org.hub_on_hold) {
+            return res.status(403).send("This organization's hub is currently on hold. Please contact the hub administrator.");
+          }
+        } else {
+          req.isHubMember = false;
+          req.hubDetails = null;
+        }
       } else {
-        return res.status(404).send("School not found");
+        return res.status(404).send("Organization not found");
       }
     } catch (err) {
-      console.error("Error fetching subdomain school:", err);
+      console.error("Error fetching subdomain organization:", err);
       return res.status(500).send("Server error");
     }
   }
@@ -213,6 +276,7 @@ app.use("/stats", statsRoutes);
 app.use("/promotion", promotionRoute);
 app.use("/api/chatbot", chatbotRoute);
 app.use("/guardian", guardianRoute);
+app.use("/hub", require("./routes/hubRoute")); // Hub routes
 
 // Health check endpoint for keep-alive pings
 app.get("/health", (req, res) => {

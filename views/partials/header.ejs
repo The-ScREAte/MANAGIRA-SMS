@@ -917,6 +917,15 @@
               <% } %>
             </h3>
           </a>
+          
+          <!-- Hub Badge for Hub Members -->
+          <% if (session.isHubMember && session.hubName) { %>
+            <div style="margin-top: 4px;">
+              <span style="background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%); color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; display: inline-block;">
+                🏢 Managed by <%= session.hubName %>
+              </span>
+            </div>
+          <% } %>
         </div>
       </span>
     </div>

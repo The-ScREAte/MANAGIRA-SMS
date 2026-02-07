@@ -26,6 +26,27 @@ const checkFeatureAccess = async (req, res, next) => {
   }
 
   try {
+    // Determine the plan_id to check (hub's plan if hub member, otherwise org's plan)
+    let planIdToCheck;
+    
+    if (req.isHubMember && req.hubDetails?.hubPlanId) {
+      // Organization is a hub member, use hub's plan
+      planIdToCheck = req.hubDetails.hubPlanId;
+    } else {
+      // Regular organization, use its own plan
+      const { rows: orgRows } = await db.query(
+        'SELECT plan_id FROM organizations WHERE organization_id = $1',
+        [organizationId]
+      );
+      
+      if (orgRows.length === 0) {
+        req.flash('error', 'Organization not found.');
+        return res.redirect('/common/orgDashboard');
+      }
+      
+      planIdToCheck = orgRows[0].plan_id;
+    }
+
     // 1️⃣ Check If Route Requires a Feature (Feature-Based Access)
     const { rows: featureRows } = await db.query(
       `SELECT f.id FROM feature_routes fr
@@ -37,11 +58,11 @@ const checkFeatureAccess = async (req, res, next) => {
     if (featureRows.length > 0) {
       const featureId = featureRows[0].id;
 
+      // Check if the plan (hub's or org's) has access to this feature
       const { rows: planAccess } = await db.query(
         `SELECT 1 FROM plan_features pf
-         JOIN organizations o ON o.plan_id = pf.plan_id
-         WHERE pf.feature_id = $1 AND o.organization_id = $2`,
-        [featureId, organizationId]
+         WHERE pf.feature_id = $1 AND pf.plan_id = $2`,
+        [featureId, planIdToCheck]
       );
 
       if (planAccess.length === 0) {
