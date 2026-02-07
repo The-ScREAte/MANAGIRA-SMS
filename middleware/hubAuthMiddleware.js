@@ -40,10 +40,13 @@ const fetchHubInfo = async (req, res, next) => {
   try {
     if (req.session.hubId) {
       const result = await db.query(
-        `SELECT hub_id, hub_name, hub_nickname, hub_email, first_name, last_name, 
-                logo_path, plan_id, max_organizations, hub_branding_enabled, hub_footer_text
-         FROM managira_hubs 
-         WHERE hub_id = $1`,
+        `SELECT h.hub_id, h.hub_name, h.hub_nickname, h.hub_email, h.first_name, h.last_name, 
+                h.logo_path, h.plan_id, h.max_organizations, h.hub_branding_enabled, h.hub_footer_text,
+                h.hub_phone, h.hub_address,
+                p.plan_name
+         FROM managira_hubs h
+         LEFT JOIN plans p ON h.plan_id = p.id
+         WHERE h.hub_id = $1`,
         [req.session.hubId]
       );
 

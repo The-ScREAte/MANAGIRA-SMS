@@ -439,7 +439,7 @@ const hubController = {
   // GET - Display organization invitation form
   organizationInviteGet: async (req, res) => {
     try {
-      const hub = req.hub;
+      const hub = req.hubInfo;
 
       // Check if hub has reached max organizations
       const orgCountResult = await db.query(
@@ -469,7 +469,7 @@ const hubController = {
   // POST - Send organization invitation
   organizationInvitePost: async (req, res) => {
     try {
-      const hub = req.hub;
+      const hub = req.hubInfo;
       const { organization_name, contact_person_name, contact_person_email, contact_person_phone, message } = req.body;
 
       // Validate inputs
@@ -526,7 +526,7 @@ const hubController = {
       );
 
       // Send invitation email
-      const invitationUrl = `${process.env.APP_URL || 'http://localhost:5000'}/accept-hub-invitation/${invitationToken}`;
+      const invitationUrl = `${process.env.APP_URL || 'http://localhost:4000'}/account/accept-hub-invitation/${invitationToken}`;
       
       const emailHtml = `
         <!DOCTYPE html>
@@ -617,7 +617,7 @@ const hubController = {
   // POST - Resend organization invitation
   resendInvitePost: async (req, res) => {
     try {
-      const hub = req.hub;
+      const hub = req.hubInfo;
       const { invitationId } = req.body;
 
       // Get invitation details
@@ -646,7 +646,7 @@ const hubController = {
       );
 
       // Resend email
-      const invitationUrl = `${process.env.APP_URL || 'http://localhost:5000'}/accept-hub-invitation/${invitation.invitation_token}`;
+      const invitationUrl = `${process.env.APP_URL || 'http://localhost:4000'}/account/accept-hub-invitation/${invitation.invitation_token}`;
       
       const emailHtml = `
         <!DOCTYPE html>
@@ -721,7 +721,7 @@ const hubController = {
   // POST - Remove organization from hub
   removeOrganizationPost: async (req, res) => {
     try {
-      const hub = req.hub;
+      const hub = req.hubInfo;
       const { organizationId } = req.body;
 
       // Get organization details
@@ -824,7 +824,7 @@ const hubController = {
   // POST - Cancel pending invitation
   cancelInvitationPost: async (req, res) => {
     try {
-      const hub = req.hub;
+      const hub = req.hubInfo;
       const { invitationId } = req.body;
 
       // Get invitation details

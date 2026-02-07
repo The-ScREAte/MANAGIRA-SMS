@@ -6,149 +6,126 @@
   <title>Manage Hubs - Admin</title>
   <link rel="stylesheet" href="/css/admin.css">
   <style>
+    :root {
+      --primary: #01535b;
+      --primary-hover: #014a51;
+      --text-primary: #111827;
+      --text-secondary: #6b7280;
+      --border: #e5e7eb;
+      --bg: #f9fafb;
+    }
+
     .hub-container {
-      max-width: 1400px;
-      margin: 40px auto;
+      max-width: 1200px;
+      margin: 32px auto;
       padding: 24px;
       background: white;
-      border-radius: 12px;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+      border-radius: 10px;
+      border: 1px solid var(--border);
     }
 
     .hub-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 32px;
+      margin-bottom: 24px;
     }
 
-    .hub-header h1 {
-      font-size: 2rem;
-      color: #111827;
-      margin: 0;
-    }
+    .hub-header h1 { font-size: 1.5rem; color: var(--text-primary); margin: 0; }
 
     .btn-create {
-      padding: 12px 24px;
-      background: #01535b;
+      padding: 10px 20px;
+      background: var(--primary);
       color: white;
       text-decoration: none;
-      border-radius: 10px;
+      border-radius: 8px;
       font-weight: 600;
-      transition: all 0.2s;
+      font-size: 0.9rem;
+      transition: background 0.15s;
     }
 
-    .btn-create:hover {
-      background: #014a51;
-      transform: translateY(-1px);
-    }
+    .btn-create:hover { background: var(--primary-hover); }
 
-    .hubs-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 24px;
-    }
+    .table-wrapper { overflow-x: auto; }
 
-    .hubs-table th,
-    .hubs-table td {
-      padding: 16px;
+    .hubs-table { width: 100%; border-collapse: collapse; }
+
+    .hubs-table th, .hubs-table td {
+      padding: 12px 16px;
       text-align: left;
-      border-bottom: 1px solid #e5e7eb;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.9rem;
     }
 
     .hubs-table th {
-      background: #f9fafb;
+      background: var(--bg);
       font-weight: 600;
-      color: #374151;
+      color: #475569;
+      font-size: 0.78rem;
       text-transform: uppercase;
-      font-size: 0.85rem;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.3px;
     }
 
-    .hubs-table tr:hover {
-      background: #f9fafb;
-    }
+    .hubs-table tr:hover td { background: var(--bg); }
 
     .badge {
       display: inline-block;
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 0.8rem;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 0.78rem;
       font-weight: 600;
     }
 
-    .badge-active {
-      background: #dcfce7;
-      color: #166534;
-    }
+    .badge-active { background: #ecfdf5; color: #065f46; }
+    .badge-hold { background: #fef3c7; color: #92400e; }
+    .badge-deleted { background: #fef2f2; color: #991b1b; }
 
-    .badge-hold {
-      background: #fef3c7;
-      color: #92400e;
-    }
-
-    .badge-deleted {
-      background: #fee2e2;
-      color: #991b1b;
-    }
-
-    .actions {
-      display: flex;
-      gap: 8px;
-    }
+    .actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
     .btn-action {
-      padding: 6px 12px;
+      padding: 5px 10px;
       border: none;
       border-radius: 6px;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       font-weight: 600;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.15s;
       text-decoration: none;
       display: inline-block;
+      font-family: inherit;
     }
 
-    .btn-edit {
-      background: #dbeafe;
-      color: #1e40af;
-    }
+    .btn-edit { background: #eff6ff; color: #1e40af; }
+    .btn-edit:hover { background: #dbeafe; }
+    .btn-hold { background: #fef3c7; color: #92400e; }
+    .btn-hold:hover { background: #fde68a; }
+    .btn-delete { background: #fef2f2; color: #991b1b; }
+    .btn-delete:hover { background: #fecaca; }
+    .btn-view { background: #f0fdf4; color: #166534; }
+    .btn-view:hover { background: #dcfce7; }
 
-    .btn-edit:hover {
-      background: #bfdbfe;
-    }
+    .no-hubs { text-align: center; padding: 40px; color: var(--text-secondary); }
 
-    .btn-hold {
-      background: #fef3c7;
-      color: #92400e;
-    }
-
-    .btn-hold:hover {
-      background: #fde68a;
-    }
-
-    .btn-delete {
-      background: #fee2e2;
-      color: #991b1b;
-    }
-
-    .btn-delete:hover {
-      background: #fecaca;
-    }
-
-    .btn-view {
-      background: #e0e7ff;
-      color: #3730a3;
-    }
-
-    .btn-view:hover {
-      background: #c7d2fe;
-    }
-
-    .no-hubs {
+    .back-link {
+      display: block;
+      margin-top: 24px;
       text-align: center;
-      padding: 48px;
-      color: #6b7280;
+    }
+
+    .back-link a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .back-link a:hover { text-decoration: underline; }
+
+    @media (max-width: 768px) {
+      .hub-header { flex-direction: column; gap: 12px; align-items: flex-start; }
+      .table-wrapper { overflow-x: scroll; -webkit-overflow-scrolling: touch; }
+      .hubs-table { min-width: 900px; }
+      .actions { flex-direction: column; }
     }
   </style>
 </head>
@@ -162,79 +139,76 @@
     </div>
 
     <% if (hubs.length > 0) { %>
-      <table class="hubs-table">
-        <thead>
-          <tr>
-            <th>Hub Name</th>
-            <th>Contact</th>
-            <th>Email</th>
-            <th>Plan</th>
-            <th>Organizations</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% hubs.forEach(hub => { %>
+      <div class="table-wrapper">
+        <table class="hubs-table">
+          <thead>
             <tr>
-              <td>
-                <strong><%= hub.hub_name %></strong><br>
-                <small style="color: #6b7280;"><%= hub.hub_nickname %>.managira.com</small>
-              </td>
-              <td><%= hub.first_name %> <%= hub.last_name %></td>
-              <td><%= hub.hub_email %></td>
-              <td><%= hub.plan_name || 'No plan' %></td>
-              <td>
-                <span class="badge badge-active"><%= hub.org_count %> / <%= hub.max_organizations %></span>
-              </td>
-              <td>
-                <% if (hub.deleted) { %>
-                  <span class="badge badge-deleted">Deleted</span>
-                <% } else if (hub.on_hold) { %>
-                  <span class="badge badge-hold">On Hold</span>
-                <% } else { %>
-                  <span class="badge badge-active">Active</span>
-                <% } %>
-              </td>
-              <td>
-                <div class="actions">
-                  <a href="/admin/hubs/<%= hub.hub_id %>/edit" class="btn-action btn-edit">Edit</a>
-                  <a href="/admin/hubs/<%= hub.hub_id %>/organizations" class="btn-action btn-view">View Orgs</a>
-                  
-                  <% if (!hub.on_hold && !hub.deleted) { %>
-                    <form action="/admin/hubs/hold" method="POST" style="display: inline;" onsubmit="return confirm('Put this hub on hold?')">
-                      <input type="hidden" name="hubId" value="<%= hub.hub_id %>">
-                      <button type="submit" class="btn-action btn-hold">Hold</button>
-                    </form>
-                  <% } %>
-                  
-                  <% if (hub.on_hold && !hub.deleted) { %>
-                    <form action="/admin/hubs/resume" method="POST" style="display: inline;">
-                      <input type="hidden" name="hubId" value="<%= hub.hub_id %>">
-                      <button type="submit" class="btn-action btn-edit">Resume</button>
-                    </form>
-                  <% } %>
-                  
-                  <% if (!hub.deleted) { %>
-                    <form action="/admin/hubs/delete" method="POST" style="display: inline;" onsubmit="return confirm('Delete this hub? Organizations under it will be unlinked.')">
-                      <input type="hidden" name="hubId" value="<%= hub.hub_id %>">
-                      <button type="submit" class="btn-action btn-delete">Delete</button>
-                    </form>
-                  <% } %>
-                </div>
-              </td>
+              <th>Hub Name</th>
+              <th>Contact</th>
+              <th>Email</th>
+              <th>Plan</th>
+              <th>Organizations</th>
+              <th>Status</th>
+              <th>Actions</th>
             </tr>
-          <% }); %>
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            <% hubs.forEach(hub => { %>
+              <tr>
+                <td>
+                  <strong><%= hub.hub_name %></strong><br>
+                  <small style="color: var(--text-secondary);"><%= hub.hub_nickname %>.managira.com</small>
+                </td>
+                <td><%= hub.first_name %> <%= hub.last_name %></td>
+                <td><%= hub.hub_email %></td>
+                <td><%= hub.plan_name || 'No plan' %></td>
+                <td><span class="badge badge-active"><%= hub.org_count %> / <%= hub.max_organizations %></span></td>
+                <td>
+                  <% if (hub.deleted) { %>
+                    <span class="badge badge-deleted">Deleted</span>
+                  <% } else if (hub.on_hold) { %>
+                    <span class="badge badge-hold">On Hold</span>
+                  <% } else { %>
+                    <span class="badge badge-active">Active</span>
+                  <% } %>
+                </td>
+                <td>
+                  <div class="actions">
+                    <a href="/admin/hubs/<%= hub.hub_id %>/edit" class="btn-action btn-edit">Edit</a>
+                    <a href="/admin/hubs/<%= hub.hub_id %>/organizations" class="btn-action btn-view">Orgs</a>
+                    <% if (!hub.on_hold && !hub.deleted) { %>
+                      <form action="/admin/hubs/hold" method="POST" style="display:inline;" onsubmit="return confirm('Put this hub on hold?')">
+                        <input type="hidden" name="hubId" value="<%= hub.hub_id %>">
+                        <button type="submit" class="btn-action btn-hold">Hold</button>
+                      </form>
+                    <% } %>
+                    <% if (hub.on_hold && !hub.deleted) { %>
+                      <form action="/admin/hubs/resume" method="POST" style="display:inline;">
+                        <input type="hidden" name="hubId" value="<%= hub.hub_id %>">
+                        <button type="submit" class="btn-action btn-edit">Resume</button>
+                      </form>
+                    <% } %>
+                    <% if (!hub.deleted) { %>
+                      <form action="/admin/hubs/delete" method="POST" style="display:inline;" onsubmit="return confirm('Delete this hub?')">
+                        <input type="hidden" name="hubId" value="<%= hub.hub_id %>">
+                        <button type="submit" class="btn-action btn-delete">Delete</button>
+                      </form>
+                    <% } %>
+                  </div>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
     <% } else { %>
       <div class="no-hubs">
         <p>No hubs created yet. Click "Create New Hub" to get started.</p>
       </div>
     <% } %>
 
-    <div style="margin-top: 32px; text-align: center;">
-      <a href="/admin" style="color: #01535b; text-decoration: none; font-weight: 600;">← Back to Admin Dashboard</a>
+    <div class="back-link">
+      <a href="/admin">&larr; Back to Admin Dashboard</a>
     </div>
   </div>
 </body>
