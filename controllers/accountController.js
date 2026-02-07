@@ -6779,7 +6779,7 @@ const accountController = {
 
       if (invitationResult.rows.length === 0) {
         req.flash('error', 'Invalid or expired invitation link.');
-        return res.redirect('/login');
+        return res.redirect('/account/login');
       }
 
       const invitation = invitationResult.rows[0];
@@ -6787,7 +6787,7 @@ const accountController = {
       // Check if invitation has expired
       if (new Date(invitation.expires_at) < new Date()) {
         req.flash('error', 'This invitation has expired. Please contact the hub for a new invitation.');
-        return res.redirect('/login');
+        return res.redirect('/account/login');
       }
 
       res.render('account/hubInvitation', {
@@ -6799,7 +6799,7 @@ const accountController = {
     } catch (error) {
       console.error('Error loading hub invitation:', error);
       req.flash('error', 'An error occurred while loading the invitation.');
-      res.redirect('/login');
+      res.redirect('/account/login');
     }
   },
 
@@ -6830,7 +6830,7 @@ const accountController = {
 
       // Get invitation details
       const invitationResult = await db.query(
-        `SELECT hoi.*, mh.hub_name, mh.hub_id, mh.plan_id
+        `SELECT hoi.*, mh.hub_name, mh.hub_id, mh.hub_nickname, mh.hub_email, mh.plan_id
          FROM hub_organization_invitations hoi
          JOIN managira_hubs mh ON hoi.hub_id = mh.hub_id
          WHERE hoi.invitation_token = $1 AND hoi.status = 'pending'`,
@@ -6839,7 +6839,7 @@ const accountController = {
 
       if (invitationResult.rows.length === 0) {
         req.flash('error', 'Invalid or expired invitation.');
-        return res.redirect('/login');
+        return res.redirect('/account/login');
       }
 
       const invitation = invitationResult.rows[0];
@@ -6847,7 +6847,7 @@ const accountController = {
       // Check expiration
       if (new Date(invitation.expires_at) < new Date()) {
         req.flash('error', 'This invitation has expired.');
-        return res.redirect('/login');
+        return res.redirect('/account/login');
       }
 
       // Check if nickname is available
@@ -6969,7 +6969,7 @@ const accountController = {
               </ol>
               
               <div style="text-align: center;">
-                <a href="${process.env.APP_URL || 'http://localhost:4000'}/login" class="button">Go to Dashboard</a>
+                <a href="${process.env.APP_URL || 'http://localhost:4000'}/account/login" class="button">Go to Dashboard</a>
               </div>
               
               <p style="margin-top: 30px;">If you have any questions, please contact your hub administrator at ${invitation.hub_email}.</p>
@@ -7069,11 +7069,11 @@ const accountController = {
       });
 
       req.flash('success', `Welcome! Your organization has been set up successfully. Please log in with your credentials.`);
-      res.redirect('/login');
+      res.redirect('/account/login');
     } catch (error) {
       console.error('Error accepting hub invitation:', error);
       req.flash('error', 'An error occurred while processing your invitation.');
-      res.redirect('/login');
+      res.redirect('/account/login');
     }
   },
 };
