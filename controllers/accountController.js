@@ -6969,7 +6969,7 @@ const accountController = {
               </ol>
               
               <div style="text-align: center;">
-                <a href="${process.env.APP_URL || 'http://localhost:4000'}/login" class="button">Go to Dashboard</a>
+                <a href="${process.env.APP_URL || 'http://localhost:4000'}/account/login" class="button">Go to Dashboard</a>
               </div>
               
               <p style="margin-top: 30px;">If you have any questions, please contact your hub administrator at ${invitation.hub_email}.</p>
