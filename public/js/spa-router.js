@@ -31,6 +31,10 @@ class SPARouter {
       organization: [
         '/common/orgDashboard',
         '/common/management',
+        '/common/publicDashboard',  // School Website
+        '/common/admissions',        // Admissions
+        '/common/reports',           // Reports
+        '/account/settings',         // Settings
         '/common/studentDetails',
         '/common/studentInfo',
         // '/common/addStudent', // Removed: Complex dynamic forms, guardian autocomplete, file uploads
@@ -56,7 +60,6 @@ class SPARouter {
         '/common/closeSchoolYear',
         '/common/termDetails',
         '/common/attendanceCollection',
-        '/common/reports',
         // '/stats/organizationStats', // Removed: Chart.js initialization, complex toggles
         // '/print/reportSettings', // Removed: Dynamic remark sections
         // '/print/printStudentReport', // Removed: Complex image loading, inline handlers
@@ -77,16 +80,16 @@ class SPARouter {
         '/guardian/academic-details',
         '/guardian/student',
         '/guardian/studentDetails',
-        // '/guardian/settings', // Removed: Image upload functionality, complex dropdowns
+        '/guardian/settings',        // Settings
         '/guardian/report',
         '/guardian/reports'
       ],
       
       // Hub users - hub management only
       hub: [
-        // '/hub/dashboard', // Removed: Multiple inline onclick handlers, modals
-        '/hub/settings',
-        // '/hub/organizations/invite', // Removed: Form switching, onclick handlers
+        '/hub/dashboard',             // Dashboard
+        '/hub/settings',              // Settings
+        '/hub/organizations/invite',  // Invite organizations
         '/hub/organizations/search',
         '/hub/organizations/edit',
         '/hub/setup-password'
@@ -155,14 +158,42 @@ class SPARouter {
     });
 
     // Handle browser back/forward buttons
-    window.addEventListener('popstate', (e) => {
+    window.addEventListener('popstate', async (e) => {
       if (e.state && e.state.path) {
-        this.loadPage(e.state.path, false);
+        // Prevent duplicate navigation
+        if (this.isNavigating) return;
+        
+        this.isNavigating = true;
+        
+        try {
+          await this.loadPage(e.state.path, false);
+        } catch (error) {
+          // If SPA fails, do a full page reload
+          window.location.href = e.state.path;
+        } finally {
+          this.isNavigating = false;
+        }
+      } else {
+        // If no state, reload the current URL
+        const currentPath = window.location.pathname + window.location.search;
+        if (this.shouldHandleRoute(currentPath)) {
+          this.isNavigating = true;
+          try {
+            await this.loadPage(currentPath, false);
+          } catch (error) {
+            window.location.reload();
+          } finally {
+            this.isNavigating = false;
+          }
+        } else {
+          // Not an SPA route, do full reload
+          window.location.reload();
+        }
       }
     });
 
     // Save initial state
-    const currentPath = window.location.pathname;
+    const currentPath = window.location.pathname + window.location.search;
     if (this.shouldHandleRoute(currentPath)) {
       window.history.replaceState({ path: currentPath }, '', currentPath);
     }
@@ -170,7 +201,7 @@ class SPARouter {
     // Preload common pages immediately for instant navigation
     setTimeout(() => {
       this.preloadCommonPages();
-    }, 500);
+    }, 300);  // Reduced from 500ms to 300ms for faster initial preloading
   }
 
   preloadCommonPages() {
@@ -183,20 +214,25 @@ class SPARouter {
       ],
       organization: [
         '/common/orgDashboard',
+        '/common/management',          // Preload Management Tools
+        '/common/reports',             // Preload Reports
+        '/account/settings',           // Preload Settings
+        '/common/publicDashboard',     // Preload School Website
+        '/common/admissions',          // Preload Admissions
         '/common/classDashboard',
-        '/common/management',
         '/common/studentDetails',
         '/common/assessment'
       ],
       guardian: [
         '/guardian/dashboard',
         '/guardian/student',
-        '/guardian/academic-details'
+        '/guardian/academic-details',
+        '/guardian/reports',
+        '/guardian/settings'           // Preload Settings
       ],
       hub: [
-        // '/hub/dashboard', // Removed from preload
-        '/hub/settings',
-        // '/hub/organizations/invite' // Removed from preload
+        '/hub/dashboard',              // Preload Dashboard
+        '/hub/settings'                // Preload Settings
       ],
       admin: [
         '/admin/superDashboard',
@@ -215,8 +251,13 @@ class SPARouter {
   }
 
   shouldHandleRoute(path) {
+    // Strip query parameters for route matching
+    const pathWithoutQuery = path.split('?')[0];
+    
     // Check if route is in user's allowed routes
-    const isAllowed = this.routes.some(route => path === route || path.startsWith(route));
+    const isAllowed = this.routes.some(route => 
+      pathWithoutQuery === route || pathWithoutQuery.startsWith(route)
+    );
     
     return isAllowed;
   }
@@ -265,8 +306,8 @@ class SPARouter {
 
         html = await response.text();
         
-        // Cache the page (max 10 pages)
-        if (this.cache.size >= 10) {
+        // Cache the page (max 20 pages for better performance)
+        if (this.cache.size >= 20) {
           const firstKey = this.cache.keys().next().value;
           this.cache.delete(firstKey);
         }
@@ -291,9 +332,9 @@ class SPARouter {
       const currentMain = document.querySelector('main');
       
       if (newMain && currentMain) {
-        // Instant transition for cached pages, quick fade for new pages
+        // Instant transition for cached pages, ultra-fast fade for new pages
         const isCached = this.cache.has(path);
-        const fadeTime = isCached ? 0 : 80;
+        const fadeTime = isCached ? 0 : 50;  // Reduced from 80ms to 50ms
         
         if (fadeTime > 0) {
           currentMain.style.opacity = '0';
@@ -316,9 +357,26 @@ class SPARouter {
 
         // Update meta tags
         this.updateMetaTags(doc);
+        
+        // Handle sticky nav visibility based on page
+        const stickyNav = document.querySelector('.sticky-nav');
+        const isPublicDashboard = path.includes('/publicDashboard');
+        if (stickyNav) {
+          stickyNav.style.display = isPublicDashboard ? '' : 'none';
+        }
 
         // Trigger DOMContentLoaded for scripts that rely on it
         document.dispatchEvent(new Event('DOMContentLoaded'));
+        
+        // Reinitialize header menu (hamburger) after SPA navigation
+        if (typeof window.initHeaderMenu === 'function') {
+          window.initHeaderMenu();
+        }
+        
+        // Reinitialize logo SPA navigation after SPA navigation
+        if (typeof window.initLogoSPANavigation === 'function') {
+          window.initLogoSPANavigation();
+        }
         
         // Dispatch custom event for other scripts to hook into
         window.dispatchEvent(new CustomEvent('spa:pageLoaded', { 
@@ -709,7 +767,7 @@ style.textContent = `
     align-items: center;
     z-index: 99999;
     opacity: 0;
-    transition: opacity 0.1s ease-out;
+    transition: opacity 0.08s ease-out;
   }
 
   .spa-loading-overlay.visible {
@@ -722,7 +780,7 @@ style.textContent = `
     border: 3px solid #f3f3f3;
     border-top: 3px solid #01535b;
     border-radius: 50%;
-    animation: spa-spin 0.6s linear infinite;
+    animation: spa-spin 0.5s linear infinite;
   }
 
   @keyframes spa-spin {
@@ -731,11 +789,11 @@ style.textContent = `
   }
 
   main {
-    transition: opacity 0.08s ease-out;
+    transition: opacity 0.05s ease-out;
   }
 
   main img {
-    transition: opacity 0.2s ease-in;
+    transition: opacity 0.15s ease-in;
   }
 
   /* Optional: Add a subtle indicator that SPA is active */
@@ -752,7 +810,7 @@ style.textContent = `
     z-index: 9999;
     pointer-events: none;
     opacity: 0;
-    transition: opacity 0.3s;
+    transition: opacity 0.2s;
   }
 
   .spa-active-indicator.show {

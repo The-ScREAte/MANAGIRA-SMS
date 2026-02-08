@@ -1048,6 +1048,16 @@
           </a>
         </li>
         <% } %>
+        <% if (req.session && req.session.organizationId && Array.isArray(req.session.allowedFeatures) && (req.session.allowedFeatures.includes('School Website') || req.session.allowedFeatures.includes('SchoolWebsite'))) { %>
+        <li class="nav-item">
+          <a href="/common/publicDashboard?organizationId=<%= req.session.organizationId %>" class="nav-item-link management-link">
+            <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+            </svg>
+            School Website
+          </a>
+        </li>
+        <% } %>
         <% if (req.session && req.session.userRole !== 'Teacher') { %>
         <li class="nav-item">
           <a href="/common/admissions" class="nav-item-link management-link">
@@ -1244,19 +1254,51 @@
         navMenu.style.display = open ? "block" : "none";
       };
 
-      // Initialize closed state explicitly
+      // Initialize closed state explicitly - ensure hamburger is in normal state
       toggleNavMenu(false);
+      hamburger.classList.remove("active");
 
-      hamburger.addEventListener("click", (e) => {
+      // Remove existing listeners to prevent duplicates
+      const oldHamburger = hamburger.cloneNode(true);
+      hamburger.parentNode.replaceChild(oldHamburger, hamburger);
+      const newHamburger = document.getElementById("header-hamburger");
+
+      newHamburger.addEventListener("click", (e) => {
         e.stopPropagation();
         const shouldOpen = !navMenu.classList.contains("show");
-        hamburger.classList.toggle("active", shouldOpen);
+        newHamburger.classList.toggle("active", shouldOpen);
         toggleNavMenu(shouldOpen);
       });
 
-      // Prevent clicks inside nav menu from bubbling to document
+      // Prevent clicks inside nav menu from bubbling to document (but not on links)
       navMenu.addEventListener("click", (e) => {
-        e.stopPropagation();
+        // Don't stop propagation on links - let them navigate
+        if (!e.target.closest('a')) {
+          e.stopPropagation();
+        }
+      });
+
+      // Add SPA navigation to all nav links (include all links except logout and anchors)
+      const navLinks = navMenu.querySelectorAll('a[href]:not(.logout):not([href^="#"])');
+      navLinks.forEach(link => {
+        // Clone and replace to remove old listeners
+        const newLink = link.cloneNode(true);
+        link.parentNode.replaceChild(newLink, link);
+        
+        newLink.addEventListener('click', (e) => {
+          const href = newLink.getAttribute('href');
+          if (href && href !== '#' && window.spaRouter && window.spaRouter.shouldHandleRoute(href)) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Close hamburger menu immediately
+            newHamburger.classList.remove("active");
+            toggleNavMenu(false);
+            
+            // Navigate via SPA
+            window.spaRouter.navigate(href);
+          }
+        });
       });
 
       submenuToggles.forEach((toggle) => {
@@ -1283,7 +1325,7 @@
 
       document.addEventListener("click", (e) => {
         if (!e.target.closest("#header-hamburger") && !e.target.closest("#header-nav-menu")) {
-          hamburger.classList.remove("active");
+          newHamburger.classList.remove("active");
           toggleNavMenu(false);
         }
       });
@@ -1404,11 +1446,47 @@
     }
   }
 
+  // Make functions globally available for SPA router
+  window.initHeaderMenu = initHeaderMenu;
+  window.initLogoSPANavigation = initLogoSPANavigation;
+
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initHeaderMenu);
   } else {
     initHeaderMenu();
   }
+
+  // ⭐ Add SPA navigation to logo clicks for instant dashboard access
+  function initLogoSPANavigation() {
+    const logoLinks = document.querySelectorAll('.siteName a, .org-names a');
+    
+    logoLinks.forEach(link => {
+      const href = link.getAttribute('href');
+      
+      // Only add SPA handling for internal dashboard links
+      if (href && !href.startsWith('http') && !href.startsWith('#') && href !== '/') {
+        link.addEventListener('click', (e) => {
+          if (window.spaRouter && window.spaRouter.shouldHandleRoute(href)) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Navigate instantly via SPA
+            window.spaRouter.navigate(href);
+          }
+        });
+      }
+    });
+  }
+
+  // Initialize logo SPA navigation
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initLogoSPANavigation);
+  } else {
+    initLogoSPANavigation();
+  }
+
+  // Re-initialize logo SPA navigation after SPA page loads
+  window.addEventListener('spa:pageLoaded', initLogoSPANavigation);
 </script>
 
 

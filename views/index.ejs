@@ -1,4 +1,5 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&display=swap" rel="stylesheet">
     <style>
   /* Make the scrolling-header h1 and logo-section images smaller on small screens */
   .scrolling-header h1 {
@@ -48,6 +49,7 @@
   --text: #fff;
   --muted: #b0b3b8;
   --accent: #2efffb;
+  --handwriting: "Caveat", "Comic Sans MS", "Segoe Script", cursive;
   --font-family: "Inter", sans-serif;
 }
 
@@ -187,7 +189,7 @@ a {
   padding: 60px 20px;
   max-width: 1200px;
   margin: 0 auto;
-  align-items: stretch;
+  align-items: flex-start;
 }
 
 .features {
@@ -256,17 +258,40 @@ a {
 
 .video-section {
   display: flex;
-  align-items: flex-start;
-  border-radius: 12px;
-  overflow: hidden;
-  background: var(--card);
+  flex-direction: column;
+  gap: 0;
+  align-self: center;
+  margin-top: 40px;
 }
 
 .video-section video {
   width: 100%;
   height: auto;
   display: block;
-  border-radius: 12px;
+  border-radius: 12px 12px 0 0;
+}
+
+.video-note {
+  width: 100%;
+  background: #000;
+  padding: 50px 30px;
+  text-align: center;
+  font-family: var(--handwriting);
+  font-size: 3.2rem;
+  color: var(--accent);
+  border-radius: 0 0 12px 12px;
+  line-height: 1.4;
+  font-weight: 600;
+}
+
+.video-note .line-left {
+  display: block;
+  transform: translateX(-30px);
+}
+
+.video-note .line-right {
+  display: block;
+  transform: translateX(30px);
 }
 
 /* ========== How It Works ========== */
@@ -640,6 +665,22 @@ a {
   .automation-image {
     width: min(80vw, 300px);
   }
+  .video-note {
+    display: none;
+  }
+  .footer {
+    padding: 12px 16px;
+  }
+  .logo-section {
+    padding: 3px;
+  }
+  .logo-container img {
+    height: 35px;
+    margin: 0 10px;
+  }
+  .logo-container span {
+    font-size: 0.9rem;
+  }
 }
 
 /* ≥768px (tablet) */
@@ -675,7 +716,7 @@ a {
 @media (min-width: 1024px) {
   .features-video-section {
     flex-direction: row;
-    align-items: stretch;
+    align-items: flex-start;
     gap: 36px;
     padding: 80px 40px;
   }
@@ -688,6 +729,7 @@ a {
   .video-section {
     width: 40%;
     min-height: auto;
+    align-self: flex-start;
   }
 
   .automation-content {
@@ -871,6 +913,12 @@ a {
                 <source src="images/managiraEdited.mp4" type="video/mp4">
                 Your browser does not support the video tag.
             </video>
+            <div class="video-note">
+                <span class="line-left">Manage</span>
+                <span class="line-right">Smarter,</span>
+                <span class="line-left">Not</span>
+                <span class="line-right">Harder ..</span>
+            </div>
         </div>
     </section>
 

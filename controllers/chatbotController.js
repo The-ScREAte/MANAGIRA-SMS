@@ -7,13 +7,33 @@ class ChatbotController {
       return [];
     }
 
-    const searchTerms = query.toLowerCase().split(' ').filter(term => term.length > 2);
+    const normalize = (str) => str.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const normalizedQuery = normalize(query);
+
+    const searchTerms = normalizedQuery
+      .split(' ')
+      .filter(term => term.length > 2);
+
     const results = [];
 
     managiraFAQ.forEach(faq => {
       let score = 0;
-      
-      // Search in question
+
+      const normalizedQuestion = normalize(faq.question);
+
+      // Exact match on full question
+      if (normalizedQuery === normalizedQuestion) {
+        score += 100; // force to the top
+      }
+
+      // Exact match on any keyword
+      faq.keywords.forEach(keyword => {
+        if (normalizedQuery === normalize(keyword)) {
+          score += 80;
+        }
+      });
+
+      // Partial matches across fields
       const questionWords = faq.question.toLowerCase();
       searchTerms.forEach(term => {
         if (questionWords.includes(term)) {
@@ -21,16 +41,15 @@ class ChatbotController {
         }
       });
 
-      // Search in keywords
       faq.keywords.forEach(keyword => {
+        const normalizedKeyword = normalize(keyword);
         searchTerms.forEach(term => {
-          if (keyword.includes(term) || term.includes(keyword)) {
+          if (normalizedKeyword.includes(term) || term.includes(normalizedKeyword)) {
             score += 2;
           }
         });
       });
 
-      // Search in answer
       const answerWords = faq.answer.toLowerCase();
       searchTerms.forEach(term => {
         if (answerWords.includes(term)) {
@@ -38,7 +57,6 @@ class ChatbotController {
         }
       });
 
-      // Search in category
       const categoryWords = faq.category.toLowerCase();
       searchTerms.forEach(term => {
         if (categoryWords.includes(term)) {
@@ -51,10 +69,15 @@ class ChatbotController {
       }
     });
 
-    // Sort by score and return top 3 results
+    // If still no results, return top 3 popular FAQs as a helpful fallback
+    if (results.length === 0) {
+      return managiraFAQ.slice(0, 3);
+    }
+
+    // Sort by score and return top 5 for broader coverage
     return results
       .sort((a, b) => b.score - a.score)
-      .slice(0, 3)
+      .slice(0, 5)
       .map(({ score, ...faq }) => faq);
   }
 
