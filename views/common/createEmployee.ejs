@@ -56,7 +56,7 @@
     }
 
     .form-header {
-      background: linear-gradient(135deg, var(--primary) 0%, #0a7a86 100%);
+      background: var(--primary);
       color: white;
       padding: 28px 32px;
     }
@@ -196,7 +196,7 @@
     .btn-primary {
       width: 100%;
       padding: 16px 24px;
-      background: linear-gradient(135deg, var(--primary) 0%, #0a7a86 100%);
+      background: var(--primary);
       color: white;
       border: none;
       border-radius: 10px;
@@ -283,7 +283,8 @@
     });
   </script>
 </head>
-<body class="create-employee-page">
+<body>
+  <div class="create-employee-page">
   <%- include('../partials/flash') %>
   
   <% if (req.session && req.session.userRole !== 'Teacher' && req.session.userRole !== 'Supervisor') { %>
@@ -348,5 +349,6 @@
         <button type="submit" class="btn-primary">Create Employee</button>
       </form>
     </div>
+  </div>
   </div>
 </body>

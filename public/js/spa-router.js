@@ -654,9 +654,9 @@
 
       // Also check for styles in head that are page-specific
       doc.querySelectorAll('head style').forEach(styleTag => {
-        // Skip global styles that are already loaded
+        // Skip only turbo-progress-bar styles (these are global)
         const content = styleTag.textContent;
-        if (content.includes('turbo-progress-bar') || content.includes(':root')) return;
+        if (content.includes('turbo-progress-bar')) return;
         
         const newStyle = document.createElement('style');
         newStyle.textContent = content;

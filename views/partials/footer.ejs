@@ -106,16 +106,22 @@
     text-decoration: underline;
   }
   .managira-footer {
-    font-family: var(--font-family);
-    width: 100%;
-    margin-top: auto;
+    font-family: var(--font-family) !important;
+    width: 100% !important;
+    margin-top: auto !important;
+    /* Footer isolation: reset any page-level styling that may leak */
+    text-align: left !important;
+    background: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
   }
 
   /* BLUE SECTION */
   .footer-top-section {
-    background-color: #026972;
-    color: white;
-    padding: 15px 20px;
+    background-color: #026972 !important;
+    color: white !important;
+    padding: 15px 20px !important;
   }
 
   .footer-flex-container {
@@ -194,10 +200,10 @@
 
   /* BLACK SECTION */
   .footer-bottom-section {
-    background-color: #000;
-    color: white;
-    padding: 20px 15px;
-    margin-bottom: 0;
+    background-color: #000 !important;
+    color: white !important;
+    padding: 20px 15px !important;
+    margin-bottom: 0 !important;
   }
 
   .footer-bottom-row {
@@ -218,7 +224,7 @@
   }
 
   .footer-policy-links a {
-    color: white;
+    color: white !important;
     margin: 0 4px;
     text-decoration: none;
   }

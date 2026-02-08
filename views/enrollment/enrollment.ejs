@@ -7,43 +7,132 @@
     <style>
       :root {
         --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
+        --border: #e5e7eb;
+        --bg: #f9fafb;
       }
 
       body {
         font-family: var(--font-family);
         margin: 0;
+        background: var(--bg);
       }
-        .card {
-          background: #fff;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-          border-radius: 12px;
-          padding: 32px 24px;
-          margin: 0 auto 32px auto;
-          max-width: 500px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-        }
 
-        .collapsible {
-          width: 80%;
-          margin: 0 auto 20px auto;
-          text-align: center;
-        }
-        .collapsible-btn {
-          background: var(--org-primary-color);
-          color: #fff;
-          border: none;
-          border-radius: 5px;
-          padding: 8px 18px;
-          cursor: pointer;
-          margin-bottom: 10px;
-          transition: background 0.3s;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          width: 100%;
-          font-size: 1rem;
+      .enrollment-wrapper {
+        max-width: 700px;
+        margin: 0 auto;
+        padding: 0 20px 60px;
+      }
+
+      .page-banner {
+        background: var(--org-primary-color, #01535b);
+        color: white;
+        padding: 28px 20px;
+        text-align: center;
+        margin-bottom: 24px;
+        width: 100%;
+      }
+
+      .page-banner h1 {
+        margin: 0 0 6px 0;
+        font-size: 24px;
+        font-weight: 700;
+      }
+
+      .page-banner p {
+        margin: 0;
+        opacity: 0.9;
+        font-size: 14px;
+      }
+
+      .action-bar {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 24px;
+      }
+
+      .action-bar button {
+        padding: 10px 24px;
+        border: none;
+        background-color: var(--org-primary-color, #01535b);
+        color: white;
+        cursor: pointer;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .action-bar button:hover {
+        background-color: var(--org-primary-hover, #014a51);
+      }
+
+      .enrollment-card {
+        background: #fff;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 28px 24px;
+        margin: 0 auto 32px auto;
+        max-width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .form-group {
+        margin-bottom: 16px;
+        text-align: left;
+        width: 100%;
+      }
+
+      .form-group label {
+        font-weight: 600;
+        font-size: 14px;
+        color: #111827;
+        display: block;
+        margin-bottom: 6px;
+      }
+
+      .form-group select,
+      .form-group input[type="text"],
+      .form-group input[type="number"] {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font-size: 14px;
+        font-family: var(--font-family);
+        box-sizing: border-box;
+      }
+
+      h3, h4 {
+        text-align: center;
+        color: #111827;
+      }
+
+      .collapsible {
+        width: 100%;
+        margin: 0 auto 20px auto;
+        text-align: center;
+      }
+      .collapsible-btn {
+        background: var(--org-primary-color, #01535b);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 18px;
+        cursor: pointer;
+        margin-bottom: 10px;
+        transition: background 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .collapsible-btn:hover {
+        background: var(--org-primary-hover, #014a51);
       }
       .arrow {
         display: inline-block;
@@ -53,92 +142,18 @@
       .arrow.expanded {
         transform: rotate(90deg);
       }
-
-        .collapsible-btn:hover {
-          background: var(--org-primary-hover);
-        }
-        .collapsible-content {
-          display: none;
-          margin-top: 10px;
-        }
-        .collapsible-content.active {
-          display: flex;
-          flex-direction: column;
-          justify-content: start;
-        }
-
-        .form-actions button[type="button"] {
-          width: auto;
-          min-width: 0;
-          padding: 10px 28px;
-          display: inline-block;
-        }
-
-      main {
-        text-align: center;
-        margin: 0 auto;
-        width: 90%;
-        max-width: 1000px;
+      .collapsible-content {
+        display: none;
+        margin-top: 10px;
       }
-
-      h1,
-      h3,
-      h4 {
-        text-align: center;
-      }
-
-      .form-group {
-        margin-bottom: 15px;
-        text-align: left;
-        min-width: 90%;
-      }
-
-      label {
-        font-weight: bold;
-      }
-
-      select,
-      input[type="text"],
-      input[type="number"] {
-        width: 100%;
-        padding: 8px;
-        margin-top: 5px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-      }
-      #schoolYear,
-      #term {
-        width: 90%;
-        max-width: 350px;
-        margin-left: auto;
-        margin-right: auto;
-        display: block;
-      }
-
-      .center-link {
+      .collapsible-content.active {
         display: flex;
-        justify-content: center;
-        margin-bottom: 20px;
-      }
-
-      .center-link button {
-        margin: 0 10px;
-        padding: 10px 20px;
-        border: none;
-        background-color: var(--org-primary-color);
-        color: white;
-        cursor: pointer;
-        border-radius: 5px;
-        transition: background-color 0.3s ease;
-      }
-
-      .center-link button:hover {
-        background-color: var(--org-primary-hover, #013c44);
+        flex-direction: column;
+        justify-content: start;
       }
 
       .checkbox-container,
-      .select-all-container,
-      .checkbox-container {
+      .select-all-container {
         display: flex;
         flex-direction: row;
         align-items: center;
@@ -149,10 +164,17 @@
         width: 100%;
       }
 
+      .checkbox-container input[type="checkbox"],
+      .select-all-container input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        accent-color: var(--org-primary-color, #01535b);
+      }
+
       .student-list {
         display: none;
         padding-left: 15px;
-        border-left: 2px solid #ccc;
+        border-left: 2px solid var(--border);
         margin-left: 10px;
       }
 
@@ -166,57 +188,14 @@
         justify-content: center;
       }
 
-      button[type="button"] {
-        padding: 10px 20px;
-        background-color: var(--org-primary-color);
-        color: white;
-        border: none;
-        cursor: pointer;
-        margin: 0 5px;
-        border-radius: 5px;
-      }
-
-      button[type="button"]:hover {
-        background-color: var(--org-primary-hover, #013c44);
-      }
-      }
-
-      .alert-success,
-      .alert-danger {
-        padding: 10px;
-        margin-bottom: 15px;
-        border-radius: 5px;
-        text-align: center;
-      }
-
-      .alert-success {
-        background-color: #d4edda;
-        color: #155724;
-      }
-
-      .alert-danger {
-        background-color: #f8d7da;
-        color: #721c24;
-      }
-
-      @media screen and (max-width: 768px) {
-        /* .checkbox-container,
-        .select-all-container {
-          flex-direction: column;
-          align-items: flex-start;
-        } */
-
-        .form-actions {
-          flex-direction: column;
-        }
-
-        .center-link {
-          flex-direction: column;
-        }
-
-        .center-link button {
-          margin-bottom: 10px;
-        }
+      .form-actions button[type="button"] {
+        width: auto;
+        min-width: 0;
+        padding: 12px 32px;
+        display: inline-block;
+        font-size: 15px;
+        font-weight: 600;
+        border-radius: 8px;
       }
 
       .search-result-container {
@@ -224,43 +203,64 @@
         justify-content: space-between;
         align-items: center;
         margin: 5px 0;
-        padding: 3px 0;
-        border-bottom: 1px solid #ddd;
+        padding: 6px 0;
+        border-bottom: 1px solid var(--border);
+        font-size: 14px;
       }
 
       .search-result-container button {
-        background-color: var(--org-primary-color);
+        background-color: var(--org-primary-color, #01535b);
         color: #fff;
         border: none;
-        border-radius: 3px;
+        border-radius: 6px;
         font-size: 12px;
-        padding: 3px 6px; /* smaller size */
+        padding: 4px 10px;
         cursor: pointer;
-        transition: background-color 0.3s ease;
+        transition: background-color 0.2s ease;
+        width: auto;
       }
-      
+
       .search-result-container button:hover {
         background-color: var(--org-primary-hover, #014a51);
       }
 
-      .search-result-container button:hover {
-        background-color: #013c44;
+      @media screen and (max-width: 768px) {
+        .enrollment-wrapper {
+          padding: 0 16px 40px;
+        }
+        .enrollment-card {
+          padding: 20px 16px;
+        }
+        .form-actions {
+          flex-direction: column;
+        }
+        .action-bar {
+          flex-direction: column;
+        }
+        .action-bar button {
+          margin-bottom: 10px;
+        }
       }
     </style>
   </head>
   <body>
-    <main>
-      <%- include('../partials/flash') %>
-      <br />
-      <div class="center-link">
+    <%- include('../partials/flash') %>
+    
+    <div class="page-banner">
+      <h1>Student Enrollment</h1>
+      <p>Enroll classes and students for the current term</p>
+    </div>
+
+    <div class="enrollment-wrapper">
+      <div class="action-bar">
         <button onclick="location.href='/enrollment/manageEnrollment'">
           Manage Enrollments
         </button>
       </div>
-      <hr style="margin: 18px auto; width: 60%; border: 0; border-top: 1.5px solid #eee;" />
-      <h1>Enrollment Classes and Students</h1>
 
-        <form id="enrollmentForm" class="card">
+      <h3>Select Classes and Students</h3>
+
+      <form id="enrollmentForm" class="enrollment-card">
         <!-- School Year -->
         <div class="form-group">
           <label for="schoolYear">Select School Year:</label>
@@ -373,7 +373,7 @@
           <button type="button" onclick="enrollStudents()">Enroll</button>
         </div>
       </form>
-    </main>
+    </div>
 
     <script>
       function toggleCollapsible() {
