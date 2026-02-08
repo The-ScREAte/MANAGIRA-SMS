@@ -1,44 +1,29 @@
 /* 
- * SPA Router Quick Reference
+ * SPA Router v2 Quick Reference
  * 
- * The SPA (Single Page Application) Router is now active on your site!
+ * The SPA (Single Page Application) Router provides instant navigation.
  * 
- * What does it do?
- * ----------------
- * - Makes navigation between auth and public pages instant (no page reload)
- * - Preloads pages when you hover over links
- * - Caches up to 10 pages for ultra-fast navigation
- * - Works with browser back/forward buttons
+ * What it does:
+ * ─────────────
+ * • Instant page transitions without full reloads
+ * • Back/Forward buttons work immediately (scroll position restored)
+ * • Links preload on hover and when visible in viewport
+ * • Videos and images handled correctly during navigation
+ * • Automatic progress bar for uncached page loads
+ * • Caches up to 25 pages per session
+ * • Graceful fallback to full reload on any error
  * 
- * Pages with instant navigation:
- * -----------------------------
- * ✓ Home page (/)
- * ✓ Login page (/account/login)
- * ✓ Register page (/account/register)
- * ✓ Hub login (/hub/login)
- * ✓ Guardian login (/account/guardian-login)
- * ✓ Reset password (/account/reset-password)
- * ✓ Pricing page (/common/pricing)
- * ✓ All footer links (Help, Employment, Donations, About Us, Privacy, Terms, FAQ)
+ * Developer commands (browser console):
+ * ─────────────────────────────────────
+ * spaRouter.clearCache()         — Clear all cached pages
+ * spaRouter.preloadPage(url)     — Manually preload a page
  * 
- * How to use:
- * -----------
- * Just click links normally! The router handles everything automatically.
+ * Opting out of SPA for a link:
+ * ─────────────────────────────
+ * <a href="/page" data-no-spa>Full reload link</a>
  * 
- * Developer commands (in browser console):
- * ---------------------------------------
- * window.spaRouter.clearCache()       - Clear all cached pages
- * window.spaRouter.preloadPage(url)   - Manually preload a page
- * 
- * Troubleshooting:
- * ---------------
- * If navigation isn't working:
- * 1. Check browser console for errors
- * 2. Run: window.spaRouter.clearCache()
- * 3. Refresh the page
- * 
- * Still having issues? The router will automatically fall back to 
- * traditional navigation if something goes wrong.
+ * Or wrap a section:
+ * <div data-no-spa>
+ *   <a href="/page">All links here use full reload</a>
+ * </div>
  */
-
-

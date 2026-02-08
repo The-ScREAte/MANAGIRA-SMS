@@ -1,826 +1,942 @@
 /**
- * SPA Router - Client-side navigation without page reloads
- * Handles smooth transitions with role-based route loading for optimal performance
+ * SPA Router v2 — Client-side navigation without page reloads
+ * 
+ * Best practices implemented:
+ * - AbortController for cancelling in-flight requests
+ * - Proper popstate (back/forward) handling with instant response
+ * - No cache-busting on images (prevents broken URLs & unnecessary re-downloads)
+ * - Efficient DOM diffing (no querySelectorAll('*') performance killer)
+ * - Video element pause/play lifecycle management
+ * - IntersectionObserver-based link preloading
+ * - Proper cleanup to prevent memory leaks
+ * - CSS-based transitions for GPU-accelerated smoothness
+ * - Navigation deduplication & race condition prevention
+ * - Header active-state updates after navigation
+ * - Graceful fallback to full reload on errors
  */
 
-class SPARouter {
-  constructor() {
-    // Detect user type from session (injected in head.ejs)
-    this.userType = window.spaUserType || 'public';
-    
-    // Define routes by user type - only load what each user needs
-    this.routesByType = {
-      // Public/Unauthenticated users - auth and legal pages only
-      public: [
-        '/account/login',
-        '/account/register',
-        '/common/pricing',
-        '/hub/login',
-        '/account/guardian-login',
-        '/account/reset-password',
-        '/legal/help',
-        '/legal/employment',
-        '/legal/donations',
-        '/legal/about-us',
-        '/legal/privacy-policy',
-        '/legal/terms-of-service',
-        '/legal/faq'
-      ],
-      
-      // Organization users - full org management suite
-      organization: [
-        '/common/orgDashboard',
-        '/common/management',
-        '/common/publicDashboard',  // School Website
-        '/common/admissions',        // Admissions
-        '/common/reports',           // Reports
-        '/account/settings',         // Settings
-        '/common/studentDetails',
-        '/common/studentInfo',
-        // '/common/addStudent', // Removed: Complex dynamic forms, guardian autocomplete, file uploads
-        '/common/editStudent',
-        '/common/admissionPending',
-        '/common/archivedStudents',
-        '/common/manageClassSubjectAndGradYr',
-        '/common/classDashboard',
-        '/common/addClassSubject',
-        '/common/manageEmployees',
-        '/common/employeeDetails',
-        '/common/createEmployee',
-        '/common/modifyEmployee',
-        '/common/guardians',
-        '/common/guardianDetails',
-        '/common/assessment',
-        '/common/createTest',
-        '/common/modifyAssessment',
-        '/common/manageAssessment',
-        '/common/manageRecords',
-        '/common/manageSchoolYear',
-        // '/common/registerSchoolYear', // Removed: Complex form submission handlers
-        '/common/closeSchoolYear',
-        '/common/termDetails',
-        '/common/attendanceCollection',
-        // '/stats/organizationStats', // Removed: Chart.js initialization, complex toggles
-        // '/print/reportSettings', // Removed: Dynamic remark sections
-        // '/print/printStudentReport', // Removed: Complex image loading, inline handlers
-        '/print/transcript',
-        '/print/modifyStatusSettings',
-        '/print/meritSheetPage',
-        '/print/migration',
-        // '/enrollment/enrollment', // Removed: Complex form interactions
-        // '/enrollment/manageEnrollment', // Removed: Complex form interactions
-        // '/enrollment/modifyEnrollment', // Removed: Complex form interactions
-        // '/promotion/applyPromotion', // Removed: Cascading dropdowns, onclick handlers
-        '/promotion/closeGraduationYearGroup'
-      ],
-      
-      // Guardian/Parent users - parent portal only
-      guardian: [
-        '/guardian/dashboard',
-        '/guardian/academic-details',
-        '/guardian/student',
-        '/guardian/studentDetails',
-        '/guardian/settings',        // Settings
-        '/guardian/report',
-        '/guardian/reports'
-      ],
-      
-      // Hub users - hub management only
-      hub: [
-        '/hub/dashboard',             // Dashboard
-        '/hub/settings',              // Settings
-        '/hub/organizations/invite',  // Invite organizations
-        '/hub/organizations/search',
-        '/hub/organizations/edit',
-        '/hub/setup-password'
-      ],
-      
-      // Admin users - admin panel only
-      admin: [
-        '/admin',
-        '/admin/superDashboard',
-        '/admin/superSettings',
-        '/admin/create-promo',
-        '/admin/employment',
-        '/admin/donations',
-        '/admin/announcements',
-        '/admin/helpMessages',
-        '/admin/helpHistory',
-        '/admin/servicePricing',
-        '/admin/scheduled-holds',
-        '/admin/data-export',
-        '/admin/hubs',
-        '/admin/hubs/create',
-        '/admin/editAdminUser'
-      ]
-    };
-    
-    // Get routes for current user type
-    this.routes = this.routesByType[this.userType] || this.routesByType.public;
-    
-    this.isNavigating = false;
-    this.cache = new Map();
-    this.init();
-  }
+(function () {
+  'use strict';
 
-  init() {
-    // Intercept link clicks
-    document.addEventListener('click', (e) => {
+  // ─── Configuration ────────────────────────────────────────────────────
+  const CONFIG = {
+    MAX_CACHE: 25,
+    PRELOAD_DELAY: 150,       // ms before hover-preload fires
+    TRANSITION_MS: 120,       // fade out/in duration
+    PRELOAD_VISIBLE: true,    // preload links visible in viewport
+    SCROLL_BEHAVIOR: 'instant'
+  };
+
+  // ─── Route Definitions by User Type ───────────────────────────────────
+  const ROUTES_BY_TYPE = {
+    public: [
+      '/',
+      '/account/login',
+      '/account/register',
+      '/common/pricing',
+      '/hub/login',
+      '/account/guardian-login',
+      '/account/reset-password',
+      '/legal/help',
+      '/legal/employment',
+      '/legal/donations',
+      '/legal/about-us',
+      '/legal/privacy-policy',
+      '/legal/terms-of-service',
+      '/legal/faq'
+    ],
+    organization: [
+      '/',
+      '/common/orgDashboard',
+      '/common/management',
+      '/common/publicDashboard',
+      '/common/admissions',
+      '/common/reports',
+      '/account/settings',
+      '/common/studentDetails',
+      '/common/studentInfo',
+      '/common/editStudent',
+      '/common/admissionPending',
+      '/common/archivedStudents',
+      '/common/manageClassSubjectAndGradYr',
+      '/common/classDashboard',
+      '/common/addClassSubject',
+      '/common/manageEmployees',
+      '/common/employeeDetails',
+      '/common/createEmployee',
+      '/common/modifyEmployee',
+      '/common/guardians',
+      '/common/guardianDetails',
+      '/common/assessment',
+      '/common/createTest',
+      '/common/modifyAssessment',
+      '/common/manageAssessment',
+      '/common/manageRecords',
+      '/common/manageSchoolYear',
+      '/common/closeSchoolYear',
+      '/common/termDetails',
+      '/common/attendanceCollection',
+      '/print/transcript',
+      '/print/modifyStatusSettings',
+      '/print/meritSheetPage',
+      '/print/migration',
+      '/promotion/closeGraduationYearGroup',
+      '/legal/help',
+      '/legal/employment',
+      '/legal/donations',
+      '/legal/about-us',
+      '/legal/privacy-policy',
+      '/legal/terms-of-service',
+      '/legal/faq'
+    ],
+    guardian: [
+      '/',
+      '/guardian/dashboard',
+      '/guardian/academic-details',
+      '/guardian/student',
+      '/guardian/studentDetails',
+      '/guardian/settings',
+      '/guardian/report',
+      '/guardian/reports',
+      '/legal/help',
+      '/legal/privacy-policy',
+      '/legal/terms-of-service',
+      '/legal/faq'
+    ],
+    hub: [
+      '/',
+      '/hub/dashboard',
+      '/hub/settings',
+      '/hub/organizations/invite',
+      '/hub/organizations/search',
+      '/hub/organizations/edit',
+      '/hub/setup-password',
+      '/legal/help',
+      '/legal/privacy-policy',
+      '/legal/terms-of-service',
+      '/legal/faq'
+    ],
+    admin: [
+      '/',
+      '/admin',
+      '/admin/superDashboard',
+      '/admin/superSettings',
+      '/admin/create-promo',
+      '/admin/employment',
+      '/admin/donations',
+      '/admin/announcements',
+      '/admin/helpMessages',
+      '/admin/helpHistory',
+      '/admin/servicePricing',
+      '/admin/scheduled-holds',
+      '/admin/data-export',
+      '/admin/hubs',
+      '/admin/hubs/create',
+      '/admin/editAdminUser',
+      '/legal/help',
+      '/legal/faq'
+    ]
+  };
+
+  // Priority pages to preload per user type
+  const PRELOAD_PRIORITY = {
+    public: ['/account/login', '/account/register', '/common/pricing'],
+    organization: ['/common/orgDashboard', '/common/management', '/account/settings'],
+    guardian: ['/guardian/dashboard', '/guardian/student'],
+    hub: ['/hub/dashboard', '/hub/settings'],
+    admin: ['/admin/superDashboard', '/admin/superSettings']
+  };
+
+  // Routes that should NEVER be SPA-handled (complex forms, file uploads, etc.)
+  const EXCLUDED_PATTERNS = [
+    '/account/service-plan',
+    '/admin/org/',
+    '/admin/exit-org',
+    'new=1',
+    '/common/addStudent',       // Complex form with file uploads
+    '/common/registerSchoolYear', // Complex form submissions
+    '/stats/organizationStats', // Chart.js initialization
+    '/print/reportSettings',    // Dynamic remark sections
+    '/print/printStudentReport', // Complex image loading
+    '/enrollment/',             // Complex form interactions
+    '/promotion/applyPromotion' // Cascading dropdowns
+  ];
+
+  // ─── SPARouter Class ──────────────────────────────────────────────────
+  class SPARouter {
+    constructor() {
+      this.userType = window.spaUserType || 'public';
+      this.routes = ROUTES_BY_TYPE[this.userType] || ROUTES_BY_TYPE.public;
+      this.cache = new Map();
+      this.isNavigating = false;
+      this.currentPath = this._normalizePath(window.location.pathname + window.location.search);
+      this.abortController = null;
+      this.hoverTimer = null;
+      this.visibilityObserver = null;
+
+      this._init();
+    }
+
+    // ── Initialization ────────────────────────────────────────────────
+    _init() {
+      // 1. Save initial history state
+      window.history.replaceState(
+        { path: this.currentPath, scroll: 0 },
+        '',
+        this.currentPath
+      );
+
+      // 2. Intercept link clicks (single delegated listener)
+      document.addEventListener('click', this._onLinkClick.bind(this), true);
+
+      // 3. Hover preloading with debounce
+      document.addEventListener('mouseover', this._onLinkHover.bind(this));
+      document.addEventListener('mouseout', this._onLinkHoverEnd.bind(this));
+
+      // 4. Touch preloading for mobile
+      document.addEventListener('touchstart', this._onTouchStart.bind(this), { passive: true });
+
+      // 5. Handle back/forward buttons — THE critical fix
+      window.addEventListener('popstate', this._onPopState.bind(this));
+
+      // 6. Save scroll position before navigating away
+      window.addEventListener('scroll', this._throttle(() => {
+        if (history.state && history.state.path) {
+          const state = { ...history.state, scroll: window.scrollY };
+          history.replaceState(state, '', state.path);
+        }
+      }, 200), { passive: true });
+
+      // 7. Preload priority pages after idle
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(() => this._preloadPriorityPages(), { timeout: 2000 });
+      } else {
+        setTimeout(() => this._preloadPriorityPages(), 500);
+      }
+
+      // 8. Viewport-based preloading for visible links
+      if (CONFIG.PRELOAD_VISIBLE && 'IntersectionObserver' in window) {
+        this._initVisibilityPreloading();
+      }
+
+      // 9. Prefetch on likely navigation (if browser supports it)
+      this._addPrefetchHints();
+    }
+
+    // ── Event Handlers ────────────────────────────────────────────────
+
+    _onLinkClick(e) {
+      // Only handle left-clicks without modifier keys
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+
       const link = e.target.closest('a');
       if (!link) return;
 
       const href = link.getAttribute('href');
-      if (!href || href.startsWith('#') || href.startsWith('http') || href.startsWith('mailto:')) {
+      if (!href) return;
+
+      // Skip non-navigable links
+      if (href.startsWith('#') || href.startsWith('http') || href.startsWith('mailto:') ||
+          href.startsWith('tel:') || href.startsWith('javascript:') || href.startsWith('blob:')) {
         return;
       }
 
-      // Skip SPA handling for special flows that rely on full reload (e.g., new=1 resets)
-      if (href.includes('new=1') || href.startsWith('/account/service-plan') || href.includes('/admin/org/') || href.includes('/admin/exit-org')) {
-        return; // allow normal navigation
-      }
+      // Skip links with target="_blank" or download attribute
+      if (link.hasAttribute('target') || link.hasAttribute('download')) return;
 
-      // Check if this is a route we should handle
-      if (this.shouldHandleRoute(href)) {
+      // Skip links explicitly opting out
+      if (link.hasAttribute('data-no-spa') || link.closest('[data-no-spa]')) return;
+
+      // Skip excluded patterns
+      if (this._isExcluded(href)) return;
+
+      // Check if this route should be SPA-handled
+      if (this._shouldHandle(href)) {
         e.preventDefault();
+        e.stopPropagation();
         this.navigate(href);
       }
-    });
+    }
 
-    // Preload on hover for instant navigation
-    document.addEventListener('mouseover', (e) => {
+    _onLinkHover(e) {
       const link = e.target.closest('a');
       if (!link) return;
 
       const href = link.getAttribute('href');
-      if (href && this.shouldHandleRoute(href)) {
-        this.preloadPage(href);
-      }
-    });
+      if (!href || !this._shouldHandle(href) || this._isExcluded(href)) return;
 
-    // Handle browser back/forward buttons
-    window.addEventListener('popstate', async (e) => {
-      if (e.state && e.state.path) {
-        // Prevent duplicate navigation
-        if (this.isNavigating) return;
-        
-        this.isNavigating = true;
-        
-        try {
-          await this.loadPage(e.state.path, false);
-        } catch (error) {
-          // If SPA fails, do a full page reload
-          window.location.href = e.state.path;
-        } finally {
-          this.isNavigating = false;
-        }
-      } else {
-        // If no state, reload the current URL
-        const currentPath = window.location.pathname + window.location.search;
-        if (this.shouldHandleRoute(currentPath)) {
-          this.isNavigating = true;
-          try {
-            await this.loadPage(currentPath, false);
-          } catch (error) {
-            window.location.reload();
-          } finally {
-            this.isNavigating = false;
-          }
-        } else {
-          // Not an SPA route, do full reload
-          window.location.reload();
-        }
-      }
-    });
-
-    // Save initial state
-    const currentPath = window.location.pathname + window.location.search;
-    if (this.shouldHandleRoute(currentPath)) {
-      window.history.replaceState({ path: currentPath }, '', currentPath);
+      // Debounce: only preload if user hovers for a moment
+      this.hoverTimer = setTimeout(() => {
+        this._preload(href);
+      }, CONFIG.PRELOAD_DELAY);
     }
 
-    // Preload common pages immediately for instant navigation
-    setTimeout(() => {
-      this.preloadCommonPages();
-    }, 300);  // Reduced from 500ms to 300ms for faster initial preloading
-  }
-
-  preloadCommonPages() {
-    // Preload only pages relevant to current user type for optimal performance
-    const preloadByType = {
-      public: [
-        '/account/login',
-        '/account/register',
-        '/common/pricing'
-      ],
-      organization: [
-        '/common/orgDashboard',
-        '/common/management',          // Preload Management Tools
-        '/common/reports',             // Preload Reports
-        '/account/settings',           // Preload Settings
-        '/common/publicDashboard',     // Preload School Website
-        '/common/admissions',          // Preload Admissions
-        '/common/classDashboard',
-        '/common/studentDetails',
-        '/common/assessment'
-      ],
-      guardian: [
-        '/guardian/dashboard',
-        '/guardian/student',
-        '/guardian/academic-details',
-        '/guardian/reports',
-        '/guardian/settings'           // Preload Settings
-      ],
-      hub: [
-        '/hub/dashboard',              // Preload Dashboard
-        '/hub/settings'                // Preload Settings
-      ],
-      admin: [
-        '/admin/superDashboard',
-        '/admin/superSettings',
-        '/admin/helpMessages'
-      ]
-    };
-    
-    const commonPages = preloadByType[this.userType] || preloadByType.public;
-    
-    commonPages.forEach(page => {
-      if (page !== window.location.pathname) {
-        this.preloadPage(page);
+    _onLinkHoverEnd() {
+      if (this.hoverTimer) {
+        clearTimeout(this.hoverTimer);
+        this.hoverTimer = null;
       }
-    });
-  }
-
-  shouldHandleRoute(path) {
-    // Strip query parameters for route matching
-    const pathWithoutQuery = path.split('?')[0];
-    
-    // Check if route is in user's allowed routes
-    const isAllowed = this.routes.some(route => 
-      pathWithoutQuery === route || pathWithoutQuery.startsWith(route)
-    );
-    
-    return isAllowed;
-  }
-
-  async navigate(path) {
-    if (this.isNavigating) return;
-    
-    this.isNavigating = true;
-    
-    // Only show spinner if page is not cached
-    const isCached = this.cache.has(path);
-    if (!isCached) {
-      this.showLoadingOverlay();
     }
 
-    try {
-      await this.loadPage(path, true);
-      window.history.pushState({ path }, '', path);
-    } catch (error) {
-      // Fallback to traditional navigation
-      window.location.href = path;
-    } finally {
-      this.isNavigating = false;
+    _onTouchStart(e) {
+      const link = e.target.closest('a');
+      if (!link) return;
+
+      const href = link.getAttribute('href');
+      if (href && this._shouldHandle(href) && !this._isExcluded(href)) {
+        this._preload(href);
+      }
+    }
+
+    /**
+     * Back/Forward button handler — KEY FIX
+     * This fires AFTER the URL has already changed, so we just need to
+     * load the content for the new URL immediately.
+     */
+    _onPopState(e) {
+      const targetPath = e.state?.path || this._normalizePath(window.location.pathname + window.location.search);
+
+      // Don't re-load if we're already on this path
+      if (targetPath === this.currentPath) return;
+
+      // Cancel any in-flight navigation
+      this._abortFetch();
+
+      // Load page immediately — no pushState (browser already updated the URL)
+      this._loadPage(targetPath, false).then(() => {
+        // Restore scroll position if saved
+        const savedScroll = e.state?.scroll || 0;
+        window.scrollTo({ top: savedScroll, behavior: CONFIG.SCROLL_BEHAVIOR });
+      }).catch(() => {
+        // Fallback: full page reload
+        window.location.reload();
+      });
+    }
+
+    // ── Navigation ────────────────────────────────────────────────────
+
+    async navigate(path) {
+      const normalizedPath = this._normalizePath(path);
+
+      // Don't navigate to current page
+      if (normalizedPath === this.currentPath) return;
+
+      // Prevent overlapping navigations
+      if (this.isNavigating) {
+        this._abortFetch();
+      }
+
+      this.isNavigating = true;
+
+      // Show loading only for uncached pages
+      const isCached = this.cache.has(normalizedPath);
       if (!isCached) {
-        this.hideLoadingOverlay();
+        this._showProgress();
+      }
+
+      try {
+        await this._loadPage(normalizedPath, true);
+        // Push new state
+        window.history.pushState(
+          { path: normalizedPath, scroll: 0 },
+          '',
+          normalizedPath
+        );
+        // Scroll to top
+        window.scrollTo({ top: 0, behavior: CONFIG.SCROLL_BEHAVIOR });
+      } catch (err) {
+        // Fallback to full navigation
+        window.location.href = path;
+      } finally {
+        this.isNavigating = false;
+        this._hideProgress();
       }
     }
-  }
 
-  async loadPage(path, addToHistory = true) {
-    try {
-      // Check cache first
-      let html = this.cache.get(path);
-      
-      if (!html) {
-        const response = await fetch(path, {
-          headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-            'Accept': 'text/html'
-          }
-        });
+    async _loadPage(path, isForwardNav) {
+      const normalizedPath = this._normalizePath(path);
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+      try {
+        let html = this.cache.get(normalizedPath);
+
+        if (!html) {
+          this.abortController = new AbortController();
+
+          const response = await fetch(path, {
+            signal: this.abortController.signal,
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest',
+              'Accept': 'text/html'
+            }
+          });
+
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+          html = await response.text();
+          this._cacheSet(normalizedPath, html);
         }
 
-        html = await response.text();
-        
-        // Cache the page (max 20 pages for better performance)
-        if (this.cache.size >= 20) {
-          const firstKey = this.cache.keys().next().value;
-          this.cache.delete(firstKey);
-        }
-        this.cache.set(path, html);
+        // Parse response
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+
+        // Pause any playing videos/audio before swap
+        this._pauseMedia();
+
+        // Perform the content swap with transition
+        await this._swapContent(doc, normalizedPath);
+
+        // Update current path tracking
+        this.currentPath = normalizedPath;
+
+      } catch (err) {
+        if (err.name === 'AbortError') return; // Intentionally cancelled
+        throw err;
       }
+    }
 
-      // Parse the HTML
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
+    // ── Content Swap ──────────────────────────────────────────────────
 
-      // Update page title
-      const newTitle = doc.querySelector('title');
-      if (newTitle) {
-        document.title = newTitle.textContent;
-      }
-
-      // Update styles from the new page
-      this.updateStyles(doc);
-
-      // Update main content
-      const newMain = doc.querySelector('main');
+    async _swapContent(doc, path) {
       const currentMain = document.querySelector('main');
-      
-      if (newMain && currentMain) {
-        // Instant transition for cached pages, ultra-fast fade for new pages
-        const isCached = this.cache.has(path);
-        const fadeTime = isCached ? 0 : 50;  // Reduced from 80ms to 50ms
-        
-        if (fadeTime > 0) {
-          currentMain.style.opacity = '0';
-          await new Promise(resolve => setTimeout(resolve, fadeTime));
-        }
-        
-        currentMain.innerHTML = newMain.innerHTML;
-        
-        // Fix images by forcing reload
-        this.reloadImages(currentMain);
-        
-        // Re-execute scripts from the new content
-        this.executeScripts(currentMain);
-        
-        // Show content instantly
+      const newMain = doc.querySelector('main');
+
+      if (!currentMain || !newMain) {
+        throw new Error('Missing <main> element');
+      }
+
+      // 1. Update page title
+      const newTitle = doc.querySelector('title');
+      if (newTitle) document.title = newTitle.textContent;
+
+      // 2. Update page-specific styles
+      this._updateStyles(doc);
+
+      // 3. Fade out current content
+      currentMain.style.transition = `opacity ${CONFIG.TRANSITION_MS}ms ease`;
+      currentMain.style.opacity = '0';
+      await this._wait(CONFIG.TRANSITION_MS);
+
+      // 4. Swap content
+      currentMain.innerHTML = newMain.innerHTML;
+
+      // 5. Process new content
+      this._processImages(currentMain);
+      this._processVideos(currentMain);
+      this._executeScripts(currentMain);
+      this._reinitializeHandlers(currentMain);
+
+      // 6. Fade in
+      // Use rAF to ensure the browser has painted the new content
+      requestAnimationFrame(() => {
         currentMain.style.opacity = '1';
-        
-        // Scroll to top instantly
-        window.scrollTo({ top: 0, behavior: 'instant' });
-
-        // Update meta tags
-        this.updateMetaTags(doc);
-        
-        // Handle sticky nav visibility based on page
-        const stickyNav = document.querySelector('.sticky-nav');
-        const isPublicDashboard = path.includes('/publicDashboard');
-        if (stickyNav) {
-          stickyNav.style.display = isPublicDashboard ? '' : 'none';
-        }
-
-        // Trigger DOMContentLoaded for scripts that rely on it
-        document.dispatchEvent(new Event('DOMContentLoaded'));
-        
-        // Reinitialize header menu (hamburger) after SPA navigation
-        if (typeof window.initHeaderMenu === 'function') {
-          window.initHeaderMenu();
-        }
-        
-        // Reinitialize logo SPA navigation after SPA navigation
-        if (typeof window.initLogoSPANavigation === 'function') {
-          window.initLogoSPANavigation();
-        }
-        
-        // Dispatch custom event for other scripts to hook into
-        window.dispatchEvent(new CustomEvent('spa:pageLoaded', { 
-          detail: { path } 
-        }));
-      }
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  reloadImages(container) {
-    // Force reload all images to ensure they display properly
-    const images = container.querySelectorAll('img');
-    images.forEach(img => {
-      const src = img.getAttribute('src');
-      if (src) {
-        // Create a new image to force browser to reload
-        const newImg = new Image();
-        newImg.onload = () => {
-          // Add cache-busting parameter to force reload
-          const cacheBuster = src.includes('?') ? '&' : '?';
-          img.src = src + cacheBuster + '_t=' + Date.now();
-          img.style.opacity = '1';
-        };
-        newImg.onerror = () => {
-          // Even on error, show the image placeholder
-          img.style.opacity = '1';
-        };
-        img.style.opacity = '0.3';
-        newImg.src = src;
-        
-        // Handle images with srcset
-        const srcset = img.getAttribute('srcset');
-        if (srcset) {
-          img.setAttribute('srcset', srcset);
-        }
-      }
-    });
-    
-    // Handle background images in style attributes with cache-busting
-    const elementsWithBgImages = container.querySelectorAll('[style*="background-image"]');
-    elementsWithBgImages.forEach(el => {
-      const style = el.style.backgroundImage;
-      if (style && style.includes('url(')) {
-        const urlMatch = style.match(/url\(['"]?([^'"]+)['"]?\)/);
-        if (urlMatch && urlMatch[1]) {
-          const url = urlMatch[1];
-          const cacheBuster = url.includes('?') ? '&' : '?';
-          el.style.backgroundImage = `url(${url}${cacheBuster}_t=${Date.now()})`;
-        }
-      }
-    });
-    
-    // Handle CSS background-image from stylesheets
-    const elementsWithComputedBg = container.querySelectorAll('*');
-    elementsWithComputedBg.forEach(el => {
-      const computed = window.getComputedStyle(el);
-      const bgImage = computed.backgroundImage;
-      if (bgImage && bgImage !== 'none' && bgImage.includes('url(') && !el.style.backgroundImage) {
-        // For elements with CSS background, force repaint
-        el.style.backgroundImage = bgImage;
-        const urlMatch = bgImage.match(/url\(['"]?([^'"]+)['"]?\)/);
-        if (urlMatch && urlMatch[1]) {
-          const url = urlMatch[1];
-          const cacheBuster = url.includes('?') ? '&' : '?';
-          el.style.backgroundImage = `url(${url}${cacheBuster}_t=${Date.now()})`;
-        }
-      }
-    });
-  }
-
-  updateStyles(doc) {
-    // Get all inline style tags from the new page
-    const newStyles = doc.querySelectorAll('style');
-    
-    // Remove old page-specific styles (but keep global ones from head.ejs)
-    const existingStyles = document.querySelectorAll('style[data-page-style]');
-    existingStyles.forEach(style => style.remove());
-    
-    // Add new page styles
-    newStyles.forEach(styleTag => {
-      const newStyle = document.createElement('style');
-      newStyle.textContent = styleTag.textContent;
-      newStyle.setAttribute('data-page-style', 'true');
-      document.head.appendChild(newStyle);
-    });
-  }
-
-  executeScripts(container) {
-    const scripts = container.querySelectorAll('script');
-    const scriptsToExecute = [];
-    
-    // Remove old scripts and collect new ones
-    scripts.forEach(oldScript => {
-      const newScript = document.createElement('script');
-      
-      // Copy all attributes
-      Array.from(oldScript.attributes).forEach(attr => {
-        newScript.setAttribute(attr.name, attr.value);
       });
-      
-      // Copy content for inline scripts
-      if (!oldScript.src) {
-        newScript.textContent = oldScript.textContent;
+
+      // 7. Update meta tags
+      this._updateMetaTags(doc);
+
+      // 8. Update header active states
+      this._updateHeaderActiveState(path);
+
+      // 9. Update footer visibility
+      this._updateFooter(doc);
+
+      // 10. Notify other scripts
+      this._dispatchEvents(path);
+
+      // 11. Re-observe new links for viewport preloading
+      if (this.visibilityObserver) {
+        this._observeLinks(currentMain);
       }
-      
-      scriptsToExecute.push(newScript);
-      
-      // Replace old script with new one in the DOM
-      if (oldScript.parentNode) {
-        oldScript.parentNode.replaceChild(newScript, oldScript);
-      }
-    });
-    
-    // Execute inline scripts in the global scope
-    scriptsToExecute.forEach(script => {
-      if (!script.src && script.textContent) {
-        try {
-          // Execute in global scope using Function constructor
-          const scriptFunc = new Function(script.textContent);
-          scriptFunc.call(window);
-        } catch (e) {
-          // Silently fail
+    }
+
+    // ── Image Handling ────────────────────────────────────────────────
+
+    _processImages(container) {
+      // Simply ensure all images are visible and trigger lazy loading
+      const images = container.querySelectorAll('img');
+      images.forEach(img => {
+        // Handle lazy-loaded images
+        const dataSrc = img.getAttribute('data-src');
+        if (dataSrc) {
+          img.src = dataSrc;
+          img.removeAttribute('data-src');
         }
-      }
-    });
 
-    // ⭐ KEY FIX: Dispatch DOMContentLoaded event for scripts expecting it
-    setTimeout(() => {
-      const domContentLoadedEvent = new Event('DOMContentLoaded', {
-        bubbles: true,
-        cancelable: false
+        // Ensure visibility
+        img.style.opacity = '1';
+
+        // Handle broken images gracefully
+        if (!img.hasAttribute('data-error-handled')) {
+          img.setAttribute('data-error-handled', 'true');
+          img.addEventListener('error', function () {
+            this.style.opacity = '0.5';
+          }, { once: true });
+        }
       });
-      document.dispatchEvent(domContentLoadedEvent);
-      
-      // Also dispatch on the container for scoped listeners
-      if (container) {
-        container.dispatchEvent(domContentLoadedEvent);
-      }
-    }, 10);
+    }
 
-    // Re-initialize common functionality
-    this.reinitializeCommonScripts();
-  }
+    // ── Video Handling ────────────────────────────────────────────────
 
-  reinitializeCommonScripts() {
-    // Re-attach password toggle functionality
-    document.querySelectorAll('.password-toggle-btn').forEach(btn => {
-      if (!btn.hasAttribute('data-initialized')) {
-        btn.setAttribute('data-initialized', 'true');
-        btn.addEventListener('click', function() {
-          const wrapper = this.closest('.password-input-wrapper');
-          const input = wrapper ? wrapper.querySelector('input') : null;
-          const icon = this.querySelector('i');
-          
-          if (input && icon) {
-            if (input.type === 'password') {
-              input.type = 'text';
-              icon.classList.remove('fa-eye');
-              icon.classList.add('fa-eye-slash');
-            } else {
-              input.type = 'password';
-              icon.classList.remove('fa-eye-slash');
-              icon.classList.add('fa-eye');
+    _processVideos(container) {
+      const videos = container.querySelectorAll('video');
+      videos.forEach(video => {
+        // Re-load video sources
+        const sources = video.querySelectorAll('source');
+        if (sources.length > 0) {
+          video.load();
+        }
+
+        // Auto-play if the video has autoplay attribute
+        if (video.hasAttribute('autoplay')) {
+          video.play().catch(() => { /* Autoplay blocked by browser */ });
+        }
+      });
+    }
+
+    _pauseMedia() {
+      // Pause all playing videos and audio before swapping content
+      document.querySelectorAll('main video, main audio').forEach(media => {
+        if (!media.paused) {
+          media.pause();
+        }
+      });
+    }
+
+    // ── Script Execution ──────────────────────────────────────────────
+
+    _executeScripts(container) {
+      const scripts = container.querySelectorAll('script');
+
+      scripts.forEach(oldScript => {
+        const newScript = document.createElement('script');
+
+        // Copy attributes
+        Array.from(oldScript.attributes).forEach(attr => {
+          newScript.setAttribute(attr.name, attr.value);
+        });
+
+        if (oldScript.src) {
+          // External script — re-add to trigger load
+          newScript.src = oldScript.src;
+        } else {
+          // Inline script — execute in global scope
+          newScript.textContent = oldScript.textContent;
+        }
+
+        // Replace in DOM to trigger execution
+        if (oldScript.parentNode) {
+          oldScript.parentNode.replaceChild(newScript, oldScript);
+        }
+      });
+    }
+
+    // ── Reinitialize Event Handlers ───────────────────────────────────
+
+    _reinitializeHandlers(container) {
+      // Re-attach inline onclick handlers as proper listeners
+      container.querySelectorAll('[onclick]').forEach(el => {
+        const handler = el.getAttribute('onclick');
+        if (handler && !el.hasAttribute('data-spa-bound')) {
+          el.setAttribute('data-spa-bound', '1');
+          el.removeAttribute('onclick');
+          el.addEventListener('click', function (event) {
+            try {
+              new Function('event', handler).call(this, event);
+            } catch (e) { /* ignore */ }
+          });
+        }
+      });
+
+      // Re-attach inline onchange handlers
+      container.querySelectorAll('[onchange]').forEach(el => {
+        const handler = el.getAttribute('onchange');
+        if (handler && !el.hasAttribute('data-spa-bound-change')) {
+          el.setAttribute('data-spa-bound-change', '1');
+          el.removeAttribute('onchange');
+          el.addEventListener('change', function (event) {
+            try {
+              new Function('event', handler).call(this, event);
+            } catch (e) { /* ignore */ }
+          });
+        }
+      });
+
+      // Re-attach inline onsubmit handlers
+      container.querySelectorAll('form[onsubmit]').forEach(form => {
+        const handler = form.getAttribute('onsubmit');
+        if (handler && !form.hasAttribute('data-spa-bound-submit')) {
+          form.setAttribute('data-spa-bound-submit', '1');
+          form.removeAttribute('onsubmit');
+          form.addEventListener('submit', function (event) {
+            try {
+              const result = new Function('event', handler).call(this, event);
+              if (result === false) event.preventDefault();
+            } catch (e) { /* ignore */ }
+          });
+        }
+      });
+
+      // Re-attach password toggle buttons
+      container.querySelectorAll('.password-toggle-btn').forEach(btn => {
+        if (!btn.hasAttribute('data-spa-bound')) {
+          btn.setAttribute('data-spa-bound', '1');
+          btn.addEventListener('click', function () {
+            const wrapper = this.closest('.password-input-wrapper');
+            const input = wrapper?.querySelector('input');
+            const icon = this.querySelector('i');
+            if (input && icon) {
+              const isPassword = input.type === 'password';
+              input.type = isPassword ? 'text' : 'password';
+              icon.classList.toggle('fa-eye', !isPassword);
+              icon.classList.toggle('fa-eye-slash', isPassword);
             }
-          }
-        });
-      }
-    });
+          });
+        }
+      });
 
-    // Re-initialize any forms that need AJAX submission
-    document.querySelectorAll('form[data-ajax]').forEach(form => {
-      if (!form.hasAttribute('data-initialized')) {
-        form.setAttribute('data-initialized', 'true');
-        form.addEventListener('submit', async function(e) {
-          e.preventDefault();
-          const formData = new FormData(this);
-          const method = this.method || 'POST';
-          const action = this.action;
-          
-          try {
-            const response = await fetch(action, {
-              method: method,
-              body: formData,
-              headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-              }
-            });
-            
-            if (response.redirected) {
-              window.location.href = response.url;
+      // Re-attach data-confirm handlers
+      container.querySelectorAll('[data-confirm]').forEach(el => {
+        if (!el.hasAttribute('data-spa-bound-confirm')) {
+          el.setAttribute('data-spa-bound-confirm', '1');
+          el.addEventListener('click', function (e) {
+            if (!confirm(this.dataset.confirm)) {
+              e.preventDefault();
+              e.stopPropagation();
             }
-          } catch (error) {
-            // Silently fail
-          }
+          });
+        }
+      });
+
+      // Re-attach data-toggle handlers
+      container.querySelectorAll('[data-toggle]').forEach(el => {
+        if (!el.hasAttribute('data-spa-bound-toggle')) {
+          el.setAttribute('data-spa-bound-toggle', '1');
+          el.addEventListener('click', function (e) {
+            e.preventDefault();
+            const target = document.querySelector(this.dataset.toggle);
+            if (target) target.classList.toggle('hidden');
+          });
+        }
+      });
+
+      // Reinitialize header menu if available
+      if (typeof window.initHeaderMenu === 'function') {
+        window.initHeaderMenu();
+      }
+      if (typeof window.initLogoSPANavigation === 'function') {
+        window.initLogoSPANavigation();
+      }
+
+      // Fire DOMContentLoaded for scripts that expect it
+      // Use rAF to ensure DOM is settled
+      requestAnimationFrame(() => {
+        document.dispatchEvent(new Event('DOMContentLoaded', { bubbles: true }));
+      });
+    }
+
+    // ── Style Management ──────────────────────────────────────────────
+
+    _updateStyles(doc) {
+      // Remove previous page-specific styles
+      document.querySelectorAll('style[data-spa-style]').forEach(s => s.remove());
+
+      // Get styles from the new page's body (page-specific inline styles)
+      const newBody = doc.querySelector('body');
+      if (newBody) {
+        newBody.querySelectorAll('style').forEach(styleTag => {
+          const newStyle = document.createElement('style');
+          newStyle.textContent = styleTag.textContent;
+          newStyle.setAttribute('data-spa-style', 'true');
+          document.head.appendChild(newStyle);
         });
       }
-    });
-    
-    // ⭐ KEY FIX: Convert inline onclick handlers to proper event listeners
-    document.querySelectorAll('[onclick]').forEach(element => {
-      const onclickAttr = element.getAttribute('onclick');
-      if (onclickAttr && !element.hasAttribute('data-onclick-initialized')) {
-        element.setAttribute('data-onclick-initialized', 'true');
+
+      // Also check for styles in head that are page-specific
+      doc.querySelectorAll('head style').forEach(styleTag => {
+        // Skip global styles that are already loaded
+        const content = styleTag.textContent;
+        if (content.includes('turbo-progress-bar') || content.includes(':root')) return;
         
-        // Remove the onclick attribute to prevent double execution
-        element.removeAttribute('onclick');
-        
-        // Add proper event listener that executes in global scope
-        element.addEventListener('click', function(event) {
-          try {
-            // Execute the onclick code in global scope with proper context
-            const func = new Function('event', onclickAttr);
-            func.call(this, event);
-          } catch (e) {
-            // Silently fail
-          }
-        });
+        const newStyle = document.createElement('style');
+        newStyle.textContent = content;
+        newStyle.setAttribute('data-spa-style', 'true');
+        document.head.appendChild(newStyle);
+      });
+    }
+
+    // ── Meta Tags ─────────────────────────────────────────────────────
+
+    _updateMetaTags(doc) {
+      const metaUpdates = {
+        'meta[name="description"]': 'content',
+        'meta[name="keywords"]': 'content',
+        'meta[property="og:title"]': 'content',
+        'meta[property="og:description"]': 'content',
+        'meta[property="og:url"]': 'content',
+        'meta[name="twitter:title"]': 'content',
+        'meta[name="twitter:description"]': 'content',
+        'link[rel="canonical"]': 'href'
+      };
+
+      Object.entries(metaUpdates).forEach(([selector, attr]) => {
+        const newEl = doc.querySelector(selector);
+        const currentEl = document.querySelector(selector);
+        if (newEl && currentEl) {
+          currentEl.setAttribute(attr, newEl.getAttribute(attr));
+        }
+      });
+    }
+
+    // ── Header Active State ───────────────────────────────────────────
+
+    _updateHeaderActiveState(path) {
+      // Remove existing active classes
+      document.querySelectorAll('.nav-link.active, .nav-item.active, .sidebar-link.active').forEach(el => {
+        el.classList.remove('active');
+      });
+
+      // Add active class to matching nav link
+      document.querySelectorAll('nav a, .sidebar a, .header a').forEach(link => {
+        const href = link.getAttribute('href');
+        if (href && (href === path || path.startsWith(href + '/'))) {
+          link.classList.add('active');
+          // Also activate parent nav-item if exists
+          const parent = link.closest('.nav-item');
+          if (parent) parent.classList.add('active');
+        }
+      });
+
+      // Handle sticky nav visibility for public dashboard
+      const stickyNav = document.querySelector('.sticky-nav');
+      if (stickyNav) {
+        stickyNav.style.display = path.includes('/publicDashboard') ? '' : 'none';
       }
-    });
-    
-    // ⭐ KEY FIX: Convert inline onchange handlers to proper event listeners
-    document.querySelectorAll('[onchange]').forEach(element => {
-      const onchangeAttr = element.getAttribute('onchange');
-      if (onchangeAttr && !element.hasAttribute('data-onchange-initialized')) {
-        element.setAttribute('data-onchange-initialized', 'true');
-        
-        // Remove the onchange attribute to prevent double execution
-        element.removeAttribute('onchange');
-        
-        // Add proper event listener that executes in global scope
-        element.addEventListener('change', function(event) {
-          try {
-            // Execute the onchange code in global scope with proper context
-            const func = new Function('event', onchangeAttr);
-            func.call(this, event);
-          } catch (e) {
-            // Silently fail
-          }
-        });
+    }
+
+    // ── Footer ────────────────────────────────────────────────────────
+
+    _updateFooter(doc) {
+      const newFooter = doc.querySelector('footer');
+      const currentFooter = document.querySelector('footer');
+      if (newFooter && currentFooter) {
+        currentFooter.innerHTML = newFooter.innerHTML;
       }
-    });
-    
-    // ⭐ KEY FIX: Convert inline onsubmit handlers to proper event listeners
-    document.querySelectorAll('form[onsubmit]').forEach(form => {
-      const onsubmitAttr = form.getAttribute('onsubmit');
-      if (onsubmitAttr && !form.hasAttribute('data-onsubmit-initialized')) {
-        form.setAttribute('data-onsubmit-initialized', 'true');
-        
-        // Remove the onsubmit attribute
-        form.removeAttribute('onsubmit');
-        
-        // Add proper event listener
-        form.addEventListener('submit', function(event) {
-          try {
-            const func = new Function('event', onsubmitAttr);
-            const result = func.call(this, event);
-            // If the function returns false, prevent default
-            if (result === false) {
-              event.preventDefault();
-            }
-          } catch (e) {
-            // Silently fail
-          }
-        });
-      }
-    });
-    
-    // Re-initialize select dropdowns that may have change listeners
-    document.querySelectorAll('select[data-listener]').forEach(select => {
-      if (!select.hasAttribute('data-initialized')) {
-        select.setAttribute('data-initialized', 'true');
-        // Dispatch change event to trigger any listeners
-        const event = new Event('change', { bubbles: true });
-        select.dispatchEvent(event);
-      }
-    });
-  }
-
-  updateMetaTags(doc) {
-    // Update description
-    const newDesc = doc.querySelector('meta[name="description"]');
-    const currentDesc = document.querySelector('meta[name="description"]');
-    if (newDesc && currentDesc) {
-      currentDesc.setAttribute('content', newDesc.getAttribute('content'));
     }
 
-    // Update keywords
-    const newKeywords = doc.querySelector('meta[name="keywords"]');
-    const currentKeywords = document.querySelector('meta[name="keywords"]');
-    if (newKeywords && currentKeywords) {
-      currentKeywords.setAttribute('content', newKeywords.getAttribute('content'));
+    // ── Event Dispatch ────────────────────────────────────────────────
+
+    _dispatchEvents(path) {
+      window.dispatchEvent(new CustomEvent('spa:pageLoaded', {
+        detail: { path, timestamp: Date.now() }
+      }));
+
+      // Trigger Turbo-compatible event
+      window.dispatchEvent(new CustomEvent('turbo:load'));
     }
 
-    // Update OG tags
-    ['og:title', 'og:description', 'og:url'].forEach(property => {
-      const newTag = doc.querySelector(`meta[property="${property}"]`);
-      const currentTag = document.querySelector(`meta[property="${property}"]`);
-      if (newTag && currentTag) {
-        currentTag.setAttribute('content', newTag.getAttribute('content'));
-      }
-    });
-  }
+    // ── Preloading ────────────────────────────────────────────────────
 
-  showLoadingOverlay() {
-    let overlay = document.querySelector('.spa-loading-overlay');
-    if (!overlay) {
-      overlay = document.createElement('div');
-      overlay.className = 'spa-loading-overlay';
-      overlay.innerHTML = '<div class="spa-spinner"></div>';
-      document.body.appendChild(overlay);
-    }
-    overlay.style.display = 'flex';
-    // Force reflow for transition
-    overlay.offsetHeight;
-    overlay.classList.add('visible');
-    
-    // Show fast mode indicator
-    const indicator = document.querySelector('.spa-active-indicator');
-    if (indicator) {
-      indicator.classList.add('show');
-    }
-  }
+    _preload(path) {
+      const normalized = this._normalizePath(path);
+      if (this.cache.has(normalized)) return;
 
-  hideLoadingOverlay() {
-    const overlay = document.querySelector('.spa-loading-overlay');
-    if (overlay) {
-      overlay.classList.remove('visible');
-      setTimeout(() => {
-        overlay.style.display = 'none';
-      }, 100);
-    }
-    
-    // Hide indicator after a short delay
-    const indicator = document.querySelector('.spa-active-indicator');
-    if (indicator) {
-      setTimeout(() => {
-        indicator.classList.remove('show');
-      }, 500);
-    }
-  }
-
-  clearCache() {
-    this.cache.clear();
-  }
-
-  preloadPage(path) {
-    if (!this.cache.has(path) && this.shouldHandleRoute(path)) {
       fetch(path, {
         headers: {
           'X-Requested-With': 'XMLHttpRequest',
           'Accept': 'text/html'
-        }
+        },
+        priority: 'low'
       })
-      .then(response => response.text())
-      .then(html => {
-        if (this.cache.size < 10) {
-          this.cache.set(path, html);
+        .then(res => {
+          if (res.ok) return res.text();
+          throw new Error('Preload failed');
+        })
+        .then(html => this._cacheSet(normalized, html))
+        .catch(() => { /* Silently fail preloads */ });
+    }
+
+    _preloadPriorityPages() {
+      const pages = PRELOAD_PRIORITY[this.userType] || PRELOAD_PRIORITY.public;
+      pages.forEach(page => {
+        if (page !== this.currentPath) {
+          this._preload(page);
         }
-      })
-      .catch(err => {});
+      });
+    }
+
+    _initVisibilityPreloading() {
+      this.visibilityObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const href = entry.target.getAttribute('href');
+            if (href && this._shouldHandle(href) && !this._isExcluded(href)) {
+              this._preload(href);
+            }
+            this.visibilityObserver.unobserve(entry.target);
+          }
+        });
+      }, { rootMargin: '200px' });
+
+      this._observeLinks(document);
+    }
+
+    _observeLinks(container) {
+      if (!this.visibilityObserver) return;
+      container.querySelectorAll('a[href]').forEach(link => {
+        const href = link.getAttribute('href');
+        if (href && this._shouldHandle(href) && !this._isExcluded(href)) {
+          this.visibilityObserver.observe(link);
+        }
+      });
+    }
+
+    _addPrefetchHints() {
+      const pages = PRELOAD_PRIORITY[this.userType] || PRELOAD_PRIORITY.public;
+      pages.forEach(page => {
+        if (page !== this.currentPath && !document.querySelector(`link[rel="prefetch"][href="${page}"]`)) {
+          const link = document.createElement('link');
+          link.rel = 'prefetch';
+          link.href = page;
+          link.as = 'document';
+          document.head.appendChild(link);
+        }
+      });
+    }
+
+    // ── Cache Management ──────────────────────────────────────────────
+
+    _cacheSet(path, html) {
+      // Evict oldest if at capacity
+      if (this.cache.size >= CONFIG.MAX_CACHE) {
+        const oldest = this.cache.keys().next().value;
+        this.cache.delete(oldest);
+      }
+      this.cache.set(path, html);
+    }
+
+    clearCache() {
+      this.cache.clear();
+    }
+
+    // ── Progress Indicator ────────────────────────────────────────────
+
+    _showProgress() {
+      let bar = document.getElementById('spa-progress');
+      if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'spa-progress';
+        document.body.appendChild(bar);
+      }
+      bar.style.width = '0%';
+      bar.classList.add('active');
+      // Animate to 70% quickly
+      requestAnimationFrame(() => {
+        bar.style.width = '70%';
+      });
+    }
+
+    _hideProgress() {
+      const bar = document.getElementById('spa-progress');
+      if (bar) {
+        bar.style.width = '100%';
+        setTimeout(() => {
+          bar.classList.remove('active');
+          bar.style.width = '0%';
+        }, 200);
+      }
+    }
+
+    // ── Route Matching ────────────────────────────────────────────────
+
+    _shouldHandle(path) {
+      const clean = this._normalizePath(path).split('?')[0];
+      return this.routes.some(route => clean === route || clean.startsWith(route + '/'));
+    }
+
+    _isExcluded(path) {
+      return EXCLUDED_PATTERNS.some(pattern => path.includes(pattern));
+    }
+
+    // ── Utilities ─────────────────────────────────────────────────────
+
+    _normalizePath(path) {
+      // Remove trailing slash (except for root)
+      let normalized = path.split('#')[0]; // Remove hash
+      if (normalized.length > 1 && normalized.endsWith('/')) {
+        normalized = normalized.slice(0, -1);
+      }
+      return normalized;
+    }
+
+    _abortFetch() {
+      if (this.abortController) {
+        this.abortController.abort();
+        this.abortController = null;
+      }
+    }
+
+    _wait(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    _throttle(fn, delay) {
+      let lastCall = 0;
+      return function (...args) {
+        const now = Date.now();
+        if (now - lastCall >= delay) {
+          lastCall = now;
+          fn.apply(this, args);
+        }
+      };
+    }
+
+    // ── Public API ────────────────────────────────────────────────────
+
+    preloadPage(path) {
+      this._preload(path);
     }
   }
-}
 
-// Initialize router when DOM is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
+  // ─── Inject Required Styles ───────────────────────────────────────────
+  const style = document.createElement('style');
+  style.id = 'spa-router-styles';
+  style.textContent = `
+    /* Progress bar — thin top bar like YouTube/GitHub */
+    #spa-progress {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #01535b, #0a8f7f, #6fd3c4);
+      z-index: 100000;
+      width: 0%;
+      opacity: 0;
+      transition: width 0.3s ease, opacity 0.15s ease;
+      pointer-events: none;
+      border-radius: 0 2px 2px 0;
+    }
+
+    #spa-progress.active {
+      opacity: 1;
+    }
+
+    /* Smooth main content transitions */
+    main {
+      transition: opacity ${CONFIG.TRANSITION_MS}ms ease;
+    }
+  `;
+  document.head.appendChild(style);
+
+  // ─── Initialize ───────────────────────────────────────────────────────
+  function initRouter() {
     window.spaRouter = new SPARouter();
-  });
-} else {
-  window.spaRouter = new SPARouter();
-}
-
-// Add required CSS styles
-const style = document.createElement('style');
-style.textContent = `
-  .spa-loading-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(255, 255, 255, 0.7);
-    display: none;
-    justify-content: center;
-    align-items: center;
-    z-index: 99999;
-    opacity: 0;
-    transition: opacity 0.08s ease-out;
   }
 
-  .spa-loading-overlay.visible {
-    opacity: 1;
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initRouter);
+  } else {
+    initRouter();
   }
 
-  .spa-spinner {
-    width: 40px;
-    height: 40px;
-    border: 3px solid #f3f3f3;
-    border-top: 3px solid #01535b;
-    border-radius: 50%;
-    animation: spa-spin 0.5s linear infinite;
-  }
-
-  @keyframes spa-spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-
-  main {
-    transition: opacity 0.05s ease-out;
-  }
-
-  main img {
-    transition: opacity 0.15s ease-in;
-  }
-
-  /* Optional: Add a subtle indicator that SPA is active */
-  .spa-active-indicator {
-    position: fixed;
-    bottom: 10px;
-    right: 10px;
-    background: rgba(1, 83, 91, 0.9);
-    color: white;
-    padding: 4px 10px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 600;
-    z-index: 9999;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.2s;
-  }
-
-  .spa-active-indicator.show {
-    opacity: 1;
-  }
-`;
-document.head.appendChild(style);
-
-// Add optional indicator (hidden by default, shows during navigation)
-const indicator = document.createElement('div');
-indicator.className = 'spa-active-indicator';
-indicator.textContent = '⚡ Fast Mode';
-document.body.appendChild(indicator);
+})();
