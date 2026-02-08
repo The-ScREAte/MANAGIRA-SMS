@@ -1,171 +1,250 @@
 <style>
-      :root {
-        --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
-      }
+  :root {
+    --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
+    --primary: #01535b;
+    --primary-light: #e8f4f5;
+    --border: #e5e7eb;
+    --text: #1f2937;
+    --text-muted: #6b7280;
+    --bg: #f9fafb;
+  }
 
-
-  /* General Reset */
   body {
     font-family: var(--font-family);
-    color: #333;
+    color: var(--text);
     margin: 0;
-    background-color: #f8f9fa;
-    line-height: 1.8;
-
+    background-color: var(--bg);
+    line-height: 1.7;
     box-sizing: border-box;
   }
 
-  /* Main Content Container */
+  *, *::before, *::after { box-sizing: border-box; }
+
   main {
-    max-width: 960px; /* center content nicely */
+    max-width: 780px;
     margin: 0 auto;
-    padding: 20px; /* inner padding for readability */
-    background: transparent; /* no white box background */
-    border-radius: 0;
-    box-shadow: none;
+    padding: 40px 24px 60px;
   }
 
-  /* Headings */
-  h1 {
+  .page-header {
     text-align: center;
-    color: #01535b;
-    font-size: 2rem;
-    font-weight: bold;
+    margin-bottom: 40px;
+  }
+
+  .page-header h1 {
+    color: var(--primary);
+    font-size: 2.2rem;
+    font-weight: 700;
+    margin: 0 0 8px;
+  }
+
+  .page-header p {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    margin: 0;
+  }
+
+  .legal-section {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 28px 24px;
     margin-bottom: 20px;
   }
 
-  p {
-    margin: 15px 0;
+  .legal-section h2 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--primary);
+    margin: 0 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
   }
 
-  /* Emphasize first line */
-  p::first-line {
-    font-weight: bold;
+  .section-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: var(--primary-light);
+    color: var(--primary);
+    font-size: 0.85rem;
+    font-weight: 700;
+    flex-shrink: 0;
   }
 
-  ul {
-    margin: 10px 0 20px 20px;
+  .legal-section p {
+    font-size: 0.98rem;
+    color: var(--text);
+    margin: 0 0 12px;
+    line-height: 1.7;
+  }
+
+  .legal-section ul {
+    margin: 0 0 8px;
     padding: 0;
+    list-style: none;
   }
 
-  li {
-    margin-bottom: 6px;
+  .legal-section li {
+    position: relative;
+    padding-left: 24px;
+    margin-bottom: 10px;
+    font-size: 0.95rem;
+    line-height: 1.65;
+    color: var(--text);
   }
 
-  /* Large Screens */
-  @media (min-width: 1024px) {
-    h1 {
-      font-size: 2.2rem;
-      margin-bottom: 12px;
-    }
+  .legal-section li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 8px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--primary);
+    opacity: 0.5;
   }
 
-  /* Mobile View */
+  .contact-card {
+    background: var(--primary-light);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 28px;
+    text-align: center;
+    margin-top: 20px;
+  }
+
+  .contact-card p {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--text);
+  }
+
+  .contact-card a {
+    color: var(--primary);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .contact-card a:hover { text-decoration: underline; }
+
   @media (max-width: 768px) {
- 
-
-    h1 {
-      font-size: 1.8rem;
-      margin-bottom: 8px;
-    }
+    main { padding: 24px 16px 40px; }
+    .page-header h1 { font-size: 1.8rem; }
+    .legal-section { padding: 20px 18px; }
   }
 
   @media (max-width: 480px) {
-
-
-    h1 {
-      font-size: 1.6rem;
-    }
+    .page-header h1 { font-size: 1.5rem; }
+    .legal-section { padding: 16px 14px; border-radius: 10px; }
+    .legal-section h2 { font-size: 1.05rem; }
   }
 </style>
 
 </head>
 <body>
   <main>
-    <h1>Privacy Policy</h1>
+    <div class="page-header">
+      <h1>Privacy Policy</h1>
+      <p>Last updated: February 2026</p>
+    </div>
 
-    <p>
-      1. Introduction  
-      Welcome to Managira, an advanced school management platform designed to optimize educational administration, enhance communication, and streamline student performance tracking. Protecting the privacy of all users, including schools, educators, students, and the general public, is our top priority. This Privacy Policy explains how we collect, use, disclose, and safeguard personal data while ensuring compliance with global privacy standards.
-    </p>
+    <div class="legal-section">
+      <h2><span class="section-num">1</span> Introduction</h2>
+      <p>Welcome to Managira — a comprehensive school management platform built for educational institutions, government bodies, educators, parents, and guardians. Protecting your privacy is our top priority. This Privacy Policy explains how we collect, use, disclose, and safeguard your personal data while ensuring compliance with international privacy standards.</p>
+    </div>
 
-    <p>
-      2. Information We Collect  
-      We collect different types of data to enhance the functionality and security of Managira. This includes:
+    <div class="legal-section">
+      <h2><span class="section-num">2</span> Information We Collect</h2>
+      <p>We collect the following types of data to deliver and improve our services:</p>
       <ul>
-        <li><strong>Personal Information:</strong> When schools register, we collect the institution's name, contact details, and administrator credentials. Teachers and families may also provide names, email addresses, and other relevant details.</li>
-        <li><strong>Student Data:</strong> Educators can enter student performance records, including grades, attendance, behavior, and learning progress. This data is used exclusively for academic monitoring and reporting.</li>
-        <li><strong>Usage Data:</strong> To improve platform functionality, we collect data on how users interact with Managira, such as IP addresses, device information, browser type, and access patterns.</li>
-        <li><strong>Cookies and Tracking Technologies:</strong> Managira may use cookies and tracking tools to enhance user experience, personalize content, and analyze platform performance.</li>
+        <li><strong>Institutional Information:</strong> When schools or hub operators register, we collect the institution's name, contact details, and administrator credentials.</li>
+        <li><strong>Personal Information:</strong> Teachers, staff, parents, and guardians may provide names, email addresses, phone numbers, and other relevant details during account setup.</li>
+        <li><strong>Student Data:</strong> Academic records including grades, attendance, behaviour notes, and learning progress — used exclusively for educational monitoring and reporting.</li>
+        <li><strong>Usage Data:</strong> Information about how users interact with Managira, such as IP addresses, device information, browser type, and access patterns, to improve platform performance.</li>
+        <li><strong>Cookies:</strong> We use cookies and similar technologies to enhance your experience, remember preferences, and analyse platform usage.</li>
       </ul>
-    </p>
+    </div>
 
-    <p>
-      3. How We Use Information  
-      We use collected data for the following purposes:
+    <div class="legal-section">
+      <h2><span class="section-num">3</span> How We Use Your Information</h2>
       <ul>
-        <li><strong>Educational Insights:</strong> Enabling schools, teachers, and families to monitor student performance, track attendance, and generate academic reports.</li>
-        <li><strong>Communication:</strong> Sending important notifications, announcements, or updates regarding the platform and policy changes.</li>
-        <li><strong>Service Optimization:</strong> Analyzing user interactions to enhance features, security, and platform reliability.</li>
-        <li><strong>Legal Compliance:</strong> Ensuring compliance with data protection laws and responding to official legal requests.</li>
+        <li><strong>Service Delivery:</strong> Managing student records, generating reports, tracking attendance, and enabling communication between schools, parents, and guardians.</li>
+        <li><strong>Hub Operations:</strong> Allowing government institutions and educational bodies to oversee multiple schools, monitor performance, and coordinate across their network.</li>
+        <li><strong>Communication:</strong> Sending important notifications, announcements, and updates about the platform and policy changes.</li>
+        <li><strong>Analytics:</strong> Analysing usage data to improve features, performance, and reliability of the platform.</li>
+        <li><strong>Legal Compliance:</strong> Meeting regulatory obligations and responding to lawful requests from authorities.</li>
       </ul>
-    </p>
+    </div>
 
-    <p>
-      4. Data Sharing and Disclosure  
-      Managira ensures that personal data is only shared in a controlled and transparent manner:
+    <div class="legal-section">
+      <h2><span class="section-num">4</span> Data Sharing and Disclosure</h2>
+      <p>Managira only shares personal data in controlled and transparent ways:</p>
       <ul>
-        <li><strong>Schools and Educators:</strong> Authorized school staff can access student records to facilitate education and assessment.</li>
-        <li><strong>Families:</strong> Schools may grant families access to their children's records, allowing them to monitor academic progress and communication from teachers.</li>
-        <li><strong>Third-Party Service Providers:</strong> We may collaborate with select partners for platform maintenance and feature enhancements. These providers adhere to strict confidentiality agreements and data protection measures.</li>
-        <li><strong>Legal Obligations:</strong> In compliance with applicable laws, we may disclose information if required by regulatory authorities or legal proceedings.</li>
+        <li><strong>Schools and Educators:</strong> Authorised school staff can access student records to facilitate education and assessment.</li>
+        <li><strong>Parents and Guardians:</strong> Schools may grant families access to their children's academic records, grades, and school updates through the Parent Portal.</li>
+        <li><strong>Hub Operators:</strong> Government institutions or educational bodies managing multiple schools through Managira's Hub system can access aggregated data across their member organisations.</li>
+        <li><strong>Service Providers:</strong> We may work with select partners for hosting, payment processing, and email delivery. These providers are bound by strict confidentiality agreements.</li>
+        <li><strong>Legal Obligations:</strong> We may disclose information if required by law, regulation, or legal proceedings.</li>
       </ul>
-    </p>
+    </div>
 
-    <p>
-      5. Data Security  
-      We implement industry-standard security measures to protect personal and institutional data. This includes:
+    <div class="legal-section">
+      <h2><span class="section-num">5</span> Data Security</h2>
+      <p>We implement industry-standard measures to protect all personal and institutional data:</p>
       <ul>
-        <li><strong>Encryption:</strong> All sensitive data is encrypted during transmission and storage.</li>
-        <li><strong>Access Controls:</strong> Only authorized users can access specific datasets, ensuring privacy and security.</li>
-        <li><strong>Secure Servers:</strong> Data is stored on protected servers with strict access policies.</li>
-        <li><strong>Regular Security Audits:</strong> We conduct routine security evaluations to prevent unauthorized access and data breaches.</li>
+        <li><strong>Encryption:</strong> All data is encrypted in transit (TLS/SSL) and at rest.</li>
+        <li><strong>Access Controls:</strong> Role-based permissions ensure only authorised users can access specific data.</li>
+        <li><strong>Secure Infrastructure:</strong> Data is stored on Amazon Web Services (AWS) with strict access policies and regular security audits.</li>
+        <li><strong>Vulnerability Scanning:</strong> We use automated tools (including Snyk and OWASP best practices) to continuously monitor for security threats.</li>
       </ul>
-      While we take every precaution to secure user data, no online system can guarantee complete security. Users are encouraged to maintain strong passwords and report any suspicious activity.
-    </p>
+      <p>While we take every precaution, no online system can guarantee complete security. We encourage users to maintain strong passwords and report any suspicious activity immediately.</p>
+    </div>
 
-    <p>
-      6. Data Retention  
-      - We retain personal and student performance data as long as the school actively uses Managira.<br>
-      - If a school terminates its account, data will be archived for a specific period before being permanently deleted, in accordance with legal requirements.<br>
-      - Users may request data deletion, subject to applicable regulations.
-    </p>
-
-    <p>
-      7. Your Rights and Choices  
-      Users have the following rights regarding their data:
+    <div class="legal-section">
+      <h2><span class="section-num">6</span> Data Retention</h2>
       <ul>
-        <li><strong>Access and Correction:</strong> Schools, educators, and families may request access to personal data and request modifications if necessary.</li>
-        <li><strong>Data Deletion:</strong> Schools can request deletion of data that is no longer needed.</li>
-        <li><strong>Opt-Out:</strong> Users may manage cookie preferences and opt out of certain non-essential data collection practices.</li>
-        <li><strong>Data Portability:</strong> Upon request, schools can receive structured copies of certain data for use in other systems.</li>
+        <li>We retain personal and student data for as long as the school or hub actively uses Managira.</li>
+        <li>If a school terminates its account, data will be archived for a legally required period before permanent deletion.</li>
+        <li>Users may request data deletion at any time, subject to applicable regulations and institutional policies.</li>
       </ul>
-    </p>
+    </div>
 
-    <p>
-      8. Compliance with Data Protection Laws  
-      Managira adheres to global data protection standards, including:
+    <div class="legal-section">
+      <h2><span class="section-num">7</span> Your Rights</h2>
+      <p>Depending on your jurisdiction, you may have the following rights regarding your data:</p>
       <ul>
-        <li><strong>General Data Protection Regulation (GDPR)</strong> – Protecting the privacy rights of European users.</li>
-        <li><strong>Family Educational Rights and Privacy Act (FERPA)</strong> – Safeguarding student records in compliance with U.S. educational privacy laws.</li>
-        <li><strong>Children’s Online Privacy Protection Act (COPPA)</strong> – Ensuring data protection for users under 13 years old.</li>
+        <li><strong>Access and Correction:</strong> Request access to your personal data and ask for corrections if needed.</li>
+        <li><strong>Data Deletion:</strong> Request deletion of data that is no longer needed for the purposes it was collected.</li>
+        <li><strong>Opt-Out:</strong> Manage cookie preferences and opt out of non-essential data collection.</li>
+        <li><strong>Data Portability:</strong> Request structured copies of your data for use in other systems.</li>
       </ul>
-    </p>
+    </div>
 
-    <p>
-      9. Policy Updates  
-      We may periodically update this Privacy Policy. Any modifications will be communicated through the platform, and continued use of Managira will indicate acceptance of the revised terms.
-    </p>
+    <div class="legal-section">
+      <h2><span class="section-num">8</span> Compliance</h2>
+      <p>Managira adheres to international data protection standards including:</p>
+      <ul>
+        <li><strong>GDPR</strong> — General Data Protection Regulation (EU)</li>
+        <li><strong>FERPA</strong> — Family Educational Rights and Privacy Act (US)</li>
+        <li><strong>COPPA</strong> — Children's Online Privacy Protection Act (US)</li>
+        <li><strong>Data Protection Act</strong> — Applicable national data protection laws</li>
+      </ul>
+    </div>
+
+    <div class="legal-section">
+      <h2><span class="section-num">9</span> Policy Updates</h2>
+      <p>We may update this Privacy Policy periodically. Users will be notified of significant changes through the platform. Continued use of Managira after updates are posted constitutes acceptance of the revised policy.</p>
+    </div>
+
+    <div class="contact-card">
+      <p>Questions about your privacy? Contact us at <a href="mailto:support@managira.com">support@managira.com</a></p>
+    </div>
   </main>
 </body>
 </html>

@@ -1,130 +1,233 @@
 <style>
-      :root {
-        --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
-      }
+  :root {
+    --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
+    --primary: #01535b;
+    --primary-light: #e8f4f5;
+    --border: #e5e7eb;
+    --text: #1f2937;
+    --text-muted: #6b7280;
+    --bg: #f9fafb;
+  }
 
-
-  /* General Reset */
   body {
-    color: #333;
-    margin: 0;
-    background-color: #f8f9fa;
-    line-height: 1.8;
     font-family: var(--font-family);
+    color: var(--text);
+    margin: 0;
+    background-color: var(--bg);
+    line-height: 1.7;
     box-sizing: border-box;
   }
 
-  /* Main Content */
+  *, *::before, *::after { box-sizing: border-box; }
+
   main {
-    max-width: 960px; /* sensible width for readability */
-    margin: 0 auto; /* center it horizontally */
-    padding: 20px; /* spacing within the main content */
-    background: transparent; /* no card-like white box */
-    border-radius: 0;
-    box-shadow: none;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 40px 24px 60px;
   }
 
-  /* Headings */
-  h1 {
+  .page-header {
     text-align: center;
-    color: #01535b;
-    font-size: 2rem;
-    font-weight: bold;
+    margin-bottom: 40px;
+  }
+
+  .page-header h1 {
+    color: var(--primary);
+    font-size: 2.2rem;
+    font-weight: 700;
+    margin: 0 0 8px;
+  }
+
+  .page-header p {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    margin: 0;
+  }
+
+  .legal-section {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 28px 24px;
     margin-bottom: 20px;
   }
 
-  /* Paragraph Spacing */
-  p {
-    margin: 15px 0;
+  .legal-section h2 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--primary);
+    margin: 0 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
   }
 
-  /* Lists inside paragraphs */
-  ul {
-    margin: 10px 0 20px 20px;
+  .section-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: var(--primary-light);
+    color: var(--primary);
+    font-size: 0.85rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .legal-section p {
+    font-size: 0.98rem;
+    color: var(--text);
+    margin: 0 0 12px;
+    line-height: 1.7;
+  }
+
+  .legal-section ul {
+    margin: 0 0 8px;
     padding: 0;
+    list-style: none;
   }
 
-  li {
-    margin-bottom: 6px;
+  .legal-section li {
+    position: relative;
+    padding-left: 24px;
+    margin-bottom: 10px;
+    font-size: 0.95rem;
+    line-height: 1.65;
+    color: var(--text);
   }
 
-  /* Large Screens */
-  @media (min-width: 1024px) {
-    h1 {
-      font-size: 2.4rem;
-    }
+  .legal-section li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 8px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--primary);
+    opacity: 0.5;
   }
 
-  /* Mobile View */
+  .contact-card {
+    background: var(--primary-light);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 28px;
+    text-align: center;
+    margin-top: 20px;
+  }
+
+  .contact-card p {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--text);
+  }
+
+  .contact-card a {
+    color: var(--primary);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .contact-card a:hover { text-decoration: underline; }
+
   @media (max-width: 768px) {
-    h1 {
-      font-size: 1.8rem;
-    }
+    main { padding: 24px 16px 40px; }
+    .page-header h1 { font-size: 1.8rem; }
+    .legal-section { padding: 20px 18px; }
   }
 
   @media (max-width: 480px) {
-    h1 {
-      font-size: 1.6rem;
-    }
+    .page-header h1 { font-size: 1.5rem; }
+    .legal-section { padding: 16px 14px; border-radius: 10px; }
+    .legal-section h2 { font-size: 1.05rem; }
   }
 </style>
 
 </head>
 <body>
   <main>
-    <h1>Terms of Service</h1>
+    <div class="page-header">
+      <h1>Terms of Service</h1>
+      <p>Last updated: February 2026</p>
+    </div>
 
-    <p><strong>1. Acceptance of Terms</strong><br />
-      By creating an account or accessing Managira, you confirm that you have read, understood, and agreed to these Terms of Service. If you do not agree, you must not use the platform.
-    </p>
+    <div class="legal-section">
+      <h2><span class="section-num">1</span> Acceptance of Terms</h2>
+      <p>By creating an account or accessing Managira, you confirm that you have read, understood, and agreed to these Terms of Service. If you do not agree with any part of these terms, you must not use the platform.</p>
+    </div>
 
-    <p><strong>2. Description of Service</strong><br />
-      Managira provides digital tools to help organizations manage <em>academic records, attendance, assessments, organizational branding, and public content</em>. We may update, enhance, or modify features at any time to improve service.
-    </p>
+    <div class="legal-section">
+      <h2><span class="section-num">2</span> Description of Service</h2>
+      <p>Managira is a comprehensive school management platform that provides digital tools for educational institutions — from individual schools to government bodies managing multiple institutions through our Hub system. Our services include:</p>
+      <ul>
+        <li>Student records, enrollment, and academic performance tracking</li>
+        <li>Attendance monitoring and automated reporting</li>
+        <li>Grade management, assessment creation, and merit sheet generation</li>
+        <li>Parent and guardian portals for real-time school updates</li>
+        <li>Hub management for overseeing multiple schools from a single dashboard</li>
+        <li>Customizable branding, public-facing school websites, and organizational tools</li>
+      </ul>
+      <p>We may update, enhance, or modify features at any time to improve the service.</p>
+    </div>
 
-    <p><strong>3. User Responsibilities</strong></p>
-    <ul>
-      <li>You are responsible for maintaining the confidentiality of your account credentials and any activities that occur under your account.</li>
-      <li>You agree not to misuse the platform, including but not limited to attempting unauthorized access, data manipulation, or service disruption.</li>
-      <li>You must comply with all applicable laws and regulations while using Managira.</li>
-    </ul>
+    <div class="legal-section">
+      <h2><span class="section-num">3</span> User Responsibilities</h2>
+      <ul>
+        <li>You are responsible for maintaining the confidentiality of your account credentials and any activities that occur under your account.</li>
+        <li>You agree not to misuse the platform, including but not limited to attempting unauthorized access, data manipulation, or service disruption.</li>
+        <li>You must comply with all applicable laws and regulations while using Managira.</li>
+        <li>Hub administrators are responsible for managing the schools under their jurisdiction in accordance with these terms.</li>
+      </ul>
+    </div>
 
-    <p><strong>4. Content Ownership</strong></p>
-    <ul>
-      <li>Users retain ownership of all content they upload to Managira.</li>
-      <li>By uploading content, you grant Managira a non-exclusive, worldwide, royalty-free license to use, store, and display that content as necessary to provide the service.</li>
-    </ul>
+    <div class="legal-section">
+      <h2><span class="section-num">4</span> Content Ownership</h2>
+      <ul>
+        <li>Users retain ownership of all content they upload to Managira, including student data, reports, and institutional records.</li>
+        <li>By uploading content, you grant Managira a non-exclusive, worldwide, royalty-free license to use, store, and display that content as necessary to provide the service.</li>
+        <li>Schools and hub operators can export their data at any time.</li>
+      </ul>
+    </div>
 
-    <p><strong>5. Privacy</strong><br />
-      Your data is handled in accordance with our Privacy Policy. By using Managira, you consent to the collection, use, and processing of your information as outlined in the Privacy Policy.
-    </p>
+    <div class="legal-section">
+      <h2><span class="section-num">5</span> Privacy</h2>
+      <p>Your data is handled in accordance with our <a href="/legal/privacy-policy" style="color:var(--primary);font-weight:600;">Privacy Policy</a>. By using Managira, you consent to the collection, use, and processing of your information as outlined therein. We are committed to protecting student data and comply with international standards including GDPR and FERPA.</p>
+    </div>
 
-    <p><strong>6. Payment and Fees</strong></p>
-    <ul>
-      <li>Certain premium features may require payment.</li>
-      <li>All fees are non-refundable, unless otherwise stated.</li>
-      <li>Failure to pay may result in suspension or restricted access to paid features.</li>
-    </ul>
+    <div class="legal-section">
+      <h2><span class="section-num">6</span> Payment and Fees</h2>
+      <ul>
+        <li>Certain features require a paid subscription. Plans are available for individual schools and hub operators managing multiple institutions.</li>
+        <li>All fees are non-refundable unless otherwise stated.</li>
+        <li>Failure to pay may result in suspension or restricted access to paid features after a grace period.</li>
+        <li>Hub-managed schools may have their billing handled centrally by the hub operator.</li>
+      </ul>
+    </div>
 
-    <p><strong>7. Limitation of Liability</strong></p>
-    <ul>
-      <li>Managira is provided “as is” and “as available” without warranties of any kind.</li>
-      <li>To the maximum extent permitted by law, Managira shall not be liable for any indirect, incidental, or consequential damages arising from your use or inability to use the platform.</li>
-    </ul>
+    <div class="legal-section">
+      <h2><span class="section-num">7</span> Limitation of Liability</h2>
+      <ul>
+        <li>Managira is provided "as is" and "as available" without warranties of any kind, express or implied.</li>
+        <li>To the maximum extent permitted by law, Managira shall not be liable for any indirect, incidental, or consequential damages arising from your use or inability to use the platform.</li>
+      </ul>
+    </div>
 
-    <p><strong>8. Termination</strong></p>
-    <ul>
-      <li>We reserve the right to suspend or terminate accounts that violate these Terms, engage in unauthorized activities, or compromise the security and integrity of the platform.</li>
-    </ul>
+    <div class="legal-section">
+      <h2><span class="section-num">8</span> Termination</h2>
+      <p>We reserve the right to suspend or terminate accounts that violate these Terms, engage in unauthorized activities, or compromise the security and integrity of the platform. Upon termination, your data may be archived or deleted in accordance with our data retention policies.</p>
+    </div>
 
-    <p><strong>9. Changes to Terms</strong><br />
-      We may update or modify these Terms from time to time. Continued use of Managira after changes are posted will constitute your acceptance of the revised Terms.
-    </p>
+    <div class="legal-section">
+      <h2><span class="section-num">9</span> Changes to Terms</h2>
+      <p>We may update or modify these Terms from time to time. Users will be notified of significant changes. Continued use of Managira after changes are posted constitutes your acceptance of the revised Terms.</p>
+    </div>
 
-    <p><strong>10. Contact Information</strong><br />
-      If you have questions, concerns, or feedback regarding these Terms of Service, please contact us at: <br />
-      <strong>Email:</strong> support@Managira.com
-    </p>
+    <div class="contact-card">
+      <p>Questions about these terms? Contact us at <a href="mailto:support@managira.com">support@managira.com</a></p>
+    </div>
   </main>
 </body>
 </html>
