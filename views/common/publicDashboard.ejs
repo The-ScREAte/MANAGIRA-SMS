@@ -13,7 +13,7 @@
    1. GLOBAL DESIGN TOKENS & TYPOGRAPHY (BASE)
    ========================================================= */
 :root{
-  --font-family:"Inter",system-ui,sans-serif;
+  --font-family:"<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>",system-ui,sans-serif;
 
   --title-xl:36px;
   --title-lg:26px;

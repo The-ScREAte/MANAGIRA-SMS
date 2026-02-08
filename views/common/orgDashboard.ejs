@@ -50,10 +50,10 @@
     <% } %>
   </div>
 
-  <div class="container org-dashboard-container">
-    <% if (!schoolYear || !currentTerm) { %>
+  <% if (!schoolYear || !currentTerm) { %>
+  <div class="welcome-page-wrapper">
     <!-- Show the welcome message if no school year or term is set -->
-    <div id="welcomeMessage" class="welcome-card">
+    <div id="welcomeMessage" class="org-welcome-card">
       <h1>Welcome to Managira! 🎉</h1>
       <h3>Your trusted partner for managing it all effortlessly. 😊</h3>
       <p>
@@ -74,7 +74,8 @@
       </p>
       <a href="/common/manageRecords" class="start-link">Begin Your Journey Here</a>
     </div>
-    <% } else { %>
+  </div>
+  <% } else { %>
 
     <!-- Main content when school year and term are set -->
     <div id="orgDashboardSection">
@@ -225,8 +226,8 @@
         </div>
       </div>
     </div>
+
     <% } %>
-  </div>
 
   <script>
     // Hide or show the welcome message or orgDashboardSection based on schoolYear and currentTerm
@@ -460,12 +461,77 @@
     }
 
       :root {
-        --font-family: "Inter", sans-serif;
+        --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
       }
 
 
     body {
       font-family: var(--font-family);
+    }
+
+    /* Dashboard Content Centering */
+    #orgDashboardSection {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    .dashboard-grid {
+      width: 100%;
+      max-width: 100%;
+      margin: 0 auto;
+    }
+
+    .grid-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .classes-container,
+    .school-year-info,
+    .events-container,
+    .announcements-container {
+      flex: 1;
+      min-width: 300px;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      border: 1px solid #e5e7eb;
+    }
+
+    .welcome-page-wrapper {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 60vh;
+      padding: 20px;
+    }
+
+    .org-welcome-card {
+      max-width: 800px;
+      width: 100%;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    @media (max-width: 768px) {
+      #orgDashboardSection {
+        padding: 0 10px;
+      }
+
+      .grid-row {
+        flex-direction: column;
+      }
+
+      .classes-container,
+      .school-year-info,
+      .events-container,
+      .announcements-container {
+        min-width: 100%;
+      }
     }
   </style>
   <style>

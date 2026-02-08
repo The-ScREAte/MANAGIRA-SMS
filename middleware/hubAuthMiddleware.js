@@ -51,8 +51,14 @@ const fetchHubInfo = async (req, res, next) => {
       );
 
       if (result.rows.length > 0) {
-        res.locals.hubInfo = result.rows[0];
-        req.hubInfo = result.rows[0];
+        const hub = result.rows[0];
+        res.locals.hubInfo = hub;
+        req.hubInfo = hub;
+        
+        // Set session variables for header to use
+        req.session.organizationName = hub.hub_name;
+        req.session.orgNickName = hub.hub_nickname;
+        req.session.logo = hub.logo_path && hub.logo_path.trim() !== '' ? hub.logo_path : null;
       }
     }
     next();

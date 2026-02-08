@@ -18,6 +18,9 @@
     brown: { primary: '#7c4a03', hover: '#5c3802' }
   };
   const currentTheme = themeColors[themeColor] || themeColors.teal;
+  const settingsFontStyle = (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter');
+  const settingsSerifFonts = ['PT Serif', 'Merriweather', 'Playfair Display'];
+  const settingsFallback = settingsSerifFonts.includes(settingsFontStyle) ? 'serif' : 'sans-serif';
 %>
 <!DOCTYPE html>
 <html lang="en">
@@ -34,7 +37,7 @@
         --primary-hover: <%= currentTheme.hover %>;
         --org-primary-color: <%= currentTheme.primary %>;
         --org-primary-hover: <%= currentTheme.hover %>;
-        --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
+        --font-family: "<%= settingsFontStyle %>", <%= settingsFallback %>;
       }
 
       body {
@@ -411,9 +414,12 @@
       }
 
       .font-preview {
-        font-size: 14px;
-        color: #111827;
-        margin-top: 6px;
+        padding: 16px;
+        margin-top: 12px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: #fff;
+        min-height: 80px;
       }
 
       .settings-nav-toggle {
@@ -1078,24 +1084,25 @@
                 >
                   <% const fontStyle = org?.font_style || 'Inter'; %>
                   <option value="Inter" <%= fontStyle === 'Inter' ? 'selected' : '' %>>Inter</option>
-                  <option value="Arial" <%= fontStyle === 'Arial' ? 'selected' : '' %>>Arial</option>
-                  <option value="Verdana" <%= fontStyle === 'Verdana' ? 'selected' : '' %>>Verdana</option>
-                  <option value="Helvetica" <%= fontStyle === 'Helvetica' ? 'selected' : '' %>>Helvetica</option>
-                  <option value="Times New Roman" <%= fontStyle === 'Times New Roman' ? 'selected' : '' %>>Times New Roman</option>
-                  <option value="Georgia" <%= fontStyle === 'Georgia' ? 'selected' : '' %>>Georgia</option>
-                  <option value="Courier New" <%= fontStyle === 'Courier New' ? 'selected' : '' %>>Courier New</option>
-                  <option value="Trebuchet MS" <%= fontStyle === 'Trebuchet MS' ? 'selected' : '' %>>Trebuchet MS</option>
-                  <option value="Lucida Sans" <%= fontStyle === 'Lucida Sans' ? 'selected' : '' %>>Lucida Sans</option>
                   <option value="Roboto" <%= fontStyle === 'Roboto' ? 'selected' : '' %>>Roboto</option>
                   <option value="Open Sans" <%= fontStyle === 'Open Sans' ? 'selected' : '' %>>Open Sans</option>
                   <option value="Lato" <%= fontStyle === 'Lato' ? 'selected' : '' %>>Lato</option>
                   <option value="Montserrat" <%= fontStyle === 'Montserrat' ? 'selected' : '' %>>Montserrat</option>
+                  <option value="Poppins" <%= fontStyle === 'Poppins' ? 'selected' : '' %>>Poppins</option>
+                  <option value="Nunito" <%= fontStyle === 'Nunito' ? 'selected' : '' %>>Nunito</option>
+                  <option value="Raleway" <%= fontStyle === 'Raleway' ? 'selected' : '' %>>Raleway</option>
+                  <option value="Work Sans" <%= fontStyle === 'Work Sans' ? 'selected' : '' %>>Work Sans</option>
+                  <option value="Source Sans Pro" <%= fontStyle === 'Source Sans Pro' ? 'selected' : '' %>>Source Sans Pro</option>
+                  <option value="Ubuntu" <%= fontStyle === 'Ubuntu' ? 'selected' : '' %>>Ubuntu</option>
+                  <option value="Noto Sans" <%= fontStyle === 'Noto Sans' ? 'selected' : '' %>>Noto Sans</option>
                   <option value="PT Serif" <%= fontStyle === 'PT Serif' ? 'selected' : '' %>>PT Serif</option>
+                  <option value="Merriweather" <%= fontStyle === 'Merriweather' ? 'selected' : '' %>>Merriweather</option>
                   <option value="Playfair Display" <%= fontStyle === 'Playfair Display' ? 'selected' : '' %>>Playfair Display</option>
-                  <option value="Abril Fatface" <%= fontStyle === 'Abril Fatface' ? 'selected' : '' %>>Abril Fatface</option> 
                 </select>
                 <div class="font-preview" id="font-preview">
-                Sample Text - <span id="font-preview-name"><%= fontStyle %></span>
+                <div style="font-size: 20px; font-weight: 600; margin-bottom: 8px;">Welcome to Greenwood Academy</div>
+                <div style="font-size: 16px; margin-bottom: 6px;">Student Dashboard • Grade 10A • Mathematics</div>
+                <div style="font-size: 14px; color: #6b7280; line-height: 1.5;">This is how your school will look like with this font. Student names, grades, announcements, and all content will appear in this style. ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789</div>
               </div>
                 <button class="btn-link" type="submit">Change Font</button>
               </div>
@@ -1920,15 +1927,33 @@
           });
         }
 
-        if (fontSelect && fontPreview && fontPreviewName) {
+        if (fontSelect && fontPreview) {
+          // Google Fonts that need to be loaded
+          const googleFonts = ['Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Poppins', 'Nunito', 'Raleway', 'Work Sans', 'Source Sans Pro', 'Ubuntu', 'Noto Sans', 'PT Serif', 'Merriweather', 'Playfair Display'];
+          const loadedFonts = new Set();
+
+          function loadGoogleFont(fontName) {
+            if (loadedFonts.has(fontName) || !googleFonts.includes(fontName)) {
+              return;
+            }
+            const normalizedFont = fontName.replace(/\s+/g, '+');
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = `https://fonts.googleapis.com/css2?family=${normalizedFont}:wght@300;400;500;600;700&display=swap`;
+            document.head.appendChild(link);
+            loadedFonts.add(fontName);
+          }
+
           const updateFontPreview = () => {
             const value = fontSelect.value;
-            fontPreview.style.fontFamily = `"${value}", sans-serif`;
-            fontPreviewName.textContent = value;
-            document.documentElement.style.setProperty(
-              "--font-family",
-              `"${value}", sans-serif`
-            );
+            loadGoogleFont(value);
+            
+            // Determine fallback
+            const serifFonts = ['PT Serif', 'Merriweather', 'Playfair Display'];
+            const fallback = serifFonts.includes(value) ? 'serif' : 'sans-serif';
+            
+            // Only update the preview box, not the entire app
+            fontPreview.style.fontFamily = `"${value}", ${fallback}`;
           };
 
           updateFontPreview();

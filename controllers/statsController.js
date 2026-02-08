@@ -18,8 +18,7 @@ const statsController = {
 
       res.json(classes);
     } catch (err) {
-      console.error("Error fetching classes:", err);
-      res.status(500).json({ error: "Failed to fetch classes." });
+            res.status(500).json({ error: "Failed to fetch classes." });
     }
   },
 
@@ -46,8 +45,7 @@ const statsController = {
 
       res.json(classStats);
     } catch (err) {
-      console.error("Error comparing classes:", err);
-      res.status(500).json({ error: "Failed to compare classes." });
+            res.status(500).json({ error: "Failed to compare classes." });
     }
   },
 
@@ -219,8 +217,7 @@ const studentCountPerClass = await db.query(`
         employeeRoles,
       });
     } catch (error) {
-      console.error("Error fetching organization stats:", error);
-      req.flash("error", "Failed to load organization stats.");
+            req.flash("error", "Failed to load organization stats.");
       res.redirect("/");
     }
   },

@@ -5,11 +5,22 @@
     <div class="footer-flex-container">
       <!-- Logo -->
       <div class="footer-col logo-col">
-        <img
-          src="/images/managira.png"
-          alt="Managira Logo"
-          class="footer-logo"
-        />
+        <% if (typeof hubInfo !== 'undefined' && hubInfo && hubInfo.hub_branding_enabled && hubInfo.logo_path) { %>
+          <!-- Show Hub Logo -->
+          <img
+            src="<%= hubInfo.logo_path %>"
+            alt="<%= hubInfo.hub_name %> Logo"
+            class="footer-logo"
+          />
+          <p style="font-size: 12px; color: white; margin-top: 4px;">Powered by <%= hubInfo.hub_name %></p>
+        <% } else { %>
+          <!-- Show Managira Logo -->
+          <img
+            src="/images/managira.png"
+            alt="Managira Logo"
+            class="footer-logo"
+          />
+        <% } %>
       </div>
 
       <!-- Contact Info -->
@@ -45,6 +56,21 @@
   <!-- Black section -->
   <div class="footer-bottom-section">
     <div class="footer-bottom-row">
+      <!-- Hub Logo Section for Hub Members (Left) -->
+      <% 
+        const hasValidHubLogo = session && session.isHubMember && 
+                               session.hubLogo && 
+                               !session.hubLogo.endsWith('/hub-logos') && 
+                               !session.hubLogo.endsWith('/images/hub-logos') &&
+                               session.accountType !== 'Hub';
+      %>
+      <% if (hasValidHubLogo) { %>
+        <div class="footer-hub-section">
+          <img src="<%= session.hubLogo %>" alt="<%= session.hubName %> Logo" class="footer-hub-logo" />
+          <p class="footer-hub-text">Managed by <%= session.hubName %></p>
+        </div>
+      <% } %>
+      
       <div class="footer-policy-links">
         <a href="/legal/privacy-policy">Privacy Policy</a> |
         <!-- <a href="#">Website Feedback</a> | -->
@@ -54,8 +80,11 @@
         <a href="/legal/faq">FAQ  </a>
 
       </div>
+      
       <div class="footer-copy">
-        <% if (session && session.isHubMember && session.hubFooterText) { %>
+        <% if (typeof hubInfo !== 'undefined' && hubInfo && hubInfo.hub_footer_text) { %>
+          <%= hubInfo.hub_footer_text %>
+        <% } else if (session && session.isHubMember && session.hubFooterText) { %>
           <%= session.hubFooterText %>
         <% } else { %>
           &copy; <%= new Date().getFullYear() %> ScREAte / Managira
@@ -66,7 +95,7 @@
 </footer>
 <style>
       :root {
-        --font-family: "Inter", sans-serif;
+        --font-family: "<%= (typeof session !== 'undefined' && session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
       }
 
 
@@ -201,6 +230,33 @@
   .footer-copy {
     flex: 1;
     text-align: right;
+  }
+
+  /* Hub Logo Section */
+  .footer-hub-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex: 1;
+    text-align: left;
+  }
+
+  .footer-hub-logo {
+    height: 45px;
+    width: auto;
+    max-width: 120px;
+    object-fit: contain;
+    opacity: 0.9;
+  }
+
+  .footer-hub-text {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 11px;
+    margin: 0;
+    text-align: center;
+    font-weight: 500;
   }
 
   /* ====== MOBILE FIX ====== */

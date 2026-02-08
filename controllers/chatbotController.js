@@ -114,8 +114,7 @@ class ChatbotController {
       });
 
     } catch (error) {
-      console.error('Chatbot error:', error);
-      return res.json({
+            return res.json({
         success: false,
         message: "I'm having trouble processing your request. Please try again or contact support at info@managira.com"
       });
@@ -138,8 +137,7 @@ class ChatbotController {
         questions: popularQuestions
       });
     } catch (error) {
-      console.error('Error fetching popular questions:', error);
-      return res.json({
+            return res.json({
         success: false,
         message: "Unable to load popular questions"
       });
@@ -164,8 +162,7 @@ class ChatbotController {
         faq: faq
       });
     } catch (error) {
-      console.error('Error fetching FAQ by ID:', error);
-      return res.json({
+            return res.json({
         success: false,
         message: "Unable to load question"
       });

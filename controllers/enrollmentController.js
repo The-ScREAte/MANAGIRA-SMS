@@ -72,8 +72,7 @@ const enrollmentController = {
           messages: req.flash()
         });
       } catch (error) {
-        console.error('Error fetching enrollment data:', error);
-        req.flash('error', 'Failed to load enrollment data.');
+                req.flash('error', 'Failed to load enrollment data.');
         res.redirect('/');
       }
     },
@@ -143,8 +142,7 @@ const enrollmentController = {
         res.status(200).json({ success: true, message: 'Enrollment updated successfully.' });
       } catch (error) {
         await db.query('ROLLBACK');
-        console.error('Error enrolling students:', error);
-        res.status(500).json({ success: false, message: 'Failed to enroll students.' });
+                res.status(500).json({ success: false, message: 'Failed to enroll students.' });
       }
     },
           
@@ -163,8 +161,7 @@ const enrollmentController = {
     
             res.json({ students: studentsResult.rows });
         } catch (error) {
-            console.error('Error fetching students:', error);
-            res.status(500).json({ error: 'Failed to fetch students.' });
+                        res.status(500).json({ error: 'Failed to fetch students.' });
         } 
     },
     
@@ -231,8 +228,7 @@ const enrollmentController = {
             messages: req.flash()
           });
         } catch (error) {
-          console.error('Error fetching enrollments:', error);
-          req.flash('error', 'Failed to load enrollments.');
+                    req.flash('error', 'Failed to load enrollments.');
           res.redirect('/');
         }
       },
@@ -321,8 +317,7 @@ const enrollmentController = {
                 messages: req.flash(),
             });
         } catch (error) {
-            console.error('Error loading modify enrollment data:', error);
-            req.flash('error', 'Failed to load modify enrollment data.');
+                        req.flash('error', 'Failed to load modify enrollment data.');
             res.redirect('/enrollment/manageEnrollment');
         }
     },
@@ -400,8 +395,7 @@ const enrollmentController = {
           res.status(200).json({ success: true, message: 'Enrollment modified successfully.' });
         } catch (error) {
           await db.query('ROLLBACK');
-          console.error('Error modifying enrollment:', error);
-          res.status(500).json({ success: false, message: 'Failed to modify enrollment.' });
+                    res.status(500).json({ success: false, message: 'Failed to modify enrollment.' });
         }
       },
       
@@ -426,8 +420,7 @@ const enrollmentController = {
             res.redirect('/enrollment/manageEnrollment');
         } catch (error) {
             await db.query('ROLLBACK');
-            console.error('Error deleting enrollment:', error);
-            req.flash('error', 'Failed to delete enrollment.');
+                        req.flash('error', 'Failed to delete enrollment.');
             res.redirect('/enrollment/modifyEnrollment/' + enrollmentId);
         }
     },
@@ -512,8 +505,7 @@ const enrollmentController = {
 
             res.status(200).json({ results });
           } catch (error) {
-            console.error('Error fetching users for search:', error);
-            res.status(500).json({ error: 'Failed to fetch users.' });
+                        res.status(500).json({ error: 'Failed to fetch users.' });
           }
         },
   

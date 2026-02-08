@@ -6,7 +6,7 @@
     <title><%= title %></title>
     <style>
       :root {
-        --font-family: "Inter", sans-serif;
+        --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
         --border: #e5e7eb;
         --muted: #6b7280;
         --bg: #f9fafb;

@@ -249,7 +249,7 @@ class ManagiraChatbot {
         this.addMessage(data.message, 'bot');
       }
     } catch (error) {
-      console.error('Chatbot error:', error);
+      
       this.hideLoading();
       this.addMessage('Sorry, I\'m having trouble connecting. Please try again later or contact support at info@managira.com', 'bot');
     }
@@ -405,7 +405,7 @@ class ManagiraChatbot {
         this.showPopularQuestions(data.questions);
       }
     } catch (error) {
-      console.error('Error loading popular questions:', error);
+      
     }
   }
 

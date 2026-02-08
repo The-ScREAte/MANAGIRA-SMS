@@ -1,72 +1,66 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title><%= title %> - Managira SMS</title>
-    <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-
-      body {
+<style>
+      .hub-invitation-wrapper {
         font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-        min-height: 100vh;
-        padding: 20px;
+        background: #f5f7fa;
+        min-height: calc(100vh - 60px);
+        padding: 120px 20px 60px 20px;
       }
 
-      .container {
+      .hub-invitation-wrapper .container {
         max-width: 900px;
         margin: 0 auto;
         background: white;
         border-radius: 15px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
         overflow: hidden;
       }
 
-      .header {
-        background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%);
-        color: white;
-        padding: 40px;
+      .hub-invitation-wrapper .welcome-header {
+        background: white;
+        color: #01535b;
+        padding: 40px 20px;
         text-align: center;
+        margin-bottom: 30px;
+        border-bottom: 3px solid #01535b;
       }
 
-      .header h1 {
+      .hub-invitation-wrapper .welcome-header h1 {
         font-size: 32px;
-        margin-bottom: 10px;
+        margin-bottom: 12px;
+        font-weight: 700;
       }
 
-      .header p {
-        opacity: 0.95;
+      .hub-invitation-wrapper .welcome-header p {
+        color: #6b7280;
         font-size: 16px;
+        max-width: 600px;
+        margin: 0 auto;
+        line-height: 1.6;
       }
 
-      .content {
+      .hub-invitation-wrapper .content {
         padding: 40px;
       }
 
-      .alert {
+      .hub-invitation-wrapper .alert {
         padding: 15px;
         border-radius: 8px;
         margin-bottom: 25px;
       }
 
-      .alert-success {
+      .hub-invitation-wrapper .alert-success {
         background: #d4edda;
         border-left: 4px solid #28a745;
         color: #155724;
       }
 
-      .alert-error {
+      .hub-invitation-wrapper .alert-error {
         background: #f8d7da;
         border-left: 4px solid #dc3545;
         color: #721c24;
       }
 
-      .invitation-details {
+      .hub-invitation-wrapper .invitation-details {
         background: #f8f9fa;
         padding: 30px;
         border-radius: 10px;
@@ -74,34 +68,34 @@
         border-left: 4px solid #01535b;
       }
 
-      .invitation-details h2 {
+      .hub-invitation-wrapper .invitation-details h2 {
         color: #01535b;
         margin-bottom: 20px;
         font-size: 24px;
       }
 
-      .detail-item {
+      .hub-invitation-wrapper .detail-item {
         display: flex;
         padding: 12px 0;
         border-bottom: 1px solid #e0e0e0;
       }
 
-      .detail-item:last-child {
+      .hub-invitation-wrapper .detail-item:last-child {
         border-bottom: none;
       }
 
-      .detail-label {
+      .hub-invitation-wrapper .detail-label {
         font-weight: 600;
         color: #555;
         width: 200px;
       }
 
-      .detail-value {
+      .hub-invitation-wrapper .detail-value {
         color: #333;
         flex: 1;
       }
 
-      .info-box {
+      .hub-invitation-wrapper .info-box {
         background: #e7f3ff;
         padding: 20px;
         border-radius: 10px;
@@ -109,26 +103,26 @@
         border-left: 4px solid #0066cc;
       }
 
-      .info-box h3 {
+      .hub-invitation-wrapper .info-box h3 {
         color: #0066cc;
         margin-bottom: 10px;
         font-size: 18px;
       }
 
-      .info-box ul {
+      .hub-invitation-wrapper .info-box ul {
         margin-left: 20px;
         color: #333;
       }
 
-      .info-box li {
+      .hub-invitation-wrapper .info-box li {
         margin-bottom: 8px;
       }
 
-      .form-section {
+      .hub-invitation-wrapper .form-section {
         margin-bottom: 35px;
       }
 
-      .form-section h3 {
+      .hub-invitation-wrapper .form-section h3 {
         color: #333;
         margin-bottom: 20px;
         padding-bottom: 10px;
@@ -136,29 +130,29 @@
         font-size: 20px;
       }
 
-      .form-row {
+      .hub-invitation-wrapper .form-row {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 20px;
         margin-bottom: 20px;
       }
 
-      .form-group {
+      .hub-invitation-wrapper .form-group {
         margin-bottom: 20px;
       }
 
-      .form-group label {
+      .hub-invitation-wrapper .form-group label {
         display: block;
         margin-bottom: 8px;
         color: #333;
         font-weight: 500;
       }
 
-      .form-group label span.required {
+      .hub-invitation-wrapper .form-group label span.required {
         color: #dc3545;
       }
 
-      .form-group input {
+      .hub-invitation-wrapper .form-group input {
         width: 100%;
         padding: 12px;
         border: 2px solid #e0e0e0;
@@ -167,47 +161,47 @@
         transition: border-color 0.2s;
       }
 
-      .form-group input:focus {
+      .hub-invitation-wrapper .form-group input:focus {
         outline: none;
         border-color: #01535b;
       }
 
-      .form-group small {
+      .hub-invitation-wrapper .form-group small {
         display: block;
         margin-top: 5px;
         color: #666;
         font-size: 13px;
       }
 
-      .checkbox-group {
+      .hub-invitation-wrapper .checkbox-group {
         display: flex;
         align-items: flex-start;
         margin-bottom: 25px;
       }
 
-      .checkbox-group input[type="checkbox"] {
+      .hub-invitation-wrapper .checkbox-group input[type="checkbox"] {
         width: auto;
         margin-right: 10px;
         margin-top: 3px;
       }
 
-      .checkbox-group label {
+      .hub-invitation-wrapper .checkbox-group label {
         margin: 0;
         color: #333;
         font-size: 14px;
         line-height: 1.6;
       }
 
-      .checkbox-group label a {
+      .hub-invitation-wrapper .checkbox-group label a {
         color: #01535b;
         text-decoration: none;
       }
 
-      .checkbox-group label a:hover {
+      .hub-invitation-wrapper .checkbox-group label a:hover {
         text-decoration: underline;
       }
 
-      .password-requirements {
+      .hub-invitation-wrapper .password-requirements {
         background: #fff3cd;
         padding: 15px;
         border-radius: 8px;
@@ -215,29 +209,29 @@
         margin-bottom: 20px;
       }
 
-      .password-requirements h4 {
+      .hub-invitation-wrapper .password-requirements h4 {
         color: #856404;
         margin-bottom: 10px;
         font-size: 14px;
       }
 
-      .password-requirements ul {
+      .hub-invitation-wrapper .password-requirements ul {
         margin-left: 20px;
         color: #856404;
         font-size: 13px;
       }
 
-      .button-group {
+      .hub-invitation-wrapper .button-group {
         display: flex;
         gap: 15px;
         margin-top: 30px;
       }
 
-      .btn {
-        padding: 14px 30px;
+      .hub-invitation-wrapper .btn {
+        padding: 12px 24px;
         border: none;
         border-radius: 8px;
-        font-size: 16px;
+        font-size: 15px;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.2s;
@@ -246,64 +240,95 @@
         text-align: center;
       }
 
-      .btn-primary {
-        background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%);
+      .hub-invitation-wrapper .btn-primary {
+        background: #01535b;
         color: white;
         flex: 1;
       }
 
-      .btn-primary:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(1, 83, 91, 0.3);
+      .hub-invitation-wrapper .btn-primary:hover {
+        background: #014a51;
       }
 
-      .btn-secondary {
-        background: #6c757d;
+      .hub-invitation-wrapper .btn-secondary {
+        background: white;
+        color: #dc2626;
+        border: 2px solid #dc2626;
+      }
+
+      .hub-invitation-wrapper .btn-secondary:hover {
+        background: #dc2626;
         color: white;
       }
 
-      .btn-secondary:hover {
-        background: #5a6268;
-      }
-
       @media (max-width: 768px) {
-        .content {
-          padding: 20px;
+        .hub-invitation-wrapper {
+          padding: 100px 15px 40px 15px;
         }
 
-        .header h1 {
+        .hub-invitation-wrapper .welcome-header {
+          padding: 30px 15px;
+          margin-bottom: 20px;
+        }
+
+        .hub-invitation-wrapper .welcome-header h1 {
           font-size: 24px;
         }
 
-        .form-row {
+        .hub-invitation-wrapper .welcome-header p {
+          font-size: 15px;
+        }
+
+        .hub-invitation-wrapper .container {
+          border-radius: 10px;
+        }
+
+        .hub-invitation-wrapper .content {
+          padding: 25px 15px;
+        }
+
+        .hub-invitation-wrapper .form-row {
           grid-template-columns: 1fr;
         }
 
-        .button-group {
+        .hub-invitation-wrapper .button-group {
           flex-direction: column;
         }
 
-        .detail-item {
-          flex-direction: column;
+        .hub-invitation-wrapper .btn {
+          width: 100%;
         }
 
-        .detail-label {
+        .hub-invitation-wrapper .detail-item {
+          flex-direction: column;
+          padding: 10px 0;
+        }
+
+        .hub-invitation-wrapper .detail-label {
           width: 100%;
           margin-bottom: 5px;
+          font-size: 14px;
+        }
+
+        .hub-invitation-wrapper .detail-value {
+          font-size: 14px;
+        }
+
+        .hub-invitation-wrapper .invitation-details,
+        .hub-invitation-wrapper .info-box {
+          padding: 20px 15px;
         }
       }
     </style>
-  </head>
-  <body>
-    <div class="container">
-      <div class="header">
+
+    <div class="hub-invitation-wrapper">
+      <div class="welcome-header">
         <h1>🎉 Welcome to Managira SMS!</h1>
         <p>You've been invited to join a hub. Complete the form below to get started.</p>
       </div>
 
-      <div class="content">
-        <%- include('../partials/flash') %>
-
+      <div class="container">
+        <div class="content">
         <div class="invitation-details">
           <h2>Invitation Details</h2>
           <div class="detail-item">
@@ -357,7 +382,7 @@
             
             <div class="form-group">
               <label for="organization_nickname">
-                Organization Subdomain <span class="required">*</span>
+                School Subdomain <span class="required">*</span>
               </label>
               <input
                 type="text"
@@ -367,8 +392,9 @@
                 pattern="[a-z0-9]+"
                 required
               />
-              <small>Your organization will be accessible at: <strong id="subdomain-preview">yourname</strong>.<%= invitation.hub_nickname %>.managira.com</small>
-              <small style="color: #dc3545;">Only lowercase letters and numbers, no spaces or special characters</small>
+              <small style="display: block; margin-bottom: 8px;">This is a short name for how your school is commonly known (e.g., "stmarys" for St. Mary's School)</small>
+              <small>Your school will be accessible at: <strong id="subdomain-preview">yourname</strong>.<%= invitation.hub_nickname %>.managira.com</small>
+              <small style="color: #dc3545; display: block; margin-top: 8px;">Only lowercase letters and numbers, no spaces or special characters</small>
             </div>
           </div>
 
@@ -480,8 +506,8 @@
               required
             />
             <label for="accept_terms">
-              I accept the <a href="/legal/terms" target="_blank">Terms and Conditions</a> and 
-              <a href="/legal/privacy" target="_blank">Privacy Policy</a> of Managira SMS. 
+              I accept the <a href="/legal/terms-of-service" target="_blank">Terms and Conditions</a> and 
+              <a href="/legal/privacy-policy" target="_blank">Privacy Policy</a> of Managira SMS. 
               I understand that my organization will be managed under <%= invitation.hub_name %> hub. <span class="required">*</span>
             </label>
           </div>
@@ -528,5 +554,5 @@
         return true;
       });
     </script>
-  </body>
-</html>
+  </div>
+

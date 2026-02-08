@@ -8,7 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
       :root {
-        --font-family: "Inter", sans-serif;
+        --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
       }
 
     body {
@@ -250,14 +250,14 @@
           <div class="plan-price">
             <strong>₵<%= plan.total_price ? plan.total_price.toFixed(2) : '0.00' %></strong> per month
           </div>
-          <a href="/account/service-plan?new=1&plan=<%= plan.plan_id %>" class="btn">Register Now</a>
+          <a href="/account/service-plan?plan=<%= plan.plan_id %>" class="btn">Register Now</a>
         </div>
       <% }) %>
     </div>
     <% if (freeTrialEnabled && premiumPlanId) { %>
       <div class="trial-cta">
         <a
-          href="/account/service-plan?new=1&plan=<%= premiumPlanId %>&trial=1"
+          href="/account/service-plan?plan=<%= premiumPlanId %>&trial=1"
           class="btn btn-trial"
         >
           Start Premium Free Trial

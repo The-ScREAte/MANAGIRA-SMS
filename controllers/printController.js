@@ -28,8 +28,7 @@ async function uploadToS3(key, file) {
     await s3Client.send(command);
     return key;
   } catch (error) {
-    console.error("❌ Error uploading to S3:", error);
-    throw new Error("Could not upload file to S3.");
+        throw new Error("Could not upload file to S3.");
   }
 }
 
@@ -38,8 +37,7 @@ async function getFromS3(key) {
     // Return the full URL to the image in S3 (public access assumed)
     return `https://${process.env.S3_BUCKET_NAME}.s3.amazonaws.com/${key}`;
   } catch (error) {
-    console.error("Error fetching image from S3:", error);
-    throw new Error("Could not retrieve image from S3.");
+        throw new Error("Could not retrieve image from S3.");
   }
 }
 
@@ -59,8 +57,7 @@ async function deleteFromS3(key) {
   try {
     await s3Client.send(command);
   } catch (error) {
-    console.error("Error deleting from S3:", error);
-    throw new Error("Could not delete file from S3.");
+        throw new Error("Could not delete file from S3.");
   }
 }
 
@@ -571,8 +568,7 @@ students
         repeatedClassId, 
       });
     } catch (error) {
-      console.error("Error generating student report:", error);
-      res.status(500).send("Failed to generate student report.");
+            res.status(500).send("Failed to generate student report.");
     }
   },
 
@@ -713,8 +709,7 @@ students
         messages: req.flash(),
       });
     } catch (error) {
-      console.error("Error rendering report settings page:", error);
-      res.status(500).send("Failed to load report settings page.");
+            res.status(500).send("Failed to load report settings page.");
     }
   },
 
@@ -785,8 +780,7 @@ students
         error_msg: req.flash("error_msg"),
       });
     } catch (error) {
-      console.error("Error loading modify page:", error);
-      res.status(500).send("Failed to load modification page.");
+            res.status(500).send("Failed to load modification page.");
     }
   },
 
@@ -802,8 +796,7 @@ students
       req.flash("success_msg", "Status settings deleted.");
       res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
     } catch (error) {
-      console.error("Failed to delete status settings:", error);
-      req.flash("error_msg", "Failed to delete.");
+            req.flash("error_msg", "Failed to delete.");
       res.redirect(`/print/reportSettings?classId=${classId}`);
     }
   },
@@ -913,8 +906,7 @@ students
         `/print/reportSettings?classId=${selectedClassId}&termId=${termId}`
       );
     } catch (error) {
-      console.error("❌ Error updating status settings:", error);
-      req.flash("error_msg", "Failed to update status settings.");
+            req.flash("error_msg", "Failed to update status settings.");
       res.redirect(
         `/print/modifyStatusSettings?classId=${originalClassId}&termId=${termId}`
       );
@@ -942,8 +934,7 @@ students
       req.flash("success", "Settings updated successfully");
       res.redirect(`/print/reportSettings?classId=${classId}`);
     } catch (error) {
-      console.error("Error updating report settings:", error);
-      req.flash("error", "Failed to update settings.");
+            req.flash("error", "Failed to update settings.");
       res.redirect(`/print/reportSettings?classId=${classId}`);
     }
   },
@@ -1033,8 +1024,7 @@ students
         `/print/reportSettings?classId=${fallbackClassId}&termId=${parsedTermId}`
       );
     } catch (error) {
-      console.error("❌ Error saving promotion settings:", error);
-      req.flash("error", "Error saving promotion settings.");
+            req.flash("error", "Error saving promotion settings.");
       res.redirect(
         `/print/reportSettings?classId=${fallbackClassId}&termId=${termId}`
       );
@@ -1074,8 +1064,7 @@ students
       req.flash("success", "Remarks saved successfully.");
       res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
     } catch (error) {
-      console.error("Error saving remarks:", error);
-      req.flash("error", "Failed to save remarks.");
+            req.flash("error", "Failed to save remarks.");
       res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
     }
   },
@@ -1089,8 +1078,7 @@ students
       req.flash("success", "Remark deleted successfully.");
       res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
     } catch (error) {
-      console.error("Error deleting remark:", error);
-      req.flash("error", "Error deleting remark.");
+            req.flash("error", "Error deleting remark.");
       res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
     }
   },
@@ -1145,8 +1133,7 @@ students
         `/print/reportSettings?classId=${parsedClassId}&termId=${parsedTermId}`
       );
     } catch (error) {
-      console.error("Error saving score remarks:", error);
-      req.flash("error", "Failed to save score remarks.");
+            req.flash("error", "Failed to save score remarks.");
       res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
     }
   },
@@ -1166,8 +1153,7 @@ students
       req.flash("success", "Score remark deleted successfully.");
       res.redirect(`/print/reportSettings?termId=${termId}`);
     } catch (error) {
-      console.error("Error deleting score remark:", error);
-      req.flash("error", "Error deleting score remark.");
+            req.flash("error", "Error deleting score remark.");
       res.redirect(`/print/reportSettings?termId=${termId}`);
     }
   },
@@ -1252,8 +1238,7 @@ students
       req.flash("success", "Signature image uploaded successfully.");
       res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
     } catch (error) {
-      console.error("Error uploading signature image:", error);
-      req.flash("error", "Failed to upload signature image.");
+            req.flash("error", "Failed to upload signature image.");
       res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
     }
   },
@@ -1299,8 +1284,7 @@ students
       req.flash("success", "Signature image deleted successfully.");
       res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
     } catch (error) {
-      console.error("Error deleting signature image:", error);
-      req.flash("error", "Failed to delete signature image.");
+            req.flash("error", "Failed to delete signature image.");
       res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
     }
   },
@@ -1393,8 +1377,7 @@ students
         logoUrl: logoUrl,
       });
     } catch (error) {
-      console.error("Error rendering merit sheet page:", error);
-      res.status(500).send("Failed to load merit sheet page.");
+            res.status(500).send("Failed to load merit sheet page.");
     }
   },
 
@@ -1415,8 +1398,7 @@ students
 
       res.json(assessmentsResult.rows);
     } catch (error) {
-      console.error("Error fetching assessments:", error);
-      res.status(500).send("Failed to fetch assessments.");
+            res.status(500).send("Failed to fetch assessments.");
     }
   },
 
@@ -1601,8 +1583,7 @@ students
         meritSheet: meritSheetData,
       });
     } catch (error) {
-      console.error("Error generating merit sheet:", error);
-      res.status(500).send("Failed to generate merit sheet.");
+            res.status(500).send("Failed to generate merit sheet.");
     }
   },
 
@@ -1631,8 +1612,7 @@ students
         } = studentReport;
   
         if (!studentId || isNaN(studentId) || studentId <= 0) {
-          console.error(`Invalid student ID: ${studentId}`);
-          continue; // skip invalid rows
+                    continue; // skip invalid rows
         }
   
         await db.query(
@@ -1669,8 +1649,7 @@ students
   
       res.status(200).send("Changes saved successfully.");
     } catch (error) {
-      console.error("Error saving report changes:", error);
-      res.status(500).send("Failed to save report changes.");
+            res.status(500).send("Failed to save report changes.");
     }
   },
   
@@ -1705,8 +1684,7 @@ students
         messages: req.flash(),
       });
     } catch (error) {
-      console.error("Error loading migration page:", error);
-      req.flash("error", "Failed to load migration page.");
+            req.flash("error", "Failed to load migration page.");
       res.redirect("/dashboard");
     }
   },
@@ -1742,8 +1720,7 @@ students
       req.flash("success", "File uploaded successfully.");
       res.redirect("/print/migration");
     } catch (error) {
-      console.error("Error uploading file:", error);
-      req.flash("error", "Failed to upload file.");
+            req.flash("error", "Failed to upload file.");
       res.redirect("/print/migration");
     }
   },
@@ -1787,8 +1764,7 @@ students
         uploadedFiles: Contents || [],
       });
     } catch (error) {
-      console.error("Error searching file:", error);
-      req.flash("error", "Search failed.");
+            req.flash("error", "Search failed.");
       res.redirect("/print/migration");
     }
   },
@@ -1814,8 +1790,7 @@ students
 
       res.json({ fileUrl });
     } catch (error) {
-      console.error("Error fetching file preview:", error);
-      res.status(500).json({ error: "Failed to preview file." });
+            res.status(500).json({ error: "Failed to preview file." });
     }
   },
 
@@ -1854,8 +1829,7 @@ students
       req.flash("success", "File deleted successfully.");
       res.redirect("/print/migration");
     } catch (error) {
-      console.error("❌ Error deleting file:", error);
-      req.flash("error", "Failed to delete file.");
+            req.flash("error", "Failed to delete file.");
       res.redirect("/print/migration");
     }
   },

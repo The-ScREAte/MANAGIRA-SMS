@@ -83,8 +83,7 @@ const transcriptController = (db) => ({
                 signatureImageUrl,
             });
         } catch (error) {
-            console.error('Error generating transcript:', error);
-            res.status(500).send('Failed to generate transcript.');
+                        res.status(500).send('Failed to generate transcript.');
         }
     },
 
@@ -139,8 +138,7 @@ const transcriptController = (db) => ({
             req.flash('success', 'Signature uploaded successfully.');
             res.redirect('back');
         } catch (error) {
-            console.error('Error uploading transcript signature:', error);
-            req.flash('error', 'Failed to upload signature.');
+                        req.flash('error', 'Failed to upload signature.');
             res.redirect('back');
         }
     },

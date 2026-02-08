@@ -1,144 +1,188 @@
-<%- include('../partials/flash') %>
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  :root {
+    --primary: #01535b;
+    --primary-hover: #014a51;
+    --text-primary: #111827;
+    --text-secondary: #6b7280;
+    --border: #e5e7eb;
+    --bg: #f9fafb;
+  }
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hub Settings - Managira</title>
-  <link rel="stylesheet" href="/css/style.css">
-  <style>
-    :root {
-      --primary: #01535b;
-      --primary-hover: #014a51;
-      --text-primary: #111827;
-      --text-secondary: #6b7280;
-      --border: #e5e7eb;
-      --bg: #f9fafb;
-    }
+  body { background: var(--bg); font-family: "Inter", -apple-system, sans-serif; }
 
-    body { background: var(--bg); font-family: "Inter", -apple-system, sans-serif; }
+  .hub-container { max-width: 1200px; margin: 0 auto; padding: 120px 60px 60px 60px; }
 
-    .hub-container { max-width: 1200px; margin: 0 auto; padding: 24px 20px; }
+  .hub-header {
+    background: var(--primary);
+    color: white;
+    padding: 28px 32px;
+    border-radius: 12px;
+    margin-bottom: 24px;
+  }
 
-    .hub-header {
-      background: var(--primary);
-      color: white;
-      padding: 28px 32px;
-      border-radius: 12px;
-      margin-bottom: 24px;
-    }
+  .hub-header h1 { font-size: 1.5rem; margin-bottom: 4px; font-weight: 700; }
+  .hub-header p { opacity: 0.85; font-size: 0.9rem; }
 
-    .hub-header h1 { font-size: 1.5rem; margin-bottom: 4px; font-weight: 700; }
-    .hub-header p { opacity: 0.85; font-size: 0.9rem; }
+  .hub-nav { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
 
-    .hub-nav { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+  .hub-nav a {
+    padding: 8px 18px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.15s;
+  }
 
-    .hub-nav a {
-      padding: 8px 18px;
-      background: white;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      text-decoration: none;
-      color: var(--text-primary);
-      font-weight: 600;
-      font-size: 0.9rem;
-      transition: all 0.15s;
-    }
+  .hub-nav a:hover, .hub-nav a.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
 
-    .hub-nav a:hover, .hub-nav a.active {
-      background: var(--primary);
-      color: white;
-      border-color: var(--primary);
-    }
+  .settings-card {
+    background: white;
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
+  }
 
-    .settings-card {
-      background: white;
-      border-radius: 10px;
-      padding: 24px;
-      margin-bottom: 20px;
-      border: 1px solid var(--border);
-    }
+  .settings-card h2 {
+    font-size: 1.15rem;
+    margin-bottom: 16px;
+    color: var(--text-primary);
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
 
-    .settings-card h2 {
-      font-size: 1.15rem;
-      margin-bottom: 16px;
-      color: var(--text-primary);
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--border);
-    }
+  .form-group { margin-bottom: 16px; }
 
-    .form-group { margin-bottom: 16px; }
+  .form-label {
+    display: block;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+    font-size: 0.85rem;
+  }
 
-    .form-label {
-      display: block;
-      font-weight: 600;
-      color: var(--text-primary);
-      margin-bottom: 6px;
-      font-size: 0.85rem;
-    }
+  .form-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-family: inherit;
+  }
 
-    .form-input {
-      width: 100%;
-      padding: 10px 14px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      font-size: 0.95rem;
-      font-family: inherit;
-    }
+  .form-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(1, 83, 91, 0.06);
+  }
 
-    .form-input:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(1, 83, 91, 0.06);
-    }
+  .btn-primary {
+    padding: 12px 24px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    font-family: inherit;
+  }
 
-    .btn-primary {
-      padding: 10px 20px;
-      background: var(--primary);
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.15s;
-      font-family: inherit;
-    }
+  .btn-primary:hover { background: var(--primary-hover); }
 
-    .btn-primary:hover { background: var(--primary-hover); }
+  .info-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 14px 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    line-height: 1.8;
+  }
 
-    .info-box {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      padding: 14px 16px;
-      border-radius: 8px;
-      margin-bottom: 16px;
-      color: var(--text-primary);
-      font-size: 0.9rem;
-      line-height: 1.8;
-    }
+  .info-box strong { color: var(--primary); }
 
-    .info-box strong { color: var(--primary); }
-  </style>
-</head>
-<body>
-  <div class="hub-container">
-    <div class="hub-header">
-      <h1>Hub Settings</h1>
-      <p>Manage your hub profile and preferences</p>
-    </div>
+  .logo-preview {
+    width: 120px;
+    height: 120px;
+    border-radius: 8px;
+    object-fit: contain;
+    border: 2px solid var(--border);
+    padding: 8px;
+    background: white;
+    margin-bottom: 12px;
+  }
 
-    <div class="hub-nav">
-      <a href="/hub/dashboard">Dashboard</a>
-      <a href="/hub/settings" class="active">Settings</a>
-      <a href="/hub/logout">Logout</a>
+  .logo-upload-group {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .logo-placeholder {
+    width: 120px;
+    height: 120px;
+    border-radius: 8px;
+    border: 2px dashed var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    text-align: center;
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+</style>
+
+<div class="hub-container">
+    <div class="settings-card">
+      <h2>Hub Logo</h2>
+      <form action="/hub/settings/logo" method="POST" enctype="multipart/form-data" class="logo-upload-group">
+        <% 
+          const hasValidLogo = hub.logo_path && 
+                               hub.logo_path.trim() !== '' && 
+                               !hub.logo_path.endsWith('/hub-logos') &&
+                               !hub.logo_path.endsWith('/images/hub-logos');
+        %>
+        <% if (hasValidLogo) { %>
+          <img src="<%= hub.logo_path %>" alt="Hub Logo" class="logo-preview" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+          <div class="logo-placeholder" style="display: none;">
+            Logo failed to load
+          </div>
+        <% } else { %>
+          <div class="logo-placeholder">
+            No logo uploaded yet
+          </div>
+        <% } %>
+        <div class="form-group" style="width: 100%;">
+          <label class="form-label">Upload New Logo (PNG, JPG, or SVG recommended)</label>
+          <input type="file" name="logo" class="form-input" accept="image/*" required>
+          <small style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 4px; display: block;">
+            This logo will appear in the header of all organizations under this hub.
+          </small>
+        </div>
+        <button type="submit" class="btn-primary">Update Logo</button>
+      </form>
     </div>
 
     <div class="settings-card">
       <h2>Hub Information</h2>
       <div class="info-box">
         <strong>Hub Name:</strong> <%= hub.hub_name %><br>
+        <strong>Email:</strong> <%= hub.hub_email %><br>
         <strong>Nickname:</strong> <%= hub.hub_nickname %><br>
         <strong>URL:</strong> https://<%= hub.hub_nickname %>.managira.com<br>
         <strong>Plan:</strong> <%= hub.plan_name || 'No plan assigned' %><br>
@@ -188,5 +232,3 @@
       </form>
     </div>
   </div>
-</body>
-</html>

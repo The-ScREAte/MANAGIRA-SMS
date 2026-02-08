@@ -14,15 +14,15 @@
 
   // Global function to initialize page
   window.initializePage = function() {
-    console.log('Initializing page with Turbo...');
+    
     
     // Run all registered initialization functions
     initFunctions.forEach((fn, name) => {
       try {
         fn();
-        console.log(`✓ Initialized: ${name}`);
+        
       } catch (error) {
-        console.error(`✗ Error initializing ${name}:`, error);
+        
       }
     });
 
@@ -121,7 +121,7 @@
 
   // Handle navigation errors
   document.addEventListener('turbo:fetch-request-error', (event) => {
-    console.error('Navigation error:', event.detail);
+    
     alert('Connection error. Please check your internet connection.');
   });
 
@@ -129,7 +129,7 @@
   window.clearTurboCache = function() {
     if (window.Turbo) {
       Turbo.clearCache();
-      console.log('Turbo cache cleared');
+      
     }
   };
 
@@ -143,14 +143,14 @@
     return !!window.Turbo;
   };
 
-  console.log('Turbo initialization helper loaded');
+  
 })();
 
 // Example usage in other scripts:
 // 
 // registerTurboInit('myFeature', function() {
 //   // Your initialization code here
-//   console.log('My feature initialized');
+//   
 //   
 //   // Set up event listeners
 //   document.querySelectorAll('.my-button').forEach(btn => {

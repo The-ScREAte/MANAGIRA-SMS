@@ -131,10 +131,9 @@
 <%
   const rawFontStyle = (session && session.fontStyle ? String(session.fontStyle).trim() : '') || 'Inter';
   const selectedFont = rawFontStyle;
-  const serifFonts = ['Times New Roman', 'Georgia', 'PT Serif', 'Playfair Display', 'Abril Fatface'];
-  const monoFonts = ['Courier New'];
-  const googleFonts = ['Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'PT Serif', 'Playfair Display', 'Abril Fatface'];
-  const fallbackFamily = serifFonts.includes(selectedFont) ? 'serif' : (monoFonts.includes(selectedFont) ? 'monospace' : 'sans-serif');
+  const serifFonts = ['PT Serif', 'Merriweather', 'Playfair Display'];
+  const googleFonts = ['Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Poppins', 'Nunito', 'Raleway', 'Work Sans', 'Source Sans Pro', 'Ubuntu', 'Noto Sans', 'PT Serif', 'Merriweather', 'Playfair Display'];
+  const fallbackFamily = serifFonts.includes(selectedFont) ? 'serif' : 'sans-serif';
   const normalizedFont = selectedFont.replace(/\s+/g, '+');
   const shouldLoadGoogleFont = googleFonts.includes(selectedFont);
 %>
@@ -195,7 +194,24 @@
       event.detail.visit(event.detail.response.url);
     });
   </script>
+  
+  <!-- SPA Router User Type Detection -->
+  <script>
+    // Detect user type for SPA router optimization
+    window.spaUserType = <%- 
+      session && session.firstName ? (
+        session.accountType === 'Admin' || session.accountType === 'Mini Admin' ? '"admin"' :
+        session.accountType === 'Hub' ? '"hub"' :
+        session.userRole === 'Guardian' ? '"guardian"' :
+        '"organization"'
+      ) : '"public"'
+    %>;
+  </script>
+  
   <script src="/js/turbo-init.js"></script>
+  <script src="/js/spa-router.js" defer></script>
+  <script src="/js/spa-router-info.js" defer></script>
+  <script src="/js/spa-user-info.js" defer></script>
   <script src="/js/script.js" defer></script>
   <script src="/js/index.js" defer></script>
   <script src="/js/classDashboard.js" defer></script>

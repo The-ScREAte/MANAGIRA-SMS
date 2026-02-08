@@ -68,8 +68,7 @@ module.exports = {
         error_msg: req.flash("error_msg")
       });
     } catch (err) {
-      console.error("Error loading promotion page:", err);
-      res.status(500).send("Failed to load promotion scheduling.");
+            res.status(500).send("Failed to load promotion scheduling.");
     }
   },
 
@@ -184,8 +183,7 @@ module.exports = {
       res.redirect("/promotion/apply");
   
     } catch (err) {
-      console.error("Error scheduling promotion:", err);
-      req.flash("error", "Failed to schedule promotion.");
+            req.flash("error", "Failed to schedule promotion.");
       res.redirect("/promotion/apply");
     }
   },
@@ -211,8 +209,7 @@ module.exports = {
       req.flash("success_msg", "Scheduled promotion has been deleted.");
       res.redirect("/promotion/apply");
     } catch (err) {
-      console.error("Error canceling schedule:", err);
-      req.flash("error_msg", "Failed to delete promotion.");
+            req.flash("error_msg", "Failed to delete promotion.");
       res.redirect("/promotion/apply");
     }
   },
@@ -306,8 +303,7 @@ module.exports = {
       res.redirect("/promotion/apply");
     } catch (err) {
       await db.query('ROLLBACK');
-      console.error("❌ Error reversing promotion:", err);
-      req.flash("error_msg", "Failed to reverse promotion.");
+            req.flash("error_msg", "Failed to reverse promotion.");
       res.redirect("/promotion/apply");
     }
   },
@@ -332,8 +328,7 @@ module.exports = {
       req.flash("success_msg", "Reversed promotion has been deleted.");
       res.redirect("/promotion/apply");
     } catch (err) {
-      console.error("Error deleting reversed promotion:", err);
-      req.flash("error_msg", "Failed to delete reversed promotion.");
+            req.flash("error_msg", "Failed to delete reversed promotion.");
       res.redirect("/promotion/apply");
     }
   },
@@ -441,8 +436,7 @@ module.exports = {
       }
     } catch (err) {
       await db.query('ROLLBACK');
-      console.error("❌ Error applying scheduled promotions:", err);
-    }
+          }
   }
   
         

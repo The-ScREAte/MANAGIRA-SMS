@@ -31,27 +31,36 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+      padding: 0;
+      margin: 0;
+    }
+
+    .page-wrapper {
+      flex: 1;
+      display: flex;
       align-items: center;
       justify-content: center;
-      padding: 20px;
+      padding: 60px 20px;
+      width: 100%;
     }
 
     .login-container {
       width: 100%;
       max-width: 420px;
+      margin-top: 45px;
     }
 
     .login-card {
       background: var(--bg-card);
       border-radius: 16px;
       box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
-      padding: 40px 32px;
+      padding: 32px 28px;
       border: 1px solid var(--border);
     }
 
     .login-header {
       text-align: center;
-      margin-bottom: 32px;
+      margin-bottom: 28px;
     }
 
     .login-header h1 {
@@ -67,7 +76,7 @@
     }
 
     .form-group {
-      margin-bottom: 20px;
+      margin-bottom: 16px;
     }
 
     .form-label {
@@ -101,21 +110,53 @@
       opacity: 0.7;
     }
 
-    .password-toggle {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 10px;
-      font-size: 0.85rem;
-      color: var(--text-secondary);
-      cursor: pointer;
+    .password-input-wrapper {
+      position: relative;
     }
 
-    .password-toggle input[type="checkbox"] {
-      width: 16px;
-      height: 16px;
+    .password-input-wrapper .form-input {
+      padding-right: 45px;
+    }
+
+    .password-toggle-btn {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
       cursor: pointer;
-      accent-color: var(--primary);
+      padding: 4px;
+      transition: color 0.2s ease;
+      font-size: 0.95rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+      pointer-events: auto;
+      width: 24px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+
+    .password-toggle-btn:hover {
+      color: var(--primary);
+      transform: translateY(-50%);
+    }
+
+    .password-toggle-btn:active {
+      transform: translateY(-50%);
+    }
+
+    .password-toggle-btn:focus {
+      outline: none;
+      transform: translateY(-50%);
+    }
+
+    .password-toggle-btn i {
+      font-size: 0.9rem;
+      transition: none;
     }
 
     .btn-primary {
@@ -144,8 +185,8 @@
 
     .login-links {
       text-align: center;
-      margin-top: 24px;
-      padding-top: 24px;
+      margin-top: 20px;
+      padding-top: 20px;
       border-top: 1px solid var(--border);
     }
 
@@ -170,7 +211,7 @@
     .divider {
       display: flex;
       align-items: center;
-      margin: 24px 0;
+      margin: 20px 0;
       color: var(--text-secondary);
       font-size: 0.85rem;
     }
@@ -189,6 +230,7 @@
 
     .guardian-login-section {
       text-align: center;
+      margin-bottom: 16px;
     }
 
     .guardian-login-section p {
@@ -198,20 +240,29 @@
       font-size: 0.9rem;
     }
 
+    .button-row {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
     .btn-guardian {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
-      padding: 12px 24px;
+      padding: 12px 20px;
       background: linear-gradient(135deg, #0f5a66 0%, #6fd3c4 100%);
       color: white;
       text-decoration: none;
       border-radius: 10px;
       font-weight: 600;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       transition: all 0.2s ease;
       box-shadow: 0 2px 8px rgba(15, 90, 102, 0.2);
+      flex: 1;
+      min-width: 0;
     }
 
     .btn-guardian:hover {
@@ -235,16 +286,25 @@
       .btn-primary {
         padding: 12px 20px;
       }
+
+      .button-row {
+        flex-direction: column;
+      }
+
+      .btn-guardian {
+        width: 100%;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="login-container">
-    <div class="login-card">
-      <div class="login-header">
-        <h1>Welcome Back</h1>
-        <p>Sign in to your organization account</p>
-      </div>
+  <div class="page-wrapper">
+    <div class="login-container">
+      <div class="login-card">
+        <div class="login-header">
+          <h1>Welcome Back</h1>
+          <p>Sign in to your organization account</p>
+        </div>
 
       <%- include('../partials/flash') %>
 
@@ -264,64 +324,70 @@
 
         <div class="form-group">
           <label class="form-label" for="password">Password</label>
-          <input 
-            type="password" 
-            id="password" 
-            name="password" 
-            class="form-input" 
-            placeholder="Enter your password" 
-            required 
-            autocomplete="current-password"
-          />
-          <label class="password-toggle">
-            <input type="checkbox" id="show-password" />
-            Show password
-          </label>
+          <div class="password-input-wrapper">
+            <input 
+              type="password" 
+              id="password" 
+              name="password" 
+              class="form-input" 
+              placeholder="Enter your password" 
+              required 
+              autocomplete="current-password"
+            />
+            <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('password', this)" aria-label="Show password">
+              <i class="fa-solid fa-eye fa-fw" aria-hidden="true"></i>
+            </button>
+          </div>
         </div>
 
         <button type="submit" class="btn-primary">Sign In</button>
       </form>
 
       <div class="login-links">
-        <p>Don't have an account? <a href="/account/service-plan?new=1">Register Now</a></p>
+        <p>Don't have an account? <a href="/account/service-plan">Register Now</a></p>
         <p><a href="/account/forget-password">Forgot Password?</a></p>
       </div>
 
       <div class="divider"><span>or</span></div>
 
       <div class="guardian-login-section">
-        <p>Parents / Guardians</p>
-        <a href="/account/guardian-login" class="btn-guardian">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-            <circle cx="9" cy="7" r="4"></circle>
-            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-          </svg>
-          Login as Parent
-        </a>
+        <p>Quick Access</p>
+        <div class="button-row">
+          <a href="/account/guardian-login" class="btn-guardian">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+            Parent Login
+          </a>
+          <a href="/hub/login" class="btn-guardian" style="background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            Hub Login
+          </a>
+        </div>
       </div>
-
-      <div class="guardian-login-section" style="margin-top: 12px;">
-        <p>Hub Administrators</p>
-        <a href="/hub/login" class="btn-guardian" style="background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%);">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="7" height="7"></rect>
-            <rect x="14" y="3" width="7" height="7"></rect>
-            <rect x="14" y="14" width="7" height="7"></rect>
-            <rect x="3" y="14" width="7" height="7"></rect>
-          </svg>
-          Login as Hub
-        </a>
       </div>
     </div>
   </div>
 
   <script>
-    document.getElementById('show-password').addEventListener('change', function() {
-      const passwordInput = document.getElementById('password');
-      passwordInput.type = this.checked ? 'text' : 'password';
-    });
+    function togglePasswordVisibility(inputId, button) {
+      const input = document.getElementById(inputId);
+      const icon = button.querySelector('i');
+      const isVisible = input.type === 'text';
+      
+      input.type = isVisible ? 'password' : 'text';
+      icon.classList.remove('fa-eye', 'fa-eye-slash');
+      icon.classList.add(isVisible ? 'fa-eye' : 'fa-eye-slash');
+      button.setAttribute('aria-label', isVisible ? 'Show password' : 'Hide password');
+    }
   </script>
 </body>
 </html>

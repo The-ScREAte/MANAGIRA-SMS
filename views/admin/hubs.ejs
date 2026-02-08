@@ -6,136 +6,420 @@
   <title>Manage Hubs - Admin</title>
   <link rel="stylesheet" href="/css/admin.css">
   <style>
-    :root {
-      --primary: #01535b;
-      --primary-hover: #014a51;
-      --text-primary: #111827;
-      --text-secondary: #6b7280;
-      --border: #e5e7eb;
-      --bg: #f9fafb;
+  :root {
+    --primary: #01535b;
+    --primary-hover: #014a51;
+    --text-primary: #111827;
+    --text-secondary: #6b7280;
+    --border: #e5e7eb;
+    --bg: #f9fafb;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+  }
+
+  .dashboard-wrapper {
+    padding: 40px 24px;
+    min-height: 100vh;
+    background: var(--bg);
+  }
+
+  .dashboard-header {
+    max-width: 1400px;
+    margin: 0 auto 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .dashboard-title {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .dashboard-title h1 {
+    font-size: 2rem;
+    color: var(--text-primary);
+    margin: 0;
+    font-weight: 700;
+  }
+
+  .dashboard-title p {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    margin: 0;
+  }
+
+  .dashboard-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .btn-primary {
+    padding: 12px 24px;
+    background: var(--primary);
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-primary:hover {
+    background: var(--primary-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(1, 83, 91, 0.2);
+  }
+
+  .btn-secondary {
+    padding: 12px 24px;
+    background: white;
+    color: var(--text-primary);
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-secondary:hover {
+    background: var(--bg);
+    border-color: var(--text-secondary);
+  }
+
+  .stats-grid {
+    max-width: 1400px;
+    margin: 0 auto 32px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+  }
+
+  .stat-card {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    border: 1px solid var(--border);
+    transition: all 0.2s;
+  }
+
+  .stat-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
+  }
+
+  .stat-card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+  }
+
+  .stat-icon.primary { background: rgba(1, 83, 91, 0.1); }
+  .stat-icon.success { background: rgba(16, 185, 129, 0.1); }
+  .stat-icon.warning { background: rgba(245, 158, 11, 0.1); }
+  .stat-icon.danger { background: rgba(239, 68, 68, 0.1); }
+
+  .stat-content h3 {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin: 0 0 4px 0;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .stat-content .stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+  }
+
+  .hubs-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .hubs-container-header {
+    padding: 24px 28px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+
+  .hubs-container-header h2 {
+    font-size: 1.25rem;
+    color: var(--text-primary);
+    margin: 0;
+    font-weight: 700;
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+  }
+
+  .hubs-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .hubs-table th,
+  .hubs-table td {
+    padding: 16px 20px;
+    text-align: left;
+    font-size: 0.9rem;
+  }
+
+  .hubs-table thead {
+    background: var(--bg);
+    border-bottom: 2px solid var(--border);
+  }
+
+  .hubs-table th {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .hubs-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+
+  .hubs-table tbody tr:hover {
+    background: #fafbfc;
+  }
+
+  .hub-info strong {
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .hub-info small {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .badge-active {
+    background: #ecfdf5;
+    color: #065f46;
+  }
+
+  .badge-hold {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .badge-deleted {
+    background: #fef2f2;
+    color: #991b1b;
+  }
+
+  .badge-info {
+    background: #eff6ff;
+    color: #1e40af;
+  }
+
+  .actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .btn-action {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-decoration: none;
+    display: inline-block;
+    font-family: inherit;
+  }
+
+  .btn-edit {
+    background: #eff6ff;
+    color: #1e40af;
+  }
+
+  .btn-edit:hover {
+    background: #dbeafe;
+  }
+
+  .btn-hold {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .btn-hold:hover {
+    background: #fde68a;
+  }
+
+  .btn-delete {
+    background: #fef2f2;
+    color: #991b1b;
+  }
+
+  .btn-delete:hover {
+    background: #fecaca;
+  }
+
+  .btn-view {
+    background: #f0fdf4;
+    color: #166534;
+  }
+
+  .btn-view:hover {
+    background: #dcfce7;
+  }
+
+  .no-hubs {
+    text-align: center;
+    padding: 80px 24px;
+  }
+
+  .no-hubs-icon {
+    font-size: 4rem;
+    margin-bottom: 16px;
+    opacity: 0.5;
+  }
+
+  .no-hubs h3 {
+    color: var(--text-primary);
+    font-size: 1.25rem;
+    margin: 0 0 8px 0;
+  }
+
+  .no-hubs p {
+    color: var(--text-secondary);
+    margin: 0 0 24px 0;
+  }
+
+  @media (max-width: 768px) {
+    .dashboard-wrapper {
+      padding: 24px 16px;
     }
 
-    .hub-container {
-      max-width: 1200px;
-      margin: 32px auto;
-      padding: 24px;
-      background: white;
-      border-radius: 10px;
-      border: 1px solid var(--border);
+    .dashboard-header {
+      flex-direction: column;
+      align-items: flex-start;
     }
 
-    .hub-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 24px;
+    .dashboard-title h1 {
+      font-size: 1.5rem;
     }
 
-    .hub-header h1 { font-size: 1.5rem; color: var(--text-primary); margin: 0; }
-
-    .btn-create {
-      padding: 10px 20px;
-      background: var(--primary);
-      color: white;
-      text-decoration: none;
-      border-radius: 8px;
-      font-weight: 600;
-      font-size: 0.9rem;
-      transition: background 0.15s;
+    .stats-grid {
+      grid-template-columns: 1fr;
     }
 
-    .btn-create:hover { background: var(--primary-hover); }
-
-    .table-wrapper { overflow-x: auto; }
-
-    .hubs-table { width: 100%; border-collapse: collapse; }
-
-    .hubs-table th, .hubs-table td {
-      padding: 12px 16px;
-      text-align: left;
-      border-bottom: 1px solid var(--border);
-      font-size: 0.9rem;
+    .table-wrapper {
+      overflow-x: scroll;
+      -webkit-overflow-scrolling: touch;
     }
 
-    .hubs-table th {
-      background: var(--bg);
-      font-weight: 600;
-      color: #475569;
-      font-size: 0.78rem;
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
+    .hubs-table {
+      min-width: 900px;
     }
+  }
+</style>
 
-    .hubs-table tr:hover td { background: var(--bg); }
+<div class="dashboard-wrapper">
+  <div class="dashboard-header">
+    <div class="dashboard-title">
+      <h1>🏢 Hub Management</h1>
+      <p>Manage and monitor all hubs in the system</p>
+    </div>
+    <div class="dashboard-actions">
+      <a href="/admin" class="btn-secondary">← Back to Admin</a>
+      <a href="/admin/hubs/create" class="btn-primary">
+        <span>+</span> Create New Hub
+      </a>
+    </div>
+  </div>
 
-    .badge {
-      display: inline-block;
-      padding: 3px 10px;
-      border-radius: 12px;
-      font-size: 0.78rem;
-      font-weight: 600;
-    }
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-card-header">
+        <div class="stat-icon primary">📊</div>
+        <div class="stat-content">
+          <h3>Total Hubs</h3>
+          <div class="stat-value"><%= hubs.length %></div>
+        </div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-header">
+        <div class="stat-icon success">✅</div>
+        <div class="stat-content">
+          <h3>Active</h3>
+          <div class="stat-value"><%= hubs.filter(h => !h.deleted && !h.on_hold).length %></div>
+        </div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-header">
+        <div class="stat-icon warning">⏸️</div>
+        <div class="stat-content">
+          <h3>On Hold</h3>
+          <div class="stat-value"><%= hubs.filter(h => h.on_hold && !h.deleted).length %></div>
+        </div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-header">
+        <div class="stat-icon danger">🗑️</div>
+        <div class="stat-content">
+          <h3>Deleted</h3>
+          <div class="stat-value"><%= hubs.filter(h => h.deleted).length %></div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-    .badge-active { background: #ecfdf5; color: #065f46; }
-    .badge-hold { background: #fef3c7; color: #92400e; }
-    .badge-deleted { background: #fef2f2; color: #991b1b; }
-
-    .actions { display: flex; gap: 6px; flex-wrap: wrap; }
-
-    .btn-action {
-      padding: 5px 10px;
-      border: none;
-      border-radius: 6px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.15s;
-      text-decoration: none;
-      display: inline-block;
-      font-family: inherit;
-    }
-
-    .btn-edit { background: #eff6ff; color: #1e40af; }
-    .btn-edit:hover { background: #dbeafe; }
-    .btn-hold { background: #fef3c7; color: #92400e; }
-    .btn-hold:hover { background: #fde68a; }
-    .btn-delete { background: #fef2f2; color: #991b1b; }
-    .btn-delete:hover { background: #fecaca; }
-    .btn-view { background: #f0fdf4; color: #166534; }
-    .btn-view:hover { background: #dcfce7; }
-
-    .no-hubs { text-align: center; padding: 40px; color: var(--text-secondary); }
-
-    .back-link {
-      display: block;
-      margin-top: 24px;
-      text-align: center;
-    }
-
-    .back-link a {
-      color: var(--primary);
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 0.9rem;
-    }
-
-    .back-link a:hover { text-decoration: underline; }
-
-    @media (max-width: 768px) {
-      .hub-header { flex-direction: column; gap: 12px; align-items: flex-start; }
-      .table-wrapper { overflow-x: scroll; -webkit-overflow-scrolling: touch; }
-      .hubs-table { min-width: 900px; }
-      .actions { flex-direction: column; }
-    }
-  </style>
-</head>
-<body>
-  <%- include('../partials/flash') %>
-
-  <div class="hub-container">
-    <div class="hub-header">
-      <h1>Manage Hubs</h1>
-      <a href="/admin/hubs/create" class="btn-create">+ Create New Hub</a>
+  <div class="hubs-container">
+    <div class="hubs-container-header">
+      <h2>All Hubs</h2>
     </div>
 
     <% if (hubs.length > 0) { %>
@@ -156,13 +440,15 @@
             <% hubs.forEach(hub => { %>
               <tr>
                 <td>
-                  <strong><%= hub.hub_name %></strong><br>
-                  <small style="color: var(--text-secondary);"><%= hub.hub_nickname %>.managira.com</small>
+                  <div class="hub-info">
+                    <strong><%= hub.hub_name %></strong>
+                    <small><%= hub.hub_nickname %>.managira.com</small>
+                  </div>
                 </td>
                 <td><%= hub.first_name %> <%= hub.last_name %></td>
                 <td><%= hub.hub_email %></td>
                 <td><%= hub.plan_name || 'No plan' %></td>
-                <td><span class="badge badge-active"><%= hub.org_count %> / <%= hub.max_organizations %></span></td>
+                <td><span class="badge badge-info"><%= hub.org_count %> / <%= hub.max_organizations %></span></td>
                 <td>
                   <% if (hub.deleted) { %>
                     <span class="badge badge-deleted">Deleted</span>
@@ -203,13 +489,11 @@
       </div>
     <% } else { %>
       <div class="no-hubs">
-        <p>No hubs created yet. Click "Create New Hub" to get started.</p>
+        <div class="no-hubs-icon">🏢</div>
+        <h3>No Hubs Yet</h3>
+        <p>Get started by creating your first hub</p>
+        <a href="/admin/hubs/create" class="btn-primary">+ Create First Hub</a>
       </div>
     <% } %>
-
-    <div class="back-link">
-      <a href="/admin">&larr; Back to Admin Dashboard</a>
-    </div>
   </div>
-</body>
-</html>
+</div>

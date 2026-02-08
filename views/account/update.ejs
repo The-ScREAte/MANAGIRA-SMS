@@ -61,16 +61,19 @@
 
     <div class="form-group">
       <label for="password">New Password (optional):</label>
-      <input type="password" id="password" name="password" />
+      <div class="password-input-wrapper">
+        <input type="password" id="password" name="password" />
+        <button type="button" class="password-toggle-btn" onclick="toggleMultiplePasswords(['password', 'confirmPassword'], this)" aria-label="Show passwords">
+          <i class="fa-solid fa-eye fa-fw" aria-hidden="true"></i>
+        </button>
+      </div>
     </div>
 
     <div class="form-group">
       <label for="confirmPassword">Confirm New Password:</label>
-      <input type="password" id="confirmPassword" name="confirmPassword" />
-    </div>
-
-    <div class="form-group">
-      <input type="checkbox" id="showPassword" /> Show Password
+      <div class="password-input-wrapper">
+        <input type="password" id="confirmPassword" name="confirmPassword" />
+      </div>
     </div>
 
     <div class="form-group" id="passwordMatchMessage" style="display: none">
@@ -106,9 +109,49 @@
     <button type="submit" class="btn-primary">Resume Subscription</button>
   </form>
 </div>
-<% } %> <% } %>
+<% } %>
+
+<!-- Hub Detachment Section (Only show if org is part of a hub) -->
+<% if (orgDetails.is_hub_member && orgDetails.hub_id) { %>
+<div class="account-update-card" style="margin-top: 30px; border-left: 4px solid #ffc107; background: #fff9e6;">
+  <h2 style="color: #ff6b00; margin-bottom: 15px;">🔗 Hub Membership</h2>
+  <p>Your organization is currently part of a hub. If you wish to become independent, you can request detachment.</p>
+  
+  <div style="background: white; padding: 15px; border-radius: 4px; margin: 15px 0;">
+    <h4 style="margin-top: 0;">What happens when you detach?</h4>
+    <ul style="margin: 10px 0; padding-left: 20px;">
+      <li>Your organization becomes independent</li>
+      <li>Your subdomain changes to <strong><%= orgDetails.nickname %>.managira.com</strong></li>
+      <li>You'll need to set up your own subscription plan</li>
+      <li>All your data (students, staff, classes) remains intact</li>
+      <li>The hub admin must approve your request</li>
+    </ul>
+  </div>
+
+  <button type="button" onclick="showDetachmentModal()" class="btn-danger" style="margin-top: 10px;">
+    Request Detachment from Hub
+  </button>
+</div>
+<% } %>
+
+<% } %>
 
 <script>
+  function toggleMultiplePasswords(inputIds, button) {
+    const icon = button.querySelector('i');
+    const firstInput = document.getElementById(inputIds[0]);
+    const isVisible = firstInput.type === 'text';
+    
+    inputIds.forEach(id => {
+      const input = document.getElementById(id);
+      if (input) input.type = isVisible ? 'password' : 'text';
+    });
+    
+    icon.classList.remove('fa-eye', 'fa-eye-slash');
+    icon.classList.add(isVisible ? 'fa-eye' : 'fa-eye-slash');
+    button.setAttribute('aria-label', isVisible ? 'Show passwords' : 'Hide passwords');
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
     const updateForm = document.getElementById("updateForm");
 
@@ -160,7 +203,7 @@
 
 <style>
       :root {
-        --font-family: "Inter", sans-serif;
+        --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
       }
 
   .account-update-title {
@@ -261,7 +304,124 @@
 </style>
 
 <style>
+  .password-input-wrapper {
+    position: relative;
+  }
+
+  .password-input-wrapper input {
+    padding-right: 45px;
+  }
+
+  .password-toggle-btn {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: #64748b;
+    cursor: pointer;
+    padding: 4px;
+    transition: color 0.2s ease;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+    pointer-events: auto;
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+  }
+
+  .password-toggle-btn:hover {
+    color: #01535b;
+    transform: translateY(-50%);
+  }
+
+  .password-toggle-btn:active {
+    transform: translateY(-50%);
+  }
+
+  .password-toggle-btn:focus {
+    outline: none;
+    transform: translateY(-50%);
+  }
+
+  .password-toggle-btn i {
+    font-size: 0.9rem;
+    transition: none;
+  }
+
   body {
     font-family: var(--font-family);
   }
 </style>
+
+<!-- Detachment Request Modal -->
+<div id="detachmentModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);">
+  <div style="background-color: #fefefe; margin: 5% auto; padding: 0; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); width: 90%; max-width: 600px;">
+    <div style="background: linear-gradient(135deg, #ff6b00 0%, #ff8c00 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+      <h2 style="margin: 0; font-size: 20px;">⚠️ Request Detachment from Hub</h2>
+    </div>
+    <form action="/account/request-hub-detachment" method="POST">
+      <div style="padding: 30px;">
+        <div style="background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin-bottom: 20px; border-radius: 4px;">
+          <strong>⚠️ Important:</strong> This request will be reviewed by your hub administrator. If approved, you will become an independent organization.
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; margin-bottom: 8px; font-weight: 600;">
+            Reason for Detachment <span style="color: red;">*</span>
+          </label>
+          <textarea 
+            name="reason" 
+            id="detachmentReason" 
+            rows="6" 
+            required
+            minlength="10"
+            style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit; resize: vertical;"
+            placeholder="Please explain why you want to detach from the hub. Minimum 10 characters required."
+          ></textarea>
+          <small style="color: #666; display: block; margin-top: 4px;">
+            Provide a detailed explanation for your hub administrator. Minimum 10 characters.
+          </small>
+        </div>
+
+        <div style="background: #e3f2fd; padding: 15px; border-left: 4px solid #2196F3; margin-bottom: 20px; border-radius: 4px;">
+          <h4 style="margin-top: 0;">What happens after detachment?</h4>
+          <ul style="margin: 10px 0; padding-left: 20px; font-size: 14px;">
+            <li>Your subdomain changes to <strong><%= orgDetails.nickname %>.managira.com</strong></li>
+            <li>You'll need to set up your own subscription plan</li>
+            <li>All data remains with your organization</li>
+            <li>You won't have access to hub-managed features</li>
+          </ul>
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button type="button" onclick="closeDetachmentModal()" style="padding: 10px 20px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer; font-weight: 500;">Cancel</button>
+          <button type="submit" style="padding: 10px 20px; border: none; background: #ff6b00; color: white; border-radius: 4px; cursor: pointer; font-weight: 500;">Submit Request</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function showDetachmentModal() {
+    document.getElementById('detachmentModal').style.display = 'block';
+    document.getElementById('detachmentReason').value = '';
+  }
+
+  function closeDetachmentModal() {
+    document.getElementById('detachmentModal').style.display = 'none';
+  }
+
+  // Close modal when clicking outside
+  window.onclick = function(event) {
+    const modal = document.getElementById('detachmentModal');
+    if (event.target === modal) {
+      closeDetachmentModal();
+    }
+  };
+</script>

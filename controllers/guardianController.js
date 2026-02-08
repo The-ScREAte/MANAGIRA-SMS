@@ -11,9 +11,7 @@ module.exports = {
     const organizationId = req.session.organizationId;
     const guardianId = req.session.guardianId;
 
-    console.log('📊 Guardian dashboard loading:', { guardianId, organizationId });
-
-    try {
+        try {
       // Get guardian profile info with full details
       const guardianProfile = await db.query(
         `SELECT gp.*, ga.login_email 
@@ -46,9 +44,7 @@ module.exports = {
         [guardian.first_name, guardian.last_name, guardian.phone, organizationId]
       );
 
-      console.log('📊 Students found:', kids.rows.length, kids.rows);
-
-      return res.render("guardian/dashboard", {
+            return res.render("guardian/dashboard", {
         title: "Parent Portal",
         guardian: guardian,
         children: kids.rows,
@@ -57,8 +53,7 @@ module.exports = {
         req,
       });
     } catch (error) {
-      console.error('Guardian dashboard error:', error);
-      req.flash('error', 'Error loading dashboard');
+            req.flash('error', 'Error loading dashboard');
       return res.redirect('/account/login');
     }
   },
@@ -313,8 +308,7 @@ module.exports = {
         messages: req.flash(),
       });
     } catch (error) {
-      console.error("Guardian common-style student details error:", error);
-      req.flash("error", "Error loading student details");
+            req.flash("error", "Error loading student details");
       return res.redirect("/guardian/dashboard");
     }
   },
@@ -476,8 +470,7 @@ module.exports = {
         req,
       });
     } catch (error) {
-      console.error('Guardian student details error:', error);
-      req.flash('error', 'Error loading student details');
+            req.flash('error', 'Error loading student details');
       return res.redirect('/guardian/dashboard');
     }
   },
@@ -521,8 +514,7 @@ module.exports = {
         req,
       });
     } catch (error) {
-      console.error('Guardian settings error:', error);
-      req.flash('error', 'Error loading settings');
+            req.flash('error', 'Error loading settings');
       return res.redirect('/guardian/dashboard');
     }
   },
@@ -584,8 +576,7 @@ module.exports = {
       req.flash('success', 'Settings updated successfully!');
       return res.redirect('/guardian/settings');
     } catch (error) {
-      console.error('Guardian settings update error:', error);
-      req.flash('error', 'Error updating settings');
+            req.flash('error', 'Error updating settings');
       return res.redirect('/guardian/settings');
     }
   },
@@ -624,8 +615,7 @@ module.exports = {
         req,
       });
     } catch (error) {
-      console.error('Guardian report page error:', error);
-      req.flash('error', 'Error loading report page');
+            req.flash('error', 'Error loading report page');
       return res.redirect('/guardian/dashboard');
     }
   },
@@ -697,8 +687,7 @@ module.exports = {
                 [reportId, userId, name, role]
               );
             } catch (innerErr) {
-              console.warn('Could not add recipient', userId, innerErr.message);
-            }
+                          }
           }
         }
       }
@@ -706,8 +695,7 @@ module.exports = {
       req.flash('success', 'Report submitted successfully! The school will review and respond soon.');
       return res.redirect('/guardian/report');
     } catch (error) {
-      console.error('Guardian report submission error:', error);
-      req.flash('error', 'Error submitting report');
+            req.flash('error', 'Error submitting report');
       return res.redirect('/guardian/report');
     }
   },
@@ -718,9 +706,7 @@ module.exports = {
     const studentId = req.query.studentId;
     const termId = req.query.termId || req.session.currentTermId;
 
-    console.log('📚 Guardian academic details loading:', { guardianId, studentId, termId });
-
-    if (!studentId || !termId) {
+        if (!studentId || !termId) {
       req.flash('error', 'Student ID and Term ID are required');
       return res.redirect('/guardian/dashboard');
     }
@@ -962,8 +948,7 @@ module.exports = {
         );
         pastResults = pastResultsQuery.rows;
       } catch (error) {
-        console.log('Report cards table may not exist yet:', error.message);
-        pastResults = [];
+                pastResults = [];
       }
 
       // Fetch last 3 terms for dropdown
@@ -994,8 +979,7 @@ module.exports = {
         req,
       });
     } catch (error) {
-      console.error('Guardian academic details error:', error);
-      req.flash('error', 'Error loading academic details');
+            req.flash('error', 'Error loading academic details');
       return res.redirect('/guardian/dashboard');
     }
   },
@@ -1027,8 +1011,7 @@ module.exports = {
         req
       });
     } catch (error) {
-      console.error('Error loading reports:', error);
-      req.flash('error', 'Error loading reports');
+            req.flash('error', 'Error loading reports');
       res.redirect('/guardian/dashboard');
     }
   },
@@ -1070,8 +1053,7 @@ module.exports = {
         req
       });
     } catch (error) {
-      console.error('Error loading report form:', error);
-      req.flash('error', 'Error loading form');
+            req.flash('error', 'Error loading form');
       res.redirect('/guardian/dashboard');
     }
   },
@@ -1115,8 +1097,7 @@ module.exports = {
       req.flash('success', 'Report submitted successfully');
       res.redirect(`/guardian/reports/${reportId}`);
     } catch (error) {
-      console.error('Error creating report:', error);
-      req.flash('error', 'Error submitting report');
+            req.flash('error', 'Error submitting report');
       res.redirect('/guardian/reports/new');
     }
   },
@@ -1168,8 +1149,7 @@ module.exports = {
         req
       });
     } catch (error) {
-      console.error('Error loading report details:', error);
-      req.flash('error', 'Error loading report');
+            req.flash('error', 'Error loading report');
       res.redirect('/guardian/reports');
     }
   },
@@ -1217,8 +1197,7 @@ module.exports = {
       req.flash('success', 'Reply added');
       res.redirect(`/guardian/reports/${reportId}`);
     } catch (error) {
-      console.error('Error adding reply:', error);
-      req.flash('error', 'Error adding reply');
+            req.flash('error', 'Error adding reply');
       res.redirect(`/guardian/reports/${reportId}`);
     }
   },

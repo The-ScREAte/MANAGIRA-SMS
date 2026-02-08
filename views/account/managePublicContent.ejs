@@ -27,7 +27,7 @@
     const currentTheme = themeColors[themeColor] || themeColors.teal;
   %>
   :root {
-    --font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     --primary: <%= currentTheme.primary %>;
     --primary-hover: <%= currentTheme.hover %>;
     --primary-light: <%= currentTheme.primary %>1a;

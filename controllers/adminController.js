@@ -40,8 +40,7 @@ const adminController = {
         showFooterTopSection: true
       });
     } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-      req.flash("error", "Error fetching dashboard data.");
+            req.flash("error", "Error fetching dashboard data.");
       res.render("admin/dashboard", {
         title: "Admin Dashboard",
         applications: [],
@@ -61,8 +60,7 @@ const adminController = {
       }
       next();
     } catch (error) {
-      console.error("Error in ensureAdmin middleware:", error);
-      req.flash("error", "An error occurred during authorization.");
+            req.flash("error", "An error occurred during authorization.");
       res.redirect("/admin");
     }
   },
@@ -88,8 +86,7 @@ const adminController = {
         showFooterTopSection: true
       });
     } catch (error) {
-      console.error("❌ Error loading promo codes:", error);
-      req.flash("error", "Failed to load promo codes.");
+            req.flash("error", "Failed to load promo codes.");
       res.redirect("/admin");
     }
   },
@@ -120,8 +117,7 @@ const adminController = {
       req.flash("success", "Promo code created successfully!");
       return res.redirect("/admin/create-promo");
     } catch (error) {
-      console.error("Error creating promo code:", error);
-      req.flash("error", "An error occurred. Please try again.");
+            req.flash("error", "An error occurred. Please try again.");
       return res.redirect("/admin/create-promo");
     }
   },
@@ -140,8 +136,7 @@ const adminController = {
       req.flash("success", "Promo code deleted successfully!");
       return res.redirect("/admin/create-promo");
     } catch (error) {
-      console.error("Error deleting promo code:", error);
-      req.flash("error", "Failed to delete promo code.");
+            req.flash("error", "Failed to delete promo code.");
       return res.redirect("/admin/create-promo");
     }
   },
@@ -173,8 +168,7 @@ const adminController = {
 
       res.redirect("/admin");
     } catch (error) {
-      console.error("Error putting organization on hold:", error);
-      req.flash("error", "Failed to put organization on hold.");
+            req.flash("error", "Failed to put organization on hold.");
       res.redirect("/admin");
     }
   },
@@ -201,8 +195,7 @@ const adminController = {
 
       res.redirect("/admin");
     } catch (error) {
-      console.error("Error resuming organization:", error);
-      req.flash("error", "Failed to resume organization.");
+            req.flash("error", "Failed to resume organization.");
       res.redirect("/admin");
     }
   },
@@ -229,8 +222,7 @@ const adminController = {
 
       res.redirect("/admin");
     } catch (error) {
-      console.error("Error deleting organization:", error);
-      req.flash("error", "Failed to delete organization.");
+            req.flash("error", "Failed to delete organization.");
       res.redirect("/admin");
     }
   },
@@ -264,8 +256,7 @@ const adminController = {
         showFooterTopSection: true
       });
     } catch (error) {
-      console.error("Error fetching data for Super Admin Dashboard:", error);
-      req.flash("error", "Failed to fetch data for the Super Admin Dashboard.");
+            req.flash("error", "Failed to fetch data for the Super Admin Dashboard.");
       res.render("admin/superDashboard", {
         title: "Super Admin Dashboard",
         deletedAccounts: [], // Default to an empty array if the query fails
@@ -286,8 +277,7 @@ const adminController = {
       req.flash("success", "Admin user deleted successfully.");
       res.redirect("/admin/superSettings"); // Redirect back to the settings page
     } catch (error) {
-      console.error("Error deleting admin user:", error);
-      req.flash("error", "Failed to delete admin user.");
+            req.flash("error", "Failed to delete admin user.");
       res.redirect("/admin/superSettings");
     }
   },
@@ -308,8 +298,7 @@ const adminController = {
         showFooterTopSection: true
       });
     } catch (error) {
-      console.error("Error fetching admin users:", error);
-      req.flash("error", "Failed to fetch admin users.");
+            req.flash("error", "Failed to fetch admin users.");
       res.render("admin/superSettings", {
         title: "Super Admin Settings",
         admins: [],
@@ -336,8 +325,7 @@ const adminController = {
       req.flash("success", `Admin user is now ${status}.`);
       res.redirect("/admin/superSettings");
     } catch (error) {
-      console.error("Error toggling admin hold status:", error);
-      req.flash("error", "Failed to update admin status.");
+            req.flash("error", "Failed to update admin status.");
       res.redirect("/admin/superSettings");
     }
   },
@@ -366,8 +354,7 @@ const adminController = {
         showFooterTopSection: true
       });
     } catch (error) {
-      console.error("Error fetching admin user details:", error);
-      req.flash("error", "Failed to load admin user details.");
+            req.flash("error", "Failed to load admin user details.");
       res.redirect("/admin/superSettings");
     }
   },
@@ -426,8 +413,7 @@ const adminController = {
       req.flash("success", "Admin user details updated successfully.");
       res.redirect("/admin/superSettings");
     } catch (error) {
-      console.error("Error updating admin user details:", error);
-      req.flash("error", "Failed to update admin user details.");
+            req.flash("error", "Failed to update admin user details.");
       res.redirect(`/admin/editAdminUser/${userId}`);
     }
   },
@@ -496,8 +482,7 @@ const adminController = {
       );
       res.redirect("/admin/superSettings");
     } catch (error) {
-      console.error("Error creating admin user:", error);
-      req.flash("error", "Failed to create admin user.");
+            req.flash("error", "Failed to create admin user.");
       res.redirect("/admin/superSettings");
     }
   },
@@ -521,8 +506,7 @@ const adminController = {
 
       res.redirect("/admin/superDashboard");
     } catch (error) {
-      console.error("Error restoring organization:", error);
-      req.flash("error", "Failed to restore organization.");
+            req.flash("error", "Failed to restore organization.");
       res.redirect("/admin/superDashboard");
     }
   },
@@ -548,8 +532,7 @@ const adminController = {
         showFooterTopSection: true
       });
     } catch (error) {
-      console.error("Error fetching help messages:", error);
-      res.status(500).send("Failed to fetch help messages.");
+            res.status(500).send("Failed to fetch help messages.");
     }
   },
 
@@ -635,8 +618,7 @@ const adminController = {
         res.redirect("/admin/helpMessages");
       });
     } catch (error) {
-      console.error("Error responding to the message:", error);
-      req.flash("error", "Failed to process the response.");
+            req.flash("error", "Failed to process the response.");
       res.redirect("/admin/helpMessages");
     }
   },
@@ -716,8 +698,7 @@ const adminController = {
 
       transporter.sendMail(mailOptions, (error, info) => {
         if (error) {
-          console.error("Error sending email:", error);
-          req.flash("error", "Failed to send resolved notification email.");
+                    req.flash("error", "Failed to send resolved notification email.");
         } else {
           req.flash(
             "success",
@@ -727,8 +708,7 @@ const adminController = {
         res.redirect("/admin/helpMessages");
       });
     } catch (error) {
-      console.error("Error marking thread as resolved:", error);
-      req.flash("error", "Failed to mark as closed.");
+            req.flash("error", "Failed to mark as closed.");
       res.redirect("/admin/helpMessages");
     }
   },
@@ -752,8 +732,7 @@ const adminController = {
         showFooterTopSection: true
       });
     } catch (error) {
-      console.error("Error fetching help history:", error);
-      res.status(500).send("Failed to fetch help history.");
+            res.status(500).send("Failed to fetch help history.");
     }
   },
 
@@ -831,8 +810,7 @@ const adminController = {
 
       transporter.sendMail(mailOptions, (error, info) => {
         if (error) {
-          console.error("Error sending email:", error);
-          req.flash("error", "Failed to send reopened notification email.");
+                    req.flash("error", "Failed to send reopened notification email.");
         } else {
           req.flash(
             "success",
@@ -842,8 +820,7 @@ const adminController = {
         res.redirect("/admin/helpHistory");
       });
     } catch (error) {
-      console.error("Error reopening thread:", error);
-      req.flash("error", "Failed to reopen the thread.");
+            req.flash("error", "Failed to reopen the thread.");
       res.redirect("/admin/helpHistory");
     }
   },
@@ -856,8 +833,7 @@ const adminController = {
       req.flash("success", "Thread deleted successfully.");
       res.redirect("/admin/helpHistory");
     } catch (error) {
-      console.error("Error deleting thread:", error);
-      req.flash("error", "Failed to delete thread.");
+            req.flash("error", "Failed to delete thread.");
       res.redirect("/admin/helpHistory");
     }
   },
@@ -873,8 +849,7 @@ const adminController = {
       req.flash("success", "Thread restored to Help Messages.");
       res.redirect("/admin/superDashboard");
     } catch (error) {
-      console.error("Error restoring thread:", error);
-      req.flash("error", "Failed to restore thread.");
+            req.flash("error", "Failed to restore thread.");
       res.redirect("/admin/superDashboard");
     }
   },
@@ -887,8 +862,7 @@ const adminController = {
       req.flash("success", "Thread permanently deleted.");
       res.redirect("/admin/superDashboard");
     } catch (error) {
-      console.error("Error permanently deleting thread:", error);
-      req.flash("error", "Failed to delete thread.");
+            req.flash("error", "Failed to delete thread.");
       res.redirect("/admin/superDashboard");
     }
   },
@@ -915,8 +889,7 @@ const adminController = {
       );
       res.redirect("/admin/helpMessages");
     } catch (error) {
-      console.error("Error temporarily deleting thread:", error);
-      req.flash("error", "Failed to delete thread.");
+            req.flash("error", "Failed to delete thread.");
       res.redirect("/admin/helpMessages");
     }
   },
@@ -955,8 +928,7 @@ const adminController = {
         const intervalResult = await db.query("SELECT value FROM app_settings WHERE key = 'billing_interval'");
         if (intervalResult.rows.length > 0) billingInterval = intervalResult.rows[0].value;
       } catch (err) {
-        console.error('Error fetching free trial/billing settings:', err);
-      }
+              }
 
       res.render("admin/servicePricing", {
         title: "Service Pricing Management",
@@ -969,8 +941,7 @@ const adminController = {
         showFooterTopSection: true
       });
     } catch (error) {
-      console.error("Error fetching service pricing:", error);
-      req.flash("error", "Failed to fetch service pricing.");
+            req.flash("error", "Failed to fetch service pricing.");
       res.redirect("/admin");
     }
   },
@@ -996,8 +967,7 @@ const adminController = {
         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, [days]);
       req.flash('success', 'Free trial settings updated.');
     } catch (error) {
-      console.error('Error updating free trial settings:', error);
-      req.flash('error', 'Failed to update free trial settings.');
+            req.flash('error', 'Failed to update free trial settings.');
     }
     res.redirect('/admin/servicePricing');
   },
@@ -1011,8 +981,7 @@ const adminController = {
         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, [interval]);
       req.flash('success', 'Billing interval updated.');
     } catch (error) {
-      console.error('Error updating billing interval:', error);
-      req.flash('error', 'Failed to update billing interval.');
+            req.flash('error', 'Failed to update billing interval.');
     }
     res.redirect('/admin/servicePricing');
   },
@@ -1032,8 +1001,7 @@ const adminController = {
         messages: req.flash(),
       });
     } catch (error) {
-      console.error("Error fetching scheduled holds:", error);
-      req.flash("error", "Failed to load scheduled holds.");
+            req.flash("error", "Failed to load scheduled holds.");
       res.redirect("/admin");
     }
   },
@@ -1048,8 +1016,7 @@ const adminController = {
       req.flash("success", "Feature added successfully.");
       res.redirect("/admin/servicePricing");
     } catch (error) {
-      console.error("Error adding feature:", error);
-      req.flash("error", "Failed to add feature.");
+            req.flash("error", "Failed to add feature.");
       res.redirect("/admin/servicePricing");
     }
   },
@@ -1064,8 +1031,7 @@ const adminController = {
       req.flash("success", "Feature updated successfully.");
       res.redirect("/admin/servicePricing");
     } catch (error) {
-      console.error("Error updating feature:", error);
-      req.flash("error", "Failed to update feature.");
+            req.flash("error", "Failed to update feature.");
       res.redirect("/admin/servicePricing");
     }
   },
@@ -1080,8 +1046,7 @@ const adminController = {
       req.flash("success", "Plan activation status updated.");
       res.redirect("/admin/servicePricing");
     } catch (error) {
-      console.error("Error toggling plan status:", error);
-      req.flash("error", "Failed to update plan status.");
+            req.flash("error", "Failed to update plan status.");
       res.redirect("/admin/servicePricing");
     }
   },
@@ -1118,8 +1083,7 @@ const adminController = {
       req.flash("success", "Feature added and total cost updated.");
       res.redirect("/admin/servicePricing");
     } catch (error) {
-      console.error("Error adding feature:", error);
-      req.flash("error", "Failed to add feature.");
+            req.flash("error", "Failed to add feature.");
       res.redirect("/admin/servicePricing");
     }
   },
@@ -1156,8 +1120,7 @@ const adminController = {
       req.flash("success", "Feature removed and total cost updated.");
       res.redirect("/admin/servicePricing");
     } catch (error) {
-      console.error("Error removing feature:", error);
-      req.flash("error", "Failed to remove feature.");
+            req.flash("error", "Failed to remove feature.");
       res.redirect("/admin/servicePricing");
     }
   },
@@ -1172,8 +1135,7 @@ const adminController = {
       req.flash("success", "Plan description updated.");
       res.redirect("/admin/servicePricing");
     } catch (error) {
-      console.error("Error updating description:", error);
-      req.flash("error", "Failed to update.");
+            req.flash("error", "Failed to update.");
       res.redirect("/admin/servicePricing");
     }
   },
@@ -1184,8 +1146,7 @@ const adminController = {
       await db.query("DELETE FROM features WHERE id = $1", [featureId]);
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting feature:", error);
-      res.json({ success: false, error: "Failed to delete feature." });
+            res.json({ success: false, error: "Failed to delete feature." });
     }
   },
 
@@ -1198,8 +1159,7 @@ const adminController = {
       req.flash("success", "Organization permanently deleted successfully.");
       res.redirect("/admin/superDashboard");
     } catch (error) {
-      console.error("Error permanently deleting organization:", error);
-      req.flash("error", "Failed to permanently delete organization.");
+            req.flash("error", "Failed to permanently delete organization.");
       res.redirect("/admin/superDashboard");
     }
   },
@@ -1215,8 +1175,7 @@ const adminController = {
         messages: req.flash(),
       });
     } catch (error) {
-      console.error("Error loading Data Export page:", error);
-      req.flash("error", "Failed to load Data Export page.");
+            req.flash("error", "Failed to load Data Export page.");
       res.redirect("/admin");
     }
   },
@@ -1247,8 +1206,7 @@ const adminController = {
       );
       req.flash("success", "Job added successfully.");
     } catch (err) {
-      console.error(err);
-      req.flash("error", "Error saving job.");
+            req.flash("error", "Error saving job.");
     }
 
     res.redirect("/admin/employment");
@@ -1270,8 +1228,7 @@ const adminController = {
       req.flash("success", "All plan total costs have been recalculated successfully.");
       res.redirect("/admin/servicePricing");
     } catch (error) {
-      console.error("Error recalculating plan totals:", error);
-      req.flash("error", "Failed to recalculate plan totals.");
+            req.flash("error", "Failed to recalculate plan totals.");
       res.redirect("/admin/servicePricing");
     }
   },
@@ -1282,8 +1239,7 @@ const adminController = {
       await db.query(`DELETE FROM employment WHERE id = $1`, [id]);
       req.flash("success", "Job deleted.");
     } catch (err) {
-      console.error(err);
-      req.flash("error", "Error deleting job.");
+            req.flash("error", "Error deleting job.");
     }
     res.redirect("/admin/employment");
   },
@@ -1323,8 +1279,7 @@ const adminController = {
       );
       req.flash("success", "Donation created.");
     } catch (err) {
-      console.error(err);
-      req.flash("error", "Failed to save donation.");
+            req.flash("error", "Failed to save donation.");
     }
 
     res.redirect("/admin/donations");
@@ -1339,8 +1294,7 @@ const adminController = {
       await db.query(`DELETE FROM donations WHERE id = $1`, [id]);
       req.flash("success", "Donation deleted.");
     } catch (err) {
-      console.error(err);
-      req.flash("error", "Error deleting donation.");
+            req.flash("error", "Error deleting donation.");
     }
 
     res.redirect("/admin/donations");
@@ -1357,8 +1311,7 @@ const adminController = {
         messages: req.flash(),
       });
     } catch (error) {
-      console.error("Error loading admin announcements:", error);
-      req.flash("error", "Failed to load announcements.");
+            req.flash("error", "Failed to load announcements.");
       res.redirect("/admin");
     }
   },
@@ -1377,8 +1330,7 @@ const adminController = {
       );
       req.flash("success", "Announcement created.");
     } catch (error) {
-      console.error("Error creating announcement:", error);
-      req.flash("error", "Failed to create announcement.");
+            req.flash("error", "Failed to create announcement.");
     }
 
     res.redirect("/admin/announcements");
@@ -1393,8 +1345,7 @@ const adminController = {
       );
       req.flash("success", "Announcement status toggled.");
     } catch (error) {
-      console.error("Error toggling announcement status:", error);
-      req.flash("error", "Failed to update announcement.");
+            req.flash("error", "Failed to update announcement.");
     }
 
     res.redirect("/admin/announcements");
@@ -1406,8 +1357,7 @@ const adminController = {
       await db.query(`DELETE FROM admin_announcements WHERE id = $1`, [id]);
       req.flash("success", "Announcement deleted.");
     } catch (error) {
-      console.error("Error deleting announcement:", error);
-      req.flash("error", "Failed to delete announcement.");
+            req.flash("error", "Failed to delete announcement.");
     }
 
     res.redirect("/admin/announcements");
@@ -1635,8 +1585,7 @@ const adminController = {
         doc.end();
       }
     } catch (error) {
-      console.error("Error generating organization CSV/PDF:", error);
-      req.flash("error", "Failed to generate export.");
+            req.flash("error", "Failed to generate export.");
       res.redirect("/admin/data-export");
     }
   },
@@ -1780,8 +1729,7 @@ adminController.hubsListGet = async (req, res) => {
       showFooterTopSection: true
     });
   } catch (error) {
-    console.error('Error fetching hubs:', error);
-    req.flash('error', 'Error loading hubs.');
+        req.flash('error', 'Error loading hubs.');
     res.redirect('/admin');
   }
 };
@@ -1798,8 +1746,7 @@ adminController.hubCreateGet = async (req, res) => {
       showFooterTopSection: true
     });
   } catch (error) {
-    console.error('Error loading hub create form:', error);
-    req.flash('error', 'Error loading form.');
+        req.flash('error', 'Error loading form.');
     res.redirect('/admin/hubs');
   }
 };
@@ -1919,8 +1866,7 @@ adminController.hubCreatePost = async (req, res) => {
     req.flash('success', 'Hub created successfully! Setup instructions sent to the hub email.');
     res.redirect('/admin/hubs');
   } catch (error) {
-    console.error('Error creating hub:', error);
-    req.flash('error', 'Error creating hub.');
+        req.flash('error', 'Error creating hub.');
     res.redirect('/admin/hubs/create');
   }
 };
@@ -1950,8 +1896,7 @@ adminController.hubEditGet = async (req, res) => {
       showFooterTopSection: true
     });
   } catch (error) {
-    console.error('Error loading hub edit form:', error);
-    req.flash('error', 'Error loading form.');
+        req.flash('error', 'Error loading form.');
     res.redirect('/admin/hubs');
   }
 };
@@ -1987,8 +1932,7 @@ adminController.hubEditPost = async (req, res) => {
     req.flash('success', 'Hub updated successfully.');
     res.redirect('/admin/hubs');
   } catch (error) {
-    console.error('Error updating hub:', error);
-    req.flash('error', 'Error updating hub.');
+        req.flash('error', 'Error updating hub.');
     res.redirect(`/admin/hubs/${hubId}/edit`);
   }
 };
@@ -2006,8 +1950,7 @@ adminController.hubHoldPost = async (req, res) => {
     req.flash('success', 'Hub put on hold successfully.');
     res.redirect('/admin/hubs');
   } catch (error) {
-    console.error('Error holding hub:', error);
-    req.flash('error', 'Error putting hub on hold.');
+        req.flash('error', 'Error putting hub on hold.');
     res.redirect('/admin/hubs');
   }
 };
@@ -2025,8 +1968,7 @@ adminController.hubResumePost = async (req, res) => {
     req.flash('success', 'Hub resumed successfully.');
     res.redirect('/admin/hubs');
   } catch (error) {
-    console.error('Error resuming hub:', error);
-    req.flash('error', 'Error resuming hub.');
+        req.flash('error', 'Error resuming hub.');
     res.redirect('/admin/hubs');
   }
 };
@@ -2044,8 +1986,7 @@ adminController.hubDeletePost = async (req, res) => {
     req.flash('success', 'Hub deleted successfully.');
     res.redirect('/admin/hubs');
   } catch (error) {
-    console.error('Error deleting hub:', error);
-    req.flash('error', 'Error deleting hub.');
+        req.flash('error', 'Error deleting hub.');
     res.redirect('/admin/hubs');
   }
 };
@@ -2081,8 +2022,7 @@ adminController.hubOrganizationsGet = async (req, res) => {
       showFooterTopSection: true
     });
   } catch (error) {
-    console.error('Error loading hub organizations:', error);
-    req.flash('error', 'Error loading organizations.');
+        req.flash('error', 'Error loading organizations.');
     res.redirect('/admin/hubs');
   }
 };

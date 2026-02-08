@@ -305,7 +305,7 @@
     background: transparent;
     color: var(--org-primary-color);
     z-index: 9998;
-    padding: 0;
+    padding: 5px;
     box-shadow: none;
     border-bottom: none;
   }
@@ -875,9 +875,28 @@
       if (logo.startsWith("/")) return logo;
       return `/${logo}`;
     };
+    
+    // Debug logging for hub data
+    if (session && session.firstName) {
+      console.log('🔍 Header Session Data:', {
+        user: session.firstName,
+        orgName: session.organizationName,
+        isHubMember: session.isHubMember,
+        hubName: session.hubName,
+        hubLogo: session.hubLogo,
+        orgLogo: session.logo,
+        accountType: session.accountType
+      });
+      
+      // Check if hub logo is valid
+      if (session.hubLogo) {
+        const isValid = !session.hubLogo.endsWith('/hub-logos') && !session.hubLogo.endsWith('/images/hub-logos');
+        console.log('   Hub Logo Valid?', isValid ? '✓ YES' : '✗ NO (incomplete path)');
+      }
+    }
   %>
   <% const isPublicDashboard = url && url.includes('/publicDashboard'); %>
-  <% const dashboardHref = req.session && req.session.userRole === 'Guardian' ? '/guardian/dashboard' : '/common/orgDashboard'; %>
+  <% const dashboardHref = req.session && req.session.accountType === 'Hub' ? '/hub/dashboard' : (req.session && req.session.userRole === 'Guardian' ? '/guardian/dashboard' : '/common/orgDashboard'); %>
   <div class="header-mobile-row">
     <div class="header-mobile-left">
       <span class="siteName">
@@ -894,10 +913,12 @@
             <img src="/images/managira.png" alt="Managira Logo" class="logo" />
           </a>
         <% } else if (session.logo) { %>
-          <!-- Only show Org logo when logged in -->
+          <!-- Show Organization logo when logged in -->
           <a href="<%= dashboardHref %>" title="Go to dashboard">
-            <img src="<%= normalizeLogoSrc(session.logo) %>" alt="Organization Logo" class="logo" />
+            <img src="<%= normalizeLogoSrc(session.logo) %>" alt="<%= session.accountType === 'Hub' ? 'Hub' : 'Organization' %> Logo" class="logo" />
           </a>
+        <% } else if (session.accountType === 'Hub') { %>
+          <!-- Hub without logo - show nothing or hub name only -->
         <% } %>
         <!-- Move org name/nickname outside <a> for better flex and visibility -->
         <div class="org-names">
@@ -917,21 +938,12 @@
               <% } %>
             </h3>
           </a>
-          
-          <!-- Hub Badge for Hub Members -->
-          <% if (session.isHubMember && session.hubName) { %>
-            <div style="margin-top: 4px;">
-              <span style="background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%); color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; display: inline-block;">
-                🏢 Managed by <%= session.hubName %>
-              </span>
-            </div>
-          <% } %>
         </div>
       </span>
     </div>
     <div id="tools">
       <% if (session.firstName) { %>
-      <% if (req.session.userRole !== 'Guardian') { %>
+      <% if ((req.session.userRole && req.session.userRole !== 'Guardian') || req.session.accountType === 'Hub') { %>
       <div class="search-bar-container">
         <form class="search-bar" id="search-form" autocomplete="off" aria-label="Search">
           <i class="fa-solid fa-magnifying-glass search-icon" aria-hidden="true"></i>
@@ -969,7 +981,28 @@
         <li class="nav-item mobile-welcome">
           <span class="welcome-label">Hello, <%= session.firstName %>!</span>
         </li>
-      <% if (req.session && req.session.userRole === 'Guardian') { %>
+      <% if (req.session && req.session.accountType === 'Hub') { %>
+        <!-- Hub-only menu -->
+        <li class="nav-item"><a href="/hub/dashboard" class="management-link">
+          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+          </svg>
+          Dashboard
+        </a></li>
+        <li class="nav-item"><a href="/hub/settings" class="nav-item-link management-link">
+          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          </svg>
+          Settings
+        </a></li>
+        <li class="nav-item"><a href="/hub/logout" class="logout management-link" style="color:#dc2626;">
+          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+          </svg>
+          Logout
+        </a></li>
+      <% } else if (req.session && req.session.userRole === 'Guardian') { %>
         <!-- Guardian-only menu -->
         <li class="nav-item"><a href="/guardian/dashboard" class="management-link">
           <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -88,9 +88,7 @@ async function sendBrandedReceiptEmail({
       "ReceiptEmail"
     );
   } catch (error) {
-    console.error("Error sending receipt email:", error.message);
-
-    throw new Error("Failed to send receipt email.");
+        throw new Error("Failed to send receipt email.");
   }
 }
 
@@ -184,9 +182,7 @@ async function sendInvoiceEmail(email, orgName, invoice) {
 
     await transporter.sendMail(mailOptions);
   } catch (error) {
-    console.error("❌ Error sending invoice email:", error.message);
-
-    throw new Error("Failed to send invoice email.");
+        throw new Error("Failed to send invoice email.");
   }
 }
 
@@ -365,9 +361,7 @@ async function sendRegistrationSuccessEmail(
 
     await transporter.sendMail(mailOptions);
   } catch (error) {
-    console.error("Error sending registration success email:", error.message);
-
-    throw new Error("Failed to send registration success email.");
+        throw new Error("Failed to send registration success email.");
   }
 }
 
@@ -453,12 +447,7 @@ async function sendPasswordResetConfirmationEmail(email) {
   try {
     await transporter.sendMail(mailOptions);
   } catch (error) {
-    console.error(
-      "Error sending password reset confirmation email:",
-
-      error.message
-    );
-  }
+      }
 }
 
 async function notifyAdminOfRegistration(
@@ -598,11 +587,7 @@ const accountController = {
       );
       return res.json({ success: true, banks: response.data?.data || [] });
     } catch (err) {
-      console.error(
-        "❌ Error listing Paystack banks:",
-        err.response?.data || err.message
-      );
-      return res
+            return res
         .status(500)
         .json({ success: false, message: "Failed to list banks" });
     }
@@ -681,9 +666,7 @@ const accountController = {
         messages: req.flash(),
       });
     } catch (error) {
-      console.error("Error fetching service plans:", error);
-
-      req.flash("error", "Failed to fetch service plans.");
+            req.flash("error", "Failed to fetch service plans.");
 
       res.redirect("/account");
     }
@@ -930,8 +913,7 @@ const accountController = {
         proof1Url = await uploadToS3(proof1);
         proof2Url = proof2 ? await uploadToS3(proof2) : "";
       } catch (uploadErr) {
-        console.error("❌ Error uploading proofs:", uploadErr);
-        return stickyError("Unable to upload proof documents. Please retry.");
+                return stickyError("Unable to upload proof documents. Please retry.");
       }
 
       // Save registration details in session with selected plan
@@ -974,22 +956,18 @@ const accountController = {
       delete req.session.formMessages;
       return res.redirect("/account/payment");
     } catch (error) {
-      console.error("❌ Error during registration:", error);
-
-      // Attempt cleanup of uploaded proofs if present
+            // Attempt cleanup of uploaded proofs if present
       if (typeof proof1Url !== "undefined" && proof1Url) {
         try {
           await deleteFromS3(proof1Url);
         } catch (cleanupErr) {
-          console.error("⚠️ Failed to clean up proof1:", cleanupErr.message);
-        }
+                  }
       }
       if (typeof proof2Url !== "undefined" && proof2Url) {
         try {
           await deleteFromS3(proof2Url);
         } catch (cleanupErr) {
-          console.error("⚠️ Failed to clean up proof2:", cleanupErr.message);
-        }
+                  }
       }
 
       req.session.formData = req.body;
@@ -1069,11 +1047,7 @@ const accountController = {
         if (enabledResult.rows.length > 0)
           freeTrialEnabled = enabledResult.rows[0].value;
       } catch (err) {
-        console.error(
-          "Error fetching interval/trial/enabled for payment page:",
-          err
-        );
-      }
+              }
 
       // Labels for UI
       billingIntervalLabel = billingInterval;
@@ -1204,9 +1178,7 @@ const accountController = {
         // layout: false // Use default layout for header and footer
       });
     } catch (error) {
-      console.error("Error initializing payment:", error);
-
-      req.flash("error", "Unable to initialize payment. Please try again.");
+            req.flash("error", "Unable to initialize payment. Please try again.");
 
       return res.redirect("/account/login");
     }
@@ -1368,8 +1340,7 @@ const accountController = {
         if (daysResult.rows.length > 0)
           freeTrialDays = daysResult.rows[0].value;
       } catch (err) {
-        console.error("Error fetching billing/trial settings:", err);
-      }
+              }
 
       const isTrialCheckout =
         freeTrialEnabled &&
@@ -1387,23 +1358,14 @@ const accountController = {
         trialActiveUntil = new Date();
         if (freeTrialDays === "5_minutes") {
           trialActiveUntil.setMinutes(trialActiveUntil.getMinutes() + 5);
-          console.log(
-            "🎯 TRIAL DEBUG: 5-minute trial set, ends at:",
-            trialActiveUntil
-          );
-        } else {
+                  } else {
           const days = parseInt(freeTrialDays);
           if (days > 0) {
             trialActiveUntil.setDate(trialActiveUntil.getDate() + days);
-            console.log(
-              "🎯 TRIAL DEBUG: " + days + "-day trial set, ends at:",
-              trialActiveUntil
-            );
-          }
+                      }
         }
       } else {
-        console.log("🎯 TRIAL DEBUG: No trial enabled or invalid settings");
-      }
+              }
 
       // Only create Paystack plan/subscription if not on free trial
 
@@ -1510,28 +1472,19 @@ const accountController = {
         // If we have a trial period AND we're charging the $1 validation amount, use trial end date
 
         if (trialActiveUntil && data.amount <= 100) {
-          console.log(
-            "🎯 Trial payment detected - Setting next payment to trial end date:",
-            trialActiveUntil
-          );
-          return new Date(trialActiveUntil);
+                    return new Date(trialActiveUntil);
         }
 
         // If we have trial period but charging full amount, still respect trial (shouldn't happen but safety check)
 
         if (trialActiveUntil) {
-          console.log(
-            "🎯 Trial active - Setting next payment to trial end date:",
-            trialActiveUntil
-          );
-          return new Date(trialActiveUntil);
+                    return new Date(trialActiveUntil);
         }
 
         // No trial - use normal billing interval
 
         const d = new Date();
-        console.log("📅 No trial - Using billing interval:", billingInterval);
-        switch (billingInterval) {
+                switch (billingInterval) {
           case "5_minutes":
             d.setMinutes(d.getMinutes() + 5);
 
@@ -1568,13 +1521,7 @@ const accountController = {
         return d;
       })();
 
-      console.log("💾 PAYMENT DEBUG: About to save payment with:");
-      console.log("   Amount paid:", data.amount / 100);
-      console.log("   Is trial:", trialActiveUntil ? true : false);
-      console.log("   Trial ends at:", trialActiveUntil);
-      console.log("   Next payment end date:", nextPaymentEndDate);
-
-      await client.query(
+                                    await client.query(
         `INSERT INTO payments (organization_id, paystack_subscription_code, paystack_reference, amount_paid, status, discount_applied, applies_once, is_trial, trial_ends_at, next_payment_end_date)
 
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
@@ -1656,8 +1603,7 @@ const accountController = {
           lastName
         );
       } catch (emailErr) {
-        console.error("[WARN] Registration email failed:", emailErr.message);
-      }
+              }
 
       // Send receipt email (bypass error)
 
@@ -1671,8 +1617,7 @@ const accountController = {
           orgName
         );
       } catch (receiptErr) {
-        console.error("[WARN] Receipt email failed:", receiptErr.message);
-      }
+              }
 
       req.session.registrationDetails = null;
 
@@ -1691,11 +1636,8 @@ const accountController = {
         res.redirect("/account/login");
       });
     } catch (error) {
-      console.error("❌ Error Processing Paystack Payment:", error);
-
-      if (error.response) {
-        console.error("Paystack API Error:", error.response.data);
-      }
+            if (error.response) {
+              }
       req.flash(
         "error",
         "An error occurred processing your payment. Please try again."
@@ -1712,9 +1654,7 @@ const accountController = {
     }
 
     if (!db || !db.query) {
-      console.error("🚨 Database connection is not initialized.");
-
-      return res.json({
+            return res.json({
         success: false,
 
         message: "Database connection error.",
@@ -1768,9 +1708,7 @@ const accountController = {
 
       return res.json({ success: true, discount });
     } catch (error) {
-      console.error("❌ Database error while validating promo code:", error);
-
-      res.json({ success: false, message: "Error validating promo code." });
+            res.json({ success: false, message: "Error validating promo code." });
     }
   },
 
@@ -1782,22 +1720,15 @@ const accountController = {
         .digest("hex");
 
       if (hash !== req.headers["x-paystack-signature"]) {
-        console.error("⚠️ Paystack webhook signature verification failed.");
-        return res.status(400).send("Webhook signature verification failed");
+                return res.status(400).send("Webhook signature verification failed");
       }
 
       const event = req.body;
 
-      console.log("✅ Paystack webhook received:", event.event);
-
-      switch (event.event) {
+            switch (event.event) {
         case "subscription.create": {
           const subscription = event.data;
-          console.log(
-            "✅ Subscription created:",
-            subscription.subscription_code
-          );
-          // Subscription creation is handled in the payment flow
+                    // Subscription creation is handled in the payment flow
 
           break;
         }
@@ -1856,11 +1787,7 @@ const accountController = {
                   last_name || ""
                 );
               } catch (emailErr) {
-                console.error(
-                  "[WARN] Registration email failed:",
-                  emailErr.message
-                );
-              }
+                              }
             }
           }
 
@@ -1903,13 +1830,7 @@ const accountController = {
                 [organization_id]
               );
 
-              console.log(
-                `🔴 Subscription disabled for organization: ${organization_name}`
-              );
-              console.log(
-                `🔴 All payment cards deactivated for organization: ${organization_name}`
-              );
-            }
+                                        }
           }
 
           break;
@@ -1918,9 +1839,7 @@ const accountController = {
 
       res.json({ received: true });
     } catch (error) {
-      console.error("❌ Paystack webhook processing error:", error);
-
-      res.status(500).send("Webhook processing error");
+            res.status(500).send("Webhook processing error");
     }
   },
 
@@ -1938,9 +1857,7 @@ const accountController = {
         process.env.STRIPE_WEBHOOK_SECRET
       );
     } catch (err) {
-      console.error("⚠️ Webhook signature verification failed.", err.message);
-
-      return res.status(400).send(`Webhook Error: ${err.message}`);
+            return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
     try {
@@ -2131,9 +2048,7 @@ const accountController = {
         }
       }
     } catch (error) {
-      console.error("❌ Webhook processing error:", error);
-
-      return res.status(500).send("Webhook processing error");
+            return res.status(500).send("Webhook processing error");
     }
 
     res.json({ received: true });
@@ -2243,9 +2158,7 @@ const accountController = {
     } catch (error) {
       await client.query("ROLLBACK");
 
-      console.error("Error during successful payment processing:", error);
-
-      req.flash("error", "An error occurred. Please try again.");
+            req.flash("error", "An error occurred. Please try again.");
 
       res.redirect("/account/payment");
     }
@@ -2289,9 +2202,7 @@ const accountController = {
         res
       );
     } catch (error) {
-      console.error("Error confirming payment:", error);
-
-      req.flash("error", "An error occurred while confirming the payment.");
+            req.flash("error", "An error occurred while confirming the payment.");
 
       return res.redirect("/account/payment");
     }
@@ -2345,8 +2256,7 @@ const accountController = {
             [paystackCustomerCode, orgId]
           );
         } catch (error) {
-          console.error("Error creating Paystack customer:", error?.message || error);
-          req.flash("error", "Paystack customer not found.");
+                    req.flash("error", "Paystack customer not found.");
           return res.redirect("/account/update");
         }
       }
@@ -2394,11 +2304,7 @@ const accountController = {
           defaultPaymentMethod = paymentMethods[0] || null;
         }
       } catch (paystackError) {
-        console.error(
-          "❌ Error fetching Paystack customer:",
-          paystackError.message
-        );
-        // Continue with empty payment methods if API fails
+                // Continue with empty payment methods if API fails
       }
 
       // ✅ Fetch all Paystack subaccounts
@@ -2437,9 +2343,7 @@ const accountController = {
         messages: req.flash(),
       });
     } catch (error) {
-      console.error("❌ Error loading update card page:", error);
-
-      req.flash("error", "Failed to load payment settings.");
+            req.flash("error", "Failed to load payment settings.");
 
       res.redirect("/account/update");
     }
@@ -2472,13 +2376,7 @@ const accountController = {
       );
 
       if (result.rows.length === 0) {
-        console.error(
-          "❌ No Paystack customer code found for organization:",
-
-          orgId
-        );
-
-        return res.status(404).json({
+                return res.status(404).json({
           success: false,
 
           message: "Paystack customer not found. Please contact support.",
@@ -2535,9 +2433,7 @@ const accountController = {
         defaultPaymentMethod,
       });
     } catch (error) {
-      console.error("❌ Error updating card:", error);
-
-      res.status(500).json({
+            res.status(500).json({
         success: false,
 
         message: "An error occurred while updating the card. Please try again.",
@@ -2580,9 +2476,7 @@ const accountController = {
 
       res.json({ success: true, message: 'Primary card updated.' });
     } catch (error) {
-      console.error("❌ [BACKEND] Error setting primary card:", error);
-
-      return res.status(500).json({
+            return res.status(500).json({
         success: false,
 
         message: "Internal server error.",
@@ -2643,11 +2537,7 @@ const accountController = {
           }
         );
       } catch (deactivateError) {
-        console.error(
-          "❌ Error deactivating authorization:",
-          deactivateError.message
-        );
-        return res.status(500).json({
+                return res.status(500).json({
           success: false,
 
           message: "Failed to remove card from Paystack.",
@@ -2702,9 +2592,7 @@ const accountController = {
         defaultPaymentMethod,
       });
     } catch (error) {
-      console.error("❌ Error removing card:", error);
-
-      res.status(500).json({
+            res.status(500).json({
         success: false,
 
         message: "An error occurred while removing the card. Please try again.",
@@ -2767,9 +2655,7 @@ const accountController = {
 
       return res.redirect(redirectUrl || "/account/update-card");
     } catch (error) {
-      console.error("❌ Error verifying password:", error);
-
-      req.flash("error", "An unexpected error occurred. Please try again.");
+            req.flash("error", "An unexpected error occurred. Please try again.");
 
       return res.redirect(
         `/account/confirm-password?redirect=${encodeURIComponent(redirectUrl)}`
@@ -2822,8 +2708,7 @@ const accountController = {
 
       return res.json({ success: true });
     } catch (error) {
-      console.error('�?O Error verifying password:', error);
-      return res.status(500).json({
+            return res.status(500).json({
         success: false,
         message: 'An unexpected error occurred. Please try again.',
       });
@@ -2874,9 +2759,7 @@ const accountController = {
         const admin = adminResult.rows[0];
 
         if (!admin.password) {
-          console.error(`🚨 Admin account missing password: ${email}`);
-
-          req.flash("error", "Invalid email or password.");
+                    req.flash("error", "Invalid email or password.");
 
           return res.redirect("/account/login");
         }
@@ -2884,18 +2767,14 @@ const accountController = {
         const match = await bcrypt.compare(password, admin.password);
 
         if (!match) {
-          console.warn(`⚠️ Admin password mismatch for: ${email}`);
-
-          req.flash("error", "Invalid email or password.");
+                    req.flash("error", "Invalid email or password.");
 
           return res.redirect("/account/login");
         }
 
         req.session.regenerate((err) => {
           if (err) {
-            console.error("❌ Error regenerating session:", err);
-
-            req.flash("error", "Login failed. Please try again.");
+                        req.flash("error", "Login failed. Please try again.");
 
             return res.redirect("/account/login");
           }
@@ -2914,9 +2793,7 @@ const accountController = {
 
           req.session.save((err) => {
             if (err) {
-              console.error("❌ Error saving session:", err);
-
-              req.flash("error", "Login failed. Please try again.");
+                            req.flash("error", "Login failed. Please try again.");
 
               return res.redirect("/account/login");
             }
@@ -2945,21 +2822,10 @@ const accountController = {
         [email]
       );
 
-      console.log('👤 Staff user check:', {
-        email: email,
-        found: userResult.rows.length > 0
-      });
-
-      if (userResult.rows.length > 0) {
+            if (userResult.rows.length > 0) {
         const user = userResult.rows[0];
 
-        console.log('👤 Staff user found:', {
-          user_id: user.user_id,
-          account_type: user.account_type,
-          has_password: !!user.password
-        });
-
-        // Check if password has been set
+                // Check if password has been set
         if (!user.password) {
           req.flash("error", "Your account password has not been set up yet. Please contact your administrator to receive a password setup email.");
           return res.redirect("/account/login");
@@ -2971,7 +2837,12 @@ const accountController = {
 
         if (match) {
           const orgResult = await db.query(
-            `SELECT * FROM organizations WHERE organization_id = $1`,
+            `SELECT o.*, 
+                    CASE WHEN o.hub_id IS NOT NULL THEN mh.hub_name ELSE NULL END as hub_name,
+                    CASE WHEN o.hub_id IS NOT NULL THEN mh.logo_path ELSE NULL END as hub_logo
+             FROM organizations o
+             LEFT JOIN managira_hubs mh ON o.hub_id = mh.hub_id
+             WHERE o.organization_id = $1`,
 
             [user.organization_id]
           );
@@ -3001,9 +2872,7 @@ const accountController = {
 
             req.session.regenerate((err) => {
               if (err) {
-                console.error("Error regenerating session:", err);
-
-                req.flash("error", "Login failed. Please try again.");
+                                req.flash("error", "Login failed. Please try again.");
 
                 return res.redirect("/account/login");
               }
@@ -3040,11 +2909,17 @@ const accountController = {
 
               req.session.orgNickName = organization.nickname;
 
+              // Add hub information if organization is part of a hub
+              if (organization.is_hub_member && organization.hub_id) {
+                                req.session.isHubMember = true;
+                req.session.hubName = organization.hub_name;
+                req.session.hubLogo = organization.hub_logo;
+              } else {
+                              }
+
               req.session.save((err) => {
                 if (err) {
-                  console.error("Error saving session:", err);
-
-                  req.flash("error", "Login failed. Please try again.");
+                                    req.flash("error", "Login failed. Please try again.");
 
                   return res.redirect("/account/login");
                 }
@@ -3073,7 +2948,12 @@ const accountController = {
       // ✅ Step 3: Check if it's an Organization login (Managers)
 
       const orgResult = await db.query(
-        `SELECT * FROM organizations WHERE LOWER(email) = LOWER($1)`,
+        `SELECT o.*, 
+                CASE WHEN o.hub_id IS NOT NULL THEN mh.hub_name ELSE NULL END as hub_name,
+                CASE WHEN o.hub_id IS NOT NULL THEN mh.logo_path ELSE NULL END as hub_logo
+         FROM organizations o
+         LEFT JOIN managira_hubs mh ON o.hub_id = mh.hub_id
+         WHERE LOWER(o.email) = LOWER($1)`,
 
         [email]
       );
@@ -3106,9 +2986,7 @@ const accountController = {
 
           req.session.regenerate((err) => {
             if (err) {
-              console.error("Error regenerating session:", err);
-
-              req.flash("error", "Login failed. Please try again.");
+                            req.flash("error", "Login failed. Please try again.");
 
               return res.redirect("/account/login");
             }
@@ -3143,13 +3021,18 @@ const accountController = {
 
             req.session.orgNickName = organization.nickname;
 
+            // Add hub information if organization is part of a hub
+            if (organization.is_hub_member && organization.hub_id) {
+              req.session.isHubMember = true;
+              req.session.hubName = organization.hub_name;
+              req.session.hubLogo = organization.hub_logo;
+            }
+
             // Do NOT fetch or store features here; handled by setAllowedFeatures middleware
 
             req.session.save((err) => {
               if (err) {
-                console.error("Error saving session:", err);
-
-                req.flash("error", "Login failed. Please try again.");
+                                req.flash("error", "Login failed. Please try again.");
 
                 return res.redirect("/account/login");
               }
@@ -3188,9 +3071,7 @@ const accountController = {
 
       res.redirect("/account/login");
     } catch (error) {
-      console.error("🚨 Error logging in:", error);
-
-      req.flash("error", "Login failed. Please try again.");
+            req.flash("error", "Login failed. Please try again.");
 
       res.redirect("/account/login");
     }
@@ -3296,8 +3177,7 @@ const accountController = {
         });
       });
     } catch (error) {
-      console.error("Guardian login error:", error);
-      req.flash("error", "Login failed. Please try again.");
+            req.flash("error", "Login failed. Please try again.");
       return res.redirect("/account/guardian-login");
     }
   },
@@ -3305,9 +3185,7 @@ const accountController = {
   logoutGet: (req, res) => {
     req.session.destroy((err) => {
       if (err) {
-        console.error("Error logging out:", err);
-
-        req.flash("error", "Failed to log out. Please try again.");
+                req.flash("error", "Failed to log out. Please try again.");
 
         return res.redirect("/account/login");
       }
@@ -3408,9 +3286,7 @@ const accountController = {
         messages: req.flash(),
       });
     } catch (error) {
-      console.error("❌ Error fetching user details:", error);
-
-      req.flash("error", "Failed to load account details.");
+            req.flash("error", "Failed to load account details.");
 
       res.redirect("/account");
     }
@@ -3530,9 +3406,7 @@ const accountController = {
 
       res.redirect("/account/update");
     } catch (error) {
-      console.error("❌ Error updating account:", error);
-
-      req.flash(
+            req.flash(
         "error",
 
         "Failed to update account information. Please try again."
@@ -3582,8 +3456,7 @@ const accountController = {
       req.flash("success", "Profile updated successfully.");
       return res.redirect(redirectTo || "/account/settings");
     } catch (error) {
-      console.error("Error updating profile name:", error);
-      req.flash("error", "Failed to update profile.");
+            req.flash("error", "Failed to update profile.");
       return res.redirect(redirectTo || "/account/settings");
     }
   },
@@ -3631,8 +3504,7 @@ const accountController = {
       req.flash("success", "Profile picture updated successfully!");
       return res.redirect(redirectTo || "/account/settings");
     } catch (error) {
-      console.error("Error updating profile image:", error);
-      req.flash("error", "Failed to update profile picture.");
+            req.flash("error", "Failed to update profile picture.");
       return res.redirect(redirectTo || "/account/settings");
     }
   },
@@ -3691,8 +3563,7 @@ const accountController = {
       req.flash("success", "Email updated successfully.");
       return res.redirect(redirectTo || "/account/settings");
     } catch (error) {
-      console.error("Error updating email:", error);
-      req.flash("error", "Failed to update email.");
+            req.flash("error", "Failed to update email.");
       return res.redirect(redirectTo || "/account/settings");
     }
   },
@@ -3736,8 +3607,7 @@ const accountController = {
       req.flash("success", "Password updated successfully.");
       return res.redirect(redirectTo || "/account/settings");
     } catch (error) {
-      console.error("Error updating password:", error);
-      req.flash("error", "Failed to update password.");
+            req.flash("error", "Failed to update password.");
       return res.redirect(redirectTo || "/account/settings");
     }
   },
@@ -3784,9 +3654,7 @@ const accountController = {
         messages: req.flash(),
       });
     } catch (error) {
-      console.error("Error rendering account personalization page:", error);
-
-      req.flash("error", "Failed to load personalization page.");
+            req.flash("error", "Failed to load personalization page.");
 
       res.redirect("/");
     }
@@ -3816,9 +3684,7 @@ const accountController = {
 
       res.redirect("/account/personalization");
     } catch (err) {
-      console.error("Error updating personalization:", err);
-
-      req.flash(
+            req.flash(
         "error",
 
         "An error occurred while updating personalization. Please try again."
@@ -3847,8 +3713,7 @@ const accountController = {
       req.flash("success", "Organization name updated successfully.");
       return res.redirect(redirectTo || "/account/personalization");
     } catch (err) {
-      console.error("Error updating organization name:", err);
-      req.flash("error", "Failed to update organization name.");
+            req.flash("error", "Failed to update organization name.");
       return res.redirect(req.body.redirectTo || "/account/personalization");
     }
   },
@@ -3872,8 +3737,7 @@ const accountController = {
       req.flash("success", "Font updated successfully.");
       return res.redirect(redirectTo || "/account/personalization");
     } catch (err) {
-      console.error("Error updating font:", err);
-      req.flash("error", "Failed to update font.");
+            req.flash("error", "Failed to update font.");
       return res.redirect(req.body.redirectTo || "/account/personalization");
     }
   },
@@ -3938,9 +3802,7 @@ const accountController = {
 
       res.redirect(req.body.redirectTo || "/account/personalization");
     } catch (err) {
-      console.error("Error updating logo:", err);
-
-      req.flash(
+            req.flash(
         "error",
 
         "An error occurred while updating the logo. Please try again."
@@ -4048,9 +3910,7 @@ const accountController = {
 
       req.session.regenerate((err) => {
         if (err) {
-          console.error("Error destroying session after nickname change:", err);
-
-          // fallback: redirect to login on main domain
+                    // fallback: redirect to login on main domain
 
           return res.redirect("https://managira.com/account/login");
         }
@@ -4060,9 +3920,7 @@ const accountController = {
         res.redirect("https://managira.com/account/login");
       });
     } catch (error) {
-      console.error("Error updating nickname:", error);
-
-      if (req.session)
+            if (req.session)
         req.flash("error", "Failed to update nickname. Please try again.");
 
       res.redirect(req.body.redirectTo || "/account/personalization");
@@ -4085,9 +3943,7 @@ const accountController = {
 
       res.json(result.rows);
     } catch (error) {
-      console.error("Error fetching subjects:", error);
-
-      res.status(500).json({ message: "Failed to fetch subjects." });
+            res.status(500).json({ message: "Failed to fetch subjects." });
     }
   },
 
@@ -4159,9 +4015,7 @@ const accountController = {
 
       res.redirect("/account/managePublicContent");
     } catch (error) {
-      console.error("Error uploading content:", error);
-
-      req.flash("error", "Failed to upload content. Please try again.");
+            req.flash("error", "Failed to upload content. Please try again.");
 
       res.redirect("/account/managePublicContent");
     }
@@ -4183,9 +4037,7 @@ const accountController = {
 
       res.redirect("/account/managePublicContent");
     } catch (error) {
-      console.error("Error adding text section:", error);
-
-      req.flash("error", "Failed to add text section. Please try again.");
+            req.flash("error", "Failed to add text section. Please try again.");
 
       res.redirect("/account/managePublicContent");
     }
@@ -4203,9 +4055,7 @@ const accountController = {
 
       res.redirect("/account/managePublicContent"); // Replace with the actual page route
     } catch (error) {
-      console.error("Error updating About Us:", error);
-
-      res.status(500).send("Server Error updating about us");
+            res.status(500).send("Server Error updating about us");
     }
   },
 
@@ -4355,9 +4205,7 @@ const accountController = {
         },
       });
     } catch (error) {
-      console.error("Error fetching public content:", error);
-
-      req.flash("error", "Failed to load public content.");
+            req.flash("error", "Failed to load public content.");
 
       res.redirect("/account");
     }
@@ -4416,8 +4264,7 @@ const accountController = {
       req.flash("success", "Website layout updated successfully.");
       return res.redirect("/account/managePublicContent");
     } catch (error) {
-      console.error("Error updating school website layout:", error);
-      req.flash("error", "Failed to update website layout.");
+            req.flash("error", "Failed to update website layout.");
       return res.redirect("/account/managePublicContent");
     }
   },
@@ -4495,8 +4342,7 @@ const accountController = {
       req.flash("success", "Website style updated successfully.");
       return res.redirect("/account/managePublicContent");
     } catch (error) {
-      console.error("Error updating school website theme:", error);
-      req.flash("error", "Failed to update website style.");
+            req.flash("error", "Failed to update website style.");
       return res.redirect("/account/managePublicContent");
     }
   },
@@ -4543,9 +4389,7 @@ const accountController = {
 
       res.redirect("/account/managePublicContent");
     } catch (error) {
-      console.error("Error updating registration settings:", error);
-
-      req.flash("error", "Could not update registration settings.");
+            req.flash("error", "Could not update registration settings.");
 
       res.redirect("/account/managePublicContent");
     }
@@ -4567,9 +4411,7 @@ const accountController = {
 
       res.redirect("/account/managePublicContent");
     } catch (error) {
-      console.error("Error updating image:", error);
-
-      req.flash("error", "Failed to update image. Please try again.");
+            req.flash("error", "Failed to update image. Please try again.");
 
       res.redirect("/account/managePublicContent");
     }
@@ -4625,9 +4467,7 @@ const accountController = {
 
       res.redirect("/account/managePublicContent");
     } catch (error) {
-      console.error("Error deleting image:", error);
-
-      req.flash("error", "Failed to delete image. Please try again.");
+            req.flash("error", "Failed to delete image. Please try again.");
 
       res.redirect("/account/managePublicContent");
     }
@@ -4649,9 +4489,7 @@ const accountController = {
 
       res.redirect("/account/managePublicContent");
     } catch (error) {
-      console.error("Error updating text:", error);
-
-      req.flash("error", "Failed to update text. Please try again.");
+            req.flash("error", "Failed to update text. Please try again.");
 
       res.redirect("/account/managePublicContent");
     }
@@ -4673,9 +4511,7 @@ const accountController = {
 
       res.redirect("/account/managePublicContent");
     } catch (error) {
-      console.error("Error deleting text:", error);
-
-      req.flash("error", "Failed to delete text. Please try again.");
+            req.flash("error", "Failed to delete text. Please try again.");
 
       res.redirect("/account/managePublicContent");
     }
@@ -4744,9 +4580,7 @@ const accountController = {
 
       res.redirect("/account/login");
     } catch (error) {
-      console.error("Error in forgetPasswordPost:", error.message);
-
-      req.flash("error", "An error occurred. Please try again.");
+            req.flash("error", "An error occurred. Please try again.");
 
       res.redirect("/account/forget-password");
     }
@@ -4818,9 +4652,7 @@ const accountController = {
         messages: { error: req.flash("error"), success: [] },
       });
     } catch (error) {
-      console.error("Error in resetPasswordGet:", error.message);
-
-      req.flash("error", "An error occurred. Please try again.");
+            req.flash("error", "An error occurred. Please try again.");
 
       res.render("account/resetPassword", {
         title: "Reset Password",
@@ -4927,9 +4759,7 @@ const accountController = {
 
       res.redirect("/account/login");
     } catch (error) {
-      console.error("Error in resetPasswordPost:", error.message);
-
-      req.flash("error", "An error occurred. Please try again.");
+            req.flash("error", "An error occurred. Please try again.");
 
       res.render("account/resetPassword", {
         title: "Reset Password",
@@ -5052,8 +4882,7 @@ const accountController = {
           );
           paystackSubaccounts = paystackSubaccountsResult.rows;
         } catch (err) {
-          console.error('Error loading Paystack subaccounts:', err.message);
-        }
+                  }
       }
 
       if (orgId && process.env.PAYSTACK_SECRET_KEY && orgRow.email) {
@@ -5082,8 +4911,7 @@ const accountController = {
               [paystackCustomerCode, orgId]
             );
           } catch (error) {
-            console.error('Error creating Paystack customer:', error?.message || error);
-          }
+                      }
         }
 
         if (paystackCustomerCode) {
@@ -5112,8 +4940,7 @@ const accountController = {
               defaultPaymentMethod = paymentMethods[0] || null;
             }
           } catch (paystackError) {
-            console.error('Error fetching Paystack customer:', paystackError.message);
-          }
+                      }
         }
       }
 
@@ -5134,8 +4961,7 @@ const accountController = {
         messages: req.flash(),
       });
     } catch (error) {
-      console.error("Error loading settings page:", error);
-      req.flash("error", "Unable to load settings page.");
+            req.flash("error", "Unable to load settings page.");
       res.redirect("/account");
     }
   },
@@ -5307,9 +5133,7 @@ const accountController = {
         return res.redirect("/account/update");
       }
     } catch (error) {
-      console.error("Error cancelling subscription:", error);
-
-      req.flash("error", "An unexpected error occurred. Please try again.");
+            req.flash("error", "An unexpected error occurred. Please try again.");
 
       res.redirect("/account/cancel-subscription");
     }
@@ -5349,9 +5173,7 @@ const accountController = {
       );
       return res.redirect("/account/update");
     } catch (error) {
-      console.error("❌ Error resuming organization:", error);
-
-      req.flash("error", "Failed to resume organization. Please try again.");
+            req.flash("error", "Failed to resume organization. Please try again.");
 
       return res.redirect("/account/update");
     }
@@ -5442,9 +5264,7 @@ const accountController = {
         messages: req.flash(),
       });
     } catch (error) {
-      console.error("Error fetching plans:", error);
-
-      req.flash("error", "Failed to load plans.");
+            req.flash("error", "Failed to load plans.");
 
       res.redirect("/account");
     }
@@ -5570,9 +5390,7 @@ const accountController = {
 
       return res.redirect(redirectTo || "/account/update-plan");
     } catch (error) {
-      console.error("Error updating plan:", error);
-
-      req.flash("error", "❌ Failed to update plan.");
+            req.flash("error", "❌ Failed to update plan.");
 
       return res.redirect(redirectTo || "/account/update-plan");
     }
@@ -5722,9 +5540,7 @@ const accountController = {
       const message =
         error.response?.data?.message || error.message || "Unknown error";
 
-      console.error("❌ Flutterwave error:", message);
-
-      if (req.headers["content-type"] === "application/json") {
+            if (req.headers["content-type"] === "application/json") {
         return res.status(500).json({ success: false, message });
       } else {
         req.flash("error", `Failed to connect Flutterwave account: ${message}`);
@@ -5742,9 +5558,7 @@ const accountController = {
 
       res.json({ success: true });
     } catch (err) {
-      console.error("Error deleting account:", err);
-
-      res.json({ success: false, message: "Delete failed." });
+            res.json({ success: false, message: "Delete failed." });
     }
   },
 
@@ -5754,9 +5568,7 @@ const accountController = {
     const { organizationId } = req.session;
 
     if (!organizationId) {
-      console.error("❌ Missing organizationId in session.");
-
-      return res.status(401).json({ success: false, message: "Unauthorized" });
+            return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
     try {
@@ -5780,9 +5592,7 @@ const accountController = {
 
       return res.json({ success: true, account: result.rows[0] });
     } catch (error) {
-      console.error("❌ Error fetching Flutterwave account:", error);
-
-      res.status(500).json({ success: false, message: "Server error" });
+            res.status(500).json({ success: false, message: "Server error" });
     }
   },
 
@@ -5842,9 +5652,7 @@ const accountController = {
 
       res.json({ success: true, message: "Account updated successfully" });
     } catch (error) {
-      console.error("❌ Error updating Flutterwave account:", error);
-
-      res
+            res
 
         .status(500)
 
@@ -5891,12 +5699,6 @@ const accountController = {
           }
         );
       } catch (flwErr) {
-        console.warn(
-          "⚠️ Flutterwave subaccount deletion failed (may not be critical):",
-
-          flwErr.response?.data || flwErr.message
-        );
-
         // Optionally ignore if subaccount is already gone
       }
 
@@ -5910,9 +5712,7 @@ const accountController = {
 
       res.json({ success: true });
     } catch (err) {
-      console.error("❌ Error deleting Flutterwave account:", err);
-
-      res.status(500).json({ success: false, message: "Delete failed." });
+            res.status(500).json({ success: false, message: "Delete failed." });
     }
   },
 
@@ -6012,15 +5812,9 @@ const accountController = {
         return res.json(payload);
       }
 
-      console.error("�?O Card tokenization failed:", chargeResponse.data);
-      return res.status(400).json(payload);
+            return res.status(400).json(payload);
     } catch (error) {
-      console.error(
-        "�?O Error in card tokenization:",
-        error.response?.data || error.message
-      );
-
-      if (error.response?.data?.message) {
+            if (error.response?.data?.message) {
         return res.status(400).json({
           success: false,
           message: error.response.data.message,
@@ -6065,12 +5859,7 @@ const accountController = {
 
       return res.status(400).json(payload);
     } catch (error) {
-      console.error(
-        "�?O Error submitting card PIN:",
-        error.response?.data || error.message
-      );
-
-      if (error.response?.data?.message) {
+            if (error.response?.data?.message) {
         return res.status(400).json({
           success: false,
           message: error.response.data.message,
@@ -6115,12 +5904,7 @@ const accountController = {
 
       return res.status(400).json(payload);
     } catch (error) {
-      console.error(
-        "�?O Error submitting OTP:",
-        error.response?.data || error.message
-      );
-
-      if (error.response?.data?.message) {
+            if (error.response?.data?.message) {
         return res.status(400).json({
           success: false,
           message: error.response.data.message,
@@ -6165,12 +5949,7 @@ const accountController = {
 
       return res.status(400).json(payload);
     } catch (error) {
-      console.error(
-        "�?O Error submitting phone number:",
-        error.response?.data || error.message
-      );
-
-      if (error.response?.data?.message) {
+            if (error.response?.data?.message) {
         return res.status(400).json({
           success: false,
           message: error.response.data.message,
@@ -6258,11 +6037,7 @@ const accountController = {
 
       if (account_type === "bank") {
         // Ghana: Use Transfer Recipients (visible in Paystack dashboard under Transfers > Recipients)
-        console.log(
-          "🏦 Creating Ghana bank transfer recipient via Paystack..."
-        );
-
-        // Check if this is the first account of this type
+                // Check if this is the first account of this type
 
         const existingOfTypeResult = await db.query(
           `SELECT * FROM paystack_subaccounts WHERE organization_id = $1 AND account_type = $2`,
@@ -6296,16 +6071,9 @@ const accountController = {
             );
           if (match) {
             resolvedBankCode = match.code;
-          } else {
-            console.warn(
-              "⚠️ Could not resolve Ghana bank code from provided values, proceeding with provided bank_code"
-            );
           }
         } catch (e) {
-          console.warn(
-            "⚠️ Failed to fetch Ghana banks from Paystack:",
-            e.response?.data || e.message
-          );
+          // Failed to fetch banks, use provided code as-is
         }
 
         // Create Paystack Transfer Recipient for Ghana bank
@@ -6320,10 +6088,6 @@ const accountController = {
           currency,
         };
 
-        console.log(
-          "📤 Creating bank recipient:",
-          JSON.stringify(recipientPayload)
-        );
         const recipientResp = await axios.post(
           "https://api.paystack.co/transferrecipient",
           recipientPayload,
@@ -6369,8 +6133,7 @@ const accountController = {
           ]
         );
 
-        console.log("✅ Paystack bank recipient created:", recipientCode);
-        return res.json({
+                return res.json({
           success: true,
           message: "Bank account connected via Paystack (Recipient)",
           recipient_code: recipientCode,
@@ -6378,9 +6141,7 @@ const accountController = {
       } else if (account_type === "mobile_money") {
         // Ghana MoMo: Use Transfer Recipients with type 'mobile_money'
 
-        console.log("📱 Creating MoMo transfer recipient via Paystack...");
-
-        if (!momo_number || !momo_provider || !account_holder_name) {
+                if (!momo_number || !momo_provider || !account_holder_name) {
           return res.status(400).json({
             success: false,
             message:
@@ -6415,10 +6176,6 @@ const accountController = {
           currency,
         };
 
-        console.log(
-          "📤 Creating MoMo recipient:",
-          JSON.stringify(recipientPayload)
-        );
         const recipientResp = await axios.post(
           "https://api.paystack.co/transferrecipient",
           recipientPayload,
@@ -6462,8 +6219,7 @@ const accountController = {
           ]
         );
 
-        console.log("✅ Paystack MoMo recipient created:", recipientCode);
-        return res.json({
+                return res.json({
           success: true,
           message: "Mobile Money account connected via Paystack (Recipient)",
           recipient_code: recipientCode,
@@ -6472,18 +6228,12 @@ const accountController = {
     } catch (error) {
       const message = error.response?.data?.message || error.message;
 
-      console.error("❌ Paystack subaccount error:", message);
-
-      // If Paystack rejects the bank details, create a local entry instead
+            // If Paystack rejects the bank details, create a local entry instead
       if (
         message.includes("Account details are invalid") ||
         message.includes("Invalid")
       ) {
-        console.log(
-          "🔄 Paystack rejected bank details, creating local entry..."
-        );
-
-        try {
+                try {
           // Create local bank account entry (similar to mobile money)
           const isFirstAccount =
             (
@@ -6522,17 +6272,13 @@ const accountController = {
             ]
           );
 
-          console.log("✅ Local bank account created:", localSubaccountCode);
-
-          return res.json({
+                    return res.json({
             success: true,
             message:
               "Bank account saved locally (Paystack integration pending)",
           });
         } catch (localError) {
-          console.error("❌ Failed to create local bank account:", localError);
-
-          return res.status(500).json({
+                    return res.status(500).json({
             success: false,
             message: "Failed to save bank account",
           });
@@ -6561,9 +6307,7 @@ const accountController = {
 
       res.json({ success: true });
     } catch (err) {
-      console.error("❌ Error deleting Paystack subaccount:", err);
-
-      res.status(500).json({ success: false, message: "Delete failed." });
+            res.status(500).json({ success: false, message: "Delete failed." });
     }
   },
 
@@ -6595,9 +6339,7 @@ const accountController = {
 
       res.json({ success: true, account: result.rows[0] });
     } catch (err) {
-      console.error("❌ Error fetching Paystack subaccount:", err);
-
-      res.status(500).json({ success: false, message: "Fetch failed." });
+            res.status(500).json({ success: false, message: "Fetch failed." });
     }
   },
 
@@ -6711,9 +6453,7 @@ const accountController = {
         orgId,
       ]);
 
-      console.log("✅ Paystack subaccount updated:", id);
-
-      res.json({
+            res.json({
         success: true,
 
         message: "Account updated successfully.",
@@ -6722,9 +6462,7 @@ const accountController = {
         paystack_updated: updateSuccess,
       });
     } catch (err) {
-      console.error("❌ Error updating Paystack subaccount:", err);
-
-      res.status(500).json({ success: false, message: "Update failed." });
+            res.status(500).json({ success: false, message: "Update failed." });
     }
   },
 
@@ -6756,9 +6494,7 @@ const accountController = {
 
       res.json({ success: true });
     } catch (err) {
-      console.error("❌ Error setting primary Paystack subaccount:", err);
-
-      res.status(500).json({ success: false, message: "Update failed." });
+            res.status(500).json({ success: false, message: "Update failed." });
     }
   },
 
@@ -6797,16 +6533,19 @@ const accountController = {
         showFooterTopSection: true
       });
     } catch (error) {
-      console.error('Error loading hub invitation:', error);
-      req.flash('error', 'An error occurred while loading the invitation.');
+            req.flash('error', 'An error occurred while loading the invitation.');
       res.redirect('/account/login');
     }
   },
 
   // POST - Process hub invitation acceptance
   hubInvitationAcceptPost: async (req, res) => {
+    const client = await db.connect();
     try {
-      const { token } = req.params;
+      await client.query('BEGIN');
+      
+            const { token } = req.params;
+            
       const {
         organization_nickname,
         admin_email,
@@ -6817,19 +6556,23 @@ const accountController = {
         accept_terms
       } = req.body;
 
-      // Validate required fields
+            // Validate required fields
       if (!organization_nickname || !admin_email || !admin_password || !admin_first_name || !admin_last_name) {
+                await client.query('ROLLBACK');
+        client.release();
         req.flash('error', 'Please fill in all required fields.');
         return res.redirect(`/account/accept-hub-invitation/${token}`);
       }
 
       if (!accept_terms) {
+                await client.query('ROLLBACK');
+        client.release();
         req.flash('error', 'You must accept the terms and conditions.');
         return res.redirect(`/account/accept-hub-invitation/${token}`);
       }
 
-      // Get invitation details
-      const invitationResult = await db.query(
+            // Get invitation details
+            const invitationResult = await client.query(
         `SELECT hoi.*, mh.hub_name, mh.hub_nickname, mh.hub_email, mh.hub_id, mh.plan_id
          FROM hub_organization_invitations hoi
          JOIN managira_hubs mh ON hoi.hub_id = mh.hub_id
@@ -6838,83 +6581,91 @@ const accountController = {
       );
 
       if (invitationResult.rows.length === 0) {
+                await client.query('ROLLBACK');
+        client.release();
         req.flash('error', 'Invalid or expired invitation.');
         return res.redirect('/account/login');
       }
 
       const invitation = invitationResult.rows[0];
-
+      
       // Check expiration
       if (new Date(invitation.expires_at) < new Date()) {
+        await client.query('ROLLBACK');
+        client.release();
         req.flash('error', 'This invitation has expired.');
         return res.redirect('/account/login');
       }
 
       // Check if nickname is available
-      const nicknameCheck = await db.query(
+      const nicknameCheck = await client.query(
         'SELECT organization_id FROM organizations WHERE nickname = $1',
         [organization_nickname.toLowerCase()]
       );
 
       if (nicknameCheck.rows.length > 0) {
+        await client.query('ROLLBACK');
+        client.release();
         req.flash('error', 'This subdomain is already taken. Please choose another.');
         return res.redirect(`/account/accept-hub-invitation/${token}`);
       }
 
-      // Check if admin email exists
-      const emailCheck = await db.query(
+            // Check if admin email exists
+            const emailCheck = await client.query(
         'SELECT user_id FROM users WHERE email = $1',
         [admin_email]
       );
 
       if (emailCheck.rows.length > 0) {
+                await client.query('ROLLBACK');
+        client.release();
         req.flash('error', 'This email is already registered. Please use a different email.');
         return res.redirect(`/account/accept-hub-invitation/${token}`);
       }
 
-      // Hash password
-      const hashedPassword = await bcrypt.hash(admin_password, 10);
-
-      // Create organization
-      const orgResult = await db.query(
+            // Hash password
+            const hashedPassword = await bcrypt.hash(admin_password, 10);
+            // Create organization with proper password and fields
+            const orgParams = [
+        invitation.organization_name,
+        organization_nickname.toLowerCase(),
+        admin_email,
+        admin_first_name,
+        admin_last_name,
+        admin_phone || '',
+        invitation.hub_id,
+        invitation.plan_id,
+        hashedPassword
+      ];
+            const orgResult = await client.query(
         `INSERT INTO organizations 
-         (organization_name, nickname, organization_email, contact_email, first_name, last_name, 
-          phone, hub_id, is_hub_member, joined_hub_at, plan_id, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, CURRENT_TIMESTAMP, $9, CURRENT_TIMESTAMP)
+         (organization_name, nickname, email, first_name, last_name, 
+          organization_phone, organization_address, hub_id, is_hub_member, joined_hub_at, plan_id, created_at, 
+          approved, password, proof_of_existence_1, proof_of_existence_2)
+         VALUES ($1, $2, $3, $4, $5, $6, '', $7, true, CURRENT_TIMESTAMP, $8, CURRENT_TIMESTAMP, true, $9, '', '')
          RETURNING organization_id`,
-        [
-          invitation.organization_name,
-          organization_nickname.toLowerCase(),
-          invitation.contact_person_email,
-          invitation.contact_person_email,
-          invitation.contact_person_name.split(' ')[0] || invitation.contact_person_name,
-          invitation.contact_person_name.split(' ').slice(1).join(' ') || '',
-          invitation.contact_person_phone || '',
-          invitation.hub_id,
-          invitation.plan_id
-        ]
+        orgParams
       );
 
       const organizationId = orgResult.rows[0].organization_id;
-
-      // Create admin user
-      await db.query(
+            // Create admin user
+            const userParams = [organizationId, admin_email, admin_first_name, admin_last_name, admin_phone || '', hashedPassword];
+            await client.query(
         `INSERT INTO users 
          (organization_id, email, first_name, last_name, phone, password, role, isActive, created_at)
          VALUES ($1, $2, $3, $4, $5, $6, 'admin', true, CURRENT_TIMESTAMP)`,
-        [organizationId, admin_email, admin_first_name, admin_last_name, admin_phone || '', hashedPassword]
+        userParams
       );
 
-      // Update invitation status
-      await db.query(
+            // Update invitation status
+            await client.query(
         `UPDATE hub_organization_invitations 
          SET status = 'accepted', updated_at = CURRENT_TIMESTAMP 
          WHERE invitation_id = $1`,
         [invitation.invitation_id]
       );
-
-      // Log hub activity
-      await db.query(
+            // Log hub activity
+            await client.query(
         `INSERT INTO hub_activity_logs (hub_id, action_type, target_organization_id, description, performed_by, ip_address)
          VALUES ($1, 'invitation_accepted', $2, $3, $4, $5)`,
         [
@@ -6925,8 +6676,7 @@ const accountController = {
           req.ip
         ]
       );
-
-      // Send welcome email to organization admin
+                  // Send welcome email to organization admin
       const welcomeEmailHtml = `
         <!DOCTYPE html>
         <html>
@@ -7068,11 +6818,418 @@ const accountController = {
         ],
       });
 
-      req.flash('success', `Welcome! Your organization has been set up successfully. Please log in with your credentials.`);
+                  
+      await client.query('COMMIT');
+      client.release();
+      
+            req.flash('success', `Welcome! Your organization has been set up successfully. Please log in with your credentials.`);
       res.redirect('/account/login');
     } catch (error) {
-      console.error('Error accepting hub invitation:', error);
-      req.flash('error', 'An error occurred while processing your invitation.');
+      await client.query('ROLLBACK');
+      client.release();
+      
+                                                      
+      // More specific error messages
+      let errorMessage = 'An error occurred while processing your invitation.';
+      if (error.code === '23505') { // PostgreSQL unique violation
+                if (error.constraint && error.constraint.includes('nickname')) {
+          errorMessage = 'This subdomain is already taken. Please choose another.';
+                  } else if (error.constraint && error.constraint.includes('email')) {
+          errorMessage = 'This email is already registered. Please use a different email.';
+                  }
+      }
+      
+      req.flash('error', errorMessage);
+      return res.redirect(`/account/accept-hub-invitation/${req.params.token}`);
+    }
+  },
+
+  // POST - Request detachment from hub
+  requestHubDetachmentPost: async (req, res) => {
+    try {
+      const organizationId = req.session.organizationId;
+      const { reason } = req.body;
+
+                        if (!reason || reason.trim().length < 10) {
+        req.flash('error', 'Please provide a detailed reason for detachment (at least 10 characters).');
+        return res.redirect('/account/update');
+      }
+
+      // Get organization details
+      const orgResult = await db.query(
+        'SELECT * FROM organizations WHERE organization_id = $1',
+        [organizationId]
+      );
+
+      if (orgResult.rows.length === 0) {
+        req.flash('error', 'Organization not found.');
+        return res.redirect('/account/update');
+      }
+
+      const organization = orgResult.rows[0];
+
+      if (!organization.hub_id || !organization.is_hub_member) {
+        req.flash('error', 'Your organization is not part of a hub.');
+        return res.redirect('/account/update');
+      }
+
+            // Check for existing pending request
+      const existingRequest = await db.query(
+        `SELECT * FROM hub_detachment_requests 
+         WHERE organization_id = $1 AND status = 'pending'`,
+        [organizationId]
+      );
+
+      if (existingRequest.rows.length > 0) {
+                req.flash('warning', 'You already have a pending detachment request. Please wait for hub review.');
+        return res.redirect('/account/update');
+      }
+
+      // Create detachment request
+      await db.query(
+        `INSERT INTO hub_detachment_requests 
+         (organization_id, hub_id, reason, requested_by)
+         VALUES ($1, $2, $3, $4)`,
+        [organizationId, organization.hub_id, reason, req.session.email]
+      );
+
+            // Get hub details for notification
+      const hubResult = await db.query(
+        'SELECT * FROM managira_hubs WHERE hub_id = $1',
+        [organization.hub_id]
+      );
+
+      if (hubResult.rows.length > 0) {
+        const hub = hubResult.rows[0];
+
+        // Send notification email to hub
+        const emailHtml = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+              .header { background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+              .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+              .alert-box { background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0; }
+              .info-box { background: white; padding: 15px; border-left: 4px solid #01535b; margin: 20px 0; }
+              .button { display: inline-block; padding: 12px 30px; background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%); color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+              .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1>🔗 Detachment Request</h1>
+              </div>
+              <div class="content">
+                <div class="alert-box">
+                  <strong>Action Required</strong>
+                </div>
+                
+                <p>Dear ${hub.hub_name} Administrator,</p>
+                
+                <p><strong>${organization.organization_name}</strong> has requested to detach from your hub.</p>
+                
+                <div class="info-box">
+                  <h3>Request Details:</h3>
+                  <p><strong>Organization:</strong> ${organization.organization_name}</p>
+                  <p><strong>Subdomain:</strong> ${organization.nickname}.${hub.hub_nickname}.managira.com</p>
+                  <p><strong>Contact:</strong> ${organization.email}</p>
+                  <p><strong>Requested by:</strong> ${req.session.email}</p>
+                  <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+                </div>
+                
+                <div class="info-box">
+                  <h3>Reason for Detachment:</h3>
+                  <p>${reason}</p>
+                </div>
+                
+                <h3>Next Steps:</h3>
+                <p>Please log in to your hub dashboard to review and approve/reject this request.</p>
+                
+                <div style="text-align: center;">
+                  <a href="${process.env.APP_URL || 'http://localhost:4000'}/hub/dashboard" class="button">Review Request</a>
+                </div>
+                
+                <p style="margin-top: 20px; color: #666; font-size: 14px;">If you approve this request, ${organization.organization_name} will become an independent organization and will need to set up their own subscription.</p>
+              </div>
+              <div class="footer">
+                <p>&copy; ${new Date().getFullYear()} Managira SMS. All rights reserved.</p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `;
+
+        await sendEmail({
+          to: hub.hub_email,
+          subject: `Detachment Request from ${organization.organization_name}`,
+          html: emailHtml
+        });
+
+              }
+
+      // Log activity
+      await db.query(
+        `INSERT INTO hub_activity_logs (hub_id, action_type, target_organization_id, description, performed_by, ip_address)
+         VALUES ($1, 'detachment_requested', $2, $3, $4, $5)`,
+        [
+          organization.hub_id,
+          organizationId,
+          `Detachment request from ${organization.organization_name}`,
+          req.session.email,
+          req.ip
+        ]
+      );
+
+            req.flash('success', 'Your detachment request has been submitted. The hub will review your request and respond accordingly.');
+      res.redirect('/account/update');
+    } catch (error) {
+            req.flash('error', 'Error submitting detachment request.');
+      res.redirect('/account/update');
+    }
+  },
+
+  // GET - Accept hub invitation for existing organization
+  hubInvitationAcceptExistingGet: async (req, res) => {
+    try {
+      const { token } = req.params;
+
+      // Find invitation
+      const inviteResult = await db.query(
+        `SELECT hi.*, h.hub_name, h.hub_nickname, h.hub_email
+         FROM hub_organization_invitations hi
+         JOIN managira_hubs h ON hi.hub_id = h.hub_id
+         WHERE hi.invitation_token = $1 AND hi.status = 'pending' AND hi.expires_at > NOW()`,
+        [token]
+      );
+
+      if (inviteResult.rows.length === 0) {
+                req.flash('error', 'Invalid or expired invitation link.');
+        return res.redirect('/account/login');
+      }
+
+      const invitation = inviteResult.rows[0];
+
+            res.render('account/acceptHubInvitationExisting', {
+        invitation,
+        token,
+        title: 'Accept Hub Invitation',
+        req
+      });
+    } catch (error) {
+            req.flash('error', 'Error loading invitation.');
+      res.redirect('/account/login');
+    }
+  },
+
+  // POST - Accept hub invitation for existing organization
+  hubInvitationAcceptExistingPost: async (req, res) => {
+    const client = await db.connect();
+    
+    try {
+      const { token } = req.params;
+      const { confirm } = req.body;
+
+      if (confirm !== 'yes') {
+        req.flash('error', 'You must confirm to accept the invitation.');
+        return res.redirect(`/account/accept-hub-invitation-existing/${token}`);
+      }
+
+      await client.query('BEGIN');
+
+      // Get invitation details
+      const inviteResult = await client.query(
+        `SELECT hi.*, h.hub_id, h.hub_name, h.hub_nickname, h.hub_email
+         FROM hub_organization_invitations hi
+         JOIN managira_hubs h ON hi.hub_id = h.hub_id
+         WHERE hi.invitation_token = $1 AND hi.status = 'pending' AND hi.expires_at > NOW()`,
+        [token]
+      );
+
+      if (inviteResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        req.flash('error', 'Invalid or expired invitation.');
+        return res.redirect('/account/login');
+      }
+
+      const invitation = inviteResult.rows[0];
+
+            // Verify organization exists and is not in a hub
+      const orgResult = await client.query(
+        `SELECT * FROM organizations WHERE organization_id = $1 AND deleted = false`,
+        [invitation.existing_org_id]
+      );
+
+      if (orgResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        req.flash('error', 'Organization not found.');
+        return res.redirect('/account/login');
+      }
+
+      const organization = orgResult.rows[0];
+
+      if (organization.is_hub_member && organization.hub_id) {
+        await client.query('ROLLBACK');
+        req.flash('error', 'This organization is already part of a hub.');
+        return res.redirect('/account/login');
+      }
+
+            // Update organization to join hub
+      await client.query(
+        `UPDATE organizations 
+         SET hub_id = $1, is_hub_member = true, joined_hub_at = CURRENT_TIMESTAMP
+         WHERE organization_id = $2`,
+        [invitation.hub_id, invitation.existing_org_id]
+      );
+
+            // Update invitation status
+      await client.query(
+        `UPDATE hub_organization_invitations 
+         SET status = 'accepted', accepted_at = CURRENT_TIMESTAMP 
+         WHERE invitation_id = $1`,
+        [invitation.invitation_id]
+      );
+
+            // Log activity
+      await client.query(
+        `INSERT INTO hub_activity_logs (hub_id, action_type, target_organization_id, description, performed_by, ip_address)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          invitation.hub_id,
+          'organization_joined',
+          invitation.existing_org_id,
+          `${organization.organization_name} accepted invitation and joined hub`,
+          organization.email,
+          req.ip
+        ]
+      );
+
+            await client.query('COMMIT');
+      client.release();
+
+            // Send confirmation emails
+      const hubEmailHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+            .success-box { background: #d4edda; padding: 15px; border-left: 4px solid #28a745; margin: 20px 0; }
+            .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>✅ Organization Joined Your Hub</h1>
+            </div>
+            <div class="content">
+              <div class="success-box">
+                <strong>${organization.organization_name}</strong> has accepted your invitation!
+              </div>
+              
+              <p>Great news! ${organization.organization_name} is now part of ${invitation.hub_name}.</p>
+              
+              <p><strong>Organization Details:</strong></p>
+              <ul>
+                <li>Name: ${organization.organization_name}</li>
+                <li>Email: ${organization.email}</li>
+                <li>New Subdomain: ${organization.nickname}.${invitation.hub_nickname}.managira.com</li>
+              </ul>
+              
+              <p>You can now manage this organization from your hub dashboard.</p>
+            </div>
+            <div class="footer">
+              <p>&copy; ${new Date().getFullYear()} Managira SMS. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      const orgEmailHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+            .success-box { background: #d4edda; padding: 15px; border-left: 4px solid #28a745; margin: 20px 0; }
+            .info-box { background: white; padding: 15px; border-left: 4px solid #01535b; margin: 20px 0; }
+            .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🎉 Welcome to ${invitation.hub_name}!</h1>
+            </div>
+            <div class="content">
+              <div class="success-box">
+                <strong>You've successfully joined the hub!</strong>
+              </div>
+              
+              <p>Dear ${organization.organization_name} Team,</p>
+              
+              <p>Your organization is now part of <strong>${invitation.hub_name}</strong>.</p>
+              
+              <div class="info-box">
+                <h3>Important Changes:</h3>
+                <ul>
+                  <li>Your new subdomain: <strong>${organization.nickname}.${invitation.hub_nickname}.managira.com</strong></li>
+                  <li>Your subscription is now managed by ${invitation.hub_name}</li>
+                  <li>All your data remains intact</li>
+                  <li>You retain full operational control</li>
+                </ul>
+              </div>
+              
+              <p>You can continue using Managira SMS as usual. If you have questions, contact ${invitation.hub_name} at ${invitation.hub_email}.</p>
+            </div>
+            <div class="footer">
+              <p>&copy; ${new Date().getFullYear()} Managira SMS. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      // Send emails
+      await sendEmailSafely({
+        to: invitation.hub_email,
+        subject: `${organization.organization_name} Joined Your Hub`,
+        html: hubEmailHtml,
+        attachments: [{
+          filename: 'managira.png',
+          path: path.join(__dirname, '../public/images/managira.png'),
+          cid: 'managira_logo'
+        }]
+      }, 'HubJoinConfirmation');
+
+      await sendEmailSafely({
+        to: organization.email,
+        subject: `Welcome to ${invitation.hub_name} Hub`,
+        html: orgEmailHtml,
+        attachments: [{
+          filename: 'managira.png',
+          path: path.join(__dirname, '../public/images/managira.png'),
+          cid: 'managira_logo'
+        }]
+      }, 'OrgWelcomeToHub');
+
+      req.flash('success', `Successfully joined ${invitation.hub_name}! You can now log in with your existing credentials.`);
+      res.redirect('/account/login');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      client.release();
+            req.flash('error', 'Error accepting invitation.');
       res.redirect('/account/login');
     }
   },

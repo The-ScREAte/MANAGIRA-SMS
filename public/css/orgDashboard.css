@@ -369,11 +369,13 @@ li {
 }
 
 /* Welcome card layout */
-.org-dashboard-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 5px;
+.welcome-page-wrapper {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  padding: 40px 20px !important;
+  min-height: 50vh !important;
+  width: 100% !important;
 }
 
 /* Large screen: add right offset to tools */
@@ -383,15 +385,14 @@ li {
   }
 }
 
-/* Small screen: remove padding from org dashboard container */
+/* Small screen: adjust padding for welcome page */
 @media screen and (max-width: 768px) {
-  .org-dashboard-container {
-    padding-left: 0 !important;
-    padding-right: 0 !important;
+  .welcome-page-wrapper {
+    padding: 20px 10px !important;
   }
 }
 
-.welcome-card {
+.org-welcome-card {
   max-width: 680px;
   width: 100%;
   margin: 0 auto;
@@ -457,13 +458,13 @@ li {
 }
 
 
-.welcome-card h1 {
+.org-welcome-card h1 {
   font-size: 2.25em;
   color: #333;
   margin-bottom: 12px;
 }
 
-.welcome-card p {
+.org-welcome-card p {
   font-size: 1.15em;
   color: #555;
   margin-bottom: 12px;
@@ -483,18 +484,17 @@ li {
   display: inline-block;
   margin-top: 20px;
   padding: 12px 22px;
-  background-color: var(--org-primary-color);
-  color: white;
-  text-decoration: none;
+  background-color: transparent;
+  color: var(--org-primary-color);
+  text-decoration: underline;
   border-radius: 6px;
   font-weight: 700;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
-  transition: background-color 0.2s ease;
+  transition: color 0.2s ease;
 }
 
 .start-link:hover {
-  background-color: var(--org-primary-hover);
-  text-decoration: none;
+  color: var(--org-primary-hover);
+  text-decoration: underline;
 }
 
 /* Horizontal line divider */

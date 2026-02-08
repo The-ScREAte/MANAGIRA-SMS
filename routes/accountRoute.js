@@ -309,5 +309,10 @@ router.post(
 // Hub Invitation Routes
 router.get("/accept-hub-invitation/:token", accountController.hubInvitationAcceptGet);
 router.post("/accept-hub-invitation/:token", accountController.hubInvitationAcceptPost);
+router.get("/accept-hub-invitation-existing/:token", accountController.hubInvitationAcceptExistingGet);
+router.post("/accept-hub-invitation-existing/:token", accountController.hubInvitationAcceptExistingPost);
+
+// Hub Detachment Routes
+router.post("/request-hub-detachment", isAuthenticated, accountController.requestHubDetachmentPost);
 
 module.exports = router;

@@ -1,207 +1,214 @@
-<%- include('../partials/flash') %>
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  :root {
+    --primary: #01535b;
+    --primary-hover: #014a51;
+    --text-primary: #111827;
+    --text-secondary: #6b7280;
+    --border: #e5e7eb;
+    --bg: #f9fafb;
+  }
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hub Dashboard - Managira</title>
-  <link rel="stylesheet" href="/css/style.css">
-  <style>
-    :root {
-      --primary: #01535b;
-      --primary-hover: #014a51;
-      --text-primary: #111827;
-      --text-secondary: #6b7280;
-      --border: #e5e7eb;
-      --bg: #f9fafb;
-    }
+  body { background: var(--bg); font-family: "Inter", -apple-system, sans-serif; }
 
-    body { background: var(--bg); font-family: "Inter", -apple-system, sans-serif; }
+  .hub-container { max-width: 1200px; margin: 0 auto; padding: 120px 60px 60px 60px; }
 
-    .hub-container { max-width: 1200px; margin: 0 auto; padding: 24px 20px; }
+  .hub-header {
+    background: var(--primary);
+    color: white;
+    padding: 28px 32px;
+    border-radius: 12px;
+    margin-bottom: 24px;
+  }
 
-    .hub-header {
-      background: var(--primary);
-      color: white;
-      padding: 28px 32px;
-      border-radius: 12px;
-      margin-bottom: 24px;
-    }
+  .hub-header h1 { font-size: 1.5rem; margin-bottom: 4px; font-weight: 700; }
+  .hub-header p { opacity: 0.85; font-size: 0.9rem; }
 
-    .hub-header h1 { font-size: 1.5rem; margin-bottom: 4px; font-weight: 700; }
-    .hub-header p { opacity: 0.85; font-size: 0.9rem; }
+  .hub-nav { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
 
-    .hub-nav { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+  .hub-nav a {
+    padding: 8px 18px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.15s;
+  }
 
-    .hub-nav a {
-      padding: 8px 18px;
-      background: white;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      text-decoration: none;
-      color: var(--text-primary);
-      font-weight: 600;
-      font-size: 0.9rem;
-      transition: all 0.15s;
-    }
+  .hub-nav a:hover, .hub-nav a.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
 
-    .hub-nav a:hover, .hub-nav a.active {
-      background: var(--primary);
-      color: white;
-      border-color: var(--primary);
-    }
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
 
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-      margin-bottom: 24px;
-    }
+  .stat-card {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
 
-    .stat-card {
-      background: white;
-      padding: 20px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-    }
+  .stat-card h3 {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
 
-    .stat-card h3 {
-      font-size: 0.75rem;
-      color: var(--text-secondary);
-      margin-bottom: 6px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
+  .stat-value { font-size: 2rem; font-weight: 700; color: var(--primary); }
+  .stat-label { font-size: 0.8rem; color: #94a3b8; margin-top: 2px; }
 
-    .stat-value { font-size: 2rem; font-weight: 700; color: var(--primary); }
-    .stat-label { font-size: 0.8rem; color: #94a3b8; margin-top: 2px; }
+  .section-card {
+    background: white;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
 
-    .section-card {
-      background: white;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      margin-bottom: 20px;
-      overflow: hidden;
-    }
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
 
-    .section-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--border);
-    }
+  .section-header h2 { font-size: 1.1rem; color: var(--text-primary); margin: 0; }
 
-    .section-header h2 { font-size: 1.1rem; color: var(--text-primary); margin: 0; }
+  .table-container { overflow-x: auto; }
 
-    .table-container { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
 
-    table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 12px 20px; text-align: left; font-size: 0.9rem; }
 
-    th, td { padding: 12px 20px; text-align: left; font-size: 0.9rem; }
+  th {
+    background: var(--bg);
+    font-weight: 600;
+    color: #475569;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
 
-    th {
-      background: var(--bg);
-      font-weight: 600;
-      color: #475569;
-      font-size: 0.8rem;
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
-    }
+  td { border-top: 1px solid var(--border); color: var(--text-primary); }
+  tr:hover td { background: var(--bg); }
 
-    td { border-top: 1px solid var(--border); color: var(--text-primary); }
-    tr:hover td { background: var(--bg); }
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    background: #ecfdf5;
+    color: #065f46;
+  }
 
-    .badge {
-      display: inline-block;
-      padding: 2px 10px;
-      border-radius: 12px;
-      font-size: 0.78rem;
-      font-weight: 600;
-      background: #ecfdf5;
-      color: #065f46;
-    }
+  .btn {
+    display: inline-block;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-family: inherit;
+  }
 
-    .btn {
-      display: inline-block;
-      padding: 8px 16px;
-      border-radius: 6px;
-      font-weight: 600;
-      text-decoration: none;
-      transition: all 0.15s;
-      border: none;
-      cursor: pointer;
-      font-size: 0.85rem;
-      font-family: inherit;
-    }
+  .btn-primary { background: var(--primary); color: white; }
+  .btn-primary:hover { background: var(--primary-hover); }
 
-    .btn-primary { background: var(--primary); color: white; }
-    .btn-primary:hover { background: var(--primary-hover); }
+  .btn-sm { padding: 6px 14px; font-size: 0.85rem; }
+  .btn-danger { background: #dc2626; color: white; }
+  .btn-danger:hover { background: #b91c1c; }
+  .btn-secondary { background: #6b7280; color: white; }
+  .btn-secondary:hover { background: #4b5563; }
+  .btn-warning { background: #f59e0b; color: white; }
+  .btn-warning:hover { background: #d97706; }
+  .btn-success { background: #10b981; color: white; }
+  .btn-success:hover { background: #059669; }
 
-    .btn-sm { padding: 5px 10px; font-size: 0.8rem; }
-    .btn-danger { background: #dc2626; color: white; }
-    .btn-danger:hover { background: #b91c1c; }
-    .btn-secondary { background: #6b7280; color: white; }
-    .btn-secondary:hover { background: #4b5563; }
+  .action-select {
+    padding: 6px 12px;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: white;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
 
-    .action-buttons { display: flex; gap: 6px; }
+  .action-select:hover {
+    border-color: var(--primary);
+  }
 
-    .no-data { padding: 48px 20px; text-align: center; color: #94a3b8; }
+  .action-select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(1, 83, 91, 0.1);
+  }
+  .action-buttons { display: flex; gap: 6px; }
 
-    .invitation-item {
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 16px;
-    }
+  .no-data { padding: 48px 20px; text-align: center; color: #94a3b8; }
 
-    .invitation-item:last-child { border-bottom: none; }
+  .invitation-item {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+  }
 
-    .invitation-info h4 { margin: 0 0 4px 0; color: var(--text-primary); font-size: 0.95rem; }
-    .invitation-info p { margin: 2px 0; color: var(--text-secondary); font-size: 0.82rem; }
+  .invitation-item:last-child { border-bottom: none; }
 
-    .invitation-status {
-      display: inline-block;
-      padding: 2px 10px;
-      border-radius: 12px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      background: #fef3c7;
-      color: #92400e;
-    }
+  .invitation-info h4 { margin: 0 0 4px 0; color: var(--text-primary); font-size: 0.95rem; }
+  .invitation-info p { margin: 2px 0; color: var(--text-secondary); font-size: 0.82rem; }
 
-    @media (max-width: 768px) {
-      .stats-grid { grid-template-columns: repeat(2, 1fr); }
-      .table-container { overflow-x: scroll; }
-      table { min-width: 700px; }
-      .action-buttons { flex-direction: column; }
-      .section-header { flex-direction: column; gap: 10px; align-items: flex-start; }
-      .invitation-item { flex-direction: column; align-items: flex-start; }
-    }
+  .invitation-status {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: #fef3c7;
+    color: #92400e;
+  }
 
-    @media (max-width: 480px) {
-      .stats-grid { grid-template-columns: 1fr; }
-      .hub-container { padding: 16px 12px; }
-    }
-  </style>
-</head>
-<body>
-  <div class="hub-container">
-    <div class="hub-header">
-      <h1>Welcome, <%= hub.first_name %>!</h1>
-      <p><%= hub.hub_name %> &middot; <%= hub.hub_nickname %>.managira.com</p>
-    </div>
+  @media (max-width: 768px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .table-container { overflow-x: scroll; }
+    table { min-width: 700px; }
+    .action-buttons { flex-direction: column; }
+    .section-header { flex-direction: column; gap: 10px; align-items: flex-start; }
+    .invitation-item { flex-direction: column; align-items: flex-start; }
+  }
 
-    <div class="hub-nav">
-      <a href="/hub/dashboard" class="active">Dashboard</a>
-      <a href="/hub/settings">Settings</a>
-      <a href="/hub/logout">Logout</a>
-    </div>
+  @media (max-width: 480px) {
+    .stats-grid { grid-template-columns: 1fr; }
+    .hub-container { padding: 16px 12px; }
+  }
+</style>
 
+<div class="hub-container">
+    <%- include('../partials/flash') %>
+    
     <div class="stats-grid">
       <div class="stat-card">
         <h3>Organizations</h3>
@@ -233,7 +240,13 @@
       <% pendingInvitations.forEach(invitation => { %>
         <div class="invitation-item">
           <div class="invitation-info">
-            <h4><%= invitation.organization_name %></h4>
+            <h4><%= invitation.organization_name %>
+              <% if (invitation.existing_org_id) { %>
+                <span style="display: inline-block; margin-left: 8px; padding: 4px 10px; background: #e3f2fd; color: #1976d2; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">🏢 Existing Org</span>
+              <% } else { %>
+                <span style="display: inline-block; margin-left: 8px; padding: 4px 10px; background: #f3e5f5; color: #7b1fa2; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">✨ New Org</span>
+              <% } %>
+            </h4>
             <p><%= invitation.contact_person_name %> &middot; <%= invitation.contact_person_email %></p>
             <p>Sent: <%= new Date(invitation.created_at).toLocaleDateString() %> &middot; Expires: <%= new Date(invitation.expires_at).toLocaleDateString() %></p>
             <span class="invitation-status">Pending</span>
@@ -247,6 +260,32 @@
               <input type="hidden" name="invitationId" value="<%= invitation.invitation_id %>">
               <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Cancel this invitation?')">Cancel</button>
             </form>
+          </div>
+        </div>
+      <% }); %>
+    </div>
+    <% } %>
+
+    <% if (detachmentRequests && detachmentRequests.length > 0) { %>
+    <div class="section-card">
+      <div class="section-header">
+        <h2>⚠️ Detachment Requests (<%= detachmentRequests.length %>)</h2>
+      </div>
+      <% detachmentRequests.forEach(request => { %>
+        <div class="invitation-item" style="background: #fff3cd; border-left: 4px solid #ffc107;">
+          <div class="invitation-info">
+            <h4><%= request.organization_name %></h4>
+            <p><strong>Requested by:</strong> <%= request.requested_by %></p>
+            <p><strong>Date:</strong> <%= new Date(request.requested_at).toLocaleDateString() %> at <%= new Date(request.requested_at).toLocaleTimeString() %></p>
+            <p><strong>Reason:</strong></p>
+            <p style="padding: 10px; background: white; border-radius: 4px; margin-top: 8px;"><%= request.reason %></p>
+          </div>
+          <div class="action-buttons">
+            <form action="/hub/detachment-requests/approve" method="POST" style="display:inline;" onsubmit="return confirm('⚠️ Are you sure you want to approve this detachment?\n\n<%= request.organization_name %> will become independent and will need their own subscription. This action cannot be undone.');">
+              <input type="hidden" name="requestId" value="<%= request.request_id %>">
+              <button type="submit" class="btn btn-success" style="background: #28a745;">✓ Approve</button>
+            </form>
+            <button type="button" class="btn btn-danger" onclick="showRejectModal(<%= request.request_id %>, '<%= request.organization_name %>')">✗ Reject</button>
           </div>
         </div>
       <% }); %>
@@ -269,13 +308,14 @@
                 <th>Students</th>
                 <th>Staff</th>
                 <th>Classes</th>
+                <th>Status</th>
                 <th>Joined</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               <% organizations.forEach(org => { %>
-                <tr>
+                <tr style="<%= org.on_hold ? 'opacity: 0.6;' : '' %>">
                   <td>
                     <strong><%= org.organization_name %></strong><br>
                     <small style="color: var(--text-secondary);"><%= org.nickname %>.<%= hub.hub_nickname %>.managira.com</small>
@@ -285,12 +325,22 @@
                   <td><span class="badge"><%= org.student_count %></span></td>
                   <td><span class="badge"><%= org.teacher_count %></span></td>
                   <td><span class="badge"><%= org.class_count %></span></td>
+                  <td>
+                    <% if (org.on_hold) { %>
+                      <span class="badge" style="background: #fee; color: #c00;">On Hold</span>
+                    <% } else { %>
+                      <span class="badge" style="background: #efe; color: #0a0;">Active</span>
+                    <% } %>
+                  </td>
                   <td><%= org.joined_hub_at ? new Date(org.joined_hub_at).toLocaleDateString() : 'N/A' %></td>
                   <td>
-                    <form action="/hub/organizations/remove" method="POST" style="display:inline;">
-                      <input type="hidden" name="organizationId" value="<%= org.organization_id %>">
-                      <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Remove <%= org.organization_name %>? They will become independent.')">Remove</button>
-                    </form>
+                    <select class="action-select" onchange="handleOrgAction(this, '<%= org.organization_id %>', '<%= org.organization_name %>', <%= org.on_hold %>)">
+                      <option value="">⚙️ Select Action...</option>
+                      <option value="edit">✏️ Edit Details</option>
+                      <option value="<%= org.on_hold ? 'resume' : 'hold' %>"><%= org.on_hold ? '▶️ Resume' : '⏸️ Put on Hold' %></option>
+                      <option value="remove">🔗 Remove from Hub</option>
+                      <option value="delete">🗑️ Delete Permanently</option>
+                    </select>
                   </td>
                 </tr>
               <% }); %>
@@ -307,5 +357,119 @@
       </div>
     </div>
   </div>
-</body>
-</html>
+
+<script>
+  function handleOrgAction(selectElement, orgId, orgName, isOnHold) {
+    const action = selectElement.value;
+    
+    if (!action) {
+      return;
+    }
+
+    // Reset select to default after selection
+    selectElement.value = '';
+
+    switch(action) {
+      case 'edit':
+        window.location.href = `/hub/organizations/edit/${orgId}`;
+        break;
+
+      case 'hold':
+        if (confirm(`Put "${orgName}" on hold? They won't be able to access their account until resumed.`)) {
+          submitForm('/hub/organizations/toggle-hold', { organizationId: orgId });
+        }
+        break;
+
+      case 'resume':
+        if (confirm(`Resume "${orgName}"? They will regain full access to their account.`)) {
+          submitForm('/hub/organizations/toggle-hold', { organizationId: orgId });
+        }
+        break;
+
+      case 'remove':
+        if (confirm(`Remove "${orgName}" from your hub?\n\n⚠️ They will become an independent organization and need to set up their own subscription.\n\nTheir data will remain intact.`)) {
+          submitForm('/hub/organizations/remove', { organizationId: orgId });
+        }
+        break;
+
+      case 'delete':
+        if (confirm(`⚠️ PERMANENTLY DELETE "${orgName}"?\n\n🚨 THIS CANNOT BE UNDONE!\n\nAll their data including students, staff, and classes will be permanently deleted.\n\nType "DELETE" in the next prompt to confirm.`)) {
+          const confirmation = prompt('Type "DELETE" to confirm permanent deletion:');
+          if (confirmation === 'DELETE') {
+            submitForm('/hub/organizations/delete', { organizationId: orgId });
+          } else {
+            alert('Deletion cancelled. The organization was not deleted.');
+          }
+        }
+        break;
+    }
+  }
+
+  function submitForm(action, data) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = action;
+
+    for (const key in data) {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = key;
+      input.value = data[key];
+      form.appendChild(input);
+    }
+
+    document.body.appendChild(form);
+    form.submit();
+  }
+
+  // Reject detachment request modal
+  function showRejectModal(requestId, orgName) {
+    const modal = document.getElementById('rejectModal');
+    document.getElementById('rejectOrgName').textContent = orgName;
+    document.getElementById('rejectRequestId').value = requestId;
+    document.getElementById('rejectNotes').value = '';
+    modal.style.display = 'block';
+  }
+
+  function closeRejectModal() {
+    document.getElementById('rejectModal').style.display = 'none';
+  }
+
+  // Close modal when clicking outside
+  window.onclick = function(event) {
+    const modal = document.getElementById('rejectModal');
+    if (event.target === modal) {
+      closeRejectModal();
+    }
+  };
+</script>
+
+<!-- Reject Modal -->
+<div id="rejectModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);">
+  <div style="background-color: #fefefe; margin: 10% auto; padding: 0; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); width: 90%; max-width: 500px;">
+    <div style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+      <h2 style="margin: 0; font-size: 20px;">✗ Reject Detachment Request</h2>
+    </div>
+    <form action="/hub/detachment-requests/reject" method="POST">
+      <div style="padding: 30px;">
+        <p>You are rejecting the detachment request from <strong id="rejectOrgName"></strong>.</p>
+        <input type="hidden" name="requestId" id="rejectRequestId">
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; margin-bottom: 8px; font-weight: 600;">Reason for Rejection (Optional):</label>
+          <textarea 
+            name="notes" 
+            id="rejectNotes" 
+            rows="4" 
+            style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit; resize: vertical;"
+            placeholder="Provide feedback to the organization about why their request was rejected..."
+          ></textarea>
+          <small style="color: #666; display: block; margin-top: 4px;">This message will be sent to the organization.</small>
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button type="button" onclick="closeRejectModal()" style="padding: 10px 20px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer; font-weight: 500;">Cancel</button>
+          <button type="submit" style="padding: 10px 20px; border: none; background: #dc3545; color: white; border-radius: 4px; cursor: pointer; font-weight: 500;">Reject Request</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>

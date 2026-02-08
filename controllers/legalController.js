@@ -81,8 +81,7 @@ const legalController = {
                 res.redirect('/legal/help');
             });
         } catch (error) {
-            console.error('Error processing help request:', error);
-            req.flash('error', 'Failed to submit your request.');
+                        req.flash('error', 'Failed to submit your request.');
             res.redirect('/legal/help');
         }
     },

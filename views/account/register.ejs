@@ -8,6 +8,55 @@
   <title>Register Your Organization</title>
   <script src="/js/script.js" defer></script>
   <style>
+    .password-input-wrapper {
+      position: relative;
+    }
+
+    .password-input-wrapper .form-input {
+      padding-right: 45px;
+    }
+
+    .password-toggle-btn {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: transparent;
+      border: none;
+      color: #64748b;
+      cursor: pointer;
+      padding: 4px;
+      transition: color 0.2s ease;
+      font-size: 0.95rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+      pointer-events: auto;
+      width: 24px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+
+    .password-toggle-btn:hover {
+      color: #01535b;
+      transform: translateY(-50%);
+    }
+
+    .password-toggle-btn:active {
+      transform: translateY(-50%);
+    }
+
+    .password-toggle-btn:focus {
+      outline: none;
+      transform: translateY(-50%);
+    }
+
+    .password-toggle-btn i {
+      font-size: 0.9rem;
+      transition: none;
+    }
+
     :root {
       --font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       --primary: #01535b;
@@ -36,7 +85,19 @@
       font-family: var(--font-family);
       background: var(--bg-page);
       min-height: 100vh;
-      padding: 40px 20px;
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      margin: 0;
+    }
+
+    .page-wrapper {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      width: 100%;
     }
 
     .register-container {
@@ -292,7 +353,8 @@
   </style>
 </head>
 <body>
-  <div class="register-container">
+  <div class="page-wrapper">
+    <div class="register-container">
     <div class="register-card">
       <div class="register-header">
         <h1>Register Your Organization</h1>
@@ -402,7 +464,12 @@
 
         <div class="form-group">
           <label class="form-label" for="password">Password</label>
-          <input type="password" name="password" id="password" class="form-input" placeholder="Create a strong password" required oninput="checkPasswordStrength(this.value)" value="<%= formData?.password || '' %>">
+          <div class="password-input-wrapper">
+            <input type="password" name="password" id="password" class="form-input" placeholder="Create a strong password" required oninput="checkPasswordStrength(this.value)" value="<%= formData?.password || '' %>">
+            <button type="button" class="password-toggle-btn" onclick="toggleMultiplePasswords(['password', 'confirmPassword'], this)" aria-label="Show passwords">
+              <i class="fa-solid fa-eye fa-fw" aria-hidden="true"></i>
+            </button>
+          </div>
           <p id="password-strength" class="password-strength"></p>
           <div class="password-requirements">
             <p>Password must include:</p>
@@ -418,13 +485,10 @@
 
         <div class="form-group">
           <label class="form-label" for="confirmPassword">Confirm Password</label>
-          <input type="password" name="confirmPassword" id="confirmPassword" class="form-input" placeholder="Re-enter your password" required value="<%= formData?.confirmPassword || '' %>">
+          <div class="password-input-wrapper">
+            <input type="password" name="confirmPassword" id="confirmPassword" class="form-input" placeholder="Re-enter your password" required value="<%= formData?.confirmPassword || '' %>">
+          </div>
         </div>
-
-        <label class="password-toggle">
-          <input type="checkbox" id="show-password" />
-          Show passwords
-        </label>
 
         <div class="terms-group">
           <input type="checkbox" id="termsCheckbox" name="termsCheckbox" required>
@@ -452,7 +516,22 @@
       const strengthText = document.getElementById("password-strength");
       const showPwToggle = document.getElementById("show-password");
 
-      function checkPasswordStrength(password) {
+      function toggleMultiplePasswords(inputIds, button) {
+      const icon = button.querySelector('i');
+      const firstInput = document.getElementById(inputIds[0]);
+      const isVisible = firstInput.type === 'text';
+      
+      inputIds.forEach(id => {
+        const input = document.getElementById(id);
+        if (input) input.type = isVisible ? 'password' : 'text';
+      });
+      
+      icon.classList.remove('fa-eye', 'fa-eye-slash');
+      icon.classList.add(isVisible ? 'fa-eye' : 'fa-eye-slash');
+      button.setAttribute('aria-label', isVisible ? 'Show passwords' : 'Hide passwords');
+    }
+
+    function checkPasswordStrength(password) {
         const weak = /.{6,}/;
         const medium = /^(?=.*[A-Za-z])(?=.*\d).{6,}$/;
         const strong = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{6,}$/;
@@ -505,5 +584,6 @@
       }
     });
   </script>
+  </div>
 </body>
 </html>

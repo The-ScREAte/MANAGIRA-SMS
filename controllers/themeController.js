@@ -33,8 +33,7 @@ const updateThemePost = async (req, res) => {
     req.flash("success", "Theme color updated successfully.");
     return res.redirect(redirectTo || "/account/personalization");
   } catch (err) {
-    console.error("Error updating theme color:", err);
-    req.flash("error", "Failed to update theme color.");
+        req.flash("error", "Failed to update theme color.");
     return res.redirect(req.body.redirectTo || "/account/personalization");
   }
 };

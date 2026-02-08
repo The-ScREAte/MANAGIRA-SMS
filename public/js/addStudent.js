@@ -19,7 +19,7 @@ function updateSubjects(classId) {
             subjectContainer.innerHTML = subjectsHTML;
         })
         .catch(error => {
-            console.error('Error loading subjects:', error);
+            
             subjectContainer.innerHTML = '<div>Error loading subjects.</div>';
         });
 }
@@ -48,7 +48,7 @@ document.getElementById('classSelect').addEventListener('change', function() {
             }
         })
         .catch(error => {
-            console.error('Error fetching graduation year group:', error);
+            
             gradYearDisplay.textContent = 'Failed to fetch graduation year group data.';
             gradYearDisplay.classList.remove('success');
             gradYearDisplay.classList.add('error');

@@ -90,7 +90,7 @@ app.use(async (req, res, next) => {
         // Two-level subdomain: org.hub.managira.com
         orgQuery = `
           SELECT o.*, mh.hub_name, mh.hub_nickname, mh.hub_email, mh.plan_id as hub_plan_id,
-                 mh.hub_branding_enabled, mh.hub_footer_text, mh.on_hold as hub_on_hold
+                 mh.hub_branding_enabled, mh.hub_footer_text, mh.on_hold as hub_on_hold, mh.logo_path as hub_logo
           FROM organizations o
           JOIN managira_hubs mh ON o.hub_id = mh.hub_id
           WHERE o.nickname = $1 AND mh.hub_nickname = $2 AND o.is_hub_member = true AND o.deleted = false
@@ -106,7 +106,8 @@ app.use(async (req, res, next) => {
                  CASE WHEN o.hub_id IS NOT NULL THEN mh.plan_id ELSE NULL END as hub_plan_id,
                  CASE WHEN o.hub_id IS NOT NULL THEN mh.hub_branding_enabled ELSE false END as hub_branding_enabled,
                  CASE WHEN o.hub_id IS NOT NULL THEN mh.hub_footer_text ELSE NULL END as hub_footer_text,
-                 CASE WHEN o.hub_id IS NOT NULL THEN mh.on_hold ELSE false END as hub_on_hold
+                 CASE WHEN o.hub_id IS NOT NULL THEN mh.on_hold ELSE false END as hub_on_hold,
+                 CASE WHEN o.hub_id IS NOT NULL THEN mh.logo_path ELSE NULL END as hub_logo
           FROM organizations o
           LEFT JOIN managira_hubs mh ON o.hub_id = mh.hub_id
           WHERE o.nickname = $1 AND o.deleted = false
@@ -131,7 +132,8 @@ app.use(async (req, res, next) => {
             hubPlanId: org.hub_plan_id,
             hubBrandingEnabled: org.hub_branding_enabled,
             hubFooterText: org.hub_footer_text,
-            hubOnHold: org.hub_on_hold
+            hubOnHold: org.hub_on_hold,
+            hubLogo: org.hub_logo
           };
 
           // Check if hub is on hold

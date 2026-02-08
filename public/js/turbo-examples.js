@@ -208,7 +208,7 @@ registerTurboInit('autoSave', function() {
           }
         })
         .catch(error => {
-          console.error('Auto-save failed:', error);
+          
         });
       }, 1000); // Save 1 second after user stops typing
     });
@@ -344,4 +344,4 @@ registerTurboInit('validation', function() {
   });
 });
 
-console.log('Turbo examples loaded - Use these patterns in your application');
+

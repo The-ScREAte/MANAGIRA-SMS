@@ -940,8 +940,7 @@ const commonController = {
 
       return res.json({ success: true });
     } catch (error) {
-      console.error("Error saving dashboard order:", error);
-      return res.status(500).json({ success: false });
+            return res.status(500).json({ success: false });
     }
   },
 
@@ -1291,7 +1290,7 @@ const commonController = {
                   organizationName,
                   organizationId,
                   guardianId
-                ).catch(err => console.error('Email sending error:', err));
+                ).catch(err => {});
               });
             } else if (g.profileId && isNewLink && loginEmail) {
               // Existing guardian - send student added notification
@@ -1302,7 +1301,7 @@ const commonController = {
                   g.lastName,
                   studentName,
                   organizationName
-                ).catch(err => console.error('Email sending error:', err));
+                ).catch(err => {});
               });
             }
           }
@@ -3571,11 +3570,7 @@ const commonController = {
       if (type === 'guardian' || user_id.startsWith('guardian_')) {
         const guardianId = user_id.replace('guardian_', '');
         
-        console.log('💾 Setting guardian password:', {
-          guardianId,
-          hashedPassword: hashedPassword ? 'generated' : 'missing'
-        });
-        
+                
         // Update guardian account password
         const updateResult = await db.query(
           `UPDATE guardian_accounts
@@ -3585,12 +3580,7 @@ const commonController = {
           [hashedPassword, guardianId]
         );
 
-        console.log('✅ Password update result:', {
-          rowCount: updateResult.rowCount,
-          updated: updateResult.rows[0]
-        });
-
-        if (updateResult.rowCount === 0) {
+                if (updateResult.rowCount === 0) {
           req.flash("error", "Guardian account not found.");
           return res.redirect("/account/login");
         }
@@ -3907,8 +3897,7 @@ const commonController = {
         messages: req.flash(),
       });
     } catch (error) {
-      console.error("Error loading modify employee page:", error);
-      res.status(500).send("Failed to load employee details.");
+            res.status(500).send("Failed to load employee details.");
     }
   },
 
@@ -4000,8 +3989,7 @@ const commonController = {
       req.flash("success", "Employee details updated successfully.");
       res.redirect("/common/manageEmployees");
     } catch (error) {
-      console.error("Error updating employee details:", error);
-      req.flash("error", "Failed to update employee details.");
+            req.flash("error", "Failed to update employee details.");
       res.redirect(`/common/modifyEmployee?userId=${userId}`);
     }
   },
@@ -4197,8 +4185,7 @@ const commonController = {
         messages: req.flash(),
       });
     } catch (err) {
-      console.error("Error fetching assessment data:", err);
-      res.status(500).send("Error fetching assessment data.");
+            res.status(500).send("Error fetching assessment data.");
     }
   },
 
@@ -4241,8 +4228,7 @@ const commonController = {
     try {
       await db.query(updateQuery, [subjectId, organizationId, classId, termId]);
     } catch (error) {
-      console.error("Error updating student positions:", error);
-      throw error;
+            throw error;
     }
   },
 
@@ -4404,8 +4390,7 @@ const commonController = {
         .json({ success: true, message: "Scores saved successfully." });
     } catch (error) {
       await db.query("ROLLBACK");
-      console.error("Error saving scores:", error);
-      req.flash(
+            req.flash(
         "error",
         "An error occurred while saving scores. Please try again."
       );
@@ -4470,8 +4455,7 @@ const commonController = {
       );
       res.json(result.rows);
     } catch (error) {
-      console.error("Error fetching assessments:", error);
-      res.status(500).send("Failed to fetch assessments");
+            res.status(500).send("Failed to fetch assessments");
     }
   },
 
@@ -4492,8 +4476,7 @@ const commonController = {
 
       res.json(result.rows);
     } catch (error) {
-      console.error("Error fetching scores:", error);
-      res.status(500).send("Failed to fetch scores");
+            res.status(500).send("Failed to fetch scores");
     }
   },
 
@@ -4584,8 +4567,7 @@ const commonController = {
         messages: req.flash(),
       });
     } catch (err) {
-      console.error("Error fetching manage assessment data:", err);
-      req.flash("error", "Failed to load manage assessment data.");
+            req.flash("error", "Failed to load manage assessment data.");
       res.status(500).send("Error fetching manage assessment data.");
     }
   },
@@ -4671,8 +4653,7 @@ const commonController = {
         messages: req.flash(),
       });
     } catch (error) {
-      console.error("Error fetching data for modifyAssessment:", error);
-      req.flash("error", "Failed to load assessment details.");
+            req.flash("error", "Failed to load assessment details.");
       res.redirect("/common/manageAssessment");
     }
   },
@@ -4700,8 +4681,7 @@ const commonController = {
       !maxScore ||
       !category
     ) {
-      console.error("Modify Assessment - Missing required fields.");
-      return res
+            return res
         .status(400)
         .json({ error: "Organization ID and Term ID are required." });
     }
@@ -4793,8 +4773,7 @@ const commonController = {
         )}`,
       });
     } catch (error) {
-      console.error("Modify Assessment - Error:", error);
-      await client.query("ROLLBACK"); // Rollback transaction
+            await client.query("ROLLBACK"); // Rollback transaction
       res
         .status(500)
         .json({ error: "Failed to update assessment. Please try again." });
@@ -4829,8 +4808,7 @@ const commonController = {
         .json({ message: "Assessment group deleted successfully." });
     } catch (err) {
       await client.query("ROLLBACK"); // Rollback transaction on error
-      console.error("Error deleting assessment group:", err);
-      res.status(500).json({ error: "Failed to delete assessment group." });
+            res.status(500).json({ error: "Failed to delete assessment group." });
     } finally {
       client.release();
     }
@@ -4906,8 +4884,7 @@ const commonController = {
       });
     } catch (error) {
       req.flash("error", "Failed to load create test form.");
-      console.error("Error fetching create test form data:", error);
-      res.redirect(
+            res.redirect(
         `/common/createTest?organizationId=${organizationId}&termId=${urlTermId}`
       );
     }
@@ -5010,8 +4987,7 @@ const commonController = {
       });
     } catch (error) {
       await client.query("ROLLBACK");
-      console.error("Error adding tests:", error);
-      res.status(400).json({ error: `Failed to add tests. ${error.message}` });
+            res.status(400).json({ error: `Failed to add tests. ${error.message}` });
     } finally {
       client.release();
     }
@@ -5035,8 +5011,7 @@ const commonController = {
       req.flash("success", "Employee deleted successfully.");
       res.redirect("/common/manageEmployees");
     } catch (error) {
-      console.error("Error deleting employee:", error);
-      req.flash("error", "Failed to delete employee.");
+            req.flash("error", "Failed to delete employee.");
       res.redirect("/common/manageEmployees");
     }
   },
@@ -5103,8 +5078,7 @@ const commonController = {
       );
 
       if (classResult.rows.length === 0) {
-        console.error("Class details not found");
-        return res
+                return res
           .status(500)
           .send("Error fetching class details or class not found");
       }
@@ -5192,8 +5166,7 @@ const commonController = {
         isMainTeacher: isMainTeacher,
       });
     } catch (err) {
-      console.error("🚨 Error fetching class dashboard data:", err);
-      res.status(500).send("Error loading class dashboard");
+            res.status(500).send("Error loading class dashboard");
     }
   },
 
@@ -5213,8 +5186,7 @@ const commonController = {
       res.json({ success: true, message: "Main employee set successfully." });
     } catch (error) {
       await db.query("ROLLBACK");
-      console.error("Error setting main employee:", error);
-      res
+            res
         .status(500)
         .json({ success: false, message: "Failed to set main employee." });
     }
@@ -5302,8 +5274,7 @@ const commonController = {
             );
           }
         } else {
-          console.warn(`No classes selected for term ${term.termName}`);
-        }
+                  }
       }
 
       // Add success flash message
@@ -5315,8 +5286,7 @@ const commonController = {
       // Redirect to the manageRecords page upon successful insertion
       res.redirect("/common/manageRecords");
     } catch (error) {
-      console.error("Error registering school year:", error);
-      req.flash("error", "Error registering school year.");
+            req.flash("error", "Error registering school year.");
       res.redirect("/common/manageRecords");
     }
   },
@@ -5336,8 +5306,7 @@ const commonController = {
         messages: req.flash(),
       });
     } catch (error) {
-      console.error("Error loading register school year page:", error);
-      req.flash(
+            req.flash(
         "error",
         "Failed to load the form for registering a school year."
       );
@@ -5353,8 +5322,7 @@ const commonController = {
       );
       res.json(result.rows);
     } catch (error) {
-      console.error("Error fetching classes:", error);
-      res.status(500).json({ error: "Failed to load classes." });
+            res.status(500).json({ error: "Failed to load classes." });
     }
   },
 
@@ -5372,8 +5340,7 @@ const commonController = {
       );
       res.redirect("/common/manageRecords");
     } catch (error) {
-      console.error("Error adding event:", error);
-      res.status(500).send("Error processing your request");
+            res.status(500).send("Error processing your request");
     }
   },
 
@@ -5385,8 +5352,7 @@ const commonController = {
       );
       res.redirect("/common/manageRecords");
     } catch (error) {
-      console.error("Error posting announcement:", error);
-      res.status(500).send("Error processing your request");
+            res.status(500).send("Error processing your request");
     }
   },
 
@@ -5473,8 +5439,7 @@ const commonController = {
         },
       });
     } catch (error) {
-      console.error("Error fetching data:", error);
-      req.flash("error", "Error loading manage records page.");
+            req.flash("error", "Error loading manage records page.");
       res.redirect("/common/manageRecords");
     }
   },
@@ -5627,8 +5592,7 @@ const commonController = {
       res.redirect("/common/manageRecords");
     } catch (error) {
       await db.query("ROLLBACK");
-      console.error("Error updating school year and terms:", error);
-      req.flash("error", "Failed to update school year and terms.");
+            req.flash("error", "Failed to update school year and terms.");
       res.redirect("/common/manageRecords");
     }
   },
@@ -5701,9 +5665,7 @@ const commonController = {
       res.redirect("/account/managePublicContent");
     } catch (err) {
       // Log the error to understand what went wrong
-      console.error("Error creating event/announcement:", err);
-
-      req.flash("error", "Error creating event/announcement.");
+            req.flash("error", "Error creating event/announcement.");
       res.status(500).redirect("/account/managePublicContent");
     }
   },
@@ -5817,8 +5779,7 @@ const commonController = {
         messages: req.flash(),
       });
     } catch (error) {
-      console.error("Error fetching data:", error);
-      req.flash(
+            req.flash(
         "error",
         "Failed to load the form for adding a class and subject."
       );
@@ -5853,8 +5814,7 @@ const commonController = {
       res.redirect("/common/addClassSubject");
     } catch (error) {
       await client.query("ROLLBACK");
-      console.error("Error adding classes:", error);
-      req.flash("error", "Failed to add classes.");
+            req.flash("error", "Failed to add classes.");
       res.redirect("/common/addClassSubject");
     } finally {
       client.release();
@@ -5926,8 +5886,7 @@ const commonController = {
       res.redirect("/common/addClassSubject");
     } catch (error) {
       await client.query("ROLLBACK");
-      console.error("Error adding subjects:", error);
-      req.flash("error", "Failed to add subjects.");
+            req.flash("error", "Failed to add subjects.");
       res.redirect("/common/addClassSubject");
     } finally {
       client.release();
@@ -5943,8 +5902,7 @@ const commonController = {
       );
       res.redirect("/common/manageRecords");
     } catch (error) {
-      console.error("Failed to update term:", error);
-      res.status(500).send("Error updating term");
+            res.status(500).send("Error updating term");
     }
   },
 
@@ -5957,8 +5915,7 @@ const commonController = {
       );
       res.json({ success: true, message: "Term deleted successfully." });
     } catch (error) {
-      console.error("Error deleting term:", error);
-      res
+            res
         .status(500)
         .json({ success: false, message: "Failed to delete term." });
     }
@@ -5992,8 +5949,7 @@ const commonController = {
       res.redirect("/common/addClassSubject");
     } catch (error) {
       await client.query("ROLLBACK");
-      console.error("Error adding graduation year groups:", error);
-      req.flash("error", "Failed to add graduation year groups.");
+            req.flash("error", "Failed to add graduation year groups.");
       res.redirect("/common/addClassSubject");
     } finally {
       client.release();
@@ -6026,8 +5982,7 @@ const commonController = {
         },
       });
     } catch (error) {
-      console.error("Error fetching data:", error);
-      res.status(500).send("Error loading the management page.");
+            res.status(500).send("Error loading the management page.");
     }
   },
 
@@ -6049,8 +6004,7 @@ const commonController = {
         currentTerm: currentTerm,
       });
     } catch (error) {
-      console.error("Error fetching management data:", error);
-      res.status(500).send("Failed to load management data");
+            res.status(500).send("Failed to load management data");
     }
   },
 
@@ -6064,8 +6018,7 @@ const commonController = {
       req.flash("success", "Graduation year group updated successfully.");
       res.redirect("/common/manageClassSubjectAndGradYr");
     } catch (error) {
-      console.error("Error updating graduation year group:", error);
-      req.flash("error", "Failed to update graduation year group.");
+            req.flash("error", "Failed to update graduation year group.");
       res.redirect("/common/manageClassSubjectAndGradYr");
     }
   },
@@ -6080,8 +6033,7 @@ const commonController = {
       req.flash("success", "Graduation year group deleted successfully.");
       res.redirect("/common/manageClassSubjectAndGradYr");
     } catch (error) {
-      console.error("Error deleting graduation year group:", error);
-      req.flash("error", "Failed to delete graduation year group.");
+            req.flash("error", "Failed to delete graduation year group.");
       res.redirect("/common/manageClassSubjectAndGradYr");
     }
   },
@@ -6124,8 +6076,7 @@ const commonController = {
         "Class and all associated subjects deleted successfully."
       );
     } catch (error) {
-      console.error("Error deleting class:", error);
-      req.flash("error", "Failed to delete class. " + error.message);
+            req.flash("error", "Failed to delete class. " + error.message);
     }
 
     res.redirect("/common/manageClassSubjectAndGradYr");
@@ -6141,8 +6092,7 @@ const commonController = {
       req.flash("success", "Class updated successfully.");
       res.redirect("/common/manageClassSubjectAndGradYr");
     } catch (error) {
-      console.error("Error updating class:", error);
-      req.flash("error", "Failed to update class.");
+            req.flash("error", "Failed to update class.");
       res.redirect("/common/manageClassSubjectAndGradYr");
     }
   },
@@ -6160,8 +6110,7 @@ const commonController = {
       );
       res.json(subjectsResult.rows);
     } catch (error) {
-      console.error("Error fetching subjects for class:", error);
-      res.status(500).json({ error: "Failed to load subjects." });
+            res.status(500).json({ error: "Failed to load subjects." });
     }
   },
 
@@ -6175,8 +6124,7 @@ const commonController = {
       req.flash("success", "Subject updated successfully.");
       res.redirect("/common/manageClassSubjectAndGradYr");
     } catch (error) {
-      console.error("Error updating subject:", error);
-      req.flash("error", "Failed to update subject.");
+            req.flash("error", "Failed to update subject.");
       res.redirect("/common/manageClassSubjectAndGradYr");
     }
   },
@@ -6199,8 +6147,7 @@ const commonController = {
       req.flash("success", "Subject deleted successfully.");
       res.redirect("/common/manageClassSubjectAndGradYr");
     } catch (err) {
-      console.error("Error deleting subject:", err);
-      req.flash("error", "Failed to delete subject.");
+            req.flash("error", "Failed to delete subject.");
       res.redirect("/common/manageClassSubjectAndGradYr");
     }
   },
@@ -6228,8 +6175,7 @@ const commonController = {
         });
       }
     } catch (err) {
-      console.error("Error fetching graduation year group:", err);
-      res
+            res
         .status(500)
         .json({ error: "Failed to fetch graduation year group data." });
     }
@@ -6298,8 +6244,7 @@ const commonController = {
         otherSchoolYears,
       });
     } catch (error) {
-      console.error("Error fetching school year data:", error);
-      req.flash("error", "Failed to load school year data.");
+            req.flash("error", "Failed to load school year data.");
       res.redirect("/");
     }
   },
@@ -6354,8 +6299,7 @@ const commonController = {
         },
       });
     } catch (error) {
-      console.error("Error fetching term details:", error);
-      req.flash("error", "Failed to load term details.");
+            req.flash("error", "Failed to load term details.");
       res.redirect("/common/closeSchoolYear");
     }
   },
@@ -6384,11 +6328,7 @@ const commonController = {
         gradYearGroups,
       });
     } catch (error) {
-      console.error(
-        "Error fetching graduation year groups and students:",
-        error
-      );
-      res.status(500).send("Failed to load close graduation year group page.");
+            res.status(500).send("Failed to load close graduation year group page.");
     }
   },
 
@@ -6427,8 +6367,7 @@ const commonController = {
 
       res.redirect("/common/closeGraduationYearGroup");
     } catch (error) {
-      console.error("Error closing graduation year group:", error);
-      res.status(500).send("Failed to close graduation year group.");
+            res.status(500).send("Failed to close graduation year group.");
     }
   },
 
@@ -6456,8 +6395,7 @@ const commonController = {
         archivedGroups,
       });
     } catch (error) {
-      console.error("Error fetching archived students:", error);
-      res.status(500).send("Failed to load archived students.");
+            res.status(500).send("Failed to load archived students.");
     }
   },
 
@@ -6481,8 +6419,7 @@ const commonController = {
 
       res.redirect("/common/archivedStudents");
     } catch (error) {
-      console.error("Error unarchiving students:", error);
-      res.status(500).send("Failed to unarchive students.");
+            res.status(500).send("Failed to unarchive students.");
     }
   },
 
@@ -6534,8 +6471,7 @@ const commonController = {
       req.flash("success", "School year deleted successfully.");
       res.redirect("/common/manageRecords");
     } catch (error) {
-      console.error("Error deleting school year:", error);
-      req.flash("error", "Failed to delete school year.");
+            req.flash("error", "Failed to delete school year.");
       res.redirect("/common/manageRecords");
     }
   },
@@ -6553,8 +6489,7 @@ const commonController = {
       req.flash("success", "School year deleted successfully.");
       res.redirect("/common/manageRecords");
     } catch (error) {
-      console.error("Error deleting school year:", error);
-      req.flash("error", "Failed to delete school year.");
+            req.flash("error", "Failed to delete school year.");
       res.redirect("/common/manageRecords");
     }
   },
@@ -6564,9 +6499,7 @@ const commonController = {
     try {
       const organizationId = req.session.organizationId;
 
-      console.log('Loading guardians for organization:', organizationId);
-
-      // Use the old guardians table structure
+            // Use the old guardians table structure
       const guardiansResult = await db.query(
         `
         SELECT 
@@ -6587,17 +6520,14 @@ const commonController = {
         [organizationId]
       );
 
-      console.log('Found guardians:', guardiansResult.rows.length);
-
-      return res.render("common/guardians", {
+            return res.render("common/guardians", {
         title: "Guardian Management",
         guardians: guardiansResult.rows,
         messages: req.flash(),
         req,
       });
     } catch (error) {
-      console.error('Error loading guardians:', error);
-      req.flash('error', 'Error loading guardians');
+            req.flash('error', 'Error loading guardians');
       return res.redirect('/common/orgDashboard');
     }
   },
@@ -6654,8 +6584,7 @@ const commonController = {
         req,
       });
     } catch (error) {
-      console.error('Error loading guardian details:', error);
-      req.flash('error', 'Error loading guardian details');
+            req.flash('error', 'Error loading guardian details');
       return res.redirect('/common/guardians');
     }
   },
@@ -6692,8 +6621,7 @@ const commonController = {
       req.flash('success', 'Guardian information updated successfully');
       return res.redirect(`/common/guardianDetails?guardianId=${guardianId}`);
     } catch (error) {
-      console.error('Error updating guardian:', error);
-      req.flash('error', 'Error updating guardian information');
+            req.flash('error', 'Error updating guardian information');
       return res.redirect(`/common/guardianDetails?guardianId=${req.params.guardianId}`);
     }
   },
@@ -6712,8 +6640,7 @@ const commonController = {
       req.flash('success', 'Student removed from guardian');
       return res.json({ success: true });
     } catch (error) {
-      console.error('Error removing student from guardian:', error);
-      return res.status(500).json({ success: false, error: 'Error removing student' });
+            return res.status(500).json({ success: false, error: 'Error removing student' });
     }
   },
 
@@ -6771,9 +6698,7 @@ const commonController = {
         );
         guardianProfileId = profileInsert.rows[0].guardian_id;
 
-        console.log('✅ Created guardian profile:', guardianProfileId);
-
-        // Link all students with matching guardian from OLD guardians table
+                // Link all students with matching guardian from OLD guardians table
         // Use the guardianId parameter which refers to the old guardians table
         const studentsResult = await db.query(
           `SELECT DISTINCT g.student_id, s.first_name, s.last_name
@@ -6786,20 +6711,16 @@ const commonController = {
           [guardian.first_name, guardian.last_name, guardian.phone, organizationId]
         );
 
-        console.log('👨‍👩‍👧‍👦 Found students to link from guardian_id', guardianId, ':', studentsResult.rows.length, studentsResult.rows);
-
-        for (const student of studentsResult.rows) {
+                for (const student of studentsResult.rows) {
           await db.query(
             `INSERT INTO guardian_students (guardian_id, student_id, relationship)
              VALUES ($1, $2, 'Parent/Guardian')
              ON CONFLICT DO NOTHING`,
             [guardianProfileId, student.student_id]
           );
-          console.log('  ✅ Linked student:', student.student_id, student.first_name, student.last_name);
-        }
+                  }
 
-        console.log('✅ Finished linking students to guardian_profile', guardianProfileId);
-      }
+              }
 
       // Check if account exists
       const accountCheck = await db.query(
@@ -6846,14 +6767,7 @@ const commonController = {
         : `http://localhost:4000/common/set-password?token=${token}&type=guardian`;
 
       // Debug SMTP settings
-      console.log('📧 SMTP Configuration:', {
-        host: process.env.ADMIN_NOTIFY_SMTP_HOST,
-        port: process.env.ADMIN_NOTIFY_SMTP_PORT,
-        secure: process.env.ADMIN_NOTIFY_SMTP_SECURE,
-        user: process.env.ADMIN_NOTIFY_EMAIL_USER
-      });
-
-      const transporter = nodemailer.createTransport({
+            const transporter = nodemailer.createTransport({
         host: process.env.ADMIN_NOTIFY_SMTP_HOST || 'mail.privateemail.com',
         port: parseInt(process.env.ADMIN_NOTIFY_SMTP_PORT) || 587,
         secure: process.env.ADMIN_NOTIFY_SMTP_SECURE === "true",
@@ -6913,9 +6827,7 @@ const commonController = {
         message: isNewAccount ? 'Password setup email sent successfully!' : 'Password reset email sent successfully!' 
       });
     } catch (error) {
-      console.error('❌ Error sending password setup email:', error);
-      console.error('Error stack:', error.stack);
-      return res.status(500).json({ success: false, error: 'Error sending password setup email: ' + error.message });
+                  return res.status(500).json({ success: false, error: 'Error sending password setup email: ' + error.message });
     }
   },
 
@@ -6926,8 +6838,7 @@ const commonController = {
         title: "Admissions",
       });
     } catch (error) {
-      console.error("Error loading admissions hub:", error);
-      res.status(500).send("Failed to load admissions page");
+            res.status(500).send("Failed to load admissions page");
     }
   },
 
@@ -6938,8 +6849,7 @@ const commonController = {
         title: "Reports",
       });
     } catch (error) {
-      console.error("Error loading reports hub:", error);
-      res.status(500).send("Failed to load reports page");
+            res.status(500).send("Failed to load reports page");
     }
   },
 };
@@ -7082,8 +6992,7 @@ const searchGuardiansApi = async (req, res, db) => {
 
     return res.json({ guardians: result.rows });
   } catch (e) {
-    console.error('Guardian search error:', e);
-    return res.status(500).json({ guardians: [] });
+        return res.status(500).json({ guardians: [] });
   }
 };
 
@@ -7116,8 +7025,7 @@ const searchGuardiansPublic = async (req, res, db) => {
 
     return res.json({ guardians: result.rows });
   } catch (e) {
-    console.error('Public guardian search error:', e);
-    return res.status(500).json({ guardians: [] });
+        return res.status(500).json({ guardians: [] });
   }
 };
 
@@ -7199,10 +7107,8 @@ const sendGuardianWelcomeEmail = async (guardianEmail, guardianFirstName, guardi
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`✅ Welcome email sent to guardian: ${guardianEmail}`);
-  } catch (error) {
-    console.error('Error sending guardian welcome email:', error);
-  }
+      } catch (error) {
+      }
 };
 
 // Send notification when additional student is added to existing guardian
@@ -7255,10 +7161,8 @@ const sendGuardianStudentAddedEmail = async (guardianEmail, guardianFirstName, g
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`✅ Student added notification sent to guardian: ${guardianEmail}`);
-  } catch (error) {
-    console.error('Error sending student added email:', error);
-  }
+      } catch (error) {
+      }
 };
 
 module.exports = {

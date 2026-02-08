@@ -29,11 +29,42 @@ const checkFeatureAccess = async (req, res, next) => {
     // Determine the plan_id to check (hub's plan if hub member, otherwise org's plan)
     let planIdToCheck;
     
-    if (req.isHubMember && req.hubDetails?.hubPlanId) {
-      // Organization is a hub member, use hub's plan
-      planIdToCheck = req.hubDetails.hubPlanId;
-    } else {
-      // Regular organization, use its own plan
+    // Try to check if organization is a hub member (with fallback if columns don't exist)
+    try {
+      const { rows: orgRows } = await db.query(
+        'SELECT plan_id, is_hub_member, hub_id FROM organizations WHERE organization_id = $1',
+        [organizationId]
+      );
+      
+      if (orgRows.length === 0) {
+        req.flash('error', 'Organization not found.');
+        return res.redirect('/common/orgDashboard');
+      }
+      
+      const org = orgRows[0];
+      
+      // If organization is a hub member, get hub's plan
+      if (org.is_hub_member && org.hub_id) {
+        try {
+          const { rows: hubRows } = await db.query(
+            'SELECT plan_id FROM managira_hubs WHERE hub_id = $1',
+            [org.hub_id]
+          );
+          if (hubRows.length > 0 && hubRows[0].plan_id) {
+            planIdToCheck = hubRows[0].plan_id;
+          } else {
+            planIdToCheck = org.plan_id;
+          }
+        } catch (hubError) {
+          // Hub table doesn't exist yet, use org plan
+          planIdToCheck = org.plan_id;
+        }
+      } else {
+        // Regular organization, use its own plan
+        planIdToCheck = org.plan_id;
+      }
+    } catch (columnError) {
+      // Hub columns don't exist yet, fallback to basic query
       const { rows: orgRows } = await db.query(
         'SELECT plan_id FROM organizations WHERE organization_id = $1',
         [organizationId]
