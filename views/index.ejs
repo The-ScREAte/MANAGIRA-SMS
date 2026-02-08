@@ -169,13 +169,24 @@ a {
   }
 }
 
+/* ========== Section Label ========== */
+.section-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+
 /* ========== Features + Video ========== */
 .features-video-section {
   display: flex;
   flex-direction: column;
-  gap: 28px;
-  padding: 30px 20px;
-  justify-items: center;
+  gap: 36px;
+  padding: 60px 20px;
+  max-width: 1200px;
+  margin: 0 auto;
   align-items: stretch;
 }
 
@@ -185,164 +196,335 @@ a {
 }
 
 .features h2 {
-  font-size: 2rem;
-  color: var(--accent);
-  margin-bottom: 20px;
-  font-weight: 800;
+  font-size: 1.8rem;
+  color: var(--text);
+  margin-bottom: 28px;
+  font-weight: 700;
+  line-height: 1.3;
 }
 
 .feature-cards {
   display: grid;
-  gap: 18px;
+  gap: 16px;
   width: 100%;
-  max-width: 1100px;
-  margin: 0 auto;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   align-items: stretch;
 }
 
 .feature-card {
   background: var(--card);
-  padding: 18px;
-  border-radius: 10px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+  padding: 24px 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.06);
   text-align: left;
   display: flex;
   flex-direction: column;
-  height: 100%;
+  gap: 10px;
+  transition: border-color 0.3s, transform 0.2s;
+}
+
+.feature-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.feature-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  background: rgba(46, 255, 251, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  flex-shrink: 0;
 }
 
 .feature-card h3 {
-  font-size: 1.2rem;
-  color: var(--accent);
-  margin-bottom: 8px;
-  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--text);
+  font-weight: 600;
+  margin: 0;
 }
 
 .feature-card p {
-  font-size: 1rem;
+  font-size: 0.92rem;
   color: var(--muted);
+  line-height: 1.6;
+  margin: 0;
 }
 
 .video-section {
-  height: 100%;
-    display: flex;
-    align-items: stretch;
-    padding: 0;
-    margin: 0;
+  display: flex;
+  align-items: stretch;
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 .video-section video {
   height: 100%;
-    width: 100%;
-    object-fit: cover;
-    display: block;
+  width: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ========== How It Works ========== */
+.how-it-works-section {
+  padding: 60px 20px;
+  text-align: center;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.how-it-works-section h2 {
+  font-size: 1.8rem;
+  color: var(--text);
+  margin-bottom: 40px;
+  font-weight: 700;
+}
+
+.steps-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.step-card {
+  text-align: center;
+  padding: 28px 20px;
+  position: relative;
+}
+
+.step-number {
+  font-size: 2.4rem;
+  font-weight: 800;
+  color: var(--accent);
+  opacity: 0.3;
+  margin-bottom: 12px;
+  line-height: 1;
+}
+
+.step-card h3 {
+  font-size: 1.1rem;
+  color: var(--text);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.step-card p {
+  font-size: 0.92rem;
+  color: var(--muted);
+  line-height: 1.6;
 }
 
 /* ========== Automation ========== */
 .automation-section {
-  /* background: var(--card); */
-  padding: 24px 20px;
-  /* border-radius: 10px; */
+  padding: 60px 20px;
   max-width: 1100px;
   margin: 0 auto;
-  text-align: center;
 }
 
 .automation-section h2 {
-  font-size: 2rem;
-  color: var(--accent);
-  margin-bottom: 14px;
-  font-weight: 800;
+  font-size: 1.8rem;
+  color: var(--text);
+  margin-bottom: 16px;
+  font-weight: 700;
+  line-height: 1.3;
 }
 
 .automation-content {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 28px;
+  gap: 36px;
 }
 
 .automation-text {
   max-width: 720px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
-
-.automation-text h3 {
-  font-size: 1.2rem;
-  font-weight: 700;
+  gap: 14px;
 }
 
 .automation-text p {
-
-  font-size: 1.05rem;
+  font-size: 1rem;
   color: var(--muted);
+  line-height: 1.7;
+}
+
+.automation-cta {
+  display: inline-block;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-top: 6px;
+  transition: opacity 0.2s;
+}
+
+.automation-cta:hover {
+  opacity: 0.8;
 }
 
 .automation-image {
-  width: min(100%, 520px);
+  width: min(100%, 480px);
   height: auto;
   object-fit: contain;
 }
 
-@media (max-width: 1024px) {
-  .automation-image {
-    width: min(68vw, 480px);
-    margin: 0 auto;
-  }
+/* ========== Stats ========== */
+.stats-section {
+  padding: 48px 20px;
+  background: var(--card);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
-@media (max-width: 600px) {
-  .automation-image {
-    width: min(76vw, 300px);
-  }
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  max-width: 900px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-number {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--accent);
+  line-height: 1.2;
+}
+
+.stat-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-weight: 500;
 }
 
 /* ========== Benefits ========== */
 .benefits-section {
-  padding: 10px 20px;
+  padding: 60px 20px;
   text-align: center;
+  max-width: 1100px;
+  margin: 0 auto;
 }
 
 .benefits-section h2 {
-  font-size: 1.6rem;
-  color: var(--accent);
-  margin-bottom: 16px;
-  font-weight: 800;
+  font-size: 1.8rem;
+  color: var(--text);
+  margin-bottom: 36px;
+  font-weight: 700;
 }
 
 .benefit-cards {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 20px;
-  align-items: center;
 }
 
 .benefit-card {
   background: var(--card);
-  padding: 22px 18px;
+  padding: 28px 24px;
   border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.22);
-  width: min(640px, 95%);
+  border: 1px solid rgba(255,255,255,0.06);
   text-align: left;
   display: flex;
   flex-direction: column;
+  gap: 12px;
+  transition: border-color 0.3s;
+}
+
+.benefit-card:hover {
+  border-color: var(--accent);
+}
+
+.benefit-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: rgba(46, 255, 251, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  flex-shrink: 0;
 }
 
 .benefit-card h3 {
-  font-size: 1.1rem;
-  color: var(--accent);
-  margin-bottom: 6px;
-  font-weight: 700;
-  height: 20%;
+  font-size: 1.05rem;
+  color: var(--text);
+  font-weight: 600;
+  margin: 0;
 }
 
 .benefit-card p {
+  font-size: 0.92rem;
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* ========== CTA Section ========== */
+.cta-section {
+  padding: 60px 20px;
+  text-align: center;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.cta-section h2 {
+  font-size: 1.8rem;
+  color: var(--text);
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.cta-section p {
   font-size: 1rem;
   color: var(--muted);
-  height: 80%;
+  margin-bottom: 28px;
+  line-height: 1.6;
+}
+
+.cta-buttons {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.cta-primary {
+  padding: 12px 32px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  background: var(--accent);
+  color: #000;
+  transition: opacity 0.2s;
+}
+
+.cta-primary:hover {
+  opacity: 0.85;
+}
+
+.cta-secondary {
+  padding: 12px 32px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border: 2px solid rgba(255,255,255,0.2);
+  color: var(--text);
+  transition: border-color 0.2s;
+}
+
+.cta-secondary:hover {
+  border-color: var(--accent);
 }
 
 /* ========== Footer ========== */
@@ -396,13 +578,13 @@ a {
   }
 }
 
-  .logo-container {
-    display: flex;
-    align-items: center;
-    gap: 0;
-    width: max-content;
-    animation: scroll 36s linear infinite;
-  }
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  width: max-content;
+  animation: scroll 36s linear infinite;
+}
 
 .logo-container span {
   margin-left: 6px;
@@ -419,12 +601,43 @@ a {
   to { transform: translateX(-50%); }
 }
 
-/* ========== Responsive Breakpoints ========== */
+/* ========== Responsive ========== */
 
 /* ≥480px */
 @media (min-width: 480px) {
   .hero h1 {
     font-size: 2.2rem;
+  }
+}
+
+/* Small screens — stack grids */
+@media (max-width: 600px) {
+  .feature-cards {
+    grid-template-columns: 1fr;
+  }
+  .benefit-cards {
+    grid-template-columns: 1fr;
+  }
+  .steps-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+  .stat-number {
+    font-size: 1.6rem;
+  }
+  .features h2,
+  .how-it-works-section h2,
+  .automation-section h2,
+  .benefits-section h2,
+  .cta-section h2 {
+    font-size: 1.4rem;
+  }
+  .automation-image {
+    width: min(80vw, 300px);
   }
 }
 
@@ -441,16 +654,19 @@ a {
     text-align: left;
   }
 
-  .features h2 {
-    font-size: 2.2rem;
-  }
-
-  .feature-cards {
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  }
-
   .button-group {
     justify-content: flex-start;
+  }
+
+  .benefit-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .features h2,
+  .how-it-works-section h2,
+  .automation-section h2,
+  .benefits-section h2 {
+    font-size: 2rem;
   }
 }
 
@@ -458,25 +674,21 @@ a {
 @media (min-width: 1024px) {
   .features-video-section {
     flex-direction: row;
-    align-items: center;
-    gap: 30px;
-    max-width: 90%;
-    margin: 0 auto;
+    align-items: stretch;
+    gap: 36px;
+    padding: 80px 40px;
   }
 
   .features {
     width: 60%;
+    text-align: left;
   }
 
   .video-section {
     width: 40%;
+    min-height: 400px;
   }
 
-  .features h2 {
-    font-size: 2.4rem;
-  }
-
-  /* Automation side by side */
   .automation-content {
     flex-direction: row;
     align-items: center;
@@ -484,27 +696,18 @@ a {
   }
 
   .automation-text {
-    max-width: 650px;
-    margin-right: 24px;
+    max-width: 580px;
+    margin-right: 32px;
   }
 
   .automation-image {
     flex: 1 1 320px;
-    max-width: 560px;
+    max-width: 480px;
     width: 100%;
   }
 
-  /* Benefits side by side */
   .benefit-cards {
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 24px;
-  }
-
-  .benefit-card {
-    width: 260px;
-    height: 320px;
+    grid-template-columns: repeat(4, 1fr);
   }
 
   .button-group {
@@ -512,14 +715,11 @@ a {
   }
 }
 
-/* ≥1280px (large desktop) */
+/* ≥1280px */
 @media (min-width: 1280px) {
-  .features h2 {
-    font-size: 2.8rem;
-  }
-
+  .features h2,
   .automation-section h2 {
-    font-size: 2.1rem;
+    font-size: 2.2rem;
   }
 }
     </style>
@@ -629,100 +829,161 @@ a {
   </div>
 </section>
 
+    <!-- Core Features + Video Section -->
     <section class="features-video-section">
         <div class="features">
-            <h2>Core Features</h2>
-  
+            <p class="section-label">What We Offer</p>
+            <h2>Everything Your School Needs, In One Place</h2>
             <div class="feature-cards">
                 <div class="feature-card">
-                    <h3>Digital Student Record Management</h3>
-                    <p>Say goodbye to cumbersome paperwork. Free up more time for teaching and supporting your students. Effortlessly track student test scores and attendance from any device, anywhere, at any time.</p>
+                    <div class="feature-icon">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    </div>
+                    <h3>Student Records & Attendance</h3>
+                    <p>Track grades, attendance, and student information digitally — accessible from any device, anywhere, anytime. No more paperwork.</p>
                 </div>
                 <div class="feature-card">
-                    <h3>Seamless Class Coordination</h3>
-                    <p>No more manual record-keeping or administrative headaches.Empower teachers with easy-to-use digital tools for managing classes, assessments, and enrollments. Collaborate with staff and stay updated.</p>
+                    <div class="feature-icon">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                    </div>
+                    <h3>Hub Management</h3>
+                    <p>Oversee multiple schools from a single dashboard. Hubs let you monitor performance, manage staff, and coordinate across your entire network.</p>
                 </div>
                 <div class="feature-card">
-                    <h3>Your Own Customizable School Website</h3>
-                    <p>
-                      Showcase your school’s achievements, events, and important announcements with a personalized public portal. Keep parents and the community informed and engaged, all in one place.
-                    </p>
+                    <div class="feature-icon">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                    </div>
+                    <h3>Parent Portal</h3>
+                    <p>Parents stay connected to their child's progress — view grades, attendance, and school updates in real time. Transparent. Trustworthy.</p>
                 </div>
                 <div class="feature-card">
-                    <h3>Analytics and Reporting</h3>
-                    <p>
-                   Managira helps schools turn information into action. With clear reports on attendance, performance, and operations, leaders can make smarter choices that improve student outcomes and overall school management
-                    </p>
+                    <div class="feature-icon">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                    </div>
+                    <h3>Analytics & Reporting</h3>
+                    <p>Turn data into decisions. Clear reports on performance, attendance, and operations help leaders make choices that drive real results.</p>
                 </div>
             </div>
         </div>
-          <div class="video-section">
+        <div class="video-section">
             <video autoplay loop muted playsinline preload="none" poster="images/managira-preview.jpg">
                 <source src="images/managiraEdited.mp4" type="video/mp4">
-                    Your browser does not support the video tag.
+                Your browser does not support the video tag.
             </video>
         </div>
     </section>
 
-
-
+    <!-- How It Works Section -->
+    <section class="how-it-works-section">
+        <p class="section-label">How It Works</p>
+        <h2>Get Started in Minutes, Not Months</h2>
+        <div class="steps-grid">
+            <div class="step-card">
+                <div class="step-number">01</div>
+                <h3>Create Your Account</h3>
+                <p>Sign up and set up your school profile in under 5 minutes. Add your logo, classes, and staff.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-number">02</div>
+                <h3>Add Your Students</h3>
+                <p>Import or register students. Set up class groups, subjects, and enrollment — everything in one flow.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-number">03</div>
+                <h3>Start Managing</h3>
+                <p>Record attendance, enter grades, generate reports, and keep parents informed — all from your dashboard.</p>
+            </div>
+        </div>
+    </section>
 
     <!-- Automation Section -->
     <section class="automation-section">
-        <h2>Automate Everyday Tasks</h2>
         <div class="automation-content">
             <div class="automation-text">
-                <h3>Teach with Passion, We’ll Handle the Rest</h3>
+                <p class="section-label">Built for Educators</p>
+                <h2>You Teach. We Handle the Rest.</h2>
                 <p>
-                    Focus on what truly matters; teaching and student growth. At the heart of Managira is a simple goal, support student success by giving teachers more time to focus on what truly matters; teaching and mentoring. 
-                    Routine tasks like attendance, grade recording, and notifications are digitized, 
-                    reducing paperwork and admin work while freeing educators to inspire and guide their learners with confidence.               
-                 </p>
-                 <p>
-                    Families stay connected through timely updates on school events, announcements, and achievements, 
-                    building trust and partnership with the school. 
-                    And behind it all is robust, secure technology that makes data management seamless, reliable, 
-                    and private, ensuring every interaction strengthens the school community.
-                
-                 </p>
+                    At the heart of Managira is a simple belief: teachers should spend their time teaching, not drowning in admin work. 
+                    We digitize attendance, grade recording, and parent communication so your team can focus on what truly matters — inspiring the next generation.
+                </p>
+                <p>
+                    Families stay in the loop with real-time updates on events, grades, and achievements. 
+                    And behind it all, enterprise-grade security keeps every piece of data safe, private, and compliant.
+                </p>
+                <a href="/common/pricing" class="automation-cta">See Plans & Pricing →</a>
             </div>
-            
-            <img class="automation-image" src="/images/managira-pyramid-svg.svg" alt="Automation Tools">
+            <img class="automation-image" src="/images/managira-pyramid-svg.svg" alt="Managira Platform Overview">
         </div>
     </section>
 
-    <!-- Benefits Section -->
-    <section class="benefits-section">
-        <h2>Why Choose Managira?</h2>
-        <div class="benefit-cards">
-            <!-- <div class="benefit-card">
-                <h3>Security & Compliance</h3>
-                <p>Protect student and school data with enterprise grade encryption and advanced access controls. Managira is FERPA & GDPR compliant, ensuring full adherence to global data privacy laws. Plus, enjoy 24/7 premium support via chat and email</p>
-            </div> -->
-            <div class="benefit-card">
-                <h3>Time Saving</h3>
-                <p>By digitizing attendance, grades, and school communications, Managira reduces repetitive manual work. This allows educators to focus their energy on teaching, mentoring, and improving student outcomes</p>
+    <!-- Stats Section -->
+    <section class="stats-section">
+        <div class="stats-grid">
+            <div class="stat-item">
+                <span class="stat-number">99.9%</span>
+                <span class="stat-label">Uptime Guaranteed</span>
             </div>
-            <div class="benefit-card">
-                <h3>Ease of use</h3>
-                <p>Managira is designed with schools in mind, simple to set up and intuitive for teachers and administrators to use, with no need for advanced technical skills</p>
+            <div class="stat-item">
+                <span class="stat-number">24/7</span>
+                <span class="stat-label">Dedicated Support</span>
             </div>
-            <div class="benefit-card">
-                <h3>Affordability</h3>
-                <p>Get a comprehensive school management solution at a fraction of the cost of traditional systems. Flexible pricing plans make Managira accessible for schools of all sizes</p>
+            <div class="stat-item">
+                <span class="stat-number">5 min</span>
+                <span class="stat-label">Setup Time</span>
             </div>
-            <div class="benefit-card">
-                <h3>Mobile-Friendly</h3>
-                <p>Manage on the move. With a responsive design, Managira looks and works great on any device.</p>
+            <div class="stat-item">
+                <span class="stat-number">100%</span>
+                <span class="stat-label">Data Security</span>
             </div>
-            <div class="benefit-card">
-                <h3>Support and Reliability</h3>
-                <p>We’ve got your back. With dedicated support and ongoing updates, your organization runs without interruptions.</p>
-            </div>
-            
         </div>
     </section>
-    
+
+    <!-- Why Choose Managira Section -->
+    <section class="benefits-section">
+        <p class="section-label">Why Managira</p>
+        <h2>Built for Schools That Want to Grow</h2>
+        <div class="benefit-cards">
+            <div class="benefit-card">
+                <div class="benefit-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </div>
+                <h3>Save Hours Every Week</h3>
+                <p>Automate attendance, grades, and communications. Give educators back the time they need to do what they do best — teach and mentor.</p>
+            </div>
+            <div class="benefit-card">
+                <div class="benefit-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <h3>Secure & Compliant</h3>
+                <p>Enterprise-grade encryption and access controls protect student data. FERPA and GDPR compliant — your data stays safe, always.</p>
+            </div>
+            <div class="benefit-card">
+                <div class="benefit-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                </div>
+                <h3>Works on Any Device</h3>
+                <p>Fully responsive on phones, tablets, and desktops. Manage your school on the go — no app downloads required.</p>
+            </div>
+            <div class="benefit-card">
+                <div class="benefit-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                </div>
+                <h3>Affordable for Every School</h3>
+                <p>Professional-grade tools at a price that works for schools of all sizes. Flexible plans, no hidden costs, no surprises.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section">
+        <h2>Ready to Transform Your School?</h2>
+        <p>Join schools already using Managira to save time, engage parents, and improve student outcomes.</p>
+        <div class="cta-buttons">
+            <a href="/account/register" class="cta-primary">Get Started Free</a>
+            <a href="/common/pricing" class="cta-secondary">View Pricing</a>
+        </div>
+    </section>
+
     <!-- JSON-LD Structured Data -->
     <script type="application/ld+json">
     {
