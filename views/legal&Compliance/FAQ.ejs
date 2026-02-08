@@ -1,203 +1,300 @@
-  <style>
-      :root {
-        --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
-      }
+<style>
+  :root {
+    --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
+    --primary: #01535b;
+    --primary-light: #e8f4f5;
+    --border: #e5e7eb;
+    --text: #1f2937;
+    --text-muted: #6b7280;
+    --bg: #f9fafb;
+  }
 
+  body {
+    font-family: var(--font-family);
+    color: var(--text);
+    margin: 0;
+    background-color: var(--bg);
+    line-height: 1.6;
+    box-sizing: border-box;
+  }
 
-    body {
-      color: #333;
-      margin: 0;
-      background-color: #f8f9fa;
-      line-height: 1.6;
-      box-sizing: border-box;
-      font-family: var(--font-family);
-    }
+  *, *::before, *::after { box-sizing: border-box; }
 
-    main {
-      max-width: 960px;
-      margin: 0 auto;
-      padding: 20px;
-    }
+  main {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 40px 24px 60px;
+  }
 
-    h1 {
-      text-align: center;
-      color: #01535b;
-      font-size: 2.5rem;
-      font-weight: bold;
-      margin-bottom: 20px;
-    }
+  .page-header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
 
-    #search-bar {
-      width: 100%;
-      padding: 12px;
-      margin-bottom: 20px;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-      font-size: 1.1rem;
-    }
+  .page-header h1 {
+    color: var(--primary);
+    font-size: 2.2rem;
+    font-weight: 700;
+    margin: 0 0 8px;
+  }
 
-    .faq-item {
-      margin-bottom: 20px;
-    }
+  .page-header p {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    margin: 0;
+  }
 
-    .faq-question {
-      font-size: 1.3rem;
-      font-weight: bold;
-      color: #000;
-      cursor: pointer;
-      padding: 15px;
-      background: #f1f1f1;
-      border-radius: 5px;
-      position: relative;
-      transition: background 0.3s ease, color 0.3s ease;
-    }
+  #search-bar {
+    width: 100%;
+    padding: 12px 16px;
+    margin-bottom: 28px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-family: var(--font-family);
+    background: #fff;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+  }
 
-    .faq-question:hover {
-      background: #01535b;
-      color: white;
-    }
+  #search-bar:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(1, 83, 91, 0.08);
+  }
 
-    .faq-question::after {
-      content: '+';
-      position: absolute;
-      right: 20px;
-      font-size: 1.5rem;
-      color: #01535b;
-      transition: transform 0.3s;
-    }
+  .faq-category {
+    margin-bottom: 32px;
+  }
 
-    .faq-question.open::after {
-      transform: rotate(45deg);
-      color: white;
-    }
+  .faq-category h2 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--primary);
+    margin: 0 0 14px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--primary-light);
+  }
 
-    .faq-answer {
-      display: none;
-      font-size: 1.1rem;
-      line-height: 1.6;
-      color: #555;
-      margin-top: 10px;
-      padding: 15px;
-      background: #ffffff;
-      border-left: 4px solid #01535b;
-      border-radius: 5px;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    }
+  .faq-item {
+    margin-bottom: 8px;
+  }
 
-    .faq-category h2 {
-      margin-top: 40px;
-      margin-bottom: 10px;
-      font-size: 1.8rem;
-      color: #01535b;
-    }
+  .faq-question {
+    font-size: 0.98rem;
+    font-weight: 500;
+    color: var(--text);
+    cursor: pointer;
+    padding: 14px 44px 14px 18px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    position: relative;
+    transition: border-color 0.2s, background 0.2s;
+    line-height: 1.5;
+  }
 
-    @media (min-width: 1024px) {
-      h1 { font-size: 2.8rem; }
-      .faq-question { font-size: 1.5rem; padding: 20px; }
-      .faq-answer { font-size: 1.2rem; padding: 20px; }
-    }
+  .faq-question:hover {
+    border-color: var(--primary);
+    background: var(--primary-light);
+  }
 
-    @media (max-width: 768px) {
-      h1 { font-size: 2rem; }
-      .faq-question { font-size: 1.2rem; padding: 12px; }
-      .faq-answer { font-size: 1rem; padding: 12px; }
-    }
+  .faq-question::after {
+    content: '+';
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.3rem;
+    color: var(--primary);
+    font-weight: 300;
+    transition: transform 0.25s;
+    line-height: 1;
+  }
 
-    @media (max-width: 480px) {
-      h1 { font-size: 1.8rem; }
-      .faq-question { font-size: 1rem; padding: 10px; }
-      .faq-answer { font-size: 0.9rem; padding: 10px; }
-    }
-  </style>
+  .faq-question.open {
+    border-color: var(--primary);
+    background: var(--primary-light);
+    border-radius: 10px 10px 0 0;
+    border-bottom: none;
+  }
+
+  .faq-question.open::after {
+    transform: translateY(-50%) rotate(45deg);
+  }
+
+  .faq-answer {
+    display: none;
+    font-size: 0.93rem;
+    line-height: 1.7;
+    color: var(--text-muted);
+    padding: 16px 18px;
+    background: #fff;
+    border: 1px solid var(--primary);
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    margin-top: 0;
+  }
+
+  .help-cta {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    margin-top: 20px;
+  }
+
+  .help-cta p {
+    margin: 0 0 12px;
+    font-size: 0.95rem;
+    color: var(--text);
+  }
+
+  .help-cta a {
+    display: inline-block;
+    padding: 10px 24px;
+    background: var(--primary);
+    color: #fff;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.92rem;
+    transition: background 0.2s;
+  }
+
+  .help-cta a:hover { background: #014048; }
+
+  @media (max-width: 768px) {
+    main { padding: 24px 16px 40px; }
+    .page-header h1 { font-size: 1.8rem; }
+  }
+
+  @media (max-width: 480px) {
+    .page-header h1 { font-size: 1.5rem; }
+    .faq-question { font-size: 0.92rem; padding: 12px 40px 12px 14px; }
+    .faq-answer { font-size: 0.88rem; padding: 14px; }
+  }
+</style>
 </head>
 <body>
   <main>
-    <br>
-    <h1>Frequently Asked Questions</h1>
+    <div class="page-header">
+      <h1>Frequently Asked Questions</h1>
+      <p>Find answers to common questions about Managira</p>
+    </div>
+
     <input type="text" id="search-bar" placeholder="Search for a question...">
+
     <div id="faq-container">
+
       <div class="faq-category" data-category="getting-started">
         <h2>Getting Started</h2>
-        <div class="faq-item"><div class="faq-question">What is Managira?</div><div class="faq-answer">Managira is a school management platform designed to help schools, educators, and the general public, including parents and guardians, stay connected. It simplifies administrative tasks, tracks student performance, and enhances communication between teachers, administrators, and families.</div></div>
-        <div class="faq-item"><div class="faq-question">Who can use Managira?</div><div class="faq-answer">Managira is built for schools, administrators, teachers, students, and families. Schools can efficiently manage student records, teachers can monitor academic progress, and families can stay informed about their child's educational activities through the public website of the school.</div></div>
-        <div class="faq-item"><div class="faq-question">How do I register my school on Managira?</div><div class="faq-answer">Schools can register by visiting the sign-up page and filling out the required details. Once registered, administrators can add teachers, students, and other staff members to manage school operations effectively.</div></div>
-        <div class="faq-item"><div class="faq-question">Is there a free trial available?</div><div class="faq-answer">Yes, we offer a free trial that lasts for a term for new schools to explore Managira’s features before committing to a plan.</div></div>
-        <div class="faq-item"><div class="faq-question">How can I contact Managira support?</div><div class="faq-answer">You can reach our support team via the "Help" section or by emailing us.</div></div>
-        <div class="faq-item"><div class="faq-question">What if I have a feature request?</div><div class="faq-answer">We welcome feedback! We will occasionally send out survey forms for suggestions. You can also submit feature requests to managirainfo@gmail.com.</div></div>
+        <div class="faq-item"><div class="faq-question">What is Managira?</div><div class="faq-answer">Managira is an all-in-one school management platform designed to help educational institutions — from individual schools to government bodies overseeing multiple institutions — manage student records, track academic performance, handle attendance, generate reports, and keep parents and guardians informed. It replaces paperwork with a secure, digital solution that works on any device.</div></div>
+        <div class="faq-item"><div class="faq-question">Who can use Managira?</div><div class="faq-answer">Managira serves schools, colleges, training centres, government education departments, administrators, teachers, parents, and guardians. Whether you're running a single school or managing a network of institutions, Managira scales to fit your needs.</div></div>
+        <div class="faq-item"><div class="faq-question">How do I register my school on Managira?</div><div class="faq-answer">Visit our registration page and fill out your school details. Once registered, you can set up your school profile, add your logo and branding, create classes, and invite teachers and staff — all in about 15 minutes. You'll receive a guided onboarding experience to help you get started quickly.</div></div>
+        <div class="faq-item"><div class="faq-question">Is there a free trial available?</div><div class="faq-answer">Yes! Every new school gets a free trial that lasts for a full academic term. During the trial, you'll have access to all core features including student management, attendance tracking, grade recording, and report generation — so you can experience the full platform before choosing a plan.</div></div>
+        <div class="faq-item"><div class="faq-question">How long does it take to set up Managira?</div><div class="faq-answer">Most schools are up and running within 15 minutes. You simply register, add your school details and branding, create your classes, and start adding students. Bulk import options are available if you're migrating from another system.</div></div>
+        <div class="faq-item"><div class="faq-question">How can I contact Managira support?</div><div class="faq-answer">You can reach our support team through the "Get Help" page on the platform, or email us directly at support@managira.com. We also have a YouTube channel with step-by-step video tutorials for common tasks.</div></div>
+        <div class="faq-item"><div class="faq-question">What if I have a feature request?</div><div class="faq-answer">We welcome your feedback! You can submit feature requests directly to managirainfo@gmail.com. We also send out periodic surveys to gather suggestions from our community. Many of our most popular features have come from user feedback.</div></div>
       </div>
 
       <div class="faq-category" data-category="educators">
         <h2>Educators & Admins</h2>
-        <div class="faq-item"><div class="faq-question">How does Managira help educators?</div><div class="faq-answer">Educators can use Managira to record grades, track attendance, create reports, and communicate with families. It provides real-time insights into student progress, making it easier for teachers to support their students' learning.</div></div>
-        <div class="faq-item"><div class="faq-question">Can teachers and administrators update student information?</div><div class="faq-answer">Yes, authorized personnel such as teachers and school administrators can update student information, including grades, attendance, and personal details, through their designated accounts.</div></div>
-        <div class="faq-item"><div class="faq-question">Can I track teacher performance or workload?</div><div class="faq-answer">Yes, administrators can view class assignments, test creation activity, and other metrics to evaluate teacher involvement.</div></div>
-        <div class="faq-item"><div class="faq-question">Can I generate report cards or merit sheets?</div><div class="faq-answer">Yes, there is a built-in report generator that allows you to create terminal reports and merit sheets with minimal effort.</div></div>
-        <div class="faq-item"><div class="faq-question">Can I customize the portal with my school’s logo and colors?</div><div class="faq-answer">Yes, Managira supports branding options. You can upload your logo and set your preferred colors and fonts under Personalization settings.</div></div>
-        <div class="faq-item"><div class="faq-question">Can schools customize Managira to fit their needs?</div><div class="faq-answer">Yes, Managira is designed to be flexible. Schools can customize features, add school branding, and tailor settings to fit their specific needs.</div></div>
-        <div class="faq-item"><div class="faq-question">Is training provided for new users?</div><div class="faq-answer">Yes, onboarding sessions and documentation are provided to help administrators and teachers get started quickly.</div></div>
-        <div class="faq-item"><div class="faq-question">How are announcements delivered?</div><div class="faq-answer">Announcements can be shared via dashboards ensuring everyone is kept in the loop.</div></div>
-        <div class="faq-item"><div class="faq-question">Is there an analytics dashboard?</div><div class="faq-answer">Absolutely. Managira includes a dashboard that shows student performance trends, attendance stats, and other key insights for data-driven decision making..</div></div>
+        <div class="faq-item"><div class="faq-question">How does Managira help educators?</div><div class="faq-answer">Managira gives educators a complete digital toolkit: record grades and assessments, track daily attendance, create and print report cards and merit sheets, manage class rosters, and communicate with parents — all from a single dashboard. Real-time analytics show student progress trends so teachers can identify who needs extra support.</div></div>
+        <div class="faq-item"><div class="faq-question">Can teachers and administrators update student information?</div><div class="faq-answer">Yes. Authorised users can update student profiles including personal details, grades, attendance records, and behavioural notes. The platform uses role-based access control, so administrators can decide exactly which staff members have permission to view or edit specific types of data.</div></div>
+        <div class="faq-item"><div class="faq-question">Can I track teacher performance or workload?</div><div class="faq-answer">Administrators can view detailed metrics for each teacher, including how many classes they manage, tests and assessments they've created, grades they've entered, and attendance they've recorded. This helps school leaders distribute workload fairly and recognise top-performing staff.</div></div>
+        <div class="faq-item"><div class="faq-question">Can I generate report cards or merit sheets?</div><div class="faq-answer">Absolutely. Managira includes a powerful report generator that creates professional terminal reports and merit sheets automatically from your recorded grades and assessments. You can customise the layout, add school branding, and print or download reports in bulk.</div></div>
+        <div class="faq-item"><div class="faq-question">Can I customise the portal with my school's logo and colours?</div><div class="faq-answer">Yes. Under the Personalisation settings, you can upload your school logo, set your brand colours and fonts, and customise your public-facing school website. This ensures Managira looks and feels like your own platform.</div></div>
+        <div class="faq-item"><div class="faq-question">How does the enrollment system work?</div><div class="faq-answer">Schools can create public enrollment forms that parents and guardians fill out online to apply for admission. Applications are reviewed and approved by school administrators. You can also manually add students or bulk-import from spreadsheets.</div></div>
+        <div class="faq-item"><div class="faq-question">Is training provided for new users?</div><div class="faq-answer">Yes. We provide onboarding documentation, in-app guides, and video tutorials on our YouTube channel. For larger institutions, we can arrange personalised training sessions to help your team get comfortable with the platform.</div></div>
+        <div class="faq-item"><div class="faq-question">How are announcements delivered?</div><div class="faq-answer">Announcements are published to dashboards across the platform, ensuring that administrators, teachers, and staff see important updates as soon as they log in. Schools can also display announcements on their public-facing website for parents and the wider community.</div></div>
+        <div class="faq-item"><div class="faq-question">Is there an analytics dashboard?</div><div class="faq-answer">Yes. Managira's analytics dashboard provides visual insights into student performance trends, attendance statistics, class comparisons, and operational metrics. Leaders can use this data to make informed decisions about curriculum, staffing, and resource allocation.</div></div>
+        <div class="faq-item"><div class="faq-question">Can I manage school years and terms?</div><div class="faq-answer">Yes. Managira supports full academic year management — you can register school years, define terms, close terms to lock in grades, and promote students to the next year. The system maintains a complete historical record of every academic period.</div></div>
+      </div>
+
+      <div class="faq-category" data-category="hubs">
+        <h2>Hub Management & Government Institutions</h2>
+        <div class="faq-item"><div class="faq-question">What is a Managira Hub?</div><div class="faq-answer">A Managira Hub is a centralised management layer designed for government education departments, school districts, and educational bodies that oversee multiple schools. Hubs provide a single dashboard to monitor performance, manage staff, coordinate operations, and maintain oversight across all member institutions.</div></div>
+        <div class="faq-item"><div class="faq-question">Who typically uses Hubs?</div><div class="faq-answer">Hubs are used by government education ministries, regional education offices, school district administrators, and private education groups that manage networks of schools. Any organisation responsible for overseeing multiple educational institutions can benefit from the Hub system.</div></div>
+        <div class="faq-item"><div class="faq-question">How do I set up a Hub?</div><div class="faq-answer">Hubs are created by Managira administrators. Once your Hub is set up, you receive a dedicated login and dashboard. From there, you can invite schools to join your network, set organisation limits, and begin monitoring your member institutions.</div></div>
+        <div class="faq-item"><div class="faq-question">Can a Hub control billing for member schools?</div><div class="faq-answer">Yes. When a school joins a Hub, billing is managed centrally by the Hub operator. Member schools no longer see individual billing options — all subscription management is handled at the Hub level, simplifying financial administration.</div></div>
+        <div class="faq-item"><div class="faq-question">Can I invite existing schools to join my Hub?</div><div class="faq-answer">Yes. Hub operators can send invitations to existing Managira schools as well as new institutions. Schools receive an email invitation and can accept to join the Hub network while retaining all their existing data and settings.</div></div>
+        <div class="faq-item"><div class="faq-question">What data can Hub operators see?</div><div class="faq-answer">Hub operators can view aggregated statistics across all member schools — including total students, staff counts, class numbers, and performance trends. They can also see individual school details, but day-to-day data entry remains the responsibility of each school's own administrators and teachers.</div></div>
       </div>
 
       <div class="faq-category" data-category="billing">
         <h2>Billing & Subscription</h2>
-        <div class="faq-item"><div class="faq-question">Can I upgrade or downgrade my plan?</div><div class="faq-answer">Yes, you can switch your plan at any time based on your school's evolving needs. Visit the settings or billing section to manage your subscription.</div></div>
-        <!-- <div class="faq-item"><div class="faq-question">How can I view or download invoices?</div><div class="faq-answer">Invoices and billing history can be accessed through the account billing section. Each invoice is downloadable as a PDF.</div></div> -->
-        <div class="faq-item"><div class="faq-question">What happens if I miss a payment?</div><div class="faq-answer">If a payment is missed, your access will be limited after a grace period. Notifications will be sent in advance with steps to restore full access.</div></div>
+        <div class="faq-item"><div class="faq-question">Can I upgrade or downgrade my plan?</div><div class="faq-answer">Yes. You can change your plan at any time from the Settings or Billing section of your account. Upgrades take effect immediately, and downgrades apply at the end of your current billing cycle.</div></div>
+        <div class="faq-item"><div class="faq-question">What happens if I miss a payment?</div><div class="faq-answer">If a payment is missed, you'll receive notifications with steps to resolve it. After a grace period, access to premium features will be temporarily restricted. Your data remains safe and intact — once payment is made, full access is restored immediately.</div></div>
+        <div class="faq-item"><div class="faq-question">What payment methods do you accept?</div><div class="faq-answer">We accept payments through Paystack, which supports credit/debit cards, mobile money, and bank transfers depending on your region. All transactions are processed securely with industry-standard encryption.</div></div>
+        <div class="faq-item"><div class="faq-question">Is there a discount for annual billing?</div><div class="faq-answer">Please visit our pricing page or contact our sales team at managirainfo@gmail.com for information about annual billing options and available discounts for larger institutions.</div></div>
       </div>
 
       <div class="faq-category" data-category="parents">
         <h2>Parents & Guardians</h2>
-        <!-- <div class="faq-item"><div class="faq-question">Can families access student academic records?</div><div class="faq-answer">Yes, families can view student progress, including grades, attendance, and teacher feedback, through a secure online portal. Schools manage access permissions to ensure privacy and security.</div></div> -->
-        <div class="faq-item"><div class="faq-question">How do parents or guardians register their children?</div><div class="faq-answer">Schools can enable a public application form that allows families to apply or register students. This is reviewed and approved by school admins.</div></div>
-        <div class="faq-item"><div class="faq-question">How can the general public, including parents and guardians, stay updated?</div><div class="faq-answer">Managira provides real-time notifications, announcements,ensuring that families stay informed about school events through the public website.</div></div>
+        <div class="faq-item"><div class="faq-question">How do parents access their child's information?</div><div class="faq-answer">Parents and guardians can access their child's school information through the dedicated Guardian Portal. Schools provide login credentials, and once logged in, parents can view grades, attendance records, report cards, and school announcements — all in real time.</div></div>
+        <div class="faq-item"><div class="faq-question">How do parents or guardians register their children?</div><div class="faq-answer">Schools can enable a public enrollment form on their Managira-powered website. Parents fill out the application online, and school administrators review and approve each submission. Schools can also register students directly on behalf of parents.</div></div>
+        <div class="faq-item"><div class="faq-question">Can parents submit reports or concerns?</div><div class="faq-answer">Yes. The Guardian Portal includes a reporting feature where parents can submit concerns, questions, or feedback directly to the school. Schools can review and respond to these reports through their admin dashboard.</div></div>
+        <div class="faq-item"><div class="faq-question">How can parents stay updated on school activities?</div><div class="faq-answer">Managira keeps parents informed through the public school website, dashboard announcements, and the Guardian Portal. Parents can see real-time updates on events, grades, and achievements without needing to visit the school in person.</div></div>
       </div>
 
       <div class="faq-category" data-category="security">
         <h2>Security & Access</h2>
-        <div class="faq-item"><div class="faq-question">What security measures are in place to protect student data?</div><div class="faq-answer">Managira uses encryption, secure servers, and role-based access control to ensure that student and school data remain confidential. Compliance with global data protection standards ensures a safe and secure experience.</div></div>
-        <div class="faq-item"><div class="faq-question">How is student data protected?</div><div class="faq-answer"> All student data is encrypted in transit and at rest. Managira adheres to international standards like GDPR to ensure privacy.</div></div>
-        <div class="faq-item"><div class="faq-question">Can I control who sees what information?</div><div class="faq-answer"> Yes, administrators can manage roles and permissions to control what data each user can access or edit.</div></div>
-        <div class="faq-item"><div class="faq-question">How long is student data retained on Managira?</div><div class="faq-answer">Student records are retained as long as the school's account remains active. If a school discontinues its use of Managira, data can be archived or deleted based on school policies and legal requirements.</div></div>
-        <div class="faq-item"><div class="faq-question">What should I do if I forget my password?</div><div class="faq-answer">If you forget your password, click on the "Forgot Password" link on the login page. Follow the instructions to receive a reset link via email.</div></div>
+        <div class="faq-item"><div class="faq-question">What security measures protect student data?</div><div class="faq-answer">Managira uses enterprise-grade security including TLS/SSL encryption for all data in transit, encryption at rest for stored data, role-based access controls, and secure hosting on Amazon Web Services (AWS). We follow OWASP security best practices and conduct regular vulnerability assessments using tools like Snyk.</div></div>
+        <div class="faq-item"><div class="faq-question">Is Managira compliant with data protection regulations?</div><div class="faq-answer">Yes. Managira adheres to international data protection standards including GDPR (EU), FERPA (US), and applicable national data protection laws. We take compliance seriously to ensure your institution meets its regulatory obligations.</div></div>
+        <div class="faq-item"><div class="faq-question">Can I control who sees what information?</div><div class="faq-answer">Absolutely. Administrators have full control over roles and permissions. You can define exactly which staff members can access, edit, or manage specific types of data — from student records to financial information. This ensures privacy and security at every level.</div></div>
+        <div class="faq-item"><div class="faq-question">How long is student data retained?</div><div class="faq-answer">Student records are retained for as long as your school's account remains active on Managira. If a school discontinues use, data can be exported and then archived or permanently deleted in accordance with your institution's policies and applicable legal requirements.</div></div>
+        <div class="faq-item"><div class="faq-question">What should I do if I forget my password?</div><div class="faq-answer">Click the "Forgot Password" link on the login page. You'll receive an email with a secure link to reset your password. The reset link expires after a set period for security purposes. If you don't receive the email, check your spam folder or contact your school administrator.</div></div>
       </div>
 
-      <div class="faq-category" data-category="support">
-        <h2>Technical Support</h2>
-        <div class="faq-item"><div class="faq-question">What should I do if I encounter a technical issue?</div><div class="faq-answer"> You can contact our support team via the “Help” section, or email support@managira.com. A support agent will assist you promptly.</div></div>
-        <div class="faq-item"><div class="faq-question">Does Managira support multiple devices?</div><div class="faq-answer">Yes, Managira is accessible on desktops, tablets, and mobile devices, allowing users to stay connected from anywhere.</div></div>
+      <div class="faq-category" data-category="technical">
+        <h2>Technical & Platform</h2>
+        <div class="faq-item"><div class="faq-question">What devices does Managira support?</div><div class="faq-answer">Managira is fully responsive and works on desktops, laptops, tablets, and mobile phones. There's no app to download — you simply access it through your web browser. It's been optimised for Chrome, Safari, Firefox, and Edge.</div></div>
+        <div class="faq-item"><div class="faq-question">Can I export my data from Managira?</div><div class="faq-answer">Yes. Managira supports data export in multiple formats. You can download student records, attendance data, grade reports, and other information as CSV or PDF files. This ensures you always have full ownership and portability of your data.</div></div>
+        <div class="faq-item"><div class="faq-question">Does Managira have a public-facing school website?</div><div class="faq-answer">Yes. Every school on Managira gets a customisable public dashboard that serves as a school website. You can publish announcements, display school information, showcase events, and enable online enrollment — all branded with your school's logo and colours.</div></div>
+        <div class="faq-item"><div class="faq-question">What should I do if I encounter a technical issue?</div><div class="faq-answer">Visit our Get Help page to submit a support request, or email support@managira.com directly. Please include details about the issue, your browser, and any error messages you see. Our support team typically responds within 24 hours.</div></div>
+        <div class="faq-item"><div class="faq-question">Can I use Managira for academic transcript generation?</div><div class="faq-answer">Yes. Managira includes a transcript generation feature that compiles a student's complete academic history across all enrolled terms and years. Transcripts can be printed or downloaded as professional PDF documents.</div></div>
       </div>
+
+    </div>
+
+    <div class="help-cta">
+      <p>Didn't find what you're looking for?</p>
+      <a href="/legal/help">Contact Support</a>
     </div>
   </main>
 
   <script>
-    // Toggle FAQ answer visibility
     document.addEventListener('click', function (e) {
       if (e.target.classList.contains('faq-question')) {
-        e.target.classList.toggle('open');
-        const answer = e.target.nextElementSibling;
-        answer.style.display = answer.style.display === 'block' ? 'none' : 'block';
+        const wasOpen = e.target.classList.contains('open');
+        // Close all other open questions
+        document.querySelectorAll('.faq-question.open').forEach(function(q) {
+          q.classList.remove('open');
+          q.nextElementSibling.style.display = 'none';
+        });
+        // Toggle clicked question
+        if (!wasOpen) {
+          e.target.classList.add('open');
+          e.target.nextElementSibling.style.display = 'block';
+        }
       }
     });
 
-    // Real-time search with category title toggle
     document.getElementById('search-bar').addEventListener('input', function () {
       const term = this.value.toLowerCase();
       const categories = document.querySelectorAll('.faq-category');
-
-      categories.forEach(category => {
+      categories.forEach(function(category) {
         const items = category.querySelectorAll('.faq-item');
         let hasVisible = false;
-
-        items.forEach(item => {
+        items.forEach(function(item) {
           const question = item.querySelector('.faq-question').textContent.toLowerCase();
           const answer = item.querySelector('.faq-answer').textContent.toLowerCase();
           const match = question.includes(term) || answer.includes(term);
           item.style.display = match ? 'block' : 'none';
           if (match) hasVisible = true;
         });
-
-        // Hide category header if no questions match
         category.style.display = hasVisible ? 'block' : 'none';
       });
     });

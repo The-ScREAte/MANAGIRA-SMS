@@ -1,234 +1,230 @@
 <style>
-      :root {
-        --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
-      }
+  :root {
+    --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
+    --primary: #01535b;
+    --primary-light: #e8f4f5;
+    --border: #e5e7eb;
+    --text: #1f2937;
+    --text-muted: #6b7280;
+    --bg: #f9fafb;
+  }
 
-  /* General Styles */
   body {
     font-family: var(--font-family);
-    color: #333;
+    color: var(--text);
     margin: 0;
-    background-color: #f8f9fa;
-    line-height: 1.8;
-    box-sizing: border-box;
-  }
-  
-  *, *::before, *::after {
+    background-color: var(--bg);
+    line-height: 1.7;
     box-sizing: border-box;
   }
 
-  /* Main Content - Clean, centered, no backgrounds */
+  *, *::before, *::after { box-sizing: border-box; }
+
   main {
-    max-width: 960px;
+    max-width: 780px;
     margin: 0 auto;
-    padding: 40px 20px 20px 20px;
-    background: transparent;
-    border-radius: 0;
-    box-shadow: none;
+    padding: 40px 24px 60px;
   }
-  
-  /* Headings */
-  h1 {
+
+  .page-header {
     text-align: center;
-    color: #01535b;
-    font-size: 2.5rem;
-    font-weight: bold;
-    margin-top: 0;
-    margin-bottom: 18px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    margin-bottom: 40px;
   }
 
-  .accent-bar {
-    display: block;
-    margin: 0 auto 32px auto;
-    width: 80px;
-    height: 6px;
-    border-radius: 3px;
-    background: linear-gradient(90deg, #00bfae 0%, #01535b 100%);
+  .page-header h1 {
+    color: var(--primary);
+    font-size: 2.2rem;
+    font-weight: 700;
+    margin: 0 0 8px;
   }
 
-  h2 {
-    color: #01535b;
-    font-size: 1.6rem;
-    font-weight: bold;
-    margin-top: 35px;
-    margin-bottom: 15px;
-    border-left: 6px solid #00bfae;
-    padding-left: 12px;
+  .page-header p {
+    color: var(--text-muted);
+    font-size: 1rem;
+    margin: 0;
+    max-width: 560px;
+    margin: 0 auto;
+    line-height: 1.6;
   }
-  
-  /* Paragraph Styling */
-  p {
-    font-size: 1.1rem;
-    color: #444;
+
+  .about-section {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 28px 24px;
     margin-bottom: 20px;
   }
 
-  /* List Styling */
-  ul {
-    font-size: 1.1rem;
-    color: #444;
-    margin-bottom: 20px;
-    padding-left: 0;
+  .about-section h2 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--primary);
+    margin: 0 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .about-section p {
+    font-size: 0.98rem;
+    color: var(--text);
+    margin: 0 0 12px;
+    line-height: 1.7;
+  }
+
+  .about-section p:last-child { margin-bottom: 0; }
+
+  .about-section ul {
+    margin: 0 0 8px;
+    padding: 0;
     list-style: none;
   }
 
-  ul li {
-    margin-bottom: 12px;
-    line-height: 1.7;
+  .about-section li {
     position: relative;
-    padding-left: 32px;
+    padding-left: 24px;
+    margin-bottom: 10px;
+    font-size: 0.95rem;
+    line-height: 1.65;
+    color: var(--text);
   }
-  
-  ul li:before {
-    content: '\2714';
-    color: #00bfae;
-    font-size: 1.1em;
+
+  .about-section li::before {
+    content: '';
     position: absolute;
     left: 0;
-    top: 2px;
+    top: 8px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--primary);
+    opacity: 0.5;
   }
-  
-  /* Call-to-action box */
-  .cta-box {
-    background: linear-gradient(90deg, #00bfae 0%, #01535b 100%);
-    color: #fff;
-    border-radius: 10px;
-    padding: 28px 20px;
-    margin: 38px 0 0 0;
+
+  .cta-card {
+    background: var(--primary);
+    border-radius: 12px;
+    padding: 32px 28px;
     text-align: center;
-    box-shadow: 0 2px 12px 0 rgba(1,83,91,0.15);
-    font-size: 1.15rem;
-    font-weight: 500;
-    letter-spacing: 0.5px;
+    margin-top: 24px;
   }
-  
-  .cta-box strong {
-    font-size: 1.25rem;
-    letter-spacing: 1px;
+
+  .cta-card h3 {
+    color: #fff;
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin: 0 0 8px;
   }
-  
-  /* Links */
-  a {
-    color: #01535b;
+
+  .cta-card p {
+    color: rgba(255,255,255,0.85);
+    font-size: 0.95rem;
+    margin: 0 0 16px;
+    line-height: 1.6;
+  }
+
+  .cta-card a {
+    display: inline-block;
+    padding: 10px 28px;
+    background: #fff;
+    color: var(--primary);
+    border-radius: 8px;
     text-decoration: none;
-    font-weight: bold;
+    font-weight: 600;
+    font-size: 0.92rem;
+    transition: opacity 0.2s;
   }
-  
-  a:hover {
-    text-decoration: underline;
-  }
-  
-  /* Responsive Design */
-  @media (min-width: 1024px) {
-    h1 {
-      font-size: 2.8rem;
-    }
-    
-    h2 {
-      font-size: 1.8rem;
-    }
-  }
+
+  .cta-card a:hover { opacity: 0.9; }
 
   @media (max-width: 768px) {
-    main {
-      padding: 30px 15px 15px 15px;
-    }
-  
-    h1 {
-      font-size: 2rem;
-    }
-
-    h2 {
-      font-size: 1.4rem;
-    }
-  
-    p, ul {
-      font-size: 1rem;
-    }
+    main { padding: 24px 16px 40px; }
+    .page-header h1 { font-size: 1.8rem; }
+    .about-section { padding: 20px 18px; }
   }
 
   @media (max-width: 480px) {
-    main {
-      padding: 20px 12px 12px 12px;
-    }
-
-    h1 {
-      font-size: 1.7rem;
-    }
-
-    h2 {
-      font-size: 1.25rem;
-    }
-  
-    p, ul {
-      font-size: 0.95rem;
-    }
-    
-    .cta-box {
-      padding: 20px 15px;
-      font-size: 1rem;
-    }
-    
-    .cta-box strong {
-      font-size: 1.1rem;
-    }
+    .page-header h1 { font-size: 1.5rem; }
+    .about-section { padding: 16px 14px; border-radius: 10px; }
+    .about-section h2 { font-size: 1.05rem; }
+    .cta-card { padding: 24px 18px; }
   }
-  </style>
+</style>
   
-  <main>
+<main>
+  <div class="page-header">
     <h1>About Managira</h1>
-    <span class="accent-bar"></span>
-    <p>Welcome to Managira — the next-generation school management platform designed to revolutionize educational administration. Managira is a product of scREAte Ltd., created with one goal in mind: to help schools work smarter, not harder. From student enrollment to academic tracking and beyond, our all-in-one SaaS solution empowers educational institutions to streamline operations, enhance communication, and focus on what truly matters — delivering exceptional education.</p>
+    <p>The next-generation school management platform — built to help educational institutions of every size work smarter, not harder.</p>
+  </div>
 
+  <div class="about-section">
+    <h2>Our Story</h2>
+    <p>Managira is a product of scREAte Ltd., created with one goal in mind: to simplify how schools operate. From student enrollment to academic tracking and beyond, our all-in-one platform empowers educational institutions to streamline operations, reduce paperwork, enhance communication, and focus on what truly matters — delivering exceptional education.</p>
+    <p>We serve individual schools, private institutions, government education departments, and school districts that need a reliable, modern solution for managing their academic operations.</p>
+  </div>
+
+  <div class="about-section">
     <h2>Our Mission</h2>
-    <p>At Managira, we believe technology should simplify the educational experience, not complicate it. Our mission is to provide schools, colleges, and training institutions with a single, powerful platform that removes administrative burdens, cuts down paperwork, and connects students, teachers, parents, and administrators in one smooth workflow.</p>
+    <p>We believe technology should simplify the educational experience, not complicate it. Our mission is to provide schools, colleges, and educational bodies with a single, powerful platform that removes administrative burdens, connects students, teachers, parents, and administrators, and enables data-driven decision making — all in one smooth workflow.</p>
+  </div>
 
+  <div class="about-section">
     <h2>What Makes Managira Different</h2>
     <ul>
-      <li><strong>Comprehensive School Management</strong> – We go beyond basic student information systems, offering tools that handle everything from enrollment and attendance tracking to academic reporting and fee management.</li>
-      <li><strong>Real-Time Data & Insights</strong> – Our analytics dashboard gives you the power to monitor performance, track trends, and make informed decisions — instantly.</li>
-      <li><strong>Designed for Mobility</strong> – Whether on desktop, tablet, or phone, you can access your school’s data anytime, anywhere.</li>
+      <li><strong>Comprehensive Management</strong> — We go beyond basic student information systems, offering tools that handle enrollment, attendance, academic reporting, assessments, grade management, and more.</li>
+      <li><strong>Hub System for Multi-School Oversight</strong> — Government institutions and educational bodies can oversee multiple schools from a single Hub dashboard, monitoring performance and coordinating across their entire network.</li>
+      <li><strong>Real-Time Data & Insights</strong> — Our analytics dashboard gives leaders the power to monitor performance, track trends, and make informed decisions instantly.</li>
+      <li><strong>Designed for Mobility</strong> — Whether on desktop, tablet, or phone, you can access your school's data anytime, anywhere.</li>
+      <li><strong>Parent & Guardian Portal</strong> — Parents stay connected to their child's progress with real-time access to grades, attendance, and school updates.</li>
     </ul>
+  </div>
 
+  <div class="about-section">
     <h2>Core Features</h2>
     <ul>
-      <li><strong>Student Information Management</strong> – Complete student profiles with academic history, personal details, and guardian information.</li>
-      <li><strong>Enrollment & Admissions</strong> – Streamlined application processing with automated workflows and easy document management.</li>
-      <li><strong>Attendance Tracking</strong> – Real-time attendance monitoring for accurate and reliable record-keeping.</li>
-      <li><strong>Grade & Assessment Management</strong> – Digital gradebooks, assignment tracking, and performance analytics.</li>
-      <li><strong>Parent Portal & Public Website</strong> – Give parents a live view of school updates and their child’s progress through a dedicated portal, while your public-facing website helps the community learn more about your institution.</li>
-      <li><strong>Report Generation</strong> – Create customized reports for academics, finances, and overall school operations.</li>
+      <li><strong>Student Information Management</strong> — Complete student profiles with academic history, personal details, and guardian information.</li>
+      <li><strong>Enrollment & Admissions</strong> — Streamlined online application processing with public enrollment forms and automated workflows.</li>
+      <li><strong>Attendance Tracking</strong> — Real-time attendance monitoring for accurate and reliable record-keeping.</li>
+      <li><strong>Grade & Assessment Management</strong> — Digital gradebooks, test creation, and performance analytics.</li>
+      <li><strong>Report Generation</strong> — Professional report cards, merit sheets, and academic transcripts generated automatically.</li>
+      <li><strong>Parent Portal & Public Website</strong> — Give parents a live view of school updates and their child's progress, while your public-facing website helps the community learn about your institution.</li>
+      <li><strong>Hub Management</strong> — Centralised oversight for government bodies and organisations managing multiple schools.</li>
+      <li><strong>Customisable Branding</strong> — Upload your logo, set your colours, and make the platform your own.</li>
     </ul>
+  </div>
 
+  <div class="about-section">
     <h2>Who We Serve</h2>
     <p>Managira is built for educational institutions of every size and type:</p>
     <ul>
-      <li><strong>Primary & Secondary Schools</strong> – Complete K–12 management solutions.</li>
-      <li><strong>Colleges & Universities</strong> – Advanced tools for higher education.</li>
-      <li><strong>Educational Districts</strong> – Centralized systems for managing multiple institutions.</li>
-      <li><strong>Private Schools</strong> – Tailored solutions for independent learning environments.</li>
-      <li><strong>Training Centers</strong> – Specialized features for vocational and professional education.</li>
+      <li><strong>Primary & Secondary Schools</strong> — Complete K–12 management solutions.</li>
+      <li><strong>Colleges & Universities</strong> — Advanced tools for higher education.</li>
+      <li><strong>Government Education Departments</strong> — Hub-based systems for overseeing multiple institutions across regions.</li>
+      <li><strong>School Districts</strong> — Centralised management for networks of schools.</li>
+      <li><strong>Private Schools & Academies</strong> — Tailored solutions for independent learning environments.</li>
+      <li><strong>Training Centres</strong> — Specialised features for vocational and professional education.</li>
     </ul>
+  </div>
 
+  <div class="about-section">
     <h2>Why Choose Managira?</h2>
     <ul>
-      <li><strong>Proven Reliability</strong> – Built on secure, scalable technology with 99.9% uptime.</li>
-      <li><strong>Quick Setup</strong> – Start fast with an intuitive interface and smooth onboarding.</li>
-      <li><strong>Dedicated Support</strong> – Ongoing assistance, training, and platform improvements.</li>
-      <li><strong>Cost-Effective</strong> – Reduce operational costs without sacrificing quality.</li>
-      <li><strong>Scalable</strong> – From small schools to large districts, Managira grows with you.</li>
+      <li><strong>Proven Reliability</strong> — Built on secure, scalable infrastructure with 99.9% uptime.</li>
+      <li><strong>Quick Setup</strong> — Get started in about 15 minutes with an intuitive interface and smooth onboarding.</li>
+      <li><strong>Dedicated Support</strong> — Ongoing assistance, documentation, video tutorials, and platform improvements.</li>
+      <li><strong>Cost-Effective</strong> — Professional-grade tools at prices that work for schools of all sizes.</li>
+      <li><strong>Scalable</strong> — From a single classroom to a network of institutions, Managira grows with you.</li>
+      <li><strong>Secure & Compliant</strong> — Enterprise-grade encryption, GDPR and FERPA compliance, and role-based access controls.</li>
     </ul>
+  </div>
 
-    <div class="cta-box">
-      <strong>Transform your school’s management today.</strong><br>
-      Join the growing number of institutions that trust Managira to simplify operations and elevate the learning experience.<br><br>
-      <span style="font-size:1.08rem;">📞 Contact us to schedule a demo, request more information, or start your free trial.</span>
-    </div>
-  </main>
+  <div class="cta-card">
+    <h3>Transform your school's management today</h3>
+    <p>Join the growing number of institutions that trust Managira to simplify operations and elevate the learning experience.</p>
+    <a href="/account/register">Start Your Free Trial</a>
+  </div>
+</main>
 
-<!-- JSON-LD Structured Data for About Us Page -->
 <script type="application/ld+json">
 {
     "@context": "https://schema.org",
@@ -239,18 +235,19 @@
     "mainEntity": {
         "@type": "Organization",
         "name": "Managira",
-        "description": "Next-generation school management platform designed to revolutionize the way educational institutions operate",
+        "description": "Next-generation school management platform for individual schools, government institutions, and educational bodies managing multiple institutions.",
         "url": "https://www.managira.com",
         "logo": "https://www.managira.com/images/managira.png",
         "foundingDate": "2024",
-        "mission": "Simplify school management, allowing educators to focus on what truly matters—nurturing the next generation",
+        "mission": "Simplify school management, allowing educators to focus on what truly matters — nurturing the next generation",
         "serviceArea": "Global",
         "knowsAbout": [
             "School Management",
-            "Student Information Systems", 
+            "Student Information Systems",
             "Educational Technology",
             "Data Analytics",
-            "Communication Tools"
+            "Hub Management",
+            "Government Education Systems"
         ],
         "areaServed": "Worldwide"
     }
