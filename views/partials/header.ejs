@@ -875,25 +875,6 @@
       if (logo.startsWith("/")) return logo;
       return `/${logo}`;
     };
-    
-    // Debug logging for hub data
-    if (session && session.firstName) {
-      console.log('🔍 Header Session Data:', {
-        user: session.firstName,
-        orgName: session.organizationName,
-        isHubMember: session.isHubMember,
-        hubName: session.hubName,
-        hubLogo: session.hubLogo,
-        orgLogo: session.logo,
-        accountType: session.accountType
-      });
-      
-      // Check if hub logo is valid
-      if (session.hubLogo) {
-        const isValid = !session.hubLogo.endsWith('/hub-logos') && !session.hubLogo.endsWith('/images/hub-logos');
-        console.log('   Hub Logo Valid?', isValid ? '✓ YES' : '✗ NO (incomplete path)');
-      }
-    }
   %>
   <% const isPublicDashboard = url && url.includes('/publicDashboard'); %>
   <% const dashboardHref = req.session && req.session.accountType === 'Hub' ? '/hub/dashboard' : (req.session && req.session.userRole === 'Guardian' ? '/guardian/dashboard' : '/common/orgDashboard'); %>
@@ -1198,13 +1179,6 @@
 <script>
   const CURRENT_TERM_ID =
     "<%= currentTerm?.term_id || session.currentTermId || '' %>";
-</script>
-
-<script>
-  // ...removed log for clean background operation...
-    "🧠 Current Term ID:",
-    "<%= currentTerm ? currentTerm.term_id : 'Not set' %>"
-  
 </script>
 
 <script>
