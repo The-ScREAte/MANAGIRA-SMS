@@ -147,7 +147,10 @@
 </head>
 <body>
     <div class="main-content">
-        <div class="page-header">
+        <div class="page-header" style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+            <div class="link-to-next-back">
+                <a href="/common/management" style="background: transparent; color: var(--org-primary-color, #0f5a66); border: 2px solid var(--org-primary-color, #0f5a66); box-shadow: none;">← Back to Management</a>
+            </div>
             <div class="link-to-next-back">
                 <a href="/common/createTest?organizationId=<%= organizationId %>&termId=<%= termId %>">Create New Test</a>
             </div>
