@@ -16,7 +16,7 @@
     <div class="student-form-card" style="padding: 0; overflow: hidden;">
       <div class="table-responsive" style="overflow-x: auto;">
         <table class="data-table" style="width: 100%; border-collapse: collapse; background: white;">
-          <thead style="background: linear-gradient(135deg, #0f5a66 0%, #6fd3c4 100%); color: white;">
+          <thead style="background: var(--org-primary-color, #0f5a66); color: white;">
             <tr>
               <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 14px;">Photo</th>
               <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 14px;">Name</th>
@@ -48,7 +48,7 @@
                   <%= guardian.phone || '-' %>
                 </td>
                 <td style="padding: 14px 12px; text-align: center;">
-                  <span style="background: linear-gradient(135deg, #6fd3c4, #4fc3af); color: white; padding: 6px 14px; border-radius: 16px; font-size: 13px; font-weight: 700; box-shadow: 0 2px 4px rgba(111, 211, 196, 0.3);">
+                  <span style="background: var(--org-primary-color, #0f5a66); color: white; padding: 6px 14px; border-radius: 16px; font-size: 13px; font-weight: 600;">
                     <%= guardian.student_count %>
                   </span>
                 </td>
@@ -78,7 +78,7 @@
 <style>
   /* Prevent global table styles (e.g., studentDetails.css) from washing out headers */
   .data-table thead th {
-    background: linear-gradient(135deg, #0f5a66 0%, #6fd3c4 100%);
+    background: var(--org-primary-color, #0f5a66);
     color: #ffffff;
   }
 

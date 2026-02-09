@@ -13,8 +13,8 @@
       }
 
       body.class-subject-page {
-        font-family: var(--font-family);
-        background: var(--bg);
+        font-family: var(--font-family) !important;
+        background: var(--bg) !important;
         margin: 0;
         padding: 0;
       }
@@ -105,11 +105,11 @@
         text-align: center;
         width: 100%;
       }
-      .separator {
+      .class-subject-page .separator {
         border-bottom: 1px solid #ccc;
         margin: 20px 0;
       }
-      .note {
+      .class-subject-page .note {
         background-color: #fff3cd;
         border-left: 6px solid #ffecb5;
         padding: 15px;
@@ -118,37 +118,37 @@
         text-align: center;
         display: none;
       }
-      .form-container {
+      .class-subject-page .form-container {
         display: flex;
         align-items: center;
         justify-content: space-between;
       }
-      .form-container input[type="text"] {
+      .class-subject-page .form-container input[type="text"] {
         flex-grow: 1;
         margin-right: 10px;
       }
-      .form-container a {
+      .class-subject-page .form-container a {
         text-decoration: none;
         display: inline-block;
         text-align: center;
       }
-      .delete-link {
+      .class-subject-page .delete-link {
         color: red;
         margin-left: 10px;
         cursor: pointer;
       }
-      .subject-item {
+      .class-subject-page .subject-item {
         display: flex;
         align-items: center;
         justify-content: space-between;
       }
-      .icon-form-vertical {
+      .class-subject-page .icon-form-vertical {
         display: flex;
         flex-direction: column;
         align-items: stretch;
         gap: 0;
       }
-      .icon-form-vertical input[type="text"] {
+      .class-subject-page .icon-form-vertical input[type="text"] {
         margin-bottom: 8px;
         padding: 10px 14px;
         border: 1px solid var(--border);
@@ -158,12 +158,12 @@
         width: 100%;
         box-sizing: border-box;
       }
-      .icon-btn-row {
+      .class-subject-page .icon-btn-row {
         display: flex;
         gap: 8px;
         justify-content: flex-start;
       }
-      .icon-btn {
+      .class-subject-page .icon-btn {
         display: flex;
         align-items: center;
         justify-content: center;
@@ -179,21 +179,21 @@
         transition: all 0.2s;
         text-decoration: none;
       }
-      .icon-btn.delete-btn {
+      .class-subject-page .icon-btn.delete-btn {
         background: #e53935;
         color: #fff;
         border: none;
       }
-      .icon-btn.update-btn:hover {
+      .class-subject-page .icon-btn.update-btn:hover {
         background: var(--org-primary-hover, #014a51);
       }
-      .icon-btn.delete-btn:hover {
+      .class-subject-page .icon-btn.delete-btn:hover {
         background: #b71c1c;
       }
-      .collapsible-wrapper {
+      .class-subject-page .collapsible-wrapper {
         display: none;
       }
-      .collapsible-btn {
+      .class-subject-page .collapsible-btn {
         width: 100%;
         background: var(--org-primary-color, #01535b);
         color: #fff;
@@ -210,24 +210,24 @@
         margin-bottom: 6px;
         transition: none;
       }
-      .collapsible-btn .arrow {
+      .class-subject-page .collapsible-btn .arrow {
         font-size: 18px;
         margin-left: 8px;
         transition: transform 0.2s;
       }
-      .collapsible-content {
+      .class-subject-page .collapsible-content {
         background: #f8fafc;
         border-radius: 8px;
         margin-top: 6px;
         padding: 12px 16px;
         border: 1px solid var(--border);
       }
-      .collapsible-btn:hover,
-      .collapsible-btn:focus {
+      .class-subject-page .collapsible-btn:hover,
+      .class-subject-page .collapsible-btn:focus {
         background: var(--org-primary-hover, #014a51);
       }
       @media (max-width: 900px) {
-        .collapsible-wrapper {
+        .class-subject-page .collapsible-wrapper {
           display: block;
         }
         .regular-class-list {
@@ -354,6 +354,11 @@
   </head>
   <body class="class-subject-page">
     <%- include('../partials/flash') %>
+
+    <script>
+      // Ensure page styles always apply even when navigated via SPA
+      document.body.classList.add('class-subject-page');
+    </script>
 
     <div class="page-banner">
       <h1>Manage Classes & Subjects</h1>

@@ -32,8 +32,9 @@
       align-items: center;
       gap: 8px;
       padding: 10px 20px;
-      background: var(--primary);
-      color: white;
+      background: #fff;
+      color: var(--primary);
+      border: 2px solid var(--primary);
       text-decoration: none;
       border-radius: 8px;
       font-weight: 600;
@@ -43,7 +44,8 @@
     }
 
     .back-link:hover {
-      background: var(--primary-hover);
+      background: var(--primary);
+      color: white;
       transform: translateY(-1px);
     }
 
@@ -137,19 +139,25 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 14px 18px;
-      background: var(--primary);
-      color: white;
-      border: none;
-      border-radius: 10px;
-      font-size: 0.95rem;
+      padding: 12px 14px;
+      background: #f3f4f6;
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.92rem;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s;
     }
 
     .collapsible-btn:hover {
-      background: var(--primary-hover);
+      background: #e5e7eb;
+      color: var(--text-primary);
+    }
+
+    .collapsible-btn .arrow {
+      color: var(--primary);
+      font-weight: 700;
     }
 
     .collapsible-content {
@@ -288,7 +296,14 @@
   <%- include('../partials/flash') %>
   
   <% if (req.session && req.session.userRole !== 'Teacher' && req.session.userRole !== 'Supervisor') { %>
-  <a href="/common/manageEmployees" class="back-link">← Manage Employees</a>
+  <div style="text-align: center; margin-bottom: 20px;">
+    <a href="/common/manageEmployees" class="back-link">
+      <svg style="width:16px;height:16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+      </svg>
+      Back
+    </a>
+  </div>
   <% } %>
 
   <div class="form-card">

@@ -75,11 +75,15 @@
       '/common/manageSchoolYear',
       '/common/closeSchoolYear',
       '/common/termDetails',
+      '/enrollment/enroll',
+      '/enrollment/manageEnrollment',
+      '/enrollment/modifyEnrollment',
       '/common/attendanceCollection',
       '/print/transcript',
       '/print/modifyStatusSettings',
       '/print/meritSheetPage',
       '/print/migration',
+      '/promotion/apply',
       '/promotion/closeGraduationYearGroup',
       '/legal/help',
       '/legal/employment',
@@ -158,7 +162,6 @@
     '/stats/organizationStats', // Chart.js initialization
     '/print/reportSettings',    // Dynamic remark sections
     '/print/printStudentReport', // Complex image loading
-    '/enrollment/',             // Complex form interactions
     '/promotion/applyPromotion' // Cascading dropdowns
   ];
 

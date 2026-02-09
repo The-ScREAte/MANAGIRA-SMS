@@ -486,6 +486,11 @@
   <body class="manage-records-page">
     <%- include('../partials/flash') %>
 
+    <script>
+      // Ensure scoped styles apply on SPA navigation
+      document.body.classList.add('manage-records-page');
+    </script>
+
     <div class="page-header">
       <h1>Manage School Years & Terms</h1>
       <p>Configure academic periods and term schedules</p>

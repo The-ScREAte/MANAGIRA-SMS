@@ -263,6 +263,11 @@
           </div>
           <div class="plan-price">
             <strong>₵<%= plan.total_price.toFixed(2) %></strong>
+            <% if (typeof trialRequested !== 'undefined' && trialRequested && premiumPlanId && String(plan.plan_id) === String(premiumPlanId)) { %>
+              <div style="margin-top: 8px; font-size: 13px; color: #0d8d5d; font-weight: 500;">
+                Pay after free trial
+              </div>
+            <% } %>
           </div>
         </div>
         <% }}); %>
