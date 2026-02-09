@@ -56,7 +56,7 @@
     padding: 24px 0 60px;
   }
 
-  .page-header {
+  .mpc-page-header {
     background: var(--primary);
     color: white;
     padding: 40px 20px;
@@ -66,7 +66,7 @@
     overflow: hidden;
   }
 
-  .page-header::before {
+  .mpc-page-header::before {
     content: '';
     position: absolute;
     top: 0;
@@ -85,13 +85,13 @@
     z-index: 1;
   }
 
-  .page-header h1 {
+  .mpc-page-header h1 {
     margin: 0;
     font-size: 2rem;
     font-weight: 700;
   }
 
-  .page-header p {
+  .mpc-page-header p {
     margin: 8px 0 0;
     opacity: 0.95;
     font-size: 1rem;
@@ -714,7 +714,7 @@
 </style>
 </head>
 <body class="manage-public-page">
-    <div class="page-header">
+    <div class="mpc-page-header">
       <div class="page-header-content">
         <h1>🌐 Manage School Website Content</h1>
         <p>Customize your school's public website with images, text, events, and announcements</p>
@@ -1202,6 +1202,92 @@
         </div>
         
 
+        <!-- Website Layout Section -->
+        <div class="content-container" style="margin-bottom: 28px;">
+            <div class="images-header" style="justify-content: center;">
+                <h2 style="margin: 0;">🎨 Website Layout</h2>
+            </div>
+            <p style="text-align:center; color: var(--text-secondary); margin: 8px 0 24px; font-size: 0.95rem;">
+                Choose the arrangement of sections on your School Website. Colors stay the same.
+            </p>
+
+            <form action="/account/updatePublicDashboardLayout" method="POST">
+                <div class="layout-grid">
+                    <label class="layout-option <%= (publicDashboardLayout || 'wireframe1') === 'wireframe1' ? 'selected' : '' %>">
+                        <div style="display:flex; gap: 10px; align-items:flex-start;">
+                            <input type="radio" name="publicDashboardLayout" value="wireframe1" <%= (publicDashboardLayout || 'wireframe1') === 'wireframe1' ? 'checked' : '' %> style="margin-top: 4px;" />
+                            <div>
+                                <div class="layout-title">Wireframe 1 – Traditional</div>
+                                <div style="color:#666; font-size: 0.88rem; line-height: 1.4; margin-bottom: 8px;">
+                                    <strong>Linear / Single Flow</strong><br/>
+                                    Hero → Gallery → Articles → Events → Announcements → About Us
+                                </div>
+                                <div style="color:#888; font-size: 0.82rem; line-height: 1.3;">
+                                    ✓ Familiar & safe · ✓ Easy for first-time users<br/>
+                                    → Best for: Small schools, static content
+                                </div>
+                            </div>
+                        </div>
+                    </label>
+
+                    <label class="layout-option <%= publicDashboardLayout === 'wireframe2' ? 'selected' : '' %>">
+                        <div style="display:flex; gap: 10px; align-items:flex-start;">
+                            <input type="radio" name="publicDashboardLayout" value="wireframe2" <%= publicDashboardLayout === 'wireframe2' ? 'checked' : '' %> style="margin-top: 4px;" />
+                            <div>
+                                <div class="layout-title">Wireframe 2 – Split Dashboard</div>
+                                <div style="color:#666; font-size: 0.88rem; line-height: 1.4; margin-bottom: 8px;">
+                                    <strong>Gallery + Events Priority</strong><br/>
+                                    Hero → Gallery (left) + Events (right) → Articles → Announcements → About Us
+                                </div>
+                                <div style="color:#888; font-size: 0.82rem; line-height: 1.3;">
+                                    ✓ Events visible without scrolling · ✓ Balanced portal feel<br/>
+                                    → Best for: Active schools, event-driven
+                                </div>
+                            </div>
+                        </div>
+                    </label>
+
+                    <label class="layout-option <%= publicDashboardLayout === 'wireframe3' ? 'selected' : '' %>">
+                        <div style="display:flex; gap: 10px; align-items:flex-start;">
+                            <input type="radio" name="publicDashboardLayout" value="wireframe3" <%= publicDashboardLayout === 'wireframe3' ? 'checked' : '' %> style="margin-top: 4px;" />
+                            <div>
+                                <div class="layout-title">Wireframe 3 – Content-First</div>
+                                <div style="color:#666; font-size: 0.88rem; line-height: 1.4; margin-bottom: 8px;">
+                                    <strong>Announcement-Aware</strong><br/>
+                                    Hero → Gallery → Articles (center) + Announcements (right) → Events → About Us
+                                </div>
+                                <div style="color:#888; font-size: 0.82rem; line-height: 1.3;">
+                                    ✓ Announcements never missed · ✓ Academic credibility focus<br/>
+                                    → Best for: PTA communication, notice-driven
+                                </div>
+                            </div>
+                        </div>
+                    </label>
+
+                    <label class="layout-option <%= publicDashboardLayout === 'wireframe4' ? 'selected' : '' %>">
+                        <div style="display:flex; gap: 10px; align-items:flex-start;">
+                            <input type="radio" name="publicDashboardLayout" value="wireframe4" <%= publicDashboardLayout === 'wireframe4' ? 'checked' : '' %> style="margin-top: 4px;" />
+                            <div>
+                                <div class="layout-title">Wireframe 4 – Narrative Flow</div>
+                                <div style="color:#666; font-size: 0.88rem; line-height: 1.4; margin-bottom: 8px;">
+                                    <strong>Timeline & Storytelling</strong><br/>
+                                    Hero → Gallery → Events (timeline) → Announcements (highlights) → About Us (expanded)
+                                </div>
+                                <div style="color:#888; font-size: 0.82rem; line-height: 1.3;">
+                                    ✓ Strong storytelling · ✓ Builds trust & connection<br/>
+                                    → Best for: NGOs, donor-facing, public orgs
+                                </div>
+                            </div>
+                        </div>
+                    </label>
+                </div>
+
+                <div style="display:flex; justify-content:center; margin-top: 20px;">
+                    <button type="submit" class="btn btn-primary">Save Website Layout</button>
+                </div>
+            </form>
+        </div>
+
     </div>
 
     <script>
@@ -1297,99 +1383,6 @@
         window.removeFileField = function (button) {
             const fileFields = document.querySelectorAll('.file-upload-field');
             // Prevent removing the last field - always keep at least one
-
-            <div class="content-container" style="margin-bottom: 28px;">
-                <div class="images-header" style="justify-content: center;">
-                    <h2 style="margin: 0;">🎨 Website Layout</h2>
-                </div>
-                <p style="text-align:center; color: var(--text-secondary); margin: 8px 0 24px; font-size: 0.95rem;">
-                    Choose the arrangement of sections on your School Website. Colors stay the same.
-                </p>
-
-                <form action="/account/updatePublicDashboardLayout" method="POST">
-                    <div class="layout-grid">
-                        <!-- Wireframe 1 -->
-                        <label class="layout-option <%= (publicDashboardLayout || 'wireframe1') === 'wireframe1' ? 'selected' : '' %>">
-                            <div style="display:flex; gap: 10px; align-items:flex-start;">
-                                <input type="radio" name="publicDashboardLayout" value="wireframe1" <%= (publicDashboardLayout || 'wireframe1') === 'wireframe1' ? 'checked' : '' %> style="margin-top: 4px;" />
-                                <div>
-                                    <div class="layout-title">Wireframe 1 – Traditional</div>
-                                    <div style="color:#666; font-size: 0.88rem; line-height: 1.4; margin-bottom: 8px;">
-                                        <strong>Linear / Single Flow</strong><br/>
-                                        Hero → Gallery → Articles → Events → Announcements → About Us
-                                    </div>
-                                    <div style="color:#888; font-size: 0.82rem; line-height: 1.3;">
-                                        ✓ Familiar & safe<br/>
-                                        ✓ Easy for first-time users<br/>
-                                        → Best for: Small schools, static content, MVP
-                                    </div>
-                                </div>
-                            </div>
-                        </label>
-
-                        <!-- Wireframe 2 -->
-                        <label class="layout-option <%= publicDashboardLayout === 'wireframe2' ? 'selected' : '' %>">
-                            <div style="display:flex; gap: 10px; align-items:flex-start;">
-                                <input type="radio" name="publicDashboardLayout" value="wireframe2" <%= publicDashboardLayout === 'wireframe2' ? 'checked' : '' %> style="margin-top: 4px;" />
-                                <div>
-                                    <div class="layout-title">Wireframe 2 – Split Dashboard</div>
-                                    <div style="color:#666; font-size: 0.88rem; line-height: 1.4; margin-bottom: 8px;">
-                                        <strong>Gallery + Events Priority</strong><br/>
-                                        Hero → Gallery (left) + Events (right) → Articles → Announcements → About Us
-                                    </div>
-                                    <div style="color:#888; font-size: 0.82rem; line-height: 1.3;">
-                                        ✓ Events visible without scrolling<br/>
-                                        ✓ Balanced portal feel<br/>
-                                        → Best for: Active schools, event-driven
-                                    </div>
-                                </div>
-                            </div>
-                        </label>
-
-                        <!-- Wireframe 3 -->
-                        <label class="layout-option <%= publicDashboardLayout === 'wireframe3' ? 'selected' : '' %>">
-                            <div style="display:flex; gap: 10px; align-items:flex-start;">
-                                <input type="radio" name="publicDashboardLayout" value="wireframe3" <%= publicDashboardLayout === 'wireframe3' ? 'checked' : '' %> style="margin-top: 4px;" />
-                                <div>
-                                    <div class="layout-title">Wireframe 3 – Content-First</div>
-                                    <div style="color:#666; font-size: 0.88rem; line-height: 1.4; margin-bottom: 8px;">
-                                        <strong>Announcement-Aware</strong><br/>
-                                        Hero → Gallery → Articles (center) + Announcements (right) → Events → About Us
-                                    </div>
-                                    <div style="color:#888; font-size: 0.82rem; line-height: 1.3;">
-                                        ✓ Announcements never missed<br/>
-                                        ✓ Academic credibility focus<br/>
-                                        → Best for: PTA communication, notice-driven
-                                    </div>
-                                </div>
-                            </div>
-                        </label>
-
-                        <!-- Wireframe 4 -->
-                        <label class="layout-option <%= publicDashboardLayout === 'wireframe4' ? 'selected' : '' %>">
-                            <div style="display:flex; gap: 10px; align-items:flex-start;">
-                                <input type="radio" name="publicDashboardLayout" value="wireframe4" <%= publicDashboardLayout === 'wireframe4' ? 'checked' : '' %> style="margin-top: 4px;" />
-                                <div>
-                                    <div class="layout-title">Wireframe 4 – Narrative Flow</div>
-                                    <div style="color:#666; font-size: 0.88rem; line-height: 1.4; margin-bottom: 8px;">
-                                        <strong>Timeline & Storytelling</strong><br/>
-                                        Hero → Gallery → Events (timeline) → Announcements (highlights) → About Us (expanded)
-                                    </div>
-                                    <div style="color:#888; font-size: 0.82rem; line-height: 1.3;">
-                                        ✓ Strong storytelling<br/>
-                                        ✓ Builds trust & connection<br/>
-                                        → Best for: NGOs, donor-facing, public orgs
-                                    </div>
-                                </div>
-                            </div>
-                        </label>
-                    </div>
-
-                    <div style="display:flex; justify-content:center; margin-top: 20px;">
-                        <button type="submit" class="btn btn-primary">Save Website Layout</button>
-                    </div>
-                </form>
-            </div>
             if (fileFields.length > 1) {
                 button.closest('.file-upload-field').remove();
             } else {

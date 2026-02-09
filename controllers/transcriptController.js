@@ -126,7 +126,6 @@ const transcriptController = (db) => ({
 
             // Delete previous signature from S3 if it exists
             if (previousSignature) {
-                // Remove the S3 URL prefix to get the key
                 const s3Prefix = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/`;
                 let oldSignatureKey = previousSignature;
                 if (previousSignature.startsWith(s3Prefix)) {
@@ -140,6 +139,70 @@ const transcriptController = (db) => ({
         } catch (error) {
                         req.flash('error', 'Failed to upload signature.');
             res.redirect('back');
+        }
+    },
+
+    saveDigitalSignature: async function (req, res) {
+        const organizationId = req.session.organizationId;
+        const db = req.app.get('db');
+        const { signatureData } = req.body;
+
+        if (!signatureData) {
+            return res.status(400).json({ success: false, error: 'No signature data provided.' });
+        }
+
+        try {
+            // Use first available class for this org
+            const firstClass = await getFirstClassForOrganization(db, organizationId);
+            if (!firstClass) {
+                return res.status(400).json({ success: false, error: 'No class found for this organization.' });
+            }
+            const transcriptTermId = -1;
+
+            // Get previous signature image path (if any)
+            const prevResult = await db.query(
+                `SELECT signature_image_path FROM report_settings WHERE organization_id = $1 AND class_id = $2 AND term_id = $3`,
+                [organizationId, firstClass.class_id, transcriptTermId]
+            );
+            const previousSignature = prevResult.rows[0]?.signature_image_path;
+
+            // Convert base64 to buffer
+            const base64Data = signatureData.replace(/^data:image\/png;base64,/, '');
+            const buffer = Buffer.from(base64Data, 'base64');
+
+            // Create a file-like object for uploadToS3
+            const file = {
+                buffer: buffer,
+                mimetype: 'image/png',
+                originalname: `digital_signature_${Date.now()}.png`
+            };
+
+            // Upload to S3
+            const { uploadToS3, deleteFromS3 } = require('../middleware/s3Upload');
+            const signatureKey = `images/transcript_signature/${organizationId}/${file.originalname}`;
+            const s3Url = await uploadToS3(file, signatureKey);
+
+            // Save to report_settings (upsert)
+            await db.query(
+                `INSERT INTO report_settings (organization_id, class_id, term_id, signature_image_path)
+                 VALUES ($1, $2, $3, $4)
+                 ON CONFLICT (organization_id, class_id, term_id) DO UPDATE SET signature_image_path = EXCLUDED.signature_image_path`,
+                [organizationId, firstClass.class_id, transcriptTermId, s3Url]
+            );
+
+            // Delete previous signature from S3 if it exists
+            if (previousSignature) {
+                const s3Prefix = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/`;
+                let oldSignatureKey = previousSignature;
+                if (previousSignature.startsWith(s3Prefix)) {
+                    oldSignatureKey = previousSignature.substring(s3Prefix.length);
+                }
+                try { await deleteFromS3(oldSignatureKey); } catch (e) { /* ignore cleanup errors */ }
+            }
+
+            return res.json({ success: true, message: 'Digital signature saved successfully.' });
+        } catch (error) {
+            return res.status(500).json({ success: false, error: 'Failed to save digital signature.' });
         }
     },
 });
