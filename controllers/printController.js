@@ -10,6 +10,12 @@ const pdfParse = require("pdf-parse");
 const Papa = require("papaparse");
 const { Readable } = require("stream");
 const path = require("path");
+const bcrypt = require("bcryptjs");
+const puppeteer = require("puppeteer");
+const fs = require("fs");
+const ejs = require("ejs");
+const axios = require("axios");
+const { sendEmailSafely } = require("../utils/emailHelper");
 const organizationCache = {};
 const CACHE_DURATION = 10 * 60 * 1000; // Cache organization data for 10 minutes
 const NodeCache = require("node-cache");
@@ -2246,6 +2252,251 @@ students
     } catch (error) {
             req.flash("error", "Failed to delete file.");
       res.redirect("/print/migration");
+    }
+  },
+
+  // Get guardian emails for selected students
+  getGuardianEmails: async (req, res) => {
+    try {
+      const organizationId = req.session.organizationId;
+      const { studentIds } = req.query;
+
+      if (!organizationId || !studentIds) {
+        return res.status(400).json({ success: false, message: "Missing parameters." });
+      }
+
+      const ids = studentIds.split(',').map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+      if (ids.length === 0) {
+        return res.status(400).json({ success: false, message: "No valid student IDs." });
+      }
+
+      // Fetch students with their guardian emails
+      const result = await db.query(`
+        SELECT s.student_id, s.first_name, s.last_name,
+          COALESCE(
+            json_agg(
+              json_build_object('email', gp.email, 'relationship', gs.relationship)
+            ) FILTER (WHERE gp.email IS NOT NULL),
+            '[]'
+          ) AS emails
+        FROM students s
+        LEFT JOIN guardian_students gs ON gs.student_id = s.student_id
+        LEFT JOIN guardian_profiles gp ON gp.guardian_id = gs.guardian_id AND gp.organization_id = s.organization_id
+        WHERE s.student_id = ANY($1) AND s.organization_id = $2
+        GROUP BY s.student_id, s.first_name, s.last_name
+        ORDER BY s.last_name, s.first_name
+      `, [ids, organizationId]);
+
+      return res.json({ success: true, students: result.rows });
+    } catch (error) {
+      console.error('[getGuardianEmails] Error:', error);
+      return res.status(500).json({ success: false, message: "Failed to fetch emails." });
+    }
+  },
+
+  // Email reports to guardians
+  emailReports: async (req, res) => {
+    let browser = null;
+    try {
+      const organizationId = req.session.organizationId;
+      const { classId, termId, password, emailData } = req.body;
+
+      if (!organizationId || !password || !emailData || !classId || !termId) {
+        return res.status(400).json({ success: false, message: "Missing required fields." });
+      }
+
+      // Verify password - try user first, then org
+      let passwordMatch = false;
+      const userId = req.session.userId || (req.session.user && req.session.user.user_id);
+      
+      if (userId) {
+        const userResult = await db.query('SELECT password FROM users WHERE user_id = $1 AND organization_id = $2', [userId, organizationId]);
+        if (userResult.rows.length > 0 && userResult.rows[0].password) {
+          passwordMatch = await bcrypt.compare(password, userResult.rows[0].password);
+        }
+      }
+      if (!passwordMatch) {
+        const orgResult = await db.query('SELECT password FROM organizations WHERE organization_id = $1', [organizationId]);
+        if (orgResult.rows.length > 0) {
+          passwordMatch = await bcrypt.compare(password, orgResult.rows[0].password);
+        }
+      }
+      if (!passwordMatch) {
+        return res.status(401).json({ success: false, message: "Incorrect password." });
+      }
+
+      // Get org details
+      const orgResult = await db.query(
+        'SELECT organization_name, organization_address, organization_phone, email, logo_path FROM organizations WHERE organization_id = $1',
+        [organizationId]
+      );
+      const org = orgResult.rows[0];
+      if (!org) {
+        return res.status(404).json({ success: false, message: "Organization not found." });
+      }
+
+      const buildS3Url = (key) => {
+        if (!key) return null;
+        if (key.startsWith('http://') || key.startsWith('https://')) return key;
+        return `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+      };
+
+      const logoUrl = org.logo_path ? buildS3Url(org.logo_path) : null;
+
+      // Convert logo to data URL for PDF rendering
+      const fetchImageAsDataUrl = async (url) => {
+        try {
+          const response = await axios.get(url, { responseType: 'arraybuffer' });
+          const mime = response.headers['content-type'] || 'image/png';
+          return `data:${mime};base64,${Buffer.from(response.data).toString('base64')}`;
+        } catch (err) { return null; }
+      };
+
+      const logoDataUrl = logoUrl ? await fetchImageAsDataUrl(logoUrl) : null;
+
+      // Fetch signature
+      const signatureResult = await db.query(
+        'SELECT signature_image_path FROM report_settings WHERE class_id = $1 AND term_id = $2 AND organization_id = $3',
+        [parseInt(classId), parseInt(termId), organizationId]
+      );
+      const signaturePath = signatureResult.rows[0]?.signature_image_path;
+      const signatureUrl = signaturePath ? buildS3Url(signaturePath) : null;
+      const signatureDataUrl = signatureUrl ? await fetchImageAsDataUrl(signatureUrl) : null;
+
+      let sentCount = 0;
+      let failCount = 0;
+
+      // Process each student
+      for (const item of emailData) {
+        const { studentId, emails } = item;
+        if (!emails || emails.length === 0) continue;
+
+        try {
+          // Generate PDF for this student using Puppeteer
+          // We'll load the printStudentReport page for a single student
+          const reportUrl = `${req.protocol}://${req.get('host')}/print/printStudentReport?classId=${classId}&termId=${termId}&studentId=${studentId}`;
+          
+          if (!browser) {
+            browser = await puppeteer.launch({
+              headless: true,
+              args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-web-security']
+            });
+          }
+
+          const page = await browser.newPage();
+          
+          // Set session cookies
+          const cookies = [{
+            name: 'connect.sid',
+            value: req.headers.cookie?.match(/connect\.sid=([^;]+)/)?.[1] || '',
+            domain: req.get('host').split(':')[0],
+            path: '/'
+          }];
+          await page.setCookie(...cookies);
+          
+          await page.goto(reportUrl, { waitUntil: 'networkidle0', timeout: 30000 });
+
+          // Hide non-print elements and checkboxes
+          await page.evaluate(() => {
+            document.querySelectorAll('.actions-no-print, .student-checkbox, hr, #emailModal').forEach(el => el.style.display = 'none');
+          });
+
+          const timestamp = Date.now();
+          const pdfPath = path.join(__dirname, '../uploads', `report_${studentId}_${timestamp}.pdf`);
+          
+          // Ensure uploads dir exists
+          const uploadsDir = path.join(__dirname, '../uploads');
+          if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+          await page.pdf({
+            path: pdfPath,
+            format: 'A4',
+            printBackground: true,
+            margin: { top: '8mm', right: '8mm', bottom: '8mm', left: '8mm' }
+          });
+
+          await page.close();
+
+          // Get student name
+          const studentResult = await db.query(
+            'SELECT first_name, last_name FROM students WHERE student_id = $1 AND organization_id = $2',
+            [studentId, organizationId]
+          );
+          const student = studentResult.rows[0];
+          if (!student) continue;
+
+          const studentName = `${student.first_name} ${student.last_name}`;
+
+          // Send email to all addresses for this student
+          for (const email of emails) {
+            const emailHtml = `
+              <!DOCTYPE html>
+              <html>
+              <head><meta charset="UTF-8"></head>
+              <body style="font-family:'Segoe UI',Arial,sans-serif;background:#f7f7f7;margin:0;padding:0;">
+                <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:10px;box-shadow:0 2px 8px #e0e0e0;overflow:hidden;">
+                  <div style="background:var(--primary,#6fd3c4);padding:24px 32px;">
+                    <img src="cid:managira_logo" alt="Logo" style="height:50px;">
+                  </div>
+                  <div style="padding:32px;line-height:1.6;">
+                    <h2 style="color:#333;margin-top:0;">📄 Student Report Card</h2>
+                    <p>Dear Parent/Guardian,</p>
+                    <p>Please find attached the <strong>academic report card</strong> for <strong>${studentName}</strong>.</p>
+                    <div style="background:#f8f9fa;padding:16px;border-radius:8px;border-left:4px solid #6fd3c4;margin:20px 0;">
+                      <p style="margin:4px 0;"><strong>Student:</strong> ${studentName}</p>
+                      <p style="margin:4px 0;"><strong>School:</strong> ${org.organization_name}</p>
+                      <p style="margin:4px 0;"><strong>Date:</strong> ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                    </div>
+                    <p style="font-size:13px;color:#666;">The PDF report is attached to this email.</p>
+                    <div style="color:#b80000;font-weight:bold;text-align:center;padding:12px;background:#fff5f5;border-radius:6px;border:1px solid #fecaca;margin-top:20px;">
+                      ⚠️ THIS IS A NO-REPLY MESSAGE. PLEASE DO NOT REPLY TO THIS EMAIL.
+                    </div>
+                  </div>
+                  <div style="background:#f0f0f0;text-align:center;padding:16px;font-size:12px;color:#888;">
+                    &copy; ${new Date().getFullYear()} Managira. All rights reserved.
+                  </div>
+                </div>
+              </body>
+              </html>
+            `;
+
+            const logoFilePath = path.join(__dirname, '../public/images/managira.png');
+            const sent = await sendEmailSafely({
+              to: email,
+              subject: `Report Card - ${studentName} | ${org.organization_name}`,
+              html: emailHtml,
+              attachments: [
+                { filename: `${student.first_name}_${student.last_name}_Report.pdf`, path: pdfPath },
+                { filename: 'managira-logo.png', path: logoFilePath, cid: 'managira_logo' }
+              ]
+            }, 'Report Email');
+
+            if (sent) sentCount++;
+            else failCount++;
+          }
+
+          // Clean up PDF
+          if (fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
+        } catch (err) {
+          console.error(`[emailReports] Error for student ${studentId}:`, err.message);
+          failCount++;
+        }
+      }
+
+      if (browser) {
+        await browser.close();
+        browser = null;
+      }
+
+      const message = failCount === 0
+        ? `Successfully sent ${sentCount} report(s) by email.`
+        : `Sent ${sentCount} report(s), ${failCount} failed.`;
+
+      return res.json({ success: sentCount > 0, message });
+    } catch (error) {
+      console.error('[emailReports] Error:', error);
+      if (browser) try { await browser.close(); } catch (e) {}
+      return res.status(500).json({ success: false, message: "Failed to send reports." });
     }
   },
 });

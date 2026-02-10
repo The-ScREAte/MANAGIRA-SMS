@@ -60,5 +60,10 @@ module.exports = (db) => {
    // Preview File
    router.get("/preview/:key", checkFeatureAccess, isAuthenticated, printController.previewFile);
    router.get("/delete/:key",  checkFeatureAccess, isAuthenticated, printController.deleteFile);
+   
+   // Email reports
+   router.get('/getGuardianEmails', isAuthenticated, printController.getGuardianEmails);
+   router.post('/emailReports', isAuthenticated, express.json(), printController.emailReports);
+   
     return router;
 };
