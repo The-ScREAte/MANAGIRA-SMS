@@ -195,6 +195,17 @@ const transcriptController = (db) => ({
             `;
             const orgData = await db.query(organizationQuery, [organizationId]);
             const orgDetails = orgData.rows[0];
+            
+            // Use session logo first (already in session from middleware), fallback to logo_path
+            const logoPathFromDb = orgDetails.logo_path;
+            const logoPathFromSession = req.session.logo;
+            const effectiveLogoPath = logoPathFromSession || logoPathFromDb;
+            
+            console.log('[emailTranscript] Logo sources:', {
+                fromSession: logoPathFromSession,
+                fromDb: logoPathFromDb,
+                effective: effectiveLogoPath
+            });
 
             // Build S3 URL for logo if it exists
             const buildS3Url = (key) => {
@@ -202,7 +213,7 @@ const transcriptController = (db) => ({
                 if (key.startsWith('http://') || key.startsWith('https://')) return key;
                 return `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
             };
-            const orgLogoUrl = orgDetails.logo_path ? buildS3Url(orgDetails.logo_path) : null;
+            const orgLogoUrl = effectiveLogoPath ? buildS3Url(effectiveLogoPath) : null;
             const fetchImageAsDataUrl = async (url, label) => {
                 try {
                     const response = await axios.get(url, { responseType: 'arraybuffer' });
@@ -214,6 +225,13 @@ const transcriptController = (db) => ({
                 }
             };
             const orgLogoDataUrl = orgLogoUrl ? await fetchImageAsDataUrl(orgLogoUrl, 'logo') : null;
+            
+            console.log('[emailTranscript] Logo conversion:', {
+                hasOrgLogoUrl: !!orgLogoUrl,
+                hasOrgLogoDataUrl: !!orgLogoDataUrl,
+                dataUrlLength: orgLogoDataUrl ? orgLogoDataUrl.length : 0,
+                dataUrlPreview: orgLogoDataUrl ? orgLogoDataUrl.substring(0, 50) + '...' : 'none'
+            });
 
             const fullStudentQuery = `
                 SELECT s.student_id, s.first_name, s.last_name, s.date_of_birth, s.gender, s.hometown,
@@ -265,6 +283,11 @@ const transcriptController = (db) => ({
             }
             const signatureDataUrl = signatureImageUrl ? await fetchImageAsDataUrl(signatureImageUrl, 'signature') : null;
 
+            console.log('[emailTranscript] Signature conversion:', {
+                hasSignatureUrl: !!signatureImageUrl,
+                hasSignatureDataUrl: !!signatureDataUrl
+            });
+
             // Render EJS template to HTML string
             const templatePath = path.join(__dirname, '../views/print/transcript.ejs');
             const html = await ejs.renderFile(templatePath, {
@@ -279,7 +302,10 @@ const transcriptController = (db) => ({
             });
 
             console.log('[emailTranscript] Rendering HTML to PDF...');
-            console.log('[emailTranscript] Logo URL:', orgLogoUrl);
+            console.log('[emailTranscript] Logo being passed to template:', {
+                type: orgLogoDataUrl ? 'data-url' : (orgLogoUrl ? 's3-url' : 'none'),
+                value: orgLogoDataUrl ? 'data:...' : orgLogoUrl
+            });
 
             // Launch browser and generate PDF from HTML
             browser = await puppeteer.launch({

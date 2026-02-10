@@ -6,11 +6,15 @@
     <style>
       :root {
         --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
+        --primary: var(--org-primary-color, #007bff);
+        --primary-hover: var(--org-primary-hover, #0056b3);
+        --org-primary-light: color-mix(in srgb, var(--org-primary-color, #007bff) 15%, white);
       }
 
 
         body {
             font-family: var(--font-family);
+            background-color: #f5f7fa;
           }
         .actions {
             text-align: center;
@@ -20,6 +24,7 @@
         .student-report-background {
             position: relative;
             width: 100%;
+            overflow: visible;
         }   
 
         .student-report-background::before {
@@ -41,17 +46,26 @@
         .student-report {
             position: relative;
             z-index: 1;
-            border: 1px solid #ccc;
+            border: 2px solid #e0e0e0;
             padding: 10px 20px 20px 20px;
-            margin-bottom: 10px;
+            margin-bottom: 40px;
             background-color: #fff;
             max-width: 800px;
-            margin: 5px auto 10px auto;
+            margin: 5px auto 40px auto;
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
             page-break-after: always;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+            overflow: visible;
+        }
+
+        .student-report:hover {
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+            transform: translateY(-2px);
         }
 
         .header {
@@ -60,6 +74,8 @@
             align-items: center;
             margin-bottom: 13px;
             text-align: center;
+            padding-bottom: 10px;
+            border-bottom: 3px solid var(--primary);
         }
 
         .header img.logo,
@@ -68,6 +84,7 @@
             height: 60px;
             object-fit: cover;
             border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
         }
 
         .header h1,
@@ -78,16 +95,43 @@
             white-space: nowrap;
         }
 
+        .header h1 {
+            color: var(--primary);
+            font-weight: 700;
+        }
+
         th,
         td {
             border: 1px solid #ddd;
-            padding: 5px;
+            padding: 8px 5px;
             text-align: left;
             font-size: 11px;
         }
 
         th {
-            background-color: #f2f2f2;
+            background-color: var(--org-primary-light);
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .info table,
+        .subjects table,
+        .attendance-info table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 15px;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .info table tr:nth-child(even),
+        .subjects table tbody tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        .info table tr:hover,
+        .subjects table tbody tr:hover {
+            background-color: var(--org-primary-light);
         }
 
 /* Ensure remarks and signature are aligned in a single row */
@@ -95,8 +139,11 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    gap: 50px;
+    gap: 40px;
     width: 100%;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 2px solid #e8e8e8;
 }
 
 /* Ensure remarks section remains flexible and aligned */
@@ -104,71 +151,177 @@
     flex-grow: 1;
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 14px;
+}
+
+/* Section headers */
+.remarks-header {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.remarks-header::before {
+    content: '';
+    width: 4px;
+    height: 18px;
+    background: var(--primary);
+    border-radius: 2px;
 }
 
 /* Improve alignment for each remark line */
 .remark-line {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     position: relative;
     width: 100%;
-    padding-bottom: 2px;
+    padding: 0;
+    margin-bottom: 12px;
+    background-color: transparent;
+    border-radius: 0;
+    border: none;
+}
+
+.remark-line:last-child {
+    margin-bottom: 0;
 }
 
 /* Label styling for perfect alignment */
 .remark-line label {
     font-size: 14px;
-    color: #333;
+    color: #555;
     white-space: nowrap;
-    min-width: 150px; /* Ensures consistent spacing */
-    font-weight: bold;
+    min-width: 140px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    text-transform: capitalize;
+    line-height: 22px;
+}
+
+/* Remark arrow styling */
+.remark-arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    background-color: transparent;
+    color: var(--primary);
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 10px;
+    transition: all 0.2s ease;
+    border: 1.5px solid var(--primary);
+}
+
+.remark-arrow:hover {
+    background-color: var(--primary);
+    color: white;
 }
 
 /* Restore the dotted lines directly inside textarea */
 .remark-line textarea {
     position: relative;
-    top: 10px;
     flex-grow: 1;
     border: none;
     font-size: 14px;
-    padding: 0px 5px;
-    background: none;
+    padding: 0;
+    margin: 0;
+    background: transparent;
     outline: none;
     width: 100%;
     height: 22px;
+    max-height: 66px;
     line-height: 22px;
     text-align: left;
     font-family: var(--font-family);
-    overflow: hidden;
-    text-overflow: ellipsis; /* Adds "..." if the text overflows */
-    border-bottom: 1px dotted #333; /* ✅ Dotted line now applied here */
+    overflow-y: hidden;
+    overflow-x: hidden;
+    resize: none;
+    border-radius: 0;
+    border-bottom: 1px dotted #999;
+    transition: border 0.2s ease;
+    color: #1a1a1a;
+    font-weight: 500;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.remark-line textarea:focus {
+    border-bottom-color: var(--primary);
+    border-bottom-style: solid;
+    border-bottom-width: 1.5px;
+    color: #000;
+    font-weight: 600;
 }
 
 /* Ensure dropdown is properly positioned */
 .remark-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    width: 100%;
+    position: fixed;
+    left: auto;
+    width: auto;
+    min-width: 300px;
+    max-width: 500px;
     background-color: #fff;
-    border: 1px solid #ccc;
-    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
-    z-index: 100;
+    border: 2px solid var(--primary);
+    border-radius: 8px;
+    box-shadow: 0px 12px 32px rgba(0, 0, 0, 0.25);
+    z-index: 99999;
     display: none;
-    max-height: 200px;
+    max-height: 280px;
     overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* Custom scrollbar for dropdown */
+.remark-dropdown::-webkit-scrollbar {
+    width: 8px;
+}
+
+.remark-dropdown::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.remark-dropdown::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 4px;
+}
+
+.remark-dropdown::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-hover);
 }
 
 /* Ensure dropdown options are well spaced */
 .remark-dropdown-option {
-    padding: 8px 12px;
+    padding: 11px 16px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 13px;
+    transition: all 0.15s ease;
+    border-bottom: 1px solid #f5f5f5;
+    color: #333;
+    line-height: 1.5;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+}
+
+.remark-dropdown-option:last-child {
+    border-bottom: none;
 }
 
 .remark-dropdown-option:hover {
-    background-color: #f0f0f0;
+    background-color: var(--org-primary-light);
+    color: var(--primary);
+    font-weight: 500;
 }
 
 
@@ -176,46 +329,86 @@
 /* Proper positioning of the signature section */
 .signature-info {
     position: relative;
-    top: 80px;
-    width: 30%;
+    top: 0;
+    width: 180px;
+    min-width: 180px;
     text-align: center;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: flex-start;
+    padding: 0;
+    background-color: transparent;
+    border-radius: 0;
+    border: none;
 }
 
 .signature-info img {
-    max-width: 120px;
+    max-width: 140px;
     height: auto;
     display: block;
-    margin-bottom: 5px;
+    margin-bottom: 8px;
+    border-radius: 0;
+    filter: grayscale(0%);
+}
+
+.signature-info h3 {
+    margin: 0;
+    color: #333;
+    font-size: 11px;
+    font-weight: 600;
+    border-top: 1.5px solid #333;
+    padding-top: 4px;
+    width: 100%;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.signature-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 
         .promotion-table select {
             width: auto;
-            padding: 5px;
-            border: none;
-            background: none;
-            font-size: 14px;
-            appearance: none;
+            padding: 6px 10px;
+            border: 1px solid var(--org-primary-color);
+            background: white;
+            font-size: 13px;
+            border-radius: 4px;
+            cursor: pointer;
+            color: var(--org-primary-color);
+            font-weight: 500;
+        }
+
+        .promotion-table select:hover {
+            background-color: var(--org-primary-light);
         }
 
         .grade-interpretation {
-            border: 1px solid #000;
+            border: 2px solid var(--primary);
             font-size: 11px;
             max-width: 600px;
             margin: 5px auto;
             line-height: 1.5;
             position: relative;
             top: 15px;
+            border-radius: 6px;
+            padding: 8px;
+            background-color: var(--org-primary-light);
         }
 
         .grade-interpretation h6 {
             margin: 1px;
             font-size: 14px;
             text-align: center;
+            color: var(--primary);
+            font-weight: 600;
         }
 
         .grade-interpretation-content {
@@ -232,51 +425,251 @@
         @media print {
             @page {
                 size: A4 portrait;
-                margin: 6mm 8mm 10mm 8mm;
+                margin: 8mm 8mm 8mm 8mm;
+            }
+
+            * {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            body {
+                margin: 0;
+                padding: 0;
+                background: white;
             }
 
             body * {
                 visibility: hidden;
             }
 
+            /* Show only the report during print */
+            .student-report,
+            .student-report *,
             .student-report-background,
             .student-report-background * {
                 visibility: visible;
             }
 
             .student-report {
-                width: 100%;
-                margin: 0 0 2mm 0;
-                padding: 2mm 4mm 2mm 4mm;
+                width: calc(100% - 12mm);
+                max-width: 100%;
+                margin: 0 auto 0 auto !important;
+                padding: 10px 14px 12px 14px !important;
                 page-break-after: always;
+                page-break-inside: avoid;
                 box-sizing: border-box;
-                display: flex;
-                flex-direction: column;
-                justify-content: flex-start;
+                display: block;
+                border: 1px solid #e5e5e5 !important;
+                box-shadow: none !important;
+                border-radius: 8px !important;
+                background: white;
+                position: relative;
+                min-height: auto;
+            }
+
+            .student-report:last-of-type {
+                page-break-after: auto;
+            }
+
+            .student-report-background {
+                page-break-inside: avoid;
+                width: 100%;
                 overflow: visible;
             }
-            .student-report:first-of-type {
-                margin-top: 0 !important;
-                padding-top: 0 !important;
+
+            /* Hide non-printable elements */
+            .actions, 
+            .actions-no-print,
+            .print-options-container,
+            .student-checkbox,
+            hr {
+                display: none !important;
+                visibility: hidden !important;
             }
 
-            .student-report * {
-                font-size: 95% !important;
-                box-sizing: border-box;
+            /* Header optimization */
+            .header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 10px;
+                padding-bottom: 8px;
+                border-bottom: 2px solid var(--primary);
+                width: 100%;
+                text-align: center;
             }
 
-            .actions, .actions-no-print {
+            .header img.logo,
+            .header img.student-image {
+                width: 50px;
+                height: 55px;
+                object-fit: cover;
+                border-radius: 8px;
+                flex-shrink: 0;
+            }
+
+            .header .school-info {
+                flex-grow: 1;
+                text-align: center;
+            }
+
+            .header h1 {
+                font-size: 18px;
+                margin: 2px 0;
+                color: var(--primary);
+            }
+
+            .header h3 {
+                font-size: 12px;
+                margin: 1px 0;
+            }
+
+            /* Tables full width */
+            .info,
+            .subjects,
+            .attendance-info {
+                width: 100%;
+            }
+
+            .info table,
+            .subjects table,
+            .attendance-info table {
+                width: 100% !important;
+                margin-bottom: 10px;
+                font-size: 11px;
+                border-collapse: collapse;
+                table-layout: fixed;
+            }
+
+            .info table td {
+                width: 25%;
+            }
+
+            th, td {
+                padding: 5px 4px;
+                font-size: 11px;
+                border: 1px solid #ddd;
+                text-align: left;
+            }
+
+            th {
+                background-color: var(--org-primary-light);
+                color: var(--primary);
+                font-weight: 600;
+            }
+
+            /* Remarks section optimization */
+            .remarks-signature-wrapper {
+                margin-top: 15px;
+                padding-top: 12px;
+                border-top: 1px solid #e8e8e8;
+                gap: 25px;
+                width: 100%;
+            }
+
+            .remarks-header {
+                font-size: 13px;
+                margin-bottom: 8px;
+            }
+
+            .remarks-header::before {
+                width: 3px;
+                height: 16px;
+            }
+
+            .remark-line {
+                margin-bottom: 8px;
+                padding-bottom: 0;
+                border-bottom: none;
+            }
+
+            .remark-line label {
+                font-size: 11px;
+                min-width: 110px;
+                line-height: 18px;
+            }
+
+            .remark-line textarea {
+                font-size: 12px;
+                line-height: 18px;
+                height: auto;
+                min-height: 18px;
+                border-bottom: 1px solid #999;
+                padding: 0;
+            }
+
+            .remark-arrow,
+            .remark-dropdown {
                 display: none !important;
             }
 
+            /* Signature section */
+            .signature-info {
+                width: 150px;
+                min-width: 150px;
+                padding: 0;
+                background: transparent;
+                border: none;
+            }
+
+            .signature-title {
+                font-size: 12px;
+                margin-bottom: 8px;
+            }
+
+            .signature-info img {
+                max-width: 110px;
+                margin-bottom: 6px;
+            }
+
+            .signature-info h3 {
+                font-size: 10px;
+                padding-top: 5px;
+                border-top: 1.5px solid #333;
+            }
+
+            /* Grade interpretation */
             .grade-interpretation {
-                border: 1px solid #000;
-                font-size: 11px;
-                max-width: 600px;
-                margin: 5px auto;
+                border: 2px solid var(--primary);
+                font-size: 10px;
+                width: 100%;
+                max-width: 100%;
+                margin: 12px 0 0 0;
+                padding: 8px;
                 line-height: 1.5;
-                position: relative;
-                top: 15px;
+                page-break-inside: avoid;
+                background-color: var(--org-primary-light);
+                border-radius: 6px;
+            }
+
+            .grade-interpretation h6 {
+                font-size: 12px;
+                margin: 2px 0 6px 0;
+                color: var(--primary);
+            }
+
+            .grade-interpretation-item {
+                font-size: 10px;
+                margin: 0 5px;
+            }
+
+            /* Prevent orphan page breaks */
+            .subjects table {
+                page-break-inside: auto;
+            }
+
+            .subjects table tr {
+                page-break-inside: avoid;
+                page-break-after: auto;
+            }
+
+            .subjects thead {
+                display: table-header-group;
+            }
+
+            .subjects tbody tr {
+                page-break-inside: avoid;
             }
         }
         @media (max-width: 768px) {
@@ -313,6 +706,10 @@
             align-items: center;
             margin-bottom: 20px;
             flex-wrap: wrap;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
           }
           
           .actions-left,
@@ -320,23 +717,156 @@
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
+            align-items: center;
           }
           
           .actions-no-print a {
             margin: 5px;
             display: inline-block;
-            padding: 5px 5px;
-            background-color: var(--org-primary-color);
+            padding: 10px 16px;
+            background-color: var(--primary);
             color: #fff;
             text-decoration: none;
-            border-radius: 5px;
-            transition: background-color 0.3s ease;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
           }
           
           .actions-no-print a:hover {
-            background-color: var(--org-primary-hover);
+            background-color: var(--primary-hover);
             text-decoration: none;
             cursor: pointer;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+          }
+
+          /* Print Options Section */
+          .print-options-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+          }
+
+          .print-options-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--primary);
+          }
+
+          .print-options-header h3 {
+            margin: 0;
+            color: var(--primary);
+            font-size: 18px;
+            font-weight: 600;
+          }
+
+          .search-filter-wrapper {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+          }
+
+          .search-box {
+            position: relative;
+            flex: 1;
+            min-width: 250px;
+          }
+
+          .search-box input {
+            width: 100%;
+            padding: 10px 15px 10px 40px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.2s ease;
+          }
+
+          .search-box input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--org-primary-light);
+          }
+
+          .search-box::before {
+            content: '🔍';
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 16px;
+          }
+
+          .filter-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+          }
+
+          .filter-btn {
+            padding: 10px 16px;
+            background-color: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+          }
+
+          .filter-btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+          }
+
+          .filter-btn.active {
+            background-color: var(--primary);
+            color: white;
+            border-color: var(--primary);
+          }
+
+          .select-all-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background-color: var(--org-primary-light);
+            border-radius: 6px;
+            cursor: pointer;
+          }
+
+          .select-all-checkbox input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+          }
+
+          .select-all-checkbox label {
+            margin: 0;
+            cursor: pointer;
+            font-weight: 500;
+            color: var(--primary);
+          }
+
+          .student-checkbox {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            z-index: 10;
+          }
+
+          .student-report.selected {
+            border: 2px solid var(--primary);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
           }
           
 
@@ -346,8 +876,18 @@
     <br>
     <div class="actions-no-print">
         <div class="actions-left">
-          <a href="#" class="btn btn-primary" onclick="window.print()">Print Report</a>    
-          <a href="/print/reportSettings?classId=<%= classId %>&termId=<%= termId %>" class="btn btn-primary">Report Settings</a>   
+          <a href="/print/reportSettings?classId=<%= classId %>&termId=<%= termId %>" class="btn btn-primary">Settings & Signature</a>
+          
+          <div class="search-box" style="display: inline-block; margin-left: 10px;">
+            <input type="text" id="studentSearch" placeholder="Search student..." onkeyup="filterStudents()" style="padding: 10px 15px 10px 35px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 14px; width: 200px;">
+          </div>
+          
+          <div class="select-all-checkbox" style="display: inline-flex; margin-left: 10px;">
+            <input type="checkbox" id="selectAllStudents" onchange="toggleSelectAll()">
+            <label for="selectAllStudents">Select All</label>
+          </div>
+          
+          <a href="#" class="btn btn-primary" onclick="printSelected(); return false;" style="margin-left: 10px;">Print Selected</a>
         </div>
       
         <div class="actions-right">
@@ -363,7 +903,8 @@
         <p>No student data available</p>
     <% } else { %>
         <% students.forEach((student) => { %>
-            <div class="student-report" id="report-<%= student.student_id %>" data-student-id="<%= student.student_id %>">
+            <div class="student-report" id="report-<%= student.student_id %>" data-student-id="<%= student.student_id %>" data-student-name="<%= student.first_name %> <%= student.last_name %>">
+                <input type="checkbox" class="student-checkbox" onchange="updateSelectedCount()" data-student-id="<%= student.student_id %>">
                 <div class="student-report-background">
                     <div class="header">
                         <% if (session.logo) { %>
@@ -477,13 +1018,14 @@
                     <div class="remarks-signature-wrapper">
                         <!-- Remarks Section -->
                         <div class="remarks">
+                            <h4 class="remarks-header">Academic Remarks</h4>
                             <div class="remarks-container">
                                 <% const remarkTypes = ['conductRemarks', 'attitudeRemarks', 'interestRemarks', 'teacherRemarks']; %>
                     
                                 <% remarkTypes.forEach((remarkType) => { %>
                                     <div class="remark-line">
                                         <label for="<%= remarkType %>-<%= student.student_id %>">
-                                            <%= remarkType.replace(/([a-z])([A-Z])/g, '$1 $2') %>:
+                                            <%= remarkType.replace(/([a-z])([A-Z])/g, '$1 $2').replace(' Remarks', '') %>
 
                                             <span class="remark-arrow" id="arrow-<%= remarkType %>-<%= student.student_id %>" 
                                                 onclick="toggleDropdown('<%= remarkType %>', <%= student.student_id %>)">
@@ -493,6 +1035,7 @@
                                         
                                         <textarea id="<%= remarkType %>-<%= student.student_id %>" 
                                                   name="<%= remarkType %>-<%= student.student_id %>"
+                                                  maxlength="150"
                                                   onfocus="this.select();"><%= student[remarkType] ? student[remarkType] : '' %></textarea>
                                                                          
                                         
@@ -510,14 +1053,15 @@
                             </div>
                         </div>
                     
-                        <!-- Signature Section (DO NOT TOUCH) -->
+                        <!-- Signature Section -->
                         <div class="signature-info">
+                            <div class="signature-title">Principal's Signature</div>
                             <% if (signatureImageUrl) { %>
                                 <img src="<%= signatureImageUrl %>" alt="Signature Image">
                             <% } else { %>
-                                <p>No signature available.</p>
+                                <p style="font-size: 11px; color: #999; margin: 20px 0;">No signature</p>
                             <% } %>
-                            <h3>Signature</h3>
+                            <h3>Authorized</h3>
                         </div>
                     </div>
                     
@@ -537,17 +1081,169 @@
     <% } %>
 
     <script>
+        // Student selection and filtering functions
+        function toggleSelectAll() {
+            const selectAllCheckbox = document.getElementById('selectAllStudents');
+            const studentCheckboxes = document.querySelectorAll('.student-checkbox');
+            
+            studentCheckboxes.forEach(checkbox => {
+                if (!checkbox.closest('.student-report').style.display || checkbox.closest('.student-report').style.display !== 'none') {
+                    checkbox.checked = selectAllCheckbox.checked;
+                    updateReportSelection(checkbox);
+                }
+            });
+            
+            updateSelectedCount();
+        }
+
+        function updateSelectedCount() {
+            const checkboxes = document.querySelectorAll('.student-checkbox');
+            let selectedCount = 0;
+            
+            checkboxes.forEach(checkbox => {
+                if (checkbox.checked) {
+                    selectedCount++;
+                    checkbox.closest('.student-report').classList.add('selected');
+                } else {
+                    checkbox.closest('.student-report').classList.remove('selected');
+                }
+            });
+            
+            document.getElementById('selectedCount').textContent = selectedCount;
+        }
+
+        function updateReportSelection(checkbox) {
+            const report = checkbox.closest('.student-report');
+            if (checkbox.checked) {
+                report.classList.add('selected');
+            } else {
+                report.classList.remove('selected');
+            }
+        }
+
+        function filterStudents() {
+            const searchTerm = document.getElementById('studentSearch').value.toLowerCase();
+            const studentReports = document.querySelectorAll('.student-report');
+            let visibleCount = 0;
+            
+            studentReports.forEach(report => {
+                const studentName = report.getAttribute('data-student-name').toLowerCase();
+                const studentId = report.getAttribute('data-student-id');
+                
+                if (studentName.includes(searchTerm) || studentId.includes(searchTerm)) {
+                    report.style.display = '';
+                    visibleCount++;
+                } else {
+                    report.style.display = 'none';
+                }
+            });
+            
+            document.getElementById('totalCount').textContent = visibleCount;
+        }
+
+        function filterBySelection(type, clickedButton) {
+            const studentReports = document.querySelectorAll('.student-report');
+            const buttons = document.querySelectorAll('.filter-btn:not(:last-child)');
+            let visibleCount = 0;
+            
+            // Update button states
+            buttons.forEach(btn => btn.classList.remove('active'));
+            if (clickedButton) {
+                clickedButton.classList.add('active');
+            }
+            
+            studentReports.forEach(report => {
+                const checkbox = report.querySelector('.student-checkbox');
+                
+                if (type === 'all') {
+                    report.style.display = '';
+                    visibleCount++;
+                } else if (type === 'selected' && checkbox.checked) {
+                    report.style.display = '';
+                    visibleCount++;
+                } else if (type === 'selected') {
+                    report.style.display = 'none';
+                }
+            });
+        }
+
+        function printSelected() {
+            const selectedReports = document.querySelectorAll('.student-checkbox:checked');
+            
+            if (selectedReports.length === 0) {
+                alert('Please select at least one student to print.');
+                return;
+            }
+            
+            // Hide unchecked reports temporarily
+            const allReports = document.querySelectorAll('.student-report');
+            allReports.forEach(report => {
+                const checkbox = report.querySelector('.student-checkbox');
+                if (!checkbox.checked) {
+                    report.setAttribute('data-hidden-for-print', 'true');
+                    report.style.display = 'none';
+                }
+            });
+            
+            // Print
+            window.print();
+            
+            // Restore all reports
+            allReports.forEach(report => {
+                if (report.getAttribute('data-hidden-for-print')) {
+                    report.style.display = '';
+                    report.removeAttribute('data-hidden-for-print');
+                }
+            });
+        }
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.remark-line') && !e.target.closest('.remark-dropdown')) {
+                document.querySelectorAll('.remark-dropdown').forEach(dropdown => {
+                    dropdown.style.display = 'none';
+                });
+            }
+        });
+
+        // Reposition dropdowns on scroll
+        window.addEventListener('scroll', function() {
+            document.querySelectorAll('.remark-dropdown').forEach(dropdown => {
+                if (dropdown.style.display === 'block') {
+                    dropdown.style.display = 'none';
+                }
+            });
+        });
+
         document.addEventListener('input', function (e) {
             if (e.target.tagName === 'TEXTAREA') {
-                e.target.style.height = 'auto';
-                e.target.style.height = e.target.scrollHeight + 'px';
+                // Reset height to calculate scrollHeight properly
+                e.target.style.height = '22px';
+                e.target.style.whiteSpace = 'pre-wrap';
+                e.target.style.overflowY = 'hidden';
+                
+                // If content needs more space, expand (max 66px = 3 lines)
+                if (e.target.scrollHeight > 22) {
+                    const newHeight = Math.min(e.target.scrollHeight, 66);
+                    e.target.style.height = newHeight + 'px';
+                    e.target.style.overflowY = e.target.scrollHeight > 66 ? 'auto' : 'hidden';
+                }
             }
         });
         
         document.addEventListener('DOMContentLoaded', function () {
             document.querySelectorAll('textarea').forEach(function (textarea) {
-                textarea.style.height = 'auto';
-                textarea.style.height = textarea.scrollHeight + 'px';
+                // Set initial height to one line
+                textarea.style.height = '22px';
+                textarea.style.whiteSpace = 'pre-wrap';
+                textarea.style.overflowY = 'hidden';
+                
+                // If content needs more space on load, expand
+                if (textarea.scrollHeight > 22) {
+                    const newHeight = Math.min(textarea.scrollHeight, 66);
+                    textarea.style.height = newHeight + 'px';
+                    textarea.style.overflowY = textarea.scrollHeight > 66 ? 'auto' : 'hidden';
+                }
             });
         });
 
@@ -562,19 +1258,55 @@ function toggleDropdown(remarkType, studentId) {
 
     // Open or close the clicked dropdown
     const dropdown = document.getElementById(`dropdown-${remarkType}-${studentId}`);
-    if (dropdown) {
-        dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+    const remarkLine = dropdown.closest('.remark-line');
+    
+    if (dropdown && remarkLine) {
+        if (dropdown.style.display === 'block') {
+            dropdown.style.display = 'none';
+        } else {
+            // Position dropdown relative to remark line using fixed positioning
+            const rect = remarkLine.getBoundingClientRect();
+            const dropdownHeight = 280; // max-height of dropdown
+            const windowHeight = window.innerHeight;
+            const spaceBelow = windowHeight - rect.bottom;
+            const spaceAbove = rect.top;
+            
+            // Set horizontal position (aligned with remark line, starting after label)
+            dropdown.style.left = (rect.left + 140) + 'px';
+            dropdown.style.width = (rect.width - 140) + 'px';
+            
+            // Determine if dropdown should appear above or below
+            if (spaceBelow >= dropdownHeight || spaceBelow >= spaceAbove) {
+                // Show below
+                dropdown.style.top = (rect.bottom + 5) + 'px';
+                dropdown.style.bottom = 'auto';
+            } else {
+                // Show above
+                dropdown.style.bottom = (windowHeight - rect.top + 5) + 'px';
+                dropdown.style.top = 'auto';
+            }
+            
+            dropdown.style.display = 'block';
+        }
     }
 }
         
        // Select remark from dropdown
 function selectRemark(remarkType, studentId, remark) {
     const textarea = document.getElementById(`${remarkType}-${studentId}`);
-    textarea.value = remark;
+    textarea.value = remark.trim();
     
-    // Auto-expand textarea if needed
-    textarea.style.height = 'auto';
-    textarea.style.height = textarea.scrollHeight + 'px';
+    // Reset height and set white-space
+    textarea.style.height = '22px';
+    textarea.style.whiteSpace = 'pre-wrap';
+    textarea.style.overflowY = 'hidden';
+    
+    // If content needs more space, expand (max 66px = 3 lines)
+    if (textarea.scrollHeight > 22) {
+        const newHeight = Math.min(textarea.scrollHeight, 66);
+        textarea.style.height = newHeight + 'px';
+        textarea.style.overflowY = textarea.scrollHeight > 66 ? 'auto' : 'hidden';
+    }
     
     // Close dropdown after selection
     toggleDropdown(remarkType, studentId);

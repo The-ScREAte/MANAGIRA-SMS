@@ -72,10 +72,10 @@
     .sig-canvas-actions { display: flex; gap: 10px; margin-top: 10px; }
     .sig-status { margin-top: 8px; font-size: 0.9rem; color: var(--muted); }
 
-    .remark-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 6px; background: #fff; }
-    .remark-text { flex: 1; }
-    .kebab { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 6px; cursor: pointer; background: transparent; font-weight: 700; font-size: 18px; color: #6b7280; }
-    .kebab-menu { position: relative; }
+    .remark-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 8px 12px; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 6px; background: #fff; }
+    .remark-text { flex: 1; overflow-wrap: break-word; word-wrap: break-word; word-break: break-word; hyphens: auto; max-width: calc(100% - 40px); line-height: 1.5; }
+    .kebab { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 6px; cursor: pointer; background: transparent; font-weight: 700; font-size: 18px; color: #6b7280; flex-shrink: 0; margin-top: 2px; }
+    .kebab-menu { position: relative; flex-shrink: 0; }
     .kebab-menu ul { list-style: none; padding: 6px 0; margin: 6px 0 0 0; position: absolute; right: 0; top: 100%; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; min-width: 120px; box-shadow: 0 10px 20px rgba(0,0,0,0.08); display: none; }
     .kebab-menu ul li { padding: 8px 12px; }
     .kebab-menu ul li a { color: #e11d48; text-decoration: none; font-weight: 600; display: block; }
@@ -215,7 +215,7 @@
         <form action="/print/saveRemarks?classId=<%= classId %>&termId=<%= termId %>" method="POST">
           <div id="remarks-container">
             <div class="form-group remark-item">
-              <textarea name="remarks[]" required></textarea>
+              <textarea name="remarks[]" required maxlength="150" placeholder="Enter remark (max 150 characters)"></textarea>
               <div class="form-group">
                 <label>Select Remark Type:</label>
                 <select name="remarkType[]" required>
@@ -397,7 +397,7 @@
       const div = document.createElement('div');
       div.className = 'form-group remark-item';
       div.innerHTML = `
-        <textarea name="remarks[]" required></textarea>
+        <textarea name="remarks[]" required maxlength="150" placeholder="Enter remark (max 150 characters)"></textarea>
         <div class="form-group">
           <label>Select Remark Type:</label>
           <select name="remarkType[]" required>
