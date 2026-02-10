@@ -43,6 +43,11 @@
             pointer-events: none;
         }
 
+        /* Watermark img for print (hidden on screen) */
+        .print-watermark-img {
+            display: none;
+        }
+
         .student-report {
             position: relative;
             z-index: 1;
@@ -469,7 +474,22 @@
             }
 
             .student-report:last-of-type {
-                page-break-after: auto;
+                page-break-after: avoid;
+            }
+
+            /* Hide watermark img in screen but show in print */
+            .print-watermark-img {
+                display: block !important;
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                width: 300px;
+                height: 300px;
+                object-fit: contain;
+                opacity: 0.09;
+                z-index: 0;
+                pointer-events: none;
             }
 
             .student-report-background {
@@ -888,6 +908,7 @@
           </div>
           
           <a href="#" class="btn btn-primary" onclick="printSelected(); return false;" style="margin-left: 10px;">Print Selected</a>
+          <a href="#" class="btn btn-primary" onclick="openEmailModal(); return false;" style="margin-left: 10px; background-color: #27ae60;">📧 Send by Email</a>
         </div>
       
         <div class="actions-right">
@@ -905,7 +926,10 @@
         <% students.forEach((student) => { %>
             <div class="student-report" id="report-<%= student.student_id %>" data-student-id="<%= student.student_id %>" data-student-name="<%= student.first_name %> <%= student.last_name %>">
                 <input type="checkbox" class="student-checkbox" onchange="updateSelectedCount()" data-student-id="<%= student.student_id %>">
-                <div class="student-report-background">
+            <div class="student-report-background">
+                    <% if (session.logo) { %>
+                        <img src="<%= session.logo %>" alt="" class="print-watermark-img">
+                    <% } %>
                     <div class="header">
                         <% if (session.logo) { %>
                             <img src="<%= session.logo %>" alt="Organization Logo" class="logo" />
@@ -1383,6 +1407,183 @@ function updateClass(studentId) {
               console.error('Error saving changes:', error);
             }
           });
+    // ===== EMAIL MODAL =====
+    function openEmailModal() {
+        const selected = document.querySelectorAll('.student-checkbox:checked');
+        if (selected.length === 0) {
+            alert('Please select at least one student to email.');
+            return;
+        }
+
+        // Collect student IDs
+        const studentIds = Array.from(selected).map(cb => cb.getAttribute('data-student-id'));
+
+        // Show modal
+        document.getElementById('emailModal').style.display = 'flex';
+        document.getElementById('emailStudentList').innerHTML = '<p style="color:#999;">Loading guardian emails...</p>';
+        document.getElementById('emailPasswordSection').style.display = 'none';
+        document.getElementById('emailSendBtn').style.display = 'none';
+
+        // Fetch guardian emails
+        fetch(`/print/getGuardianEmails?classId=<%= classId %>&termId=<%= termId %>&studentIds=${studentIds.join(',')}`)
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) {
+                    document.getElementById('emailStudentList').innerHTML = '<p style="color:red;">Failed to load emails.</p>';
+                    return;
+                }
+                renderEmailList(data.students);
+                document.getElementById('emailPasswordSection').style.display = 'block';
+                document.getElementById('emailSendBtn').style.display = 'inline-block';
+            })
+            .catch(() => {
+                document.getElementById('emailStudentList').innerHTML = '<p style="color:red;">Error fetching emails.</p>';
+            });
+    }
+
+    function renderEmailList(students) {
+        const container = document.getElementById('emailStudentList');
+        if (!students || students.length === 0) {
+            container.innerHTML = '<p style="color:#999;">No students found.</p>';
+            return;
+        }
+
+        let html = '';
+        students.forEach(s => {
+            html += `<div class="email-student-row" data-student-id="${s.student_id}">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <strong style="font-size:14px;">${s.first_name} ${s.last_name}</strong>
+                    <button type="button" onclick="addEmailField(${s.student_id})" style="background:var(--primary);color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:12px;">+ Add Email</button>
+                </div>
+                <div class="email-fields" id="emailFields-${s.student_id}">`;
+
+            if (s.emails && s.emails.length > 0) {
+                s.emails.forEach((e, i) => {
+                    html += `<div class="email-field-row" style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+                        <input type="email" value="${e.email}" class="email-input" style="flex:1;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;" data-student-id="${s.student_id}">
+                        <span style="font-size:11px;color:#888;min-width:60px;">${e.relationship || 'Guardian'}</span>
+                        <button type="button" onclick="this.parentElement.remove()" style="background:#dc3545;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px;">✕</button>
+                    </div>`;
+                });
+            } else {
+                html += `<div class="email-field-row" style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+                    <input type="email" placeholder="Enter email address" class="email-input" style="flex:1;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;" data-student-id="${s.student_id}">
+                    <span style="font-size:11px;color:#888;min-width:60px;">Manual</span>
+                    <button type="button" onclick="this.parentElement.remove()" style="background:#dc3545;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px;">✕</button>
+                </div>`;
+            }
+            html += `</div></div>`;
+        });
+
+        container.innerHTML = html;
+    }
+
+    function addEmailField(studentId) {
+        const container = document.getElementById(`emailFields-${studentId}`);
+        const row = document.createElement('div');
+        row.className = 'email-field-row';
+        row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px;';
+        row.innerHTML = `
+            <input type="email" placeholder="Enter email address" class="email-input" style="flex:1;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;" data-student-id="${studentId}">
+            <span style="font-size:11px;color:#888;min-width:60px;">Manual</span>
+            <button type="button" onclick="this.parentElement.remove()" style="background:#dc3545;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px;">✕</button>
+        `;
+        container.appendChild(row);
+    }
+
+    function closeEmailModal() {
+        document.getElementById('emailModal').style.display = 'none';
+        document.getElementById('emailPassword').value = '';
+        document.getElementById('emailStatus').textContent = '';
+    }
+
+    async function sendReportEmails() {
+        const password = document.getElementById('emailPassword').value;
+        if (!password) {
+            alert('Please enter your password to confirm.');
+            return;
+        }
+
+        const statusEl = document.getElementById('emailStatus');
+        const sendBtn = document.getElementById('emailSendBtn');
+
+        // Collect all email data
+        const emailData = [];
+        document.querySelectorAll('.email-student-row').forEach(row => {
+            const studentId = row.getAttribute('data-student-id');
+            const inputs = row.querySelectorAll('.email-input');
+            const emails = [];
+            inputs.forEach(input => {
+                const val = input.value.trim();
+                if (val) emails.push(val);
+            });
+            if (emails.length > 0) {
+                emailData.push({ studentId: parseInt(studentId), emails });
+            }
+        });
+
+        if (emailData.length === 0) {
+            alert('No valid email addresses provided.');
+            return;
+        }
+
+        sendBtn.disabled = true;
+        sendBtn.textContent = 'Sending...';
+        statusEl.textContent = 'Sending reports, please wait...';
+        statusEl.style.color = '#666';
+
+        try {
+            const response = await fetch('/print/emailReports', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    classId: <%= classId %>,
+                    termId: <%= termId %>,
+                    password,
+                    emailData
+                })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                statusEl.textContent = `✅ ${result.message}`;
+                statusEl.style.color = '#27ae60';
+                setTimeout(() => closeEmailModal(), 3000);
+            } else {
+                statusEl.textContent = `❌ ${result.message}`;
+                statusEl.style.color = '#dc3545';
+            }
+        } catch (err) {
+            statusEl.textContent = '❌ Network error. Please try again.';
+            statusEl.style.color = '#dc3545';
+        } finally {
+            sendBtn.disabled = false;
+            sendBtn.textContent = 'Send Reports';
+        }
+    }
     </script>
+
+    <!-- Email Modal -->
+    <div id="emailModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:99999;justify-content:center;align-items:center;">
+        <div style="background:#fff;border-radius:12px;max-width:600px;width:90%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <div style="padding:20px 24px;border-bottom:2px solid var(--primary);display:flex;justify-content:space-between;align-items:center;">
+                <h3 style="margin:0;color:var(--primary);font-size:18px;">📧 Send Reports by Email</h3>
+                <button onclick="closeEmailModal()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#999;">✕</button>
+            </div>
+            <div style="padding:24px;">
+                <div id="emailStudentList" style="margin-bottom:20px;"></div>
+                
+                <div id="emailPasswordSection" style="display:none;border-top:1px solid #eee;padding-top:16px;">
+                    <label style="font-weight:600;font-size:14px;color:#333;display:block;margin-bottom:8px;">🔒 Confirm Password</label>
+                    <input type="password" id="emailPassword" placeholder="Enter your password" style="width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box;">
+                </div>
+
+                <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;">
+                    <span id="emailStatus" style="font-size:13px;"></span>
+                    <button id="emailSendBtn" onclick="sendReportEmails()" style="display:none;background:var(--primary);color:#fff;border:none;border-radius:6px;padding:10px 24px;font-size:14px;font-weight:600;cursor:pointer;">Send Reports</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 
