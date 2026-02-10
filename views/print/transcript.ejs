@@ -142,20 +142,16 @@
         print-color-adjust: exact;
       }
 
-      /* Watermark - Logo */
-      .transcript::before {
-        content: "";
+      /* Watermark - Logo (using actual img element for PDF reliability) */
+      .transcript-watermark-logo {
         position: absolute;
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        width: 450px;
-        height: 450px;
-        background-image: url("<%= session.logo %>");
-        background-repeat: no-repeat;
-        background-position: center;
-        background-size: contain;
-        opacity: 0.12;
+        width: 400px;
+        height: 400px;
+        object-fit: contain;
+        opacity: 0.10;
         z-index: 0;
         pointer-events: none;
         -webkit-print-color-adjust: exact;
@@ -639,6 +635,10 @@
     <!-- Transcript Document -->
     <div class="transcript">
       <div class="transcript-border-top"></div>
+      
+      <% if (session && session.logo) { %>
+        <img src="<%= session.logo %>" alt="" class="transcript-watermark-logo" />
+      <% } %>
       
       <% if (!official) { %>
       <!-- Multiple Watermark Pattern -->

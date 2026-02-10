@@ -129,7 +129,7 @@ const transcriptController = (db) => ({
                 return res.status(400).json({ success: false, message: "Password is required." });
             }
 
-            // Fetch organization password (same as payment confirmation)
+            // Fetch organization details
             const orgResult = await db.query('SELECT password, organization_name FROM organizations WHERE organization_id = $1', [organizationId]);
             if (orgResult.rows.length === 0) {
                 console.log('[emailTranscript] Organization not found');
@@ -137,7 +137,23 @@ const transcriptController = (db) => ({
             }
 
             const organization = orgResult.rows[0];
-            const passwordMatch = await bcrypt.compare(password, organization.password);
+            
+            // Check password - try logged-in user's password first, then org password
+            let passwordMatch = false;
+            const userId = req.session.userId || (req.session.user && req.session.user.user_id);
+            
+            if (userId) {
+                const userResult = await db.query('SELECT password FROM users WHERE user_id = $1 AND organization_id = $2', [userId, organizationId]);
+                if (userResult.rows.length > 0 && userResult.rows[0].password) {
+                    passwordMatch = await bcrypt.compare(password, userResult.rows[0].password);
+                }
+            }
+            
+            // Fall back to organization password
+            if (!passwordMatch) {
+                passwordMatch = await bcrypt.compare(password, organization.password);
+            }
+            
             console.log('[emailTranscript] Password verification:', { match: passwordMatch });
             if (!passwordMatch) {
                 console.log('[emailTranscript] Incorrect password');
