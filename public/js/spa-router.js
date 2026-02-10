@@ -403,10 +403,14 @@
     async _swapContent(doc, path) {
       const currentMain = document.querySelector('main');
       const newMain = doc.querySelector('main');
+      const newBody = doc.querySelector('body');
 
       if (!currentMain || !newMain) {
         throw new Error('Missing <main> element');
       }
+
+      // Sync body data attributes/classes so page-scoped styles apply (e.g., public dashboard themes)
+      this._syncBodyAttributes(newBody);
 
       // 1. Update page title
       const newTitle = doc.querySelector('title');
@@ -736,6 +740,30 @@
 
       // Trigger Turbo-compatible event
       window.dispatchEvent(new CustomEvent('turbo:load'));
+    }
+
+    // ── Body attribute sync (ensures data-page/data-theme classes persist across SPA nav) ──
+    _syncBodyAttributes(newBody) {
+      if (!newBody) return;
+
+      const body = document.body;
+
+      // Align class list
+      body.className = newBody.className || '';
+
+      // Remove stale data-* attrs
+      Array.from(body.attributes).forEach(attr => {
+        if (attr.name.startsWith('data-') && !newBody.hasAttribute(attr.name)) {
+          body.removeAttribute(attr.name);
+        }
+      });
+
+      // Apply new data-* attrs
+      Array.from(newBody.attributes).forEach(attr => {
+        if (attr.name.startsWith('data-')) {
+          body.setAttribute(attr.name, attr.value);
+        }
+      });
     }
 
     // ── Preloading ────────────────────────────────────────────────────

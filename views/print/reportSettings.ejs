@@ -1,712 +1,1095 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Report Settings</title>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Report Settings</title>
+  <style>
+    :root {
+      --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --border: #e5e7eb;
+      --muted: #6b7280;
+      --text: #0f172a;
+      --primary: var(--org-primary-color, #0f5a66);
+      --primary-hover: var(--org-primary-hover, #0d4f59);
+    }
 
-    <style>
-      :root {
-        --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
-      }
+    * { box-sizing: border-box; }
 
-      body {
-        font-family: var(--font-family);
-        margin: 0;
-        background-color: #f4f7fa;
-        color: #222;
-      }
-      .container {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 32px;
-        padding: 32px 16px 16px 16px;
-        max-width: 1400px;
-        margin: 0 auto;
-      }
-      h2, h3 {
-        color: var(--org-primary-color);
-        text-align: left;
-        margin-top: 0;
-        margin-bottom: 18px;
-        font-weight: 700;
-      }
-      .form-group {
-        margin-bottom: 18px;
-      }
-      .form-group label {
-        display: inline-block;
-        font-weight: 600;
-        margin-bottom: 6px;
-        color: var(--org-primary-color);
-      }
-      .form-group input:not([type="checkbox"]):not([type="radio"]),
-      .form-group textarea,
-      .form-group select {
-        width: 100%;
-        padding: 10px;
-        margin-top: 5px;
-        border: 1px solid #cfd8dc;
-        border-radius: 4px;
-        background: #fff;
-        font-size: 1rem;
-        box-sizing: border-box;
-        transition: border 0.2s;
-      }
-      .form-group input:focus,
-      .form-group textarea:focus,
-      .form-group select:focus {
-        border: 1.5px solid var(--org-primary-color);
-        outline: none;
-      }
-      .table-responsive {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-      }
-      .table-responsive table {
-        min-width: 900px;
-        background: #fff;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(1,83,91,0.06);
-      }
-      .btn {
-        padding: 10px 22px;
-        background-color: var(--org-primary-color);
-        color: #fff;
-        border: none;
-        cursor: pointer;
-        border-radius: 5px;
-        font-size: 1rem;
-        font-weight: 600;
-        transition: background 0.2s;
-      }
-      .btn:hover {
-        background-color: var(--org-primary-hover);
-      }
-      .btn-danger {
-        background: #e74c3c;
-        color: #fff;
-        margin-left: 10px;
-      }
-      .btn-danger:hover {
-        background: #c0392b;
-      }
-      .notice {
-        background-color: #e7f3fe;
-        color: #0c5460;
-        border: 1px solid #bee5eb;
-        border-radius: 5px;
-        padding: 15px 20px;
-        margin-bottom: 24px;
-      }
-      .notice h2 {
-        font-size: 18px;
-        margin: 0 0 10px;
-        font-weight: bold;
-      }
-      .remarks-list div {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 10px 12px;
-        background-color: #f9f9f9;
-        border: 1px solid #e0e0e0;
-        border-radius: 4px;
-        margin-bottom: 8px;
-      }
-      .remarks-list h2 {
-        color: var(--org-primary-color);
-        font-size: 1.1rem;
-        margin-top: 18px;
-      }
-      .remarks-list a {
-        color: #e74c3c;
-        text-decoration: none;
-        font-weight: 600;
-      }
-      .remarks-list a:hover {
-        text-decoration: underline;
-      }
-      .form-section {
-        flex: 1 1 420px;
-        background: #fff;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(1,83,91,0.06);
-        padding: 24px 28px 18px 28px;
-        margin-bottom: 24px;
-      }
-      .signature-section {
-        margin-top: 40px;
-      }
-      img {
-        max-width: 100%;
-        height: auto;
-        border-radius: 4px;
-        box-shadow: 0 1px 4px rgba(1,83,91,0.08);
-      }
-      .form-checkbox-group {
-        display: flex;
-        align-items: center;
-        margin-bottom: 7px;
-        flex-wrap: wrap;
-      }
-      .form-checkbox-group label {
-        flex: none;
-        margin-right: 10px;
-        font-weight: 500;
-      }
-      .form-checkbox-group input[type="checkbox"],
-      .form-checkbox-group input[type="radio"] {
-        flex: none;
-        margin: 0 6px 0 0;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        background: #fff;
-        border-radius: 8px;
-        overflow: hidden;
-      }
-      th, td {
-        padding: 12px 10px;
-        text-align: left;
-        border: 1px solid #e0e0e0;
-      }
-      th {
-        background: #f4f7fa;
-        font-weight: 700;
-        color: var(--org-primary-color);
-      }
-      .table-wrapper {
-        overflow-x: auto;
-        margin-bottom: 30px;
-      }
-      .signature-group-section {
-        margin-top: 32px;
-      }
-      .signature-group {
-        background: #f9f9f9;
-        border: 1px solid #e0e0e0;
-        border-radius: 6px;
-        padding: 16px 18px;
-        margin-bottom: 18px;
-        display: flex;
-        align-items: flex-start;
-        gap: 24px;
-      }
-      .signature-group img {
-        max-width: 90px;
-        margin-right: 18px;
-      }
-      .signature-group ul {
-        margin: 0;
-        padding-left: 18px;
-      }
-      .signature-group li {
-        margin-bottom: 4px;
-      }
-      @media (max-width: 900px) {
-        .container {
-          flex-direction: column;
-          padding: 10px;
-        }
-        .form-section {
-          width: 100%;
-          padding: 18px 8px 12px 8px;
-        }
-        .signature-group {
-          flex-direction: column;
-          gap: 10px;
-        }
-        .table-responsive table {
-          min-width: 600px;
-        }
-      }
-      @media (max-width: 600px) {
-        .container {
-          padding: 4px;
-        }
-        .form-section {
-          padding: 8px 2px 8px 2px;
-        }
-        th, td {
-          padding: 7px 4px;
-        }
-      }
-    </style>
-  </head>
+    body {
+      margin: 0;
+      font-family: var(--font-family);
+      background: var(--bg);
+      color: var(--text);
+    }
 
-  <body>
-    <%- include('../partials/flash') %>
+    main { max-width: 1200px; margin: 24px auto 48px; padding: 0 18px; }
 
-    <div class="link-to-next-back">
-      <a
-        href="/print/printStudentReport?classId=<%= classId %>&termId=<%= termId %>"
-        class="btn btn-primary"
-        >Back</a
-      >
+    .hero { background: linear-gradient(135deg, var(--primary), #0b4c56); color: #fff; border-radius: 16px; padding: 20px 22px; box-shadow: 0 18px 34px rgba(0,0,0,0.14); margin-bottom: 16px; }
+    .hero h1 { margin: 0 0 6px; font-size: 1.6rem; letter-spacing: 0.2px; }
+    .hero p { margin: 0; opacity: 0.92; }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; margin-bottom: 16px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 10px 24px rgba(15,45,50,0.12); padding: 16px 18px; }
+    .card h2 { margin: 0 0 10px; font-size: 1.05rem; display: flex; align-items: center; gap: 8px; }
+    .section-title { display: flex; align-items: center; gap: 10px; font-weight: 700; margin: 0 0 12px; }
+
+    .form-group { margin-bottom: 10px; }
+    .form-group label { font-weight: 600; font-size: 0.95rem; color: var(--primary); display: block; margin-bottom: 6px; }
+    .form-group input:not([type="checkbox"]):not([type="radio"]),
+    .form-group select,
+    .form-group textarea { width: 100%; padding: 10px; border: 1px solid #cfd8dc; border-radius: 8px; background: #fff; font-size: 0.98rem; }
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus { outline: none; border-color: var(--primary); }
+
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 14px; align-items: start; }
+    .form-row-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; align-items: start; }
+
+    .btn { background: var(--primary); color: #fff; border: none; border-radius: 10px; padding: 10px 16px; font-weight: 700; cursor: pointer; box-shadow: 0 6px 14px rgba(15,90,102,0.16); transition: all 0.2s ease; }
+    .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
+    .btn-danger { background: #e74c3c; box-shadow: 0 6px 14px rgba(231,76,60,0.2); }
+    .btn-danger:hover { background: #c0392b; }
+
+    .tag { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: rgba(15,90,102,0.08); font-weight: 600; font-size: 0.92rem; }
+    .notice { background: #e7f3fe; border: 1px solid #bee5eb; border-radius: 10px; padding: 12px 14px; color: #0c5460; margin: 10px 0 14px; }
+
+    .class-layout { display: grid; grid-template-columns: 260px 1fr; gap: 12px; align-items: start; }
+    .class-list { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 10px; box-shadow: 0 6px 18px rgba(15,45,50,0.1); display: flex; flex-wrap: wrap; gap: 8px; }
+    .class-button { min-width: 120px; text-align: left; border: 1px solid var(--border); background: #fff; padding: 9px 11px; border-radius: 10px; cursor: pointer; font-weight: 700; display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+    .class-button.active { border-color: var(--primary); background: rgba(15,90,102,0.08); color: var(--primary); }
+    .class-panel { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; box-shadow: 0 6px 18px rgba(15,45,50,0.1); }
+
+    .table-wrapper { overflow-x: auto; margin-top: 14px; }
+    table { width: 100%; border-collapse: collapse; min-width: 720px; }
+    th, td { padding: 10px 8px; border: 1px solid #e0e0e0; text-align: left; }
+    th { background: #f4f7fa; color: var(--primary); }
+
+    .sig-canvas-wrapper { border: 1px dashed var(--border); border-radius: 10px; background: #fff; padding: 10px; }
+    .sig-canvas { width: 100%; height: 200px; border-radius: 8px; background: #fafafa; }
+    .sig-canvas-actions { display: flex; gap: 10px; margin-top: 10px; }
+    .sig-status { margin-top: 8px; font-size: 0.9rem; color: var(--muted); }
+
+    .remark-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 6px; background: #fff; }
+    .remark-text { flex: 1; }
+    .kebab { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 6px; cursor: pointer; background: transparent; font-weight: 700; font-size: 18px; color: #6b7280; }
+    .kebab-menu { position: relative; }
+    .kebab-menu ul { list-style: none; padding: 6px 0; margin: 6px 0 0 0; position: absolute; right: 0; top: 100%; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; min-width: 120px; box-shadow: 0 10px 20px rgba(0,0,0,0.08); display: none; }
+    .kebab-menu ul li { padding: 8px 12px; }
+    .kebab-menu ul li a { color: #e11d48; text-decoration: none; font-weight: 600; display: block; }
+    .kebab-menu ul li:hover { background: #f8fafc; }
+    .kebab-menu.open ul { display: block; }
+
+    /* Loading spinner */
+    .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 9999; display: none; align-items: center; justify-content: center; }
+    .loading-overlay.active { display: flex; }
+    .spinner { width: 50px; height: 50px; border: 4px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 960px) { .class-layout { grid-template-columns: 1fr; } .class-button { display: inline-flex; width: auto; } }
+    @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } .sig-canvas { height: 160px; } }
+  </style>
+</head>
+<body>
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+  </div>
+  <%- include('../partials/flash') %>
+  <main>
+    <div class="hero">
+      <h1>Report Settings</h1>
+      <p>Manage global report remarks, signatures, and class-specific promotion rules in one place.</p>
     </div>
-    <hr />
 
-    <% 
-    const currentClass = enrolledClasses.find(function(c) { return c.class_id == classId; }); 
-  %>
-  <h2>
-    Report Settings for <%= currentClass ? currentClass.class_name : "Unknown Class" %>
-  </h2>
-  
+    <% const currentClass = (enrolledClasses && enrolledClasses.find(c => String(c.class_id) === String(classId))) || (enrolledClasses && enrolledClasses[0]); %>
 
-    <div class="container">
-      <form action="/print/savePromotionSettings" method="POST">
-        <input type="hidden" name="classId" value="<%= classId %>" />
-        <input type="hidden" name="termId" value="<%= termId %>" />
-
-        <h2>Status Settings</h2>
-
-        <div class="notice">
-          <h2>Notice:</h2>
-          <p>
-            These are class specifics and will be applied only to the selected
-            class at the end of the form for this term. You can also set for different class
-            on this page.
-          </p>
+    <div class="card" style="margin-bottom:14px;">
+      <div class="section-title">Class-specific Status Settings</div>
+      <div class="class-layout">
+        <div class="class-list" id="classList">
+          <% enrolledClasses.forEach((cls, idx) => { const hasSetting = groupedStatusSettings.some(s => s.classes && s.classes.includes(cls.class_id)); %>
+            <button type="button" class="class-button" data-class-id="<%= cls.class_id %>" <%= idx===0 ? 'aria-current="true"' : '' %>>
+              <span><%= cls.class_name %></span>
+              <span style="font-size:12px;color:<%= hasSetting ? 'var(--primary)' : '#94a3b8' %>;"><%= hasSetting ? 'Has settings' : 'No settings' %></span>
+            </button>
+          <% }); %>
         </div>
 
-        <div class="form-group">
-          <label for="promotedClass">Promoted Class:</label>
-          <select name="promotedClass">
-            <% [...enrolledClasses].sort((a, b) => a.class_id -
-            b.class_id).forEach(classItem => { %>
-            <option value="<%= classItem.class_id %>">
-              <%= classItem.class_name %>
-            </option>
-            <% }) %>
-          </select>
-        </div>
+        <div class="class-panel">
+          <div id="settingsFormContainer">
+            <form id="statusSettingsForm" action="/print/savePromotionSettings" method="POST">
+              <input type="hidden" name="classId" id="statusClassId" value="<%= currentClass ? currentClass.class_id : '' %>" />
+              <input type="hidden" name="termId" value="<%= termId %>" />
+              <input type="hidden" name="selectedStatusClasses" id="selectedStatusClasses" value="<%= currentClass ? currentClass.class_id : '' %>" />
 
-        <div class="form-group">
-          <label for="repeatedClass">Repeated Class:</label>
-          <select name="repeatedClass">
-            <% [...enrolledClasses].sort((a, b) => a.class_id -
-            b.class_id).forEach(classItem => { %>
-            <option value="<%= classItem.class_id %>">
-              <%= classItem.class_name %>
-            </option>
-            <% }) %>
-          </select>
-        </div>
+              <div id="noSettingsMsg" style="display:none;padding:16px;background:#f0f4f8;border-radius:8px;margin-bottom:12px;color:#64748b;font-weight:600;">No settings saved for this class. Fill the form below to create settings.</div>
+              <div class="form-grid">
+                <div class="form-group"><label>Promoted Class</label>
+                  <select name="promotedClass" id="promotedClassSelect">
+                    <option value="" disabled selected>-- Select Class --</option>
+                    <% [...enrolledClasses].sort((a,b)=>a.class_id-b.class_id).forEach(classItem=>{ %>
+                      <option value="<%= classItem.class_id %>"><%= classItem.class_name %></option>
+                    <% }); %>
+                  </select>
+                </div>
 
-        <div class="form-group">
-          <label for="cutOffPoint">Cut Off Point:</label>
-          <input type="number" name="cutOffPoint" id="cutOffPoint" value="" />
-        </div>
+                <div class="form-group"><label>Repeated Class</label>
+                  <select name="repeatedClass" id="repeatedClassSelect">
+                    <option value="" disabled selected>-- Select Class --</option>
+                    <% [...enrolledClasses].sort((a,b)=>a.class_id-b.class_id).forEach(classItem=>{ %>
+                      <option value="<%= classItem.class_id %>"><%= classItem.class_name %></option>
+                    <% }); %>
+                  </select>
+                </div>
 
-        <div class="form-group form-checkbox-group">
-          <label for="activatePromotion">Activate Promotion</label>
-          <input
-            type="checkbox"
-            id="activatePromotion"
-            name="activatePromotion"
-          />
-        </div>
+                <div class="form-group"><label>Cut Off Point</label><input type="number" name="cutOffPoint" id="cutOffPoint" /></div>
+                <div class="form-group"><label>School Reopen Date</label><input type="date" name="schoolReopenDate" id="schoolReopenDate" /></div>
+                <div class="form-group" style="margin-bottom:6px;">
+                  <label style="margin-bottom:4px;">Activate Promotion</label>
+                  <div class="form-checkbox-group" style="display:flex;align-items:center;gap:8px;">
+                    <input type="checkbox" id="activatePromotion" name="activatePromotion" />
+                    <span>Active</span>
+                  </div>
+                </div>
+              </div>
 
-        <div class="form-group">
-          <label for="schoolReopenDate">School Reopen Date:</label>
-          <input
-            type="date"
-            name="schoolReopenDate"
-            id="schoolReopenDate"
-            value=""
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="applyToClasses">Apply Status Settings To:</label>
-          <% [...enrolledClasses].sort((a, b) => a.class_id -
-          b.class_id).forEach(classItem => { %>
-          <div class="form-checkbox-group">
-            <label for="class-<%= classItem.class_id %>"
-              ><%= classItem.class_name %></label
-            >
-            <input
-              type="radio"
-              name="selectedStatusClasses"
-              class="selectedStatusClasses"
-              value="<%= classItem.class_id %>"
-            />
+              <div style="display:flex;gap:10px;">
+                <button type="submit" class="btn">Save Status Settings</button>
+                <button type="button" class="btn btn-danger" id="cancelEditBtn" style="display:none;">Cancel</button>
+              </div>
+            </form>
           </div>
-          <% }) %>
-        </div>
 
-        <button type="submit" class="btn">Save Status Settings</button>
-
-        <h3>Saved Status Settings Overview</h3>
-        <div class="notice">
-          <p>
-            This section shows all status details saved for all classes under the selected term. 
-            It’s designed to save you time by avoiding the need to toggle between pages. 
-            You can also create settings for other classes on this page and assign them 
-            directly using the Status Settings section.    
-          </p>
-        </div>
-        <div class="table-responsive">
-          <table
-            border="1"
-            cellspacing="0"
-            cellpadding="10"
-            style="width: 100%; min-width: 800px"
-          >
-            <thead>
-              <tr>
-                <th>Promoted Class</th>
-                <th>Repeated Class</th>
-                <th>Promotion</th>
-                <th>Cutoff Point</th>
-                <th>Reopen Date</th>
-                <th>Classes Assigned</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="status-settings-table-body">
-              <% groupedStatusSettings.forEach(function(setting) { %>
-                <%
-                  const promotedClassObj = enrolledClasses.find(function(c) { return c.class_id === setting.promoted_class; });
-                  const repeatedClassObj = enrolledClasses.find(function(c) { return c.class_id === setting.repeated_class; });
-                  const promotedClassName = promotedClassObj ? promotedClassObj.class_name : '-';
-                  const repeatedClassName = repeatedClassObj ? repeatedClassObj.class_name : '-';
-                %>
-                <tr>
-                  <td><%= promotedClassName %></td>
-                  <td><%= repeatedClassName %></td>
-                  <td><%= setting.activate_promotion ? 'Yes' : 'No' %></td>
-                  <td><%= setting.cut_off_point %></td>
-                  <td>
-                    <%= setting.school_reopen_date ? new Date(setting.school_reopen_date).toISOString().split('T')[0] : '-' %>
-                  </td>
-                  <td>
-                    <ul>
-                      <% [...setting.classes].sort(function(a, b) { return a - b; }).forEach(function(classId) { %>
-                        <li>
-                          <%
-                            const classObj = enrolledClasses.find(function(c) { return c.class_id === classId; });
-                          %>
-                          <%= classObj ? classObj.class_name : '-' %>
-                        </li>
-                      <% }); %>
-                    </ul>
-                  </td>
-                  <td>
-                    <a
-                      class="btn"
-                      href="/print/modifyStatusSettings?classId=<%= setting.classes[0] %>&termId=<%= termId %>"
-                    >
-                      Modify
-                    </a>
-                  </td>
-                </tr>
-              <% }); %>
-            </tbody>
-          
-          </table>
-        </div>
-      </form>
-
-      <form
-        action="/print/saveRemarks?classId=<%= classId %>&termId=<%= termId %>"
-        method="POST"
-      >
-        <h2>Add Remarks</h2>
-        <div class="notice">
-          <h2>Notice:</h2>
-          <p>
-            These remarks will be applied globally So it could be used for all
-            Terms and classes. A good example could be (Teacher Remarks : Needs
-            more attention, Conduct Remarks : Professional. etc.)
-          </p>
-        </div>
-        <div id="remarks-container">
-          <div class="form-group remark-item">
-            <textarea name="remarks[]" required></textarea>
-            <div class="form-group">
-              <label for="remarkType">Select Remark Type:</label>
-              <select name="remarkType[]" required>
-                <option value="teacher">Teacher's Remark</option>
-                <option value="conduct">Conduct Remark</option>
-                <option value="interest">Interest Remark</option>
-                <option value="attitude">Attitude Remark</option>
-              </select>
+          <div id="settingsOverviewContainer" style="display:none;">
+            <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <div class="section-title" style="margin:0;">Current Settings</div>
+                <button type="button" class="btn" id="modifySettingsBtn">Modify Settings</button>
+              </div>
+              <div id="currentSettingsDisplay" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;"></div>
             </div>
           </div>
-        </div>
-        <button type="button" class="btn" id="add-remark-btn">+</button>
-        <button type="submit" class="btn">Save Remarks</button>
-        <hr />
 
-        <!-- Display saved remarks grouped by type -->
-        <div class="remarks-list">
-          <% if (remarks.some(function(r) { return r.remark_type === 'teacher'; })) { %>
-            <h2>Teacher's Remarks</h2>
-            <% remarks.filter(function(r) { return r.remark_type === 'teacher'; }).forEach(function(remark) { %>
-              <div>
-                <span><%= remark.remark %></span>
-                <a
-                  href="/print/deleteRemark/<%= remark.id %>?classId=<%= classId %>&termId=<%= termId %>"
-                  class="btn btn-danger"
-                >Delete</a>
-              </div>
-            <% }); %>
-          <% } %>
-        
-          <% if (remarks.some(function(r) { return r.remark_type === 'conduct'; })) { %>
-            <h2>Conduct Remarks</h2>
-            <% remarks.filter(function(r) { return r.remark_type === 'conduct'; }).forEach(function(remark) { %>
-              <div>
-                <span><%= remark.remark %></span>
-                <a
-                  href="/print/deleteRemark/<%= remark.id %>?classId=<%= classId %>&termId=<%= termId %>"
-                  class="btn btn-danger"
-                >Delete</a>
-              </div>
-            <% }); %>
-          <% } %>
-        
-          <% if (remarks.some(function(r) { return r.remark_type === 'interest'; })) { %>
-            <h2>Interest Remarks</h2>
-            <% remarks.filter(function(r) { return r.remark_type === 'interest'; }).forEach(function(remark) { %>
-              <div>
-                <span><%= remark.remark %></span>
-                <a
-                  href="/print/deleteRemark/<%= remark.id %>?classId=<%= classId %>&termId=<%= termId %>"
-                  class="btn btn-danger"
-                >Delete</a>
-              </div>
-            <% }); %>
-          <% } %>
-        
-          <% if (remarks.some(function(r) { return r.remark_type === 'attitude'; })) { %>
-            <h2>Attitude Remarks</h2>
-            <% remarks.filter(function(r) { return r.remark_type === 'attitude'; }).forEach(function(remark) { %>
-              <div>
-                <span><%= remark.remark %></span>
-                <a
-                  href="/print/deleteRemark/<%= remark.id %>?classId=<%= classId %>&termId=<%= termId %>"
-                  class="btn btn-danger"
-                >Delete</a>
-              </div>
-            <% }); %>
-          <% } %>
+          <div style="margin-top:20px;padding-top:20px;border-top:2px solid var(--border);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <div class="section-title" style="margin:0;">Score Remarks for <span id="selectedClassName"></span></div>
+              <a href="javascript:void(0)" id="toggleScoreRemarkForm" style="color:var(--primary);font-weight:600;text-decoration:none;">+ Add Remarks</a>
+            </div>
+            
+            <div id="scoreRemarkFormContainer" style="display:none;background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px;">
+              <form id="scoreRemarkForm">
+                <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;align-items:start;margin-bottom:12px;">
+                  <div class="form-group" style="margin-bottom:0;">
+                    <label>Remark</label>
+                    <input type="text" id="scoreRemarkText" placeholder="e.g., Excellent" required />
+                  </div>
+                  <div class="form-group" style="margin-bottom:0;">
+                    <label>From %</label>
+                    <input type="number" id="scoreFromPct" min="0" max="100" placeholder="70" required />
+                  </div>
+                  <div class="form-group" style="margin-bottom:0;">
+                    <label>To %</label>
+                    <input type="number" id="scoreToPct" min="0" max="100" placeholder="100" required />
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Apply To Classes:</label>
+                  <div id="scoreClassCheckboxes" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;"></div>
+                </div>
+                <button type="submit" class="btn">Save Score Remark</button>
+              </form>
+            </div>
+            
+            <div class="remarks-list" id="classScoreRemarks"></div>
+          </div>
         </div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Global Remarks</h2>
+        <div class="notice">These remarks are global and can be reused for any class or term.</div>
+        <form action="/print/saveRemarks?classId=<%= classId %>&termId=<%= termId %>" method="POST">
+          <div id="remarks-container">
+            <div class="form-group remark-item">
+              <textarea name="remarks[]" required></textarea>
+              <div class="form-group">
+                <label>Select Remark Type:</label>
+                <select name="remarkType[]" required>
+                  <option value="teacher">Teacher's Remark</option>
+                  <option value="conduct">Conduct Remark</option>
+                  <option value="interest">Interest Remark</option>
+                  <option value="attitude">Attitude Remark</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <button type="button" class="btn" id="add-remark-btn">+ Add Remark</button>
+          <button type="submit" class="btn">Save Remarks</button>
         </form>
-        
-      <form action="/print/saveScoreRemarks" method="POST">
-        <div class="form-section">
-          <!-- Include termId and classId as hidden inputs -->
-          <input type="hidden" name="termId" value="<%= termId %>" />
-          <input type="hidden" name="classId" value="<%= classId %>" />
-
-          <h2>Score Remarks</h2>
-          <div class="notice">
-            <h2>Notice:</h2>
-            <p>
-              These remarks will be applied globally So it could be used for all
-              Terms and classes. Example could be (excelent : 80- 100, Good :
-              65-79)
-            </p>
-          </div>
-          <div class="form-group">
-            <label for="remark">Remark:</label>
-            <input type="text" name="remark" id="remark" required />
-          </div>
-          <div class="form-group">
-            <label for="from_percentage">From Percentage:</label>
-            <input
-              type="number"
-              name="from_percentage"
-              id="from_percentage"
-              required
-              min="0"
-              max="100"
-            />
-          </div>
-          <div class="form-group">
-            <label for="to_percentage">To Percentage:</label>
-            <input
-              type="number"
-              name="to_percentage"
-              id="to_percentage"
-              required
-              min="0"
-              max="100"
-            />
-          </div>
-          <button type="submit" class="btn">Save Score Remark</button>
-          <br />
-          <hr />
-
-          <!-- Display saved score remarks -->
+        <div class="table-wrapper">
+          <div class="section-title" style="margin-top:14px;">Saved Remarks</div>
           <div class="remarks-list">
-            <% scoreRemarks.forEach((remark) => { %>
-            <div>
-              <span
-                ><%= remark.remark %> (From: <%= remark.from_percentage %>% To:
-                <%= remark.to_percentage %>%)</span
-              >
-              <a
-                href="/print/deleteScoreRemark/<%= remark.id %>?classId=<%= classId %>&termId=<%= termId %>"
-                class="btn btn-danger"
-                >Delete</a
-              >
-            </div>
-            <% }); %>
+            <% ['teacher','conduct','interest','attitude'].forEach(function(type){ const label = {teacher:"Teacher's Remarks",conduct:'Conduct Remarks',interest:'Interest Remarks',attitude:'Attitude Remarks'}[type]; if(remarks.some(r=>r.remark_type===type)){ %>
+              <h3 style="margin:10px 0 6px;color:var(--primary);"><%= label %></h3>
+              <% remarks.filter(r=>r.remark_type===type).forEach(function(remark){ %>
+                <div class="remark-row">
+                  <span class="remark-text"><%= remark.remark %></span>
+                  <div class="kebab-menu" data-remark-id="<%= remark.id %>">
+                    <div class="kebab" aria-label="More actions">⋮</div>
+                    <ul>
+                      <li><a href="/print/deleteRemark/<%= remark.id %>?classId=<%= classId %>&termId=<%= termId %>">Delete</a></li>
+                    </ul>
+                  </div>
+                </div>
+              <% }); %>
+            <% } }); %>
           </div>
         </div>
-      </form>
+      </div>
 
-      <!-- Signature Image Section -->
-      <form
-        action="/print/uploadSignatureImage"
-        method="POST"
-        enctype="multipart/form-data"
-      >
-        <div class="form-section signature-section">
-          <input type="hidden" name="termId" value="<%= termId %>" />
-          <input type="hidden" name="classId" value="<%= classId %>" />
 
-          <h2>Signature Image</h2>
-          <div class="notice">
-            <h2>Notice:</h2>
-            <p>
-              This is class-specific and will be applied only to the selected
-              classes below.
-            </p>
+
+      <div class="card">
+        <h2>Signature Management</h2>
+        <div class="notice">Create and manage digital signatures for your reports. Each class can have only one signature.</div>
+        
+        <% if (signatureGroups && Object.keys(signatureGroups).length) { %>
+          <div class="section-title" style="margin-top:0;margin-bottom:12px;">Current Signatures</div>
+          <div style="display:grid;gap:12px;margin-bottom:20px;">
+            <% Object.keys(signatureGroups).forEach(signaturePath => { const sig = signatureGroups[signaturePath]; %>
+              <div style="border:1px solid var(--border);border-radius:10px;padding:14px;background:#fff;">
+                <div style="display:flex;gap:14px;align-items:flex-start;">
+                  <% if (sig.signature_image_url) { %>
+                    <div style="flex-shrink:0;border:1px solid #e0e0e0;border-radius:6px;padding:8px;background:#fafafa;">
+                      <img src="<%= sig.signature_image_url %>" alt="Signature" style="max-width:150px;max-height:80px;display:block;" />
+                    </div>
+                  <% } else { %>
+                    <div style="flex-shrink:0;min-width:150px;color:#e11d48;font-size:0.9rem;">Signature unavailable</div>
+                  <% } %>
+                  
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-weight:600;color:var(--primary);margin-bottom:8px;font-size:0.95rem;">Applied to <%= sig.classes.length %> class<%= sig.classes.length !== 1 ? 'es' : '' %>:</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+                      <% sig.classes.sort((a,b)=>a.class_id-b.class_id).forEach(classInfo=>{ %>
+                        <span class="tag" style="background:rgba(15,90,102,0.1);color:var(--primary);padding:4px 10px;border-radius:6px;font-size:0.85rem;display:inline-flex;align-items:center;gap:6px;">
+                          <%= classInfo.class_name %>
+                          <a href="javascript:void(0)" 
+                             style="color:#e11d48;text-decoration:none;font-weight:700;line-height:1;"
+                             onclick="deleteSignatureForClass(<%= classInfo.class_id %>, '<%= classInfo.class_name %>', '<%= termId %>')">×</a>
+                        </span>
+                      <% }); %>
+                    </div>
+                    <div style="display:flex;gap:12px;align-items:center;">
+                      <a href="javascript:void(0)" 
+                         class="add-classes-link" 
+                         data-signature-path="<%= signaturePath %>"
+                         style="color:var(--primary);font-weight:600;text-decoration:none;font-size:0.9rem;">+ Add More Classes</a>
+                      <a href="javascript:void(0)" 
+                         style="color:#e11d48;font-weight:600;text-decoration:none;font-size:0.9rem;"
+                         onclick="deleteEntireSignature('<%= encodeURIComponent(signaturePath) %>', '<%= termId %>')">Delete Signature</a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            <% }); %>
           </div>
-
-          <% if (signatureImageUrl) { %>
-          <div>
-            <img
-              src="<%= signatureImageUrl %>"
-              alt="Current Signature"
-              style="max-width: 100px; display: block; margin-bottom: 10px"
-            />
-            <a
-              href="#"
-              class="btn btn-danger"
-              id="delete-image-btn"
-              data-class-id="<%= classId %>"
-              data-term-id="<%= termId %>"
-              data-url="/print/deleteSignatureImage"
-            >
-              Delete Signature Image
-            </a>
+        <% } %>
+        
+        <div style="border-top:2px solid var(--border);padding-top:16px;margin-top:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <h3 style="margin:0;font-size:1.05rem;color:var(--primary);">Create New Report Signature</h3>
+            <a href="javascript:void(0)" id="toggleSignatureForm" style="color:var(--primary);font-weight:600;text-decoration:none;font-size:0.9rem;">+ Show Form</a>
           </div>
-          <% } else { %>
-          <p>No signature uploaded.</p>
+          
+          <div id="signatureFormContainer" style="display:none;">
+            <div class="sig-canvas-wrapper"><canvas id="signatureCanvas" class="sig-canvas"></canvas></div>
+            <div class="sig-canvas-actions">
+              <button type="button" class="btn btn-danger" onclick="clearCanvas()">Clear</button>
+              <button type="button" class="btn" onclick="saveDigitalSignature()">Save Signature</button>
+            </div>
+            <div id="sigStatus" class="sig-status"></div>
+            <div class="form-group" style="margin-top:12px;margin-bottom:0;">
+              <label>Apply Signature To:</label>
+              <div id="signatureClassCheckboxes" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Transcript Signatures Section -->
+        <div style="border-top:3px solid var(--primary);padding-top:20px;margin-top:24px;">
+          <h3 style="margin:0 0 8px;font-size:1.1rem;color:var(--primary);">📜 Transcript Signatures</h3>
+          <div class="notice" style="margin-bottom:16px;">Manage signatures for student transcripts. These signatures appear on all transcript documents.</div>
+          
+          <% if (transcriptSignatureGroups && Object.keys(transcriptSignatureGroups).length) { %>
+            <div class="section-title" style="margin-top:0;margin-bottom:12px;">Current Transcript Signatures</div>
+            <div style="display:grid;gap:12px;margin-bottom:20px;">
+              <% Object.keys(transcriptSignatureGroups).forEach(signaturePath => { const sig = transcriptSignatureGroups[signaturePath]; %>
+                <div style="border:1px solid var(--border);border-radius:10px;padding:14px;background:#fff;">
+                  <div style="display:flex;gap:14px;align-items:flex-start;">
+                    <% if (sig.signature_image_url) { %>
+                      <div style="flex-shrink:0;border:1px solid #e0e0e0;border-radius:6px;padding:8px;background:#fafafa;">
+                        <img src="<%= sig.signature_image_url %>" alt="Signature" style="max-width:150px;max-height:80px;display:block;" />
+                      </div>
+                    <% } else { %>
+                      <div style="flex-shrink:0;min-width:150px;color:#e11d48;font-size:0.9rem;">Signature unavailable</div>
+                    <% } %>
+                    
+                    <div style="flex:1;min-width:0;">
+                      <div style="font-weight:600;color:var(--primary);margin-bottom:8px;font-size:0.95rem;">Applied to <%= sig.classes.length %> class<%= sig.classes.length !== 1 ? 'es' : '' %>:</div>
+                      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+                        <% sig.classes.sort((a,b)=>a.class_id-b.class_id).forEach(classInfo=>{ %>
+                          <span class="tag" style="background:rgba(15,90,102,0.1);color:var(--primary);padding:4px 10px;border-radius:6px;font-size:0.85rem;display:inline-flex;align-items:center;gap:6px;">
+                            <%= classInfo.class_name %>
+                            <a href="javascript:void(0)" 
+                               style="color:#e11d48;text-decoration:none;font-weight:700;line-height:1;"
+                               onclick="deleteTranscriptSignatureForClass(<%= classInfo.class_id %>, '<%= classInfo.class_name %>')">×</a>
+                          </span>
+                        <% }); %>
+                      </div>
+                      <div style="display:flex;gap:12px;align-items:center;">
+                        <a href="javascript:void(0)" 
+                           class="add-transcript-classes-link" 
+                           data-signature-path="<%= signaturePath %>"
+                           style="color:var(--primary);font-weight:600;text-decoration:none;font-size:0.9rem;">+ Add More Classes</a>
+                        <a href="javascript:void(0)" 
+                           style="color:#e11d48;font-weight:600;text-decoration:none;font-size:0.9rem;"
+                           onclick="deleteEntireTranscriptSignature('<%= encodeURIComponent(signaturePath) %>')">Delete Signature</a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              <% }); %>
+            </div>
           <% } %>
 
-          <div class="form-group">
-            <input
-              type="file"
-              name="signatureImage"
-              accept="image/*"
-              required
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="applyToClasses">Apply Signature Image To:</label>
-            <% [...availableClasses].sort((a, b) => a.class_id -
-            b.class_id).forEach(classItem => { %>
-            <div class="form-checkbox-group">
-              <label for="class-<%= classItem.class_id %>"
-                ><%= classItem.class_name %></label
-              >
-              <input
-                type="checkbox"
-                name="selectedSignatureClasses"
-                class="selectedSignatureClasses"
-                value="<%= classItem.class_id %>"
-              />
+          <div style="border-top:2px solid var(--border);padding-top:16px;margin-top:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <h3 style="margin:0;font-size:1.05rem;color:var(--primary);">Create New Transcript Signature</h3>
+              <a href="javascript:void(0)" id="toggleTranscriptSignatureForm" style="color:var(--primary);font-weight:600;text-decoration:none;font-size:0.9rem;">+ Show Form</a>
             </div>
-            <% }) %>
+            
+            <div id="transcriptSignatureFormContainer" style="display:none;">
+              <div class="sig-canvas-wrapper"><canvas id="transcriptSignatureCanvas" class="sig-canvas"></canvas></div>
+              <div class="sig-canvas-actions">
+                <button type="button" class="btn btn-danger" onclick="clearTranscriptCanvas()">Clear</button>
+                <button type="button" class="btn" onclick="saveTranscriptSignature()">Save Transcript Signature</button>
+              </div>
+              <div id="transcriptSigStatus" class="sig-status"></div>
+              <div class="form-group" style="margin-top:12px;margin-bottom:0;">
+                <label>Apply Transcript Signature To:</label>
+                <div id="transcriptSignatureClassCheckboxes" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;"></div>
+              </div>
+            </div>
           </div>
+        </div>
+      </div>
+    </div>
 
-          <button type="submit" class="btn">Upload Signature Image</button>
-          <hr />
+  </main>
 
-          <!-- Display grouped signature images with assigned classes -->
-          <div class="form-section signature-group-section">
-            <h2>Classes with Signature Applied:</h2>
-            <% Object.keys(signatureGroups).forEach(signaturePath => { %>
-            <div class="signature-group">
-              <img
-                src="<%= signatureGroups[signaturePath].signature_image_url %>"
-                alt="Signature Image"
-                style="max-width: 100px; display: block; margin-bottom: 10px"
-              />
-              <p>Assigned to Classes:</p>
+  <script>
+    document.getElementById('add-remark-btn')?.addEventListener('click', () => {
+      const container = document.getElementById('remarks-container');
+      const div = document.createElement('div');
+      div.className = 'form-group remark-item';
+      div.innerHTML = `
+        <textarea name="remarks[]" required></textarea>
+        <div class="form-group">
+          <label>Select Remark Type:</label>
+          <select name="remarkType[]" required>
+            <option value="teacher">Teacher's Remark</option>
+            <option value="conduct">Conduct Remark</option>
+            <option value="interest">Interest Remark</option>
+            <option value="attitude">Attitude Remark</option>
+          </select>
+        </div>`;
+      container.appendChild(div);
+    });
+
+    const statusSettingsMap = {};
+    <% groupedStatusSettings.forEach(function(setting){ %>
+      <% setting.classes.forEach(function(cid){ %>
+        statusSettingsMap['<%= cid %>'] = <%- JSON.stringify(setting) %>;
+      <% }); %>
+    <% }); %>
+
+    const scoreRemarksMap = {};
+    <% const allScoreRemarks = JSON.parse(JSON.stringify(scoreRemarks)); %>
+    <% allScoreRemarks.forEach(function(remark){ %>
+      if(!scoreRemarksMap['<%= remark.class_id %>']) scoreRemarksMap['<%= remark.class_id %>'] = [];
+      scoreRemarksMap['<%= remark.class_id %>'].push(<%- JSON.stringify(remark) %>);
+    <% }); %>
+
+    const classButtons = document.querySelectorAll('.class-button');
+    const promotedSelect = document.getElementById('promotedClassSelect');
+    const repeatedSelect = document.getElementById('repeatedClassSelect');
+    const cutOffInput = document.getElementById('cutOffPoint');
+    const activatePromotion = document.getElementById('activatePromotion');
+    const reopenDate = document.getElementById('schoolReopenDate');
+    const classIdField = document.getElementById('statusClassId');
+    const selectedStatusClasses = document.getElementById('selectedStatusClasses');
+
+    const formContainer = document.getElementById('settingsFormContainer');
+    const overviewContainer = document.getElementById('settingsOverviewContainer');
+    const modifyBtn = document.getElementById('modifySettingsBtn');
+    const cancelBtn = document.getElementById('cancelEditBtn');
+    const currentSettingsDisplay = document.getElementById('currentSettingsDisplay');
+
+    function loadClassSettings(classId){
+      classIdField.value = classId;
+      selectedStatusClasses.value = classId;
+      classButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.classId === String(classId)));
+      
+      // Update selected class name for score remarks
+      const enrolledClasses = <%- JSON.stringify(enrolledClasses) %>;
+      const selectedClass = enrolledClasses.find(c => c.class_id == classId);
+      document.getElementById('selectedClassName').textContent = selectedClass ? selectedClass.class_name : '';
+      
+      // Load score remarks for this class
+      const classScoreRemarks = scoreRemarksMap[String(classId)] || [];
+      const remarksListEl = document.getElementById('classScoreRemarks');
+      if(classScoreRemarks.length === 0){
+        remarksListEl.innerHTML = '<p style="color:var(--muted);font-size:0.9rem;margin-top:10px;">No score remarks for this class yet.</p>';
+      } else {
+        remarksListEl.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;">' + classScoreRemarks.map(remark => `
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;background:#fff;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:600;color:var(--primary);margin-bottom:2px;">${remark.remark}</div>
+              <div style="font-size:0.85rem;color:var(--muted);white-space:nowrap;">${remark.from_percentage}% - ${remark.to_percentage}%</div>
+            </div>
+            <div class="kebab-menu" data-score-id="${remark.id}" style="flex-shrink:0;">
+              <div class="kebab" aria-label="More actions">⋮</div>
               <ul>
-                <% signatureGroups[signaturePath].classes .sort((a, b) =>
-                a.class_id - b.class_id) .forEach(classInfo => { %>
-                <li>
-                  <a
-                    href="/print/reportSettings?classId=<%= classInfo.class_id %>&termId=<%= termId %>"
-                  >
-                    <%= classInfo.class_name %>
-                  </a>
-                </li>
-                <% }) %>
+                <li><a href="/print/deleteScoreRemark/${remark.id}?classId=${classId}&termId=<%= termId %>">Delete</a></li>
               </ul>
             </div>
-            <% }) %>
           </div>
-        </div>
-      </form>
+        `).join('') + '</div>';
+        
+        // Re-bind kebab menus for dynamically added remarks
+        remarksListEl.querySelectorAll('.kebab-menu').forEach(menu => {
+          const trigger = menu.querySelector('.kebab');
+          trigger?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.querySelectorAll('.kebab-menu').forEach(m => m.classList.remove('open'));
+            menu.classList.toggle('open');
+          });
+        });
+      }
+      
+      const data = statusSettingsMap[String(classId)];
+      const noSettingsMsg = document.getElementById('noSettingsMsg');
+      
+      if(data){
+        // Has settings - show overview, hide form
+        noSettingsMsg.style.display = 'none';
+        formContainer.style.display = 'none';
+        overviewContainer.style.display = 'block';
+        cancelBtn.style.display = 'none';
+        
+        // Populate form fields (hidden but ready for edit)
+        promotedSelect.value = data.promoted_class || '';
+        repeatedSelect.value = data.repeated_class || '';
+        cutOffInput.value = data.cut_off_point || '';
+        activatePromotion.checked = !!data.activate_promotion;
+        reopenDate.value = data.school_reopen_date ? new Date(data.school_reopen_date).toISOString().split('T')[0] : '';
+        
+        // Display current settings
+        const enrolledClasses = <%- JSON.stringify(enrolledClasses) %>;
+        const promotedClassObj = enrolledClasses.find(c => c.class_id === data.promoted_class);
+        const repeatedClassObj = enrolledClasses.find(c => c.class_id === data.repeated_class);
+        
+        currentSettingsDisplay.innerHTML = `
+          <div style="padding:10px;background:#f8fafc;border-radius:8px;">
+            <div style="font-size:0.85rem;color:var(--muted);margin-bottom:4px;">Promoted Class</div>
+            <div style="font-weight:600;color:var(--primary);">${promotedClassObj ? promotedClassObj.class_name : '-'}</div>
+          </div>
+          <div style="padding:10px;background:#f8fafc;border-radius:8px;">
+            <div style="font-size:0.85rem;color:var(--muted);margin-bottom:4px;">Repeated Class</div>
+            <div style="font-weight:600;color:var(--primary);">${repeatedClassObj ? repeatedClassObj.class_name : '-'}</div>
+          </div>
+          <div style="padding:10px;background:#f8fafc;border-radius:8px;">
+            <div style="font-size:0.85rem;color:var(--muted);margin-bottom:4px;">Cut Off Point</div>
+            <div style="font-weight:600;color:var(--primary);">${data.cut_off_point || '-'}</div>
+          </div>
+          <div style="padding:10px;background:#f8fafc;border-radius:8px;">
+            <div style="font-size:0.85rem;color:var(--muted);margin-bottom:4px;">School Reopen Date</div>
+            <div style="font-weight:600;color:var(--primary);">${data.school_reopen_date ? new Date(data.school_reopen_date).toLocaleDateString() : '-'}</div>
+          </div>
+          <div style="padding:10px;background:#f8fafc;border-radius:8px;">
+            <div style="font-size:0.85rem;color:var(--muted);margin-bottom:4px;">Activate Promotion</div>
+            <div style="font-weight:600;color:var(--primary);">${data.activate_promotion ? 'Yes' : 'No'}</div>
+          </div>
+        `;
+      } else {
+        // No settings - show form, hide overview
+        noSettingsMsg.style.display = 'block';
+        formContainer.style.display = 'block';
+        overviewContainer.style.display = 'none';
+        cancelBtn.style.display = 'none';
+        
+        promotedSelect.value = '';
+        repeatedSelect.value = '';
+        cutOffInput.value = '';
+        activatePromotion.checked = false;
+        reopenDate.value = '';
+      }
+    }
 
-      <script>
-        document
-          .getElementById("delete-image-btn")
-          ?.addEventListener("click", function (event) {
-            event.preventDefault();
+    modifyBtn?.addEventListener('click', () => {
+      formContainer.style.display = 'block';
+      overviewContainer.style.display = 'none';
+      cancelBtn.style.display = 'inline-block';
+    });
 
-            // First confirmation for general deletion
-            const confirmation = confirm(
-              "This will remove the signature image from the current class. Are you sure?"
-            );
-            if (!confirmation) {
-              return; // Prevent deletion if user cancels
+    cancelBtn?.addEventListener('click', () => {
+      const currentClassId = classIdField.value;
+      loadClassSettings(currentClassId);
+    });
+
+    classButtons.forEach(btn => { btn.addEventListener('click', () => loadClassSettings(btn.dataset.classId)); });
+    if(classButtons.length){ loadClassSettings(classIdField.value || classButtons[0].dataset.classId); }
+
+    // Score Remark Form Toggle and AJAX
+    const toggleFormLink = document.getElementById('toggleScoreRemarkForm');
+    const scoreFormContainer = document.getElementById('scoreRemarkFormContainer');
+    const scoreRemarkForm = document.getElementById('scoreRemarkForm');
+    const scoreClassCheckboxes = document.getElementById('scoreClassCheckboxes');
+    
+    // Populate class checkboxes
+    const enrolledClassesForScore = <%- JSON.stringify(enrolledClasses) %>;
+    scoreClassCheckboxes.innerHTML = enrolledClassesForScore.sort((a,b) => a.class_id - b.class_id).map(cls => `
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" class="score-class-checkbox" value="${cls.class_id}" id="score-ajax-${cls.class_id}" />
+        <label for="score-ajax-${cls.class_id}" style="cursor:pointer;margin:0;">${cls.class_name}</label>
+      </div>
+    `).join('');
+    
+    toggleFormLink?.addEventListener('click', () => {
+      const isVisible = scoreFormContainer.style.display !== 'none';
+      scoreFormContainer.style.display = isVisible ? 'none' : 'block';
+      toggleFormLink.textContent = isVisible ? '+ Add Remarks' : '− Hide Form';
+      
+      // Check the current class by default and reset form
+      if(!isVisible){
+        const currentClassId = classIdField.value;
+        document.querySelectorAll('.score-class-checkbox').forEach(cb => {
+          cb.checked = cb.value === currentClassId;
+        });
+      } else {
+        scoreRemarkForm.reset();
+      }
+    });
+    
+    scoreRemarkForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const remark = document.getElementById('scoreRemarkText').value.trim();
+      const fromPct = document.getElementById('scoreFromPct').value;
+      const toPct = document.getElementById('scoreToPct').value;
+      const selectedClasses = Array.from(document.querySelectorAll('.score-class-checkbox:checked')).map(cb => cb.value);
+      const termId = '<%= termId %>';
+      
+      if(!selectedClasses.length){
+        alert('Please select at least one class.');
+        return;
+      }
+      
+      if(!remark){
+        alert('Please enter a remark.');
+        return;
+      }
+      
+      try {
+        const response = await fetch('/print/saveScoreRemarksAjax', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            remark,
+            from_percentage: fromPct,
+            to_percentage: toPct,
+            termId,
+            selectedClasses
+          })
+        });
+        
+        const result = await response.json();
+        
+        if(result.success){
+          // Update the scoreRemarksMap with new data
+          result.savedRemarks.forEach(rem => {
+            if(!scoreRemarksMap[String(rem.class_id)]) scoreRemarksMap[String(rem.class_id)] = [];
+            // Check if remark already exists, update or add
+            const existingIdx = scoreRemarksMap[String(rem.class_id)].findIndex(r => r.id === rem.id);
+            if(existingIdx >= 0){
+              scoreRemarksMap[String(rem.class_id)][existingIdx] = rem;
+            } else {
+              scoreRemarksMap[String(rem.class_id)].push(rem);
             }
-
-            // Show custom confirmation to delete for all classes or just one
-            const deleteForAll = confirm(
-              'Do you want to delete this signature for all classes it is assigned to?\n\nClick "OK" for "Yes, delete for all classes"\nClick "Cancel" for "No, delete only for this class"'
-            );
-
-            const deleteUrl = `${this.dataset.url}?classId=${encodeURIComponent(this.dataset.classId)}&termId=${encodeURIComponent(this.dataset.termId)}&deleteAll=${deleteForAll}`;
-            window.location.href = deleteUrl;
           });
+          
+          // Reload current class remarks
+          loadClassSettings(classIdField.value);
+          
+          // Reset form and hide
+          scoreRemarkForm.reset();
+          scoreFormContainer.style.display = 'none';
+          toggleFormLink.textContent = '+ Add Remarks';
+          
+          // Show success message
+          const successDiv = document.createElement('div');
+          successDiv.style.cssText = 'position:fixed;top:20px;right:20px;background:#10b981;color:#fff;padding:12px 18px;border-radius:8px;box-shadow:0 10px 25px rgba(0,0,0,0.2);z-index:9999;';
+          successDiv.textContent = 'Score remark saved successfully!';
+          document.body.appendChild(successDiv);
+          setTimeout(() => successDiv.remove(), 3000);
+        } else {
+          alert(result.message || 'Failed to save score remark.');
+        }
+      } catch(error){
+        console.error('Error saving score remark:', error);
+        alert('An error occurred while saving.');
+      }
+    });
 
-        document
-          .getElementById("add-remark-btn")
-          .addEventListener("click", function () {
-            const container = document.getElementById("remarks-container");
-            const newInput = document.createElement("div");
-            newInput.className = "form-group remark-item";
-            newInput.innerHTML = `
-            <textarea name="remarks[]" required></textarea>
-            <div class="form-group">
-                <label for="remarkType">Select Remark Type:</label>
-                <select name="remarkType[]" required>
-                    <option value="teacher">Teacher's Remark</option>
-                    <option value="conduct">Conduct Remark</option>
-                    <option value="interest">Interest Remark</option>
-                    <option value="attitude">Attitude Remark</option>
-                </select>
-            </div>`;
-            container.appendChild(newInput);
-          });
+    // Canvas signature
+    let canvas, ctx, isDrawing = false, lastX = 0, lastY = 0, canvasInitialized = false;
+    const signatureFormContainer = document.getElementById('signatureFormContainer');
+    const toggleSigFormLink = document.getElementById('toggleSignatureForm');
+    
+    // Populate signature class checkboxes with only unassigned classes
+    function populateSignatureCheckboxes(excludeClasses = []) {
+      const signatureClassCheckboxes = document.getElementById('signatureClassCheckboxes');
+      const enrolledClassesForSig = <%- JSON.stringify(enrolledClasses) %>;
+      const assignedClassIds = <%- JSON.stringify(Object.values(signatureGroups || {}).flatMap(sig => sig.classes.map(c => c.class_id))) %>;
+      
+      const availableClasses = enrolledClassesForSig.filter(cls => 
+        !assignedClassIds.includes(cls.class_id) && !excludeClasses.includes(cls.class_id)
+      );
+      
+      if(availableClasses.length === 0){
+        signatureClassCheckboxes.innerHTML = '<p style="color:var(--muted);font-size:0.9rem;">All classes already have signatures. Select classes below to replace their signatures.</p>';
+      } else {
+        signatureClassCheckboxes.innerHTML = availableClasses.sort((a,b) => a.class_id - b.class_id).map(cls => `
+          <div style="display:flex;align-items:center;gap:8px;">
+            <input type="checkbox" class="draw-signature-class" value="${cls.class_id}" id="sig-class-${cls.class_id}" />
+            <label for="sig-class-${cls.class_id}" style="cursor:pointer;margin:0;">${cls.class_name}</label>
+          </div>
+        `).join('');
+      }
+      
+      // Show already assigned classes
+      if(assignedClassIds.length > 0){
+        const assignedClasses = enrolledClassesForSig.filter(cls => assignedClassIds.includes(cls.class_id));
+        if(assignedClasses.length > 0 && availableClasses.length > 0){
+          signatureClassCheckboxes.innerHTML += '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);"><p style="color:var(--muted);font-size:0.85rem;margin-bottom:8px;">Already assigned (will replace):</p>' + 
+            assignedClasses.sort((a,b) => a.class_id - b.class_id).map(cls => `
+              <div style="display:flex;align-items:center;gap:8px;">
+                <input type="checkbox" class="draw-signature-class" value="${cls.class_id}" id="sig-class-assigned-${cls.class_id}" />
+                <label for="sig-class-assigned-${cls.class_id}" style="cursor:pointer;margin:0;color:var(--muted);">${cls.class_name}</label>
+              </div>
+            `).join('') + '</div>';
+        } else if(availableClasses.length === 0){
+          signatureClassCheckboxes.innerHTML += assignedClasses.sort((a,b) => a.class_id - b.class_id).map(cls => `
+            <div style="display:flex;align-items:center;gap:8px;">
+              <input type="checkbox" class="draw-signature-class" value="${cls.class_id}" id="sig-class-${cls.class_id}" />
+              <label for="sig-class-${cls.class_id}" style="cursor:pointer;margin:0;">${cls.class_name}</label>
+            </div>
+          `).join('');
+        }
+      }
+      return true;
+    }
+    
+    // Toggle signature form
+    toggleSigFormLink?.addEventListener('click', () => {
+      const isVisible = signatureFormContainer.style.display !== 'none';
+      if(isVisible){
+        signatureFormContainer.style.display = 'none';
+        toggleSigFormLink.textContent = '+ Show Form';
+      } else {
+        populateSignatureCheckboxes();
+        signatureFormContainer.style.display = 'block';
+        toggleSigFormLink.textContent = '− Hide Form';
+        if(!canvasInitialized) initCanvas();
+      }
+    });
+    
+    // Add classes to existing signature
+    document.querySelectorAll('.add-classes-link').forEach(link => {
+      link.addEventListener('click', async () => {
+        const signaturePath = link.dataset.signaturePath;
+        const enrolledClassesForSig = <%- JSON.stringify(enrolledClasses) %>;
+        const assignedClassIds = <%- JSON.stringify(Object.values(signatureGroups || {}).flatMap(sig => sig.classes.map(c => c.class_id))) %>;
+        const availableClasses = enrolledClassesForSig.filter(cls => !assignedClassIds.includes(cls.class_id));
+        
+        if(availableClasses.length === 0){
+          alert('All classes already have signatures assigned.');
+          return;
+        }
+        
+        const classOptions = availableClasses.sort((a,b) => a.class_id - b.class_id)
+          .map(cls => `<label style="display:block;padding:6px;"><input type="checkbox" value="${cls.class_id}" style="margin-right:8px;">${cls.class_name}</label>`)
+          .join('');
+        
+        const modal = document.createElement('div');
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
+        modal.innerHTML = `
+          <div style="background:#fff;border-radius:12px;padding:20px;max-width:400px;width:90%;box-shadow:0 20px 50px rgba(0,0,0,0.3);">
+            <h3 style="margin:0 0 16px;color:var(--primary);">Add Classes to Signature</h3>
+            <div id="classCheckboxList" style="max-height:300px;overflow-y:auto;margin-bottom:16px;">${classOptions}</div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+              <button class="btn btn-danger" id="modalCancel">Cancel</button>
+              <button class="btn" id="modalSave">Add Selected Classes</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(modal);
+        
+        modal.querySelector('#modalCancel').addEventListener('click', () => modal.remove());
+        modal.querySelector('#modalSave').addEventListener('click', async () => {
+          const selectedClasses = Array.from(modal.querySelectorAll('#classCheckboxList input:checked')).map(cb => cb.value);
+          if(!selectedClasses.length){
+            alert('Please select at least one class.');
+            return;
+          }
+          
+          try {
+            const response = await fetch('/print/addClassesToSignature', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                signaturePath,
+                termId: '<%= termId %>',
+                selectedClasses
+              })
+            });
+            
+            const result = await response.json();
+            if(result.success){
+              modal.remove();
+              window.location.reload();
+            } else {
+              alert(result.message || 'Failed to add classes.');
+            }
+          } catch(error){
+            console.error('Error adding classes:', error);
+            alert('An error occurred.');
+          }
+        });
+      });
+    });
+    
+    function initCanvas(){
+      if(canvasInitialized) return;
+      canvas = document.getElementById('signatureCanvas');
+      if(!canvas) return;
+      ctx = canvas.getContext('2d');
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * 2; canvas.height = rect.height * 2; ctx.scale(2,2);
+      ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      const getPos = e => ({ x: e.offsetX, y: e.offsetY });
+      const getTouchPos = e => { const r = canvas.getBoundingClientRect(); const t = e.touches[0]; return { x: t.clientX - r.left, y: t.clientY - r.top }; };
+      const drawLine = (x1,y1,x2,y2) => { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.closePath(); };
+      canvas.addEventListener('mousedown', e => { isDrawing = true; const p = getPos(e); lastX = p.x; lastY = p.y; });
+      canvas.addEventListener('mousemove', e => { if(!isDrawing) return; const p = getPos(e); drawLine(lastX,lastY,p.x,p.y); lastX=p.x; lastY=p.y; });
+      canvas.addEventListener('mouseup', () => isDrawing=false);
+      canvas.addEventListener('mouseout', () => isDrawing=false);
+      canvas.addEventListener('touchstart', e => { e.preventDefault(); isDrawing=true; const p=getTouchPos(e); lastX=p.x; lastY=p.y; }, {passive:false});
+      canvas.addEventListener('touchmove', e => { e.preventDefault(); if(!isDrawing) return; const p=getTouchPos(e); drawLine(lastX,lastY,p.x,p.y); lastX=p.x; lastY=p.y; }, {passive:false});
+      canvas.addEventListener('touchend', () => isDrawing=false);
+      canvas.addEventListener('touchcancel', () => isDrawing=false);
+      canvasInitialized = true;
+    }
+    function clearCanvas(){ if(!canvas) return; ctx.clearRect(0,0,canvas.width,canvas.height); }
+    window.clearCanvas = clearCanvas;
 
+    async function saveDigitalSignature(){
+      const statusEl = document.getElementById('sigStatus');
+      statusEl.textContent = 'Saving signature...';
+      if(!canvas){ statusEl.textContent = 'Canvas not ready.'; return; }
+      const classChecks = Array.from(document.querySelectorAll('.draw-signature-class:checked')).map(c => c.value);
+      if(!classChecks.length){ statusEl.textContent = 'Select at least one class to apply.'; return; }
+      canvas.toBlob(async blob => {
+        if(!blob){ statusEl.textContent = 'Could not capture signature.'; return; }
+        const fd = new FormData();
+        fd.append('signatureImage', blob, 'signature.png');
+        fd.append('termId', '<%= termId %>');
+        fd.append('classId', '<%= classId %>');
+        classChecks.forEach(c => fd.append('selectedSignatureClasses', c));
+        try {
+          const res = await fetch('/print/uploadSignatureImage', { method:'POST', body: fd });
+          if(!res.ok) throw new Error('Upload failed');
+          statusEl.textContent = 'Saved. Refreshing...';
+          window.location.reload();
+        } catch(err){ statusEl.textContent = err.message; }
+      });
+    }
+    window.saveDigitalSignature = saveDigitalSignature;
 
-                </script>
-    </div>
-  </body>
+    // Transcript Signature Management
+    let transcriptCanvas, transcriptCtx, transcriptIsDrawing = false, transcriptLastX = 0, transcriptLastY = 0, transcriptCanvasInitialized = false;
+    const transcriptSigFormContainer = document.getElementById('transcriptSignatureFormContainer');
+    const toggleTranscriptSigFormLink = document.getElementById('toggleTranscriptSignatureForm');
+
+    function populateTranscriptSignatureCheckboxes() {
+      const transcriptSigCheckboxes = document.getElementById('transcriptSignatureClassCheckboxes');
+      const enrolledClassesForTranscript = <%- JSON.stringify(enrolledClasses) %>;
+      const assignedTranscriptClassIds = <%- JSON.stringify(Object.values(transcriptSignatureGroups || {}).flatMap(sig => sig.classes.map(c => c.class_id))) %>;
+      
+      const availableClasses = enrolledClassesForTranscript.filter(cls => 
+        !assignedTranscriptClassIds.includes(cls.class_id)
+      );
+      
+      if(availableClasses.length === 0){
+        transcriptSigCheckboxes.innerHTML = '<p style=\"color:var(--muted);font-size:0.9rem;\">All classes have transcript signatures. Select to replace.</p>';
+      } else {
+        transcriptSigCheckboxes.innerHTML = availableClasses.sort((a,b) => a.class_id - b.class_id).map(cls => `
+          <div style=\"display:flex;align-items:center;gap:8px;\">
+            <input type=\"checkbox\" class=\"transcript-signature-class\" value=\"${cls.class_id}\" id=\"trans-sig-class-${cls.class_id}\" />
+            <label for=\"trans-sig-class-${cls.class_id}\" style=\"cursor:pointer;margin:0;\">${cls.class_name}</label>
+          </div>
+        `).join('');
+      }
+      
+      if(assignedTranscriptClassIds.length > 0){
+        const assignedClasses = enrolledClassesForTranscript.filter(cls => assignedTranscriptClassIds.includes(cls.class_id));
+        if(assignedClasses.length > 0 && availableClasses.length > 0){
+          transcriptSigCheckboxes.innerHTML += '<div style=\"margin-top:12px;padding-top:12px;border-top:1px solid var(--border);\"><p style=\"color:var(--muted);font-size:0.85rem;margin-bottom:8px;\">Already assigned (will replace):</p>' + 
+            assignedClasses.sort((a,b) => a.class_id - b.class_id).map(cls => `
+              <div style=\"display:flex;align-items:center;gap:8px;\">
+                <input type=\"checkbox\" class=\"transcript-signature-class\" value=\"${cls.class_id}\" id=\"trans-sig-assigned-${cls.class_id}\" />
+                <label for=\"trans-sig-assigned-${cls.class_id}\" style=\"cursor:pointer;margin:0;color:var(--muted);\">${cls.class_name}</label>
+              </div>
+            `).join('') + '</div>';
+        } else if(availableClasses.length === 0){
+          transcriptSigCheckboxes.innerHTML += assignedClasses.sort((a,b) => a.class_id - b.class_id).map(cls => `
+            <div style=\"display:flex;align-items:center;gap:8px;\">
+              <input type=\"checkbox\" class=\"transcript-signature-class\" value=\"${cls.class_id}\" id=\"trans-sig-class-${cls.class_id}\" />
+              <label for=\"trans-sig-class-${cls.class_id}\" style=\"cursor:pointer;margin:0;\">${cls.class_name}</label>
+            </div>
+          `).join('');
+        }
+      }
+      return true;
+    }
+
+    toggleTranscriptSigFormLink?.addEventListener('click', () => {
+      const isVisible = transcriptSigFormContainer.style.display !== 'none';
+      if(isVisible){
+        transcriptSigFormContainer.style.display = 'none';
+        toggleTranscriptSigFormLink.textContent = '+ Show Form';
+      } else {
+        populateTranscriptSignatureCheckboxes();
+        transcriptSigFormContainer.style.display = 'block';
+        toggleTranscriptSigFormLink.textContent = '\u2212 Hide Form';
+        if(!transcriptCanvasInitialized) initTranscriptCanvas();
+      }
+    });
+
+    // Add classes to existing transcript signature
+    document.querySelectorAll('.add-transcript-classes-link').forEach(link => {
+      link.addEventListener('click', async () => {
+        const signaturePath = link.dataset.signaturePath;
+        const enrolledClassesForTranscript = <%- JSON.stringify(enrolledClasses) %>;
+        const assignedTranscriptClassIds = <%- JSON.stringify(Object.values(transcriptSignatureGroups || {}).flatMap(sig => sig.classes.map(c => c.class_id))) %>;
+        const availableClasses = enrolledClassesForTranscript.filter(cls => !assignedTranscriptClassIds.includes(cls.class_id));
+        
+        if(availableClasses.length === 0){
+          alert('All classes already have transcript signatures assigned.');
+          return;
+        }
+        
+        const classOptions = availableClasses.sort((a,b) => a.class_id - b.class_id)
+          .map(cls => `<label style=\"display:block;padding:6px;\"><input type=\"checkbox\" value=\"${cls.class_id}\" style=\"margin-right:8px;\">${cls.class_name}</label>`)
+          .join('');
+        
+        const modal = document.createElement('div');
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
+        modal.innerHTML = `
+          <div style=\"background:#fff;border-radius:12px;padding:20px;max-width:400px;width:90%;box-shadow:0 20px 50px rgba(0,0,0,0.3);\">
+            <h3 style=\"margin:0 0 16px;color:var(--primary);\">Add Classes to Transcript Signature</h3>
+            <div id=\"transcriptClassCheckboxList\" style=\"max-height:300px;overflow-y:auto;margin-bottom:16px;\">${classOptions}</div>
+            <div style=\"display:flex;gap:10px;justify-content:flex-end;\">
+              <button class=\"btn btn-danger\" id=\"transcriptModalCancel\">Cancel</button>
+              <button class=\"btn\" id=\"transcriptModalSave\">Add Selected Classes</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(modal);
+        
+        modal.querySelector('#transcriptModalCancel').addEventListener('click', () => modal.remove());
+        modal.querySelector('#transcriptModalSave').addEventListener('click', async () => {
+          const selectedClasses = Array.from(modal.querySelectorAll('#transcriptClassCheckboxList input:checked')).map(cb => cb.value);
+          if(!selectedClasses.length){
+            alert('Please select at least one class.');
+            return;
+          }
+          
+          try {
+            const response = await fetch('/print/addClassesToTranscriptSignature', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                signaturePath,
+                selectedClasses
+              })
+            });
+            
+            const result = await response.json();
+            if(result.success){
+              modal.remove();
+              window.location.reload();
+            } else {
+              alert(result.message || 'Failed to add classes.');
+            }
+          } catch(error){
+            console.error('Error adding classes:', error);
+            alert('An error occurred.');
+          }
+        });
+      });
+    });
+
+    function initTranscriptCanvas(){
+      if(transcriptCanvasInitialized) return;
+      transcriptCanvas = document.getElementById('transcriptSignatureCanvas');
+      if(!transcriptCanvas) return;
+      transcriptCtx = transcriptCanvas.getContext('2d');
+      const rect = transcriptCanvas.getBoundingClientRect();
+      transcriptCanvas.width = rect.width * 2; transcriptCanvas.height = rect.height * 2; transcriptCtx.scale(2,2);
+      transcriptCtx.strokeStyle = '#1e293b'; transcriptCtx.lineWidth = 2.5; transcriptCtx.lineCap = 'round'; transcriptCtx.lineJoin = 'round';
+      const getPos = e => ({ x: e.offsetX, y: e.offsetY });
+      const getTouchPos = e => { const r = transcriptCanvas.getBoundingClientRect(); const t = e.touches[0]; return { x: t.clientX - r.left, y: t.clientY - r.top }; };
+      const drawLine = (x1,y1,x2,y2) => { transcriptCtx.beginPath(); transcriptCtx.moveTo(x1, y1); transcriptCtx.lineTo(x2, y2); transcriptCtx.stroke(); transcriptCtx.closePath(); };
+      transcriptCanvas.addEventListener('mousedown', e => { transcriptIsDrawing = true; const p = getPos(e); transcriptLastX = p.x; transcriptLastY = p.y; });
+      transcriptCanvas.addEventListener('mousemove', e => { if(!transcriptIsDrawing) return; const p = getPos(e); drawLine(transcriptLastX,transcriptLastY,p.x,p.y); transcriptLastX=p.x; transcriptLastY=p.y; });
+      transcriptCanvas.addEventListener('mouseup', () => transcriptIsDrawing=false);
+      transcriptCanvas.addEventListener('mouseout', () => transcriptIsDrawing=false);
+      transcriptCanvas.addEventListener('touchstart', e => { e.preventDefault(); transcriptIsDrawing=true; const p=getTouchPos(e); transcriptLastX=p.x; transcriptLastY=p.y; }, {passive:false});
+      transcriptCanvas.addEventListener('touchmove', e => { e.preventDefault(); if(!transcriptIsDrawing) return; const p=getTouchPos(e); drawLine(transcriptLastX,transcriptLastY,p.x,p.y); transcriptLastX=p.x; transcriptLastY=p.y; }, {passive:false});
+      transcriptCanvas.addEventListener('touchend', () => transcriptIsDrawing=false);
+      transcriptCanvas.addEventListener('touchcancel', () => transcriptIsDrawing=false);
+      transcriptCanvasInitialized = true;
+    }
+    
+    function clearTranscriptCanvas(){ if(!transcriptCanvas) return; transcriptCtx.clearRect(0,0,transcriptCanvas.width,transcriptCanvas.height); }
+    window.clearTranscriptCanvas = clearTranscriptCanvas;
+
+    async function saveTranscriptSignature(){
+      const statusEl = document.getElementById('transcriptSigStatus');
+      statusEl.textContent = 'Saving transcript signature...';
+      if(!transcriptCanvas){ statusEl.textContent = 'Canvas not ready.'; return; }
+      const classChecks = Array.from(document.querySelectorAll('.transcript-signature-class:checked')).map(c => c.value);
+      if(!classChecks.length){ statusEl.textContent = 'Select at least one class.'; return; }
+      transcriptCanvas.toBlob(async blob => {
+        if(!blob){ statusEl.textContent = 'Could not capture signature.'; return; }
+        const fd = new FormData();
+        fd.append('signatureImage', blob, 'transcript-signature.png');
+        classChecks.forEach(c => fd.append('selectedTranscriptClasses', c));
+        try {
+          const res = await fetch('/print/uploadTranscriptSignature', { method:'POST', body: fd });
+          if(!res.ok) throw new Error('Upload failed');
+          statusEl.textContent = 'Saved. Refreshing...';
+          window.location.reload();
+        } catch(err){ statusEl.textContent = err.message; }
+      });
+    }
+    window.saveTranscriptSignature = saveTranscriptSignature;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const menus = document.querySelectorAll('.kebab-menu');
+      menus.forEach(menu => {
+        const trigger = menu.querySelector('.kebab');
+        trigger?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          menus.forEach(m => m.classList.remove('open'));
+          menu.classList.toggle('open');
+        });
+      });
+      document.addEventListener('click', () => { menus.forEach(m => m.classList.remove('open')); });
+    });
+
+    // Loading overlay helpers
+    function showLoading() {
+      document.getElementById('loadingOverlay').classList.add('active');
+    }
+    function hideLoading() {
+      document.getElementById('loadingOverlay').classList.remove('active');
+    }
+
+    // AJAX delete functions
+    async function deleteSignatureForClass(classId, className, termId) {
+      if (!confirm(`Remove signature from ${className}?`)) return;
+      showLoading();
+      try {
+        const res = await fetch(`/print/deleteSignatureForClass?classId=${classId}&termId=${termId}`, {
+          method: 'GET',
+          credentials: 'same-origin'
+        });
+        if (!res.ok) throw new Error('Delete failed');
+        window.location.reload();
+      } catch (err) {
+        hideLoading();
+        alert('Error: ' + err.message);
+      }
+    }
+
+    async function deleteEntireSignature(signaturePath, termId) {
+      if (!confirm('Delete this signature completely? It will be removed from all classes.')) return;
+      showLoading();
+      try {
+        const res = await fetch(`/print/deleteEntireSignature?signaturePath=${signaturePath}&termId=${termId}`, {
+          method: 'GET',
+          credentials: 'same-origin'
+        });
+        if (!res.ok) throw new Error('Delete failed');
+        window.location.reload();
+      } catch (err) {
+        hideLoading();
+        alert('Error: ' + err.message);
+      }
+    }
+
+    async function deleteTranscriptSignatureForClass(classId, className) {
+      if (!confirm(`Remove transcript signature from ${className}?`)) return;
+      showLoading();
+      try {
+        const res = await fetch(`/print/deleteTranscriptSignatureForClass?classId=${classId}`, {
+          method: 'GET',
+          credentials: 'same-origin'
+        });
+        if (!res.ok) throw new Error('Delete failed');
+        window.location.reload();
+      } catch (err) {
+        hideLoading();
+        alert('Error: ' + err.message);
+      }
+    }
+
+    async function deleteEntireTranscriptSignature(signaturePath) {
+      if (!confirm('Delete this transcript signature completely? It will be removed from all classes.')) return;
+      showLoading();
+      try {
+        const res = await fetch(`/print/deleteEntireTranscriptSignature?signaturePath=${signaturePath}`, {
+          method: 'GET',
+          credentials: 'same-origin'
+        });
+        if (!res.ok) throw new Error('Delete failed');
+        window.location.reload();
+      } catch (err) {
+        hideLoading();
+        alert('Error: ' + err.message);
+      }
+    }
+
+    window.deleteSignatureForClass = deleteSignatureForClass;
+    window.deleteEntireSignature = deleteEntireSignature;
+    window.deleteTranscriptSignatureForClass = deleteTranscriptSignatureForClass;
+    window.deleteEntireTranscriptSignature = deleteEntireTranscriptSignature;
+  </script>
+</body>
 </html>

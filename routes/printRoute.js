@@ -24,11 +24,10 @@ module.exports = (db) => {
     router.get('/reportSettings', checkFeatureAccess, isAuthenticated, printController.reportSettingsPage); // Render report settings page
     router.post('/savePromotionSettings', isAuthenticated, printController.savePromotionSettings); // Save promotion settings
     router.post('/saveScoreRemarks', isAuthenticated, printController.saveScoreRemarks); // Save score remarks
+    router.post('/saveScoreRemarksAjax', isAuthenticated, printController.saveScoreRemarksAjax); // Save score remarks via AJAX
     router.post('/saveRemarks', isAuthenticated, printController.saveRemarks); // Save remarks
     router.get('/meritSheetPage', checkFeatureAccess, isAuthenticated, printController.meritSheetPage); // Render merit sheet page
-    router.get('/modifyStatusSettings', isAuthenticated, printController.modifyStatusSettingsPage);
     router.get('/deleteStatusSettings', isAuthenticated, printController.deleteStatusSettings);
-    router.post("/updatePromotionSettings", printController.updatePromotionSettings);
 
     // Fix the POST method for generateMeritSheet
     router.post('/generateMeritSheet', isAuthenticated, printController.generateMeritSheet); // Generate merit sheet
@@ -38,6 +37,16 @@ module.exports = (db) => {
 
     // Routes for deleting signature image, remarks, and score remarks
     router.get('/deleteSignatureImage', isAuthenticated, printController.deleteSignatureImage);
+    router.get('/deleteSignatureForClass', isAuthenticated, printController.deleteSignatureForClass);
+    router.get('/deleteEntireSignature', isAuthenticated, printController.deleteEntireSignature);
+    router.post('/addClassesToSignature', isAuthenticated, printController.addClassesToSignature);
+
+    // Transcript signature routes
+    router.post('/uploadTranscriptSignature', isAuthenticated, upload.single('signatureImage'), printController.uploadTranscriptSignature);
+    router.get('/deleteTranscriptSignatureForClass', isAuthenticated, printController.deleteTranscriptSignatureForClass);
+    router.get('/deleteEntireTranscriptSignature', isAuthenticated, printController.deleteEntireTranscriptSignature);
+    router.post('/addClassesToTranscriptSignature', isAuthenticated, printController.addClassesToTranscriptSignature);
+
     router.get('/deleteRemark/:id', isAuthenticated, printController.deleteRemark);
     router.get('/deleteScoreRemark/:id', isAuthenticated, printController.deleteScoreRemark);
     router.post('/saveReportChanges', isAuthenticated, printController.saveReportChanges);

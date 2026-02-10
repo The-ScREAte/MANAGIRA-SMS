@@ -14,6 +14,9 @@ module.exports = (db) => {
     router.get('/transcript/:studentId', checkFeatureAccess, isAuthenticated, transcriptController.generateTranscript);
     router.post('/uploadSignatureImage', isAuthenticated, upload.single('signatureImage'), transcriptController.uploadSignatureImage);
     router.post('/saveDigitalSignature', isAuthenticated, express.json(), transcriptController.saveDigitalSignature);
+    
+    // Email transcript - uses express.json() to parse JSON body
+    router.post('/emailTranscript', express.json(), isAuthenticated, transcriptController.emailTranscript);
 
     return router;
 };

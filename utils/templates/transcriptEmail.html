@@ -1,0 +1,83 @@
+<!-- utils/templates/transcriptEmail.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Official Transcript - Managira</title>
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f7f7f7; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 40px auto; background: #fff; border-radius: 10px; box-shadow: 0 2px 8px #e0e0e0; overflow: hidden; }
+    .header {
+      background: #6fd3c4;
+      padding: 24px 0;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      padding-left: 32px;
+    }
+    .header img {
+      height: 60px;
+      display: block;
+    }
+    .content { padding: 32px; line-height: 1.6; }
+    .title { color: #6fd3c4; font-size: 24px; margin-bottom: 12px; font-weight: 600; }
+    .subtitle { color: #666; font-size: 14px; margin-bottom: 24px; }
+    .details { margin: 24px 0; background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #6fd3c4; }
+    .details p { margin: 8px 0; color: #333; }
+    .details strong { color: #222; }
+    .attachment-info { background: #e6f7ec; padding: 16px; border-radius: 8px; margin: 24px 0; border: 1px solid #6fd3c4; }
+    .attachment-info p { margin: 8px 0; font-size: 14px; color: #333; }
+    .cta-button { display: inline-block; background: #6fd3c4; color: white; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-weight: 500; margin: 16px 0; }
+    .footer { background: #e6f7ec; color: #888; text-align: center; padding: 18px 0; font-size: 13px; }
+    .warning { color: #b80000; font-size: 15px; font-weight: bold; margin-top: 24px; text-align: center; padding: 16px; background: #fff5f5; border-radius: 6px; border: 1px solid #fecaca; }
+    .icon { font-size: 24px; margin-right: 8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <img src="cid:managira_logo" alt="Managira Logo">
+    </div>
+    <div class="content">
+      <div class="title">📄 Official Student Transcript</div>
+      <div class="subtitle">Academic Records Document</div>
+      
+      <p>Dear Recipient,</p>
+      
+      <p>Please find attached the <strong>official academic transcript</strong> for the following student:</p>
+      
+      <div class="details">
+        <p><strong>Student Name:</strong> {{studentName}}</p>
+        <p><strong>Organization:</strong> {{organizationName}}</p>
+        <p><strong>Date Issued:</strong> {{dateIssued}}</p>
+        <p><strong>Document Type:</strong> Official Transcript (Verified)</p>
+      </div>
+
+      <div class="attachment-info">
+        <p><span class="icon">📎</span><strong>Attachment:</strong> {{fileName}}</p>
+        <p style="font-size: 13px; color: #666; margin-top: 12px;">The PDF is attached to this email and can be found below this message or in your email attachments section. This PDF contains the complete academic transcript including detailed information about the document's purpose, usage guidelines, and handling instructions.</p>
+      </div>
+
+      <p>This transcript has been generated through Managira's secure transcript management system and contains comprehensive academic records. Please review the attached PDF document carefully.</p>
+
+      <p><strong>Important:</strong> The attached document includes a detailed information page explaining:</p>
+      <ul style="color: #555; line-height: 1.8;">
+        <li>What a transcript is and its official purpose</li>
+        <li>Proper usage and handling guidelines</li>
+        <li>Legal implications and document authenticity</li>
+        <li>Information about verification and security</li>
+      </ul>
+
+      <p>If you have any questions about this transcript or need additional information, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener" style="color: #6fd3c4; text-decoration: none;">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener" style="color: #6fd3c4; text-decoration: none;">FAQ page</a>.</p>
+
+      <div class="warning">
+        ⚠️ THIS IS A NO-REPLY MESSAGE. PLEASE DO NOT REPLY TO THIS EMAIL.
+      </div>
+    </div>
+    <div class="footer">
+      &copy; {{year}} Managira. All rights reserved.<br>
+      Secure Academic Records Management System
+    </div>
+  </div>
+</body>
+</html>

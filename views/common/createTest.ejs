@@ -32,30 +32,31 @@
     }
     #test-forms {
       display: flex;
-      flex-wrap: nowrap;
+      flex-wrap: wrap;
       gap: 18px;
-      overflow-x: auto;
-      padding-bottom: 10px;
-      padding-left: 24px;
-      padding-right: 32px;
-      justify-content: flex-start;
-      align-items: flex-start;
+      overflow-x: visible;
+      padding: 10px 16px 0 16px;
+      justify-content: center;
+      align-items: stretch;
       width: 100%;
     }
-    .test-form {
-      flex: 0 0 440px;
-      box-sizing: border-box;
-      background-color: #fff;
-      border: 1px solid #e0e0e0;
-      box-shadow: 0 2px 12px rgba(1,83,91,0.12);
-      padding: 28px 24px 22px 24px;
-      margin-bottom: 10px;
-      min-width: 340px;
-      border-radius: 14px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 14px;
+      .test-form {
+        flex: 1 1 440px;
+        max-width: 520px;
+        box-sizing: border-box;
+        background-color: #fff;
+        border: 1px solid #e0e0e0;
+        box-shadow: 0 2px 12px rgba(1,83,91,0.12);
+        padding: 28px 24px 22px 24px;
+        margin-bottom: 10px;
+        min-width: 320px;
+        border-radius: 14px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        margin-left: auto;
+        margin-right: auto;
     }
     .test-form:focus-within {
       box-shadow: none;
@@ -206,10 +207,32 @@
     .main-heading {
       text-align: center;
       font-size: 1.6rem;
-      margin: 18px 0 10px 0;
+        margin: 12px 0 10px 0;
       color: var(--org-primary-color, #01535b);
       font-weight: 600;
     }
+      .page-actions {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+      }
+      .action-button {
+        padding: 10px 22px;
+        border: none;
+        background: var(--org-primary-color, #01535b);
+        color: #fff;
+        cursor: pointer;
+        border-radius: 6px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        transition: all 0.2s;
+      }
+      .action-button:hover {
+        background: var(--org-primary-hover, #014a51);
+      }
     .notice {
       background-color: #e7f3fe;
       color: #0c5460;
@@ -565,16 +588,10 @@
       <main>
         <br />
         <%- include('../partials/flash') %>
-        <div style="display: flex; justify-content: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+        <div class="page-actions">
           <button
-            onclick="location.href='/common/management'"
-            style="padding: 10px 22px; border: 2px solid var(--org-primary-color, #01535b); background: transparent; color: var(--org-primary-color, #01535b); cursor: pointer; border-radius: 6px; font-size: 0.95rem; font-weight: 600; transition: all 0.2s;"
-            onmouseover="this.style.background=getComputedStyle(document.documentElement).getPropertyValue('--org-primary-color').trim()||'#01535b';this.style.color='#fff';"
-            onmouseout="this.style.background='transparent';this.style.color=getComputedStyle(document.documentElement).getPropertyValue('--org-primary-color').trim()||'#01535b';"
-          >← Back to Management</button>
-          <button
+            class="action-button"
             onclick="location.href='/common/manageAssessment?organizationId=<%= organizationId %>&termId=<%= termId %>'"
-            style="padding: 10px 22px; border: none; background: var(--org-primary-color, #01535b); color: #fff; cursor: pointer; border-radius: 6px; font-size: 0.95rem; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: all 0.2s;"
           >Manage Assessment</button>
         </div>
         <hr />

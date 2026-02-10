@@ -29,17 +29,38 @@
 </div>
 
 <script>
-// Dismiss flash on X click
+// Auto-dismiss flash messages and handle manual close
 document.addEventListener('DOMContentLoaded', function() {
+  const flashMessages = document.querySelectorAll('.flash-message');
+  
+  // Function to dismiss a flash message
+  function dismissFlash(msg) {
+    msg.style.transition = 'transform 0.4s ease, opacity 0.4s ease';
+    msg.style.transform = 'translateY(-20px)';
+    msg.style.opacity = '0';
+    setTimeout(function() { 
+      msg.style.display = 'none'; 
+    }, 400);
+  }
+  
+  // Auto-dismiss after 5 seconds
+  flashMessages.forEach(function(msg) {
+    setTimeout(function() {
+      dismissFlash(msg);
+    }, 5000);
+  });
+  
+  // Manual dismiss on X click
   document.querySelectorAll('.flash-close').forEach(function(btn) {
     btn.addEventListener('click', function(e) {
-      var parent = btn.closest('.flash-message');
-      if (parent) parent.style.display = 'none';
+      e.preventDefault();
+      const parent = btn.closest('.flash-message');
+      if (parent) dismissFlash(parent);
     });
   });
 
   // Swipe up to dismiss (mobile)
-  document.querySelectorAll('.flash-message').forEach(function(msg) {
+  flashMessages.forEach(function(msg) {
     let startY = null;
     msg.addEventListener('touchstart', function(e) {
       if (e.touches.length === 1) startY = e.touches[0].clientY;
@@ -48,10 +69,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (startY !== null) {
         let deltaY = e.touches[0].clientY - startY;
         if (deltaY < -40) { // swipe up
-          msg.style.transition = 'transform 0.3s, opacity 0.3s';
-          msg.style.transform = 'translateY(-100px)';
-          msg.style.opacity = '0';
-          setTimeout(function() { msg.style.display = 'none'; }, 300);
+          dismissFlash(msg);
           startY = null;
         }
       }

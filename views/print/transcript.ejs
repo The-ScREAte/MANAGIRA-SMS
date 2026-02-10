@@ -11,27 +11,8 @@
         --primary-hover: var(--org-primary-hover, #013a40);
       }
 
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-
-      body {
-        font-family: var(--font-family);
-        background: #f0f2f5;
-        color: #1e293b;
-        padding: 20px;
-      }
-
-      /* Top controls bar */
-      .transcript-controls {
-        max-width: 900px;
-        margin: 0 auto 20px;
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-        justify-content: center;
-      }
-
       .ctrl-btn {
-        padding: 10px 24px;
+        padding: 10px 18px;
         font-size: 14px;
         font-weight: 600;
         border-radius: 8px;
@@ -40,7 +21,8 @@
         transition: all 0.2s;
         display: inline-flex;
         align-items: center;
-        gap: 6px;
+        gap: 8px;
+        white-space: nowrap;
       }
 
       .ctrl-btn-print {
@@ -61,6 +43,84 @@
 
       .ctrl-btn-back:hover { background: #f1f5f9; }
 
+      .ctrl-btn-email {
+        background: #0ea5e9;
+        color: #0b2e3a;
+      }
+
+      /* Top controls bar */
+      .transcript-controls {
+        max-width: 900px;
+        margin: 0 auto 24px;
+        padding: 16px 20px;
+        display: flex;
+        gap: 12px;
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        align-items: center;
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      }
+
+      /* Header */
+      .t-header {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding-bottom: 18px;
+        margin-bottom: 20px;
+        border-bottom: 3px double var(--primary);
+        justify-content: center;
+      }
+
+      .t-header .t-logo {
+        width: 64px;
+        height: 64px;
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 6px;
+        flex-shrink: 0;
+      }
+
+      .t-header .t-logo img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+
+      .t-header .t-heading {
+        text-align: left;
+      }
+
+      .t-header h1 {
+        font-size: 20px;
+        font-weight: 800;
+        color: var(--primary);
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        margin-bottom: 3px;
+      }
+
+      .t-header .t-subtitle {
+        font-size: 14px;
+        font-weight: 700;
+        color: #475569;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        margin: 4px 0 4px;
+      }
+
+      .t-header .t-contact {
+        font-size: 11px;
+        color: #475569;
+        line-height: 1.4;
+      }
+
       /* ===== TRANSCRIPT DOCUMENT ===== */
       .transcript {
         max-width: 900px;
@@ -78,9 +138,11 @@
       .transcript-border-top {
         height: 6px;
         background: linear-gradient(90deg, var(--primary), var(--primary-hover), var(--primary));
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
       }
 
-      /* Watermark */
+      /* Watermark - Logo */
       .transcript::before {
         content: "";
         position: absolute;
@@ -93,89 +155,94 @@
         background-repeat: no-repeat;
         background-position: center;
         background-size: contain;
-        opacity: 0.04;
+        opacity: 0.12;
         z-index: 0;
         pointer-events: none;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
       }
+
+      /* Watermark - UNOFFICIAL TEXT (Multiple Small) */
+      <% if (!official) { %>
+      .transcript::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-image: repeating-linear-gradient(
+          -45deg,
+          transparent,
+          transparent 120px,
+          rgba(225, 29, 72, 0.06) 120px,
+          rgba(225, 29, 72, 0.06) 121px
+        );
+        z-index: 1;
+        pointer-events: none;
+      }
+      
+      .transcript-watermark {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 10;
+        pointer-events: none;
+        overflow: hidden;
+      }
+      
+      .watermark-text {
+        position: absolute;
+        font-size: 18px;
+        font-weight: 700;
+        color: rgba(225, 29, 72, 0.08);
+        transform: rotate(-45deg);
+        white-space: nowrap;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }
+      <% } %>
 
       .transcript-content {
         position: relative;
-        z-index: 1;
-        padding: 40px 48px;
-      }
-
-      /* Header */
-      .t-header {
-        text-align: center;
-        padding-bottom: 24px;
-        margin-bottom: 28px;
-        border-bottom: 3px double var(--primary);
-      }
-
-      .t-header img {
-        width: 72px;
-        height: 72px;
-        object-fit: contain;
-        margin-bottom: 12px;
-      }
-
-      .t-header h1 {
-        font-size: 24px;
-        font-weight: 800;
-        color: var(--primary);
-        letter-spacing: 1px;
-        text-transform: uppercase;
-        margin-bottom: 4px;
-      }
-
-      .t-header .t-subtitle {
-        font-size: 16px;
-        font-weight: 700;
-        color: #475569;
-        letter-spacing: 3px;
-        text-transform: uppercase;
-        margin: 8px 0;
-      }
-
-      .t-header .t-contact {
-        font-size: 12px;
-        color: #64748b;
-        margin-top: 6px;
-        line-height: 1.6;
+        z-index: 2;
+        padding: 28px 36px;
       }
 
       /* Student Info */
       .t-student-info {
-        margin-bottom: 28px;
-        padding: 20px;
+        margin-bottom: 20px;
+        padding: 14px 16px;
         background: #f8fafc;
         border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        border-left: 4px solid var(--primary);
+        border-radius: 6px;
+        border-left: 3px solid var(--primary);
       }
 
       .t-student-info h2 {
-        font-size: 14px;
+        font-size: 12px;
         font-weight: 700;
         color: var(--primary);
         text-transform: uppercase;
         letter-spacing: 1px;
-        margin-bottom: 14px;
-        padding-bottom: 8px;
+        margin-bottom: 10px;
+        padding-bottom: 6px;
         border-bottom: 1px solid #e2e8f0;
       }
 
       .t-student-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 8px 24px;
+        gap: 6px 20px;
       }
 
       .t-student-grid p {
-        font-size: 13px;
+        font-size: 11px;
         color: #334155;
         margin: 0;
-        line-height: 1.6;
+        line-height: 1.5;
       }
 
       .t-student-grid strong {
@@ -185,29 +252,29 @@
 
       /* Academic Info */
       .t-academic h2 {
-        font-size: 14px;
+        font-size: 12px;
         font-weight: 700;
         color: var(--primary);
         text-transform: uppercase;
         letter-spacing: 1px;
-        margin-bottom: 20px;
-        padding-bottom: 8px;
+        margin-bottom: 14px;
+        padding-bottom: 6px;
         border-bottom: 2px solid var(--primary);
       }
 
       .t-year-section {
-        margin-bottom: 28px;
+        margin-bottom: 20px;
       }
 
       .t-year-section h3 {
-        font-size: 15px;
+        font-size: 13px;
         font-weight: 700;
         color: #0f172a;
-        padding: 10px 16px;
+        padding: 8px 12px;
         background: linear-gradient(135deg, #f8fafc, #f1f5f9);
         border-left: 4px solid var(--primary);
         border-radius: 0 6px 6px 0;
-        margin-bottom: 16px;
+        margin-bottom: 10px;
       }
 
       .t-term-section {
@@ -465,28 +532,73 @@
         }
 
         body {
-          background: white;
+          background: #fff !important;
           padding: 0;
           margin: 0;
         }
 
-        .transcript-controls,
-        .sig-tools {
-          display: none !important;
+        /* Hide controls and tools when printing */
+        .transcript-controls { display: none !important; }
+        .sig-tools { display: none !important; }
+        #emailModal { display: none !important; }
+        
+        /* Hide page headers, footers, chatbot, navigation, etc */
+        header { display: none !important; }
+        footer { display: none !important; }
+        nav { display: none !important; }
+        .navbar { display: none !important; }
+        .sidebar { display: none !important; }
+        .chatbot { display: none !important; }
+        #chatbot { display: none !important; }
+        .chat-widget { display: none !important; }
+        .floating-button { display: none !important; }
+        [class*="chatbot"] { display: none !important; }
+        [id*="chatbot"] { display: none !important; }
+        [class*="chat-"] { display: none !important; }
+        .no-print { display: none !important; }
+
+        /* Ensure transcript shows with proper styling */
+        .transcript {
+          box-shadow: none !important;
+          border: none;
+          margin: 0 auto;
+          page-break-inside: avoid;
         }
 
-        .transcript {
-          box-shadow: none;
-          margin: 0;
-          max-width: 100%;
+        /* Force watermarks to show in print - uses color not background so always visible */
+        .transcript::before {
+          content: "" !important;
+          display: block !important;
+          opacity: 0.12 !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        
+        .transcript::after {
+          content: "" !important;
+          display: block !important;
+        }
+        
+        .transcript-watermark {
+          display: block !important;
+        }
+        
+        .watermark-text {
+          display: block !important;
+          color: rgba(225, 29, 72, 0.12) !important;
+          opacity: 1 !important;
+          print-color-adjust: exact;
+          -webkit-print-color-adjust: exact;
+        }
+        
+        /* Show disclaimer page in print */
+        .pdf-disclaimer-page {
+          display: block !important;
+          page-break-before: always !important;
         }
 
         .transcript-content {
           padding: 20px 24px;
-        }
-
-        .transcript::before {
-          opacity: 0.06 !important;
         }
 
         .t-table th {
@@ -519,25 +631,40 @@
   <body>
     <!-- Controls -->
     <div class="transcript-controls">
-      <button class="ctrl-btn ctrl-btn-print" onclick="window.print()">🖨️ Print Transcript</button>
       <button class="ctrl-btn ctrl-btn-back" onclick="history.back()">← Back</button>
+      <button class="ctrl-btn ctrl-btn-print" onclick="window.print()">🖨️ Print</button>
+      <button class="ctrl-btn ctrl-btn-email" onclick="openEmailModal()">✉️ Email</button>
     </div>
 
     <!-- Transcript Document -->
     <div class="transcript">
       <div class="transcript-border-top"></div>
+      
+      <% if (!official) { %>
+      <!-- Multiple Watermark Pattern -->
+      <div class="transcript-watermark">
+        <% for (let row = 0; row < 15; row++) { %>
+          <% for (let col = 0; col < 4; col++) { %>
+            <div class="watermark-text" style="top: <%= row * 80 - 40 %>px; left: <%= col * 300 - 50 %>px;">UNOFFICIAL</div>
+          <% } %>
+        <% } %>
+      </div>
+      <% } %>
+      
       <div class="transcript-content">
 
         <!-- Header -->
         <div class="t-header">
           <% if (session.logo) { %>
-            <img src="<%= session.logo %>" alt="School Logo" />
+            <div class="t-logo"><img src="<%= session.logo %>" alt="School Logo" /></div>
           <% } %>
-          <h1><%= organization.organization_name %></h1>
-          <div class="t-subtitle">Official Academic Transcript</div>
-          <div class="t-contact">
-            <%= organization.organization_address %><br>
-            Email: <%= organization.email %> &nbsp;|&nbsp; Phone: <%= organization.organization_phone %>
+          <div class="t-heading">
+            <h1><%= organization.organization_name %></h1>
+            <div class="t-subtitle">Official Academic Transcript</div>
+            <div class="t-contact">
+              <%= organization.organization_address %><br>
+              Email: <%= organization.email %> &nbsp;|&nbsp; Phone: <%= organization.organization_phone %>
+            </div>
           </div>
         </div>
 
@@ -617,41 +744,126 @@
       <div class="transcript-border-bottom"></div>
     </div>
 
-    <!-- Signature Tools -->
-    <div class="sig-tools">
-      <h3>✍️ Manage Signature</h3>
-      
-      <div class="sig-tabs">
-        <button class="sig-tab active" onclick="switchSigTab('upload')">📁 Upload Image</button>
-        <button class="sig-tab" onclick="switchSigTab('draw')">✏️ Draw Signature</button>
-      </div>
-
-      <!-- Upload Panel -->
-      <div id="sigUploadPanel" class="sig-panel active">
-        <form action="/transcript/uploadSignatureImage" method="POST" enctype="multipart/form-data" class="sig-upload-form">
-          <input type="hidden" name="studentId" value="<%= student.student_id %>" />
-          <input type="file" name="signatureImage" accept="image/*" required />
-          <button type="submit" class="sig-upload-btn">
-            <%= signatureImageUrl ? '🔄 Update Signature' : '📤 Upload Signature' %>
-          </button>
-        </form>
-      </div>
-
-      <!-- Draw Panel -->
-      <div id="sigDrawPanel" class="sig-panel">
-        <p style="font-size: 13px; color: #64748b; margin-bottom: 10px;">Draw your signature below using your mouse or touchscreen:</p>
-        <div class="sig-canvas-wrapper">
-          <canvas id="signatureCanvas" class="sig-canvas"></canvas>
+    <!-- Email Step 1: Enter Email -->
+    <div id="emailStepModal" style="display:none;position:fixed;inset:0;z-index:2000;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);">
+      <div style="background:#fff;border-radius:12px;padding:24px;max-width:420px;width:90%;box-shadow:0 20px 50px rgba(0,0,0,0.35);">
+        <h3 style="margin-top:0;margin-bottom:10px;color:var(--primary);font-size:18px;">📧 Email Transcript</h3>
+        <p style="font-size:13px;color:#64748b;line-height:1.5;margin-bottom:16px;">Enter the email address where you'd like to send this official transcript.</p>
+        <div class="form-group" style="margin-bottom:16px;">
+          <label style="display:block;font-weight:600;margin-bottom:8px;color:#0f172a;font-size:13px;">Recipient Email Address</label>
+          <input type="email" id="emailTarget" placeholder="guardian@example.com" style="width:100%;padding:11px 14px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;" value="<%= student.guardian_email || '' %>" />
+          <p style="font-size:11px;color:#64748b;margin-top:6px;margin-bottom:0;">Default: <%= student.guardian_email || 'No guardian email on file' %></p>
         </div>
-        <div class="sig-canvas-actions">
-          <button class="sig-clear-btn" onclick="clearCanvas()">🗑 Clear</button>
-          <button class="sig-save-btn" onclick="saveDigitalSignature()">💾 Save Signature</button>
+        <div id="emailStepStatus" style="font-size:12px;color:#e11d48;margin-bottom:12px;min-height:18px;"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button type="button" class="ctrl-btn ctrl-btn-back" style="padding:10px 18px;font-size:13px;" onclick="closeEmailStepModal()">Cancel</button>
+          <button type="button" class="ctrl-btn ctrl-btn-print" style="padding:10px 18px;font-size:13px;" onclick="proceedToPasswordStep()">Continue →</button>
         </div>
-        <div id="sigStatus" class="sig-status"></div>
       </div>
     </div>
 
+    <!-- Email Step 2: Confirm Password -->
+    <div id="passwordConfirmModal" style="display:none;position:fixed;inset:0;z-index:2001;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);">
+      <div style="background:#fff;border-radius:12px;padding:24px;max-width:400px;width:90%;box-shadow:0 20px 50px rgba(0,0,0,0.35);">
+        <h3 style="margin-top:0;margin-bottom:10px;color:var(--primary);font-size:18px;">🔐 Confirm Your Password</h3>
+        <p style="font-size:13px;color:#64748b;line-height:1.5;margin-bottom:16px;">For security, please confirm your password to send the transcript.</p>
+        <div class="form-group" style="margin-bottom:16px;">
+          <label style="display:block;font-weight:600;margin-bottom:8px;color:#0f172a;font-size:13px;">Your Password</label>
+          <input type="password" id="emailPassword" placeholder="Enter your password" style="width:100%;padding:11px 14px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;" />
+        </div>
+        <div id="passwordStatus" style="font-size:12px;color:#64748b;margin-bottom:12px;min-height:18px;"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button type="button" class="ctrl-btn ctrl-btn-back" style="padding:10px 18px;font-size:13px;background:#64748b;" onclick="backToEmailStep()">← Back</button>
+          <button type="button" class="ctrl-btn ctrl-btn-print" style="padding:10px 18px;font-size:13px;" onclick="sendTranscriptEmail()">Send Email</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Signature Management Link -->
+    <div class="sig-tools">
+      <h3>✨ Signature Management</h3>
+      <p style="font-size: 14px; color: #64748b; margin-bottom: 16px;line-height:1.6;">
+        Manage all transcript signatures from the centralized Report Settings page. 
+        You can create multiple signatures and assign them to different classes.
+      </p>
+      <a href="/print/reportSettings?classId=<%= student.class_id %>&termId=<%= typeof termId !== 'undefined' ? termId : '' %>" 
+         style="display:inline-block;background:var(--org-primary-color, #0f5a66);color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;transition:all 0.2s ease;box-shadow:0 4px 12px rgba(15,90,102,0.2);">
+        🛠️ Manage Signatures in Report Settings
+      </a>
+    </div>
+
     <script>
+      let emailRecipient = '';
+      
+      function openEmailModal(){
+        document.getElementById('emailStepStatus').textContent = '';
+        document.getElementById('emailTarget').value = '<%= student.guardian_email || "" %>';
+        document.getElementById('emailStepModal').style.display = 'flex';
+      }
+      
+      function closeEmailStepModal(){ 
+        document.getElementById('emailStepModal').style.display = 'none'; 
+      }
+      
+      function proceedToPasswordStep(){
+        const emailInput = document.getElementById('emailTarget').value.trim();
+        const statusEl = document.getElementById('emailStepStatus');
+        
+        if(!emailInput || !emailInput.includes('@')){
+          statusEl.textContent = 'Please enter a valid email address.';
+          return;
+        }
+        
+        emailRecipient = emailInput;
+        document.getElementById('emailStepModal').style.display = 'none';
+        document.getElementById('emailPassword').value = '';
+        document.getElementById('passwordStatus').textContent = '';
+        document.getElementById('passwordConfirmModal').style.display = 'flex';
+      }
+      
+      function backToEmailStep(){
+        document.getElementById('passwordConfirmModal').style.display = 'none';
+        document.getElementById('emailStepModal').style.display = 'flex';
+      }
+      
+      async function sendTranscriptEmail(){
+        const statusEl = document.getElementById('passwordStatus');
+        const password = document.getElementById('emailPassword').value;
+        
+        if(!password){
+          statusEl.style.color = '#e11d48';
+          statusEl.textContent = 'Please enter your password.';
+          return;
+        }
+        
+        statusEl.style.color = '#0ea5e9';
+        statusEl.textContent = 'Sending email...';
+        
+        try {
+          const res = await fetch('/transcript/emailTranscript', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ 
+              studentId: '<%= student.student_id %>', 
+              targetEmail: emailRecipient, 
+              password 
+            })
+          });
+          const data = await res.json();
+          if(!data.success){ throw new Error(data.message || 'Failed to send email'); }
+          
+          statusEl.style.color = '#10b981';
+          statusEl.textContent = '✓ Email sent successfully!';
+          setTimeout(() => {
+            document.getElementById('passwordConfirmModal').style.display = 'none';
+          }, 1200);
+        } catch(err){
+          statusEl.style.color = '#e11d48';
+          statusEl.textContent = err.message;
+        }
+      }
+
       // ===== Tab Switching =====
       function switchSigTab(tab) {
         document.querySelectorAll('.sig-tab').forEach(t => t.classList.remove('active'));
@@ -789,5 +1001,67 @@
         }
       }
     </script>
+
+    <!-- Disclaimer Page (Shows in print mode and PDF exports, hidden in browser view) -->
+    <% const showDisclaimer = (typeof official !== 'undefined' && official && req.query.pdf === 'true') || req.query.print === 'true'; %>
+    <% if (showDisclaimer || true) { %>
+    <div class="pdf-disclaimer-page" style="page-break-before: always; padding: 25px 30px; font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.4; color: #1e293b; position: relative; display: none;">      
+      <% if (!official) { %>
+      <!-- Watermark for disclaimer page -->
+      <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1; pointer-events: none; overflow: hidden;">
+        <% for (let row = 0; row < 15; row++) { %>
+          <% for (let col = 0; col < 4; col++) { %>
+            <div style="position: absolute; font-size: 16px; font-weight: 700; color: rgba(225, 29, 72, 0.12); transform: rotate(-45deg); white-space: nowrap; letter-spacing: 1px; text-transform: uppercase; top: <%= row * 6.5 %>%; left: <%= col * 25 %>%;">UNOFFICIAL</div>
+          <% } %>
+        <% } %>
+      </div>
+      <% } %>
+      <div style="position: relative; z-index: 2;">
+        
+        <h1 style="color: var(--primary, #0f5a66); text-align: center; margin: 0 0 18px 0; font-size: 20px; border-bottom: 2px solid var(--primary, #0f5a66); padding-bottom: 10px;">
+          OFFICIAL ACADEMIC TRANSCRIPT - IMPORTANT INFORMATION
+        </h1>
+        
+        <p style="margin: 10px 0; color: #1e293b; font-size: 11px; line-height: 1.5;">
+          <strong style="color: var(--primary, #0f5a66);">What is an Official Transcript:</strong> This is a comprehensive record of a student's academic performance throughout their enrollment period, containing complete course history, grades, assessment records across all academic terms, cumulative performance data, and official institutional verification. This document is issued for official purposes only including academic applications, employment verification, professional certification, and legal/immigration requirements.
+        </p>
+
+        <p style="margin: 10px 0; color: #1e293b; font-size: 11px; line-height: 1.5;">
+          <strong style="color: var(--primary, #0f5a66);">Proper Usage:</strong> This transcript must be handled with appropriate care and used only for legitimate purposes such as submission to educational institutions for admission, transfer or scholarship purposes; providing proof of academic qualifications to employers or licensing boards; supporting applications for professional certifications; and meeting documentation requirements for legal proceedings or immigration applications.
+        </p>
+
+        <p style="margin: 10px 0; color: #dc2626; font-size: 11px; line-height: 1.5; font-weight: 600;">
+          <strong style="color: #dc2626;">⚠️ PROHIBITED USES:</strong> Recipients are expressly PROHIBITED from: (1) Any modification, editing, or tampering with this document; (2) Presenting this document as belonging to another individual; (3) Sharing, copying, or distributing without proper authorization; (4) Creating counterfeit copies or falsified versions. Violation may result in criminal prosecution under fraud and forgery statutes, civil liability for damages, permanent revocation of student privileges, and reporting to relevant authorities.
+        </p>
+
+        <p style="margin: 10px 0; color: #1e293b; font-size: 11px; line-height: 1.5;">
+          <strong style="color: var(--primary, #0f5a66);">Document Authenticity:</strong> This transcript has been issued through Managira's secure academic records management system with digital authentication, authorized signatures from institutional representatives, official institutional seal/logo, and clear date of issue. For verification inquiries, contact the issuing institution directly through official channels. Institutions may verify authenticity by cross-referencing student information and date of issue with internal records.
+        </p>
+
+        <p style="margin: 10px 0; color: #1e293b; font-size: 11px; line-height: 1.5;">
+          <strong style="color: var(--primary, #0f5a66);">Recipient Responsibilities:</strong> By receiving this transcript, you agree to: maintain confidentiality and security; use only for intended legitimate purposes; report suspected fraud or misuse immediately; comply with all applicable privacy laws and data protection regulations; not reproduce or distribute without authorization; securely dispose when no longer needed.
+        </p>
+
+        <p style="margin: 10px 0; color: #1e293b; font-size: 11px; line-height: 1.5;">
+          <strong style="color: var(--primary, #0f5a66);">Privacy & Data Protection:</strong> This document contains personally identifiable student information protected under applicable privacy regulations including educational privacy laws, data protection acts, and all relevant international and local data protection regulations. Recipients must store securely to prevent unauthorized access, limit access to personnel with legitimate need-to-know, implement safeguards against data breaches, and report security incidents immediately.
+        </p>
+
+        <p style="margin: 14px 0 10px 0; padding: 10px; background: #fef2f2; color: #dc2626; font-size: 10px; line-height: 1.4; text-align: center; font-weight: 600; border: 1px solid #dc2626;">
+          ⚖️ LEGAL DISCLAIMER: This document is protected by copyright and educational privacy laws. Unauthorized use, reproduction, alteration, or distribution is strictly prohibited and may result in legal action. The issuing institution reserves all rights to this document and the information contained herein.
+        </p>
+
+        <div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--primary, #0f5a66); text-align: center;">
+          <p style="color: var(--primary, #0f5a66); font-size: 10px; margin: 4px 0;">
+            <strong>Generated By:</strong> Managira Academic Records Management System | <strong>Date:</strong> <%= new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) %>
+          </p>
+          <p style="color: #64748b; font-size: 9px; margin: 4px 0; font-style: italic;">
+            For questions or verification, contact the issuing institution directly.
+          </p>
+        </div>
+
+      </div>
+    </div>
+    <% } %>
+
   </body>
 </html>

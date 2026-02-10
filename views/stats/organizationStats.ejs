@@ -110,8 +110,10 @@
     .controls-bar {
       display: flex;
       gap: 12px;
-      flex-wrap: wrap;
-      margin-bottom: 32px;
+      flex-wrap: nowrap;
+      justify-content: flex-start;
+      align-items: center;
+      margin-bottom: 20px;
     }
 
     .control-btn {
@@ -128,6 +130,9 @@
       cursor: pointer;
       transition: all 0.2s ease;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+      flex: 1 1 0;
+      min-width: 0;
+      text-align: left;
     }
 
     .control-btn:hover {
@@ -497,6 +502,7 @@
 
       .controls-bar {
         flex-direction: column;
+        flex-wrap: wrap;
       }
 
       .control-btn {
@@ -565,6 +571,59 @@
         <button class="form-submit-btn" type="submit">Show Stats</button>
       </div>
     </form>
+
+    <% if (allowedFeatures.includes("Class Base Analytics & Insights")) { %>
+    <div id="classComparisonForm" class="compare-section form-panel" style="display: none;">
+      <h2 style="margin-top: 0;">📊 Compare Classes</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label>School Year</label>
+          <select id="compareSchoolYearSelect" name="schoolYear" required>
+            <option value="">Select a school year</option>
+            <% schoolYears.forEach(year => { %>
+              <option value="<%= year.school_year_id %>" data-terms='<%= JSON.stringify(year.terms) %>'>
+                <%= year.year_label %>
+              </option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Term</label>
+          <select id="compareTermSelect" name="termId" required>
+            <option value="">Select a term</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="classSelection" class="checkbox-grid"></div>
+
+      <button class="form-submit-btn" id="compareClassesBtn" type="button">Compare Selected Classes</button>
+    </div>
+
+    <div id="classComparisonResults" class="compare-section" style="display: none;">
+      <h2 class="section-title">📈 Class Performance Comparison</h2>
+
+      <div class="comparison-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Class</th>
+              <th>Enrolled</th>
+              <th>Avg Score</th>
+              <th>Pass</th>
+              <th>Fail</th>
+            </tr>
+          </thead>
+          <tbody id="classComparisonTableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="chart-card">
+        <h3>📊 Visual Comparison</h3>
+        <canvas id="classComparisonChart"></canvas>
+      </div>
+    </div>
+    <% } %>
 
     <% if (currentTerm) { %>
     <!-- Stats Cards -->
@@ -655,60 +714,6 @@
     </div>
     <% } %>
 
-    <!-- Class Comparison Section -->
-    <% if (allowedFeatures.includes("Class Base Analytics & Insights")) { %>
-    <div id="classComparisonForm" class="compare-section" style="display: none;">
-      <h2>📊 Compare Classes</h2>
-      
-      <div class="form-row">
-        <div class="form-group">
-          <label>School Year</label>
-          <select id="compareSchoolYearSelect" name="schoolYear" required>
-            <option value="">Select a school year</option>
-            <% schoolYears.forEach(year => { %>
-              <option value="<%= year.school_year_id %>" data-terms='<%= JSON.stringify(year.terms) %>'>
-                <%= year.year_label %>
-              </option>
-            <% }) %>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Term</label>
-          <select id="compareTermSelect" name="termId" required>
-            <option value="">Select a term</option>
-          </select>
-        </div>
-      </div>
-
-      <div id="classSelection" class="checkbox-grid"></div>
-
-      <button class="form-submit-btn" id="compareClassesBtn">Compare Selected Classes</button>
-    </div>
-
-    <div id="classComparisonResults" style="display: none;">
-      <h2 class="section-title">📈 Class Performance Comparison</h2>
-
-      <div class="comparison-table">
-        <table>
-          <thead>
-            <tr>
-              <th>Class</th>
-              <th>Enrolled</th>
-              <th>Avg Score</th>
-              <th>Pass</th>
-              <th>Fail</th>
-            </tr>
-          </thead>
-          <tbody id="classComparisonTableBody"></tbody>
-        </table>
-      </div>
-
-      <div class="chart-card">
-        <h3>📊 Visual Comparison</h3>
-        <canvas id="classComparisonChart"></canvas>
-      </div>
-    </div>
-    <% } %>
   </div>
 
   <script>
@@ -716,15 +721,38 @@
       // Toggle Forms
       document.getElementById("toggleTermFormBtn")?.addEventListener("click", function() {
         const form = document.getElementById("termSelectionForm");
-        const isShowing = form.classList.toggle("show");
+        const classForm = document.getElementById("classComparisonForm");
+        const classBtn = document.getElementById("toggleClassFormBtn");
+
+        const isShowing = !form.classList.contains("show");
+        form.classList.toggle("show", isShowing);
         this.classList.toggle("active", isShowing);
+
+        // Close compare classes if open
+        if (classForm) {
+          classForm.style.display = "none";
+        }
+        if (classBtn) {
+          classBtn.classList.remove("active");
+        }
       });
 
       document.getElementById("toggleClassFormBtn")?.addEventListener("click", function() {
         const form = document.getElementById("classComparisonForm");
-        const isShowing = form.style.display === "none";
+        const termForm = document.getElementById("termSelectionForm");
+        const termBtn = document.getElementById("toggleTermFormBtn");
+
+        const isShowing = form.style.display === "none" || form.style.display === "";
         form.style.display = isShowing ? "block" : "none";
         this.classList.toggle("active", isShowing);
+
+        // Close term selector if open
+        if (termForm) {
+          termForm.classList.remove("show");
+        }
+        if (termBtn) {
+          termBtn.classList.remove("active");
+        }
       });
 
       // Load Terms

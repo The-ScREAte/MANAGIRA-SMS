@@ -1,6 +1,13 @@
 
 // Helper to get first class for org
 const { getFirstClassForOrganization } = require("../models/classModel");
+const bcrypt = require("bcryptjs");
+const { sendEmailSafely } = require("../utils/emailHelper");
+const puppeteer = require('puppeteer');
+const fs = require('fs');
+const path = require('path');
+const ejs = require('ejs');
+const axios = require('axios');
 
 const transcriptController = (db) => ({
     generateTranscript: async (req, res) => {
@@ -27,7 +34,16 @@ const transcriptController = (db) => ({
 
             // Fetch student details
             const studentQuery = `
-                SELECT s.student_id, s.first_name, s.last_name, s.date_of_birth, s.gender, s.hometown, c.class_name, g.name AS graduation_year_group
+                                    SELECT s.student_id, s.first_name, s.last_name, s.date_of_birth, s.gender, s.hometown,
+                                            (
+                                                SELECT gp.email
+                                                FROM guardian_students gs
+                                                JOIN guardian_profiles gp ON gp.guardian_id = gs.guardian_id AND gp.organization_id = s.organization_id
+                                                WHERE gs.student_id = s.student_id
+                                                LIMIT 1
+                                            ) AS guardian_email,
+                                            c.class_id, c.class_name,
+                                            g.name AS graduation_year_group
                 FROM students s
                 LEFT JOIN classes c ON s.class_id = c.class_id
                 LEFT JOIN graduation_year_groups g ON s.graduation_year_group_id = g.id
@@ -61,16 +77,21 @@ const transcriptController = (db) => ({
             const scores = scoresResult.rows;
 
 
-            // Fetch first class for this org
+            // Fetch first class for this org (fallback) and resolve transcript signature for the student's class
             const firstClass = await getFirstClassForOrganization(db, organizationId);
-            // Use the same S3 helper as report settings for signature image
-            const { getFromS3 } = require("../utils/s3Helpers.js");
+            const buildS3Url = (key) => {
+                if (!key) return null;
+                if (key.startsWith('http://') || key.startsWith('https://')) return key;
+                return `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+            };
             let signatureImageUrl = null;
-            if (firstClass) {
+            const signatureClassId = student.class_id || firstClass?.class_id;
+            if (signatureClassId) {
                 const signatureQuery = `SELECT signature_image_path FROM report_settings WHERE organization_id = $1 AND class_id = $2 AND term_id = -1`;
-                const signatureResult = await db.query(signatureQuery, [organizationId, firstClass.class_id]);
-                if (signatureResult.rows.length > 0 && signatureResult.rows[0].signature_image_path) {
-                    signatureImageUrl = getFromS3(signatureResult.rows[0].signature_image_path);
+                const signatureResult = await db.query(signatureQuery, [organizationId, signatureClassId]);
+                const signaturePath = signatureResult.rows[0]?.signature_image_path;
+                if (signaturePath) {
+                    signatureImageUrl = buildS3Url(signaturePath);
                 }
             }
 
@@ -81,9 +102,259 @@ const transcriptController = (db) => ({
                 student,
                 scores,
                 signatureImageUrl,
+                official: req.query.official === 'true',
             });
         } catch (error) {
                         res.status(500).send('Failed to generate transcript.');
+        }
+    },
+
+    emailTranscript: async (req, res) => {
+        let browser = null;
+        let pdfPath = null;
+        
+        try {
+            const { studentId, targetEmail, password } = req.body;
+            const organizationId = req.session.organizationId;
+
+            console.log('[emailTranscript] Request received:', { studentId, targetEmail: targetEmail ? 'provided' : 'none', hasPassword: !!password });
+
+            if (!organizationId) {
+                console.log('[emailTranscript] Unauthorized: missing organizationId');
+                return res.status(401).json({ success: false, message: "Unauthorized. Please log in again." });
+            }
+
+            if (!password) {
+                console.log('[emailTranscript] Missing password');
+                return res.status(400).json({ success: false, message: "Password is required." });
+            }
+
+            // Fetch organization password (same as payment confirmation)
+            const orgResult = await db.query('SELECT password, organization_name FROM organizations WHERE organization_id = $1', [organizationId]);
+            if (orgResult.rows.length === 0) {
+                console.log('[emailTranscript] Organization not found');
+                return res.status(404).json({ success: false, message: "Organization not found. Please log in again." });
+            }
+
+            const organization = orgResult.rows[0];
+            const passwordMatch = await bcrypt.compare(password, organization.password);
+            console.log('[emailTranscript] Password verification:', { match: passwordMatch });
+            if (!passwordMatch) {
+                console.log('[emailTranscript] Incorrect password');
+                return res.status(401).json({ success: false, message: "Incorrect password. Please try again." });
+            }
+
+            // Fetch student data
+            const studentQuery = `
+                SELECT s.student_id, s.first_name, s.last_name, s.class_id,
+                    (
+                        SELECT gp.email
+                        FROM guardian_students gs
+                        JOIN guardian_profiles gp ON gp.guardian_id = gs.guardian_id AND gp.organization_id = s.organization_id
+                        WHERE gs.student_id = s.student_id
+                        LIMIT 1
+                    ) AS guardian_email
+                FROM students s
+                WHERE s.student_id = $1 AND s.organization_id = $2
+            `;
+            const studentResult = await db.query(studentQuery, [studentId, organizationId]);
+            const student = studentResult.rows[0];
+            if (!student) {
+                console.log('[emailTranscript] Student not found');
+                return res.status(404).json({ success: false, message: "Student not found." });
+            }
+
+            const recipientEmail = targetEmail || student.guardian_email;
+            if (!recipientEmail) {
+                console.log('[emailTranscript] No email address available');
+                return res.status(400).json({ success: false, message: "No email address provided or guardian email on file." });
+            }
+
+            console.log('[emailTranscript] Generating PDF with Puppeteer...');
+
+            // Fetch all the data needed for the transcript (same as generateTranscript)
+            const organizationQuery = `
+                SELECT organization_name, organization_address, organization_phone, email, logo_path
+                FROM organizations WHERE organization_id = $1
+            `;
+            const orgData = await db.query(organizationQuery, [organizationId]);
+            const orgDetails = orgData.rows[0];
+
+            // Build S3 URL for logo if it exists
+            const buildS3Url = (key) => {
+                if (!key) return null;
+                if (key.startsWith('http://') || key.startsWith('https://')) return key;
+                return `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+            };
+            const orgLogoUrl = orgDetails.logo_path ? buildS3Url(orgDetails.logo_path) : null;
+            const fetchImageAsDataUrl = async (url, label) => {
+                try {
+                    const response = await axios.get(url, { responseType: 'arraybuffer' });
+                    const mime = response.headers['content-type'] || 'image/png';
+                    return `data:${mime};base64,${Buffer.from(response.data).toString('base64')}`;
+                } catch (err) {
+                    console.warn(`[emailTranscript] Failed to inline ${label}:`, err.message);
+                    return null;
+                }
+            };
+            const orgLogoDataUrl = orgLogoUrl ? await fetchImageAsDataUrl(orgLogoUrl, 'logo') : null;
+
+            const fullStudentQuery = `
+                SELECT s.student_id, s.first_name, s.last_name, s.date_of_birth, s.gender, s.hometown,
+                    (
+                        SELECT gp.email
+                        FROM guardian_students gs
+                        JOIN guardian_profiles gp ON gp.guardian_id = gs.guardian_id AND gp.organization_id = s.organization_id
+                        WHERE gs.student_id = s.student_id
+                        LIMIT 1
+                    ) AS guardian_email,
+                    c.class_id, c.class_name,
+                    g.name AS graduation_year_group
+                FROM students s
+                LEFT JOIN classes c ON s.class_id = c.class_id
+                LEFT JOIN graduation_year_groups g ON s.graduation_year_group_id = g.id
+                WHERE s.student_id = $1 AND s.organization_id = $2
+            `;
+            const fullStudentResult = await db.query(fullStudentQuery, [studentId, organizationId]);
+            const fullStudent = fullStudentResult.rows[0];
+
+            const scoresQuery = `
+                SELECT sub.subject_name, 
+                       ar.total_percentage, 
+                       ar.grade, 
+                       t.term_name, 
+                       sy.year_label
+                FROM assessment_results ar
+                JOIN assessments a ON ar.assessment_id = a.assessment_id
+                JOIN subjects sub ON a.subject_id = sub.subject_id
+                JOIN terms t ON ar.term_id = t.term_id
+                JOIN school_years sy ON t.school_year_id = sy.id
+                WHERE ar.student_id = $1 AND ar.organization_id = $2
+                  AND sy.current = FALSE
+                GROUP BY sub.subject_name, ar.total_percentage, ar.grade, t.term_name, sy.year_label
+                ORDER BY sy.year_label, t.term_name, sub.subject_name
+            `;
+            const scoresResult = await db.query(scoresQuery, [studentId, organizationId]);
+            const scores = scoresResult.rows;
+
+            // Get signature
+            const firstClass = await getFirstClassForOrganization(db, organizationId);
+            let signatureImageUrl = null;
+            const signatureClassId = fullStudent.class_id || firstClass?.class_id;
+            if (signatureClassId) {
+                const signatureQuery = `SELECT signature_image_path FROM report_settings WHERE organization_id = $1 AND class_id = $2 AND term_id = -1`;
+                const signatureResult = await db.query(signatureQuery, [organizationId, signatureClassId]);
+                const signaturePath = signatureResult.rows[0]?.signature_image_path;
+                signatureImageUrl = signaturePath ? buildS3Url(signaturePath) : null;
+            }
+            const signatureDataUrl = signatureImageUrl ? await fetchImageAsDataUrl(signatureImageUrl, 'signature') : null;
+
+            // Render EJS template to HTML string
+            const templatePath = path.join(__dirname, '../views/print/transcript.ejs');
+            const html = await ejs.renderFile(templatePath, {
+                title: `Transcript for ${fullStudent.first_name} ${fullStudent.last_name}`,
+                organization: orgDetails,
+                student: fullStudent,
+                scores,
+                signatureImageUrl: signatureDataUrl || signatureImageUrl,
+                official: true,
+                session: { ...req.session, logo: orgLogoDataUrl || orgLogoUrl },
+                req: { query: { official: 'true', pdf: 'true' } }
+            });
+
+            console.log('[emailTranscript] Rendering HTML to PDF...');
+            console.log('[emailTranscript] Logo URL:', orgLogoUrl);
+
+            // Launch browser and generate PDF from HTML
+            browser = await puppeteer.launch({
+                headless: true,
+                args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-web-security']
+            });
+            const page = await browser.newPage();
+            
+            // Set content directly instead of navigating to URL
+            await page.setContent(html, {
+                waitUntil: 'networkidle0',
+                timeout: 15000
+            });
+
+            // Generate PDF
+            const timestamp = Date.now();
+            pdfPath = path.join(__dirname, '../uploads', `transcript_${studentId}_${timestamp}.pdf`);
+            
+            await page.pdf({
+                path: pdfPath,
+                format: 'A4',
+                printBackground: true,
+                margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' }
+            });
+
+            await browser.close();
+            browser = null;
+
+            console.log('[emailTranscript] PDF generated successfully');
+
+            // Read email template
+            const emailTemplatePath = path.join(__dirname, '../utils/templates/transcriptEmail.html');
+            let emailHtml = fs.readFileSync(emailTemplatePath, 'utf8');
+
+            // Replace placeholders
+            emailHtml = emailHtml
+                .replace(/{{studentName}}/g, `${student.first_name} ${student.last_name}`)
+                .replace(/{{organizationName}}/g, organization.organization_name)
+                .replace(/{{dateIssued}}/g, new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }))
+                .replace(/{{fileName}}/g, `${student.first_name}_${student.last_name}_Transcript.pdf`)
+                .replace(/{{year}}/g, new Date().getFullYear());
+
+            // Get logo for email
+            const logoPath = path.join(__dirname, '../public/images/managira.png');
+
+            console.log('[emailTranscript] Sending email with PDF attachment...');
+
+            const emailSent = await sendEmailSafely(
+                {
+                    to: recipientEmail,
+                    subject: `Official Transcript - ${student.first_name} ${student.last_name}`,
+                    html: emailHtml,
+                    attachments: [
+                        {
+                            filename: `${student.first_name}_${student.last_name}_Transcript.pdf`,
+                            path: pdfPath
+                        },
+                        {
+                            filename: 'managira-logo.png',
+                            path: logoPath,
+                            cid: 'managira_logo'
+                        }
+                    ]
+                },
+                'Transcript Email'
+            );
+
+            // Clean up PDF file
+            if (fs.existsSync(pdfPath)) {
+                fs.unlinkSync(pdfPath);
+            }
+
+            if (!emailSent) {
+                console.log('[emailTranscript] Email failed to send');
+                return res.status(500).json({ success: false, message: "Failed to send email. Please try again later." });
+            }
+
+            console.log('[emailTranscript] Email sent successfully');
+            return res.status(200).json({ success: true, message: `Transcript sent successfully to ${recipientEmail}` });
+        } catch (error) {
+            console.error('[emailTranscript] Error:', error);
+            
+            // Cleanup
+            if (browser) {
+                try { await browser.close(); } catch (e) {}
+            }
+            if (pdfPath && fs.existsSync(pdfPath)) {
+                try { fs.unlinkSync(pdfPath); } catch (e) {}
+            }
+            
+            return res.status(500).json({ success: false, message: "An error occurred while sending the transcript." });
         }
     },
 

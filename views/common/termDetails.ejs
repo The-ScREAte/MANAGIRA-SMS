@@ -11,170 +11,206 @@
       }
 
       body {
-        background-color: #ffffff;
         margin: 0;
         font-family: var(--font-family);
+        background: #f6f8fb;
+        color: #0f2d32;
       }
 
-      .container {
-        width: 80%;
-        margin: 20px auto;
-        background-color: #ffffff;
-        padding: 20px;
-        border-radius: 8px;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      .page-shell {
+        max-width: 1100px;
+        margin: 24px auto 40px;
+        padding: 0 18px;
       }
 
-      h1 {
-        color: #333;
-        text-align: center;
-        font-size: 28px;
-        margin-bottom: 15px;
+      .hero {
+        background: linear-gradient(135deg, var(--org-primary-color, #0f5a66), #0d4f59);
+        color: #fff;
+        border-radius: 16px;
+        padding: 22px 24px;
+        box-shadow: 0 18px 36px rgba(0,0,0,0.14);
+        margin-bottom: 16px;
       }
 
-      .term-details {
-        text-align: center;
-        font-size: 18px;
-        margin-bottom: 30px;
+      .hero h1 {
+        margin: 0 0 6px;
+        font-size: 1.6rem;
+        letter-spacing: 0.2px;
       }
 
-      .term-details h3 {
-        margin: 5px 0;
+      .hero p {
+        margin: 0;
+        opacity: 0.92;
       }
 
-      .classes-container {
-        text-align: center;
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 12px;
+        margin-bottom: 16px;
       }
 
-      h2 {
-        font-size: 24px;
-        margin-bottom: 15px;
+      .card {
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        box-shadow: 0 10px 24px rgba(15,45,50,0.12);
+        padding: 16px 18px;
       }
 
-      .class-item {
-        background-color: #f1f1f1;
-        padding: 10px 15px;
-        border-radius: 6px;
-        border: 1px solid #ddd;
-        margin-bottom: 10px;
+      .card h2 {
+        margin: 0 0 8px;
+        font-size: 1.05rem;
+        color: #0f2d32;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .stat {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin: 4px 0;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(15,90,102,0.08);
+        color: #0f2d32;
+        font-weight: 600;
+        font-size: 0.95rem;
+      }
+
+      .classes-section {
+        margin-top: 18px;
+      }
+
+      .classes-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        transition: background-color 0.3s ease;
+        gap: 12px;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
       }
 
-      .class-item:hover {
-        background-color: #e9e9e9;
+      .class-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 12px;
+      }
+
+      .class-card {
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 14px 16px;
+        box-shadow: 0 6px 16px rgba(15,45,50,0.1);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .class-name {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #0f2d32;
+      }
+
+      .actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
       }
 
       .btn {
-        padding: 8px 12px;
-        font-size: 14px;
+        padding: 10px 14px;
+        font-size: 0.95rem;
         color: #fff;
-        background-color: var(--org-primary-color);
-        border: none;
-        border-radius: 4px;
+        background-color: var(--org-primary-color, #0f5a66);
+        border: 1px solid transparent;
+        border-radius: 10px;
         text-decoration: none;
         cursor: pointer;
-        transition: background-color 0.3s ease;
+        transition: all 0.2s ease;
+        font-weight: 600;
+        box-shadow: 0 6px 14px rgba(15,90,102,0.16);
       }
 
       .btn:hover {
-        background-color: var(--org-primary-hover);
+        background-color: var(--org-primary-hover, #0d4f59);
+        transform: translateY(-1px);
       }
 
       @media (max-width: 768px) {
-        .container {
-          width: 95%;
-          padding: 15px;
-          margin: 10px auto;
-          border-radius: 6px;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        .page-shell {
+          padding: 0 12px;
+          margin-top: 16px;
         }
 
-        h1 {
-          font-size: 1.6rem;
-          text-align: center;
-          margin-bottom: 10px;
-        }
-
-        .term-details {
-          font-size: 1rem;
-          text-align: center;
-          margin-bottom: 20px;
-        }
-
-        .term-details h3 {
-          font-size: 1rem;
-          margin: 5px 0;
-        }
-
-        h2 {
-          font-size: 1.4rem;
-          text-align: center;
-          margin-bottom: 15px;
-        }
-
-        .class-item {
-          flex-direction: column;
-          padding: 12px;
-          text-align: center;
-        }
-
-        .class-item span {
-          font-size: 1rem;
-          margin-bottom: 8px;
-          display: block;
-        }
-
-        .btn {
-          width: 100%;
-          font-size: 1rem;
-          padding: 10px;
-          margin-bottom: 8px;
-          display: block;
-          text-align: center;
-        }
-
-        .btn:last-child {
-          margin-bottom: 0;
+        .class-grid {
+          grid-template-columns: 1fr;
         }
       }
     </style>
   </head>
   <body>
     <%- include('../partials/flash') %>
-    <div class="container">
-      <div class="classes-container">
+    <div class="page-shell">
+      <div class="hero">
         <h1><%= title %></h1>
-        <div class="term-details">
-          <h3>Term: <%= term.term_name %></h3>
-          <h3>
-            Start Date: <%= new Date(term.start_date).toLocaleDateString() %>
-          </h3>
-          <h3>End Date: <%= new Date(term.end_date).toLocaleDateString() %></h3>
+        <p>Term overview, key dates, and quick actions for each class.</p>
+      </div>
+
+      <div class="summary-grid">
+        <div class="card">
+          <h2>📅 Term</h2>
+          <div class="stat"><%= term.term_name %></div>
         </div>
-        <h2>Classes</h2>
-        <% if (classes && classes.length > 0) { %> <%
-        classes.forEach(function(cls) { %>
-        <div class="class-item">
-          <span><%= cls.class_name %></span>
-          <a
-            href="/print/printStudentReport?classId=<%= cls.class_id %>&termId=<%= termId %>"
-            class="btn"
-            >Generate Report</a
-          >
-          <% if (Array.isArray(allowedFeatures) &&
-          allowedFeatures.includes("Class Base Merrit sheet")) { %>
-          <a
-            href="/print/meritSheetPage?classId=<%= cls.class_id %>&termId=<%= termId %>"
-            class="btn"
-            >Generate Merit Sheet</a
-          >
-          <% } %>
+        <div class="card">
+          <h2>🗓️ Dates</h2>
+          <div class="stat">Start: <%= new Date(term.start_date).toLocaleDateString() %></div>
+          <div class="stat">End: <%= new Date(term.end_date).toLocaleDateString() %></div>
         </div>
-        <% }); %> <% } else { %>
-        <div class="class-item">No classes assigned for this term</div>
+        <div class="card">
+          <h2>🏫 Classes</h2>
+          <div class="stat"><%= (classes && classes.length) ? classes.length : 0 %> total</div>
+        </div>
+      </div>
+
+      <div class="card classes-section">
+        <div class="classes-header">
+          <h2 style="margin:0; display:flex; align-items:center; gap:8px;">📂 Classes</h2>
+          <div class="badge">Term ID: <%= termId %></div>
+        </div>
+
+        <% if (classes && classes.length > 0) { %>
+        <div class="class-grid">
+          <% classes.forEach(function(cls) { %>
+          <div class="class-card">
+            <div class="class-name"><%= cls.class_name %></div>
+            <div class="actions">
+              <a
+                href="/print/printStudentReport?classId=<%= cls.class_id %>&termId=<%= termId %>"
+                class="btn"
+              >Generate Report</a>
+              <% if (Array.isArray(allowedFeatures) &&
+                allowedFeatures.includes("Class Base Merrit sheet")) { %>
+              <a
+                href="/print/meritSheetPage?classId=<%= cls.class_id %>&termId=<%= termId %>"
+                class="btn"
+              >Merit Sheet</a>
+              <% } %>
+            </div>
+          </div>
+          <% }); %>
+        </div>
+        <% } else { %>
+        <div class="empty-state">No classes assigned for this term.</div>
         <% } %>
       </div>
     </div>
