@@ -236,21 +236,55 @@
       text-decoration: underline;
     }
 
-    @media (max-width: 480px) {
-      .login-card {
-        padding: 32px 24px;
+    @media (max-width: 768px) {
+      .page-wrapper {
+        padding: 40px 16px;
       }
-
+      .login-container {
+        margin-top: 30px;
+      }
+      .login-card {
+        padding: 28px 22px;
+      }
       .login-header h1 {
         font-size: 1.5rem;
       }
+      .notice {
+        font-size: 0.82rem;
+        padding: 10px 12px;
+      }
+    }
 
+    @media (max-width: 480px) {
+      .page-wrapper {
+        padding: 24px 12px;
+      }
+      .login-container {
+        margin-top: 20px;
+      }
+      .login-card {
+        padding: 24px 18px;
+        border-radius: 12px;
+      }
+      .login-header h1 {
+        font-size: 1.35rem;
+      }
+      .login-header p {
+        font-size: 0.85rem;
+      }
+      .form-label {
+        font-size: 0.85rem;
+      }
       .form-input {
         padding: 12px 14px;
+        font-size: 16px;
       }
-
       .btn-primary {
         padding: 12px 20px;
+        font-size: 0.95rem;
+      }
+      .login-links p {
+        font-size: 0.85rem;
       }
     }
   </style>

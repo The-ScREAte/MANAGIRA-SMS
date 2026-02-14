@@ -43,6 +43,30 @@ p{
 
 .content-section p{ max-width:68ch; }
 
+/* Global mobile text sizing */
+@media (max-width:768px){
+  :root{
+    --title-xl:28px;
+    --title-lg:22px;
+    --title-md:17px;
+    --text-base:14px;
+    --text-sm:12px;
+  }
+}
+@media (max-width:480px){
+  :root{
+    --title-xl:24px;
+    --title-lg:19px;
+    --title-md:16px;
+    --text-base:13.5px;
+    --text-sm:11.5px;
+  }
+  .public-dashboard-container{
+    width:100%;
+    padding:0 12px;
+  }
+}
+
 /* =========================================================
    2. BASE COMPONENTS (THEME-AGNOSTIC)
    ========================================================= */
@@ -282,16 +306,17 @@ object-fit:contain;
   flex-direction:column;
   align-items:center;
   gap:10px;
-  width:95%;
+  width:92%;
   height:auto;
   max-width:600px;
-  max-height:90vh;
+  max-height:85vh;
   text-align:center;
   background:#ffffff;
   padding:20px;
   border-radius:15px;
   position:relative;
   box-shadow:0 10px 30px rgba(0,0,0,0.3);
+  overflow-y:auto;
 }
 
 .modalImageContainer{
@@ -300,21 +325,22 @@ object-fit:contain;
   align-items:center;
   background-color:#ffffff;
   width:100%;
-  height:320px;
+  height:auto;
   max-width:100%;
-  max-height:320px;
+  max-height:55vh;
   border-radius:8px;
   margin-bottom:16px;
 }
 #modalImage{
   max-width:100%;
-  max-height:100%;
+  max-height:55vh;
   border-radius:8px;
+  object-fit:contain;
 }
 
 #modalCaption{
   margin-top:8px;
-  font-size:1rem;
+  font-size:0.95rem;
   line-height:1.6;
   padding:10px 0 0 0;
   text-align:left;
@@ -327,15 +353,42 @@ object-fit:contain;
 
 .close-button{
   position:absolute;
-  top:10px;
-  right:15px;
-  font-size:50px;
+  top:8px;
+  right:12px;
+  font-size:36px;
   cursor:pointer;
   font-weight:bold;
+  z-index:10;
+  line-height:1;
 }
 .close-button:hover{
   color:red;
-  scale:1.2;
+  scale:1.1;
+}
+
+/* Modal mobile */
+@media (max-width:480px){
+  .modal-content{
+    width:96%;
+    padding:14px;
+    max-height:90vh;
+    border-radius:12px;
+  }
+  .modalImageContainer{
+    max-height:45vh;
+  }
+  #modalImage{
+    max-height:45vh;
+  }
+  #modalCaption{
+    font-size:0.88rem;
+    max-height:100px;
+  }
+  .close-button{
+    font-size:28px;
+    top:6px;
+    right:10px;
+  }
 }
 
 /* =========================================================

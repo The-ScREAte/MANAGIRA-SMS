@@ -189,14 +189,24 @@
         main { padding: 24px 16px 40px; }
         .page-header h1 { font-size: 1.8rem; }
         form { padding: 20px 18px; }
+        .help-info { padding: 18px; }
       }
 
       @media (max-width: 480px) {
-        .page-header h1 { font-size: 1.5rem; }
-        .help-links { grid-template-columns: 1fr; }
+        main { padding: 20px 14px 32px; }
+        .page-header h1 { font-size: 1.4rem; }
+        .page-header p { font-size: 0.88rem; }
+        .help-links { grid-template-columns: 1fr; gap: 10px; }
+        .help-link-card { padding: 14px; }
+        .help-link-card span { font-size: 0.85rem; }
         form { padding: 16px 14px; }
+        .form-title { font-size: 1rem; }
+        .form-group label { font-size: 0.88rem; }
         .form-group input,
-        .form-group textarea { font-size: 16px; }
+        .form-group textarea { font-size: 16px; padding: 10px 12px; }
+        .help-info { padding: 14px; }
+        .help-info p { font-size: 0.9rem; }
+        button[type="submit"] { font-size: 0.95rem; padding: 12px; }
       }
     </style>
   </head>
