@@ -146,6 +146,8 @@ a {
   position: static;
   z-index: 1;
   transform-origin: center center;
+  transform: translateZ(0);
+  will-change: transform;
   animation: hero-spin 2.5s ease-in-out infinite;
 }
 
@@ -167,6 +169,7 @@ a {
     top: 50%;
     left: 50%;
     transform-origin: center center;
+    transform: translate(-50%, -50%) translateZ(0);
     width: 80vw;
     max-width: 320px;
     height: 260px;
@@ -176,6 +179,7 @@ a {
     border-radius: 10px;
     background: transparent;
     animation: hero-spin-mobile 2.5s ease-in-out infinite;
+    will-change: transform;
   }
   .hero-text {
     position: relative;
