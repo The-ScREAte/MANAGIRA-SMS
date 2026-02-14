@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"No tests yet\" && exit 0",
     "start": "node server.js",
-    "dev": "nodemon server.js",
+    "dev": "nodemon",
     "build:dev": "vite build --mode development"
   },
   "keywords": [],

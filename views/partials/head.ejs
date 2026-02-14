@@ -183,6 +183,37 @@
       event.preventDefault();
       event.detail.visit(event.detail.response.url);
     });
+
+    function optimizePageImages(root = document) {
+      const scope = root && root.querySelectorAll ? root : document;
+      const images = scope.querySelectorAll('img');
+
+      images.forEach((img, index) => {
+        if (!img.hasAttribute('decoding')) {
+          img.setAttribute('decoding', 'async');
+        }
+
+        const isPriorityImage =
+          index < 2 ||
+          img.closest('.custom-carousel, .slide, .hero, .public-dashboard-header, .footer-logo, .admin-header-left, header, nav');
+
+        if (!img.hasAttribute('loading')) {
+          img.setAttribute('loading', isPriorityImage ? 'eager' : 'lazy');
+        }
+
+        if (!img.getAttribute('alt') || !img.getAttribute('alt').trim()) {
+          const caption = img.closest('.gallery-card, .slide, figure, .event-card')?.querySelector('.caption, figcaption, h3');
+          const fallbackAlt = caption?.textContent?.trim() || 'Image';
+          img.setAttribute('alt', fallbackAlt);
+        }
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => optimizePageImages(document));
+    window.addEventListener('spa:pageLoaded', () => {
+      const main = document.querySelector('main') || document;
+      optimizePageImages(main);
+    });
   </script>
   
   <!-- SPA Router User Type Detection -->

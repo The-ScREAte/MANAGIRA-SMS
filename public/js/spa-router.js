@@ -106,7 +106,11 @@
       '/legal/about-us',
       '/legal/privacy-policy',
       '/legal/terms-of-service',
-      '/legal/faq'
+      '/legal/faq',
+      '/common/publicRegister',
+      '/account/confirm-password',
+      '/stats/organization',
+      '/transcript/transcript',
     ],
     guardian: [
       '/',
@@ -171,6 +175,7 @@
   // Routes that should NEVER be SPA-handled (complex forms, file uploads, etc.)
   const EXCLUDED_PATTERNS = [
     '/account/service-plan',
+    '/account/logout',
     '/admin/org/',
     '/admin/exit-org',
     'new=1',
@@ -190,6 +195,7 @@
       this.cache = new Map();
       this.isNavigating = false;
       this.currentPath = this._normalizePath(window.location.pathname + window.location.search);
+      this.pendingHash = '';
       this.abortController = null;
       this.hoverTimer = null;
       this.visibilityObserver = null;
@@ -219,6 +225,9 @@
       // 5. Handle back/forward buttons — THE critical fix
       window.addEventListener('popstate', this._onPopState.bind(this));
 
+      // 5b. Handle in-page hash navigation consistently under SPA
+      window.addEventListener('hashchange', this._onHashChange.bind(this));
+
       // 6. Save scroll position before navigating away
       window.addEventListener('scroll', this._throttle(() => {
         if (history.state && history.state.path) {
@@ -241,6 +250,13 @@
 
       // 9. Prefetch on likely navigation (if browser supports it)
       this._addPrefetchHints();
+
+      // 10. Restore hash target on initial load if present
+      if (window.location.hash) {
+        requestAnimationFrame(() => {
+          this._scrollToHash(window.location.hash.substring(1), false);
+        });
+      }
     }
 
     // ── Event Handlers ────────────────────────────────────────────────
@@ -254,6 +270,36 @@
 
       const href = link.getAttribute('href');
       if (!href) return;
+
+      // In-page hash links (e.g. sticky nav sections)
+      if (href.startsWith('#')) {
+        const hashTarget = href.substring(1);
+        if (hashTarget) {
+          e.preventDefault();
+          e.stopPropagation();
+          this._scrollToHash(hashTarget, true);
+        }
+        return;
+      }
+
+      // Same-origin URL with hash
+      let parsedUrl = null;
+      try {
+        parsedUrl = new URL(href, window.location.origin);
+      } catch (_) {
+        parsedUrl = null;
+      }
+
+      if (parsedUrl && parsedUrl.origin === window.location.origin && parsedUrl.hash) {
+        const targetPath = this._normalizePath(parsedUrl.pathname + parsedUrl.search);
+
+        if (targetPath === this.currentPath) {
+          e.preventDefault();
+          e.stopPropagation();
+          this._scrollToHash(parsedUrl.hash.substring(1), true);
+          return;
+        }
+      }
 
       // Skip non-navigable links
       if (href.startsWith('#') || href.startsWith('http') || href.startsWith('mailto:') ||
@@ -315,9 +361,15 @@
      */
     _onPopState(e) {
       const targetPath = e.state?.path || this._normalizePath(window.location.pathname + window.location.search);
+      const hashTarget = window.location.hash ? window.location.hash.substring(1) : '';
 
       // Don't re-load if we're already on this path
-      if (targetPath === this.currentPath) return;
+      if (targetPath === this.currentPath) {
+        if (hashTarget) {
+          this._scrollToHash(hashTarget, false);
+        }
+        return;
+      }
 
       // Cancel any in-flight navigation
       this._abortFetch();
@@ -325,18 +377,38 @@
       // Load page immediately — no pushState (browser already updated the URL)
       this._loadPage(targetPath, false).then(() => {
         // Restore scroll position if saved
-        const savedScroll = e.state?.scroll || 0;
-        window.scrollTo({ top: savedScroll, behavior: CONFIG.SCROLL_BEHAVIOR });
+        if (hashTarget) {
+          this._scrollToHash(hashTarget, false);
+        } else {
+          const savedScroll = e.state?.scroll || 0;
+          window.scrollTo({ top: savedScroll, behavior: CONFIG.SCROLL_BEHAVIOR });
+        }
       }).catch(() => {
         // Fallback: full page reload
         window.location.reload();
       });
     }
 
+    _onHashChange() {
+      if (window.location.hash) {
+        this._scrollToHash(window.location.hash.substring(1), false);
+      }
+    }
+
     // ── Navigation ────────────────────────────────────────────────────
 
     async navigate(path) {
-      const normalizedPath = this._normalizePath(path);
+      let rawPath = path;
+      let hashFragment = '';
+
+      if (typeof path === 'string' && path.includes('#')) {
+        const parts = path.split('#');
+        rawPath = parts[0] || this.currentPath;
+        hashFragment = parts.slice(1).join('#');
+      }
+
+      const normalizedPath = this._normalizePath(rawPath);
+      this.pendingHash = hashFragment ? decodeURIComponent(hashFragment) : '';
 
       // Don't navigate to current page
       if (normalizedPath === this.currentPath) return;
@@ -360,10 +432,16 @@
         window.history.pushState(
           { path: normalizedPath, scroll: 0 },
           '',
-          normalizedPath
+          `${normalizedPath}${this.pendingHash ? `#${encodeURIComponent(this.pendingHash)}` : ''}`
         );
-        // Scroll to top
-        window.scrollTo({ top: 0, behavior: CONFIG.SCROLL_BEHAVIOR });
+
+        // Scroll to hash target when provided, else top
+        if (this.pendingHash) {
+          this._scrollToHash(this.pendingHash, false);
+          this.pendingHash = '';
+        } else {
+          window.scrollTo({ top: 0, behavior: CONFIG.SCROLL_BEHAVIOR });
+        }
       } catch (err) {
         // Fallback to full navigation
         window.location.href = path;
@@ -769,6 +847,40 @@
 
       // Trigger Turbo-compatible event
       window.dispatchEvent(new CustomEvent('turbo:load'));
+
+      if (window.location.hash) {
+        requestAnimationFrame(() => {
+          this._scrollToHash(window.location.hash.substring(1), false);
+        });
+      }
+    }
+
+    _scrollToHash(hashValue, updateHistory = true) {
+      const cleanHash = decodeURIComponent(String(hashValue || '').replace(/^#/, '').trim());
+      if (!cleanHash) return false;
+
+      const target = document.getElementById(cleanHash);
+      if (!target) return false;
+
+      const topHeader = document.getElementById('top-header');
+      const stickyNav = document.querySelector('.sticky-nav');
+      const topHeaderHeight = topHeader ? topHeader.getBoundingClientRect().height : 0;
+      const stickyNavHeight = stickyNav && stickyNav.offsetParent !== null ? stickyNav.getBoundingClientRect().height : 0;
+      const offset = Math.max(topHeaderHeight + stickyNavHeight + 12, 24);
+
+      const targetTop = target.getBoundingClientRect().top + window.pageYOffset - offset;
+      window.scrollTo({ top: Math.max(targetTop, 0), behavior: 'smooth' });
+
+      if (updateHistory) {
+        const state = history.state && typeof history.state === 'object' ? history.state : { path: this.currentPath, scroll: window.scrollY };
+        history.replaceState(state, '', `${this.currentPath}#${encodeURIComponent(cleanHash)}`);
+      }
+
+      document.querySelectorAll('.sticky-nav a[href^="#"]').forEach(link => {
+        link.classList.toggle('active', decodeURIComponent(link.getAttribute('href').substring(1)) === cleanHash);
+      });
+
+      return true;
     }
 
     // ── Body attribute sync (ensures data-page/data-theme classes persist across SPA nav) ──

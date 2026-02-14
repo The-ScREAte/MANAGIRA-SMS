@@ -1050,7 +1050,7 @@ const commonController = {
         isLoggedIn: req.session && req.session.userId,
         accountType: req.session.accountType || null, // ✅ Pass accountType explicitly
         messages: req.flash(),
-        showFooterTopSection: true,
+        showFooterTopSection: false,
       });
     } catch (error) {
       // ...removed error log for clean background operation...

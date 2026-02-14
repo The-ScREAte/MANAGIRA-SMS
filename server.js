@@ -23,7 +23,9 @@ const fetchUnresolvedCount = require("./middleware/fetchUnresolvedCount");
 
 const upload = multer();
 const app = express();
-const PORT = process.env.PORT || 4000;
+const BASE_PORT = Number(process.env.PORT) || 4000;
+const IS_DEVELOPMENT = process.env.NODE_ENV !== "production";
+const MAX_PORT_RETRIES = Number(process.env.PORT_RETRY_LIMIT) || 10;
 
 const expressLayouts = require("express-ejs-layouts");
 const pgSession = require("connect-pg-simple")(session);
@@ -364,8 +366,33 @@ const logStartupDbStatus = async () => {
   }
 };
 
-// Start the server
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-  logStartupDbStatus();
-});
+// Start the server with dev fallback when the default port is busy
+const startServer = (port, attempt = 0) => {
+  const server = app.listen(port, () => {
+    console.log(`Server running on http://localhost:${port}`);
+    if (port !== BASE_PORT) {
+      console.log(`[Server] Base port ${BASE_PORT} was busy, using ${port}`);
+    }
+    logStartupDbStatus();
+  });
+
+  server.on("error", (error) => {
+    if (
+      error.code === "EADDRINUSE" &&
+      IS_DEVELOPMENT &&
+      attempt < MAX_PORT_RETRIES
+    ) {
+      const nextPort = port + 1;
+      console.warn(
+        `[Server] Port ${port} is already in use. Retrying on port ${nextPort}...`
+      );
+      setTimeout(() => startServer(nextPort, attempt + 1), 150);
+      return;
+    }
+
+    console.error("[Server] Failed to start:", error);
+    process.exit(1);
+  });
+};
+
+startServer(BASE_PORT);

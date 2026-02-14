@@ -29,7 +29,12 @@
       font-family: var(--font-family);
       background: var(--bg-page);
       min-height: 100vh;
-      padding: 24px 16px 60px;
+      margin: 0;
+      padding: 0;
+    }
+
+    .register-school-year-page {
+      padding: 24px 16px 24px;
     }
 
     .page-container {
@@ -209,6 +214,10 @@
       .date-row {
         grid-template-columns: 1fr;
       }
+
+      .register-school-year-page {
+        padding: 14px 12px 12px;
+      }
     }
 
     .add-term-link {
@@ -251,6 +260,7 @@
 <body>
   <%- include('../partials/flash') %>
   
+  <div class="register-school-year-page">
   <div class="page-container">
     <a href="/common/manageRecords" class="back-link">
       ← Back to Manage Records
@@ -281,6 +291,7 @@
         </form>
       </div>
     </div>
+  </div>
   </div>
 
   <script>

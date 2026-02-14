@@ -22,7 +22,7 @@ function deleteRecord(type, id) {
         }
       })
       .catch((error) => {
-        console.error("Failed to delete:", error);
+        
         alert("Failed to delete due to an error.");
       });
   }
@@ -47,7 +47,7 @@ function deleteEvent(eventId) {
         }
       })
       .catch((error) => {
-        console.error("Deletion error:", error);
+        
         alert("Failed to delete due to an error.");
       });
   }
@@ -70,7 +70,7 @@ function deleteSchoolYear(yearId) {
         }
       })
       .catch((error) => {
-        console.error("Deletion error:", error);
+        
         alert("Failed to delete due to an error.");
       });
   }

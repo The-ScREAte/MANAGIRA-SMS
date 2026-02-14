@@ -660,10 +660,6 @@ a.header-welcome:hover {
 }
 
 /* Sticky navigation bar */
-.sticky-nav {
-  background: var(--org-primary-color) !important;
-}
-
 .sticky-nav ul li a:hover,
 .sticky-nav ul li a.active {
   background: var(--org-primary-hover) !important;

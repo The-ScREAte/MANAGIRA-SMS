@@ -8,7 +8,7 @@ async function fetchClasses() {
         // Add the first term once classes are fetched
         addTerm();
     } catch (error) {
-        console.error('Error fetching classes:', error);
+        
     }
 }
 
@@ -95,9 +95,9 @@ document.getElementById('registerSchoolYearForm').addEventListener('submit', fun
           if (data.success) {
               window.location.href = '/common/orgDashboard';
           } else {
-              console.error('Failed to register school year:', data.message);
+              
           }
-      }).catch(error => console.error('Error:', error));
+      }).catch(error => );
 });
 
 // Initially fetch classes and add the first term

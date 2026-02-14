@@ -52,8 +52,11 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      box-shadow: 0 2px 12px rgba(30,41,59,0.07);
-      border-bottom: 2px solid #2563eb;
+      box-shadow: 0 10px 26px rgba(15, 23, 42, 0.08);
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      max-width: 1200px;
+      margin: 12px auto;
       flex-wrap: wrap;
       z-index: 1000;
     }
@@ -152,10 +155,10 @@
       left: 0;
       width: 100vw;
       height: 100vh;
-      background: rgba(30,41,59,0.12);
+      background: rgba(15, 23, 42, 0.4);
       z-index: 3000;
-      justify-content: center;
-      align-items: center;
+      justify-content: flex-start;
+      align-items: stretch;
       pointer-events: auto;
     }
     .admin-hamburger-overlay.show {
@@ -163,43 +166,48 @@
     }
     .admin-hamburger-menu {
       background: #fff;
-      border-radius: 18px;
+      border-radius: 0;
       box-shadow: 0 8px 32px rgba(30,41,59,0.18);
-      min-width: 260px;
-      padding: 24px 0;
+      width: 280px;
+      max-width: 85vw;
+      height: 100vh;
+      padding: 84px 12px 20px;
       z-index: 3100;
       flex-direction: column;
       list-style: none;
       margin: 0;
       display: flex;
-      align-items: center;
+      align-items: stretch;
       position: relative;
       pointer-events: auto;
+      border-right: 1px solid #e5e7eb;
     }
     body {
       overflow: auto !important;
     }
     .admin-hamburger-menu li {
       width: 100%;
-      text-align: center;
+      text-align: left;
       padding: 0;
     }
     .admin-hamburger-menu a {
       width: 100%;
       display: block;
-      padding: 16px 32px;
-      color: #2563eb;
+      padding: 8px 12px;
+      color: #111827;
       text-decoration: none;
-      font-size: 1.12rem;
+      font-size: 0.96rem;
       font-weight: 600;
-      border-radius: 0;
+      border-radius: 10px;
       background: transparent;
-      border: none;
-      transition: background 0.18s, color 0.18s;
+      border: 1px solid transparent;
+      transition: all 0.18s;
+      margin-bottom: 6px;
     }
     .admin-hamburger-menu a:hover {
-      background: #2563eb;
-      color: #fff;
+      background: #f3f4f6;
+      border-color: #e5e7eb;
+      color: #111827;
     }
     .admin-header-link {
       text-decoration: none;
@@ -226,6 +234,8 @@
         flex-direction: column;
         align-items: flex-start;
         padding: 12px 10px;
+        border-radius: 12px;
+        margin: 10px 10px 0;
       }
       .admin-header-title {
         font-size: 1.3rem;
@@ -246,6 +256,8 @@
         padding: 7px 3px;
         flex-direction: column;
         align-items: stretch;
+        border-radius: 10px;
+        margin: 8px 8px 0;
       }
       .admin-header-title {
         font-size: 1rem;
@@ -263,9 +275,9 @@
         box-shadow: none;
       }
       .admin-hamburger-menu {
-        min-width: 180px;
-        top: 38px;
-        right: 0;
+        width: 280px;
+        max-width: 88vw;
+        padding-top: 78px;
       }
       .admin-header-link {
         width: 100%;

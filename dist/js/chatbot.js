@@ -12,6 +12,10 @@ class ManagiraChatbot {
   }
 
   init() {
+    // Don't initialize chatbot on public dashboard
+    if (document.body.getAttribute('data-page') === 'publicDashboard') {
+      return;
+    }
     this.createChatbotHTML();
     this.bindEvents();
     this.loadPopularQuestions();
@@ -19,6 +23,9 @@ class ManagiraChatbot {
   }
 
   createChatbotHTML() {
+    // Remove stale chatbot nodes (can happen after SPA swaps / repeated init)
+    document.querySelectorAll('.chatbot-toggle, .chatbot-container').forEach((el) => el.remove());
+
     // Create chatbot toggle button
     const toggleButton = document.createElement('button');
     toggleButton.className = 'chatbot-toggle';
@@ -245,7 +252,7 @@ class ManagiraChatbot {
         this.addMessage(data.message, 'bot');
       }
     } catch (error) {
-      console.error('Chatbot error:', error);
+      
       this.hideLoading();
       this.addMessage('Sorry, I\'m having trouble connecting. Please try again later or contact support at info@managira.com', 'bot');
     }
@@ -401,7 +408,7 @@ class ManagiraChatbot {
         this.showPopularQuestions(data.questions);
       }
     } catch (error) {
-      console.error('Error loading popular questions:', error);
+      
     }
   }
 
@@ -434,17 +441,43 @@ class ManagiraChatbot {
       this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
     }, 100);
   }
+
+  destroy() {
+    if (this.container) {
+      this.container.remove();
+    }
+    if (this.toggleButton) {
+      this.toggleButton.remove();
+    }
+  }
 }
 
-// Initialize chatbot when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-  // Only initialize if we're not on admin pages or certain restricted pages
+function shouldInitializeChatbot() {
   const currentPath = window.location.pathname;
   const restrictedPaths = ['/admin', '/api'];
-  
-  const shouldInitialize = !restrictedPaths.some(path => currentPath.startsWith(path));
-  
-  if (shouldInitialize) {
-    new ManagiraChatbot();
+  const isRestricted = restrictedPaths.some(path => currentPath.startsWith(path));
+  const isPublicDashboard = document.body.getAttribute('data-page') === 'publicDashboard';
+  return !isRestricted && !isPublicDashboard;
+}
+
+function initChatbotIfNeeded() {
+  const shouldInitialize = shouldInitializeChatbot();
+
+  if (!shouldInitialize) {
+    if (window.managiraChatbotInstance) {
+      window.managiraChatbotInstance.destroy();
+      window.managiraChatbotInstance = null;
+    }
+    return;
   }
-});
+
+  if (!window.managiraChatbotInstance) {
+    window.managiraChatbotInstance = new ManagiraChatbot();
+  }
+}
+
+// Initial load
+document.addEventListener('DOMContentLoaded', initChatbotIfNeeded);
+
+// SPA navigations
+window.addEventListener('spa:pageLoaded', initChatbotIfNeeded);

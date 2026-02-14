@@ -2920,7 +2920,7 @@ body[data-pd-theme="bold"] #modalCaption{
         
         <!-- Top Split: Gallery (Left) + Events (Right) -->
         <div class="wf2-hero-split">
-          <div class="wf2-left-panel">
+          <div class="wf2-left-panel" id="image-gallery">
             <h2>Gallery 📷</h2>
             <div class="wf2-gallery-masonry">
               <% orderedItems.filter(item => item.id === 'image-gallery').forEach(item => { %>
@@ -2936,7 +2936,7 @@ body[data-pd-theme="bold"] #modalCaption{
             </div>
           </div>
 
-          <div class="wf2-right-panel">
+          <div class="wf2-right-panel" id="events">
             <h2>⚡ Upcoming Events</h2>
             <div class="wf2-events-priority">
               <% orderedItems.filter(item => item.type === 'events').forEach(item => { %>
@@ -2957,7 +2957,7 @@ body[data-pd-theme="bold"] #modalCaption{
         </div>
 
         <!-- Articles Below (Horizontal Scroll Cards) -->
-        <div class="content-section wf2-articles-section">
+        <div class="content-section wf2-articles-section" id="text-articles">
           <h2>Latest Articles</h2>
           <div class="wf2-articles-scroll">
             <% orderedItems.filter(item => item.id === 'text-articles').forEach(item => { %>
@@ -2972,7 +2972,7 @@ body[data-pd-theme="bold"] #modalCaption{
         </div>
 
         <!-- Announcements (Isolated Side Column) -->
-        <div class="content-section wf2-announcements-sidebar">
+        <div class="content-section wf2-announcements-sidebar" id="announcements">
           <h2>📢 Important Announcements</h2>
           <div class="wf2-announcements-list">
             <% orderedItems.filter(item => item.type === 'announcements').forEach(item => { %>
@@ -2989,7 +2989,7 @@ body[data-pd-theme="bold"] #modalCaption{
         </div>
 
         <!-- About Us -->
-        <div class="content-section wf1-section">
+        <div class="content-section wf1-section" id="about-us">
           <h2>About Us</h2>
           <p><%= orgDetails.aboutus %></p>
         </div>
@@ -2998,7 +2998,7 @@ body[data-pd-theme="bold"] #modalCaption{
         <!-- WIREFRAME 3: Content-First - Articles CENTER + Announcements RIGHT -->
         
         <!-- Gallery Full Width -->
-        <div class="content-section wf3-gallery-section">
+        <div class="content-section wf3-gallery-section" id="image-gallery">
           <h2>Gallery 📷</h2>
           <div class="wf3-gallery-grid">
             <% orderedItems.filter(item => item.id === 'image-gallery').forEach(item => { %>
@@ -3016,7 +3016,7 @@ body[data-pd-theme="bold"] #modalCaption{
 
         <!-- Articles (CENTER) + Announcements (RIGHT SIDEBAR) -->
         <div class="wf3-content-split">
-          <div class="wf3-articles-main">
+          <div class="wf3-articles-main" id="text-articles">
             <h2>📝 Featured Articles</h2>
             <div class="wf3-articles-masonry">
               <% orderedItems.filter(item => item.id === 'text-articles').forEach(item => { %>
@@ -3030,7 +3030,7 @@ body[data-pd-theme="bold"] #modalCaption{
             </div>
           </div>
 
-          <div class="wf3-announcements-sidebar">
+          <div class="wf3-announcements-sidebar" id="announcements">
             <div class="wf3-announcements-sticky">
               <h2>📢 Announcements</h2>
               <div class="wf3-announcements-feed">
@@ -3050,7 +3050,7 @@ body[data-pd-theme="bold"] #modalCaption{
         </div>
 
         <!-- Events Stacked Below -->
-        <div class="content-section wf3-events-section">
+        <div class="content-section wf3-events-section" id="events">
           <h2>Upcoming Events</h2>
           <div class="wf3-events-grid">
             <% orderedItems.filter(item => item.type === 'events').forEach(item => { %>
@@ -3066,7 +3066,7 @@ body[data-pd-theme="bold"] #modalCaption{
         </div>
 
         <!-- About Us -->
-        <div class="content-section wf1-section">
+        <div class="content-section wf1-section" id="about-us">
           <h2>About Us</h2>
           <p><%= orgDetails.aboutus %></p>
         </div>
@@ -3075,7 +3075,7 @@ body[data-pd-theme="bold"] #modalCaption{
         <!-- WIREFRAME 4: Narrative Flow - Timeline & Storytelling -->
         
         <!-- Gallery Compact -->
-        <div class="content-section wf4-gallery-section">
+        <div class="content-section wf4-gallery-section" id="image-gallery">
           <h2>Our Story in Pictures 📷</h2>
           <div class="wf4-gallery-compact">
             <% orderedItems.filter(item => item.id === 'image-gallery').forEach(item => { %>
@@ -3092,7 +3092,7 @@ body[data-pd-theme="bold"] #modalCaption{
         </div>
 
         <!-- Events as TIMELINE (Paired Blocks) -->
-        <div class="content-section wf4-timeline-section">
+        <div class="content-section wf4-timeline-section" id="events">
           <h2>📅 Event Timeline</h2>
           <div class="wf4-timeline-container">
             <% orderedItems.filter(item => item.type === 'events').forEach((item, idx) => { %>
@@ -3120,7 +3120,7 @@ body[data-pd-theme="bold"] #modalCaption{
         </div>
 
         <!-- Announcements as Highlight Cards -->
-        <div class="content-section wf4-announcements-section">
+        <div class="content-section wf4-announcements-section" id="announcements">
           <h2>🔔 Important Updates</h2>
           <div class="wf4-announcements-grid">
             <% orderedItems.filter(item => item.type === 'announcements').forEach(item => { %>
@@ -3139,7 +3139,7 @@ body[data-pd-theme="bold"] #modalCaption{
         </div>
 
         <!-- About Us EXPANDED (More Prominent) -->
-        <div class="content-section wf4-about-section">
+        <div class="content-section wf4-about-section" id="about-us">
           <h2>Our Mission & Values</h2>
           <div class="wf4-about-content">
             <div class="wf4-about-main">
@@ -3158,7 +3158,7 @@ body[data-pd-theme="bold"] #modalCaption{
         </div>
 
         <!-- Articles ("Our Stories") -->
-        <div class="content-section wf4-stories-section">
+        <div class="content-section wf4-stories-section" id="text-articles">
           <h2>📖 Our Stories</h2>
           <div class="wf4-stories-grid">
             <% orderedItems.filter(item => item.id === 'text-articles').forEach(item => { %>
