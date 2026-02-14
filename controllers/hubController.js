@@ -1704,7 +1704,7 @@ const hubController = {
         paragraphs: [
           `Your request to detach from ${hub.hub_name} has been approved.`,
           'Log in to your dashboard and set up your own subscription plan to continue service.',
-          'If you need help, contact support@managira.com.',
+          'If you need help, contact info@managira.com.',
         ],
         details: [
           { label: 'Status', value: 'Approved' },

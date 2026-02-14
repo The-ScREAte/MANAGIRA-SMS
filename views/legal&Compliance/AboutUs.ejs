@@ -137,6 +137,55 @@
 
   .cta-card a:hover { opacity: 0.9; }
 
+  .video-container {
+    position: relative;
+    width: 100%;
+    max-width: 520px;
+    margin: 20px auto;
+    padding-bottom: 60%;
+    height: 0;
+    overflow: hidden;
+    border-radius: 12px;
+    background: #000;
+  }
+
+  .video-container iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+
+  .about-section h3 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--primary);
+    margin: 24px 0 12px;
+  }
+
+  .about-section h3:first-of-type {
+    margin-top: 0;
+  }
+
+  .freestyle-heading {
+    font-family: var(--handwriting);
+    font-size: 2.8rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: var(--primary);
+    line-height: 1.35;
+    text-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  }
+
+  @media (min-width: 1024px) {
+    .video-container {
+      padding-bottom: 45%;
+      max-width: 520px;
+    }
+  }
+
   @media (max-width: 768px) {
     main { padding: 100px 20px 60px; }
     .page-header { margin: 20px 12px 40px; }
@@ -152,8 +201,10 @@
     .page-header p { font-size: 0.88rem; }
     .about-section { padding: 16px 14px; border-radius: 10px; margin: 0 8px 24px; }
     .about-section h2 { font-size: 1.02rem; }
+    .about-section h3 { font-size: 0.98rem; }
     .about-section p { font-size: 0.92rem; }
     .about-section li { font-size: 0.9rem; padding-left: 20px; }
+    .video-container { border-radius: 8px; margin: 16px 0; }
     .cta-card { padding: 20px 16px; border-radius: 10px; margin: 0 8px 40px; }
     .cta-card h3 { font-size: 1.05rem; }
     .cta-card p { font-size: 0.9rem; }
@@ -164,74 +215,60 @@
 <main>
   <div class="page-header">
     <h1>About Managira</h1>
-    <p>The next-generation school management platform — built to help educational institutions of every size work smarter, not harder.</p>
+    <p>The Leading All-in-One Educational Management Platform</p>
   </div>
 
   <div class="about-section">
-    <h2>Our Story</h2>
-    <p>Managira is a product of scREAte Ltd., created with one goal in mind: to simplify how schools operate. From student enrollment to academic tracking and beyond, our all-in-one platform empowers educational institutions to streamline operations, reduce paperwork, enhance communication, and focus on what truly matters — delivering exceptional education.</p>
-    <p>We serve individual schools, private institutions, government education departments, and school districts that need a reliable, modern solution for managing their academic operations.</p>
+    <h2 class="freestyle-heading">Ready?</h2>
+    <p>Managira is the all-in-one school management platform built for simplicity, reliability, and growth. Built by ScREAte Ltd., our mission is to empower schools with smart, practical tools that make administration effortless, secure, scalable, and transparent — so educators can focus on what matters most: their students, while parents and guardians monitor their progress from anywhere in the world.</p>
+    <p>We're ready to support the future of your school.</p>
+    
+    <div class="video-container">
+      <iframe 
+        src="https://www.youtube.com/embed/y1J0KahfA-c" 
+        title="Managira Demo" 
+        frameborder="0" 
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+        allowfullscreen>
+      </iframe>
+    </div>
   </div>
 
   <div class="about-section">
-    <h2>Our Mission</h2>
-    <p>We believe technology should simplify the educational experience, not complicate it. Our mission is to provide schools, colleges, and educational bodies with a single, powerful platform that removes administrative burdens, connects students, teachers, parents, and administrators, and enables data-driven decision making — all in one smooth workflow.</p>
-  </div>
-
-  <div class="about-section">
-    <h2>What Makes Managira Different</h2>
+    <h2>The Managira Advantage</h2>
+    
+    <h3>Built for Daily Operations</h3>
     <ul>
-      <li><strong>Comprehensive Management</strong> — We go beyond basic student information systems, offering tools that handle enrollment, attendance, academic reporting, assessments, grade management, and more.</li>
-      <li><strong>Hub System for Multi-School Oversight</strong> — Government institutions and educational bodies can oversee multiple schools from a single Hub dashboard, monitoring performance and coordinating across their entire network.</li>
-      <li><strong>Real-Time Data & Insights</strong> — Our analytics dashboard gives leaders the power to monitor performance, track trends, and make informed decisions instantly.</li>
-      <li><strong>Designed for Mobility</strong> — Whether on desktop, tablet, or phone, you can access your school's data anytime, anywhere.</li>
-      <li><strong>Parent & Guardian Portal</strong> — Parents stay connected to their child's progress with real-time access to grades, attendance, and school updates.</li>
+      <li><strong>Organized Student Records</strong> — All student data, grades, attendance, Transcripts and documents in one secure, searchable place.</li>
+      <li><strong>Streamlined Admissions</strong> — Online enrollment forms, automated workflows, and faster approvals.</li>
+      <li><strong>Parent Portal</strong> — Parents see progress, feedback, and who’s in charge; two-way messaging keeps families and staff aligned.</li>
+      <li><strong>Multi-School Coordination</strong> — Built for large organizations and government bodies to manage every school in their network from one Hub.</li>
+      <li><strong>Works Anywhere</strong> — Phones, tablets, and desktops — because school administration doesn't stop at your desk.</li>
     </ul>
-  </div>
 
-  <div class="about-section">
-    <h2>Core Features</h2>
+    <h3>Designed for Every Type of Institution</h3>
+    <p>Purpose-built for a single school or a group of schools — Managira adapts to how you work:</p>
     <ul>
-      <li><strong>Student Information Management</strong> — Complete student profiles with academic history, personal details, and guardian information.</li>
-      <li><strong>Enrollment & Admissions</strong> — Streamlined online application processing with public enrollment forms and automated workflows.</li>
-      <li><strong>Attendance Tracking</strong> — Real-time attendance monitoring for accurate and reliable record-keeping.</li>
-      <li><strong>Grade & Assessment Management</strong> — Digital gradebooks, test creation, and performance analytics.</li>
-      <li><strong>Report Generation</strong> — Professional report cards, merit sheets, and academic transcripts generated automatically.</li>
-      <li><strong>Parent Portal & Public Website</strong> — Give parents a live view of school updates and their child's progress, while your public-facing website helps the community learn about your institution.</li>
-      <li><strong>Hub Management</strong> — Centralised oversight for government bodies and organisations managing multiple schools.</li>
-      <li><strong>Customisable Branding</strong> — Upload your logo, set your colours, and make the platform your own.</li>
+      <li>Primary & secondary schools</li>
+      <li>Colleges & training centers</li>
+      <li>School districts & government bodies</li>
+      <li>Private institutions with their own branding and identity</li>
     </ul>
-  </div>
 
-  <div class="about-section">
-    <h2>Who We Serve</h2>
-    <p>Managira is built for educational institutions of every size and type:</p>
+    <h3>Why Schools Choose Managira</h3>
     <ul>
-      <li><strong>Primary & Secondary Schools</strong> — Complete K–12 management solutions.</li>
-      <li><strong>Colleges & Universities</strong> — Advanced tools for higher education.</li>
-      <li><strong>Government Education Departments</strong> — Hub-based systems for overseeing multiple institutions across regions.</li>
-      <li><strong>School Districts</strong> — Centralised management for networks of schools.</li>
-      <li><strong>Private Schools & Academies</strong> — Tailored solutions for independent learning environments.</li>
-      <li><strong>Training Centres</strong> — Specialised features for vocational and professional education.</li>
-    </ul>
-  </div>
-
-  <div class="about-section">
-    <h2>Why Choose Managira?</h2>
-    <ul>
-      <li><strong>Proven Reliability</strong> — Built on secure, scalable infrastructure with 99.9% uptime.</li>
-      <li><strong>Quick Setup</strong> — Get started in about 15 minutes with an intuitive interface and smooth onboarding.</li>
-      <li><strong>Dedicated Support</strong> — Ongoing assistance, documentation, video tutorials, and platform improvements.</li>
-      <li><strong>Cost-Effective</strong> — Professional-grade tools at prices that work for schools of all sizes.</li>
-      <li><strong>Scalable</strong> — From a single classroom to a network of institutions, Managira grows with you.</li>
-      <li><strong>Secure & Compliant</strong> — Enterprise-grade encryption, GDPR and FERPA compliance, and role-based access controls.</li>
+      <li>Up and running in days with walkthrough videos and in-app guidance</li>
+      <li>Reliable performance — built to support unlimited org sizes</li>
+      <li>Secure by design — bank-level encryption and role-based access</li>
+      <li>Scales with you — from one school to 10,000 students and beyond</li>
+      <li>24/7 real human support that works the way your school operates</li>
     </ul>
   </div>
 
   <div class="cta-card">
-    <h3>Transform your school's management today</h3>
-    <p>Join the growing number of institutions that trust Managira to simplify operations and elevate the learning experience.</p>
-    <a href="/account/register">Start Your Free Trial</a>
+    <h3>See What Managira Can Do For Your School</h3>
+    <p>Start your free trial today. No credit card required, no strings attached.</p>
+    <a href="/account/register">Start Free Trial</a>
   </div>
 </main>
 
@@ -240,26 +277,29 @@
     "@context": "https://schema.org",
     "@type": "AboutPage",
     "name": "About Managira",
-    "description": "Learn about Managira's mission to revolutionize school management through automation, communication tools, and data-driven insights for educational institutions.",
+    "description": "Real school management software built for schools tired of spreadsheets and disconnected systems. Simple setup, reliable operations, and actual support from people who understand schools.",
     "url": "https://www.managira.com/legal/about-us",
     "mainEntity": {
         "@type": "Organization",
         "name": "Managira",
-        "description": "Next-generation school management platform for individual schools, government institutions, and educational bodies managing multiple institutions.",
+        "legalName": "scREAte Ltd.",
+        "description": "School management software that actually works. Built for individual schools, districts, and educational bodies that need reliable daily operations without the complexity.",
         "url": "https://www.managira.com",
         "logo": "https://www.managira.com/images/managira.png",
         "foundingDate": "2024",
-        "mission": "Simplify school management, allowing educators to focus on what truly matters — nurturing the next generation",
-        "serviceArea": "Global",
+        "sameAs": [],
+        "address": {
+            "@type": "PostalAddress",
+            "addressCountry": "NG"
+        },
         "knowsAbout": [
-            "School Management",
-            "Student Information Systems",
-            "Educational Technology",
-            "Data Analytics",
-            "Hub Management",
-            "Government Education Systems"
-        ],
-        "areaServed": "Worldwide"
+            "School Management Systems",
+            "Student Information Management",
+            "Educational Administration Software",
+            "Multi-School Coordination",
+            "Enrollment Management",
+            "Student Records Management"
+        ]
     }
 }
 </script>

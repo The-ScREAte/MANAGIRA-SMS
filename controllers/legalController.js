@@ -5,9 +5,9 @@ const { sendEmailSafely, renderCleanEmail } = require('../utils/emailHelper');
 const legalController = {
     aboutUs: (req, res) => {
         res.render('legal&Compliance/AboutUs', { 
-            title: 'About Us - Managira | School Management Platform',
-            description: 'Learn about Managira\'s mission to revolutionize school management through automation, communication tools, and data-driven insights for educational institutions.',
-            keywords: 'managira about us, school management platform, education technology, school administration software',
+            title: 'About Managira - School Management That Actually Works',
+            description: 'Real school management software built for schools tired of spreadsheets and disconnected systems. Simple setup, reliable operations, and actual support from people who understand schools.',
+            keywords: 'managira about us, school management software, education management system, student information system, school administration',
             canonicalUrl: 'https://www.managira.com/legal/about-us',
             showFooterTopSection: true
         });

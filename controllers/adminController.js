@@ -164,7 +164,7 @@ const adminController = {
       await sendEmailNotification(
         organization.email,
         "Your organization has been put on hold",
-        `Dear ${organization.first_name} ${organization.last_name},\n\nYour organization's activities have been temporarily put on hold. Please contact us for further information.\n\nBest regards,\nAdmin Team`
+        `Dear ${organization.first_name} ${organization.last_name},\n\nYour organization's activities have been temporarily put on hold. Please contact us at info@managira.com for further information.\n\nBest regards,\nAdmin Team`
       );
 
       res.redirect("/admin");
@@ -218,7 +218,7 @@ const adminController = {
       await sendEmailNotification(
         organization.email,
         "Your organization has been deleted",
-        `Dear ${organization.first_name} ${organization.last_name},\n\nYour organization has been deleted from our records. If you believe this is a mistake, please contact us.\n\nBest regards,\nAdmin Team`
+        `Dear ${organization.first_name} ${organization.last_name},\n\nYour organization has been deleted from our records. If you believe this is a mistake, please contact us at info@managira.com.\n\nBest regards,\nAdmin Team`
       );
 
       res.redirect("/admin");

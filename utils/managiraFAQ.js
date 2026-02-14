@@ -40,7 +40,7 @@ const managiraFAQ = [
     id: 6,
     category: "Getting Started",
     question: "How can I contact Managira support?",
-    answer: "You can reach our support team through the 'Get Help' page on the platform, or email us directly at support@managira.com. We also have a YouTube channel with step-by-step video tutorials for common tasks.",
+    answer: "You can reach our support team through the 'Get Help' page on the platform, or email us directly at info@managira.com. We also have a YouTube channel with step-by-step video tutorials for common tasks.",
     keywords: ["contact", "support", "help", "email", "youtube", "tutorials"]
   },
   {
@@ -290,8 +290,8 @@ const managiraFAQ = [
     id: 40,
     category: "Technical & Platform",
     question: "What should I do if I encounter a technical issue?",
-    answer: "Visit our Get Help page to submit a support request, or email support@managira.com directly. Please include details about the issue, your browser, and any error messages you see. Our support team typically responds within 24 hours.",
-    keywords: ["technical issue", "support team", "help", "support@managira.com", "support request"]
+    answer: "Visit our Get Help page to submit a support request, or email info@managira.com directly. Please include details about the issue, your browser, and any error messages you see. Our support team typically responds within 24 hours.",
+    keywords: ["technical issue", "support team", "help", "info@managira.com", "support request"]
   },
   {
     id: 41,
