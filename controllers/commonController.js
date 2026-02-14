@@ -2709,9 +2709,11 @@ const commonController = {
 
         console.log('[Payment Callback] ✅ Redirecting to public dashboard with organizationId:', organizationId);
 
+        const onRenderHost = req.hostname && req.hostname.endsWith('.onrender.com');
+
         // ✅ Build proper redirect URL for production (to subdomain) or fallback
         const redirectUrl =
-          process.env.NODE_ENV === "production" && orgDetails?.nickname
+          process.env.NODE_ENV === "production" && orgDetails?.nickname && !onRenderHost
             ? `https://${orgDetails.nickname}.managira.com/common/publicDashboard?success=1`
             : `/common/publicDashboard?organizationId=${organizationId}&success=1`;
 
@@ -2733,8 +2735,10 @@ const commonController = {
         req.flash("error", "Payment failed. Registration was not saved.");
         req.session.pendingStudentId = null;
 
+        const onRenderHost = req.hostname && req.hostname.endsWith('.onrender.com');
+
         const fallbackRedirect =
-          process.env.NODE_ENV === "production" && req.schoolDetails
+          process.env.NODE_ENV === "production" && req.schoolDetails && !onRenderHost
             ? `https://${req.schoolDetails.nickname}.managira.com/common/publicDashboard`
             : `/common/publicDashboard?organizationId=${failedOrgId || ""}`;
         
@@ -2759,8 +2763,10 @@ const commonController = {
       
       req.flash("error", "Error verifying payment. Please contact support.");
 
+      const onRenderHost = req.hostname && req.hostname.endsWith('.onrender.com');
+
       const fallbackRedirect =
-        process.env.NODE_ENV === "production" && req.schoolDetails
+        process.env.NODE_ENV === "production" && req.schoolDetails && !onRenderHost
           ? `https://${req.schoolDetails.nickname}.managira.com/common/publicDashboard`
           : `/common/publicDashboard?organizationId=${errorOrgId}`;
       

@@ -34,75 +34,6 @@ const he = require("he");
 const { readFileSync } = require("fs");
 const { sendEmailSafely, renderCleanEmail } = require("../utils/emailHelper");
 
-function normalizeBaseUrl(url, fallback) {
-  const value = String(url || '').trim();
-  if (!value) return fallback;
-  return value.replace(/\/+$/, '');
-}
-
-function getRequestHost(req) {
-  const hostname = (req && req.hostname ? String(req.hostname).trim() : '').toLowerCase();
-  if (hostname) return hostname;
-
-  const headerHost = (req && req.headers && req.headers.host ? String(req.headers.host).trim() : '').toLowerCase();
-  return headerHost.split(':')[0];
-}
-
-function getRequestProtocol(req) {
-  const forwardedProto = req && req.headers
-    ? String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase()
-    : '';
-
-  if (forwardedProto === 'http' || forwardedProto === 'https') {
-    return forwardedProto;
-  }
-
-  return req && req.protocol ? req.protocol : 'https';
-}
-
-function getProductionBaseUrl(req) {
-  const configuredPrimary = normalizeBaseUrl(process.env.BASE_URL_PRODUCTION, '');
-  const configuredFallback = normalizeBaseUrl(process.env.BASE_URL_PRODUCTION_FALLBACK, '');
-  const host = getRequestHost(req);
-  const protocol = getRequestProtocol(req);
-
-  if (host.endsWith('.onrender.com') || host.endsWith('.managira.com') || host === 'managira.com' || host === 'www.managira.com') {
-    return `${protocol}://${host}`;
-  }
-
-  return configuredPrimary || configuredFallback || 'https://managira-sms.onrender.com';
-}
-
-function buildOrgDashboardRedirectUrl(req, orgNickname, organizationId) {
-  if (process.env.NODE_ENV !== 'production') {
-    return `/common/orgDashboard?organizationId=${organizationId}`;
-  }
-
-  const host = getRequestHost(req);
-  const isManagiraDomain = host === 'managira.com' || host === 'www.managira.com' || host.endsWith('.managira.com');
-
-  if (isManagiraDomain && orgNickname) {
-    return `https://${orgNickname}.managira.com/common/orgDashboard`;
-  }
-
-  return `${getProductionBaseUrl(req)}/common/orgDashboard?organizationId=${organizationId}`;
-}
-
-function buildGuardianDashboardRedirectUrl(req, orgNickname) {
-  if (process.env.NODE_ENV !== 'production') {
-    return '/guardian/dashboard';
-  }
-
-  const host = getRequestHost(req);
-  const isManagiraDomain = host === 'managira.com' || host === 'www.managira.com' || host.endsWith('.managira.com');
-
-  if (isManagiraDomain && orgNickname) {
-    return `https://${orgNickname}.managira.com/guardian/dashboard`;
-  }
-
-  return `${getProductionBaseUrl(req)}/guardian/dashboard`;
-}
-
 function extractS3KeyFromUrl(url) {
   const value = String(url || "").trim();
   if (!value || value === "profilePlaceholder.png") return null;
@@ -2823,11 +2754,15 @@ const accountController = {
                   return res.redirect("/account/login");
                 }
 
-                const redirectUrl = buildOrgDashboardRedirectUrl(
-                  req,
-                  req.session.orgNickName,
-                  req.session.organizationId
-                );
+                const onRenderHost = req.hostname && req.hostname.endsWith(".onrender.com");
+
+                const redirectUrl =
+                  process.env.NODE_ENV === "production"
+                    ? (onRenderHost
+                        ? "/common/orgDashboard"
+                        : `https://${req.session.orgNickName}.managira.com/common/orgDashboard`)
+                    : "/common/orgDashboard?organizationId=" +
+                      req.session.organizationId;
 
                 req.flash("success", `Welcome, ${user.first_name}!`);
 
@@ -2936,11 +2871,15 @@ const accountController = {
                 return res.redirect("/account/login");
               }
 
-              const redirectUrl = buildOrgDashboardRedirectUrl(
-                req,
-                req.session.orgNickName,
-                req.session.organizationId
-              );
+              const onRenderHost = req.hostname && req.hostname.endsWith(".onrender.com");
+
+              const redirectUrl =
+                process.env.NODE_ENV === "production"
+                  ? (onRenderHost
+                      ? "/common/orgDashboard"
+                      : `https://${req.session.orgNickName}.managira.com/common/orgDashboard`)
+                  : "/common/orgDashboard?organizationId=" +
+                    req.session.organizationId;
 
               req.flash(
                 "success",
@@ -3067,10 +3006,13 @@ const accountController = {
         req.session.lastName = ga.last_name;
 
         req.session.save(() => {
-          const redirectUrl = buildGuardianDashboardRedirectUrl(
-            req,
-            req.session.orgNickName
-          );
+          const onRenderHost = req.hostname && req.hostname.endsWith(".onrender.com");
+          const redirectUrl =
+            process.env.NODE_ENV === "production"
+              ? (onRenderHost
+                  ? "/guardian/dashboard"
+                  : `https://${req.session.orgNickName}.managira.com/guardian/dashboard`)
+              : "/guardian/dashboard";
 
           return res.redirect(redirectUrl);
         });
@@ -3096,9 +3038,14 @@ const accountController = {
       // Redirect based on environment
 
       const isProduction = process.env.NODE_ENV === "production";
+      const onRenderHost = req.hostname && req.hostname.endsWith(".onrender.com");
+      const configuredProdBaseUrl =
+        process.env.BASE_URL_PRODUCTION ||
+        process.env.BASE_URL_PRODUCTION_FALLBACK ||
+        "https://managira.com";
 
       const redirectUrl = isProduction
-        ? `${getProductionBaseUrl(req)}/account/login`
+        ? (onRenderHost ? `https://${req.hostname}` : configuredProdBaseUrl)
         : "/account/login";
 
       res.redirect(redirectUrl);
