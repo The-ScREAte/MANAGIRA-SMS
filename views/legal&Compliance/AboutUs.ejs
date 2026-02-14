@@ -23,7 +23,6 @@
   main {
     max-width: 780px;
     margin: 0 auto;
-    padding: 80px 24px 60px;
   }
 
   .page-header {
@@ -107,6 +106,7 @@
     padding: 32px 28px;
     text-align: center;
     margin-top: 24px;
+    margin-bottom: 40px;
   }
 
   .cta-card h3 {
@@ -138,21 +138,23 @@
   .cta-card a:hover { opacity: 0.9; }
 
   @media (max-width: 768px) {
-    main { padding: 84px 16px 40px; }
+    main { padding: 100px 20px 60px; }
+    .page-header { margin: 20px 12px 40px; }
     .page-header h1 { font-size: 1.8rem; }
-    .about-section { padding: 20px 18px; }
-    .cta-card { padding: 24px 20px; }
+    .about-section { padding: 20px 18px; margin: 0 12px 24px; }
+    .cta-card { padding: 24px 20px; margin: 0 12px 40px; }
   }
 
   @media (max-width: 480px) {
-    main { padding: 100px 14px 32px; }
+    main { padding: 110px 16px 50px; }
+    .page-header { margin: 30px 8px 40px; }
     .page-header h1 { font-size: 1.35rem; }
     .page-header p { font-size: 0.88rem; }
-    .about-section { padding: 16px 14px; border-radius: 10px; }
+    .about-section { padding: 16px 14px; border-radius: 10px; margin: 0 8px 24px; }
     .about-section h2 { font-size: 1.02rem; }
     .about-section p { font-size: 0.92rem; }
     .about-section li { font-size: 0.9rem; padding-left: 20px; }
-    .cta-card { padding: 20px 16px; border-radius: 10px; }
+    .cta-card { padding: 20px 16px; border-radius: 10px; margin: 0 8px 40px; }
     .cta-card h3 { font-size: 1.05rem; }
     .cta-card p { font-size: 0.9rem; }
     .cta-card a { padding: 10px 22px; font-size: 0.88rem; }

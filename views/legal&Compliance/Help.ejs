@@ -1,266 +1,210 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title><%= title %></title>
-    <style>
-      :root {
-        --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
-        --primary: #01535b;
-        --primary-light: #e8f4f5;
-        --border: #e5e7eb;
-        --text: #1f2937;
-        --text-muted: #6b7280;
-        --bg: #f9fafb;
-      }
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
+      background: #f8fafc;
+      color: #0f172a;
+      line-height: 1.6;
+    }
 
-      body {
-        font-family: var(--font-family);
-        color: var(--text);
-        margin: 0;
-        background-color: var(--bg);
-        line-height: 1.6;
-        box-sizing: border-box;
-      }
+    main {
+      max-width: 680px;
+      margin: 0 auto;
+    }
 
-      *, *::before, *::after { box-sizing: border-box; }
+    h1 {
+      text-align: center;
+      color: #01535b;
+      font-size: 2rem;
+      margin-bottom: 8px;
+    }
 
-      main {
-        max-width: 640px;
-        margin: 0 auto;
-        padding: 60px 24px 60px;
-      }
+    .subtitle {
+      text-align: center;
+      color: #64748b;
+      font-size: 0.95rem;
+      margin-bottom: 40px;
+    }
 
-      .page-header {
-        text-align: center;
-        margin-bottom: 32px;
-      }
+    .help-links {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
 
-      .page-header h1 {
-        color: var(--primary);
-        font-size: 2.2rem;
-        font-weight: 700;
-        margin: 0 0 8px;
-      }
+    .help-link {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding: 20px;
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      text-decoration: none;
+      color: #0f172a;
+      transition: all 0.2s;
+    }
 
-      .page-header p {
-        color: var(--text-muted);
-        font-size: 0.95rem;
-        margin: 0;
-      }
+    .help-link:hover {
+      border-color: #01535b;
+      box-shadow: 0 4px 12px rgba(1, 83, 91, 0.1);
+    }
 
-      .help-info {
-        background: #fff;
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 24px;
-        margin-bottom: 24px;
-      }
+    .help-link svg { color: #01535b; }
+    .help-link span { font-weight: 600; font-size: 0.95rem; }
 
-      .help-info p {
-        margin: 0 0 12px;
-        font-size: 0.95rem;
-        line-height: 1.65;
-        color: var(--text);
-      }
+    .info-box {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 22px;
+      margin-bottom: 28px;
+      line-height: 1.7;
+    }
 
-      .help-info p:last-child { margin-bottom: 0; }
+    .info-box p { margin-bottom: 12px; }
+    .info-box p:last-child { margin-bottom: 0; }
+    .info-box a { color: #01535b; font-weight: 600; }
 
-      .help-info a {
-        color: var(--primary);
-        font-weight: 600;
-        text-decoration: none;
-      }
+    form {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 28px;
+      margin-bottom: 40px;
+    }
 
-      .help-info a:hover { text-decoration: underline; }
+    .form-title {
+      color: #01535b;
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 20px;
+    }
 
-      .help-links {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
-        margin-bottom: 24px;
-      }
+    label {
+      display: block;
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-bottom: 6px;
+      color: #334155;
+    }
 
-      .help-link-card {
-        background: #fff;
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 16px;
-        text-align: center;
-        text-decoration: none;
-        color: var(--text);
-        transition: border-color 0.2s, box-shadow 0.2s;
-      }
+    input, textarea {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      margin-bottom: 16px;
+      transition: border-color 0.2s;
+    }
 
-      .help-link-card:hover {
-        border-color: var(--primary);
-        box-shadow: 0 2px 8px rgba(1, 83, 91, 0.08);
-      }
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: #01535b;
+    }
 
-      .help-link-card svg {
-        display: block;
-        margin: 0 auto 8px;
-        color: var(--primary);
-      }
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
 
-      .help-link-card span {
-        font-size: 0.9rem;
-        font-weight: 600;
-      }
+    button {
+      width: 100%;
+      padding: 14px;
+      background: #01535b;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
 
-      form {
-        background: #fff;
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 28px 24px;
-      }
+    button:hover { background: #014a51; }
 
-      .form-title {
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: var(--primary);
-        margin: 0 0 20px;
-      }
+    @media (max-width: 768px) {
+      main { padding: 100px 20px 40px; }
+      h1 { font-size: 1.75rem; padding-top: 20px; }
+      .help-links { gap: 14px; margin: 0 12px 28px; }
+      .info-box { margin: 0 12px 28px; }
+      form { margin: 0 12px 40px; }
+    }
 
-      .form-group {
-        margin-bottom: 16px;
-      }
+    @media (max-width: 480px) {
+      main { padding: 110px 16px 40px; }
+      h1 { font-size: 1.5rem; padding-top: 30px; }
+      .subtitle { font-size: 0.9rem; margin-bottom: 30px; }
+      .help-links { grid-template-columns: 1fr; gap: 12px; margin: 0 8px 28px; }
+      .help-link { padding: 18px; }
+      .info-box { padding: 18px; margin: 0 8px 28px; }
+      form { padding: 22px 18px; margin: 0 8px 40px; }
+      input, textarea { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <%- include('../partials/header') %>
 
-      .form-group label {
-        display: block;
-        margin-bottom: 6px;
-        font-weight: 500;
-        font-size: 0.92rem;
-        color: var(--text);
-      }
+  <main>
+    <h1>Get Help</h1>
+    <p class="subtitle">We're here to help you get the most out of Managira</p>
 
-      .form-group input,
-      .form-group textarea {
-        width: 100%;
-        padding: 10px 14px;
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        font-size: 0.95rem;
-        font-family: var(--font-family);
-        background: var(--bg);
-        transition: border-color 0.2s;
-        box-sizing: border-box;
-      }
+    <%- include('../partials/flash') %>
 
-      .form-group input:focus,
-      .form-group textarea:focus {
-        outline: none;
-        border-color: var(--primary);
-        box-shadow: 0 0 0 3px rgba(1, 83, 91, 0.08);
-      }
+    <div class="help-links">
+      <a href="/legal/faq" class="help-link">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+        <span>FAQ</span>
+      </a>
+      <a href="https://www.youtube.com/@managira" target="_blank" class="help-link">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+        <span>Video Tutorials</span>
+      </a>
+    </div>
 
-      .form-group textarea {
-        resize: vertical;
-        min-height: 100px;
-      }
+    <div class="info-box">
+      <p>Before submitting a request, check our <a href="/legal/faq">FAQ page</a> for quick answers to common questions about registration, billing, student management, and more.</p>
+      <p>For urgent matters, you can also email us directly at <strong>support@managira.com</strong></p>
+    </div>
 
-      button[type="submit"] {
-        display: block;
-        width: 100%;
-        padding: 12px;
-        background: var(--primary);
-        color: #fff;
-        border: none;
-        border-radius: 8px;
-        font-size: 1rem;
-        font-weight: 600;
-        font-family: var(--font-family);
-        cursor: pointer;
-        transition: background 0.2s;
-        margin-top: 8px;
-      }
-
-      button[type="submit"]:hover {
-        background: #014048;
-      }
-
-      button[type="submit"]:focus {
-        outline: none;
-        box-shadow: 0 0 0 3px rgba(1, 83, 91, 0.2);
-      }
-
-      @media (max-width: 768px) {
-        main { padding: 110px 16px 40px; }
-        .page-header h1 { font-size: 1.8rem; }
-        form { padding: 20px 18px; }
-        .help-info { padding: 18px; }
-      }
-
-      @media (max-width: 480px) {
-        main { padding: 130px 14px 32px; }
-        .page-header h1 { font-size: 1.4rem; }
-        .page-header p { font-size: 0.88rem; }
-        .help-links { grid-template-columns: 1fr; gap: 10px; }
-        .help-link-card { padding: 14px; }
-        .help-link-card span { font-size: 0.85rem; }
-        form { padding: 16px 14px; }
-        .form-title { font-size: 1rem; }
-        .form-group label { font-size: 0.88rem; }
-        .form-group input,
-        .form-group textarea { font-size: 16px; padding: 10px 12px; }
-        .help-info { padding: 14px; }
-        .help-info p { font-size: 0.9rem; }
-        button[type="submit"] { font-size: 0.95rem; padding: 12px; }
-      }
-    </style>
-  </head>
-  <body>
-    <%- include('../partials/header') %>
-
-    <main>
-      <div class="page-header">
-        <h1>Get Help</h1>
-        <p>We're here to help you get the most out of Managira</p>
-      </div>
-
-      <%- include('../partials/flash') %>
-
-      <div class="help-links">
-        <a href="/legal/faq" class="help-link-card">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          <span>FAQ</span>
-        </a>
-        <a href="https://www.youtube.com/@managira" target="_blank" class="help-link-card">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-          <span>Video Tutorials</span>
-        </a>
-      </div>
-
-      <div class="help-info">
-        <p>Before submitting a request, check our <a href="/legal/faq">FAQ page</a> for quick answers to common questions about registration, billing, student management, and more.</p>
-        <p>For urgent matters, you can also email us directly at <strong>support@managira.com</strong></p>
-      </div>
-
-      <form action="/legal/help" method="POST">
-        <p class="form-title">Submit a Support Request</p>
-        <div class="form-group">
-          <label for="name">Full Name</label>
-          <input type="text" id="name" name="name" required autocomplete="name" placeholder="Your full name" />
-        </div>
-        <div class="form-group">
-          <label for="organization">Organisation (optional)</label>
-          <input type="text" id="organization" name="organization" autocomplete="organization" placeholder="Which school or organisation?" />
-        </div>
-        <div class="form-group">
-          <label for="phone">Phone Number</label>
-          <input type="tel" id="phone" name="phone" required autocomplete="tel" placeholder="+1 (555) 123-4567" />
-        </div>
-        <div class="form-group">
-          <label for="email">Email Address</label>
-          <input type="email" id="email" name="email" required autocomplete="email" placeholder="your@email.com" />
-        </div>
-        <div class="form-group">
-          <label for="message">How can we help?</label>
-          <textarea id="message" name="message" required placeholder="Please describe your issue or question in detail..."></textarea>
-        </div>
-        <button type="submit">Submit Request</button>
-      </form>
-    </main>
-  </body>
+    <form action="/legal/help" method="POST">
+      <p class="form-title">Submit a Support Request</p>
+      
+      <label for="name">Full Name</label>
+      <input type="text" id="name" name="name" required autocomplete="name" placeholder="Your full name">
+      
+      <label for="organization">Organisation (optional)</label>
+      <input type="text" id="organization" name="organization" autocomplete="organization" placeholder="Which school or organisation?">
+      
+      <label for="phone">Phone Number</label>
+      <input type="tel" id="phone" name="phone" required autocomplete="tel" placeholder="+1 (555) 123-4567">
+      
+      <label for="email">Email Address</label>
+      <input type="email" id="email" name="email" required autocomplete="email" placeholder="your@email.com">
+      
+      <label for="message">How can we help?</label>
+      <textarea id="message" name="message" required placeholder="Please describe your issue or question in detail..."></textarea>
+      
+      <button type="submit">Submit Request</button>
+    </form>
+  </main>
+</body>
 </html>
