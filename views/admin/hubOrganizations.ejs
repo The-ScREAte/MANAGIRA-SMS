@@ -67,6 +67,18 @@
       color: #065f46;
     }
 
+    .badge-link {
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .badge-link .badge:hover {
+      background: #d1fae5;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
     .no-orgs { text-align: center; padding: 40px; color: var(--text-secondary); }
 
     .back-link {
@@ -122,9 +134,21 @@
                 </td>
                 <td><%= org.first_name %> <%= org.last_name %></td>
                 <td><%= org.email %></td>
-                <td><span class="badge"><%= org.student_count %></span></td>
-                <td><span class="badge"><%= org.teacher_count %></span></td>
-                <td><span class="badge"><%= org.class_count %></span></td>
+                <td>
+                  <a href="/hub/organizations/<%= org.organization_id %>/students" class="badge-link">
+                    <span class="badge"><%= org.student_count %></span>
+                  </a>
+                </td>
+                <td>
+                  <a href="/hub/organizations/<%= org.organization_id %>/staff" class="badge-link">
+                    <span class="badge"><%= org.teacher_count %></span>
+                  </a>
+                </td>
+                <td>
+                  <a href="/hub/organizations/<%= org.organization_id %>/classes" class="badge-link">
+                    <span class="badge"><%= org.class_count %></span>
+                  </a>
+                </td>
                 <td><%= new Date(org.created_at).toLocaleDateString() %></td>
               </tr>
             <% }); %>

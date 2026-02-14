@@ -16,6 +16,7 @@ router.use(isHubAuthenticated);
 router.use(fetchHubInfo);
 
 router.get('/dashboard', hubController.hubDashboardGet);
+router.get('/overview-stats', hubController.hubOverviewStatsGet);
 router.get('/settings', hubController.hubSettingsGet);
 router.post('/settings/profile', hubController.hubSettingsProfilePost);
 router.post('/settings/password', hubController.hubSettingsPasswordPost);
@@ -33,6 +34,13 @@ router.post('/organizations/toggle-hold', hubController.toggleOrganizationHoldPo
 router.post('/organizations/delete', hubController.deleteOrganizationPost);
 router.get('/organizations/edit/:organizationId', hubController.editOrganizationGet);
 router.post('/organizations/edit/:organizationId', hubController.editOrganizationPost);
+router.get('/organizations/:organizationId', hubController.organizationDetailsGet);
+router.get('/organizations/:organizationId/students', hubController.organizationStudentsListGet);
+router.get('/organizations/:organizationId/students/:studentId', hubController.organizationStudentDetailsGet);
+router.get('/organizations/:organizationId/staff', hubController.organizationStaffListGet);
+router.get('/organizations/:organizationId/staff/:staffId', hubController.organizationStaffDetailsGet);
+router.get('/organizations/:organizationId/classes', hubController.organizationClassesListGet);
+router.get('/organizations/:organizationId/classes/:classId', hubController.organizationClassDetailsGet);
 
 // Detachment request routes
 router.post('/detachment-requests/approve', hubController.approveDetachmentPost);

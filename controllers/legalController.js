@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const db = require('../config/db');
+const { sendEmailSafely, renderCleanEmail } = require('../utils/emailHelper');
 
 const legalController = {
     aboutUs: (req, res) => {
@@ -54,32 +55,38 @@ const legalController = {
                 [threadId, name, email, message]
             );
     
-            // Send confirmation email
-            const transporter = nodemailer.createTransport({
-                host: process.env.SMTP_HOST,           // e.g., smtp.gmail.com, smtp.zoho.com
-                port: parseInt(process.env.SMTP_PORT), // usually 465 or 587
-                secure: process.env.SMTP_SECURE === 'true', // true for 465, false for 587
-                auth: {
-                  user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-                  pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-                },
-              });
-    
-            const mailOptions = {
+            const html = renderCleanEmail({
+                title: `Support Ticket Created (#${threadId})`,
+                greeting: `Dear <strong>${name}</strong>,`,
+                paragraphs: [
+                    'Thank you for reaching out. Your support ticket has been created and our team will respond shortly.',
+                ],
+                details: [
+                    { label: 'Ticket Number', value: `#${threadId}` },
+                    { label: 'Your Message', value: message },
+                ],
+            });
+
+            const emailSent = await sendEmailSafely({
                 from: process.env.EMAIL_USER,
                 to: email,
                 subject: `Support Ticket Created - Ticket #${threadId}`,
-                text: `Dear ${name},\n\nThank you for reaching out. Your support ticket (#${threadId}) has been created. Our team will respond shortly.\n\nMessage: "${message}"\n\nBest regards,\nSupport Team`,
-            };
-    
-            transporter.sendMail(mailOptions, (error) => {
-                if (error) {
-                    req.flash('error', 'Failed to send confirmation email.');
-                } else {
-                    req.flash('success', 'Help request submitted successfully.');
-                }
-                res.redirect('/legal/help');
-            });
+                html,
+                attachments: [
+                  {
+                    filename: 'managira.png',
+                    path: require('path').join(__dirname, '../public/images/managira.png'),
+                    cid: 'managira_logo'
+                  }
+                ]
+            }, 'Legal Help Confirmation Email');
+
+            if (!emailSent) {
+                req.flash('error', 'Help request submitted, but confirmation email could not be sent.');
+            } else {
+                req.flash('success', 'Help request submitted successfully.');
+            }
+            res.redirect('/legal/help');
         } catch (error) {
                         req.flash('error', 'Failed to submit your request.');
             res.redirect('/legal/help');

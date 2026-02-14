@@ -32,7 +32,26 @@ const axios = require("axios");
 const he = require("he");
 
 const { readFileSync } = require("fs");
-const { sendEmailSafely } = require("../utils/emailHelper");
+const { sendEmailSafely, renderCleanEmail } = require("../utils/emailHelper");
+
+function extractS3KeyFromUrl(url) {
+  const value = String(url || "").trim();
+  if (!value || value === "profilePlaceholder.png") return null;
+
+  const s3Prefix = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/`;
+  if (value.startsWith(s3Prefix)) {
+    return value.substring(s3Prefix.length);
+  }
+  if (value.startsWith("images/")) {
+    return value;
+  }
+  return null;
+}
+
+async function ensureProfileImageColumns(db) {
+  await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS image_url TEXT DEFAULT 'profilePlaceholder.png'`);
+  await db.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS image_url TEXT DEFAULT 'profilePlaceholder.png'`);
+}
 
 async function sendBrandedReceiptEmail({
   to,
@@ -100,67 +119,18 @@ async function sendInvoiceEmail(email, orgName, invoice) {
 
     const amountDue = (invoice.amount_due / 100).toFixed(2);
 
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-
-      port: parseInt(process.env.SMTP_PORT),
-
-      secure: process.env.SMTP_SECURE === "true",
-
-      auth: {
-        user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-
-        pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-      },
+    const html = renderCleanEmail({
+      title: "New Invoice from Managira",
+      greeting: "Hello,",
+      paragraphs: ["A new invoice has been generated for your subscription."],
+      details: [
+        { label: "Organization Name", value: he.encode(orgName) },
+        { label: "Amount Due", value: `$${he.encode(amountDue)}` },
+        { label: "Due Date", value: he.encode(dueDate) },
+      ],
+      cta: invoiceUrl !== "No URL available" ? { text: "View Invoice", url: invoiceUrl } : null,
+      note: 'If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
     });
-
-    const html = `
-
-      <div style="background:#f4fbfa;padding:40px 0;">
-
-        <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px #b2e2d6;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
-
-          <div style="background:#6fd3c4;padding:24px 0 24px 32px;display:flex;align-items:center;">
-
-            <img src="cid:managira_logo" alt="Managira Logo" style="height:60px;display:block;">
-
-          </div>
-
-          <div style="padding:36px 32px 32px 32px;">
-
-            <div style="color:#6fd3c4;font-size:24px;font-weight:600;margin-bottom:16px;letter-spacing:1px;">New Invoice from Managira</div>
-
-            <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Hello,</p>
-
-            <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">A new invoice has been generated for your subscription:</p>
-
-            <table style="margin:18px 0 24px 0;font-size:16px;">
-              <tr><td style="color:#888;padding:4px 12px 4px 0;">Organization Name:</td><td style="color:#222;font-weight:500;">${he.encode(
-                orgName
-              )}</td></tr>
-              <tr><td style="color:#888;padding:4px 12px 4px 0;">Amount Due:</td><td style="color:#1ca34a;font-weight:600;">$${he.encode(
-                amountDue
-              )}</td></tr>
-              <tr><td style="color:#888;padding:4px 12px 4px 0;">Due Date:</td><td style="color:#222;font-weight:500;">${he.encode(
-                dueDate
-              )}</td></tr>
-            </table>
-
-        
-
-            <p style="margin-top:18px;font-size:15px;">If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">FAQ page</a>.</p>
-
-            <p style="color:#b80000;font-size:16px;font-weight:bold;margin-top:32px;text-align:center;letter-spacing:1px;">THIS IS A NO-REPLY MESSAGE. PLEASE DO NOT REPLY TO THIS EMAIL.</p>
-
-          </div>
-
-          <div style="background:#e6f7ec;color:#888;text-align:center;padding:18px 0;font-size:13px;">&copy; ${new Date().getFullYear()} Managira. All rights reserved.</div>
-
-        </div>
-
-      </div>
-
-    `;
 
     const mailOptions = {
       from: process.env.NOTIFY_EMAIL_USER,
@@ -180,7 +150,7 @@ async function sendInvoiceEmail(email, orgName, invoice) {
       ],
     };
 
-    await transporter.sendMail(mailOptions);
+    await sendEmailSafely(mailOptions, "Invoice Email");
   } catch (error) {
         throw new Error("Failed to send invoice email.");
   }
@@ -191,59 +161,17 @@ async function sendCancellationEmail(orgName, firstName, email) {
     throw new Error("Recipient email is not defined.");
   }
 
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-
-    port: parseInt(process.env.SMTP_PORT),
-
-    secure: process.env.SMTP_SECURE === "true",
-
-    auth: {
-      user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-
-      pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-    },
+  const html = renderCleanEmail({
+    title: "Subscription Cancellation Confirmation",
+    greeting: `Dear <strong>${he.encode(firstName)}</strong>,`,
+    paragraphs: [
+      `We wanted to confirm that your subscription for <strong>${he.encode(orgName)}</strong> has been successfully canceled.`,
+      "You will continue to have full access until the end of your current billing cycle, after which your subscription will be fully deactivated.",
+      "If you decide to reactivate before the billing cycle ends, you can do so from your account settings.",
+      "If you need any assistance, our support team is always available.",
+    ],
+    note: 'If you have questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
   });
-
-  const html = `
-
-  <div style="background:#f4fbfa;padding:40px 0;">
-
-      <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px #b2e2d6;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
-
-        <div style="background:#6fd3c4;padding:24px 0 24px 32px;display:flex;align-items:center;">
-
-          <img src="cid:managira_logo" alt="Managira Logo" style="height:60px;display:block;">
-
-        </div>
-
-        <div style="padding:36px 32px 32px 32px;">
-
-          <div style="color:#6fd3c4;font-size:24px;font-weight:600;margin-bottom:16px;letter-spacing:1px;">Subscription Cancellation Confirmation</div>
-
-          <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Dear <b>${firstName}</b>,</p>
-
-          <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">We wanted to confirm that your subscription for the organization <b>${orgName}</b> has been <span style='color:#b80000;font-weight:600;'>successfully canceled</span>.</p>
-
-          <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">You will <b>continue to have full access to the platform</b> until the end of your <b>current billing cycle</b>, after which your subscription will be fully deactivated. During this period, all users within your organization can continue their normal activities.</p>
-
-          <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">We truly value our relationship with you and would love the opportunity to work together again in the future. If you decide to <b>reactivate your subscription</b>, you can do so <b>before the end of your current billing cycle</b> through your account settings. Should you need any assistance, our support team is always available to help.</p>
-
-          <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Additionally, if you would like to request a copy of your organization’s data, please let us know. Rest assured, all data remains securely stored with us.</p>
-
-          <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">If you have any questions or need further assistance, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">FAQ page</a>.</p>
-
-          <p style="color:#b80000;font-size:16px;font-weight:bold;margin-top:32px;text-align:center;letter-spacing:1px;">THIS IS A NO-REPLY MESSAGE. PLEASE DO NOT REPLY TO THIS EMAIL.</p>
-
-        </div>
-
-        <div style="background:#e6f7ec;color:#888;text-align:center;padding:18px 0;font-size:13px;">&copy; ${new Date().getFullYear()} Managira. All rights reserved.</div>
-
-      </div>
-
-    </div>
-
-  `;
 
   const mailOptions = {
     from: process.env.NOTIFY_EMAIL_USER,
@@ -261,7 +189,7 @@ async function sendCancellationEmail(orgName, firstName, email) {
       },
     ],
   };
-  await transporter.sendMail(mailOptions);
+  await sendEmailSafely(mailOptions, "Cancellation Email");
 }
 
 async function sendRegistrationSuccessEmail(
@@ -272,65 +200,16 @@ async function sendRegistrationSuccessEmail(
   lastName
 ) {
   try {
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-
-      port: parseInt(process.env.SMTP_PORT),
-
-      secure: process.env.SMTP_SECURE === "true",
-
-      auth: {
-        user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-
-        pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-      },
+    const html = renderCleanEmail({
+      title: "Welcome to Managira",
+      greeting: `Hi <strong>${he.encode(firstName)} ${he.encode(lastName)}</strong>,`,
+      paragraphs: [
+        "Your organization account has been successfully registered and is now active.",
+        "You can now log in and start using all the features of Managira.",
+      ],
+      cta: { text: "Log In to Your Account", url: "https://www.managira.com/account/login" },
+      note: 'To get onboarded fast, open the attached Managira Starter Pack (PDF). You can also watch our walkthrough on YouTube: <a href="https://youtu.be/D8da4yiDBWc?si=NMJKd9PCmMq98IzJ" target="_blank" rel="noopener">Watch the walkthrough</a>.',
     });
-
-    const html = `
-
-      <div style="background:#f4fbfa;padding:40px 0;">
-
-        <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px #b2e2d6;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
-
-          <div style="background:#6fd3c4;padding:24px 0 24px 32px;display:flex;align-items:center;">
-
-            <img src="cid:managira_logo" alt="Managira Logo" style="height:60px;display:block;">
-
-          </div>
-
-          <div style="padding:36px 32px 32px 32px;">
-
-            <div style="color:#6fd3c4;font-size:28px;font-weight:600;margin-bottom:16px;letter-spacing:1px;">Welcome to Managira!</div>
-
-            <p style="font-size:17px;line-height:1.6;margin-bottom:18px;">Hi <b>${firstName} ${lastName}</b>,</p>
-
-            <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Your organization account has been <b style='color:#1ca34a;'>successfully registered</b> and is now active.</p>
-
-            <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">You can now log in and start using all the features of <span style='color:#1ca34a;font-weight:500;'>Managira</span>.</p>
-
-            <div style="margin-top:32px;margin-bottom:18px;">
-
-              <a href="https://www.managira.com/account/login" style="background:#6fd3c4;color:#fff;padding:12px 32px;border-radius:6px;text-decoration:none;font-size:16px;font-weight:600;box-shadow:0 2px 8px #b2e2d6;">Log In to Your Account</a>
-
-            </div>
-
-            <p style="margin-top:18px;font-size:15px;">If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">FAQ page</a>.</p>
-
-
-
-            <p style="margin-top:18px;font-size:15px;line-height:1.6;">To get onboarded fast, please open the attached <strong>Managira Starter Pack (PDF)</strong> for step-by-step setup instructions. You can also watch a short walkthrough video on our YouTube channel: <a href="https://youtu.be/D8da4yiDBWc?si=NMJKd9PCmMq98IzJ" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">Watch the walkthrough on YouTube</a>. .</p>
-
-            <p style="color:#b80000;font-size:16px;font-weight:bold;margin-top:32px;text-align:center;letter-spacing:1px;">THIS IS A NO-REPLY MESSAGE. PLEASE DO NOT REPLY TO THIS EMAIL.</p>
-
-          </div>
-
-          <div style="background:#e6f7ec;color:#888;text-align:center;padding:18px 0;font-size:13px;">&copy; ${new Date().getFullYear()} Managira. All rights reserved.</div>
-
-        </div>
-
-      </div>
-
-    `;
 
     const mailOptions = {
       from: process.env.NOTIFY_EMAIL_USER,
@@ -359,7 +238,7 @@ async function sendRegistrationSuccessEmail(
       ],
     };
 
-    await transporter.sendMail(mailOptions);
+    await sendEmailSafely(mailOptions, "Registration Success Email");
   } catch (error) {
         throw new Error("Failed to send registration success email.");
   }
@@ -368,21 +247,18 @@ async function sendRegistrationSuccessEmail(
 // Helper function to send password reset email
 
 async function sendPasswordResetEmail(email, token, baseUrl) {
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST, // e.g., smtp.gmail.com, smtp.zoho.com
-
-    port: parseInt(process.env.SMTP_PORT), // usually 465 or 587
-
-    secure: process.env.SMTP_SECURE === "true", // true for 465, false for 587
-
-    auth: {
-      user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-
-      pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-    },
-  });
-
   const resetLink = `${baseUrl}/account/reset-password?token=${token}`;
+
+  const html = renderCleanEmail({
+    title: "Password Reset Request",
+    greeting: "Hello,",
+    paragraphs: [
+      "You requested to reset your password.",
+      "Click the button below to continue. This link will expire in 15 minutes.",
+      "If you did not request this, you can safely ignore this email.",
+    ],
+    cta: { text: "Reset Password", url: resetLink },
+  });
 
   const mailOptions = {
     from: process.env.NOTIFY_EMAIL_USER,
@@ -391,35 +267,20 @@ async function sendPasswordResetEmail(email, token, baseUrl) {
 
     subject: "Password Reset Request",
 
-    html: `
-
-        <p>You requested to reset your password. Please click the link below to reset it:</p>
-
-        <p><a href="${resetLink}" target="_blank">Reset Password</a></p>
-
-        <p>This link will expire in 15 minutes.</p>
-
-        <p>If you didn't request this, please ignore this email.</p>
-
-        `,
+    html,
   };
 
-  await transporter.sendMail(mailOptions);
+  await sendEmailSafely(mailOptions, "Password Reset Request Email");
 }
 
 async function sendPasswordResetConfirmationEmail(email) {
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST, // e.g., smtp.gmail.com, smtp.zoho.com
-
-    port: parseInt(process.env.SMTP_PORT), // usually 465 or 587
-
-    secure: process.env.SMTP_SECURE === "true", // true for 465, false for 587
-
-    auth: {
-      user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-
-      pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-    },
+  const html = renderCleanEmail({
+    title: "Password Reset Successful",
+    greeting: "Dear User,",
+    paragraphs: [
+      "Your password has been successfully reset.",
+      "If you did not request this change, please contact support immediately.",
+    ],
   });
 
   const mailOptions = {
@@ -429,23 +290,11 @@ async function sendPasswordResetConfirmationEmail(email) {
 
     subject: "Password Reset Successful",
 
-    html: `
-
-            <p>Dear User,</p>
-
-            <p>Your password has been successfully reset. If you made this change, no further action is required.</p>
-
-            <p><strong>Keep your password safe:</strong> Do not share it with anyone.</p>
-
-            <p>If you did not request this password reset, please <a href="mailto:support@example.com">contact our support team</a> immediately.</p>
-
-            <p>Best regards,<br>Managira Team</p>
-
-        `,
+    html,
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    await sendEmailSafely(mailOptions, "Password Reset Confirmation Email");
   } catch (error) {
       }
 }
@@ -1662,48 +1511,6 @@ const accountController = {
     }
 
     try {
-      const html = `
-
-  <div style="background:#f4fbfa;padding:40px 0;">
-
-            <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px #b2e2d6;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
-
-            <div style="background:#6fd3c4;padding:24px 0 24px 32px;display:flex;align-items:center;">
-
-              <img src="cid:managira_logo" alt="Managira Logo" style="height:60px;display:block;">
-
-            </div>
-
-            <div style="padding:36px 32px 32px 32px;">
-
-              <div style="color:#6fd3c4;font-size:28px;font-weight:600;margin-bottom:16px;letter-spacing:1px;">Welcome to Managira!</div>
-
-              <p style="font-size:17px;line-height:1.6;margin-bottom:18px;">Hi <b>${firstName} ${lastName}</b>,</p>
-
-              <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Your organization account has been <b style='color:#1ca34a;'>successfully registered</b> and is now active.</p>
-
-              <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">You can now log in and start using all the features of <span style='color:#1ca34a;font-weight:500;'>Managira</span>.</p>
-
-              <div style="margin-top:32px;margin-bottom:18px;">
-
-                <a href="https://www.managira.com/login" style="background:#6fd3c4;color:#fff;padding:12px 32px;border-radius:6px;text-decoration:none;font-size:16px;font-weight:600;box-shadow:0 2px 8px #b2e2d6;">Log In to Your Account</a>
-
-              </div>
-
-              <p style="margin-top:18px;font-size:15px;">If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">FAQ page</a>.</p>
-
-              <p style="color:#b80000;font-size:16px;font-weight:bold;margin-top:32px;text-align:center;letter-spacing:1px;">THIS IS A NO-REPLY MESSAGE. PLEASE DO NOT REPLY TO THIS EMAIL.</p>
-
-            </div>
-
-            <div style="background:#e6f7ec;color:#888;text-align:center;padding:18px 0;font-size:13px;">&copy; ${new Date().getFullYear()} Managira. All rights reserved.</div>
-
-          </div>
-
-        </div>
-
-      `;
-
       const discount = result.rows[0].discount_percentage;
 
       return res.json({ success: true, discount });
@@ -2221,7 +2028,7 @@ const accountController = {
       // Fetch Paystack customer and Flutterwave data
 
       const orgResult = await db.query(
-        `SELECT paystack_customer_code, email, organization_phone, organization_name, first_name, last_name
+        `SELECT paystack_customer_code, email, organization_phone, organization_name, first_name, last_name, is_hub_member, hub_id
          FROM organizations
          WHERE organization_id = $1`,
         [orgId]
@@ -2229,8 +2036,26 @@ const accountController = {
 
       const orgRow = orgResult.rows[0] || {};
       let paystackCustomerCode = orgRow.paystack_customer_code;
+      const isHubMember = Boolean(orgRow.is_hub_member && orgRow.hub_id);
 
-      if (!paystackCustomerCode) {
+      let hubContractEndDate = null;
+      let hubName = null;
+
+      if (isHubMember) {
+        const hubResult = await db.query(
+          `SELECT hub_name, contract_end_date
+           FROM managira_hubs
+           WHERE hub_id = $1 AND deleted = false`,
+          [orgRow.hub_id]
+        );
+
+        if (hubResult.rows.length > 0) {
+          hubName = hubResult.rows[0].hub_name;
+          hubContractEndDate = hubResult.rows[0].contract_end_date;
+        }
+      }
+
+      if (!paystackCustomerCode && !isHubMember) {
         try {
           const customerData = {
             email: orgRow.email,
@@ -2267,44 +2092,46 @@ const accountController = {
 
       let defaultPaymentMethod = null;
 
-      try {
-        const customerResponse = await axios.get(
-          `https://api.paystack.co/customer/${paystackCustomerCode}`,
+      if (!isHubMember && paystackCustomerCode) {
+        try {
+          const customerResponse = await axios.get(
+            `https://api.paystack.co/customer/${paystackCustomerCode}`,
 
-          {
-            headers: {
-              Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
-            },
+            {
+              headers: {
+                Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+              },
+            }
+          );
+
+          const customer = customerResponse.data.data;
+
+          // Get saved cards from Paystack customer
+
+          if (customer.authorizations && customer.authorizations.length > 0) {
+            paymentMethods = customer.authorizations
+              .filter((auth) => auth.channel === "card" && auth.reusable)
+              .map((auth) => ({
+                id: auth.authorization_code,
+
+                brand: auth.brand,
+
+                last4: auth.last4,
+
+                expMonth: auth.exp_month,
+
+                expYear: auth.exp_year,
+
+                email: auth.email,
+              }));
+
+            // The first reusable authorization is usually the default
+
+            defaultPaymentMethod = paymentMethods[0] || null;
           }
-        );
-
-        const customer = customerResponse.data.data;
-
-        // Get saved cards from Paystack customer
-
-        if (customer.authorizations && customer.authorizations.length > 0) {
-          paymentMethods = customer.authorizations
-            .filter((auth) => auth.channel === "card" && auth.reusable)
-            .map((auth) => ({
-              id: auth.authorization_code,
-
-              brand: auth.brand,
-
-              last4: auth.last4,
-
-              expMonth: auth.exp_month,
-
-              expYear: auth.exp_year,
-
-              email: auth.email,
-            }));
-
-          // The first reusable authorization is usually the default
-
-          defaultPaymentMethod = paymentMethods[0] || null;
+        } catch (paystackError) {
+                  // Continue with empty payment methods if API fails
         }
-      } catch (paystackError) {
-                // Continue with empty payment methods if API fails
       }
 
       // ✅ Fetch all Paystack subaccounts
@@ -2339,6 +2166,9 @@ const accountController = {
         paymentMethods,
 
         paystackSubaccounts,
+        isHubMember,
+        hubName,
+        hubContractEndDate,
 
         messages: req.flash(),
       });
@@ -3462,37 +3292,72 @@ const accountController = {
   },
 
   updateProfileImagePost: async (req, res, db) => {
-    if (!req.session.user || !req.session.organizationId) {
+    if (!req.session.organizationId) {
       req.flash("error", "You must be logged in.");
       return res.redirect("/account/login");
     }
 
     const { redirectTo } = req.body;
     const orgId = req.session.organizationId;
-    const userId = req.session.user.user_id;
-    const isOrgAccount = req.session.accountType === "Organization";
+    const sessionUserId = req.session.user?.user_id || req.session.userId;
 
     if (!req.file) {
       req.flash("error", "Please select an image to upload.");
       return res.redirect(redirectTo || "/account/settings");
     }
 
+    if (!sessionUserId) {
+      req.flash("error", "Unable to identify user for profile image update.");
+      return res.redirect(redirectTo || "/account/settings");
+    }
+
     try {
+      await ensureProfileImageColumns(db);
+
+      const currentUserResult = await db.query(
+        "SELECT image_url FROM users WHERE user_id = $1 AND organization_id = $2",
+        [sessionUserId, orgId]
+      );
+
+      const isUserRow = currentUserResult.rows.length > 0;
+      let previousImageUrl = null;
+
+      if (isUserRow) {
+        previousImageUrl = currentUserResult.rows[0].image_url;
+      } else {
+        const currentOrgResult = await db.query(
+          "SELECT image_url FROM organizations WHERE organization_id = $1",
+          [orgId]
+        );
+        if (currentOrgResult.rows.length > 0) {
+          previousImageUrl = currentOrgResult.rows[0].image_url;
+        }
+      }
+
       // Upload image to S3
-      const s3Key = `images/profiles/${orgId}/${req.file.originalname}`;
+      const s3Key = `images/profiles/${orgId}/${Date.now()}_${req.file.originalname}`;
       const imageUrl = await uploadToS3(req.file, s3Key);
 
-      // Update database
-      if (isOrgAccount) {
+      if (isUserRow) {
+        await db.query(
+          "UPDATE users SET image_url = $1 WHERE user_id = $2 AND organization_id = $3",
+          [imageUrl, sessionUserId, orgId]
+        );
+      } else {
         await db.query(
           "UPDATE organizations SET image_url = $1 WHERE organization_id = $2",
           [imageUrl, orgId]
         );
-      } else {
-        await db.query(
-          "UPDATE users SET image_url = $1 WHERE user_id = $2 AND organization_id = $3",
-          [imageUrl, userId, orgId]
-        );
+      }
+
+      // Delete old profile image from S3 if present
+      const oldImageKey = extractS3KeyFromUrl(previousImageUrl);
+      if (oldImageKey && oldImageKey !== s3Key) {
+        try {
+          await deleteFromS3(oldImageKey);
+        } catch (cleanupError) {
+          // Ignore cleanup failure to avoid blocking successful update
+        }
       }
 
       // Update session
@@ -3508,6 +3373,81 @@ const accountController = {
       return res.redirect(redirectTo || "/account/settings");
     }
   },
+
+        deleteProfileImagePost: async (req, res, db) => {
+          if (!req.session.organizationId) {
+            req.flash("error", "You must be logged in.");
+            return res.redirect("/account/login");
+          }
+
+          const { redirectTo } = req.body;
+          const orgId = req.session.organizationId;
+          const sessionUserId = req.session.user?.user_id || req.session.userId;
+          
+
+          if (!sessionUserId) {
+            req.flash("error", "Unable to identify user for image deletion.");
+            return res.redirect(redirectTo || "/account/settings");
+          }
+
+          try {
+            await ensureProfileImageColumns(db);
+
+            const currentUserResult = await db.query(
+              "SELECT image_url FROM users WHERE user_id = $1 AND organization_id = $2",
+              [sessionUserId, orgId]
+            );
+
+            const isUserRow = currentUserResult.rows.length > 0;
+            let previousImageUrl = null;
+
+            if (isUserRow) {
+              previousImageUrl = currentUserResult.rows[0].image_url;
+            } else {
+              const currentOrgResult = await db.query(
+                "SELECT image_url FROM organizations WHERE organization_id = $1",
+                [orgId]
+              );
+              if (currentOrgResult.rows.length > 0) {
+                previousImageUrl = currentOrgResult.rows[0].image_url;
+              }
+            }
+
+            const placeholderImage = "profilePlaceholder.png";
+
+            if (isUserRow) {
+              await db.query(
+                "UPDATE users SET image_url = $1 WHERE user_id = $2 AND organization_id = $3",
+                [placeholderImage, sessionUserId, orgId]
+              );
+            } else {
+              await db.query(
+                "UPDATE organizations SET image_url = $1 WHERE organization_id = $2",
+                [placeholderImage, orgId]
+              );
+            }
+
+            const oldImageKey = extractS3KeyFromUrl(previousImageUrl);
+            if (oldImageKey) {
+              try {
+                await deleteFromS3(oldImageKey);
+              } catch (cleanupError) {
+                // Ignore cleanup failure to avoid blocking successful delete
+              }
+            }
+
+            if (req.session.user) {
+              req.session.user.image_url = placeholderImage;
+            }
+            req.session.save();
+
+            req.flash("success", "Profile picture removed successfully.");
+            return res.redirect(redirectTo || "/account/settings");
+          } catch (error) {
+            req.flash("error", "Failed to remove profile picture.");
+            return res.redirect(redirectTo || "/account/settings");
+          }
+        },
 
   updateSecurityEmailPost: async (req, res, db) => {
     if (!req.session.user || !req.session.organizationId) {
@@ -4773,6 +4713,8 @@ const accountController = {
 
   settingsGet: async (req, res, db) => {
     try {
+      await ensureProfileImageColumns(db);
+
       const sessionUserId = req.session.user?.user_id || req.session.userId;
       const userId = req.query.userId || sessionUserId;
       let orgId = req.session.organizationId;
@@ -4789,7 +4731,7 @@ const accountController = {
 
       const orgResult = orgId
         ? await db.query(
-            `SELECT organization_name, logo, logo_path, font_style, nickname, role, email, paystack_customer_code, first_name, last_name, organization_phone
+            `SELECT organization_name, logo, logo_path, image_url, font_style, nickname, role, email, paystack_customer_code, first_name, last_name, organization_phone, is_hub_member, hub_id
              FROM organizations 
              WHERE organization_id = $1`,
             [orgId]
@@ -4844,7 +4786,7 @@ const accountController = {
       let user = null;
       if (userId && orgId) {
         const userResult = await db.query(
-          `SELECT first_name, last_name, email, account_type 
+          `SELECT first_name, last_name, email, account_type, image_url
            FROM users 
            WHERE user_id = $1 AND organization_id = $2`,
           [userId, orgId]
@@ -4856,17 +4798,21 @@ const accountController = {
 
       if (!user && orgId) {
         const orgUserResult = await db.query(
-          `SELECT first_name, last_name, email, 'Manager' AS account_type
+          `SELECT first_name, last_name, email, 'Manager' AS account_type, image_url
            FROM organizations
            WHERE organization_id = $1`,
           [orgId]
         );
         if (orgUserResult.rows.length > 0) {
-          user = orgUserResult.rows[0];
+          user = {
+            ...orgUserResult.rows[0],
+            image_url: orgUserResult.rows[0]?.image_url || req.session?.user?.image_url || "profilePlaceholder.png",
+          };
         }
       }
 
       const orgRow = orgResult.rows[0] || {};
+      const isHubMember = Boolean(orgRow.is_hub_member && orgRow.hub_id);
       let paystackCustomerCode = orgRow.paystack_customer_code || '';
       let paymentMethods = [];
       let defaultPaymentMethod = null;
@@ -4885,7 +4831,7 @@ const accountController = {
                   }
       }
 
-      if (orgId && process.env.PAYSTACK_SECRET_KEY && orgRow.email) {
+      if (orgId && process.env.PAYSTACK_SECRET_KEY && orgRow.email && !isHubMember) {
         if (!paystackCustomerCode) {
           try {
             const customerData = {
@@ -4956,13 +4902,14 @@ const accountController = {
         defaultPaymentMethod,
         paystackSubaccounts,
         paystackCustomerCode,
+        isHubMember,
         passwordVerified: req.session.passwordVerified || false,
         userId,
         messages: req.flash(),
       });
     } catch (error) {
             req.flash("error", "Unable to load settings page.");
-      res.redirect("/account");
+      res.redirect("/common/orgDashboard");
     }
   },
 
@@ -6677,145 +6624,62 @@ const accountController = {
         ]
       );
                   // Send welcome email to organization admin
-      const welcomeEmailHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-            .button { display: inline-block; padding: 12px 30px; background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%); color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
-            .info-box { background: white; padding: 15px; border-left: 4px solid #01535b; margin: 20px 0; }
-            .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>🎉 Welcome to Managira SMS!</h1>
-            </div>
-            <div class="content">
-              <p>Dear ${admin_first_name},</p>
-              
-              <p>Congratulations! Your organization <strong>${invitation.organization_name}</strong> has successfully joined the <strong>${invitation.hub_name}</strong> hub on Managira SMS.</p>
-              
-              <div class="info-box">
-                <h3>Your Organization Details</h3>
-                <p><strong>Organization:</strong> ${invitation.organization_name}</p>
-                <p><strong>Subdomain:</strong> ${organization_nickname}.${invitation.hub_nickname}.managira.com</p>
-                <p><strong>Admin Email:</strong> ${admin_email}</p>
-                <p><strong>Hub:</strong> ${invitation.hub_name}</p>
-              </div>
-              
-              <h3>Next Steps</h3>
-              <ol>
-                <li>Log in to your organization dashboard</li>
-                <li>Complete your organization profile</li>
-                <li>Set up your academic terms and classes</li>
-                <li>Add teachers and staff</li>
-                <li>Start enrolling students</li>
-              </ol>
-              
-              <div style="text-align: center;">
-                <a href="${process.env.APP_URL || 'http://localhost:4000'}/account/login" class="button">Go to Dashboard</a>
-              </div>
-              
-              <p style="margin-top: 30px;">If you have any questions, please contact your hub administrator at ${invitation.hub_email}.</p>
-              
-              <p>Welcome aboard!</p>
-              <p><strong>The Managira Team</strong></p>
-            </div>
-            <div class="footer">
-              <p>&copy; ${new Date().getFullYear()} Managira SMS. All rights reserved.</p>
-              <p>Empowering Education Through Technology</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `;
+      const welcomeEmailHtml = renderCleanEmail({
+        title: 'Welcome to Managira SMS',
+        greeting: `Dear ${admin_first_name},`,
+        intro: `Your organization ${invitation.organization_name} has successfully joined the ${invitation.hub_name} hub.`,
+        message: 'You can now log in and start using your dashboard.',
+        actionUrl: `${process.env.APP_URL || 'http://localhost:4000'}/account/login`,
+        actionText: 'Go to Dashboard',
+        details: [
+          `Organization: ${invitation.organization_name}`,
+          `Subdomain: ${organization_nickname}.${invitation.hub_nickname}.managira.com`,
+          `Admin Email: ${admin_email}`,
+          `Hub: ${invitation.hub_name}`,
+        ],
+        note: `If you have questions, contact your hub administrator at ${invitation.hub_email}.`,
+        closing: 'Welcome aboard!',
+      });
 
-      // Send email notification
-      const transporter = nodemailer.createTransport({
+      const smtpConfig = {
         host: process.env.SMTP_HOST,
         port: parseInt(process.env.SMTP_PORT),
-        secure: process.env.SMTP_SECURE === "true",
+        secure: process.env.SMTP_SECURE === 'true',
         auth: {
           user: process.env.ADMIN_NOTIFY_EMAIL_USER,
           pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
         },
-      });
+      };
 
-      await transporter.sendMail({
-        from: process.env.NOTIFY_EMAIL_USER,
+      await sendEmailSafely({
+        smtpConfig,
         to: admin_email,
         subject: `Welcome to ${invitation.hub_name} Hub - Managira SMS`,
         html: welcomeEmailHtml,
-        attachments: [
-          {
-            filename: "managira.png",
-            path: path.join(__dirname, "../public/images/managira.png"),
-            cid: "managira_logo",
-          },
-        ],
+        from: process.env.NOTIFY_EMAIL_USER,
       });
 
       // Notify hub
-      const hubNotificationHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-            .info-box { background: white; padding: 15px; border-left: 4px solid #28a745; margin: 20px 0; }
-            .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>New Organization Joined!</h1>
-            </div>
-            <div class="content">
-              <p>Good news!</p>
-              
-              <p><strong>${invitation.organization_name}</strong> has accepted your invitation and joined your hub.</p>
-              
-              <div class="info-box">
-                <h3>Organization Details</h3>
-                <p><strong>Name:</strong> ${invitation.organization_name}</p>
-                <p><strong>Subdomain:</strong> ${organization_nickname}.${invitation.hub_nickname}.managira.com</p>
-                <p><strong>Admin:</strong> ${admin_first_name} ${admin_last_name}</p>
-                <p><strong>Email:</strong> ${admin_email}</p>
-                <p><strong>Joined:</strong> ${new Date().toLocaleDateString()}</p>
-              </div>
-              
-              <p>You can now manage this organization from your hub dashboard.</p>
-            </div>
-            <div class="footer">
-              <p>&copy; ${new Date().getFullYear()} Managira SMS. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `;
+      const hubNotificationHtml = renderCleanEmail({
+        title: 'New Organization Joined',
+        greeting: 'Good news,',
+        intro: `${invitation.organization_name} has accepted your invitation and joined your hub.`,
+        details: [
+          `Name: ${invitation.organization_name}`,
+          `Subdomain: ${organization_nickname}.${invitation.hub_nickname}.managira.com`,
+          `Admin: ${admin_first_name} ${admin_last_name}`,
+          `Email: ${admin_email}`,
+          `Joined: ${new Date().toLocaleDateString()}`,
+        ],
+        closing: 'You can now manage this organization from your hub dashboard.',
+      });
 
-      await transporter.sendMail({
-        from: process.env.NOTIFY_EMAIL_USER,
+      await sendEmailSafely({
+        smtpConfig,
         to: invitation.hub_email,
         subject: `${invitation.organization_name} Joined Your Hub`,
         html: hubNotificationHtml,
-        attachments: [
-          {
-            filename: "managira.png",
-            path: path.join(__dirname, "../public/images/managira.png"),
-            cid: "managira_logo",
-          },
-        ],
+        from: process.env.NOTIFY_EMAIL_USER,
       });
 
                   
@@ -6902,66 +6766,26 @@ const accountController = {
       if (hubResult.rows.length > 0) {
         const hub = hubResult.rows[0];
 
-        // Send notification email to hub
-        const emailHtml = `
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <style>
-              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-              .header { background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-              .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-              .alert-box { background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0; }
-              .info-box { background: white; padding: 15px; border-left: 4px solid #01535b; margin: 20px 0; }
-              .button { display: inline-block; padding: 12px 30px; background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%); color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
-              .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <h1>🔗 Detachment Request</h1>
-              </div>
-              <div class="content">
-                <div class="alert-box">
-                  <strong>Action Required</strong>
-                </div>
-                
-                <p>Dear ${hub.hub_name} Administrator,</p>
-                
-                <p><strong>${organization.organization_name}</strong> has requested to detach from your hub.</p>
-                
-                <div class="info-box">
-                  <h3>Request Details:</h3>
-                  <p><strong>Organization:</strong> ${organization.organization_name}</p>
-                  <p><strong>Subdomain:</strong> ${organization.nickname}.${hub.hub_nickname}.managira.com</p>
-                  <p><strong>Contact:</strong> ${organization.email}</p>
-                  <p><strong>Requested by:</strong> ${req.session.email}</p>
-                  <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
-                </div>
-                
-                <div class="info-box">
-                  <h3>Reason for Detachment:</h3>
-                  <p>${reason}</p>
-                </div>
-                
-                <h3>Next Steps:</h3>
-                <p>Please log in to your hub dashboard to review and approve/reject this request.</p>
-                
-                <div style="text-align: center;">
-                  <a href="${process.env.APP_URL || 'http://localhost:4000'}/hub/dashboard" class="button">Review Request</a>
-                </div>
-                
-                <p style="margin-top: 20px; color: #666; font-size: 14px;">If you approve this request, ${organization.organization_name} will become an independent organization and will need to set up their own subscription.</p>
-              </div>
-              <div class="footer">
-                <p>&copy; ${new Date().getFullYear()} Managira SMS. All rights reserved.</p>
-              </div>
-            </div>
-          </body>
-          </html>
-        `;
+        const emailHtml = renderCleanEmail({
+          title: "Detachment Request",
+          greeting: `Dear <strong>${he.encode(hub.hub_name)} Administrator</strong>,`,
+          paragraphs: [
+            `<strong>${he.encode(organization.organization_name)}</strong> has requested to detach from your hub.`,
+            "Please log in to your hub dashboard to review and approve/reject this request.",
+          ],
+          details: [
+            { label: "Organization", value: he.encode(organization.organization_name) },
+            { label: "Subdomain", value: `${he.encode(organization.nickname)}.${he.encode(hub.hub_nickname)}.managira.com` },
+            { label: "Contact", value: he.encode(organization.email) },
+            { label: "Requested by", value: he.encode(req.session.email || '') },
+            { label: "Date", value: new Date().toLocaleDateString() },
+            { label: "Reason", value: he.encode(reason) },
+          ],
+          cta: {
+            text: "Review Request",
+            url: `${process.env.APP_URL || 'http://localhost:4000'}/hub/dashboard`,
+          },
+        });
 
         await sendEmail({
           to: hub.hub_email,
@@ -7111,95 +6935,32 @@ const accountController = {
       client.release();
 
             // Send confirmation emails
-      const hubEmailHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-            .success-box { background: #d4edda; padding: 15px; border-left: 4px solid #28a745; margin: 20px 0; }
-            .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>✅ Organization Joined Your Hub</h1>
-            </div>
-            <div class="content">
-              <div class="success-box">
-                <strong>${organization.organization_name}</strong> has accepted your invitation!
-              </div>
-              
-              <p>Great news! ${organization.organization_name} is now part of ${invitation.hub_name}.</p>
-              
-              <p><strong>Organization Details:</strong></p>
-              <ul>
-                <li>Name: ${organization.organization_name}</li>
-                <li>Email: ${organization.email}</li>
-                <li>New Subdomain: ${organization.nickname}.${invitation.hub_nickname}.managira.com</li>
-              </ul>
-              
-              <p>You can now manage this organization from your hub dashboard.</p>
-            </div>
-            <div class="footer">
-              <p>&copy; ${new Date().getFullYear()} Managira SMS. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `;
+      const hubEmailHtml = renderCleanEmail({
+        title: "Organization Joined Your Hub",
+        greeting: `Good news, <strong>${he.encode(invitation.hub_name)} Team</strong>,`,
+        paragraphs: [
+          `<strong>${he.encode(organization.organization_name)}</strong> accepted your invitation and is now part of your hub.`,
+        ],
+        details: [
+          { label: "Organization", value: he.encode(organization.organization_name) },
+          { label: "Email", value: he.encode(organization.email) },
+          { label: "Subdomain", value: `${he.encode(organization.nickname)}.${he.encode(invitation.hub_nickname)}.managira.com` },
+        ],
+      });
 
-      const orgEmailHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-            .success-box { background: #d4edda; padding: 15px; border-left: 4px solid #28a745; margin: 20px 0; }
-            .info-box { background: white; padding: 15px; border-left: 4px solid #01535b; margin: 20px 0; }
-            .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>🎉 Welcome to ${invitation.hub_name}!</h1>
-            </div>
-            <div class="content">
-              <div class="success-box">
-                <strong>You've successfully joined the hub!</strong>
-              </div>
-              
-              <p>Dear ${organization.organization_name} Team,</p>
-              
-              <p>Your organization is now part of <strong>${invitation.hub_name}</strong>.</p>
-              
-              <div class="info-box">
-                <h3>Important Changes:</h3>
-                <ul>
-                  <li>Your new subdomain: <strong>${organization.nickname}.${invitation.hub_nickname}.managira.com</strong></li>
-                  <li>Your subscription is now managed by ${invitation.hub_name}</li>
-                  <li>All your data remains intact</li>
-                  <li>You retain full operational control</li>
-                </ul>
-              </div>
-              
-              <p>You can continue using Managira SMS as usual. If you have questions, contact ${invitation.hub_name} at ${invitation.hub_email}.</p>
-            </div>
-            <div class="footer">
-              <p>&copy; ${new Date().getFullYear()} Managira SMS. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `;
+      const orgEmailHtml = renderCleanEmail({
+        title: `Welcome to ${he.encode(invitation.hub_name)}`,
+        greeting: `Dear <strong>${he.encode(organization.organization_name)} Team</strong>,`,
+        paragraphs: [
+          `Your organization is now part of <strong>${he.encode(invitation.hub_name)}</strong>.`,
+          `You can continue using Managira as usual. For questions, contact ${he.encode(invitation.hub_name)} at ${he.encode(invitation.hub_email)}.`,
+        ],
+        details: [
+          { label: "New Subdomain", value: `${he.encode(organization.nickname)}.${he.encode(invitation.hub_nickname)}.managira.com` },
+          { label: "Subscription", value: `Managed by ${he.encode(invitation.hub_name)}` },
+          { label: "Data", value: "All your data remains intact" },
+        ],
+      });
 
       // Send emails
       await sendEmailSafely({

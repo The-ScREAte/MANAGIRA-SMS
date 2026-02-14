@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <%- include('partials/head', { title: title || 'Managira' }) %>
+    <%- include('partials/head', { title: (typeof title !== 'undefined' && title) ? title : 'Managira' }) %>
     <style>
         main {
             padding: 0;

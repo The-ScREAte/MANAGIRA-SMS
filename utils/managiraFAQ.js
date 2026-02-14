@@ -299,6 +299,62 @@ const managiraFAQ = [
     question: "Can I use Managira for academic transcript generation?",
     answer: "Yes. Managira includes a transcript generation feature that compiles a student's complete academic history across all enrolled terms and years. Transcripts can be printed or downloaded as professional PDF documents.",
     keywords: ["transcript", "academic history", "PDF", "print", "download", "generation"]
+  },
+  {
+    id: 42,
+    category: "Security & Access",
+    question: "How do staff roles and permissions work for organizations?",
+    answer: "Organizations use role-based access with secure server-side checks. Managers have full organization-level access. Teachers and Supervisors can be given specific permissions based on their job. Access is enforced on protected routes in addition to UI visibility, so users cannot rely on direct URL access to bypass restrictions.",
+    keywords: ["roles", "permissions", "rbac", "organization roles", "teacher permissions", "supervisor permissions", "access control", "server-side"]
+  },
+  {
+    id: 43,
+    category: "Security & Access",
+    question: "What are the default permissions for Teacher and Supervisor roles?",
+    answer: "By default, Teacher includes: Manage Assessments and Mark Attendance. Supervisor includes: Manage Students, Manage Guardians, Manage Assessments, Mark Attendance, Manage Reports, Approve Admissions, Publish Events & Announcements, Manage Classes & Subjects, Generate Transcripts, and Manage Promotions. These defaults are applied automatically when staff are created or updated.",
+    keywords: ["default permissions", "teacher default", "supervisor default", "manage assessments", "mark attendance", "manage students", "manage guardians", "manage reports"]
+  },
+  {
+    id: 44,
+    category: "Security & Access",
+    question: "Can we assign extra permissions to specific teachers or supervisors?",
+    answer: "Yes. During Create Employee and Modify Employee, organizations can add optional extra permissions for individual staff members. This allows selective delegation (for example, granting additional responsibilities to a specific teacher) without changing the staff member's base role.",
+    keywords: ["assign permissions", "extra permissions", "create employee", "modify employee", "delegate access", "teacher extra access", "supervisor access"]
+  },
+  {
+    id: 45,
+    category: "Security & Access",
+    question: "Where are assigned permissions saved?",
+    answer: "Assigned permissions are stored in the database in a dedicated user_permissions table scoped by organization. This means permissions persist across sessions and are enforced consistently by the backend.",
+    keywords: ["saved permissions", "database", "user_permissions", "persistent permissions", "organization scoped"]
+  },
+  {
+    id: 46,
+    category: "Security & Access",
+    question: "Can non-manager staff grant high-risk permissions?",
+    answer: "No. High-risk permissions such as employee management and organization settings are restricted. Non-manager users cannot assign Manager role and cannot grant high-risk permissions, even if they attempt to submit them manually.",
+    keywords: ["high risk permissions", "manager only", "grant restrictions", "secure delegation", "manage employees", "manage settings"]
+  },
+  {
+    id: 47,
+    category: "Security & Access",
+    question: "How can organizations review who has which permissions?",
+    answer: "Use the Manage Employees page to review staff records. The page now shows each employee's assigned permissions so administrators can quickly audit access and update permissions when responsibilities change.",
+    keywords: ["manage employees", "permission audit", "view permissions", "staff access review", "security review"]
+  },
+  {
+    id: 48,
+    category: "Security & Access",
+    question: "Which organization actions are now protected by explicit permission checks?",
+    answer: "Permission checks now protect key organization actions, including employee management, admissions approval workflows, event/announcement publishing, school-year and term management, class/subject setup, transcript generation routes, promotion workflows, and billing/settings operations. Sensitive attendance and student archive actions are also protected by authentication and explicit permissions.",
+    keywords: ["protected routes", "secure endpoints", "employee management security", "attendance security", "archive students", "authorization"]
+  },
+  {
+    id: 49,
+    category: "Security & Access",
+    question: "Which granular permissions are available now?",
+    answer: "Available granular permissions include admissions approval, events/announcements publishing, school-year and term management, class/subject setup, transcript generation, promotion approval, and billing/settings delegation. Organizations can combine these with role defaults and optional extras per staff member.",
+    keywords: ["granular permissions", "available permissions", "custom permissions", "granular access", "admissions approval", "announcement publishing", "term management", "transcript permission", "billing delegation"]
   }
 ];
 

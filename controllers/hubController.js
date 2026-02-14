@@ -1,39 +1,18 @@
 const db = require("../config/db");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
-const nodemailer = require("nodemailer");
-const path = require("path");
 const { uploadToS3, deleteFromS3 } = require("../config/s3");
+const { sendEmailSafely, renderCleanEmail } = require("../utils/emailHelper");
 
 // Helper function to send emails
 async function sendEmail({ to, subject, html }) {
   try {
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT),
-      secure: process.env.SMTP_SECURE === "true",
-      auth: {
-        user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-        pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-      },
-    });
-
-    const mailOptions = {
-      from: process.env.NOTIFY_EMAIL_USER,
+    return await sendEmailSafely({
       to,
       subject,
       html,
-      attachments: [
-        {
-          filename: "managira.png",
-          path: path.join(__dirname, "../public/images/managira.png"),
-          cid: "managira_logo",
-        },
-      ],
-    };
-
-    await transporter.sendMail(mailOptions);
-    return true;
+      from: process.env.NOTIFY_EMAIL_USER,
+    }, "Hub email");
   } catch (error) {
         return false;
   }
@@ -52,6 +31,25 @@ async function logHubActivity(hubId, actionType, description, targetOrgId = null
 }
 
 const hubController = {
+  getHubOrganization: async (hubId, organizationId) => {
+    const orgResult = await db.query(
+      `SELECT o.organization_id, o.organization_name, o.email, o.nickname, o.first_name, o.last_name,
+              o.organization_phone, o.organization_address, o.joined_hub_at, o.on_hold,
+              (SELECT COUNT(*) FROM students s WHERE s.organization_id = o.organization_id) AS student_count,
+              (SELECT COUNT(*) FROM users u WHERE u.organization_id = o.organization_id) AS staff_count,
+              (SELECT COUNT(*) FROM classes c WHERE c.organization_id = o.organization_id) AS class_count,
+              (SELECT COUNT(*) FROM subjects sub WHERE sub.organization_id = o.organization_id) AS subject_count
+       FROM organizations o
+       WHERE o.organization_id = $1
+         AND o.hub_id = $2
+         AND o.deleted = false
+         AND o.is_hub_member = true`,
+      [organizationId, hubId]
+    );
+
+    return orgResult.rows[0] || null;
+  },
+
   // Hub Login Page
   hubLoginGet: (req, res) => {
     if (req.session.hubId) {
@@ -242,6 +240,669 @@ const hubController = {
     } catch (error) {
             req.flash('error', 'Error loading dashboard.');
       res.redirect('/hub/login');
+    }
+  },
+
+  hubOverviewStatsGet: async (req, res) => {
+    let hubId = null;
+    let currentStep = 'initialize';
+    try {
+      hubId = req.session.hubId;
+      console.log('[HubOverview] Request started', { hubId });
+
+      const organizationScopeSql = `
+        SELECT organization_id, on_hold
+        FROM organizations
+        WHERE hub_id = $1 AND deleted = false AND is_hub_member = true
+      `;
+
+      const organizationIdScopeSql = `
+        SELECT organization_id
+        FROM organizations
+        WHERE hub_id = $1 AND deleted = false AND is_hub_member = true
+      `;
+
+      currentStep = 'organizationStatsResult';
+      const organizationStatsResult = await db.query(
+        `SELECT
+           COUNT(*)::int AS organization_count,
+           COUNT(*) FILTER (WHERE on_hold = false)::int AS active_organizations,
+           COUNT(*) FILTER (WHERE on_hold = true)::int AS on_hold_organizations
+         FROM (${organizationScopeSql}) scoped_orgs`,
+        [hubId]
+      );
+
+      currentStep = 'enrollmentStaffingResult';
+      const enrollmentStaffingResult = await db.query(
+        `SELECT
+           (SELECT COUNT(*)::int FROM students WHERE organization_id IN (${organizationIdScopeSql})) AS total_students,
+           (SELECT COUNT(*)::int FROM users WHERE organization_id IN (${organizationIdScopeSql})) AS total_staff,
+           (SELECT COUNT(*)::int FROM classes WHERE organization_id IN (${organizationIdScopeSql})) AS total_classes,
+           (SELECT COUNT(*)::int FROM subjects WHERE organization_id IN (${organizationIdScopeSql})) AS total_subjects`,
+        [hubId]
+      );
+
+      currentStep = 'attendanceTotalsResult';
+      const attendanceTotalsResult = await db.query(
+        `SELECT
+           COUNT(*)::int AS total_records,
+           COUNT(*) FILTER (WHERE LOWER(COALESCE(a.status::text, '')) = 'present')::int AS present_days,
+           COUNT(*) FILTER (WHERE LOWER(COALESCE(a.status::text, '')) = 'absent')::int AS absent_days
+         FROM attendance_records a
+         JOIN students s ON s.student_id = a.student_id
+         WHERE s.organization_id IN (${organizationIdScopeSql})`,
+        [hubId]
+      );
+
+      currentStep = 'assessmentTotalsResult';
+      const assessmentTotalsResult = await db.query(
+        `SELECT
+           COUNT(ar.student_id)::int AS total_results,
+           COALESCE(ROUND(AVG(ar.total_percentage)::numeric, 1), 0) AS average_score,
+           COUNT(*) FILTER (WHERE ar.total_percentage >= 50)::int AS pass_count,
+           COUNT(*) FILTER (WHERE ar.total_percentage < 50)::int AS fail_count
+         FROM assessment_results ar
+         JOIN students s ON s.student_id = ar.student_id
+         WHERE s.organization_id IN (${organizationIdScopeSql})`,
+        [hubId]
+      );
+
+      currentStep = 'attendanceByOrganizationResult';
+      const attendanceByOrganizationResult = await db.query(
+        `SELECT
+           o.organization_id,
+           o.organization_name,
+           COUNT(a.student_id)::int AS total_records,
+           COUNT(*) FILTER (WHERE LOWER(COALESCE(a.status::text, '')) = 'present')::int AS present_days,
+           COUNT(*) FILTER (WHERE LOWER(COALESCE(a.status::text, '')) = 'absent')::int AS absent_days,
+           COALESCE(
+             ROUND(
+               (
+                 COUNT(*) FILTER (WHERE LOWER(COALESCE(a.status::text, '')) = 'present')::numeric
+                 / NULLIF(COUNT(a.student_id), 0)
+               ) * 100,
+               1
+             ),
+             0
+           ) AS present_rate
+         FROM organizations o
+         LEFT JOIN students s ON s.organization_id = o.organization_id
+         LEFT JOIN attendance_records a ON a.student_id = s.student_id
+         WHERE o.hub_id = $1
+           AND o.deleted = false
+           AND o.is_hub_member = true
+         GROUP BY o.organization_id, o.organization_name
+         ORDER BY present_rate DESC, total_records DESC
+         LIMIT 10`,
+        [hubId]
+      );
+
+      currentStep = 'topPerformingOrganizationsResult';
+      const topPerformingOrganizationsResult = await db.query(
+        `SELECT
+           o.organization_id,
+           o.organization_name,
+           COALESCE(ROUND(AVG(ar.total_percentage)::numeric, 1), 0) AS average_score,
+           COUNT(ar.student_id)::int AS results_count
+         FROM organizations o
+         LEFT JOIN students s ON s.organization_id = o.organization_id
+         LEFT JOIN assessment_results ar ON ar.student_id = s.student_id
+         WHERE o.hub_id = $1
+           AND o.deleted = false
+           AND o.is_hub_member = true
+         GROUP BY o.organization_id, o.organization_name
+         ORDER BY average_score DESC, results_count DESC
+         LIMIT 10`,
+        [hubId]
+      );
+
+      currentStep = 'organizationLoadComparisonResult';
+      const organizationLoadComparisonResult = await db.query(
+        `SELECT
+           o.organization_id,
+           o.organization_name,
+           o.on_hold,
+           COUNT(DISTINCT s.student_id)::int AS student_count,
+           COUNT(DISTINCT u.user_id)::int AS staff_count,
+           COUNT(DISTINCT c.class_id)::int AS class_count,
+           COUNT(DISTINCT sub.subject_id)::int AS subject_count
+         FROM organizations o
+         LEFT JOIN students s ON s.organization_id = o.organization_id
+         LEFT JOIN users u ON u.organization_id = o.organization_id
+         LEFT JOIN classes c ON c.organization_id = o.organization_id
+         LEFT JOIN subjects sub ON sub.organization_id = o.organization_id
+         WHERE o.hub_id = $1
+           AND o.deleted = false
+           AND o.is_hub_member = true
+         GROUP BY o.organization_id, o.organization_name, o.on_hold
+         ORDER BY student_count DESC, o.organization_name ASC
+         LIMIT 10`,
+        [hubId]
+      );
+
+      const orgStats = organizationStatsResult.rows[0] || {};
+      const enrollmentStaffing = enrollmentStaffingResult.rows[0] || {};
+      const attendanceTotals = attendanceTotalsResult.rows[0] || {};
+      const assessmentTotals = assessmentTotalsResult.rows[0] || {};
+
+      const totalStudents = parseInt(enrollmentStaffing.total_students || 0, 10);
+      const totalStaff = parseInt(enrollmentStaffing.total_staff || 0, 10);
+      const totalClasses = parseInt(enrollmentStaffing.total_classes || 0, 10);
+
+      const totalAttendanceRecords = parseInt(attendanceTotals.total_records || 0, 10);
+      const presentDays = parseInt(attendanceTotals.present_days || 0, 10);
+      const absentDays = parseInt(attendanceTotals.absent_days || 0, 10);
+
+      const totalAssessmentResults = parseInt(assessmentTotals.total_results || 0, 10);
+      const passCount = parseInt(assessmentTotals.pass_count || 0, 10);
+      const failCount = parseInt(assessmentTotals.fail_count || 0, 10);
+
+      const attendanceRate = totalAttendanceRecords > 0
+        ? Math.round((presentDays / totalAttendanceRecords) * 1000) / 10
+        : 0;
+      const passRate = totalAssessmentResults > 0
+        ? Math.round((passCount / totalAssessmentResults) * 1000) / 10
+        : 0;
+      const studentsPerClass = totalClasses > 0
+        ? Math.round((totalStudents / totalClasses) * 10) / 10
+        : 0;
+      const studentsPerStaff = totalStaff > 0
+        ? Math.round((totalStudents / totalStaff) * 10) / 10
+        : 0;
+
+      currentStep = 'respondJson';
+      console.log('[HubOverview] Request completed', {
+        hubId,
+        attendanceOrgRows: attendanceByOrganizationResult.rowCount,
+        topSchoolRows: topPerformingOrganizationsResult.rowCount,
+        loadRows: organizationLoadComparisonResult.rowCount
+      });
+
+      return res.json({
+        highlights: {
+          attendanceRate,
+          averageAssessmentScore: parseFloat(assessmentTotals.average_score || 0),
+          passRate,
+          studentsPerClass,
+          studentsPerStaff
+        },
+        enrollmentStaffing: {
+          organizationCount: parseInt(orgStats.organization_count || 0, 10),
+          activeOrganizations: parseInt(orgStats.active_organizations || 0, 10),
+          onHoldOrganizations: parseInt(orgStats.on_hold_organizations || 0, 10),
+          totalStudents,
+          totalStaff,
+          totalClasses,
+          totalSubjects: parseInt(enrollmentStaffing.total_subjects || 0, 10)
+        },
+        attendanceByOrganization: attendanceByOrganizationResult.rows.map((row) => ({
+          organizationId: row.organization_id,
+          organizationName: row.organization_name,
+          totalRecords: parseInt(row.total_records || 0, 10),
+          presentDays: parseInt(row.present_days || 0, 10),
+          absentDays: parseInt(row.absent_days || 0, 10),
+          presentRate: parseFloat(row.present_rate || 0)
+        })),
+        topPerformingOrganizations: topPerformingOrganizationsResult.rows.map((row) => ({
+          organizationId: row.organization_id,
+          organizationName: row.organization_name,
+          averageScore: parseFloat(row.average_score || 0),
+          resultsCount: parseInt(row.results_count || 0, 10)
+        })),
+        organizationLoadComparison: organizationLoadComparisonResult.rows.map((row) => {
+          const studentCount = parseInt(row.student_count || 0, 10);
+          const staffCount = parseInt(row.staff_count || 0, 10);
+          const classCount = parseInt(row.class_count || 0, 10);
+          return {
+            organizationId: row.organization_id,
+            organizationName: row.organization_name,
+            onHold: row.on_hold,
+            studentCount,
+            staffCount,
+            classCount,
+            subjectCount: parseInt(row.subject_count || 0, 10),
+            studentsPerClass: classCount > 0 ? Math.round((studentCount / classCount) * 10) / 10 : 0,
+            studentsPerStaff: staffCount > 0 ? Math.round((studentCount / staffCount) * 10) / 10 : 0
+          };
+        }),
+        enrollmentOverTerms: [],
+        genderDistribution: [],
+        employeeRoles: [],
+        subjectPerformance: [],
+        studentsPerClassByClass: [],
+        organizationLegend: organizationLoadComparisonResult.rows.map((row) => ({
+          organizationId: row.organization_id,
+          organizationName: row.organization_name,
+          studentCount: parseInt(row.student_count || 0, 10),
+          staffCount: parseInt(row.staff_count || 0, 10),
+          classCount: parseInt(row.class_count || 0, 10)
+        })),
+        totals: {
+          totalAttendanceRecords,
+          presentDays,
+          absentDays,
+          totalAssessmentResults,
+          passCount,
+          failCount
+        },
+        generatedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('[HubOverview] Request failed', {
+        hubId,
+        currentStep,
+        message: error.message,
+        code: error.code,
+        detail: error.detail,
+        hint: error.hint,
+        where: error.where,
+        stack: error.stack
+      });
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to load hub overview statistics.'
+      });
+    }
+  },
+
+  organizationDetailsGet: async (req, res) => {
+    try {
+      const hub = req.hubInfo;
+      const { organizationId } = req.params;
+      const allowedTabs = ['students', 'staff', 'classes'];
+      const activeTab = allowedTabs.includes(req.query.tab) ? req.query.tab : 'students';
+
+      const organization = await hubController.getHubOrganization(hub.hub_id, organizationId);
+
+      if (!organization) {
+        req.flash('error', 'Organization not found or not part of your hub.');
+        return res.redirect('/hub/dashboard');
+      }
+
+      const schoolYearsResult = await db.query(
+        `SELECT sy.id AS school_year_id, sy.year_label, t.term_id, t.term_name, t.start_date, t.end_date, t.current
+         FROM school_years sy
+         LEFT JOIN terms t ON sy.id = t.school_year_id
+         WHERE sy.organization_id = $1
+         ORDER BY sy.created_at DESC, t.start_date`,
+        [organizationId]
+      );
+
+      const schoolYears = [];
+      schoolYearsResult.rows.forEach((row) => {
+        let year = schoolYears.find((entry) => entry.school_year_id === row.school_year_id);
+        if (!year) {
+          year = { school_year_id: row.school_year_id, year_label: row.year_label, terms: [] };
+          schoolYears.push(year);
+        }
+        if (row.term_id) {
+          year.terms.push({ ...row });
+        }
+      });
+
+      const selectedSchoolYearId = req.query.selectedSchoolYearId;
+      const selectedTermId = req.query.selectedTermId;
+      const selectedSchoolYear = schoolYears.find((year) => String(year.school_year_id) === String(selectedSchoolYearId)) || schoolYears[0] || null;
+
+      let currentTerm = null;
+      if (selectedSchoolYear && selectedSchoolYear.terms.length > 0) {
+        currentTerm = selectedSchoolYear.terms.find((term) => String(term.term_id) === String(selectedTermId))
+          || selectedSchoolYear.terms.find((term) => term.current)
+          || selectedSchoolYear.terms[0];
+      }
+
+      const organizationDataResult = await db.query(
+        `SELECT
+          (SELECT COUNT(*) FROM students WHERE organization_id = $1) AS total_students,
+          (SELECT COUNT(*) FROM users WHERE organization_id = $1) AS total_employees,
+          (SELECT COUNT(*) FROM classes WHERE organization_id = $1) AS total_classes,
+          (SELECT COUNT(*) FROM subjects WHERE organization_id = $1) AS total_subjects`,
+        [organizationId]
+      );
+      const organizationData = organizationDataResult.rows[0] || {
+        total_students: 0,
+        total_employees: 0,
+        total_classes: 0,
+        total_subjects: 0,
+      };
+
+      let attendanceByClass = [];
+      let assessmentByClass = [];
+      let classStrengthProfile = [];
+
+      if (currentTerm) {
+        attendanceByClass = (await db.query(
+          `SELECT c.class_name,
+                  COUNT(a.student_id) AS total_attendance,
+                  COUNT(CASE WHEN a.status = 'Present' THEN 1 END) AS present_days,
+                  COUNT(CASE WHEN a.status = 'Absent' THEN 1 END) AS absent_days
+           FROM classes c
+           LEFT JOIN students s ON c.class_id = s.class_id
+           LEFT JOIN attendance_records a ON s.student_id = a.student_id AND a.term_id = $2
+           WHERE c.organization_id = $1
+           GROUP BY c.class_name
+           ORDER BY c.class_name`,
+          [organizationId, currentTerm.term_id]
+        )).rows;
+
+        assessmentByClass = (await db.query(
+          `SELECT c.class_name,
+                  COUNT(DISTINCT a.assessment_id) AS total_assessments,
+                  AVG(ar.total_percentage) AS average_score,
+                  COUNT(CASE WHEN ar.total_percentage >= 50 THEN 1 END) AS pass_count,
+                  COUNT(CASE WHEN ar.total_percentage < 50 THEN 1 END) AS fail_count
+           FROM classes c
+           LEFT JOIN students s ON c.class_id = s.class_id
+           LEFT JOIN assessment_results ar ON s.student_id = ar.student_id AND ar.term_id = $2
+           LEFT JOIN assessments a ON ar.assessment_id = a.assessment_id
+           WHERE c.organization_id = $1
+           GROUP BY c.class_name
+           ORDER BY average_score DESC
+           LIMIT 5`,
+          [organizationId, currentTerm.term_id]
+        )).rows;
+
+        classStrengthProfile = (await db.query(
+          `SELECT sub.subject_name,
+                  ROUND(AVG(ar.total_percentage), 2) AS avg_score
+           FROM assessment_results ar
+           JOIN students s ON ar.student_id = s.student_id
+           JOIN subjects sub ON ar.subject_id = sub.subject_id
+           WHERE s.organization_id = $1 AND ar.term_id = $2
+           GROUP BY sub.subject_name
+           ORDER BY sub.subject_name`,
+          [organizationId, currentTerm.term_id]
+        )).rows;
+      }
+
+      const organizationGrowth = (await db.query(
+        `SELECT sy.year_label,
+                COUNT(DISTINCT s.student_id) AS total_students,
+                COUNT(DISTINCT u.user_id) AS total_employees,
+                COUNT(DISTINCT c.class_id) AS total_classes
+         FROM school_years sy
+         LEFT JOIN enrollments e ON e.school_year_id = sy.id
+         LEFT JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id
+         LEFT JOIN students s ON s.student_id = es.student_id AND s.organization_id = $1
+         LEFT JOIN classes c ON c.organization_id = $1
+         LEFT JOIN users u ON u.organization_id = $1
+         WHERE sy.organization_id = $1
+         GROUP BY sy.year_label
+         ORDER BY sy.year_label`,
+        [organizationId]
+      )).rows;
+
+      const enrollmentOverTerms = (await db.query(
+        `SELECT t.term_name,
+                COUNT(DISTINCT es.student_id) AS enrolled_students
+         FROM terms t
+         LEFT JOIN enrollments e ON t.term_id = e.term_id
+         LEFT JOIN enrolled_students es ON e.enrollment_id = es.enrollment_id
+         WHERE t.organization_id = $1
+         GROUP BY t.term_name, t.start_date
+         ORDER BY t.start_date`,
+        [organizationId]
+      )).rows;
+
+      const genderDistribution = (await db.query(
+        `SELECT gender, COUNT(*) AS count
+         FROM students
+         WHERE organization_id = $1
+         GROUP BY gender`,
+        [organizationId]
+      )).rows;
+
+      const employeeRoles = (await db.query(
+        `SELECT account_type, COUNT(*) AS count
+         FROM users
+         WHERE organization_id = $1
+         GROUP BY account_type`,
+        [organizationId]
+      )).rows;
+
+      const studentCountPerClass = (await db.query(
+        `SELECT c.class_name, COUNT(s.student_id) AS student_count
+         FROM classes c
+         LEFT JOIN students s ON c.class_id = s.class_id
+         WHERE c.organization_id = $1
+         GROUP BY c.class_name
+         ORDER BY student_count DESC`,
+        [organizationId]
+      )).rows;
+
+      const topPerformingClasses = assessmentByClass;
+
+      res.render('hub/organizationDetails', {
+        title: `${organization.organization_name} - Hub Organization Details`,
+        hub,
+        organization,
+        activeTab,
+        schoolYears,
+        selectedSchoolYear,
+        currentTerm,
+        organizationData,
+        attendanceByClass,
+        assessmentByClass,
+        topPerformingClasses,
+        classStrengthProfile,
+        studentCountPerClass,
+        organizationGrowth,
+        enrollmentOverTerms,
+        genderDistribution,
+        employeeRoles,
+        messages: req.flash(),
+        showFooterTopSection: true,
+      });
+    } catch (error) {
+      req.flash('error', 'Unable to load organization details.');
+      res.redirect('/hub/dashboard');
+    }
+  },
+
+  organizationStudentsListGet: async (req, res) => {
+    try {
+      const hub = req.hubInfo;
+      const { organizationId } = req.params;
+
+      const organization = await hubController.getHubOrganization(hub.hub_id, organizationId);
+      if (!organization) {
+        return res.status(404).json({ success: false, message: 'Organization not found.' });
+      }
+
+      const studentsResult = await db.query(
+        `SELECT s.student_id, s.first_name, s.last_name, s.gender,
+                c.class_name,
+                COALESCE((
+                  SELECT gp.email
+                  FROM guardian_students gs
+                  JOIN guardian_profiles gp ON gp.guardian_id = gs.guardian_id
+                  WHERE gs.student_id = s.student_id AND gp.organization_id = s.organization_id
+                  LIMIT 1
+                ), 'N/A') AS guardian_email
+         FROM students s
+         LEFT JOIN classes c ON c.class_id = s.class_id
+         WHERE s.organization_id = $1
+         ORDER BY s.first_name ASC, s.last_name ASC`,
+        [organizationId]
+      );
+
+      res.json({ success: true, items: studentsResult.rows });
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'Unable to load students.' });
+    }
+  },
+
+  organizationStudentDetailsGet: async (req, res) => {
+    try {
+      const hub = req.hubInfo;
+      const { organizationId, studentId } = req.params;
+
+      const organization = await hubController.getHubOrganization(hub.hub_id, organizationId);
+      if (!organization) {
+        return res.status(404).json({ success: false, message: 'Organization not found.' });
+      }
+
+      const studentResult = await db.query(
+        `SELECT s.student_id, s.first_name, s.last_name, s.gender, s.date_of_birth, s.hometown,
+                c.class_name
+         FROM students s
+         LEFT JOIN classes c ON c.class_id = s.class_id
+         WHERE s.student_id = $1 AND s.organization_id = $2`,
+        [studentId, organizationId]
+      );
+
+      if (studentResult.rows.length === 0) {
+        return res.status(404).json({ success: false, message: 'Student not found.' });
+      }
+
+      const guardiansResult = await db.query(
+        `SELECT gp.first_name, gp.last_name, gp.email, gp.phone, gs.relationship
+         FROM guardian_students gs
+         JOIN guardian_profiles gp ON gp.guardian_id = gs.guardian_id
+         WHERE gs.student_id = $1 AND gp.organization_id = $2
+         ORDER BY gp.first_name, gp.last_name`,
+        [studentId, organizationId]
+      );
+
+      res.json({
+        success: true,
+        item: {
+          ...studentResult.rows[0],
+          guardians: guardiansResult.rows,
+        },
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'Unable to load student details.' });
+    }
+  },
+
+  organizationStaffListGet: async (req, res) => {
+    try {
+      const hub = req.hubInfo;
+      const { organizationId } = req.params;
+
+      const organization = await hubController.getHubOrganization(hub.hub_id, organizationId);
+      if (!organization) {
+        return res.status(404).json({ success: false, message: 'Organization not found.' });
+      }
+
+      const staffResult = await db.query(
+        `SELECT user_id, first_name, last_name, email, account_type, on_hold, created_at
+         FROM users
+         WHERE organization_id = $1
+         ORDER BY first_name ASC, last_name ASC`,
+        [organizationId]
+      );
+
+      res.json({ success: true, items: staffResult.rows });
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'Unable to load staff.' });
+    }
+  },
+
+  organizationStaffDetailsGet: async (req, res) => {
+    try {
+      const hub = req.hubInfo;
+      const { organizationId, staffId } = req.params;
+
+      const organization = await hubController.getHubOrganization(hub.hub_id, organizationId);
+      if (!organization) {
+        return res.status(404).json({ success: false, message: 'Organization not found.' });
+      }
+
+      const staffResult = await db.query(
+        `SELECT user_id, first_name, last_name, email, account_type, on_hold, created_at, updated_at
+         FROM users
+         WHERE user_id = $1 AND organization_id = $2`,
+        [staffId, organizationId]
+      );
+
+      if (staffResult.rows.length === 0) {
+        return res.status(404).json({ success: false, message: 'Staff member not found.' });
+      }
+
+      res.json({ success: true, item: staffResult.rows[0] });
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'Unable to load staff details.' });
+    }
+  },
+
+  organizationClassesListGet: async (req, res) => {
+    try {
+      const hub = req.hubInfo;
+      const { organizationId } = req.params;
+
+      const organization = await hubController.getHubOrganization(hub.hub_id, organizationId);
+      if (!organization) {
+        return res.status(404).json({ success: false, message: 'Organization not found.' });
+      }
+
+      const classesResult = await db.query(
+        `SELECT c.class_id, c.class_name,
+                COUNT(DISTINCT s.student_id) AS student_count,
+                COUNT(DISTINCT sub.subject_id) AS subject_count
+         FROM classes c
+         LEFT JOIN students s ON s.class_id = c.class_id
+         LEFT JOIN subjects sub ON sub.class_id = c.class_id
+         WHERE c.organization_id = $1
+         GROUP BY c.class_id, c.class_name
+         ORDER BY c.class_name ASC`,
+        [organizationId]
+      );
+
+      res.json({ success: true, items: classesResult.rows });
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'Unable to load classes.' });
+    }
+  },
+
+  organizationClassDetailsGet: async (req, res) => {
+    try {
+      const hub = req.hubInfo;
+      const { organizationId, classId } = req.params;
+
+      const organization = await hubController.getHubOrganization(hub.hub_id, organizationId);
+      if (!organization) {
+        return res.status(404).json({ success: false, message: 'Organization not found.' });
+      }
+
+      const classResult = await db.query(
+        `SELECT c.class_id, c.class_name
+         FROM classes c
+         WHERE c.class_id = $1 AND c.organization_id = $2`,
+        [classId, organizationId]
+      );
+
+      if (classResult.rows.length === 0) {
+        return res.status(404).json({ success: false, message: 'Class not found.' });
+      }
+
+      const subjectsResult = await db.query(
+        `SELECT subject_id, subject_name
+         FROM subjects
+         WHERE class_id = $1 AND organization_id = $2
+         ORDER BY subject_name ASC`,
+        [classId, organizationId]
+      );
+
+      const studentsResult = await db.query(
+        `SELECT student_id, first_name, last_name
+         FROM students
+         WHERE class_id = $1 AND organization_id = $2
+         ORDER BY first_name ASC, last_name ASC`,
+        [classId, organizationId]
+      );
+
+      res.json({
+        success: true,
+        item: {
+          ...classResult.rows[0],
+          subjects: subjectsResult.rows,
+          students: studentsResult.rows,
+        },
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'Unable to load class details.' });
     }
   },
 
@@ -584,61 +1245,23 @@ const hubController = {
       // Send invitation email
       const invitationUrl = `${process.env.APP_URL || 'http://localhost:4000'}/account/accept-hub-invitation/${invitationToken}`;
       
-      const emailHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-            .button { display: inline-block; padding: 12px 30px; background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%); color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
-            .info-box { background: white; padding: 15px; border-left: 4px solid #01535b; margin: 20px 0; }
-            .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <img src="cid:managira_logo" alt="Managira" style="height: 50px; margin-bottom: 10px;">
-              <h1>Hub Invitation from ${hub.hub_name}</h1>
-            </div>
-            <div class="content">
-              <p>Dear ${contact_person_name},</p>
-              
-              <p><strong>${hub.hub_name}</strong> has invited <strong>${organization_name}</strong> to join their hub on Managira SMS.</p>
-              
-              ${message ? `<div class="info-box"><strong>Message from ${hub.hub_name}:</strong><br>${message}</div>` : ''}
-              
-              <h3>What is a Hub?</h3>
-              <p>A hub is a parent organization that manages multiple schools or educational institutions. By joining this hub:</p>
-              <ul>
-                <li>Your organization will be managed under ${hub.hub_name}</li>
-                <li>You'll inherit the hub's subscription plan (${hub.plan_name || 'Professional'})</li>
-                <li>No separate billing - managed by the hub</li>
-                <li>Your organization will be accessible at: <strong>${organization_name.toLowerCase().replace(/\s+/g, '')}.${hub.hub_nickname}.managira.com</strong></li>
-              </ul>
-              
-              <h3>Accept This Invitation</h3>
-              <p>Click the button below to accept this invitation and set up your organization:</p>
-              
-              <div style="text-align: center;">
-                <a href="${invitationUrl}" class="button">Accept Invitation</a>
-              </div>
-              
-              <p style="color: #666; font-size: 14px;">Or copy and paste this link: ${invitationUrl}</p>
-              
-              <p style="color: #999; font-size: 12px; margin-top: 30px;">This invitation expires on ${expiresAt.toLocaleDateString()}. If you have any questions, please contact ${hub.hub_name} at ${hub.hub_email}.</p>
-            </div>
-            <div class="footer">
-              <p>&copy; ${new Date().getFullYear()} Managira SMS. All rights reserved.</p>
-              <p>Empowering Education Through Technology</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `;
+      const emailHtml = renderCleanEmail({
+        title: `Hub Invitation from ${hub.hub_name}`,
+        greeting: `Dear ${contact_person_name},`,
+        paragraphs: [
+          `${hub.hub_name} has invited ${organization_name} to join their hub on Managira SMS.`,
+          'A hub is a parent organization that manages multiple schools or educational institutions.',
+          message ? `Message from ${hub.hub_name}: ${message}` : '',
+        ].filter(Boolean),
+        details: [
+          { label: 'Hub', value: hub.hub_name },
+          { label: 'Organization', value: organization_name },
+          { label: 'Plan', value: hub.plan_name || 'Professional' },
+          { label: 'Access URL', value: `${organization_name.toLowerCase().replace(/\s+/g, '')}.${hub.hub_nickname}.managira.com` },
+        ],
+        cta: { url: invitationUrl, text: 'Accept Invitation' },
+        note: `This invitation expires on ${expiresAt.toLocaleDateString()}. If you have questions, contact ${hub.hub_name} at ${hub.hub_email}.`,
+      });
 
       const emailSent = await sendEmail({
         to: contact_person_email,
@@ -703,50 +1326,16 @@ const hubController = {
       // Resend email
       const invitationUrl = `${process.env.APP_URL || 'http://localhost:4000'}/account/accept-hub-invitation/${invitation.invitation_token}`;
       
-      const emailHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-            .button { display: inline-block; padding: 12px 30px; background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%); color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
-            .info-box { background: white; padding: 15px; border-left: 4px solid #01535b; margin: 20px 0; }
-            .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <img src="cid:managira_logo" alt="Managira" style="height: 50px; margin-bottom: 10px;">
-              <h1>Reminder: Hub Invitation from ${hub.hub_name}</h1>
-            </div>
-            <div class="content">
-              <p>Dear ${invitation.contact_person_name},</p>
-              
-              <p>This is a reminder that <strong>${hub.hub_name}</strong> has invited <strong>${invitation.organization_name}</strong> to join their hub on Managira SMS.</p>
-              
-              ${invitation.message ? `<div class="info-box"><strong>Message from ${hub.hub_name}:</strong><br>${invitation.message}</div>` : ''}
-              
-              <p>Click the button below to accept this invitation and set up your organization:</p>
-              
-              <div style="text-align: center;">
-                <a href="${invitationUrl}" class="button">Accept Invitation</a>
-              </div>
-              
-              <p style="color: #666; font-size: 14px;">Or copy and paste this link: ${invitationUrl}</p>
-              
-              <p style="color: #999; font-size: 12px; margin-top: 30px;">This invitation expires on ${newExpiresAt.toLocaleDateString()}.</p>
-            </div>
-            <div class="footer">
-              <p>&copy; ${new Date().getFullYear()} Managira SMS. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `;
+      const emailHtml = renderCleanEmail({
+        title: `Reminder: Hub Invitation from ${hub.hub_name}`,
+        greeting: `Dear ${invitation.contact_person_name},`,
+        paragraphs: [
+          `This is a reminder that ${hub.hub_name} invited ${invitation.organization_name} to join their hub on Managira SMS.`,
+          invitation.message ? `Message from ${hub.hub_name}: ${invitation.message}` : '',
+        ].filter(Boolean),
+        cta: { url: invitationUrl, text: 'Accept Invitation' },
+        note: `This invitation expires on ${newExpiresAt.toLocaleDateString()}.`,
+      });
 
       await sendEmail({
         to: invitation.contact_person_email,
@@ -811,53 +1400,20 @@ const hubController = {
 
       // Send notification email to organization
       if (organization.email) {
-        const emailHtml = `
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <style>
-              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-              .header { background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-              .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-              .alert-box { background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0; }
-              .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <img src="cid:managira_logo" alt="Managira" style="height: 50px; margin-bottom: 10px;">
-                <h1>Hub Membership Update</h1>
-              </div>
-              <div class="content">
-                <div class="alert-box">
-                  <strong>Important Notice</strong>
-                </div>
-                
-                <p>Dear ${organization.organization_name} Administrator,</p>
-                
-                <p>Your organization has been removed from the <strong>${hub.hub_name}</strong> hub.</p>
-                
-                <h3>What This Means:</h3>
-                <ul>
-                  <li>Your organization is now independent</li>
-                  <li>You will need to set up your own subscription plan</li>
-                  <li>Your subdomain has changed to: <strong>${organization.organization_nickname}.managira.com</strong></li>
-                  <li>All your data remains intact</li>
-                </ul>
-                
-                <p>If you believe this is an error, please contact ${hub.hub_name} at ${hub.hub_email}.</p>
-                
-                <p>To set up your subscription, please log in to your organization dashboard.</p>
-              </div>
-              <div class="footer">
-                <p>&copy; ${new Date().getFullYear()} Managira SMS. All rights reserved.</p>
-              </div>
-            </div>
-          </body>
-          </html>
-        `;
+        const emailHtml = renderCleanEmail({
+          title: 'Hub Membership Update',
+          greeting: `Dear ${organization.organization_name} Administrator,`,
+          paragraphs: [
+            `Your organization has been removed from the ${hub.hub_name} hub.`,
+            `If you believe this is an error, contact ${hub.hub_name} at ${hub.hub_email}.`,
+            'Log in to your dashboard to set up your organization subscription.',
+          ],
+          details: [
+            { label: 'Status', value: 'Organization is now independent' },
+            { label: 'New Subdomain', value: `${organization.organization_nickname}.managira.com` },
+            { label: 'Data', value: 'All existing data remains intact' },
+          ],
+        });
 
         await sendEmail({
           to: organization.email,
@@ -1142,63 +1698,20 @@ const hubController = {
       );
 
       // Send notification email to organization
-      const emailHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-            .success-box { background: #d4edda; padding: 15px; border-left: 4px solid #28a745; margin: 20px 0; }
-            .info-box { background: white; padding: 15px; border-left: 4px solid #01535b; margin: 20px 0; }
-            .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>✅ Detachment Request Approved</h1>
-            </div>
-            <div class="content">
-              <div class="success-box">
-                <strong>Your request has been approved</strong>
-              </div>
-              
-              <p>Dear ${request.organization_name} Administrator,</p>
-              
-              <p>Your request to detach from <strong>${hub.hub_name}</strong> hub has been approved.</p>
-              
-              <div class="info-box">
-                <h3>What's Changed:</h3>
-                <ul>
-                  <li>Your organization is now independent</li>
-                  <li>Your new subdomain: <strong>${request.nickname}.managira.com</strong></li>
-                  <li>You'll need to set up your own subscription plan</li>
-                  <li>All your data remains intact</li>
-                </ul>
-              </div>
-              
-              <h3>Next Steps:</h3>
-              <ol>
-                <li>Log in to your organization dashboard</li>
-                <li>Go to Account Settings to set up your subscription</li>
-                <li>Choose a plan that fits your needs</li>
-                <li>Complete payment to continue using Managira SMS</li>
-              </ol>
-              
-              <p>If you have any questions, please contact support at support@managira.com.</p>
-              
-              <p>Thank you for using Managira SMS!</p>
-            </div>
-            <div class="footer">
-              <p>&copy; ${new Date().getFullYear()} Managira SMS. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `;
+      const emailHtml = renderCleanEmail({
+        title: 'Detachment Request Approved',
+        greeting: `Dear ${request.organization_name} Administrator,`,
+        paragraphs: [
+          `Your request to detach from ${hub.hub_name} has been approved.`,
+          'Log in to your dashboard and set up your own subscription plan to continue service.',
+          'If you need help, contact support@managira.com.',
+        ],
+        details: [
+          { label: 'Status', value: 'Approved' },
+          { label: 'New Subdomain', value: `${request.nickname}.managira.com` },
+          { label: 'Data', value: 'All your organization data remains intact' },
+        ],
+      });
 
       await sendEmail({
         to: request.org_email,
@@ -1255,47 +1768,17 @@ const hubController = {
       );
 
       // Send notification email to organization
-      const emailHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-            .warning-box { background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0; }
-            .info-box { background: white; padding: 15px; border-left: 4px solid #01535b; margin: 20px 0; }
-            .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>Detachment Request Update</h1>
-            </div>
-            <div class="content">
-              <div class="warning-box">
-                <strong>Your request has been reviewed</strong>
-              </div>
-              
-              <p>Dear ${request.organization_name} Administrator,</p>
-              
-              <p>Your request to detach from <strong>${hub.hub_name}</strong> hub has been reviewed.</p>
-              
-              ${notes ? `<div class="info-box"><h3>Response from ${hub.hub_name}:</h3><p>${notes}</p></div>` : ''}
-              
-              <p>If you have concerns or wish to discuss this decision, please contact ${hub.hub_name} at ${hub.hub_email}.</p>
-              
-              <p>You can submit a new request in the future if needed.</p>
-            </div>
-            <div class="footer">
-              <p>&copy; ${new Date().getFullYear()} Managira SMS. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `;
+      const emailHtml = renderCleanEmail({
+        title: 'Detachment Request Update',
+        greeting: `Dear ${request.organization_name} Administrator,`,
+        paragraphs: [
+          `Your request to detach from ${hub.hub_name} has been reviewed.`,
+          notes ? `Response from ${hub.hub_name}: ${notes}` : '',
+          `If you wish to discuss this decision, contact ${hub.hub_name} at ${hub.hub_email}.`,
+          'You can submit a new request in the future if needed.',
+        ].filter(Boolean),
+        details: [{ label: 'Status', value: 'Reviewed' }],
+      });
 
       await sendEmail({
         to: request.org_email,
@@ -1414,63 +1897,26 @@ const hubController = {
       );
 
       // Send email to organization
-      const emailHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: linear-gradient(135deg, #01535b 0%, #6fd3c4 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-            .button { display: inline-block; padding: 14px 32px; background: #01535b; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 20px 0; }
-            .info-box { background: white; padding: 15px; border-left: 4px solid #01535b; margin: 20px 0; }
-            .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-            .warning-box { background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>🤝 Hub Invitation</h1>
-            </div>
-            <div class="content">
-              <p>Dear ${org.organization_name} Team,</p>
-              
-              <p><strong>${hub.hub_name}</strong> has invited you to join their hub on Managira SMS!</p>
-              
-              <div class="info-box">
-                <h3>What is a Hub?</h3>
-                <p>A hub allows multiple organizations to be managed under one parent organization. Your organization will remain independent but will benefit from centralized management.</p>
-              </div>
-
-              <div class="warning-box">
-                <strong>⚠️ Important Changes:</strong>
-                <ul>
-                  <li>Your subdomain will change to: <strong>${org.nickname}.${hub.hub_nickname}.managira.com</strong></li>
-                  <li>Your subscription will be managed by ${hub.hub_name}</li>
-                  <li>All your data remains with your organization</li>
-                  <li>You'll still have full control over your organization's operations</li>
-                </ul>
-              </div>
-              
-              <div style="text-align: center;">
-                <a href="${process.env.BASE_URL || 'https://managira.com'}/account/accept-hub-invitation-existing/${token}" class="button">
-                  Accept Invitation
-                </a>
-              </div>
-              
-              <p style="font-size: 0.9rem; color: #666;">This invitation expires on ${expiresAt.toLocaleDateString()}.</p>
-              
-              <p>If you have questions, please contact ${hub.hub_name} at ${hub.hub_email}.</p>
-            </div>
-            <div class="footer">
-              <p>&copy; ${new Date().getFullYear()} Managira SMS. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `;
+      const emailHtml = renderCleanEmail({
+        title: 'Hub Invitation',
+        greeting: `Dear ${org.organization_name} Team,`,
+        paragraphs: [
+          `${hub.hub_name} has invited your organization to join their hub on Managira SMS.`,
+          'A hub allows multiple organizations to be managed under one parent organization while keeping each organization operationally independent.',
+          `If you have questions, contact ${hub.hub_name} at ${hub.hub_email}.`,
+        ],
+        details: [
+          { label: 'New Subdomain', value: `${org.nickname}.${hub.hub_nickname}.managira.com` },
+          { label: 'Subscription', value: `Managed by ${hub.hub_name}` },
+          { label: 'Data', value: 'All your data remains with your organization' },
+          { label: 'Control', value: 'You keep full control of operations' },
+        ],
+        cta: {
+          url: `${process.env.BASE_URL || 'https://managira.com'}/account/accept-hub-invitation-existing/${token}`,
+          text: 'Accept Invitation',
+        },
+        note: `This invitation expires on ${expiresAt.toLocaleDateString()}.`,
+      });
 
       await sendEmail({
         to: org.email,

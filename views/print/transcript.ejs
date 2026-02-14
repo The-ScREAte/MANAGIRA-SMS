@@ -357,6 +357,12 @@
         letter-spacing: 0.5px;
       }
 
+      .t-signature-name {
+        font-size: 12px;
+        color: #0f172a;
+        font-weight: 700;
+      }
+
       /* Footer */
       .t-footer {
         text-align: center;
@@ -730,7 +736,8 @@
             <% } else { %>
               <div class="t-signature-line"></div>
             <% } %>
-            <div class="t-signature-label">Headmaster's Signature</div>
+            <div class="t-signature-label"><%= signatureTitle || "Authorized Signature" %></div>
+            <div class="t-signature-name"><%= signatureName || "Authorized" %></div>
           </div>
         </div>
 
@@ -787,6 +794,7 @@
         You can create multiple signatures and assign them to different classes.
       </p>
       <a href="/print/reportSettings?classId=<%= student.class_id %>&termId=<%= typeof termId !== 'undefined' ? termId : '' %>" 
+        data-no-spa
          style="display:inline-block;background:var(--org-primary-color, #0f5a66);color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;transition:all 0.2s ease;box-shadow:0 4px 12px rgba(15,90,102,0.2);">
         🛠️ Manage Signatures in Report Settings
       </a>

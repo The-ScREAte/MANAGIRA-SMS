@@ -4,8 +4,13 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
+const connectionString = process.env.DB_CONNECTION_STRING || process.env.DATABASE_URL;
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL
+  connectionString,
+  ssl: process.env.DB_SSL === 'true' || (connectionString || '').includes('sslmode=require')
+    ? { rejectUnauthorized: false }
+    : false
 });
 
 async function runMigration() {

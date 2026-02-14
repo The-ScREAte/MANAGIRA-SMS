@@ -1,0 +1,547 @@
+{
+  "counts": {
+    "uniqueInternal": 151,
+    "handled": 97,
+    "excluded": 10,
+    "unhandled": 53
+  },
+  "unhandled": [
+    {
+      "href": "/contact",
+      "files": [
+        "views/account/cancelSubscription.ejs",
+        "views/account/settings.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/account/service-plan",
+      "files": [
+        "views/account/login.ejs"
+      ],
+      "handled": false,
+      "excluded": true
+    },
+    {
+      "href": "/account/deleteImage/<%= image.image_id %>",
+      "files": [
+        "views/account/managePublicContent.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/account/deleteText/<%= text.text_id %>",
+      "files": [
+        "views/account/managePublicContent.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/common/deleteEvent/<%= event.id %>",
+      "files": [
+        "views/account/managePublicContent.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/common/deleteAnnouncement/<%= announcement.announcement_id %>",
+      "files": [
+        "views/account/managePublicContent.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/account/confirm-password?redirect=/account/update-card",
+      "files": [
+        "views/account/update.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/account/confirm-password?redirect=cancel-subscription",
+      "files": [
+        "views/account/update.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/css/admin.css",
+      "files": [
+        "views/admin/adminAnnouncements.ejs",
+        "views/admin/createPromo.ejs",
+        "views/admin/dashboard.ejs",
+        "views/admin/helpMessages.ejs",
+        "views/admin/hubCreate.ejs",
+        "views/admin/hubEdit.ejs",
+        "views/admin/hubOrganizations.ejs",
+        "views/admin/hubs.ejs",
+        "views/admin/manageDonations.ejs",
+        "views/admin/manageEmployment.ejs",
+        "views/admin/superDashboard.ejs",
+        "views/admin/superSettings.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/common/addStudent",
+      "files": [
+        "views/common/admissionsHub.ejs",
+        "views/common/admissionsHub_old.ejs"
+      ],
+      "handled": false,
+      "excluded": true
+    },
+    {
+      "href": "/images/favicon_io/favicon.ico",
+      "files": [
+        "views/common/admissionsHub_old.ejs",
+        "views/common/managementTools_old.ejs",
+        "views/common/reportsHub_old.ejs",
+        "views/partials/head.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/css/style.css",
+      "files": [
+        "views/common/admissionsHub_old.ejs",
+        "views/common/managementTools_old.ejs",
+        "views/common/reportsHub_old.ejs",
+        "views/hub/dashboard.ejs",
+        "views/hub/editOrganization.ejs",
+        "views/hub/settings.ejs",
+        "views/partials/head.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/css/buttons.css",
+      "files": [
+        "views/common/admissionsHub_old.ejs",
+        "views/common/managementTools_old.ejs",
+        "views/common/reportsHub_old.ejs",
+        "views/partials/head.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/common/deleteStudentImage/<%= student.student_id %>",
+      "files": [
+        "views/common/editStudent.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/common/gradingSystem",
+      "files": [
+        "views/common/managementTools.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/common/events",
+      "files": [
+        "views/common/managementTools.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/common/announcements",
+      "files": [
+        "views/common/managementTools.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/common/attendance",
+      "files": [
+        "views/common/managementTools.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/enrollment/manage",
+      "files": [
+        "views/common/managementTools_old.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/account/service-plan?plan=<%= plan.plan_id %>",
+      "files": [
+        "views/common/pricing.ejs"
+      ],
+      "handled": false,
+      "excluded": true
+    },
+    {
+      "href": "/account/service-plan?plan=<%= premiumPlanId %>&trial=1",
+      "files": [
+        "views/common/pricing.ejs"
+      ],
+      "handled": false,
+      "excluded": true
+    },
+    {
+      "href": "/common/publicRegister?organizationId=<%= orgDetails.organization_id %>",
+      "files": [
+        "views/common/publicDashboard.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/print/reportSettings",
+      "files": [
+        "views/common/reportsHub.ejs"
+      ],
+      "handled": false,
+      "excluded": true
+    },
+    {
+      "href": "/stats/organization",
+      "files": [
+        "views/common/reportsHub.ejs",
+        "views/common/reportsHub_old.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/transcript/transcript/<%= student.student_id %>",
+      "files": [
+        "views/common/studentDetails.ejs",
+        "views/common/studentInfo.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/print/printStudentReport?classId=<%= cls.class_id %>&termId=<%= termId %>",
+      "files": [
+        "views/common/termDetails.ejs"
+      ],
+      "handled": false,
+      "excluded": true
+    },
+    {
+      "href": "/account/logout",
+      "files": [
+        "views/partials/adminHeader.ejs",
+        "views/partials/header.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/styles/error.css",
+      "files": [
+        "views/partials/error.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/images/favicon_io/favicon-32x32.png",
+      "files": [
+        "views/partials/head.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/images/favicon_io/favicon-16x16.png",
+      "files": [
+        "views/partials/head.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/css/index.css",
+      "files": [
+        "views/partials/head.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/css/orgDashboard.css",
+      "files": [
+        "views/partials/head.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/css/classDashboard.css",
+      "files": [
+        "views/partials/head.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/css/attendanceCollection.css",
+      "files": [
+        "views/partials/head.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/css/addStudent.css",
+      "files": [
+        "views/partials/head.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/css/assessment.css",
+      "files": [
+        "views/partials/head.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/css/deleteStudent.css",
+      "files": [
+        "views/partials/head.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/css/editStudent.css",
+      "files": [
+        "views/partials/head.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/css/manageClassSubjectAndGradYr.css",
+      "files": [
+        "views/partials/head.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/css/manageRecords.css",
+      "files": [
+        "views/partials/head.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/css/registerSchoolYear.css",
+      "files": [
+        "views/partials/head.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/css/studentDetails.css",
+      "files": [
+        "views/partials/head.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/css/manageStudents.css",
+      "files": [
+        "views/partials/head.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/css/chatbot.css",
+      "files": [
+        "views/partials/head.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/css/guardian.css",
+      "files": [
+        "views/partials/head.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/hub/logout",
+      "files": [
+        "views/partials/header.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/images/managira.png",
+      "files": [
+        "views/print/emailHistory.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/print/printStudentReport<%= backQuery %>",
+      "files": [
+        "views/print/emailHistory.ejs"
+      ],
+      "handled": false,
+      "excluded": true
+    },
+    {
+      "href": "/print/reportSettings?classId=<%= classId %>&termId=<%= termId %>",
+      "files": [
+        "views/print/modifyStatusSettings.ejs",
+        "views/print/printStudentReport.ejs"
+      ],
+      "handled": false,
+      "excluded": true
+    },
+    {
+      "href": "/print/deleteStatusSettings?classId=<%= classId %>&termId=<%= termId %>",
+      "files": [
+        "views/print/modifyStatusSettings.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/print/deleteRemark/<%= remark.id %>?classId=<%= classId %>&termId=<%= termId %>",
+      "files": [
+        "views/print/reportSettings.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/print/deleteScoreRemark/${remark.id}?classId=${classId}&termId=<%= termId %>",
+      "files": [
+        "views/print/reportSettings.ejs"
+      ],
+      "handled": false,
+      "excluded": false
+    },
+    {
+      "href": "/print/reportSettings?classId=<%= student.class_id %>&termId=<%= typeof termId !== 'undefined' ? termId : '' %>",
+      "files": [
+        "views/print/transcript.ejs"
+      ],
+      "handled": false,
+      "excluded": true
+    }
+  ],
+  "excluded": [
+    {
+      "href": "/account/service-plan",
+      "files": [
+        "views/account/login.ejs"
+      ],
+      "handled": false,
+      "excluded": true
+    },
+    {
+      "href": "/common/addStudent",
+      "files": [
+        "views/common/admissionsHub.ejs",
+        "views/common/admissionsHub_old.ejs"
+      ],
+      "handled": false,
+      "excluded": true
+    },
+    {
+      "href": "/common/registerSchoolYear",
+      "files": [
+        "views/common/manageRecords.ejs"
+      ],
+      "handled": true,
+      "excluded": true
+    },
+    {
+      "href": "/account/service-plan?plan=<%= plan.plan_id %>",
+      "files": [
+        "views/common/pricing.ejs"
+      ],
+      "handled": false,
+      "excluded": true
+    },
+    {
+      "href": "/account/service-plan?plan=<%= premiumPlanId %>&trial=1",
+      "files": [
+        "views/common/pricing.ejs"
+      ],
+      "handled": false,
+      "excluded": true
+    },
+    {
+      "href": "/print/reportSettings",
+      "files": [
+        "views/common/reportsHub.ejs"
+      ],
+      "handled": false,
+      "excluded": true
+    },
+    {
+      "href": "/print/printStudentReport?classId=<%= cls.class_id %>&termId=<%= termId %>",
+      "files": [
+        "views/common/termDetails.ejs"
+      ],
+      "handled": false,
+      "excluded": true
+    },
+    {
+      "href": "/print/printStudentReport<%= backQuery %>",
+      "files": [
+        "views/print/emailHistory.ejs"
+      ],
+      "handled": false,
+      "excluded": true
+    },
+    {
+      "href": "/print/reportSettings?classId=<%= classId %>&termId=<%= termId %>",
+      "files": [
+        "views/print/modifyStatusSettings.ejs",
+        "views/print/printStudentReport.ejs"
+      ],
+      "handled": false,
+      "excluded": true
+    },
+    {
+      "href": "/print/reportSettings?classId=<%= student.class_id %>&termId=<%= typeof termId !== 'undefined' ? termId : '' %>",
+      "files": [
+        "views/print/transcript.ejs"
+      ],
+      "handled": false,
+      "excluded": true
+    }
+  ]
+}

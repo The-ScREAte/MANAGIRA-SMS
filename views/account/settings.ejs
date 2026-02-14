@@ -501,7 +501,8 @@
       .modal-overlay {
         position: fixed;
         inset: 0;
-        background: rgba(15, 23, 42, 0.45);
+        background: rgba(15, 23, 42, 0.5);
+        backdrop-filter: blur(3px);
         display: none;
         align-items: center;
         justify-content: center;
@@ -515,12 +516,25 @@
 
       .modal-card {
         background: #fff;
-        border-radius: 12px;
+        border-radius: 16px;
         max-width: 560px;
         width: 100%;
-        padding: 20px;
-        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.2);
+        padding: 24px;
+        border: 1px solid var(--border);
+        box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
         position: relative;
+        animation: settingsModalIn 0.2s ease-out;
+      }
+
+      @keyframes settingsModalIn {
+        from {
+          opacity: 0;
+          transform: translateY(6px) scale(0.98);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
       }
 
       .modal-card h2 {
@@ -546,12 +560,26 @@
 
       .modal-close {
         position: absolute;
-        top: 12px;
-        right: 12px;
-        border: none;
-        background: transparent;
-        font-size: 18px;
+        top: 10px;
+        right: 10px;
+        border: 1px solid var(--border);
+        background: #fff;
+        border-radius: 999px;
+        font-size: 20px;
         cursor: pointer;
+        width: 34px;
+        height: 34px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #6b7280;
+        transition: all 0.2s ease;
+      }
+
+      .modal-close:hover {
+        color: #111827;
+        border-color: #cbd5e1;
+        background: #f8fafc;
       }
 
       .password-modal .modal-close {
@@ -613,7 +641,7 @@
       }
 
       .modal-card.wide {
-        max-width: 760px;
+        max-width: 820px;
       }
 
       .card-modal-overlay {
@@ -1008,9 +1036,7 @@
         <ul class="nav-list">
           <li><button class="nav-link active" data-target="customize">Customize Organization</button></li>
           <li><button class="nav-link" data-target="profile">Profile</button></li>
-          <% if (!session.isHubMember) { %>
-            <li><button class="nav-link" data-target="billing">Billing &amp; Plan</button></li>
-          <% } %>
+          <li><button class="nav-link" data-target="billing">Billing &amp; Plan</button></li>
           <li><button class="nav-link" data-target="security">Security</button></li>
         </ul>
       </aside>
@@ -1174,6 +1200,19 @@
                   <div class="form-actions">
                     <button class="btn-primary btn-link" type="submit">Upload Profile Picture</button>
                   </div>
+                  <% if (user?.image_url && user.image_url !== 'profilePlaceholder.png') { %>
+                    <div class="form-actions" style="margin-top: 8px;">
+                      <button
+                        class="btn-danger btn-link"
+                        type="submit"
+                        formaction="/account/settings/profile-image/delete"
+                        formmethod="POST"
+                        onclick="return confirm('Delete profile picture? This will remove it from storage and database.');"
+                      >
+                        Delete Profile Picture
+                      </button>
+                    </div>
+                  <% } %>
                 </div>
               </div>
             </form>
@@ -1231,11 +1270,18 @@
           </div>
         </section>
 
-        <% if (!session.isHubMember) { %>
         <section id="billing" class="settings-section">
           <h1>Billing &amp; Plan</h1>
-          <p class="lead">Manage your subscription and payment information.</p>
+          <p class="lead">Manage your billing and transaction account settings.</p>
 
+          <% if (isHubMember) { %>
+          <div class="card security-card" style="border-left: 4px solid #01535b;">
+            <h4>Hub-Managed Billing</h4>
+            <small>Your subscription billing is managed by your hub.</small>
+          </div>
+          <% } %>
+
+          <% if (!isHubMember) { %>
           <div class="card security-card">
             <h4>Payment Method</h4>
             <small>Update your payment method for subscription billing.</small>
@@ -1251,10 +1297,11 @@
               <button class="btn-primary btn-link btn-inline" id="open-payment-modal" type="button">Update Payment Method</button>
             </div>
           </div>
+          <% } %>
 
           <div class="card security-card">
-            <h4>School Account</h4>
-            <small>Manage how your school receives payments.</small>
+            <h4>Self Enrollment Transaction Account</h4>
+            <small>Manage where self enrollment payments are received.</small>
             <div class="content-row">
               <div class="text-muted-sm">
                 <% const primarySubaccount = (paystackSubaccounts || []).find((acc) => acc.is_primary); %>
@@ -1270,10 +1317,11 @@
                   No payout account selected
                 <% } %>
               </div>
-              <button class="btn-link btn-inline" id="open-school-account-modal" type="button">Update School Account</button>
+              <button class="btn-link btn-inline" id="open-school-account-modal" type="button">Update Self Enrollment Transaction Account</button>
             </div>
           </div>
 
+          <% if (!isHubMember) { %>
           <div class="card">
             <h4>Current Plan</h4>
             <small>Update your subscription plan.</small>
@@ -1290,30 +1338,8 @@
               <button class="btn-danger btn-link" id="open-cancel-modal" type="button">Cancel Subscription</button>
             </div>
           </div>
+          <% } %>
         </section>
-        <% } else { %>
-        <section id="hub-billing-info" class="settings-section">
-          <h1>Hub Billing Information</h1>
-          <p class="lead">Your billing is managed by your hub.</p>
-
-          <div class="card" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-left: 4px solid #01535b;">
-            <h4 style="color: #01535b;">🏢 Hub-Managed Organization</h4>
-            <p>Your organization is part of the <strong><%= session.hubName %></strong> hub.</p>
-            <p>All billing and subscription management is handled by your hub administrator.</p>
-            
-            <div style="margin-top: 20px; padding: 15px; background: white; border-radius: 8px;">
-              <p style="margin: 5px 0;"><strong>Hub Name:</strong> <%= session.hubName %></p>
-              <p style="margin: 5px 0;"><strong>Hub Contact:</strong> <%= session.hubEmail %></p>
-              <p style="margin: 5px 0;"><strong>Current Plan:</strong> <%= planName || 'Professional' %> (Provided by Hub)</p>
-            </div>
-
-            <p style="margin-top: 20px; color: #666;">
-              For billing questions or to change your plan, please contact your hub administrator at 
-              <a href="mailto:<%= session.hubEmail %>" style="color: #01535b; font-weight: 600;"><%= session.hubEmail %></a>
-            </p>
-          </div>
-        </section>
-        <% } %>
 
         <section id="security" class="settings-section">
           <h1>Security</h1>
@@ -1519,7 +1545,7 @@
     <div class="modal-overlay" id="school-account-modal">
       <div class="modal-card wide">
         <button class="modal-close" type="button" id="school-account-close">x</button>
-        <h2>School Account</h2>
+        <h2>Self Enrollment Transaction Account</h2>
         <p class="modal-helper">Select the account that should receive payments from parents.</p>
         <% if (paystackSubaccounts && paystackSubaccounts.length) { %>
           <ul class="card-list" id="school-account-list">
@@ -1775,14 +1801,6 @@
         let pendingAction = null;
 
         function requestPassword(nextModal, nextAction) {
-          if (passwordVerified) {
-            if (nextAction) {
-              nextAction();
-              return;
-            }
-            openModal(nextModal);
-            return;
-          }
           pendingModal = nextModal;
           pendingAction = nextAction || null;
           if (passwordModalInput) {
@@ -1834,7 +1852,7 @@
         }
 
         if (planModalOpen) {
-          planModalOpen.addEventListener("click", () => openModal(planModal));
+          planModalOpen.addEventListener("click", () => requestPassword(planModal));
         }
 
         if (planModalClose) {
@@ -1988,7 +2006,7 @@
 
         if (cancelModalOpen && cancelModal) {
           cancelModalOpen.addEventListener("click", () => {
-            cancelModal.classList.add("show");
+            requestPassword(cancelModal);
           });
         }
 
@@ -2015,42 +2033,46 @@
         function attachPaymentCardHandlers() {
           document.querySelectorAll(".set-primary-card").forEach((button) => {
             button.addEventListener("click", async () => {
-              const authorizationCode = button.dataset.id;
-              try {
-                const res = await setPrimaryCardRequest(authorizationCode);
-                const data = await res.json();
-                if (data.success) {
-                  window.location.reload();
-                } else {
-                  alert(data.message || "Failed to update primary card.");
+              requestPassword(null, async () => {
+                const authorizationCode = button.dataset.id;
+                try {
+                  const res = await setPrimaryCardRequest(authorizationCode);
+                  const data = await res.json();
+                  if (data.success) {
+                    window.location.reload();
+                  } else {
+                    alert(data.message || "Failed to update primary card.");
+                  }
+                } catch (error) {
+                  alert("Unable to update the primary card. Try again.");
                 }
-              } catch (error) {
-                alert("Unable to update the primary card. Try again.");
-              }
+              });
             });
           });
 
           document.querySelectorAll(".remove-card").forEach((button) => {
             button.addEventListener("click", async () => {
-              const authorizationCode = button.dataset.id;
-              if (!confirm("Remove this card?")) {
-                return;
-              }
-              try {
-                const res = await fetch("/account/remove-card", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ authorizationCode }),
-                });
-                const data = await res.json();
-                if (data.success) {
-                  window.location.reload();
-                } else {
-                  alert(data.message || "Failed to remove card.");
+              requestPassword(null, async () => {
+                const authorizationCode = button.dataset.id;
+                if (!confirm("Remove this card?")) {
+                  return;
                 }
-              } catch (error) {
-                alert("Unable to remove the card. Try again.");
-              }
+                try {
+                  const res = await fetch("/account/remove-card", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ authorizationCode }),
+                  });
+                  const data = await res.json();
+                  if (data.success) {
+                    window.location.reload();
+                  } else {
+                    alert(data.message || "Failed to remove card.");
+                  }
+                } catch (error) {
+                  alert("Unable to remove the card. Try again.");
+                }
+              });
             });
           });
         }
@@ -2059,7 +2081,7 @@
 
         if (addCardFromSettings) {
           addCardFromSettings.addEventListener("click", () => {
-            showCardForm();
+            requestPassword(null, () => showCardForm());
           });
         }
 
@@ -2511,108 +2533,116 @@
 
         document.querySelectorAll(".edit-school-account").forEach((button) => {
           button.addEventListener("click", async () => {
-            const id = button.dataset.id;
-            try {
-              const res = await fetch(`/account/paystack/${id}`);
-              const data = await res.json();
-              if (!data.success) {
-                alert("Failed to load account details.");
-                return;
-              }
+            requestPassword(null, async () => {
+              const id = button.dataset.id;
+              try {
+                const res = await fetch(`/account/paystack/${id}`);
+                const data = await res.json();
+                if (!data.success) {
+                  alert("Failed to load account details.");
+                  return;
+                }
 
-              const account = data.account;
-              if (schoolAccountId) schoolAccountId.value = account.id;
-              if (schoolAccountType) schoolAccountType.value = account.account_type;
-              if (schoolAccountBusinessName) schoolAccountBusinessName.value = account.business_name || "";
+                const account = data.account;
+                if (schoolAccountId) schoolAccountId.value = account.id;
+                if (schoolAccountType) schoolAccountType.value = account.account_type;
+                if (schoolAccountBusinessName) schoolAccountBusinessName.value = account.business_name || "";
 
-              if (account.account_type === "bank") {
-                if (schoolAccountNumber) schoolAccountNumber.value = account.account_number || "";
-                if (schoolAccountBankCode) schoolAccountBankCode.value = account.bank_code || "";
-                if (schoolAccountBankName) schoolAccountBankName.value = account.bank_name || "";
-              } else {
-                if (schoolAccountMomoNumber) schoolAccountMomoNumber.value = account.momo_number || "";
-                if (schoolAccountMomoProvider) schoolAccountMomoProvider.value = account.momo_provider || "";
-                if (schoolAccountHolder) schoolAccountHolder.value = account.account_holder_name || "";
-              }
+                if (account.account_type === "bank") {
+                  if (schoolAccountNumber) schoolAccountNumber.value = account.account_number || "";
+                  if (schoolAccountBankCode) schoolAccountBankCode.value = account.bank_code || "";
+                  if (schoolAccountBankName) schoolAccountBankName.value = account.bank_name || "";
+                } else {
+                  if (schoolAccountMomoNumber) schoolAccountMomoNumber.value = account.momo_number || "";
+                  if (schoolAccountMomoProvider) schoolAccountMomoProvider.value = account.momo_provider || "";
+                  if (schoolAccountHolder) schoolAccountHolder.value = account.account_holder_name || "";
+                }
 
-              toggleSchoolAccountFields();
-              updateSchoolBankName();
-              if (schoolAccountDelete) {
-                schoolAccountDelete.style.display = "inline-flex";
+                toggleSchoolAccountFields();
+                updateSchoolBankName();
+                if (schoolAccountDelete) {
+                  schoolAccountDelete.style.display = "inline-flex";
+                }
+              } catch (error) {
+                alert("Unable to load account. Try again.");
               }
-            } catch (error) {
-              alert("Unable to load account. Try again.");
-            }
+            });
           });
         });
 
         document.querySelectorAll(".set-school-primary").forEach((button) => {
           button.addEventListener("click", async () => {
-            const id = button.dataset.id;
-            const type = button.dataset.type;
-            try {
-              const res = await fetch("/account/paystack/set-primary", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ id, account_type: type }),
-              });
-              const data = await res.json();
-              if (data.success) {
-                window.location.reload();
-              } else {
-                alert(data.message || "Failed to update primary account.");
+            requestPassword(null, async () => {
+              const id = button.dataset.id;
+              const type = button.dataset.type;
+              try {
+                const res = await fetch("/account/paystack/set-primary", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ id, account_type: type }),
+                });
+                const data = await res.json();
+                if (data.success) {
+                  window.location.reload();
+                } else {
+                  alert(data.message || "Failed to update primary account.");
+                }
+              } catch (error) {
+                alert("Unable to update primary account. Try again.");
               }
-            } catch (error) {
-              alert("Unable to update primary account. Try again.");
-            }
+            });
           });
         });
 
         if (schoolAccountDelete) {
           schoolAccountDelete.addEventListener("click", async () => {
-            const id = schoolAccountId ? schoolAccountId.value : "";
-            if (!id) return;
-            if (!confirm("Delete this account?")) return;
-            try {
-              const res = await fetch(`/account/paystack/${id}`, { method: "DELETE" });
-              const data = await res.json();
-              if (data.success) {
-                window.location.reload();
-              } else {
-                alert(data.message || "Failed to delete account.");
+            requestPassword(null, async () => {
+              const id = schoolAccountId ? schoolAccountId.value : "";
+              if (!id) return;
+              if (!confirm("Delete this account?")) return;
+              try {
+                const res = await fetch(`/account/paystack/${id}`, { method: "DELETE" });
+                const data = await res.json();
+                if (data.success) {
+                  window.location.reload();
+                } else {
+                  alert(data.message || "Failed to delete account.");
+                }
+              } catch (error) {
+                alert("Unable to delete account. Try again.");
               }
-            } catch (error) {
-              alert("Unable to delete account. Try again.");
-            }
+            });
           });
         }
 
         if (schoolAccountForm) {
           schoolAccountForm.addEventListener("submit", async (event) => {
             event.preventDefault();
-            updateSchoolBankName();
+            requestPassword(null, async () => {
+              updateSchoolBankName();
 
-            const formData = new FormData(schoolAccountForm);
-            const payload = Object.fromEntries(formData.entries());
-            const isEditing = payload.id && payload.id !== "";
-            const url = isEditing ? "/account/paystack" : "/account/add-paystack-subaccount";
-            const method = isEditing ? "PUT" : "POST";
+              const formData = new FormData(schoolAccountForm);
+              const payload = Object.fromEntries(formData.entries());
+              const isEditing = payload.id && payload.id !== "";
+              const url = isEditing ? "/account/paystack" : "/account/add-paystack-subaccount";
+              const method = isEditing ? "PUT" : "POST";
 
-            try {
-              const res = await fetch(url, {
-                method,
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-              });
-              const data = await res.json();
-              if (data.success) {
-                window.location.reload();
-              } else {
-                alert(data.message || "Failed to save account.");
+              try {
+                const res = await fetch(url, {
+                  method,
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(payload),
+                });
+                const data = await res.json();
+                if (data.success) {
+                  window.location.reload();
+                } else {
+                  alert(data.message || "Failed to save account.");
+                }
+              } catch (error) {
+                alert("Unable to save account. Try again.");
               }
-            } catch (error) {
-              alert("Unable to save account. Try again.");
-            }
+            });
           });
         }
 
@@ -2637,20 +2667,22 @@
 
           if (planForm) {
             planForm.addEventListener("submit", (event) => {
+              event.preventDefault();
               const newPlanId = selectedPlanInput.value;
               if (!newPlanId || newPlanId === currentPlanId) {
-                event.preventDefault();
                 alert("Please select a different subscription plan before proceeding.");
                 return;
               }
 
-              if (
-                !confirm(
-                  `You are about to change your plan to \"${selectedPlanName}\". This will update your subscription. Continue?`
-                )
-              ) {
-                event.preventDefault();
-              }
+              requestPassword(null, () => {
+                if (
+                  confirm(
+                    `You are about to change your plan to \"${selectedPlanName}\". This will update your subscription. Continue?`
+                  )
+                ) {
+                  planForm.submit();
+                }
+              });
             });
           }
         }
@@ -2660,19 +2692,15 @@
 
         if (securityEmailForm) {
           securityEmailForm.addEventListener("submit", (event) => {
-            if (!passwordVerified) {
-              event.preventDefault();
-              requestPassword(null, () => securityEmailForm.submit());
-            }
+            event.preventDefault();
+            requestPassword(null, () => securityEmailForm.submit());
           });
         }
 
         if (securityPasswordForm) {
           securityPasswordForm.addEventListener("submit", (event) => {
-            if (!passwordVerified) {
-              event.preventDefault();
-              requestPassword(null, () => securityPasswordForm.submit());
-            }
+            event.preventDefault();
+            requestPassword(null, () => securityPasswordForm.submit());
           });
         }
 

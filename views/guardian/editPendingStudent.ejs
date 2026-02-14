@@ -1,0 +1,317 @@
+<style>
+  .edit-pending-page * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  .edit-pending-page {
+    background: linear-gradient(135deg, #f7f9fb 0%, #edf1f7 100%);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    min-height: 100vh;
+    color: #0f172a;
+  }
+  
+  .edit-pending-page .container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 40px 0 50px;
+  }
+  
+  .edit-pending-page .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: <%= themeColor || '#0369a1' %>;
+    text-decoration: none;
+    margin-bottom: 28px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+  }
+
+  .edit-pending-page .back-link:hover {
+    transform: translateX(-4px);
+    opacity: 0.8;
+  }
+  
+  .edit-pending-page .page-header {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+
+  .edit-pending-page .page-header h1 {
+    font-size: 2rem;
+    color: #0f172a;
+    margin-bottom: 10px;
+    font-weight: 750;
+    letter-spacing: -0.01em;
+  }
+
+  .edit-pending-page .page-header p {
+    color: #64748b;
+    font-size: 1rem;
+  }
+  
+  .edit-pending-page .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: <%= themeColor || '#0369a1' %>;
+    background: <%= themeColor || '#0369a1' %>1A;
+    border: 1px solid <%= themeColor || '#0369a1' %>30;
+    margin-bottom: 16px;
+  }
+
+  .edit-pending-page .card {
+    background: white;
+    border-radius: 20px;
+    padding: 45px 50px 40px;
+    box-shadow: 0 14px 46px rgba(15, 23, 42, 0.10);
+    border: 1px solid rgba(226, 232, 240, 0.9);
+  }
+  
+  .edit-pending-page .form-group {
+    margin-bottom: 28px;
+  }
+
+  .edit-pending-page label {
+    display: block;
+    font-weight: 650;
+    margin-bottom: 10px;
+    color: #1f2937;
+    font-size: 0.97rem;
+    letter-spacing: -0.005em;
+  }
+  
+  .edit-pending-page .required {
+    color: #ef4444;
+  }
+  
+  .edit-pending-page input, .edit-pending-page select {
+    width: 100%;
+    padding: 14px 18px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    font-size: 1rem;
+    transition: all 0.25s ease;
+    background: #f8fafc;
+  }
+  
+  .edit-pending-page input:focus, .edit-pending-page select:focus {
+    outline: none;
+    border-color: <%= themeColor || '#0369a1' %>;
+    background: white;
+    box-shadow: 0 6px 18px <%= themeColor || '#0369a1' %>1f;
+  }
+
+  .edit-pending-page select {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23334155' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    padding-right: 45px;
+  }
+
+  .edit-pending-page input[type="file"] {
+    padding: 12px 16px;
+    cursor: pointer;
+    font-size: 0.95rem;
+  }
+  
+  .edit-pending-page .image-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .edit-pending-page .image-preview, .edit-pending-page .current-image {
+    max-width: 200px;
+    max-height: 200px;
+    border-radius: 14px;
+    object-fit: cover;
+    border: 3px solid #e2e8f0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+  
+  .edit-pending-page .image-preview {
+    display: none;
+  }
+  
+  .edit-pending-page .actions {
+    display: flex;
+    gap: 16px;
+    margin-top: 40px;
+    padding-top: 28px;
+    border-top: 2px solid #f1f5f9;
+  }
+  
+  .edit-pending-page button {
+    flex: 1;
+    padding: 16px 28px;
+    border: none;
+    border-radius: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 1.02rem;
+    transition: all 0.25s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  
+  .edit-pending-page .btn-primary {
+    background: <%= themeColor || '#0369a1' %>;
+    color: white;
+    box-shadow: 0 8px 24px <%= themeColor || '#0369a1' %>3a;
+  }
+  
+  .edit-pending-page .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 30px <%= themeColor || '#0369a1' %>48;
+  }
+
+  .edit-pending-page .btn-primary:active {
+    transform: translateY(0);
+  }
+  
+  .edit-pending-page .btn-secondary {
+    background: #f8fafc;
+    color: #0f172a;
+    border: 1.5px solid #e2e8f0;
+  }
+  
+  .edit-pending-page .btn-secondary:hover {
+    background: #eef2f7;
+    border-color: #d7dde8;
+  }
+
+  @media (max-width: 640px) {
+    .edit-pending-page {
+      padding: 30px 15px 30px;
+    }
+
+    .edit-pending-page .container {
+      padding: 20px 0;
+    }
+
+    .edit-pending-page .card {
+      padding: 30px 24px;
+      border-radius: 16px;
+    }
+
+    .edit-pending-page .page-header h1 {
+      font-size: 1.5rem;
+    }
+
+    .edit-pending-page .actions {
+      flex-direction: column;
+    }
+
+    .edit-pending-page button {
+      width: 100%;
+    }
+  }
+</style>
+
+<div class="edit-pending-page">
+<div class="container">
+
+
+  <div class="card">
+      <a href="/guardian/dashboard" class="back-link">
+    ← Back to Dashboard
+  </a>
+
+  <div class="page-header">
+    <div class="badge">● Pending submission</div>
+    <h1>✏️ Edit Application</h1>
+    <p>Update your child's application details</p>
+  </div>
+    <form action="/guardian/edit-pending-student" method="POST" enctype="multipart/form-data">
+      <input type="hidden" name="pendingId" value="<%= student.pending_id %>">
+      <input type="hidden" name="graduationYearGroupId" value="<%= student.graduation_year_group_id %>">
+      
+      <div class="form-group">
+        <label>First Name <span class="required">*</span></label>
+        <input type="text" name="firstName" value="<%= student.first_name %>" required placeholder="Enter first name">
+      </div>
+      
+      <div class="form-group">
+        <label>Last Name <span class="required">*</span></label>
+        <input type="text" name="lastName" value="<%= student.last_name %>" required placeholder="Enter last name">
+      </div>
+      
+      <div class="form-group">
+        <label>Date of Birth <span class="required">*</span></label>
+        <input type="date" name="dateOfBirth" value="<%= student.date_of_birth ? new Date(student.date_of_birth).toISOString().split('T')[0] : '' %>" required>
+      </div>
+      
+      <div class="form-group">
+        <label>Gender <span class="required">*</span></label>
+        <select name="gender" required>
+          <option value="">Select Gender</option>
+          <option value="Male" <%= student.gender === 'Male' ? 'selected' : '' %>>Male</option>
+          <option value="Female" <%= student.gender === 'Female' ? 'selected' : '' %>>Female</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label>Hometown</label>
+        <input type="text" name="hometown" value="<%= student.hometown || '' %>" placeholder="Enter hometown (optional)">
+      </div>
+      
+      <div class="form-group">
+        <label>Class <span class="required">*</span></label>
+        <select name="classId" required>
+          <option value="">Select Class</option>
+          <% classes.forEach(cls => { %>
+            <option value="<%= cls.class_id %>" <%= student.class_id == cls.class_id ? 'selected' : '' %>>
+              <%= cls.class_name %>
+            </option>
+          <% }) %>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label>Student Photo (Optional)</label>
+        <div class="image-section">
+          <% if (student.image_url && student.image_url !== 'profilePlaceholder.png') { %>
+            <img src="<%= student.image_url %>" alt="Current photo" class="current-image">
+          <% } %>
+          <input type="file" name="studentImage" accept="image/*" onchange="previewImage(this)">
+        </div>
+      </div>
+      
+      <div class="actions">
+        <button type="button" class="btn-secondary" onclick="window.location.href='/guardian/dashboard'">
+          ✕ Cancel
+        </button>
+        <button type="submit" class="btn-primary">
+          💾 Save Changes
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+</div>
+
+<script>
+  function previewImage(input) {
+    const preview = document.getElementById('imagePreview');
+    if (input.files && input.files[0]) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        preview.src = e.target.result;
+        preview.style.display = 'block';
+      };
+      reader.readAsDataURL(input.files[0]);
+    }
+  }
+</script>

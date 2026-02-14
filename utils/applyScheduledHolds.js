@@ -1,5 +1,6 @@
 const db = require("../config/db");
-const nodemailer = require("nodemailer");
+const path = require("path");
+const { sendEmailSafely, renderCleanEmail } = require("./emailHelper");
 
 /**
  * Apply scheduled holds for organizations whose billing cycle has ended.
@@ -45,32 +46,32 @@ async function applyScheduledHolds() {
  * Send an email notification to the organization when their account is placed on hold.
  */
 async function sendHoldNotificationEmail(toEmail, orgName) {
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,           // e.g., smtp.gmail.com, smtp.zoho.com
-    port: parseInt(process.env.SMTP_PORT), // usually 465 or 587
-    secure: process.env.SMTP_SECURE === 'true', // true for 465, false for 587
-    auth: {
-      user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-      pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-    },
+  const html = renderCleanEmail({
+    title: "Organization Account Placed on Hold",
+    greeting: `Dear <strong>${orgName} Admin</strong>,`,
+    paragraphs: [
+      "Your organization's subscription has ended, and your account has now been placed on hold.",
+      "Users will no longer be able to log in until the subscription is resumed.",
+      "To reactivate your account, log in and update your payment details.",
+    ],
   });
 
   const mailOptions = {
     from: process.env.ADMIN_NOTIFY_EMAIL_USER,
     to: toEmail,
     subject: `Your Organization (${orgName}) Has Been Placed on Hold`,
-    text: `Dear ${orgName} Admin,
-
-Your organization's subscription has ended, and your account has now been placed on hold. 
-
-Users will no longer be able to log in until the subscription is resumed. If you wish to reactivate your account, please log in and update your payment details.
-
-Best regards,  
-Support Team`,
+    html,
+    attachments: [
+      {
+        filename: "managira.png",
+        path: path.join(__dirname, "../public/images/managira.png"),
+        cid: "managira_logo",
+      },
+    ],
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    await sendEmailSafely(mailOptions, "Scheduled Hold Notification Email");
   } catch (error) {
     console.error("❌ Error sending hold notification email:", error);
   }

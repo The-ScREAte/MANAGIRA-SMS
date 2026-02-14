@@ -1207,16 +1207,16 @@
             </form>
         </div>
 
-        <!-- Public Registration Settings -->
+        <!-- Self Enrollment Settings -->
         <div class="content-container">
             <div class="images-header" style="justify-content: center;">
-                <h2>⚙️ Public Registration Settings</h2>
+            <h2>⚙️ Self Enrollment Settings</h2>
             </div>
             <form action="/account/updatePublicRegistration" method="POST" style="max-width: 700px; margin: 0 auto;">
                 <div style="margin-bottom: 20px;">
                     <label style="display: flex; align-items: center; font-weight: bold; cursor: pointer;">
                         <input type="checkbox" name="enabled" <%= orgDetails.public_registration_enabled ? 'checked' : '' %> style="margin-right: 10px;" />
-                        Enable Public Registration
+                Enable Self Enrollment
                     </label>
                 </div>
                 
@@ -1260,7 +1260,7 @@
                     <p>
                         REMEMBER TO SET PAYMENT METHODS & OPTIONS OTHERWISE USERS CAN'T MAKE PAYMENT AND FOR THAT REASON PUBLIC REGISTRATION WON'T GO THROUGH.
                         <a
-                            href="/account/confirm-password?redirect=/account/update-card"
+                          href="/account/settings?section=billing"
                             class="btn-primary"
                             style="margin-left: 10px;"
                         >

@@ -10,6 +10,17 @@ require("dotenv").config(); // Load environment variables from .env file
 const { uploadToS3, deleteFromS3 } = require("../middleware/s3Upload");
 const axios = require("axios");
 const he = require("he");
+const { sendEmailSafely, renderCleanEmail } = require("../utils/emailHelper");
+const {
+  PERMISSIONS,
+  PERMISSION_OPTIONS,
+  ensurePermissionsSchema,
+  normalizePermissionsList,
+  mergePermissionsForRole,
+  getUserPermissions,
+  userHasPermission,
+  isManagerLikeRole,
+} = require("../middleware/permissionMiddleware");
 
 // Configure AWS S3
 const s3 = new S3Client({
@@ -29,6 +40,278 @@ function getOrdinalSuffix(n) {
   return s[(v - 20) % 10] || s[v] || s[0];
 }
 
+// Header aliases for robust bulk import across many source formats
+const FIELD_ALIASES = {
+  firstName: [
+    'First Name', 'Given Name', 'Student First Name', 'Forename', 'Christian Name', 'Personal Name',
+    'Legal First Name', 'Child First Name', 'Pupil First Name', 'Learner First Name', 'Applicant First Name',
+    'Student Given Name', 'Primary Name', 'Name (First)', 'FName', 'First_Name', 'Stu_First',
+    'Child Given Name', 'Registered First Name', 'Preferred First Name', 'FirstName', 'firstname'
+  ],
+  lastName: [
+    'Last Name', 'Surname', 'Family Name', 'Student Last Name', 'Legal Last Name', 'Child Surname',
+    'Pupil Surname', 'Learner Last Name', 'Applicant Surname', 'Name (Last)', 'LName', 'Last_Name',
+    'Stu_Last', 'Registered Surname', 'Birth Surname', 'Family Surname', 'Parent Surname',
+    'Household Name', 'Clan Name', 'Maiden Name', 'LastName', 'lastname'
+  ],
+  dateOfBirth: [
+    'Date of Birth', 'DOB', 'D.O.B', 'Birth Date', 'Birthdate', 'Date Born', 'Student DOB', 'Child DOB',
+    'Pupil Birth Date', 'Learner DOB', 'Applicant DOB', 'Date_Of_Birth', 'Birth_Date', 'BDate', 'D/B', 'D-O-B',
+    'Registered Birth Date', 'Legal Date of Birth', 'Date of Delivery', 'Birth Information', 'DateOfBirth'
+  ],
+  gender: [
+    'Gender', 'Sex', 'Student Gender', 'Biological Sex', 'Gender Identity', 'Child Gender', 'Pupil Gender',
+    'Learner Gender', 'Applicant Gender', 'M/F', 'Male/Female', 'Gender Type', 'Sex Type', 'Gender Category',
+    'Gender Option', 'Student Sex', 'Gender Status', 'Biological Gender', 'Registered Gender', 'Identity (Gender)'
+  ],
+  hometown: [
+    'Hometown', 'City', 'Town', 'City of Residence', 'Place of Residence', 'Residential City', 'Home City',
+    'Current City', 'Origin', 'Place of Origin', 'District', 'Municipality', 'County', 'State', 'Province',
+    'Local Area', 'Address City', 'Location', 'Area', 'Community', 'Student Hometown'
+  ],
+  class: [
+    'Class', 'Grade', 'Grade Level', 'Class Level', 'Academic Level', 'Year Level', 'Form', 'Standard',
+    'Class Group', 'Section', 'Division', 'Batch', 'Stream', 'Cohort', 'Level', 'Academic Year Level',
+    'School Level', 'Learning Level', 'Stage', 'Study Level'
+  ],
+  graduationYear: [
+    'Graduation Year', 'Graduation Group', 'Graduation Class', 'Grad Year', 'Class Year', 'Year of Graduation',
+    'Grad Cohort', 'Graduation Batch', 'Alumni Group', 'Passing Out Year', 'Completion Year', 'Final Year Group',
+    'Exit Year', 'Senior Year', 'Graduation Cycle', 'Year Group', 'Finishing Year', 'School Leaving Year',
+    'Degree Year', 'Graduation Year Group'
+  ],
+  subjects: [
+    'Subjects', 'Subject List', 'Courses', 'Enrolled Subjects', 'Registered Subjects', 'Study Subjects',
+    'Academic Subjects', 'Course Selection', 'Selected Courses', 'Learning Subjects', 'Modules', 'Units',
+    'Study Units', 'Subject Choices', 'Curriculum', 'Subjects Offered', 'Class Subjects', 'Program Subjects',
+    'Study Program', 'Academic Courses', 'Subject'
+  ],
+  guardianFirstName: [
+    'Guardian 1 First Name', 'Guardian First Name', 'Parent First Name', 'Legal Guardian First Name',
+    'Primary Guardian First Name', 'Father First Name', 'Mother First Name', 'Caregiver First Name'
+  ],
+  guardianLastName: [
+    'Guardian 1 Last Name', 'Guardian Last Name', 'Parent Last Name', 'Legal Guardian Last Name',
+    'Primary Guardian Last Name', 'Father Last Name', 'Mother Last Name', 'Caregiver Last Name'
+  ],
+  guardianPhone: [
+    'Guardian 1 Phone', 'Guardian Phone', 'Parent Phone', 'Emergency Contact Phone', 'Responsible Adult Phone',
+    'Authorized Contact Phone', 'Next of Kin Phone', 'Guardian Contact'
+  ],
+  guardianEmail: [
+    'Guardian 1 Email', 'Guardian Email', 'Parent Email', 'Emergency Contact Email', 'Authorized Contact Email',
+    'Legal Guardian Email', 'Guardian E-mail'
+  ],
+  guardianAddress: ['Guardian 1 Address', 'Guardian Address', 'Parent Address', 'Guardian Residential Address'],
+  guardianHometown: ['Guardian 1 Hometown', 'Guardian Hometown', 'Parent Hometown', 'Guardian City'],
+  guardianName: [
+    'Guardian', 'Parent', 'Parent/Guardian', 'Legal Guardian', 'Primary Guardian', 'Secondary Guardian',
+    'Father', 'Mother', 'Parent 1', 'Parent 2', 'Caregiver', 'Sponsor', 'Emergency Contact', 'Responsible Adult',
+    'Custodian', 'Next of Kin', 'Family Contact', 'Household Head', 'Authorized Contact', 'Legal Representative'
+  ]
+};
+
+function normalizeHeader(value = '') {
+  return String(value).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function parseCSVLine(line = '') {
+  const values = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    const nextChar = line[i + 1];
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      values.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  values.push(current.trim());
+  return values;
+}
+
+function extractYear(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const match = raw.match(/\b(19|20)\d{2}\b/);
+  return match ? match[0] : raw;
+}
+
+function splitGuardianName(name = '') {
+  const cleaned = String(name).trim();
+  if (!cleaned) return { firstName: '', lastName: '' };
+  const parts = cleaned.split(/\s+/);
+  if (parts.length === 1) return { firstName: parts[0], lastName: '' };
+  return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
+}
+
+function buildHeaderIndexMap(headers = []) {
+  const normalizedHeaders = headers.map((h) => normalizeHeader(h));
+  const aliasToIndex = (aliases = []) => {
+    for (const alias of aliases) {
+      const aliasNorm = normalizeHeader(alias);
+      const index = normalizedHeaders.findIndex((h) => h === aliasNorm);
+      if (index !== -1) return index;
+      const partialIndex = normalizedHeaders.findIndex((h) => h.includes(aliasNorm) || aliasNorm.includes(h));
+      if (partialIndex !== -1) return partialIndex;
+    }
+    return -1;
+  };
+
+  return {
+    firstName: aliasToIndex(FIELD_ALIASES.firstName),
+    lastName: aliasToIndex(FIELD_ALIASES.lastName),
+    dateOfBirth: aliasToIndex(FIELD_ALIASES.dateOfBirth),
+    gender: aliasToIndex(FIELD_ALIASES.gender),
+    hometown: aliasToIndex(FIELD_ALIASES.hometown),
+    class: aliasToIndex(FIELD_ALIASES.class),
+    graduationYear: aliasToIndex(FIELD_ALIASES.graduationYear),
+    subjects: aliasToIndex(FIELD_ALIASES.subjects),
+    guardianFirstName: aliasToIndex(FIELD_ALIASES.guardianFirstName),
+    guardianLastName: aliasToIndex(FIELD_ALIASES.guardianLastName),
+    guardianPhone: aliasToIndex(FIELD_ALIASES.guardianPhone),
+    guardianEmail: aliasToIndex(FIELD_ALIASES.guardianEmail),
+    guardianAddress: aliasToIndex(FIELD_ALIASES.guardianAddress),
+    guardianHometown: aliasToIndex(FIELD_ALIASES.guardianHometown),
+    guardianName: aliasToIndex(FIELD_ALIASES.guardianName)
+  };
+}
+
+function valueAt(row = [], index = -1) {
+  if (index < 0 || index >= row.length) return '';
+  return String(row[index] ?? '').trim();
+}
+
+function mapRowToStudent(rowValues = [], indexMap) {
+  const guardianNameRaw = valueAt(rowValues, indexMap.guardianName);
+  const splitGuardian = splitGuardianName(guardianNameRaw);
+
+  const student = {
+    firstName: valueAt(rowValues, indexMap.firstName),
+    lastName: valueAt(rowValues, indexMap.lastName),
+    dateOfBirth: formatDate(valueAt(rowValues, indexMap.dateOfBirth)),
+    gender: valueAt(rowValues, indexMap.gender),
+    class: valueAt(rowValues, indexMap.class),
+    hometown: valueAt(rowValues, indexMap.hometown),
+    subjects: valueAt(rowValues, indexMap.subjects),
+    graduationYear: extractYear(valueAt(rowValues, indexMap.graduationYear)),
+    guardian: {
+      firstName: valueAt(rowValues, indexMap.guardianFirstName) || splitGuardian.firstName,
+      lastName: valueAt(rowValues, indexMap.guardianLastName) || splitGuardian.lastName,
+      phone: valueAt(rowValues, indexMap.guardianPhone).replace(/\s+/g, ''),
+      email: valueAt(rowValues, indexMap.guardianEmail).toLowerCase(),
+      address: valueAt(rowValues, indexMap.guardianAddress),
+      hometown: valueAt(rowValues, indexMap.guardianHometown)
+    }
+  };
+
+  const firstName = (student.firstName || '').toLowerCase();
+  const invalidName =
+    !student.firstName ||
+    student.firstName.length > 80 ||
+    firstName.includes('subject') ||
+    firstName.includes('physics') ||
+    firstName.includes('chemistry') ||
+    firstName.includes('mathematics') ||
+    firstName.includes('english') ||
+    firstName.includes('biology');
+
+  return invalidName ? null : student;
+}
+
+function parseRowsToStudents(headers = [], rows = []) {
+  const indexMap = buildHeaderIndexMap(headers);
+  return rows.map((row) => mapRowToStudent(row, indexMap)).filter(Boolean);
+}
+
+// Helper function to format dates from various formats to YYYY-MM-DD
+function formatDate(dateString) {
+  if (!dateString) return '';
+
+  if (typeof dateString === 'number') {
+    const excelEpoch = new Date(1899, 11, 30);
+    const date = new Date(excelEpoch.getTime() + dateString * 86400000);
+    return isNaN(date.getTime()) ? '' : date.toISOString().split('T')[0];
+  }
+
+  const direct = new Date(dateString);
+  if (!isNaN(direct.getTime())) {
+    return direct.toISOString().split('T')[0];
+  }
+
+  const parts = String(dateString).split(/[/-]/);
+  if (parts.length === 3) {
+    const [day, month, year] = parts;
+    if (year && year.length === 4) {
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+  }
+
+  return String(dateString).trim();
+}
+
+// Parse free text (from Word/PDF/OCR) into student records using alias-aware headers when present
+function parseTextToStudents(text) {
+  const lines = String(text || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (!lines.length) return [];
+
+  let headerIndex = -1;
+  let parsedHeaders = [];
+
+  for (let i = 0; i < Math.min(lines.length, 20); i++) {
+    const candidate = parseCSVLine(lines[i]);
+    const map = buildHeaderIndexMap(candidate);
+    const hits = [map.firstName, map.lastName, map.class, map.dateOfBirth].filter((idx) => idx >= 0).length;
+    if (hits >= 2) {
+      headerIndex = i;
+      parsedHeaders = candidate;
+      break;
+    }
+  }
+
+  if (headerIndex >= 0) {
+    const rows = lines.slice(headerIndex + 1).map((line) => parseCSVLine(line));
+    return parseRowsToStudents(parsedHeaders, rows);
+  }
+
+  const fallbackStudents = [];
+  for (const line of lines) {
+    const parts = line.split(/[\t,|]/).map((p) => p.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+      const student = {
+        firstName: parts[0] || '',
+        lastName: parts[1] || '',
+        dateOfBirth: parts[2] ? formatDate(parts[2]) : '',
+        gender: parts[3] || '',
+        class: parts[4] || '',
+        hometown: parts[5] || '',
+        subjects: parts[6] || '',
+        graduationYear: extractYear(parts[7] || ''),
+        guardian: {
+          firstName: parts[8] || '',
+          lastName: parts[9] || '',
+          phone: (parts[10] || '').replace(/\s+/g, ''),
+          email: (parts[11] || '').toLowerCase(),
+          address: parts[12] || '',
+          hometown: parts[13] || ''
+        }
+      };
+      if (student.firstName && student.lastName) fallbackStudents.push(student);
+    }
+  }
+  return fallbackStudents;
+}
+
 // Setup multer for file uploads
 const storage = multerS3({
   s3: s3,
@@ -39,149 +322,6 @@ const storage = multerS3({
 });
 
 const upload = multer({ storage: storage });
-
-const savePendingStudentChanges = async (req, res, db) => {
-  const { id } = req.params;
-  const organizationId = req.session.organizationId;
-  const body = req.body;
-  const file = req.file;
-
-  const client = await db.connect();
-
-  try {
-    await client.query("BEGIN");
-
-    // Parse and coerce values
-    const classId = body.class_id ? parseInt(body.class_id) : null;
-    const gradGroupId = body.graduation_year_group_id
-      ? parseInt(body.graduation_year_group_id)
-      : null;
-
-    let schoolYearId = null;
-    let termId = null;
-
-    // ✅ If enrollment is current, fetch current school year and term
-    if (body.enrollmentType === "current") {
-      const currentYearRes = await client.query(
-        `SELECT id AS school_year_id FROM school_years WHERE current = TRUE AND organization_id = $1 LIMIT 1`,
-        [organizationId]
-      );
-
-      if (currentYearRes.rows.length > 0) {
-        schoolYearId = currentYearRes.rows[0].school_year_id;
-
-        const currentTermRes = await client.query(
-          `SELECT term_id FROM terms WHERE school_year_id = $1 AND current = TRUE LIMIT 1`,
-          [schoolYearId]
-        );
-
-        if (currentTermRes.rows.length > 0) {
-          termId = currentTermRes.rows[0].term_id;
-        }
-      }
-    } else {
-      // Use submitted values for future enrollment
-      schoolYearId = body.schoolYearId ? parseInt(body.schoolYearId) : null;
-      termId = body.termId ? parseInt(body.termId) : null;
-    }
-
-    // ✅ Upload and save image if provided
-    let imageUrl = null;
-    if (file) {
-      imageUrl = await uploadToS3(file); // Adjust this if you're using a different upload utility
-    }
-
-    // ✅ Update pending student
-    const baseParams = [
-      body.first_name,
-      body.last_name,
-      body.date_of_birth,
-      body.gender,
-      body.hometown,
-      classId,
-      gradGroupId,
-      schoolYearId,
-      termId,
-      body.enrollmentType,
-    ];
-
-    const queryParams = imageUrl
-      ? [...baseParams, imageUrl, id, organizationId]
-      : [...baseParams, id, organizationId];
-
-    const updateQuery = `
-      UPDATE pending_students SET
-        first_name = $1,
-        last_name = $2,
-        date_of_birth = $3,
-        gender = $4,
-        hometown = $5,
-        class_id = $6,
-        graduation_year_group_id = $7,
-        school_year_id = $8,
-        term_id = $9,
-        enrollment_type = $10
-        ${imageUrl ? ", image_url = $11" : ""}
-      WHERE pending_id = $${imageUrl ? 12 : 11} AND organization_id = $${
-      imageUrl ? 13 : 12
-    }
-    `;
-
-    await client.query(updateQuery, queryParams);
-
-    // ✅ Replace subjects
-    await client.query(
-      `DELETE FROM pending_student_subjects WHERE pending_student_id = $1`,
-      [id]
-    );
-    const subjectArray = Array.isArray(body.subjects)
-      ? body.subjects
-      : body.subjects
-      ? [body.subjects]
-      : [];
-    for (const subjectId of subjectArray) {
-      await client.query(
-        `INSERT INTO pending_student_subjects (pending_student_id, subject_id, organization_id)
-         VALUES ($1, $2, $3)`,
-        [id, parseInt(subjectId), organizationId]
-      );
-    }
-
-    // ✅ Replace guardians
-    await client.query(`DELETE FROM pending_guardians WHERE pending_id = $1`, [
-      id,
-    ]);
-    const guardianKeys = Object.keys(body).filter((k) =>
-      k.startsWith("guardianFirstName")
-    );
-    for (let i = 0; i < guardianKeys.length; i++) {
-      const fn = body[`guardianFirstName${i}`];
-      if (!fn) continue;
-      await client.query(
-        `INSERT INTO pending_guardians 
-         (pending_id, first_name, last_name, phone, email, hometown)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [
-          id,
-          fn,
-          body[`guardianLastName${i}`],
-          body[`guardianPhone${i}`],
-          body[`guardianEmail${i}`],
-          body[`guardianHometown${i}`],
-        ]
-      );
-    }
-
-    await client.query("COMMIT");
-    return res.json({ success: true });
-  } catch (err) {
-    await client.query("ROLLBACK");
-    // ...removed error log for clean background operation...
-    return res.status(500).json({ error: "Failed to save changes." });
-  } finally {
-    client.release();
-  }
-};
 
 // Middleware to check if user is authenticated
 function isAuthenticated(req, res, next) {
@@ -759,6 +899,8 @@ const commonController = {
           aboutus, 
           motto, 
           organization_name,
+          is_hub_member,
+          hub_id,
           public_registration_enabled,
           registration_start_date,
           registration_end_date
@@ -768,6 +910,29 @@ const commonController = {
       );
 
       const orgDetails = orgDetailsResult.rows[0];
+
+      let publicHubInfo = null;
+      if (orgDetails && orgDetails.is_hub_member && orgDetails.hub_id) {
+        try {
+          const hubInfoResult = await db.query(
+            `SELECT hub_id, hub_name, logo_path, hub_branding_enabled, hub_footer_text
+             FROM managira_hubs
+             WHERE hub_id = $1 AND deleted = false
+             LIMIT 1`,
+            [orgDetails.hub_id]
+          );
+
+          if (hubInfoResult.rows.length > 0) {
+            publicHubInfo = hubInfoResult.rows[0];
+          }
+        } catch (hubInfoError) {
+          console.warn('[PublicDashboard] Unable to fetch hub footer branding info', {
+            organizationId,
+            hubId: orgDetails.hub_id,
+            message: hubInfoError.message
+          });
+        }
+      }
 
       // order_data supports both legacy array format and object format:
       // - legacy: ["image-gallery", "text-articles", ...]
@@ -878,12 +1043,14 @@ const commonController = {
         slideshowImages, // Pass slideshow images separately
         orderedItems,
         orgDetails,
+        hubInfo: publicHubInfo,
         publicDashboardTheme,
         publicDashboardLayout,
         url,
         isLoggedIn: req.session && req.session.userId,
         accountType: req.session.accountType || null, // ✅ Pass accountType explicitly
         messages: req.flash(),
+        showFooterTopSection: true,
       });
     } catch (error) {
       // ...removed error log for clean background operation...
@@ -1040,44 +1207,121 @@ const commonController = {
     const organizationId = req.session.organizationId;
     const createdBy = req.session.userId || null;
     const body = req.body;
+    const uploadedFiles = Array.isArray(req.files) ? req.files : [];
+    const allowDuplicateSave = String(body.allowDuplicateSave || 'false') === 'true';
 
     const indexes = [];
+    const studentFieldPattern = /^(?:firstName|lastName|dateOfBirth|gender|classId|graduationYearGroupId|hometown|height|enrollmentType|schoolYearId|termId)_(\d+)$/;
 
     // Detect whether this is single or multiple students
     const isMultiple = Object.keys(body).some((key) => key.match(/_\d+$/));
 
     if (isMultiple) {
       Object.keys(body).forEach((key) => {
-        const match = key.match(/_(\d+)$/);
+        const match = key.match(studentFieldPattern);
         if (match && !indexes.includes(match[1])) indexes.push(match[1]);
       });
     } else {
       indexes.push("single");
     }
 
+    console.log('[AddStudent] Detected indexes for processing', {
+      indexes,
+      sampleKeys: Object.keys(body).slice(0, 40)
+    });
+
     const client = await db.connect();
+    const guardianCache = new Map();
+    let currentIndexForLog = null;
+    let currentPhaseForLog = 'begin';
+    let studentsSavedCount = 0;
+    let guardiansCreatedCount = 0;
+    let guardiansReusedCount = 0;
+    let guardianLinksCreatedCount = 0;
 
     try {
       await client.query("BEGIN");
 
       for (const index of indexes) {
+        currentIndexForLog = index;
         const prefix = index === "single" ? "" : `_${index}`;
+        const getStudentField = (fieldName) => {
+          if (index === 'single') {
+            return body[fieldName];
+          }
+          if (body[`${fieldName}${prefix}`] !== undefined) {
+            return body[`${fieldName}${prefix}`];
+          }
+          return body[`${fieldName}___${index}`];
+        };
 
         const student = {
-          firstName: body[`firstName${prefix}`],
-          lastName: body[`lastName${prefix}`],
-          dateOfBirth: body[`dateOfBirth${prefix}`],
-          height: body[`height${prefix}`],
-          hometown: body[`hometown${prefix}`],
-          classId: body[`classId${prefix}`],
-          graduationYearGroupId: body[`graduationYearGroupId${prefix}`],
-          gender: body[`gender${prefix}`],
-          enrollmentType: body[`enrollmentType${prefix}`],
-          schoolYearId: body[`schoolYearId${prefix}`],
-          termId: body[`termId${prefix}`],
+          firstName: getStudentField('firstName'),
+          lastName: getStudentField('lastName'),
+          dateOfBirth: getStudentField('dateOfBirth'),
+          height: getStudentField('height'),
+          hometown: getStudentField('hometown'),
+          classId: getStudentField('classId'),
+          graduationYearGroupId: getStudentField('graduationYearGroupId'),
+          gender: getStudentField('gender'),
+          enrollmentType: getStudentField('enrollmentType'),
+          schoolYearId: getStudentField('schoolYearId'),
+          termId: getStudentField('termId'),
           subjects: body[`subjects_${index}`] || [],
           guardians: [],
         };
+
+        const isEmptyStudentForm = !student.firstName && !student.lastName && !student.dateOfBirth && !student.gender && !student.classId;
+        if (isEmptyStudentForm) {
+          console.log('[AddStudent] Skipping empty student form', { index });
+          continue;
+        }
+
+        console.log('[AddStudent] Parsed student payload', {
+          index,
+          firstName: student.firstName,
+          lastName: student.lastName,
+          dateOfBirth: student.dateOfBirth,
+          gender: student.gender,
+          classId: student.classId,
+          graduationYearGroupId: student.graduationYearGroupId
+        });
+
+        currentPhaseForLog = 'duplicateCheck';
+
+        // Duplicate guard (same student data in same class for this organization)
+        const duplicateCheck = await client.query(
+          `
+          SELECT s.student_id, s.first_name, s.last_name, s.date_of_birth, s.gender, s.hometown, c.class_name
+          FROM students s
+          JOIN classes c ON c.class_id = s.class_id
+          WHERE s.organization_id = $1
+            AND s.class_id = $2
+            AND LOWER(TRIM(s.first_name)) = LOWER(TRIM($3))
+            AND LOWER(TRIM(s.last_name)) = LOWER(TRIM($4))
+            AND s.date_of_birth = $5
+            AND LOWER(TRIM(COALESCE(s.gender, ''))) = LOWER(TRIM(COALESCE($6, '')))
+            AND LOWER(TRIM(COALESCE(s.hometown, ''))) = LOWER(TRIM(COALESCE($7, '')))
+          LIMIT 1
+          `,
+          [
+            organizationId,
+            student.classId,
+            student.firstName || '',
+            student.lastName || '',
+            student.dateOfBirth || null,
+            student.gender || '',
+            student.hometown || ''
+          ]
+        );
+
+        if (duplicateCheck.rows.length > 0 && !allowDuplicateSave) {
+          const dup = duplicateCheck.rows[0];
+          throw new Error(
+            `Duplicate student detected in class ${dup.class_name}: ${dup.first_name} ${dup.last_name}. ` +
+            `Please confirm duplicate save and try again.`
+          );
+        }
 
         // Collect guardians
         const guardianKeys = Object.keys(body).filter((k) =>
@@ -1093,12 +1337,12 @@ const commonController = {
             phone: body[`guardianPhone${prefix}_${gIdx}`],
             email: body[`guardianEmail${prefix}_${gIdx}`],
             hometown: body[`guardianHometown${prefix}_${gIdx}`],
-            portalPassword: body[`guardianPortalPassword${prefix}_${gIdx}`],
           });
         }
 
         // Insert student
-        const imageFile = req.files.find(
+        currentPhaseForLog = 'studentImage';
+        const imageFile = uploadedFiles.find(
           (f) => f.fieldname === `studentImage${prefix}`
         );
         let imageUrl = "profilePlaceholder.png";
@@ -1108,6 +1352,7 @@ const commonController = {
         }
 
         // Use imageUrl as usual in your INSERT query:
+        currentPhaseForLog = 'insertStudent';
         const studentInsert = await client.query(
           `INSERT INTO students 
           (first_name, last_name, date_of_birth, height, hometown, class_id, image_url, graduation_year_group_id, gender, created_by, organization_id)
@@ -1121,7 +1366,7 @@ const commonController = {
             student.hometown,
             student.classId,
             imageUrl, // ✅ Use uploaded image if present
-            student.graduationYearGroupId,
+            student.graduationYearGroupId || null,
             student.gender,
             createdBy,
             organizationId,
@@ -1131,14 +1376,29 @@ const commonController = {
         if (!studentInsert.rows.length)
           throw new Error("Student insert failed.");
         const studentId = studentInsert.rows[0].student_id;
+        studentsSavedCount += 1;
 
         // Insert guardians (NEW MASTER + LINK) + ALSO keep existing guardians table insert (compat)
         for (let i = 0; i < student.guardians.length; i++) {
+          currentPhaseForLog = `guardian_${i}_start`;
           const g = student.guardians[i];
           if (!g.firstName && !g.profileId) continue;
 
+          const normalizedFirstName = (g.firstName || '').trim().toLowerCase();
+          const normalizedLastName = (g.lastName || '').trim().toLowerCase();
+          const normalizedEmail = (g.email || '').trim().toLowerCase() || null;
+          const normalizedPhoneDigits = (g.phone || '').replace(/\D/g, '') || null;
+          const normalizedHometown = (g.hometown || '').trim().toLowerCase();
+          const guardianSignature = [
+            normalizedFirstName,
+            normalizedLastName,
+            normalizedEmail || '',
+            normalizedPhoneDigits || '',
+            normalizedHometown
+          ].join('|');
+
           // 1) Upload guardian photo if provided
-          const guardianImageFile = req.files.find(
+          const guardianImageFile = uploadedFiles.find(
             (f) => f.fieldname === `guardianImage${prefix}_${i}`
           );
 
@@ -1150,9 +1410,12 @@ const commonController = {
 
           // 2) Upsert/Select guardian_profile
           let guardianId = null;
+          let usedExistingGuardianProfile = false;
 
           if (g.profileId) {
+            currentPhaseForLog = `guardian_${i}_updateExisting`;
             guardianId = parseInt(g.profileId, 10);
+            usedExistingGuardianProfile = true;
 
             // Optional: update profile details + image if new image uploaded
             await client.query(
@@ -1175,28 +1438,115 @@ const commonController = {
               ]
             );
           } else {
-            const inserted = await client.query(
-              `
-              INSERT INTO guardian_profiles
-                (organization_id, first_name, last_name, phone, email, address, hometown, image_url)
-              VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-              RETURNING guardian_id
-              `,
-              [
-                organizationId,
-                g.firstName,
-                g.lastName,
-                g.phone,
-                (g.email || "").toLowerCase() || null,
-                g.address,
-                g.hometown,
-                guardianImageUrl
-              ]
-            );
-            guardianId = inserted.rows[0].guardian_id;
+            if (guardianCache.has(guardianSignature)) {
+              currentPhaseForLog = `guardian_${i}_cacheLookup`;
+              guardianId = guardianCache.get(guardianSignature);
+              usedExistingGuardianProfile = true;
+            }
+
+            if (!guardianId && normalizedEmail) {
+              currentPhaseForLog = `guardian_${i}_lookupByEmail`;
+              const existingByEmail = await client.query(
+                `SELECT guardian_id
+                 FROM guardian_profiles
+                 WHERE organization_id = $1
+                   AND LOWER(TRIM(COALESCE(email, ''))) = $2
+                 LIMIT 1`,
+                [organizationId, normalizedEmail]
+              );
+              if (existingByEmail.rows.length) {
+                guardianId = existingByEmail.rows[0].guardian_id;
+                usedExistingGuardianProfile = true;
+              }
+            }
+
+            if (!guardianId && normalizedPhoneDigits && normalizedFirstName && normalizedLastName) {
+              currentPhaseForLog = `guardian_${i}_lookupByPhoneAndName`;
+              const existingByPhoneAndName = await client.query(
+                `SELECT guardian_id
+                 FROM guardian_profiles
+                 WHERE organization_id = $1
+                   AND LOWER(TRIM(COALESCE(first_name, ''))) = $2
+                   AND LOWER(TRIM(COALESCE(last_name, ''))) = $3
+                   AND REGEXP_REPLACE(COALESCE(phone, ''), '\\D', '', 'g') = $4
+                 LIMIT 1`,
+                [organizationId, normalizedFirstName, normalizedLastName, normalizedPhoneDigits]
+              );
+              if (existingByPhoneAndName.rows.length) {
+                guardianId = existingByPhoneAndName.rows[0].guardian_id;
+                usedExistingGuardianProfile = true;
+              }
+            }
+
+            if (!guardianId && normalizedFirstName && normalizedLastName && normalizedHometown) {
+              currentPhaseForLog = `guardian_${i}_lookupByNameAndHometown`;
+              const existingByNameAndHometown = await client.query(
+                `SELECT guardian_id
+                 FROM guardian_profiles
+                 WHERE organization_id = $1
+                   AND LOWER(TRIM(COALESCE(first_name, ''))) = $2
+                   AND LOWER(TRIM(COALESCE(last_name, ''))) = $3
+                   AND LOWER(TRIM(COALESCE(hometown, ''))) = $4
+                 LIMIT 1`,
+                [organizationId, normalizedFirstName, normalizedLastName, normalizedHometown]
+              );
+              if (existingByNameAndHometown.rows.length) {
+                guardianId = existingByNameAndHometown.rows[0].guardian_id;
+                usedExistingGuardianProfile = true;
+              }
+            }
+
+            if (guardianId) {
+              guardiansReusedCount += 1;
+              currentPhaseForLog = `guardian_${i}_updateMatched`;
+              await client.query(
+                `
+                UPDATE guardian_profiles
+                SET first_name = COALESCE(NULLIF($1,''), first_name),
+                    last_name  = COALESCE(NULLIF($2,''), last_name),
+                    phone      = COALESCE(NULLIF($3,''), phone),
+                    email      = COALESCE(NULLIF($4,''), email),
+                    address    = COALESCE(NULLIF($5,''), address),
+                    hometown   = COALESCE(NULLIF($6,''), hometown),
+                    image_url  = COALESCE($7, image_url),
+                    updated_at = NOW()
+                WHERE guardian_id = $8 AND organization_id = $9
+                `,
+                [
+                  g.firstName, g.lastName, g.phone, normalizedEmail, g.address, g.hometown,
+                  guardianImageUrl,
+                  guardianId, organizationId
+                ]
+              );
+            } else {
+              currentPhaseForLog = `guardian_${i}_insertProfile`;
+              const inserted = await client.query(
+                `
+                INSERT INTO guardian_profiles
+                  (organization_id, first_name, last_name, phone, email, address, hometown, image_url)
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+                RETURNING guardian_id
+                `,
+                [
+                  organizationId,
+                  g.firstName,
+                  g.lastName,
+                  g.phone,
+                  normalizedEmail,
+                  g.address,
+                  g.hometown,
+                  guardianImageUrl
+                ]
+              );
+              guardianId = inserted.rows[0].guardian_id;
+              guardiansCreatedCount += 1;
+            }
           }
 
+          guardianCache.set(guardianSignature, guardianId);
+
           // 3) Link guardian -> student
+          currentPhaseForLog = `guardian_${i}_linkStudent`;
           const linkResult = await client.query(
             `
             INSERT INTO guardian_students (guardian_id, student_id)
@@ -1208,63 +1558,98 @@ const commonController = {
           );
 
           const isNewLink = linkResult.rowCount > 0;
+          if (isNewLink) {
+            guardianLinksCreatedCount += 1;
+          }
 
-          // 4) Create/Update guardian login (if password provided AND (email or phone exists))
-          const passwordPlain = (g.portalPassword || "").trim();
+          // 4) Ensure guardian login account exists when contact exists.
+          // Password is set by guardian via invitation link (no manual password entry here).
           const loginEmail = (g.email || "").trim().toLowerCase() || null;
           const loginPhone = (g.phone || "").trim() || null;
 
           let isNewAccount = false;
-          let accountExists = false;
 
-          // Check if account already exists
           if (loginEmail || loginPhone) {
-            const existingAccount = await client.query(
-              `SELECT id FROM guardian_accounts WHERE guardian_id = $1`,
-              [guardianId]
-            );
-            accountExists = existingAccount.rows.length > 0;
-          }
+            // Seed temporary hash; guardian will set their own password via token link.
+            const tempHash = await bcrypt.hash(crypto.randomBytes(24).toString("hex"), 10);
 
-          if (passwordPlain && (loginEmail || loginPhone)) {
-            const hash = await bcrypt.hash(passwordPlain, 10);
-
-            // Prefer email uniqueness; fallback to phone uniqueness
+            // Prefer email matching; fallback to phone matching.
+            // Avoid ON CONFLICT with expression targets that may not be backed by DB constraints.
             if (loginEmail) {
-              const result = await client.query(
+              currentPhaseForLog = `guardian_${i}_findAccountByEmail`;
+              const existingByEmail = await client.query(
                 `
-                INSERT INTO guardian_accounts
-                  (organization_id, guardian_id, login_email, login_phone, password_hash, must_reset_password)
-                VALUES ($1,$2,$3,$4,$5,false)
-                ON CONFLICT (organization_id, LOWER(login_email))
-                DO UPDATE SET
-                  guardian_id = EXCLUDED.guardian_id,
-                  login_phone = EXCLUDED.login_phone,
-                  password_hash = EXCLUDED.password_hash,
-                  must_reset_password = false,
-                  updated_at = NOW()
-                RETURNING (xmax = 0) AS inserted
+                SELECT id
+                FROM guardian_accounts
+                WHERE organization_id = $1
+                  AND LOWER(COALESCE(login_email, '')) = $2
+                LIMIT 1
                 `,
-                [organizationId, guardianId, loginEmail, loginPhone, hash]
+                [organizationId, loginEmail]
               );
-              isNewAccount = result.rows[0]?.inserted || false;
+
+              if (existingByEmail.rows.length > 0) {
+                currentPhaseForLog = `guardian_${i}_updateAccountByEmail`;
+                await client.query(
+                  `
+                  UPDATE guardian_accounts
+                  SET guardian_id = $1,
+                      login_phone = COALESCE($2, login_phone),
+                      updated_at = NOW()
+                  WHERE id = $3
+                  `,
+                  [guardianId, loginPhone, existingByEmail.rows[0].id]
+                );
+                isNewAccount = false;
+              } else {
+                currentPhaseForLog = `guardian_${i}_insertAccountByEmail`;
+                await client.query(
+                  `
+                  INSERT INTO guardian_accounts
+                    (organization_id, guardian_id, login_email, login_phone, password_hash, must_reset_password)
+                  VALUES ($1,$2,$3,$4,$5,true)
+                  `,
+                  [organizationId, guardianId, loginEmail, loginPhone, tempHash]
+                );
+                isNewAccount = true;
+              }
             } else {
-              const result = await client.query(
+              currentPhaseForLog = `guardian_${i}_findAccountByPhone`;
+              const existingByPhone = await client.query(
                 `
-                INSERT INTO guardian_accounts
-                  (organization_id, guardian_id, login_phone, password_hash, must_reset_password)
-                VALUES ($1,$2,$3,$4,false)
-                ON CONFLICT (organization_id, login_phone)
-                DO UPDATE SET
-                  guardian_id = EXCLUDED.guardian_id,
-                  password_hash = EXCLUDED.password_hash,
-                  must_reset_password = false,
-                  updated_at = NOW()
-                RETURNING (xmax = 0) AS inserted
+                SELECT id
+                FROM guardian_accounts
+                WHERE organization_id = $1
+                  AND login_phone = $2
+                LIMIT 1
                 `,
-                [organizationId, guardianId, loginPhone, hash]
+                [organizationId, loginPhone]
               );
-              isNewAccount = result.rows[0]?.inserted || false;
+
+              if (existingByPhone.rows.length > 0) {
+                currentPhaseForLog = `guardian_${i}_updateAccountByPhone`;
+                await client.query(
+                  `
+                  UPDATE guardian_accounts
+                  SET guardian_id = $1,
+                      updated_at = NOW()
+                  WHERE id = $2
+                  `,
+                  [guardianId, existingByPhone.rows[0].id]
+                );
+                isNewAccount = false;
+              } else {
+                currentPhaseForLog = `guardian_${i}_insertAccountByPhone`;
+                await client.query(
+                  `
+                  INSERT INTO guardian_accounts
+                    (organization_id, guardian_id, login_phone, password_hash, must_reset_password)
+                  VALUES ($1,$2,$3,$4,true)
+                  `,
+                  [organizationId, guardianId, loginPhone, tempHash]
+                );
+                isNewAccount = true;
+              }
             }
           }
 
@@ -1278,8 +1663,8 @@ const commonController = {
             const organizationName = orgResult.rows[0]?.organization_name || 'School';
             const studentName = `${student.firstName} ${student.lastName}`;
 
-            // Send welcome email if this is a new account (first student)
-            if (!g.profileId && !accountExists && loginEmail) {
+            // Send welcome email only for new guardian profiles (first-time guardians)
+            if (!usedExistingGuardianProfile && isNewAccount && loginEmail) {
               // New guardian - send welcome email with password setup
               setImmediate(() => {
                 sendGuardianWelcomeEmail(
@@ -1292,7 +1677,7 @@ const commonController = {
                   guardianId
                 ).catch(err => {});
               });
-            } else if (g.profileId && isNewLink && loginEmail) {
+            } else if (usedExistingGuardianProfile && isNewLink && loginEmail) {
               // Existing guardian - send student added notification
               setImmediate(() => {
                 sendGuardianStudentAddedEmail(
@@ -1308,6 +1693,7 @@ const commonController = {
 
           // 6) KEEP your old guardians insert so existing pages don't break
           if (g.firstName) {
+            currentPhaseForLog = `guardian_${i}_legacyInsert`;
             await client.query(
               `INSERT INTO guardians (first_name, last_name, address, phone, email, hometown, image_url, student_id, organization_id)
                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
@@ -1327,6 +1713,7 @@ const commonController = {
         }
 
         // Insert subjects
+        currentPhaseForLog = 'insertSubjects';
         const subjectsArray = Array.isArray(student.subjects)
           ? student.subjects
           : student.subjects
@@ -1344,6 +1731,7 @@ const commonController = {
         }
 
         // Determine enrollment term & year
+        currentPhaseForLog = 'resolveEnrollment';
         let schoolYear = student.schoolYearId;
         let term = student.termId;
 
@@ -1380,6 +1768,7 @@ const commonController = {
         }
 
         // Enroll student
+        currentPhaseForLog = 'insertEnrolledStudent';
         await client.query(
           `INSERT INTO enrolled_students (enrollment_id, student_id, class_id)
            VALUES ($1, $2, $3)`,
@@ -1387,16 +1776,315 @@ const commonController = {
         );
       }
 
+      currentPhaseForLog = 'commit';
       await client.query("COMMIT");
+      console.log('[AddStudent] Save completed', {
+        studentsSaved: studentsSavedCount,
+        guardiansCreated: guardiansCreatedCount,
+        guardiansReused: guardiansReusedCount,
+        guardianLinksCreated: guardianLinksCreatedCount
+      });
       req.flash("success", "Student(s) saved successfully.");
       res.redirect("/common/addStudent");
     } catch (err) {
       await client.query("ROLLBACK");
-      // ...removed error log for clean background operation...
+      console.error('[AddStudent] Save failed', {
+        index: currentIndexForLog,
+        phase: currentPhaseForLog,
+        message: err.message,
+        code: err.code,
+        detail: err.detail,
+        hint: err.hint,
+        where: err.where,
+        stack: err.stack
+      });
       req.flash("error", "Failed to save student(s).");
       res.redirect("/common/addStudent");
     } finally {
       client.release();
+    }
+  },
+
+  checkStudentDuplicates: async (req, res, db) => {
+    try {
+      const organizationId = req.session?.organizationId || req.user?.organization_id;
+      const students = Array.isArray(req.body?.students) ? req.body.students : [];
+
+      if (!organizationId) {
+        return res.status(400).json({ success: false, error: 'Missing organization context.' });
+      }
+
+      if (!students.length) {
+        return res.json({ success: true, duplicates: [] });
+      }
+
+      const duplicates = [];
+
+      for (const student of students) {
+        const classId = student.classId;
+        const firstName = (student.firstName || '').trim();
+        const lastName = (student.lastName || '').trim();
+        const dateOfBirth = (student.dateOfBirth || '').trim();
+        const gender = (student.gender || '').trim();
+        const hometown = (student.hometown || '').trim();
+
+        if (!classId || !firstName || !lastName || !dateOfBirth) continue;
+
+        const result = await db.query(
+          `
+          SELECT s.student_id, s.first_name, s.last_name, s.date_of_birth, s.gender, s.hometown, c.class_name
+          FROM students s
+          JOIN classes c ON c.class_id = s.class_id
+          WHERE s.organization_id = $1
+            AND s.class_id = $2
+            AND LOWER(TRIM(s.first_name)) = LOWER(TRIM($3))
+            AND LOWER(TRIM(s.last_name)) = LOWER(TRIM($4))
+            AND s.date_of_birth = $5
+            AND LOWER(TRIM(COALESCE(s.gender, ''))) = LOWER(TRIM(COALESCE($6, '')))
+            AND LOWER(TRIM(COALESCE(s.hometown, ''))) = LOWER(TRIM(COALESCE($7, '')))
+          LIMIT 1
+          `,
+          [organizationId, classId, firstName, lastName, dateOfBirth, gender, hometown]
+        );
+
+        if (result.rows.length > 0) {
+          duplicates.push({
+            input: { firstName, lastName, dateOfBirth, gender, hometown, classId },
+            existing: result.rows[0],
+          });
+        }
+      }
+
+      return res.json({ success: true, duplicates });
+    } catch (error) {
+      return res.status(500).json({ success: false, error: 'Failed to check duplicates.' });
+    }
+  },
+
+  parseBulkStudents: async (req, res, db) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ success: false, error: 'No file uploaded' });
+      }
+
+      const file = req.file;
+      const fileExtension = file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase();
+      let students = [];
+
+      // Import required libraries
+      const XLSX = require('xlsx');
+      const mammoth = require('mammoth');
+      const pdfParse = require('pdf-parse');
+      const Tesseract = require('tesseract.js');
+
+      try {
+        if (fileExtension === '.xlsx' || fileExtension === '.xls') {
+          // Parse Excel file using alias-aware header mapper
+          let workbook;
+          if (file.buffer) workbook = XLSX.read(file.buffer, { type: 'buffer' });
+          else if (file.path) workbook = XLSX.readFile(file.path);
+          else throw new Error('File data not accessible');
+
+          const sheetName = workbook.SheetNames[0];
+          const sheet = workbook.Sheets[sheetName];
+          const rowsAsArrays = XLSX.utils.sheet_to_json(sheet, {
+            header: 1,
+            defval: '',
+            blankrows: false,
+            raw: false,
+            dateNF: 'yyyy-mm-dd'
+          });
+          const headers = (rowsAsArrays[0] || []).map((v) => String(v || '').trim());
+          const rows = rowsAsArrays.slice(1).filter((r) => Array.isArray(r) && r.some((c) => String(c || '').trim()));
+
+          console.log('Excel headers:', headers);
+          students = parseRowsToStudents(headers, rows);
+
+        } else if (fileExtension === '.csv') {
+          // Parse CSV file
+          let fileContent;
+          if (file.buffer) fileContent = file.buffer.toString('utf-8');
+          else if (file.path) fileContent = fs.readFileSync(file.path, 'utf-8');
+          else throw new Error('File data not accessible');
+
+          const lines = fileContent.split(/\r?\n/).filter((line) => line.trim());
+          if (lines.length < 2) throw new Error('CSV file is empty or invalid');
+
+          const headers = parseCSVLine(lines[0]);
+          const rows = lines.slice(1).map((line) => parseCSVLine(line));
+          console.log('CSV Headers:', headers);
+          students = parseRowsToStudents(headers, rows);
+
+        } else if (fileExtension === '.doc' || fileExtension === '.docx') {
+          // Parse Word document
+          let result;
+          if (file.buffer) result = await mammoth.extractRawText({ buffer: file.buffer });
+          else if (file.path) result = await mammoth.extractRawText({ path: file.path });
+          else throw new Error('File data not accessible');
+
+          const text = result.value;
+          students = parseTextToStudents(text);
+
+        } else if (fileExtension === '.pdf') {
+          // Parse PDF text with pdf-parse
+          const buffer = file.buffer || (file.path ? fs.readFileSync(file.path) : null);
+          if (!buffer) throw new Error('File data not accessible');
+          const parsed = await pdfParse(buffer);
+          students = parseTextToStudents(parsed.text || '');
+
+        } else if (['.jpg', '.jpeg', '.png'].includes(fileExtension)) {
+          // OCR for images using Tesseract.js
+          const imageInput = file.buffer || file.path;
+          if (!imageInput) throw new Error('File data not accessible');
+          const ocrResult = await Tesseract.recognize(imageInput, 'eng');
+          students = parseTextToStudents(ocrResult?.data?.text || '');
+        } else {
+          return res.json({
+            success: false,
+            error: 'Unsupported file format. Please use Excel, CSV, PDF, Word, or image files.'
+          });
+        }
+
+        // Clean up uploaded file if it was saved to disk
+        if (file.path) {
+          try {
+            fs.unlinkSync(file.path);
+          } catch (e) {
+            // Ignore cleanup errors
+          }
+        }
+
+        if (students.length === 0) {
+          return res.json({
+            success: false,
+            error: 'No valid student data found in the file. Please check the format.'
+          });
+        }
+
+        console.log('Parsed students:', JSON.stringify(students, null, 2));
+
+        // Validate classes and subjects against database
+        const warnings = {
+          missingClasses: [],
+          missingSubjects: []
+        };
+
+        // Get organization ID from session or user object
+        const organizationId = req.session?.organizationId || req.user?.organization_id;
+
+        // Only perform database validation if organization ID is available
+        if (organizationId) {
+          // Get all unique classes from parsed data
+          const uniqueClasses = [...new Set(students.map(s => (s.class || '').trim()).filter(c => c))];
+          
+          // Get all unique subjects from parsed data
+          const allSubjects = students
+            .map(s => s.subjects ? s.subjects.split(',').map(sub => sub.trim()) : [])
+            .flat()
+            .filter(s => s);
+          const uniqueSubjects = [...new Set(allSubjects.map((s) => s.trim()).filter(Boolean))];
+
+          // Check if classes exist in database
+          if (uniqueClasses.length > 0) {
+            const classCheckQuery = `
+              SELECT class_name FROM classes 
+              WHERE organization_id = $1 AND LOWER(TRIM(class_name)) = ANY($2::text[])
+            `;
+            const classResult = await db.query(classCheckQuery, [organizationId, uniqueClasses.map((c) => c.toLowerCase())]);
+            const existingClasses = classResult.rows.map(r => (r.class_name || '').toLowerCase().trim());
+            
+            warnings.missingClasses = uniqueClasses.filter(c => !existingClasses.includes(c.toLowerCase()));
+          }
+
+          // Check if subjects exist in database
+          if (uniqueSubjects.length > 0) {
+            const subjectCheckQuery = `
+              SELECT subject_name FROM subjects 
+              WHERE organization_id = $1 AND LOWER(TRIM(subject_name)) = ANY($2::text[])
+            `;
+            const subjectResult = await db.query(subjectCheckQuery, [organizationId, uniqueSubjects.map((s) => s.toLowerCase())]);
+            const existingSubjects = subjectResult.rows.map(r => (r.subject_name || '').toLowerCase().trim());
+            
+            warnings.missingSubjects = uniqueSubjects.filter(s => !existingSubjects.includes(s.toLowerCase()));
+          }
+
+          // Check for existing guardians by email or phone
+          for (let student of students) {
+            if (student.guardian && (student.guardian.email || student.guardian.phone)) {
+              let guardianQuery = '';
+              let params = [organizationId];
+              
+              if (student.guardian.email && student.guardian.phone) {
+                guardianQuery = `
+                  SELECT guardian_id, first_name, last_name, phone, email, address, hometown
+                  FROM guardian_profiles 
+                  WHERE organization_id = $1 AND (LOWER(email) = LOWER($2) OR phone = $3)
+                  LIMIT 1
+                `;
+                params.push(student.guardian.email, student.guardian.phone);
+              } else if (student.guardian.email) {
+                guardianQuery = `
+                  SELECT guardian_id, first_name, last_name, phone, email, address, hometown
+                  FROM guardian_profiles 
+                  WHERE organization_id = $1 AND LOWER(email) = LOWER($2)
+                  LIMIT 1
+                `;
+                params.push(student.guardian.email);
+              } else if (student.guardian.phone) {
+                guardianQuery = `
+                  SELECT guardian_id, first_name, last_name, phone, email, address, hometown
+                  FROM guardian_profiles 
+                  WHERE organization_id = $1 AND phone = $2
+                  LIMIT 1
+                `;
+                params.push(student.guardian.phone);
+              }
+
+              if (guardianQuery) {
+                const guardianResult = await db.query(guardianQuery, params);
+                if (guardianResult.rows.length > 0) {
+                  student.guardian.existing = true;
+                  student.guardian.guardianId = guardianResult.rows[0].guardian_id;
+                  student.guardian.matchedData = guardianResult.rows[0];
+                } else {
+                  student.guardian.existing = false;
+                }
+              }
+            }
+          }
+        } else {
+          console.log('Skipping database validation - organization ID not found in session or user object');
+        }
+
+        return res.json({
+          success: true,
+          students: students,
+          warnings: warnings,
+          message: `Successfully parsed ${students.length} student(s)`
+        });
+
+      } catch (parseError) {
+        console.error('Parse error:', parseError);
+        // Clean up file on error
+        if (file.path) {
+          try {
+            fs.unlinkSync(file.path);
+          } catch (e) {
+            // Ignore cleanup errors
+          }
+        }
+        return res.json({
+          success: false,
+          error: `Failed to parse file: ${parseError.message}`
+        });
+      }
+
+    } catch (error) {
+      console.error('Bulk import error:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Server error processing file'
+      });
     }
   },
 
@@ -1497,6 +2185,11 @@ const commonController = {
       req.query.organizationId ||
       (req.schoolDetails && req.schoolDetails.organization_id);
 
+    console.log('[Public Register] Starting registration...');
+    console.log('[Public Register] Organization ID:', organizationId);
+    console.log('[Public Register] Body fields:', Object.keys(body));
+    console.log('[Public Register] Files:', files ? Object.keys(files) : 'None');
+
     try {
       if (
         !body.firstName ||
@@ -1506,21 +2199,28 @@ const commonController = {
         !body.classId ||
         !body.paymentMethodId
       ) {
+        console.log('[Public Register] ❌ Missing required fields');
         return res
           .status(400)
           .json({ success: false, error: "Missing required fields." });
       }
 
+      console.log('[Public Register] ✅ All required fields present');
+
+      console.log('[Public Register] Fetching organization details...');
       const orgResult = await db.query(
         `SELECT public_registration_price, public_registration_currency FROM organizations WHERE organization_id = $1`,
         [organizationId]
       );
 
       if (orgResult.rows.length === 0) {
+        console.log('[Public Register] ❌ Organization not found');
         return res
           .status(400)
           .json({ success: false, error: "Organization not found." });
       }
+
+      console.log('[Public Register] ✅ Organization found');
 
       const {
         public_registration_price: amount,
@@ -1528,22 +2228,33 @@ const commonController = {
       } = orgResult.rows[0];
 
       // Upload student image to S3 if provided
+      console.log('[Public Register] Handling student image...');
       let imageUrl = "profilePlaceholder.png";
       if (files && files.studentImage && files.studentImage[0]) {
         const file = files.studentImage[0];
         const s3Key = `images/studentimages/${organizationId}/${file.originalname}`;
+        console.log('[Public Register] Uploading student image to S3:', s3Key);
         imageUrl = await uploadToS3(file, s3Key);
+        console.log('[Public Register] ✅ Student image uploaded:', imageUrl);
+      } else {
+        console.log('[Public Register] No student image, using placeholder');
       }
 
       // Handle guardian image upload if new guardian
+      console.log('[Public Register] Handling guardian image...');
       let guardianImageUrl = null;
       if (files && files.guardianImage0 && files.guardianImage0[0]) {
         const guardianFile = files.guardianImage0[0];
         const s3Key = `images/guardians/${organizationId}/${guardianFile.originalname}`;
+        console.log('[Public Register] Uploading guardian image to S3:', s3Key);
         guardianImageUrl = await uploadToS3(guardianFile, s3Key);
+        console.log('[Public Register] ✅ Guardian image uploaded:', guardianImageUrl);
+      } else {
+        console.log('[Public Register] No guardian image provided');
       }
 
       // Insert pending student record right away
+      console.log('[Public Register] Inserting pending student...');
       const insertResult = await db.query(
         `INSERT INTO pending_students 
         (first_name, last_name, date_of_birth, gender, hometown, class_id, image_url, enrollment_type, school_year_id, term_id, graduation_year_group_id, organization_id, stripe_payment_verified, payment_pending, submitted_at)
@@ -1566,22 +2277,50 @@ const commonController = {
       );
 
       const pendingStudentId = insertResult.rows[0].pending_id;
+      console.log('[Public Register] ✅ Pending student created, ID:', pendingStudentId);
 
       // Check if using existing guardian or creating new
+      console.log('[Public Register] Handling guardians...');
+      console.log('[Public Register] Existing guardian ID:', body.existingGuardianId);
       if (body.existingGuardianId) {
-        // Link to existing guardian
-        await db.query(
-          `INSERT INTO pending_student_guardians (pending_student_id, guardian_id)
-           VALUES ($1, $2)`,
-          [pendingStudentId, body.existingGuardianId]
+        // Fetch existing guardian's info and create a record in pending_guardians
+        console.log('[Public Register] Fetching existing guardian info...');
+        const existingGuardian = await db.query(
+          `SELECT first_name, last_name, phone, email, hometown, image_url
+           FROM guardian_profiles
+           WHERE guardian_id = $1 AND organization_id = $2`,
+          [body.existingGuardianId, organizationId]
         );
+
+        if (existingGuardian.rows.length > 0) {
+          const g = existingGuardian.rows[0];
+          console.log('[Public Register] ✅ Existing guardian found:', g.first_name, g.last_name);
+          await db.query(
+            `INSERT INTO pending_guardians (pending_id, first_name, last_name, phone, email, hometown)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [
+              pendingStudentId,
+              g.first_name,
+              g.last_name,
+              g.phone,
+              g.email,
+              g.hometown,
+            ]
+          );
+          console.log('[Public Register] ✅ Existing guardian linked to pending student');
+        } else {
+          console.log('[Public Register] ❌ Existing guardian not found');
+        }
       } else {
         // Save new guardian with image
+        console.log('[Public Register] Creating new guardian(s)...');
         const guardians = extractGuardians(body);
+        console.log('[Public Register] Guardians extracted:', guardians.length);
         for (const guardian of guardians) {
+          console.log('[Public Register] Inserting guardian:', guardian.firstName, guardian.lastName);
           await db.query(
-            `INSERT INTO pending_guardians (pending_id, first_name, last_name, phone, email, hometown, image_url)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            `INSERT INTO pending_guardians (pending_id, first_name, last_name, phone, email, hometown)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
             [
               pendingStudentId,
               guardian.firstName,
@@ -1589,16 +2328,18 @@ const commonController = {
               guardian.phone,
               guardian.email,
               guardian.hometown,
-              guardianImageUrl || 'profilePlaceholder.png',
             ]
           );
+          console.log('[Public Register] ✅ Guardian inserted');
         }
       }
 
       // Save subjects
+      console.log('[Public Register] Saving subjects...');
       const subjects = Array.isArray(body.subjects)
         ? body.subjects
         : [body.subjects];
+      console.log('[Public Register] Subjects count:', subjects.length);
       for (const subjectId of subjects) {
         if (subjectId) {
           await db.query(
@@ -1607,21 +2348,29 @@ const commonController = {
           );
         }
       }
+      console.log('[Public Register] ✅ Subjects saved');
 
       // Save payment info (but mark it as pending)
+      console.log('[Public Register] Saving payment info...');
+      console.log('[Public Register] Payment method ID:', body.paymentMethodId);
       await db.query(
         `INSERT INTO pending_student_payments (pending_student_id, payment_method_id, organization_id)
          VALUES ($1, $2, $3)`,
         [pendingStudentId, body.paymentMethodId, organizationId]
       );
+      console.log('[Public Register] ✅ Payment info saved');
 
       // Save pending student ID in session
       req.session.pendingStudentId = pendingStudentId;
+      console.log('[Public Register] ✅ Session updated with pending student ID');
 
       // Send response for payment initiation
+      console.log('[Public Register] ✅✅✅ SUCCESS! Returning response:', { success: true, amount, currency, pendingStudentId });
       res.json({ success: true, amount, currency, pendingStudentId });
     } catch (err) {
-      // ...removed error log for clean background operation...
+      console.error('[Public Register] ❌❌❌ ERROR OCCURRED:', err.message);
+      console.error('[Public Register] Error stack:', err.stack);
+      console.error('[Public Register] Error details:', err);
       res
         .status(500)
         .json({ success: false, error: "Failed to save pending student." });
@@ -1631,15 +2380,23 @@ const commonController = {
   initializePayment: async (req, res, db) => {
     const { subaccountCode, amount } = req.body;
 
+    console.log('[Initialize Payment] Starting payment initialization...');
+    console.log('[Initialize Payment] Subaccount code:', subaccountCode);
+    console.log('[Initialize Payment] Amount:', amount);
+
     // ✅ Determine the BASE_URL dynamically
     const BASE_URL =
       process.env.NODE_ENV === "production"
         ? process.env.BASE_URL_PRODUCTION || "https://managira.com"
         : process.env.BASE_URL_LOCAL || "http://localhost:4000";
 
+    console.log('[Initialize Payment] BASE_URL:', BASE_URL);
+
     const pendingStudentId = req.session.pendingStudentId;
+    console.log('[Initialize Payment] Pending student ID from session:', pendingStudentId);
 
     if (!pendingStudentId) {
+      console.log('[Initialize Payment] ❌ Missing pending student ID');
       return res
         .status(400)
         .json({ success: false, error: "Missing pending student ID." });
@@ -1647,12 +2404,14 @@ const commonController = {
 
     try {
       // ✅ Fetch organization ID with fallback
+      console.log('[Initialize Payment] Fetching pending student details...');
       const studentResult = await db.query(
         `SELECT organization_id, first_name, last_name FROM pending_students WHERE pending_id = $1`,
         [pendingStudentId]
       );
 
       if (studentResult.rows.length === 0) {
+        console.log('[Initialize Payment] ❌ Pending student not found');
         return res
           .status(400)
           .json({ success: false, error: "Pending student not found." });
@@ -1663,35 +2422,43 @@ const commonController = {
         first_name,
         last_name,
       } = studentResult.rows[0];
+      console.log('[Initialize Payment] ✅ Student found:', first_name, last_name, 'Org ID:', organizationId);
 
       // ✅ Fetch currency
+      console.log('[Initialize Payment] Fetching organization currency...');
       const orgResult = await db.query(
         `SELECT public_registration_currency FROM organizations WHERE organization_id = $1`,
         [organizationId]
       );
       const currency = orgResult.rows[0]?.public_registration_currency || "GHS";
+      console.log('[Initialize Payment] Currency:', currency);
 
       // ✅ Fetch primary guardian email
+      console.log('[Initialize Payment] Fetching guardian email...');
       const guardianResult = await db.query(
         `SELECT email, first_name FROM pending_guardians WHERE pending_id = $1 LIMIT 1`,
         [pendingStudentId]
       );
       const primaryGuardian = guardianResult.rows[0];
       const guardianEmail = primaryGuardian?.email || "user@dummy.com";
+      console.log('[Initialize Payment] Guardian email:', guardianEmail);
 
       // ✅ Generate unique reference
       const paymentReference = `REG-${organizationId}-${pendingStudentId}-${Date.now()}`;
+      console.log('[Initialize Payment] Payment reference:', paymentReference);
 
       // ✅ Convert amount to kobo/pesewas (multiply by 100)
       const amountInMinorUnit = Math.round(parseFloat(amount) * 100);
+      console.log('[Initialize Payment] Amount in minor unit:', amountInMinorUnit);
 
       // ✅ Set up Paystack payment payload
+      console.log('[Initialize Payment] Building Paystack payload...');
       const paymentPayload = {
         email: guardianEmail,
         amount: amountInMinorUnit,
         currency: currency,
         reference: paymentReference,
-        callback_url: `${BASE_URL}/common/paymentCallback?pendingStudentId=${pendingStudentId}`,
+        callback_url: `${BASE_URL}/common/paymentCallback?pendingStudentId=${pendingStudentId}&organizationId=${organizationId}`,
         metadata: {
           pending_student_id: pendingStudentId,
           organization_id: organizationId,
@@ -1705,55 +2472,126 @@ const commonController = {
             },
           ],
         },
-        subaccount: subaccountCode,
         channels: ["card"], // Only allow card payments for now
       };
 
-      // ✅ Initialize payment with Paystack
-      const response = await axios.post(
-        "https://api.paystack.co/transaction/initialize",
-        paymentPayload,
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      // Only add subaccount if provided and valid
+      if (subaccountCode && subaccountCode.trim()) {
+        paymentPayload.subaccount = subaccountCode;
+        console.log('[Initialize Payment] Including subaccount:', subaccountCode);
+      } else {
+        console.log('[Initialize Payment] No subaccount provided, proceeding with direct payment');
+      }
 
-      if (response.data.status && response.data.data.authorization_url) {
-        // ✅ Store payment details in our tracking table
-        await db.query(
-          `INSERT INTO public_registration_payments (
-            organization_id, student_name, student_email, amount, currency, 
-            paystack_reference, subaccount_code, status, metadata
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-          [
-            organizationId,
-            `${first_name} ${last_name}`,
-            guardianEmail,
-            parseFloat(amount),
-            currency,
-            paymentReference,
-            subaccountCode,
-            "pending",
-            JSON.stringify(paymentPayload.metadata),
-          ]
+      console.log('[Initialize Payment] Payload prepared:', JSON.stringify(paymentPayload, null, 2));
+
+      // ✅ Initialize payment with Paystack
+      console.log('[Initialize Payment] Calling Paystack API...');
+      
+      try {
+        const response = await axios.post(
+          "https://api.paystack.co/transaction/initialize",
+          paymentPayload,
+          {
+            headers: {
+              Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+              "Content-Type": "application/json",
+            },
+          }
         );
 
-        // ...removed log for clean background operation...
+        console.log('[Initialize Payment] ✅ Paystack response received:', response.data);
 
-        res.json({
-          success: true,
-          payment_url: response.data.data.authorization_url,
-          reference: paymentReference,
-          access_code: response.data.data.access_code,
-        });
-      } else {
-        throw new Error("Invalid response from Paystack");
+        if (response.data.status && response.data.data.authorization_url) {
+          // ✅ Store payment details in our tracking table
+          console.log('[Initialize Payment] Storing payment in database...');
+          await db.query(
+            `INSERT INTO public_registration_payments (
+              organization_id, student_name, student_email, amount, currency, 
+              paystack_reference, subaccount_code, status, metadata
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            [
+              organizationId,
+              `${first_name} ${last_name}`,
+              guardianEmail,
+              parseFloat(amount),
+              currency,
+              paymentReference,
+              subaccountCode || null,
+              "pending",
+              JSON.stringify(paymentPayload.metadata),
+            ]
+          );
+
+          console.log('[Initialize Payment] ✅✅✅ SUCCESS! Payment initialized');
+
+          res.json({
+            success: true,
+            payment_url: response.data.data.authorization_url,
+            reference: paymentReference,
+            access_code: response.data.data.access_code,
+          });
+        } else {
+          console.log('[Initialize Payment] ❌ Invalid Paystack response');
+          throw new Error("Invalid response from Paystack");
+        }
+      } catch (paystackError) {
+        // If subaccount is invalid, retry without subaccount
+        if (paystackError.response?.data?.message?.includes('Subaccount') && paymentPayload.subaccount) {
+          console.log('[Initialize Payment] ⚠️ Subaccount invalid, retrying without subaccount...');
+          delete paymentPayload.subaccount;
+          
+          const retryResponse = await axios.post(
+            "https://api.paystack.co/transaction/initialize",
+            paymentPayload,
+            {
+              headers: {
+                Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          console.log('[Initialize Payment] ✅ Retry successful:', retryResponse.data);
+
+          if (retryResponse.data.status && retryResponse.data.data.authorization_url) {
+            await db.query(
+              `INSERT INTO public_registration_payments (
+                organization_id, student_name, student_email, amount, currency, 
+                paystack_reference, subaccount_code, status, metadata
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+              [
+                organizationId,
+                `${first_name} ${last_name}`,
+                guardianEmail,
+                parseFloat(amount),
+                currency,
+                paymentReference,
+                null, // No subaccount
+                "pending",
+                JSON.stringify(paymentPayload.metadata),
+              ]
+            );
+
+            console.log('[Initialize Payment] ✅✅✅ SUCCESS! Payment initialized without subaccount');
+
+            res.json({
+              success: true,
+              payment_url: retryResponse.data.data.authorization_url,
+              reference: paymentReference,
+              access_code: retryResponse.data.data.access_code,
+            });
+          } else {
+            throw new Error("Invalid response from Paystack on retry");
+          }
+        } else {
+          throw paystackError;
+        }
       }
     } catch (error) {
-      // ...removed error log for clean background operation...
+      console.error('[Initialize Payment] ❌❌❌ ERROR:', error.message);
+      console.error('[Initialize Payment] Error stack:', error.stack);
+      console.error('[Initialize Payment] Error response:', error.response?.data);
       res.status(500).json({
         success: false,
         error: error.response?.data?.message || "Payment initialization failed",
@@ -1762,30 +2600,48 @@ const commonController = {
   },
 
   paymentCallback: async (req, res, db) => {
-    const transactionId = req.query.transaction_id;
+    const reference = req.query.reference;
     const pendingStudentId = req.query.pendingStudentId;
 
-    if (!transactionId || !pendingStudentId) {
-      req.flash("error", "Missing transaction or pending student.");
-      return res.redirect("/common/publicDashboard");
+    console.log('[Payment Callback] Reference:', reference);
+    console.log('[Payment Callback] Pending Student ID:', pendingStudentId);
+
+    if (!reference || !pendingStudentId) {
+      console.log('[Payment Callback] Missing reference or pending student ID');
+      
+      // Try to get organizationId from query or session
+      const orgId = req.query.organizationId || req.session.organizationId || '';
+      
+      req.flash("error", "Missing transaction reference or pending student.");
+      return res.redirect(`/common/publicDashboard?organizationId=${orgId}`);
     }
 
     try {
-      // ✅ Verify payment with Flutterwave
+      // ✅ Verify payment with Paystack
+      console.log('[Payment Callback] Verifying payment with Paystack...');
       const result = await axios.get(
-        `https://api.flutterwave.com/v3/transactions/${transactionId}/verify`,
+        `https://api.paystack.co/transaction/verify/${reference}`,
         {
-          headers: { Authorization: `Bearer ${process.env.FLW_SECRET_KEY}` },
+          headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}` },
         }
       );
 
+      console.log('[Payment Callback] Paystack verification response:', result.data);
+
       const paymentStatus = result.data.data.status;
 
-      if (paymentStatus === "successful") {
+      if (paymentStatus === "success") {
+        console.log('[Payment Callback] ✅ Payment successful, updating database...');
         // ✅ Mark payment as verified
         await db.query(
           `UPDATE pending_students SET stripe_payment_verified = true, payment_pending = false WHERE pending_id = $1`,
           [pendingStudentId]
+        );
+
+        // Update payment record
+        await db.query(
+          `UPDATE public_registration_payments SET status = 'success' WHERE paystack_reference = $1`,
+          [reference]
         );
 
         // ✅ Fetch guardian details
@@ -1806,56 +2662,35 @@ const commonController = {
         const orgName = orgDetails?.organization_name || "the school";
         const organizationId = orgDetails?.organization_id;
 
+        console.log('[Payment Callback] Organization ID:', organizationId);
+
         // ✅ Send email if primary guardian email exists
         if (primaryGuardian && primaryGuardian.email) {
-          const transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST,
-            port: parseInt(process.env.SMTP_PORT),
-            secure: process.env.SMTP_SECURE === "true",
-            auth: {
-              user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-              pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-            },
-          });
-          const html = `
-  <div style="background:#f4fbfa;padding:40px 0;">
-                <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px #b2e2d6;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
-                <div style="background:#6fd3c4;padding:24px 0 24px 32px;display:flex;align-items:center;">
-                  <img src="cid:managira_logo" alt="Managira Logo" style="height:60px;display:block;">
-                </div>
-                <div style="padding:36px 32px 32px 32px;">
-                  <div style="color:#6fd3c4;font-size:24px;font-weight:600;margin-bottom:16px;letter-spacing:1px;">Student Registration & Payment Confirmation</div>
-                  <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Hello <b>${
-                    primaryGuardian.first_name
-                  }</b>,</p>
-                  <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">We are pleased to confirm that the student's registration and payment have been successfully processed for <b>${orgName}</b>.</p>
-                  <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">The admissions team at <b>${orgName}</b> has received the details. You may hear from them soon, or you can reach out directly if you have any questions.</p>
-                  <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Thank you for choosing us!</p>
-                  <p style="margin-top:18px;font-size:15px;">If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">FAQ page</a>.</p>
-                  <p style="color:#b80000;font-size:16px;font-weight:bold;margin-top:32px;text-align:center;letter-spacing:1px;">THIS IS A NO-REPLY MESSAGE. PLEASE DO NOT REPLY TO THIS EMAIL.</p>
-                </div>
-                <div style="background:#e6f7ec;color:#888;text-align:center;padding:18px 0;font-size:13px;">&copy; ${new Date().getFullYear()} Managira. All rights reserved.</div>
-              </div>
-            </div>
-          `;
-          const mailOptions = {
-            from: process.env.NOTIFY_EMAIL_USER,
-            to: primaryGuardian.email,
-            subject: `Student Registration & Payment Confirmation - ${orgName}`,
-            html,
-            attachments: [
-              {
-                filename: "managira.png",
-                path: require("path").join(
-                  __dirname,
-                  "../public/images/managira.png"
-                ),
-                cid: "managira_logo",
-              },
+          const html = renderCleanEmail({
+            title: "Student Registration & Payment Confirmation",
+            greeting: `Hello <strong>${he.encode(primaryGuardian.first_name || "Guardian")}</strong>,`,
+            paragraphs: [
+              `We are pleased to confirm that the student's registration and payment have been successfully processed for <strong>${he.encode(orgName)}</strong>.`,
+              `The admissions team at <strong>${he.encode(orgName)}</strong> has received the details. You may hear from them soon, or you can reach out directly if you have any questions.`,
+              "Thank you for choosing us!",
             ],
-          };
+            note: 'For help, visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
+          });
+
           try {
-            await transporter.sendMail(mailOptions);
+            await sendEmailSafely({
+              from: process.env.NOTIFY_EMAIL_USER,
+              to: primaryGuardian.email,
+              subject: `Student Registration & Payment Confirmation - ${orgName}`,
+              html,
+              attachments: [
+                {
+                  filename: "managira.png",
+                  path: require("path").join(__dirname, "../public/images/managira.png"),
+                  cid: "managira_logo",
+                },
+              ],
+            }, "Payment Confirmation Email");
           } catch (error) {
             // ...removed error log for clean background operation...
           }
@@ -1867,6 +2702,8 @@ const commonController = {
         );
         req.session.pendingStudentId = null;
 
+        console.log('[Payment Callback] ✅ Redirecting to public dashboard with organizationId:', organizationId);
+
         // ✅ Build proper redirect URL for production (to subdomain) or fallback
         const redirectUrl =
           process.env.NODE_ENV === "production" && orgDetails?.nickname
@@ -1875,6 +2712,15 @@ const commonController = {
 
         return res.redirect(redirectUrl);
       } else {
+        console.log('[Payment Callback] ❌ Payment failed, deleting pending record...');
+        
+        // Fetch organizationId before deleting
+        const orgIdResult = await db.query(
+          `SELECT organization_id FROM pending_students WHERE pending_id = $1`,
+          [pendingStudentId]
+        );
+        const failedOrgId = orgIdResult.rows[0]?.organization_id;
+        
         // Payment failed — delete pending record
         await db.query(`DELETE FROM pending_students WHERE pending_id = $1`, [
           pendingStudentId,
@@ -1885,21 +2731,35 @@ const commonController = {
         const fallbackRedirect =
           process.env.NODE_ENV === "production" && req.schoolDetails
             ? `https://${req.schoolDetails.nickname}.managira.com/common/publicDashboard`
-            : `/common/publicDashboard?organizationId=${
-                req.session.organizationId || ""
-              }`;
+            : `/common/publicDashboard?organizationId=${failedOrgId || ""}`;
+        
+        console.log('[Payment Callback] Redirecting after failure to:', fallbackRedirect);
         return res.redirect(fallbackRedirect);
       }
     } catch (err) {
-      // ...removed error log for clean background operation...
+      console.error('[Payment Callback] ❌❌❌ ERROR:', err.message);
+      console.error('[Payment Callback] Error stack:', err.stack);
+      
+      // Try to get organizationId from pending student
+      let errorOrgId = '';
+      try {
+        const orgIdResult = await db.query(
+          `SELECT organization_id FROM pending_students WHERE pending_id = $1`,
+          [pendingStudentId]
+        );
+        errorOrgId = orgIdResult.rows[0]?.organization_id || '';
+      } catch (dbErr) {
+        console.error('[Payment Callback] Could not fetch organizationId:', dbErr.message);
+      }
+      
       req.flash("error", "Error verifying payment. Please contact support.");
 
       const fallbackRedirect =
         process.env.NODE_ENV === "production" && req.schoolDetails
           ? `https://${req.schoolDetails.nickname}.managira.com/common/publicDashboard`
-          : `/common/publicDashboard?organizationId=${
-              req.session.organizationId || ""
-            }`;
+          : `/common/publicDashboard?organizationId=${errorOrgId}`;
+      
+      console.log('[Payment Callback] Redirecting after error to:', fallbackRedirect);
       return res.redirect(fallbackRedirect);
     }
   },
@@ -2060,23 +2920,133 @@ const commonController = {
     try {
       await client.query("BEGIN");
 
-      // ✅ Ensure recent changes are saved before approving
-      req.file = undefined; // in case no new image was uploaded
+      console.log('[Approve Pending Student] Starting approval for ID:', id);
+      console.log('[Approve Pending Student] Request body:', req.body);
+      console.log('[Approve Pending Student] Request file:', req.file);
 
-      if (req.body && Object.keys(req.body).length > 0) {
-        const saveResult = await commonController.savePendingStudentChanges(
-          req,
-          {
-            json: () => {},
-            status: () => ({ json: () => {} }),
-          },
-          db
-        );
+      // ✅ Save changes if any data was submitted
+      if (req.body && Object.keys(req.body).length > 1) { // More than just the student ID
+        console.log('[Approve Pending Student] Saving changes before approval...');
+        
+        // Parse and coerce values
+        const classId = req.body.class_id ? parseInt(req.body.class_id) : null;
+        const gradGroupId = req.body.graduation_year_group_id ? parseInt(req.body.graduation_year_group_id) : null;
 
-        if (saveResult?.error) {
-          throw new Error("Failed to save student changes before approval.");
+        let schoolYearId = null;
+        let termId = null;
+
+        if (req.body.enrollmentType === "current") {
+          const currentYearRes = await client.query(
+            `SELECT id AS school_year_id FROM school_years WHERE current = TRUE AND organization_id = $1 LIMIT 1`,
+            [organizationId]
+          );
+          if (currentYearRes.rows.length > 0) {
+            schoolYearId = currentYearRes.rows[0].school_year_id;
+            const currentTermRes = await client.query(
+              `SELECT term_id FROM terms WHERE school_year_id = $1 AND current = TRUE LIMIT 1`,
+              [schoolYearId]
+            );
+            if (currentTermRes.rows.length > 0) {
+              termId = currentTermRes.rows[0].term_id;
+            }
+          }
+        } else {
+          schoolYearId = req.body.schoolYearId ? parseInt(req.body.schoolYearId) : null;
+          termId = req.body.termId ? parseInt(req.body.termId) : null;
+        }
+
+        // ✅ Upload and save image if provided
+        let imageUrl = null;
+        if (req.file) {
+          console.log('[Approve Pending Student] Uploading image...');
+          const s3Key = `images/studentimages/${organizationId}/${Date.now()}_${req.file.originalname}`;
+          imageUrl = await uploadToS3(req.file, s3Key);
+          console.log('[Approve Pending Student] Image uploaded:', imageUrl);
+        }
+
+        // ✅ Update pending student
+        const baseParams = [
+          req.body.first_name,
+          req.body.last_name,
+          req.body.date_of_birth,
+          req.body.gender,
+          req.body.hometown,
+          classId,
+          gradGroupId,
+          schoolYearId,
+          termId,
+          req.body.enrollmentType,
+        ];
+
+        const queryParams = imageUrl
+          ? [...baseParams, imageUrl, id, organizationId]
+          : [...baseParams, id, organizationId];
+
+        const updateQuery = `
+          UPDATE pending_students SET
+            first_name = $1,
+            last_name = $2,
+            date_of_birth = $3,
+            gender = $4,
+            hometown = $5,
+            class_id = $6,
+            graduation_year_group_id = $7,
+            school_year_id = $8,
+            term_id = $9,
+            enrollment_type = $10
+            ${imageUrl ? ", image_url = $11" : ""}
+          WHERE pending_id = $${imageUrl ? 12 : 11} AND organization_id = $${imageUrl ? 13 : 12}
+        `;
+
+        await client.query(updateQuery, queryParams);
+        console.log('[Approve Pending Student] ✅ Changes saved');
+
+        // ✅ Update subjects if provided
+        if (req.body.subjects) {
+          await client.query(
+            `DELETE FROM pending_student_subjects WHERE pending_student_id = $1`,
+            [id]
+          );
+          const subjectArray = Array.isArray(req.body.subjects)
+            ? req.body.subjects
+            : [req.body.subjects];
+          for (const subjectId of subjectArray) {
+            if (subjectId) {
+              await client.query(
+                `INSERT INTO pending_student_subjects (pending_student_id, subject_id, organization_id)
+                 VALUES ($1, $2, $3)`,
+                [id, parseInt(subjectId), organizationId]
+              );
+            }
+          }
+        }
+
+        // ✅ Update guardians if provided
+        const guardianKeys = Object.keys(req.body).filter((k) => k.startsWith("guardianFirstName"));
+        if (guardianKeys.length > 0) {
+          await client.query(`DELETE FROM pending_guardians WHERE pending_id = $1`, [id]);
+          for (let i = 0; i < guardianKeys.length; i++) {
+            const fn = req.body[`guardianFirstName${i}`];
+            if (fn) {
+              await client.query(
+                `INSERT INTO pending_guardians 
+                 (pending_id, first_name, last_name, phone, email, hometown)
+                 VALUES ($1, $2, $3, $4, $5, $6)`,
+                [
+                  id,
+                  fn,
+                  req.body[`guardianLastName${i}`],
+                  req.body[`guardianPhone${i}`],
+                  req.body[`guardianEmail${i}`],
+                  req.body[`guardianHometown${i}`],
+                ]
+              );
+            }
+          }
         }
       }
+
+      console.log('[Approve Pending Student] Fetching updated pending record...');
 
       // ✅ Now re-fetch the updated pending record
       const pending = await client.query(
@@ -2192,39 +3162,15 @@ const commonController = {
       // ✅ Notify guardians
       const guardianEmails = guardians.rows.map((g) => g.email).filter(Boolean);
       if (guardianEmails.length) {
-        const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST,
-          port: parseInt(process.env.SMTP_PORT),
-          secure: process.env.SMTP_SECURE === "true",
-          auth: {
-            user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-            pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-          },
+        const html = renderCleanEmail({
+          title: "Admission Approved",
+          greeting: "Dear Guardian,",
+          paragraphs: [
+            `We are pleased to inform you that the admission application for <strong>${he.encode(student.first_name)} ${he.encode(student.last_name)}</strong> has been approved by <strong>${he.encode(orgName)}</strong>.`,
+            "Thank you for choosing our school.",
+          ],
+          note: 'If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
         });
-        const html = `
-  <div style="background:#f4fbfa;padding:40px 0;">
-              <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px #b2e2d6;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
-              <div style="background:#6fd3c4;padding:24px 0 24px 32px;display:flex;align-items:center;">
-                <img src="cid:managira_logo" alt="Managira Logo" style="height:60px;display:block;">
-              </div>
-              <div style="padding:36px 32px 32px 32px;">
-                <div style="color:#6fd3c4;font-size:24px;font-weight:600;margin-bottom:16px;letter-spacing:1px;">Admission Approved</div>
-                <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Dear Guardian,</p>
-                <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">We are pleased to inform you that the admission application for <strong>${he.encode(
-                  student.first_name
-                )} ${he.encode(
-          student.last_name
-        )}</strong> has been approved by <strong>${he.encode(
-          orgName
-        )}</strong>.</p>
-                <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Thank you for choosing our school.</p>
-                <p style="margin-top:18px;font-size:15px;">If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">FAQ page</a>.</p>
-                <p style="color:#b80000;font-size:16px;font-weight:bold;margin-top:32px;text-align:center;letter-spacing:1px;">THIS IS A NO-REPLY MESSAGE. PLEASE DO NOT REPLY TO THIS EMAIL.</p>
-              </div>
-              <div style="background:#e6f7ec;color:#888;text-align:center;padding:18px 0;font-size:13px;">&copy; ${new Date().getFullYear()} Managira. All rights reserved.</div>
-            </div>
-          </div>
-        `;
         const mailOptions = {
           from: process.env.NOTIFY_EMAIL_USER,
           to: guardianEmails.join(","),
@@ -2243,9 +3189,7 @@ const commonController = {
             },
           ],
         };
-        transporter.sendMail(mailOptions, (err, info) => {
-          // ...removed error log for clean background operation...
-        });
+        await sendEmailSafely(mailOptions, "Admission Approved Email");
       }
 
       await client.query("COMMIT");
@@ -2302,37 +3246,15 @@ const commonController = {
           .filter((e) => e);
         const student = pending.rows[0];
 
-        const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST,
-          port: parseInt(process.env.SMTP_PORT),
-          secure: process.env.SMTP_SECURE === "true",
-          auth: {
-            user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-            pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-          },
+        const html = renderCleanEmail({
+          title: "Admission Rejected",
+          greeting: "Dear Guardian,",
+          paragraphs: [
+            `We regret to inform you that the admission application for <strong>${he.encode(student.first_name)} ${he.encode(student.last_name)}</strong> has been rejected by <strong>${he.encode(orgName)}</strong>.`,
+            "We appreciate your interest in our school.",
+          ],
+          note: 'If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
         });
-        const html = `
-  <div style="background:#f4fbfa;padding:40px 0;">
-              <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px #b2e2d6;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
-              <div style="background:#6fd3c4;padding:24px 0 24px 32px;display:flex;align-items:center;">
-                <img src="cid:managira_logo" alt="Managira Logo" style="height:60px;display:block;">
-              </div>
-              <div style="padding:36px 32px 32px 32px;">
-                <div style="color:#6fd3c4;font-size:24px;font-weight:600;margin-bottom:16px;letter-spacing:1px;">Admission Rejected</div>
-                <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Dear Guardian,</p>
-                <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">We regret to inform you that the admission application for <strong>${
-                  student.first_name
-                } ${
-          student.last_name
-        }</strong> has been rejected by <strong>${orgName}</strong>.</p>
-                <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">We appreciate your interest in our school.</p>
-                <p style="margin-top:18px;font-size:15px;">If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">FAQ page</a>.</p>
-                <p style="color:#b80000;font-size:16px;font-weight:bold;margin-top:32px;text-align:center;letter-spacing:1px;">THIS IS A NO-REPLY MESSAGE. PLEASE DO NOT REPLY TO THIS EMAIL.</p>
-              </div>
-              <div style="background:#e6f7ec;color:#888;text-align:center;padding:18px 0;font-size:13px;">&copy; ${new Date().getFullYear()} Managira. All rights reserved.</div>
-            </div>
-          </div>
-        `;
         const mailOptions = {
           from: process.env.NOTIFY_EMAIL_USER,
           to: guardianEmails.join(","),
@@ -2349,9 +3271,7 @@ const commonController = {
             },
           ],
         };
-        transporter.sendMail(mailOptions, (err, info) => {
-          // ...removed error log for clean background operation...
-        });
+        await sendEmailSafely(mailOptions, "Admission Rejected Email");
       }
 
       res.redirect("/common/admissionPending");
@@ -3311,6 +4231,7 @@ const commonController = {
 
   createEmployeeGet: async (req, res, db) => {
     try {
+      await ensurePermissionsSchema(db);
       const classesResult = await db.query(
         "SELECT * FROM classes WHERE organization_id = $1",
         [req.session.organizationId]
@@ -3318,6 +4239,7 @@ const commonController = {
       res.render("common/createEmployee", {
         title: "Create Employee",
         classes: classesResult.rows,
+        permissionOptions: PERMISSION_OPTIONS,
         messages: {
           success: req.flash("success"),
           error: req.flash("error"),
@@ -3335,6 +4257,17 @@ const commonController = {
 
     let classes = req.body.classes || [];
     let subjects = req.body.subjects || [];
+    const requestorRole = req.session.userRole;
+    const requestorId = req.session.user?.user_id || req.session.userId || null;
+    const organizationId = req.session.organizationId;
+    const requestedPermissions = normalizePermissionsList(req.body.permissions);
+    const highRiskPermissions = new Set([
+      PERMISSIONS.MANAGE_EMPLOYEES,
+      PERMISSIONS.MANAGE_SETTINGS,
+      PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS,
+      PERMISSIONS.APPROVE_PROMOTIONS,
+      PERMISSIONS.MANAGE_BILLING,
+    ]);
 
     if (!Array.isArray(classes)) classes = [classes];
     if (!Array.isArray(subjects)) subjects = [subjects];
@@ -3344,9 +4277,24 @@ const commonController = {
       return res.redirect("/common/createEmployee");
     }
 
+    if (account_type === "Manager" && !isManagerLikeRole(requestorRole)) {
+      req.flash("error", "Only managers can create manager accounts.");
+      return res.redirect("/common/createEmployee");
+    }
+
+    const sanitizedRequestedPermissions = isManagerLikeRole(requestorRole)
+      ? requestedPermissions
+      : requestedPermissions.filter((permission) => !highRiskPermissions.has(permission));
+
+    const effectivePermissions = mergePermissionsForRole(
+      account_type,
+      sanitizedRequestedPermissions
+    );
+
     const client = await db.connect();
 
     try {
+      await ensurePermissionsSchema(client);
       await client.query("BEGIN");
 
       // ✅ Check if the email already exists in users or organizations
@@ -3411,6 +4359,17 @@ const commonController = {
         );
       }
 
+      if (effectivePermissions.length > 0) {
+        for (const permissionKey of effectivePermissions) {
+          await client.query(
+            `INSERT INTO user_permissions (user_id, organization_id, permission_key, granted_by)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (user_id, permission_key) DO UPDATE SET granted_by = EXCLUDED.granted_by`,
+            [userId, organizationId, permissionKey, requestorId]
+          );
+        }
+      }
+
       // ✅ Send invitation email
       const baseUrl = req.protocol + "://" + req.get("host");
       const setPasswordUrl = `${baseUrl}/common/set-password?token=${token}`;
@@ -3427,7 +4386,7 @@ const commonController = {
       await client.query("COMMIT");
       req.flash(
         "success",
-        "Employee created successfully. Invitation sent to set their password. Please note: the invitation link will expire in 2 days. If it expires, the employee will need to consult their organization for assistance."
+        "Employee created successfully. Invitation sent to set their password. Please note: the invitation link will expire in 3 days. If it expires, the employee will need to consult their organization for assistance."
       );
       res.redirect("/common/createEmployee");
     } catch (error) {
@@ -3449,26 +4408,23 @@ const commonController = {
     }
 
     try {
-      // Check password_reset_tokens table
       const tokenResult = await db.query(
         `SELECT user_id, expires_at FROM password_reset_tokens WHERE token = $1`,
         [token]
       );
 
-      if (tokenResult.rows.length === 0) {
-        req.flash("error", "Invalid or expired token.");
-        return res.redirect("/account/login");
-      }
+      const tokenRow = tokenResult.rows[0] || null;
 
-      const { user_id, expires_at } = tokenResult.rows[0];
-
-      if (new Date(expires_at) < new Date()) {
+      if (tokenRow && new Date(tokenRow.expires_at) < new Date()) {
         req.flash("error", "Token has expired. Please request a new password reset.");
         return res.redirect("/account/login");
       }
 
-      // Check if it's a guardian token
-      if (type === 'guardian' || user_id.startsWith('guardian_')) {
+      const resetTokenUserId = tokenRow ? String(tokenRow.user_id || "") : "";
+
+      // Guardian token from password_reset_tokens table
+      if (tokenRow && (type === 'guardian' || resetTokenUserId.startsWith('guardian_'))) {
+        const user_id = resetTokenUserId;
         const guardianId = user_id.replace('guardian_', '');
         const guardianResult = await db.query(
           `SELECT gp.first_name, gp.last_name, gp.email, ga.login_email, ga.login_phone, o.organization_name
@@ -3502,13 +4458,15 @@ const commonController = {
         });
       }
 
-      // Staff user token (old logic)
+      // Staff employee invite token from users table
       const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
       const result = await db.query(
-        `SELECT user_id, first_name, last_name, email, account_type AS role, $2 AS organization
-         FROM users
-         WHERE reset_password_token = $1 AND reset_password_expires > NOW()`,
-        [hashedToken, req.session.organizationName]
+        `SELECT u.user_id, u.first_name, u.last_name, u.email, u.account_type AS role,
+                o.organization_name AS organization
+         FROM users u
+         LEFT JOIN organizations o ON o.organization_id = u.organization_id
+         WHERE u.reset_password_token = $1 AND u.reset_password_expires > NOW()`,
+        [hashedToken]
       );
 
       if (result.rows.length === 0) {
@@ -3548,26 +4506,23 @@ const commonController = {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     try {
-      // Check password_reset_tokens table
       const tokenResult = await db.query(
         `SELECT user_id, expires_at FROM password_reset_tokens WHERE token = $1`,
         [token]
       );
 
-      if (tokenResult.rows.length === 0) {
-        req.flash("error", "Invalid or expired token.");
-        return res.redirect("/account/login");
-      }
+      const tokenRow = tokenResult.rows[0] || null;
 
-      const { user_id, expires_at } = tokenResult.rows[0];
-
-      if (new Date(expires_at) < new Date()) {
+      if (tokenRow && new Date(tokenRow.expires_at) < new Date()) {
         req.flash("error", "Token has expired.");
         return res.redirect("/account/login");
       }
 
-      // Handle guardian password reset
-      if (type === 'guardian' || user_id.startsWith('guardian_')) {
+      const resetTokenUserId = tokenRow ? String(tokenRow.user_id || "") : "";
+
+      // Handle guardian password setup/reset from password_reset_tokens table
+      if (tokenRow && (type === 'guardian' || resetTokenUserId.startsWith('guardian_'))) {
+        const user_id = resetTokenUserId;
         const guardianId = user_id.replace('guardian_', '');
         
                 
@@ -3592,12 +4547,13 @@ const commonController = {
         return res.redirect("/account/login");
       }
 
-      // Handle staff password reset (old logic)
+      // Handle staff employee invite tokens stored in users table
       const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
       const result = await db.query(
         `UPDATE users
          SET password = $1, reset_password_token = NULL, reset_password_expires = NULL
-         WHERE reset_password_token = $2 RETURNING first_name, last_name, email`,
+         WHERE reset_password_token = $2 AND reset_password_expires > NOW()
+         RETURNING first_name, last_name, email`,
         [hashedPassword, hashedToken]
       );
 
@@ -3622,14 +4578,33 @@ const commonController = {
 
   getEmployeeDetails: async (req, res, db) => {
     try {
-      const userId = req.query.userId;
+      const requesterId = req.session.user?.user_id || req.session.userId || null;
+      const userId = req.query.userId || requesterId;
+      const organizationId = req.session.organizationId;
+      const requesterRole = req.session.userRole;
+
+      if (!userId) {
+        req.flash("error", "Employee ID is required.");
+        return res.redirect("/common/orgDashboard");
+      }
+
+      const canManageEmployees = await userHasPermission(
+        db,
+        { userId: requesterId, userRole: requesterRole, organizationId },
+        PERMISSIONS.MANAGE_EMPLOYEES
+      );
+
+      if (!canManageEmployees && String(userId) !== String(requesterId)) {
+        req.flash("error", "You do not have permission to view this employee.");
+        return res.redirect("/common/orgDashboard");
+      }
 
       // Basic employee info
       let employeeResult = await db.query(
         `SELECT user_id, first_name, last_name, email, account_type
          FROM users 
          WHERE user_id = $1 AND organization_id = $2`,
-        [userId, req.session.organizationId]
+        [userId, organizationId]
       );
 
       let employee;
@@ -3707,7 +4682,7 @@ const commonController = {
           success: req.flash("success"),
           error: req.flash("error"),
         },
-        loggedInUserId: req.session.user.user_id,
+        loggedInUserId: requesterId,
       });
     } catch (error) {
       // ...removed error log for clean background operation...
@@ -3718,6 +4693,8 @@ const commonController = {
 
   manageEmployees: async (req, res, db) => {
     try {
+      await ensurePermissionsSchema(db);
+
       // Basic employee info (with class IDs)
       const result = await db.query(
         `
@@ -3737,10 +4714,31 @@ const commonController = {
         [req.session.organizationId]
       );
 
+      const permissionsResult = await db.query(
+        `
+          SELECT user_id, permission_key
+          FROM user_permissions
+          WHERE organization_id = $1
+        `,
+        [req.session.organizationId]
+      );
+
+      const permissionsByUser = permissionsResult.rows.reduce((acc, row) => {
+        if (!acc[row.user_id]) acc[row.user_id] = [];
+        acc[row.user_id].push(row.permission_key);
+        return acc;
+      }, {});
+
+      const permissionLabelMap = PERMISSION_OPTIONS.reduce((acc, option) => {
+        acc[option.key] = option.label;
+        return acc;
+      }, {});
+
       const employees = result.rows;
 
       for (let employee of employees) {
         const classIds = employee.class_ids || [];
+        employee.permissions = permissionsByUser[employee.user_id] || [];
 
         // 🔥 Fetch only the classes assigned to this employee
         const classesQuery = await db.query(
@@ -3786,6 +4784,7 @@ const commonController = {
       res.render("common/manageEmployees", {
         title: "Manage Employees",
         employees: employees,
+        permissionLabelMap,
         messages: {
           success: req.flash("success"),
           error: req.flash("error"),
@@ -3824,6 +4823,7 @@ const commonController = {
     }
 
     try {
+      await ensurePermissionsSchema(db);
       const userResult = await db.query(
         "SELECT * FROM users WHERE user_id = $1 AND organization_id = $2",
         [userId, req.session.organizationId]
@@ -3888,12 +4888,20 @@ const commonController = {
         (cls) => cls.class_id
       );
 
+      const selectedPermissions = await getUserPermissions(
+        db,
+        userId,
+        req.session.organizationId
+      );
+
       res.render("common/modifyEmployee", {
         title: "Modify Employee",
         user,
         classes,
         enrolledClasses,
         enrolledSubjects,
+        permissionOptions: PERMISSION_OPTIONS,
+        selectedPermissions,
         messages: req.flash(),
       });
     } catch (error) {
@@ -3911,8 +4919,34 @@ const commonController = {
       classIds = [],
       subjects = [],
     } = req.body;
+    const requestorRole = req.session.userRole;
+    const requestorId = req.session.user?.user_id || req.session.userId || null;
+    const organizationId = req.session.organizationId;
+    const requestedPermissions = normalizePermissionsList(req.body.permissions);
+    const highRiskPermissions = new Set([
+      PERMISSIONS.MANAGE_EMPLOYEES,
+      PERMISSIONS.MANAGE_SETTINGS,
+      PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS,
+      PERMISSIONS.APPROVE_PROMOTIONS,
+      PERMISSIONS.MANAGE_BILLING,
+    ]);
+
+    if (accountType === "Manager" && !isManagerLikeRole(requestorRole)) {
+      req.flash("error", "Only managers can assign manager role.");
+      return res.redirect(`/common/modifyEmployee?userId=${userId}`);
+    }
+
+    const sanitizedRequestedPermissions = isManagerLikeRole(requestorRole)
+      ? requestedPermissions
+      : requestedPermissions.filter((permission) => !highRiskPermissions.has(permission));
+
+    const effectivePermissions = mergePermissionsForRole(
+      accountType,
+      sanitizedRequestedPermissions
+    );
 
     try {
+      await ensurePermissionsSchema(db);
       // ✅ Check if the email is being changed
       const currentUserResult = await db.query(
         "SELECT email FROM users WHERE user_id = $1 AND organization_id = $2",
@@ -3982,6 +5016,22 @@ const commonController = {
           await db.query(
             "INSERT INTO user_subjects (user_id, subject_id) VALUES ($1, $2)",
             [userId, subjectId]
+          );
+        }
+      }
+
+      await db.query(
+        "DELETE FROM user_permissions WHERE user_id = $1 AND organization_id = $2",
+        [userId, organizationId]
+      );
+
+      if (effectivePermissions.length > 0) {
+        for (const permissionKey of effectivePermissions) {
+          await db.query(
+            `INSERT INTO user_permissions (user_id, organization_id, permission_key, granted_by)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (user_id, permission_key) DO UPDATE SET granted_by = EXCLUDED.granted_by`,
+            [userId, organizationId, permissionKey, requestorId]
           );
         }
       }
@@ -6766,45 +7816,28 @@ const commonController = {
         ? `https://www.managira.com/common/set-password?token=${token}&type=guardian`
         : `http://localhost:4000/common/set-password?token=${token}&type=guardian`;
 
-      // Debug SMTP settings
-            const transporter = nodemailer.createTransport({
-        host: process.env.ADMIN_NOTIFY_SMTP_HOST || 'mail.privateemail.com',
-        port: parseInt(process.env.ADMIN_NOTIFY_SMTP_PORT) || 587,
-        secure: process.env.ADMIN_NOTIFY_SMTP_SECURE === "true",
-        auth: {
-          user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-          pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-        },
-      });
-
       const emailTitle = isNewAccount ? 'Parent Portal Access Setup' : 'Password Reset Request';
       const emailHeading = isNewAccount ? 'Welcome to Parent Portal!' : 'Password Reset Request';
       const emailMessage = isNewAccount 
         ? `You have been invited to access the Parent Portal at ${he.encode(organizationName)}. Click the button below to set your password and access your children's progress.`
         : `A password reset has been requested for your Parent Portal account at ${he.encode(organizationName)}. Click the button below to set a new password.`;
 
-      const html = `
-      <div style="background:#f4fbfa;padding:40px 0;">
-        <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px #b2e2d6;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
-          <div style="background:#6fd3c4;padding:24px 0 24px 32px;display:flex;align-items:center;">
-            <img src="cid:managira_logo" alt="Managira Logo" style="height:60px;display:block;">
-          </div>
-          <div style="padding:36px 32px 32px 32px;">
-            <div style="color:#6fd3c4;font-size:24px;font-weight:600;margin-bottom:16px;letter-spacing:1px;">${emailHeading}</div>
-            <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Hello <b>${he.encode(guardian.first_name)} ${he.encode(guardian.last_name)}</b>,</p>
-            <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">${emailMessage}</p>
-            ${isNewAccount ? `<p style="font-size:16px;line-height:1.6;margin-bottom:18px;">You can log in using your email <b>${he.encode(contactEmail)}</b> or phone number <b>${he.encode(contactPhone)}</b> along with the password you create.</p>` : ''}
-            <div style="margin:24px 0;">
-              <a href="${he.encode(resetLink)}" style="background:#6fd3c4;color:#fff;padding:14px 32px;border-radius:6px;text-decoration:none;font-size:16px;font-weight:600;box-shadow:0 2px 8px #b2e2d6;display:inline-block;">${isNewAccount ? 'Set Password' : 'Reset Password'}</a>
-            </div>
-            <p style="font-size:15px;color:#888;">This link will expire in 24 hours.</p>
-            ${!isNewAccount ? '<p style="font-size:15px;margin-top:18px;">If you did not request this password reset, please ignore this email.</p>' : ''}
-            <p style="color:#b80000;font-size:16px;font-weight:bold;margin-top:32px;text-align:center;letter-spacing:1px;">THIS IS A NO-REPLY MESSAGE. PLEASE DO NOT REPLY TO THIS EMAIL.</p>
-          </div>
-          <div style="background:#e6f7ec;color:#888;text-align:center;padding:18px 0;font-size:13px;">&copy; ${new Date().getFullYear()} Managira. All rights reserved.</div>
-        </div>
-      </div>
-      `;
+      const html = renderCleanEmail({
+        title: emailHeading,
+        greeting: `Hello <strong>${he.encode(guardian.first_name)} ${he.encode(guardian.last_name)}</strong>,`,
+        paragraphs: [
+          emailMessage,
+          ...(isNewAccount
+            ? [`You can log in using your email <strong>${he.encode(contactEmail)}</strong> or phone number <strong>${he.encode(contactPhone)}</strong> with your new password.`]
+            : []),
+          ...(!isNewAccount ? ["If you did not request this reset, please ignore this email."] : []),
+        ],
+        cta: {
+          text: isNewAccount ? 'Set Password' : 'Reset Password',
+          url: he.encode(resetLink),
+        },
+        note: 'This link will expire in 24 hours.',
+      });
 
       const mailOptions = {
         from: process.env.ADMIN_NOTIFY_EMAIL_USER,
@@ -6820,7 +7853,7 @@ const commonController = {
         ]
       };
 
-      await transporter.sendMail(mailOptions);
+      await sendEmailSafely(mailOptions, "Guardian Password Email");
 
       return res.json({ 
         success: true, 
@@ -6852,6 +7885,226 @@ const commonController = {
             res.status(500).send("Failed to load reports page");
     }
   },
+
+  // Guardian search API for autocomplete in addStudent form
+  searchGuardiansApi: async (req, res, db) => {
+    try {
+      const organizationId = req.session.organizationId;
+      const q = (req.query.q || "").trim();
+
+      if (!organizationId) return res.status(400).json({ guardians: [] });
+      if (q.length < 2) return res.json({ guardians: [] });
+
+      const like = `%${q}%`;
+
+      const result = await db.query(
+        `
+        SELECT guardian_id, first_name, last_name, phone, email, image_url
+        FROM guardian_profiles
+        WHERE organization_id = $1
+          AND (
+            CONCAT_WS(' ', first_name, last_name) ILIKE $2
+            OR phone ILIKE $2
+            OR email ILIKE $2
+          )
+        ORDER BY updated_at DESC, guardian_id DESC
+        LIMIT 8
+        `,
+        [organizationId, like]
+      );
+
+      return res.json({ guardians: result.rows });
+    } catch (e) {
+      return res.status(500).json({ guardians: [] });
+    }
+  },
+
+  // Public guardian search (no authentication required)
+  searchGuardiansPublic: async (req, res, db) => {
+    try {
+      const organizationId = req.query.organizationId;
+      const q = (req.query.q || "").trim();
+
+      if (!organizationId) return res.status(400).json({ guardians: [] });
+      if (q.length < 2) return res.json({ guardians: [] });
+
+      const like = `%${q}%`;
+
+      const result = await db.query(
+        `
+        SELECT guardian_id, first_name, last_name, phone, email, image_url
+        FROM guardian_profiles
+        WHERE organization_id = $1
+          AND (
+            CONCAT_WS(' ', first_name, last_name) ILIKE $2
+            OR phone ILIKE $2
+            OR email ILIKE $2
+          )
+        ORDER BY updated_at DESC, guardian_id DESC
+        LIMIT 8
+        `,
+        [organizationId, like]
+      );
+
+      return res.json({ guardians: result.rows });
+    } catch (e) {
+      return res.status(500).json({ guardians: [] });
+    }
+  },
+
+  savePendingStudentChanges: async (req, res, db) => {
+    const { id } = req.params;
+    const organizationId = req.session.organizationId;
+    const body = req.body;
+    const file = req.file;
+
+    console.log('[Save Pending Student Changes] ID:', id);
+    console.log('[Save Pending Student Changes] Organization ID:', organizationId);
+    console.log('[Save Pending Student Changes] Body keys:', Object.keys(body));
+    console.log('[Save Pending Student Changes] File:', file ? file.originalname : 'No file');
+
+    const client = await db.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      // Parse and coerce values
+      const classId = body.class_id ? parseInt(body.class_id) : null;
+      const gradGroupId = body.graduation_year_group_id
+        ? parseInt(body.graduation_year_group_id)
+        : null;
+
+      let schoolYearId = null;
+      let termId = null;
+
+      // ✅ If enrollment is current, fetch current school year and term
+      if (body.enrollmentType === "current") {
+        const currentYearRes = await client.query(
+          `SELECT id AS school_year_id FROM school_years WHERE current = TRUE AND organization_id = $1 LIMIT 1`,
+          [organizationId]
+        );
+
+        if (currentYearRes.rows.length > 0) {
+          schoolYearId = currentYearRes.rows[0].school_year_id;
+
+          const currentTermRes = await client.query(
+            `SELECT term_id FROM terms WHERE school_year_id = $1 AND current = TRUE LIMIT 1`,
+            [schoolYearId]
+          );
+
+          if (currentTermRes.rows.length > 0) {
+            termId = currentTermRes.rows[0].term_id;
+          }
+        }
+      } else {
+        // Use submitted values for future enrollment
+        schoolYearId = body.schoolYearId ? parseInt(body.schoolYearId) : null;
+        termId = body.termId ? parseInt(body.termId) : null;
+      }
+
+      // ✅ Upload and save image if provided
+      let imageUrl = null;
+      if (file) {
+        console.log('[Save Pending Student Changes] Uploading image to S3...');
+        const s3Key = `images/studentimages/${organizationId}/${Date.now()}_${file.originalname}`;
+        imageUrl = await uploadToS3(file, s3Key);
+        console.log('[Save Pending Student Changes] Image uploaded:', imageUrl);
+      }
+
+      // ✅ Update pending student
+      const baseParams = [
+        body.first_name,
+        body.last_name,
+        body.date_of_birth,
+        body.gender,
+        body.hometown,
+        classId,
+        gradGroupId,
+        schoolYearId,
+        termId,
+        body.enrollmentType,
+      ];
+
+      const queryParams = imageUrl
+        ? [...baseParams, imageUrl, id, organizationId]
+        : [...baseParams, id, organizationId];
+
+      const updateQuery = `
+        UPDATE pending_students SET
+          first_name = $1,
+          last_name = $2,
+          date_of_birth = $3,
+          gender = $4,
+          hometown = $5,
+          class_id = $6,
+          graduation_year_group_id = $7,
+          school_year_id = $8,
+          term_id = $9,
+          enrollment_type = $10
+          ${imageUrl ? ", image_url = $11" : ""}
+        WHERE pending_id = $${imageUrl ? 12 : 11} AND organization_id = $${
+        imageUrl ? 13 : 12
+      }
+      `;
+
+      await client.query(updateQuery, queryParams);
+      console.log('[Save Pending Student Changes] ✅ Pending student updated');
+
+      // ✅ Replace subjects
+      await client.query(
+        `DELETE FROM pending_student_subjects WHERE pending_student_id = $1`,
+        [id]
+      );
+      const subjectArray = Array.isArray(body.subjects)
+        ? body.subjects
+        : body.subjects
+        ? [body.subjects]
+        : [];
+      for (const subjectId of subjectArray) {
+        await client.query(
+          `INSERT INTO pending_student_subjects (pending_student_id, subject_id, organization_id)
+          VALUES ($1, $2, $3)`,
+          [id, parseInt(subjectId), organizationId]
+        );
+      }
+
+      // ✅ Replace guardians
+      await client.query(`DELETE FROM pending_guardians WHERE pending_id = $1`, [
+        id,
+      ]);
+      const guardianKeys = Object.keys(body).filter((k) =>
+        k.startsWith("guardianFirstName")
+      );
+      for (let i = 0; i < guardianKeys.length; i++) {
+        const fn = body[`guardianFirstName${i}`];
+        if (!fn) continue;
+        await client.query(
+          `INSERT INTO pending_guardians 
+          (pending_id, first_name, last_name, phone, email, hometown)
+          VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            id,
+            fn,
+            body[`guardianLastName${i}`],
+            body[`guardianPhone${i}`],
+            body[`guardianEmail${i}`],
+            body[`guardianHometown${i}`],
+          ]
+        );
+      }
+
+      await client.query("COMMIT");
+      console.log('[Save Pending Student Changes] ✅✅✅ Changes saved successfully');
+      return res.json({ success: true });
+    } catch (err) {
+      await client.query("ROLLBACK");
+      console.error('[Save Pending Student Changes] ❌❌❌ ERROR:', err.message);
+      console.error('[Save Pending Student Changes] Error stack:', err.stack);
+      return res.status(500).json({ error: "Failed to save changes." });
+    } finally {
+      client.release();
+    }
+  },
 };
 
 
@@ -6863,44 +8116,18 @@ async function sendInviteEmail(
   link,
   organizationName
 ) {
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT),
-    secure: process.env.SMTP_SECURE === "true",
-    auth: {
-      user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-      pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
+  const html = renderCleanEmail({
+    title: `You're Invited to Join ${he.encode(organizationName)}`,
+    greeting: `Hello <strong>${he.encode(firstName)} ${he.encode(lastName)}</strong>,`,
+    paragraphs: [
+      `${he.encode(organizationName)} is inviting you to join their institution. Accept this invitation to set your password.`,
+    ],
+    cta: {
+      text: "Accept Invite & Set Password",
+      url: he.encode(link),
     },
+    note: 'This link will expire in 3 days. For help, visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
   });
-  const html = `
-  <div style="background:#f4fbfa;padding:40px 0;">
-        <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px #b2e2d6;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
-        <div style="background:#6fd3c4;padding:24px 0 24px 32px;display:flex;align-items:center;">
-          <img src="cid:managira_logo" alt="Managira Logo" style="height:60px;display:block;">
-        </div>
-        <div style="padding:36px 32px 32px 32px;">
-          <div style="color:#6fd3c4;font-size:24px;font-weight:600;margin-bottom:16px;letter-spacing:1px;">You're Invited to Join ${he.encode(
-            organizationName
-          )}</div>
-          <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Hello <b>${he.encode(
-            firstName
-          )} ${he.encode(lastName)}</b>,</p>
-          <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">${he.encode(
-            organizationName
-          )} is inviting you to join their institution. Accept this invitation by clicking the button below to set your password:</p>
-          <div style="margin:24px 0;">
-            <a href="${he.encode(
-              link
-            )}" style="background:#6fd3c4;color:#fff;padding:12px 32px;border-radius:6px;text-decoration:none;font-size:16px;font-weight:600;box-shadow:0 2px 8px #b2e2d6;">Accept Invite & Set Password</a>
-          </div>
-          <p style="font-size:15px;margin-top:18px;">This link will expire in 24 hours.</p>
-          <p style="margin-top:18px;font-size:15px;">If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">FAQ page</a>.</p>
-          <p style="color:#b80000;font-size:16px;font-weight:bold;margin-top:32px;text-align:center;letter-spacing:1px;">THIS IS A NO-REPLY MESSAGE. PLEASE DO NOT REPLY TO THIS EMAIL.</p>
-        </div>
-        <div style="background:#e6f7ec;color:#888;text-align:center;padding:18px 0;font-size:13px;">&copy; ${new Date().getFullYear()} Managira. All rights reserved.</div>
-      </div>
-    </div>
-  `;
   const mailOptions = {
     from: process.env.NOTIFY_EMAIL_USER,
     to: email,
@@ -6914,39 +8141,19 @@ async function sendInviteEmail(
       },
     ],
   };
-  await transporter.sendMail(mailOptions);
+  await sendEmailSafely(mailOptions, "Employee Invite Email");
 }
 
 async function sendPasswordSetSuccessEmail(email, firstName, lastName) {
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT),
-    secure: process.env.SMTP_SECURE === "true",
-    auth: {
-      user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-      pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-    },
+  const html = renderCleanEmail({
+    title: "Password Set Successfully",
+    greeting: `Hello <strong>${he.encode(firstName)} ${he.encode(lastName)}</strong>,`,
+    paragraphs: [
+      "Your password has been set successfully. You can now log in with your email and new password.",
+      "If you did not perform this action, please contact your administrator immediately.",
+    ],
+    note: 'If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
   });
-  const html = `
-  <div style="background:#f4fbfa;padding:40px 0;">  
-      <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px #b2e2d6;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
-        <div style="background:#6fd3c4;padding:24px 0 24px 32px;display:flex;align-items:center;">
-          <img src="cid:managira_logo" alt="Managira Logo" style="height:60px;display:block;">
-        </div>
-        <div style="padding:36px 32px 32px 32px;">
-          <div style="color:#6fd3c4;font-size:24px;font-weight:600;margin-bottom:16px;letter-spacing:1px;">Password Set Successfully</div>
-          <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Hello <b>${he.encode(
-            firstName
-          )} ${he.encode(lastName)}</b>,</p>
-          <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Your password has been set successfully! You can now log in to your Institution and start having a great time. Use your email and the newly created password to log in.</p>
-          <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">If you didn't perform this action, please contact your administrator immediately.</p>
-          <p style="margin-top:18px;font-size:15px;">If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">FAQ page</a>.</p>
-          <p style="color:#b80000;font-size:16px;font-weight:bold;margin-top:32px;text-align:center;letter-spacing:1px;">THIS IS A NO-REPLY MESSAGE. PLEASE DO NOT REPLY TO THIS EMAIL.</p>
-        </div>
-        <div style="background:#e6f7ec;color:#888;text-align:center;padding:18px 0;font-size:13px;">&copy; ${new Date().getFullYear()} Managira. All rights reserved.</div>
-      </div>
-    </div>
-  `;
   const mailOptions = {
     from: process.env.NOTIFY_EMAIL_USER,
     to: email,
@@ -6960,74 +8167,8 @@ async function sendPasswordSetSuccessEmail(email, firstName, lastName) {
       },
     ],
   };
-  await transporter.sendMail(mailOptions);
+  await sendEmailSafely(mailOptions, "Password Set Success Email");
 }
-
-// Guardian search API for autocomplete in addStudent form
-const searchGuardiansApi = async (req, res, db) => {
-  try {
-    const organizationId = req.session.organizationId;
-    const q = (req.query.q || "").trim();
-
-    if (!organizationId) return res.status(400).json({ guardians: [] });
-    if (q.length < 2) return res.json({ guardians: [] });
-
-    const like = `%${q}%`;
-
-    const result = await db.query(
-      `
-      SELECT guardian_id, first_name, last_name, phone, email, image_url
-      FROM guardian_profiles
-      WHERE organization_id = $1
-        AND (
-          CONCAT_WS(' ', first_name, last_name) ILIKE $2
-          OR phone ILIKE $2
-          OR email ILIKE $2
-        )
-      ORDER BY updated_at DESC, guardian_id DESC
-      LIMIT 8
-      `,
-      [organizationId, like]
-    );
-
-    return res.json({ guardians: result.rows });
-  } catch (e) {
-        return res.status(500).json({ guardians: [] });
-  }
-};
-
-// Public guardian search (no authentication required)
-const searchGuardiansPublic = async (req, res, db) => {
-  try {
-    const organizationId = req.query.organizationId;
-    const q = (req.query.q || "").trim();
-
-    if (!organizationId) return res.status(400).json({ guardians: [] });
-    if (q.length < 2) return res.json({ guardians: [] });
-
-    const like = `%${q}%`;
-
-    const result = await db.query(
-      `
-      SELECT guardian_id, first_name, last_name, phone, email, image_url
-      FROM guardian_profiles
-      WHERE organization_id = $1
-        AND (
-          CONCAT_WS(' ', first_name, last_name) ILIKE $2
-          OR phone ILIKE $2
-          OR email ILIKE $2
-        )
-      ORDER BY updated_at DESC, guardian_id DESC
-      LIMIT 8
-      `,
-      [organizationId, like]
-    );
-
-    return res.json({ guardians: result.rows });
-  } catch (e) {
-        return res.status(500).json({ guardians: [] });
-  }
-};
 
 
 // Send welcome email to new guardian with password setup
@@ -7049,48 +8190,19 @@ const sendGuardianWelcomeEmail = async (guardianEmail, guardianFirstName, guardi
       ? `https://www.managira.com/account/setPassword?token=${token}&type=guardian`
       : `http://localhost:4000/account/setPassword?token=${token}&type=guardian`;
 
-    const transporter = nodemailer.createTransport({
-      host: process.env.ADMIN_NOTIFY_SMTP_HOST,
-      port: process.env.ADMIN_NOTIFY_SMTP_PORT,
-      secure: process.env.ADMIN_NOTIFY_SMTP_SECURE === "true",
-      auth: {
-        user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-        pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-      },
+    const html = renderCleanEmail({
+      title: `Welcome to ${he.encode(organizationName)} Parent Portal`,
+      greeting: `Hello <strong>${he.encode(guardianFirstName)} ${he.encode(guardianLastName)}</strong>,`,
+      paragraphs: [
+        `Great news! <strong>${he.encode(studentName)}</strong> has been registered at ${he.encode(organizationName)}, and you've been added as their guardian.`,
+        "To monitor your child's academic progress, grades, and connect with teachers, please set up your Parent Portal password.",
+      ],
+      details: [
+        { label: "Login Email", value: he.encode(guardianEmail) },
+      ],
+      cta: { text: "Set My Password", url: he.encode(setupLink) },
+      note: `This password setup link will expire in 24 hours. If you have any questions, please contact ${he.encode(organizationName)} directly.`,
     });
-
-    const html = `
-    <div style="background:#f4fbfa;padding:40px 0;">
-      <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px #b2e2d6;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
-        <div style="background:#6fd3c4;padding:24px 0 24px 32px;display:flex;align-items:center;">
-          <img src="cid:managira_logo" alt="Managira Logo" style="height:60px;display:block;">
-        </div>
-        <div style="padding:36px 32px 32px 32px;">
-          <div style="color:#6fd3c4;font-size:24px;font-weight:600;margin-bottom:16px;letter-spacing:1px;">Welcome to ${he.encode(organizationName)} Parent Portal! 🎓</div>
-          <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Hello <b>${he.encode(guardianFirstName)} ${he.encode(guardianLastName)}</b>,</p>
-          <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Great news! <b>${he.encode(studentName)}</b> has been registered at ${he.encode(organizationName)}, and you've been added as their guardian.</p>
-          <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">To monitor your child's academic progress, grades, and connect with teachers, please set up your Parent Portal password:</p>
-          <div style="margin:24px 0;">
-            <a href="${he.encode(setupLink)}" style="background:#6fd3c4;color:#fff;padding:14px 32px;border-radius:6px;text-decoration:none;font-size:16px;font-weight:600;box-shadow:0 2px 8px #b2e2d6;display:inline-block;">Set My Password</a>
-          </div>
-          <div style="background:#e6f7ec;padding:16px;border-left:4px solid #6fd3c4;margin:20px 0;">
-            <p style="margin:0 0 8px 0;font-weight:600;color:#0f2d32;">What you can do in the Parent Portal:</p>
-            <ul style="margin:8px 0;padding-left:20px;color:#52606d;">
-              <li>View your child's grades and assessment scores</li>
-              <li>Track academic performance across terms</li>
-              <li>See teacher information and contact details</li>
-              <li>Monitor attendance and progress</li>
-            </ul>
-          </div>
-          <p style="font-size:15px;margin-top:18px;"><b>Login Email:</b> ${he.encode(guardianEmail)}</p>
-          <p style="font-size:15px;color:#888;">This password setup link will expire in 24 hours.</p>
-          <p style="margin-top:18px;font-size:15px;">If you have any questions, please contact ${he.encode(organizationName)} directly.</p>
-          <p style="color:#b80000;font-size:16px;font-weight:bold;margin-top:32px;text-align:center;letter-spacing:1px;">THIS IS A NO-REPLY MESSAGE. PLEASE DO NOT REPLY TO THIS EMAIL.</p>
-        </div>
-        <div style="background:#e6f7ec;color:#888;text-align:center;padding:18px 0;font-size:13px;">&copy; ${new Date().getFullYear()} Managira. All rights reserved.</div>
-      </div>
-    </div>
-    `;
 
     const mailOptions = {
       from: process.env.ADMIN_NOTIFY_EMAIL_USER,
@@ -7106,7 +8218,7 @@ const sendGuardianWelcomeEmail = async (guardianEmail, guardianFirstName, guardi
       ]
     };
 
-    await transporter.sendMail(mailOptions);
+    await sendEmailSafely(mailOptions, "Guardian Welcome Email");
       } catch (error) {
       }
 };
@@ -7114,37 +8226,19 @@ const sendGuardianWelcomeEmail = async (guardianEmail, guardianFirstName, guardi
 // Send notification when additional student is added to existing guardian
 const sendGuardianStudentAddedEmail = async (guardianEmail, guardianFirstName, guardianLastName, studentName, organizationName) => {
   try {
-    const transporter = nodemailer.createTransport({
-      host: process.env.ADMIN_NOTIFY_SMTP_HOST,
-      port: process.env.ADMIN_NOTIFY_SMTP_PORT,
-      secure: process.env.ADMIN_NOTIFY_SMTP_SECURE === "true",
-      auth: {
-        user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-        pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
+    const html = renderCleanEmail({
+      title: "New Student Added to Your Account",
+      greeting: `Hello <strong>${he.encode(guardianFirstName)} ${he.encode(guardianLastName)}</strong>,`,
+      paragraphs: [
+        `<strong>${he.encode(studentName)}</strong> has been added to your Parent Portal account at ${he.encode(organizationName)}.`,
+        "You can now view their academic progress, grades, and teacher information by logging in to your Parent Portal.",
+      ],
+      details: [{ label: "Login Email", value: he.encode(guardianEmail) }],
+      cta: {
+        text: "Login to Parent Portal",
+        url: process.env.NODE_ENV === 'production' ? 'https://www.managira.com/account/login' : 'http://localhost:4000/account/login'
       },
     });
-
-    const html = `
-    <div style="background:#f4fbfa;padding:40px 0;">
-      <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px #b2e2d6;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
-        <div style="background:#6fd3c4;padding:24px 0 24px 32px;display:flex;align-items:center;">
-          <img src="cid:managira_logo" alt="Managira Logo" style="height:60px;display:block;">
-        </div>
-        <div style="padding:36px 32px 32px 32px;">
-          <div style="color:#6fd3c4;font-size:24px;font-weight:600;margin-bottom:16px;letter-spacing:1px;">New Student Added to Your Account</div>
-          <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Hello <b>${he.encode(guardianFirstName)} ${he.encode(guardianLastName)}</b>,</p>
-          <p style="font-size:16px;line-height:1.6;margin-bottom:18px;"><b>${he.encode(studentName)}</b> has been added to your Parent Portal account at ${he.encode(organizationName)}.</p>
-          <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">You can now view their academic progress, grades, and teacher information by logging into your Parent Portal.</p>
-          <div style="margin:24px 0;">
-            <a href="${process.env.NODE_ENV === 'production' ? 'https://www.managira.com/account/login' : 'http://localhost:4000/account/login'}" style="background:#6fd3c4;color:#fff;padding:14px 32px;border-radius:6px;text-decoration:none;font-size:16px;font-weight:600;box-shadow:0 2px 8px #b2e2d6;display:inline-block;">Login to Parent Portal</a>
-          </div>
-          <p style="font-size:15px;margin-top:18px;"><b>Your Login Email:</b> ${he.encode(guardianEmail)}</p>
-          <p style="color:#b80000;font-size:16px;font-weight:bold;margin-top:32px;text-align:center;letter-spacing:1px;">THIS IS A NO-REPLY MESSAGE. PLEASE DO NOT REPLY TO THIS EMAIL.</p>
-        </div>
-        <div style="background:#e6f7ec;color:#888;text-align:center;padding:18px 0;font-size:13px;">&copy; ${new Date().getFullYear()} Managira. All rights reserved.</div>
-      </div>
-    </div>
-    `;
 
     const mailOptions = {
       from: process.env.ADMIN_NOTIFY_EMAIL_USER,
@@ -7160,7 +8254,7 @@ const sendGuardianStudentAddedEmail = async (guardianEmail, guardianFirstName, g
       ]
     };
 
-    await transporter.sendMail(mailOptions);
+    await sendEmailSafely(mailOptions, "Guardian Student Added Email");
       } catch (error) {
       }
 };
@@ -7171,8 +8265,6 @@ module.exports = {
   commonController,
   sendInviteEmail,
   sendPasswordSetSuccessEmail,
-  searchGuardiansApi,
-  searchGuardiansPublic,
   sendGuardianWelcomeEmail,
   sendGuardianStudentAddedEmail,
 };

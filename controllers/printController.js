@@ -16,10 +16,29 @@ const fs = require("fs");
 const ejs = require("ejs");
 const axios = require("axios");
 const { sendEmailSafely } = require("../utils/emailHelper");
+// Lightweight async wrapper to avoid dependency errors
+const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const organizationCache = {};
 const CACHE_DURATION = 10 * 60 * 1000; // Cache organization data for 10 minutes
 const NodeCache = require("node-cache");
 const cache = new NodeCache({ stdTTL: 600 }); // Cache for 10 minutes
+
+// Ensure signature metadata columns exist (safe to call multiple times)
+let ensuredSignatureMeta = false;
+async function ensureSignatureMetaColumns(dbClient) {
+  if (ensuredSignatureMeta) return;
+  try {
+    await dbClient.query(
+      "ALTER TABLE report_settings ADD COLUMN IF NOT EXISTS signature_name TEXT"
+    );
+    await dbClient.query(
+      "ALTER TABLE report_settings ADD COLUMN IF NOT EXISTS signature_title TEXT"
+    );
+    ensuredSignatureMeta = true;
+  } catch (err) {
+    console.error("[ensureSignatureMetaColumns] Failed to add columns", err);
+  }
+}
 
 // Helper functions for S3 actions
 async function uploadToS3(key, file) {
@@ -121,6 +140,7 @@ const printController = (db) => ({
   printStudentReport: async (req, res) => {
     const { classId, termId, studentId } = req.query;
     const organizationId = req.session.organizationId;
+    await ensureSignatureMetaColumns(db);
     // Validate inputs
     if (!organizationId) {
       return res.status(400).send("Organization ID is not set in session.");
@@ -266,6 +286,8 @@ const printController = (db) => ({
       }, {});
 
       // Fetch students, subjects, remarks, and scores
+      const studentFilterId = parsedStudentId || null;
+
       const [
         studentsResult,
         subjectsResult,
@@ -283,8 +305,9 @@ const printController = (db) => ({
              JOIN students s ON es.student_id = s.student_id
              JOIN enrollments e ON es.enrollment_id = e.enrollment_id
              JOIN classes c ON es.class_id = c.class_id
-             WHERE es.class_id = $1 AND e.term_id = $2 AND e.organization_id = $3`,
-          [parsedClassId, parsedTermId, organizationId]
+             WHERE es.class_id = $1 AND e.term_id = $2 AND e.organization_id = $3
+               AND ($4::int IS NULL OR es.student_id = $4)`,
+          [parsedClassId, parsedTermId, organizationId, studentFilterId]
         ),
         db.query(
           "SELECT subject_id, subject_name FROM subjects WHERE class_id = $1 AND organization_id = $2",
@@ -299,7 +322,7 @@ const printController = (db) => ({
           [organizationId, parsedClassId, parsedTermId]
         ),
         db.query(
-          "SELECT signature_image_path FROM report_settings WHERE class_id = $1 AND term_id = $2 AND organization_id = $3",
+          "SELECT signature_image_path, signature_name, signature_title FROM report_settings WHERE class_id = $1 AND term_id = $2 AND organization_id = $3",
           [parsedClassId, parsedTermId, organizationId]
         ),
         db.query(
@@ -368,6 +391,8 @@ const printController = (db) => ({
       const scoreRemarks = scoreRemarksResult.rows;
       const signatureImagePath =
         reportSettingsResult.rows[0]?.signature_image_path;
+      const signatureName = reportSettingsResult.rows[0]?.signature_name || null;
+      const signatureTitle = reportSettingsResult.rows[0]?.signature_title || null;
       const signatureImageUrl = signatureImagePath
         ? await getFromS3(signatureImagePath)
         : null;
@@ -547,6 +572,8 @@ students
         email: organization.email,
         logoUrl,
         signatureImageUrl,
+        signatureName,
+        signatureTitle,
         term,
         schoolYearLabel: term.year_label || "No School Year Available",
         termEndDate,
@@ -581,6 +608,7 @@ students
   reportSettingsPage: async (req, res) => {
     const { classId, termId } = req.query;
     const organizationId = req.session.organizationId;
+    await ensureSignatureMetaColumns(db);
 
     try {
       let resolvedClassId = classId;
@@ -677,19 +705,21 @@ students
   
       // Fetch signature image for this class/term
       const reportSettingsResult = await db.query(
-        `SELECT signature_image_path FROM report_settings 
+        `SELECT signature_image_path, signature_name, signature_title FROM report_settings 
          WHERE organization_id = $1 AND class_id = $2 AND term_id = $3`,
         [organizationId, parsedClassId, parsedTermId]
       );
       const reportSettings = reportSettingsResult.rows[0];
       let signatureImageUrl = null;
+      const signatureName = reportSettings?.signature_name || null;
+      const signatureTitle = reportSettings?.signature_title || null;
       if (reportSettings && reportSettings.signature_image_path) {
         signatureImageUrl = await getFromS3(reportSettings.signature_image_path);
       }
   
       // Fetch all signature groups for current term
       const signatureClassesResult = await db.query(
-        `SELECT DISTINCT class_id, signature_image_path FROM report_settings 
+        `SELECT DISTINCT class_id, signature_image_path, signature_name, signature_title FROM report_settings 
          WHERE organization_id = $1 AND term_id = $2 AND signature_image_path IS NOT NULL`,
         [organizationId, parsedTermId]
       );
@@ -700,6 +730,8 @@ students
           signatureGroups[row.signature_image_path] = {
             classes: [],
             signature_image_url: await getFromS3(row.signature_image_path),
+            signature_name: row.signature_name || null,
+            signature_title: row.signature_title || null,
           };
         }
         const classInfo = enrolledClasses.find(
@@ -727,7 +759,7 @@ students
 
       // Fetch transcript signatures (term_id = -1)
       const transcriptSignatureClassesResult = await db.query(
-        `SELECT DISTINCT class_id, signature_image_path FROM report_settings 
+        `SELECT DISTINCT class_id, signature_image_path, signature_name, signature_title FROM report_settings 
          WHERE organization_id = $1 AND term_id = -1 AND signature_image_path IS NOT NULL`,
         [organizationId]
       );
@@ -738,6 +770,8 @@ students
           transcriptSignatureGroups[row.signature_image_path] = {
             classes: [],
             signature_image_url: await getFromS3(row.signature_image_path),
+            signature_name: row.signature_name || null,
+            signature_title: row.signature_title || null,
           };
         }
         const classInfo = enrolledClasses.find(
@@ -793,6 +827,8 @@ students
         scoreRemarks,
         availableClasses,
         signatureImageUrl,
+        signatureName,
+        signatureTitle,
         signatureGroups,
         transcriptSignatureGroups,
         statusSettingsClasses,
@@ -1224,8 +1260,9 @@ students
   uploadSignatureImage: async (req, res) => {
     const { file } = req;
     const organizationId = req.session.organizationId;
-    const { classId, termId, applyAllClasses, selectedSignatureClasses } =
+    const { classId, termId, applyAllClasses, selectedSignatureClasses, signatureName, signatureTitle } =
       req.body;
+    await ensureSignatureMetaColumns(db);
 
     if (!file) {
       req.flash("error", "No signature provided.");
@@ -1283,11 +1320,13 @@ students
 
         // Insert or update the new signature image path
         await db.query(
-          `INSERT INTO report_settings (organization_id, class_id, term_id, signature_image_path)
-           VALUES ($1, $2, $3, $4)
+          `INSERT INTO report_settings (organization_id, class_id, term_id, signature_image_path, signature_name, signature_title)
+           VALUES ($1, $2, $3, $4, $5, $6)
            ON CONFLICT (organization_id, class_id, term_id)
-           DO UPDATE SET signature_image_path = EXCLUDED.signature_image_path`,
-          [organizationId, currentClassId, termId, uploadedKey]
+           DO UPDATE SET signature_image_path = EXCLUDED.signature_image_path,
+                         signature_name = EXCLUDED.signature_name,
+                         signature_title = EXCLUDED.signature_title`,
+          [organizationId, currentClassId, termId, uploadedKey, signatureName || null, signatureTitle || null]
         );
 
         // Check if old signature is still used by other classes
@@ -1514,7 +1553,8 @@ students
   uploadTranscriptSignature: async (req, res) => {
     const { file } = req;
     const organizationId = req.session.organizationId;
-    const { selectedTranscriptClasses } = req.body;
+    const { selectedTranscriptClasses, transcriptSignatureName, transcriptSignatureTitle } = req.body;
+    await ensureSignatureMetaColumns(db);
 
     if (!file) {
       req.flash("error", "No signature provided.");
@@ -1562,11 +1602,13 @@ students
 
         // Insert or update
         await db.query(
-          `INSERT INTO report_settings (organization_id, class_id, term_id, signature_image_path)
-           VALUES ($1, $2, $3, $4)
+          `INSERT INTO report_settings (organization_id, class_id, term_id, signature_image_path, signature_name, signature_title)
+           VALUES ($1, $2, $3, $4, $5, $6)
            ON CONFLICT (organization_id, class_id, term_id)
-           DO UPDATE SET signature_image_path = EXCLUDED.signature_image_path`,
-          [organizationId, currentClassId, transcriptTermId, uploadedKey]
+           DO UPDATE SET signature_image_path = EXCLUDED.signature_image_path,
+                         signature_name = EXCLUDED.signature_name,
+                         signature_title = EXCLUDED.signature_title`,
+          [organizationId, currentClassId, transcriptTermId, uploadedKey, transcriptSignatureName || null, transcriptSignatureTitle || null]
         );
 
         // Cleanup old signature if orphaned
@@ -1824,22 +1866,57 @@ students
   },
 
   generateMeritSheet: async (req, res) => {
-    const { classId, termId, selectedSubjects, selectedAssessments } = req.body;
     const organizationId = req.session.organizationId;
 
+    // Accept payload from POST body or GET query; fall back to last run for refreshes
+    const payload = req.method === 'GET' ? req.query : req.body;
+    let { classId, termId, selectedSubjects, selectedAssessments } = payload;
+
+    // Helper to normalize ids from array, comma string, or single value
+    const normalizeIds = (input) => {
+      if (!input) return [];
+      if (Array.isArray(input)) return input.map((id) => Number(id)).filter((n) => !Number.isNaN(n));
+      if (typeof input === 'string' && input.includes(',')) {
+        return input
+          .split(',')
+          .map((id) => Number(id.trim()))
+          .filter((n) => !Number.isNaN(n));
+      }
+      const single = Number(input);
+      return Number.isNaN(single) ? [] : [single];
+    };
+
+    // Fall back to last successful run stored in session when refreshing
+    if ((!classId || !termId || !selectedSubjects || !selectedAssessments) && req.session.lastMeritSheet) {
+      const last = req.session.lastMeritSheet;
+      classId = classId || last.classId;
+      termId = termId || last.termId;
+      if (!selectedSubjects) selectedSubjects = last.selectedSubjectIds;
+      if (!selectedAssessments) selectedAssessments = last.selectedAssessmentIds;
+      console.log('[generateMeritSheet] Using cached session data:', { classId, termId, selectedSubjects, selectedAssessments });
+    }
+
+    const subjectIds = normalizeIds(selectedSubjects);
+    const assessmentIds = normalizeIds(selectedAssessments);
+
     try {
-      if (!classId || !termId || !organizationId) {
-        return res
-          .status(400)
-          .send("Class, term, or organization ID is missing.");
+      if (!classId || !termId || !organizationId || !subjectIds.length || !assessmentIds.length) {
+        // Redirect to the base page if we don't have enough info (e.g., first load without form submit)
+        console.log('[generateMeritSheet] Missing required data, redirecting to base page');
+        return res.redirect('/print/meritSheetPage');
       }
 
-      const subjectIds = Array.isArray(selectedSubjects)
-        ? selectedSubjects.map(Number)
-        : [Number(selectedSubjects)];
-      const assessmentIds = Array.isArray(selectedAssessments)
-        ? selectedAssessments.map(Number)
-        : [Number(selectedAssessments)];
+      // Parse as integers
+      const parsedClassId = parseInt(classId, 10);
+      const parsedTermId = parseInt(termId, 10);
+
+      if (isNaN(parsedClassId) || isNaN(parsedTermId)) {
+        console.log('[generateMeritSheet] Invalid IDs after parsing:', { parsedClassId, parsedTermId });
+        req.flash('error', 'Invalid class or term ID.');
+        return res.redirect('/print/meritSheetPage');
+      }
+
+      console.log('[generateMeritSheet] Proceeding with:', { parsedClassId, parsedTermId, subjectIds, assessmentIds });
 
       // Fetch organization details
       const organizationResult = await db.query(
@@ -1869,11 +1946,13 @@ students
             JOIN school_years sy ON t.school_year_id = sy.id
             WHERE c.class_id = $3 AND c.organization_id = $2
         `,
-        [termId, organizationId, classId]
+        [parsedTermId, organizationId, parsedClassId]
       );
 
       if (classDetailsResult.rows.length === 0) {
-        return res.status(404).send("Class or term details not found.");
+        req.flash("error", "Class or term details not found. Please regenerate.");
+        const qs = parsedClassId && parsedTermId ? `?classId=${parsedClassId}&termId=${parsedTermId}` : "";
+        return res.redirect(`/print/meritSheetPage${qs}`);
       }
 
       const {
@@ -1889,7 +1968,7 @@ students
             FROM subjects
             WHERE subject_id = ANY($1::int[]) AND class_id = $2 AND organization_id = $3
         `,
-        [subjectIds, classId, organizationId]
+        [subjectIds, parsedClassId, organizationId]
       );
 
       const selectedSubjectsData = await Promise.all(
@@ -1900,7 +1979,7 @@ students
                 FROM assessments
                 WHERE assessment_id = ANY($1::int[]) AND subject_id = $2 AND class_id = $3 AND term_id = $4 AND organization_id = $5
             `,
-            [assessmentIds, subject.subject_id, classId, termId, organizationId]
+            [assessmentIds, subject.subject_id, parsedClassId, parsedTermId, organizationId]
           );
 
           return {
@@ -1919,7 +1998,7 @@ students
             JOIN enrollments e ON es.enrollment_id = e.enrollment_id
             WHERE es.class_id = $1 AND e.term_id = $2 AND e.organization_id = $3
         `,
-        [classId, termId, organizationId]
+        [parsedClassId, parsedTermId, organizationId]
       );
 
       const students = enrolledStudentsResult.rows;
@@ -1931,7 +2010,7 @@ students
             JOIN assessments a ON ar.assessment_id = a.assessment_id
             WHERE ar.class_id = $1 AND ar.term_id = $2 AND ar.organization_id = $3
         `,
-        [classId, termId, organizationId]
+        [parsedClassId, parsedTermId, organizationId]
       );
 
       const scores = scoresResult.rows;
@@ -1992,6 +2071,14 @@ students
       meritSheetData.forEach((student, index) => {
         student.position = `${index + 1}${getOrdinalSuffix(index + 1)}`;
       });
+
+      // Cache last run to support refresh on the same URL (before render in case render fails)
+      req.session.lastMeritSheet = {
+        classId: parsedClassId,
+        termId: parsedTermId,
+        selectedSubjectIds: subjectIds,
+        selectedAssessmentIds: assessmentIds,
+      };
 
       res.render("print/meritSheetPage", {
         title: "Merit Sheet",
@@ -2270,22 +2357,46 @@ students
         return res.status(400).json({ success: false, message: "No valid student IDs." });
       }
 
-      // Fetch students with their guardian emails
-      const result = await db.query(`
-        SELECT s.student_id, s.first_name, s.last_name,
-          COALESCE(
-            json_agg(
-              json_build_object('email', gp.email, 'relationship', gs.relationship)
-            ) FILTER (WHERE gp.email IS NOT NULL),
-            '[]'
-          ) AS emails
-        FROM students s
-        LEFT JOIN guardian_students gs ON gs.student_id = s.student_id
-        LEFT JOIN guardian_profiles gp ON gp.guardian_id = gs.guardian_id AND gp.organization_id = s.organization_id
-        WHERE s.student_id = ANY($1) AND s.organization_id = $2
-        GROUP BY s.student_id, s.first_name, s.last_name
-        ORDER BY s.last_name, s.first_name
-      `, [ids, organizationId]);
+      // Fetch students with their guardian emails (new guardian_profiles + legacy guardians table)
+      const result = await db.query(
+        `SELECT s.student_id,
+                s.first_name,
+                s.last_name,
+                c.class_name,
+                COALESCE(
+                  jsonb_agg(DISTINCT jsonb_build_object('email', ge.email, 'relationship', ge.relationship))
+                  FILTER (WHERE ge.email IS NOT NULL),
+                  '[]'::jsonb
+                ) AS emails
+         FROM students s
+         LEFT JOIN classes c ON s.class_id = c.class_id
+         LEFT JOIN (
+           -- Modern guardian profiles mapped through guardian_students
+           SELECT gs.student_id,
+                  gp.email,
+                  COALESCE(gs.relationship, 'Guardian') AS relationship
+           FROM guardian_students gs
+           JOIN guardian_profiles gp
+             ON gp.guardian_id = gs.guardian_id
+            AND gp.organization_id = $2
+           WHERE gp.email IS NOT NULL
+
+           UNION ALL
+
+           -- Legacy guardians table fallback
+           SELECT g.student_id,
+                  g.email,
+                  'Guardian' AS relationship
+           FROM guardians g
+           WHERE g.organization_id = $2
+             AND g.email IS NOT NULL
+         ) ge ON ge.student_id = s.student_id
+         WHERE s.student_id = ANY($1)
+           AND s.organization_id = $2
+         GROUP BY s.student_id, s.first_name, s.last_name, c.class_name
+         ORDER BY s.last_name, s.first_name`,
+        [ids, organizationId]
+      );
 
       return res.json({ success: true, students: result.rows });
     } catch (error) {
@@ -2294,9 +2405,8 @@ students
     }
   },
 
-  // Email reports to guardians
+  // Email reports to guardians (queued/background processing)
   emailReports: async (req, res) => {
-    let browser = null;
     try {
       const organizationId = req.session.organizationId;
       const { classId, termId, password, emailData } = req.body;
@@ -2325,180 +2435,136 @@ students
         return res.status(401).json({ success: false, message: "Incorrect password." });
       }
 
-      // Get org details
-      const orgResult = await db.query(
-        'SELECT organization_name, organization_address, organization_phone, email, logo_path FROM organizations WHERE organization_id = $1',
-        [organizationId]
-      );
-      const org = orgResult.rows[0];
-      if (!org) {
-        return res.status(404).json({ success: false, message: "Organization not found." });
-      }
+      // Create batch ID
+      const batchId = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-      const buildS3Url = (key) => {
-        if (!key) return null;
-        if (key.startsWith('http://') || key.startsWith('https://')) return key;
-        return `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
-      };
-
-      const logoUrl = org.logo_path ? buildS3Url(org.logo_path) : null;
-
-      // Convert logo to data URL for PDF rendering
-      const fetchImageAsDataUrl = async (url) => {
-        try {
-          const response = await axios.get(url, { responseType: 'arraybuffer' });
-          const mime = response.headers['content-type'] || 'image/png';
-          return `data:${mime};base64,${Buffer.from(response.data).toString('base64')}`;
-        } catch (err) { return null; }
-      };
-
-      const logoDataUrl = logoUrl ? await fetchImageAsDataUrl(logoUrl) : null;
-
-      // Fetch signature
-      const signatureResult = await db.query(
-        'SELECT signature_image_path FROM report_settings WHERE class_id = $1 AND term_id = $2 AND organization_id = $3',
-        [parseInt(classId), parseInt(termId), organizationId]
-      );
-      const signaturePath = signatureResult.rows[0]?.signature_image_path;
-      const signatureUrl = signaturePath ? buildS3Url(signaturePath) : null;
-      const signatureDataUrl = signatureUrl ? await fetchImageAsDataUrl(signatureUrl) : null;
-
-      let sentCount = 0;
-      let failCount = 0;
-
-      // Process each student
+      // Insert all email jobs into database
       for (const item of emailData) {
         const { studentId, emails } = item;
         if (!emails || emails.length === 0) continue;
 
-        try {
-          // Generate PDF for this student using Puppeteer
-          // We'll load the printStudentReport page for a single student
-          const reportUrl = `${req.protocol}://${req.get('host')}/print/printStudentReport?classId=${classId}&termId=${termId}&studentId=${studentId}`;
-          
-          if (!browser) {
-            browser = await puppeteer.launch({
-              headless: true,
-              args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-web-security']
-            });
-          }
+        // Get student name
+        const studentResult = await db.query(
+          'SELECT first_name, last_name FROM students WHERE student_id = $1 AND organization_id = $2',
+          [studentId, organizationId]
+        );
+        if (!studentResult.rows.length) continue;
+        
+        const student = studentResult.rows[0];
+        const studentName = `${student.first_name} ${student.last_name}`;
 
-          const page = await browser.newPage();
-          
-          // Set session cookies
-          const cookies = [{
-            name: 'connect.sid',
-            value: req.headers.cookie?.match(/connect\.sid=([^;]+)/)?.[1] || '',
-            domain: req.get('host').split(':')[0],
-            path: '/'
-          }];
-          await page.setCookie(...cookies);
-          
-          await page.goto(reportUrl, { waitUntil: 'networkidle0', timeout: 30000 });
-
-          // Hide non-print elements and checkboxes
-          await page.evaluate(() => {
-            document.querySelectorAll('.actions-no-print, .student-checkbox, hr, #emailModal').forEach(el => el.style.display = 'none');
-          });
-
-          const timestamp = Date.now();
-          const pdfPath = path.join(__dirname, '../uploads', `report_${studentId}_${timestamp}.pdf`);
-          
-          // Ensure uploads dir exists
-          const uploadsDir = path.join(__dirname, '../uploads');
-          if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-
-          await page.pdf({
-            path: pdfPath,
-            format: 'A4',
-            printBackground: true,
-            margin: { top: '8mm', right: '8mm', bottom: '8mm', left: '8mm' }
-          });
-
-          await page.close();
-
-          // Get student name
-          const studentResult = await db.query(
-            'SELECT first_name, last_name FROM students WHERE student_id = $1 AND organization_id = $2',
-            [studentId, organizationId]
-          );
-          const student = studentResult.rows[0];
-          if (!student) continue;
-
-          const studentName = `${student.first_name} ${student.last_name}`;
-
-          // Send email to all addresses for this student
-          for (const email of emails) {
-            const emailHtml = `
-              <!DOCTYPE html>
-              <html>
-              <head><meta charset="UTF-8"></head>
-              <body style="font-family:'Segoe UI',Arial,sans-serif;background:#f7f7f7;margin:0;padding:0;">
-                <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:10px;box-shadow:0 2px 8px #e0e0e0;overflow:hidden;">
-                  <div style="background:var(--primary,#6fd3c4);padding:24px 32px;">
-                    <img src="cid:managira_logo" alt="Logo" style="height:50px;">
-                  </div>
-                  <div style="padding:32px;line-height:1.6;">
-                    <h2 style="color:#333;margin-top:0;">📄 Student Report Card</h2>
-                    <p>Dear Parent/Guardian,</p>
-                    <p>Please find attached the <strong>academic report card</strong> for <strong>${studentName}</strong>.</p>
-                    <div style="background:#f8f9fa;padding:16px;border-radius:8px;border-left:4px solid #6fd3c4;margin:20px 0;">
-                      <p style="margin:4px 0;"><strong>Student:</strong> ${studentName}</p>
-                      <p style="margin:4px 0;"><strong>School:</strong> ${org.organization_name}</p>
-                      <p style="margin:4px 0;"><strong>Date:</strong> ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                    </div>
-                    <p style="font-size:13px;color:#666;">The PDF report is attached to this email.</p>
-                    <div style="color:#b80000;font-weight:bold;text-align:center;padding:12px;background:#fff5f5;border-radius:6px;border:1px solid #fecaca;margin-top:20px;">
-                      ⚠️ THIS IS A NO-REPLY MESSAGE. PLEASE DO NOT REPLY TO THIS EMAIL.
-                    </div>
-                  </div>
-                  <div style="background:#f0f0f0;text-align:center;padding:16px;font-size:12px;color:#888;">
-                    &copy; ${new Date().getFullYear()} Managira. All rights reserved.
-                  </div>
-                </div>
-              </body>
-              </html>
-            `;
-
-            const logoFilePath = path.join(__dirname, '../public/images/managira.png');
-            const sent = await sendEmailSafely({
-              to: email,
-              subject: `Report Card - ${studentName} | ${org.organization_name}`,
-              html: emailHtml,
-              attachments: [
-                { filename: `${student.first_name}_${student.last_name}_Report.pdf`, path: pdfPath },
-                { filename: 'managira-logo.png', path: logoFilePath, cid: 'managira_logo' }
-              ]
-            }, 'Report Email');
-
-            if (sent) sentCount++;
-            else failCount++;
-          }
-
-          // Clean up PDF
-          if (fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
-        } catch (err) {
-          console.error(`[emailReports] Error for student ${studentId}:`, err.message);
-          failCount++;
-        }
+        await db.query(
+          `INSERT INTO email_history (organization_id, class_id, term_id, user_id, batch_id, student_id, student_name, recipient_emails, status)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')`,
+          [organizationId, classId, termId, userId, batchId, studentId, studentName, emails]
+        );
       }
 
-      if (browser) {
-        await browser.close();
-        browser = null;
-      }
+      // Start background processing (don't await)
+      const { processEmailBatch } = require('../utils/emailQueueProcessor');
+      setImmediate(() => {
+        processEmailBatch(batchId, organizationId, classId, termId, req.protocol, req.get('host'), req.headers.cookie);
+      });
 
-      const message = failCount === 0
-        ? `Successfully sent ${sentCount} report(s) by email.`
-        : `Sent ${sentCount} report(s), ${failCount} failed.`;
-
-      return res.json({ success: sentCount > 0, message });
+      return res.json({ 
+        success: true, 
+        message: `Email batch queued successfully. Check history for status.`,
+        batchId
+      });
     } catch (error) {
       console.error('[emailReports] Error:', error);
-      if (browser) try { await browser.close(); } catch (e) {}
-      return res.status(500).json({ success: false, message: "Failed to send reports." });
+      return res.status(500).json({ success: false, message: "Failed to queue reports." });
     }
   },
+
+  /**
+   * Email history endpoint - returns all email jobs
+   */
+  getEmailHistory: asyncHandler(async (req, res) => {
+    try {
+      const organizationId = req.session.organizationId;
+      const { class_id, term_id } = req.query;
+
+      if (!organizationId) {
+        return res.status(401).json({ success: false, message: 'Not authorized' });
+      }
+      
+      let query = `
+        SELECT 
+          id, batch_id, student_name, recipient_emails, status, 
+          error_message, pdf_generated, sent_at, created_at
+        FROM email_history
+        WHERE organization_id = $1
+      `;
+      const params = [organizationId];
+      
+      if (class_id) {
+        params.push(class_id);
+        query += ` AND class_id = $${params.length}`;
+      }
+      
+      if (term_id) {
+        params.push(term_id);
+        query += ` AND term_id = $${params.length}`;
+      }
+      
+      query += ` ORDER BY created_at DESC LIMIT 500`;
+      
+      const result = await db.query(query, params);
+      res.json({ success: true, data: result.rows });
+    } catch (error) {
+      console.error('[getEmailHistory] Error:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch email history' });
+    }
+  }),
+
+  /**
+   * Retry failed email
+   */
+  retryFailedEmail: asyncHandler(async (req, res) => {
+    try {
+      const { emailIds } = req.body; // Array of email_history ids to retry
+      
+      if (!emailIds || !Array.isArray(emailIds) || emailIds.length === 0) {
+        return res.status(400).json({ success: false, message: 'No email IDs provided' });
+      }
+      
+      // Get the first email to extract batch details
+      const emailResult = await db.query(
+        `SELECT batch_id, organization_id, class_id, term_id FROM email_history WHERE id = $1`,
+        [emailIds[0]]
+      );
+      
+      if (emailResult.rows.length === 0) {
+        return res.status(404).json({ success: false, message: 'Email not found' });
+      }
+      
+      const { batch_id, organization_id, class_id, term_id } = emailResult.rows[0];
+      
+      // Reset status to pending
+      await db.query(
+        `UPDATE email_history SET status = 'pending', error_message = NULL, updated_at = CURRENT_TIMESTAMP 
+         WHERE id = ANY($1)`,
+        [emailIds]
+      );
+      
+      // Trigger background processing for these specific emails
+      const { processEmailBatch } = require('../utils/emailQueueProcessor');
+      const protocol = req.protocol;
+      const host = req.get('host');
+      const cookies = req.headers.cookie;
+      
+      setImmediate(() => {
+        processEmailBatch(batch_id, organization_id, class_id, term_id, protocol, host, cookies, emailIds);
+      });
+      
+      res.json({ success: true, message: `Retrying ${emailIds.length} email(s)...` });
+    } catch (error) {
+      console.error('[retryFailedEmail] Error:', error);
+      res.status(500).json({ success: false, message: 'Failed to retry emails' });
+    }
+  }),
+
 });
 
 module.exports = printController;

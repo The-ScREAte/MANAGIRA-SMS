@@ -22,37 +22,87 @@ module.exports = {
       );
 
       if (!guardianProfile.rows.length) {
+        console.error('[Guardian Dashboard] Guardian profile not found:', { guardianId, organizationId });
         req.flash('error', 'Guardian profile not found');
         return res.redirect('/account/login');
       }
 
       const guardian = guardianProfile.rows[0];
 
-      // Query students from OLD guardians table (same as guardianDetails)
+      // Query approved students from OLD guardians table AND new guardian_students linking table
       const kids = await db.query(
         `
-        SELECT s.student_id, s.first_name, s.last_name, s.image_url,
-               c.class_name, c.class_id
-        FROM guardians g
-        JOIN students s ON g.student_id = s.student_id
+        SELECT DISTINCT s.student_id, s.first_name, s.last_name, s.image_url,
+               c.class_name, c.class_id, 'approved' as status
+        FROM students s
         LEFT JOIN classes c ON s.class_id = c.class_id
-        WHERE g.first_name = $1 AND g.last_name = $2 
-          AND (g.phone = $3 OR $3 IS NULL)
-          AND g.organization_id = $4
+        WHERE s.organization_id = $4
+          AND (
+            -- Old guardians table matching
+            EXISTS (
+              SELECT 1 FROM guardians g 
+              WHERE g.student_id = s.student_id 
+                AND g.first_name = $1 
+                AND g.last_name = $2 
+                AND (g.phone = $3 OR $3 IS NULL)
+                AND g.organization_id = $4
+            )
+            -- New guardian_students linking table
+            OR EXISTS (
+              SELECT 1 FROM guardian_students gs
+              WHERE gs.student_id = s.student_id
+                AND gs.guardian_id = $5
+            )
+          )
         ORDER BY s.first_name ASC
         `,
-        [guardian.first_name, guardian.last_name, guardian.phone, organizationId]
+        [guardian.first_name, guardian.last_name, guardian.phone, organizationId, guardianId]
       );
+
+      // Query pending students linked to this guardian via pending_guardians table
+      // This matches guardians by name, phone, and email from existing guardian profile
+      let pendingKids = { rows: [] };
+      try {
+        pendingKids = await db.query(
+          `
+          SELECT DISTINCT ps.pending_id, ps.first_name, ps.last_name, ps.image_url,
+                 c.class_name, c.class_id, 'pending' as status
+          FROM pending_students ps
+          LEFT JOIN classes c ON ps.class_id = c.class_id
+          WHERE ps.organization_id = $1
+            AND EXISTS (
+              SELECT 1 FROM pending_guardians pg
+              WHERE pg.pending_id = ps.pending_id
+                AND pg.first_name = $2
+                AND pg.last_name = $3
+                AND (pg.phone = $4 OR pg.email = $5)
+            )
+          ORDER BY ps.first_name ASC
+          `,
+          [organizationId, guardian.first_name, guardian.last_name, guardian.phone, guardian.email]
+        );
+      } catch (pendingError) {
+        // Continue without pending students if query fails
+      }
+
+      // Combine approved and pending students
+      const allChildren = [...kids.rows, ...pendingKids.rows];
 
             return res.render("guardian/dashboard", {
         title: "Parent Portal",
         guardian: guardian,
-        children: kids.rows,
+        children: allChildren,
         currentTermId: req.session.currentTermId || null,
         messages: req.flash(),
         req,
       });
     } catch (error) {
+      console.error('[Guardian Dashboard] Error:', error);
+      console.error('[Guardian Dashboard] Error stack:', error.stack);
+      console.error('[Guardian Dashboard] Session info:', { 
+        guardianId: req.session.guardianId, 
+        organizationId: req.session.organizationId 
+      });
             req.flash('error', 'Error loading dashboard');
       return res.redirect('/account/login');
     }
@@ -1199,6 +1249,201 @@ module.exports = {
     } catch (error) {
             req.flash('error', 'Error adding reply');
       res.redirect(`/guardian/reports/${reportId}`);
+    }
+  },
+
+  editPendingStudentGet: async (req, res, db) => {
+    const guardianId = req.session.guardianId;
+    const organizationId = req.session.organizationId;
+    const pendingId = req.query.pendingId;
+
+    try {
+      // Verify the guardian has access to this pending student
+      const studentQuery = await db.query(
+        `SELECT ps.*, pg.first_name as guardian_first_name, pg.last_name as guardian_last_name, 
+                pg.phone as guardian_phone, pg.email as guardian_email
+         FROM pending_students ps
+         JOIN pending_guardians pg ON pg.pending_id = ps.pending_id
+         WHERE ps.pending_id = $1 AND ps.organization_id = $2`,
+        [pendingId, organizationId]
+      );
+
+      if (!studentQuery.rows.length) {
+        req.flash('error', 'Pending student not found');
+        return res.redirect('/guardian/dashboard');
+      }
+
+      const student = studentQuery.rows[0];
+
+      // Verify guardian access
+      const guardianProfile = await db.query(
+        `SELECT first_name, last_name, phone, email
+         FROM guardian_profiles
+         WHERE guardian_id = $1 AND organization_id = $2`,
+        [guardianId, organizationId]
+      );
+
+      if (!guardianProfile.rows.length) {
+        req.flash('error', 'Guardian profile not found');
+        return res.redirect('/guardian/dashboard');
+      }
+
+      const guardian = guardianProfile.rows[0];
+      
+      // Check if guardian matches
+      if (student.guardian_first_name !== guardian.first_name || 
+          student.guardian_last_name !== guardian.last_name ||
+          (student.guardian_phone !== guardian.phone && student.guardian_email !== guardian.email)) {
+        req.flash('error', 'You do not have permission to edit this application');
+        return res.redirect('/guardian/dashboard');
+      }
+
+      // Get classes and graduation year groups
+      const classesQuery = await db.query(
+        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY class_name ASC`,
+        [organizationId]
+      );
+
+      const graduationGroupsQuery = await db.query(
+        `SELECT id, name FROM graduation_year_groups WHERE organization_id = $1 ORDER BY name ASC`,
+        [organizationId]
+      );
+
+      res.render('guardian/editPendingStudent', {
+        title: 'Edit Application',
+        student,
+        classes: classesQuery.rows,
+        graduationYearGroups: graduationGroupsQuery.rows,
+        messages: req.flash(),
+        req
+      });
+    } catch (error) {
+      console.error('[Edit Pending Student] Error:', error);
+      req.flash('error', 'Error loading application');
+      res.redirect('/guardian/dashboard');
+    }
+  },
+
+  editPendingStudentPost: async (req, res, db) => {
+    const guardianId = req.session.guardianId;
+    const organizationId = req.session.organizationId;
+    const { pendingId, firstName, lastName, dateOfBirth, gender, hometown, classId, graduationYearGroupId } = req.body;
+
+    try {
+      // Verify access (same as GET)
+      const accessCheck = await db.query(
+        `SELECT ps.pending_id, pg.first_name as guardian_first_name, pg.last_name as guardian_last_name,
+                pg.phone as guardian_phone, pg.email as guardian_email
+         FROM pending_students ps
+         JOIN pending_guardians pg ON pg.pending_id = ps.pending_id
+         WHERE ps.pending_id = $1 AND ps.organization_id = $2 AND ps.approved = false`,
+        [pendingId, organizationId]
+      );
+
+      if (!accessCheck.rows.length) {
+        return res.status(403).json({ success: false, error: 'Access denied' });
+      }
+
+      const guardianProfile = await db.query(
+        `SELECT first_name, last_name, phone, email
+         FROM guardian_profiles
+         WHERE guardian_id = $1 AND organization_id = $2`,
+        [guardianId, organizationId]
+      );
+
+      const guardian = guardianProfile.rows[0];
+      const student = accessCheck.rows[0];
+
+      if (student.guardian_first_name !== guardian.first_name || 
+          student.guardian_last_name !== guardian.last_name ||
+          (student.guardian_phone !== guardian.phone && student.guardian_email !== guardian.email)) {
+        return res.status(403).json({ success: false, error: 'Access denied' });
+      }
+
+      // Handle image upload if provided
+      let imageUrl = null;
+      if (req.file) {
+        const s3Key = `images/pending-students/${organizationId}/${Date.now()}_${req.file.originalname}`;
+        imageUrl = await uploadToS3(req.file, s3Key);
+      }
+
+      // Update pending student
+      const updateQuery = imageUrl 
+        ? `UPDATE pending_students 
+           SET first_name = $1, last_name = $2, date_of_birth = $3, gender = $4, 
+               hometown = $5, class_id = $6, graduation_year_group_id = $7, image_url = $8
+           WHERE pending_id = $9 AND organization_id = $10`
+        : `UPDATE pending_students 
+           SET first_name = $1, last_name = $2, date_of_birth = $3, gender = $4, 
+               hometown = $5, class_id = $6, graduation_year_group_id = $7
+           WHERE pending_id = $8 AND organization_id = $9`;
+
+      const updateParams = imageUrl
+        ? [firstName, lastName, dateOfBirth, gender, hometown, classId, graduationYearGroupId, imageUrl, pendingId, organizationId]
+        : [firstName, lastName, dateOfBirth, gender, hometown, classId, graduationYearGroupId, pendingId, organizationId];
+
+      await db.query(updateQuery, updateParams);
+
+      req.flash('success', 'Application updated successfully');
+      res.redirect('/guardian/dashboard');
+    } catch (error) {
+      console.error('[Edit Pending Student Post] Error:', error);
+      req.flash('error', 'Error updating application');
+      res.redirect('/guardian/dashboard');
+    }
+  },
+
+  withdrawPendingStudent: async (req, res, db) => {
+    const guardianId = req.session.guardianId;
+    const organizationId = req.session.organizationId;
+    const { pendingId } = req.body;
+
+    try {
+      // Verify access
+      const accessCheck = await db.query(
+        `SELECT ps.pending_id, pg.first_name as guardian_first_name, pg.last_name as guardian_last_name,
+                pg.phone as guardian_phone, pg.email as guardian_email
+         FROM pending_students ps
+         JOIN pending_guardians pg ON pg.pending_id = ps.pending_id
+         WHERE ps.pending_id = $1 AND ps.organization_id = $2`,
+        [pendingId, organizationId]
+      );
+
+      if (!accessCheck.rows.length) {
+        return res.json({ success: false, error: 'Pending student not found' });
+      }
+
+      const guardianProfile = await db.query(
+        `SELECT first_name, last_name, phone, email
+         FROM guardian_profiles
+         WHERE guardian_id = $1 AND organization_id = $2`,
+        [guardianId, organizationId]
+      );
+
+      if (!guardianProfile.rows.length) {
+        return res.json({ success: false, error: 'Guardian not found' });
+      }
+
+      const guardian = guardianProfile.rows[0];
+      const student = accessCheck.rows[0];
+
+      if (student.guardian_first_name !== guardian.first_name || 
+          student.guardian_last_name !== guardian.last_name ||
+          (student.guardian_phone !== guardian.phone && student.guardian_email !== guardian.email)) {
+        return res.json({ success: false, error: 'You do not have permission to withdraw this application' });
+      }
+
+      // Delete pending student (CASCADE will delete related records)
+      await db.query(
+        `DELETE FROM pending_students WHERE pending_id = $1 AND organization_id = $2`,
+        [pendingId, organizationId]
+      );
+
+      console.log('[Withdraw Pending Student] Successfully withdrew application:', pendingId);
+      res.json({ success: true, message: 'Application withdrawn successfully' });
+    } catch (error) {
+      console.error('[Withdraw Pending Student] Error:', error);
+      res.json({ success: false, error: 'Error withdrawing application' });
     }
   },
 };

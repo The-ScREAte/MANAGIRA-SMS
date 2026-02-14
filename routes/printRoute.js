@@ -29,7 +29,8 @@ module.exports = (db) => {
     router.get('/meritSheetPage', checkFeatureAccess, isAuthenticated, printController.meritSheetPage); // Render merit sheet page
     router.get('/deleteStatusSettings', isAuthenticated, printController.deleteStatusSettings);
 
-    // Fix the POST method for generateMeritSheet
+    // Merit sheet generation (supports GET refresh + POST form submit)
+    router.get('/generateMeritSheet', checkFeatureAccess, isAuthenticated, printController.generateMeritSheet);
     router.post('/generateMeritSheet', isAuthenticated, printController.generateMeritSheet); // Generate merit sheet
 
     // Route to upload a signature image using multer's memory storage
@@ -62,8 +63,18 @@ module.exports = (db) => {
    router.get("/delete/:key",  checkFeatureAccess, isAuthenticated, printController.deleteFile);
    
    // Email reports
+    router.get('/emailHistoryPage', isAuthenticated, (req, res) => {
+        const { classId = '', termId = '' } = req.query;
+        res.render('print/emailHistory', {
+          organizationId: req.session.organizationId,
+          classId,
+          termId,
+        });
+    });
    router.get('/getGuardianEmails', isAuthenticated, printController.getGuardianEmails);
    router.post('/emailReports', isAuthenticated, express.json(), printController.emailReports);
+   router.get('/emailHistory', isAuthenticated, printController.getEmailHistory);
+   router.post('/retryEmail', isAuthenticated, express.json(), printController.retryFailedEmail);
    
     return router;
 };

@@ -100,7 +100,9 @@ class ChatbotController {
         'attendance', 'report', 'account', 'login', 'register', 'class',
         'transcript', 'fee', 'tuition', 'academic', 'dashboard', 'management',
         'education', 'learning', 'curriculum', 'term', 'semester', 'year',
-        'parent', 'guardian', 'staff', 'faculty', 'principal', 'records'
+        'parent', 'guardian', 'staff', 'faculty', 'principal', 'records',
+        'role', 'roles', 'permission', 'permissions', 'rbac', 'authorization',
+        'security', 'supervisor', 'manager', 'access', 'access control'
       ];
 
       const isManagiraRelated = managiraKeywords.some(keyword => 
@@ -148,7 +150,7 @@ class ChatbotController {
   static getPopularQuestions(req, res) {
     try {
       const popularQuestions = managiraFAQ
-        .filter(faq => [1, 3, 7, 15].includes(faq.id)) // Popular FAQ IDs from real FAQ
+        .filter(faq => [1, 3, 7, 15, 43].includes(faq.id)) // Popular FAQ IDs from real FAQ
         .map(faq => ({
           id: faq.id,
           question: faq.question,

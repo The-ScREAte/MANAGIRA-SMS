@@ -431,6 +431,7 @@
               <th>Contact</th>
               <th>Email</th>
               <th>Plan</th>
+              <th>Contract End</th>
               <th>Organizations</th>
               <th>Status</th>
               <th>Actions</th>
@@ -448,6 +449,7 @@
                 <td><%= hub.first_name %> <%= hub.last_name %></td>
                 <td><%= hub.hub_email %></td>
                 <td><%= hub.plan_name || 'No plan' %></td>
+                <td><%= hub.contract_end_date ? new Date(hub.contract_end_date).toLocaleDateString() : 'Not set' %></td>
                 <td><span class="badge badge-info"><%= hub.org_count %> / <%= hub.max_organizations %></span></td>
                 <td>
                   <% if (hub.deleted) { %>

@@ -157,6 +157,7 @@
     padding: 20px;
     background: #f9f9f9;
     border-radius: 8px;
+    position: relative;
   }
   .guardian-search-input {
     width: 100%;
@@ -165,14 +166,30 @@
     border: 2px solid #ddd;
     border-radius: 6px;
     margin-bottom: 10px;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+  .guardian-search-input:focus {
+    border-color: #10b981;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+  }
+  .search-wrapper {
+    position: relative;
   }
   .guardian-suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 4px;
     background: white;
     border: 1px solid #ddd;
-    border-radius: 6px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     max-height: 300px;
     overflow-y: auto;
     display: none;
+    z-index: 1000;
   }
   .guardian-suggestions.show {
     display: block;
@@ -184,15 +201,26 @@
     display: flex;
     align-items: center;
     gap: 12px;
+    transition: background 0.2s ease;
+  }
+  .guardian-suggestion-item:last-child {
+    border-bottom: none;
   }
   .guardian-suggestion-item:hover {
     background: #f0f9ff;
+  }
+  .guardian-suggestion-item:first-child {
+    border-radius: 8px 8px 0 0;
+  }
+  .guardian-suggestion-item:last-child {
+    border-radius: 0 0 8px 8px;
   }
   .guardian-suggestion-item img {
     width: 50px;
     height: 50px;
     border-radius: 50%;
     object-fit: cover;
+    border: 2px solid #e5e7eb;
   }
   .guardian-suggestion-info {
     flex: 1;
@@ -200,29 +228,48 @@
   .guardian-suggestion-name {
     font-weight: 600;
     color: #333;
+    margin-bottom: 4px;
   }
   .guardian-suggestion-details {
     font-size: 0.9rem;
     color: #666;
   }
   .selected-guardian-display {
-    background: #ecfdf5;
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
     border: 2px solid #10b981;
     border-radius: 8px;
     padding: 15px;
     margin: 15px 0;
     display: none;
+    position: relative;
   }
   .selected-guardian-display.show {
     display: flex;
     align-items: center;
     gap: 15px;
   }
+  .selected-guardian-display::before {
+    content: '✓';
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 24px;
+    height: 24px;
+    background: #10b981;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+  }
   .selected-guardian-display img {
     width: 60px;
     height: 60px;
     border-radius: 50%;
     object-fit: cover;
+    border: 3px solid #10b981;
   }
   .image-preview {
     max-width: 200px;
@@ -271,20 +318,22 @@
       <!-- Guardian Search (shown if YES) -->
       <div id="guardianSearchSection" style="display: none;">
         <div class="guardian-search-container">
-          <h4>Search for Your Information</h4>
-          <p style="color: #666; margin-bottom: 10px;">Type your name, phone number, or email to find your guardian profile</p>
-          <input 
-            type="text" 
-            id="guardianSearchInput" 
-            class="guardian-search-input" 
-            placeholder="Search by name, phone, or email..."
-            autocomplete="off"
-          />
-          <div id="guardianSuggestions" class="guardian-suggestions"></div>
+          <h4 style="margin-bottom: 10px; color: #10b981;">🔍 Search for Your Information</h4>
+          <p style="color: #666; margin-bottom: 15px;">Type your name, phone number, or email to find your guardian profile (minimum 2 characters)</p>
+          <div class="search-wrapper">
+            <input 
+              type="text" 
+              id="guardianSearchInput" 
+              class="guardian-search-input" 
+              placeholder="Search by name, phone, or email..."
+              autocomplete="off"
+            />
+            <div id="guardianSuggestions" class="guardian-suggestions"></div>
+          </div>
           
           <div id="selectedGuardianDisplay" class="selected-guardian-display">
             <img id="selectedGuardianImg" src="/images/profilePlaceholder.png" alt="Guardian">
-            <div>
+            <div style="flex: 1;">
               <div class="guardian-suggestion-name" id="selectedGuardianName"></div>
               <div class="guardian-suggestion-details" id="selectedGuardianDetails"></div>
             </div>
@@ -466,8 +515,8 @@
     
           const paymentData = await paymentRes.json();
     
-          if (paymentData.success && paymentData.payment_link) {
-            window.location.href = paymentData.payment_link;
+          if (paymentData.success && paymentData.payment_url) {
+            window.location.href = paymentData.payment_url;
           } else {
             alert('Error initializing payment. Please try again.');
             document.getElementById('loader').style.display = 'none';
@@ -536,8 +585,16 @@
     async function searchGuardians(query) {
       try {
         const res = await fetch(`/common/searchGuardiansPublic?q=${encodeURIComponent(query)}&organizationId=<%= organizationId %>`);
-        const data = await res.json();
         
+        if (!res.ok) {
+          console.error('Search request failed:', res.status);
+          const suggestionsDiv = document.getElementById('guardianSuggestions');
+          suggestionsDiv.innerHTML = '<div style="padding: 12px; text-align: center; color: #ef4444;">Search failed. Please try again.</div>';
+          suggestionsDiv.classList.add('show');
+          return;
+        }
+        
+        const data = await res.json();
         const suggestionsDiv = document.getElementById('guardianSuggestions');
         suggestionsDiv.innerHTML = '';
         
@@ -545,24 +602,43 @@
           data.guardians.forEach(guardian => {
             const item = document.createElement('div');
             item.className = 'guardian-suggestion-item';
+            
+            const firstName = escapeHtml(guardian.first_name || '');
+            const lastName = escapeHtml(guardian.last_name || '');
+            const phone = escapeHtml(guardian.phone || '');
+            const email = escapeHtml(guardian.email || '');
+            const imageUrl = guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? escapeHtml(guardian.image_url) : '/images/profilePlaceholder.png';
+            
             item.innerHTML = `
-              <img src="${guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? guardian.image_url : '/images/profilePlaceholder.png'}" alt="Guardian">
+              <img src="${imageUrl}" alt="Guardian" onerror="this.src='/images/profilePlaceholder.png'">
               <div class="guardian-suggestion-info">
-                <div class="guardian-suggestion-name">${guardian.first_name} ${guardian.last_name}</div>
-                <div class="guardian-suggestion-details">${guardian.phone || ''} ${guardian.email || ''}</div>
+                <div class="guardian-suggestion-name">${firstName} ${lastName}</div>
+                <div class="guardian-suggestion-details">${phone}${phone && email ? ' • ' : ''}${email}</div>
               </div>
             `;
-            item.onclick = () => selectGuardian(guardian);
+            item.onclick = (e) => {
+              e.stopPropagation();
+              selectGuardian(guardian);
+            };
             suggestionsDiv.appendChild(item);
           });
           suggestionsDiv.classList.add('show');
         } else {
-          suggestionsDiv.innerHTML = '<div style="padding: 12px; text-align: center; color: #666;">No guardians found</div>';
+          suggestionsDiv.innerHTML = '<div style="padding: 12px; text-align: center; color: #666;">❌ No guardians found matching your search</div>';
           suggestionsDiv.classList.add('show');
         }
       } catch (err) {
         console.error('Search error:', err);
+        const suggestionsDiv = document.getElementById('guardianSuggestions');
+        suggestionsDiv.innerHTML = '<div style="padding: 12px; text-align: center; color: #ef4444;">❌ Search error. Please try again.</div>';
+        suggestionsDiv.classList.add('show');
       }
+    }
+    
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
     }
 
     function selectGuardian(guardian) {
@@ -572,19 +648,40 @@
       
       // Show selected guardian
       const display = document.getElementById('selectedGuardianDisplay');
-      document.getElementById('selectedGuardianImg').src = guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? guardian.image_url : '/images/profilePlaceholder.png';
-      document.getElementById('selectedGuardianName').textContent = `${guardian.first_name} ${guardian.last_name}`;
-      document.getElementById('selectedGuardianDetails').textContent = `${guardian.phone || ''} ${guardian.email || ''}`;
+      const imgUrl = guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? guardian.image_url : '/images/profilePlaceholder.png';
+      const imgElement = document.getElementById('selectedGuardianImg');
+      imgElement.src = imgUrl;
+      imgElement.onerror = function() { this.src = '/images/profilePlaceholder.png'; };
+      
+      const firstName = guardian.first_name || '';
+      const lastName = guardian.last_name || '';
+      const phone = guardian.phone || '';
+      const email = guardian.email || '';
+      
+      document.getElementById('selectedGuardianName').textContent = `${firstName} ${lastName}`.trim();
+      document.getElementById('selectedGuardianDetails').textContent = `${phone}${phone && email ? ' • ' : ''}${email}`.trim();
       display.classList.add('show');
       
       // Set hidden field with guardian ID
       document.getElementById('existingGuardianId').value = guardian.guardian_id;
+      
+      // Scroll to show the selection
+      display.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     function clearGuardianSelection() {
       document.getElementById('selectedGuardianDisplay').classList.remove('show');
       document.getElementById('existingGuardianId').value = '';
       document.getElementById('guardianSearchInput').value = '';
+      document.getElementById('guardianSearchInput').focus();
     }
+    
+    // Close suggestions when clicking outside
+    document.addEventListener('click', function(e) {
+      const searchSection = document.getElementById('guardianSearchSection');
+      if (searchSection && !searchSection.contains(e.target)) {
+        document.getElementById('guardianSuggestions').classList.remove('show');
+      }
+    });
     
     </script>

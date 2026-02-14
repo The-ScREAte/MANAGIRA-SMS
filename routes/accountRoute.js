@@ -8,6 +8,7 @@ const { isAuthenticated } = require("../middleware/authMiddleware");
 const { upload } = require("../middleware/s3Upload");
 const db = require("../config/db");
 const checkFeatureAccess = require("../middleware/checkFeatureAccess");
+const { requirePermission, PERMISSIONS } = require("../middleware/permissionMiddleware");
 
 // Registration Routes
 router.get("/register", (req, res) => accountController.registerGet(req, res));
@@ -38,14 +39,16 @@ router.get(
   "/cancel-subscription",
   checkFeatureAccess,
   isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_BILLING),
   (req, res) => accountController.cancelSubscriptionGet(req, res)
 );
-router.post("/cancel-subscription", isAuthenticated, (req, res) =>
+router.post("/cancel-subscription", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.cancelSubscriptionPost(req, res, db)
 );
 router.post(
   "/resume-or-cancel-cancellation",
   isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_BILLING),
   accountController.resumeOrCancelCancellationPost
 );
 
@@ -92,26 +95,28 @@ router.get(
   "/personalization",
   checkFeatureAccess,
   isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
   (req, res) => accountController.personalizationGet(req, res, db)
 );
-router.post("/personalization", isAuthenticated, (req, res) =>
+router.post("/personalization", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), (req, res) =>
   accountController.personalizationPost(req, res, db)
 );
-router.post("/personalization/logo", upload.single("logo"), (req, res) =>
+router.post("/personalization/logo", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), upload.single("logo"), (req, res) =>
   accountController.personalizationLogoPost(req, res, db)
 );
-router.post("/personalization/name", checkFeatureAccess, isAuthenticated, (req, res) =>
+router.post("/personalization/name", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), (req, res) =>
   accountController.updateOrgNamePost(req, res, db)
 );
-router.post("/personalization/font", checkFeatureAccess, isAuthenticated, (req, res) =>
+router.post("/personalization/font", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), (req, res) =>
   accountController.updateFontPost(req, res, db)
 );
-router.post("/personalization/theme", isAuthenticated, (req, res) =>
+router.post("/personalization/theme", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), (req, res) =>
   themeController.updateThemePost(req, res)
 );
 router.post(
   "/personalization/nickname",
   isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
   accountValidation.validateNickname,
   accountValidation.validateNicknameResult,
   (req, res) => accountController.updateNicknamePost(req, res, db)
@@ -122,38 +127,42 @@ router.get(
   "/managePublicContent",
   checkFeatureAccess,
   isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
   (req, res) => accountController.managePublicContentGet(req, res, db)
 );
 router.post(
   "/uploadSlideshowImages",
   isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
   upload.array("slideshowImages"),
   (req, res) => accountController.uploadSlideshowImages(req, res, db)
 );
 router.post(
   "/addTextSection",
   isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
   accountValidation.validateTextSection,
   accountValidation.validateTextSectionResult,
   (req, res) => accountController.addTextSection(req, res, db)
 );
-router.post("/updateImage", isAuthenticated, (req, res) =>
+router.post("/updateImage", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), (req, res) =>
   accountController.updateImagePost(req, res, db)
 );
-router.get("/deleteImage/:imageId", isAuthenticated, (req, res) =>
+router.get("/deleteImage/:imageId", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), (req, res) =>
   accountController.deleteImageGet(req, res, db)
 );
 router.post(
   "/updateText",
   isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
   accountValidation.validateTextSection,
   accountValidation.validateTextSectionResult,
   (req, res) => accountController.updateTextPost(req, res, db)
 );
-router.get("/deleteText/:textId", isAuthenticated, (req, res) =>
+router.get("/deleteText/:textId", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), (req, res) =>
   accountController.deleteTextGet(req, res, db)
 );
-router.post("/update-about-us", isAuthenticated, (req, res) =>
+router.post("/update-about-us", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), (req, res) =>
   accountController.updateAboutUsSection(req, res, db)
 );
 
@@ -162,6 +171,7 @@ router.post(
   "/updatePublicDashboardTheme",
   checkFeatureAccess,
   isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
   (req, res) => accountController.updatePublicDashboardThemePost(req, res, db)
 );
 
@@ -170,6 +180,7 @@ router.post(
   "/updatePublicDashboardLayout",
   checkFeatureAccess,
   isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
   (req, res) => accountController.updatePublicDashboardLayoutPost(req, res, db)
 );
 
@@ -199,6 +210,10 @@ router.post("/settings/profile-image",
   upload.single("profileImage"),
   (req, res) => accountController.updateProfileImagePost(req, res, db)
 );
+router.post("/settings/profile-image/delete",
+  isAuthenticated,
+  (req, res) => accountController.deleteProfileImagePost(req, res, db)
+);
 router.post("/settings/security/email", isAuthenticated, (req, res) =>
   accountController.updateSecurityEmailPost(req, res, db)
 );
@@ -207,7 +222,7 @@ router.post("/settings/security/password", isAuthenticated, (req, res) =>
 );
 
 // Payment Method Management Routes
-router.get("/update-card", checkFeatureAccess, isAuthenticated, (req, res) => {
+router.get("/update-card", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) => {
   if (!req.session.passwordVerified) {
     return res.redirect(
       "/account/confirm-password?redirect=/account/update-card"
@@ -215,53 +230,53 @@ router.get("/update-card", checkFeatureAccess, isAuthenticated, (req, res) => {
   }
   accountController.updateCardGet(req, res, db);
 });
-router.post("/add-card", checkFeatureAccess, isAuthenticated, (req, res) =>
+router.post("/add-card", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.addCardPost(req, res, db)
 );
-router.post("/api/tokenize-card", isAuthenticated, (req, res) =>
+router.post("/api/tokenize-card", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.tokenizeCard(req, res)
 );
-router.post("/cards/set-primary", isAuthenticated, (req, res) =>
+router.post("/cards/set-primary", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.setPrimaryCardPost(req, res)
 );
-router.post("/api/tokenize-card/pin", isAuthenticated, (req, res) =>
+router.post("/api/tokenize-card/pin", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.tokenizeCardSubmitPin(req, res)
 );
-router.post("/api/tokenize-card/otp", isAuthenticated, (req, res) =>
+router.post("/api/tokenize-card/otp", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.tokenizeCardSubmitOtp(req, res)
 );
-router.post("/api/tokenize-card/phone", isAuthenticated, (req, res) =>
+router.post("/api/tokenize-card/phone", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.tokenizeCardSubmitPhone(req, res)
 );
-router.post("/remove-card", isAuthenticated, (req, res) =>
+router.post("/remove-card", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.removeCardPost(req, res, db)
 );
 
 // Paystack Subaccount Routes
-router.post("/add-paystack-subaccount", checkFeatureAccess, isAuthenticated, (req, res) =>
+router.post("/add-paystack-subaccount", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.addPaystackSubaccountPost(req, res)
 );
-router.get("/paystack/:id", isAuthenticated, (req, res) =>
+router.get("/paystack/:id", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.getPaystackSubaccountById(req, res)
 );
-router.put("/paystack", isAuthenticated, (req, res) =>
+router.put("/paystack", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.updatePaystackSubaccount(req, res)
 );
-router.delete("/paystack/:id", isAuthenticated, (req, res) =>
+router.delete("/paystack/:id", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.deletePaystackSubaccount(req, res)
 );
-router.post("/paystack/set-primary", isAuthenticated, (req, res) =>
+router.post("/paystack/set-primary", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.setPaystackSubaccountPrimary(req, res)
 );
 
 // Utility API: Paystack banks
-router.get('/paystack-banks', isAuthenticated, (req, res) => accountController.listPaystackBanks(req, res));
+router.get('/paystack-banks', isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) => accountController.listPaystackBanks(req, res));
 
 // Subscription Plan Management Routes
-router.get("/update-plan", checkFeatureAccess, isAuthenticated, (req, res) =>
+router.get("/update-plan", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.updatePlanGet(req, res, db)
 );
-router.post("/update-plan", isAuthenticated, (req, res) =>
+router.post("/update-plan", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.updatePlanPost(req, res, db)
 );
 
@@ -288,21 +303,25 @@ router.post(
 router.get(
   "/flutterwave/:id",
   isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_BILLING),
   accountController.getFlutterwaveAccountById
 );
 router.put(
   "/flutterwave",
   isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_BILLING),
   accountController.updateFlutterwaveAccount
 );
 router.delete(
   "/flutterwave/:id",
   isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_BILLING),
   accountController.deleteFlutterwaveAccount
 );
 router.post(
   "/add-flutterwave-account",
   isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_BILLING),
   accountController.addFlutterwaveAccountPost
 );
 

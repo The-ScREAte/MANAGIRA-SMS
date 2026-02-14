@@ -153,6 +153,25 @@
             <option value="Teacher" <%= user.account_type === 'Teacher' ? 'selected' : '' %>>Teacher</option>
         </select>
     </div>
+    <div id="permission-assignment-group">
+      <label>Optional Extra Permissions:</label>
+      <div style="border:1px solid #e2e8f0; background:#f8fafc; border-radius:8px; padding:12px; margin-top:8px;">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px 16px;">
+          <% (permissionOptions || []).forEach(function(permission) { %>
+            <label style="display:flex; align-items:center; gap:8px; font-size:14px;">
+              <input
+                type="checkbox"
+                name="permissions"
+                value="<%= permission.key %>"
+                <%= (selectedPermissions || []).includes(permission.key) ? 'checked' : '' %>
+              >
+              <span><%= permission.label %></span>
+            </label>
+          <% }) %>
+        </div>
+        <div style="margin-top:8px; color:#64748b; font-size:12px;">Grant only what this employee needs.</div>
+      </div>
+    </div>
     <div>
       <label>Classes:</label>
       <div class="class-collapsible">
@@ -216,6 +235,19 @@
     }
 
     document.addEventListener("DOMContentLoaded", () => {
+      const accountTypeSelect = document.querySelector("select[name='accountType']");
+      const permissionGroup = document.getElementById("permission-assignment-group");
+
+      const syncPermissionVisibility = () => {
+        if (!accountTypeSelect || !permissionGroup) return;
+        permissionGroup.style.display = accountTypeSelect.value === "Manager" ? "none" : "block";
+      };
+
+      if (accountTypeSelect) {
+        accountTypeSelect.addEventListener("change", syncPermissionVisibility);
+      }
+      syncPermissionVisibility();
+
       // All collapsibles start collapsed
       const collapseAllClasses = document.getElementById('collapse-all-classes');
       const arrowAllClasses = document.getElementById('arrow-all-classes');

@@ -24,7 +24,16 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        padding-top: 20px;
+        padding: 0;
+      }
+
+      .manage-records-shell {
+        width: 100%;
+        padding: 80px 20px 40px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        box-sizing: border-box;
       }
 
       .page-header {
@@ -484,40 +493,41 @@
     </style>
   </head>
   <body class="manage-records-page">
-    <%- include('../partials/flash') %>
+    <div class="manage-records-shell">
+      <%- include('../partials/flash') %>
 
-    <script>
-      // Ensure scoped styles apply on SPA navigation
-      document.body.classList.add('manage-records-page');
-    </script>
+      <script>
+        // Ensure scoped styles apply on SPA navigation
+        document.body.classList.add('manage-records-page');
+      </script>
 
-    <div class="page-header">
-      <h1>Manage School Years & Terms</h1>
-      <p>Configure academic periods and term schedules</p>
-    </div>
-
-    <div class="centered-wrapper">
-      <div class="action-bar">
-        <a href="/common/registerSchoolYear" class="action-btn">
-          <svg style="width:18px;height:18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-          </svg>
-          Create School Year
-        </a>
+      <div class="page-header">
+        <h1>Manage School Years & Terms</h1>
+        <p>Configure academic periods and term schedules</p>
       </div>
 
-      <div class="note-section" id="noteSection">
-        <button class="close-note" onclick="closeNote()">&times;</button>
-        <p>
-          <strong>Note:</strong> Use this page to manage school years and terms. You can add, edit, delete, and set the current school year or term.
-        </p>
-      </div>
-    </div>
+      <div class="centered-wrapper">
+        <div class="action-bar">
+          <a href="/common/registerSchoolYear" class="action-btn">
+            <svg style="width:18px;height:18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+            </svg>
+            Create School Year
+          </a>
+        </div>
 
-    <div class="container">
-      <fieldset>
-        <h1>School Years</h1>
-        <legend>Manage Your Academic Years</legend>
+        <div class="note-section" id="noteSection">
+          <button class="close-note" onclick="closeNote()">&times;</button>
+          <p>
+            <strong>Note:</strong> Use this page to manage school years and terms. You can add, edit, delete, and set the current school year or term.
+          </p>
+        </div>
+      </div>
+
+      <div class="container">
+        <fieldset>
+          <h1>School Years</h1>
+          <legend>Manage Your Academic Years</legend>
 
         <div id="schoolYearContainer">
           <% schoolYears.forEach(function(year) { %>

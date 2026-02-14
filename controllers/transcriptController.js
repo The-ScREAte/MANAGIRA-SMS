@@ -9,10 +9,24 @@ const path = require('path');
 const ejs = require('ejs');
 const axios = require('axios');
 
+// Ensure signature metadata columns exist on report_settings
+let ensuredSignatureMeta = false;
+async function ensureSignatureMetaColumns(dbClient) {
+    if (ensuredSignatureMeta) return;
+    try {
+        await dbClient.query("ALTER TABLE report_settings ADD COLUMN IF NOT EXISTS signature_name TEXT");
+        await dbClient.query("ALTER TABLE report_settings ADD COLUMN IF NOT EXISTS signature_title TEXT");
+        ensuredSignatureMeta = true;
+    } catch (err) {
+        console.error('[transcript] ensureSignatureMetaColumns failed', err);
+    }
+}
+
 const transcriptController = (db) => ({
     generateTranscript: async (req, res) => {
         const { studentId } = req.params;
         const organizationId = req.session.organizationId;
+        await ensureSignatureMetaColumns(db);
 
         if (!studentId || !organizationId) {
             return res.status(400).send('Invalid student or organization ID.');
@@ -85,14 +99,16 @@ const transcriptController = (db) => ({
                 return `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
             };
             let signatureImageUrl = null;
+            let signatureName = null;
+            let signatureTitle = null;
             const signatureClassId = student.class_id || firstClass?.class_id;
             if (signatureClassId) {
-                const signatureQuery = `SELECT signature_image_path FROM report_settings WHERE organization_id = $1 AND class_id = $2 AND term_id = -1`;
+                const signatureQuery = `SELECT signature_image_path, signature_name, signature_title FROM report_settings WHERE organization_id = $1 AND class_id = $2 AND term_id = -1`;
                 const signatureResult = await db.query(signatureQuery, [organizationId, signatureClassId]);
                 const signaturePath = signatureResult.rows[0]?.signature_image_path;
-                if (signaturePath) {
-                    signatureImageUrl = buildS3Url(signaturePath);
-                }
+                signatureImageUrl = signaturePath ? buildS3Url(signaturePath) : null;
+                signatureName = signatureResult.rows[0]?.signature_name || null;
+                signatureTitle = signatureResult.rows[0]?.signature_title || null;
             }
 
             // Render the transcript
@@ -102,6 +118,8 @@ const transcriptController = (db) => ({
                 student,
                 scores,
                 signatureImageUrl,
+                signatureName,
+                signatureTitle,
                 official: req.query.official === 'true',
             });
         } catch (error) {
@@ -114,6 +132,7 @@ const transcriptController = (db) => ({
         let pdfPath = null;
         
         try {
+            await ensureSignatureMetaColumns(db);
             const { studentId, targetEmail, password } = req.body;
             const organizationId = req.session.organizationId;
 
@@ -274,12 +293,16 @@ const transcriptController = (db) => ({
             // Get signature
             const firstClass = await getFirstClassForOrganization(db, organizationId);
             let signatureImageUrl = null;
+            let signatureName = null;
+            let signatureTitle = null;
             const signatureClassId = fullStudent.class_id || firstClass?.class_id;
             if (signatureClassId) {
-                const signatureQuery = `SELECT signature_image_path FROM report_settings WHERE organization_id = $1 AND class_id = $2 AND term_id = -1`;
+                const signatureQuery = `SELECT signature_image_path, signature_name, signature_title FROM report_settings WHERE organization_id = $1 AND class_id = $2 AND term_id = -1`;
                 const signatureResult = await db.query(signatureQuery, [organizationId, signatureClassId]);
                 const signaturePath = signatureResult.rows[0]?.signature_image_path;
                 signatureImageUrl = signaturePath ? buildS3Url(signaturePath) : null;
+                signatureName = signatureResult.rows[0]?.signature_name || null;
+                signatureTitle = signatureResult.rows[0]?.signature_title || null;
             }
             const signatureDataUrl = signatureImageUrl ? await fetchImageAsDataUrl(signatureImageUrl, 'signature') : null;
 
@@ -296,6 +319,8 @@ const transcriptController = (db) => ({
                 student: fullStudent,
                 scores,
                 signatureImageUrl: signatureDataUrl || signatureImageUrl,
+                signatureName,
+                signatureTitle,
                 official: true,
                 session: { ...req.session, logo: orgLogoDataUrl || orgLogoUrl },
                 req: { query: { official: 'true', pdf: 'true' } }

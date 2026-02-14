@@ -1,25 +1,26 @@
 <div class="archived-graduation-year-group-container">
-    <br>
+    <h1>🎓 Graduated / Inactive Students</h1>
+
     <div class="link-to-next-back">
         <a href="/common/closeGraduationYearGroup" class="btn btn-primary">
-            Back to Closed Graduation Year Groups Page
+            ⬅️ Back to Close Graduation Year Groups
         </a>
     </div>
+
     <hr>
 
     <!-- Notice Section -->
     <div class="notice-container">
         <p class="notice-text">
-            This page contains records of:
+            📋 This page contains records of:
         </p>
         <ul class="notice-list">
             <li>Students grouped by their graduation year whose records need to remain secure.</li>
             <li>Students who may no longer be active but whose information needs to be safely preserved.</li>
         </ul>
     </div>
-    <hr>
 
-    <h1>Graduated / Inactive Students</h1>
+    <hr>
 
     <!-- Search Bar Section -->
     <div class="search-container">
@@ -32,13 +33,14 @@
         />
         <div id="search-suggestions" class="suggestions hidden"></div>
     </div>
+
     <hr>
 
     <% archivedGroups.forEach((group, index) => { %>
         <form action="/common/unarchiveStudents" method="POST" onsubmit="return confirmAction('Are you sure you want to unarchive selected students? They will appear back in your organization and changes could be made to their information. Do you still want to do this?');">
             <!-- Graduation Year Group Header -->
             <h2 class="group-header">
-                <span class="toggle-icon" data-target="archived-group-<%= index %>">➕</span>
+                <span class="toggle-icon" data-target="archived-group-<%= index %>">+</span>
                 <%= group.name %>
             </h2>
 
@@ -59,7 +61,7 @@
             </ul>
 
             <!-- Submit Button -->
-            <button type="submit" name="action" value="unarchive" class="hidden btn btn-primary">Unarchive Selected</button>
+            <button type="submit" name="action" value="unarchive" class="hidden btn btn-primary">📂 Unarchive Selected</button>
         </form>
     <% }) %>
 </div>
@@ -105,9 +107,21 @@
         // Find the student and highlight
         const studentItem = Array.from(studentItems).find(
             item => item.getAttribute('data-name') === studentName
-        );
-        if (studentItem) {
-            studentItem.style.backgroundColor = '#ffeb3b'; // Highlight selected student
+        );ef3c7'; // Highlight selected student
+            studentItem.style.borderColor = '#f59e0b';
+
+            // Close all other groups first (accordion behavior)
+            toggleIcons.forEach(otherIcon => {
+                const otherId = otherIcon.getAttribute('data-target');
+                const otherElement = document.getElementById(otherId);
+                const otherButton = otherElement.nextElementSibling;
+                
+                if (otherId !== `archived-group-${groupIndex}`) {
+                    otherElement.classList.add('hidden');
+                    otherButton.classList.add('hidden');
+                    otherIcon.textContent = '+';
+                }
+            });
 
             // Expand the corresponding group
             const group = document.getElementById(`archived-group-${groupIndex}`);
@@ -117,8 +131,13 @@
             if (group.classList.contains('hidden')) {
                 group.classList.remove('hidden');
                 submitButton.classList.remove('hidden');
-                toggleIcon.textContent = '➖';
+                toggleIcon.textContent = '−';
             }
+
+            // Scroll to the highlighted student
+            setTimeout(() => {
+                studentItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 300);
         }
 
         // Clear search bar and hide suggestions
@@ -126,20 +145,37 @@
         suggestionsBox.classList.add('hidden');
     }
 
-    // Toggle visibility for groups
+    // Toggle visibility for groups (accordion behavior)
     const toggleIcons = document.querySelectorAll('.toggle-icon');
     toggleIcons.forEach(icon => {
         icon.addEventListener('click', () => {
             const targetId = icon.getAttribute('data-target');
             const targetElement = document.getElementById(targetId);
             const submitButton = targetElement.nextElementSibling;
+            const isCurrentlyHidden = targetElement.classList.contains('hidden');
 
-            if (targetElement.classList.contains('hidden')) {
+            // Close all other groups first
+            toggleIcons.forEach(otherIcon => {
+                const otherId = otherIcon.getAttribute('data-target');
+                const otherElement = document.getElementById(otherId);
+                const otherButton = otherElement.nextElementSibling;
+                
+                if (otherId !== targetId) {
+                    otherElement.classList.add('hidden');
+                    otherButton.classList.add('hidden');
+                    otherIcon.textContent = '+';
+                }
+            });
+
+            // Toggle the clicked group
+            if (isCurrentlyHidden) {
                 targetElement.classList.remove('hidden');
                 submitButton.classList.remove('hidden');
-                icon.textContent = '➖';
+                icon.textContent = '−';
             } else {
                 targetElement.classList.add('hidden');
+                submitButton.classList.add('hidden');
+                icon.textContent = '+st.add('hidden');
                 submitButton.classList.add('hidden');
                 icon.textContent = '➕';
             }
@@ -150,91 +186,291 @@
 <style>
       :root {
         --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
+        --primary: var(--org-primary-color, #0f5a66);
+        --primary-hover: var(--org-primary-hover, #0d4f59);
+        --bg: #f6f8fb;
+        --card: #ffffff;
+        --border: #e2e8f0;
+        --muted: #64748b;
+        --text: #0f172a;
       }
 
+    .archived-graduation-year-group-container {
+        max-width: 1000px;
+        margin: 80px auto 24px;
+        padding: 24px;
+        background: var(--card);
+        border-radius: 14px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+        border: 1px solid var(--border);
+    }
+
+    .archived-graduation-year-group-container h1 {
+        color: var(--primary);
+        font-size: 1.75rem;
+        margin: 0 0 24px;
+        font-weight: 700;
+    }
+
+    .archived-graduation-year-group-container .link-to-next-back {
+        margin-bottom: 20px;
+    }
+
+    .archived-graduation-year-group-container .link-to-next-back a {
+        text-decoration: none;
+        color: white;
+        background-color: var(--primary);
+        padding: 12px 20px;
+        border-radius: 10px;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+        box-shadow: 0 4px 12px rgba(15, 90, 102, 0.2);
+    }
+
+    .archived-graduation-year-group-container .link-to-next-back a:hover {
+        background-color: var(--primary-hover);
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(15, 90, 102, 0.3);
+    }
+
+    .archived-graduation-year-group-container hr {
+        border: none;
+        border-top: 2px solid var(--border);
+        margin: 20px 0;
+    }
+
+    .archived-graduation-year-group-container .notice-container {
+        background: linear-gradient(135deg, rgba(14, 165, 233, 0.08), rgba(14, 165, 233, 0.12));
+        color: var(--text);
+        border: 1px solid rgba(14, 165, 233, 0.3);
+        border-left: 4px solid #0ea5e9;
+        padding: 18px 20px;
+        border-radius: 10px;
+        margin-bottom: 24px;
+    }
+
+    .archived-graduation-year-group-container .notice-text {
+        font-weight: 700;
+        margin: 0 0 12px;
+        color: var(--primary);
+        font-size: 1.05rem;
+    }
+
+    .archived-graduation-year-group-container .notice-list {
+        list-style-type: none;
+        padding-left: 0;
+        margin: 0;
+    }
+
+    .archived-graduation-year-group-container .notice-list li {
+        margin-bottom: 8px;
+        padding-left: 28px;
+        position: relative;
+        line-height: 1.6;
+    }
+
+    .archived-graduation-year-group-container .notice-list li::before {
+        content: "✓";
+        position: absolute;
+        left: 0;
+        color: #0ea5e9;
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
 
     /* Search Section */
-    .search-container {
-        margin-bottom: 20px;
-        text-align: center;
-        width: 400px;
+    .archived-graduation-year-group-container .search-container {
+        margin-bottom: 24px;
+        position: relative;
     }
 
-    .search-input {
-        width: 40%; /* Compact layout */
-        padding: 10px;
-        border: 1px solid #ddd;
-        border-radius: 5px;
-        font-size: 14px;
+    .archived-graduation-year-group-container .search-input {
+        width: 100%;
+        padding: 14px 18px;
+        border: 2px solid var(--border);
+        border-radius: 10px;
+        font-size: 1rem;
+        transition: all 0.2s ease;
+        background: #fff;
     }
 
-    .suggestions {
+    .archived-graduation-year-group-container .search-input:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(15, 90, 102, 0.1);
+    }
+
+    .archived-graduation-year-group-container .suggestions {
         position: absolute;
-        top: 50px;
-        left: 30%;
-        width: 40%; /* Matches search bar size */
+        top: 60px;
+        left: 0;
+        right: 0;
         background-color: #fff;
-        border: 1px solid #ddd;
-        border-radius: 5px;
-        box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
         z-index: 1000;
+        max-height: 300px;
+        overflow-y: auto;
     }
 
-    .suggestion-item {
-        padding: 10px;
+    .archived-graduation-year-group-container .suggestion-item {
+        padding: 12px 16px;
         cursor: pointer;
+        transition: all 0.2s ease;
+        text-transform: capitalize;
+        border-bottom: 1px solid var(--border);
     }
 
-    .suggestion-item:hover {
-        background-color: #f0f0f0;
+    .archived-graduation-year-group-container .suggestion-item:last-child {
+        border-bottom: none;
     }
 
-    .hidden {
-        display: none;
+    .archived-graduation-year-group-container .suggestion-item:hover {
+        background: linear-gradient(135deg, rgba(15, 90, 102, 0.06), rgba(15, 90, 102, 0.10));
+        color: var(--primary);
+        font-weight: 600;
     }
 
-    /* Notice Section Styling */
-    .notice-container {
-        background-color: #b9e8f9;
-        color: #000000;
-        border: 1px solid #01535b;
-        padding: 15px;
-        border-radius: 5px;
-        margin-bottom: 20px;
+    .archived-graduation-year-group-container .hidden {
+        display: none !important;
     }
 
-    .notice-text {
-        font-weight: bold;
-        margin-bottom: 10px;
+    .archived-graduation-year-group-container form {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 16px;
+        transition: all 0.2s ease;
     }
 
-    .notice-list {
-        list-style-type: disc;
-        padding-left: 20px;
+    .archived-graduation-year-group-container form:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+        border-color: var(--primary);
     }
 
-    .notice-list li {
-        margin-bottom: 5px;
+    .archived-graduation-year-group-container .group-header {
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        margin: 0 0 16px;
+        padding: 12px;
+        background: linear-gradient(135deg, rgba(15, 90, 102, 0.06), rgba(15, 90, 102, 0.10));
+        border-radius: 8px;
+        transition: all 0.2s ease;
+        color: var(--primary);
+        font-weight: 700;
+        font-size: 1.15rem;
     }
 
-    /* General Styling */
-    .btn {
-        margin-top: 10px;
+    .archived-graduation-year-group-container .group-header:hover {
+        background: linear-gradient(135deg, rgba(15, 90, 102, 0.10), rgba(15, 90, 102, 0.14));
     }
 
-    .btn.btn-primary {
-        background-color: var(--org-primary-color);
-        border-color: var(--org-primary-color);
+    .archived-graduation-year-group-container .toggle-icon {
+        margin-right: 12px;
+        font-size: 18px;
+        cursor: pointer;
+        min-width: 24px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--primary);
+        color: white;
+        border-radius: 6px;
+        width: 28px;
+        height: 28px;
+        transition: all 0.2s ease;
     }
 
-    .btn.btn-primary:hover {
-        background-color: var(--org-primary-hover);
-        border-color: var(--org-primary-hover);
+    .archived-graduation-year-group-container .toggle-icon:hover {
+        transform: scale(1.1);
     }
-</style>
-<style>
-    body {
-        font-family: var(--font-family);
-      }
-      
+
+    .archived-graduation-year-group-container .student-list {
+        margin-top: 12px;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 10px;
+    }
+
+    .archived-graduation-year-group-container .student-list li {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        background: #f8fafc;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        transition: all 0.2s ease;
+    }
+
+    .archived-graduation-year-group-container .student-list li:hover {
+        background: #fff;
+        border-color: var(--primary);
+        box-shadow: 0 2px 8px rgba(15, 90, 102, 0.1);
+    }
+
+    .archived-graduation-year-group-container .student-list li a {
+        text-decoration: none;
+        color: var(--text);
+        font-weight: 500;
+        flex: 1;
+    }
+
+    .archived-graduation-year-group-container .student-list li a:hover {
+        color: var(--primary);
+    }
+
+    .archived-graduation-year-group-container .student-list input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+        accent-color: var(--primary);
+    }
+
+    .archived-graduation-year-group-container button[type="submit"] {
+        background: var(--primary);
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: all 0.2s ease;
+        margin-top: 16px;
+        box-shadow: 0 4px 12px rgba(15, 90, 102, 0.2);
+    }
+
+    .archived-graduation-year-group-container button[type="submit"]:hover {
+        background: var(--primary-hover);
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(15, 90, 102, 0.3);
+    }
+
+    .archived-graduation-year-group-container button[type="submit"]:active {
+        transform: translateY(0);
+    }
+
+    @media (max-width: 768px) {
+        .archived-graduation-year-group-container {
+            margin: 12px;
+            padding: 16px;
+        }
+
+        .archived-graduation-year-group-container h1 {
+            font-size: 1.4rem;
+        }
+
+        .archived-graduation-year-group-container .student-list {
+            grid-template-columns: 1fr;
+        }
+    }
 </style>

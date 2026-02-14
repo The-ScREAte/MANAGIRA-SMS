@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email History | Managira</title>
+    <link rel="icon" type="image/png" href="/images/managira.png">
+    <% const backQuery = (classId ? `?classId=${classId}${termId ? `&termId=${termId}` : ''}` : (termId ? `?termId=${termId}` : '')); %>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background: #f4f6f9;
+            color: #1f2933;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 24px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .page-header {
+            background: #fff;
+            padding: 16px 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+
+        h1 {
+            font-size: 22px;
+            color: #0f5a66;
+            font-weight: 700;
+        }
+
+        .back-btn {
+            background: #0f5a66;
+            color: #fff;
+            padding: 8px 16px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .back-btn:hover { background: #0d4d57; }
+
+        .stats-row {
+            width: 100%;
+        }
+        .stat-box {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            text-align: center;
+            margin-bottom: 12px;
+            width: 100%;
+        }
+        .stat-box:last-child {
+            margin-bottom: 0;
+        }
+        .stat-number {
+            font-size: 36px;
+            font-weight: 700;
+            color: #0f5a66;
+            margin-bottom: 4px;
+        }
+        .stat-label {
+            font-size: 13px;
+            color: #5f6a7d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .filters-bar {
+            background: #fff;
+            padding: 16px 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            align-items: flex-start;
+            width: 100%;
+        }
+
+        select, .refresh-btn {
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid #d0d5dd;
+            font-size: 14px;
+            font-family: inherit;
+            width: 100%;
+        }
+        select { background: #f9fafb; color: #1f2933; }
+
+        .refresh-btn {
+            background: #6fd3c4;
+            color: #fff;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .refresh-btn:hover { background: #5bbfb0; }
+
+        .email-list {
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            overflow: hidden;
+            width: 100%;
+        }
+
+        .email-item {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+        }
+        .email-item:last-child { border-bottom: none; }
+        .email-item:hover { background: #f8fafc; }
+
+        .email-info {
+            flex: 1;
+        }
+        .student-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: #1f2933;
+            margin-bottom: 4px;
+        }
+        .email-details {
+            font-size: 13px;
+            color: #5f6a7d;
+        }
+        .recipient-list {
+            font-size: 13px;
+            color: #5f6a7d;
+            margin-top: 4px;
+        }
+
+        .email-status {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .badge-sent { background: #d4edda; color: #155724; }
+        .badge-pending { background: #fff3cd; color: #856404; }
+        .badge-sending { background: #d1ecf1; color: #0c5460; }
+        .badge-failed { background: #f8d7da; color: #721c24; }
+
+        .action-btn {
+            padding: 8px 14px;
+            border-radius: 6px;
+            border: none;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .retry-btn {
+            background: #ffc107;
+            color: #000;
+        }
+        .retry-btn:hover {
+            background: #e0a800;
+        }
+
+        .edit-btn {
+            background: #6c757d;
+            color: #fff;
+        }
+        .edit-btn:hover {
+            background: #5a6268;
+        }
+
+        .empty-state {
+            padding: 48px;
+            text-align: center;
+            color: #5f6a7d;
+        }
+
+        .loading {
+            padding: 32px;
+            text-align: center;
+            color: #5f6a7d;
+        }
+
+        .error-msg {
+            font-size: 12px;
+            color: #d63939;
+            font-style: italic;
+            margin-top: 4px;
+        }
+
+        @media (max-width: 768px) {
+            .page-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+            .email-item { flex-direction: column; align-items: flex-start; }
+            .email-status { width: 100%; justify-content: space-between; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="page-header">
+            <h1>📧 Email History</h1>
+            <a href="/print/printStudentReport<%= backQuery %>" class="back-btn" data-no-spa>← Back to Reports</a>
+        </div>
+
+        <div class="stats-row">
+            <div class="stat-box">
+                <div class="stat-number" id="totalCount">-</div>
+                <div class="stat-label">Total Emails</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number" id="sentCount">-</div>
+                <div class="stat-label">Successfully Sent</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number" id="failedCount">-</div>
+                <div class="stat-label">Failed to Send</div>
+            </div>
+        </div>
+
+        <div class="filters-bar">
+            <select id="classFilter">
+                <option value="">All Classes</option>
+            </select>
+            <select id="termFilter">
+                <option value="">All Terms</option>
+            </select>
+            <select id="statusFilter">
+                <option value="">All Statuses</option>
+                <option value="pending">Pending</option>
+                <option value="sending">Sending</option>
+                <option value="sent">Sent</option>
+                <option value="failed">Failed</option>
+            </select>
+            <button class="refresh-btn" id="refreshBtn">🔄 Refresh</button>
+        </div>
+
+        <div id="loading" class="loading" style="display: none;">Loading email history...</div>
+
+        <div class="email-list" id="emailList">
+            <div class="empty-state">No email history found</div>
+        </div>
+    </div>
+
+    <script>
+        const organizationId = '<%= organizationId %>';
+        const defaultClassId = '<%= classId || "" %>';
+        const defaultTermId = '<%= termId || "" %>';
+        let allEmails = [];
+        
+        // Load email history
+        async function loadHistory() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('emailList').style.display = 'none';
+            
+            try {
+                const classId = document.getElementById('classFilter').value;
+                const termId = document.getElementById('termFilter').value;
+                const status = document.getElementById('statusFilter').value;
+
+                const params = new URLSearchParams();
+                if (classId) params.append('class_id', classId);
+                if (termId) params.append('term_id', termId);
+                const url = params.toString() ? `/print/emailHistory?${params.toString()}` : '/print/emailHistory';
+                
+                const response = await fetch(url);
+                const result = await response.json();
+                
+                if (result.success) {
+                    allEmails = result.data;
+                    
+                    // Apply status filter client-side
+                    const filtered = status ? allEmails.filter(e => e.status === status) : allEmails;
+                    
+                    renderList(filtered);
+                    updateStats(allEmails);
+                } else {
+                    alert('Failed to load email history');
+                }
+            } catch (error) {
+                console.error('Error loading history:', error);
+                alert('Error loading email history');
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('emailList').style.display = 'block';
+            }
+        }
+        
+        // Render email list
+        function renderList(emails) {
+            const list = document.getElementById('emailList');
+            
+            if (!emails || emails.length === 0) {
+                list.innerHTML = '<div class="empty-state">No email history found</div>';
+                return;
+            }
+            
+            list.innerHTML = emails.map(email => {
+                const statusClass = `badge-${email.status}`;
+                const sentDate = email.sent_at ? new Date(email.sent_at).toLocaleString() : 'Not sent yet';
+                
+                let actions = '';
+                if (email.status === 'failed') {
+                    actions = `
+                        <button class="action-btn retry-btn" onclick="retryEmail(${email.id})">🔁 Retry</button>
+                        <button class="action-btn edit-btn" onclick="editEmail(${email.id})">✏️ Edit</button>
+                    `;
+                }
+                
+                return `
+                    <div class="email-item">
+                        <div class="email-info">
+                            <div class="student-name">${email.student_name}</div>
+                            <div class="email-details">
+                                <strong>To:</strong> ${email.recipient_emails.join(', ')}
+                            </div>
+                            <div class="recipient-list">
+                                <strong>Sent:</strong> ${sentDate}
+                                ${email.pdf_generated ? ' • PDF ✅' : ' • PDF ❌'}
+                            </div>
+                            ${email.error_message ? `<div class="error-msg">Error: ${email.error_message}</div>` : ''}
+                        </div>
+                        <div class="email-status">
+                            <span class="badge ${statusClass}">${email.status}</span>
+                            ${actions}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Update stats
+        function updateStats(emails) {
+            const total = emails.length;
+            const sent = emails.filter(e => e.status === 'sent').length;
+            const failed = emails.filter(e => e.status === 'failed').length;
+            
+            document.getElementById('totalCount').textContent = total;
+            document.getElementById('sentCount').textContent = sent;
+            document.getElementById('failedCount').textContent = failed;
+        }
+        
+        // Retry failed email
+        async function retryEmail(emailId) {
+            if (!confirm('Retry sending this email?')) return;
+            
+            try {
+                const response = await fetch('/print/retryEmail', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ emailIds: [emailId] })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(result.message);
+                    loadHistory();
+                } else {
+                    alert('Failed to retry email: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error retrying email:', error);
+                alert('Error retrying email');
+            }
+        }
+
+        // Edit email (placeholder - you can add modal or redirect)
+        function editEmail(emailId) {
+            alert('Edit functionality: You can update recipient emails and resend. Coming soon!');
+            // TODO: Implement edit modal with email update form
+        }
+        
+        // Load classes and terms
+        async function loadFilters() {
+            try {
+                // Load classes
+                const classesResponse = await fetch(`/common/classes/${organizationId}/active`);
+                const classesResult = await classesResponse.json();
+                
+                if (classesResult.success) {
+                    const classFilter = document.getElementById('classFilter');
+                    classFilter.innerHTML = '<option value="">All Classes</option>' +
+                        classesResult.classes.map(c => `<option value="${c.class_id}">${c.class_name}</option>`).join('');
+                    if (defaultClassId) {
+                        classFilter.value = defaultClassId;
+                    }
+                }
+                
+                // Load terms
+                const termsResponse = await fetch(`/common/terms/${organizationId}`);
+                const termsResult = await termsResponse.json();
+                
+                if (termsResult.success) {
+                    const termFilter = document.getElementById('termFilter');
+                    termFilter.innerHTML = '<option value="">All Terms</option>' +
+                        termsResult.terms.map(t => `<option value="${t.term_id}">${t.term_name}</option>`).join('');
+                    if (defaultTermId) {
+                        termFilter.value = defaultTermId;
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading filters:', error);
+            }
+        }
+        
+        // Event listeners
+        document.getElementById('refreshBtn').addEventListener('click', loadHistory);
+        document.getElementById('classFilter').addEventListener('change', loadHistory);
+        document.getElementById('termFilter').addEventListener('change', loadHistory);
+        document.getElementById('statusFilter').addEventListener('change', loadHistory);
+        
+        // Initial load
+        (async () => {
+            await loadFilters();
+            await loadHistory();
+        })();
+    </script>
+</body>
+</html>

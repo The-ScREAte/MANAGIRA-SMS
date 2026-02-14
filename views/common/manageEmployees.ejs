@@ -13,7 +13,7 @@
       --error: #dc2626;
     }
 
-    body {
+    body.manage-employees-page {
       font-family: var(--font-family);
       background: var(--bg-page);
     }
@@ -264,9 +264,10 @@
     }
   </style>
 </head>
-<body class="employees-page">
+<body class="manage-employees-page">
   <%- include('../partials/flash') %>
-  
+  <div class="employees-page">
+
   <a href="/common/management#employees" class="back-link">
     <svg style="width:16px;height:16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
@@ -287,6 +288,7 @@
           <th>Name</th>
           <th>Email</th>
           <th>Role</th>
+          <th>Permissions</th>
           <th>Classes</th>
           <th>Subjects</th>
           <th>Actions</th>
@@ -305,6 +307,26 @@
           <td data-label="Name"><strong><%= employee.first_name %> <%= employee.last_name %></strong></td>
           <td data-label="Email"><%= employee.email %></td>
           <td data-label="Role"><%= employee.account_type %></td>
+          <td data-label="Permissions">
+            <% if (employee.account_type === 'Manager') { %>
+              <span>All Permissions</span>
+            <% } else { %>
+              <button type="button" class="collapsible-btn" onclick="toggleEmployeeCollapse('permissions', '<%= idx %>')">
+                View <span class="arrow" id="arrow-permissions-<%= idx %>">▸</span>
+              </button>
+              <div class="collapsible-content" id="collapse-permissions-<%= idx %>" style="display:none;">
+                <% if ((employee.permissions || []).length > 0) { %>
+                  <ul>
+                    <% (employee.permissions || []).forEach(permissionKey => { %>
+                    <li><%= (permissionLabelMap && permissionLabelMap[permissionKey]) ? permissionLabelMap[permissionKey] : permissionKey %></li>
+                    <% }); %>
+                  </ul>
+                <% } else { %>
+                  <span>None</span>
+                <% } %>
+              </div>
+            <% } %>
+          </td>
           <td data-label="Classes">
             <button type="button" class="collapsible-btn" onclick="toggleEmployeeCollapse('classes', '<%= idx %>')">
               View <span class="arrow" id="arrow-classes-<%= idx %>">▸</span>
@@ -361,4 +383,5 @@
       }
     }
   </script>
+  </div>
 </body>

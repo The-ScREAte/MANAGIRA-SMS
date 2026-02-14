@@ -9,6 +9,7 @@ const PDFDocument = require("pdfkit");
 const { uploadToS3, deleteFromS3 } = require("../config/s3");
 const he = require("he");
 const cacheManager = require("../utils/cacheManager");
+const { sendEmailSafely, renderCleanEmail } = require("../utils/emailHelper");
 
 const adminController = {
   adminDashboard: async (req, res) => {
@@ -566,40 +567,24 @@ const adminController = {
         [threadIdInt, "Admin", process.env.EMAIL_USER, response]
       );
 
-      // Send email notification to the customer
-      const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST, // e.g., smtp.gmail.com, smtp.zoho.com
-        port: parseInt(process.env.SMTP_PORT), // usually 465 or 587
-        secure: process.env.SMTP_SECURE === "true", // true for 465, false for 587
-        auth: {
-          user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-          pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-        },
+      const html = renderCleanEmail({
+        title: "Support Ticket Response",
+        greeting: `Dear <strong>${he.encode(thread.name)}</strong>,`,
+        paragraphs: [
+          `Our team has responded to your support ticket (#${threadIdInt}).`,
+        ],
+        details: [
+          { label: "Ticket Number", value: `#${threadIdInt}` },
+          { label: "Response", value: response },
+        ],
+        note: 'If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
       });
 
       const mailOptions = {
         from: process.env.NOTIFY_EMAIL_USER,
         to: thread.email,
         subject: `Response to Support Ticket #${threadIdInt}`,
-        html: `
-  <div style="background:#f4fbfa;padding:40px 0;">
-              <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px #b2e2d6;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
-              <div style="background:#6fd3c4;padding:24px 0 24px 32px;display:flex;align-items:center;">
-                <img src="cid:managira_logo" alt="Managira Logo" style="height:60px;display:block;">
-              </div>
-              <div style="padding:36px 32px 32px 32px;">
-                <div style="color:#6fd3c4;font-size:24px;font-weight:600;margin-bottom:16px;letter-spacing:1px;">Support Ticket Response</div>
-                <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Dear <b>${thread.name}</b>,</p>
-                <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Our team has responded to your support ticket (#${threadIdInt}):</p>
-                <blockquote style="background:#e6f7ec;padding:16px 20px;border-radius:8px;margin:18px 0 18px 0;font-size:15px;color:#222;">${response}</blockquote>
-                <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Best regards,<br>Support Team</p>
-                <p style="margin-top:18px;font-size:15px;">If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">FAQ page</a>.</p>
-                <p style="color:#b80000;font-size:16px;font-weight:bold;margin-top:32px;text-align:center;letter-spacing:1px;">THIS IS A NO-REPLY MESSAGE. PLEASE DO NOT REPLY TO THIS EMAIL.</p>
-              </div>
-              <div style="background:#e6f7ec;color:#888;text-align:center;padding:18px 0;font-size:13px;">&copy; ${new Date().getFullYear()} Managira. All rights reserved.</div>
-            </div>
-          </div>
-        `,
+        html,
         attachments: [
           {
             filename: 'managira.png',
@@ -609,14 +594,9 @@ const adminController = {
         ]
       };
 
-      transporter.sendMail(mailOptions, (error) => {
-        if (error) {
-          req.flash("error", "Failed to send response email.");
-        } else {
-          req.flash("success", "Response sent and saved successfully.");
-        }
-        res.redirect("/admin/helpMessages");
-      });
+      const sent = await sendEmailSafely(mailOptions, "Admin Support Response Email");
+      req.flash(sent ? "success" : "error", sent ? "Response sent and saved successfully." : "Response saved, but failed to send email.");
+      res.redirect("/admin/helpMessages");
     } catch (error) {
             req.flash("error", "Failed to process the response.");
       res.redirect("/admin/helpMessages");
@@ -653,40 +633,21 @@ const adminController = {
         [threadIdInt]
       );
 
-      // Send email notification
-      const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST, // e.g., smtp.gmail.com, smtp.zoho.com
-        port: parseInt(process.env.SMTP_PORT), // usually 465 or 587
-        secure: process.env.SMTP_SECURE === "true", // true for 465, false for 587
-        auth: {
-          user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-          pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-        },
+      const html = renderCleanEmail({
+        title: "Support Ticket Resolved",
+        greeting: `Dear <strong>${he.encode(thread.name)}</strong>,`,
+        paragraphs: [
+          `We are pleased to inform you that your support ticket (#${threadIdInt}) has been resolved.`,
+          "If you have any further questions, please reach out to us.",
+        ],
+        note: 'If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
       });
 
       const mailOptions = {
         from: process.env.NOTIFY_EMAIL_USER,
         to: thread.email,
         subject: `Your Support Ticket #${threadIdInt} Has Been Resolved`,
-        html: `
-  <div style="background:#f4fbfa;padding:40px 0;">
-              <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px #b2e2d6;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
-              <div style="background:#6fd3c4;padding:24px 0 24px 32px;display:flex;align-items:center;">
-                <img src="cid:managira_logo" alt="Managira Logo" style="height:60px;display:block;">
-              </div>
-              <div style="padding:36px 32px 32px 32px;">
-                <div style="color:#6fd3c4;font-size:24px;font-weight:600;margin-bottom:16px;letter-spacing:1px;">Support Ticket Resolved</div>
-                <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Dear <b>${thread.name}</b>,</p>
-                <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">We are pleased to inform you that your support ticket (Ticket Number: #${threadIdInt}) has been resolved.</p>
-                <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">If you have any further questions or concerns, please feel free to reach out to us.</p>
-                <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Best regards,<br>Support Team</p>
-                <p style="margin-top:18px;font-size:15px;">If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">FAQ page</a>.</p>
-                <p style="color:#b80000;font-size:16px;font-weight:bold;margin-top:32px;text-align:center;letter-spacing:1px;">THIS IS A NO-REPLY MESSAGE. PLEASE DO NOT REPLY TO THIS EMAIL.</p>
-              </div>
-              <div style="background:#e6f7ec;color:#888;text-align:center;padding:18px 0;font-size:13px;">&copy; ${new Date().getFullYear()} Managira. All rights reserved.</div>
-            </div>
-          </div>
-        `,
+        html,
         attachments: [
           {
             filename: 'managira.png',
@@ -696,17 +657,9 @@ const adminController = {
         ]
       };
 
-      transporter.sendMail(mailOptions, (error, info) => {
-        if (error) {
-                    req.flash("error", "Failed to send resolved notification email.");
-        } else {
-          req.flash(
-            "success",
-            "Ticket marked as closed and an email notification was sent."
-          );
-        }
-        res.redirect("/admin/helpMessages");
-      });
+      const sent = await sendEmailSafely(mailOptions, "Admin Ticket Resolved Email");
+      req.flash(sent ? "success" : "error", sent ? "Ticket marked as closed and an email notification was sent." : "Ticket marked as closed, but failed to send notification email.");
+      res.redirect("/admin/helpMessages");
     } catch (error) {
             req.flash("error", "Failed to mark as closed.");
       res.redirect("/admin/helpMessages");
@@ -765,40 +718,20 @@ const adminController = {
         [threadIdInt]
       );
 
-      // Send email notification
-      const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST, // e.g., smtp.gmail.com, smtp.zoho.com
-        port: parseInt(process.env.SMTP_PORT), // usually 465 or 587
-        secure: process.env.SMTP_SECURE === "true", // true for 465, false for 587
-        auth: {
-          user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-          pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-        },
+      const html = renderCleanEmail({
+        title: "Support Ticket Reopened",
+        greeting: `Dear <strong>${he.encode(thread.name)}</strong>,`,
+        paragraphs: [
+          `Your support ticket (#${threadIdInt}) has been reopened. Our team is actively working on your concern and will update you shortly.`,
+        ],
+        note: 'If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
       });
 
       const mailOptions = {
         from: process.env.NOTIFY_EMAIL_USER,
         to: thread.email,
         subject: `Your Support Ticket #${threadIdInt} Has Been Reopened`,
-        html: `
-  <div style="background:#f4fbfa;padding:40px 0;">
-              <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px #b2e2d6;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
-              <div style="background:#6fd3c4;padding:24px 0 24px 32px;display:flex;align-items:center;">
-                <img src="cid:managira_logo" alt="Managira Logo" style="height:60px;display:block;">
-              </div>
-              <div style="padding:36px 32px 32px 32px;">
-                <div style="color:#6fd3c4;font-size:24px;font-weight:600;margin-bottom:16px;letter-spacing:1px;">Support Ticket Reopened</div>
-                <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Dear <b>${thread.name}</b>,</p>
-                <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Your support ticket (Ticket Number: #${threadIdInt}) has been reopened. Our team is actively working on your concerns, and we will update you shortly.</p>
-                <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">If you have additional information to share, please reply to this email.</p>
-                <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Best regards,<br>Support Team</p>
-                <p style="margin-top:18px;font-size:15px;">If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">FAQ page</a>.</p>
-                <p style="color:#b80000;font-size:16px;font-weight:bold;margin-top:32px;text-align:center;letter-spacing:1px;">THIS IS A NO-REPLY MESSAGE. PLEASE DO NOT REPLY TO THIS EMAIL.</p>
-              </div>
-              <div style="background:#e6f7ec;color:#888;text-align:center;padding:18px 0;font-size:13px;">&copy; ${new Date().getFullYear()} Managira. All rights reserved.</div>
-            </div>
-          </div>
-        `,
+        html,
         attachments: [
           {
             filename: 'managira.png',
@@ -808,17 +741,9 @@ const adminController = {
         ]
       };
 
-      transporter.sendMail(mailOptions, (error, info) => {
-        if (error) {
-                    req.flash("error", "Failed to send reopened notification email.");
-        } else {
-          req.flash(
-            "success",
-            "Ticket reopened and an email notification was sent."
-          );
-        }
-        res.redirect("/admin/helpHistory");
-      });
+      const sent = await sendEmailSafely(mailOptions, "Admin Ticket Reopened Email");
+      req.flash(sent ? "success" : "error", sent ? "Ticket reopened and an email notification was sent." : "Ticket reopened, but failed to send notification email.");
+      res.redirect("/admin/helpHistory");
     } catch (error) {
             req.flash("error", "Failed to reopen the thread.");
       res.redirect("/admin/helpHistory");
@@ -1613,36 +1538,15 @@ async function sendEmailNotification(to, subject, text) {
 }
 
 async function sendAdminInviteEmail(email, firstName, lastName, link) {
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT),
-    secure: process.env.SMTP_SECURE === "true",
-    auth: {
-      user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-      pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-    },
+  const html = renderCleanEmail({
+    title: "You're Invited to Join as Admin",
+    greeting: `Hello <strong>${he.encode(firstName)} ${he.encode(lastName)}</strong>,`,
+    paragraphs: [
+      "Managira is inviting you to join as an admin. Use the button below to set your password.",
+    ],
+    cta: { text: "Accept Invite & Set Password", url: he.encode(link) },
+    note: 'This link will expire in 24 hours. For help, visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
   });
-  const html = `
-  <div style="background:#f4fbfa;padding:40px 0;">
-        <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px #b2e2d6;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
-        <div style="background:#6fd3c4;padding:24px 0 24px 32px;display:flex;align-items:center;">
-          <img src="cid:managira_logo" alt="Managira Logo" style="height:60px;display:block;">
-        </div>
-        <div style="padding:36px 32px 32px 32px;">
-          <div style="color:#6fd3c4;font-size:24px;font-weight:600;margin-bottom:16px;letter-spacing:1px;">You're Invited to Join as Admin</div>
-          <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Hello <b>${he.encode(firstName)} ${he.encode(lastName)}</b>,</p>
-          <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Managira is inviting you to join as an admin. Please click the button below to set your password:</p>
-          <div style="margin:24px 0;">
-            <a href="${he.encode(link)}" style="background:#6fd3c4;color:#fff;padding:12px 32px;border-radius:6px;text-decoration:none;font-size:16px;font-weight:600;box-shadow:0 2px 8px #b2e2d6;">Accept Invite & Set Password</a>
-          </div>
-          <p style="font-size:15px;margin-top:18px;">This link will expire in 24 hours.</p>
-          <p style="margin-top:18px;font-size:15px;">If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">FAQ page</a>.</p>
-          <p style="color:#b80000;font-size:16px;font-weight:bold;margin-top:32px;text-align:center;letter-spacing:1px;">THIS IS A NO-REPLY MESSAGE. PLEASE DO NOT REPLY TO THIS EMAIL.</p>
-        </div>
-        <div style="background:#e6f7ec;color:#888;text-align:center;padding:18px 0;font-size:13px;">&copy; ${new Date().getFullYear()} Managira. All rights reserved.</div>
-      </div>
-    </div>
-  `;
   const mailOptions = {
     from: process.env.NOTIFY_EMAIL_USER,
     to: email,
@@ -1656,40 +1560,20 @@ async function sendAdminInviteEmail(email, firstName, lastName, link) {
       }
     ]
   };
-  await transporter.sendMail(mailOptions);
+  await sendEmailSafely(mailOptions, "Admin Invite Email");
 }
 
 async function sendPasswordSetSuccessEmail(email, firstName, lastName) {
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT),
-    secure: process.env.SMTP_SECURE === "true",
-    auth: {
-      user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-      pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-    },
+  const html = renderCleanEmail({
+    title: "Password Set Successfully",
+    greeting: `Hello <strong>${he.encode(firstName)} ${he.encode(lastName)}</strong>,`,
+    paragraphs: [
+      "Your password has been set successfully. You can now log in to Managira using your email and new password.",
+      "If you did not perform this action, please contact your administrator immediately.",
+    ],
+    cta: { text: "Log in to Managira", url: "https://www.managira.com/account/login" },
+    note: 'If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
   });
-  const html = `
-  <div style="background:#f4fbfa;padding:40px 0;">
-        <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px #b2e2d6;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
-        <div style="background:#6fd3c4;padding:24px 0 24px 32px;display:flex;align-items:center;">
-          <img src="cid:managira_logo" alt="Managira Logo" style="height:60px;display:block;">
-        </div>
-        <div style="padding:36px 32px 32px 32px;">
-          <div style="color:#6fd3c4;font-size:24px;font-weight:600;margin-bottom:16px;letter-spacing:1px;">Password Set Successfully</div>
-          <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Hello <b>${he.encode(firstName)} ${he.encode(lastName)}</b>,</p>
-          <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Your password has been set successfully! You can now log in to Managira using your email and the newly created password:</p>
-          <div style="margin:24px 0;">
-            <a href="https://www.managira.com/account/login" style="background:#6fd3c4;color:#fff;padding:12px 32px;border-radius:6px;text-decoration:none;font-size:16px;font-weight:600;box-shadow:0 2px 8px #b2e2d6;">Log in to Managira</a>
-          </div>
-          <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">If you didn't perform this action, please contact your administrator immediately.</p>
-          <p style="margin-top:18px;font-size:15px;">If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener" style="color:#1ca34a;font-weight:500;">FAQ page</a>.</p>
-          <p style="color:#b80000;font-size:16px;font-weight:bold;margin-top:32px;text-align:center;letter-spacing:1px;">THIS IS A NO-REPLY MESSAGE. PLEASE DO NOT REPLY TO THIS EMAIL.</p>
-        </div>
-        <div style="background:#e6f7ec;color:#888;text-align:center;padding:18px 0;font-size:13px;">&copy; ${new Date().getFullYear()} Managira. All rights reserved.</div>
-      </div>
-    </div>
-  `;
   const mailOptions = {
     from: process.env.NOTIFY_EMAIL_USER,
     to: email,
@@ -1703,7 +1587,7 @@ async function sendPasswordSetSuccessEmail(email, firstName, lastName) {
       }
     ]
   };
-  await transporter.sendMail(mailOptions);
+  await sendEmailSafely(mailOptions, "Admin Password Success Email");
 }
 
 // =====================================================
@@ -1753,7 +1637,20 @@ adminController.hubCreateGet = async (req, res) => {
 
 // Create hub
 adminController.hubCreatePost = async (req, res) => {
-  const { hubName, hubNickname, hubEmail, firstName, lastName, hubPhone, hubAddress, planId, maxOrganizations, hubFooterText } = req.body;
+  const {
+    hubName,
+    hubNickname,
+    hubEmail,
+    firstName,
+    lastName,
+    hubPhone,
+    hubAddress,
+    planId,
+    maxOrganizations,
+    hubFooterText,
+    contractStartDate,
+    contractEndDate,
+  } = req.body;
 
   try {
     // Validate required fields
@@ -1797,11 +1694,14 @@ adminController.hubCreatePost = async (req, res) => {
     const result = await db.query(
       `INSERT INTO managira_hubs 
        (hub_name, hub_nickname, hub_email, first_name, last_name, hub_phone, hub_address, 
-        plan_id, max_organizations, hub_footer_text, reset_password_token, reset_password_expires, created_by_admin_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        plan_id, max_organizations, hub_footer_text, contract_start_date, contract_end_date,
+        reset_password_token, reset_password_expires, created_by_admin_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
        RETURNING hub_id`,
       [hubName, hubNickname, hubEmail, firstName, lastName, hubPhone, hubAddress, 
-       planId || null, maxOrganizations || 5, hubFooterText || '', hashedToken, tokenExpiration, req.session.userId]
+       planId || null, maxOrganizations || 5, hubFooterText || '',
+       contractStartDate || null, contractEndDate || null,
+       hashedToken, tokenExpiration, req.session.userId]
     );
 
     const hubId = result.rows[0].hub_id;
@@ -1810,57 +1710,40 @@ adminController.hubCreatePost = async (req, res) => {
     const baseUrl = req.protocol + '://' + req.get('host');
     const setupUrl = `${baseUrl}/hub/setup-password?token=${token}`;
 
-    const emailHtml = `
-      <div style="background:#f4fbfa;padding:40px 0;">
-        <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px #b2e2d6;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
-          <div style="background:#6fd3c4;padding:24px 0 24px 32px;display:flex;align-items:center;">
-            <img src="cid:managira_logo" alt="Managira Logo" style="height:60px;display:block;">
-          </div>
-          <div style="padding:36px 32px 32px 32px;">
-            <div style="color:#6fd3c4;font-size:24px;font-weight:600;margin-bottom:16px;letter-spacing:1px;">Welcome to Managira Hub</div>
-            <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Dear <b>${firstName} ${lastName}</b>,</p>
-            <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">Your Managira Hub <b>${hubName}</b> has been created successfully!</p>
-            <p style="font-size:16px;line-height:1.6;margin-bottom:18px;">To get started, please set up your password by clicking the button below:</p>
-            <div style="text-align:center;margin:32px 0;">
-              <a href="${setupUrl}" style="display:inline-block;padding:14px 32px;background:#6fd3c4;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:16px;">Set Up Password</a>
-            </div>
-            <p style="font-size:14px;color:#666;margin-bottom:18px;">Or copy this link: <br><span style="color:#1ca34a;">${setupUrl}</span></p>
-            <p style="font-size:16px;line-height:1.6;margin-bottom:18px;"><strong>Hub Details:</strong></p>
-            <ul style="font-size:15px;line-height:1.8;color:#444;">
-              <li>Hub Name: ${hubName}</li>
-              <li>Hub Nickname: ${hubNickname}</li>
-              <li>Hub Login: ${baseUrl}/hub/login</li>
-              <li>Email: ${hubEmail}</li>
-              <li>Max Organizations: ${maxOrganizations || 5}</li>
-            </ul>
-            <p style="font-size:14px;color:#d97706;margin-top:24px;"><strong>Note:</strong> This link will expire in 7 days. Please complete your setup before then.</p>
-            <p style="color:#b80000;font-size:16px;font-weight:bold;margin-top:32px;text-align:center;letter-spacing:1px;">THIS IS A NO-REPLY MESSAGE. PLEASE DO NOT REPLY TO THIS EMAIL.</p>
-          </div>
-          <div style="background:#e6f7ec;color:#888;text-align:center;padding:18px 0;font-size:13px;">&copy; ${new Date().getFullYear()} Managira. All rights reserved.</div>
-        </div>
-      </div>
-    `;
-
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT),
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: {
-        user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-        pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-      },
+    const emailHtml = renderCleanEmail({
+      title: 'Welcome to Managira Hub',
+      greeting: `Dear ${firstName} ${lastName},`,
+      intro: `Your Managira Hub ${hubName} has been created successfully.`,
+      message: 'To get started, please set up your password using the button below.',
+      actionUrl: setupUrl,
+      actionText: 'Set Up Password',
+      details: [
+        `Hub Name: ${hubName}`,
+        `Hub Nickname: ${hubNickname}`,
+        `Hub Login: ${baseUrl}/hub/login`,
+        `Email: ${hubEmail}`,
+        `Max Organizations: ${maxOrganizations || 5}`,
+        `Contract Start: ${contractStartDate || 'Not set'}`,
+        `Contract End: ${contractEndDate || 'Not set'}`,
+      ],
+      note: 'This setup link expires in 7 days. Please complete setup before then.',
+      closing: 'This is a no-reply message. Please do not reply to this email.',
     });
 
-    await transporter.sendMail({
-      from: process.env.NOTIFY_EMAIL_USER,
+    await sendEmailSafely({
+      smtpConfig: {
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT),
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: {
+          user: process.env.ADMIN_NOTIFY_EMAIL_USER,
+          pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
+        },
+      },
       to: hubEmail,
       subject: 'Welcome to Managira Hub - Set Up Your Password',
       html: emailHtml,
-      attachments: [{
-        filename: 'managira.png',
-        path: path.join(__dirname, '../public/images/managira.png'),
-        cid: 'managira_logo'
-      }]
+      from: process.env.NOTIFY_EMAIL_USER,
     });
 
     req.flash('success', 'Hub created successfully! Setup instructions sent to the hub email.');
@@ -1904,7 +1787,20 @@ adminController.hubEditGet = async (req, res) => {
 // Update hub
 adminController.hubEditPost = async (req, res) => {
   const { hubId } = req.params;
-  const { hubName, hubNickname, firstName, lastName, hubPhone, hubAddress, planId, maxOrganizations, hubFooterText, hubBrandingEnabled } = req.body;
+  const {
+    hubName,
+    hubNickname,
+    firstName,
+    lastName,
+    hubPhone,
+    hubAddress,
+    planId,
+    maxOrganizations,
+    hubFooterText,
+    hubBrandingEnabled,
+    contractStartDate,
+    contractEndDate,
+  } = req.body;
 
   try {
     // Check if nickname is taken by another hub
@@ -1922,11 +1818,12 @@ adminController.hubEditPost = async (req, res) => {
       `UPDATE managira_hubs 
        SET hub_name = $1, hub_nickname = $2, first_name = $3, last_name = $4, 
            hub_phone = $5, hub_address = $6, plan_id = $7, max_organizations = $8, 
-           hub_footer_text = $9, hub_branding_enabled = $10, updated_at = NOW()
-       WHERE hub_id = $11`,
+           hub_footer_text = $9, hub_branding_enabled = $10,
+           contract_start_date = $11, contract_end_date = $12, updated_at = NOW()
+      WHERE hub_id = $13`,
       [hubName, hubNickname, firstName, lastName, hubPhone, hubAddress, 
-       planId || null, maxOrganizations || 5, hubFooterText || '', 
-       hubBrandingEnabled === 'on', hubId]
+         planId || null, maxOrganizations || 5, hubFooterText || '',
+         hubBrandingEnabled === 'on', contractStartDate || null, contractEndDate || null, hubId]
     );
 
     req.flash('success', 'Hub updated successfully.');

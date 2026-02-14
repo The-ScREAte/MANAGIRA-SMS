@@ -63,5 +63,20 @@ module.exports = (db) => {
     guardianController.reportReplyPost(req, res, db)
   );
 
+  // Pending student management routes
+  router.get("/edit-pending-student", isGuardianAuthenticated, (req, res) =>
+    guardianController.editPendingStudentGet(req, res, db)
+  );
+
+  router.post("/edit-pending-student", 
+    isGuardianAuthenticated,
+    upload.single('studentImage'),
+    (req, res) => guardianController.editPendingStudentPost(req, res, db)
+  );
+
+  router.post("/withdraw-pending-student", isGuardianAuthenticated, (req, res) =>
+    guardianController.withdrawPendingStudent(req, res, db)
+  );
+
   return router;
 };

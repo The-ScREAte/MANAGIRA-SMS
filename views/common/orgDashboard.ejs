@@ -102,14 +102,19 @@
                       </span>
                     </div>
                     <div class="teachers-list" id="teachers-<%= clsIndex %>" style="display: none;">
-                      <% cls.employees.forEach(function(emp, index) { %>
-                        <div class="teacher-entry">
-                          <% if (emp.main) { %><span class="main" title="Main teacher">•</span><% } %>
-                          <% if (emp.reset_password_token) { %><span class="yellow-dot" title="Has not set password">•</span><% } %>
-                          <% if (emp.on_hold) { %><span class="on-hold" title="On hold">•</span><% } %>
-                          <%= emp.name %>
-                        </div>
-                      <% }); %>
+                      <% const validEmployees = (cls.employees || []).filter(emp => emp && emp.name && String(emp.name).trim()); %>
+                      <% if (validEmployees.length > 0) { %>
+                        <% validEmployees.forEach(function(emp) { %>
+                          <div class="teacher-entry">
+                            <% if (emp.main) { %><span class="main" title="Main teacher">•</span><% } %>
+                            <% if (emp.reset_password_token) { %><span class="yellow-dot" title="Has not set password">•</span><% } %>
+                            <% if (emp.on_hold) { %><span class="on-hold" title="On hold">•</span><% } %>
+                            <%= emp.name %>
+                          </div>
+                        <% }); %>
+                      <% } else { %>
+                        <div class="teacher-entry">No teacher</div>
+                      <% } %>
                     </div>
                   </li>
                 <% }); %>

@@ -74,23 +74,27 @@
         }
 
         .header {
-            display: flex;
-            justify-content: space-between;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
             align-items: center;
+            gap: 14px;
             margin-bottom: 13px;
-            text-align: center;
             padding-bottom: 10px;
             border-bottom: 3px solid var(--primary);
+            width: 100%;
         }
 
         .header img.logo,
         .header img.student-image {
-            width: 55px;
-            height: 60px;
+            width: 58px;
+            height: 62px;
             object-fit: cover;
-            border-radius: 8px;
+            border-radius: 10px;
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
         }
+
+        .header .logo { justify-self: start; }
+        .header .student-image { justify-self: end; }
 
         .header h1,
         .header h2,
@@ -473,8 +477,8 @@
                 min-height: auto;
             }
 
-            .student-report:last-of-type {
-                page-break-after: avoid;
+            .student-report.last-report {
+                page-break-after: avoid !important;
             }
 
             /* Hide watermark img in screen but show in print */
@@ -494,8 +498,10 @@
 
             .student-report-background {
                 page-break-inside: avoid;
-                width: 100%;
+                width: 100% !important;
+                max-width: 100% !important;
                 overflow: visible;
+                box-sizing: border-box !important;
             }
 
             /* Hide non-printable elements */
@@ -510,27 +516,29 @@
 
             /* Header optimization */
             .header {
-                display: flex;
-                justify-content: space-between;
+                display: grid;
+                grid-template-columns: auto 1fr auto;
                 align-items: center;
+                gap: 14px;
                 margin-bottom: 10px;
                 padding-bottom: 8px;
                 border-bottom: 2px solid var(--primary);
                 width: 100%;
-                text-align: center;
             }
 
             .header img.logo,
             .header img.student-image {
-                width: 50px;
-                height: 55px;
+                width: 54px;
+                height: 58px;
                 object-fit: cover;
-                border-radius: 8px;
+                border-radius: 10px;
                 flex-shrink: 0;
             }
 
+            .header .logo { justify-self: start; }
+            .header .student-image { justify-self: end; }
+
             .header .school-info {
-                flex-grow: 1;
                 text-align: center;
             }
 
@@ -549,21 +557,55 @@
             .info,
             .subjects,
             .attendance-info {
-                width: 100%;
+                width: 100% !important;
+                max-width: 100% !important;
+                box-sizing: border-box !important;
+                display: block !important;
+                margin-bottom: 10px !important;
             }
 
             .info table,
             .subjects table,
             .attendance-info table {
                 width: 100% !important;
+                max-width: 100% !important;
+                min-width: 100% !important;
                 margin-bottom: 10px;
                 font-size: 11px;
                 border-collapse: collapse;
-                table-layout: fixed;
+                table-layout: auto;
+                box-sizing: border-box !important;
+                display: table !important;
+            }
+
+            .info table tbody,
+            .subjects table tbody {
+                width: 100% !important;
+                display: table-row-group !important;
+            }
+
+            .info table tr {
+                width: 100% !important;
+                display: table-row !important;
             }
 
             .info table td {
-                width: 25%;
+                word-break: break-word;
+                box-sizing: border-box !important;
+                padding: 5px 6px !important;
+                display: table-cell !important;
+            }
+
+            .info table td:nth-child(1),
+            .info table td:nth-child(3) {
+                width: 20% !important;
+                font-weight: 600;
+                color: #333;
+            }
+
+            .info table td:nth-child(2),
+            .info table td:nth-child(4) {
+                width: 30% !important;
             }
 
             th, td {
@@ -730,7 +772,31 @@
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+                        position: sticky;
+                        top: 0;
+                        z-index: 20;
           }
+                    .actions-menu-toggle {
+                        display: none;
+                        background: #0f5a66;
+                        color: #fff;
+                        border: none;
+                        border-radius: 6px;
+                        padding: 10px 14px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+                    }
+                    .actions-menu-toggle:focus { outline: 2px solid var(--primary); }
+
+                    /* history button theme */
+                    .history-btn {
+                        background: linear-gradient(135deg, #39404f, #59657a);
+                        border: 1px solid #39404f;
+                    }
+                    .history-btn:hover {
+                        background: linear-gradient(135deg, #2f3542, #4a5568);
+                    }
           
           .actions-left,
           .actions-right {
@@ -759,6 +825,391 @@
             cursor: pointer;
             transform: translateY(-1px);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+          }
+
+                    @media (max-width: 768px) {
+                        .actions-no-print {
+                            flex-direction: column;
+                            align-items: flex-start;
+                            gap: 12px;
+                        }
+                        .actions-menu-toggle {
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 6px;
+                        }
+                        .actions-no-print.collapsed .actions-left,
+                        .actions-no-print.collapsed .actions-right {
+                            display: none;
+                        }
+                        .actions-left,
+                        .actions-right {
+                            width: 100%;
+                        }
+                        .actions-no-print a {
+                            width: 100%;
+                            text-align: center;
+                        }
+                        .search-box input {
+                            width: 100% !important;
+                        }
+                    }
+
+                    .email-btn {
+                        background: linear-gradient(135deg, #1f8f5f, #27ae60);
+                        border: 1px solid #1e8b58;
+                        box-shadow: 0 6px 14px rgba(39, 174, 96, 0.22);
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 8px;
+                    }
+
+                    .email-btn .icon {
+                        font-size: 16px;
+                    }
+
+                    .email-btn:hover {
+                        background: linear-gradient(135deg, #1b7c52, #219653);
+                        box-shadow: 0 10px 18px rgba(39, 174, 96, 0.3);
+                    }
+
+                    .email-modal-overlay {
+                        display: none;
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: rgba(0, 0, 0, 0.55);
+                        z-index: 99999;
+                        justify-content: center;
+                        align-items: center;
+                        padding: 20px;
+                        box-sizing: border-box;
+                    }
+
+                    .email-modal-card {
+                        background: #fff;
+                        border-radius: 14px;
+                        max-width: 720px;
+                        width: 100%;
+                        max-height: 85vh;
+                        overflow-y: auto;
+                        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                        border: 1px solid #e9ecef;
+                    }
+
+                    .email-modal-header {
+                        padding: 24px 32px 20px 32px;
+                        border-bottom: 2px solid var(--primary);
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        gap: 16px;
+                    }
+
+                    .email-modal-title {
+                        margin: 0;
+                        color: var(--primary);
+                        font-size: 19px;
+                        font-weight: 700;
+                        line-height: 1.2;
+                    }
+
+                    .email-modal-subtitle {
+                        margin: 0 0 4px 0;
+                        font-size: 13px;
+                        color: #6c757d;
+                    }
+
+                    .email-close-btn {
+                        background: #f1f3f5;
+                        border: 1px solid #e0e0e0;
+                        color: #6c757d;
+                        border-radius: 50%;
+                        width: 38px;
+                        height: 38px;
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 18px;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                    }
+
+                    .email-close-btn:hover {
+                        background: #e9ecef;
+                        color: #343a40;
+                        transform: translateY(-1px);
+                    }
+
+                    .email-modal-body {
+                        padding: 28px 32px 28px 32px;
+                        display: flex;
+                        flex-direction: column;
+                        gap: 24px;
+                    }
+
+                    .email-hint {
+                        background: linear-gradient(135deg, #e8f5e9, #f1f8f4);
+                        border: 1px solid #a5d6a7;
+                        color: #2e7d32;
+                        padding: 16px 20px;
+                        border-radius: 10px;
+                        font-size: 13.5px;
+                        display: flex;
+                        align-items: center;
+                        gap: 12px;
+                        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+                        line-height: 1.6;
+                    }
+
+                    .email-hint::before {
+                        content: 'ℹ️';
+                        font-size: 16px;
+                    }
+
+                    .email-hint strong {
+                        color: #1b5e20;
+                        font-weight: 700;
+                    }
+
+                    .email-student-list {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 16px;
+                    }
+
+                    .email-student-row {
+                        border: 1px solid #e0e4e8;
+                        border-radius: 12px;
+                        padding: 20px 24px;
+                        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+                        background: #ffffff;
+                        transition: all 0.2s ease;
+                    }
+
+                    .email-student-row:hover {
+                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+                        border-color: var(--primary);
+                    }
+
+                    .email-student-header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 16px;
+                        padding-bottom: 12px;
+                        border-bottom: 1px solid #f0f1f3;
+                    }
+
+                    .email-student-name {
+                        font-size: 16px;
+                        font-weight: 700;
+                        color: #1a202c;
+                        margin-bottom: 4px;
+                    }
+
+                    .email-student-meta {
+                        font-size: 13px;
+                        color: #718096;
+                        font-weight: 500;
+                    }
+
+                    .email-add-btn {
+                        background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        padding: 8px 16px;
+                        cursor: pointer;
+                        font-size: 13px;
+                        font-weight: 600;
+                        transition: all 0.2s ease;
+                        height: 36px;
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 6px;
+                        white-space: nowrap;
+                        box-shadow: 0 2px 6px rgba(0, 123, 255, 0.2);
+                    }
+
+                    .email-add-btn:hover {
+                        transform: translateY(-1px);
+                        box-shadow: 0 4px 10px rgba(0, 123, 255, 0.3);
+                    }
+
+                    .email-add-btn::before {
+                        content: '+';
+                        font-size: 16px;
+                        font-weight: 700;
+                    }
+
+                    .email-fields {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 14px;
+                    }
+
+                    .email-field-row {
+                        display: flex;
+                        gap: 12px;
+                        align-items: center;
+                    }
+
+                    .email-input {
+                        flex: 1;
+                        padding: 11px 14px;
+                        border: 2px solid #e2e8f0;
+                        border-radius: 8px;
+                        font-size: 14px;
+                        box-sizing: border-box;
+                        height: 44px;
+                        transition: all 0.2s ease;
+                        background: #ffffff;
+                    }
+
+                    .email-input:focus {
+                        outline: none;
+                        border-color: var(--primary);
+                        box-shadow: 0 0 0 3px var(--org-primary-light);
+                        background: #fafbfc;
+                    }
+
+                    .email-input::placeholder {
+                        color: #a0aec0;
+                        font-size: 12px;
+                    }
+
+                    .email-remove-btn {
+                        background: linear-gradient(135deg, #e74c3c, #c0392b);
+                        color: #fff;
+                        border: none;
+                        border-radius: 8px;
+                        padding: 0;
+                        cursor: pointer;
+                        font-size: 16px;
+                        transition: all 0.2s ease;
+                        height: 44px;
+                        width: 44px;
+                        min-width: 44px;
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-weight: 700;
+                        box-shadow: 0 2px 6px rgba(231, 76, 60, 0.2);
+                    }
+
+                    .email-remove-btn:hover {
+                        background: linear-gradient(135deg, #c0392b, #a93226);
+                        transform: translateY(-1px);
+                        box-shadow: 0 4px 10px rgba(231, 76, 60, 0.3);
+                    }
+
+                    .email-password {
+                        border-top: 2px solid #e9ecef;
+                        padding-top: 24px;
+                        margin-top: 8px;
+                    }
+
+                    .email-password label {
+                        font-weight: 700;
+                        font-size: 14px;
+                        color: #2d3748;
+                        display: block;
+                        margin-bottom: 10px;
+                    }
+
+                    .email-password input {
+                        width: 100%;
+                        padding: 11px 14px;
+                        border: 1px solid #d1d5db;
+                        border-radius: 8px;
+                        font-size: 14px;
+                        box-sizing: border-box;
+                        height: 42px;
+                        transition: all 0.2s ease;
+                    }
+
+                    .email-password input:focus {
+                        outline: none;
+                        border-color: var(--primary);
+                        box-shadow: 0 0 0 3px var(--org-primary-light);
+                        background-color: #fafbfc;
+                    }
+
+                    .email-footer {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        gap: 16px;
+                        flex-wrap: wrap;
+                        margin-top: 12px;
+                        padding-top: 20px;
+                        border-top: 1px solid #f0f1f3;
+                    }
+
+                    #emailStatus {
+                        font-size: 13px;
+                        font-weight: 600;
+                        flex: 1;
+                        min-height: 20px;
+                    }
+
+                    #emailStatus.success {
+                        color: #27ae60;
+                    }
+
+                    #emailStatus.error {
+                        color: #e74c3c;
+                    }
+
+                    #emailStatus.loading {
+                        color: #3498db;
+                    }
+
+                    .email-send-btn {
+                        display: none;
+                        background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+                        color: #fff;
+                        border: none;
+                        border-radius: 8px;
+                        padding: 0 28px;
+                        font-size: 15px;
+                        font-weight: 700;
+                        cursor: pointer;
+                        box-shadow: 0 4px 12px rgba(0, 123, 255, 0.25);
+                        transition: all 0.2s ease;
+                        height: 46px;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 8px;
+                        text-transform: uppercase;
+                        letter-spacing: 0.5px;
+                    }
+
+                    .email-send-btn:hover {
+                        background: linear-gradient(135deg, var(--primary-hover), var(--primary));
+                        transform: translateY(-2px);
+                        box-shadow: 0 6px 16px rgba(0, 123, 255, 0.35);
+                    }
+
+                    .email-send-btn:disabled {
+                        opacity: 0.6;
+                        cursor: not-allowed;
+                        transform: none;
+                    }
+
+                    .email-send-btn::before {
+                        content: '📧';
+                        font-size: 16px;
+                    }
+
+          @media print {
+            #emailModal,
+            .email-modal-overlay {
+              display: none !important;
+            }
           }
 
           /* Print Options Section */
@@ -894,9 +1345,11 @@
 </head>
 <body>
     <br>
-    <div class="actions-no-print">
-        <div class="actions-left">
-          <a href="/print/reportSettings?classId=<%= classId %>&termId=<%= termId %>" class="btn btn-primary">Settings & Signature</a>
+        <div class="actions-no-print collapsed" id="actionsBar">
+                <button class="actions-menu-toggle" id="actionsMenuToggle" aria-expanded="false" aria-controls="actionsBar" onclick="toggleActionsMenu()">☰ Menu</button>
+                <div class="actions-left">
+                    <a href="/print/reportSettings?classId=<%= classId %>&termId=<%= termId %>" class="btn btn-primary" data-no-spa>Settings & Signature</a>
+                    <a href="/print/emailHistoryPage?classId=<%= classId %>&termId=<%= termId %>" class="btn btn-primary history-btn" data-no-spa>📜 History</a>
           
           <div class="search-box" style="display: inline-block; margin-left: 10px;">
             <input type="text" id="studentSearch" placeholder="Search student..." onkeyup="filterStudents()" style="padding: 10px 15px 10px 35px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 14px; width: 200px;">
@@ -908,7 +1361,7 @@
           </div>
           
           <a href="#" class="btn btn-primary" onclick="printSelected(); return false;" style="margin-left: 10px;">Print Selected</a>
-          <a href="#" class="btn btn-primary" onclick="openEmailModal(); return false;" style="margin-left: 10px; background-color: #27ae60;">📧 Send by Email</a>
+                    <a href="#" class="btn btn-primary email-btn" onclick="openEmailModal(); return false;"><span class="icon">📧</span>Send by Email</a>
         </div>
       
         <div class="actions-right">
@@ -1079,13 +1532,13 @@
                     
                         <!-- Signature Section -->
                         <div class="signature-info">
-                            <div class="signature-title">Principal's Signature</div>
+                            <div class="signature-title"><%= signatureTitle || "Authorized Signature" %></div>
                             <% if (signatureImageUrl) { %>
                                 <img src="<%= signatureImageUrl %>" alt="Signature Image">
                             <% } else { %>
                                 <p style="font-size: 11px; color: #999; margin: 20px 0;">No signature</p>
                             <% } %>
-                            <h3>Authorized</h3>
+                            <h3><%= signatureName || "Authorized" %></h3>
                         </div>
                     </div>
                     
@@ -1409,6 +1862,13 @@ function updateClass(studentId) {
           });
     // ===== EMAIL MODAL =====
     function openEmailModal() {
+        // Unsaved changes warning
+        const hasUnsavedChanges = checkForUnsavedChanges();
+        if (hasUnsavedChanges) {
+            const proceed = confirm('⚠️ WARNING: You may have unsaved changes to the report cards.\n\nPlease ensure all score changes and remarks have been saved before sending emails.\n\nClick OK to continue with email, or Cancel to go back and save.');
+            if (!proceed) return;
+        }
+
         const selected = document.querySelectorAll('.student-checkbox:checked');
         if (selected.length === 0) {
             alert('Please select at least one student to email.');
@@ -1420,7 +1880,8 @@ function updateClass(studentId) {
 
         // Show modal
         document.getElementById('emailModal').style.display = 'flex';
-        document.getElementById('emailStudentList').innerHTML = '<p style="color:#999;">Loading guardian emails...</p>';
+        document.getElementById('emailRecipientCount').textContent = `${selected.length} student${selected.length === 1 ? '' : 's'} selected`;
+        document.getElementById('emailStudentList').innerHTML = '<p style="color:#666;">Loading guardian emails...</p>';
         document.getElementById('emailPasswordSection').style.display = 'none';
         document.getElementById('emailSendBtn').style.display = 'none';
 
@@ -1434,11 +1895,116 @@ function updateClass(studentId) {
                 }
                 renderEmailList(data.students);
                 document.getElementById('emailPasswordSection').style.display = 'block';
-                document.getElementById('emailSendBtn').style.display = 'inline-block';
+                document.getElementById('emailSendBtn').style.display = 'inline-flex';
+                
+                // Restore from localStorage
+                restoreEmailsFromStorage();
             })
             .catch(() => {
                 document.getElementById('emailStudentList').innerHTML = '<p style="color:red;">Error fetching emails.</p>';
             });
+    }
+
+    // Responsive actions bar toggle (hamburger)
+    function toggleActionsMenu() {
+        const bar = document.getElementById('actionsBar');
+        const btn = document.getElementById('actionsMenuToggle');
+        const isCollapsed = bar.classList.toggle('collapsed');
+        btn.setAttribute('aria-expanded', (!isCollapsed).toString());
+        btn.textContent = isCollapsed ? '☰ Menu' : '✕ Close';
+    }
+
+    // Ensure correct initial state on load/resizes for mobile
+    function syncActionsMenuState() {
+        const bar = document.getElementById('actionsBar');
+        const btn = document.getElementById('actionsMenuToggle');
+        if (window.innerWidth <= 768) {
+            if (!bar.classList.contains('collapsed')) toggleActionsMenu();
+        } else {
+            if (bar.classList.contains('collapsed')) toggleActionsMenu();
+        }
+        // keep label consistent after toggle above
+        const isCollapsed = bar.classList.contains('collapsed');
+        btn.textContent = isCollapsed ? '☰ Menu' : '✕ Close';
+        btn.setAttribute('aria-expanded', (!isCollapsed).toString());
+    }
+
+    window.addEventListener('resize', () => {
+        syncActionsMenuState();
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        syncActionsMenuState();
+    });
+
+    // Check for unsaved changes (this is a simple heuristic - can be improved)
+    function checkForUnsavedChanges() {
+        // Check if any input fields have been modified but not saved
+        // You can customize this based on your save mechanism
+        const inputs = document.querySelectorAll('input[type="number"], textarea, select');
+        let hasModified = false;
+        
+        inputs.forEach(input => {
+            if (input.dataset && input.dataset.originalValue !== undefined) {
+                if (input.value !== input.dataset.originalValue) {
+                    hasModified = true;
+                }
+            }
+        });
+        
+        return hasModified;
+    }
+
+    // Save email inputs to localStorage
+    function saveEmailsToStorage() {
+        const emailData = {};
+        document.querySelectorAll('.email-student-row').forEach(row => {
+            const studentId = row.getAttribute('data-student-id');
+            const inputs = row.querySelectorAll('.email-input');
+            const emails = Array.from(inputs).map(inp => inp.value.trim()).filter(e => e);
+            if (emails.length > 0) {
+                emailData[studentId] = emails;
+            }
+        });
+        
+        const storageKey = `emailData_class<%= classId %>_term<%= termId %>`;
+        localStorage.setItem(storageKey, JSON.stringify(emailData));
+        console.log('Emails saved to localStorage');
+    }
+
+    // Restore email inputs from localStorage
+    function restoreEmailsFromStorage() {
+        const storageKey = `emailData_class<%= classId %>_term<%= termId %>`;
+        const saved = localStorage.getItem(storageKey);
+        
+        if (!saved) return;
+        
+        try {
+            const emailData = JSON.parse(saved);
+            
+            document.querySelectorAll('.email-student-row').forEach(row => {
+                const studentId = row.getAttribute('data-student-id');
+                if (emailData[studentId]) {
+                    const inputs = row.querySelectorAll('.email-input');
+                    emailData[studentId].forEach((email, index) => {
+                        if (inputs[index]) {
+                            inputs[index].value = email;
+                        }
+                    });
+                }
+            });
+            
+            console.log('Emails restored from localStorage');
+        } catch (e) {
+            console.error('Failed to restore emails from storage:', e);
+        }
+    }
+
+    // Clear email storage after successful send
+    function clearEmailStorage() {
+        const storageKey = `emailData_class<%= classId %>_term<%= termId %>`;
+        localStorage.removeItem(storageKey);
+        console.log('Email storage cleared');
     }
 
     function renderEmailList(students) {
@@ -1448,53 +2014,80 @@ function updateClass(studentId) {
             return;
         }
 
+        document.getElementById('emailRecipientCount').textContent = `${students.length} student${students.length === 1 ? '' : 's'} selected (guardian emails pre-filled)`;
+
         let html = '';
         students.forEach(s => {
+            const uniqueEmails = [];
+            (s.emails || []).forEach(e => {
+                const email = (e.email || '').trim();
+                if (email && !uniqueEmails.some(x => x.email.toLowerCase() === email.toLowerCase())) {
+                    uniqueEmails.push({ email, relationship: e.relationship || 'Guardian' });
+                }
+            });
+
+            if (uniqueEmails.length === 0) {
+                uniqueEmails.push({ email: '', relationship: 'Manual' });
+            }
+
             html += `<div class="email-student-row" data-student-id="${s.student_id}">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                    <strong style="font-size:14px;">${s.first_name} ${s.last_name}</strong>
-                    <button type="button" onclick="addEmailField(${s.student_id})" style="background:var(--primary);color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:12px;">+ Add Email</button>
+                <div class="email-student-header">
+                    <div>
+                        <div class="email-student-name">${s.first_name} ${s.last_name}</div>
+                        <div class="email-student-meta">${s.class_name || ''}</div>
+                    </div>
+                    <button type="button" class="email-add-btn" onclick="addEmailField(${s.student_id})">Add Email</button>
                 </div>
                 <div class="email-fields" id="emailFields-${s.student_id}">`;
 
-            if (s.emails && s.emails.length > 0) {
-                s.emails.forEach((e, i) => {
-                    html += `<div class="email-field-row" style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
-                        <input type="email" value="${e.email}" class="email-input" style="flex:1;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;" data-student-id="${s.student_id}">
-                        <span style="font-size:11px;color:#888;min-width:60px;">${e.relationship || 'Guardian'}</span>
-                        <button type="button" onclick="this.parentElement.remove()" style="background:#dc3545;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px;">✕</button>
+            uniqueEmails.forEach((e, i) => {
+                const badge = i === 0 ? 'Primary' : e.relationship || 'Guardian';
+                const valueAttr = e.email ? `value="${e.email}"` : 'placeholder="Enter email address"';
+                html += `<div class="email-field-row">
+                        <input type="email" ${valueAttr} class="email-input" data-student-id="${s.student_id}">
+                        <span class="email-pill">${badge}</span>
+                        <button type="button" class="email-remove-btn" onclick="this.parentElement.remove()">✕</button>
                     </div>`;
-                });
-            } else {
-                html += `<div class="email-field-row" style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
-                    <input type="email" placeholder="Enter email address" class="email-input" style="flex:1;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;" data-student-id="${s.student_id}">
-                    <span style="font-size:11px;color:#888;min-width:60px;">Manual</span>
-                    <button type="button" onclick="this.parentElement.remove()" style="background:#dc3545;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px;">✕</button>
-                </div>`;
-            }
+            });
+
             html += `</div></div>`;
         });
 
         container.innerHTML = html;
+        
+        // Add event listeners to save on change
+        container.querySelectorAll('.email-input').forEach(input => {
+            input.addEventListener('input', () => {
+                saveEmailsToStorage();
+            });
+        });
     }
 
     function addEmailField(studentId) {
         const container = document.getElementById(`emailFields-${studentId}`);
         const row = document.createElement('div');
         row.className = 'email-field-row';
-        row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px;';
         row.innerHTML = `
-            <input type="email" placeholder="Enter email address" class="email-input" style="flex:1;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;" data-student-id="${studentId}">
-            <span style="font-size:11px;color:#888;min-width:60px;">Manual</span>
-            <button type="button" onclick="this.parentElement.remove()" style="background:#dc3545;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px;">✕</button>
+            <input type="email" placeholder="Enter email address" class="email-input" data-student-id="${studentId}">
+            <span class="email-pill">Manual</span>
+            <button type="button" class="email-remove-btn" onclick="this.parentElement.remove(); saveEmailsToStorage();">✕</button>
         `;
         container.appendChild(row);
+        
+        // Add event listener to new input
+        row.querySelector('.email-input').addEventListener('input', () => {
+            saveEmailsToStorage();
+        });
     }
 
     function closeEmailModal() {
         document.getElementById('emailModal').style.display = 'none';
         document.getElementById('emailPassword').value = '';
         document.getElementById('emailStatus').textContent = '';
+    }
+
+    function isValidEmail(email) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
     }
 
     async function sendReportEmails() {
@@ -1506,21 +2099,51 @@ function updateClass(studentId) {
 
         const statusEl = document.getElementById('emailStatus');
         const sendBtn = document.getElementById('emailSendBtn');
+        statusEl.textContent = '';
 
-        // Collect all email data
         const emailData = [];
+        const missingEmails = [];
+        const invalidEmails = [];
+
         document.querySelectorAll('.email-student-row').forEach(row => {
             const studentId = row.getAttribute('data-student-id');
+            const studentName = (row.querySelector('.email-student-name')?.textContent || '').trim();
             const inputs = row.querySelectorAll('.email-input');
             const emails = [];
+
             inputs.forEach(input => {
                 const val = input.value.trim();
-                if (val) emails.push(val);
+                if (val) {
+                    emails.push(val);
+                    if (!isValidEmail(val)) {
+                        invalidEmails.push({ studentName, email: val });
+                    }
+                }
             });
-            if (emails.length > 0) {
-                emailData.push({ studentId: parseInt(studentId), emails });
+
+            if (emails.length === 0) {
+                missingEmails.push(studentName || `ID ${studentId}`);
+            } else {
+                emailData.push({ studentId: parseInt(studentId, 10), emails });
             }
         });
+
+        if (invalidEmails.length > 0) {
+            const list = invalidEmails.map(e => `${e.studentName || 'Student'}: ${e.email}`).join('; ');
+            statusEl.textContent = `⚠️ Fix invalid emails before sending: ${list}`;
+            statusEl.style.color = '#d97706';
+            return;
+        }
+
+        if (missingEmails.length > 0) {
+            const msg = `The following students have no emails: ${missingEmails.join(', ')}. Continue anyway?`;
+            const proceed = window.confirm(msg);
+            if (!proceed) {
+                statusEl.textContent = 'Send cancelled. Please add emails or deselect those students.';
+                statusEl.style.color = '#d97706';
+                return;
+            }
+        }
 
         if (emailData.length === 0) {
             alert('No valid email addresses provided.');
@@ -1548,6 +2171,7 @@ function updateClass(studentId) {
             if (result.success) {
                 statusEl.textContent = `✅ ${result.message}`;
                 statusEl.style.color = '#27ae60';
+                clearEmailStorage(); // Clear localStorage on success
                 setTimeout(() => closeEmailModal(), 3000);
             } else {
                 statusEl.textContent = `❌ ${result.message}`;
@@ -1563,24 +2187,43 @@ function updateClass(studentId) {
     }
     </script>
 
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                const reports = document.querySelectorAll('.student-report');
+                if (reports.length) {
+                    reports.forEach(r => r.classList.remove('last-report'));
+                    reports[reports.length - 1].classList.add('last-report');
+                }
+            });
+        </script>
+
     <!-- Email Modal -->
-    <div id="emailModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:99999;justify-content:center;align-items:center;">
-        <div style="background:#fff;border-radius:12px;max-width:600px;width:90%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-            <div style="padding:20px 24px;border-bottom:2px solid var(--primary);display:flex;justify-content:space-between;align-items:center;">
-                <h3 style="margin:0;color:var(--primary);font-size:18px;">📧 Send Reports by Email</h3>
-                <button onclick="closeEmailModal()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#999;">✕</button>
+    <div id="emailModal" class="email-modal-overlay">
+        <div class="email-modal-card">
+            <div class="email-modal-header">
+                <div>
+                    <p id="emailRecipientCount" class="email-modal-subtitle">Preparing recipients...</p>
+                    <h3 class="email-modal-title">Send Reports by Email</h3>
+                </div>
+                <button class="email-close-btn" onclick="closeEmailModal()">✕</button>
             </div>
-            <div style="padding:24px;">
-                <div id="emailStudentList" style="margin-bottom:20px;"></div>
+            <div class="email-modal-body">
+                <div class="email-hint"><strong>Guardian emails auto-selected.</strong> Review, add, or override before sending.</div>
+                <div id="emailStudentList" class="email-student-list"></div>
                 
-                <div id="emailPasswordSection" style="display:none;border-top:1px solid #eee;padding-top:16px;">
-                    <label style="font-weight:600;font-size:14px;color:#333;display:block;margin-bottom:8px;">🔒 Confirm Password</label>
-                    <input type="password" id="emailPassword" placeholder="Enter your password" style="width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box;">
+                <div id="emailPasswordSection" class="email-password" style="display:none;">
+                    <label>🔒 Confirm Password</label>
+                    <input type="password" id="emailPassword" placeholder="Enter your password">
                 </div>
 
-                <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;">
-                    <span id="emailStatus" style="font-size:13px;"></span>
-                    <button id="emailSendBtn" onclick="sendReportEmails()" style="display:none;background:var(--primary);color:#fff;border:none;border-radius:6px;padding:10px 24px;font-size:14px;font-weight:600;cursor:pointer;">Send Reports</button>
+                <div class="email-footer">
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <a href="/print/emailHistoryPage?classId=<%= classId %>&termId=<%= termId %>" style="padding: 10px 18px; background: #6c757d; color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; transition: background 0.2s;">
+                            📜 History
+                        </a>
+                        <span id="emailStatus" style="font-size:13px;"></span>
+                    </div>
+                    <button id="emailSendBtn" class="email-send-btn" onclick="sendReportEmails()">Send Reports</button>
                 </div>
             </div>
         </div>

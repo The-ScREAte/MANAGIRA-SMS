@@ -1,0 +1,852 @@
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  :root {
+    --primary: #01535b;
+    --primary-hover: #014a51;
+    --text-primary: #111827;
+    --text-secondary: #6b7280;
+    --border: #e5e7eb;
+    --bg: #f9fafb;
+    --card: #ffffff;
+  }
+
+  body {
+    background: var(--bg);
+    font-family: "Inter", -apple-system, sans-serif;
+  }
+
+  .org-details-shell {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 50px 14px 20px;
+  }
+
+  .org-details-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  .back-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  .org-hero {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+
+  .org-hero h1 {
+    margin: 0;
+    font-size: 1.45rem;
+    color: var(--text-primary);
+  }
+
+  .org-hero p {
+    margin: 6px 0 0;
+    color: var(--text-secondary);
+  }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .stat-card {
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+  }
+
+  .stat-card .label {
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .stat-card .value {
+    color: var(--text-primary);
+    font-weight: 700;
+    font-size: 1.2rem;
+    margin-top: 4px;
+  }
+
+  .orgstats-section {
+    margin-top: 18px;
+  }
+
+  .orgstats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  .orgstats-card {
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+  }
+
+  .orgstats-label {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+  }
+
+  .orgstats-value {
+    margin-top: 6px;
+    color: var(--text-primary);
+    font-size: 1.35rem;
+    font-weight: 700;
+  }
+
+  .charts-section {
+    margin-bottom: 18px;
+  }
+
+  .overview-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--text-primary);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    margin: 8px 0 14px;
+    transition: all 0.2s ease;
+  }
+
+  .overview-toggle:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  .overview-toggle .arrow {
+    font-size: 1.1rem;
+    transition: transform 0.2s ease;
+  }
+
+  .overview-toggle.open .arrow {
+    transform: rotate(90deg);
+  }
+
+  .overview-content {
+    display: none;
+  }
+
+  .overview-content.open {
+    display: block;
+  }
+
+  .charts-title {
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 10px;
+  }
+
+  .charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 12px;
+  }
+
+  .chart-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+  }
+
+  .chart-card h3 {
+    font-size: 0.95rem;
+    margin: 0 0 10px;
+    color: var(--text-primary);
+  }
+
+  .tabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: nowrap;
+    margin-bottom: 14px;
+  }
+
+  .org-details-top .tabs {
+    margin-bottom: 0;
+    margin-left: auto;
+    justify-content: flex-end;
+  }
+
+  .tab-btn {
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--text-primary);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .tab-btn.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+  }
+
+  .details-grid {
+    display: grid;
+    grid-template-columns: minmax(320px, 1.2fr) minmax(300px, 1fr);
+    gap: 14px;
+  }
+
+  .panel {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 700;
+    color: var(--text-primary);
+    background: #f8fafc;
+  }
+
+  .panel-body {
+    padding: 10px;
+    max-height: 70vh;
+    overflow: auto;
+  }
+
+  .list-item {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: #fff;
+  }
+
+  .list-item:hover {
+    border-color: var(--primary);
+    background: #f8fffe;
+  }
+
+  .list-item.active {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(1, 83, 91, 0.12);
+    background: #f8fffe;
+  }
+
+  .item-title {
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+
+  .item-meta {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.35;
+  }
+
+  .empty-state {
+    color: var(--text-secondary);
+    text-align: center;
+    padding: 30px 12px;
+  }
+
+  .detail-block {
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed #e5e7eb;
+  }
+
+  .detail-block:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+  }
+
+  .detail-title {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+    font-weight: 700;
+  }
+
+  .detail-value {
+    color: var(--text-primary);
+    line-height: 1.4;
+  }
+
+  ul.clean-list {
+    margin: 6px 0 0;
+    padding-left: 18px;
+    color: var(--text-primary);
+  }
+
+  @media (max-width: 980px) {
+    .details-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .panel-body {
+      max-height: none;
+    }
+  }
+</style>
+
+<div class="org-details-shell">
+  <div class="org-details-top">
+    <a class="back-btn" href="/hub/dashboard">← Back to Dashboard</a>
+
+    <div class="tabs">
+      <button type="button" class="tab-btn" data-tab="students">Students</button>
+      <button type="button" class="tab-btn" data-tab="staff">Staff</button>
+      <button type="button" class="tab-btn" data-tab="classes">Classes & Subjects</button>
+    </div>
+  </div>
+
+  <div class="org-hero">
+    <h1><%= organization.organization_name %></h1>
+    <p><%= organization.nickname %>.<%= hub.hub_nickname %>.managira.com · <%= organization.email %></p>
+
+    <div class="orgstats-section">
+      <div class="orgstats-grid">
+        <div class="orgstats-card">
+          <div class="orgstats-label">Total Students</div>
+          <div class="orgstats-value"><%= organizationData.total_students || 0 %></div>
+        </div>
+        <div class="orgstats-card">
+          <div class="orgstats-label">Total Employees</div>
+          <div class="orgstats-value"><%= organizationData.total_employees || 0 %></div>
+        </div>
+        <div class="orgstats-card">
+          <div class="orgstats-label">Total Classes</div>
+          <div class="orgstats-value"><%= organizationData.total_classes || 0 %></div>
+        </div>
+        <div class="orgstats-card">
+          <div class="orgstats-label">Total Subjects</div>
+          <div class="orgstats-value"><%= organizationData.total_subjects || 0 %></div>
+        </div>
+      </div>
+
+      <% if (currentTerm) { %>
+      <button type="button" class="overview-toggle" id="overviewToggleBtn" aria-expanded="false" aria-controls="overviewChartsContent">
+        <span>Performance Overview</span>
+        <span class="arrow">▸</span>
+      </button>
+
+      <div class="overview-content" id="overviewChartsContent">
+      <div class="charts-section">
+        <h2 class="charts-title">Performance Overview</h2>
+        <div class="charts-grid">
+          <div class="chart-card">
+            <h3>Attendance by Class</h3>
+            <canvas id="hubAttendanceChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3>Assessment Performance</h3>
+            <canvas id="hubAssessmentChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="charts-section">
+        <h2 class="charts-title">Class & Growth Analytics</h2>
+        <div class="charts-grid">
+          <div class="chart-card">
+            <h3>Top Performing Classes</h3>
+            <canvas id="hubTopClassesChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3>Organization Growth</h3>
+            <canvas id="hubGrowthChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="charts-section">
+        <h2 class="charts-title">Demographics & Enrollment</h2>
+        <div class="charts-grid">
+          <div class="chart-card">
+            <h3>Gender Distribution</h3>
+            <canvas id="hubGenderChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3>Students Per Class</h3>
+            <canvas id="hubStudentsPerClassChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3>Enrollment Over Terms</h3>
+            <canvas id="hubEnrollmentTermsChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3>Employee Roles</h3>
+            <canvas id="hubEmployeeRolesChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3>Subject Strength Profile</h3>
+            <canvas id="hubSubjectStrengthChart"></canvas>
+          </div>
+        </div>
+      </div>
+      </div>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="details-grid">
+    <div class="panel">
+      <div class="panel-header" id="listPanelTitle">Loading…</div>
+      <div class="panel-body" id="listPanelBody"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header" id="detailsPanelTitle">Details</div>
+      <div class="panel-body" id="detailsPanelBody">
+        <div class="empty-state">Select an item from the list to see more details.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const organizationId = "<%= organization.organization_id %>";
+    const initialTab = "<%= activeTab || 'students' %>";
+
+    const tabs = document.querySelectorAll('.tab-btn');
+    const listPanelTitle = document.getElementById('listPanelTitle');
+    const listPanelBody = document.getElementById('listPanelBody');
+    const detailsPanelTitle = document.getElementById('detailsPanelTitle');
+    const detailsPanelBody = document.getElementById('detailsPanelBody');
+
+    const tabConfig = {
+      students: {
+        title: 'Students',
+        listUrl: `/hub/organizations/${organizationId}/students`,
+        detailUrl: (id) => `/hub/organizations/${organizationId}/students/${id}`,
+        key: 'student_id',
+        label: (item) => `${item.first_name || ''} ${item.last_name || ''}`.trim() || 'Unnamed Student',
+        meta: (item) => `${item.class_name || 'No class'} · ${item.gender || 'N/A'} · Guardian: ${item.guardian_email || 'N/A'}`,
+      },
+      staff: {
+        title: 'Staff',
+        listUrl: `/hub/organizations/${organizationId}/staff`,
+        detailUrl: (id) => `/hub/organizations/${organizationId}/staff/${id}`,
+        key: 'user_id',
+        label: (item) => `${item.first_name || ''} ${item.last_name || ''}`.trim() || 'Unnamed Staff',
+        meta: (item) => `${item.account_type || 'Staff'} · ${item.email || 'No email'}`,
+      },
+      classes: {
+        title: 'Classes',
+        listUrl: `/hub/organizations/${organizationId}/classes`,
+        detailUrl: (id) => `/hub/organizations/${organizationId}/classes/${id}`,
+        key: 'class_id',
+        label: (item) => item.class_name || 'Unnamed Class',
+        meta: (item) => `${item.student_count || 0} students · ${item.subject_count || 0} subjects`,
+      },
+    };
+
+    let currentTab = initialTab in tabConfig ? initialTab : 'students';
+
+    function setActiveTab(tab) {
+      currentTab = tab;
+      tabs.forEach((button) => {
+        button.classList.toggle('active', button.dataset.tab === tab);
+      });
+      const nextUrl = `/hub/organizations/${organizationId}?tab=${encodeURIComponent(tab)}`;
+      window.history.replaceState({}, '', nextUrl);
+      loadList(tab);
+    }
+
+    function renderList(tab, items) {
+      const config = tabConfig[tab];
+      listPanelTitle.textContent = config.title;
+
+      if (!items || items.length === 0) {
+        listPanelBody.innerHTML = `<div class="empty-state">No ${config.title.toLowerCase()} found for this organization.</div>`;
+        detailsPanelTitle.textContent = 'Details';
+        detailsPanelBody.innerHTML = `<div class="empty-state">No ${config.title.toLowerCase()} available.</div>`;
+        return;
+      }
+
+      listPanelBody.innerHTML = items
+        .map((item) => {
+          const itemId = item[config.key];
+          return `
+            <div class="list-item" data-id="${itemId}">
+              <div class="item-title">${escapeHtml(config.label(item))}</div>
+              <div class="item-meta">${escapeHtml(config.meta(item))}</div>
+            </div>
+          `;
+        })
+        .join('');
+
+      listPanelBody.querySelectorAll('.list-item').forEach((element) => {
+        element.addEventListener('click', () => {
+          listPanelBody.querySelectorAll('.list-item').forEach((node) => node.classList.remove('active'));
+          element.classList.add('active');
+          loadDetails(tab, element.dataset.id);
+        });
+      });
+
+      const first = listPanelBody.querySelector('.list-item');
+      if (first) {
+        first.classList.add('active');
+        loadDetails(tab, first.dataset.id);
+      }
+    }
+
+    async function loadList(tab) {
+      const config = tabConfig[tab];
+      listPanelTitle.textContent = `Loading ${config.title}...`;
+      listPanelBody.innerHTML = '<div class="empty-state">Loading list...</div>';
+      detailsPanelTitle.textContent = 'Details';
+      detailsPanelBody.innerHTML = '<div class="empty-state">Select an item to view details.</div>';
+
+      try {
+        const response = await fetch(config.listUrl);
+        const payload = await response.json();
+        if (!response.ok || !payload.success) {
+          throw new Error(payload.message || `Unable to load ${config.title.toLowerCase()}.`);
+        }
+        renderList(tab, payload.items || []);
+      } catch (error) {
+        listPanelBody.innerHTML = `<div class="empty-state">${escapeHtml(error.message || 'Failed to load list.')}</div>`;
+      }
+    }
+
+    async function loadDetails(tab, itemId) {
+      const config = tabConfig[tab];
+      detailsPanelTitle.textContent = `${config.title.slice(0, -1)} Details`;
+      detailsPanelBody.innerHTML = '<div class="empty-state">Loading details...</div>';
+
+      try {
+        const response = await fetch(config.detailUrl(itemId));
+        const payload = await response.json();
+        if (!response.ok || !payload.success) {
+          throw new Error(payload.message || 'Failed to load details.');
+        }
+
+        detailsPanelBody.innerHTML = renderDetails(tab, payload.item);
+      } catch (error) {
+        detailsPanelBody.innerHTML = `<div class="empty-state">${escapeHtml(error.message || 'Failed to load details.')}</div>`;
+      }
+    }
+
+    function renderDetails(tab, item) {
+      if (tab === 'students') {
+        const guardians = Array.isArray(item.guardians) ? item.guardians : [];
+        return `
+          <div class="detail-block">
+            <div class="detail-title">Student</div>
+            <div class="detail-value"><strong>${escapeHtml(item.first_name || '')} ${escapeHtml(item.last_name || '')}</strong></div>
+            <div class="detail-value">Class: ${escapeHtml(item.class_name || 'N/A')}</div>
+            <div class="detail-value">Gender: ${escapeHtml(item.gender || 'N/A')}</div>
+            <div class="detail-value">Date of Birth: ${formatDate(item.date_of_birth)}</div>
+            <div class="detail-value">Hometown: ${escapeHtml(item.hometown || 'N/A')}</div>
+          </div>
+          <div class="detail-block">
+            <div class="detail-title">Parents / Guardians</div>
+            ${guardians.length === 0 ? '<div class="detail-value">No guardian records found.</div>' : guardians.map((guardian) => `
+              <div class="detail-value" style="margin-bottom:8px;">
+                <strong>${escapeHtml(guardian.first_name || '')} ${escapeHtml(guardian.last_name || '')}</strong><br>
+                Email: ${escapeHtml(guardian.email || 'N/A')}<br>
+                Phone: ${escapeHtml(guardian.phone || 'N/A')}<br>
+                Relationship: ${escapeHtml(guardian.relationship || 'N/A')}
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      if (tab === 'staff') {
+        return `
+          <div class="detail-block">
+            <div class="detail-title">Staff Member</div>
+            <div class="detail-value"><strong>${escapeHtml(item.first_name || '')} ${escapeHtml(item.last_name || '')}</strong></div>
+            <div class="detail-value">Email: ${escapeHtml(item.email || 'N/A')}</div>
+            <div class="detail-value">Role: ${escapeHtml(item.account_type || 'N/A')}</div>
+            <div class="detail-value">Status: ${item.on_hold ? 'On Hold' : 'Active'}</div>
+            <div class="detail-value">Created: ${formatDate(item.created_at)}</div>
+            <div class="detail-value">Last Updated: ${formatDate(item.updated_at)}</div>
+          </div>
+        `;
+      }
+
+      const subjects = Array.isArray(item.subjects) ? item.subjects : [];
+      const students = Array.isArray(item.students) ? item.students : [];
+      return `
+        <div class="detail-block">
+          <div class="detail-title">Class</div>
+          <div class="detail-value"><strong>${escapeHtml(item.class_name || 'N/A')}</strong></div>
+        </div>
+        <div class="detail-block">
+          <div class="detail-title">Subjects</div>
+          ${subjects.length === 0 ? '<div class="detail-value">No subjects in this class.</div>' : `<ul class="clean-list">${subjects.map((subject) => `<li>${escapeHtml(subject.subject_name || 'Unnamed Subject')}</li>`).join('')}</ul>`}
+        </div>
+        <div class="detail-block">
+          <div class="detail-title">Students</div>
+          ${students.length === 0 ? '<div class="detail-value">No students assigned to this class.</div>' : `<ul class="clean-list">${students.map((student) => `<li>${escapeHtml(student.first_name || '')} ${escapeHtml(student.last_name || '')}</li>`).join('')}</ul>`}
+        </div>
+      `;
+    }
+
+    function formatDate(value) {
+      if (!value) return 'N/A';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return 'N/A';
+      return date.toLocaleDateString();
+    }
+
+    function escapeHtml(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    tabs.forEach((button) => {
+      button.addEventListener('click', () => setActiveTab(button.dataset.tab));
+    });
+
+    setActiveTab(currentTab);
+  })();
+</script>
+
+<script id="hubStatsData" type="application/json"><%- JSON.stringify({ attendanceByClass, assessmentByClass, topPerformingClasses, organizationGrowth, genderDistribution, studentCountPerClass, enrollmentOverTerms, employeeRoles, classStrengthProfile }) %></script>
+
+<script>
+  (function () {
+    if (typeof Chart === 'undefined') return;
+
+    const overviewToggleBtn = document.getElementById('overviewToggleBtn');
+    const overviewChartsContent = document.getElementById('overviewChartsContent');
+
+    if (overviewToggleBtn && overviewChartsContent) {
+      overviewToggleBtn.addEventListener('click', () => {
+        const willOpen = !overviewChartsContent.classList.contains('open');
+        overviewChartsContent.classList.toggle('open', willOpen);
+        overviewToggleBtn.classList.toggle('open', willOpen);
+        overviewToggleBtn.setAttribute('aria-expanded', String(willOpen));
+
+        if (willOpen) {
+          setTimeout(() => {
+            try {
+              if (Chart.instances && typeof Chart.instances.forEach === 'function') {
+                Chart.instances.forEach((instance) => instance.resize());
+              } else if (Chart.instances) {
+                Object.values(Chart.instances).forEach((instance) => {
+                  if (instance && typeof instance.resize === 'function') {
+                    instance.resize();
+                  }
+                });
+              }
+            } catch (error) {
+            }
+          }, 120);
+        }
+      });
+    }
+
+    const statsDataNode = document.getElementById('hubStatsData');
+    const statsData = statsDataNode ? JSON.parse(statsDataNode.textContent || '{}') : {};
+
+    const attendanceByClass = statsData.attendanceByClass || [];
+    const assessmentByClass = statsData.assessmentByClass || [];
+    const topPerformingClasses = statsData.topPerformingClasses || [];
+    const organizationGrowth = statsData.organizationGrowth || [];
+    const genderDistribution = statsData.genderDistribution || [];
+    const studentCountPerClass = statsData.studentCountPerClass || [];
+    const enrollmentOverTerms = statsData.enrollmentOverTerms || [];
+    const employeeRoles = statsData.employeeRoles || [];
+    const classStrengthProfile = statsData.classStrengthProfile || [];
+
+    const chartDefaults = {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: {
+            boxWidth: 12,
+            padding: 14,
+            font: { size: 11 }
+          }
+        }
+      }
+    };
+
+    const toNum = (value) => Number(value || 0);
+
+    if (attendanceByClass.length && document.getElementById('hubAttendanceChart')) {
+      new Chart(document.getElementById('hubAttendanceChart'), {
+        type: 'bar',
+        data: {
+          labels: attendanceByClass.map((item) => item.class_name),
+          datasets: [
+            { label: 'Present', data: attendanceByClass.map((item) => toNum(item.present_days)), backgroundColor: '#10b981' },
+            { label: 'Absent', data: attendanceByClass.map((item) => toNum(item.absent_days)), backgroundColor: '#ef4444' }
+          ]
+        },
+        options: { ...chartDefaults, scales: { y: { beginAtZero: true } } }
+      });
+    }
+
+    if (assessmentByClass.length && document.getElementById('hubAssessmentChart')) {
+      new Chart(document.getElementById('hubAssessmentChart'), {
+        type: 'bar',
+        data: {
+          labels: assessmentByClass.map((item) => item.class_name),
+          datasets: [
+            { label: 'Avg Score', data: assessmentByClass.map((item) => Number(item.average_score || 0)), backgroundColor: '#8b5cf6' },
+            { label: 'Pass', data: assessmentByClass.map((item) => toNum(item.pass_count)), backgroundColor: '#10b981' },
+            { label: 'Fail', data: assessmentByClass.map((item) => toNum(item.fail_count)), backgroundColor: '#ef4444' }
+          ]
+        },
+        options: { ...chartDefaults, scales: { y: { beginAtZero: true } } }
+      });
+    }
+
+    if (topPerformingClasses.length && document.getElementById('hubTopClassesChart')) {
+      new Chart(document.getElementById('hubTopClassesChart'), {
+        type: 'bar',
+        data: {
+          labels: topPerformingClasses.map((item) => item.class_name),
+          datasets: [{
+            label: 'Average Score',
+            data: topPerformingClasses.map((item) => Number(item.average_score || 0)),
+            backgroundColor: ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444']
+          }]
+        },
+        options: { ...chartDefaults, scales: { y: { beginAtZero: true } } }
+      });
+    }
+
+    if (organizationGrowth.length && document.getElementById('hubGrowthChart')) {
+      new Chart(document.getElementById('hubGrowthChart'), {
+        type: 'line',
+        data: {
+          labels: organizationGrowth.map((item) => item.year_label),
+          datasets: [
+            { label: 'Students', data: organizationGrowth.map((item) => toNum(item.total_students)), borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, tension: 0.3 },
+            { label: 'Employees', data: organizationGrowth.map((item) => toNum(item.total_employees)), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', fill: true, tension: 0.3 },
+            { label: 'Classes', data: organizationGrowth.map((item) => toNum(item.total_classes)), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', fill: true, tension: 0.3 }
+          ]
+        },
+        options: { ...chartDefaults, scales: { y: { beginAtZero: true } } }
+      });
+    }
+
+    if (genderDistribution.length && document.getElementById('hubGenderChart')) {
+      new Chart(document.getElementById('hubGenderChart'), {
+        type: 'doughnut',
+        data: {
+          labels: genderDistribution.map((item) => item.gender || 'Unknown'),
+          datasets: [{ data: genderDistribution.map((item) => toNum(item.count)), backgroundColor: ['#3b82f6', '#ec4899', '#f59e0b'], borderWidth: 0 }]
+        },
+        options: { ...chartDefaults, cutout: '60%' }
+      });
+    }
+
+    if (studentCountPerClass.length && document.getElementById('hubStudentsPerClassChart')) {
+      new Chart(document.getElementById('hubStudentsPerClassChart'), {
+        type: 'bar',
+        data: {
+          labels: studentCountPerClass.map((item) => item.class_name),
+          datasets: [{ label: 'Students', data: studentCountPerClass.map((item) => toNum(item.student_count)), backgroundColor: '#3b82f6' }]
+        },
+        options: { ...chartDefaults, scales: { y: { beginAtZero: true } } }
+      });
+    }
+
+    if (enrollmentOverTerms.length && document.getElementById('hubEnrollmentTermsChart')) {
+      new Chart(document.getElementById('hubEnrollmentTermsChart'), {
+        type: 'line',
+        data: {
+          labels: enrollmentOverTerms.map((item) => item.term_name),
+          datasets: [{ label: 'Enrolled Students', data: enrollmentOverTerms.map((item) => toNum(item.enrolled_students)), borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.12)', fill: true, tension: 0.3 }]
+        },
+        options: { ...chartDefaults, scales: { y: { beginAtZero: true } } }
+      });
+    }
+
+    if (employeeRoles.length && document.getElementById('hubEmployeeRolesChart')) {
+      new Chart(document.getElementById('hubEmployeeRolesChart'), {
+        type: 'pie',
+        data: {
+          labels: employeeRoles.map((item) => item.account_type || 'Unknown'),
+          datasets: [{ data: employeeRoles.map((item) => toNum(item.count)), backgroundColor: ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#14b8a6'] }]
+        },
+        options: chartDefaults
+      });
+    }
+
+    if (classStrengthProfile.length && document.getElementById('hubSubjectStrengthChart')) {
+      new Chart(document.getElementById('hubSubjectStrengthChart'), {
+        type: 'radar',
+        data: {
+          labels: classStrengthProfile.map((item) => item.subject_name),
+          datasets: [{
+            label: 'Average Score',
+            data: classStrengthProfile.map((item) => Number(item.avg_score || 0)),
+            borderColor: '#0ea5e9',
+            backgroundColor: 'rgba(14,165,233,0.22)',
+            pointBackgroundColor: '#0ea5e9'
+          }]
+        },
+        options: {
+          ...chartDefaults,
+          scales: {
+            r: {
+              beginAtZero: true,
+              max: 100
+            }
+          }
+        }
+      });
+    }
+  })();
+</script>

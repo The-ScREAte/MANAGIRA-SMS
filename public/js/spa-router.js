@@ -33,10 +33,13 @@
       '/',
       '/account/login',
       '/account/register',
+      '/account/forget-password',
       '/common/pricing',
       '/hub/login',
       '/account/guardian-login',
       '/account/reset-password',
+      '/account/accept-hub-invitation',
+      '/account/accept-hub-invitation-existing',
       '/legal/help',
       '/legal/employment',
       '/legal/donations',
@@ -53,6 +56,12 @@
       '/common/admissions',
       '/common/reports',
       '/account/settings',
+      '/account/update',
+      '/account/personalization',
+      '/account/managePublicContent',
+      '/account/update-card',
+      '/account/update-plan',
+      '/account/cancel-subscription',
       '/common/studentDetails',
       '/common/studentInfo',
       '/common/editStudent',
@@ -75,6 +84,11 @@
       '/common/manageSchoolYear',
       '/common/closeSchoolYear',
       '/common/termDetails',
+      '/common/closeGraduationYearGroup',
+      '/common/registerSchoolYear',
+      '/common/createEventAnnouncement',
+      '/common/manageEventsAnnouncements',
+      '/common/set-password',
       '/enrollment/enroll',
       '/enrollment/manageEnrollment',
       '/enrollment/modifyEnrollment',
@@ -83,6 +97,7 @@
       '/print/modifyStatusSettings',
       '/print/meritSheetPage',
       '/print/migration',
+      '/print/emailHistoryPage',
       '/promotion/apply',
       '/promotion/closeGraduationYearGroup',
       '/legal/help',
@@ -102,6 +117,7 @@
       '/guardian/settings',
       '/guardian/report',
       '/guardian/reports',
+      '/guardian/edit-pending-student',
       '/legal/help',
       '/legal/privacy-policy',
       '/legal/terms-of-service',
@@ -111,6 +127,7 @@
       '/',
       '/hub/dashboard',
       '/hub/settings',
+      '/hub/organizations',
       '/hub/organizations/invite',
       '/hub/organizations/search',
       '/hub/organizations/edit',
@@ -146,7 +163,7 @@
   const PRELOAD_PRIORITY = {
     public: ['/account/login', '/account/register', '/common/pricing'],
     organization: ['/common/orgDashboard', '/common/management', '/account/settings'],
-    guardian: ['/guardian/dashboard', '/guardian/student'],
+    guardian: ['/guardian/dashboard'],
     hub: ['/hub/dashboard', '/hub/settings'],
     admin: ['/admin/superDashboard', '/admin/superSettings']
   };
@@ -430,7 +447,7 @@
       // 5. Process new content
       this._processImages(currentMain);
       this._processVideos(currentMain);
-      this._executeScripts(currentMain);
+      await this._executeScripts(currentMain);
       this._reinitializeHandlers(currentMain);
 
       // 6. Fade in
@@ -512,10 +529,10 @@
 
     // ── Script Execution ──────────────────────────────────────────────
 
-    _executeScripts(container) {
+    async _executeScripts(container) {
       const scripts = container.querySelectorAll('script');
 
-      scripts.forEach(oldScript => {
+      for (const oldScript of scripts) {
         const newScript = document.createElement('script');
 
         // Copy attributes
@@ -523,19 +540,31 @@
           newScript.setAttribute(attr.name, attr.value);
         });
 
+        if (!oldScript.parentNode) continue;
+
         if (oldScript.src) {
-          // External script — re-add to trigger load
-          newScript.src = oldScript.src;
+          // External script — re-add to trigger load and await completion
+          await new Promise(resolve => {
+            newScript.onload = resolve;
+            newScript.onerror = resolve;
+            newScript.src = oldScript.src;
+
+            if (oldScript.parentNode) {
+              oldScript.parentNode.replaceChild(newScript, oldScript);
+            } else {
+              resolve();
+            }
+          });
         } else {
           // Inline script — execute in global scope
           newScript.textContent = oldScript.textContent;
-        }
 
-        // Replace in DOM to trigger execution
-        if (oldScript.parentNode) {
-          oldScript.parentNode.replaceChild(newScript, oldScript);
+          // Replace in DOM to trigger execution
+          if (oldScript.parentNode) {
+            oldScript.parentNode.replaceChild(newScript, oldScript);
+          }
         }
-      });
+      }
     }
 
     // ── Reinitialize Event Handlers ───────────────────────────────────

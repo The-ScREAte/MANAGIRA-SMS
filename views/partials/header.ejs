@@ -1010,7 +1010,7 @@
           </svg>
           Settings
         </a></li>
-        <li class="nav-item"><a href="/account/logout" class="logout management-link" style="color:#dc2626;">
+        <li class="nav-item"><a href="/account/logout" class="logout management-link" style="color:#dc2626;" data-no-spa>
           <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
           </svg>
@@ -1069,7 +1069,7 @@
           </a>
         </li>
         <li class="nav-item">
-          <a href="/account/logout" class="logout management-link" style="color:#dc2626;">
+          <a href="/account/logout" class="logout management-link" style="color:#dc2626;" data-no-spa>
             <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
             </svg>
@@ -1337,7 +1337,7 @@
         if (query.length > 0) {
           try {
             const response = await fetch(
-              `/enrollment/searchUsers?query=${query}`
+              `/enrollment/searchUsers?query=${encodeURIComponent(query)}`
             );
             const payload = await response.json();
             const items = Array.isArray(payload.results) ? payload.results : [];
@@ -1363,6 +1363,10 @@
                       href = `/common/studentDetails?studentId=${item.id}&classId=${
                         item.class_id || ""
                       }&termId=${CURRENT_TERM_ID}`;
+                      break;
+                    case "organization_profile":
+                      subtitle = "Organization Profile";
+                      href = `/account/settings`;
                       break;
                     case "employee":
                       subtitle = item.account_type ? escapeHtml(item.account_type) : "Employee";

@@ -425,7 +425,7 @@ const enrollmentController = {
         }
     },
         searchUsers: async (req, res, db) => {
-          const query = req.query.query;
+          const query = String(req.query.query || "").trim();
 
           if (!query) {
             return res.status(400).json({ error: 'No search query provided.' });
@@ -434,14 +434,18 @@ const enrollmentController = {
           const likeQuery = `%${query}%`;
           const orgId = req.session.organizationId;
 
+          if (!orgId) {
+            return res.status(401).json({ error: 'Unauthorized organization context.' });
+          }
+
           try {
-            const [studentsRes, employeesRes, guardiansRes, classesRes, subjectsRes] = await Promise.all([
+            const [studentsRes, employeesRes, guardiansRes, classesRes, subjectsRes, orgProfileRes] = await Promise.all([
               db.query(
                 `
                   SELECT 'student' AS type, s.student_id AS id, s.first_name, s.last_name, s.image_url,
                      c.class_name, c.class_id, NULL::text AS account_type, NULL::text AS subject_name
                   FROM students s
-                  LEFT JOIN classes c ON s.class_id = c.class_id
+                  LEFT JOIN classes c ON s.class_id = c.class_id AND c.organization_id = $2
                   WHERE s.organization_id = $2
                   AND (
                     s.first_name ILIKE $1 OR s.last_name ILIKE $1 OR CONCAT(s.first_name, ' ', s.last_name) ILIKE $1
@@ -451,7 +455,8 @@ const enrollmentController = {
               ),
               db.query(
                 `
-                  SELECT 'employee' AS type, u.user_id AS id, u.first_name, u.last_name, NULL::text AS image_url,
+                  SELECT 'employee' AS type, u.user_id AS id, u.first_name, u.last_name,
+                     COALESCE(NULLIF(u.image_url, ''), 'profilePlaceholder.png') AS image_url,
                      NULL::text AS class_name, NULL::int AS class_id, u.account_type, NULL::text AS subject_name
                   FROM users u
                   WHERE u.organization_id = $2
@@ -463,13 +468,26 @@ const enrollmentController = {
               ),
               db.query(
                 `
-                  SELECT 'guardian' AS type, g.guardian_id AS id, g.first_name, g.last_name, g.image_url,
+                  SELECT DISTINCT ON (
+                    LOWER(TRIM(COALESCE(g.first_name, ''))),
+                    LOWER(TRIM(COALESCE(g.last_name, ''))),
+                    LOWER(TRIM(COALESCE(g.email, ''))),
+                    REGEXP_REPLACE(COALESCE(g.phone, ''), '[^0-9]', '', 'g')
+                  )
+                     'guardian' AS type, g.guardian_id AS id, g.first_name, g.last_name, g.image_url,
                      NULL::text AS class_name, NULL::int AS class_id, NULL::text AS account_type, NULL::text AS subject_name
                   FROM guardians g
                   WHERE g.organization_id = $2
                   AND (
                     g.first_name ILIKE $1 OR g.last_name ILIKE $1 OR CONCAT(g.first_name, ' ', g.last_name) ILIKE $1
                   )
+                  ORDER BY
+                    LOWER(TRIM(COALESCE(g.first_name, ''))),
+                    LOWER(TRIM(COALESCE(g.last_name, ''))),
+                    LOWER(TRIM(COALESCE(g.email, ''))),
+                    REGEXP_REPLACE(COALESCE(g.phone, ''), '[^0-9]', '', 'g'),
+                    CASE WHEN COALESCE(g.image_url, '') <> '' AND g.image_url <> 'profilePlaceholder.png' THEN 0 ELSE 1 END,
+                    g.guardian_id DESC
                 `,
                 [likeQuery, orgId]
               ),
@@ -493,10 +511,29 @@ const enrollmentController = {
                 `,
                 [likeQuery, orgId]
               ),
+              db.query(
+                `
+                  SELECT 'organization_profile' AS type, o.organization_id AS id,
+                     o.first_name, o.last_name,
+                     COALESCE(NULLIF(o.image_url, ''), 'profilePlaceholder.png') AS image_url,
+                     NULL::text AS class_name, NULL::int AS class_id,
+                     'Organization Profile'::text AS account_type, NULL::text AS subject_name
+                  FROM organizations o
+                  WHERE o.organization_id = $2
+                  AND (
+                    o.first_name ILIKE $1
+                    OR o.last_name ILIKE $1
+                    OR CONCAT(o.first_name, ' ', o.last_name) ILIKE $1
+                    OR o.organization_name ILIKE $1
+                  )
+                `,
+                [likeQuery, orgId]
+              ),
             ]);
 
             const results = [
               ...studentsRes.rows,
+              ...orgProfileRes.rows,
               ...employeesRes.rows,
               ...guardiansRes.rows,
               ...classesRes.rows,

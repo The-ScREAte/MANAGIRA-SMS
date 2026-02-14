@@ -445,8 +445,25 @@
     <%- include('../partials/flash') %>
 
     <div class="main-content">
-      <h1>Manage Payment Methods</h1>
+      <h1><%= isHubMember ? 'Self Enrollment Payment Methods' : 'Manage Payment Methods' %></h1>
 
+      <% if (isHubMember) { %>
+      <div class="notice" style="max-width: 700px; margin: 20px auto; text-align: left;">
+        <h2>Hub Billing Active</h2>
+        <p>
+          Your organization is under hub coverage
+          <% if (hubName) { %> (<strong><%= hubName %></strong>) <% } %>
+          and is not charged directly for platform subscription.
+          <% if (hubContractEndDate) { %>
+            Coverage ends on <strong><%= new Date(hubContractEndDate).toLocaleDateString() %></strong>.
+          <% } else { %>
+            Contract end date is not set yet.
+          <% } %>
+        </p>
+      </div>
+      <% } %>
+
+      <% if (!isHubMember) { %>
       <!-- Display current payment methods -->
       <% if (paymentMethods.length > 0) { %>
       <h2>Saved Cards</h2>
@@ -476,16 +493,19 @@
       <p>To add a new card, you need to make a test payment which will save your card details securely.</p>
       <button type="button" id="add-card-button" class="btn-primary">Add New Card (As Backup)</button>
     </div>
+    <% } %>
+
 <hr>
     <div class="notice">
       <h2>Notice:</h2>
       <p>
-        Below, you can set up the MoMo, or bank options for users to pay their registration fee. They can choose to use any of the payment methods you set up.      </p>
+        Below, you can set up MoMo or bank options for users to pay their self enrollment fee. They can choose any payment method you set up.
+      </p>
     </div>
 
 
   
-    <h2 id="paystack-form-title">Public Registration Payment Methods</h2>
+    <h2 id="paystack-form-title">Self Enrollment Payment Methods</h2>
     <form id="paystack-form" class="form-box">
       <input type="hidden" name="id" id="ps-id" />
       <label>Payment Type
@@ -552,7 +572,7 @@
       <button type="button" id="delete-ps-account" class="btn btn-danger" style="display: none;">Delete</button>
     </form>
 
-    <h2>Connected Public Registration Payment Methods</h2>
+    <h2>Connected Self Enrollment Payment Methods</h2>
     <ul id="ps-accounts-list" class="paystack-account-list">
       <% paystackSubaccounts.forEach(account => { %>
         <li class="paystack-account" data-id="<%= account.id %>">
@@ -764,6 +784,7 @@
         };
       });
     </script>
+    <% if (!isHubMember) { %>
     <script>
       // ✅ Paystack card management
       const orgEmail = <%- JSON.stringify(orgEmail || "") %>;
@@ -1203,6 +1224,7 @@
         }
       }
     </script>
+    <% } %>
     </div> <!-- End main-content -->
   </body>
 </html>

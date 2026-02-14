@@ -6,12 +6,13 @@ const validateStudents = (req, res, next) => {
 
   const body = req.body;
   const indexes = [];
+  const studentFieldPattern = /^(?:firstName|lastName|dateOfBirth|gender|classId|graduationYearGroupId|hometown|height|enrollmentType|schoolYearId|termId)_(\d+)$/;
 
   const isMultiple = Object.keys(body).some((key) => key.match(/_\d+$/));
 
   if (isMultiple) {
     Object.keys(body).forEach((key) => {
-      const match = key.match(/_(\d+)$/);
+      const match = key.match(studentFieldPattern);
       if (match && !indexes.includes(match[1])) indexes.push(match[1]);
     });
   } else {
@@ -20,7 +21,16 @@ const validateStudents = (req, res, next) => {
 
   for (const index of indexes) {
     const prefix = index === "single" ? "" : `_${index}`;
-    const getField = (field) => body[`${field}${prefix}`]?.trim() || "";
+    const getField = (field) => {
+      if (index === "single") {
+        return body[field]?.trim() || "";
+      }
+      return (
+        body[`${field}${prefix}`]?.trim() ||
+        body[`${field}___${index}`]?.trim() ||
+        ""
+      );
+    };
 
     const firstName = getField("firstName");
     const lastName = getField("lastName");
@@ -28,6 +38,11 @@ const validateStudents = (req, res, next) => {
     const gender = getField("gender");
     const classId = getField("classId");
     const graduationGroup = getField("graduationYearGroupId");
+
+    const isCompletelyEmpty = !firstName && !lastName && !dateOfBirth && !gender && !classId;
+    if (isCompletelyEmpty) {
+      continue;
+    }
 
     if (!firstName.match(/^[A-Za-z\s]+$/)) {
       errors.push(
@@ -55,10 +70,6 @@ const validateStudents = (req, res, next) => {
 
     if (!classId) {
       errors.push(`Student ${+index + 1}: Class selection is required.`);
-    }
-
-    if (!graduationGroup) {
-      errors.push(`Student ${+index + 1}: Graduation year group is required.`);
     }
 
     // Validate guardians if any
@@ -89,6 +100,11 @@ const validateStudents = (req, res, next) => {
   }
 
   if (errors.length) {
+    console.warn('[AddStudent Validation] Failed required checks', {
+      indexes,
+      sampleKeys: Object.keys(body).slice(0, 30),
+      errors
+    });
     req.flash("error", errors);
     return res.redirect("back");
   }
@@ -120,12 +136,7 @@ const validatePublicRegister = [
 
   check("classId").notEmpty().withMessage("Class is required"),
 
-  check("studentImage").custom((value, { req }) => {
-    if (!req.file) {
-      throw new Error("Student image is required");
-    }
-    return true;
-  }),
+  check("studentImage").optional(),
 
   check("guardianEmail0")
     .optional({ checkFalsy: true })

@@ -241,7 +241,7 @@
                   <div class="kebab-menu" data-remark-id="<%= remark.id %>">
                     <div class="kebab" aria-label="More actions">⋮</div>
                     <ul>
-                      <li><a href="/print/deleteRemark/<%= remark.id %>?classId=<%= classId %>&termId=<%= termId %>">Delete</a></li>
+                      <li><a href="/print/deleteRemark/<%= remark.id %>?classId=<%= classId %>&termId=<%= termId %>" data-no-spa>Delete</a></li>
                     </ul>
                   </div>
                 </div>
@@ -272,6 +272,10 @@
                   <% } %>
                   
                   <div style="flex:1;min-width:0;">
+                    <div style="margin-bottom:8px;">
+                      <div style="font-weight:700;color:#0f172a;"><%= sig.signature_title || 'Authorized Signature' %></div>
+                      <div style="font-size:0.95rem;color:var(--muted);"><%= sig.signature_name || 'Authorized Signer' %></div>
+                    </div>
                     <div style="font-weight:600;color:var(--primary);margin-bottom:8px;font-size:0.95rem;">Applied to <%= sig.classes.length %> class<%= sig.classes.length !== 1 ? 'es' : '' %>:</div>
                     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
                       <% sig.classes.sort((a,b)=>a.class_id-b.class_id).forEach(classInfo=>{ %>
@@ -312,6 +316,16 @@
               <button type="button" class="btn" onclick="saveDigitalSignature()">Save Signature</button>
             </div>
             <div id="sigStatus" class="sig-status"></div>
+            <div class="form-row-2" style="margin:12px 0 4px;">
+              <div class="form-group" style="margin-bottom:0;">
+                <label>Signer Title</label>
+                <input type="text" id="signatureTitleInput" placeholder="e.g., Principal" value="<%= signatureTitle || '' %>" />
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label>Signer Name</label>
+                <input type="text" id="signatureNameInput" placeholder="e.g., Jane Doe" value="<%= signatureName || '' %>" />
+              </div>
+            </div>
             <div class="form-group" style="margin-top:12px;margin-bottom:0;">
               <label>Apply Signature To:</label>
               <div id="signatureClassCheckboxes" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;"></div>
@@ -339,6 +353,10 @@
                     <% } %>
                     
                     <div style="flex:1;min-width:0;">
+                      <div style="margin-bottom:8px;">
+                        <div style="font-weight:700;color:#0f172a;"><%= sig.signature_title || 'Authorized Transcript Signature' %></div>
+                        <div style="font-size:0.95rem;color:var(--muted);"><%= sig.signature_name || 'Authorized Signer' %></div>
+                      </div>
                       <div style="font-weight:600;color:var(--primary);margin-bottom:8px;font-size:0.95rem;">Applied to <%= sig.classes.length %> class<%= sig.classes.length !== 1 ? 'es' : '' %>:</div>
                       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
                         <% sig.classes.sort((a,b)=>a.class_id-b.class_id).forEach(classInfo=>{ %>
@@ -379,6 +397,16 @@
                 <button type="button" class="btn" onclick="saveTranscriptSignature()">Save Transcript Signature</button>
               </div>
               <div id="transcriptSigStatus" class="sig-status"></div>
+              <div class="form-row-2" style="margin:12px 0 4px;">
+                <div class="form-group" style="margin-bottom:0;">
+                  <label>Signer Title</label>
+                  <input type="text" id="transcriptSignatureTitleInput" placeholder="e.g., Registrar" />
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                  <label>Signer Name</label>
+                  <input type="text" id="transcriptSignatureNameInput" placeholder="e.g., John Doe" />
+                </div>
+              </div>
               <div class="form-group" style="margin-top:12px;margin-bottom:0;">
                 <label>Apply Transcript Signature To:</label>
                 <div id="transcriptSignatureClassCheckboxes" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;"></div>
@@ -464,7 +492,7 @@
             <div class="kebab-menu" data-score-id="${remark.id}" style="flex-shrink:0;">
               <div class="kebab" aria-label="More actions">⋮</div>
               <ul>
-                <li><a href="/print/deleteScoreRemark/${remark.id}?classId=${classId}&termId=<%= termId %>">Delete</a></li>
+                <li><a href="/print/deleteScoreRemark/${remark.id}?classId=${classId}&termId=<%= termId %>" data-no-spa>Delete</a></li>
               </ul>
             </div>
           </div>
@@ -812,6 +840,8 @@
       statusEl.textContent = 'Saving signature...';
       if(!canvas){ statusEl.textContent = 'Canvas not ready.'; return; }
       const classChecks = Array.from(document.querySelectorAll('.draw-signature-class:checked')).map(c => c.value);
+      const signerTitle = document.getElementById('signatureTitleInput')?.value.trim() || '';
+      const signerName = document.getElementById('signatureNameInput')?.value.trim() || '';
       if(!classChecks.length){ statusEl.textContent = 'Select at least one class to apply.'; return; }
       canvas.toBlob(async blob => {
         if(!blob){ statusEl.textContent = 'Could not capture signature.'; return; }
@@ -819,6 +849,8 @@
         fd.append('signatureImage', blob, 'signature.png');
         fd.append('termId', '<%= termId %>');
         fd.append('classId', '<%= classId %>');
+        fd.append('signatureTitle', signerTitle);
+        fd.append('signatureName', signerName);
         classChecks.forEach(c => fd.append('selectedSignatureClasses', c));
         try {
           const res = await fetch('/print/uploadSignatureImage', { method:'POST', body: fd });
@@ -984,11 +1016,15 @@
       statusEl.textContent = 'Saving transcript signature...';
       if(!transcriptCanvas){ statusEl.textContent = 'Canvas not ready.'; return; }
       const classChecks = Array.from(document.querySelectorAll('.transcript-signature-class:checked')).map(c => c.value);
+      const transcriptSignatureTitle = document.getElementById('transcriptSignatureTitleInput')?.value.trim() || '';
+      const transcriptSignatureName = document.getElementById('transcriptSignatureNameInput')?.value.trim() || '';
       if(!classChecks.length){ statusEl.textContent = 'Select at least one class.'; return; }
       transcriptCanvas.toBlob(async blob => {
         if(!blob){ statusEl.textContent = 'Could not capture signature.'; return; }
         const fd = new FormData();
         fd.append('signatureImage', blob, 'transcript-signature.png');
+        fd.append('transcriptSignatureTitle', transcriptSignatureTitle);
+        fd.append('transcriptSignatureName', transcriptSignatureName);
         classChecks.forEach(c => fd.append('selectedTranscriptClasses', c));
         try {
           const res = await fetch('/print/uploadTranscriptSignature', { method:'POST', body: fd });

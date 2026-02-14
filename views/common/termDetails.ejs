@@ -197,12 +197,14 @@
               <a
                 href="/print/printStudentReport?classId=<%= cls.class_id %>&termId=<%= termId %>"
                 class="btn"
+                data-no-spa
               >Generate Report</a>
               <% if (Array.isArray(allowedFeatures) &&
                 allowedFeatures.includes("Class Base Merrit sheet")) { %>
               <a
                 href="/print/meritSheetPage?classId=<%= cls.class_id %>&termId=<%= termId %>"
                 class="btn"
+                data-no-spa
               >Merit Sheet</a>
               <% } %>
             </div>
