@@ -735,32 +735,132 @@
             }
         }
         @media (max-width: 768px) {
-
-
-
     .header {
         flex-direction: column;
         text-align: center;
     }
 
- 
-        .student-report {
-            width: 100%;
-            padding: 15px;
-            box-sizing: border-box;
-        }
-    
-        .info table, 
-        .subjects table,
-        .promotion-table {
-            overflow-x: auto;
-            display: block;
-        }
-    
-        th, td {
-            font-size: 12px;
-            padding: 5px;
-        }}
+    .student-report {
+        width: 100%;
+        padding: 12px;
+        margin: 5px auto 30px auto;
+        box-sizing: border-box;
+    }
+
+    .header img.logo,
+    .header img.student-image {
+        width: 48px;
+        height: 52px;
+    }
+
+    .header h1 {
+        font-size: 15px;
+    }
+
+    .header h2 {
+        font-size: 13px;
+    }
+
+    .header h3 {
+        font-size: 11px;
+    }
+
+    .info table, 
+    .subjects table,
+    .promotion-table {
+        overflow-x: auto;
+        display: block;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    th, td {
+        font-size: 11px;
+        padding: 5px 4px;
+    }
+
+    .remarks-signature-wrapper {
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .signature-info {
+        width: 100%;
+        min-width: unset;
+        align-items: center;
+    }
+
+    .remark-line label {
+        min-width: 100px;
+        font-size: 12px;
+    }
+
+    .remark-line textarea {
+        font-size: 12px;
+    }
+
+    .grade-interpretation {
+        max-width: 100%;
+        font-size: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .student-report {
+        padding: 8px;
+        border-radius: 6px;
+        margin: 5px auto 20px auto;
+    }
+
+    .header {
+        gap: 8px;
+        padding-bottom: 8px;
+        margin-bottom: 8px;
+    }
+
+    .header img.logo,
+    .header img.student-image {
+        width: 40px;
+        height: 44px;
+    }
+
+    .header h1 {
+        font-size: 13px;
+    }
+
+    .header h2 {
+        font-size: 11px;
+    }
+
+    th, td {
+        font-size: 10px;
+        padding: 4px 3px;
+    }
+
+    .remarks-header {
+        font-size: 12px;
+    }
+
+    .remark-line label {
+        min-width: 80px;
+        font-size: 11px;
+    }
+
+    .remark-line textarea {
+        font-size: 11px;
+    }
+
+    .signature-info img {
+        max-width: 100px;
+    }
+
+    .signature-info h3 {
+        font-size: 9px;
+    }
+
+    .grade-interpretation {
+        font-size: 9px;
+    }
+}
 
         .actions-no-print {
             display: flex;
@@ -1339,7 +1439,44 @@
             border: 2px solid var(--primary);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
           }
-          
+          /* Mobile-friendly email modal & actions */
+          @media (max-width: 768px) {
+            .email-modal-header {
+              padding: 16px 18px 14px;
+            }
+            .email-modal-title { font-size: 16px; }
+            .email-modal-body { padding: 18px 18px; gap: 16px; }
+            .email-student-row { padding: 14px 16px; }
+            .email-student-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+            .email-student-name { font-size: 14px; }
+            .email-field-row { flex-direction: column; gap: 8px; }
+            .email-input { font-size: 16px; }
+            .email-remove-btn { width: 100%; min-width: unset; }
+            .email-footer { flex-direction: column; align-items: stretch; gap: 12px; }
+            .email-send-btn { width: 100%; padding: 0 20px; }
+            .email-hint { font-size: 12px; padding: 12px 14px; }
+            .print-options-container { padding: 12px; }
+            .print-options-header { flex-direction: column; gap: 10px; align-items: flex-start; }
+            .print-options-header h3 { font-size: 15px; }
+            .search-filter-wrapper { width: 100%; }
+            .search-box { min-width: unset; width: 100%; }
+          }
+
+          @media (max-width: 480px) {
+            .email-modal-card { border-radius: 10px; max-height: 90vh; }
+            .email-modal-header { padding: 14px 14px 12px; }
+            .email-modal-title { font-size: 15px; }
+            .email-modal-subtitle { font-size: 12px; }
+            .email-modal-body { padding: 14px 14px; gap: 14px; }
+            .email-student-row { padding: 12px; border-radius: 8px; }
+            .email-student-name { font-size: 13px; }
+            .email-input { height: 40px; padding: 9px 12px; font-size: 16px; }
+            .email-remove-btn { height: 38px; }
+            .email-password label { font-size: 13px; }
+            .email-password input { height: 40px; font-size: 16px; }
+            .email-close-btn { width: 32px; height: 32px; font-size: 15px; }
+            .email-add-btn { padding: 7px 12px; font-size: 12px; height: 32px; }
+          }
 
     </style>
 </head>

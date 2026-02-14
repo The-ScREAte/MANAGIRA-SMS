@@ -337,17 +337,59 @@
       text-decoration: underline;
     }
 
-    @media (max-width: 520px) {
+    @media (max-width: 768px) {
+      .page-wrapper {
+        padding: 40px 16px;
+      }
       .register-card {
         padding: 32px 24px;
       }
-
       .register-header h1 {
         font-size: 1.5rem;
       }
+      .section-title {
+        font-size: 1rem;
+      }
+    }
 
+    @media (max-width: 480px) {
+      .page-wrapper {
+        padding: 24px 12px;
+      }
+      .register-card {
+        padding: 24px 18px;
+        border-radius: 12px;
+      }
+      .register-header h1 {
+        font-size: 1.3rem;
+      }
+      .register-header p {
+        font-size: 0.85rem;
+      }
+      .section-title {
+        font-size: 0.95rem;
+        margin: 20px 0 14px 0;
+      }
+      .form-label {
+        font-size: 0.85rem;
+      }
       .form-input {
         padding: 12px 14px;
+        font-size: 16px;
+      }
+      .notice {
+        font-size: 0.82rem;
+        padding: 12px;
+      }
+      .btn-primary {
+        padding: 14px 20px;
+        font-size: 0.95rem;
+      }
+      .terms-group {
+        padding: 12px;
+      }
+      .terms-group label {
+        font-size: 0.85rem;
       }
     }
   </style>
