@@ -297,6 +297,7 @@ app.get("/test-flash", (req, res) => {
 // Home route
 app.get("/", async (req, res) => {
   const isProduction = process.env.NODE_ENV === "production";
+  const isRenderDomain = req.hostname && req.hostname.endsWith(".onrender.com");
 
   // ...removed log for clean background operation...
 
@@ -315,7 +316,15 @@ app.get("/", async (req, res) => {
     return res.redirect("/common/publicDashboard");
   }
 
-  // ✅ Case 3: Development (localhost) — just render landing
+  // ✅ Case 3: Render default domain for web service
+  if (isProduction && isRenderDomain) {
+    return res.render("index", {
+      title: "Welcome to Managira",
+      showFooterTopSection: true,
+    });
+  }
+
+  // ✅ Case 4: Development (localhost) — just render landing
   if (!isProduction) {
   // ...removed log for clean background operation...
     return res.render("index", {
