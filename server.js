@@ -34,21 +34,10 @@ const compression = require("compression");
 const { setCacheHeaders, preloadCache } = require("./middleware/cacheMiddleware");
 
 // **Dynamic BASE_URL Logic**
-const BASE_URL_LOCAL = process.env.BASE_URL_LOCAL || `http://localhost:${PORT}`;
-const BASE_URL_PRODUCTION =
-  process.env.BASE_URL_PRODUCTION || process.env.BASE_URL_PRODUCTION_FALLBACK;
 const BASE_URL =
-  process.env.NODE_ENV === "production" ? BASE_URL_PRODUCTION : BASE_URL_LOCAL;
-
-const getRuntimeBaseUrl = (req) => {
-  if (process.env.NODE_ENV !== "production") return BASE_URL_LOCAL;
-  if (req?.hostname && req.hostname.endsWith(".onrender.com")) {
-    return `https://${req.hostname}`;
-  }
-  return BASE_URL_PRODUCTION || `https://${req.hostname}`;
-};
-
-const sessionCookieDomain = process.env.SESSION_COOKIE_DOMAIN;
+  process.env.NODE_ENV === "production"
+    ? process.env.BASE_URL_PRODUCTION
+    : process.env.BASE_URL_LOCAL;
 // Force restart to reload jobs folder
 
 app.set("db", db);
@@ -67,7 +56,7 @@ app.use(async (req, res, next) => {
     return next();
   }
 
-  const baseDomain = process.env.PUBLIC_BASE_DOMAIN || "managira.com";
+  const baseDomain = "managira.com";
   let subdomain = null;
   let hubSubdomain = null;
 
@@ -156,11 +145,15 @@ app.use(async (req, res, next) => {
           req.hubDetails = null;
         }
       } else {
-        return res.status(404).send("Organization not found");
+        req.schoolDetails = null;
+        req.isHubMember = false;
+        req.hubDetails = null;
       }
     } catch (err) {
       console.error("Error fetching subdomain organization:", err);
-      return res.status(500).send("Server error");
+      req.schoolDetails = null;
+      req.isHubMember = false;
+      req.hubDetails = null;
     }
   }
 
@@ -183,7 +176,7 @@ if (process.env.NODE_ENV === "production") {
       saveUninitialized: false,
       cookie: {
         secure: false,
-        ...(sessionCookieDomain ? { domain: sessionCookieDomain } : {}),
+        domain: ".managira.com",
         sameSite: "lax",
         maxAge: 18000000,
       },
@@ -213,7 +206,7 @@ app.use(flash());
 app.use((req, res, next) => {
   res.locals.session = req.session;
   res.locals.getFlash = (type) => req.flash(type);
-  res.locals.BASE_URL = getRuntimeBaseUrl(req) || BASE_URL;
+  res.locals.BASE_URL = BASE_URL;
   res.locals.showFooterTopSection = false;
   next();
 });

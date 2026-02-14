@@ -7,6 +7,22 @@ function parseTruthyFlag(val) {
   }
   return false;
 }
+
+function buildProductionAwareRedirect(req, orgNickName, subdomainPath, fallbackPath) {
+  if (process.env.NODE_ENV !== 'production') {
+    return fallbackPath;
+  }
+
+  const host = String(req?.hostname || '').toLowerCase();
+  const usingRenderDefaultDomain = host.endsWith('.onrender.com');
+  const hasCustomOrgDomain = !!orgNickName;
+
+  if (hasCustomOrgDomain && !usingRenderDefaultDomain) {
+    return `https://${orgNickName}.managira.com${subdomainPath}`;
+  }
+
+  return fallbackPath;
+}
 const bcrypt = require("bcryptjs");
 
 const bcryptjs = require("bcryptjs");
@@ -2754,15 +2770,12 @@ const accountController = {
                   return res.redirect("/account/login");
                 }
 
-                const onRenderHost = req.hostname && req.hostname.endsWith(".onrender.com");
-
-                const redirectUrl =
-                  process.env.NODE_ENV === "production"
-                    ? (onRenderHost
-                        ? "/common/orgDashboard"
-                        : `https://${req.session.orgNickName}.managira.com/common/orgDashboard`)
-                    : "/common/orgDashboard?organizationId=" +
-                      req.session.organizationId;
+                const redirectUrl = buildProductionAwareRedirect(
+                  req,
+                  req.session.orgNickName,
+                  "/common/orgDashboard",
+                  "/common/orgDashboard?organizationId=" + req.session.organizationId
+                );
 
                 req.flash("success", `Welcome, ${user.first_name}!`);
 
@@ -2871,15 +2884,12 @@ const accountController = {
                 return res.redirect("/account/login");
               }
 
-              const onRenderHost = req.hostname && req.hostname.endsWith(".onrender.com");
-
-              const redirectUrl =
-                process.env.NODE_ENV === "production"
-                  ? (onRenderHost
-                      ? "/common/orgDashboard"
-                      : `https://${req.session.orgNickName}.managira.com/common/orgDashboard`)
-                  : "/common/orgDashboard?organizationId=" +
-                    req.session.organizationId;
+              const redirectUrl = buildProductionAwareRedirect(
+                req,
+                req.session.orgNickName,
+                "/common/orgDashboard",
+                "/common/orgDashboard?organizationId=" + req.session.organizationId
+              );
 
               req.flash(
                 "success",
@@ -3006,13 +3016,12 @@ const accountController = {
         req.session.lastName = ga.last_name;
 
         req.session.save(() => {
-          const onRenderHost = req.hostname && req.hostname.endsWith(".onrender.com");
-          const redirectUrl =
-            process.env.NODE_ENV === "production"
-              ? (onRenderHost
-                  ? "/guardian/dashboard"
-                  : `https://${req.session.orgNickName}.managira.com/guardian/dashboard`)
-              : "/guardian/dashboard";
+          const redirectUrl = buildProductionAwareRedirect(
+            req,
+            req.session.orgNickName,
+            "/guardian/dashboard",
+            "/guardian/dashboard"
+          );
 
           return res.redirect(redirectUrl);
         });
@@ -3038,14 +3047,9 @@ const accountController = {
       // Redirect based on environment
 
       const isProduction = process.env.NODE_ENV === "production";
-      const onRenderHost = req.hostname && req.hostname.endsWith(".onrender.com");
-      const configuredProdBaseUrl =
-        process.env.BASE_URL_PRODUCTION ||
-        process.env.BASE_URL_PRODUCTION_FALLBACK ||
-        "https://managira.com";
 
       const redirectUrl = isProduction
-        ? (onRenderHost ? `https://${req.hostname}` : configuredProdBaseUrl)
+        ? "https://managira.com"
         : "/account/login";
 
       res.redirect(redirectUrl);
