@@ -145,15 +145,11 @@ app.use(async (req, res, next) => {
           req.hubDetails = null;
         }
       } else {
-        req.schoolDetails = null;
-        req.isHubMember = false;
-        req.hubDetails = null;
+        return res.status(404).send("Organization not found");
       }
     } catch (err) {
       console.error("Error fetching subdomain organization:", err);
-      req.schoolDetails = null;
-      req.isHubMember = false;
-      req.hubDetails = null;
+      return res.status(500).send("Server error");
     }
   }
 

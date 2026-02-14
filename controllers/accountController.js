@@ -7,22 +7,6 @@ function parseTruthyFlag(val) {
   }
   return false;
 }
-
-function buildProductionAwareRedirect(req, orgNickName, subdomainPath, fallbackPath) {
-  if (process.env.NODE_ENV !== 'production') {
-    return fallbackPath;
-  }
-
-  const host = String(req?.hostname || '').toLowerCase();
-  const usingRenderDefaultDomain = host.endsWith('.onrender.com');
-  const hasCustomOrgDomain = !!orgNickName;
-
-  if (hasCustomOrgDomain && !usingRenderDefaultDomain) {
-    return `https://${orgNickName}.managira.com${subdomainPath}`;
-  }
-
-  return fallbackPath;
-}
 const bcrypt = require("bcryptjs");
 
 const bcryptjs = require("bcryptjs");
@@ -2770,12 +2754,11 @@ const accountController = {
                   return res.redirect("/account/login");
                 }
 
-                const redirectUrl = buildProductionAwareRedirect(
-                  req,
-                  req.session.orgNickName,
-                  "/common/orgDashboard",
-                  "/common/orgDashboard?organizationId=" + req.session.organizationId
-                );
+                const redirectUrl =
+                  process.env.NODE_ENV === "production"
+                    ? `https://${req.session.orgNickName}.managira.com/common/orgDashboard`
+                    : "/common/orgDashboard?organizationId=" +
+                      req.session.organizationId;
 
                 req.flash("success", `Welcome, ${user.first_name}!`);
 
@@ -2884,12 +2867,11 @@ const accountController = {
                 return res.redirect("/account/login");
               }
 
-              const redirectUrl = buildProductionAwareRedirect(
-                req,
-                req.session.orgNickName,
-                "/common/orgDashboard",
-                "/common/orgDashboard?organizationId=" + req.session.organizationId
-              );
+              const redirectUrl =
+                process.env.NODE_ENV === "production"
+                  ? `https://${req.session.orgNickName}.managira.com/common/orgDashboard`
+                  : "/common/orgDashboard?organizationId=" +
+                    req.session.organizationId;
 
               req.flash(
                 "success",
@@ -3016,12 +2998,10 @@ const accountController = {
         req.session.lastName = ga.last_name;
 
         req.session.save(() => {
-          const redirectUrl = buildProductionAwareRedirect(
-            req,
-            req.session.orgNickName,
-            "/guardian/dashboard",
-            "/guardian/dashboard"
-          );
+          const redirectUrl =
+            process.env.NODE_ENV === "production"
+              ? `https://${req.session.orgNickName}.managira.com/guardian/dashboard`
+              : "/guardian/dashboard";
 
           return res.redirect(redirectUrl);
         });
