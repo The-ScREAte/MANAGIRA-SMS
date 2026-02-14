@@ -9,7 +9,7 @@ const axios = require("axios");
 
 const BASE_URL =
   process.env.NODE_ENV === "production"
-    ? process.env.BASE_URL_PRODUCTION
+    ? (process.env.RENDER_EXTERNAL_URL || process.env.BASE_URL_PRODUCTION || process.env.BASE_URL_PRODUCTION_FALLBACK)
     : process.env.BASE_URL_LOCAL;
 
 // Only run keep-alive in production to avoid unnecessary pings in development

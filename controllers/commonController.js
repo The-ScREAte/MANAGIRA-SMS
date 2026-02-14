@@ -2384,13 +2384,18 @@ const commonController = {
     console.log('[Initialize Payment] Subaccount code:', subaccountCode);
     console.log('[Initialize Payment] Amount:', amount);
 
-    // ✅ Determine the BASE_URL dynamically
+    // ✅ Determine BASE_URL dynamically with dual-domain support
+    const requestOrigin = `${req.protocol}://${req.get("host")}`;
+    const configuredProdBaseUrl =
+      process.env.BASE_URL_PRODUCTION ||
+      process.env.BASE_URL_PRODUCTION_FALLBACK ||
+      "https://managira.com";
     const BASE_URL =
       process.env.NODE_ENV === "production"
-        ? process.env.BASE_URL_PRODUCTION || "https://managira.com"
+        ? requestOrigin
         : process.env.BASE_URL_LOCAL || "http://localhost:4000";
 
-    console.log('[Initialize Payment] BASE_URL:', BASE_URL);
+    console.log('[Initialize Payment] BASE_URL:', BASE_URL || configuredProdBaseUrl);
 
     const pendingStudentId = req.session.pendingStudentId;
     console.log('[Initialize Payment] Pending student ID from session:', pendingStudentId);
