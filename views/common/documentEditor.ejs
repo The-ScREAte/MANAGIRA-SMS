@@ -1,0 +1,994 @@
+<%
+  const themeColor = (typeof session !== 'undefined' && session && session.themeColor) ? session.themeColor : 'teal';
+  const themeColors = {
+    teal: { primary: '#01535b', hover: '#014a51' },
+    blue: { primary: '#2563eb', hover: '#1d4ed8' },
+    green: { primary: '#2d5f4f', hover: '#245043' },
+    purple: { primary: '#7c3aed', hover: '#6d28d9' },
+    indigo: { primary: '#4f46e5', hover: '#4338ca' },
+    rose: { primary: '#8b2635', hover: '#7a212e' },
+    amber: { primary: '#d97706', hover: '#b45309' },
+    slate: { primary: '#334155', hover: '#1e293b' }
+  };
+  const currentTheme = themeColors[themeColor] || themeColors.teal;
+  const isDoc = document.doc_type === 'document';
+  const isReadOnly = permissionLevel === 'view';
+  const canComment = permissionLevel === 'comment' || permissionLevel === 'edit';
+  const canEdit = permissionLevel === 'edit';
+%>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= document.title %> - Managira</title>
+  <link rel="icon" href="/favicon.ico" />
+  <% if (isDoc) { %>
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet" />
+  <% } %>
+  <style>
+    :root {
+      --border: #e5e7eb;
+      --muted: #6b7280;
+      --bg: #f9fafb;
+      --primary: <%= currentTheme.primary %>;
+      --primary-hover: <%= currentTheme.hover %>;
+      --text: #111827;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); }
+
+    /* Top Bar */
+    .editor-topbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 56px;
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 12px;
+      z-index: 100;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+
+    .topbar-back {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+      text-decoration: none;
+      color: var(--text);
+      transition: all 0.15s;
+    }
+    .topbar-back:hover { border-color: var(--primary); color: var(--primary); }
+
+    .topbar-icon {
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+
+    .topbar-title {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .topbar-title input {
+      width: 100%;
+      border: none;
+      outline: none;
+      font-size: 16px;
+      font-weight: 600;
+      background: transparent;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: background 0.15s;
+    }
+    .topbar-title input:hover { background: #f3f4f6; }
+    .topbar-title input:focus { background: #f0f9ff; }
+
+    .save-status {
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .topbar-actions {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-outline { background: #fff; color: var(--text); border: 1px solid var(--border); }
+    .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
+
+    .btn-sm { padding: 6px 10px; font-size: 12px; }
+
+    .permission-badge {
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+    .permission-badge.edit { background: #dcfce7; color: #16a34a; }
+    .permission-badge.view { background: #dbeafe; color: #2563eb; }
+    .permission-badge.comment { background: #fef3c7; color: #d97706; }
+
+    /* Editor Area */
+    .editor-area {
+      margin-top: 56px;
+      height: calc(100vh - 56px);
+      display: flex;
+    }
+
+    /* Document Editor (Quill) */
+    .doc-editor-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      max-width: 860px;
+      margin: 24px auto;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+      overflow: hidden;
+    }
+
+    #doc-editor {
+      flex: 1;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    #doc-editor .ql-editor {
+      min-height: 400px;
+      padding: 32px 40px;
+    }
+
+    /* Spreadsheet Editor */
+    .sheet-container {
+      flex: 1;
+      overflow: auto;
+      padding: 16px;
+    }
+
+    .sheet-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .sheet-toolbar select,
+    .sheet-toolbar input {
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 13px;
+    }
+
+    .sheet-toolbar .formula-bar {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .sheet-table-wrap {
+      overflow: auto;
+      max-height: calc(100vh - 140px);
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .sheet-table {
+      border-collapse: collapse;
+      width: max-content;
+      min-width: 100%;
+    }
+
+    .sheet-table th,
+    .sheet-table td {
+      border: 1px solid #e5e7eb;
+      min-width: 100px;
+      height: 32px;
+      padding: 0;
+      position: relative;
+    }
+
+    .sheet-table th {
+      background: #f9fafb;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      user-select: none;
+    }
+
+    .sheet-table th.row-header {
+      width: 40px;
+      min-width: 40px;
+      position: sticky;
+      left: 0;
+      z-index: 3;
+      background: #f3f4f6;
+    }
+
+    .sheet-table th.corner {
+      position: sticky;
+      left: 0;
+      z-index: 4;
+    }
+
+    .sheet-table td {
+      background: #fff;
+      font-size: 13px;
+    }
+
+    .sheet-table td.row-header-cell {
+      background: #f9fafb;
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 600;
+      position: sticky;
+      left: 0;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .sheet-cell-input {
+      width: 100%;
+      height: 100%;
+      border: none;
+      outline: none;
+      padding: 4px 8px;
+      font-size: 13px;
+      font-family: inherit;
+      background: transparent;
+    }
+
+    .sheet-cell-input:focus {
+      background: #eff6ff;
+      box-shadow: inset 0 0 0 2px var(--primary);
+    }
+
+    .sheet-table td.formula-cell { color: #2563eb; }
+    .sheet-table td.error-cell { color: #dc2626; background: #fef2f2; }
+
+    /* Settings Panel */
+    .settings-panel {
+      display: none;
+      position: fixed;
+      top: 56px;
+      right: 0;
+      width: 360px;
+      max-width: 90vw;
+      height: calc(100vh - 56px);
+      background: #fff;
+      border-left: 1px solid var(--border);
+      z-index: 50;
+      overflow-y: auto;
+      box-shadow: -4px 0 20px rgba(0,0,0,0.06);
+    }
+    .settings-panel.open { display: block; }
+
+    .settings-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .settings-header h3 { margin: 0; font-size: 16px; }
+
+    .settings-close {
+      background: none;
+      border: none;
+      font-size: 22px;
+      cursor: pointer;
+      color: var(--muted);
+      padding: 4px;
+    }
+
+    .settings-body { padding: 20px; }
+
+    .settings-section {
+      margin-bottom: 24px;
+    }
+
+    .settings-section h4 {
+      margin: 0 0 10px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .perm-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 0;
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    .perm-row:last-child { border-bottom: none; }
+
+    .perm-row .name {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .perm-row select {
+      padding: 4px 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+    }
+
+    .perm-row .remove-btn {
+      width: 24px;
+      height: 24px;
+      border: none;
+      background: #fee2e2;
+      color: #dc2626;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .add-perm-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .add-perm-row select {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+    }
+
+    .class-assign-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 0;
+      border-bottom: 1px solid #f3f4f6;
+      flex-wrap: wrap;
+    }
+
+    .class-assign-row .name { flex: 1; font-size: 13px; font-weight: 500; min-width: 100px; }
+
+    .class-assign-row label {
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .insert-data-section { margin-top: 16px; }
+    .insert-data-section select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    @media (max-width: 768px) {
+      .topbar-actions .btn span.label { display: none; }
+      .save-status { display: none; }
+      .doc-editor-wrap { margin: 12px 8px; border-radius: 6px; }
+      #doc-editor .ql-editor { padding: 20px 16px; }
+      .settings-panel { width: 100%; max-width: 100%; }
+      .sheet-container { padding: 8px; }
+    }
+
+    @media (max-width: 480px) {
+      .editor-topbar { padding: 0 10px; gap: 8px; }
+      .topbar-title input { font-size: 14px; }
+      .btn { padding: 6px 10px; font-size: 12px; }
+      .permission-badge { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Top Bar -->
+  <div class="editor-topbar">
+    <a href="/documents" class="topbar-back" title="Back to Documents">←</a>
+    <span class="topbar-icon"><%= isDoc ? '📝' : '📊' %></span>
+    <div class="topbar-title">
+      <input type="text" id="titleInput" value="<%= document.title %>" <%= isReadOnly ? 'readonly' : '' %> />
+    </div>
+    <span class="save-status" id="saveStatus">Saved</span>
+    <span class="permission-badge <%= permissionLevel %>"><%= permissionLevel %></span>
+    <div class="topbar-actions">
+      <% if (canEdit) { %>
+        <button class="btn btn-outline btn-sm" onclick="toggleSettings()" title="Settings">⚙️ <span class="label">Settings</span></button>
+      <% } %>
+    </div>
+  </div>
+
+  <!-- Editor Area -->
+  <div class="editor-area">
+    <% if (isDoc) { %>
+      <!-- Rich Text Document Editor -->
+      <div class="doc-editor-wrap">
+        <div id="doc-editor"></div>
+      </div>
+    <% } else { %>
+      <!-- Spreadsheet Editor -->
+      <div style="flex:1; display:flex; flex-direction:column;">
+        <div class="sheet-toolbar">
+          <label style="font-size:12px; font-weight:600;">Cell:</label>
+          <input type="text" id="cellRef" readonly style="width:60px; text-align:center;" value="A1" />
+          <span style="color:var(--muted);">ƒ</span>
+          <input type="text" id="formulaBar" class="formula-bar" placeholder="Enter value or formula (=SUM(A1:A5))" <%= isReadOnly ? 'readonly' : '' %> />
+          <% if (canEdit) { %>
+            <button class="btn btn-outline btn-sm" onclick="addRow()">+ Row</button>
+            <button class="btn btn-outline btn-sm" onclick="addCol()">+ Col</button>
+          <% } %>
+        </div>
+        <div class="sheet-container">
+          <div class="sheet-table-wrap">
+            <table class="sheet-table" id="sheetTable"></table>
+          </div>
+        </div>
+      </div>
+    <% } %>
+  </div>
+
+  <!-- Settings Panel -->
+  <% if (canEdit) { %>
+  <div class="settings-panel" id="settingsPanel">
+    <div class="settings-header">
+      <h3>Document Settings</h3>
+      <button class="settings-close" onclick="toggleSettings()">×</button>
+    </div>
+    <div class="settings-body">
+      <!-- User Permissions -->
+      <div class="settings-section">
+        <h4>👤 User Permissions</h4>
+        <div id="permList">
+          <% permissions.forEach(p => { %>
+            <div class="perm-row" data-user-id="<%= p.user_id %>">
+              <span class="name"><%= p.user_name %></span>
+              <select onchange="updatePermList()">
+                <option value="view" <%= p.permission_level === 'view' ? 'selected' : '' %>>View</option>
+                <option value="comment" <%= p.permission_level === 'comment' ? 'selected' : '' %>>Comment</option>
+                <option value="edit" <%= p.permission_level === 'edit' ? 'selected' : '' %>>Edit</option>
+              </select>
+              <button class="remove-btn" onclick="this.closest('.perm-row').remove()">×</button>
+            </div>
+          <% }); %>
+        </div>
+        <div class="add-perm-row">
+          <select id="addUserSelect">
+            <option value="">Add user...</option>
+            <% employees.forEach(emp => { %>
+              <option value="<%= emp.user_id %>"><%= emp.name %> (<%= emp.role %>)</option>
+            <% }); %>
+          </select>
+          <select id="addUserLevel">
+            <option value="view">View</option>
+            <option value="comment">Comment</option>
+            <option value="edit">Edit</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="addUserPerm()">Add</button>
+        </div>
+      </div>
+
+      <!-- Class Assignments -->
+      <div class="settings-section">
+        <h4>🏫 Assign to Classes</h4>
+        <div id="classAssignList">
+          <% classAssignments.forEach(ca => { %>
+            <div class="class-assign-row" data-class-id="<%= ca.class_id %>">
+              <span class="name"><%= ca.class_name %></span>
+              <select>
+                <option value="view" <%= ca.permission_level === 'view' ? 'selected' : '' %>>View</option>
+                <option value="comment" <%= ca.permission_level === 'comment' ? 'selected' : '' %>>Comment</option>
+                <option value="edit" <%= ca.permission_level === 'edit' ? 'selected' : '' %>>Edit</option>
+              </select>
+              <label><input type="checkbox" class="incStudents" <%= ca.include_students ? 'checked' : '' %>> Students</label>
+              <label><input type="checkbox" class="incSubjects" <%= ca.include_subjects ? 'checked' : '' %>> Subjects</label>
+              <button class="remove-btn" onclick="this.closest('.class-assign-row').remove()">×</button>
+            </div>
+          <% }); %>
+        </div>
+        <div class="add-perm-row">
+          <select id="addClassSelect">
+            <option value="">Add class...</option>
+            <% classes.forEach(cls => { %>
+              <option value="<%= cls.class_id %>"><%= cls.class_name %></option>
+            <% }); %>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="addClassAssign()">Add</button>
+        </div>
+      </div>
+
+      <% if (!isDoc) { %>
+      <!-- Insert Class Data (Spreadsheet only) -->
+      <div class="settings-section insert-data-section">
+        <h4>📋 Insert Class Data</h4>
+        <select id="insertClassSelect">
+          <option value="">Select class...</option>
+          <% classes.forEach(cls => { %>
+            <option value="<%= cls.class_id %>"><%= cls.class_name %></option>
+          <% }); %>
+        </select>
+        <button class="btn btn-outline btn-sm" onclick="insertStudents()" style="width:100%; margin-bottom:6px;">Insert Students</button>
+        <button class="btn btn-outline btn-sm" onclick="insertSubjects()" style="width:100%;">Insert Subjects</button>
+      </div>
+      <% } %>
+
+      <button class="btn btn-primary" onclick="savePermissions()" style="width:100%; margin-top:10px;">Save Permissions</button>
+    </div>
+  </div>
+  <% } %>
+
+  <% if (isDoc) { %>
+    <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+  <% } %>
+
+  <script>
+    const DOC_ID = '<%= document.id %>';
+    const DOC_TYPE = '<%= document.doc_type %>';
+    const CAN_EDIT = <%= canEdit %>;
+    const IS_READ_ONLY = <%= isReadOnly %>;
+    let saveTimer = null;
+    let lastSavedContent = '';
+    let lastKnownUpdate = '<%= document.updated_at %>';
+
+    // ========== DOCUMENT EDITOR ==========
+    <% if (isDoc) { %>
+    const quill = new Quill('#doc-editor', {
+      theme: 'snow',
+      readOnly: IS_READ_ONLY,
+      modules: {
+        toolbar: CAN_EDIT ? [
+          [{ header: [1, 2, 3, false] }],
+          ['bold', 'italic', 'underline', 'strike'],
+          [{ color: [] }, { background: [] }],
+          [{ list: 'ordered' }, { list: 'bullet' }],
+          [{ align: [] }],
+          ['blockquote', 'code-block'],
+          ['link', 'image'],
+          ['clean']
+        ] : false
+      }
+    });
+
+    // Load initial content
+    try {
+      const initialContent = <%- JSON.stringify(document.content || '') %>;
+      if (initialContent) {
+        const delta = JSON.parse(initialContent);
+        quill.setContents(delta);
+      }
+    } catch(e) {
+      quill.root.innerHTML = <%- JSON.stringify(document.content || '') %>;
+    }
+
+    lastSavedContent = JSON.stringify(quill.getContents());
+
+    if (CAN_EDIT) {
+      quill.on('text-change', () => {
+        clearTimeout(saveTimer);
+        document.getElementById('saveStatus').textContent = 'Unsaved changes...';
+        saveTimer = setTimeout(autoSave, 2000);
+      });
+    }
+    <% } %>
+
+    // ========== SPREADSHEET EDITOR ==========
+    <% if (!isDoc) { %>
+    let sheetData = {};
+    let colCount = 10;
+    let rowCount = 20;
+    let selectedCell = null;
+
+    try {
+      const raw = <%- JSON.stringify(document.content || '{}') %>;
+      const parsed = JSON.parse(raw);
+      sheetData = parsed.cells || {};
+      colCount = parsed.colCount || 10;
+      rowCount = parsed.rowCount || 20;
+    } catch(e) {}
+
+    function colLabel(n) {
+      let s = '';
+      while (n >= 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1; }
+      return s;
+    }
+
+    function cellId(r, c) { return colLabel(c) + (r + 1); }
+
+    function renderSheet() {
+      const table = document.getElementById('sheetTable');
+      let html = '<thead><tr><th class="corner row-header"></th>';
+      for (let c = 0; c < colCount; c++) html += '<th>' + colLabel(c) + '</th>';
+      html += '</tr></thead><tbody>';
+
+      for (let r = 0; r < rowCount; r++) {
+        html += '<tr><td class="row-header-cell">' + (r + 1) + '</td>';
+        for (let c = 0; c < colCount; c++) {
+          const id = cellId(r, c);
+          const val = sheetData[id] || '';
+          const display = computeCell(val);
+          const isFormula = typeof val === 'string' && val.startsWith('=');
+          const isError = display === '#ERROR' || display === '#REF';
+          html += '<td class="' + (isFormula ? 'formula-cell' : '') + (isError ? ' error-cell' : '') + '">';
+          html += '<input class="sheet-cell-input" data-cell="' + id + '" value="' + escapeHtml(String(display)) + '" ' + (IS_READ_ONLY ? 'readonly' : '') + ' />';
+          html += '</td>';
+        }
+        html += '</tr>';
+      }
+      html += '</tbody>';
+      table.innerHTML = html;
+
+      // Bind events
+      table.querySelectorAll('.sheet-cell-input').forEach(input => {
+        input.addEventListener('focus', function() {
+          selectedCell = this.dataset.cell;
+          document.getElementById('cellRef').value = this.dataset.cell;
+          document.getElementById('formulaBar').value = sheetData[this.dataset.cell] || '';
+          this.value = sheetData[this.dataset.cell] || '';
+        });
+        input.addEventListener('blur', function() {
+          const id = this.dataset.cell;
+          sheetData[id] = this.value;
+          this.value = computeCell(this.value);
+          recalcAll();
+          triggerAutoSave();
+        });
+        input.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter') { e.preventDefault(); this.blur(); moveTo(this.dataset.cell, 0, 1); }
+          if (e.key === 'Tab') { e.preventDefault(); this.blur(); moveTo(this.dataset.cell, 1, 0); }
+        });
+      });
+    }
+
+    // Formula bar sync
+    document.getElementById('formulaBar').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && selectedCell) {
+        sheetData[selectedCell] = this.value;
+        recalcAll();
+        renderSheet();
+        triggerAutoSave();
+      }
+    });
+
+    function moveTo(from, dc, dr) {
+      const col = from.replace(/[0-9]/g, '');
+      const row = parseInt(from.replace(/[A-Z]/g, ''));
+      const ci = col.charCodeAt(0) - 65 + dc;
+      const ri = row - 1 + dr;
+      if (ci >= 0 && ci < colCount && ri >= 0 && ri < rowCount) {
+        const next = document.querySelector(`[data-cell="${cellId(ri, ci)}"]`);
+        if (next) next.focus();
+      }
+    }
+
+    function computeCell(val) {
+      if (typeof val !== 'string' || !val.startsWith('=')) return val;
+      try {
+        const formula = val.substring(1).toUpperCase();
+        // Handle SUM, AVERAGE, COUNT, MIN, MAX with ranges
+        const rangeMatch = formula.match(/^(SUM|AVERAGE|COUNT|MIN|MAX)\(([A-Z]+\d+):([A-Z]+\d+)\)$/);
+        if (rangeMatch) {
+          const fn = rangeMatch[1];
+          const vals = getRangeValues(rangeMatch[2], rangeMatch[3]);
+          const nums = vals.map(Number).filter(n => !isNaN(n));
+          if (fn === 'SUM') return nums.reduce((a, b) => a + b, 0);
+          if (fn === 'AVERAGE') return nums.length ? (nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(2) : 0;
+          if (fn === 'COUNT') return nums.length;
+          if (fn === 'MIN') return nums.length ? Math.min(...nums) : 0;
+          if (fn === 'MAX') return nums.length ? Math.max(...nums) : 0;
+        }
+        // Simple math with cell refs
+        let expr = formula.replace(/([A-Z]+\d+)/g, (match) => {
+          const v = sheetData[match];
+          if (!v) return '0';
+          const computed = computeCell(v);
+          return isNaN(computed) ? '0' : computed;
+        });
+        return Function('"use strict"; return (' + expr + ')')();
+      } catch(e) { return '#ERROR'; }
+    }
+
+    function getRangeValues(start, end) {
+      const sc = start.replace(/[0-9]/g, '').charCodeAt(0) - 65;
+      const sr = parseInt(start.replace(/[A-Z]/g, '')) - 1;
+      const ec = end.replace(/[0-9]/g, '').charCodeAt(0) - 65;
+      const er = parseInt(end.replace(/[A-Z]/g, '')) - 1;
+      const vals = [];
+      for (let r = sr; r <= er; r++) {
+        for (let c = sc; c <= ec; c++) {
+          const v = sheetData[cellId(r, c)];
+          if (v !== undefined && v !== '') vals.push(computeCell(v));
+        }
+      }
+      return vals;
+    }
+
+    function recalcAll() {
+      document.querySelectorAll('.sheet-cell-input').forEach(input => {
+        const id = input.dataset.cell;
+        const val = sheetData[id] || '';
+        if (document.activeElement !== input) {
+          input.value = computeCell(val);
+        }
+      });
+    }
+
+    function addRow() {
+      rowCount++;
+      renderSheet();
+      triggerAutoSave();
+    }
+
+    function addCol() {
+      colCount++;
+      renderSheet();
+      triggerAutoSave();
+    }
+
+    function escapeHtml(text) {
+      return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    renderSheet();
+    <% } %>
+
+    // ========== AUTO SAVE ==========
+    function triggerAutoSave() {
+      clearTimeout(saveTimer);
+      document.getElementById('saveStatus').textContent = 'Unsaved changes...';
+      saveTimer = setTimeout(autoSave, 2000);
+    }
+
+    async function autoSave() {
+      if (!CAN_EDIT) return;
+
+      let content;
+      <% if (isDoc) { %>
+        content = JSON.stringify(quill.getContents());
+        if (content === lastSavedContent) return;
+      <% } else { %>
+        content = JSON.stringify({ cells: sheetData, colCount, rowCount });
+      <% } %>
+
+      const title = document.getElementById('titleInput').value.trim();
+      document.getElementById('saveStatus').textContent = 'Saving...';
+
+      try {
+        const res = await fetch('/documents/save/' + DOC_ID, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content, title })
+        });
+        const data = await res.json();
+        if (data.success) {
+          lastSavedContent = content;
+          document.getElementById('saveStatus').textContent = 'Saved ✓';
+        } else {
+          document.getElementById('saveStatus').textContent = 'Save failed';
+        }
+      } catch(e) {
+        document.getElementById('saveStatus').textContent = 'Save error';
+      }
+    }
+
+    // Title auto-save
+    document.getElementById('titleInput').addEventListener('input', () => {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(autoSave, 1500);
+    });
+
+    // ========== POLLING FOR UPDATES ==========
+    setInterval(async () => {
+      try {
+        const res = await fetch('/documents/content/' + DOC_ID);
+        const data = await res.json();
+        if (data.success && data.data.updated_at !== lastKnownUpdate) {
+          lastKnownUpdate = data.data.updated_at;
+          // Only update if no local changes pending
+          if (document.getElementById('saveStatus').textContent === 'Saved ✓' || document.getElementById('saveStatus').textContent === 'Saved') {
+            <% if (isDoc) { %>
+              const newContent = JSON.parse(data.data.content);
+              const currentContent = JSON.stringify(quill.getContents());
+              if (data.data.content !== currentContent) {
+                const sel = quill.getSelection();
+                quill.setContents(newContent, 'silent');
+                if (sel) quill.setSelection(sel);
+              }
+            <% } else { %>
+              const parsed = JSON.parse(data.data.content);
+              sheetData = parsed.cells || {};
+              colCount = parsed.colCount || colCount;
+              rowCount = parsed.rowCount || rowCount;
+              renderSheet();
+            <% } %>
+            document.getElementById('titleInput').value = data.data.title;
+          }
+        }
+      } catch(e) {}
+    }, 8000);
+
+    // ========== SETTINGS PANEL ==========
+    function toggleSettings() {
+      document.getElementById('settingsPanel').classList.toggle('open');
+    }
+
+    function addUserPerm() {
+      const sel = document.getElementById('addUserSelect');
+      const level = document.getElementById('addUserLevel').value;
+      if (!sel.value) return;
+
+      const name = sel.options[sel.selectedIndex].text;
+      const userId = sel.value;
+
+      // Check duplicate
+      if (document.querySelector(`#permList .perm-row[data-user-id="${userId}"]`)) {
+        alert('User already has permissions.');
+        return;
+      }
+
+      const row = document.createElement('div');
+      row.className = 'perm-row';
+      row.dataset.userId = userId;
+      row.innerHTML = `
+        <span class="name">${name}</span>
+        <select>
+          <option value="view" ${level==='view'?'selected':''}>View</option>
+          <option value="comment" ${level==='comment'?'selected':''}>Comment</option>
+          <option value="edit" ${level==='edit'?'selected':''}>Edit</option>
+        </select>
+        <button class="remove-btn" onclick="this.closest('.perm-row').remove()">×</button>
+      `;
+      document.getElementById('permList').appendChild(row);
+      sel.value = '';
+    }
+
+    function addClassAssign() {
+      const sel = document.getElementById('addClassSelect');
+      if (!sel.value) return;
+
+      const name = sel.options[sel.selectedIndex].text;
+      const classId = sel.value;
+
+      if (document.querySelector(`#classAssignList .class-assign-row[data-class-id="${classId}"]`)) {
+        alert('Class already assigned.');
+        return;
+      }
+
+      const row = document.createElement('div');
+      row.className = 'class-assign-row';
+      row.dataset.classId = classId;
+      row.innerHTML = `
+        <span class="name">${name}</span>
+        <select>
+          <option value="view">View</option>
+          <option value="comment">Comment</option>
+          <option value="edit">Edit</option>
+        </select>
+        <label><input type="checkbox" class="incStudents"> Students</label>
+        <label><input type="checkbox" class="incSubjects"> Subjects</label>
+        <button class="remove-btn" onclick="this.closest('.class-assign-row').remove()">×</button>
+      `;
+      document.getElementById('classAssignList').appendChild(row);
+      sel.value = '';
+    }
+
+    async function savePermissions() {
+      const permissions = [];
+      document.querySelectorAll('#permList .perm-row').forEach(row => {
+        permissions.push({
+          user_id: parseInt(row.dataset.userId),
+          permission_level: row.querySelector('select').value
+        });
+      });
+
+      const classAssignments = [];
+      document.querySelectorAll('#classAssignList .class-assign-row').forEach(row => {
+        classAssignments.push({
+          class_id: parseInt(row.dataset.classId),
+          permission_level: row.querySelector('select').value,
+          include_students: row.querySelector('.incStudents').checked,
+          include_subjects: row.querySelector('.incSubjects').checked
+        });
+      });
+
+      try {
+        const res = await fetch('/documents/permissions/' + DOC_ID, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ permissions, classAssignments })
+        });
+        const data = await res.json();
+        if (data.success) alert('Permissions saved!');
+        else alert('Failed to save permissions.');
+      } catch(e) { alert('Error saving permissions.'); }
+    }
+
+    // ========== INSERT CLASS DATA ==========
+    <% if (!isDoc) { %>
+    async function insertStudents() {
+      const classId = document.getElementById('insertClassSelect').value;
+      if (!classId) return alert('Select a class first.');
+
+      const res = await fetch('/documents/classData?classId=' + classId);
+      const data = await res.json();
+      if (!data.success) return alert('Failed to load data.');
+
+      // Insert student names starting from A1
+      data.students.forEach((s, i) => {
+        sheetData[cellId(i, 0)] = s.first_name + ' ' + s.last_name;
+      });
+      renderSheet();
+      triggerAutoSave();
+    }
+
+    async function insertSubjects() {
+      const classId = document.getElementById('insertClassSelect').value;
+      if (!classId) return alert('Select a class first.');
+
+      const res = await fetch('/documents/classData?classId=' + classId);
+      const data = await res.json();
+      if (!data.success) return alert('Failed to load data.');
+
+      // Insert subject names as column headers starting from B1
+      data.subjects.forEach((s, i) => {
+        sheetData[cellId(0, i + 1)] = s.subject_name;
+      });
+      renderSheet();
+      triggerAutoSave();
+    }
+    <% } %>
+  </script>
+</body>
+</html>

@@ -373,45 +373,50 @@ object-fit:contain;
 /* Modal mobile */
 @media (max-width:768px){
   .modal{
-    padding: calc(var(--header-height, 56px) + 8px) 8px 8px;
+    padding: calc(var(--header-height, 56px) + 8px) 10px 10px;
   }
   .modal-content{
-    width: min(92%, 420px);
+    width: min(92%, 380px);
     padding:14px 12px;
     margin-top: 0;
     max-height: calc(100vh - var(--header-height, 56px) - 20px);
     border-radius:12px;
   }
   .modalImageContainer{
-    max-height:14vh;
+    max-height:28vh;
   }
   #modalImage{
-    max-height:14vh;
+    max-height:28vh;
+  }
+  #modalCaption{
+    font-size:0.9rem;
+    max-height:110px;
   }
 }
 @media (max-width:480px){
   .modal{
-    padding: calc(var(--header-height, 56px) + 8px) 6px 6px;
+    padding: calc(var(--header-height, 56px) + 6px) 8px 8px;
   }
   .modal-content{
-    width: min(96%, 360px);
+    width: min(94%, 340px);
     padding:12px 10px;
     margin-top: 0;
     max-height: calc(100vh - var(--header-height, 56px) - 16px);
     border-radius:10px;
   }
   .modalImageContainer{
-    max-height:12vh;
+    max-height:24vh;
   }
   #modalImage{
-    max-height:12vh;
+    max-height:24vh;
   }
   #modalCaption{
-    font-size:0.88rem;
-    max-height:100px;
+    font-size:0.85rem;
+    max-height:90px;
+    line-height:1.5;
   }
   .close-button{
-    font-size:28px;
+    font-size:26px;
     top:6px;
     right:10px;
   }

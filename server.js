@@ -259,6 +259,7 @@ const statsRoutes = require("./routes/statsRoutes");
 const promotionRoute = require("./routes/promotionRoute");
 const chatbotRoute = require("./routes/chatbotRoute");
 const guardianRoute = require("./routes/guardianRoute")(db);
+const documentRoute = require("./routes/documentRoute")(db);
 
 // Debug middleware for admin routes in production
 if (process.env.NODE_ENV === "production") {
@@ -280,6 +281,7 @@ app.use("/stats", statsRoutes);
 app.use("/promotion", promotionRoute);
 app.use("/api/chatbot", chatbotRoute);
 app.use("/guardian", guardianRoute);
+app.use("/documents", documentRoute);
 app.use("/hub", require("./routes/hubRoute")); // Hub routes
 
 // Health check endpoint for keep-alive pings
