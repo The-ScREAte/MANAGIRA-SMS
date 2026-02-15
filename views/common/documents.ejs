@@ -1,0 +1,466 @@
+<%
+  const themeColor = (typeof session !== 'undefined' && session && session.themeColor) ? session.themeColor : 'teal';
+  const themeColors = {
+    teal: { primary: '#01535b', hover: '#014a51' },
+    blue: { primary: '#2563eb', hover: '#1d4ed8' },
+    green: { primary: '#2d5f4f', hover: '#245043' },
+    purple: { primary: '#7c3aed', hover: '#6d28d9' },
+    indigo: { primary: '#4f46e5', hover: '#4338ca' },
+    rose: { primary: '#8b2635', hover: '#7a212e' },
+    amber: { primary: '#d97706', hover: '#b45309' },
+    slate: { primary: '#334155', hover: '#1e293b' }
+  };
+  const currentTheme = themeColors[themeColor] || themeColors.teal;
+%>
+
+<style>
+:root {
+  --border: #e5e7eb;
+  --muted: #6b7280;
+  --bg: #f9fafb;
+  --primary: <%= currentTheme.primary %>;
+  --primary-hover: <%= currentTheme.hover %>;
+  --text: #111827;
+}
+
+body { background: var(--bg); }
+main { padding: 0 !important; max-width: none !important; }
+
+.docs-wrapper {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 20px 60px;
+}
+
+.docs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.docs-header h1 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.docs-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+}
+.btn-primary:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.btn-outline {
+  background: #fff;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-outline:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.btn-danger {
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+.btn-danger:hover {
+  background: #dc2626;
+  color: #fff;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+/* Documents Grid */
+.docs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.doc-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.doc-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  transform: translateY(-2px);
+}
+
+.doc-card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  font-size: 22px;
+}
+
+.doc-card-icon.document {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.doc-card-icon.spreadsheet {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.doc-card h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.doc-card-meta {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.doc-card-actions {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.doc-card:hover .doc-card-actions {
+  opacity: 1;
+}
+
+.doc-card-actions button {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.15s;
+}
+
+.doc-card-actions button:hover {
+  background: #fee2e2;
+  border-color: #fecaca;
+  color: #dc2626;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--muted);
+}
+
+.empty-state svg {
+  width: 64px;
+  height: 64px;
+  color: #d1d5db;
+  margin-bottom: 16px;
+}
+
+.empty-state h3 {
+  font-size: 18px;
+  color: var(--text);
+  margin: 0 0 6px;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* Create Modal */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15,23,42,0.5);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-overlay.active { display: flex; }
+
+.modal-box {
+  background: #fff;
+  border-radius: 14px;
+  padding: 28px;
+  width: min(92%, 440px);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+
+.modal-box h2 {
+  margin: 0 0 20px;
+  font-size: 20px;
+  color: var(--text);
+}
+
+.type-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.type-option {
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 14px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.type-option:hover { border-color: var(--primary); }
+
+.type-option.selected {
+  border-color: var(--primary);
+  background: rgba(1,83,91,0.06);
+}
+
+.type-option .icon {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.type-option h4 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.type-option p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(1,83,91,0.1);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+@media (max-width: 768px) {
+  .docs-wrapper { padding: 16px 14px 40px; }
+  .docs-header { flex-direction: column; align-items: flex-start; }
+  .docs-header h1 { font-size: 22px; }
+  .docs-grid { grid-template-columns: 1fr; }
+  .doc-card-actions { opacity: 1; }
+}
+
+@media (max-width: 480px) {
+  .docs-wrapper { padding: 12px 10px 30px; }
+  .docs-header h1 { font-size: 20px; }
+  .docs-actions { width: 100%; }
+  .docs-actions .btn { flex: 1; justify-content: center; }
+  .type-selector { grid-template-columns: 1fr; }
+}
+</style>
+
+<div class="docs-wrapper">
+  <div class="docs-header">
+    <h1>📄 Documents</h1>
+    <div class="docs-actions">
+      <button class="btn btn-primary" onclick="openCreateModal()">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        New Document
+      </button>
+      <a href="/common/management#documents" class="btn btn-outline">← Back</a>
+    </div>
+  </div>
+
+  <% if (documents.length === 0) { %>
+    <div class="empty-state">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      <h3>No documents yet</h3>
+      <p>Create your first document or spreadsheet to get started.</p>
+    </div>
+  <% } else { %>
+    <div class="docs-grid">
+      <% documents.forEach(doc => { %>
+        <div class="doc-card" onclick="window.location='/documents/edit/<%= doc.id %>'">
+          <div class="doc-card-actions">
+            <button onclick="event.stopPropagation(); deleteDoc(<%= doc.id %>, '<%= doc.title.replace(/'/g, "\\'") %>')" title="Delete">🗑</button>
+          </div>
+          <div class="doc-card-icon <%= doc.doc_type %>">
+            <%= doc.doc_type === 'spreadsheet' ? '📊' : '📝' %>
+          </div>
+          <h3><%= doc.title %></h3>
+          <div class="doc-card-meta">
+            <div>By <%= doc.created_by_name %></div>
+            <div>Updated <%= new Date(doc.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %></div>
+          </div>
+        </div>
+      <% }); %>
+    </div>
+  <% } %>
+</div>
+
+<!-- Create Modal -->
+<div class="modal-overlay" id="createModal">
+  <div class="modal-box">
+    <h2>Create New Document</h2>
+    <div class="type-selector">
+      <div class="type-option selected" data-type="document" onclick="selectType('document')">
+        <div class="icon">📝</div>
+        <h4>Document</h4>
+        <p>Rich text with formatting</p>
+      </div>
+      <div class="type-option" data-type="spreadsheet" onclick="selectType('spreadsheet')">
+        <div class="icon">📊</div>
+        <h4>Spreadsheet</h4>
+        <p>Tables with formulas</p>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Title</label>
+      <input type="text" id="docTitle" placeholder="Enter document title..." />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeCreateModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="createDocument()">Create</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let selectedType = 'document';
+
+function selectType(type) {
+  selectedType = type;
+  document.querySelectorAll('.type-option').forEach(el => el.classList.remove('selected'));
+  document.querySelector(`.type-option[data-type="${type}"]`).classList.add('selected');
+  document.getElementById('docTitle').placeholder = type === 'spreadsheet' ? 'Enter spreadsheet title...' : 'Enter document title...';
+}
+
+function openCreateModal() {
+  document.getElementById('createModal').classList.add('active');
+  document.getElementById('docTitle').focus();
+}
+
+function closeCreateModal() {
+  document.getElementById('createModal').classList.remove('active');
+  document.getElementById('docTitle').value = '';
+}
+
+async function createDocument() {
+  const title = document.getElementById('docTitle').value.trim();
+  try {
+    const res = await fetch('/documents/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, doc_type: selectedType })
+    });
+    const data = await res.json();
+    if (data.success) {
+      window.location.href = '/documents/edit/' + data.documentId;
+    } else {
+      alert('Failed to create document.');
+    }
+  } catch (e) {
+    alert('Error creating document.');
+  }
+}
+
+async function deleteDoc(id, title) {
+  if (!confirm('Delete "' + title + '"? This cannot be undone.')) return;
+  try {
+    const res = await fetch('/documents/delete/' + id, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const data = await res.json();
+    if (data.success) location.reload();
+    else alert('Failed to delete.');
+  } catch (e) { alert('Error deleting document.'); }
+}
+
+// Close modal on overlay click
+document.getElementById('createModal').addEventListener('click', function(e) {
+  if (e.target === this) closeCreateModal();
+});
+</script>
