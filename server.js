@@ -302,16 +302,22 @@ app.get("/test-flash", (req, res) => {
 app.get("/", async (req, res) => {
   const isProduction = process.env.NODE_ENV === "production";
   const isRenderDomain = req.hostname && req.hostname.endsWith(".onrender.com");
+  const homeSeo = {
+    title: "School Management Software for Enrollment, Classes, Assessments & Communication",
+    description:
+      "Managira helps schools manage enrollment, classes, attendance, assessments, communication, billing, and reporting in one secure platform.",
+    keywords:
+      "school management software, student information system, attendance tracking, assessment management, school reports, Managira",
+    canonicalUrl: "https://www.managira.com/",
+    showFooterTopSection: true,
+  };
 
   // ...removed log for clean background operation...
 
   // ✅ Case 1: Production root domain (e.g. managira.com or www)
   if (isProduction && req.isRootDomain) {
   // ...removed log for clean background operation...
-    return res.render("index", {
-      title: "Welcome to Managira",
-      showFooterTopSection: true,
-    });
+    return res.render("index", homeSeo);
   }
 
   // ✅ Case 2: Production subdomain (e.g. myschool.managira.com)
@@ -322,18 +328,15 @@ app.get("/", async (req, res) => {
 
   // ✅ Case 3: Render default domain for web service
   if (isProduction && isRenderDomain) {
-    return res.render("index", {
-      title: "Welcome to Managira",
-      showFooterTopSection: true,
-    });
+    return res.render("index", homeSeo);
   }
 
   // ✅ Case 4: Development (localhost) — just render landing
   if (!isProduction) {
   // ...removed log for clean background operation...
     return res.render("index", {
-      title: "Welcome to Managira [DEV]",
-      showFooterTopSection: true,
+      ...homeSeo,
+      title: "School Management Software for Enrollment, Classes, Assessments & Communication [DEV]",
     });
   }
 
