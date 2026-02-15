@@ -1,22 +1,244 @@
 const bcrypt = require("bcryptjs");
+const { sendEmailSafely } = require("../utils/emailHelper");
+
+let documentsSchemaReadyPromise = null;
+
+const ensureDocumentsSchema = async (db) => {
+  if (!documentsSchemaReadyPromise) {
+    documentsSchemaReadyPromise = (async () => {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS documents (
+          id SERIAL PRIMARY KEY,
+          organization_id INTEGER NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE,
+          title VARCHAR(255) NOT NULL DEFAULT 'Untitled Document',
+          doc_type VARCHAR(20) NOT NULL DEFAULT 'document' CHECK (doc_type IN ('document', 'spreadsheet')),
+          content TEXT DEFAULT '',
+          created_by INTEGER NOT NULL REFERENCES users(user_id),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          is_deleted BOOLEAN DEFAULT FALSE
+        );
+      `);
+
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS document_permissions (
+          id SERIAL PRIMARY KEY,
+          document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+          user_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
+          permission_level VARCHAR(20) NOT NULL DEFAULT 'view' CHECK (permission_level IN ('view', 'edit', 'comment')),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(document_id, user_id)
+        );
+      `);
+
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS document_class_assignments (
+          id SERIAL PRIMARY KEY,
+          document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+          class_id INTEGER NOT NULL REFERENCES classes(class_id) ON DELETE CASCADE,
+          include_students BOOLEAN DEFAULT FALSE,
+          include_subjects BOOLEAN DEFAULT FALSE,
+          permission_level VARCHAR(20) NOT NULL DEFAULT 'view' CHECK (permission_level IN ('view', 'edit', 'comment')),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(document_id, class_id)
+        );
+      `);
+
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_documents_org_id ON documents(organization_id);`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_documents_created_by ON documents(created_by);`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_documents_deleted ON documents(is_deleted);`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_doc_permissions_doc_id ON document_permissions(document_id);`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_doc_permissions_user_id ON document_permissions(user_id);`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_doc_class_assignments_doc_id ON document_class_assignments(document_id);`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_doc_class_assignments_class_id ON document_class_assignments(class_id);`);
+    })().catch((error) => {
+      documentsSchemaReadyPromise = null;
+      throw error;
+    });
+  }
+
+  await documentsSchemaReadyPromise;
+};
+
+const resolveCreatorUserId = async (db, orgId, userId) => {
+  if (userId) return userId;
+
+  const fallback = await db.query(`
+    SELECT user_id
+    FROM users
+    WHERE organization_id = $1
+      AND account_type IN ('Manager', 'Supervisor')
+    ORDER BY CASE WHEN account_type = 'Manager' THEN 0 ELSE 1 END, user_id ASC
+    LIMIT 1
+  `, [orgId]);
+
+  return fallback.rows[0]?.user_id || null;
+};
+
+const classBelongsToOrg = async (db, classId, orgId) => {
+  if (!classId || !orgId) return false;
+  const result = await db.query(`
+    SELECT 1
+    FROM classes
+    WHERE class_id = $1 AND organization_id = $2
+    LIMIT 1
+  `, [classId, orgId]);
+  return result.rows.length > 0;
+};
+
+const notifyTeachersOnNewClassAssignments = async ({ db, req, orgId, docId, docTitle, classIds }) => {
+  if (!Array.isArray(classIds) || classIds.length === 0) return;
+
+  try {
+    const recipientsResult = await db.query(`
+      SELECT DISTINCT
+        u.email,
+        u.first_name,
+        c.class_name,
+        c.class_id
+      FROM class_employees ce
+      JOIN users u ON u.user_id = ce.user_id
+      JOIN classes c ON c.class_id = ce.class_id
+      WHERE ce.class_id = ANY($1::int[])
+        AND c.organization_id = $2
+        AND u.organization_id = $2
+        AND u.account_type = 'Teacher'
+        AND COALESCE(u.email, '') <> ''
+    `, [classIds, orgId]);
+
+    if (!recipientsResult.rows.length) return;
+
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+
+    await Promise.all(recipientsResult.rows.map((row) => {
+      const openUrl = `${baseUrl}/documents?classId=${row.class_id}`;
+      const safeTeacherName = row.first_name || 'Teacher';
+      const safeClassName = row.class_name || 'your class';
+      const safeDocTitle = docTitle || `File #${docId}`;
+
+      const html = `
+        <div style="font-family:Segoe UI,Arial,sans-serif;line-height:1.6;color:#0f172a;max-width:640px;margin:0 auto;">
+          <h2 style="color:#0f766e;">New file assigned</h2>
+          <p>Hello ${safeTeacherName},</p>
+          <p>A new file has been assigned to <strong>${safeClassName}</strong>.</p>
+          <p><strong>File:</strong> ${safeDocTitle}</p>
+          <p>
+            <a href="${openUrl}" style="display:inline-block;background:#0f766e;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;">
+              Open Files
+            </a>
+          </p>
+          <p style="font-size:12px;color:#64748b;">This is an automated Managira notification.</p>
+        </div>
+      `;
+
+      return sendEmailSafely({
+        to: row.email,
+        subject: `New file assigned: ${safeDocTitle}`,
+        html,
+      }, 'Files Assignment Email');
+    }));
+  } catch (error) {
+    console.error('Files assignment email failed:', error.message);
+  }
+};
 
 const documentController = {
   // List all documents for the organization
   async documentsList(req, res, db) {
-    try {
-      const orgId = req.session.organizationId;
-      const userId = req.session.userId;
+    const orgId = req.session.organizationId;
+    const userId = req.session.userId || req.session.user?.user_id || null;
+    const userRole = req.session.userRole;
+    const classId = req.query.classId ? Number(req.query.classId) : null;
+    const canCreate = userRole === 'Manager' || userRole === 'Supervisor';
+    const shouldAutoCreate = canCreate && req.query.create === '1';
 
-      // Get all documents created by users in this org (not deleted)
-      const docs = await db.query(`
-        SELECT d.id, d.title, d.doc_type, d.created_at, d.updated_at,
-          u.first_name || ' ' || u.last_name AS created_by_name,
-          d.created_by
-        FROM documents d
-        JOIN users u ON d.created_by = u.user_id
-        WHERE d.organization_id = $1 AND d.is_deleted = FALSE
-        ORDER BY d.updated_at DESC
-      `, [orgId]);
+    try {
+      await ensureDocumentsSchema(db);
+
+      let documentRows = [];
+
+      if (canCreate) {
+        if (classId) {
+          const classExists = await classBelongsToOrg(db, classId, orgId);
+          if (!classExists) {
+            documentRows = [];
+          } else {
+          const docs = await db.query(`
+            SELECT DISTINCT d.id, d.title, d.doc_type, d.created_at, d.updated_at,
+              u.first_name || ' ' || u.last_name AS created_by_name,
+              d.created_by
+            FROM documents d
+            JOIN users u ON d.created_by = u.user_id
+            JOIN document_class_assignments dca ON d.id = dca.document_id
+            JOIN classes c ON c.class_id = dca.class_id AND c.organization_id = $1
+            WHERE d.organization_id = $1 AND d.is_deleted = FALSE AND dca.class_id = $2
+            ORDER BY d.updated_at DESC
+          `, [orgId, classId]);
+          documentRows = docs.rows;
+          }
+        } else {
+          const docs = await db.query(`
+            SELECT d.id, d.title, d.doc_type, d.created_at, d.updated_at,
+              u.first_name || ' ' || u.last_name AS created_by_name,
+              d.created_by
+            FROM documents d
+            JOIN users u ON d.created_by = u.user_id
+            WHERE d.organization_id = $1 AND d.is_deleted = FALSE
+            ORDER BY d.updated_at DESC
+          `, [orgId]);
+          documentRows = docs.rows;
+        }
+      } else {
+        if (classId) {
+          const classExists = await classBelongsToOrg(db, classId, orgId);
+          if (!classExists) {
+            documentRows = [];
+          } else {
+          const classMembership = await db.query(`
+            SELECT 1
+            FROM class_employees ce
+            JOIN classes c ON c.class_id = ce.class_id
+            WHERE ce.class_id = $1 AND ce.user_id = $2 AND c.organization_id = $3
+            LIMIT 1
+          `, [classId, userId, orgId]);
+
+          if (classMembership.rows.length > 0) {
+            const docs = await db.query(`
+              SELECT DISTINCT d.id, d.title, d.doc_type, d.created_at, d.updated_at,
+                u.first_name || ' ' || u.last_name AS created_by_name,
+                d.created_by
+              FROM documents d
+              JOIN users u ON d.created_by = u.user_id
+              JOIN document_class_assignments dca ON d.id = dca.document_id AND dca.class_id = $1
+              JOIN classes c ON c.class_id = dca.class_id AND c.organization_id = $3
+              JOIN class_employees ce ON ce.class_id = dca.class_id AND ce.user_id = $2
+              LEFT JOIN document_permissions dp ON dp.document_id = d.id AND dp.user_id = $2
+              WHERE d.organization_id = $3 AND d.is_deleted = FALSE
+                AND (d.created_by = $2 OR dp.user_id IS NOT NULL OR dca.class_id IS NOT NULL)
+              ORDER BY d.updated_at DESC
+            `, [classId, userId, orgId]);
+            documentRows = docs.rows;
+          } else {
+            documentRows = [];
+          }
+          }
+        } else {
+          const docs = await db.query(`
+            SELECT DISTINCT d.id, d.title, d.doc_type, d.created_at, d.updated_at,
+              u.first_name || ' ' || u.last_name AS created_by_name,
+              d.created_by
+            FROM documents d
+            JOIN users u ON d.created_by = u.user_id
+            LEFT JOIN document_permissions dp ON d.id = dp.document_id AND dp.user_id = $1
+            LEFT JOIN document_class_assignments dca ON d.id = dca.document_id
+            LEFT JOIN class_employees ce ON ce.class_id = dca.class_id AND ce.user_id = $1
+            WHERE d.organization_id = $2 AND d.is_deleted = FALSE
+              AND (d.created_by = $1 OR dp.user_id IS NOT NULL OR ce.user_id IS NOT NULL)
+            ORDER BY d.updated_at DESC
+          `, [userId, orgId]);
+          documentRows = docs.rows;
+        }
+      }
 
       // Get classes for assignment dropdowns
       const classes = await db.query(`
@@ -28,34 +250,77 @@ const documentController = {
 
       // Get employees for permission assignment
       const employees = await db.query(`
-        SELECT u.user_id, u.first_name || ' ' || u.last_name AS name, u.role
+        SELECT u.user_id, u.first_name || ' ' || u.last_name AS name, u.account_type AS role
         FROM users u
-        WHERE u.organization_id = $1 AND u.status = 'Active'
+        WHERE u.organization_id = $1
         ORDER BY u.first_name
       `, [orgId]);
 
       res.render("common/documents", {
-        title: "Documents",
-        documents: docs.rows,
+        title: "Files",
+        documents: documentRows,
         classes: classes.rows,
         employees: employees.rows,
         userId,
+        canCreate,
+        classId,
+        autoCreate: shouldAutoCreate,
         layout: "layout",
         showOrgHeader: true,
       });
     } catch (error) {
-      console.error("Error loading documents:", error);
-      req.flash("error", "Failed to load documents.");
-      res.redirect("/common/management");
+      console.error('[FILES][LIST][ERROR]', {
+        path: req.originalUrl,
+        orgId: req.session.organizationId,
+        userId: req.session.userId,
+        userRole: req.session.userRole,
+        message: error.message,
+        stack: error.stack,
+      });
+
+      try {
+        return res.render("common/documents", {
+          title: "Files",
+          documents: [],
+          classes: [],
+          employees: [],
+          userId,
+          canCreate,
+          classId,
+          autoCreate: shouldAutoCreate,
+          layout: "layout",
+          showOrgHeader: true,
+        });
+      } catch (renderError) {
+        console.error('[FILES][LIST][FALLBACK_RENDER_ERROR]', {
+          path: req.originalUrl,
+          message: renderError.message,
+          stack: renderError.stack,
+        });
+        req.flash("error", "Failed to load files page.");
+        return res.redirect("/common/management");
+      }
     }
   },
 
   // Create a new document
   async createDocument(req, res, db) {
     try {
+      await ensureDocumentsSchema(db);
+
       const orgId = req.session.organizationId;
-      const userId = req.session.userId;
+      const userId = req.session.userId || req.session.user?.user_id || null;
+      const userRole = req.session.userRole;
       const { title, doc_type } = req.body;
+
+      if (!(userRole === 'Manager' || userRole === 'Supervisor')) {
+        return res.status(403).json({ success: false, message: "Only managers and supervisors can create files." });
+      }
+
+      const creatorUserId = await resolveCreatorUserId(db, orgId, userId);
+      if (!creatorUserId) {
+        return res.status(400).json({ success: false, message: "No active manager/supervisor user record found for this organization." });
+      }
 
       const docTitle = title || (doc_type === 'spreadsheet' ? 'Untitled Spreadsheet' : 'Untitled Document');
       const defaultContent = doc_type === 'spreadsheet' 
@@ -66,13 +331,13 @@ const documentController = {
         INSERT INTO documents (organization_id, title, doc_type, content, created_by)
         VALUES ($1, $2, $3, $4, $5)
         RETURNING id
-      `, [orgId, docTitle, doc_type || 'document', defaultContent, userId]);
+      `, [orgId, docTitle, doc_type || 'document', defaultContent, creatorUserId]);
 
       // Auto-add creator with edit permission
       await db.query(`
         INSERT INTO document_permissions (document_id, user_id, permission_level)
         VALUES ($1, $2, 'edit')
-      `, [result.rows[0].id, userId]);
+      `, [result.rows[0].id, creatorUserId]);
 
       res.json({ success: true, documentId: result.rows[0].id });
     } catch (error) {
@@ -86,7 +351,7 @@ const documentController = {
     try {
       const docId = req.params.id;
       const orgId = req.session.organizationId;
-      const userId = req.session.userId;
+      const userId = req.session.userId || req.session.user?.user_id || null;
       const userRole = req.session.userRole;
 
       // Get document
@@ -99,7 +364,7 @@ const documentController = {
 
       if (docResult.rows.length === 0) {
         req.flash("error", "Document not found.");
-        return res.redirect("/common/documents");
+        return res.redirect("/documents");
       }
 
       const doc = docResult.rows[0];
@@ -111,9 +376,11 @@ const documentController = {
       } else {
         // Check direct permission
         const permResult = await db.query(`
-          SELECT permission_level FROM document_permissions
+          SELECT dp.permission_level
+          FROM document_permissions dp
+          JOIN users u ON u.user_id = dp.user_id AND u.organization_id = $3
           WHERE document_id = $1 AND user_id = $2
-        `, [docId, userId]);
+        `, [docId, userId, orgId]);
 
         if (permResult.rows.length > 0) {
           permissionLevel = permResult.rows[0].permission_level;
@@ -122,9 +389,10 @@ const documentController = {
           const classPermResult = await db.query(`
             SELECT dca.permission_level FROM document_class_assignments dca
             JOIN class_employees ce ON dca.class_id = ce.class_id
+            JOIN classes c ON c.class_id = dca.class_id AND c.organization_id = $3
             WHERE dca.document_id = $1 AND ce.user_id = $2
             LIMIT 1
-          `, [docId, userId]);
+          `, [docId, userId, orgId]);
 
           if (classPermResult.rows.length > 0) {
             permissionLevel = classPermResult.rows[0].permission_level;
@@ -137,16 +405,16 @@ const documentController = {
         SELECT dp.*, u.first_name || ' ' || u.last_name AS user_name
         FROM document_permissions dp
         JOIN users u ON dp.user_id = u.user_id
-        WHERE dp.document_id = $1
-      `, [docId]);
+        WHERE dp.document_id = $1 AND u.organization_id = $2
+      `, [docId, orgId]);
 
       // Get class assignments
       const classAssignments = await db.query(`
         SELECT dca.*, c.class_name
         FROM document_class_assignments dca
         JOIN classes c ON dca.class_id = c.class_id
-        WHERE dca.document_id = $1
-      `, [docId]);
+        WHERE dca.document_id = $1 AND c.organization_id = $2
+      `, [docId, orgId]);
 
       // Get classes and employees for assignment
       const classes = await db.query(`
@@ -155,8 +423,8 @@ const documentController = {
       `, [orgId]);
 
       const employees = await db.query(`
-        SELECT u.user_id, u.first_name || ' ' || u.last_name AS name, u.role
-        FROM users u WHERE u.organization_id = $1 AND u.status = 'Active'
+        SELECT u.user_id, u.first_name || ' ' || u.last_name AS name, u.account_type AS role
+        FROM users u WHERE u.organization_id = $1
         ORDER BY u.first_name
       `, [orgId]);
 
@@ -172,9 +440,17 @@ const documentController = {
         layout: false,
       });
     } catch (error) {
-      console.error("Error loading document editor:", error);
+      console.error('[FILES][EDITOR][ERROR]', {
+        path: req.originalUrl,
+        docId: req.params.id,
+        orgId: req.session.organizationId,
+        userId: req.session.userId,
+        userRole: req.session.userRole,
+        message: error.message,
+        stack: error.stack,
+      });
       req.flash("error", "Failed to load document.");
-      res.redirect("/common/documents");
+      res.redirect("/documents");
     }
   },
 
@@ -183,7 +459,7 @@ const documentController = {
     try {
       const docId = req.params.id;
       const orgId = req.session.organizationId;
-      const userId = req.session.userId;
+      const userId = req.session.userId || req.session.user?.user_id || null;
       const { content, title } = req.body;
 
       // Verify permission
@@ -251,13 +527,33 @@ const documentController = {
       const docId = req.params.id;
       const orgId = req.session.organizationId;
       const { permissions, classAssignments } = req.body;
+      let addedClassIds = [];
 
       // Verify document belongs to org
-      const doc = await db.query(`SELECT id FROM documents WHERE id = $1 AND organization_id = $2`, [docId, orgId]);
+      const doc = await db.query(`SELECT id, title FROM documents WHERE id = $1 AND organization_id = $2`, [docId, orgId]);
       if (doc.rows.length === 0) return res.status(404).json({ success: false });
 
       // Update user permissions
       if (permissions) {
+        const permissionUserIds = Array.from(new Set(
+          permissions
+            .map((perm) => Number(perm.user_id))
+            .filter((id) => Number.isInteger(id) && id > 0)
+        ));
+
+        if (permissionUserIds.length > 0) {
+          const validUsers = await db.query(`
+            SELECT user_id FROM users
+            WHERE organization_id = $1 AND user_id = ANY($2::int[])
+          `, [orgId, permissionUserIds]);
+
+          const validUserIds = new Set(validUsers.rows.map((row) => row.user_id));
+          const hasInvalidUser = permissionUserIds.some((id) => !validUserIds.has(id));
+          if (hasInvalidUser) {
+            return res.status(400).json({ success: false, message: 'One or more users do not belong to this organization.' });
+          }
+        }
+
         await db.query(`DELETE FROM document_permissions WHERE document_id = $1`, [docId]);
         for (const perm of permissions) {
           await db.query(`
@@ -270,6 +566,36 @@ const documentController = {
 
       // Update class assignments
       if (classAssignments) {
+        const existingAssignments = await db.query(`
+          SELECT dca.class_id
+          FROM document_class_assignments dca
+          JOIN classes c ON c.class_id = dca.class_id
+          WHERE dca.document_id = $1 AND c.organization_id = $2
+        `, [docId, orgId]);
+
+        const existingClassIds = new Set(existingAssignments.rows.map((row) => Number(row.class_id)));
+
+        const classIds = Array.from(new Set(
+          classAssignments
+            .map((assignment) => Number(assignment.class_id))
+            .filter((id) => Number.isInteger(id) && id > 0)
+        ));
+
+        if (classIds.length > 0) {
+          const validClasses = await db.query(`
+            SELECT class_id FROM classes
+            WHERE organization_id = $1 AND class_id = ANY($2::int[])
+          `, [orgId, classIds]);
+
+          const validClassIds = new Set(validClasses.rows.map((row) => row.class_id));
+          const hasInvalidClass = classIds.some((id) => !validClassIds.has(id));
+          if (hasInvalidClass) {
+            return res.status(400).json({ success: false, message: 'One or more classes do not belong to this organization.' });
+          }
+        }
+
+        addedClassIds = classIds.filter((id) => !existingClassIds.has(id));
+
         await db.query(`DELETE FROM document_class_assignments WHERE document_id = $1`, [docId]);
         for (const assignment of classAssignments) {
           await db.query(`
@@ -278,6 +604,17 @@ const documentController = {
             ON CONFLICT (document_id, class_id) DO UPDATE SET include_students = $3, include_subjects = $4, permission_level = $5
           `, [docId, assignment.class_id, assignment.include_students || false, assignment.include_subjects || false, assignment.permission_level || 'view']);
         }
+      }
+
+      if (addedClassIds.length > 0) {
+        await notifyTeachersOnNewClassAssignments({
+          db,
+          req,
+          orgId,
+          docId,
+          docTitle: doc.rows[0].title,
+          classIds: addedClassIds,
+        });
       }
 
       res.json({ success: true });
@@ -293,20 +630,50 @@ const documentController = {
       const classId = req.query.classId;
       const userId = req.session.userId;
       const orgId = req.session.organizationId;
+      const userRole = req.session.userRole;
 
-      // Documents assigned to this class OR where user has direct permission
+      const classExists = await classBelongsToOrg(db, classId, orgId);
+      if (!classExists) {
+        return res.json({ success: true, documents: [] });
+      }
+
+      if (!(userRole === 'Manager' || userRole === 'Supervisor')) {
+        const classMembership = await db.query(`
+          SELECT 1
+          FROM class_employees ce
+          JOIN classes c ON c.class_id = ce.class_id
+          WHERE ce.class_id = $1 AND ce.user_id = $2 AND c.organization_id = $3
+          LIMIT 1
+        `, [classId, userId, orgId]);
+
+        if (classMembership.rows.length === 0) {
+          return res.json({ success: true, documents: [] });
+        }
+      }
+
+      // Documents assigned to this class and accessible to the current user
       const docs = await db.query(`
         SELECT DISTINCT d.id, d.title, d.doc_type, d.updated_at,
           u.first_name || ' ' || u.last_name AS created_by_name,
           COALESCE(dca.permission_level, dp.permission_level, 'view') AS permission_level
         FROM documents d
         JOIN users u ON d.created_by = u.user_id
-        LEFT JOIN document_class_assignments dca ON d.id = dca.document_id AND dca.class_id = $1
+        JOIN document_class_assignments dca ON d.id = dca.document_id AND dca.class_id = $1
+        JOIN classes c ON c.class_id = dca.class_id AND c.organization_id = $3
         LEFT JOIN document_permissions dp ON d.id = dp.document_id AND dp.user_id = $2
         WHERE d.organization_id = $3 AND d.is_deleted = FALSE
-          AND (dca.class_id IS NOT NULL OR dp.user_id IS NOT NULL OR d.created_by = $2)
+          AND (
+            d.created_by = $2
+            OR dp.user_id IS NOT NULL
+            OR $4 = 'Manager'
+            OR $4 = 'Supervisor'
+            OR EXISTS (
+              SELECT 1 FROM class_employees ce
+              WHERE ce.class_id = dca.class_id AND ce.user_id = $2
+            )
+          )
         ORDER BY d.updated_at DESC
-      `, [classId, userId, orgId]);
+      `, [classId, userId, orgId, userRole]);
 
       res.json({ success: true, documents: docs.rows });
     } catch (error) {
@@ -322,6 +689,11 @@ const documentController = {
       const orgId = req.session.organizationId;
       const termId = req.session.currentTermId;
 
+      const classExists = await classBelongsToOrg(db, classId, orgId);
+      if (!classExists) {
+        return res.status(403).json({ success: false, message: 'Class does not belong to this organization.' });
+      }
+
       const students = await db.query(`
         SELECT s.student_id, s.first_name, s.last_name
         FROM students s
@@ -334,9 +706,10 @@ const documentController = {
         SELECT cs.subject_id, sub.subject_name
         FROM class_subjects cs
         JOIN subjects sub ON cs.subject_id = sub.subject_id
-        WHERE cs.class_id = $1
+        JOIN classes c ON cs.class_id = c.class_id
+        WHERE cs.class_id = $1 AND c.organization_id = $2
         ORDER BY sub.subject_name
-      `, [classId]);
+      `, [classId, orgId]);
 
       res.json({ success: true, students: students.rows, subjects: subjects.rows });
     } catch (error) {
@@ -357,6 +730,8 @@ const documentController = {
     const classPerm = await db.query(`
       SELECT dca.permission_level FROM document_class_assignments dca
       JOIN class_employees ce ON dca.class_id = ce.class_id
+      JOIN documents d ON d.id = dca.document_id
+      JOIN classes c ON c.class_id = dca.class_id AND c.organization_id = d.organization_id
       WHERE dca.document_id = $1 AND ce.user_id = $2 AND dca.permission_level = 'edit'
       LIMIT 1
     `, [docId, userId]);

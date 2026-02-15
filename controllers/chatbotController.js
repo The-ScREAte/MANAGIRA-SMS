@@ -102,7 +102,9 @@ class ChatbotController {
         'education', 'learning', 'curriculum', 'term', 'semester', 'year',
         'parent', 'guardian', 'staff', 'faculty', 'principal', 'records',
         'role', 'roles', 'permission', 'permissions', 'rbac', 'authorization',
-        'security', 'supervisor', 'manager', 'access', 'access control'
+        'security', 'supervisor', 'manager', 'access', 'access control',
+        'file', 'files', 'document', 'documents', 'sheet', 'sheets',
+        'spreadsheet', 'spreadsheets', 'cell', 'cells', 'formula', 'sum', 'average', 'count'
       ];
 
       const isManagiraRelated = managiraKeywords.some(keyword => 
@@ -126,7 +128,8 @@ class ChatbotController {
             "Ask about student enrollment and registration",
             "Learn about our billing and payment features", 
             "Get help with account management",
-            "Find information about reports and assessments"
+            "Find information about reports and assessments",
+            "Ask about Files, spreadsheets, and formulas"
           ],
           contact: "For more detailed assistance, please contact our support team at info@managira.com"
         });

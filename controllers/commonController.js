@@ -6081,7 +6081,7 @@ const commonController = {
     try {
       const organizationId = req.session.organizationId;
       const currentUserRole = req.session.userRole;
-      const currentUserId = req.session.user ? req.session.user.user_id : null;
+      const currentUserId = req.session.userId || (req.session.user ? req.session.user.user_id : null);
 
       // Fetch the current school year and term
       const schoolYearResult = await db.query(
@@ -6204,6 +6204,21 @@ const commonController = {
       // Fetch employees associated with the class
       const employees = await getClassEmployeesWithMain(db, classId);
 
+      let assignedFilesCount = 0;
+      if (currentUserRole === 'Teacher' && currentUserId) {
+        const assignedFiles = await db.query(`
+          SELECT COUNT(DISTINCT d.id) AS total
+          FROM documents d
+          JOIN document_class_assignments dca ON d.id = dca.document_id
+          JOIN class_employees ce ON ce.class_id = dca.class_id
+          WHERE d.organization_id = $1
+            AND d.is_deleted = FALSE
+            AND dca.class_id = $2
+            AND ce.user_id = $3
+        `, [organizationId, classId, currentUserId]);
+        assignedFilesCount = Number(assignedFiles.rows[0]?.total || 0);
+      }
+
       // Render the classDashboard view with the updated context
       res.render("common/classDashboard", {
         title: `Class Dashboard - ${className}`,
@@ -6219,6 +6234,7 @@ const commonController = {
         messages: req.flash(),
         csrfToken: csrfToken,
         isMainTeacher: isMainTeacher,
+        assignedFilesCount,
       });
     } catch (err) {
             res.status(500).send("Error loading class dashboard");

@@ -192,6 +192,24 @@
       flex-wrap: wrap;
     }
 
+    .sheet-toolbar .toolbar-sep {
+      width: 1px;
+      height: 22px;
+      background: var(--border);
+      margin: 0 2px;
+    }
+
+    .sheet-stats {
+      margin-left: auto;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 600;
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 5px 10px;
+    }
+
     .sheet-toolbar select,
     .sheet-toolbar input {
       padding: 6px 10px;
@@ -200,9 +218,20 @@
       font-size: 13px;
     }
 
+    .sheet-toolbar .qty-input {
+      width: 64px;
+      text-align: center;
+      font-weight: 600;
+      background: #fff;
+    }
+
     .sheet-toolbar .formula-bar {
       flex: 1;
       min-width: 200px;
+    }
+
+    .sheet-toolbar .btn {
+      white-space: nowrap;
     }
 
     .sheet-table-wrap {
@@ -258,6 +287,16 @@
     .sheet-table td {
       background: #fff;
       font-size: 13px;
+    }
+
+    .sheet-table td.selected-range {
+      background: #eff6ff;
+      box-shadow: inset 0 0 0 1px #93c5fd;
+    }
+
+    .sheet-table td.active-cell {
+      box-shadow: inset 0 0 0 2px var(--primary);
+      background: #e0f2fe;
     }
 
     .sheet-table td.row-header-cell {
@@ -425,6 +464,37 @@
       #doc-editor .ql-editor { padding: 20px 16px; }
       .settings-panel { width: 100%; max-width: 100%; }
       .sheet-container { padding: 8px; }
+      .sheet-toolbar {
+        padding: 10px;
+        gap: 6px;
+        align-items: flex-start;
+      }
+      .sheet-toolbar .toolbar-sep { display: none; }
+      .sheet-toolbar .formula-bar {
+        min-width: 100%;
+        width: 100%;
+        order: 20;
+      }
+      .sheet-stats {
+        margin-left: 0;
+        width: 100%;
+        order: 21;
+        font-size: 11px;
+        line-height: 1.45;
+        white-space: normal;
+        word-break: break-word;
+      }
+      .sheet-toolbar .qty-input {
+        width: 56px;
+        padding: 6px 4px;
+      }
+      .sheet-table th,
+      .sheet-table td {
+        min-width: 92px;
+      }
+      .sheet-table-wrap {
+        max-height: calc(100vh - 190px);
+      }
     }
 
     @media (max-width: 480px) {
@@ -432,13 +502,34 @@
       .topbar-title input { font-size: 14px; }
       .btn { padding: 6px 10px; font-size: 12px; }
       .permission-badge { display: none; }
+      .sheet-toolbar {
+        padding: 8px;
+        gap: 5px;
+      }
+      .sheet-toolbar .btn {
+        padding: 6px 8px;
+        font-size: 11px;
+      }
+      .sheet-toolbar #cellRef {
+        width: 54px !important;
+      }
+      .sheet-toolbar .qty-input {
+        width: 52px;
+      }
+      .sheet-table th,
+      .sheet-table td {
+        min-width: 84px;
+      }
+      .sheet-table-wrap {
+        max-height: calc(100vh - 178px);
+      }
     }
   </style>
 </head>
 <body>
   <!-- Top Bar -->
   <div class="editor-topbar">
-    <a href="/documents" class="topbar-back" title="Back to Documents">←</a>
+    <a href="/documents" class="topbar-back" title="Back to Files">←</a>
     <span class="topbar-icon"><%= isDoc ? '📝' : '📊' %></span>
     <div class="topbar-title">
       <input type="text" id="titleInput" value="<%= document.title %>" <%= isReadOnly ? 'readonly' : '' %> />
@@ -467,9 +558,22 @@
           <input type="text" id="cellRef" readonly style="width:60px; text-align:center;" value="A1" />
           <span style="color:var(--muted);">ƒ</span>
           <input type="text" id="formulaBar" class="formula-bar" placeholder="Enter value or formula (=SUM(A1:A5))" <%= isReadOnly ? 'readonly' : '' %> />
+          <div class="toolbar-sep"></div>
+          <button class="btn btn-outline btn-sm" type="button" onclick="selectAllCells()">Select All</button>
           <% if (canEdit) { %>
+            <button class="btn btn-outline btn-sm" type="button" onclick="insertRangeFormula('SUM')">Σ Sum</button>
+            <button class="btn btn-outline btn-sm" type="button" onclick="insertRangeFormula('AVERAGE')">Avg</button>
+            <button class="btn btn-outline btn-sm" type="button" onclick="insertRangeFormula('COUNT')">Count</button>
+          <% } %>
+          <span id="sheetStats" class="sheet-stats">No range selected</span>
+          <% if (canEdit) { %>
+            <div class="toolbar-sep"></div>
             <button class="btn btn-outline btn-sm" onclick="addRow()">+ Row</button>
             <button class="btn btn-outline btn-sm" onclick="addCol()">+ Col</button>
+            <input id="addRowsCount" class="qty-input" type="number" min="1" max="200" value="10" />
+            <button class="btn btn-outline btn-sm" type="button" onclick="addRowsBulk()">+ Rows</button>
+            <input id="addColsCount" class="qty-input" type="number" min="1" max="50" value="5" />
+            <button class="btn btn-outline btn-sm" type="button" onclick="addColsBulk()">+ Cols</button>
           <% } %>
         </div>
         <div class="sheet-container">
@@ -588,12 +692,16 @@
     const quill = new Quill('#doc-editor', {
       theme: 'snow',
       readOnly: IS_READ_ONLY,
+      placeholder: 'Start writing your file...',
       modules: {
         toolbar: CAN_EDIT ? [
           [{ header: [1, 2, 3, false] }],
+          [{ size: ['small', false, 'large', 'huge'] }],
           ['bold', 'italic', 'underline', 'strike'],
           [{ color: [] }, { background: [] }],
           [{ list: 'ordered' }, { list: 'bullet' }],
+          [{ script: 'sub' }, { script: 'super' }],
+          [{ indent: '-1' }, { indent: '+1' }],
           [{ align: [] }],
           ['blockquote', 'code-block'],
           ['link', 'image'],
@@ -630,6 +738,8 @@
     let colCount = 10;
     let rowCount = 20;
     let selectedCell = null;
+    let selectedRange = null;
+    let isSelectingRange = false;
 
     try {
       const raw = <%- JSON.stringify(document.content || '{}') %>;
@@ -645,7 +755,111 @@
       return s;
     }
 
+    function colIndex(label) {
+      let value = 0;
+      for (let i = 0; i < label.length; i++) {
+        value = value * 26 + (label.charCodeAt(i) - 64);
+      }
+      return value - 1;
+    }
+
+    function parseCellRef(ref) {
+      const match = String(ref || '').toUpperCase().match(/^([A-Z]+)(\d+)$/);
+      if (!match) return null;
+      const c = colIndex(match[1]);
+      const r = parseInt(match[2], 10) - 1;
+      if (r < 0 || c < 0) return null;
+      return { r, c };
+    }
+
     function cellId(r, c) { return colLabel(c) + (r + 1); }
+
+    function normalizeRange(startRef, endRef) {
+      const start = parseCellRef(startRef);
+      const end = parseCellRef(endRef);
+      if (!start || !end) return null;
+      return {
+        sr: Math.min(start.r, end.r),
+        er: Math.max(start.r, end.r),
+        sc: Math.min(start.c, end.c),
+        ec: Math.max(start.c, end.c),
+      };
+    }
+
+    function getRangeRefs(range) {
+      if (!range) return null;
+      return `${cellId(range.sr, range.sc)}:${cellId(range.er, range.ec)}`;
+    }
+
+    function updateRangeStats() {
+      const statsEl = document.getElementById('sheetStats');
+      if (!statsEl) return;
+      if (!selectedRange) {
+        statsEl.textContent = 'No range selected';
+        return;
+      }
+
+      const values = [];
+      for (let r = selectedRange.sr; r <= selectedRange.er; r++) {
+        for (let c = selectedRange.sc; c <= selectedRange.ec; c++) {
+          const ref = cellId(r, c);
+          const computed = computeCell(sheetData[ref] || '', new Set([ref]), ref);
+          const n = Number(computed);
+          if (!Number.isNaN(n)) values.push(n);
+        }
+      }
+
+      const sum = values.reduce((acc, curr) => acc + curr, 0);
+      const avg = values.length ? (sum / values.length) : 0;
+      statsEl.textContent = `${getRangeRefs(selectedRange)} · Count ${values.length} · Sum ${sum.toFixed(2)} · Avg ${avg.toFixed(2)}`;
+    }
+
+    function setSelectedRange(startRef, endRef) {
+      const normalized = normalizeRange(startRef, endRef);
+      if (!normalized) return;
+      selectedRange = normalized;
+      updateRangeStats();
+    }
+
+    function selectAllCells() {
+      setSelectedRange(cellId(0, 0), cellId(Math.max(rowCount - 1, 0), Math.max(colCount - 1, 0)));
+      applySelectionStyles();
+    }
+
+    window.selectAllCells = selectAllCells;
+
+    function insertRangeFormula(fnName) {
+      if (!selectedCell || !selectedRange || IS_READ_ONLY) return;
+      const formula = `=${fnName}(${getRangeRefs(selectedRange)})`;
+      sheetData[selectedCell] = formula;
+      const formulaBar = document.getElementById('formulaBar');
+      if (formulaBar) formulaBar.value = formula;
+      recalcAll();
+      applySelectionStyles();
+      triggerAutoSave();
+    }
+
+    window.insertRangeFormula = insertRangeFormula;
+
+    function applySelectionStyles() {
+      document.querySelectorAll('.sheet-table td.selected-range, .sheet-table td.active-cell').forEach((td) => {
+        td.classList.remove('selected-range', 'active-cell');
+      });
+
+      if (selectedRange) {
+        for (let r = selectedRange.sr; r <= selectedRange.er; r++) {
+          for (let c = selectedRange.sc; c <= selectedRange.ec; c++) {
+            const td = document.querySelector(`.sheet-table td[data-cell="${cellId(r, c)}"]`);
+            if (td) td.classList.add('selected-range');
+          }
+        }
+      }
+
+      if (selectedCell) {
+        const activeTd = document.querySelector(`.sheet-table td[data-cell="${selectedCell}"]`);
+        if (activeTd) activeTd.classList.add('active-cell');
+      }
+    }
 
     function renderSheet() {
       const table = document.getElementById('sheetTable');
@@ -658,10 +872,10 @@
         for (let c = 0; c < colCount; c++) {
           const id = cellId(r, c);
           const val = sheetData[id] || '';
-          const display = computeCell(val);
+          const display = computeCell(val, new Set([id]), id);
           const isFormula = typeof val === 'string' && val.startsWith('=');
           const isError = display === '#ERROR' || display === '#REF';
-          html += '<td class="' + (isFormula ? 'formula-cell' : '') + (isError ? ' error-cell' : '') + '">';
+          html += '<td data-cell="' + id + '" data-r="' + r + '" data-c="' + c + '" class="' + (isFormula ? 'formula-cell' : '') + (isError ? ' error-cell' : '') + '">';
           html += '<input class="sheet-cell-input" data-cell="' + id + '" value="' + escapeHtml(String(display)) + '" ' + (IS_READ_ONLY ? 'readonly' : '') + ' />';
           html += '</td>';
         }
@@ -674,15 +888,18 @@
       table.querySelectorAll('.sheet-cell-input').forEach(input => {
         input.addEventListener('focus', function() {
           selectedCell = this.dataset.cell;
+          setSelectedRange(selectedCell, selectedCell);
           document.getElementById('cellRef').value = this.dataset.cell;
           document.getElementById('formulaBar').value = sheetData[this.dataset.cell] || '';
           this.value = sheetData[this.dataset.cell] || '';
+          applySelectionStyles();
         });
         input.addEventListener('blur', function() {
           const id = this.dataset.cell;
           sheetData[id] = this.value;
-          this.value = computeCell(this.value);
+          this.value = computeCell(this.value, new Set([id]), id);
           recalcAll();
+          applySelectionStyles();
           triggerAutoSave();
         });
         input.addEventListener('keydown', function(e) {
@@ -690,10 +907,42 @@
           if (e.key === 'Tab') { e.preventDefault(); this.blur(); moveTo(this.dataset.cell, 1, 0); }
         });
       });
+
+      table.querySelectorAll('td[data-cell]').forEach((td) => {
+        td.addEventListener('mousedown', (event) => {
+          isSelectingRange = true;
+          const ref = td.dataset.cell;
+          selectedCell = ref;
+          setSelectedRange(ref, ref);
+          applySelectionStyles();
+          if (event.target.tagName !== 'INPUT') {
+            const input = td.querySelector('.sheet-cell-input');
+            if (input) input.focus();
+          }
+          event.preventDefault();
+        });
+
+        td.addEventListener('mouseenter', () => {
+          if (!isSelectingRange || !selectedCell) return;
+          setSelectedRange(selectedCell, td.dataset.cell);
+          applySelectionStyles();
+        });
+      });
+
+      applySelectionStyles();
+      updateRangeStats();
     }
 
+    document.addEventListener('mouseup', () => {
+      if (isSelectingRange) {
+        isSelectingRange = false;
+        updateRangeStats();
+      }
+    });
+
     // Formula bar sync
-    document.getElementById('formulaBar').addEventListener('keydown', function(e) {
+    const formulaBarEl = document.getElementById('formulaBar');
+    formulaBarEl.addEventListener('keydown', function(e) {
       if (e.key === 'Enter' && selectedCell) {
         sheetData[selectedCell] = this.value;
         recalcAll();
@@ -702,54 +951,65 @@
       }
     });
 
+    formulaBarEl.addEventListener('input', function() {
+      if (!selectedCell || IS_READ_ONLY) return;
+      const activeInput = document.querySelector(`.sheet-cell-input[data-cell="${selectedCell}"]`);
+      if (activeInput) activeInput.value = this.value;
+    });
+
     function moveTo(from, dc, dr) {
-      const col = from.replace(/[0-9]/g, '');
-      const row = parseInt(from.replace(/[A-Z]/g, ''));
-      const ci = col.charCodeAt(0) - 65 + dc;
-      const ri = row - 1 + dr;
+      const parsed = parseCellRef(from);
+      if (!parsed) return;
+      const ci = parsed.c + dc;
+      const ri = parsed.r + dr;
       if (ci >= 0 && ci < colCount && ri >= 0 && ri < rowCount) {
         const next = document.querySelector(`[data-cell="${cellId(ri, ci)}"]`);
         if (next) next.focus();
       }
     }
 
-    function computeCell(val) {
+    function computeCell(val, visited = new Set(), currentRef = null) {
       if (typeof val !== 'string' || !val.startsWith('=')) return val;
       try {
         const formula = val.substring(1).toUpperCase();
-        // Handle SUM, AVERAGE, COUNT, MIN, MAX with ranges
-        const rangeMatch = formula.match(/^(SUM|AVERAGE|COUNT|MIN|MAX)\(([A-Z]+\d+):([A-Z]+\d+)\)$/);
-        if (rangeMatch) {
-          const fn = rangeMatch[1];
-          const vals = getRangeValues(rangeMatch[2], rangeMatch[3]);
-          const nums = vals.map(Number).filter(n => !isNaN(n));
-          if (fn === 'SUM') return nums.reduce((a, b) => a + b, 0);
-          if (fn === 'AVERAGE') return nums.length ? (nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(2) : 0;
-          if (fn === 'COUNT') return nums.length;
-          if (fn === 'MIN') return nums.length ? Math.min(...nums) : 0;
-          if (fn === 'MAX') return nums.length ? Math.max(...nums) : 0;
-        }
-        // Simple math with cell refs
-        let expr = formula.replace(/([A-Z]+\d+)/g, (match) => {
+
+        let expr = formula.replace(/(SUM|AVERAGE|COUNT|MIN|MAX)\(([A-Z]+\d+):([A-Z]+\d+)\)/g, (_, fn, start, end) => {
+          const vals = getRangeValues(start, end, visited);
+          const nums = vals.map(Number).filter(n => !Number.isNaN(n));
+          if (fn === 'SUM') return String(nums.reduce((a, b) => a + b, 0));
+          if (fn === 'AVERAGE') return String(nums.length ? (nums.reduce((a, b) => a + b, 0) / nums.length) : 0);
+          if (fn === 'COUNT') return String(nums.length);
+          if (fn === 'MIN') return String(nums.length ? Math.min(...nums) : 0);
+          if (fn === 'MAX') return String(nums.length ? Math.max(...nums) : 0);
+          return '0';
+        });
+
+        expr = expr.replace(/([A-Z]+\d+)/g, (match) => {
+          if (currentRef && match === currentRef) return '0';
+          if (visited.has(match)) return '#REF';
           const v = sheetData[match];
           if (!v) return '0';
-          const computed = computeCell(v);
-          return isNaN(computed) ? '0' : computed;
+          const nextVisited = new Set(visited);
+          nextVisited.add(match);
+          const computed = computeCell(v, nextVisited, match);
+          if (computed === '#REF') return '#REF';
+          const n = Number(computed);
+          return Number.isNaN(n) ? '0' : String(n);
         });
+
+        if (expr.includes('#REF')) return '#REF';
         return Function('"use strict"; return (' + expr + ')')();
       } catch(e) { return '#ERROR'; }
     }
 
-    function getRangeValues(start, end) {
-      const sc = start.replace(/[0-9]/g, '').charCodeAt(0) - 65;
-      const sr = parseInt(start.replace(/[A-Z]/g, '')) - 1;
-      const ec = end.replace(/[0-9]/g, '').charCodeAt(0) - 65;
-      const er = parseInt(end.replace(/[A-Z]/g, '')) - 1;
+    function getRangeValues(start, end, visited = new Set()) {
+      const range = normalizeRange(start, end);
+      if (!range) return [];
       const vals = [];
-      for (let r = sr; r <= er; r++) {
-        for (let c = sc; c <= ec; c++) {
+      for (let r = range.sr; r <= range.er; r++) {
+        for (let c = range.sc; c <= range.ec; c++) {
           const v = sheetData[cellId(r, c)];
-          if (v !== undefined && v !== '') vals.push(computeCell(v));
+          if (v !== undefined && v !== '') vals.push(computeCell(v, new Set(visited), cellId(r, c)));
         }
       }
       return vals;
@@ -760,9 +1020,10 @@
         const id = input.dataset.cell;
         const val = sheetData[id] || '';
         if (document.activeElement !== input) {
-          input.value = computeCell(val);
+          input.value = computeCell(val, new Set([id]), id);
         }
       });
+      updateRangeStats();
     }
 
     function addRow() {
@@ -776,6 +1037,27 @@
       renderSheet();
       triggerAutoSave();
     }
+
+    function addRowsBulk() {
+      const input = document.getElementById('addRowsCount');
+      const amount = Math.max(1, Math.min(200, parseInt(input?.value || '1', 10) || 1));
+      rowCount += amount;
+      renderSheet();
+      triggerAutoSave();
+    }
+
+    function addColsBulk() {
+      const input = document.getElementById('addColsCount');
+      const amount = Math.max(1, Math.min(50, parseInt(input?.value || '1', 10) || 1));
+      colCount += amount;
+      renderSheet();
+      triggerAutoSave();
+    }
+
+    window.addRow = addRow;
+    window.addCol = addCol;
+    window.addRowsBulk = addRowsBulk;
+    window.addColsBulk = addColsBulk;
 
     function escapeHtml(text) {
       return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');

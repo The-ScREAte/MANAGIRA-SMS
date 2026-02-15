@@ -355,6 +355,13 @@ const managiraFAQ = [
     question: "Which granular permissions are available now?",
     answer: "Available granular permissions include admissions approval, events/announcements publishing, school-year and term management, class/subject setup, transcript generation, promotion approval, and billing/settings delegation. Organizations can combine these with role defaults and optional extras per staff member.",
     keywords: ["granular permissions", "available permissions", "custom permissions", "granular access", "admissions approval", "announcement publishing", "term management", "transcript permission", "billing delegation"]
+  },
+  {
+    id: 50,
+    category: "Technical & Platform",
+    question: "Does Managira support collaborative files and spreadsheets with formulas?",
+    answer: "Yes. Managira includes Files for rich-text documents and spreadsheets. You can assign files to classes and teachers, auto-save edits, select ranges of cells, use basic formulas like SUM, AVERAGE, COUNT, MIN, and MAX, and expand sheets by adding more rows and columns whenever needed.",
+    keywords: ["files", "documents", "spreadsheets", "sheet", "cells", "formula", "sum", "average", "count", "min", "max", "add rows", "add columns", "auto save", "assign files"]
   }
 ];
 

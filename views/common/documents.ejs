@@ -343,21 +343,23 @@ main { padding: 0 !important; max-width: none !important; }
 
 <div class="docs-wrapper">
   <div class="docs-header">
-    <h1>📄 Documents</h1>
+    <h1>📁 Files</h1>
     <div class="docs-actions">
+      <% if (canCreate) { %>
       <button class="btn btn-primary" onclick="openCreateModal()">
         <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-        New Document
+        New File
       </button>
-      <a href="/common/management#documents" class="btn btn-outline">← Back</a>
+      <% } %>
+      <a href="<%= classId ? ('/common/classDashboard?classId=' + classId) : '/common/management' %>" class="btn btn-outline" data-no-spa>← Back</a>
     </div>
   </div>
 
   <% if (documents.length === 0) { %>
     <div class="empty-state">
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-      <h3>No documents yet</h3>
-      <p>Create your first document or spreadsheet to get started.</p>
+      <h3>No files yet</h3>
+      <p><%= canCreate ? 'Create your first file to get started.' : 'No files are currently assigned to you.' %></p>
     </div>
   <% } else { %>
     <div class="docs-grid">
@@ -383,16 +385,16 @@ main { padding: 0 !important; max-width: none !important; }
 <!-- Create Modal -->
 <div class="modal-overlay" id="createModal">
   <div class="modal-box">
-    <h2>Create New Document</h2>
+    <h2>Create New File</h2>
     <div class="type-selector">
       <div class="type-option selected" data-type="document" onclick="selectType('document')">
         <div class="icon">📝</div>
-        <h4>Document</h4>
+        <h4>File</h4>
         <p>Rich text with formatting</p>
       </div>
       <div class="type-option" data-type="spreadsheet" onclick="selectType('spreadsheet')">
         <div class="icon">📊</div>
-        <h4>Spreadsheet</h4>
+        <h4>Sheet</h4>
         <p>Tables with formulas</p>
       </div>
     </div>
@@ -408,27 +410,64 @@ main { padding: 0 !important; max-width: none !important; }
 </div>
 
 <script>
+(function () {
 let selectedType = 'document';
+const canCreate = <%= canCreate ? 'true' : 'false' %>;
+const autoCreate = <%= autoCreate ? 'true' : 'false' %>;
 
 function selectType(type) {
+  if (!canCreate) return;
   selectedType = type;
-  document.querySelectorAll('.type-option').forEach(el => el.classList.remove('selected'));
-  document.querySelector(`.type-option[data-type="${type}"]`).classList.add('selected');
-  document.getElementById('docTitle').placeholder = type === 'spreadsheet' ? 'Enter spreadsheet title...' : 'Enter document title...';
+  
+  const typeOptions = document.querySelectorAll('.type-option');
+  typeOptions.forEach(el => el.classList.remove('selected'));
+  
+  const selected = document.querySelector(`.type-option[data-type="${type}"]`);
+  if (selected) {
+    selected.classList.add('selected');
+  }
+  
+  const docTitleEl = document.getElementById('docTitle');
+  if (docTitleEl) {
+    docTitleEl.placeholder = type === 'spreadsheet' ? 'Enter spreadsheet title...' : 'Enter document title...';
+  }
 }
+window.selectType = selectType;
 
 function openCreateModal() {
-  document.getElementById('createModal').classList.add('active');
-  document.getElementById('docTitle').focus();
+  if (!canCreate) return;
+  
+  const modalEl = document.getElementById('createModal');
+  const titleEl = document.getElementById('docTitle');
+  
+  if (!modalEl) {
+    return;
+  }
+  
+  modalEl.classList.add('active');
+  if (titleEl) titleEl.focus();
 }
+window.openCreateModal = openCreateModal;
 
 function closeCreateModal() {
-  document.getElementById('createModal').classList.remove('active');
-  document.getElementById('docTitle').value = '';
+  const modalEl = document.getElementById('createModal');
+  const titleEl = document.getElementById('docTitle');
+  
+  if (modalEl) modalEl.classList.remove('active');
+  if (titleEl) titleEl.value = '';
 }
+window.closeCreateModal = closeCreateModal;
 
 async function createDocument() {
-  const title = document.getElementById('docTitle').value.trim();
+  if (!canCreate) return;
+  
+  const titleEl = document.getElementById('docTitle');
+  if (!titleEl) {
+    return;
+  }
+  
+  const title = titleEl.value.trim();
+  
   try {
     const res = await fetch('/documents/create', {
       method: 'POST',
@@ -436,31 +475,58 @@ async function createDocument() {
       body: JSON.stringify({ title, doc_type: selectedType })
     });
     const data = await res.json();
+    
     if (data.success) {
       window.location.href = '/documents/edit/' + data.documentId;
     } else {
-      alert('Failed to create document.');
+      alert(data.message || 'Failed to create file.');
     }
   } catch (e) {
-    alert('Error creating document.');
+    alert('Error creating file.');
   }
 }
+window.createDocument = createDocument;
 
 async function deleteDoc(id, title) {
   if (!confirm('Delete "' + title + '"? This cannot be undone.')) return;
+  
   try {
     const res = await fetch('/documents/delete/' + id, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     });
     const data = await res.json();
+    
     if (data.success) location.reload();
     else alert('Failed to delete.');
-  } catch (e) { alert('Error deleting document.'); }
+  } catch (e) {
+    alert('Error deleting document.');
+  }
+}
+window.deleteDoc = deleteDoc;
+
+// Initialize modal and auto-create behavior
+function initDocumentsPage() {
+  const createModalEl = document.getElementById('createModal');
+  if (createModalEl) {
+    if (!createModalEl.dataset.boundClose) {
+      createModalEl.dataset.boundClose = '1';
+      createModalEl.addEventListener('click', function(e) {
+        if (e.target === this) closeCreateModal();
+      });
+    }
+  }
+  
+  if (canCreate && autoCreate) {
+    requestAnimationFrame(() => openCreateModal());
+  }
 }
 
-// Close modal on overlay click
-document.getElementById('createModal').addEventListener('click', function(e) {
-  if (e.target === this) closeCreateModal();
-});
+// Run init immediately and on DOMContentLoaded for SPA compatibility
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initDocumentsPage);
+} else {
+  initDocumentsPage();
+}
+})();
 </script>
