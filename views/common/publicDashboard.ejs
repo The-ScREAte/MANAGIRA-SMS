@@ -315,7 +315,7 @@ object-fit:contain;
   text-align:center;
   background:#ffffff;
   padding:16px 14px;
-  margin-top: 0;
+  margin-top: 80px;
   border-radius:15px;
   position:relative;
   box-shadow:0 10px 30px rgba(0,0,0,0.3);
@@ -378,19 +378,25 @@ object-fit:contain;
   .modal-content{
     width: min(92%, 380px);
     padding:14px 12px;
-    margin-top: 0;
+    margin-top: 80px;
     max-height: calc(100vh - var(--header-height, 56px) - 20px);
     border-radius:12px;
   }
   .modalImageContainer{
-    max-height:28vh;
+    max-height:20vh;
   }
   #modalImage{
-    max-height:28vh;
+    max-height:20vh;
   }
   #modalCaption{
-    font-size:0.9rem;
-    max-height:110px;
+    font-size:0.8rem;
+    line-height:1.4;
+    max-height:78px;
+    display:-webkit-box;
+    line-clamp:4;
+    -webkit-line-clamp:4;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
   }
 }
 @media (max-width:480px){
@@ -400,20 +406,22 @@ object-fit:contain;
   .modal-content{
     width: min(94%, 340px);
     padding:12px 10px;
-    margin-top: 0;
+    margin-top: 80px;
     max-height: calc(100vh - var(--header-height, 56px) - 16px);
     border-radius:10px;
   }
   .modalImageContainer{
-    max-height:24vh;
+    max-height:16vh;
   }
   #modalImage{
-    max-height:24vh;
+    max-height:16vh;
   }
   #modalCaption{
-    font-size:0.85rem;
-    max-height:90px;
-    line-height:1.5;
+    font-size:0.74rem;
+    max-height:62px;
+    line-height:1.35;
+    line-clamp:3;
+    -webkit-line-clamp:3;
   }
   .close-button{
     font-size:26px;
@@ -2622,6 +2630,7 @@ body[data-pd-theme="bold"] #modalCaption{
     max-width:900px;
     padding:12px;
     gap:8px;
+    margin-top:24px;
   }
 
   .modalImageContainer{
@@ -2648,7 +2657,7 @@ body[data-pd-theme="bold"] #modalCaption{
   .slide .caption{ font-size:0.8rem; }
 
   .custom-carousel{
-    height:300px;
+    height:280px;
     position:relative;
     overflow:hidden;
   }
@@ -2788,37 +2797,40 @@ body[data-pd-theme="bold"] #modalCaption{
 
   .modal-content{
     flex-direction:column;
-    width:90%;
+    width:92%;
     height:auto;
-    max-height:85%;
+    max-height:85vh;
     overflow-y:auto;
-    margin:20px;
-    padding:20px;
+    margin:80px 20px 20px;
+    padding:16px;
   }
 
   .modalImageContainer{
     width:100%;
     height:auto;
-    max-height:45vh;
+    max-height:27vh;
     padding:5px;
     border-radius:10px 10px 0 0;
   }
 
   #modalImage{
     max-width:100%;
-    max-height:100%;
+    max-height:27vh;
     object-fit:contain;
   }
 
   #modalCaption{
-    font-size:1.1rem;
-    padding:20px;
+    font-size:0.9rem;
+    padding:14px;
     margin-top:0;
     text-align:left;
-    line-height:1.6;
+    line-height:1.4;
     width:100%;
     height:auto;
-    min-height:200px;
+    min-height:0;
+    max-height:26vh;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
     background-color:#f9f9f9;
     border-radius:0 0 10px 10px;
     box-sizing:border-box;
@@ -2829,6 +2841,30 @@ body[data-pd-theme="bold"] #modalCaption{
     font-size:36px;
     top:10px;
     right:10px;
+  }
+}
+
+@media screen and (max-width:480px){
+  .custom-carousel{
+    height:250px;
+  }
+
+  .modal-content{
+    width:94%;
+    margin:80px 12px 12px;
+    padding:13px;
+  }
+
+  .modalImageContainer,
+  #modalImage{
+    max-height:22vh;
+  }
+
+  #modalCaption{
+    font-size:0.8rem;
+    padding:12px;
+    line-height:1.35;
+    max-height:24vh;
   }
 }
 
