@@ -299,7 +299,7 @@ object-fit:contain;
   justify-content:center;
   align-items:flex-start;
   transition:opacity .3s ease;
-  padding:16px;
+  padding: calc(var(--header-height, 64px) + 10px) 12px 12px;
   overflow-y:auto;
 }
 
@@ -308,14 +308,14 @@ object-fit:contain;
   flex-direction:column;
   align-items:center;
   gap:10px;
-  width:88%;
+  width: min(88%, 480px);
   height:auto;
-  max-width:540px;
-  max-height:80vh;
+  max-width:480px;
+  max-height: calc(100vh - var(--header-height, 64px) - 28px);
   text-align:center;
   background:#ffffff;
-  padding:24px 20px;
-  margin-top:80px;
+  padding:16px 14px;
+  margin-top: 0;
   border-radius:15px;
   position:relative;
   box-shadow:0 10px 30px rgba(0,0,0,0.3);
@@ -330,14 +330,15 @@ object-fit:contain;
   width:100%;
   height:auto;
   max-width:100%;
-  max-height:45vh;
+  max-height:22vh;
   border-radius:8px;
-  margin-bottom:16px;
+  margin-bottom:8px;
+  border: 1px solid rgba(15,23,42,0.08);
 }
 #modalImage{
   max-width:100%;
-  max-height:45vh;
-  border-radius:8px;
+  max-height:22vh;
+  border-radius:6px;
   object-fit:contain;
 }
 
@@ -371,33 +372,39 @@ object-fit:contain;
 
 /* Modal mobile */
 @media (max-width:768px){
+  .modal{
+    padding: calc(var(--header-height, 56px) + 8px) 8px 8px;
+  }
   .modal-content{
-    width:92%;
-    padding:18px 14px;
-    margin-top:70px;
-    max-height:78vh;
+    width: min(92%, 420px);
+    padding:14px 12px;
+    margin-top: 0;
+    max-height: calc(100vh - var(--header-height, 56px) - 20px);
     border-radius:12px;
   }
   .modalImageContainer{
-    max-height:40vh;
+    max-height:14vh;
   }
   #modalImage{
-    max-height:40vh;
+    max-height:14vh;
   }
 }
 @media (max-width:480px){
+  .modal{
+    padding: calc(var(--header-height, 56px) + 8px) 6px 6px;
+  }
   .modal-content{
-    width:96%;
-    padding:14px 12px;
-    margin-top:60px;
-    max-height:75vh;
+    width: min(96%, 360px);
+    padding:12px 10px;
+    margin-top: 0;
+    max-height: calc(100vh - var(--header-height, 56px) - 16px);
     border-radius:10px;
   }
   .modalImageContainer{
-    max-height:35vh;
+    max-height:12vh;
   }
   #modalImage{
-    max-height:45vh;
+    max-height:12vh;
   }
   #modalCaption{
     font-size:0.88rem;

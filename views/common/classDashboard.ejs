@@ -26,12 +26,22 @@
 body {
   background: var(--bg);
   font-family: var(--font-family);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex: 1 0 auto;
+  width: 100%;
 }
 
 .dashboard-shell {
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px 16px 40px;
+  width: 100%;
+  flex: 1 0 auto;
 }
 
 .dashboard-grid {
@@ -55,6 +65,20 @@ body {
 
 .card-body {
   padding: 16px;
+}
+
+.dashboard-main {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.dashboard-header {
+  padding: 8px 4px 12px;
+}
+
+.dashboard-content {
+  padding: 0;
 }
 
 .page-title {
@@ -87,36 +111,45 @@ body {
 }
 
 .nav-card {
-  padding: 0;
+  padding: 14px 12px 16px;
   position: sticky;
   top: 80px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.08);
 }
+
 
 .nav-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px;
+  padding: 0 4px 8px;
+  margin: 4px 4px 10px;
   border-bottom: 1px solid var(--border);
 }
 
 .nav-header h3 {
   margin: 4px 0 0;
   font-size: 18px;
+  color: var(--primary);
+  font-weight: 700;
 }
 
 .nav-close {
-  border: 1px solid var(--border);
-  background: transparent;
-  border-radius: 8px;
-  padding: 6px 10px;
-  cursor: pointer;
-  font-size: 14px;
   display: none;
+  background: transparent;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  padding: 0;
+  color: #6b7280;
+  line-height: 1;
 }
 
 .side-nav {
-  padding: 12px;
+  padding: 4px 2px;
+  text-align: left;
 }
 
 .nav-list {
@@ -124,7 +157,8 @@ body {
   padding: 0;
   margin: 0;
   display: grid;
-  gap: 6px;
+  gap: 4px;
+  justify-items: start;
 }
 
 .nav-section-label {
@@ -138,15 +172,18 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
-  border-radius: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
   color: var(--text);
   text-decoration: none;
   border: 1px solid transparent;
   background: transparent;
   cursor: pointer;
   font: inherit;
+  font-weight: 600;
+  font-size: 14px;
   text-align: left;
+  transition: all 0.2s ease;
 }
 
 .nav-link:hover {
@@ -231,13 +268,67 @@ body {
   padding: 14px;
   margin-top: 16px;
   background: #fff;
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+}
+
+.dashboard-content > .section-card:first-child {
+  margin-top: 0;
 }
 
 .section-title {
   margin: 0 0 6px;
   font-weight: 600;
   color: var(--text);
+}
+
+.section-toggle {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  text-align: left;
+}
+
+.section-toggle:hover,
+.section-toggle:active,
+.section-toggle:focus,
+.section-toggle:focus-visible {
+  background: transparent !important;
+  color: inherit;
+  box-shadow: none;
+}
+
+.section-toggle .section-title {
+  margin: 0;
+}
+
+.section-toggle-icon {
+  color: var(--muted);
+  font-size: 24px;
+  line-height: 1;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.teacher-section.open .section-toggle-icon,
+.class-info-section.open .section-toggle-icon {
+  transform: rotate(90deg);
+  color: var(--text);
+}
+
+.section-collapse {
+  padding-top: 10px;
+}
+
+.class-info-toggle {
+  display: none;
+}
+
+.class-info-section .section-collapse {
+  padding-top: 0;
 }
 
 .section-subtext {
@@ -280,48 +371,118 @@ body {
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0;
+}
+
+.student-list li {
+  border-bottom: 1px solid var(--border);
+}
+
+.student-list li:last-child {
+  border-bottom: none;
 }
 
 .student-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: #fff;
+  gap: 6px;
+  padding: 6px 2px;
 }
 
 .student-index {
   color: var(--muted);
   font-size: 12px;
+  font-weight: 600;
+  min-width: 24px;
 }
 
 .student-link {
-  color: var(--text);
+  color: var(--primary);
   text-decoration: none;
   font-weight: 600;
 }
 
-.student-link:hover { color: var(--primary); }
+.student-link:hover { color: var(--primary-hover); }
+
+.students-section {
+  padding: 10px 12px;
+}
+
+.students-section .section-title {
+  margin: 0 0 2px;
+}
+
+.students-section .student-list {
+  margin: 0;
+}
+
+.students-section .student-list li {
+  margin: 0;
+  padding: 0;
+}
+
+.students-section .student-row {
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.students-section .student-index {
+  min-width: 18px;
+}
 
 @media (max-width: 960px) {
   .dashboard-grid { grid-template-columns: 1fr; }
-  .nav-toggle { display: inline-flex; }
+  .nav-toggle {
+    display: inline-flex;
+    position: sticky;
+    top: 8px;
+    z-index: 900;
+  }
   .nav-card {
     position: fixed;
-    top: 0;
+    top: 72px;
     left: 0;
-    width: 260px;
-    height: 100vh;
+    width: 300px;
+    max-width: 85vw;
+    height: auto;
+    max-height: calc(100vh - 120px);
+    padding: 26px 20px 20px;
+    border-radius: 0 14px 14px 0;
+    overflow-y: auto;
     transform: translateX(-110%);
-    transition: transform 0.2s ease;
+    transition: transform 0.25s ease;
     z-index: 999;
+    box-shadow: 0 10px 26px rgba(15, 23, 42, 0.08);
   }
+  .nav-header {
+    position: relative;
+    padding: 0 0 12px;
+    margin: 0 0 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-close {
+    display: inline-flex;
+    position: absolute;
+    top: -2px;
+    right: 0;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    line-height: 1;
+  }
+  .side-nav { padding: 0; }
+  .nav-list { gap: 4px; }
+  .class-info-toggle { display: flex; }
+  .class-info-section .section-collapse { padding-top: 10px; }
   .nav-card.open { transform: translateX(0); }
   .nav-close { display: inline-flex; }
   .dashboard-shell { padding-top: 12px; }
+}
+
+@media (max-width: 768px) {
+  body {
+    padding-bottom: 0 !important;
+  }
 }
 </style>
 
@@ -336,7 +497,6 @@ body {
       <aside class="card nav-card" id="class-tools-panel">
         <div class="nav-header">
           <div>
-            <p class="eyebrow">Navigation</p>
             <h3>Class Tools</h3>
           </div>
           <button class="nav-close" type="button" aria-label="Close navigation">×</button>
@@ -365,64 +525,75 @@ body {
 
       <div class="nav-overlay" id="class-tools-overlay"></div>
 
-      <main class="card">
-        <div class="card-header">
-          <p class="eyebrow">Class</p>
+      <main class="dashboard-main">
+        <div class="dashboard-header">
           <h1 class="page-title" id="className"><%= className %></h1>
           <% if (graduationYearGroup) { %>
             <p class="card-subtext"><%= graduationYearGroup %></p>
           <% } %>
         </div>
 
-        <div class="card-body">
-          <div class="meta-grid">
-            <div class="meta-tile">
-              <p class="meta-label">School Year</p>
-              <p class="meta-value"><%= schoolYear.year_label %></p>
-            </div>
-            <div class="meta-tile">
-              <p class="meta-label">Term</p>
-              <p class="meta-value"><%= currentTerm.term_name %></p>
-            </div>
-            <div class="meta-tile">
-              <p class="meta-label">Start Date</p>
-              <p class="meta-value"><%= new Date(currentTerm.start_date).toISOString().split('T')[0] %></p>
-            </div>
-            <div class="meta-tile">
-              <p class="meta-label">End Date</p>
-              <p class="meta-value"><%= new Date(currentTerm.end_date).toISOString().split('T')[0] %></p>
-            </div>
-          </div>
-
-          <div class="section-card">
-            <div class="section-title">Teachers</div>
-            <p class="section-subtext">Main teacher can mark attendance.</p>
-            <div class="teacher-list">
-              <% employees.forEach(function(employee) { %>
-                <div class="teacher-card">
-                  <% if (employee.main) { %>
-                    <span class="teacher-dot" title="Main teacher"></span>
-                  <% } else { %>
-                    <span style="width:10px; height:10px;"></span>
-                  <% } %>
-                  <span class="teacher-name"><%= employee.name %></span>
-                  <% if (req.session && req.session.userRole !== 'Teacher' && req.session.userRole !== 'Supervisor') { %>
-                    <input type="radio" name="main_employee" value="<%= employee.user_id %>" <% if (employee.main) { %> checked <% } %> onchange="setMainEmployee('<%= classId %>', '<%= employee.user_id %>')" style="margin-left:auto;">
-                  <% } %>
+        <div class="dashboard-content">
+          <div class="section-card class-info-section" id="class-info-section">
+            <button class="section-toggle class-info-toggle" type="button" id="class-info-toggle" aria-expanded="false" aria-controls="class-info-content">
+              <span class="section-title">School Year: <%= schoolYear.year_label %> · Term: <%= currentTerm.term_name %></span>
+              <span class="section-toggle-icon" aria-hidden="true">›</span>
+            </button>
+            <div class="section-collapse" id="class-info-content">
+              <div class="meta-grid">
+                <div class="meta-tile">
+                  <p class="meta-label">School Year</p>
+                  <p class="meta-value"><%= schoolYear.year_label %></p>
                 </div>
-              <% }); %>
+                <div class="meta-tile">
+                  <p class="meta-label">Term</p>
+                  <p class="meta-value"><%= currentTerm.term_name %></p>
+                </div>
+                <div class="meta-tile">
+                  <p class="meta-label">Start Date</p>
+                  <p class="meta-value"><%= new Date(currentTerm.start_date).toISOString().split('T')[0] %></p>
+                </div>
+                <div class="meta-tile">
+                  <p class="meta-label">End Date</p>
+                  <p class="meta-value"><%= new Date(currentTerm.end_date).toISOString().split('T')[0] %></p>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div class="section-card">
-            <div class="section-title">Students in <%= currentTerm.term_name %></div>
-            <p class="section-subtext">Tap a student to view details.</p>
+          <div class="section-card teacher-section" id="teachers-section">
+            <button class="section-toggle" type="button" id="teachers-toggle" aria-expanded="false" aria-controls="teachers-content">
+              <span class="section-title">Teachers</span>
+              <span class="section-toggle-icon" aria-hidden="true">›</span>
+            </button>
+            <div class="section-collapse" id="teachers-content" hidden>
+              <p class="section-subtext">Main teacher can mark attendance.</p>
+              <div class="teacher-list">
+                <% employees.forEach(function(employee) { %>
+                  <div class="teacher-card">
+                    <% if (employee.main) { %>
+                      <span class="teacher-dot" title="Main teacher"></span>
+                    <% } else { %>
+                      <span style="width:10px; height:10px;"></span>
+                    <% } %>
+                    <span class="teacher-name"><%= employee.name %></span>
+                    <% if (req.session && req.session.userRole !== 'Teacher' && req.session.userRole !== 'Supervisor') { %>
+                      <input type="radio" name="main_employee" value="<%= employee.user_id %>" <% if (employee.main) { %> checked <% } %> onchange="setMainEmployee('<%= classId %>', '<%= employee.user_id %>')" style="margin-left:auto;">
+                    <% } %>
+                  </div>
+                <% }); %>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-card students-section">
+            <div class="section-title">Students</div>
             <ul class="student-list">
               <% if (students.length > 0) { %>
                 <% students.forEach(function(student, index) { %>
                   <li>
                     <div class="student-row">
-                      <span class="student-index">#<%= index + 1 %></span>
+                      <span class="student-index"><%= index + 1 %>.</span>
                       <a class="student-link" href="/common/studentDetails?studentId=<%= student.student_id %>&termId=<%= currentTerm.term_id %>&classId=<%= classId %>">
                         <%= student.first_name %> <%= student.last_name %>
                       </a>
@@ -440,50 +611,132 @@ body {
   </div>
 
   <script>
-    function setMainEmployee(classId, userId) {
-      const confirmationMessage = "Are you sure you want to set this teacher as the main teacher for this class? The main teacher will have full access and is the only teacher who can mark attendance.";
-      if (!confirm(confirmationMessage)) return;
+    (function () {
+      window.setMainEmployee = function (classId, userId) {
+        const confirmationMessage = "Are you sure you want to set this teacher as the main teacher for this class? The main teacher will have full access and is the only teacher who can mark attendance.";
+        if (!confirm(confirmationMessage)) return;
 
-      fetch('/common/setMainEmployee', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ class_id: classId, main_employee: userId })
-      })
-        .then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            alert('Main class teacher set successfully');
-          } else {
-            alert('Failed to set main class teacher');
-          }
+        fetch('/common/setMainEmployee', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ class_id: classId, main_employee: userId })
         })
-        .catch(error => {
-          console.error('Error:', error);
-          alert('Error setting main employee');
-        });
-    }
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              alert('Main class teacher set successfully');
+            } else {
+              alert('Failed to set main class teacher');
+            }
+          })
+          .catch(error => {
+            console.error('Error:', error);
+            alert('Error setting main employee');
+          });
+      };
 
-    const navToggle = document.querySelector('.nav-toggle');
-    const navPanel = document.getElementById('class-tools-panel');
-    const navOverlay = document.getElementById('class-tools-overlay');
-    const navClose = document.querySelector('.nav-close');
-    const navLinks = document.querySelectorAll('.nav-link');
+      function initClassDashboard() {
+        const navToggle = document.querySelector('.nav-toggle');
+        const navPanel = document.getElementById('class-tools-panel');
+        const navOverlay = document.getElementById('class-tools-overlay');
+        const navClose = document.querySelector('.nav-close');
+        const navLinks = document.querySelectorAll('.nav-link');
+        const classInfoSection = document.getElementById('class-info-section');
+        const classInfoToggle = document.getElementById('class-info-toggle');
+        const classInfoContent = document.getElementById('class-info-content');
+        const teachersSection = document.getElementById('teachers-section');
+        const teachersToggle = document.getElementById('teachers-toggle');
+        const teachersContent = document.getElementById('teachers-content');
 
-    function openNav() {
-      if (navPanel) navPanel.classList.add('open');
-      if (navOverlay) navOverlay.classList.add('show');
-    }
+        function openNav() {
+          if (navPanel) navPanel.classList.add('open');
+          if (navOverlay) navOverlay.classList.add('show');
+        }
 
-    function closeNav() {
-      if (navPanel) navPanel.classList.remove('open');
-      if (navOverlay) navOverlay.classList.remove('show');
-    }
+        function closeNav() {
+          if (navPanel) navPanel.classList.remove('open');
+          if (navOverlay) navOverlay.classList.remove('show');
+        }
 
-    if (navToggle) navToggle.addEventListener('click', openNav);
-    if (navOverlay) navOverlay.addEventListener('click', closeNav);
-    if (navClose) navClose.addEventListener('click', closeNav);
-    if (navLinks && navLinks.length) {
-      navLinks.forEach(link => link.addEventListener('click', closeNav));
-    }
+        function setTeachersOpen(isOpen) {
+          if (!teachersSection || !teachersToggle || !teachersContent) return;
+          teachersSection.classList.toggle('open', isOpen);
+          teachersToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+          teachersContent.hidden = !isOpen;
+        }
+
+        function isSmallScreen() {
+          return window.matchMedia('(max-width: 960px)').matches;
+        }
+
+        function setClassInfoOpen(isOpen) {
+          if (!classInfoSection || !classInfoToggle || !classInfoContent) return;
+          classInfoSection.classList.toggle('open', isOpen);
+          classInfoToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+          classInfoContent.hidden = !isOpen;
+        }
+
+        function syncClassInfoForViewport() {
+          if (!classInfoSection || !classInfoToggle || !classInfoContent) return;
+          if (isSmallScreen()) {
+            setClassInfoOpen(false);
+          } else {
+            setClassInfoOpen(true);
+          }
+        }
+
+        if (navToggle && !navToggle.dataset.boundNavToggle) {
+          navToggle.dataset.boundNavToggle = '1';
+          navToggle.addEventListener('click', openNav);
+        }
+        if (navOverlay && !navOverlay.dataset.boundNavOverlay) {
+          navOverlay.dataset.boundNavOverlay = '1';
+          navOverlay.addEventListener('click', closeNav);
+        }
+        if (navClose && !navClose.dataset.boundNavClose) {
+          navClose.dataset.boundNavClose = '1';
+          navClose.addEventListener('click', closeNav);
+        }
+        if (navLinks && navLinks.length) {
+          navLinks.forEach(link => {
+            if (!link.dataset.boundNavLinkClose) {
+              link.dataset.boundNavLinkClose = '1';
+              link.addEventListener('click', closeNav);
+            }
+          });
+        }
+
+        if (classInfoToggle) {
+          syncClassInfoForViewport();
+          if (!classInfoToggle.dataset.boundClassInfoToggle) {
+            classInfoToggle.dataset.boundClassInfoToggle = '1';
+            classInfoToggle.addEventListener('click', () => {
+              if (!isSmallScreen()) return;
+              const isOpen = classInfoToggle.getAttribute('aria-expanded') === 'true';
+              setClassInfoOpen(!isOpen);
+            });
+          }
+
+          if (window.__classDashboardResizeHandler) {
+            window.removeEventListener('resize', window.__classDashboardResizeHandler);
+          }
+          window.__classDashboardResizeHandler = syncClassInfoForViewport;
+          window.addEventListener('resize', window.__classDashboardResizeHandler);
+        }
+
+        if (teachersToggle) {
+          setTeachersOpen(false);
+          if (!teachersToggle.dataset.boundTeachersToggle) {
+            teachersToggle.dataset.boundTeachersToggle = '1';
+            teachersToggle.addEventListener('click', () => {
+              const isOpen = teachersToggle.getAttribute('aria-expanded') === 'true';
+              setTeachersOpen(!isOpen);
+            });
+          }
+        }
+      }
+
+      initClassDashboard();
+    })();
   </script>
 </body>
