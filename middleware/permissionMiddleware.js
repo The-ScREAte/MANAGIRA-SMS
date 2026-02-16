@@ -1,6 +1,6 @@
 const db = require("../config/db");
 
-const MANAGER_LIKE_ROLES = new Set(["Manager", "Organization", "Admin", "Mini Admin"]);
+const MANAGER_LIKE_ROLES = new Set(["Organization", "Admin", "Mini Admin"]);
 
 const PERMISSIONS = {
   MANAGE_EMPLOYEES: "manage_employees",
@@ -39,6 +39,14 @@ const PERMISSION_OPTIONS = [
   { key: PERMISSIONS.MANAGE_BILLING, label: "Manage Billing" },
   { key: PERMISSIONS.MANAGE_SETTINGS, label: "Manage Organization Settings" },
 ];
+
+const MANAGER_DEFAULT_OPTIONAL_PERMISSIONS = PERMISSION_OPTIONS
+  .map((option) => option.key)
+  .filter(
+    (permissionKey) =>
+      permissionKey !== PERMISSIONS.MANAGE_BILLING &&
+      permissionKey !== PERMISSIONS.MANAGE_SETTINGS
+  );
 
 const ROLE_DEFAULT_PERMISSIONS = {
   Teacher: [
@@ -119,6 +127,84 @@ function mergePermissionsForRole(role, customPermissions = []) {
   return [...new Set([...defaults, ...custom])];
 }
 
+function getSuggestedPermissionsForRole(role) {
+  const normalizedRole = normalizeRole(role);
+  if (normalizedRole === "Manager") {
+    return [...MANAGER_DEFAULT_OPTIONAL_PERMISSIONS];
+  }
+
+  return [];
+}
+
+async function getPrimaryManagerUserId(database, organizationId) {
+  if (!organizationId) return null;
+
+  const orgResult = await database.query(
+    `
+    SELECT email, first_name, last_name
+    FROM organizations
+    WHERE organization_id = $1
+    LIMIT 1
+  `,
+    [organizationId]
+  );
+
+  const orgIdentity = orgResult.rows[0] || null;
+
+  if (orgIdentity?.email) {
+    const byEmail = await database.query(
+      `
+      SELECT user_id
+      FROM users
+      WHERE organization_id = $1
+        AND account_type = 'Manager'
+        AND email::text ILIKE $2
+      ORDER BY created_at ASC NULLS LAST, user_id ASC
+      LIMIT 1
+    `,
+      [organizationId, orgIdentity.email]
+    );
+
+    if (byEmail.rows.length > 0) {
+      return byEmail.rows[0].user_id;
+    }
+  }
+
+  if (orgIdentity?.first_name && orgIdentity?.last_name) {
+    const byName = await database.query(
+      `
+      SELECT user_id
+      FROM users
+      WHERE organization_id = $1
+        AND account_type = 'Manager'
+        AND LOWER(first_name) = LOWER($2)
+        AND LOWER(last_name) = LOWER($3)
+      ORDER BY created_at ASC NULLS LAST, user_id ASC
+      LIMIT 1
+    `,
+      [organizationId, orgIdentity.first_name, orgIdentity.last_name]
+    );
+
+    if (byName.rows.length > 0) {
+      return byName.rows[0].user_id;
+    }
+  }
+
+  const earliestManager = await database.query(
+    `
+    SELECT user_id
+    FROM users
+    WHERE organization_id = $1
+      AND account_type = 'Manager'
+    ORDER BY created_at ASC NULLS LAST, user_id ASC
+    LIMIT 1
+  `,
+    [organizationId]
+  );
+
+  return earliestManager.rows[0]?.user_id || null;
+}
+
 async function getUserPermissions(database, userId, organizationId) {
   if (!userId || !organizationId) return [];
   await ensurePermissionsSchema(database);
@@ -138,6 +224,28 @@ async function userHasPermission(database, { userId, userRole, organizationId },
   if (!userId) return false;
 
   await ensurePermissionsSchema(database);
+
+  if (normalizeRole(userRole) === "Manager") {
+    const primaryManagerUserId = await getPrimaryManagerUserId(database, organizationId);
+    const isPrimaryManager =
+      primaryManagerUserId !== null && String(primaryManagerUserId) === String(userId);
+
+    const managerPermissionsResult = await database.query(
+      `SELECT permission_key FROM user_permissions WHERE user_id = $1 AND organization_id = $2`,
+      [userId, organizationId]
+    );
+
+    if (managerPermissionsResult.rows.length === 0) {
+      return isPrimaryManager
+        ? true
+        : MANAGER_DEFAULT_OPTIONAL_PERMISSIONS.includes(permissionKey);
+    }
+
+    const assignedPermissions = new Set(
+      managerPermissionsResult.rows.map((row) => row.permission_key)
+    );
+    return assignedPermissions.has(permissionKey);
+  }
 
   const result = await database.query(
     `SELECT 1 FROM user_permissions WHERE user_id = $1 AND organization_id = $2 AND permission_key = $3 LIMIT 1`,
@@ -182,6 +290,8 @@ module.exports = {
   normalizePermissionsList,
   getDefaultPermissionsForRole,
   mergePermissionsForRole,
+  getSuggestedPermissionsForRole,
+  getPrimaryManagerUserId,
   getUserPermissions,
   userHasPermission,
   requirePermission,

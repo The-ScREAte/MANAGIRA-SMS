@@ -157,7 +157,7 @@
       height: 100vh;
       background: rgba(15, 23, 42, 0.4);
       z-index: 3000;
-      justify-content: flex-start;
+      justify-content: flex-end;
       align-items: stretch;
       pointer-events: auto;
     }
@@ -171,16 +171,18 @@
       width: 280px;
       max-width: 85vw;
       height: 100vh;
-      padding: 84px 12px 20px;
+      padding: 74px 14px 16px;
       z-index: 3100;
       flex-direction: column;
       list-style: none;
       margin: 0;
       display: flex;
       align-items: stretch;
+      gap: 2px;
       position: relative;
       pointer-events: auto;
-      border-right: 1px solid #e5e7eb;
+      border-left: 1px solid #e5e7eb;
+      overflow-y: auto;
     }
     body {
       overflow: auto !important;
@@ -189,25 +191,34 @@
       width: 100%;
       text-align: left;
       padding: 0;
+      margin: 0;
     }
-    .admin-hamburger-menu a {
+    .admin-hamburger-menu .admin-header-link {
       width: 100%;
-      display: block;
-      padding: 8px 12px;
-      color: #111827;
+      display: flex;
+      align-items: center;
+      padding: 9px 12px;
+      color: #1f2937;
       text-decoration: none;
-      font-size: 0.96rem;
+      font-size: 0.95rem;
+      line-height: 1.25;
       font-weight: 600;
-      border-radius: 10px;
+      border-radius: 8px;
       background: transparent;
       border: 1px solid transparent;
-      transition: all 0.18s;
-      margin-bottom: 6px;
+      box-shadow: none;
+      margin: 0;
+      transition: background 0.18s, color 0.18s, border-color 0.18s;
     }
-    .admin-hamburger-menu a:hover {
+    .admin-hamburger-menu .admin-header-link:hover {
       background: #f3f4f6;
       border-color: #e5e7eb;
       color: #111827;
+    }
+    .admin-hamburger-menu li:last-child {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #e5e7eb;
     }
     .admin-header-link {
       text-decoration: none;
@@ -277,14 +288,11 @@
       .admin-hamburger-menu {
         width: 280px;
         max-width: 88vw;
-        padding-top: 78px;
+        padding-top: 72px;
       }
-      .admin-header-link {
-        width: 100%;
-        text-align: left;
-        font-size: 0.98rem;
-        padding: 12px 0;
-        background: transparent;
+      .admin-hamburger-menu .admin-header-link {
+        font-size: 0.94rem;
+        padding: 10px 12px;
       }
       .notification-icon {
         margin-bottom: 0;
@@ -293,28 +301,51 @@
 </style>
 
 <script>
-  document.addEventListener("DOMContentLoaded", function() {
-    const hamburger = document.getElementById("admin-hamburger");
-    const overlay = document.getElementById("admin-hamburger-overlay");
-    const menu = document.getElementById("admin-hamburger-menu");
-    hamburger.addEventListener("click", function(e) {
-      e.stopPropagation();
-      overlay.classList.toggle("show");
-      hamburger.classList.toggle("active");
-    });
-    overlay.addEventListener("click", function(e) {
-      if (e.target === overlay) {
+  (function () {
+    function initAdminHamburger() {
+      const hamburger = document.getElementById("admin-hamburger");
+      const overlay = document.getElementById("admin-hamburger-overlay");
+      const menu = document.getElementById("admin-hamburger-menu");
+
+      if (!hamburger || !overlay || !menu) return;
+
+      if (hamburger.dataset.menuBound === "1") return;
+      hamburger.dataset.menuBound = "1";
+
+      const closeMenu = function () {
         overlay.classList.remove("show");
         hamburger.classList.remove("active");
-      }
-    });
-    Array.from(menu.querySelectorAll("a")).forEach(function(link) {
-      link.addEventListener("click", function() {
-        overlay.classList.remove("show");
-        hamburger.classList.remove("active");
+      };
+
+      hamburger.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const shouldOpen = !overlay.classList.contains("show");
+        overlay.classList.toggle("show", shouldOpen);
+        hamburger.classList.toggle("active", shouldOpen);
       });
-    });
-  });
+
+      overlay.addEventListener("click", function (e) {
+        if (e.target === overlay) {
+          closeMenu();
+        }
+      });
+
+      Array.from(menu.querySelectorAll("a")).forEach(function (link) {
+        if (link.dataset.menuLinkBound === "1") return;
+        link.dataset.menuLinkBound = "1";
+        link.addEventListener("click", function () {
+          closeMenu();
+        });
+      });
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", initAdminHamburger);
+    } else {
+      initAdminHamburger();
+    }
+
+    window.addEventListener("spa:pageLoaded", initAdminHamburger);
+  })();
 </script>
-</style>
-    

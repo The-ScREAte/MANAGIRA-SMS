@@ -1,320 +1,475 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Super Admin Dashboard</title>
-    <link rel="stylesheet" href="/css/admin.css" />
-    <style>
-      :root {
-        --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Super Admin Dashboard</title>
+  <link rel="stylesheet" href="/css/admin.css" />
+  <style>
+    :root {
+      --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
+      --primary: #01535b;
+      --text-primary: #111827;
+      --text-secondary: #6b7280;
+      --border: #e5e7eb;
+      --bg: #f9fafb;
+    }
+
+    body {
+      margin: 0;
+      font-family: var(--font-family);
+      background: var(--bg);
+      color: var(--text-primary);
+    }
+
+    .dashboard-wrapper {
+      max-width: 1400px;
+      margin: 32px auto;
+      padding: 0 16px;
+    }
+
+    .dashboard-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .dashboard-header h1 {
+      margin: 0;
+      font-size: 1.7rem;
+      font-weight: 700;
+    }
+
+    .btn-secondary {
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text-primary);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .section-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 18px;
+    }
+
+    .section-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      background: #fafafa;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .section-header h2 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .table-wrapper {
+      overflow-x: auto;
+    }
+
+    .clean-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 900px;
+    }
+
+    .clean-table th,
+    .clean-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: middle;
+      font-size: 0.88rem;
+    }
+
+    .clean-table th {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      letter-spacing: 0.5px;
+      font-weight: 700;
+    }
+
+    .clean-table tbody tr:hover {
+      background: #fcfcfc;
+    }
+
+    .expand-button {
+      border: 1px solid #d1d5db;
+      background: #fff;
+      color: #374151;
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      line-height: 1;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+
+    .expand-button:hover {
+      background: #f3f4f6;
+    }
+
+    .details-row {
+      display: none;
+      background: #fcfcfd;
+    }
+
+    .details-panel {
+      padding: 14px;
+    }
+
+    .details-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 8px 14px;
+      margin-bottom: 12px;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    .details-grid strong {
+      color: var(--text-primary);
+      margin-right: 6px;
+    }
+
+    .details-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .details-actions form {
+      margin: 0;
+    }
+
+    .btn-action {
+      border: none;
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .btn-restore {
+      background: #ecfdf5;
+      color: #065f46;
+    }
+
+    .btn-delete {
+      background: #fef2f2;
+      color: #991b1b;
+    }
+
+    .muted {
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+    }
+
+    .linked-orgs-box {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+
+    .linked-orgs-box h4 {
+      margin: 0 0 8px;
+      font-size: 0.85rem;
+      color: var(--text-primary);
+    }
+
+    .linked-orgs-list {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--text-secondary);
+      font-size: 0.84rem;
+    }
+
+    .linked-orgs-list li {
+      margin: 3px 0;
+    }
+
+    .hub-detach-note {
+      margin: 8px 0 0;
+      font-size: 0.82rem;
+      color: #92400e;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 6px;
+      padding: 8px 10px;
+    }
+
+    .empty-state {
+      padding: 20px;
+      text-align: center;
+      color: var(--text-secondary);
+    }
+
+    @media (max-width: 768px) {
+      .dashboard-header h1 {
+        font-size: 1.4rem;
       }
 
-      body {
-        font-family: var(--font-family);
-        background-color: #f3f4f6;
-        margin: 0;
-        color: #333;
+      .clean-table {
+        min-width: 760px;
       }
-
-      .content-container {
-        max-width: 1200px;
-        margin: 40px auto;
-        padding: 24px;
-        background-color: #fff;
-        border-radius: 12px;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-      }
-
-      h1, h2 {
-        color: var(--admin-text-primary, #111827);
-      }
-
-      h1 {
-        text-align: center;
-        font-size: 1.75rem;
-        margin-bottom: 24px;
-      }
-
-      h2 {
-        font-size: 1.25rem;
-        margin-bottom: 16px;
-        padding-bottom: 8px;
-        border-bottom: 2px solid var(--admin-primary, #2563eb);
-      }
-
-      .link-to-next-back {
-        display: flex;
-        justify-content: center;
-        gap: 16px;
-        margin-bottom: 24px;
-      }
-
-      .applications-container,
-      .deleted-tickets-container {
-        margin-top: 24px;
-      }
-
-      .application-summary,
-      .deleted-ticket-summary {
-        padding: 16px 20px;
-        border: 1px solid #e5e7eb;
-        border-radius: 10px;
-        margin-bottom: 12px;
-        background-color: #ffffff;
-        transition: all 0.2s ease;
-      }
-
-      .application-summary:hover,
-      .deleted-ticket-summary:hover {
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-        border-color: var(--admin-primary, #2563eb);
-      }
-
-      .application-summary p,
-      .deleted-ticket-summary p {
-        margin: 0;
-        font-size: 1rem;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-
-      .expand-button {
-        background: none;
-        border: none;
-        color: var(--admin-primary, #2563eb);
-        font-size: 1.2rem;
-        cursor: pointer;
-        padding: 4px 8px;
-        transition: transform 0.2s;
-      }
-
-      .expand-button:hover {
-        transform: scale(1.1);
-      }
-
-      .details-content {
-        margin-top: 16px;
-        padding-top: 16px;
-        border-top: 1px solid #e5e7eb;
-      }
-
-      .details-content p {
-        display: block;
-        margin: 8px 0;
-        color: var(--admin-text-secondary, #4b5563);
-        font-size: 0.9rem;
-      }
-
-      .details-content h4 {
-        margin: 16px 0 8px;
-        color: var(--admin-text-primary, #111827);
-        font-size: 0.9rem;
-      }
-
-      .details-content ul {
-        margin: 8px 0;
-        padding-left: 24px;
-      }
-
-      .details-content li {
-        margin: 4px 0;
-        color: var(--admin-text-secondary, #4b5563);
-        font-size: 0.875rem;
-      }
-
-      .action-buttons {
-        display: flex;
-        gap: 10px;
-        margin-top: 16px;
-        flex-wrap: wrap;
-      }
-
-      @media (max-width: 768px) {
-        .content-container {
-          margin: 20px 10px;
-          padding: 16px;
-        }
-        
-        .link-to-next-back {
-          flex-direction: column;
-          gap: 10px;
-        }
-        
-        .action-buttons {
-          flex-direction: column;
-        }
-        
-        .action-buttons form,
-        .action-buttons .admin-btn {
-          width: 100%;
-        }
-      }
-    </style>
-    <script>
-      function toggleDetails(id) {
-        const details = document.getElementById(`details-${id}`);
-        details.style.display =
-          details.style.display === "none" ? "block" : "none";
-      }
-
-      function confirmAction(event, action, itemId) {
-        event.preventDefault();
-        let message = "";
-
-        if (action === "restore") {
-          message = `Are you sure you want to restore this item?`;
-        } else if (action === "delete") {
-          message = `Are you sure you want to permanently delete this item? This action cannot be undone.`;
-        }
-
-        if (confirm(message)) {
-          event.target.submit();
-        }
-      }
-    </script>
-  </head>
-
-  <body>
-    <div class="content-container">
-      <div class="link-to-next-back">
-        <a href="/admin/superSettings" class="admin-btn admin-btn-primary">⚙️ Settings</a>
-      </div>
-
-      <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard-wrapper">
+    <div class="dashboard-header">
       <h1>Super Admin Dashboard</h1>
-
-      <%- include('../partials/flash') %>
-
-      <!-- Deleted Applications Section -->
-      <div class="applications-container">
-        <h2>🗑️ Deleted Applications</h2>
-        <% if (deletedAccounts && deletedAccounts.length > 0) { %>
-          <% deletedAccounts.forEach(function(account) { %>
-          <div class="application-summary">
-            <p>
-              <strong><%= account.organization_name %></strong>
-              <button
-                class="expand-button"
-                onclick="toggleDetails('<%= account.organization_id %>')"
-              >
-                ⯆
-              </button>
-            </p>
-            <div
-              id="details-<%= account.organization_id %>"
-              style="display: none"
-              class="details-content"
-            >
-              <p><strong>Contact:</strong> <%= account.first_name %> <%= account.last_name %></p>
-              <p><strong>Email:</strong> <%= account.email %></p>
-              <p><strong>Address:</strong> <%= account.organization_address %></p>
-              <p><strong>Phone:</strong> <%= account.organization_phone %></p>
-              <div class="action-buttons">
-                <form
-                  action="/admin/restore"
-                  method="post"
-                  onsubmit="confirmAction(event, 'restore', '<%= account.organization_id %>')"
-                >
-                  <input
-                    type="hidden"
-                    name="orgId"
-                    value="<%= account.organization_id %>"
-                  />
-                  <button type="submit" class="admin-btn admin-btn-success">
-                    ✓ Restore
-                  </button>
-                </form>
-                <form
-                  action="/admin/permanentlyDelete"
-                  method="post"
-                  onsubmit="confirmAction(event, 'delete', '<%= account.organization_id %>')"
-                >
-                  <input
-                    type="hidden"
-                    name="orgId"
-                    value="<%= account.organization_id %>"
-                  />
-                  <button type="submit" class="admin-btn admin-btn-delete">
-                    ✕ Delete Permanently
-                  </button>
-                </form>
-              </div>
-            </div>
-          </div>
-          <% }); %>
-        <% } else { %>
-        <p style="text-align: center; color: var(--admin-text-secondary); padding: 24px 0; background: #f9fafb; border-radius: 8px;">No deleted applications available.</p>
-        <% } %>
-      </div>
-
-      <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0;" />
-
-      <!-- Deleted Tickets Section -->
-      <div class="deleted-tickets-container">
-        <h2>📨 Deleted Tickets</h2>
-        <% if (deletedTickets && deletedTickets.length > 0) { %>
-          <% deletedTickets.forEach(function(ticket) { %>
-          <div class="deleted-ticket-summary">
-            <p>
-              <strong>Ticket #<%= ticket.thread_id %></strong> - <%= ticket.name %> (<%= ticket.organization || 'N/A' %>)
-              <button
-                class="expand-button"
-                onclick="toggleDetails('<%= ticket.thread_id %>')"
-              >
-                ⯆
-              </button>
-            </p>
-            <div id="details-<%= ticket.thread_id %>" style="display: none" class="details-content">
-              <p><strong>Email:</strong> <%= ticket.email %></p>
-              <p><strong>Phone:</strong> <%= ticket.phone || 'N/A' %></p>
-              <p>
-                <strong>Last Updated:</strong> <%= new Date(ticket.last_updated).toLocaleString() %>
-              </p>
-              <h4>Messages:</h4>
-              <ul>
-                <% ticket.messages.forEach(message => { %>
-                <li><%= message %></li>
-                <% }) %>
-              </ul>
-              <div class="action-buttons">
-                <form
-                  action="/admin/restoreMessage"
-                  method="POST"
-                  onsubmit="confirmAction(event, 'restore', '<%= ticket.thread_id %>')"
-                >
-                  <input
-                    type="hidden"
-                    name="threadId"
-                    value="<%= ticket.thread_id %>"
-                  />
-                  <button type="submit" class="admin-btn admin-btn-success">
-                    ✓ Restore
-                  </button>
-                </form>
-                <form
-                  action="/admin/permanentDeleteMessage"
-                  method="POST"
-                  onsubmit="confirmAction(event, 'delete', '<%= ticket.thread_id %>')"
-                >
-                  <input
-                    type="hidden"
-                    name="threadId"
-                    value="<%= ticket.thread_id %>"
-                  />
-                  <button type="submit" class="admin-btn admin-btn-delete">
-                    ✕ Delete Permanently
-                  </button>
-                </form>
-              </div>
-            </div>
-          </div>
-          <% }); %>
-        <% } else { %>
-        <p style="text-align: center; color: var(--admin-text-secondary); padding: 24px 0; background: #f9fafb; border-radius: 8px;">No deleted tickets available.</p>
-        <% } %>
-      </div>
+      <a href="/admin/superSettings" class="btn-secondary">⚙️ Settings</a>
     </div>
-  </body>
+
+    <%- include('../partials/flash') %>
+
+    <div class="section-card">
+      <div class="section-header">
+        <h2>🗑️ Deleted Applications</h2>
+        <span class="muted"><%= deletedAccounts ? deletedAccounts.length : 0 %> records</span>
+      </div>
+      <% if (deletedAccounts && deletedAccounts.length > 0) { %>
+      <div class="table-wrapper">
+        <table class="clean-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Organization</th>
+              <th>Contact</th>
+              <th>Email</th>
+              <th>Phone</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% deletedAccounts.forEach(function(account) { %>
+            <tr>
+              <td>
+                <button class="expand-button" onclick="toggleDetails('org-<%= account.organization_id %>')">▾</button>
+              </td>
+              <td><strong><%= account.organization_name %></strong></td>
+              <td><%= account.first_name %> <%= account.last_name %></td>
+              <td><%= account.email %></td>
+              <td><%= account.organization_phone %></td>
+            </tr>
+            <tr id="details-org-<%= account.organization_id %>" class="details-row">
+              <td colspan="5">
+                <div class="details-panel">
+                  <div class="details-grid">
+                    <div><strong>Address:</strong> <%= account.organization_address || 'N/A' %></div>
+                  </div>
+                  <div class="details-actions">
+                    <form action="/admin/restore" method="post" onsubmit="return confirmAction('restore this organization?')">
+                      <input type="hidden" name="orgId" value="<%= account.organization_id %>" />
+                      <button type="submit" class="btn-action btn-restore">✓ Restore</button>
+                    </form>
+                    <form action="/admin/permanentlyDelete" method="post" onsubmit="return confirmAction('permanently delete this organization? This cannot be undone.')">
+                      <input type="hidden" name="orgId" value="<%= account.organization_id %>" />
+                      <button type="submit" class="btn-action btn-delete">✕ Delete Permanently</button>
+                    </form>
+                  </div>
+                </div>
+              </td>
+            </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+      <% } else { %>
+      <div class="empty-state">No deleted applications available.</div>
+      <% } %>
+    </div>
+
+    <div class="section-card">
+      <div class="section-header">
+        <h2>🏢 Deleted Hubs</h2>
+        <span class="muted"><%= deletedHubs ? deletedHubs.length : 0 %> records</span>
+      </div>
+      <% if (deletedHubs && deletedHubs.length > 0) { %>
+      <div class="table-wrapper">
+        <table class="clean-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Hub Name</th>
+              <th>Nickname</th>
+              <th>Admin</th>
+              <th>Email</th>
+              <th>Linked Orgs</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% deletedHubs.forEach(function(hub) { %>
+            <tr>
+              <td>
+                <button class="expand-button" onclick="toggleDetails('hub-<%= hub.hub_id %>')">▾</button>
+              </td>
+              <td><strong><%= hub.hub_name %></strong></td>
+              <td><%= hub.hub_nickname || 'N/A' %></td>
+              <td><%= hub.first_name %> <%= hub.last_name %></td>
+              <td><%= hub.hub_email %></td>
+              <td><%= hub.linked_organizations_count || 0 %></td>
+              <td><%= hub.on_hold ? 'On Hold' : 'Active' %></td>
+            </tr>
+            <tr id="details-hub-<%= hub.hub_id %>" class="details-row">
+              <td colspan="7">
+                <div class="details-panel">
+                  <div class="details-grid">
+                    <div><strong>Phone:</strong> <%= hub.hub_phone || 'N/A' %></div>
+                    <div><strong>Address:</strong> <%= hub.hub_address || 'N/A' %></div>
+                    <div><strong>Updated:</strong> <%= hub.updated_at ? new Date(hub.updated_at).toLocaleString() : 'N/A' %></div>
+                  </div>
+
+                  <div class="linked-orgs-box">
+                    <h4>Organizations currently tied to this hub (<%= hub.linked_organizations_count || 0 %>)</h4>
+                    <% if (hub.linked_organizations && hub.linked_organizations.length > 0) { %>
+                      <ul class="linked-orgs-list">
+                        <% hub.linked_organizations.forEach(function(org) { %>
+                          <li>
+                            <strong><%= org.organization_name %></strong>
+                            <% if (org.email) { %> — <%= org.email %><% } %>
+                            <% if (org.on_hold) { %> (On Hold)<% } %>
+                          </li>
+                        <% }); %>
+                      </ul>
+                    <% } else { %>
+                      <div class="muted">No active organizations are currently tied to this hub.</div>
+                    <% } %>
+                    <p class="hub-detach-note">
+                      If this hub is permanently deleted, these linked organizations will be detached and become separate standalone schools.
+                    </p>
+                  </div>
+
+                  <div class="details-actions">
+                    <form action="/admin/hubs/restore" method="post" onsubmit="return confirmAction('restore this hub?')">
+                      <input type="hidden" name="hubId" value="<%= hub.hub_id %>" />
+                      <button type="submit" class="btn-action btn-restore">✓ Restore Hub</button>
+                    </form>
+                    <form action="/admin/hubs/permanently-delete" method="post" onsubmit="return confirmAction('permanently delete this hub? This cannot be undone.')">
+                      <input type="hidden" name="hubId" value="<%= hub.hub_id %>" />
+                      <button type="submit" class="btn-action btn-delete">✕ Delete Permanently</button>
+                    </form>
+                  </div>
+                </div>
+              </td>
+            </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+      <% } else { %>
+      <div class="empty-state">No deleted hubs available.</div>
+      <% } %>
+    </div>
+
+    <div class="section-card">
+      <div class="section-header">
+        <h2>📨 Deleted Tickets</h2>
+        <span class="muted"><%= deletedTickets ? deletedTickets.length : 0 %> records</span>
+      </div>
+      <% if (deletedTickets && deletedTickets.length > 0) { %>
+      <div class="table-wrapper">
+        <table class="clean-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Ticket</th>
+              <th>Name</th>
+              <th>Organization</th>
+              <th>Email</th>
+              <th>Last Updated</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% deletedTickets.forEach(function(ticket) { %>
+            <tr>
+              <td>
+                <button class="expand-button" onclick="toggleDetails('ticket-<%= ticket.thread_id %>')">▾</button>
+              </td>
+              <td>#<%= ticket.thread_id %></td>
+              <td><%= ticket.name %></td>
+              <td><%= ticket.organization || 'N/A' %></td>
+              <td><%= ticket.email %></td>
+              <td><%= ticket.last_updated ? new Date(ticket.last_updated).toLocaleString() : 'N/A' %></td>
+            </tr>
+            <tr id="details-ticket-<%= ticket.thread_id %>" class="details-row">
+              <td colspan="6">
+                <div class="details-panel">
+                  <div class="details-grid">
+                    <div><strong>Phone:</strong> <%= ticket.phone || 'N/A' %></div>
+                  </div>
+                  <div class="details-grid" style="grid-template-columns: 1fr;">
+                    <div>
+                      <strong>Messages:</strong>
+                      <ul style="margin: 8px 0 0 18px; padding: 0;">
+                        <% ticket.messages.forEach(message => { %>
+                          <li style="margin: 4px 0;"><%= message %></li>
+                        <% }) %>
+                      </ul>
+                    </div>
+                  </div>
+                  <div class="details-actions">
+                    <form action="/admin/restoreMessage" method="POST" onsubmit="return confirmAction('restore this ticket?')">
+                      <input type="hidden" name="threadId" value="<%= ticket.thread_id %>" />
+                      <button type="submit" class="btn-action btn-restore">✓ Restore</button>
+                    </form>
+                    <form action="/admin/permanentDeleteMessage" method="POST" onsubmit="return confirmAction('permanently delete this ticket? This cannot be undone.')">
+                      <input type="hidden" name="threadId" value="<%= ticket.thread_id %>" />
+                      <button type="submit" class="btn-action btn-delete">✕ Delete Permanently</button>
+                    </form>
+                  </div>
+                </div>
+              </td>
+            </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+      <% } else { %>
+      <div class="empty-state">No deleted tickets available.</div>
+      <% } %>
+    </div>
+  </div>
+
+  <script>
+    function toggleDetails(id) {
+      const details = document.getElementById(`details-${id}`);
+      if (!details) return;
+      details.style.display = details.style.display === 'table-row' ? 'none' : 'table-row';
+    }
+
+    function confirmAction(message) {
+      return confirm(`Are you sure you want to ${message}`);
+    }
+  </script>
+</body>
 </html>

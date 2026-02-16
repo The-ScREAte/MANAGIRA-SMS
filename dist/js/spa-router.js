@@ -106,7 +106,11 @@
       '/legal/about-us',
       '/legal/privacy-policy',
       '/legal/terms-of-service',
-      '/legal/faq'
+      '/legal/faq',
+      '/common/publicRegister',
+      '/account/confirm-password',
+      '/stats/organization',
+      '/transcript/transcript',
     ],
     guardian: [
       '/',
@@ -171,6 +175,7 @@
   // Routes that should NEVER be SPA-handled (complex forms, file uploads, etc.)
   const EXCLUDED_PATTERNS = [
     '/account/service-plan',
+    '/account/logout',
     '/admin/org/',
     '/admin/exit-org',
     'new=1',

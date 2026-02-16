@@ -262,7 +262,12 @@
             </ul>
           </div>
           <div class="plan-price">
-            <strong>₵<%= plan.total_price.toFixed(2) %></strong>
+            <strong><%= plan.priceUsdDisplay || ('$' + plan.total_price.toFixed(2)) %></strong>
+            <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
+              <div style="margin-top: 6px; font-size: 12px; color: #666; font-weight: 500;">
+                ≈ <%= plan.localizedPriceDisplay %>
+              </div>
+            <% } %>
             <% if (typeof trialRequested !== 'undefined' && trialRequested && premiumPlanId && String(plan.plan_id) === String(premiumPlanId)) { %>
               <div style="margin-top: 8px; font-size: 13px; color: #0d8d5d; font-weight: 500;">
                 Pay after free trial
@@ -272,6 +277,9 @@
         </div>
         <% }}); %>
       </div>
+      <p style="text-align:center;font-size:12px;color:#666;margin:10px 0 0 0;">
+        Pricing base is USD. Checkout is processed in <%= paystackChargeCurrency || 'GHS' %> by Paystack.
+      </p>
       <input type="hidden" name="plan" id="selectedPlan" />
       <input type="hidden" name="plan_id" id="selectedPlanId" />
       <input type="hidden" name="trialRequested" id="trialRequestedField" value="<%= trialRequested ? '1' : '' %>" />

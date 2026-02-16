@@ -1,492 +1,697 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Admin Dashboard</title>
-    <link rel="stylesheet" href="/css/admin.css" />
-    <script>
-      function toggleDetails(id) {
-        const details = document.getElementById(`details-${id}`);
-        details.style.display =
-          details.style.display === "none" ? "block" : "none";
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard</title>
+  <link rel="stylesheet" href="/css/admin.css" />
+  <style>
+    :root {
+      --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
+      --primary: #01535b;
+      --primary-hover: #014a51;
+      --text-primary: #111827;
+      --text-secondary: #6b7280;
+      --border: #e5e7eb;
+      --bg: #f9fafb;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+    }
+
+    body {
+      margin: 0;
+      font-family: var(--font-family);
+      background: var(--bg);
+      color: var(--text-primary);
+    }
+
+    .dashboard-wrapper {
+      padding: 40px 24px;
+      min-height: 100vh;
+    }
+
+    .dashboard-header {
+      max-width: 1400px;
+      margin: 0 auto 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .dashboard-title h1 {
+      margin: 0;
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .dashboard-title p {
+      margin: 4px 0 0;
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
+    .dashboard-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-hover);
+    }
+
+    .btn-secondary {
+      background: #fff;
+      color: var(--text-primary);
+      border-color: var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: #f3f4f6;
+    }
+
+    .stats-grid {
+      max-width: 1400px;
+      margin: 0 auto 24px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
+
+    .stat-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    .stat-label {
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .stat-value {
+      font-size: 1.8rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .orgs-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .orgs-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .orgs-header h2 {
+      margin: 0;
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    .table-wrapper {
+      overflow-x: auto;
+    }
+
+    .admin-table-clean {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 880px;
+    }
+
+    .admin-table-clean th,
+    .admin-table-clean td {
+      padding: 14px 18px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    .admin-table-clean th {
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 700;
+      background: #fff;
+    }
+
+    .admin-table-clean tbody tr:hover {
+      background: #fafbfc;
+    }
+
+    .org-link {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .org-link:hover {
+      text-decoration: underline;
+    }
+
+    .owner-meta,
+    .email-meta {
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    .badge-active {
+      background: #ecfdf5;
+      color: #065f46;
+    }
+
+    .badge-hold {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .table-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .btn-action {
+      border: none;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+
+    .btn-view {
+      background: #eff6ff;
+      color: #1e40af;
+    }
+
+    .btn-view:hover {
+      background: #dbeafe;
+    }
+
+    .btn-hold {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .btn-hold:hover {
+      background: #fde68a;
+    }
+
+    .btn-resume {
+      background: #ecfdf5;
+      color: #065f46;
+    }
+
+    .btn-resume:hover {
+      background: #d1fae5;
+    }
+
+    .btn-delete {
+      background: #fef2f2;
+      color: #991b1b;
+    }
+
+    .btn-delete:hover {
+      background: #fecaca;
+    }
+
+    .details-row {
+      display: none;
+      background: #fcfcfd;
+    }
+
+    .details-panel {
+      padding: 18px;
+    }
+
+    .details-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px 16px;
+      margin-bottom: 14px;
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+    }
+
+    .details-grid strong {
+      color: var(--text-primary);
+      margin-right: 6px;
+    }
+
+    .proofs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    .proof-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      background: #fff;
+    }
+
+    .proof-card h4 {
+      margin: 0 0 8px;
+      font-size: 0.85rem;
+      color: var(--text-primary);
+    }
+
+    .thumbnail {
+      width: 100%;
+      max-height: 210px;
+      object-fit: cover;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+    }
+
+    .proof-link {
+      display: inline-block;
+      font-size: 0.82rem;
+      color: #1e40af;
+      font-weight: 600;
+      text-decoration: none;
+      margin-top: 6px;
+    }
+
+    .proof-link:hover {
+      text-decoration: underline;
+    }
+
+    .details-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .details-actions form {
+      margin: 0;
+    }
+
+    .empty-state {
+      padding: 40px 24px;
+      text-align: center;
+      color: var(--text-secondary);
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-content {
+      max-width: 90vw;
+      max-height: 88vh;
+      border-radius: 8px;
+    }
+
+    .close {
+      position: absolute;
+      top: 18px;
+      right: 28px;
+      font-size: 2rem;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    .superadmin-org-modal {
+      display: none;
+      position: fixed;
+      z-index: 2000;
+      left: 0;
+      top: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(30, 41, 59, 0.25);
+      align-items: center;
+      justify-content: center;
+    }
+
+    .superadmin-org-modal-content {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 4px 24px rgba(30, 41, 59, 0.12);
+      max-width: 95vw;
+      width: 420px;
+      padding: 1.8rem 1.3rem;
+      text-align: center;
+    }
+
+    .superadmin-org-modal-content h2 {
+      margin: 0 0 0.6rem;
+      font-size: 1.2rem;
+      color: #2563eb;
+    }
+
+    .superadmin-org-modal-content p {
+      margin: 0;
+      font-size: 0.96rem;
+      color: #1f2937;
+      line-height: 1.45;
+    }
+
+    .superadmin-org-modal-actions {
+      margin-top: 1rem;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .superadmin-org-modal-actions button {
+      border: none;
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .superadmin-org-modal-actions .confirm {
+      background: #2563eb;
+      color: #fff;
+    }
+
+    .superadmin-org-modal-actions .cancel {
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    @media (max-width: 768px) {
+      .dashboard-wrapper {
+        padding: 24px 14px;
       }
 
-      function openModal(imageUrl) {
-        document.getElementById("modalImage").src = imageUrl;
-        document.getElementById("imageModal").style.display = "block";
-      }
-
-      function closeModal() {
-        document.getElementById("imageModal").style.display = "none";
-      }
-
-      function confirmAction(action, organizationName) {
-        return confirm(
-          `Are you sure you want to ${action} the organization "${organizationName}"?`
-        );
-      }
-    </script>
-    <style>
-      :root {
-        --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
-      }
-
-      body {
-        font-family: var(--font-family);
-        background-color: #f3f4f6;
-        margin: 0;
-        color: #333;
-      }
-
-      .content-container {
-        max-width: 1200px;
-        margin: 40px auto;
-        padding: 24px;
-        background-color: #ffffff;
-        border-radius: 12px;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-      }
-
-      h1 {
-        text-align: center;
-        color: var(--admin-text-primary, #111827);
-        margin-bottom: 24px;
-        font-size: 1.75rem;
-        font-weight: 700;
-      }
-
-      .applications-container {
-        margin-top: 24px;
-      }
-
-      .application-summary {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 16px 20px;
-        border: 1px solid #e5e7eb;
-        border-radius: 10px;
-        margin-bottom: 12px;
-        background-color: #ffffff;
-        transition: all 0.2s ease;
-      }
-
-      .application-summary:hover {
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-        border-color: var(--admin-primary, #2563eb);
-      }
-
-      .org-link {
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: var(--admin-primary, #2563eb);
-        text-decoration: none;
-        flex: 1;
-        transition: color 0.2s;
-      }
-
-      .org-link:hover {
-        color: var(--admin-primary-hover, #1d4ed8);
-        text-decoration: none;
-      }
-
-      .status-info {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-right: 16px;
-      }
-
-      .status-indicator {
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
-      }
-
-      .status-indicator.active {
-        background-color: var(--admin-success, #059669);
-        box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.2);
-      }
-
-      .status-indicator.on-hold {
-        background-color: var(--admin-warning, #d97706);
-        box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.2);
-      }
-
-      .hold-info {
-        font-size: 0.8rem;
-        color: var(--admin-warning, #d97706);
-        font-weight: 500;
-      }
-
-      .application-details {
-        display: none;
-        padding: 20px;
-        background-color: #f9fafb;
-        border: 1px solid #e5e7eb;
-        border-radius: 10px;
-        margin-top: 8px;
-        margin-bottom: 16px;
-      }
-
-      .application-details p {
-        margin: 8px 0;
-        font-size: 0.9rem;
-        color: var(--admin-text-secondary, #4b5563);
-      }
-
-      .application-details p strong {
-        color: var(--admin-text-primary, #111827);
-      }
-
-      .thumbnail {
-        width: 100px;
-        height: 100px;
-        cursor: pointer;
-        margin: 10px 5px 10px 0;
-        border-radius: 8px;
-        border: 2px solid #e5e7eb;
-        transition: transform 0.2s, box-shadow 0.2s;
-        object-fit: cover;
-      }
-
-      .thumbnail:hover {
-        transform: scale(1.05);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        border-color: var(--admin-primary, #2563eb);
-      }
-
-      .detail-actions {
-        display: flex;
-        gap: 10px;
-        margin-top: 16px;
-        flex-wrap: wrap;
-      }
-
-      /* Modal Styles */
-      .modal {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0, 0, 0, 0.85);
-        z-index: 1000;
-        align-items: center;
-        justify-content: center;
-      }
-
-      .modal-content {
-        margin: auto;
-        display: block;
-        max-width: 90%;
-        max-height: 90vh;
-        border-radius: 8px;
-      }
-
-      .close {
-        position: absolute;
-        top: 20px;
-        right: 40px;
-        font-size: 2rem;
-        color: white;
-        cursor: pointer;
-        transition: color 0.2s;
-      }
-
-      .close:hover {
-        color: #e5e7eb;
-      }
-
-      @media (max-width: 768px) {
-        .application-summary {
-          flex-wrap: wrap;
-          gap: 12px;
-        }
-        
-        .org-link {
-          flex: 1 1 100%;
-        }
-        
-        .status-info {
-          margin-right: 0;
-        }
-        
-        .detail-actions {
-          flex-direction: column;
-        }
-        
-        .detail-actions form,
-        .detail-actions button,
-        .detail-actions .admin-btn {
-          width: 100%;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="content-container">
-      <h1>Organizations</h1>
-
-      <%- include('../partials/flash') %>
-
-      <!-- Hub Management Link -->
-      <div style="margin-bottom: 24px; text-align: center;">
-        <a href="/admin/hubs" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: #01535b; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 0.9rem; transition: background 0.15s;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="7" height="7"></rect>
-            <rect x="14" y="3" width="7" height="7"></rect>
-            <rect x="14" y="14" width="7" height="7"></rect>
-            <rect x="3" y="14" width="7" height="7"></rect>
-          </svg>
-          Manage Hubs
-        </a>
-      </div>
-
-      <div class="applications-container">
-        <% if (applications && applications.length > 0) { %> <%
-        applications.forEach(function(application) { %>
-        <div class="application-summary">
-          <!-- Organization name on the left -->
-          <% let orgDashboardUrl = `/admin/org/${application.organization_id}`; %>
-          <a href="<%= orgDashboardUrl %>" class="org-link superadmin-org-link" data-orgname="<%= application.organization_name %>" data-orgurl="<%= orgDashboardUrl %>" style="color: #01535b; font-weight: bold; font-size: 1.2rem; text-shadow: 0 1px 0 #fff; text-align:left; display:inline-block;">
-            <%= application.organization_name && application.organization_name.trim() !== '' ? application.organization_name : '(No Name)' %>
-          </a>
-
-          <!-- Status and hold info -->
-          <div class="status-info">
-            <% if (application.on_hold) { %>
-            <span class="hold-info"
-              >Hold by <strong><%= application.hold_by %></strong></span
-            >
-            <% } %>
-            <span
-              class="status-indicator <%= application.on_hold ? 'on-hold' : 'active' %>"
-            ></span>
-          </div>
-
-          <!-- Expand button on the right -->
-          <button
-            class="admin-btn admin-btn-view admin-btn-sm"
-            onclick="toggleDetails('<%= application.organization_id %>')"
-          >
-            Details
-          </button>
-        </div>
-
-        <!-- Hidden details section -->
-        <div
-          id="details-<%= application.organization_id %>"
-          class="application-details"
-        >
-          <p><strong>First Name:</strong> <%= application.first_name %></p>
-          <p><strong>Last Name:</strong> <%= application.last_name %></p>
-          <p><strong>Email:</strong> <%= application.email %></p>
-          <p>
-            <strong>Address:</strong> <%= application.organization_address %>
-          </p>
-          <p><strong>Phone:</strong> <%= application.organization_phone %></p>
-
-          <div>
-            <p><strong>Proof of Existence 1:</strong></p>
-            <% if (application.proof_of_existence_1 && application.proof_of_existence_1.toLowerCase().endsWith('.pdf')) { %>
-              <embed src="<%= application.proof_of_existence_1 %>" type="application/pdf" width="100%" height="400px" />
-              <br/>
-              <a href="<%= application.proof_of_existence_1 %>" target="_blank" class="admin-btn admin-btn-sm admin-btn-secondary">Open PDF in new tab</a>
-            <% } else if (application.proof_of_existence_1) { %>
-              <img
-                src="<%= application.proof_of_existence_1 %>"
-                alt="Proof 1"
-                class="thumbnail"
-                onclick="openModal('<%= application.proof_of_existence_1 %>')"
-              />
-            <% } %>
-          </div>
-          <div>
-            <p><strong>Proof of Existence 2:</strong></p>
-            <% if (application.proof_of_existence_2 && application.proof_of_existence_2.toLowerCase().endsWith('.pdf')) { %>
-              <embed src="<%= application.proof_of_existence_2 %>" type="application/pdf" width="100%" height="400px" />
-              <br/>
-              <a href="<%= application.proof_of_existence_2 %>" target="_blank" class="admin-btn admin-btn-sm admin-btn-secondary">Open PDF in new tab</a>
-            <% } else if (application.proof_of_existence_2) { %>
-              <img
-                src="<%= application.proof_of_existence_2 %>"
-                alt="Proof 2"
-                class="thumbnail"
-                onclick="openModal('<%= application.proof_of_existence_2 %>')"
-              />
-            <% } %>
-          </div>
-
-          <div class="detail-actions">
-            <% if (application.on_hold) { %>
-            <form
-              action="/admin/resume"
-              method="post"
-              onsubmit="return confirmAction('resume', '<%= application.organization_name %>');"
-            >
-              <input
-                type="hidden"
-                name="orgId"
-                value="<%= application.organization_id %>"
-              />
-              <button type="submit" class="admin-btn admin-btn-resume">
-                ▶ Resume
-              </button>
-            </form>
-            <% } else { %>
-            <form
-              action="/admin/hold"
-              method="post"
-              onsubmit="return confirmAction('put on hold', '<%= application.organization_name %>');"
-            >
-              <input
-                type="hidden"
-                name="orgId"
-                value="<%= application.organization_id %>"
-              />
-              <button type="submit" class="admin-btn admin-btn-hold">
-                ⏸ Put on Hold
-              </button>
-            </form>
-            <% } %>
-
-            <form
-              action="/admin/delete"
-              method="post"
-              onsubmit="return confirmAction('delete', '<%= application.organization_name %>');"
-            >
-              <input
-                type="hidden"
-                name="orgId"
-                value="<%= application.organization_id %>"
-              />
-              <button type="submit" class="admin-btn admin-btn-delete">
-                🗑 Delete
-              </button>
-            </form>
-          </div>
-        </div>
-        <% }); %> <% } else { %>
-        <p>No organizations found.</p>
-        <% } %>
-      </div>
-    </div>
-
-    <div id="imageModal" class="modal">
-      <span class="close" onclick="closeModal()">&times;</span>
-      <img class="modal-content" id="modalImage" />
-    </div>
-  </body>
-    <!-- Super Admin Org Access Modal -->
-    <div id="superadmin-org-modal" class="superadmin-org-modal" style="display:none;">
-      <div class="superadmin-org-modal-content">
-        <h2>Super Admin Org Access</h2>
-        <p>You are about to enter <b id="superadmin-org-modal-orgname"></b> as a <b>Super Admin</b>.<br>
-        You will see everything the organization sees, and <b>all your actions will be logged</b>.<br>
-        Do you want to proceed?</p>
-        <div class="superadmin-org-modal-actions">
-          <button id="superadmin-org-modal-confirm" class="confirm">Yes, Proceed</button>
-          <button id="superadmin-org-modal-cancel" class="cancel">Cancel</button>
-        </div>
-      </div>
-    </div>
-    <style>
-      .superadmin-org-modal {
-        display: none;
-        position: fixed;
-        z-index: 2000;
-        left: 0; top: 0; width: 100vw; height: 100vh;
-        background: rgba(30,41,59,0.25);
-        align-items: center;
-        justify-content: center;
-      }
-      .superadmin-org-modal[style*="display: flex"] {
-        display: flex !important;
-      }
-      .superadmin-org-modal-content {
-        background: #fff;
-        border-radius: 16px;
-        box-shadow: 0 4px 32px rgba(30,41,59,0.13);
-        max-width: 95vw;
-        width: 420px;
-        padding: 2.2rem 1.5rem 1.5rem 1.5rem;
-        text-align: center;
-        display: flex;
+      .dashboard-header {
         flex-direction: column;
-        gap: 1.2rem;
+        align-items: flex-start;
       }
-      .superadmin-org-modal-content h2 {
-        color: #2563eb;
-        font-size: 1.3rem;
-        margin-bottom: 0.5rem;
+
+      .dashboard-title h1 {
+        font-size: 1.5rem;
       }
-      .superadmin-org-modal-content p {
-        color: #222;
-        font-size: 1.08rem;
-        margin-bottom: 0.7rem;
+
+      .admin-table-clean {
+        min-width: 760px;
       }
-      .superadmin-org-modal-actions {
-        display: flex;
-        gap: 1.2rem;
-        justify-content: center;
-        margin-top: 1.2rem;
-      }
-      .superadmin-org-modal-actions button {
-        padding: 0.7rem 1.7rem;
-        border-radius: 7px;
-        border: none;
-        font-size: 1rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: background 0.18s;
-      }
-      .superadmin-org-modal-actions .confirm {
-        background: linear-gradient(90deg, #2563eb 0%, #43cea2 100%);
-        color: #fff;
-      }
-      .superadmin-org-modal-actions .confirm:hover {
-        background: linear-gradient(90deg, #43cea2 0%, #2563eb 100%);
-      }
-      .superadmin-org-modal-actions .cancel {
-        background: #e0e7ef;
-        color: #222;
-      }
-      .superadmin-org-modal-actions .cancel:hover {
-        background: #cbd5e1;
-      }
-    </style>
-    <script>
-      document.addEventListener('DOMContentLoaded', function() {
-        const orgLinks = document.querySelectorAll('.superadmin-org-link');
-        orgLinks.forEach(function(link) {
-          link.addEventListener('click', function(e) {
-            // Only intercept /admin/org/ links (not subdomain links)
-            const orgUrl = link.getAttribute('href');
-            if (!orgUrl.startsWith('/admin/org/')) return;
-            e.preventDefault();
-            const orgName = link.getAttribute('data-orgname') || 'this organization';
-            const modal = document.getElementById('superadmin-org-modal');
-            document.getElementById('superadmin-org-modal-orgname').textContent = orgName;
-            document.getElementById('superadmin-org-modal-confirm').onclick = function() {
-              window.location.href = orgUrl;
-            };
-            document.getElementById('superadmin-org-modal-cancel').onclick = function() {
-              modal.style.display = 'none';
-            };
-            modal.style.display = 'flex';
-          });
-        });
-        // Close modal on outside click
-        document.addEventListener('click', function(e) {
-          const modal = document.getElementById('superadmin-org-modal');
-          if (modal && e.target === modal) {
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard-wrapper">
+    <div class="dashboard-header">
+      <div class="dashboard-title">
+        <h1>📋 Single Organization Management</h1>
+        <p>Simple overview and control of all organizations</p>
+      </div>
+      <div class="dashboard-actions">
+        <a href="/admin/hubs" class="btn-primary">🏢 Manage Hubs</a>
+      </div>
+    </div>
+
+    <%- include('../partials/flash') %>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total Organizations</div>
+        <div class="stat-value"><%= applications ? applications.length : 0 %></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Active</div>
+        <div class="stat-value"><%= applications ? applications.filter(app => !app.on_hold).length : 0 %></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">On Hold</div>
+        <div class="stat-value"><%= applications ? applications.filter(app => app.on_hold).length : 0 %></div>
+      </div>
+    </div>
+
+    <div class="orgs-container">
+      <div class="orgs-header">
+        <h2>Organizations</h2>
+      </div>
+
+      <% if (applications && applications.length > 0) { %>
+      <div class="table-wrapper">
+        <table class="admin-table-clean">
+          <thead>
+            <tr>
+              <th>Organization</th>
+              <th>Owner</th>
+              <th>Email</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% applications.forEach(function(application) { %>
+            <% const orgDashboardUrl = `/admin/org/${application.organization_id}`; %>
+            <tr>
+              <td>
+                <a
+                  href="<%= orgDashboardUrl %>"
+                  class="org-link superadmin-org-link"
+                  data-orgname="<%= application.organization_name %>"
+                  data-orgurl="<%= orgDashboardUrl %>"
+                >
+                  <%= application.organization_name && application.organization_name.trim() !== '' ? application.organization_name : '(No Name)' %>
+                </a>
+              </td>
+              <td class="owner-meta"><%= application.first_name %> <%= application.last_name %></td>
+              <td class="email-meta"><%= application.email %></td>
+              <td>
+                <% if (application.on_hold) { %>
+                  <span class="badge badge-hold">On Hold<%= application.hold_by ? ` • ${application.hold_by}` : '' %></span>
+                <% } else { %>
+                  <span class="badge badge-active">Active</span>
+                <% } %>
+              </td>
+              <td>
+                <div class="table-actions">
+                  <button class="btn-action btn-view" onclick="toggleDetails('<%= application.organization_id %>')">Details</button>
+                </div>
+              </td>
+            </tr>
+
+            <tr id="details-<%= application.organization_id %>" class="details-row">
+              <td colspan="5">
+                <div class="details-panel">
+                  <div class="details-grid">
+                    <div><strong>First Name:</strong> <%= application.first_name %></div>
+                    <div><strong>Last Name:</strong> <%= application.last_name %></div>
+                    <div><strong>Email:</strong> <%= application.email %></div>
+                    <div><strong>Phone:</strong> <%= application.organization_phone %></div>
+                    <div style="grid-column: 1 / -1;"><strong>Address:</strong> <%= application.organization_address %></div>
+                  </div>
+
+                  <div class="proofs-grid">
+                    <div class="proof-card">
+                      <h4>Proof of Existence 1</h4>
+                      <% if (application.proof_of_existence_1 && application.proof_of_existence_1.toLowerCase().endsWith('.pdf')) { %>
+                        <a href="<%= application.proof_of_existence_1 %>" target="_blank" class="proof-link">Open PDF in new tab</a>
+                      <% } else if (application.proof_of_existence_1) { %>
+                        <img
+                          src="<%= application.proof_of_existence_1 %>"
+                          alt="Proof 1"
+                          class="thumbnail"
+                          onclick="openModal('<%= application.proof_of_existence_1 %>')"
+                        />
+                      <% } else { %>
+                        <span class="owner-meta">No document uploaded.</span>
+                      <% } %>
+                    </div>
+
+                    <div class="proof-card">
+                      <h4>Proof of Existence 2</h4>
+                      <% if (application.proof_of_existence_2 && application.proof_of_existence_2.toLowerCase().endsWith('.pdf')) { %>
+                        <a href="<%= application.proof_of_existence_2 %>" target="_blank" class="proof-link">Open PDF in new tab</a>
+                      <% } else if (application.proof_of_existence_2) { %>
+                        <img
+                          src="<%= application.proof_of_existence_2 %>"
+                          alt="Proof 2"
+                          class="thumbnail"
+                          onclick="openModal('<%= application.proof_of_existence_2 %>')"
+                        />
+                      <% } else { %>
+                        <span class="owner-meta">No document uploaded.</span>
+                      <% } %>
+                    </div>
+                  </div>
+
+                  <div class="details-actions">
+                    <% if (application.on_hold) { %>
+                    <form action="/admin/resume" method="post" onsubmit="return confirmAction('resume', '<%= application.organization_name %>');">
+                      <input type="hidden" name="orgId" value="<%= application.organization_id %>" />
+                      <button type="submit" class="btn-action btn-resume">▶ Resume</button>
+                    </form>
+                    <% } else { %>
+                    <form action="/admin/hold" method="post" onsubmit="return confirmAction('put on hold', '<%= application.organization_name %>');">
+                      <input type="hidden" name="orgId" value="<%= application.organization_id %>" />
+                      <button type="submit" class="btn-action btn-hold">⏸ Put on Hold</button>
+                    </form>
+                    <% } %>
+
+                    <form action="/admin/delete" method="post" onsubmit="return confirmAction('delete', '<%= application.organization_name %>');">
+                      <input type="hidden" name="orgId" value="<%= application.organization_id %>" />
+                      <button type="submit" class="btn-action btn-delete">🗑 Delete</button>
+                    </form>
+                  </div>
+                </div>
+              </td>
+            </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+      <% } else { %>
+      <div class="empty-state">No organizations found.</div>
+      <% } %>
+    </div>
+  </div>
+
+  <div id="imageModal" class="modal" onclick="closeModal()">
+    <span class="close" onclick="closeModal()">&times;</span>
+    <img class="modal-content" id="modalImage" alt="Preview" />
+  </div>
+
+  <div id="superadmin-org-modal" class="superadmin-org-modal">
+    <div class="superadmin-org-modal-content">
+      <h2>Super Admin Org Access</h2>
+      <p>
+        You are about to enter <b id="superadmin-org-modal-orgname"></b> as a <b>Super Admin</b>.<br />
+        You will see everything the organization sees, and <b>all your actions will be logged</b>.<br />
+        Do you want to proceed?
+      </p>
+      <div class="superadmin-org-modal-actions">
+        <button id="superadmin-org-modal-confirm" class="confirm">Yes, Proceed</button>
+        <button id="superadmin-org-modal-cancel" class="cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function toggleDetails(id) {
+      const details = document.getElementById(`details-${id}`);
+      if (!details) return;
+      details.style.display = details.style.display === 'table-row' ? 'none' : 'table-row';
+    }
+
+    function openModal(imageUrl) {
+      const modal = document.getElementById('imageModal');
+      const image = document.getElementById('modalImage');
+      if (!modal || !image) return;
+      image.src = imageUrl;
+      modal.style.display = 'flex';
+    }
+
+    function closeModal() {
+      const modal = document.getElementById('imageModal');
+      if (!modal) return;
+      modal.style.display = 'none';
+    }
+
+    function confirmAction(action, organizationName) {
+      return confirm(`Are you sure you want to ${action} the organization "${organizationName}"?`);
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      const orgLinks = document.querySelectorAll('.superadmin-org-link');
+      const modal = document.getElementById('superadmin-org-modal');
+      const orgNameNode = document.getElementById('superadmin-org-modal-orgname');
+      const confirmBtn = document.getElementById('superadmin-org-modal-confirm');
+      const cancelBtn = document.getElementById('superadmin-org-modal-cancel');
+
+      orgLinks.forEach(function (link) {
+        link.addEventListener('click', function (e) {
+          const orgUrl = link.getAttribute('href');
+          if (!orgUrl || !orgUrl.startsWith('/admin/org/')) return;
+          e.preventDefault();
+          const orgName = link.getAttribute('data-orgname') || 'this organization';
+          orgNameNode.textContent = orgName;
+          confirmBtn.onclick = function () {
+            window.location.href = orgUrl;
+          };
+          cancelBtn.onclick = function () {
             modal.style.display = 'none';
-          }
+          };
+          modal.style.display = 'flex';
         });
       });
-    </script>
+
+      document.addEventListener('click', function (e) {
+        if (e.target === modal) {
+          modal.style.display = 'none';
+        }
+      });
+    });
+  </script>
+</body>
 </html>

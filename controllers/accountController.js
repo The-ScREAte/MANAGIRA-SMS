@@ -33,6 +33,11 @@ const he = require("he");
 
 const { readFileSync } = require("fs");
 const { sendEmailSafely, renderCleanEmail } = require("../utils/emailHelper");
+const {
+  getCurrencyProfileForRequest,
+  localizeUsdAmount,
+  formatCurrencyAmount,
+} = require("../utils/currencyLocalization");
 
 function extractS3KeyFromUrl(url) {
   const value = String(url || "").trim();
@@ -457,6 +462,7 @@ const accountController = {
       );
 
       const url = req.url;
+      const currencyProfile = await getCurrencyProfileForRequest(req);
 
       const plansResult = await db.query(`
 
@@ -482,11 +488,25 @@ const accountController = {
 
             `);
 
-      const plans = plansResult.rows.map((plan) => ({
-        ...plan,
+      const plans = plansResult.rows
+        .map((plan) => ({
+          ...plan,
 
-        total_price: parseFloat(plan.total_price) || 0, // Ensure total_price is a number
-      }));
+          total_price: parseFloat(plan.total_price) || 0,
+        }))
+        .map((plan) => {
+          const localized = localizeUsdAmount(plan.total_price, currencyProfile);
+          return {
+            ...plan,
+            priceUsdDisplay: formatCurrencyAmount(localized.amountUsd, "USD"),
+            localizedPriceDisplay: formatCurrencyAmount(
+              localized.localizedAmount,
+              localized.userCurrency,
+              currencyProfile.locale
+            ),
+            localizedCurrencyCode: localized.userCurrency,
+          };
+        });
 
       // Defaults for trial/premium display on plan page
       const freeTrialEnabled = false;
@@ -510,6 +530,8 @@ const accountController = {
         premiumPlanId,
         premiumPlanName,
         trialEligible,
+        currencyProfile,
+        paystackChargeCurrency: "GHS",
 
         showFooterTopSection: true,
         messages: req.flash(),
@@ -851,6 +873,17 @@ const accountController = {
     const decodedPlan = decodeURIComponent(registrationDetails.plan);
 
     try {
+      let currencyProfile = {
+        userCurrency: "USD",
+        locale: "en-US",
+        usdToUserRate: 1,
+        usdToGhsRate: null,
+      };
+      try {
+        currencyProfile = await getCurrencyProfileForRequest(req);
+      } catch (_) {
+      }
+
       const planResult = await db.query(
         `SELECT p.total_cost AS total_price
 
@@ -909,7 +942,13 @@ const accountController = {
 
       // Calculate amount based on free trial settings
       const planPrice = Number(planResult.rows[0].total_price) || 0;
-      let amountDue = Math.round(planPrice * 100); // Default to normal amount
+      const localizedPlan = localizeUsdAmount(planPrice, currencyProfile);
+      const ghsChargeBase =
+        localizedPlan.ghsAmount && localizedPlan.ghsAmount > 0
+          ? localizedPlan.ghsAmount
+          : planPrice;
+
+      let amountDue = Math.round(ghsChargeBase * 100);
 
       let isTrialActive = false;
 
@@ -956,7 +995,14 @@ const accountController = {
       }
 
       const intervalLabel = billingInterval === "yearly" ? "per year" : "per month";
-      postTrialPriceDisplay = `₵${planPrice.toFixed(2)} ${intervalLabel}`;
+      const usdPriceDisplay = formatCurrencyAmount(planPrice, "USD");
+      const localizedPriceDisplay = formatCurrencyAmount(
+        localizedPlan.localizedAmount,
+        localizedPlan.userCurrency,
+        currencyProfile.locale
+      );
+      const ghsChargeDisplay = formatCurrencyAmount(ghsChargeBase, "GHS");
+      postTrialPriceDisplay = `${usdPriceDisplay} (≈ ${localizedPriceDisplay}) ${intervalLabel}`;
 
       const trialEndDisplay =
         trialActiveUntil instanceof Date
@@ -1023,6 +1069,11 @@ const accountController = {
         postTrialPriceDisplay,
 
         isTrialCheckout,
+        currencyProfile,
+        paystackChargeCurrency: "GHS",
+        usdPriceDisplay,
+        localizedPriceDisplay,
+        ghsChargeDisplay,
 
         // layout: false // Use default layout for header and footer
       });
@@ -5129,6 +5180,7 @@ const accountController = {
   updatePlanGet: async (req, res) => {
     try {
       const orgId = req.session.organizationId;
+      const currencyProfile = await getCurrencyProfileForRequest(req);
 
       // Fetch the organization's current and pending plan
 
@@ -5199,6 +5251,25 @@ const accountController = {
 
             `);
 
+      const plans = plansResult.rows
+        .map((plan) => ({
+          ...plan,
+          total_price: parseFloat(plan.total_price) || 0,
+        }))
+        .map((plan) => {
+          const localized = localizeUsdAmount(plan.total_price, currencyProfile);
+          return {
+            ...plan,
+            priceUsdDisplay: formatCurrencyAmount(localized.amountUsd, "USD"),
+            localizedPriceDisplay: formatCurrencyAmount(
+              localized.localizedAmount,
+              localized.userCurrency,
+              currencyProfile.locale
+            ),
+            localizedCurrencyCode: localized.userCurrency,
+          };
+        });
+
       res.render("account/updatePlan", {
         title: "Update Subscription Plan",
 
@@ -5206,7 +5277,8 @@ const accountController = {
 
         pendingPlan,
 
-        plans: plansResult.rows, // Make sure this is not empty
+        plans,
+        currencyProfile,
 
         messages: req.flash(),
       });

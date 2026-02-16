@@ -489,7 +489,7 @@
               <% }) %>
             </select>
 
-            <label>Price (GHS):</label>
+            <label>Price (USD base):</label>
             <input type="number" name="priceUsd" step="0.01" required />
 
             <button type="submit">Set Price</button>
@@ -497,7 +497,10 @@
           <ul class="feature-list">
             <% features.slice().sort((a, b) => a.feature_name.localeCompare(b.feature_name)).forEach(feature => { %>
               <li>
-                <%= feature.feature_name %> (₵<%= feature.price_usd %>)
+                <%= feature.feature_name %> (<%= feature.priceUsdDisplay || ('$' + feature.price_usd) %>)
+                <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
+                  <span style="font-size:12px;color:#6b7280;">≈ <%= feature.localizedPriceDisplay %></span>
+                <% } %>
                 <span
                   class="action-icon remove-feature-from-list"
                   data-featureid="<%= feature.id %>"
@@ -528,7 +531,10 @@
               <ul class="feature-list">
                 <% plan.features.slice().sort((a, b) => a.feature_name.localeCompare(b.feature_name)).forEach(feature => { %>
                   <li>
-                    <%= feature.feature_name %> (₵<%= feature.price_usd %>)
+                    <%= feature.feature_name %> (<%= feature.priceUsdDisplay || ('$' + feature.price_usd) %>)
+                    <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
+                      <span style="font-size:12px;color:#6b7280;">≈ <%= feature.localizedPriceDisplay %></span>
+                    <% } %>
                     <span
                       class="action-icon remove-feature"
                       data-planid="<%= plan.plan_id %>"
@@ -537,13 +543,16 @@
                   </li>
                 <% }) %>
               </ul>
-              <p><strong>Total Cost: ₵<%= plan.total_cost %></strong></p>
+              <p><strong>Total Cost: <%= plan.totalUsdDisplay || ('$' + plan.total_cost) %></strong></p>
+              <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
+                <p style="margin-top:-8px;color:#6b7280;font-size:13px;">≈ <%= plan.localizedTotalDisplay %></p>
+              <% } %>
               <div class="feature-input">
                 <select class="feature-select" data-planid="<%= plan.plan_id %>">
                   <% features.slice().sort((a, b) => a.feature_name.localeCompare(b.feature_name)).forEach(feature => { %>
                     <% if (!plan.features.some(f => f.id === feature.id)) { %>
                       <option value="<%= feature.id %>">
-                        <%= feature.feature_name %> (₵<%= feature.price_usd %>)
+                        <%= feature.feature_name %> (<%= feature.priceUsdDisplay || ('$' + feature.price_usd) %>)
                       </option>
                     <% } %>
                   <% }); %>

@@ -10,6 +10,11 @@ const { uploadToS3, deleteFromS3 } = require("../config/s3");
 const he = require("he");
 const cacheManager = require("../utils/cacheManager");
 const { sendEmailSafely, renderCleanEmail } = require("../utils/emailHelper");
+const {
+  getCurrencyProfileForRequest,
+  localizeUsdAmount,
+  formatCurrencyAmount,
+} = require("../utils/currencyLocalization");
 
 const adminController = {
   adminDashboard: async (req, res) => {
@@ -25,6 +30,7 @@ const adminController = {
                    organization_phone, proof_of_existence_1, proof_of_existence_2, subdomain
             FROM organizations 
             WHERE deleted = false
+              AND (hub_id IS NULL OR is_hub_member = false)
             ORDER BY organization_name ASC
           `);
           return result.rows;
@@ -237,6 +243,41 @@ const adminController = {
                 WHERE deleted = true
             `);
 
+      // Fetch deleted hubs
+      const deletedHubs = await db.query(`
+                SELECT h.hub_id,
+                       h.hub_name,
+                       h.hub_nickname,
+                       h.hub_email,
+                       h.first_name,
+                       h.last_name,
+                       h.hub_phone,
+                       h.hub_address,
+                       h.on_hold,
+                       h.created_at,
+                       h.updated_at,
+                       COUNT(o.organization_id)::int AS linked_organizations_count,
+                       COALESCE(
+                         JSON_AGG(
+                           JSON_BUILD_OBJECT(
+                             'organization_id', o.organization_id,
+                             'organization_name', o.organization_name,
+                             'email', o.email,
+                             'on_hold', o.on_hold,
+                             'is_hub_member', o.is_hub_member
+                           )
+                           ORDER BY o.organization_name
+                         ) FILTER (WHERE o.organization_id IS NOT NULL),
+                         '[]'
+                       ) AS linked_organizations
+                FROM managira_hubs h
+                LEFT JOIN organizations o ON o.hub_id = h.hub_id AND o.deleted = false
+                WHERE h.deleted = true
+                GROUP BY h.hub_id, h.hub_name, h.hub_nickname, h.hub_email, h.first_name, h.last_name,
+                         h.hub_phone, h.hub_address, h.on_hold, h.created_at, h.updated_at
+                ORDER BY h.updated_at DESC, h.created_at DESC
+            `);
+
       // Fetch deleted threads
       const deletedThreads = await db.query(`
                 SELECT ht.id AS thread_id, ht.name, ht.organization, ht.email, ht.phone, 
@@ -252,6 +293,7 @@ const adminController = {
       res.render("admin/superDashboard", {
         title: "Super Admin Dashboard",
         deletedAccounts: deletedAccounts.rows, // Pass deleted accounts
+        deletedHubs: deletedHubs.rows,
         deletedTickets: deletedThreads.rows, // Pass deleted threads
         messages: req.flash(), // Pass flash messages
         showFooterTopSection: true
@@ -261,6 +303,7 @@ const adminController = {
       res.render("admin/superDashboard", {
         title: "Super Admin Dashboard",
         deletedAccounts: [], // Default to an empty array if the query fails
+        deletedHubs: [],
         deletedTickets: [], // Default to an empty array if the query fails
         messages: req.flash(),
         showFooterTopSection: true
@@ -821,6 +864,7 @@ const adminController = {
 
   servicePricingGet: async (req, res) => {
     try {
+      const currencyProfile = await getCurrencyProfileForRequest(req);
       const featuresResult = await db.query(
         "SELECT * FROM features ORDER BY feature_name ASC"
       );
@@ -841,6 +885,48 @@ const adminController = {
             `);
 
 
+      const localizedFeatures = (featuresResult.rows || []).map((feature) => {
+        const usdPrice = Number(feature.price_usd || 0);
+        const localized = localizeUsdAmount(usdPrice, currencyProfile);
+        return {
+          ...feature,
+          priceUsdDisplay: formatCurrencyAmount(localized.amountUsd, "USD"),
+          localizedPriceDisplay: formatCurrencyAmount(
+            localized.localizedAmount,
+            localized.userCurrency,
+            currencyProfile.locale
+          ),
+        };
+      });
+
+      const localizedPlans = (plansResult.rows || []).map((plan) => {
+        const totalUsd = Number(plan.total_cost || 0);
+        const localized = localizeUsdAmount(totalUsd, currencyProfile);
+        const normalizedFeatures = Array.isArray(plan.features) ? plan.features : [];
+        return {
+          ...plan,
+          features: normalizedFeatures.map((feature) => {
+            const featureUsd = Number(feature.price_usd || 0);
+            const featureLocalized = localizeUsdAmount(featureUsd, currencyProfile);
+            return {
+              ...feature,
+              priceUsdDisplay: formatCurrencyAmount(featureLocalized.amountUsd, "USD"),
+              localizedPriceDisplay: formatCurrencyAmount(
+                featureLocalized.localizedAmount,
+                featureLocalized.userCurrency,
+                currencyProfile.locale
+              ),
+            };
+          }),
+          totalUsdDisplay: formatCurrencyAmount(localized.amountUsd, "USD"),
+          localizedTotalDisplay: formatCurrencyAmount(
+            localized.localizedAmount,
+            localized.userCurrency,
+            currencyProfile.locale
+          ),
+        };
+      });
+
       // Get free trial and billing interval settings directly from DB
       let freeTrialEnabled = 'false';
       let freeTrialDays = 7;
@@ -857,8 +943,9 @@ const adminController = {
 
       res.render("admin/servicePricing", {
         title: "Service Pricing Management",
-        features: featuresResult.rows || [],
-        plans: plansResult.rows || [],
+        features: localizedFeatures,
+        plans: localizedPlans,
+        currencyProfile,
         messages: req.flash(),
         freeTrialEnabled,
         freeTrialDays,
@@ -1078,13 +1165,113 @@ const adminController = {
   permanentlyDeleteOrganization: async (req, res) => {
     const { orgId } = req.body;
     try {
-      await db.query("DELETE FROM organizations WHERE organization_id = $1", [
+      await db.query("BEGIN");
+
+      await db.query(
+        `DELETE FROM user_subjects
+         WHERE user_id IN (
+           SELECT user_id FROM users WHERE organization_id = $1
+         )
+         OR subject_id IN (
+           SELECT subject_id FROM subjects WHERE organization_id = $1
+         )`,
+        [orgId]
+      );
+
+      await db.query(
+        `DELETE FROM organization_texts WHERE organization_id = $1`,
+        [orgId]
+      );
+
+      const deleteResult = await db.query("DELETE FROM organizations WHERE organization_id = $1", [
         orgId,
       ]);
+
+      if (deleteResult.rowCount === 0) {
+        await db.query("ROLLBACK");
+        req.flash("error", "Organization not found or already deleted.");
+        return res.redirect("/admin/superDashboard");
+      }
+
+      await db.query("COMMIT");
+
       req.flash("success", "Organization permanently deleted successfully.");
       res.redirect("/admin/superDashboard");
     } catch (error) {
-            req.flash("error", "Failed to permanently delete organization.");
+      try { await db.query("ROLLBACK"); } catch (_) {}
+
+      let detailedMessage = "Failed to permanently delete organization.";
+
+      if (error?.code === "23503") {
+        detailedMessage =
+          "Failed to permanently delete organization: it is linked to protected records.";
+
+        try {
+          if (error?.constraint) {
+            const fkInfoResult = await db.query(
+              `SELECT ns.nspname AS schema_name,
+                      cls.relname AS table_name,
+                      att.attname AS column_name
+               FROM pg_constraint con
+               JOIN pg_class cls ON cls.oid = con.conrelid
+               JOIN pg_namespace ns ON ns.oid = cls.relnamespace
+               JOIN unnest(con.conkey) WITH ORDINALITY AS ck(attnum, ord) ON true
+               JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ck.attnum
+               WHERE con.conname = $1
+               LIMIT 1`,
+              [error.constraint]
+            );
+
+            const fkInfo = fkInfoResult.rows[0];
+
+            if (fkInfo) {
+              const qSchema = String(fkInfo.schema_name).replace(/"/g, '""');
+              const qTable = String(fkInfo.table_name).replace(/"/g, '""');
+              const qColumn = String(fkInfo.column_name).replace(/"/g, '""');
+
+              const countResult = await db.query(
+                `SELECT COUNT(*)::int AS count
+                 FROM "${qSchema}"."${qTable}"
+                 WHERE "${qColumn}" = $1`,
+                [orgId]
+              );
+
+              let linkedCount = countResult.rows[0]?.count || 0;
+
+              if (linkedCount === 0 && fkInfo.table_name === "user_subjects") {
+                if (fkInfo.column_name === "subject_id") {
+                  const accurateCountResult = await db.query(
+                    `SELECT COUNT(*)::int AS count
+                     FROM user_subjects us
+                     JOIN subjects s ON s.subject_id = us.subject_id
+                     WHERE s.organization_id = $1`,
+                    [orgId]
+                  );
+                  linkedCount = accurateCountResult.rows[0]?.count || 0;
+                } else if (fkInfo.column_name === "user_id") {
+                  const accurateCountResult = await db.query(
+                    `SELECT COUNT(*)::int AS count
+                     FROM user_subjects us
+                     JOIN users u ON u.user_id = us.user_id
+                     WHERE u.organization_id = $1`,
+                    [orgId]
+                  );
+                  linkedCount = accurateCountResult.rows[0]?.count || 0;
+                }
+              }
+
+              detailedMessage = linkedCount > 0
+                ? `Failed to permanently delete organization: linked to ${linkedCount} record(s) in ${fkInfo.table_name} (${fkInfo.column_name}). Remove or reassign these records first.`
+                : `Failed to permanently delete organization: linked records exist in ${fkInfo.table_name} (${fkInfo.column_name}). Remove or reassign related records first.`;
+            }
+          }
+        } catch (fkLookupError) {
+        }
+      } else if (error?.message) {
+        detailedMessage = `Failed to permanently delete organization: ${error.message}`;
+      }
+
+      req.flash("error", detailedMessage);
       res.redirect("/admin/superDashboard");
     }
   },
@@ -1517,24 +1704,57 @@ const adminController = {
 };
 
 async function sendEmailNotification(to, subject, text) {
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST, // e.g., smtp.gmail.com, smtp.zoho.com
-    port: parseInt(process.env.SMTP_PORT), // usually 465 or 587
-    secure: process.env.SMTP_SECURE === "true", // true for 465, false for 587
-    auth: {
-      user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-      pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-    },
+  const rawText = String(text || "").trim();
+  const chunks = rawText
+    ? rawText
+        .split(/\n\s*\n/)
+        .map((part) => part.trim())
+        .filter(Boolean)
+    : [];
+
+  let greeting = "Hello,";
+  const paragraphs = [];
+
+  chunks.forEach((part, index) => {
+    if (index === 0 && /^dear\s+/i.test(part)) {
+      greeting = he.encode(part.replace(/\s*,$/, "")) + ",";
+      return;
+    }
+
+    if (/^best regards/i.test(part)) {
+      return;
+    }
+
+    paragraphs.push(he.encode(part));
   });
 
-  const mailOptions = {
-    from: process.env.ADMIN_NOTIFY_EMAIL_USER,
-    to,
-    subject,
-    text,
-  };
+  if (paragraphs.length === 0) {
+    paragraphs.push("Please review this administrative update from Managira.");
+  }
 
-  await transporter.sendMail(mailOptions);
+  const html = renderCleanEmail({
+    title: he.encode(subject || "Account Update"),
+    greeting,
+    paragraphs,
+    note: 'For help, visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
+  });
+
+  await sendEmailSafely(
+    {
+      from: process.env.NOTIFY_EMAIL_USER || process.env.ADMIN_NOTIFY_EMAIL_USER,
+      to,
+      subject,
+      html,
+      attachments: [
+        {
+          filename: 'managira.png',
+          path: path.join(__dirname, '../public/images/managira.png'),
+          cid: 'managira_logo',
+        },
+      ],
+    },
+    "Admin Email Notification"
+  );
 }
 
 async function sendAdminInviteEmail(email, firstName, lastName, link) {
@@ -1875,16 +2095,115 @@ adminController.hubDeletePost = async (req, res) => {
   const { hubId } = req.body;
 
   try {
-    await db.query(
-      'UPDATE managira_hubs SET deleted = true, updated_at = NOW() WHERE hub_id = $1',
+    await db.query('BEGIN');
+
+    const result = await db.query(
+      `UPDATE managira_hubs
+       SET deleted = true, on_hold = true, updated_at = NOW()
+       WHERE hub_id = $1
+       RETURNING hub_name, hub_email, first_name, last_name`,
       [hubId]
     );
 
-    req.flash('success', 'Hub deleted successfully.');
+    const hub = result.rows[0];
+
+    const memberOrganizations = await db.query(
+      `UPDATE organizations
+       SET on_hold = true,
+           hold_by = 'Hub',
+           updated_at = NOW()
+       WHERE hub_id = $1
+         AND deleted = false
+       RETURNING organization_name, email, first_name, last_name`,
+      [hubId]
+    );
+
+    await db.query('COMMIT');
+
+    if (hub && hub.hub_email) {
+      await sendEmailNotification(
+        hub.hub_email,
+        'Your hub has been placed on hold and moved to deleted review',
+        `Dear ${hub.first_name || ''} ${hub.last_name || ''},\n\nYour hub "${hub.hub_name}" has been placed on hold and moved to deleted review by an administrator. Your data is retained and can be restored by the Super Admin.\n\nIf you believe this is a mistake, please contact info@managira.com.\n\nBest regards,\nAdmin Team`
+      );
+    }
+
+    for (const org of memberOrganizations.rows) {
+      if (!org.email) continue;
+      await sendEmailNotification(
+        org.email,
+        'Your organization has been put on hold',
+        `Dear ${org.first_name || ''} ${org.last_name || ''},\n\nYour organization "${org.organization_name}" has been placed on hold because your hub was temporarily deleted by an administrator.\n\nYour data remains safe and can be restored when the hub is restored.\n\nBest regards,\nAdmin Team`
+      );
+    }
+
+    req.flash('success', `Hub moved to deleted review and placed on hold successfully. ${memberOrganizations.rows.length} linked organization(s) were also placed on hold.`);
     res.redirect('/admin/hubs');
   } catch (error) {
+    try { await db.query('ROLLBACK'); } catch (rollbackError) {}
         req.flash('error', 'Error deleting hub.');
     res.redirect('/admin/hubs');
+  }
+};
+
+// Restore hub from deleted review
+adminController.restoreHub = async (req, res) => {
+  const { hubId } = req.body;
+
+  try {
+    const result = await db.query(
+      `UPDATE managira_hubs
+       SET deleted = false, on_hold = false, updated_at = NOW()
+       WHERE hub_id = $1
+       RETURNING hub_name, hub_email, first_name, last_name`,
+      [hubId]
+    );
+
+    const hub = result.rows[0];
+
+    if (hub && hub.hub_email) {
+      await sendEmailNotification(
+        hub.hub_email,
+        'Your hub has been restored',
+        `Dear ${hub.first_name || ''} ${hub.last_name || ''},\n\nYour hub "${hub.hub_name}" has been restored and reactivated. You can now continue using Managira Hub services.\n\nBest regards,\nAdmin Team`
+      );
+    }
+
+    req.flash('success', 'Hub restored successfully.');
+    res.redirect('/admin/superDashboard');
+  } catch (error) {
+        req.flash('error', 'Failed to restore hub.');
+    res.redirect('/admin/superDashboard');
+  }
+};
+
+// Permanently delete hub
+adminController.permanentlyDeleteHub = async (req, res) => {
+  const { hubId } = req.body;
+
+  try {
+    await db.query('BEGIN');
+
+    // Detach all member organizations from this hub before hard delete
+    await db.query(
+      `UPDATE organizations
+       SET hub_id = NULL,
+           is_hub_member = false,
+           joined_hub_at = NULL,
+           updated_at = NOW()
+       WHERE hub_id = $1`,
+      [hubId]
+    );
+
+    await db.query('DELETE FROM managira_hubs WHERE hub_id = $1', [hubId]);
+
+    await db.query('COMMIT');
+    req.flash('success', 'Hub permanently deleted successfully.');
+    res.redirect('/admin/superDashboard');
+  } catch (error) {
+    try { await db.query('ROLLBACK'); } catch (rollbackError) {}
+        req.flash('error', 'Failed to permanently delete hub.');
+    res.redirect('/admin/superDashboard');
   }
 };
 

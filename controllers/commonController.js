@@ -17,6 +17,8 @@ const {
   ensurePermissionsSchema,
   normalizePermissionsList,
   mergePermissionsForRole,
+  getSuggestedPermissionsForRole,
+  getPrimaryManagerUserId,
   getUserPermissions,
   userHasPermission,
   isManagerLikeRole,
@@ -4245,6 +4247,7 @@ const commonController = {
         title: "Create Employee",
         classes: classesResult.rows,
         permissionOptions: PERMISSION_OPTIONS,
+        managerDefaultPermissions: getSuggestedPermissionsForRole("Manager"),
         messages: {
           success: req.flash("success"),
           error: req.flash("error"),
@@ -4291,9 +4294,12 @@ const commonController = {
       ? requestedPermissions
       : requestedPermissions.filter((permission) => !highRiskPermissions.has(permission));
 
+    const managerDefaultPermissions = getSuggestedPermissionsForRole("Manager");
     const effectivePermissions = mergePermissionsForRole(
       account_type,
-      sanitizedRequestedPermissions
+      account_type === "Manager" && sanitizedRequestedPermissions.length === 0
+        ? managerDefaultPermissions
+        : sanitizedRequestedPermissions
     );
 
     const client = await db.connect();
@@ -4906,6 +4912,7 @@ const commonController = {
         enrolledClasses,
         enrolledSubjects,
         permissionOptions: PERMISSION_OPTIONS,
+        managerDefaultPermissions: getSuggestedPermissionsForRole("Manager"),
         selectedPermissions,
         messages: req.flash(),
       });
@@ -4945,9 +4952,12 @@ const commonController = {
       ? requestedPermissions
       : requestedPermissions.filter((permission) => !highRiskPermissions.has(permission));
 
+    const managerDefaultPermissions = getSuggestedPermissionsForRole("Manager");
     const effectivePermissions = mergePermissionsForRole(
       accountType,
-      sanitizedRequestedPermissions
+      accountType === "Manager" && sanitizedRequestedPermissions.length === 0
+        ? managerDefaultPermissions
+        : sanitizedRequestedPermissions
     );
 
     try {
@@ -6055,18 +6065,236 @@ const commonController = {
       return res.status(400).send("User ID is required.");
     }
 
+    const organizationId = req.session.organizationId;
+    const requesterUserId = req.session.userId || (req.session.user ? req.session.user.user_id : null);
+
     try {
+      await db.query("BEGIN");
+
+      // Confirm employee exists in this organization
+      const employeeResult = await db.query(
+        "SELECT user_id, first_name, last_name, account_type FROM users WHERE user_id = $1 AND organization_id = $2 LIMIT 1",
+        [userId, organizationId]
+      );
+
+      if (employeeResult.rows.length === 0) {
+        await db.query("ROLLBACK");
+        req.flash("error", "Employee not found in this organization.");
+        return res.redirect("/common/manageEmployees");
+      }
+
+      const employee = employeeResult.rows[0];
+      const allPermissionKeys = PERMISSION_OPTIONS.map((permission) => permission.key);
+      const toPermissionSet = (keys) => new Set((keys || []).map((key) => String(key || "").trim()).filter(Boolean));
+      const areSetsEqual = (a, b) => {
+        if (a.size !== b.size) return false;
+        for (const value of a) {
+          if (!b.has(value)) return false;
+        }
+        return true;
+      };
+
+      if (employee.account_type === "Manager") {
+        const primaryManagerUserId = await getPrimaryManagerUserId(db, organizationId);
+        const isPrimaryManager =
+          primaryManagerUserId !== null && String(primaryManagerUserId) === String(userId);
+
+        if (isPrimaryManager) {
+          const currentManagerPermissionsResult = await db.query(
+            `
+              SELECT permission_key
+              FROM user_permissions
+              WHERE user_id = $1 AND organization_id = $2
+              ORDER BY permission_key
+            `,
+            [userId, organizationId]
+          );
+
+          const currentManagerEffectivePermissions =
+            currentManagerPermissionsResult.rows.length === 0
+              ? toPermissionSet(allPermissionKeys)
+              : toPermissionSet(currentManagerPermissionsResult.rows.map((row) => row.permission_key));
+
+          const replacementResult = await db.query(
+            `
+              SELECT user_id
+              FROM users
+              WHERE organization_id = $1
+                AND account_type = 'Manager'
+                AND user_id <> $2
+              ORDER BY created_at ASC NULLS LAST, user_id ASC
+              LIMIT 1
+            `,
+            [organizationId, userId]
+          );
+
+          const replacementManagerId = replacementResult.rows[0]?.user_id || null;
+
+          if (!replacementManagerId) {
+            await db.query("ROLLBACK");
+            req.flash(
+              "error",
+              "Primary manager cannot be deleted until another manager with matching permissions exists."
+            );
+            return res.redirect("/common/manageEmployees");
+          }
+
+          const replacementPermissionsResult = await db.query(
+            `
+              SELECT permission_key
+              FROM user_permissions
+              WHERE user_id = $1 AND organization_id = $2
+              ORDER BY permission_key
+            `,
+            [replacementManagerId, organizationId]
+          );
+
+          const replacementEffectivePermissionsAfterPromotion =
+            replacementPermissionsResult.rows.length === 0
+              ? toPermissionSet(allPermissionKeys)
+              : toPermissionSet(replacementPermissionsResult.rows.map((row) => row.permission_key));
+
+          if (
+            !areSetsEqual(
+              currentManagerEffectivePermissions,
+              replacementEffectivePermissionsAfterPromotion
+            )
+          ) {
+            await db.query("ROLLBACK");
+            req.flash(
+              "error",
+              "Primary manager cannot be deleted because replacement manager does not have the same permissions."
+            );
+            return res.redirect("/common/manageEmployees");
+          }
+        }
+      }
+
+      // Determine fallback owner for documents created by this employee
+      // IMPORTANT: requesterUserId may be organization_id for org-account logins,
+      // so only select fallback from actual users table in this organization.
+      const fallbackResult = await db.query(
+        `SELECT user_id
+         FROM users
+         WHERE organization_id = $1
+           AND user_id <> $2
+         ORDER BY CASE
+                    WHEN $3::int IS NOT NULL AND user_id = $3::int THEN 0
+                    WHEN account_type IN ('Manager', 'Admin', 'Mini Admin', 'Supervisor') THEN 1
+                    ELSE 2
+                  END,
+                  created_at ASC
+         LIMIT 1`,
+        [organizationId, userId, requesterUserId ? Number(requesterUserId) : null]
+      );
+      const fallbackOwnerId = fallbackResult.rows[0]?.user_id || null;
+
+      // Reassign ownership of documents if documents table exists
+      try {
+        const docsTableExists = await db.query(`SELECT to_regclass('public.documents') AS tbl`);
+        if (docsTableExists.rows[0]?.tbl) {
+          const docsOwnedResult = await db.query(
+            "SELECT COUNT(*)::int AS count FROM documents WHERE organization_id = $1 AND created_by = $2",
+            [organizationId, userId]
+          );
+          const docsOwnedCount = docsOwnedResult.rows[0]?.count || 0;
+
+          if (docsOwnedCount > 0 && !fallbackOwnerId) {
+            throw new Error("This employee owns documents and cannot be deleted because there is no fallback owner to transfer them to.");
+          }
+
+          if (docsOwnedCount > 0 && fallbackOwnerId) {
+            await db.query(
+              "UPDATE documents SET created_by = $1, updated_at = NOW() WHERE organization_id = $2 AND created_by = $3",
+              [fallbackOwnerId, organizationId, userId]
+            );
+          }
+        }
+      } catch (documentError) {
+        throw documentError;
+      }
+
       await db.query("DELETE FROM user_classes WHERE user_id = $1", [userId]);
       await db.query("DELETE FROM user_subjects WHERE user_id = $1", [userId]);
-      await db.query(
+      await db.query("DELETE FROM user_permissions WHERE user_id = $1", [userId]);
+
+      const deleteResult = await db.query(
         "DELETE FROM users WHERE user_id = $1 AND organization_id = $2",
-        [userId, req.session.organizationId]
+        [userId, organizationId]
       );
+
+      if (deleteResult.rowCount === 0) {
+        throw new Error("Employee deletion failed. The employee could not be removed.");
+      }
+
+      await db.query("COMMIT");
 
       req.flash("success", "Employee deleted successfully.");
       res.redirect("/common/manageEmployees");
     } catch (error) {
-            req.flash("error", "Failed to delete employee.");
+      try { await db.query("ROLLBACK"); } catch (rollbackError) {}
+
+      console.error("[deleteEmployee] Failed:", {
+        message: error?.message,
+        code: error?.code,
+        detail: error?.detail,
+        constraint: error?.constraint,
+        userId,
+        organizationId,
+      });
+
+      if (error?.code === "23503") {
+        let detailedMessage = "Failed to delete employee: this user is linked to protected records.";
+
+        try {
+          if (error?.constraint) {
+            const fkInfoResult = await db.query(
+              `SELECT ns.nspname AS schema_name,
+                      cls.relname AS table_name,
+                      att.attname AS column_name
+               FROM pg_constraint con
+               JOIN pg_class cls ON cls.oid = con.conrelid
+               JOIN pg_namespace ns ON ns.oid = cls.relnamespace
+               JOIN unnest(con.conkey) WITH ORDINALITY AS ck(attnum, ord) ON true
+               JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ck.attnum
+               WHERE con.conname = $1
+               LIMIT 1`,
+              [error.constraint]
+            );
+
+            const fkInfo = fkInfoResult.rows[0];
+
+            if (fkInfo) {
+              const qSchema = String(fkInfo.schema_name).replace(/"/g, '""');
+              const qTable = String(fkInfo.table_name).replace(/"/g, '""');
+              const qColumn = String(fkInfo.column_name).replace(/"/g, '""');
+
+              const countResult = await db.query(
+                `SELECT COUNT(*)::int AS count
+                 FROM "${qSchema}"."${qTable}"
+                 WHERE "${qColumn}" = $1`,
+                [userId]
+              );
+
+              const linkedCount = countResult.rows[0]?.count || 0;
+              detailedMessage = `Failed to delete employee: linked to ${linkedCount} record(s) in ${fkInfo.table_name} (${fkInfo.column_name}). Reassign or remove those records and try again.`;
+            }
+          } else if (error?.detail) {
+            const tableMatch = String(error.detail).match(/table\s+"([^"]+)"/i);
+            if (tableMatch) {
+              detailedMessage = `Failed to delete employee: linked records still exist in ${tableMatch[1]}. Reassign or remove them and try again.`;
+            }
+          }
+        } catch (fkLookupError) {
+          // Keep fallback message if FK introspection fails
+        }
+
+        req.flash("error", detailedMessage);
+      } else if (error?.message) {
+        req.flash("error", `Failed to delete employee: ${error.message}`);
+      } else {
+        req.flash("error", "Failed to delete employee.");
+      }
       res.redirect("/common/manageEmployees");
     }
   },

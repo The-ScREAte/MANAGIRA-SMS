@@ -320,16 +320,36 @@
     document.addEventListener("DOMContentLoaded", () => {
       const accountTypeSelect = document.getElementById("account_type");
       const permissionGroup = document.getElementById("permission-assignment-group");
+      const managerDefaultPermissions = new Set(<%- JSON.stringify(managerDefaultPermissions || []) %>);
+
+      const getPermissionCheckboxes = () =>
+        Array.from(document.querySelectorAll('input[name="permissions"]'));
 
       const syncPermissionVisibility = () => {
         if (!accountTypeSelect || !permissionGroup) return;
-        permissionGroup.style.display = accountTypeSelect.value === "Manager" ? "none" : "block";
+        permissionGroup.style.display = "block";
+      };
+
+      const applyManagerDefaultsIfNeeded = () => {
+        if (!accountTypeSelect || accountTypeSelect.value !== "Manager") return;
+
+        const checkboxes = getPermissionCheckboxes();
+        const hasAnySelected = checkboxes.some((checkbox) => checkbox.checked);
+        if (hasAnySelected) return;
+
+        checkboxes.forEach((checkbox) => {
+          checkbox.checked = managerDefaultPermissions.has(checkbox.value);
+        });
       };
 
       if (accountTypeSelect) {
-        accountTypeSelect.addEventListener("change", syncPermissionVisibility);
+        accountTypeSelect.addEventListener("change", () => {
+          syncPermissionVisibility();
+          applyManagerDefaultsIfNeeded();
+        });
       }
       syncPermissionVisibility();
+      applyManagerDefaultsIfNeeded();
 
       const form = document.querySelector("form[action='/common/createEmployee']");
       if (form) {
@@ -402,7 +422,7 @@
                 </label>
               <% }) %>
             </div>
-            <div class="permissions-note">Grant only what this employee needs.</div>
+            <div class="permissions-note">Grant only what this employee needs. For Manager, most permissions are preselected except billing and settings.</div>
           </div>
         </div>
 

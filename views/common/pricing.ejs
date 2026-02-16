@@ -248,12 +248,22 @@
             </ul>
           </div>
           <div class="plan-price">
-            <strong>₵<%= plan.total_price ? plan.total_price.toFixed(2) : '0.00' %></strong> per month
+            <strong><%= plan.priceUsdDisplay || ('$' + (plan.total_price ? plan.total_price.toFixed(2) : '0.00')) %></strong> per month
+            <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
+              <div style="font-size:12px;color:#666;margin-top:4px;">
+                ≈ <%= plan.localizedPriceDisplay %> / month
+              </div>
+            <% } %>
           </div>
           <a href="/account/service-plan?plan=<%= plan.plan_id %>" class="btn">Register Now</a>
         </div>
       <% }) %>
     </div>
+    <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
+      <p style="text-align:center;font-size:12px;color:#666;margin-top:10px;">
+        Prices are based in USD and shown in <%= currencyProfile.userCurrency %> using live exchange rates.
+      </p>
+    <% } %>
     <% if (freeTrialEnabled && premiumPlanId) { %>
       <div class="trial-cta">
         <a

@@ -248,6 +248,8 @@ module.exports = (db) => {
     router.post('/hubs/hold', ensureAdmin, adminController.hubHoldPost);
     router.post('/hubs/resume', ensureAdmin, adminController.hubResumePost);
     router.post('/hubs/delete', ensureAdmin, adminController.hubDeletePost);
+    router.post('/hubs/restore', ensureAdmin, adminController.restoreHub);
+    router.post('/hubs/permanently-delete', ensureAdmin, adminController.permanentlyDeleteHub);
     router.get('/hubs/:hubId/organizations', ensureAdmin, adminController.hubOrganizationsGet);
 
     return router;

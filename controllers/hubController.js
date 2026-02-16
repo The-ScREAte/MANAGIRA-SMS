@@ -68,7 +68,7 @@ const hubController = {
 
     try {
       const result = await db.query(
-        'SELECT * FROM managira_hubs WHERE hub_email = $1 AND deleted = false',
+        'SELECT * FROM managira_hubs WHERE hub_email = $1',
         [email]
       );
 
@@ -76,6 +76,11 @@ const hubController = {
 
       if (!hub) {
         req.flash('error', 'Invalid email or password.');
+        return res.redirect('/hub/login');
+      }
+
+      if (hub.deleted) {
+        req.flash('error', 'This account is temporarily deleted. Contact your hub for help.');
         return res.redirect('/hub/login');
       }
 

@@ -170,7 +170,12 @@
         <p><strong>Trial Ends:</strong> <%= trialEndDisplay %></p>
       <% } %>
       <p><strong><%= isTrialCheckout ? "Verification Charge" : "Amount Due" %>:</strong> GHS <span id="amount-due"><%= (paymentDetails.amount / 100).toFixed(2) %></span></p>
-      <p><strong>Renewal Price:</strong> <%= postTrialPriceDisplay || ("GHS " + (paymentDetails.amount / 100).toFixed(2) + " / " + (billingIntervalLabel || 'month')) %></p>
+      <p><strong>USD Plan Price:</strong> <%= usdPriceDisplay || 'USD 0.00' %></p>
+      <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
+        <p><strong>Local Estimate (<%= currencyProfile.userCurrency %>):</strong> <%= localizedPriceDisplay || 'N/A' %></p>
+      <% } %>
+      <p><strong>Renewal Price:</strong> <%= postTrialPriceDisplay || ("USD 0.00") %></p>
+      <p style="font-size: 12px; color: #666; margin-top: 4px;">Paystack processes this checkout in <%= paystackChargeCurrency || 'GHS' %>. Your bank/card provider applies final local conversion.</p>
       <% if (isTrialCheckout && freeTrialLengthLabel) { %>
         <p><strong>Free Trial:</strong> <%= freeTrialLengthLabel %></p>
       <% } %>
@@ -189,7 +194,7 @@
       <% if (isTrialCheckout) { %>
         <button type="button" id="pay-button" class="btn-primary">Begin Free Trial</button>
       <% } else { %>
-        <button type="button" id="pay-button" class="btn-primary">Pay GHS <span id="final-amount"><%= (paymentDetails.amount / 100).toFixed(2) %></span></button>
+        <button type="button" id="pay-button" class="btn-primary">Pay <%= paystackChargeCurrency || 'GHS' %> <span id="final-amount"><%= (paymentDetails.amount / 100).toFixed(2) %></span></button>
       <% } %>
 
       <div id="payment-message"></div>
@@ -203,6 +208,8 @@
       document.addEventListener("DOMContentLoaded", function () {
         let finalPaymentAmount = parseInt('<%= paymentDetails.amount %>', 10);
         let appliedPromoCode = '';
+        const gatewayCurrency = '<%= paystackChargeCurrency || "GHS" %>';
+        const defaultPayButtonHtml = '<% if (isTrialCheckout) { %>Begin Free Trial<% } else { %>Pay <%= paystackChargeCurrency || "GHS" %> <span id="final-amount"><%= (paymentDetails.amount / 100).toFixed(2) %></span><% } %>';
 
       function confirmPayment() {
         return confirm(
@@ -278,7 +285,7 @@
             key: '<%= publishableKey %>',
             email: '<%= registrationDetails.email %>',
             amount: finalPaymentAmount,
-            currency: 'GHS',
+            currency: gatewayCurrency,
             ref: '<%= paymentReference %>',
             channels: ['card'], // Only allow card payments
             metadata: {
@@ -312,7 +319,7 @@
             onClose: function() {
               // Payment was cancelled
               payButton.disabled = false;
-              payButton.innerHTML = 'Pay GHS <span id="final-amount"><%= (paymentDetails.amount / 100).toFixed(2) %></span>';
+              payButton.innerHTML = defaultPayButtonHtml;
               
               const paymentMessage = document.getElementById("payment-message");
               if (paymentMessage) {
@@ -327,7 +334,7 @@
         } catch (error) {
           console.error("Error opening Paystack:", error);
           payButton.disabled = false;
-          payButton.innerHTML = 'Pay GHS <span id="final-amount"><%= (paymentDetails.amount / 100).toFixed(2) %></span>';
+          payButton.innerHTML = defaultPayButtonHtml;
           
           const paymentMessage = document.getElementById("payment-message");
           if (paymentMessage) {

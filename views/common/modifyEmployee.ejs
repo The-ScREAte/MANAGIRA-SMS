@@ -169,7 +169,7 @@
             </label>
           <% }) %>
         </div>
-        <div style="margin-top:8px; color:#64748b; font-size:12px;">Grant only what this employee needs.</div>
+        <div style="margin-top:8px; color:#64748b; font-size:12px;">Grant only what this employee needs. For Manager, most permissions are preselected except billing and settings.</div>
       </div>
     </div>
     <div>
@@ -237,16 +237,36 @@
     document.addEventListener("DOMContentLoaded", () => {
       const accountTypeSelect = document.querySelector("select[name='accountType']");
       const permissionGroup = document.getElementById("permission-assignment-group");
+      const managerDefaultPermissions = new Set(<%- JSON.stringify(managerDefaultPermissions || []) %>);
+
+      const getPermissionCheckboxes = () =>
+        Array.from(document.querySelectorAll('input[name="permissions"]'));
 
       const syncPermissionVisibility = () => {
         if (!accountTypeSelect || !permissionGroup) return;
-        permissionGroup.style.display = accountTypeSelect.value === "Manager" ? "none" : "block";
+        permissionGroup.style.display = "block";
+      };
+
+      const applyManagerDefaultsIfNeeded = () => {
+        if (!accountTypeSelect || accountTypeSelect.value !== "Manager") return;
+
+        const checkboxes = getPermissionCheckboxes();
+        const hasAnySelected = checkboxes.some((checkbox) => checkbox.checked);
+        if (hasAnySelected) return;
+
+        checkboxes.forEach((checkbox) => {
+          checkbox.checked = managerDefaultPermissions.has(checkbox.value);
+        });
       };
 
       if (accountTypeSelect) {
-        accountTypeSelect.addEventListener("change", syncPermissionVisibility);
+        accountTypeSelect.addEventListener("change", () => {
+          syncPermissionVisibility();
+          applyManagerDefaultsIfNeeded();
+        });
       }
       syncPermissionVisibility();
+      applyManagerDefaultsIfNeeded();
 
       // All collapsibles start collapsed
       const collapseAllClasses = document.getElementById('collapse-all-classes');

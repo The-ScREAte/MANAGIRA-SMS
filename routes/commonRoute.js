@@ -11,6 +11,11 @@ const {
   formatFreeTrialLength,
   getPremiumTrialPlan,
 } = require("../utils/freeTrial");
+const {
+  getCurrencyProfileForRequest,
+  localizeUsdAmount,
+  formatCurrencyAmount,
+} = require("../utils/currencyLocalization");
 const multer = require('multer');
 const path = require('path');
 
@@ -511,6 +516,7 @@ module.exports = (db) => {
   router.get('/pricing', async (req, res) => {
     const db = req.db || require('../config/db');
     try {
+      const currencyProfile = await getCurrencyProfileForRequest(req);
       const plansResult = await db.query(`
         SELECT p.id AS plan_id, p.plan_name, p.description, p.is_active, p.plan_name AS category,
         COALESCE(JSON_AGG(json_build_object('feature_name', f.feature_name) ORDER BY f.feature_name)
@@ -527,12 +533,25 @@ module.exports = (db) => {
         ...plan,
         total_price: parseFloat(plan.total_price) || 0,
         features: Array.isArray(plan.features) ? plan.features : []
-      }));
+      })).map((plan) => {
+        const localized = localizeUsdAmount(plan.total_price, currencyProfile);
+        return {
+          ...plan,
+          priceUsdDisplay: formatCurrencyAmount(localized.amountUsd, "USD"),
+          localizedPriceDisplay: formatCurrencyAmount(
+            localized.localizedAmount,
+            localized.userCurrency,
+            currencyProfile.locale
+          ),
+          localizedCurrencyCode: localized.userCurrency,
+        };
+      });
       const trialSettings = await getFreeTrialSettings(db);
       const premiumPlan = await getPremiumTrialPlan(db);
       res.render('common/pricing', {
         title: 'Pricing',
         plans,
+        currencyProfile,
         messages: req.flash(),
         freeTrialEnabled: trialSettings.enabled,
         freeTrialLengthLabel: formatFreeTrialLength(trialSettings.days),
@@ -546,6 +565,10 @@ module.exports = (db) => {
       res.render('common/pricing', {
         title: 'Pricing',
         plans: [],
+        currencyProfile: {
+          userCurrency: 'USD',
+          locale: 'en-US',
+        },
         messages: req.flash(),
         freeTrialEnabled: false,
         freeTrialLengthLabel: null,

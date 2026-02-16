@@ -8,6 +8,8 @@ class ManagiraChatbot {
     this.messages = [];
     this.originalViewportHeight = window.innerHeight;
     this.keyboardVisible = false;
+    this.requestController = null;
+    this.boundHandlers = [];
     this.init();
   }
 
@@ -80,27 +82,38 @@ class ManagiraChatbot {
   }
 
   bindEvents() {
+    this.removeBoundEvents();
+
+    const bind = (target, eventName, handler, options) => {
+      target.addEventListener(eventName, handler, options);
+      this.boundHandlers.push({ target, eventName, handler, options });
+    };
+
     // Toggle chatbot
-    this.toggleButton.addEventListener('click', () => this.toggle());
+    bind(this.toggleButton, 'click', () => this.toggle());
     
     // Close chatbot (starts fresh chat)
-    this.closeButton.addEventListener('click', () => this.close());
+    bind(this.closeButton, 'click', () => this.close());
     
     // Minimize/Maximize chatbot (preserves chat)
-    this.minimizeButton.addEventListener('click', () => this.toggleMinimize());
+    bind(this.minimizeButton, 'click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.toggleMinimize();
+    });
     
     // Send message on button click
-    this.sendButton.addEventListener('click', () => this.sendMessage());
+    bind(this.sendButton, 'click', () => this.sendMessage());
     
     // Send message on Enter key
-    this.input.addEventListener('keypress', (e) => {
+    bind(this.input, 'keypress', (e) => {
       if (e.key === 'Enter' && !this.isLoading) {
         this.sendMessage();
       }
     });
 
     // Close on outside click (but not when minimized)
-    document.addEventListener('click', (e) => {
+    bind(document, 'click', (e) => {
       if (this.isOpen && !this.isMinimized &&
           !this.container.contains(e.target) && 
           !this.toggleButton.contains(e.target)) {
@@ -118,7 +131,12 @@ class ManagiraChatbot {
     if (!isMobile) return;
 
     // Input focus events for mobile keyboard handling
-    this.input.addEventListener('focus', () => {
+    const bind = (target, eventName, handler, options) => {
+      target.addEventListener(eventName, handler, options);
+      this.boundHandlers.push({ target, eventName, handler, options });
+    };
+
+    bind(this.input, 'focus', () => {
       this.keyboardVisible = true;
       setTimeout(() => {
         if (this.isOpen && !this.isMinimized) {
@@ -128,7 +146,7 @@ class ManagiraChatbot {
       }, 300);
     });
 
-    this.input.addEventListener('blur', () => {
+    bind(this.input, 'blur', () => {
       this.keyboardVisible = false;
       setTimeout(() => {
         this.container.classList.remove('keyboard-active');
@@ -136,7 +154,7 @@ class ManagiraChatbot {
     });
 
     // Viewport resize handling for keyboard detection
-    window.addEventListener('resize', () => {
+    bind(window, 'resize', () => {
       const currentHeight = window.innerHeight;
       const heightDifference = this.originalViewportHeight - currentHeight;
       
@@ -155,7 +173,8 @@ class ManagiraChatbot {
         // If minimized, restore to full size
         this.toggleMinimize();
       } else {
-        this.close();
+        // If open, convert toggle action to minimize for predictable behavior
+        this.toggleMinimize();
       }
     } else {
       this.open();
@@ -163,36 +182,50 @@ class ManagiraChatbot {
   }
 
   open() {
+    // If DOM nodes were replaced, rebuild references safely
+    if (!this.container || !document.body.contains(this.container) || !this.toggleButton || !document.body.contains(this.toggleButton)) {
+      this.createChatbotHTML();
+      this.bindEvents();
+      this.resetConversation();
+    }
+
     this.isOpen = true;
     this.isMinimized = false;
     this.container.classList.add('active');
     this.container.classList.remove('minimized');
+    this.container.classList.remove('keyboard-active');
     this.minimizeButton.innerHTML = '−'; // Reset to minimize icon
+
+    // Hide toggle button whenever full chat is open
+    this.toggleButton.style.opacity = '0';
+    this.toggleButton.style.pointerEvents = 'none';
     
-    // Hide toggle button on mobile when chat is open
-    if (window.innerWidth <= 768) {
-      this.toggleButton.style.opacity = '0';
-      this.toggleButton.style.pointerEvents = 'none';
+    if (this.input) {
+      this.input.focus();
     }
-    
-    this.input.focus();
   }
 
   close() {
     this.isOpen = false;
     this.isMinimized = false;
+    this.isLoading = false;
     this.container.classList.remove('active');
     this.container.classList.remove('minimized');
     this.container.classList.remove('keyboard-active');
+    this.minimizeButton.innerHTML = '−';
+
+    if (this.sendButton) {
+      this.sendButton.disabled = false;
+    }
+    this.abortInFlightRequest();
+    this.hideLoading();
     
     // Show toggle button again
     this.toggleButton.style.opacity = '1';
     this.toggleButton.style.pointerEvents = 'auto';
     
-    // Clear chat history for fresh start
-    this.messages = [];
-    this.messagesContainer.innerHTML = '';
-    this.showWelcomeMessage();
+    // Reset chatbot so re-open starts fresh
+    this.resetConversation();
   }
 
   toggleMinimize() {
@@ -200,19 +233,23 @@ class ManagiraChatbot {
     
     if (this.isMinimized) {
       this.container.classList.add('minimized');
+      this.container.classList.remove('active');
       this.minimizeButton.innerHTML = '□'; // Maximize icon
       
-      // Show toggle button when minimized
+      // Show toggle button when minimized (acts as restore control)
       this.toggleButton.style.opacity = '1';
       this.toggleButton.style.pointerEvents = 'auto';
     } else {
       this.container.classList.remove('minimized');
+      this.container.classList.add('active');
       this.minimizeButton.innerHTML = '−'; // Minimize icon
-      
-      // Hide toggle button when expanded on mobile
-      if (window.innerWidth <= 768) {
-        this.toggleButton.style.opacity = '0';
-        this.toggleButton.style.pointerEvents = 'none';
+
+      // Hide toggle button when expanded
+      this.toggleButton.style.opacity = '0';
+      this.toggleButton.style.pointerEvents = 'none';
+
+      if (this.input) {
+        this.input.focus();
       }
     }
   }
@@ -229,16 +266,19 @@ class ManagiraChatbot {
     this.showLoading();
 
     try {
+      this.requestController = new AbortController();
       const response = await fetch('/api/chatbot/query', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        signal: this.requestController.signal,
         body: JSON.stringify({ query })
       });
 
       const data = await response.json();
       this.hideLoading();
+      this.requestController = null;
 
       if (data.success) {
         if (data.results && data.results.length > 0) {
@@ -252,8 +292,11 @@ class ManagiraChatbot {
         this.addMessage(data.message, 'bot');
       }
     } catch (error) {
-      
+      if (error.name === 'AbortError') {
+        return;
+      }
       this.hideLoading();
+      this.requestController = null;
       this.addMessage('Sorry, I\'m having trouble connecting. Please try again later or contact support at info@managira.com', 'bot');
     }
   }
@@ -389,6 +432,8 @@ class ManagiraChatbot {
   }
 
   showWelcomeMessage() {
+    if (!this.messagesContainer) return;
+
     const welcomeDiv = document.createElement('div');
     welcomeDiv.className = 'welcome-message';
     welcomeDiv.innerHTML = `
@@ -413,6 +458,8 @@ class ManagiraChatbot {
   }
 
   showPopularQuestions(questions) {
+    if (!this.messagesContainer) return;
+
     const popularDiv = document.createElement('div');
     popularDiv.className = 'popular-questions';
     
@@ -438,17 +485,70 @@ class ManagiraChatbot {
 
   scrollToBottom() {
     setTimeout(() => {
-      this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+      if (this.messagesContainer) {
+        this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+      }
     }, 100);
   }
 
+  resetConversation() {
+    this.abortInFlightRequest();
+    this.isLoading = false;
+    this.messages = [];
+
+    if (this.input) {
+      this.input.value = '';
+    }
+    if (this.sendButton) {
+      this.sendButton.disabled = false;
+    }
+    if (this.messagesContainer) {
+      this.messagesContainer.innerHTML = '';
+    }
+
+    this.showWelcomeMessage();
+    this.loadPopularQuestions();
+  }
+
+  abortInFlightRequest() {
+    if (this.requestController) {
+      this.requestController.abort();
+      this.requestController = null;
+    }
+  }
+
+  removeBoundEvents() {
+    if (!Array.isArray(this.boundHandlers) || this.boundHandlers.length === 0) {
+      return;
+    }
+
+    this.boundHandlers.forEach(({ target, eventName, handler, options }) => {
+      try {
+        target.removeEventListener(eventName, handler, options);
+      } catch (_) {
+      }
+    });
+
+    this.boundHandlers = [];
+  }
+
   destroy() {
+    this.abortInFlightRequest();
+    this.removeBoundEvents();
     if (this.container) {
       this.container.remove();
+      this.container = null;
     }
     if (this.toggleButton) {
       this.toggleButton.remove();
+      this.toggleButton = null;
     }
+
+    this.messagesContainer = null;
+    this.input = null;
+    this.sendButton = null;
+    this.closeButton = null;
+    this.minimizeButton = null;
   }
 }
 

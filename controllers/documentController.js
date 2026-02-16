@@ -1,5 +1,6 @@
 const bcrypt = require("bcryptjs");
 const { sendEmailSafely } = require("../utils/emailHelper");
+const { PERMISSIONS, userHasPermission } = require("../middleware/permissionMiddleware");
 
 let documentsSchemaReadyPromise = null;
 
@@ -60,19 +61,229 @@ const ensureDocumentsSchema = async (db) => {
   await documentsSchemaReadyPromise;
 };
 
-const resolveCreatorUserId = async (db, orgId, userId) => {
-  if (userId) return userId;
+const resolveCreatorUserId = async (
+  db,
+  { orgId, sessionUserId, sessionAccountType }
+) => {
+  if (!orgId) return null;
 
-  const fallback = await db.query(`
+  const numericSessionUserId = Number(sessionUserId);
+  if (Number.isInteger(numericSessionUserId) && numericSessionUserId > 0) {
+    const directUser = await db.query(
+      `
+      SELECT user_id
+      FROM users
+      WHERE user_id = $1
+        AND organization_id = $2
+      LIMIT 1
+    `,
+      [numericSessionUserId, orgId]
+    );
+
+    if (directUser.rows.length > 0) {
+      return directUser.rows[0].user_id;
+    }
+  }
+
+  const isOrganizationLogin =
+    String(sessionAccountType || "").trim() === "Organization";
+
+  if (isOrganizationLogin) {
+    const orgIdentityResult = await db.query(
+      `
+      SELECT email, first_name, last_name, password
+      FROM organizations
+      WHERE organization_id = $1
+      LIMIT 1
+    `,
+      [orgId]
+    );
+
+    const orgIdentity = orgIdentityResult.rows[0] || null;
+
+    if (orgIdentity?.email) {
+      const managerByEmail = await db.query(
+        `
+        SELECT user_id
+        FROM users
+        WHERE organization_id = $1
+          AND account_type = 'Manager'
+          AND email::text ILIKE $2
+        ORDER BY user_id ASC
+        LIMIT 1
+      `,
+        [orgId, orgIdentity.email]
+      );
+
+      if (managerByEmail.rows.length > 0) {
+        return managerByEmail.rows[0].user_id;
+      }
+
+      const userByEmailAnyRole = await db.query(
+        `
+        SELECT user_id
+        FROM users
+        WHERE organization_id = $1
+          AND email::text ILIKE $2
+        ORDER BY CASE WHEN account_type = 'Manager' THEN 0 ELSE 1 END, user_id ASC
+        LIMIT 1
+      `,
+        [orgId, orgIdentity.email]
+      );
+
+      if (userByEmailAnyRole.rows.length > 0) {
+        return userByEmailAnyRole.rows[0].user_id;
+      }
+    }
+
+    if (orgIdentity?.first_name && orgIdentity?.last_name) {
+      const managerByName = await db.query(
+        `
+        SELECT user_id
+        FROM users
+        WHERE organization_id = $1
+          AND account_type = 'Manager'
+          AND LOWER(first_name) = LOWER($2)
+          AND LOWER(last_name) = LOWER($3)
+        ORDER BY user_id ASC
+        LIMIT 1
+      `,
+        [orgId, orgIdentity.first_name, orgIdentity.last_name]
+      );
+
+      if (managerByName.rows.length > 0) {
+        return managerByName.rows[0].user_id;
+      }
+    }
+
+    const managerCount = await db.query(
+      `
+      SELECT COUNT(*)::int AS total
+      FROM users
+      WHERE organization_id = $1
+        AND account_type = 'Manager'
+    `,
+      [orgId]
+    );
+
+    const totalManagers = managerCount.rows[0]?.total || 0;
+
+    if (totalManagers === 1) {
+      const singleManager = await db.query(
+        `
+        SELECT user_id
+        FROM users
+        WHERE organization_id = $1
+          AND account_type = 'Manager'
+        LIMIT 1
+      `,
+        [orgId]
+      );
+
+      return singleManager.rows[0]?.user_id || null;
+    }
+
+    if (totalManagers > 1) {
+      return null;
+    }
+
+    if (totalManagers === 0 && orgIdentity?.email && orgIdentity?.password) {
+      const createdManager = await db.query(
+        `
+        INSERT INTO users (
+          first_name,
+          last_name,
+          email,
+          password,
+          account_type,
+          organization_id,
+          created_at,
+          updated_at
+        )
+        VALUES (
+          $1,
+          $2,
+          $3,
+          $4,
+          'Manager',
+          $5,
+          NOW(),
+          NOW()
+        )
+        ON CONFLICT (email) DO NOTHING
+        RETURNING user_id
+      `,
+        [
+          orgIdentity.first_name || 'Organization',
+          orgIdentity.last_name || 'Account',
+          orgIdentity.email,
+          orgIdentity.password,
+          orgId,
+        ]
+      );
+
+      if (createdManager.rows.length > 0) {
+        return createdManager.rows[0].user_id;
+      }
+
+      const existingByEmail = await db.query(
+        `
+        SELECT user_id
+        FROM users
+        WHERE organization_id = $1
+          AND email::text ILIKE $2
+        LIMIT 1
+      `,
+        [orgId, orgIdentity.email]
+      );
+
+      if (existingByEmail.rows.length > 0) {
+        return existingByEmail.rows[0].user_id;
+      }
+    }
+
+    const organizationOwnerUser = await db.query(
+      `
+      SELECT user_id
+      FROM users
+      WHERE organization_id = $1
+        AND account_type = 'Manager'
+      ORDER BY user_id ASC
+      LIMIT 1
+    `,
+      [orgId]
+    );
+
+    if (organizationOwnerUser.rows.length > 0) {
+      return organizationOwnerUser.rows[0].user_id;
+    }
+
+    return null;
+  }
+
+  const fallbackByRole = await db.query(
+    `
     SELECT user_id
     FROM users
     WHERE organization_id = $1
       AND account_type IN ('Manager', 'Supervisor')
-    ORDER BY CASE WHEN account_type = 'Manager' THEN 0 ELSE 1 END, user_id ASC
+    ORDER BY
+      CASE
+        WHEN account_type = 'Manager' THEN 0
+        WHEN account_type = 'Supervisor' THEN 1
+        ELSE 2
+      END,
+      user_id ASC
     LIMIT 1
-  `, [orgId]);
+  `,
+    [orgId]
+  );
 
-  return fallback.rows[0]?.user_id || null;
+  if (fallbackByRole.rows.length > 0) {
+    return fallbackByRole.rows[0].user_id;
+  }
+
+  return null;
 };
 
 const classBelongsToOrg = async (db, classId, orgId) => {
@@ -149,7 +360,12 @@ const documentController = {
     const userId = req.session.userId || req.session.user?.user_id || null;
     const userRole = req.session.userRole;
     const classId = req.query.classId ? Number(req.query.classId) : null;
-    const canCreate = userRole === 'Manager' || userRole === 'Supervisor';
+    const canManageRecords = await userHasPermission(
+      db,
+      { userId, userRole, organizationId: orgId },
+      PERMISSIONS.MANAGE_RECORDS
+    );
+    const canCreate = canManageRecords;
     const shouldAutoCreate = canCreate && req.query.create === '1';
 
     try {
@@ -313,13 +529,30 @@ const documentController = {
       const userRole = req.session.userRole;
       const { title, doc_type } = req.body;
 
-      if (!(userRole === 'Manager' || userRole === 'Supervisor')) {
-        return res.status(403).json({ success: false, message: "Only managers and supervisors can create files." });
+      const canManageRecords = await userHasPermission(
+        db,
+        { userId, userRole, organizationId: orgId },
+        PERMISSIONS.MANAGE_RECORDS
+      );
+
+      if (!canManageRecords) {
+        return res.status(403).json({ success: false, message: "You do not have permission to create files." });
       }
 
-      const creatorUserId = await resolveCreatorUserId(db, orgId, userId);
+      const creatorUserId = await resolveCreatorUserId(db, {
+        orgId,
+        sessionUserId: userId,
+        sessionAccountType: req.session.accountType,
+      });
       if (!creatorUserId) {
-        return res.status(400).json({ success: false, message: "No active manager/supervisor user record found for this organization." });
+        console.error('[FILES][CREATE][OWNER_MAP_FAILED]', {
+          orgId,
+          sessionUserId: userId,
+          sessionAccountType: req.session.accountType,
+          sessionUserRole: userRole,
+          sessionEmail: req.session?.user?.email || null,
+        });
+        return res.status(400).json({ success: false, message: "Unable to safely map this organization login to its manager profile. Ask admin to align manager email/name with organization account." });
       }
 
       const docTitle = title || (doc_type === 'spreadsheet' ? 'Untitled Spreadsheet' : 'Untitled Document');
@@ -353,6 +586,11 @@ const documentController = {
       const orgId = req.session.organizationId;
       const userId = req.session.userId || req.session.user?.user_id || null;
       const userRole = req.session.userRole;
+      const canManageRecords = await userHasPermission(
+        db,
+        { userId, userRole, organizationId: orgId },
+        PERMISSIONS.MANAGE_RECORDS
+      );
 
       // Get document
       const docResult = await db.query(`
@@ -371,7 +609,7 @@ const documentController = {
 
       // Check permission - creators and managers always have edit access
       let permissionLevel = 'view';
-      if (doc.created_by === userId || userRole === 'Manager' || userRole === 'Supervisor') {
+      if (doc.created_by === userId || canManageRecords) {
         permissionLevel = 'edit';
       } else {
         // Check direct permission
@@ -466,7 +704,14 @@ const documentController = {
       const doc = await db.query(`SELECT created_by FROM documents WHERE id = $1 AND organization_id = $2 AND is_deleted = FALSE`, [docId, orgId]);
       if (doc.rows.length === 0) return res.status(404).json({ success: false });
 
-      const hasEdit = await documentController._hasEditPermission(db, docId, userId, req.session.userRole, doc.rows[0].created_by);
+      const hasEdit = await documentController._hasEditPermission(
+        db,
+        docId,
+        userId,
+        req.session.userRole,
+        orgId,
+        doc.rows[0].created_by
+      );
       if (!hasEdit) return res.status(403).json({ success: false, message: "No edit permission." });
 
       const updates = [];
@@ -511,6 +756,18 @@ const documentController = {
     try {
       const docId = req.params.id;
       const orgId = req.session.organizationId;
+      const userId = req.session.userId || req.session.user?.user_id || null;
+      const userRole = req.session.userRole;
+
+      const canManageRecords = await userHasPermission(
+        db,
+        { userId, userRole, organizationId: orgId },
+        PERMISSIONS.MANAGE_RECORDS
+      );
+
+      if (!canManageRecords) {
+        return res.status(403).json({ success: false, message: "You do not have permission to delete files." });
+      }
 
       await db.query(`UPDATE documents SET is_deleted = TRUE, updated_at = NOW() WHERE id = $1 AND organization_id = $2`, [docId, orgId]);
 
@@ -526,8 +783,20 @@ const documentController = {
     try {
       const docId = req.params.id;
       const orgId = req.session.organizationId;
+      const userId = req.session.userId || req.session.user?.user_id || null;
+      const userRole = req.session.userRole;
       const { permissions, classAssignments } = req.body;
       let addedClassIds = [];
+
+      const canManageRecords = await userHasPermission(
+        db,
+        { userId, userRole, organizationId: orgId },
+        PERMISSIONS.MANAGE_RECORDS
+      );
+
+      if (!canManageRecords) {
+        return res.status(403).json({ success: false, message: "You do not have permission to update file permissions." });
+      }
 
       // Verify document belongs to org
       const doc = await db.query(`SELECT id, title FROM documents WHERE id = $1 AND organization_id = $2`, [docId, orgId]);
@@ -631,13 +900,18 @@ const documentController = {
       const userId = req.session.userId;
       const orgId = req.session.organizationId;
       const userRole = req.session.userRole;
+      const canManageRecords = await userHasPermission(
+        db,
+        { userId, userRole, organizationId: orgId },
+        PERMISSIONS.MANAGE_RECORDS
+      );
 
       const classExists = await classBelongsToOrg(db, classId, orgId);
       if (!classExists) {
         return res.json({ success: true, documents: [] });
       }
 
-      if (!(userRole === 'Manager' || userRole === 'Supervisor')) {
+      if (!canManageRecords) {
         const classMembership = await db.query(`
           SELECT 1
           FROM class_employees ce
@@ -665,15 +939,14 @@ const documentController = {
           AND (
             d.created_by = $2
             OR dp.user_id IS NOT NULL
-            OR $4 = 'Manager'
-            OR $4 = 'Supervisor'
+            OR $4 = TRUE
             OR EXISTS (
               SELECT 1 FROM class_employees ce
               WHERE ce.class_id = dca.class_id AND ce.user_id = $2
             )
           )
         ORDER BY d.updated_at DESC
-      `, [classId, userId, orgId, userRole]);
+      `, [classId, userId, orgId, canManageRecords]);
 
       res.json({ success: true, documents: docs.rows });
     } catch (error) {
@@ -688,6 +961,18 @@ const documentController = {
       const classId = req.query.classId;
       const orgId = req.session.organizationId;
       const termId = req.session.currentTermId;
+      const userId = req.session.userId || req.session.user?.user_id || null;
+      const userRole = req.session.userRole;
+
+      const canManageRecords = await userHasPermission(
+        db,
+        { userId, userRole, organizationId: orgId },
+        PERMISSIONS.MANAGE_RECORDS
+      );
+
+      if (!canManageRecords) {
+        return res.status(403).json({ success: false, message: 'You do not have permission to access class file data.' });
+      }
 
       const classExists = await classBelongsToOrg(db, classId, orgId);
       if (!classExists) {
@@ -719,8 +1004,14 @@ const documentController = {
   },
 
   // Helper: check if user has edit permission
-  async _hasEditPermission(db, docId, userId, userRole, createdBy) {
-    if (createdBy === userId || userRole === 'Manager' || userRole === 'Supervisor') return true;
+  async _hasEditPermission(db, docId, userId, userRole, orgId, createdBy) {
+    const canManageRecords = await userHasPermission(
+      db,
+      { userId, userRole, organizationId: orgId },
+      PERMISSIONS.MANAGE_RECORDS
+    );
+
+    if (createdBy === userId || canManageRecords) return true;
     
     const perm = await db.query(`
       SELECT permission_level FROM document_permissions WHERE document_id = $1 AND user_id = $2
