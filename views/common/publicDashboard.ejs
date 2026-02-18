@@ -1,8 +1,22 @@
 <html lang="en">
+  <%
+    /* Font: read directly from orgDetails (same as org name/aboutus/theme) — no session needed */
+    const selectedPublicFont = (orgDetails && orgDetails.font_style ? String(orgDetails.font_style).trim() : 'Inter') || 'Inter';
+    const publicSerifFonts = ['PT Serif', 'Merriweather', 'Playfair Display'];
+    const publicFallbackFamily = publicSerifFonts.includes(selectedPublicFont) ? 'serif' : 'sans-serif';
+    const loadableGoogleFonts = ['Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Poppins', 'Nunito', 'Raleway', 'Work Sans', 'Source Sans Pro', 'Ubuntu', 'Noto Sans', 'PT Serif', 'Merriweather', 'Playfair Display'];
+    const shouldLoadPublicGoogleFont = loadableGoogleFonts.includes(selectedPublicFont);
+    const normalizedPublicFont = selectedPublicFont.replace(/\s+/g, '+');
+  %>
   <head>
     <meta charset="UTF-8" />
     <title><%= title %></title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <% if (shouldLoadPublicGoogleFont) { %>
+      <link href="https://fonts.googleapis.com/css2?family=<%= normalizedPublicFont %>:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <% } %>
     <link
       href="https://cdn.quilljs.com/1.3.6/quill.snow.css"
       rel="stylesheet"
@@ -13,7 +27,7 @@
    1. GLOBAL DESIGN TOKENS & TYPOGRAPHY (BASE)
    ========================================================= */
 :root{
-  --font-family:"<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>",system-ui,sans-serif;
+  --font-family:"<%= selectedPublicFont %>",<%= publicFallbackFamily %>;
 
   --title-xl:36px;
   --title-lg:26px;
@@ -3034,8 +3048,26 @@ body[data-pd-theme="bold"] #modalCaption{
   }
 
   .content-section h2{
-    margin-left:20px;
-    font-size:1.6rem;
+    margin-left:12px;
+    font-size:1.2rem;
+    line-height:1.3;
+  }
+
+  .wf2-left-panel h2,
+  .wf2-right-panel h2,
+  .wf2-articles-section h2,
+  .wf2-announcements-sidebar h2,
+  .wf3-gallery-section h2,
+  .wf3-articles-main h2,
+  .wf3-announcements-sticky h2,
+  .wf3-events-section h2,
+  .wf4-gallery-section h2,
+  .wf4-timeline-section h2,
+  .wf4-announcements-section h2,
+  .wf4-about-section h2,
+  .wf4-stories-section h2{
+    font-size:1.15rem !important;
+    line-height:1.3;
   }
 
   .carousel-control{
@@ -3103,6 +3135,24 @@ body[data-pd-theme="bold"] #modalCaption{
 @media screen and (max-width:480px){
   .custom-carousel{
     height:250px;
+  }
+
+  .content-section h2,
+  .wf2-left-panel h2,
+  .wf2-right-panel h2,
+  .wf2-articles-section h2,
+  .wf2-announcements-sidebar h2,
+  .wf3-gallery-section h2,
+  .wf3-articles-main h2,
+  .wf3-announcements-sticky h2,
+  .wf3-events-section h2,
+  .wf4-gallery-section h2,
+  .wf4-timeline-section h2,
+  .wf4-announcements-section h2,
+  .wf4-about-section h2,
+  .wf4-stories-section h2{
+    font-size:1.05rem !important;
+    line-height:1.3;
   }
 
   .modal-content{
