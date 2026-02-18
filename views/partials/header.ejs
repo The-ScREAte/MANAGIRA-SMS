@@ -126,6 +126,30 @@
     color: #074c53;
   }
 
+  #tools #loginbutton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px 8px;
+    min-height: 32px;
+    border: 1px solid #111827;
+    border-radius: 6px;
+    text-decoration: none;
+    color: #111827 !important;
+    background: #ffffff;
+    font-size: 0.95rem;
+    font-weight: 500;
+    line-height: 1.1;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  }
+
+  #tools #loginbutton:hover {
+    background: #f3f4f6;
+    color: #111827 !important;
+    border-color: #111827;
+    box-shadow: none;
+  }
+
   .hamburger-container {
     display: inline-block;
   }
@@ -918,18 +942,28 @@
     };
   %>
   <% const isPublicDashboard = url && url.includes('/publicDashboard'); %>
+  <% const isLoggedIn = !!(session && session.firstName); %>
+  <% const showPublicOrgIdentity = !!(isPublicDashboard && !isLoggedIn); %>
+  <% const headerHomeHref = (typeof BASE_URL !== 'undefined' && BASE_URL) ? BASE_URL : '/'; %>
+  <% const publicOrgFullName = (typeof orgDetails !== 'undefined' && orgDetails && orgDetails.organization_name) ? orgDetails.organization_name : ''; %>
+  <% const publicOrgNickname = (typeof orgDetails !== 'undefined' && orgDetails && (orgDetails.nickname || orgDetails.org_nickname || orgDetails.organization_nickname)) ? (orgDetails.nickname || orgDetails.org_nickname || orgDetails.organization_nickname) : ''; %>
   <% const dashboardHref = req.session && req.session.accountType === 'Hub' ? '/hub/dashboard' : (req.session && req.session.userRole === 'Guardian' ? '/guardian/dashboard' : '/common/orgDashboard'); %>
   <div class="header-mobile-row">
     <div class="header-mobile-left">
       <span class="siteName">
-        <% if (typeof orgHeaderLogo !== 'undefined' && orgHeaderLogo) { %>
+        <% if (isLoggedIn && typeof orgHeaderLogo !== 'undefined' && orgHeaderLogo) { %>
           <a href="<%= dashboardHref %>" title="Go to dashboard">
             <img src="<%= normalizeLogoSrc(orgHeaderLogo) %>" alt="Organization Logo" class="logo" />
           </a>
-        <% } else if (!session.firstName) { %>
+        <% } else if (showPublicOrgIdentity && typeof orgDetails !== 'undefined' && orgDetails && orgDetails.logo) { %>
+          <!-- Show org logo on public dashboard even when logged out; clicking goes home -->
+          <a href="<%= headerHomeHref %>" title="Return to home page">
+            <img src="<%= normalizeLogoSrc(orgDetails.logo) %>" alt="<%= publicOrgFullName || 'Organization' %> Logo" class="logo" />
+          </a>
+        <% } else if (!isLoggedIn) { %>
           <!-- Only show Managira logo when not logged in -->
           <a
-            href="<%= isPublicDashboard ? BASE_URL : '/' %>"
+            href="<%= headerHomeHref %>"
             title="Return to home page"
           >
             <img src="/images/managira.png" alt="Managira Logo" class="logo" />
@@ -943,24 +977,30 @@
           <!-- Hub without logo - show nothing or hub name only -->
         <% } %>
         <!-- Move org name/nickname outside <a> for better flex and visibility -->
-        <div class="org-names">
-          <a href="<%= dashboardHref %>" title="Go to dashboard">
-            <h3 class="org-full-name">
-              <% if (typeof orgHeaderName !== 'undefined' && orgHeaderName) { %>
-                <%= orgHeaderName %>
-              <% } else if (session.organizationName) { %>
-                <%= session.organizationName %>
-              <% } %>
-            </h3>
-            <h3 class="org-nickname">
-              <% if (typeof orgHeaderNickname !== 'undefined' && orgHeaderNickname) { %>
-                <%= orgHeaderNickname %>
-              <% } else if (session.orgNickName) { %>
-                <%= session.orgNickName %>
-              <% } %>
-            </h3>
-          </a>
-        </div>
+        <% if (isLoggedIn || showPublicOrgIdentity) { %>
+          <div class="org-names">
+            <a href="<%= showPublicOrgIdentity ? headerHomeHref : dashboardHref %>" title="<%= showPublicOrgIdentity ? 'Return to home page' : 'Go to dashboard' %>">
+              <h3 class="org-full-name">
+                <% if (typeof orgHeaderName !== 'undefined' && orgHeaderName) { %>
+                  <%= orgHeaderName %>
+                <% } else if (showPublicOrgIdentity && publicOrgFullName) { %>
+                  <%= publicOrgFullName %>
+                <% } else if (session.organizationName) { %>
+                  <%= session.organizationName %>
+                <% } %>
+              </h3>
+              <h3 class="org-nickname">
+                <% if (typeof orgHeaderNickname !== 'undefined' && orgHeaderNickname) { %>
+                  <%= orgHeaderNickname %>
+                <% } else if (showPublicOrgIdentity) { %>
+                  <%= publicOrgNickname || publicOrgFullName %>
+                <% } else if (session.orgNickName) { %>
+                  <%= session.orgNickName %>
+                <% } %>
+              </h3>
+            </a>
+          </div>
+        <% } %>
       </span>
     </div>
     <div id="tools">
@@ -1121,7 +1161,7 @@
     </ul>
     <% } else { %>
     <a id="loginbutton" title="Click to log in" href="/account/login"
-      >Login | Register</a>
+      >Sign In | Sign Up</a>
     <% } %>
   </div>
 </div>

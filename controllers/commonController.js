@@ -901,6 +901,7 @@ const commonController = {
           aboutus, 
           motto, 
           organization_name,
+          nickname,
           font_style,
           is_hub_member,
           hub_id,

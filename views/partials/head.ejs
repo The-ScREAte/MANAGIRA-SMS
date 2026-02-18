@@ -133,7 +133,8 @@
   <% } %>
   <%
     // Theme color mapping for organization buttons
-    const themeColor = (typeof session !== 'undefined' && session && session.themeColor) ? session.themeColor : 'teal';
+    const isThemeAuthenticated = !!(typeof session !== 'undefined' && session && session.firstName);
+    const themeColor = (isThemeAuthenticated && session.themeColor) ? session.themeColor : 'teal';
     const themeColors = {
       teal: { primary: '#01535b', hover: '#014a51' },
       blue: { primary: '#2563eb', hover: '#1d4ed8' },
