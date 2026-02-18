@@ -165,7 +165,7 @@
     }
 
     .collapsible-btn {
-      display: inline-flex;
+      display: none;
       align-items: center;
       gap: 6px;
       padding: 6px 12px;
@@ -204,6 +204,24 @@
       padding: 4px 0;
     }
 
+    @media (min-width: 901px) {
+      .collapsible-btn {
+        display: none !important;
+      }
+
+      .collapsible-content {
+        display: block !important;
+        margin-top: 0;
+        padding: 0;
+        background: transparent;
+        border: none;
+      }
+
+      .collapsible-content ul {
+        margin: 0;
+      }
+    }
+
     .modify-link {
       display: inline-flex;
       align-items: center;
@@ -224,6 +242,10 @@
     }
 
     @media (max-width: 900px) {
+      .collapsible-btn {
+        display: inline-flex;
+      }
+
       .employees-table table,
       .employees-table thead,
       .employees-table tbody,

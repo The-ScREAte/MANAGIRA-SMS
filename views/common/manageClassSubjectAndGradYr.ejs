@@ -19,6 +19,13 @@
         padding: 0;
       }
 
+      .class-subject-page .page-shell {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
       .class-subject-page .page-banner {
         background: var(--org-primary-color, #01535b);
         color: white;
@@ -50,6 +57,7 @@
         width: 100%;
         max-width: 1100px;
         padding: 0 20px;
+        box-sizing: border-box;
       }
 
       .action-btn {
@@ -76,14 +84,15 @@
       }
 
       .class-subject-page .container {
-        max-width: 1100px;
-        width: 100%;
+        width: min(1100px, 100%);
         margin: 0 auto 48px;
         padding: 0 20px 60px;
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(320px, 420px));
+        justify-content: center;
         gap: 20px;
         align-items: start;
+        box-sizing: border-box;
       }
 
       .class-subject-page fieldset {
@@ -191,7 +200,7 @@
         background: #b71c1c;
       }
       .class-subject-page .collapsible-wrapper {
-        display: none;
+        display: none !important;
       }
       .class-subject-page .collapsible-btn {
         width: 100%;
@@ -226,21 +235,34 @@
       .class-subject-page .collapsible-btn:focus {
         background: var(--org-primary-hover, #014a51);
       }
-      @media (max-width: 900px) {
-        .class-subject-page .collapsible-wrapper {
-          display: block;
-        }
-        .regular-class-list {
-          display: none;
-        }
+      .regular-class-list {
+        display: block;
       }
-      @media (min-width: 901px) {
-        .collapsible-wrapper {
-          display: none;
-        }
-        .regular-class-list {
-          display: block;
-        }
+
+      .section-collapse-toggle {
+        display: none;
+        margin: 10px auto 0;
+        border: 1px solid var(--border);
+        background: #f8fafc;
+        color: #334155;
+        border-radius: 999px;
+        padding: 6px 11px;
+        font-size: 0.76rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        line-height: 1.2;
+        min-width: 84px;
+      }
+
+      .section-collapse-toggle:hover {
+        border-color: var(--org-primary-color, #01535b);
+        color: var(--org-primary-color, #01535b);
+        background: #ffffff;
+      }
+
+      .fieldset-collapsible.is-collapsed > .fieldset-content {
+        display: none !important;
       }
 
       /* Three-dot menu styles */
@@ -349,6 +371,12 @@
         .class-subject-page fieldset {
           padding: 16px;
         }
+
+        .section-collapse-toggle {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
       }
     </style>
   </head>
@@ -360,7 +388,7 @@
       document.body.classList.add('class-subject-page');
     </script>
 
-    <div style="padding-top: 80px;">
+    <div class="page-shell" style="padding-top: 80px;">
     <div class="page-banner">
       <h1>Manage Classes & Subjects</h1>
       <p>Configure classes, subjects, and graduation year groups</p>
@@ -620,6 +648,61 @@
             menu.classList.remove('show');
           });
         }
+      });
+
+      // Mobile-only collapsible sections (clean, reusable)
+      document.addEventListener('DOMContentLoaded', function () {
+        const mediaQuery = window.matchMedia('(max-width: 768px)');
+        const fieldsets = document.querySelectorAll('.class-subject-page .container fieldset');
+
+        fieldsets.forEach((fieldset) => {
+          if (fieldset.dataset.collapseReady === '1') return;
+
+          const legend = fieldset.querySelector(':scope > legend');
+          if (!legend) return;
+
+          const content = document.createElement('div');
+          content.className = 'fieldset-content';
+
+          const movableNodes = Array.from(fieldset.children).filter((node) => node !== legend);
+          movableNodes.forEach((node) => content.appendChild(node));
+          fieldset.appendChild(content);
+
+          const toggle = document.createElement('button');
+          toggle.type = 'button';
+          toggle.className = 'section-collapse-toggle';
+          legend.insertAdjacentElement('afterend', toggle);
+
+          const setCollapsed = (collapsed) => {
+            fieldset.classList.toggle('is-collapsed', collapsed);
+            toggle.textContent = collapsed ? 'Expand' : 'Collapse';
+            toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+          };
+
+          const applyByViewport = () => {
+            if (mediaQuery.matches) {
+              setCollapsed(true);
+            } else {
+              setCollapsed(false);
+            }
+          };
+
+          applyByViewport();
+          toggle.addEventListener('click', function () {
+            if (!mediaQuery.matches) return;
+            const collapsed = fieldset.classList.contains('is-collapsed');
+            setCollapsed(!collapsed);
+          });
+
+          if (typeof mediaQuery.addEventListener === 'function') {
+            mediaQuery.addEventListener('change', applyByViewport);
+          } else if (typeof mediaQuery.addListener === 'function') {
+            mediaQuery.addListener(applyByViewport);
+          }
+
+          fieldset.classList.add('fieldset-collapsible');
+          fieldset.dataset.collapseReady = '1';
+        });
       });
     </script>
     </div>

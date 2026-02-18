@@ -160,6 +160,39 @@
         margin-bottom: 16px;
       }
 
+      .card-collapse-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .settings-collapse-toggle {
+        border: 1px solid var(--border);
+        background: #f8fafc;
+        color: #334155;
+        border-radius: 999px;
+        padding: 6px 11px;
+        font-size: 0.76rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        line-height: 1.2;
+        min-width: 82px;
+        width: auto;
+        flex: 0 0 auto;
+      }
+
+      .settings-collapse-toggle:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+        background: #fff;
+      }
+
+      .card.card-collapsible.is-collapsed > :not(.card-collapse-head) {
+        display: none !important;
+      }
+
       .card h4 {
         margin: 0 0 4px 0;
       }
@@ -1062,8 +1095,11 @@
           <% 
             const rawLogo = (org && (org.logo || org.logo_path)) ? (org.logo || org.logo_path) : "";
             const isLogoUrl = rawLogo && /^https?:\/\//i.test(rawLogo);
-            const logoUrl = rawLogo
+            const resolvedLogoUrl = rawLogo
               ? (isLogoUrl ? rawLogo : `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${rawLogo}`)
+              : "";
+            const logoUrl = resolvedLogoUrl
+              ? encodeURI(resolvedLogoUrl)
               : "";
           %>
 
@@ -1772,6 +1808,44 @@
         const schoolAccountMomoNumber = document.getElementById("sa-momo-number");
         const schoolAccountMomoProvider = document.getElementById("sa-momo-provider");
         const schoolAccountHolder = document.getElementById("sa-account-holder");
+
+        function initSettingsCardCollapsibles() {
+          const cards = document.querySelectorAll(".settings-section .card");
+          cards.forEach((card) => {
+            if (card.dataset.collapseReady === "1") return;
+
+            const title = card.querySelector(":scope > h4");
+            if (!title) return;
+
+            const head = document.createElement("div");
+            head.className = "card-collapse-head";
+
+            card.insertBefore(head, title);
+            head.appendChild(title);
+
+            const toggle = document.createElement("button");
+            toggle.type = "button";
+            toggle.className = "settings-collapse-toggle";
+
+            const setCollapsed = (collapsed) => {
+              card.classList.toggle("is-collapsed", collapsed);
+              toggle.textContent = collapsed ? "Expand" : "Collapse";
+              toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+            };
+
+            setCollapsed(true);
+            toggle.addEventListener("click", () => {
+              const collapsed = card.classList.contains("is-collapsed");
+              setCollapsed(!collapsed);
+            });
+
+            head.appendChild(toggle);
+            card.classList.add("card-collapsible");
+            card.dataset.collapseReady = "1";
+          });
+        }
+
+        initSettingsCardCollapsibles();
 
         function showSection(targetId) {
           sections.forEach((sec) => {

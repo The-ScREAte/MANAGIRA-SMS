@@ -3753,9 +3753,18 @@ const accountController = {
 
       const previousLogo = result.rows[0].logo;
 
-      // Upload the new logo to S3 under images/logos/{organizationId}/
-
-      const logoKey = `images/logos/${organizationId}/${file.originalname}`;
+      // Upload the new logo to S3 under images/logos/{organizationId}/ using a safe unique filename
+      const originalExt = path.extname(file.originalname || "").toLowerCase();
+      const safeExt = /^[a-z0-9.]+$/.test(originalExt) && originalExt ? originalExt : "";
+      const baseName = path.basename(file.originalname || "logo", originalExt);
+      const safeBaseName = baseName
+        .normalize("NFKD")
+        .replace(/[^a-zA-Z0-9_-]+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "")
+        .toLowerCase() || "logo";
+      const uniqueSuffix = `${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
+      const logoKey = `images/logos/${organizationId}/${uniqueSuffix}-${safeBaseName}${safeExt}`;
 
       const logoUrl = await uploadToS3(file, logoKey);
 
@@ -3773,20 +3782,14 @@ const accountController = {
 
       req.session.save();
 
-      // Delete the old logo from S3 if it exists
-
-      if (previousLogo) {
-        // Remove the S3 URL prefix to get the key
-
-        const s3Prefix = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/`;
-
-        let oldLogoKey = previousLogo;
-
-        if (previousLogo.startsWith(s3Prefix)) {
-          oldLogoKey = previousLogo.substring(s3Prefix.length);
+      // Delete the old logo from S3 if it exists and is not the same key
+      const oldLogoKey = extractS3KeyFromUrl(previousLogo);
+      if (oldLogoKey && oldLogoKey !== logoKey) {
+        try {
+          await deleteFromS3(oldLogoKey);
+        } catch (deleteErr) {
+          console.warn("Failed to delete previous logo from S3:", deleteErr.message);
         }
-
-        await deleteFromS3(oldLogoKey);
       }
 
       req.flash("success", "Logo updated successfully.");
@@ -4273,6 +4276,7 @@ const accountController = {
       'indigo': 'indigo',
       'rose': 'rose',
       'amber': 'amber',
+      'yellow': 'yellow',
       'slate': 'slate'
     };
     

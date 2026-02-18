@@ -10,7 +10,7 @@ const updateThemePost = async (req, res) => {
     const orgId = req.session.organizationId;
 
     // Valid theme colors
-    const validThemes = ['teal', 'blue', 'green', 'purple', 'indigo', 'rose', 'amber', 'slate'];
+    const validThemes = ['teal', 'blue', 'green', 'purple', 'indigo', 'rose', 'amber', 'yellow', 'slate'];
 
     if (!themeColor || !validThemes.includes(themeColor)) {
       req.flash("error", "Invalid theme color selected.");

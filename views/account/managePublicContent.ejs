@@ -12,9 +12,10 @@
       blue: { primary: '#2563eb', hover: '#1d4ed8' },
       green: { primary: '#2d5f4f', hover: '#245043' },
       purple: { primary: '#7c3aed', hover: '#6d28d9' },
-      indigo: { primary: '#4f46e5', hover: '#4338ca' },
+      indigo: { primary: '#4338ca', hover: '#312e81' },
       rose: { primary: '#8b2635', hover: '#7a212e' },
       amber: { primary: '#d97706', hover: '#b45309' },
+      yellow: { primary: '#eab308', hover: '#ca8a04' },
       slate: { primary: '#334155', hover: '#1e293b' },
       classic: { primary: '#01535b', hover: '#014a51' },
       bold: { primary: '#0b1020', hover: '#ffb703' },
@@ -59,7 +60,7 @@
   .mpc-page-header {
     background: var(--primary);
     color: white;
-    padding: 40px 20px;
+    padding: 56px 20px 40px;
     margin-bottom: 32px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
     position: relative;
@@ -83,6 +84,7 @@
     margin: 0 auto;
     position: relative;
     z-index: 1;
+    text-align: center;
   }
 
   .mpc-page-header h1 {
@@ -159,18 +161,70 @@
     color: var(--text-primary);
   }
 
+  .top-panels-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+
+  .section-collapse-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    background: #f8fafc;
+    color: #334155;
+    border-radius: 999px;
+    padding: 6px 11px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    line-height: 1.2;
+    min-width: 82px;
+    width: auto;
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+
+  .section-collapse-toggle:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: #ffffff;
+  }
+
+  .theme-panel-header .section-collapse-toggle {
+    margin-top: 10px;
+  }
+
+  .content-container.is-collapsed > :not(.images-header):not(.texts-header) {
+    display: none !important;
+  }
+
+  .theme-panel.is-collapsed > :not(.theme-panel-header) {
+    display: none !important;
+  }
+
   .images-content-container {
     width: 100%;
   }
 
   .standalone-images {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 24px;
     padding: 10px 4px 10px 0;
+    align-items: start;
   }
 
-  @media (max-width: 1024px) {
+  @media (max-width: 1280px) {
+    .standalone-images {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 768px) {
     .standalone-images {
       grid-template-columns: 1fr;
     }
@@ -304,14 +358,20 @@
 
   .slideshow-images {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 24px;
     padding: 10px 4px 10px 0;
     max-height: none;
     align-items: start;
   }
 
-  @media (max-width: 1024px) {
+  @media (max-width: 1280px) {
+    .slideshow-images {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 768px) {
     .slideshow-images {
       grid-template-columns: 1fr;
     }
@@ -321,14 +381,20 @@
 
   .text-content-container {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 24px;
     padding: 10px 4px 10px 0;
     max-height: none;
     align-items: start;
   }
 
-  @media (max-width: 1024px) {
+  @media (max-width: 1280px) {
+    .text-content-container {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 768px) {
     .text-content-container {
       grid-template-columns: 1fr;
     }
@@ -338,13 +404,20 @@
   .events-container,
   .announcements-container {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 24px;
     padding: 10px 4px 10px 0;
     align-items: start;
   }
 
-  @media (max-width: 1024px) {
+  @media (max-width: 1280px) {
+    .events-container,
+    .announcements-container {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 768px) {
     .events-container,
     .announcements-container {
       grid-template-columns: 1fr;
@@ -355,7 +428,7 @@
   .layout-option {
     border: 2px solid var(--border);
     border-radius: 12px;
-    padding: 20px;
+    padding: 14px;
     background: var(--bg-card);
     cursor: pointer;
     transition: all 0.3s ease;
@@ -375,26 +448,127 @@
     box-shadow: 0 8px 24px var(--primary-light);
   }
 
+  .layout-option:has(input:checked) {
+    border-color: var(--primary);
+    background: var(--primary-light);
+    box-shadow: 0 8px 24px var(--primary-light);
+  }
+
   .layout-option input[type="radio"] {
     cursor: pointer;
+  }
+
+  .layout-option-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .layout-option-meta {
+    flex: 1;
+    min-width: 0;
   }
 
   .layout-title {
     font-weight: 700;
     font-size: 1.05rem;
     color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+
+  .layout-subtitle {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    line-height: 1.4;
     margin-bottom: 6px;
   }
 
+  .layout-preview {
+    width: 100%;
+    max-width: 160px;
+    border: 1px solid #d9e1ec;
+    border-radius: 10px;
+    background: #f8fafc;
+    padding: 6px;
+    display: grid;
+    gap: 4px;
+  }
+
+  .layout-block {
+    border-radius: 6px;
+    min-height: 10px;
+    background: linear-gradient(135deg, #dbe8ff 0%, #c8dbff 100%);
+    border: 1px solid #c4d5f4;
+  }
+
+  .layout-block.hero { min-height: 18px; }
+  .layout-block.gallery,
+  .layout-block.articles,
+  .layout-block.events,
+  .layout-block.announcements,
+  .layout-block.about { min-height: 10px; }
+
+  .layout-block.accent {
+    background: linear-gradient(135deg, #d2f0e8 0%, #b9e4d8 100%);
+    border-color: #afd7ca;
+  }
+
+  .layout-block.soft {
+    background: linear-gradient(135deg, #e5ecf8 0%, #dbe4f4 100%);
+    border-color: #cfd8eb;
+  }
+
+  .layout-preview.wf2 {
+    grid-template-columns: 1.3fr 1fr;
+    grid-template-areas:
+      "hero hero"
+      "gallery events"
+      "articles articles"
+      "about about";
+  }
+
+  .layout-preview.wf2 .hero { grid-area: hero; }
+  .layout-preview.wf2 .gallery { grid-area: gallery; }
+  .layout-preview.wf2 .events { grid-area: events; }
+  .layout-preview.wf2 .articles { grid-area: articles; }
+  .layout-preview.wf2 .about { grid-area: about; }
+
+  .layout-preview.wf3 {
+    grid-template-columns: 1.35fr 1fr;
+    grid-template-areas:
+      "hero hero"
+      "gallery gallery"
+      "articles announcements"
+      "about about";
+  }
+
+  .layout-preview.wf3 .hero { grid-area: hero; }
+  .layout-preview.wf3 .gallery { grid-area: gallery; }
+  .layout-preview.wf3 .articles { grid-area: articles; }
+  .layout-preview.wf3 .announcements { grid-area: announcements; }
+  .layout-preview.wf3 .about { grid-area: about; }
+
+  .layout-preview.wf4 .hero { width: 100%; }
+  .layout-preview.wf4 .gallery { width: 92%; }
+  .layout-preview.wf4 .events { width: 82%; }
+  .layout-preview.wf4 .announcements { width: 72%; margin-left: auto; }
+  .layout-preview.wf4 .about { width: 100%; }
+
+  @media (max-width: 1100px) {
+    .layout-preview {
+      max-width: 100%;
+    }
+  }
+
   /* Layout Grid Container */
-  .layout-grid {
+  .layout-options-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
+    gap: 14px;
   }
 
   @media (max-width: 1024px) {
-    .layout-grid {
+    .layout-options-grid {
       grid-template-columns: 1fr;
     }
   }
@@ -458,6 +632,7 @@
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px;
+    align-items: start;
   }
 
   @media (max-width: 900px) {
@@ -474,13 +649,14 @@
   .theme-card {
     border: 2px solid var(--border);
     border-radius: 12px;
-    padding: 16px;
+    padding: 14px;
     background: var(--bg-card);
     cursor: pointer;
     transition: all 0.2s ease;
     display: flex;
-    gap: 12px;
+    gap: 10px;
     align-items: flex-start;
+    min-height: 0;
   }
 
   .theme-card:hover {
@@ -502,26 +678,34 @@
   .theme-meta {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
   }
 
   .theme-title {
     font-weight: 800;
-    font-size: 0.98rem;
-    margin: 0 0 4px 0;
+    font-size: 0.94rem;
+    margin: 0 0 2px 0;
     color: #222;
+    line-height: 1.25;
   }
 
   .theme-desc {
     margin: 0;
     color: #666;
-    font-size: 0.88rem;
-    line-height: 1.35;
+    font-size: 0.8rem;
+    line-height: 1.22;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
   .swatches {
     display: flex;
     gap: 6px;
-    margin-top: 8px;
+    margin-top: 4px;
+    margin-bottom: 3px;
     align-items: center;
     flex-wrap: wrap;
   }
@@ -558,18 +742,112 @@
     box-shadow: 0 6px 20px var(--primary-light);
   }
 
+  .inline-action-loading {
+    position: relative;
+    color: transparent !important;
+    pointer-events: none;
+  }
+
+  .inline-action-loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 16px;
+    height: 16px;
+    margin: -8px 0 0 -8px;
+    border: 2px solid rgba(255, 255, 255, 0.45);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: inlineSpin .7s linear infinite;
+  }
+
+  .inline-action-loading.delete-link::after {
+    border: 2px solid rgba(239, 68, 68, 0.25);
+    border-top-color: #ef4444;
+  }
+
+  @keyframes inlineSpin {
+    to { transform: rotate(360deg); }
+  }
+
+  .inline-status {
+    position: fixed;
+    right: 20px;
+    top: 18px;
+    z-index: 9999;
+    padding: 10px 14px;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 0.88rem;
+    font-weight: 600;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.2);
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all .2s ease;
+    pointer-events: none;
+  }
+
+  .inline-status.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .inline-status.success { background: #16a34a; }
+  .inline-status.error { background: #dc2626; }
+
   /* Optional: keep your section headings from looking too huge */
   .manage-public-container h2 {
     margin: 0;
   }
 
-  @media screen and (max-width: 900px) {
-    .manage-public-container > div[style*="grid-template-columns"] {
-      grid-template-columns: 1fr !important;
-    }
-  }
-
   @media screen and (max-width: 768px) {
+    .manage-public-page {
+      padding: 10px 0 30px;
+    }
+
+    .top-panels-grid {
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .layout-options-grid,
+    .theme-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .theme-panel {
+      padding: 12px;
+      border-radius: 12px;
+    }
+
+    .theme-panel-header {
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+    }
+
+    .theme-panel-header h2 {
+      font-size: 1rem;
+      margin-bottom: 4px;
+    }
+
+    .theme-panel-header p {
+      font-size: 0.8rem;
+    }
+
+    .mpc-page-header {
+      padding: 42px 14px 22px;
+      margin-bottom: 16px;
+    }
+
+    .mpc-page-header h1 {
+      font-size: 1.35rem;
+    }
+
+    .mpc-page-header p {
+      font-size: 0.9rem;
+    }
+
     .manage-public-header {
       flex-direction: column;
       padding: 10px;
@@ -588,9 +866,13 @@
 
     .images-header,
     .texts-header {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 10px;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
     }
 
     .images-header h2,
@@ -601,15 +883,96 @@
     .image-content-form,
     .text-content-form {
       width: 100%;
-      padding: 20px;
+      min-height: 0;
+      padding: 14px;
+      border-radius: 12px;
     }
 
     .content-container {
-      padding: 20px;
+      padding: 14px;
+      border-radius: 12px;
     }
 
     .manage-public-container {
-      padding: 0 12px 40px;
+      padding: 0 8px 24px;
+      gap: 14px;
+    }
+
+    .standalone-images,
+    .slideshow-images,
+    .text-content-container,
+    .events-container,
+    .announcements-container {
+      gap: 12px;
+      padding: 0;
+    }
+
+    .image-content-form img {
+      height: 120px;
+      margin-bottom: 10px;
+    }
+
+    .btn, .image-content-form button, .text-content-form button {
+      padding: 10px 14px;
+      font-size: 0.88rem;
+    }
+
+    .btn-primary,
+    .section-collapse-toggle {
+      padding: 8px 10px;
+      font-size: 0.8rem;
+    }
+  }
+
+  @media screen and (max-width: 480px) {
+    .top-panels-grid {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .layout-options-grid,
+    .theme-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .mpc-page-header {
+      padding: 34px 12px 18px;
+    }
+
+    .mpc-page-header h1 {
+      font-size: 1.2rem;
+    }
+
+    .content-container {
+      padding: 12px;
+    }
+
+    .images-header h2,
+    .texts-header h2 {
+      font-size: 1rem;
+    }
+
+    .section-collapse-toggle {
+      padding: 7px 9px;
+      font-size: 0.76rem;
+    }
+  }
+
+  @media screen and (max-width: 1024px) {
+    .manage-public-page {
+      padding-top: 28px !important;
+    }
+
+    .mpc-page-header {
+      margin-top: 16px;
+      padding-top: 76px !important;
+    }
+  }
+
+  @media screen and (max-width: 480px) {
+    .mpc-page-header {
+      margin-top: 14px;
+      padding-top: 62px !important;
     }
   }
 
@@ -624,42 +987,43 @@
     }
   }
 
-    }
+  .text-content-container,
+  .slideshow-images,
+  .standalone-images {
+    gap: 10px;
+    padding: 5px;
+  }
 
-    .text-content-container,
-    .slideshow-images,
-    .standalone-images {
-      gap: 10px;
-      padding: 5px;
-    }
+  .text-content-form .rich-text-editor {
+    height: 150px;
+  }
 
-    .text-content-form .rich-text-editor {
-      height: 150px;
-    }
+  .public-dashboard-link a {
+    word-break: break-word;
+  }
 
-    .public-dashboard-link a {
-      word-break: break-word;
-    }
+  #aboutUsForm textarea,
+  #aboutUsForm input[type="text"] {
+    width: 100%;
+  }
 
-    #aboutUsForm textarea,
-    #aboutUsForm input[type="text"] {
-      width: 100%;
-    }
+  form button,
+  form .delete-link {
+    width: 100%;
+  }
 
-    form button,
-    form .delete-link {
-      width: 100%;
-    }
+  .section-collapse-toggle {
+    width: auto !important;
+  }
 
-    .text-content-form label,
-    .image-content-form label {
-      font-size: 0.9rem;
-    }
+  .text-content-form label,
+  .image-content-form label {
+    font-size: 0.9rem;
+  }
 
-    .image-content-form img {
-      height: auto;
-      max-height: 200px;
-    }
+  .image-content-form img {
+    height: auto;
+    max-height: 200px;
   }
 
   .notice {
@@ -731,57 +1095,86 @@
 
 
 <div class="manage-public-container" style="max-width: 1200px;">
-  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start;">
+  <div class="top-panels-grid">
   
   <!-- Website Layout Panel -->
   <div class="theme-panel">
     <div class="theme-panel-header">
       <h2>🎨 Website Layout</h2>
       <p>Choose the arrangement of sections on your School Website.</p>
+      <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
     </div>
 
     <form action="/account/updatePublicDashboardLayout" method="POST">
-      <div style="display: grid; gap: 12px;">
+      <div class="layout-options-grid">
         <label class="layout-option <%= (publicDashboardLayout || 'wireframe1') === 'wireframe1' ? 'selected' : '' %>">
-          <div style="display:flex; gap: 10px; align-items:flex-start;">
+          <div class="layout-option-row">
             <input type="radio" name="publicDashboardLayout" value="wireframe1" <%= (publicDashboardLayout || 'wireframe1') === 'wireframe1' ? 'checked' : '' %> style="margin-top: 4px;" />
-            <div>
+            <div class="layout-option-meta">
               <div class="layout-title">Traditional</div>
-              <div style="color:#666; font-size: 0.82rem; line-height: 1.4;">
-                Hero → Gallery → Articles → Events → About Us
+              <div class="layout-subtitle">
+                Classic vertical section flow.
+              </div>
+              <div class="layout-preview wf1" aria-hidden="true">
+                <span class="layout-block hero"></span>
+                <span class="layout-block gallery accent"></span>
+                <span class="layout-block articles"></span>
+                <span class="layout-block events"></span>
+                <span class="layout-block about soft"></span>
               </div>
             </div>
           </div>
         </label>
         <label class="layout-option <%= publicDashboardLayout === 'wireframe2' ? 'selected' : '' %>">
-          <div style="display:flex; gap: 10px; align-items:flex-start;">
+          <div class="layout-option-row">
             <input type="radio" name="publicDashboardLayout" value="wireframe2" <%= publicDashboardLayout === 'wireframe2' ? 'checked' : '' %> style="margin-top: 4px;" />
-            <div>
+            <div class="layout-option-meta">
               <div class="layout-title">Split Dashboard</div>
-              <div style="color:#666; font-size: 0.82rem; line-height: 1.4;">
-                Hero → Gallery + Events → Articles → About Us
+              <div class="layout-subtitle">
+                Gallery and events side-by-side.
+              </div>
+              <div class="layout-preview wf2" aria-hidden="true">
+                <span class="layout-block hero"></span>
+                <span class="layout-block gallery accent"></span>
+                <span class="layout-block events accent"></span>
+                <span class="layout-block articles"></span>
+                <span class="layout-block about soft"></span>
               </div>
             </div>
           </div>
         </label>
         <label class="layout-option <%= publicDashboardLayout === 'wireframe3' ? 'selected' : '' %>">
-          <div style="display:flex; gap: 10px; align-items:flex-start;">
+          <div class="layout-option-row">
             <input type="radio" name="publicDashboardLayout" value="wireframe3" <%= publicDashboardLayout === 'wireframe3' ? 'checked' : '' %> style="margin-top: 4px;" />
-            <div>
+            <div class="layout-option-meta">
               <div class="layout-title">Content-First</div>
-              <div style="color:#666; font-size: 0.82rem; line-height: 1.4;">
-                Hero → Gallery → Articles + Announcements → About Us
+              <div class="layout-subtitle">
+                Articles and announcements in split focus.
+              </div>
+              <div class="layout-preview wf3" aria-hidden="true">
+                <span class="layout-block hero"></span>
+                <span class="layout-block gallery accent"></span>
+                <span class="layout-block articles"></span>
+                <span class="layout-block announcements accent"></span>
+                <span class="layout-block about soft"></span>
               </div>
             </div>
           </div>
         </label>
         <label class="layout-option <%= publicDashboardLayout === 'wireframe4' ? 'selected' : '' %>">
-          <div style="display:flex; gap: 10px; align-items:flex-start;">
+          <div class="layout-option-row">
             <input type="radio" name="publicDashboardLayout" value="wireframe4" <%= publicDashboardLayout === 'wireframe4' ? 'checked' : '' %> style="margin-top: 4px;" />
-            <div>
+            <div class="layout-option-meta">
               <div class="layout-title">Narrative Flow</div>
-              <div style="color:#666; font-size: 0.82rem; line-height: 1.4;">
-                Hero → Gallery → Events → Announcements → About Us
+              <div class="layout-subtitle">
+                Step-by-step story flow.
+              </div>
+              <div class="layout-preview wf4" aria-hidden="true">
+                <span class="layout-block hero"></span>
+                <span class="layout-block gallery accent"></span>
+                <span class="layout-block events"></span>
+                <span class="layout-block announcements accent"></span>
+                <span class="layout-block about soft"></span>
               </div>
             </div>
           </div>
@@ -797,7 +1190,8 @@
   <div class="theme-panel">
     <div class="theme-panel-header">
       <h2>🎨 Themes</h2>
-      <p>Pick a theme. Each option shows the main colors used on the public website.</p>
+      <p>Pick theme for your school.</p>
+      <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
     </div>
 
 <form action="/account/updatePublicDashboardTheme" method="POST">
@@ -808,12 +1202,12 @@
       <input class="theme-radio" type="radio" name="publicDashboardTheme" value="classic"
         <%= publicDashboardTheme === 'classic' ? 'checked' : '' %> />
       <div class="theme-meta">
-        <div class="theme-title">Classic Teal</div>
+        <div class="theme-title">Ocean Teal</div>
         <div class="swatches">
           <span class="swatch" style="background:#01535b;"></span>
           <span class="swatch" style="background:#014a51;"></span>
         </div>
-        <div class="theme-desc">Great for most schools.</div>
+        <div class="theme-desc">Trusted academic teal.</div>
       </div>
     </label>
 
@@ -822,12 +1216,12 @@
       <input class="theme-radio" type="radio" name="publicDashboardTheme" value="modern"
         <%= publicDashboardTheme === 'modern' ? 'checked' : '' %> />
       <div class="theme-meta">
-        <div class="theme-title">Modern Blue</div>
+        <div class="theme-title">Royal Blue</div>
         <div class="swatches">
           <span class="swatch" style="background:#2563eb;"></span>
           <span class="swatch" style="background:#1d4ed8;"></span>
         </div>
-        <div class="theme-desc">Light blue theme.</div>
+        <div class="theme-desc">Crisp modern blue.</div>
       </div>
     </label>
 
@@ -836,12 +1230,12 @@
       <input class="theme-radio" type="radio" name="publicDashboardTheme" value="green"
         <%= publicDashboardTheme === 'green' ? 'checked' : '' %> />
       <div class="theme-meta">
-        <div class="theme-title">Forest Green</div>
+        <div class="theme-title">Evergreen</div>
         <div class="swatches">
           <span class="swatch" style="background:#2d5f4f;"></span>
           <span class="swatch" style="background:#245043;"></span>
         </div>
-        <div class="theme-desc">Natural green theme.</div>
+        <div class="theme-desc">Calm natural green.</div>
       </div>
     </label>
 
@@ -850,12 +1244,12 @@
       <input class="theme-radio" type="radio" name="publicDashboardTheme" value="minimal"
         <%= publicDashboardTheme === 'minimal' ? 'checked' : '' %> />
       <div class="theme-meta">
-        <div class="theme-title">Minimal Purple</div>
+        <div class="theme-title">Amethyst Purple</div>
         <div class="swatches">
           <span class="swatch" style="background:#7c3aed;"></span>
           <span class="swatch" style="background:#6d28d9;"></span>
         </div>
-        <div class="theme-desc">Purple theme.</div>
+        <div class="theme-desc">Refined premium purple.</div>
       </div>
     </label>
 
@@ -866,10 +1260,10 @@
       <div class="theme-meta">
         <div class="theme-title">Deep Indigo</div>
         <div class="swatches">
-          <span class="swatch" style="background:#4f46e5;"></span>
           <span class="swatch" style="background:#4338ca;"></span>
+          <span class="swatch" style="background:#312e81;"></span>
         </div>
-        <div class="theme-desc">Rich indigo theme.</div>
+        <div class="theme-desc">Bold confident indigo.</div>
       </div>
     </label>
 
@@ -878,12 +1272,12 @@
       <input class="theme-radio" type="radio" name="publicDashboardTheme" value="rose"
         <%= publicDashboardTheme === 'rose' ? 'checked' : '' %> />
       <div class="theme-meta">
-        <div class="theme-title">Rose Red</div>
+        <div class="theme-title">Crimson Rose</div>
         <div class="swatches">
           <span class="swatch" style="background:#8b2635;"></span>
           <span class="swatch" style="background:#7a212e;"></span>
         </div>
-        <div class="theme-desc">Deep rose theme.</div>
+        <div class="theme-desc">Elegant institutional red.</div>
       </div>
     </label>
 
@@ -897,7 +1291,21 @@
           <span class="swatch" style="background:#d97706;"></span>
           <span class="swatch" style="background:#b45309;"></span>
         </div>
-        <div class="theme-desc">Warm amber theme.</div>
+        <div class="theme-desc">Warm premium amber.</div>
+      </div>
+    </label>
+
+    <!-- Solar Yellow -->
+    <label class="theme-card">
+      <input class="theme-radio" type="radio" name="publicDashboardTheme" value="yellow"
+        <%= publicDashboardTheme === 'yellow' ? 'checked' : '' %> />
+      <div class="theme-meta">
+        <div class="theme-title">Solar Yellow</div>
+        <div class="swatches">
+          <span class="swatch" style="background:#eab308;"></span>
+          <span class="swatch" style="background:#ca8a04;"></span>
+        </div>
+        <div class="theme-desc">Bright energetic yellow.</div>
       </div>
     </label>
 
@@ -906,12 +1314,12 @@
       <input class="theme-radio" type="radio" name="publicDashboardTheme" value="slate"
         <%= publicDashboardTheme === 'slate' ? 'checked' : '' %> />
       <div class="theme-meta">
-        <div class="theme-title">Slate Gray</div>
+        <div class="theme-title">Slate Graphite</div>
         <div class="swatches">
           <span class="swatch" style="background:#334155;"></span>
           <span class="swatch" style="background:#1e293b;"></span>
         </div>
-        <div class="theme-desc">Professional slate theme.</div>
+        <div class="theme-desc">Professional balanced slate.</div>
       </div>
     </label>
 
@@ -929,20 +1337,21 @@
     <div class="manage-public-container">
         <div class="content-container">
             <div class="images-header">
-                <h2>📷 Images</h2>
+            <h2>📷 Gallery Images</h2>
                 <a id="toggle-upload-content-form" class="btn-primary"><i class="fa-regular fa-square-plus"></i>Upload Image</a>
+            <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
             </div>
             
                 <div id="uploadContentForm" style="display: none; max-width: 600px; margin: 20px auto; padding: 30px; border: 1px solid #ddd; border-radius: 10px; background-color: #f9f9f9; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); position: relative;">
                     <button type="button" id="closeUploadForm" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; color: #666; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: all 0.3s ease;" onmouseover="this.style.backgroundColor='#e9ecef'; this.style.color='#333';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='#666';">&times;</button>
-                    <form action="/account/uploadSlideshowImages" method="POST" enctype="multipart/form-data">
-                        <h2 style="text-align: center; margin-bottom: 25px; color: #333;">Upload Image Content</h2>
+                    <form id="contentUploadForm" action="/account/uploadSlideshowImages" method="POST" enctype="multipart/form-data">
+                      <h2 style="text-align: center; margin-bottom: 25px; color: #333;">Upload Gallery &amp; Slideshow Images</h2>
                         <div style="margin-bottom: 20px;">
                             <label for="contentType" style="display: block; margin-bottom: 8px; font-weight: bold;">Content Type:</label>
                             <select id="contentType" name="contentType" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px;">
                                 <option value="">Select Content Type</option>
-                                <option value="slideshow">Slide Show</option>
-                                <option value="siteImage">Site Image</option>
+                          <option value="slideshow">Slideshow Image</option>
+                          <option value="siteImage">Gallery Image</option>
                             </select>
                         </div>
                         <div id="fileUploadContainer" style="margin-bottom: 20px;">
@@ -958,29 +1367,6 @@
                 <% if (images.length === 0) { %>
                     <p style="text-align: center; color: var(--text-secondary); font-style: italic; padding: 40px 20px;">No images have been uploaded to the school website yet</p>
                 <% } else { %>
-                    <h3 class="section-subtitle">Content Images</h3>
-                    <div class="standalone-images">
-                        <% images.filter(image => image.allocation !== 'slideshow').forEach((image) => { %>
-                          <form action="/account/updateImage" method="POST" class="image-content-form">
-                            <img src="<%= image.image_url.startsWith('http') ? image.image_url : '/' + image.image_url %>" alt="Image">
-                            <input type="hidden" name="imageId" value="<%= image.image_id %>">
-                      
-                            <label for="caption">Caption:</label>
-                            <input type="text" required name="caption" value="<%= image.caption %>">
-                      
-                            <label for="allocation">Allocation:</label>
-                            <select name="allocation">
-                              <option value="hero" <%= image.allocation === 'hero' ? 'selected' : '' %>>Hero Image</option>
-                              <option value="slideshow" <%= image.allocation === 'slideshow' ? 'selected' : '' %>>Slideshow Image</option>
-                            </select>
-                      
-                            <button type="submit">Update</button>
-                            <a href="/account/deleteImage/<%= image.image_id %>" class="delete-link">Delete</a>
-                          </form>
-                        <% }); %>
-                      </div>
-    
-                    <%# Slideshow Images %>
                     <h3 class="section-subtitle">Slideshow Images</h3>
                     <div class="slideshow-images">
                         <% let currentSlideShowId = null; %>
@@ -994,7 +1380,7 @@
                                     <input type="text" name="caption" value="<%= image.caption %>">
                                     <label for="allocation">Allocation:</label>
                                     <select name="allocation">
-                                        <option value="hero" <%= image.allocation === 'hero' ? 'selected' : '' %>>Hero Image</option>
+                                        <option value="hero" <%= image.allocation === 'hero' ? 'selected' : '' %>>Gallery Image</option>
                                         <option value="slideshow" <%= image.allocation === 'slideshow' ? 'selected' : '' %>>Slideshow Image</option>
                                     </select>
                                     <button type="submit">Update</button>
@@ -1002,45 +1388,68 @@
                                 </form>
                         <% }); %>
                     </div>
+
+                    <h3 class="section-subtitle">Gallery Images</h3>
+                    <div class="standalone-images">
+                        <% images.filter(image => image.allocation !== 'slideshow').forEach((image) => { %>
+                          <form action="/account/updateImage" method="POST" class="image-content-form">
+                            <img src="<%= image.image_url.startsWith('http') ? image.image_url : '/' + image.image_url %>" alt="Gallery Image">
+                            <input type="hidden" name="imageId" value="<%= image.image_id %>">
+                      
+                            <label for="caption">Caption:</label>
+                            <input type="text" required name="caption" value="<%= image.caption %>">
+                      
+                            <label for="allocation">Allocation:</label>
+                            <select name="allocation">
+                              <option value="hero" <%= image.allocation === 'hero' ? 'selected' : '' %>>Gallery Image</option>
+                              <option value="slideshow" <%= image.allocation === 'slideshow' ? 'selected' : '' %>>Slideshow Image</option>
+                            </select>
+                      
+                            <button type="submit">Update</button>
+                            <a href="/account/deleteImage/<%= image.image_id %>" class="delete-link">Delete</a>
+                          </form>
+                        <% }); %>
+                      </div>
                 <% } %>
             </div>
         </div>
 
         <div class="content-container">
             <div class="texts-header">
-                <h2>📝 Text Sections</h2>
-                <a id="toggle-upload-text-form" class="btn-primary"><i class="fa-regular fa-square-plus"></i>Add Text</a>
+                <h2>📝 Articles</h2>
+                <a id="toggle-upload-text-form" class="btn-primary"><i class="fa-regular fa-square-plus"></i>Add Article</a>
+            <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
             </div>
 
             <div id="uploadTextForm" style="display: none; max-width: 600px; margin: 20px auto; padding: 30px; border: 1px solid #ddd; border-radius: 10px; background-color: #f9f9f9; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); position: relative;">
                 <button type="button" id="closeUploadTextForm" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; color: #666; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: all 0.3s ease;" onmouseover="this.style.backgroundColor='#e9ecef'; this.style.color='#333';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='#666';">&times;</button>
                 <form action="/account/addTextSection" method="POST">
-                    <h2 style="text-align: center; margin-bottom: 25px; color: #333;">Add Text Section</h2>
+                  <h2 style="text-align: center; margin-bottom: 25px; color: #333;">Add Article</h2>
                     <div style="margin-bottom: 20px;">
                         <label for="heading" style="display: block; margin-bottom: 8px; font-weight: bold;">Heading:</label>
                         <input type="text" required id="heading" name="heading" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px;">
                     </div>
                     <div style="margin-bottom: 20px;">
-                        <label for="paragraph" style="display: block; margin-bottom: 8px; font-weight: bold;">Text:</label>
+                    <label for="paragraph" style="display: block; margin-bottom: 8px; font-weight: bold;">Article:</label>
                         <div id="rich-text-editor" style="height: 200px; border: 1px solid #ccc; border-radius: 5px;"></div>
                         <textarea id="paragraph" name="paragraph" style="display: none;" required></textarea>
                     </div>
                     <div style="text-align: center; margin-top: 25px;">
-                        <button type="submit" class="btn btn-primary">Add Text Section</button>
+                    <button type="submit" class="btn btn-primary">Add Article</button>
                     </div>
                 </form>
             </div>
     
             <div class="text-content-container">
                 <% if (texts.length === 0) { %>
-                    <p style="text-align: center; color: var(--text-secondary); font-style: italic; padding: 40px 20px;">No text sections available yet.</p>
+                  <p style="text-align: center; color: var(--text-secondary); font-style: italic; padding: 40px 20px;">No articles available yet.</p>
                 <% } else { %>
                     <% texts.forEach(text => { %>
                             <form action="/account/updateText" method="POST" class="text-content-form">
                                 <input type="hidden" name="textId" value="<%= text.text_id %>">
                                 <label for="heading">Heading:</label>
                                 <input type="text" name="heading" value="<%= text.heading %>">
-                                <label for="paragraph">Paragraph:</label>
+                        <label for="paragraph">Article:</label>
                                 <div class="rich-text-editor" style="height: 200px; border: 1px solid #ccc;"></div>
                                 <textarea name="paragraph" style="display: none;" required><%= text.paragraph %></textarea>
                                 <button type="submit">Update</button>
@@ -1056,6 +1465,7 @@
             <div class="images-header">
                 <h2>📅 Events</h2>
                 <a id="toggle-create-event-form" class="btn-primary"><i class="fa-regular fa-square-plus"></i>Create Event</a>
+            <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
             </div>
 
             <!-- Toggle Create Event Form -->
@@ -1125,6 +1535,7 @@
             <div class="images-header">
                 <h2>📢 Announcements</h2>
                 <a id="toggle-create-announcement-form" class="btn-primary"><i class="fa-regular fa-square-plus"></i>Create Announcement</a>
+            <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
             </div>
 
             <!-- Toggle Create Announcement Form -->
@@ -1180,14 +1591,15 @@
         <!-- About Us Section -->
         <div class="content-container">
             <div class="images-header" style="justify-content: center;">
-                <h2>📖 About Us Section</h2>
+            <h2>📖 About Our School</h2>
+            <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
             </div>
             <form id="aboutUsForm" action="/account/update-about-us" method="POST" style="max-width: 700px; margin: 0 auto;">
                 <input type="hidden" name="organization_id" value="<%= orgDetails.organization_id %>">
 
                 <!-- About Us Field -->
                 <div style="margin-bottom: 20px;">
-                    <label for="aboutUs" style="display: block; margin-bottom: 8px; font-weight: bold;">About Us:</label>
+              <label for="aboutUs" style="display: block; margin-bottom: 8px; font-weight: bold;">About Our School:</label>
                     <textarea id="aboutUs" name="aboutUs" rows="5" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px; resize: vertical;"><%= orgDetails.aboutus ? orgDetails.aboutus : '' %></textarea>
                 </div>
 
@@ -1201,7 +1613,7 @@
                 <!-- Submit Button -->
                 <div style="text-align: center; margin-top: 25px;">
                     <button type="submit" id="aboutUsBtn" class="btn btn-primary">
-                        <%= orgDetails.aboutus && orgDetails.motto ? 'Update About Us' : 'Add About Us' %>
+                    <%= orgDetails.aboutus && orgDetails.motto ? 'Update About Our School' : 'Add About Our School' %>
                     </button>
                 </div>
             </form>
@@ -1211,6 +1623,7 @@
         <div class="content-container">
             <div class="images-header" style="justify-content: center;">
             <h2>⚙️ Self Enrollment Settings</h2>
+          <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
             </div>
             <form action="/account/updatePublicRegistration" method="POST" style="max-width: 700px; margin: 0 auto;">
                 <div style="margin-bottom: 20px;">
@@ -1282,7 +1695,7 @@
 
         function hideForm() {
             uploadContentForm.style.display = "none";
-            toggleButton.innerHTML = "<i class='fa-regular fa-square-plus'></i>Upload Image Content";
+          toggleButton.innerHTML = "<i class='fa-regular fa-square-plus'></i>Upload Image";
         }
 
         function showForm() {
@@ -1310,7 +1723,7 @@
 
         function hideTextForm() {
             uploadTextForm.style.display = "none";
-            toggleButton.innerHTML = "<i class='fa-regular fa-square-plus'></i>Upload Text";
+          toggleButton.innerHTML = "<i class='fa-regular fa-square-plus'></i>Add Article";
         }
 
         function showTextForm() {
@@ -1374,15 +1787,18 @@
             }
         };
         
-        document.getElementById('contentUploadForm').addEventListener('submit', function(e) {
+        const contentUploadForm = document.getElementById('contentUploadForm');
+        if (contentUploadForm) {
+          contentUploadForm.addEventListener('submit', function(e) {
             if (contentTypeSelect.value === 'slideshow') {
-                const fileInputs = document.querySelectorAll('input[type="file"]');
-                if (fileInputs.length < 2) {
-                    e.preventDefault();
-                    alert('Please upload at least two images or videos for the slideshow.');
-                }
+              const fileInputs = fileUploadContainer.querySelectorAll('input[type="file"]');
+              if (fileInputs.length < 2) {
+                e.preventDefault();
+                alert('Please upload at least two images or videos for the slideshow.');
+              }
             }
-        });
+          });
+        }
         });
 
         function toggleForm() {
@@ -1462,9 +1878,10 @@
                 'modern': { primary: '#2563eb', hover: '#1d4ed8' },
                 'green': { primary: '#2d5f4f', hover: '#245043' },
                 'minimal': { primary: '#7c3aed', hover: '#6d28d9' },
-                'indigo': { primary: '#4f46e5', hover: '#4338ca' },
+                'indigo': { primary: '#4338ca', hover: '#312e81' },
                 'rose': { primary: '#8b2635', hover: '#7a212e' },
                 'amber': { primary: '#d97706', hover: '#b45309' },
+              'yellow': { primary: '#eab308', hover: '#ca8a04' },
                 'slate': { primary: '#334155', hover: '#1e293b' }
             };
 
@@ -1474,6 +1891,11 @@
                     const colors = themeColorMap[selectedTheme];
                     
                     if (colors) {
+                      // Update core page variables
+                      document.documentElement.style.setProperty('--primary', colors.primary);
+                      document.documentElement.style.setProperty('--primary-hover', colors.hover);
+                      document.documentElement.style.setProperty('--primary-light', `${colors.primary}1a`);
+
                         // Update CSS variables for immediate preview
                         document.documentElement.style.setProperty('--org-primary-color', colors.primary);
                         document.documentElement.style.setProperty('--org-primary-hover', colors.hover);
@@ -1517,23 +1939,161 @@
             paragraphTextarea.value = quill.root.innerHTML; // Set Quill's content as the value of the textarea
         });
 
-        // Initialize Quill for each "Update Text" form
+        // Initialize Quill for each article update form only
         document.querySelectorAll('.text-content-form').forEach(form => {
-            const editorDiv = form.querySelector('.rich-text-editor');
-            const textarea = form.querySelector('textarea');
+          const editorDiv = form.querySelector('.rich-text-editor');
+          const textarea = form.querySelector('textarea');
+          if (!editorDiv || !textarea) return;
 
-            const quillEditor = new Quill(editorDiv, {
-                theme: 'snow'
-            });
+          const quillEditor = new Quill(editorDiv, {
+            theme: 'snow'
+          });
 
-            // Set the initial content of the editor from the textarea
-            quillEditor.root.innerHTML = textarea.value;
+          quillEditor.root.innerHTML = textarea.value;
+          quillEditor.on('text-change', function() {
+            textarea.value = quillEditor.root.innerHTML;
+          });
+        });
 
-            // Synchronize the editor's content with the textarea
-            quillEditor.on('text-change', function() {
-                textarea.value = quillEditor.root.innerHTML;
+        // Collapsible content/theme sections (mobile defaults collapsed)
+        document.addEventListener('DOMContentLoaded', function () {
+            const containers = document.querySelectorAll('.manage-public-container .content-container, .manage-public-container .theme-panel');
+
+            containers.forEach((container) => {
+              const toggleBtn = container.querySelector('.section-collapse-toggle');
+              if (!toggleBtn) return;
+              const collapsedClass = container.classList.contains('theme-panel') ? 'is-collapsed' : 'is-collapsed';
+
+              const setCollapsed = (collapsed) => {
+                container.classList.toggle(collapsedClass, collapsed);
+                toggleBtn.textContent = collapsed ? 'Expand' : 'Collapse';
+                toggleBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+              };
+
+              setCollapsed(true);
+
+              toggleBtn.addEventListener('click', function () {
+                const collapsed = container.classList.contains('is-collapsed');
+                setCollapsed(!collapsed);
+              });
             });
         });
+
+          // Async interactions for this page only (no full-page reload)
+          document.addEventListener('DOMContentLoaded', function () {
+            const pageRoot = document.querySelector('.manage-public-page');
+            if (!pageRoot) return;
+
+            const statusEl = document.createElement('div');
+            statusEl.className = 'inline-status';
+            document.body.appendChild(statusEl);
+
+            function showStatus(message, type) {
+              statusEl.textContent = message;
+              statusEl.className = `inline-status ${type} show`;
+              setTimeout(() => {
+                statusEl.classList.remove('show');
+              }, 1800);
+            }
+
+            function setElementLoading(element, loading) {
+              if (!element) return;
+              if (loading) {
+                if (!element.dataset.originalHtml) {
+                  element.dataset.originalHtml = element.innerHTML;
+                }
+                if (!element.dataset.originalWidth) {
+                  const width = element.getBoundingClientRect().width;
+                  element.dataset.originalWidth = String(Math.ceil(width));
+                  element.style.minWidth = `${Math.ceil(width)}px`;
+                }
+                element.classList.add('inline-action-loading');
+                if ('disabled' in element) element.disabled = true;
+              } else {
+                element.classList.remove('inline-action-loading');
+                if ('disabled' in element) element.disabled = false;
+                if (element.dataset.originalHtml) {
+                  element.innerHTML = element.dataset.originalHtml;
+                }
+                element.style.removeProperty('min-width');
+              }
+            }
+
+            async function sendFormAsync(form, submitter) {
+              const method = (form.getAttribute('method') || 'POST').toUpperCase();
+              const formData = new FormData(form);
+              const response = await fetch(form.action, {
+                method,
+                body: formData,
+                credentials: 'same-origin',
+                headers: {
+                  'X-Requested-With': 'XMLHttpRequest'
+                }
+              });
+
+              if (!response.ok) {
+                throw new Error(`Request failed (${response.status})`);
+              }
+
+              if (submitter && submitter.classList.contains('delete-link')) {
+                const card = submitter.closest('.image-content-form, .text-content-form');
+                if (card) card.remove();
+              }
+
+              return response;
+            }
+
+            pageRoot.addEventListener('submit', async function (event) {
+              const form = event.target;
+              if (!(form instanceof HTMLFormElement)) return;
+
+              event.preventDefault();
+
+              const submitter = event.submitter || form.querySelector('button[type="submit"], input[type="submit"]');
+              setElementLoading(submitter, true);
+
+              try {
+                await sendFormAsync(form, submitter);
+                showStatus('Saved successfully', 'success');
+              } catch (error) {
+                showStatus('Action failed. Try again.', 'error');
+              } finally {
+                setElementLoading(submitter, false);
+              }
+            }, true);
+
+            pageRoot.addEventListener('click', async function (event) {
+              const link = event.target.closest('a.delete-link');
+              if (!link) return;
+
+              event.preventDefault();
+
+              setElementLoading(link, true);
+              try {
+                const response = await fetch(link.href, {
+                  method: 'GET',
+                  credentials: 'same-origin',
+                  headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                  }
+                });
+
+                if (!response.ok) {
+                  throw new Error(`Delete failed (${response.status})`);
+                }
+
+                const card = link.closest('.image-content-form, .text-content-form');
+                if (card) card.remove();
+                showStatus('Deleted successfully', 'success');
+              } catch (error) {
+                showStatus('Delete failed. Try again.', 'error');
+                setElementLoading(link, false);
+                return;
+              }
+
+              setElementLoading(link, false);
+            });
+          });
     </script>
 
 

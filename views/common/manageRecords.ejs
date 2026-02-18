@@ -176,6 +176,45 @@
         width: 100%;
       }
 
+      .section-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+
+      .section-head h1 {
+        margin: 0;
+        text-align: left;
+      }
+
+      .section-collapse-toggle {
+        border: 1px solid var(--border);
+        background: #f8fafc;
+        color: #334155;
+        border-radius: 999px;
+        padding: 6px 11px;
+        font-size: 0.76rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        line-height: 1.2;
+        min-width: 82px;
+        width: auto;
+        flex: 0 0 auto;
+      }
+
+      .section-collapse-toggle:hover {
+        border-color: var(--org-primary-color);
+        color: var(--org-primary-color);
+        background: #fff;
+      }
+
+      .collapsible-block.is-collapsed > .collapsible-content {
+        display: none !important;
+      }
+
       .school-year-wrapper {
         max-width: 100%;
         width: 100%;
@@ -489,6 +528,14 @@
           width: 100%;
           justify-content: center;
         }
+
+        .section-head {
+          flex-wrap: wrap;
+        }
+
+        .section-head h1 {
+          font-size: 20px;
+        }
       }
     </style>
   </head>
@@ -525,9 +572,14 @@
       </div>
 
       <div class="container">
-        <fieldset>
-          <h1>School Years</h1>
-          <legend>Manage Your Academic Years</legend>
+        <fieldset class="collapsible-block is-collapsed" id="schoolYearsBlock">
+          <div class="section-head">
+            <h1>School Years</h1>
+            <button type="button" class="section-collapse-toggle" aria-expanded="false">Expand</button>
+          </div>
+
+          <div class="collapsible-content">
+            <legend>Manage Your Academic Years</legend>
 
         <div id="schoolYearContainer">
           <% schoolYears.forEach(function(year) { %>
@@ -594,7 +646,7 @@
               <div
                 class="term-section"
                 id="termSection<%= year.id %>"
-                style="display: '<%= year.current ? 'block' : 'none' %>'"
+                style="display: none;"
               >
                 <% year.terms.forEach(function(term) { %>
                 <fieldset style="position: relative">
@@ -672,6 +724,7 @@
           <hr />
           <% }); %>
         </div>
+      </div>
       </fieldset>
     </div>
 
@@ -680,8 +733,9 @@
       function toggleTerms(yearId) {
         const termSection = document.getElementById(`termSection${yearId}`);
         const arrow = document.getElementById(`arrow${yearId}`);
+        const isHidden = window.getComputedStyle(termSection).display === "none";
 
-        if (termSection.style.display === "none") {
+        if (isHidden) {
           termSection.style.display = "block";
           arrow.innerHTML = "&#9650;"; // Change to up arrow
         } else {
@@ -850,6 +904,26 @@
       });
 
       document.addEventListener("DOMContentLoaded", function () {
+        const schoolYearsBlock = document.getElementById("schoolYearsBlock");
+        if (schoolYearsBlock) {
+          const toggleBtn = schoolYearsBlock.querySelector(".section-collapse-toggle");
+          const setCollapsed = (collapsed) => {
+            schoolYearsBlock.classList.toggle("is-collapsed", collapsed);
+            if (toggleBtn) {
+              toggleBtn.textContent = collapsed ? "Expand" : "Collapse";
+              toggleBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+            }
+          };
+
+          setCollapsed(true);
+          if (toggleBtn) {
+            toggleBtn.addEventListener("click", function () {
+              const collapsed = schoolYearsBlock.classList.contains("is-collapsed");
+              setCollapsed(!collapsed);
+            });
+          }
+        }
+
         let schoolYearContainer = document.getElementById(
           "schoolYearContainer"
         );
@@ -904,6 +978,18 @@
               termSection.appendChild(termField);
             });
           });
+        });
+
+        // Ensure all term sections are collapsed on first load
+        schoolYearWrappers.forEach((wrapper) => {
+          const termSection = wrapper.querySelector('.term-section');
+          const arrow = wrapper.querySelector('.arrow');
+          if (termSection) {
+            termSection.style.display = 'none';
+          }
+          if (arrow) {
+            arrow.innerHTML = '&#9660;';
+          }
         });
       });
 
