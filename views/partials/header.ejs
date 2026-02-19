@@ -1401,7 +1401,7 @@
       });
     }
 
-    if (searchInput) {
+    if (searchInput && searchResults) {
       searchInput.setAttribute("readonly", "readonly");
       const unlockSearchInput = () => {
         searchInput.removeAttribute("readonly");

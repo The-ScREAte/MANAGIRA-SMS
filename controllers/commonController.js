@@ -7951,15 +7951,22 @@ const commonController = {
       const organizationId = req.session.organizationId;
       const userId = req.session.userId;
       const { guardianId, studentId, reportType, message, sendEmail } = req.body;
+      const sendEmailRequested = sendEmail === true || sendEmail === 'true' || sendEmail === 1 || sendEmail === '1';
 
-      if (!message || !studentId) {
-        return res.status(400).json({ success: false, error: 'Message and student are required.' });
+      if (!message || !studentId || !guardianId) {
+        return res.status(400).json({ success: false, error: 'Guardian, student and message are required.' });
+      }
+
+      const parsedStudentId = Number.parseInt(studentId, 10);
+      const parsedGuardianId = Number.parseInt(guardianId, 10);
+      if (!Number.isInteger(parsedStudentId) || !Number.isInteger(parsedGuardianId)) {
+        return res.status(400).json({ success: false, error: 'Invalid guardian or student ID.' });
       }
 
       // Get student info
       const studentResult = await db.query(
         `SELECT first_name, last_name FROM students WHERE student_id = $1 AND organization_id = $2`,
-        [studentId, organizationId]
+        [parsedStudentId, organizationId]
       );
       const student = studentResult.rows[0];
       if (!student) return res.status(404).json({ success: false, error: 'Student not found' });
@@ -7974,11 +7981,22 @@ const commonController = {
 
       // Get guardian info
       const guardianResult = await db.query(
-        `SELECT gp.first_name, gp.last_name, gp.email, gp.phone
-         FROM guardian_profiles gp WHERE gp.guardian_id = $1 AND gp.organization_id = $2`,
-        [guardianId, organizationId]
+        `SELECT g.first_name, g.last_name, g.email, g.phone
+         FROM guardians g
+         WHERE g.guardian_id = $1 AND g.organization_id = $2`,
+        [parsedGuardianId, organizationId]
       );
-      const guardian = guardianResult.rows[0];
+      let guardian = guardianResult.rows[0];
+
+      if (!guardian) {
+        const guardianProfileResult = await db.query(
+          `SELECT gp.first_name, gp.last_name, gp.email, gp.phone
+           FROM guardian_profiles gp
+           WHERE gp.guardian_id = $1 AND gp.organization_id = $2`,
+          [parsedGuardianId, organizationId]
+        );
+        guardian = guardianProfileResult.rows[0] || null;
+      }
 
       // Insert into guardian_reports (same table used by guardian portal)
       await db.query(
@@ -7998,17 +8016,38 @@ const commonController = {
         )`
       );
 
-      const subject = `Staff Report: ${reportType} - ${studentName}`;
+      const normalizedReportType = String(reportType || 'general').trim().toLowerCase();
+      const reportTypeLabel = normalizedReportType.charAt(0).toUpperCase() + normalizedReportType.slice(1);
+      const subject = `Staff Report (${reportTypeLabel}): ${studentName}`;
 
-      await db.query(
-        `INSERT INTO guardian_reports (guardian_id, student_id, organization_id, report_type, subject, message, status)
-         VALUES ($1, $2, $3, $4, $5, $6, 'pending')`,
-        [guardianId, studentId ? parseInt(studentId) : null, organizationId, reportType, subject, message]
+      const reportTypeColumnResult = await db.query(
+        `SELECT EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'guardian_reports'
+            AND column_name = 'report_type'
+        ) AS has_report_type`
       );
+      const hasReportTypeColumn = reportTypeColumnResult.rows[0]?.has_report_type === true;
+
+      if (hasReportTypeColumn) {
+        await db.query(
+          `INSERT INTO guardian_reports (guardian_id, student_id, organization_id, report_type, subject, message, status)
+           VALUES ($1, $2, $3, $4, $5, $6, 'open')`,
+          [parsedGuardianId, parsedStudentId, organizationId, normalizedReportType, subject, message]
+        );
+      } else {
+        await db.query(
+          `INSERT INTO guardian_reports (guardian_id, student_id, organization_id, subject, message, status)
+           VALUES ($1, $2, $3, $4, $5, 'open')`,
+          [parsedGuardianId, parsedStudentId, organizationId, subject, message]
+        );
+      }
 
       // Send email to guardian if requested
       let emailSent = false;
-      if (sendEmail && guardian && guardian.email) {
+      if (sendEmailRequested && guardian && guardian.email) {
         const { renderCleanEmail, sendEmailSafely } = require("../utils/emailHelper");
         const path = require("path");
 
@@ -8024,7 +8063,7 @@ const commonController = {
             `A report has been filed regarding your child <strong>${studentName}</strong> by <strong>${staff.first_name} ${staff.last_name}</strong> (${staff.role}).`,
           ],
           details: [
-            { label: 'Report Type', value: reportType.charAt(0).toUpperCase() + reportType.slice(1) },
+            { label: 'Report Type', value: reportTypeLabel },
             { label: 'Student', value: studentName },
             { label: 'Message', value: message },
           ],
