@@ -2055,6 +2055,8 @@
               try {
                 await sendFormAsync(form, submitter);
                 showStatus('Saved successfully', 'success');
+                // Reload the page after a short delay so the user sees the updated content
+                setTimeout(() => { window.location.reload(); }, 1200);
               } catch (error) {
                 showStatus('Action failed. Try again.', 'error');
               } finally {
