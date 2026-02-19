@@ -903,6 +903,7 @@ const commonController = {
           organization_name,
           nickname,
           font_style,
+          theme_color,
           is_hub_member,
           hub_id,
           public_registration_enabled,
@@ -7942,6 +7943,110 @@ const commonController = {
       return res.json({ success: true });
     } catch (error) {
             return res.status(500).json({ success: false, error: 'Error removing student' });
+    }
+  },
+
+  staffReportStudent: async (req, res, db) => {
+    try {
+      const organizationId = req.session.organizationId;
+      const userId = req.session.userId;
+      const { guardianId, studentId, reportType, message, sendEmail } = req.body;
+
+      if (!message || !studentId) {
+        return res.status(400).json({ success: false, error: 'Message and student are required.' });
+      }
+
+      // Get student info
+      const studentResult = await db.query(
+        `SELECT first_name, last_name FROM students WHERE student_id = $1 AND organization_id = $2`,
+        [studentId, organizationId]
+      );
+      const student = studentResult.rows[0];
+      if (!student) return res.status(404).json({ success: false, error: 'Student not found' });
+
+      const studentName = `${student.first_name} ${student.last_name}`;
+
+      // Get staff info
+      const staffResult = await db.query(
+        `SELECT first_name, last_name, role FROM users WHERE user_id = $1`, [userId]
+      );
+      const staff = staffResult.rows[0] || { first_name: 'Staff', last_name: '', role: 'Staff' };
+
+      // Get guardian info
+      const guardianResult = await db.query(
+        `SELECT gp.first_name, gp.last_name, gp.email, gp.phone
+         FROM guardian_profiles gp WHERE gp.guardian_id = $1 AND gp.organization_id = $2`,
+        [guardianId, organizationId]
+      );
+      const guardian = guardianResult.rows[0];
+
+      // Insert into guardian_reports (same table used by guardian portal)
+      await db.query(
+        `CREATE TABLE IF NOT EXISTS guardian_reports (
+          report_id SERIAL PRIMARY KEY,
+          guardian_id INTEGER NOT NULL,
+          student_id INTEGER,
+          organization_id INTEGER NOT NULL,
+          report_type VARCHAR(50),
+          subject VARCHAR(255),
+          message TEXT,
+          status VARCHAR(50) DEFAULT 'pending',
+          priority VARCHAR(50) DEFAULT 'normal',
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW(),
+          deleted_at TIMESTAMP
+        )`
+      );
+
+      const subject = `Staff Report: ${reportType} - ${studentName}`;
+
+      await db.query(
+        `INSERT INTO guardian_reports (guardian_id, student_id, organization_id, report_type, subject, message, status)
+         VALUES ($1, $2, $3, $4, $5, $6, 'pending')`,
+        [guardianId, studentId ? parseInt(studentId) : null, organizationId, reportType, subject, message]
+      );
+
+      // Send email to guardian if requested
+      let emailSent = false;
+      if (sendEmail && guardian && guardian.email) {
+        const { renderCleanEmail, sendEmailSafely } = require("../utils/emailHelper");
+        const path = require("path");
+
+        const orgResult = await db.query(
+          `SELECT organization_name FROM organizations WHERE organization_id = $1`, [organizationId]
+        );
+        const orgName = orgResult.rows[0]?.organization_name || 'School';
+
+        const html = renderCleanEmail({
+          title: `Report Filed for ${studentName}`,
+          greeting: `Dear ${guardian.first_name || 'Parent/Guardian'},`,
+          paragraphs: [
+            `A report has been filed regarding your child <strong>${studentName}</strong> by <strong>${staff.first_name} ${staff.last_name}</strong> (${staff.role}).`,
+          ],
+          details: [
+            { label: 'Report Type', value: reportType.charAt(0).toUpperCase() + reportType.slice(1) },
+            { label: 'Student', value: studentName },
+            { label: 'Message', value: message },
+          ],
+          note: `This report is also available in your Parent Portal under "My Reports". If you have questions, please contact the school directly.`,
+        });
+
+        emailSent = await sendEmailSafely({
+          to: guardian.email,
+          subject: `[${orgName}] Report for ${studentName}`,
+          html,
+          attachments: [{
+            filename: 'managira_logo.png',
+            path: path.join(__dirname, '..', 'public', 'images', 'managira.png'),
+            cid: 'managira_logo'
+          }]
+        }, 'Staff Report Email');
+      }
+
+      return res.json({ success: true, emailSent });
+    } catch (error) {
+      console.error('Staff report error:', error);
+      return res.status(500).json({ success: false, error: 'Error submitting report' });
     }
   },
 

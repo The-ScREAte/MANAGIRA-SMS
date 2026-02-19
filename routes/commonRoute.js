@@ -172,6 +172,9 @@ module.exports = (db) => {
   router.post("/guardianRequestPasswordReset", isAuthenticated, (req, res) =>
     commonController.guardianRequestPasswordReset(req, res, db)
   );
+  router.post("/staffReportStudent", isAuthenticated, (req, res) =>
+    commonController.staffReportStudent(req, res, db)
+  );
   
   router.get("/editStudent", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) =>
     commonController.editStudentGet(req, res, db)

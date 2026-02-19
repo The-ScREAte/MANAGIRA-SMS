@@ -272,6 +272,7 @@
   .gd-student-actions {
     display: flex;
     gap: 8px;
+    align-items: center;
   }
 
   .gd-student-actions a,
@@ -307,6 +308,254 @@
   .gd-remove-btn:hover {
     background: #dc2626;
     color: white;
+  }
+
+  /* Dots Menu */
+  .gd-dots-menu-wrapper {
+    position: relative;
+  }
+
+  .gd-dots-btn {
+    background: none;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 4px 8px;
+    font-size: 18px;
+    font-weight: 900;
+    color: #64748b;
+    letter-spacing: 1px;
+    line-height: 1;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    min-height: 32px;
+  }
+
+  .gd-dots-btn:hover {
+    background: #f1f5f9;
+    color: #334155;
+    border-color: var(--org-primary-color, #0f5a66);
+  }
+
+  .gd-dots-dropdown {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    margin-top: 4px;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    z-index: 100;
+    min-width: 160px;
+    overflow: hidden;
+  }
+
+  .gd-dots-dropdown.show {
+    display: block;
+  }
+
+  .gd-dots-dropdown button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 14px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+    text-align: left;
+    transition: background 0.15s;
+  }
+
+  .gd-dots-dropdown button:hover {
+    background: #f8fafc;
+  }
+
+  .gd-dots-dropdown button.gd-dropdown-danger {
+    color: #dc2626;
+  }
+
+  .gd-dots-dropdown button.gd-dropdown-danger:hover {
+    background: #fef2f2;
+  }
+
+  /* Report Modal */
+  .gd-report-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+  }
+
+  .gd-report-overlay.show {
+    display: flex;
+  }
+
+  .gd-report-modal {
+    background: white;
+    border-radius: 14px;
+    max-width: 520px;
+    width: 100%;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    overflow: hidden;
+  }
+
+  .gd-report-modal-header {
+    background: var(--org-primary-color, #0f5a66);
+    color: white;
+    padding: 18px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .gd-report-modal-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .gd-report-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 22px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 4px;
+  }
+
+  .gd-report-modal-body {
+    padding: 24px;
+  }
+
+  .gd-report-student-label {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 18px;
+    font-size: 14px;
+    color: #047857;
+    font-weight: 600;
+  }
+
+  .gd-report-field {
+    margin-bottom: 16px;
+  }
+
+  .gd-report-field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: 6px;
+  }
+
+  .gd-report-field select,
+  .gd-report-field textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+  }
+
+  .gd-report-field select:focus,
+  .gd-report-field textarea:focus {
+    outline: none;
+    border-color: var(--org-primary-color, #0f5a66);
+    box-shadow: 0 0 0 3px rgba(15, 90, 102, 0.1);
+  }
+
+  .gd-report-field textarea {
+    min-height: 120px;
+    resize: vertical;
+  }
+
+  .gd-report-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 18px;
+    font-size: 14px;
+    color: #334155;
+    cursor: pointer;
+  }
+
+  .gd-report-checkbox input {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+  }
+
+  .gd-report-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    padding-top: 12px;
+    border-top: 1px solid #e2e8f0;
+  }
+
+  .gd-report-submit {
+    padding: 10px 20px;
+    background: var(--org-primary-color, #0f5a66);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  .gd-report-submit:hover {
+    opacity: 0.9;
+  }
+
+  .gd-report-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .gd-report-cancel {
+    padding: 10px 20px;
+    background: #f1f5f9;
+    color: #334155;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .gd-report-cancel:hover {
+    background: #e2e8f0;
+  }
+
+  @media (max-width: 768px) {
+    .gd-report-modal {
+      max-width: 100%;
+    }
   }
 
   /* Portal Info */
@@ -465,8 +714,13 @@
             <div class="gd-student-actions">
               <a href="/common/studentDetails?studentId=<%= student.student_id %><%= currentTermId ? '&termId=' + currentTermId : '' %><%= student.class_id ? '&classId=' + student.class_id : '' %>" 
                  class="gd-view-btn">View Student</a>
-              <button onclick="removeStudent('<%= student.student_id %>', '<%= student.first_name %> <%= student.last_name %>')" 
-                      class="gd-remove-btn">Remove</button>
+              <div class="gd-dots-menu-wrapper">
+                <button type="button" class="gd-dots-btn" onclick="toggleDotsMenu(this)" title="More options">⋮</button>
+                <div class="gd-dots-dropdown">
+                  <button onclick="openReportModal('<%= student.student_id %>', '<%= student.first_name %> <%= student.last_name %>')">📝 File Report</button>
+                  <button class="gd-dropdown-danger" onclick="removeStudent('<%= student.student_id %>', '<%= student.first_name %> <%= student.last_name %>')">🗑 Remove Student</button>
+                </div>
+              </div>
             </div>
           </div>
         <% }) %>
@@ -488,12 +742,117 @@
   </div>
 </div>
 
+<!-- Report Modal -->
+<div class="gd-report-overlay" id="reportOverlay">
+  <div class="gd-report-modal">
+    <div class="gd-report-modal-header">
+      <h3>📝 File a Report</h3>
+      <button class="gd-report-close" onclick="closeReportModal()">&times;</button>
+    </div>
+    <div class="gd-report-modal-body">
+      <div class="gd-report-student-label" id="reportStudentLabel"></div>
+      <input type="hidden" id="reportStudentId" />
+      <div class="gd-report-field">
+        <label>Report Type</label>
+        <select id="reportType">
+          <option value="academic">Academic Concern</option>
+          <option value="behavior">Behavior Issue</option>
+          <option value="attendance">Attendance</option>
+          <option value="health">Health/Medical</option>
+          <option value="general">General</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="gd-report-field">
+        <label>Message</label>
+        <textarea id="reportMessage" placeholder="Describe the issue or concern..."></textarea>
+      </div>
+      <label class="gd-report-checkbox">
+        <input type="checkbox" id="reportSendEmail" checked />
+        Send report to parent's email
+      </label>
+      <div class="gd-report-actions">
+        <button class="gd-report-cancel" onclick="closeReportModal()">Cancel</button>
+        <button class="gd-report-submit" id="reportSubmitBtn" onclick="submitReport()">Submit Report</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
   function toggleEditForm() {
     document.getElementById('editWrapper').classList.toggle('open');
   }
 
+  // Dots menu
+  function toggleDotsMenu(btn) {
+    const dropdown = btn.nextElementSibling;
+    document.querySelectorAll('.gd-dots-dropdown.show').forEach(d => {
+      if (d !== dropdown) d.classList.remove('show');
+    });
+    dropdown.classList.toggle('show');
+  }
+
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.gd-dots-menu-wrapper')) {
+      document.querySelectorAll('.gd-dots-dropdown.show').forEach(d => d.classList.remove('show'));
+    }
+  });
+
+  // Report modal
+  function openReportModal(studentId, studentName) {
+    document.querySelectorAll('.gd-dots-dropdown.show').forEach(d => d.classList.remove('show'));
+    document.getElementById('reportStudentId').value = studentId;
+    document.getElementById('reportStudentLabel').textContent = '📋 You are filing a report for: ' + studentName;
+    document.getElementById('reportMessage').value = '';
+    document.getElementById('reportOverlay').classList.add('show');
+  }
+
+  function closeReportModal() {
+    document.getElementById('reportOverlay').classList.remove('show');
+  }
+
+  async function submitReport() {
+    const studentId = document.getElementById('reportStudentId').value;
+    const reportType = document.getElementById('reportType').value;
+    const message = document.getElementById('reportMessage').value.trim();
+    const sendEmail = document.getElementById('reportSendEmail').checked;
+    const btn = document.getElementById('reportSubmitBtn');
+
+    if (!message) { alert('Please enter a message.'); return; }
+
+    btn.disabled = true;
+    btn.textContent = 'Submitting...';
+
+    try {
+      const response = await fetch('/common/staffReportStudent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          guardianId: <%= guardian.guardian_id %>,
+          studentId,
+          reportType,
+          message,
+          sendEmail
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        alert('Report submitted successfully!' + (data.emailSent ? ' Email sent to parent.' : ''));
+        closeReportModal();
+      } else {
+        alert('Error: ' + (data.error || 'Failed to submit report'));
+      }
+    } catch (error) {
+      alert('Error submitting report');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Submit Report';
+    }
+  }
+
   async function removeStudent(studentId, studentName) {
+    document.querySelectorAll('.gd-dots-dropdown.show').forEach(d => d.classList.remove('show'));
     if (!confirm('Are you sure you want to remove ' + studentName + ' from this guardian? The student will remain in the system.')) return;
     try {
       const response = await fetch('/common/guardianRemoveStudent', {
