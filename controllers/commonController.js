@@ -7998,52 +7998,22 @@ const commonController = {
         guardian = guardianProfileResult.rows[0] || null;
       }
 
-      // Insert into guardian_reports (same table used by guardian portal)
-      await db.query(
-        `CREATE TABLE IF NOT EXISTS guardian_reports (
-          report_id SERIAL PRIMARY KEY,
-          guardian_id INTEGER NOT NULL,
-          student_id INTEGER,
-          organization_id INTEGER NOT NULL,
-          report_type VARCHAR(50),
-          subject VARCHAR(255),
-          message TEXT,
-          status VARCHAR(50) DEFAULT 'pending',
-          priority VARCHAR(50) DEFAULT 'normal',
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW(),
-          deleted_at TIMESTAMP
-        )`
-      );
+      // Ensure report_type column exists (may not exist in older migrations)
+      try {
+        await db.query(`ALTER TABLE guardian_reports ADD COLUMN IF NOT EXISTS report_type VARCHAR(50)`);
+      } catch (alterErr) {
+        // Column might already exist, ignore
+      }
 
       const normalizedReportType = String(reportType || 'general').trim().toLowerCase();
       const reportTypeLabel = normalizedReportType.charAt(0).toUpperCase() + normalizedReportType.slice(1);
       const subject = `Staff Report (${reportTypeLabel}): ${studentName}`;
 
-      const reportTypeColumnResult = await db.query(
-        `SELECT EXISTS (
-          SELECT 1
-          FROM information_schema.columns
-          WHERE table_schema = 'public'
-            AND table_name = 'guardian_reports'
-            AND column_name = 'report_type'
-        ) AS has_report_type`
+      await db.query(
+        `INSERT INTO guardian_reports (guardian_id, student_id, organization_id, report_type, subject, message, status)
+         VALUES ($1, $2, $3, $4, $5, $6, 'open')`,
+        [parsedGuardianId, parsedStudentId, organizationId, normalizedReportType, subject, message]
       );
-      const hasReportTypeColumn = reportTypeColumnResult.rows[0]?.has_report_type === true;
-
-      if (hasReportTypeColumn) {
-        await db.query(
-          `INSERT INTO guardian_reports (guardian_id, student_id, organization_id, report_type, subject, message, status)
-           VALUES ($1, $2, $3, $4, $5, $6, 'open')`,
-          [parsedGuardianId, parsedStudentId, organizationId, normalizedReportType, subject, message]
-        );
-      } else {
-        await db.query(
-          `INSERT INTO guardian_reports (guardian_id, student_id, organization_id, subject, message, status)
-           VALUES ($1, $2, $3, $4, $5, 'open')`,
-          [parsedGuardianId, parsedStudentId, organizationId, subject, message]
-        );
-      }
 
       // Send email to guardian if requested
       let emailSent = false;

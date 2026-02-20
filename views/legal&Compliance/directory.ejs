@@ -1,0 +1,316 @@
+<style>
+  :root {
+    --dir-accent: #0f5a66;
+    --dir-bg: #f8fafc;
+    --dir-card: #ffffff;
+    --dir-text: #0f172a;
+    --dir-muted: #64748b;
+    --dir-border: #e2e8f0;
+  }
+
+  .dir-page {
+    min-height: 100vh;
+    background: var(--dir-bg);
+    font-family: "Inter", sans-serif;
+  }
+
+  .dir-hero {
+    background: linear-gradient(135deg, #0f2d32 0%, #0f5a66 50%, #0d7377 100%);
+    padding: 60px 20px 48px;
+    text-align: center;
+    color: white;
+  }
+
+  .dir-hero h1 {
+    font-size: 2rem;
+    font-weight: 800;
+    margin: 0 0 10px;
+    letter-spacing: -0.5px;
+  }
+
+  .dir-hero p {
+    font-size: 1.05rem;
+    opacity: 0.85;
+    max-width: 560px;
+    margin: 0 auto 28px;
+    line-height: 1.6;
+  }
+
+  .dir-search-box {
+    max-width: 520px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .dir-search-box input {
+    width: 100%;
+    padding: 14px 20px 14px 48px;
+    border: none;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-family: inherit;
+    background: white;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    outline: none;
+    color: #0f172a;
+    box-sizing: border-box;
+  }
+
+  .dir-search-box input::placeholder { color: #94a3b8; }
+
+  .dir-search-icon {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    font-size: 18px;
+  }
+
+  .dir-container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 20px 60px;
+  }
+
+  .dir-count {
+    font-size: 14px;
+    color: var(--dir-muted);
+    margin-bottom: 20px;
+    font-weight: 600;
+  }
+
+  .dir-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 18px;
+  }
+
+  .dir-card {
+    background: var(--dir-card);
+    border: 1px solid var(--dir-border);
+    border-radius: 14px;
+    padding: 20px;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.25s ease;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+    cursor: pointer;
+  }
+
+  .dir-card:hover {
+    border-color: var(--dir-accent);
+    box-shadow: 0 6px 20px rgba(15,90,102,0.1);
+    transform: translateY(-2px);
+  }
+
+  .dir-card-logo {
+    width: 64px;
+    height: 64px;
+    border-radius: 12px;
+    object-fit: cover;
+    background: #f1f5f9;
+    flex-shrink: 0;
+    border: 1px solid var(--dir-border);
+  }
+
+  .dir-card-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .dir-card-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--dir-text);
+    margin: 0 0 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .dir-card-detail {
+    font-size: 0.82rem;
+    color: var(--dir-muted);
+    line-height: 1.5;
+  }
+
+  .dir-card-link {
+    font-size: 0.78rem;
+    color: var(--dir-accent);
+    font-weight: 600;
+    margin-top: 4px;
+    display: inline-block;
+  }
+
+  /* No results */
+  .dir-no-results {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--dir-muted);
+  }
+
+  .dir-no-results h3 {
+    color: var(--dir-text);
+    font-size: 1.2rem;
+    margin: 0 0 8px;
+  }
+
+  .dir-no-results p {
+    margin: 0 0 20px;
+    font-size: 0.95rem;
+  }
+
+  .dir-similar-btn {
+    padding: 10px 24px;
+    background: var(--dir-accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  .dir-similar-btn:hover { opacity: 0.9; }
+
+  .dir-similar-section {
+    margin-top: 24px;
+    display: none;
+  }
+
+  .dir-similar-section.show { display: block; }
+
+  .dir-similar-section h4 {
+    font-size: 0.95rem;
+    color: var(--dir-text);
+    margin: 0 0 14px;
+    font-weight: 700;
+  }
+
+  @media (max-width: 600px) {
+    .dir-hero { padding: 40px 16px 36px; }
+    .dir-hero h1 { font-size: 1.5rem; }
+    .dir-grid { grid-template-columns: 1fr; }
+    .dir-card-logo { width: 52px; height: 52px; }
+  }
+</style>
+
+<div class="dir-page">
+  <div class="dir-hero">
+    <h1>🏫 Organization Directory</h1>
+    <p>Find schools and organizations on Managira. Search by name to discover and visit their public pages.</p>
+    <div class="dir-search-box">
+      <span class="dir-search-icon">🔍</span>
+      <input type="text" id="dirSearch" placeholder="Search for an organization..." autofocus />
+    </div>
+  </div>
+
+  <div class="dir-container">
+    <div class="dir-count" id="dirCount">
+      Showing <strong><%= organizations.length %></strong> organization<%= organizations.length !== 1 ? 's' : '' %>
+    </div>
+
+    <div class="dir-grid" id="dirGrid">
+      <% organizations.forEach(org => { %>
+        <a class="dir-card" href="<%= org.public_url %>" data-name="<%= (org.organization_name || '').toLowerCase() %>" data-nickname="<%= (org.nickname || '').toLowerCase() %>">
+          <img class="dir-card-logo" 
+               src="<%= org.logo_path && org.logo_path !== 'profilePlaceholder.png' ? org.logo_path : '/images/profilePlaceholder.png' %>" 
+               alt="<%= org.organization_name %>" 
+               onerror="this.src='/images/profilePlaceholder.png'" />
+          <div class="dir-card-info">
+            <div class="dir-card-name"><%= org.organization_name %></div>
+            <div class="dir-card-detail">
+              <%= org.city ? org.city + (org.country ? ', ' + org.country : '') : (org.country || '') %>
+            </div>
+            <% if (org.nickname) { %>
+              <div class="dir-card-link"><%= org.nickname %>.managira.com</div>
+            <% } %>
+          </div>
+        </a>
+      <% }) %>
+    </div>
+
+    <div class="dir-no-results" id="dirNoResults" style="display:none;">
+      <h3>No organization found</h3>
+      <p id="dirNoResultsText">We couldn't find an organization matching your search.</p>
+      <button class="dir-similar-btn" id="dirSimilarBtn" onclick="showSimilarOrgs()">See Similar Organizations</button>
+      <div class="dir-similar-section" id="dirSimilarSection">
+        <h4>You might be looking for:</h4>
+        <div class="dir-grid" id="dirSimilarGrid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const allCards = Array.from(document.querySelectorAll('#dirGrid .dir-card'));
+  const dirGrid = document.getElementById('dirGrid');
+  const dirNoResults = document.getElementById('dirNoResults');
+  const dirCount = document.getElementById('dirCount');
+  const dirSearch = document.getElementById('dirSearch');
+  const dirSimilarSection = document.getElementById('dirSimilarSection');
+  let lastQuery = '';
+
+  function levenshtein(a, b) {
+    const matrix = [];
+    for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+    for (let i = 1; i <= b.length; i++) {
+      for (let j = 1; j <= a.length; j++) {
+        matrix[i][j] = b[i-1] === a[j-1]
+          ? matrix[i-1][j-1]
+          : Math.min(matrix[i-1][j-1]+1, matrix[i][j-1]+1, matrix[i-1][j]+1);
+      }
+    }
+    return matrix[b.length][a.length];
+  }
+
+  dirSearch.addEventListener('input', function() {
+    const q = this.value.trim().toLowerCase();
+    lastQuery = q;
+    dirSimilarSection.classList.remove('show');
+    let visible = 0;
+
+    allCards.forEach(card => {
+      const name = card.dataset.name;
+      const nick = card.dataset.nickname;
+      const match = !q || name.includes(q) || nick.includes(q);
+      card.style.display = match ? '' : 'none';
+      if (match) visible++;
+    });
+
+    if (visible > 0 || !q) {
+      dirGrid.style.display = '';
+      dirNoResults.style.display = 'none';
+      dirCount.innerHTML = `Showing <strong>${visible}</strong> organization${visible !== 1 ? 's' : ''}`;
+    } else {
+      dirGrid.style.display = 'none';
+      dirNoResults.style.display = '';
+      document.getElementById('dirNoResultsText').textContent = 
+        `We couldn't find an organization matching "${this.value.trim()}".`;
+      dirCount.innerHTML = `Showing <strong>0</strong> organizations`;
+    }
+  });
+
+  function showSimilarOrgs() {
+    if (!lastQuery) return;
+    const scored = allCards.map(card => ({
+      card,
+      dist: Math.min(levenshtein(lastQuery, card.dataset.name), levenshtein(lastQuery, card.dataset.nickname))
+    })).sort((a, b) => a.dist - b.dist).slice(0, 6);
+
+    const grid = document.getElementById('dirSimilarGrid');
+    grid.innerHTML = '';
+    scored.forEach(({ card }) => {
+      const clone = card.cloneNode(true);
+      clone.style.display = '';
+      grid.appendChild(clone);
+    });
+    dirSimilarSection.classList.add('show');
+  }
+</script>
