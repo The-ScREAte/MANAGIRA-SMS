@@ -1066,6 +1066,7 @@ const commonController = {
             "@context": "https://schema.org",
             "@type": "School",
             name: orgDetails.organization_name,
+            alternateName: orgDetails.nickname || undefined,
             url: canonicalUrl,
             logo: toAbsoluteUrl(orgDetails.logo),
             image: toAbsoluteUrl(orgDetails.logo),
@@ -1075,6 +1076,13 @@ const commonController = {
       res.render("common/publicDashboard", {
         title: `${orgDetails?.organization_name || "School"} Public Profile`,
         description: `${orgDetails?.organization_name || "School"} public profile on Managira.`,
+        keywords: [
+          orgDetails?.organization_name,
+          orgDetails?.nickname,
+          orgDetails?.nickname ? `${orgDetails.nickname}.managira.com` : null,
+          "school profile",
+          "managira"
+        ].filter(Boolean).join(", "),
         canonicalUrl,
         slideshowImages, // Pass slideshow images separately
         orderedItems,

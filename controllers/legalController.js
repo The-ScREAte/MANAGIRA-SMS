@@ -186,6 +186,7 @@ const legalController = {
                     item: {
                         '@type': 'School',
                         name: org.organization_name,
+                        alternateName: org.nickname || undefined,
                         url: org.public_url.startsWith('http') ? org.public_url : `${baseSiteUrl}${org.public_url}`,
                         logo: toAbsoluteUrl(org.logo_path) || `${baseSiteUrl}/images/profilePlaceholder.png`,
                         image: toAbsoluteUrl(org.logo_path) || `${baseSiteUrl}/images/profilePlaceholder.png`
