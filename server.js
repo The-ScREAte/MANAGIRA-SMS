@@ -147,7 +147,37 @@ app.use(async (req, res, next) => {
           req.hubDetails = null;
         }
       } else {
-        return res.status(404).send("Organization not found");
+        return res.status(404).send(`
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Organization Not Found - Managira</title>
+            <style>
+              * { box-sizing: border-box; margin: 0; padding: 0; }
+              body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; min-height: 100vh; display: flex; align-items: center; justify-content: center; text-align: center; padding: 20px; }
+              .container { max-width: 480px; }
+              .status-code { font-size: 5rem; font-weight: 800; color: #0f5a66; margin-bottom: 8px; line-height: 1; }
+              h1 { font-size: 1.5rem; font-weight: 700; color: #1e293b; margin-bottom: 12px; }
+              p { color: #64748b; font-size: 1rem; line-height: 1.6; margin-bottom: 28px; }
+              .btn { display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #0f2d32, #0f5a66); color: white; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 0.95rem; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 4px 14px rgba(15,90,102,0.25); }
+              .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(15,90,102,0.35); }
+              .home-link { display: block; margin-top: 16px; color: #0f5a66; text-decoration: none; font-size: 0.9rem; font-weight: 600; }
+              .home-link:hover { text-decoration: underline; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="status-code">404</div>
+              <h1>Organization Not Found</h1>
+              <p>The organization you're looking for doesn't exist on Managira or may have been removed.</p>
+              <a class="btn" href="https://managira.com/legal/directory">Browse All Organizations</a>
+              <a class="home-link" href="https://managira.com">← Back to Managira Home</a>
+            </div>
+          </body>
+          </html>
+        `);
       }
     } catch (err) {
       console.error("Error fetching subdomain organization:", err);
