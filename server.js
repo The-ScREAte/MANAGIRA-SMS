@@ -147,6 +147,10 @@ app.use(async (req, res, next) => {
           req.hubDetails = null;
         }
       } else {
+        const backToHomeUrl = (req.session && (req.session.userId || req.session.organizationId))
+          ? '/common/orgDashboard'
+          : 'https://managira.com';
+
         return res.status(404).send(`
           <!DOCTYPE html>
           <html lang="en">
@@ -173,7 +177,7 @@ app.use(async (req, res, next) => {
               <h1>Organization Not Found</h1>
               <p>The organization you're looking for doesn't exist on Managira or may have been removed.</p>
               <a class="btn" href="https://managira.com/legal/directory">Browse All Organizations</a>
-              <a class="home-link" href="https://managira.com">← Back to Managira Home</a>
+              <a class="home-link" href="${backToHomeUrl}">← Back to Managira Home</a>
             </div>
           </body>
           </html>
