@@ -299,6 +299,8 @@ app.get("/test-flash", (req, res) => {
 });
 
 // Home route
+// Directory shortcut route for SEO (/directory -> /legal/directory)
+app.get("/directory", (req, res) => res.redirect(301, "/legal/directory"));
 app.get("/", async (req, res) => {
   const isProduction = process.env.NODE_ENV === "production";
   const isRenderDomain = req.hostname && req.hostname.endsWith(".onrender.com");

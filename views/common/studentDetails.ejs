@@ -297,12 +297,6 @@
     <div class="link-to-next-back">
       <% if (req.session && req.session.guardianId) { %>
       <a href="/guardian/dashboard" class="btn btn-secondary">Back to Dashboard</a>
-      <% } else { %>
-      <a
-        href="/common/classDashboard?classId=<%= student.class_id %>"
-        class="btn btn-secondary"
-        >Back to Class Dashboard</a
-      >
       <% } %>
     </div>
     <main>

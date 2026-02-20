@@ -12,4 +12,5 @@ router.get('/privacy-policy', legalController.privacyPolicy);
 router.get('/terms-of-service', legalController.termsOfService);
 router.get('/employment', legalController.employmentPage);
 router.get('/donations', legalController.donationsPage);
+router.get('/directory', legalController.directory);
 module.exports = router;

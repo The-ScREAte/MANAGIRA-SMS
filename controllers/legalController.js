@@ -123,6 +123,37 @@ const legalController = {
             title: 'Terms of Service',
             showFooterTopSection: true
         });
+    },
+
+    directory: async (req, res) => {
+        try {
+            const result = await db.query(
+                `SELECT organization_id, organization_name, nickname, logo_path, city, country, theme_color
+                 FROM organizations 
+                 WHERE deleted = false AND nickname IS NOT NULL AND nickname != ''
+                 ORDER BY organization_name ASC`
+            );
+            const orgs = result.rows.map(org => {
+                const isProduction = process.env.NODE_ENV === 'production';
+                return {
+                    ...org,
+                    public_url: isProduction 
+                        ? `https://${org.nickname}.managira.com` 
+                        : `/common/publicDashboard?orgId=${org.organization_id}`
+                };
+            });
+            res.render('legal&Compliance/directory', {
+                title: 'Organization Directory | Managira - Find Schools on Managira',
+                description: 'Browse all schools and organizations on Managira. Search by name to find and visit their public pages.',
+                keywords: 'managira directory, schools on managira, find school managira, school management platform, organization directory',
+                canonicalUrl: 'https://www.managira.com/directory',
+                organizations: orgs,
+                showFooterTopSection: true
+            });
+        } catch (err) {
+            console.error('Directory page error:', err);
+            res.status(500).send('Error loading directory');
+        }
     }
 };
 
