@@ -127,18 +127,43 @@ const legalController = {
 
     directory: async (req, res) => {
         try {
+            const optionalColumns = ['nickname', 'subdomain', 'logo_path', 'city', 'country', 'theme_color', 'deleted'];
+            const columnsResult = await db.query(
+                `SELECT column_name
+                 FROM information_schema.columns
+                 WHERE table_schema = 'public'
+                   AND table_name = 'organizations'
+                   AND column_name = ANY($1::text[])`,
+                [optionalColumns]
+            );
+
+            const availableColumns = new Set(columnsResult.rows.map(row => row.column_name));
+            const hasDeleted = availableColumns.has('deleted');
+            const hasNickname = availableColumns.has('nickname');
+            const hasSubdomain = availableColumns.has('subdomain');
+
             const result = await db.query(
-                `SELECT organization_id, organization_name, nickname, logo_path, city, country, theme_color
-                 FROM organizations 
-                 WHERE deleted = false AND nickname IS NOT NULL AND nickname != ''
+                `SELECT
+                    organization_id,
+                    organization_name,
+                    ${hasNickname ? 'nickname' : 'NULL::text AS nickname'},
+                    ${hasSubdomain ? 'subdomain' : 'NULL::text AS subdomain'},
+                    ${availableColumns.has('logo_path') ? 'logo_path' : 'NULL::text AS logo_path'},
+                    ${availableColumns.has('city') ? 'city' : 'NULL::text AS city'},
+                    ${availableColumns.has('country') ? 'country' : 'NULL::text AS country'},
+                    ${availableColumns.has('theme_color') ? 'theme_color' : 'NULL::text AS theme_color'}
+                 FROM organizations
+                 ${hasDeleted ? 'WHERE deleted = false' : ''}
                  ORDER BY organization_name ASC`
             );
             const orgs = result.rows.map(org => {
                 const isProduction = process.env.NODE_ENV === 'production';
+                const orgSlug = org.nickname || org.subdomain || '';
                 return {
                     ...org,
+                    nickname: orgSlug || null,
                     public_url: isProduction 
-                        ? `https://${org.nickname}.managira.com` 
+                        ? (orgSlug ? `https://${orgSlug}.managira.com` : `/common/publicDashboard?orgId=${org.organization_id}`)
                         : `/common/publicDashboard?orgId=${org.organization_id}`
                 };
             });
