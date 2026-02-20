@@ -916,6 +916,14 @@ const commonController = {
 
       const orgDetails = orgDetailsResult.rows[0];
 
+      const baseSiteUrl = "https://www.managira.com";
+      const toAbsoluteUrl = (value) => {
+        if (!value) return null;
+        if (/^https?:\/\//i.test(value)) return value;
+        const normalizedPath = value.startsWith("/") ? value : `/${value}`;
+        return `${baseSiteUrl}${normalizedPath}`;
+      };
+
       let publicHubInfo = null;
       if (orgDetails && orgDetails.is_hub_member && orgDetails.hub_id) {
         try {
@@ -1043,8 +1051,31 @@ const commonController = {
           : items;
 
       // Render the school website page
+      const canonicalUrl =
+        process.env.NODE_ENV === "production" && orgDetails?.nickname
+          ? `https://${orgDetails.nickname}.managira.com/common/publicDashboard`
+          : `${baseSiteUrl}/common/publicDashboard?organizationId=${organizationId}`;
+
+      const flashMessages = req.flash();
+      const publicErrorMessages = (flashMessages.error || []).filter(
+        (msg) => String(msg).trim().toLowerCase() !== "invalid school year or term."
+      );
+
+      const structuredData = orgDetails
+        ? {
+            "@context": "https://schema.org",
+            "@type": "School",
+            name: orgDetails.organization_name,
+            url: canonicalUrl,
+            logo: toAbsoluteUrl(orgDetails.logo),
+            image: toAbsoluteUrl(orgDetails.logo),
+          }
+        : null;
+
       res.render("common/publicDashboard", {
-        title: "School Website",
+        title: `${orgDetails?.organization_name || "School"} Public Profile`,
+        description: `${orgDetails?.organization_name || "School"} public profile on Managira.`,
+        canonicalUrl,
         slideshowImages, // Pass slideshow images separately
         orderedItems,
         orgDetails,
@@ -1054,7 +1085,11 @@ const commonController = {
         url,
         isLoggedIn: req.session && req.session.userId,
         accountType: req.session.accountType || null, // ✅ Pass accountType explicitly
-        messages: req.flash(),
+        messages: {
+          ...flashMessages,
+          error: publicErrorMessages,
+        },
+        structuredData,
         showFooterTopSection: false,
       });
     } catch (error) {

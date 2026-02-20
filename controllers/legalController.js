@@ -163,16 +163,43 @@ const legalController = {
                     ...org,
                     nickname: orgSlug || null,
                     public_url: isProduction 
-                        ? (orgSlug ? `https://${orgSlug}.managira.com` : `/common/publicDashboard?orgId=${org.organization_id}`)
-                        : `/common/publicDashboard?orgId=${org.organization_id}`
+                        ? (orgSlug ? `https://${orgSlug}.managira.com` : `/common/publicDashboard?organizationId=${org.organization_id}`)
+                        : `/common/publicDashboard?organizationId=${org.organization_id}`
                 };
             });
+
+            const baseSiteUrl = 'https://www.managira.com';
+            const toAbsoluteUrl = (value) => {
+                if (!value) return null;
+                if (/^https?:\/\//i.test(value)) return value;
+                const normalizedPath = value.startsWith('/') ? value : `/${value}`;
+                return `${baseSiteUrl}${normalizedPath}`;
+            };
+
+            const structuredData = {
+                '@context': 'https://schema.org',
+                '@type': 'ItemList',
+                name: 'Managira Organization Directory',
+                itemListElement: orgs.slice(0, 200).map((org, index) => ({
+                    '@type': 'ListItem',
+                    position: index + 1,
+                    item: {
+                        '@type': 'School',
+                        name: org.organization_name,
+                        url: org.public_url.startsWith('http') ? org.public_url : `${baseSiteUrl}${org.public_url}`,
+                        logo: toAbsoluteUrl(org.logo_path) || `${baseSiteUrl}/images/profilePlaceholder.png`,
+                        image: toAbsoluteUrl(org.logo_path) || `${baseSiteUrl}/images/profilePlaceholder.png`
+                    }
+                }))
+            };
+
             res.render('legal&Compliance/directory', {
-                title: 'Organization Directory | Managira - Find Schools on Managira',
+                title: 'Organization Directory | Managira',
                 description: 'Browse all schools and organizations on Managira. Search by name to find and visit their public pages.',
                 keywords: 'managira directory, schools on managira, find school managira, school management platform, organization directory',
-                canonicalUrl: 'https://www.managira.com/directory',
+                canonicalUrl: 'https://www.managira.com/legal/directory',
                 organizations: orgs,
+                structuredData,
                 showFooterTopSection: true
             });
         } catch (err) {

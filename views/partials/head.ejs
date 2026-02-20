@@ -35,6 +35,10 @@
   <% } %>
   <meta name="twitter:image" content="https://www.managira.com/images/managira.png">
 
+  <% if (typeof structuredData !== 'undefined' && structuredData) { %>
+    <script type="application/ld+json"><%- JSON.stringify(structuredData) %></script>
+  <% } %>
+
   <!-- Favicon Links -->
   <link rel="icon" href="/images/favicon_io/favicon.ico" type="image/x-icon" />
   <link
