@@ -357,6 +357,12 @@ module.exports = (db) => {
     commonValidation.validateAddSubjectResult,
     (req, res) => commonController.addSubject(req, res, db)
   );
+  router.post(
+    "/assignExistingSubject",
+    isAuthenticated,
+    requirePermission(PERMISSIONS.MANAGE_CLASSES_SUBJECTS),
+    (req, res) => commonController.assignExistingSubject(req, res, db)
+  );
   router.post("/updateTerm", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS), (req, res) =>
     commonController.updateTerm(req, res, db)
   );

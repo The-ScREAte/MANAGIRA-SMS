@@ -49,6 +49,10 @@ const MANAGER_DEFAULT_OPTIONAL_PERMISSIONS = PERMISSION_OPTIONS
   );
 
 const ROLE_DEFAULT_PERMISSIONS = {
+  // Manager gets all permissions except Billing and Settings by default.
+  // These same keys are pre-checked in the createEmployee UI via getSuggestedPermissionsForRole.
+  // Spreading here so MANAGER_DEFAULT_OPTIONAL_PERMISSIONS changes automatically propagate.
+  Manager: [...MANAGER_DEFAULT_OPTIONAL_PERMISSIONS],
   Teacher: [
     PERMISSIONS.MANAGE_ASSESSMENTS,
     PERMISSIONS.MARK_ATTENDANCE,
@@ -67,31 +71,67 @@ const ROLE_DEFAULT_PERMISSIONS = {
   ],
 };
 
-let ensuredPermissionsSchema = false;
-
+// Store the singleton on `global` so it is shared even if this module is
+// evaluated more than once via different require() paths (e.g. circular deps
+// or case-sensitivity differences on Windows). A module-level variable would
+// be private to each module instance, causing the DDL to run multiple times.
 async function ensurePermissionsSchema(database = db) {
-  if (ensuredPermissionsSchema) return;
+  if (global._permissionsSchemaPromise) return global._permissionsSchemaPromise;
 
-  await database.query(`
-    CREATE TABLE IF NOT EXISTS user_permissions (
-      id SERIAL PRIMARY KEY,
-      user_id INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-      organization_id INT NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE,
-      permission_key VARCHAR(100) NOT NULL,
-      granted_by INT,
-      created_at TIMESTAMP DEFAULT NOW(),
-      UNIQUE(user_id, permission_key)
-    )
-  `);
+  global._permissionsSchemaPromise = (async () => {
+    console.info('[Permissions] ensurePermissionsSchema: running DDL...');
+    await database.query(`
+      CREATE TABLE IF NOT EXISTS user_permissions (
+        id SERIAL PRIMARY KEY,
+        user_id INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+        organization_id INT NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE,
+        permission_key VARCHAR(100) NOT NULL,
+        granted_by INT,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(user_id, organization_id, permission_key)
+      )
+    `);
 
-  await database.query(
-    `CREATE INDEX IF NOT EXISTS idx_user_permissions_user_org ON user_permissions(user_id, organization_id)`
-  );
-  await database.query(
-    `CREATE INDEX IF NOT EXISTS idx_user_permissions_perm_org ON user_permissions(permission_key, organization_id)`
-  );
+    await database.query(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'user_permissions_user_id_permission_key_key'
+        ) THEN
+          ALTER TABLE user_permissions
+          DROP CONSTRAINT user_permissions_user_id_permission_key_key;
+        END IF;
 
-  ensuredPermissionsSchema = true;
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'user_permissions_user_org_perm_unique'
+        ) THEN
+          ALTER TABLE user_permissions
+          ADD CONSTRAINT user_permissions_user_org_perm_unique
+          UNIQUE (user_id, organization_id, permission_key);
+        END IF;
+      END
+      $$;
+    `);
+
+    await database.query(
+      `CREATE INDEX IF NOT EXISTS idx_user_permissions_user_org ON user_permissions(user_id, organization_id)`
+    );
+    await database.query(
+      `CREATE INDEX IF NOT EXISTS idx_user_permissions_perm_org ON user_permissions(permission_key, organization_id)`
+    );
+    console.info('[Permissions] ensurePermissionsSchema: DDL complete.');
+  })();
+
+  // If DDL fails, clear the global so the next call can retry.
+  global._permissionsSchemaPromise.catch(() => {
+    global._permissionsSchemaPromise = null;
+  });
+
+  return global._permissionsSchemaPromise;
 }
 
 function normalizeRole(role) {

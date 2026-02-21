@@ -260,6 +260,20 @@
     }
   </style>
   <script>
+    console.info('[CreateEmployee:Client] script_initialized', {
+      timestamp: new Date().toISOString()
+    });
+
+    window.addEventListener('load', () => {
+      const classCheckboxCount = document.querySelectorAll('input[name="classes"]').length;
+      const permissionCheckboxCount = document.querySelectorAll('input[name="permissions"]').length;
+      console.info('[CreateEmployee:Client] window_loaded', {
+        classCheckboxCount,
+        permissionCheckboxCount,
+        readyState: document.readyState,
+      });
+    });
+
     function toggleClassCollapse(id) {
       const collapseDiv = document.getElementById('collapse-' + id);
       const arrow = document.getElementById('arrow-' + id);
@@ -273,6 +287,8 @@
     }
 
     async function fetchSubjects(classId, containerId) {
+      const startedAt = performance.now();
+      console.info('[CreateEmployee:Client] fetch_subjects_start', { classId, containerId });
       try {
         const response = await fetch(`/common/getSubjectsByClass?classId=${classId}`);
         const subjects = await response.json();
@@ -301,8 +317,19 @@
         } else {
           container.innerHTML = "<p style='color: #64748b; font-size: 0.9rem;'>No subjects available for this class.</p>";
         }
+
+        console.info('[CreateEmployee:Client] fetch_subjects_success', {
+          classId,
+          subjectCount: subjects.length,
+          elapsedMs: Math.round(performance.now() - startedAt),
+        });
       } catch (error) {
         console.error("Error fetching subjects:", error);
+        console.error('[CreateEmployee:Client] fetch_subjects_failed', {
+          classId,
+          elapsedMs: Math.round(performance.now() - startedAt),
+          message: error.message,
+        });
       }
     }
 
@@ -320,40 +347,43 @@
     document.addEventListener("DOMContentLoaded", () => {
       const accountTypeSelect = document.getElementById("account_type");
       const permissionGroup = document.getElementById("permission-assignment-group");
-      const managerDefaultPermissions = new Set(<%- JSON.stringify(managerDefaultPermissions || []) %>);
 
-      const getPermissionCheckboxes = () =>
-        Array.from(document.querySelectorAll('input[name="permissions"]'));
+      // Role → default permission keys map (injected server-side)
+      const ROLE_DEFAULT_PERMISSIONS_MAP = <%- JSON.stringify(roleDefaultPermissionsMap || {}) %>;
 
       const syncPermissionVisibility = () => {
         if (!accountTypeSelect || !permissionGroup) return;
         permissionGroup.style.display = "block";
-      };
 
-      const applyManagerDefaultsIfNeeded = () => {
-        if (!accountTypeSelect || accountTypeSelect.value !== "Manager") return;
-
-        const checkboxes = getPermissionCheckboxes();
-        const hasAnySelected = checkboxes.some((checkbox) => checkbox.checked);
-        if (hasAnySelected) return;
-
-        checkboxes.forEach((checkbox) => {
-          checkbox.checked = managerDefaultPermissions.has(checkbox.value);
+        // Pre-check boxes that match the selected role's built-in defaults.
+        // The user can still add/remove any checkboxes before submitting.
+        const selectedRole = accountTypeSelect.value;
+        const defaults = ROLE_DEFAULT_PERMISSIONS_MAP[selectedRole] || [];
+        document.querySelectorAll('input[name="permissions"]').forEach(cb => {
+          cb.checked = defaults.includes(cb.value);
         });
       };
 
       if (accountTypeSelect) {
         accountTypeSelect.addEventListener("change", () => {
           syncPermissionVisibility();
-          applyManagerDefaultsIfNeeded();
         });
       }
       syncPermissionVisibility();
-      applyManagerDefaultsIfNeeded();
 
       const form = document.querySelector("form[action='/common/createEmployee']");
       if (form) {
         form.addEventListener("submit", function(e) {
+          const selectedPermissions = document.querySelectorAll('input[name="permissions"]:checked').length;
+          const selectedClasses = document.querySelectorAll('input[name="classes"]:checked').length;
+          const selectedSubjects = document.querySelectorAll('input[name="subjects"]:checked').length;
+          console.info('[CreateEmployee:Client] submit_attempt', {
+            selectedPermissions,
+            selectedClasses,
+            selectedSubjects,
+            accountType: accountTypeSelect ? accountTypeSelect.value : null,
+          });
+
           if (!confirm("Are you sure you want to create this employee?")) {
             e.preventDefault();
           }
@@ -422,7 +452,7 @@
                 </label>
               <% }) %>
             </div>
-            <div class="permissions-note">Grant only what this employee needs. For Manager, most permissions are preselected except billing and settings.</div>
+            <div class="permissions-note">Permissions are pre-selected based on the chosen role. You can add or remove any before saving. High-risk permissions (Billing, Settings) require a Manager account.</div>
           </div>
         </div>
 

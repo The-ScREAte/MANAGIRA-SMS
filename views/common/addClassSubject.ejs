@@ -381,6 +381,31 @@
 
           <button type="submit">Add Subject</button>
         </form>
+
+        <hr style="margin: 22px 0; border: none; border-top: 1px solid #e2e8f0;" />
+
+        <h2 style="font-size: 1.05rem; margin: 0 0 10px 0; color: #0f172a;">Assign Existing Subject to New Classes</h2>
+        <p style="margin: 0 0 14px 0; color: #475569; font-size: 0.93rem; line-height: 1.45;">
+          Select an existing subject, then choose from classes where that subject is not yet assigned.
+        </p>
+        <form action="/common/assignExistingSubject" method="post" id="assignExistingSubjectForm">
+          <div class="input-with-menu" style="margin-bottom: 12px;">
+            <label for="existingSubjectSelect">Existing<br>Subject:</label>
+            <select id="existingSubjectSelect" name="subjectKey" required>
+              <option value="">Select a subject</option>
+              <% assignableSubjects.forEach(function(item) { %>
+                <option value="<%= item.subject_key %>"><%= item.subject_name %></option>
+              <% }); %>
+            </select>
+          </div>
+
+          <label>Assign to Class:</label>
+          <div id="existingSubjectClassContainer" style="margin-bottom: 14px;">
+            <span style="color:#64748b; font-size:0.9rem;">Choose a subject to load eligible classes.</span>
+          </div>
+
+          <button type="submit">Apply Subject to Selected Classes</button>
+        </form>
       </fieldset>
 
       <!-- Add Graduation Year Group Section -->
@@ -610,6 +635,74 @@
         if (fieldContainer) {
           fieldContainer.remove();
         }
+      }
+
+      const assignableSubjects = <%- JSON.stringify(assignableSubjects || []) %>;
+      const assignableMap = assignableSubjects.reduce((acc, item) => {
+        acc[item.subject_key] = item;
+        return acc;
+      }, {});
+
+      const existingSubjectSelect = document.getElementById('existingSubjectSelect');
+      const existingSubjectClassContainer = document.getElementById('existingSubjectClassContainer');
+      const assignExistingSubjectForm = document.getElementById('assignExistingSubjectForm');
+
+      function renderAssignableClasses(subjectKey) {
+        if (!existingSubjectClassContainer) return;
+
+        const selected = assignableMap[subjectKey];
+        if (!selected) {
+          existingSubjectClassContainer.innerHTML = '<span style="color:#64748b; font-size:0.9rem;">Choose a subject to load eligible classes.</span>';
+          return;
+        }
+
+        const availableClasses = selected.available_classes || [];
+        if (availableClasses.length === 0) {
+          existingSubjectClassContainer.innerHTML = '<span style="color:#64748b; font-size:0.9rem;">This subject is already assigned to all classes.</span>';
+          return;
+        }
+
+        const checkboxRows = availableClasses
+          .map((cls) => `
+            <label style="display:block; margin-bottom:4px;">
+              <input type="checkbox" class="existing-class-checkbox" name="classId" value="${cls.class_id}">
+              ${cls.class_name}
+            </label>
+          `)
+          .join('');
+
+        existingSubjectClassContainer.innerHTML = `
+          <label style="display:block; margin-bottom:6px;">
+            <input type="checkbox" id="existingSelectAll"> Select All
+          </label>
+          <div>${checkboxRows}</div>
+        `;
+
+        const selectAll = document.getElementById('existingSelectAll');
+        const classCheckboxes = existingSubjectClassContainer.querySelectorAll('.existing-class-checkbox');
+        if (selectAll) {
+          selectAll.addEventListener('change', function () {
+            classCheckboxes.forEach((checkbox) => {
+              checkbox.checked = selectAll.checked;
+            });
+          });
+        }
+      }
+
+      if (existingSubjectSelect) {
+        existingSubjectSelect.addEventListener('change', function () {
+          renderAssignableClasses(this.value);
+        });
+      }
+
+      if (assignExistingSubjectForm) {
+        assignExistingSubjectForm.addEventListener('submit', function (event) {
+          const checked = assignExistingSubjectForm.querySelectorAll('.existing-class-checkbox:checked');
+          if (checked.length === 0) {
+            event.preventDefault();
+            alert('Please select at least one eligible class.');
+          }
+        });
       }
     </script>
     </div>

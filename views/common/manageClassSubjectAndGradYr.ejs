@@ -354,6 +354,108 @@
         box-sizing: border-box;
       }
 
+      .subject-group-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        margin-bottom: 12px;
+        overflow: hidden;
+        background: #fff;
+      }
+
+      .subject-group-toggle {
+        width: 100%;
+        border: none;
+        background: #f8fafc;
+        padding: 12px 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        text-align: left;
+        font-family: var(--font-family);
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #0f172a;
+      }
+
+      .subject-group-toggle:hover {
+        background: #f1f5f9;
+      }
+
+      .subject-group-toggle .subject-meta {
+        font-size: 0.8rem;
+        color: #475569;
+        font-weight: 600;
+      }
+
+      .subject-group-content {
+        padding: 12px 14px 14px;
+        border-top: 1px solid #e2e8f0;
+      }
+
+      .subject-section-title {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-bottom: 8px;
+      }
+
+      .subject-class-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .subject-class-chip {
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid #cbd5e1;
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 0.84rem;
+        color: #0f172a;
+        background: #f8fafc;
+      }
+
+      .subject-separator {
+        margin: 12px 0;
+        border-top: 1px solid #e2e8f0;
+      }
+
+      .subject-empty {
+        color: #64748b;
+        font-size: 0.9rem;
+      }
+
+      .subject-unassigned-list {
+        display: grid;
+        gap: 6px;
+        margin-bottom: 10px;
+      }
+
+      .subject-unassigned-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.9rem;
+        color: #0f172a;
+      }
+
+      .subject-select-all {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.86rem;
+        color: #334155;
+        margin-bottom: 8px;
+      }
+
+      .subject-assign-btn {
+        margin-top: 2px;
+      }
+
       @media (max-width: 768px) {
         .class-subject-page .page-banner h1 {
           font-size: 20px;
@@ -457,18 +559,18 @@
           </div>
         </div>
         <div class="regular-class-list">
-          <% classes.forEach(cls => { %>
-          <div class="form-container">
-            <form
-              action="/common/editClass"
-              method="post"
-              class="icon-form-vertical"
-            >
-              <input type="hidden" name="classId" value="<%= cls.class_id %>" />
+          <form
+            action="/common/editClass"
+            method="post"
+            class="icon-form-vertical"
+          >
+            <% classes.forEach(cls => { %>
+            <div class="form-container">
+              <input type="hidden" name="classId[]" value="<%= cls.class_id %>" />
               <div class="input-with-menu">
                 <input
                   type="text"
-                  name="newClassName"
+                  name="newClassName[]"
                   value="<%= cls.class_name %>"
                 />
                 <div class="menu-container">
@@ -482,42 +584,127 @@
                   </div>
                 </div>
               </div>
-              <div class="icon-btn-row">
-                <button type="submit" class="icon-btn update-btn" title="Update">
-                  Update
-                </button>
-              </div>
-            </form>
-          </div>
-          <% }); %>
+            </div>
+            <% }); %>
+            <div class="icon-btn-row">
+              <button type="submit" class="icon-btn update-btn" title="Update All Classes">
+                Update All Classes
+              </button>
+            </div>
+          </form>
         </div>
       </fieldset>
       <% } %> <% if (classes.length > 0) { %>
       <fieldset>
         <legend>Subjects</legend>
-        <form>
-          <select id="classSelect" name="classId" onchange="fetchSubjects()">
-            <option value="">Select a Class</option>
-            <% classes.forEach(function(cls) { %>
-            <option value="<%= cls.class_id %>"><%= cls.class_name %></option>
-            <% }); %>
-          </select>
-          <div id="subjectsContainer"></div>
-        </form>
+        <% if (!subjectGroups || subjectGroups.length === 0) { %>
+          <div class="subject-empty">No subjects found yet. Add subjects first to manage assignments here.</div>
+        <% } else { %>
+          <form id="bulkSubjectUpdateForm" action="/common/editSubject" method="post"></form>
+
+          <% subjectGroups.forEach(function(group, index) { %>
+            <div class="subject-group-card" data-subject-key="<%= group.subject_key %>">
+              <button
+                type="button"
+                class="subject-group-toggle"
+                aria-expanded="false"
+                onclick="toggleSubjectGroup(this)"
+              >
+                <span><%= group.subject_name %></span>
+                <span class="subject-meta"><%= group.assigned_classes.length %> assigned</span>
+              </button>
+
+              <div class="subject-group-content" style="display: none;">
+                <div class="input-with-menu" style="margin-bottom: 10px;">
+                  <input type="hidden" name="subjectKey[]" value="<%= group.subject_key %>" form="bulkSubjectUpdateForm" />
+                  <input
+                    type="text"
+                    name="newName[]"
+                    value="<%= group.subject_name %>"
+                    form="bulkSubjectUpdateForm"
+                  />
+                  <div class="menu-container">
+                    <button type="button" class="menu-button" onclick="toggleMenu(event, this)">
+                      ⋮
+                    </button>
+                    <div class="menu-dropdown">
+                      <button
+                        type="button"
+                        class="menu-item delete"
+                        onclick="confirmDelete('/common/deleteSubject?subjectKey=<%- encodeURIComponent(group.subject_key) %>')"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="subject-section-title">Classes assigned to this subject</div>
+                <% if (group.assigned_classes.length > 0) { %>
+                  <div class="subject-class-list">
+                    <% group.assigned_classes.forEach(function(cls) { %>
+                      <span class="subject-class-chip"><%= cls.class_name %></span>
+                    <% }); %>
+                  </div>
+                <% } else { %>
+                  <div class="subject-empty">Not assigned to any class yet.</div>
+                <% } %>
+
+                <div class="subject-separator"></div>
+
+                <div class="subject-section-title">Classes this subject does not affect yet</div>
+                <% if (group.unassigned_classes.length > 0) { %>
+                  <form action="/common/assignExistingSubject" method="post" class="subject-assign-form">
+                    <input type="hidden" name="subjectKey" value="<%= group.subject_key %>" />
+
+                    <label class="subject-select-all">
+                      <input type="checkbox" class="subject-unassigned-select-all" />
+                      Select all unassigned classes
+                    </label>
+
+                    <div class="subject-unassigned-list">
+                      <% group.unassigned_classes.forEach(function(cls) { %>
+                        <label class="subject-unassigned-item">
+                          <input type="checkbox" class="subject-unassigned-checkbox" name="classId" value="<%= cls.class_id %>" />
+                          <span><%= cls.class_name %></span>
+                        </label>
+                      <% }); %>
+                    </div>
+
+                    <button type="submit" class="icon-btn update-btn subject-assign-btn">Assign Subject to Selected Classes</button>
+                  </form>
+                <% } else { %>
+                  <div class="subject-empty">This subject is already assigned to all classes.</div>
+                <% } %>
+              </div>
+            </div>
+          <% }); %>
+
+          <div class="icon-btn-row" style="margin-top: 12px;">
+            <button
+              type="submit"
+              class="icon-btn update-btn"
+              title="Update All Subjects"
+              form="bulkSubjectUpdateForm"
+            >
+              Update All Subjects
+            </button>
+          </div>
+        <% } %>
       </fieldset>
       <% } %> <% if (graduationYearGroups.length > 0) { %>
       <fieldset>
         <legend>Graduation Year Groups</legend>
-        <% graduationYearGroups.forEach(group => { %>
-        <div class="form-container">
-          <form
-            action="/common/editGraduationYearGroup"
-            method="post"
-            class="icon-form-vertical"
-          >
-            <input type="hidden" name="id" value="<%= group.id %>" />
+        <form
+          action="/common/editGraduationYearGroup"
+          method="post"
+          class="icon-form-vertical"
+        >
+          <% graduationYearGroups.forEach(group => { %>
+          <div class="form-container">
+            <input type="hidden" name="id[]" value="<%= group.id %>" />
             <div class="input-with-menu">
-              <input type="text" name="newName" value="<%= group.name %>" />
+              <input type="text" name="newName[]" value="<%= group.name %>" />
               <div class="menu-container">
                 <button type="button" class="menu-button" onclick="toggleMenu(event, this)">
                   ⋮
@@ -529,14 +716,14 @@
                 </div>
               </div>
             </div>
-            <div class="icon-btn-row">
-              <button type="submit" class="icon-btn update-btn" title="Update">
-                Update
-              </button>
-            </div>
-          </form>
-        </div>
-        <% }); %>
+          </div>
+          <% }); %>
+          <div class="icon-btn-row">
+            <button type="submit" class="icon-btn update-btn" title="Update All Graduation Year Groups">
+              Update All Graduation Year Groups
+            </button>
+          </div>
+        </form>
       </fieldset>
       <% } %>
     </div>
@@ -560,55 +747,13 @@
           .replace(/'/g, "&#039;");
       }
 
-      function fetchSubjects() {
-        const classId = document.getElementById("classSelect").value;
-        if (!classId) {
-          document.getElementById("subjectsContainer").innerHTML = "";
-          return;
-        }
+      function toggleSubjectGroup(button) {
+        const content = button.nextElementSibling;
+        if (!content) return;
 
-        fetch(`/common/getSubjectsByClass?classId=${classId}`)
-          .then((response) => response.json())
-          .then((subjects) => {
-            const subjectsContainer =
-              document.getElementById("subjectsContainer");
-            subjectsContainer.innerHTML = "";
-
-            if (subjects.length === 0) {
-              subjectsContainer.innerHTML = '<div style="color:#888; margin:16px 0;">No subjects have been assigned to this class.</div>';
-              return;
-            }
-            subjects.forEach((subject) => {
-              const subjectElement = document.createElement("div");
-              subjectElement.classList.add("subject-item");
-              subjectElement.innerHTML = `
-                <form action="/common/editSubject" method="post" class="icon-form-vertical" style="display:inline;">
-                  <input type="hidden" name="subjectId" value="${escapeHtml(subject.subject_id)}">
-                  <div class="input-with-menu">
-                    <input type="text" name="newName" value="${escapeHtml(subject.subject_name)}">
-                    <div class="menu-container">
-                      <button type="button" class="menu-button" onclick="toggleMenu(event, this)">
-                        ⋮
-                      </button>
-                      <div class="menu-dropdown">
-                        <button type="button" class="menu-item delete" onclick="confirmDelete('/common/deleteSubject?subjectId=${escapeHtml(subject.subject_id)}')">
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="icon-btn-row">
-                    <button type="submit" class="icon-btn update-btn" title="Update">Update</button>
-                  </div>
-                </form>
-              `;
-              subjectsContainer.appendChild(subjectElement);
-            });
-          })
-          .catch((error) => {
-            console.error("Error fetching subjects:", error);
-            alert("Failed to load subjects.");
-          });
+        const currentlyExpanded = button.getAttribute('aria-expanded') === 'true';
+        button.setAttribute('aria-expanded', currentlyExpanded ? 'false' : 'true');
+        content.style.display = currentlyExpanded ? 'none' : 'block';
       }
 
       function toggleAllClassesCollapse() {
@@ -648,6 +793,26 @@
             menu.classList.remove('show');
           });
         }
+      });
+
+      document.addEventListener('change', function (event) {
+        if (!event.target.classList.contains('subject-unassigned-select-all')) return;
+        const form = event.target.closest('.subject-assign-form');
+        if (!form) return;
+
+        form.querySelectorAll('.subject-unassigned-checkbox').forEach((checkbox) => {
+          checkbox.checked = event.target.checked;
+        });
+      });
+
+      document.querySelectorAll('.subject-assign-form').forEach((form) => {
+        form.addEventListener('submit', function (event) {
+          const selected = form.querySelectorAll('.subject-unassigned-checkbox:checked');
+          if (selected.length === 0) {
+            event.preventDefault();
+            alert('Select at least one class to assign this subject.');
+          }
+        });
       });
 
       // Mobile-only collapsible sections (clean, reusable)

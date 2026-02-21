@@ -4283,30 +4283,72 @@ const commonController = {
   },
 
   createEmployeeGet: async (req, res, db) => {
+    const requestId = `ceg-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const startedAt = Date.now();
+
+    const logStep = (step, extra = {}) => {
+      console.info(`[CreateEmployee:Get][${requestId}] ${step}`, {
+        elapsedMs: Date.now() - startedAt,
+        organizationId: req.session.organizationId,
+        userId: req.session.userId || req.session.user?.user_id || null,
+        ...extra,
+      });
+    };
+
     try {
+      logStep("start");
       await ensurePermissionsSchema(db);
+      logStep("permissions_schema_ready");
+
       const classesResult = await db.query(
         "SELECT * FROM classes WHERE organization_id = $1",
         [req.session.organizationId]
       );
+      logStep("classes_loaded", { classCount: classesResult.rows.length });
+
       res.render("common/createEmployee", {
         title: "Create Employee",
         classes: classesResult.rows,
         permissionOptions: PERMISSION_OPTIONS,
         managerDefaultPermissions: getSuggestedPermissionsForRole("Manager"),
+        roleDefaultPermissionsMap: {
+          Manager: getSuggestedPermissionsForRole("Manager"),
+          Teacher: mergePermissionsForRole("Teacher", []),
+          Supervisor: mergePermissionsForRole("Supervisor", []),
+        },
         messages: {
           success: req.flash("success"),
           error: req.flash("error"),
         },
       });
+      logStep("render_complete");
     } catch (error) {
-      // ...removed error log for clean background operation...
+      console.error(`[CreateEmployee:Get][${requestId}] failed`, {
+        elapsedMs: Date.now() - startedAt,
+        message: error.message,
+        stack: error.stack,
+      });
       req.flash("error", "Failed to load classes.");
       res.redirect("/common/manageEmployees");
     }
   },
 
   createEmployeePost: async (req, res, db) => {
+    const postId = `cep-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const postStart = Date.now();
+    const elapsed = () => `${Date.now() - postStart}ms`;
+
+    console.info(`\n====== [CreateEmployee:POST][${postId}] START ======`);
+    console.info(`[CreateEmployee:POST][${postId}] body_received`, {
+      firstName: req.body.firstName,
+      lastName: req.body.lastName,
+      email: req.body.email,
+      account_type: req.body.account_type,
+      rawPermissions: req.body.permissions,
+      rawClasses: req.body.classes,
+      rawSubjects: req.body.subjects,
+    });
+
     const { firstName, lastName, email, account_type } = req.body;
 
     let classes = req.body.classes || [];
@@ -4323,63 +4365,107 @@ const commonController = {
       PERMISSIONS.MANAGE_BILLING,
     ]);
 
+    console.info(`[CreateEmployee:POST][${postId}] permissions_parsed`, {
+      requestedPermissions,
+      requestorRole,
+      requestorId,
+      organizationId,
+    });
+
     if (!Array.isArray(classes)) classes = [classes];
     if (!Array.isArray(subjects)) subjects = [subjects];
 
     if (!firstName || !lastName || !email || !account_type) {
+      console.warn(`[CreateEmployee:POST][${postId}] missing_required_fields`);
       req.flash("error", "All fields are required.");
       return res.redirect("/common/createEmployee");
     }
 
-    if (account_type === "Manager" && !isManagerLikeRole(requestorRole)) {
+    const requestorRoleName = String(requestorRole || "").trim();
+    const canAssignSensitivePermissions =
+      isManagerLikeRole(requestorRole) || requestorRoleName === "Manager";
+
+    if (account_type === "Manager" && !canAssignSensitivePermissions) {
+      console.warn(`[CreateEmployee:POST][${postId}] manager_creation_blocked`, { requestorRole });
       req.flash("error", "Only managers can create manager accounts.");
       return res.redirect("/common/createEmployee");
     }
 
-    const sanitizedRequestedPermissions = isManagerLikeRole(requestorRole)
+    const sanitizedRequestedPermissions = canAssignSensitivePermissions
       ? requestedPermissions
       : requestedPermissions.filter((permission) => !highRiskPermissions.has(permission));
 
-    const managerDefaultPermissions = getSuggestedPermissionsForRole("Manager");
-    const effectivePermissions = mergePermissionsForRole(
-      account_type,
-      account_type === "Manager" && sanitizedRequestedPermissions.length === 0
-        ? managerDefaultPermissions
-        : sanitizedRequestedPermissions
-    );
+    // Persist exactly what was selected in the form (after safety filtering).
+    const effectivePermissions = sanitizedRequestedPermissions;
 
-    const client = await db.connect();
+    console.info(`[CreateEmployee:POST][${postId}] effective_permissions_computed`, {
+      sanitizedRequestedPermissions,
+      effectivePermissions,
+      account_type,
+      elapsed: elapsed(),
+    });
+
+    // ─── Step 1: Ensure schema using the POOL (not a transaction client) to
+    //             avoid locking issues that cause the request to hang. ────────
+    console.info(`[CreateEmployee:POST][${postId}] step1_ensure_schema_start`, { elapsed: elapsed() });
+    try {
+      await ensurePermissionsSchema(db);
+      console.info(`[CreateEmployee:POST][${postId}] step1_ensure_schema_done`, { elapsed: elapsed() });
+    } catch (schemaErr) {
+      console.error(`[CreateEmployee:POST][${postId}] step1_ensure_schema_FAILED`, {
+        message: schemaErr.message,
+        elapsed: elapsed(),
+      });
+      req.flash("error", "Database schema error: " + schemaErr.message);
+      return res.redirect("/common/createEmployee");
+    }
+
+    // ─── Step 2: Acquire a connection from the pool ──────────────────────────
+    console.info(`[CreateEmployee:POST][${postId}] step2_acquiring_db_client`, { elapsed: elapsed() });
+    let client;
+    try {
+      client = await db.connect();
+      console.info(`[CreateEmployee:POST][${postId}] step2_db_client_acquired`, { elapsed: elapsed() });
+    } catch (connErr) {
+      console.error(`[CreateEmployee:POST][${postId}] step2_db_connect_FAILED`, {
+        message: connErr.message,
+        elapsed: elapsed(),
+      });
+      req.flash("error", "Could not connect to the database. Please try again.");
+      return res.redirect("/common/createEmployee");
+    }
 
     try {
-      await ensurePermissionsSchema(client);
+      // ─── Step 3: Check for duplicate email ────────────────────────────────
+      console.info(`[CreateEmployee:POST][${postId}] step3_begin_transaction`, { elapsed: elapsed() });
       await client.query("BEGIN");
 
-      // ✅ Check if the email already exists in users or organizations
+      console.info(`[CreateEmployee:POST][${postId}] step3_check_email_start`, { email, elapsed: elapsed() });
       const emailCheckResult = await client.query(
         `SELECT email FROM users WHERE LOWER(email) = LOWER($1)
          UNION
          SELECT email FROM organizations WHERE LOWER(email) = LOWER($1)`,
         [email]
       );
+      console.info(`[CreateEmployee:POST][${postId}] step3_check_email_done`, {
+        duplicate: emailCheckResult.rows.length > 0,
+        elapsed: elapsed(),
+      });
 
       if (emailCheckResult.rows.length > 0) {
-        req.flash(
-          "error",
-          "This email is already in use by another user or organization."
-        );
+        req.flash("error", "This email is already in use by another user or organization.");
         await client.query("ROLLBACK");
         return res.redirect("/common/createEmployee");
       }
 
-      // ✅ Generate token for password setup
+      // ─── Step 4: Generate token ───────────────────────────────────────────
       const token = crypto.randomBytes(32).toString("hex");
-      const hashedToken = crypto
-        .createHash("sha256")
-        .update(token)
-        .digest("hex");
-      const tokenExpiration = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000); // 3 days
+      const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+      const tokenExpiration = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+      console.info(`[CreateEmployee:POST][${postId}] step4_token_generated`, { elapsed: elapsed() });
 
-      // ✅ Insert new employee
+      // ─── Step 5: Insert user ──────────────────────────────────────────────
+      console.info(`[CreateEmployee:POST][${postId}] step5_insert_user_start`, { elapsed: elapsed() });
       const result = await client.query(
         `INSERT INTO users (
            first_name, last_name, email, account_type, organization_id,
@@ -4387,72 +4473,141 @@ const commonController = {
          )
          VALUES ($1, $2, $3, $4, $5, NOW(), NOW(), $6, $7)
          RETURNING user_id`,
-        [
-          firstName,
-          lastName,
-          email,
-          account_type,
-          req.session.organizationId,
-          hashedToken,
-          tokenExpiration,
-        ]
+        [firstName, lastName, email, account_type, req.session.organizationId, hashedToken, tokenExpiration]
       );
-
       const userId = result.rows[0].user_id;
+      console.info(`[CreateEmployee:POST][${postId}] step5_insert_user_done`, { userId, elapsed: elapsed() });
 
-      // ✅ Insert classes
-      for (const classId of classes) {
+      // ─── Step 6: Assign classes ───────────────────────────────────────────
+      const normalizedClassIds = [...new Set(
+        classes.map((v) => Number(v)).filter((v) => Number.isInteger(v) && v > 0)
+      )];
+      const normalizedSubjectIds = [...new Set(
+        subjects.map((v) => Number(v)).filter((v) => Number.isInteger(v) && v > 0)
+      )];
+      console.info(`[CreateEmployee:POST][${postId}] step6_classes_subjects`, {
+        normalizedClassIds,
+        normalizedSubjectIds,
+        elapsed: elapsed(),
+      });
+
+      if (normalizedClassIds.length > 0) {
         await client.query(
-          "INSERT INTO user_classes (user_id, class_id, main) VALUES ($1, $2, $3)",
-          [userId, classId, false]
+          `INSERT INTO user_classes (user_id, class_id, main)
+           SELECT $1, unnest($2::int[]), FALSE`,
+          [userId, normalizedClassIds]
         );
+        console.info(`[CreateEmployee:POST][${postId}] step6_classes_inserted`, { elapsed: elapsed() });
       }
 
-      // ✅ Insert subjects
-      for (const subjectId of subjects) {
+      if (normalizedSubjectIds.length > 0) {
         await client.query(
-          "INSERT INTO user_subjects (user_id, subject_id) VALUES ($1, $2)",
-          [userId, subjectId]
+          `INSERT INTO user_subjects (user_id, subject_id)
+           SELECT $1, unnest($2::int[])
+           ON CONFLICT (user_id, subject_id) DO NOTHING`,
+          [userId, normalizedSubjectIds]
         );
+        console.info(`[CreateEmployee:POST][${postId}] step6_subjects_inserted`, { elapsed: elapsed() });
       }
+
+      // ─── Step 7: Save permissions ─────────────────────────────────────────
+      console.info(`[CreateEmployee:POST][${postId}] step7_permissions_start`, {
+        userId,
+        organizationId,
+        effectivePermissions,
+        effectivePermissionsCount: effectivePermissions.length,
+        elapsed: elapsed(),
+      });
 
       if (effectivePermissions.length > 0) {
-        for (const permissionKey of effectivePermissions) {
-          await client.query(
-            `INSERT INTO user_permissions (user_id, organization_id, permission_key, granted_by)
-             VALUES ($1, $2, $3, $4)
-             ON CONFLICT (user_id, permission_key) DO UPDATE SET granted_by = EXCLUDED.granted_by`,
-            [userId, organizationId, permissionKey, requestorId]
-          );
-        }
+        const permInsertResult = await client.query(
+          `INSERT INTO user_permissions (user_id, organization_id, permission_key, granted_by)
+           SELECT $1, $2, unnest($3::text[]), $4
+           ON CONFLICT (user_id, organization_id, permission_key) DO UPDATE
+           SET granted_by = EXCLUDED.granted_by
+           RETURNING permission_key`,
+          [userId, organizationId, effectivePermissions, requestorId]
+        );
+        console.info(`[CreateEmployee:POST][${postId}] step7_permissions_inserted`, {
+          inserted: permInsertResult.rows.map((r) => r.permission_key),
+          rowCount: permInsertResult.rowCount,
+          elapsed: elapsed(),
+        });
+      } else {
+        console.warn(`[CreateEmployee:POST][${postId}] step7_permissions_SKIPPED — effectivePermissions is empty`, {
+          account_type,
+          sanitizedRequestedPermissions,
+          elapsed: elapsed(),
+        });
       }
 
-      // ✅ Send invitation email
+      // ─── Step 8: Verify permissions were written (within same transaction) ─
+      const verifyResult = await client.query(
+        `SELECT permission_key FROM user_permissions
+         WHERE user_id = $1 AND organization_id = $2
+         ORDER BY permission_key ASC`,
+        [userId, organizationId]
+      );
+      const persistedPermissions = verifyResult.rows.map((r) => r.permission_key);
+      const expectedPermissions = [...effectivePermissions].sort();
+
+      if (persistedPermissions.length === 0 && effectivePermissions.length > 0) {
+        console.error(`[CreateEmployee:POST][${postId}] step8_permissions_VERIFY_EMPTY — nothing in DB after INSERT`, {
+          userId,
+          organizationId,
+          effectivePermissions,
+          elapsed: elapsed(),
+        });
+      } else if (JSON.stringify(persistedPermissions) !== JSON.stringify(expectedPermissions)) {
+        console.warn(`[CreateEmployee:POST][${postId}] step8_permissions_MISMATCH`, {
+          userId,
+          organizationId,
+          expectedPermissions,
+          persistedPermissions,
+          elapsed: elapsed(),
+        });
+      } else {
+        console.info(`[CreateEmployee:POST][${postId}] step8_permissions_VERIFIED_OK`, {
+          userId,
+          organizationId,
+          permissionCount: persistedPermissions.length,
+          permissions: persistedPermissions,
+          elapsed: elapsed(),
+        });
+      }
+
+      // ─── Step 9: Commit ───────────────────────────────────────────────────
       const baseUrl = req.protocol + "://" + req.get("host");
       const setPasswordUrl = `${baseUrl}/common/set-password?token=${token}`;
       const organizationName = req.session.organizationName;
 
-      await sendInviteEmail(
-        email,
-        firstName,
-        lastName,
-        setPasswordUrl,
-        organizationName
-      );
-
+      console.info(`[CreateEmployee:POST][${postId}] step9_commit_start`, { elapsed: elapsed() });
       await client.query("COMMIT");
-      req.flash(
-        "success",
-        "Employee created successfully. Invitation sent to set their password. Please note: the invitation link will expire in 3 days. If it expires, the employee will need to consult their organization for assistance."
-      );
+      console.info(`[CreateEmployee:POST][${postId}] step9_commit_done`, { userId, elapsed: elapsed() });
+
+      setImmediate(async () => {
+        const sent = await sendInviteEmail(email, firstName, lastName, setPasswordUrl, organizationName);
+        if (!sent) {
+          console.warn(`[CreateEmployee:POST][${postId}] email_send_FAILED for user ${userId} (${email})`);
+        } else {
+          console.info(`[CreateEmployee:POST][${postId}] email_sent for user ${userId}`);
+        }
+      });
+
+      console.info(`[CreateEmployee:POST][${postId}] ====== COMPLETE — total ${elapsed()} ======\n`);
+      req.flash("success", "Employee created successfully. Password invite is being sent now.");
       res.redirect("/common/createEmployee");
     } catch (error) {
-      await client.query("ROLLBACK");
-      // ...removed error log for clean background operation...
+      console.error(`[CreateEmployee:POST][${postId}] ====== ERROR at ${elapsed()} ======`, {
+        message: error.message,
+        stack: error.stack,
+      });
+      try { await client.query("ROLLBACK"); } catch (_) {}
       req.flash("error", "Failed to create employee: " + error.message);
       res.redirect("/common/createEmployee");
     } finally {
       client.release();
+      console.info(`[CreateEmployee:POST][${postId}] db_client_released`, { elapsed: elapsed() });
     }
   },
 
@@ -4959,6 +5114,11 @@ const commonController = {
         enrolledSubjects,
         permissionOptions: PERMISSION_OPTIONS,
         managerDefaultPermissions: getSuggestedPermissionsForRole("Manager"),
+        roleDefaultPermissionsMap: {
+          Manager: mergePermissionsForRole("Manager", []),
+          Teacher: mergePermissionsForRole("Teacher", []),
+          Supervisor: mergePermissionsForRole("Supervisor", []),
+        },
         selectedPermissions,
         messages: req.flash(),
       });
@@ -4968,6 +5128,22 @@ const commonController = {
   },
 
   modifyEmployeePost: async (req, res, db) => {
+    const modId = `mep-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const modStart = Date.now();
+    const elapsed = () => `${Date.now() - modStart}ms`;
+
+    console.info(`\n====== [ModifyEmployee:POST][${modId}] START ======`);
+    console.info(`[ModifyEmployee:POST][${modId}] body_received`, {
+      userId: req.params.userId,
+      firstName: req.body.firstName,
+      lastName: req.body.lastName,
+      email: req.body.email,
+      accountType: req.body.accountType,
+      rawPermissions: req.body.permissions,
+      rawClassIds: req.body.classIds,
+      rawSubjects: req.body.subjects,
+    });
+
     const { userId } = req.params;
     const {
       firstName,
@@ -4989,119 +5165,181 @@ const commonController = {
       PERMISSIONS.MANAGE_BILLING,
     ]);
 
-    if (accountType === "Manager" && !isManagerLikeRole(requestorRole)) {
+    const requestorRoleName = String(requestorRole || "").trim();
+    const canAssignSensitivePermissions =
+      isManagerLikeRole(requestorRole) || requestorRoleName === "Manager";
+
+    if (accountType === "Manager" && !canAssignSensitivePermissions) {
       req.flash("error", "Only managers can assign manager role.");
       return res.redirect(`/common/modifyEmployee?userId=${userId}`);
     }
 
-    const sanitizedRequestedPermissions = isManagerLikeRole(requestorRole)
+    const sanitizedRequestedPermissions = canAssignSensitivePermissions
       ? requestedPermissions
       : requestedPermissions.filter((permission) => !highRiskPermissions.has(permission));
 
-    const managerDefaultPermissions = getSuggestedPermissionsForRole("Manager");
-    const effectivePermissions = mergePermissionsForRole(
-      accountType,
-      accountType === "Manager" && sanitizedRequestedPermissions.length === 0
-        ? managerDefaultPermissions
-        : sanitizedRequestedPermissions
-    );
+    // Persist exactly what was selected in the form (after safety filtering).
+    const effectivePermissions = sanitizedRequestedPermissions;
+
+    // Log everything critical BEFORE touching the DB
+    const modId2 = modId; // already declared above
+    console.info(`[ModifyEmployee:POST][${modId2}] pre_db_state`, {
+      userId, organizationId, requestorRole, requestorId, accountType,
+      requestedPermissions, sanitizedRequestedPermissions: sanitizedRequestedPermissions.length,
+      effectivePermissions, effectiveCount: effectivePermissions.length,
+      elapsed: elapsed(),
+    });
+
+    // Guard: session must have organizationId or the INSERT will fail
+    if (!organizationId) {
+      console.error(`[ModifyEmployee:POST][${modId2}] ABORT — organizationId missing in session`);
+      req.flash("error", "Session error: please log in again.");
+      return res.redirect("/account/login");
+    }
+
+    const normalizedClassIds = [...new Set(
+      (Array.isArray(classIds) ? classIds : classIds ? [classIds] : [])
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value > 0)
+    )];
+    const normalizedSubjectIds = [...new Set(
+      (Array.isArray(subjects) ? subjects : subjects ? [subjects] : [])
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value > 0)
+    )];
+
+    console.info(`[ModifyEmployee:POST][${modId2}] acquiring_db_client`, { elapsed: elapsed() });
+    const client = await db.connect();
+    console.info(`[ModifyEmployee:POST][${modId2}] db_client_acquired`, { elapsed: elapsed() });
 
     try {
-      await ensurePermissionsSchema(db);
-      // ✅ Check if the email is being changed
-      const currentUserResult = await db.query(
-        "SELECT email FROM users WHERE user_id = $1 AND organization_id = $2",
-        [userId, req.session.organizationId]
-      );
+      // BEGIN immediately — every exit path below reaches the catch which ROLLBACKs
+      await client.query("BEGIN");
+      console.info(`[ModifyEmployee:POST][${modId2}] transaction_begun`, { elapsed: elapsed() });
 
+      const currentUserResult = await client.query(
+        "SELECT email FROM users WHERE user_id = $1 AND organization_id = $2",
+        [userId, organizationId]
+      );
       if (currentUserResult.rows.length === 0) {
+        console.warn(`[ModifyEmployee:POST][${modId2}] employee_not_found`, { userId, organizationId });
+        await client.query("ROLLBACK");
         req.flash("error", "Employee not found.");
         return res.redirect("/common/manageEmployees");
       }
 
       const currentEmail = currentUserResult.rows[0].email;
+      console.info(`[ModifyEmployee:POST][${modId2}] employee_found`, {
+        currentEmail, newEmail: email, emailChanged: email !== currentEmail, elapsed: elapsed(),
+      });
 
-      // ✅ If the email is changing, ensure it doesn’t already exist elsewhere
       if (email !== currentEmail) {
-        const emailCheckResult = await db.query(
-          `
-            SELECT user_id FROM users WHERE email = $1
-            UNION
-            SELECT organization_id FROM organizations WHERE email = $1
-          `,
-          [email]
+        const emailCheckResult = await client.query(
+          `SELECT 1 FROM users WHERE LOWER(email) = LOWER($1) AND user_id != $2
+           UNION
+           SELECT 1 FROM organizations WHERE LOWER(email) = LOWER($1)`,
+          [email, userId]
         );
-
-        // If it exists and belongs to another user/org
         if (emailCheckResult.rows.length > 0) {
-          req.flash(
-            "error",
-            "Email already in use by another user or organization. Please use a different email."
-          );
+          console.warn(`[ModifyEmployee:POST][${modId2}] email_conflict`, { email });
+          await client.query("ROLLBACK");
+          req.flash("error", "Email already in use by another user or organization. Please use a different email.");
           return res.redirect(`/common/modifyEmployee?userId=${userId}`);
         }
       }
 
       // ✅ Update user details
-      await db.query(
-        `
-          UPDATE users
-          SET first_name = $1, last_name = $2, email = $3, account_type = $4, updated_at = NOW()
-          WHERE user_id = $5 AND organization_id = $6
-        `,
-        [
-          firstName,
-          lastName,
-          email,
-          accountType,
-          userId,
-          req.session.organizationId,
-        ]
+      await client.query(
+        `UPDATE users SET first_name=$1, last_name=$2, email=$3, account_type=$4, updated_at=NOW()
+         WHERE user_id=$5 AND organization_id=$6`,
+        [firstName, lastName, email, accountType, userId, organizationId]
       );
+      console.info(`[ModifyEmployee:POST][${modId}] user_updated`, { elapsed: elapsed() });
 
       // ✅ Update classes
-      await db.query("DELETE FROM user_classes WHERE user_id = $1", [userId]);
-      if (Array.isArray(classIds)) {
-        for (const classId of classIds) {
-          await db.query(
-            "INSERT INTO user_classes (user_id, class_id) VALUES ($1, $2)",
-            [userId, classId]
-          );
-        }
+      await client.query("DELETE FROM user_classes WHERE user_id = $1", [userId]);
+      if (normalizedClassIds.length > 0) {
+        await client.query(
+          `INSERT INTO user_classes (user_id, class_id, main) SELECT $1, unnest($2::int[]), FALSE`,
+          [userId, normalizedClassIds]
+        );
       }
+      console.info(`[ModifyEmployee:POST][${modId}] classes_updated`, { count: normalizedClassIds.length, elapsed: elapsed() });
 
       // ✅ Update subjects
-      await db.query("DELETE FROM user_subjects WHERE user_id = $1", [userId]);
-      if (Array.isArray(subjects)) {
-        for (const subjectId of subjects) {
-          await db.query(
-            "INSERT INTO user_subjects (user_id, subject_id) VALUES ($1, $2)",
-            [userId, subjectId]
-          );
-        }
+      await client.query("DELETE FROM user_subjects WHERE user_id = $1", [userId]);
+      if (normalizedSubjectIds.length > 0) {
+        await client.query(
+          `INSERT INTO user_subjects (user_id, subject_id)
+           SELECT $1, unnest($2::int[]) ON CONFLICT (user_id, subject_id) DO NOTHING`,
+          [userId, normalizedSubjectIds]
+        );
       }
+      console.info(`[ModifyEmployee:POST][${modId}] subjects_updated`, { count: normalizedSubjectIds.length, elapsed: elapsed() });
 
-      await db.query(
+      // ✅ Replace permissions — hard DELETE for this user+org, then fresh INSERT
+      //    No ON CONFLICT needed: DELETE cleared our rows; a plain INSERT is cleaner
+      //    and avoids masking cross-org uniqueness constraint issues.
+      console.info(`[ModifyEmployee:POST][${modId}] permissions_replacing`, {
+        effectivePermissions, count: effectivePermissions.length, elapsed: elapsed(),
+      });
+
+      await client.query(
         "DELETE FROM user_permissions WHERE user_id = $1 AND organization_id = $2",
         [userId, organizationId]
       );
 
       if (effectivePermissions.length > 0) {
-        for (const permissionKey of effectivePermissions) {
-          await db.query(
-            `INSERT INTO user_permissions (user_id, organization_id, permission_key, granted_by)
-             VALUES ($1, $2, $3, $4)
-             ON CONFLICT (user_id, permission_key) DO UPDATE SET granted_by = EXCLUDED.granted_by`,
-            [userId, organizationId, permissionKey, requestorId]
-          );
-        }
+        const permResult = await client.query(
+          `INSERT INTO user_permissions (user_id, organization_id, permission_key, granted_by)
+           SELECT $1, $2, unnest($3::text[]), $4
+           RETURNING permission_key`,
+          [userId, organizationId, effectivePermissions, requestorId]
+        );
+        console.info(`[ModifyEmployee:POST][${modId}] permissions_inserted`, {
+          inserted: permResult.rows.map((r) => r.permission_key),
+          rowCount: permResult.rowCount,
+          elapsed: elapsed(),
+        });
+      } else {
+        console.warn(`[ModifyEmployee:POST][${modId}] permissions_SKIPPED — effectivePermissions empty`, { accountType, elapsed: elapsed() });
       }
 
+      // Verify within the same transaction
+      const verifyResult = await client.query(
+        `SELECT permission_key FROM user_permissions WHERE user_id=$1 AND organization_id=$2 ORDER BY permission_key`,
+        [userId, organizationId]
+      );
+      const persistedPermissions = verifyResult.rows.map((r) => r.permission_key);
+      const expectedPermissions = [...effectivePermissions].sort();
+
+      if (JSON.stringify(persistedPermissions) !== JSON.stringify(expectedPermissions)) {
+        console.warn(`[ModifyEmployee:POST][${modId}] permissions_MISMATCH`, {
+          expected: expectedPermissions, persisted: persistedPermissions, elapsed: elapsed(),
+        });
+      } else {
+        console.info(`[ModifyEmployee:POST][${modId}] permissions_VERIFIED_OK`, {
+          count: persistedPermissions.length, permissions: persistedPermissions, elapsed: elapsed(),
+        });
+      }
+
+      await client.query("COMMIT");
+      console.info(`[ModifyEmployee:POST][${modId}] ====== COMMITTED — total ${elapsed()} ======\n`);
+
       req.flash("success", "Employee details updated successfully.");
-      res.redirect("/common/manageEmployees");
-    } catch (error) {
-            req.flash("error", "Failed to update employee details.");
+      // Redirect back to the same employee page so the user can immediately
+      // see the saved state (checkboxes reflect what's now in the DB).
       res.redirect(`/common/modifyEmployee?userId=${userId}`);
+    } catch (error) {
+      console.error(`[ModifyEmployee:POST][${modId}] ====== ERROR at ${elapsed()} ======`, {
+        message: error.message, stack: error.stack,
+      });
+      try { await client.query("ROLLBACK"); } catch (_) {}
+      req.flash("error", "Failed to update employee details: " + error.message);
+      res.redirect(`/common/modifyEmployee?userId=${userId}`);
+    } finally {
+      client.release();
+      console.info(`[ModifyEmployee:POST][${modId}] db_client_released`, { elapsed: elapsed() });
     }
   },
 
@@ -6661,13 +6899,13 @@ const commonController = {
 
   getClasses: async (req, res, db) => {
     try {
-      const result = await db.query(
+      const classesResult = await db.query(
         "SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY class_name ASC",
         [req.session.organizationId]
       );
-      res.json(result.rows);
+      res.json(classesResult.rows);
     } catch (error) {
-            res.status(500).json({ error: "Failed to load classes." });
+      res.status(500).json({ error: "Failed to fetch classes." });
     }
   },
 
@@ -7110,6 +7348,36 @@ const commonController = {
       );
       const subjects = subjectResult.rows;
 
+      const subjectAssignmentsResult = await db.query(
+        `SELECT
+            LOWER(TRIM(subject_name)) AS subject_key,
+            MIN(TRIM(subject_name)) AS subject_name,
+            ARRAY_REMOVE(ARRAY_AGG(DISTINCT class_id), NULL) AS assigned_class_ids
+         FROM subjects
+         WHERE organization_id = $1
+           AND subject_name IS NOT NULL
+           AND TRIM(subject_name) <> ''
+         GROUP BY LOWER(TRIM(subject_name))
+         ORDER BY MIN(TRIM(subject_name)) ASC`,
+        [organizationId]
+      );
+
+      const assignableSubjects = subjectAssignmentsResult.rows.map((row) => {
+        const assignedClassSet = new Set((row.assigned_class_ids || []).map(Number));
+        const availableClasses = classes
+          .filter((cls) => !assignedClassSet.has(Number(cls.class_id)))
+          .map((cls) => ({
+            class_id: cls.class_id,
+            class_name: cls.class_name,
+          }));
+
+        return {
+          subject_key: row.subject_key,
+          subject_name: row.subject_name,
+          available_classes: availableClasses,
+        };
+      });
+
       const gradYearGroupsResult = await db.query(
         "SELECT * FROM graduation_year_groups WHERE organization_id = $1",
         [organizationId]
@@ -7120,6 +7388,7 @@ const commonController = {
         title: "Add Class and Subject",
         classes,
         subjects,
+        assignableSubjects,
         availableGradYearGroups,
         messages: req.flash(),
       });
@@ -7238,6 +7507,114 @@ const commonController = {
     }
   },
 
+  assignExistingSubject: async (req, res, db) => {
+    const { organizationId } = req.session;
+    const subjectKey = (req.body.subjectKey || "").trim().toLowerCase();
+    const rawClassIds = req.body.classId;
+
+    const selectedClassIds = Array.isArray(rawClassIds)
+      ? rawClassIds
+      : rawClassIds
+      ? [rawClassIds]
+      : [];
+
+    if (!subjectKey) {
+      req.flash("error", "Please select an existing subject.");
+      return res.redirect("/common/addClassSubject");
+    }
+
+    if (selectedClassIds.length === 0) {
+      req.flash("error", "Please select at least one class.");
+      return res.redirect("/common/addClassSubject");
+    }
+
+    const client = await db.connect();
+    try {
+      await client.query("BEGIN");
+
+      const subjectNameResult = await client.query(
+        `SELECT MIN(TRIM(subject_name)) AS subject_name
+         FROM subjects
+         WHERE organization_id = $1
+           AND LOWER(TRIM(subject_name)) = $2`,
+        [organizationId, subjectKey]
+      );
+
+      const canonicalSubjectName = subjectNameResult.rows[0]?.subject_name;
+      if (!canonicalSubjectName) {
+        await client.query("ROLLBACK");
+        req.flash("error", "Selected subject was not found.");
+        return res.redirect("/common/addClassSubject");
+      }
+
+      const classIdNumbers = selectedClassIds
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value > 0);
+
+      if (classIdNumbers.length === 0) {
+        await client.query("ROLLBACK");
+        req.flash("error", "Please select valid classes.");
+        return res.redirect("/common/addClassSubject");
+      }
+
+      const validClassesResult = await client.query(
+        `SELECT class_id
+         FROM classes
+         WHERE organization_id = $1
+           AND class_id = ANY($2::int[])`,
+        [organizationId, classIdNumbers]
+      );
+      const validClassIds = validClassesResult.rows.map((row) => Number(row.class_id));
+
+      if (validClassIds.length === 0) {
+        await client.query("ROLLBACK");
+        req.flash("error", "No valid classes selected.");
+        return res.redirect("/common/addClassSubject");
+      }
+
+      const existingAssignmentsResult = await client.query(
+        `SELECT class_id
+         FROM subjects
+         WHERE organization_id = $1
+           AND class_id = ANY($2::int[])
+           AND LOWER(TRIM(subject_name)) = $3`,
+        [organizationId, validClassIds, subjectKey]
+      );
+      const alreadyAssigned = new Set(
+        existingAssignmentsResult.rows.map((row) => Number(row.class_id))
+      );
+
+      const classIdsToInsert = validClassIds.filter((classId) => !alreadyAssigned.has(classId));
+
+      for (const classId of classIdsToInsert) {
+        await client.query(
+          "INSERT INTO subjects (subject_name, class_id, organization_id) VALUES ($1, $2, $3)",
+          [canonicalSubjectName, classId, organizationId]
+        );
+      }
+
+      await client.query("COMMIT");
+
+      if (classIdsToInsert.length === 0) {
+        req.flash("success", "Subject is already assigned to all selected classes.");
+      } else {
+        req.flash(
+          "success",
+          `${canonicalSubjectName} assigned to ${classIdsToInsert.length} class${
+            classIdsToInsert.length === 1 ? "" : "es"
+          } successfully.`
+        );
+      }
+      res.redirect("/common/addClassSubject");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      req.flash("error", "Failed to assign existing subject.");
+      res.redirect("/common/addClassSubject");
+    } finally {
+      client.release();
+    }
+  },
+
   updateTerm: async (req, res, db) => {
     const { term_id, term_name, start_date, end_date } = req.body;
     try {
@@ -7316,11 +7693,86 @@ const commonController = {
         [req.session.organizationId]
       );
 
+      const classes = classesResult.rows;
+      const subjects = subjectsResult.rows;
+      const classMap = new Map(classes.map((cls) => [Number(cls.class_id), cls]));
+      const subjectGroupMap = new Map();
+
+      subjects.forEach((subject) => {
+        const rawName = (subject.subject_name || "").trim();
+        if (!rawName) return;
+
+        const subjectKey = rawName.toLowerCase();
+        if (!subjectGroupMap.has(subjectKey)) {
+          subjectGroupMap.set(subjectKey, {
+            subject_key: subjectKey,
+            subject_name: rawName,
+            assigned_classes: [],
+          });
+        }
+
+        const group = subjectGroupMap.get(subjectKey);
+        const classId = Number(subject.class_id);
+        if (!Number.isInteger(classId)) return;
+
+        const classInfo = classMap.get(classId);
+        if (!classInfo) return;
+
+        const alreadyAssigned = group.assigned_classes.some(
+          (assignedCls) => Number(assignedCls.class_id) === classId
+        );
+        if (!alreadyAssigned) {
+          group.assigned_classes.push({
+            class_id: classInfo.class_id,
+            class_name: classInfo.class_name,
+          });
+        }
+      });
+
+      const subjectGroups = Array.from(subjectGroupMap.values())
+        .map((group) => {
+          const assignedClassIds = new Set(
+            group.assigned_classes.map((assignedCls) => Number(assignedCls.class_id))
+          );
+
+          const unassigned_classes = classes
+            .filter((cls) => !assignedClassIds.has(Number(cls.class_id)))
+            .map((cls) => ({
+              class_id: cls.class_id,
+              class_name: cls.class_name,
+            }));
+
+          group.assigned_classes.sort((a, b) =>
+            String(a.class_name).localeCompare(String(b.class_name), undefined, {
+              sensitivity: "base",
+              numeric: true,
+            })
+          );
+          unassigned_classes.sort((a, b) =>
+            String(a.class_name).localeCompare(String(b.class_name), undefined, {
+              sensitivity: "base",
+              numeric: true,
+            })
+          );
+
+          return {
+            ...group,
+            unassigned_classes,
+          };
+        })
+        .sort((a, b) =>
+          String(a.subject_name).localeCompare(String(b.subject_name), undefined, {
+            sensitivity: "base",
+            numeric: true,
+          })
+        );
+
       res.render("common/manageClassSubjectAndGradYr", {
         title: "Modify Class, Subject & Grad Year",
         graduationYearGroups: graduationYearsResult.rows,
-        classes: classesResult.rows,
-        subjects: subjectsResult.rows,
+        classes,
+        subjects,
+        subjectGroups,
         messages: {
           success: req.flash("success"),
           error: req.flash("error"),
@@ -7354,17 +7806,59 @@ const commonController = {
   },
 
   editGraduationYearGroup: async (req, res, db) => {
-    const { id, newName } = req.body;
+    const ids = Array.isArray(req.body.id)
+      ? req.body.id
+      : req.body.id
+      ? [req.body.id]
+      : [];
+    const names = Array.isArray(req.body.newName)
+      ? req.body.newName
+      : req.body.newName
+      ? [req.body.newName]
+      : [];
+
+    if (ids.length === 0 || names.length === 0 || ids.length !== names.length) {
+      req.flash("error", "Invalid graduation year group update request.");
+      return res.redirect("/common/manageClassSubjectAndGradYr");
+    }
+
+    const client = await db.connect();
     try {
-      await db.query(
-        "UPDATE graduation_year_groups SET name = $1 WHERE id = $2 AND organization_id = $3",
-        [newName, id, req.session.organizationId]
-      );
-      req.flash("success", "Graduation year group updated successfully.");
+      await client.query("BEGIN");
+
+      let updatedCount = 0;
+      for (let i = 0; i < ids.length; i++) {
+        const id = Number(ids[i]);
+        const newName = String(names[i] || "").trim();
+
+        if (!Number.isInteger(id) || id <= 0 || !newName) {
+          continue;
+        }
+
+        await client.query(
+          "UPDATE graduation_year_groups SET name = $1 WHERE id = $2 AND organization_id = $3",
+          [newName, id, req.session.organizationId]
+        );
+        updatedCount++;
+      }
+
+      await client.query("COMMIT");
+
+      if (updatedCount === 0) {
+        req.flash("error", "No valid graduation year group updates were submitted.");
+      } else {
+        req.flash(
+          "success",
+          `Updated ${updatedCount} graduation year group${updatedCount === 1 ? "" : "s"} successfully.`
+        );
+      }
       res.redirect("/common/manageClassSubjectAndGradYr");
     } catch (error) {
-            req.flash("error", "Failed to update graduation year group.");
+      await client.query("ROLLBACK");
+      req.flash("error", "Failed to update graduation year group.");
       res.redirect("/common/manageClassSubjectAndGradYr");
+    } finally {
+      client.release();
     }
   },
 
@@ -7428,17 +7922,56 @@ const commonController = {
   },
 
   editClass: async (req, res, db) => {
-    const { classId, newClassName } = req.body;
+    const classIds = Array.isArray(req.body.classId)
+      ? req.body.classId
+      : req.body.classId
+      ? [req.body.classId]
+      : [];
+    const classNames = Array.isArray(req.body.newClassName)
+      ? req.body.newClassName
+      : req.body.newClassName
+      ? [req.body.newClassName]
+      : [];
+
+    if (classIds.length === 0 || classNames.length === 0 || classIds.length !== classNames.length) {
+      req.flash("error", "Invalid class update request.");
+      return res.redirect("/common/manageClassSubjectAndGradYr");
+    }
+
+    const client = await db.connect();
     try {
-      await db.query(
-        "UPDATE classes SET class_name = $1 WHERE class_id = $2 AND organization_id = $3",
-        [newClassName, classId, req.session.organizationId]
-      );
-      req.flash("success", "Class updated successfully.");
+      await client.query("BEGIN");
+
+      let updatedCount = 0;
+      for (let i = 0; i < classIds.length; i++) {
+        const classId = Number(classIds[i]);
+        const newClassName = String(classNames[i] || "").trim();
+
+        if (!Number.isInteger(classId) || classId <= 0 || !newClassName) {
+          continue;
+        }
+
+        await client.query(
+          "UPDATE classes SET class_name = $1 WHERE class_id = $2 AND organization_id = $3",
+          [newClassName, classId, req.session.organizationId]
+        );
+        updatedCount++;
+      }
+
+      await client.query("COMMIT");
+
+      if (updatedCount === 0) {
+        req.flash("error", "No valid class updates were submitted.");
+      } else {
+        req.flash("success", `Updated ${updatedCount} class${updatedCount === 1 ? "" : "es"} successfully.`);
+      }
       res.redirect("/common/manageClassSubjectAndGradYr");
     } catch (error) {
-            req.flash("error", "Failed to update class.");
+      await client.query("ROLLBACK");
+      req.flash("error", "Failed to update class.");
       res.redirect("/common/manageClassSubjectAndGradYr");
+    } finally {
+      client.release();
     }
   },
 
@@ -7460,40 +7993,170 @@ const commonController = {
   },
 
   editSubject: async (req, res, db) => {
-    const { subjectId, newName } = req.body;
+    const { organizationId } = req.session;
+
+    const subjectKeys = Array.isArray(req.body.subjectKey)
+      ? req.body.subjectKey
+      : req.body.subjectKey
+      ? [req.body.subjectKey]
+      : [];
+    const newNames = Array.isArray(req.body.newName)
+      ? req.body.newName
+      : req.body.newName
+      ? [req.body.newName]
+      : [];
+
+    const isBulkUpdate = subjectKeys.length > 0;
+
+    if (!isBulkUpdate) {
+      const { subjectId, newName } = req.body;
+      try {
+        await db.query(
+          "UPDATE subjects SET subject_name = $1 WHERE subject_id = $2 AND organization_id = $3",
+          [newName, subjectId, organizationId]
+        );
+        req.flash("success", "Subject updated successfully.");
+        return res.redirect("/common/manageClassSubjectAndGradYr");
+      } catch (error) {
+        req.flash("error", "Failed to update subject.");
+        return res.redirect("/common/manageClassSubjectAndGradYr");
+      }
+    }
+
+    if (subjectKeys.length !== newNames.length) {
+      req.flash("error", "Invalid subject update request.");
+      return res.redirect("/common/manageClassSubjectAndGradYr");
+    }
+
+    const client = await db.connect();
     try {
-      await db.query(
-        "UPDATE subjects SET subject_name = $1 WHERE subject_id = $2 AND organization_id = $3",
-        [newName, subjectId, req.session.organizationId]
-      );
-      req.flash("success", "Subject updated successfully.");
+      await client.query("BEGIN");
+
+      let updatedCount = 0;
+      for (let i = 0; i < subjectKeys.length; i++) {
+        const subjectKey = String(subjectKeys[i] || "").trim().toLowerCase();
+        const newName = String(newNames[i] || "").trim();
+
+        if (!subjectKey || !newName) {
+          continue;
+        }
+
+        const updateResult = await client.query(
+          `UPDATE subjects
+           SET subject_name = $1
+           WHERE organization_id = $2
+             AND LOWER(TRIM(subject_name)) = $3`,
+          [newName, organizationId, subjectKey]
+        );
+
+        if (updateResult.rowCount > 0) {
+          updatedCount++;
+        }
+      }
+
+      await client.query("COMMIT");
+
+      if (updatedCount === 0) {
+        req.flash("error", "No valid subject updates were submitted.");
+      } else {
+        req.flash("success", `Updated ${updatedCount} subject${updatedCount === 1 ? "" : "s"} successfully.`);
+      }
       res.redirect("/common/manageClassSubjectAndGradYr");
     } catch (error) {
-            req.flash("error", "Failed to update subject.");
+      await client.query("ROLLBACK");
+      req.flash("error", "Failed to update subjects.");
       res.redirect("/common/manageClassSubjectAndGradYr");
+    } finally {
+      client.release();
     }
   },
 
   deleteSubject: async (req, res, db) => {
-    const { subjectId } = req.query;
+    const { organizationId } = req.session;
+    const subjectId = req.query.subjectId ? Number(req.query.subjectId) : null;
+    const subjectKey = req.query.subjectKey
+      ? String(req.query.subjectKey).trim().toLowerCase()
+      : null;
 
+    const client = await db.connect();
     try {
-      // Delete all user_subjects entries related to the subject
-      await db.query("DELETE FROM user_subjects WHERE subject_id = $1", [
-        subjectId,
-      ]);
+      await client.query("BEGIN");
 
-      // Now delete the subject
-      await db.query(
-        "DELETE FROM subjects WHERE subject_id = $1 AND organization_id = $2",
-        [subjectId, req.session.organizationId]
+      let subjectIds = [];
+      if (subjectKey) {
+        const subjectIdsResult = await client.query(
+          `SELECT subject_id
+           FROM subjects
+           WHERE organization_id = $1
+             AND LOWER(TRIM(subject_name)) = $2`,
+          [organizationId, subjectKey]
+        );
+        subjectIds = subjectIdsResult.rows.map((row) => Number(row.subject_id));
+      } else if (Number.isInteger(subjectId) && subjectId > 0) {
+        const subjectIdsResult = await client.query(
+          `SELECT subject_id
+           FROM subjects
+           WHERE organization_id = $1
+             AND subject_id = $2`,
+          [organizationId, subjectId]
+        );
+        subjectIds = subjectIdsResult.rows.map((row) => Number(row.subject_id));
+      }
+
+      if (subjectIds.length === 0) {
+        await client.query("ROLLBACK");
+        req.flash("error", "Subject not found.");
+        return res.redirect("/common/manageClassSubjectAndGradYr");
+      }
+
+      const tablesToClean = [
+        "user_subjects",
+        "student_subjects",
+        "pending_student_subjects",
+        "assessment_results",
+        "category_scores",
+        "student_positions",
+        "assessments",
+      ];
+
+      for (const tableName of tablesToClean) {
+        const tableExistsResult = await client.query(
+          `SELECT EXISTS (
+             SELECT 1
+             FROM information_schema.tables
+             WHERE table_schema = 'public'
+               AND table_name = $1
+           ) AS exists`,
+          [tableName]
+        );
+
+        if (!tableExistsResult.rows[0]?.exists) {
+          continue;
+        }
+
+        await client.query(
+          `DELETE FROM ${tableName}
+           WHERE subject_id = ANY($1::int[])`,
+          [subjectIds]
+        );
+      }
+
+      await client.query(
+        `DELETE FROM subjects
+         WHERE organization_id = $1
+           AND subject_id = ANY($2::int[])`,
+        [organizationId, subjectIds]
       );
 
-      req.flash("success", "Subject deleted successfully.");
+      await client.query("COMMIT");
+      req.flash("success", "Subject and all related assignments/data were deleted successfully.");
       res.redirect("/common/manageClassSubjectAndGradYr");
     } catch (err) {
-            req.flash("error", "Failed to delete subject.");
+      await client.query("ROLLBACK");
+      req.flash("error", "Failed to delete subject.");
       res.redirect("/common/manageClassSubjectAndGradYr");
+    } finally {
+      client.release();
     }
   },
 
@@ -7657,7 +8320,7 @@ const commonController = {
       );
 
       const studentsResult = await db.query(
-        "SELECT * FROM students WHERE organization_id = $1 AND graduated = FALSE ORDER BY last_name, first_name",
+        "SELECT * FROM students WHERE organization_id = $1 ORDER BY first_name, last_name",
         [req.session.organizationId]
       );
 
@@ -8537,7 +9200,7 @@ async function sendInviteEmail(
     note: 'This link will expire in 3 days. For help, visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
   });
   const mailOptions = {
-    from: process.env.NOTIFY_EMAIL_USER,
+    from: process.env.ADMIN_NOTIFY_EMAIL_USER,
     to: email,
     subject: "Set Your Password - Managira",
     html,
@@ -8549,7 +9212,7 @@ async function sendInviteEmail(
       },
     ],
   };
-  await sendEmailSafely(mailOptions, "Employee Invite Email");
+  return sendEmailSafely(mailOptions, "Employee Invite Email");
 }
 
 async function sendPasswordSetSuccessEmail(email, firstName, lastName) {

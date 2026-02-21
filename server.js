@@ -396,10 +396,16 @@ cron.schedule("0 0 * * *", async () => {
   await applyScheduledHolds();
 });
 
+const { ensurePermissionsSchema } = require('./middleware/permissionMiddleware');
+
 const logStartupDbStatus = async () => {
   try {
     await db.query('SELECT 1');
     console.log('[DB] ✅ Startup database check passed');
+    // Pre-warm the permissions schema DDL once at startup so the Promise
+    // singleton is already settled before any HTTP request arrives.
+    // This prevents the double-log caused by two concurrent first callers.
+    await ensurePermissionsSchema(db);
   } catch (error) {
     console.error(
       `[DB] ⚠️ Startup database check failed (${error.code || 'NO_CODE'}): ${error.message}. Verify DB_CONNECTION_STRING uses the full Render DB URL and DB_SSL matches Internal(false)/External(true).`

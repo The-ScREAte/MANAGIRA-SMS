@@ -169,7 +169,7 @@
             </label>
           <% }) %>
         </div>
-        <div style="margin-top:8px; color:#64748b; font-size:12px;">Grant only what this employee needs. For Manager, most permissions are preselected except billing and settings.</div>
+        <div style="margin-top:8px; color:#64748b; font-size:12px;">Permissions are pre-selected based on role. You can add or remove any. High-risk permissions (Billing, Settings) require a Manager account.</div>
       </div>
     </div>
     <div>
@@ -237,36 +237,33 @@
     document.addEventListener("DOMContentLoaded", () => {
       const accountTypeSelect = document.querySelector("select[name='accountType']");
       const permissionGroup = document.getElementById("permission-assignment-group");
-      const managerDefaultPermissions = new Set(<%- JSON.stringify(managerDefaultPermissions || []) %>);
 
-      const getPermissionCheckboxes = () =>
-        Array.from(document.querySelectorAll('input[name="permissions"]'));
+      // Role → default permission keys (injected from server)
+      const ROLE_DEFAULT_PERMISSIONS_MAP = <%- JSON.stringify(roleDefaultPermissionsMap || {}) %>;
+      // The permissions currently saved in the DB for this employee
+      const CURRENT_SAVED_PERMISSIONS = <%- JSON.stringify(selectedPermissions || []) %>;
+
+      // On role change: reset checkboxes to that role's defaults.
+      // The user can still customise before saving.
+      const applyRoleDefaults = (role) => {
+        const defaults = ROLE_DEFAULT_PERMISSIONS_MAP[role] || [];
+        document.querySelectorAll('input[name="permissions"]').forEach(cb => {
+          cb.checked = defaults.includes(cb.value);
+        });
+      };
 
       const syncPermissionVisibility = () => {
         if (!accountTypeSelect || !permissionGroup) return;
         permissionGroup.style.display = "block";
       };
 
-      const applyManagerDefaultsIfNeeded = () => {
-        if (!accountTypeSelect || accountTypeSelect.value !== "Manager") return;
-
-        const checkboxes = getPermissionCheckboxes();
-        const hasAnySelected = checkboxes.some((checkbox) => checkbox.checked);
-        if (hasAnySelected) return;
-
-        checkboxes.forEach((checkbox) => {
-          checkbox.checked = managerDefaultPermissions.has(checkbox.value);
-        });
-      };
-
       if (accountTypeSelect) {
-        accountTypeSelect.addEventListener("change", () => {
+        accountTypeSelect.addEventListener("change", (e) => {
           syncPermissionVisibility();
-          applyManagerDefaultsIfNeeded();
+          applyRoleDefaults(e.target.value);
         });
       }
       syncPermissionVisibility();
-      applyManagerDefaultsIfNeeded();
 
       // All collapsibles start collapsed
       const collapseAllClasses = document.getElementById('collapse-all-classes');

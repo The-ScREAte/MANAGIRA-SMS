@@ -31,11 +31,14 @@ warnIfDbConfigLooksWrong();
 const pool = new Pool({
   connectionString: dbConnectionString,
   ssl: shouldUseSsl ? { rejectUnauthorized: false } : false,
-  max: parseInt(process.env.DB_POOL_MAX || '10', 10),
+  max: parseInt(process.env.DB_POOL_MAX || '15', 10),  // bumped: auth+permission+session mw each use a connection
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
   keepAlive: true,
-  keepAliveInitialDelayMillis: 10000
+  keepAliveInitialDelayMillis: 10000,
+  // Kill any query that hangs for more than 30 s so a stalled query never
+  // blocks the pool and makes the entire app appear to hang.
+  statement_timeout: 30000,
 });
 
 pool.on('connect', () => {

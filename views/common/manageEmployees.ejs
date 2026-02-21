@@ -165,7 +165,7 @@
     }
 
     .collapsible-btn {
-      display: none;
+      display: inline-flex;
       align-items: center;
       gap: 6px;
       padding: 6px 12px;
@@ -205,20 +205,8 @@
     }
 
     @media (min-width: 901px) {
-      .collapsible-btn {
-        display: none !important;
-      }
-
       .collapsible-content {
-        display: block !important;
         margin-top: 0;
-        padding: 0;
-        background: transparent;
-        border: none;
-      }
-
-      .collapsible-content ul {
-        margin: 0;
       }
     }
 
@@ -330,35 +318,37 @@
           <td data-label="Email"><%= employee.email %></td>
           <td data-label="Role"><%= employee.account_type %></td>
           <td data-label="Permissions">
-            <% if (employee.account_type === 'Manager') { %>
-              <span>All Permissions</span>
-            <% } else { %>
-              <button type="button" class="collapsible-btn" onclick="toggleEmployeeCollapse('permissions', '<%= idx %>')">
-                View <span class="arrow" id="arrow-permissions-<%= idx %>">▸</span>
-              </button>
-              <div class="collapsible-content" id="collapse-permissions-<%= idx %>" style="display:none;">
-                <% if ((employee.permissions || []).length > 0) { %>
-                  <ul>
-                    <% (employee.permissions || []).forEach(permissionKey => { %>
-                    <li><%= (permissionLabelMap && permissionLabelMap[permissionKey]) ? permissionLabelMap[permissionKey] : permissionKey %></li>
-                    <% }); %>
-                  </ul>
-                <% } else { %>
-                  <span>None</span>
-                <% } %>
-              </div>
-            <% } %>
+            <button type="button" class="collapsible-btn" onclick="toggleEmployeeCollapse('permissions', '<%= idx %>')">
+              View <span class="arrow" id="arrow-permissions-<%= idx %>">▸</span>
+            </button>
+            <div class="collapsible-content" id="collapse-permissions-<%= idx %>" style="display:none;">
+              <% if (employee.account_type === 'Manager' && (employee.permissions || []).length === 0) { %>
+                <span>All permissions (manager-level access)</span>
+              <% } else if ((employee.permissions || []).length > 0) { %>
+                <ul>
+                  <% (employee.permissions || []).forEach(permissionKey => { %>
+                  <li><%= (permissionLabelMap && permissionLabelMap[permissionKey]) ? permissionLabelMap[permissionKey] : permissionKey %></li>
+                  <% }); %>
+                </ul>
+              <% } else { %>
+                <span>None</span>
+              <% } %>
+            </div>
           </td>
           <td data-label="Classes">
             <button type="button" class="collapsible-btn" onclick="toggleEmployeeCollapse('classes', '<%= idx %>')">
               View <span class="arrow" id="arrow-classes-<%= idx %>">▸</span>
             </button>
             <div class="collapsible-content" id="collapse-classes-<%= idx %>" style="display:none;">
-              <ul>
-                <% (employee.classes || []).forEach(cls => { %>
-                <li><%= cls.class_name %></li>
-                <% }); %>
-              </ul>
+              <% if ((employee.classes || []).length > 0) { %>
+                <ul>
+                  <% (employee.classes || []).forEach(cls => { %>
+                  <li><%= cls.class_name %></li>
+                  <% }); %>
+                </ul>
+              <% } else { %>
+                <span>None</span>
+              <% } %>
             </div>
           </td>
           <td data-label="Subjects">
@@ -366,16 +356,24 @@
               View <span class="arrow" id="arrow-subjects-<%= idx %>">▸</span>
             </button>
             <div class="collapsible-content" id="collapse-subjects-<%= idx %>" style="display:none;">
-              <% (employee.classes || []).forEach(cls => { %>
-                <div style="margin-bottom:8px;">
-                  <strong><%= cls.class_name %>:</strong>
-                  <ul>
-                    <% (cls.subjects || []).forEach(sub => { %>
-                    <li><%= sub.subject_name %></li>
-                    <% }); %>
-                  </ul>
-                </div>
-              <% }); %>
+              <% if ((employee.classes || []).length > 0) { %>
+                <% (employee.classes || []).forEach(cls => { %>
+                  <div style="margin-bottom:8px;">
+                    <strong><%= cls.class_name %>:</strong>
+                    <% if ((cls.subjects || []).length > 0) { %>
+                      <ul>
+                        <% (cls.subjects || []).forEach(sub => { %>
+                        <li><%= sub.subject_name %></li>
+                        <% }); %>
+                      </ul>
+                    <% } else { %>
+                      <div>None</div>
+                    <% } %>
+                  </div>
+                <% }); %>
+              <% } else { %>
+                <span>None</span>
+              <% } %>
             </div>
           </td>
           <td data-label="Actions">

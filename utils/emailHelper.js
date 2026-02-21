@@ -96,13 +96,17 @@ function renderCleanEmail({
  * @returns {Promise<boolean>} - Returns true if email sent successfully, false otherwise
  */
 async function sendEmailSafely(mailOptions, context = "Email") {
+  const sendStart = Date.now();
   try {
     // Check if email credentials are configured
     if (!process.env.ADMIN_NOTIFY_EMAIL_USER || !process.env.ADMIN_NOTIFY_EMAIL_PASSWORD) {
-  // ...removed log for clean background operation...
+      console.warn(`[Email][${context}] SMTP credentials not configured — skipping send.`);
       return false;
     }
 
+    // NOTE: transporter is created per-call intentionally (env vars may change at runtime),
+    // but we do NOT call transporter.verify() — it opens a full SMTP handshake and can
+    // stall for 10-30 s on a slow server. We rely on sendMail() to fail fast instead.
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: parseInt(process.env.SMTP_PORT),
@@ -111,10 +115,13 @@ async function sendEmailSafely(mailOptions, context = "Email") {
         user: process.env.ADMIN_NOTIFY_EMAIL_USER,
         pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
       },
+      // Hard cap: give up after 15 s so the event loop is never blocked indefinitely
+      connectionTimeout: 15000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
     });
 
-    // Verify connection configuration
-    await transporter.verify();
+    console.info(`[Email][${context}] sending to ${mailOptions.to}`);
 
     // Send email
     const info = await transporter.sendMail({
@@ -122,19 +129,15 @@ async function sendEmailSafely(mailOptions, context = "Email") {
       ...mailOptions,
     });
 
-  // ...removed log for clean background operation...
+    console.info(`[Email][${context}] sent OK in ${Date.now() - sendStart}ms`, info.messageId);
     return true;
   } catch (error) {
-    console.error(`${context}: Failed to send email:`, error.message);
-    
-    // Don't throw the error, just log it and return false
-    // This prevents email errors from crashing the application
+    console.error(`[Email][${context}] FAILED after ${Date.now() - sendStart}ms:`, error.message);
     if (error.code === 'EAUTH') {
-  console.error(`${context}: Email authentication failed. Please check your SMTP credentials and settings.`);
-    } else if (error.code === 'ECONNECTION') {
-      console.error(`${context}: Email connection failed. Please check your SMTP settings.`);
+      console.error(`[Email][${context}] Authentication failed — check SMTP credentials.`);
+    } else if (error.code === 'ECONNECTION' || error.code === 'ETIMEDOUT') {
+      console.error(`[Email][${context}] SMTP connection failed/timed out — check SMTP_HOST/PORT.`);
     }
-    
     return false;
   }
 }
