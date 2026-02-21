@@ -619,12 +619,28 @@ const commonController = {
 
       const url = req.url;
       const { schoolYearId, termId } = req.params;
-      const currentUserRole = req.session.userRole;
       const userSession = req.session.user || req.session.orgUser;
-      const currentUserId = userSession
-        ? userSession.user_id || userSession.organization_id
-        : null;
+      const currentUserId =
+        (req.session.user && req.session.user.user_id) ||
+        req.session.userId ||
+        (userSession ? userSession.user_id || userSession.organization_id : null);
       const isOrgAccount = !!req.session.orgUser;
+
+      let effectiveDashboardRole = String(req.session.userRole || "").trim().toLowerCase();
+      if (currentUserId && !isOrgAccount) {
+        const roleResult = await db.query(
+          "SELECT account_type FROM users WHERE user_id = $1 AND organization_id = $2 LIMIT 1",
+          [currentUserId, organizationId]
+        );
+        if (roleResult.rows.length > 0 && roleResult.rows[0].account_type) {
+          effectiveDashboardRole = String(roleResult.rows[0].account_type).trim().toLowerCase();
+        }
+      }
+
+      const shouldRestrictToAssignedClasses =
+        effectiveDashboardRole === "teacher" ||
+        effectiveDashboardRole === "supervisor" ||
+        effectiveDashboardRole === "superviser";
 
       // Fetch current school year and term
       const schoolYearResult = await db.query(
@@ -672,7 +688,7 @@ const commonController = {
         // ...removed error log for clean background operation...
       }
 
-      if (currentUserRole === "Teacher") {
+      if (shouldRestrictToAssignedClasses) {
         const teacherClassesResult = await db.query(
           `
             SELECT uc.class_id, c.class_name,
@@ -717,7 +733,7 @@ const commonController = {
           enrolledClassIds.includes(cls.class_id)
         );
       } else {
-        // Fetch all enrolled classes for other rolese
+        // Fetch all enrolled classes for manager-like roles
         const enrolledClassesResult = await db.query(
           `
                     SELECT c.class_id, c.class_name,
