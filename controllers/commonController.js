@@ -8720,22 +8720,32 @@ const commonController = {
         guardian = guardianProfileResult.rows[0] || null;
       }
 
-      // Ensure report_type column exists (may not exist in older migrations)
-      try {
-        await db.query(`ALTER TABLE guardian_reports ADD COLUMN IF NOT EXISTS report_type VARCHAR(50)`);
-      } catch (alterErr) {
-        // Column might already exist, ignore
-      }
-
       const normalizedReportType = String(reportType || 'general').trim().toLowerCase();
       const reportTypeLabel = normalizedReportType.charAt(0).toUpperCase() + normalizedReportType.slice(1);
       const subject = `Staff Report (${reportTypeLabel}): ${studentName}`;
 
-      await db.query(
-        `INSERT INTO guardian_reports (guardian_id, student_id, organization_id, report_type, subject, message, status)
-         VALUES ($1, $2, $3, $4, $5, $6, 'open')`,
-        [parsedGuardianId, parsedStudentId, organizationId, normalizedReportType, subject, message]
-      );
+      // Ensure report_type column exists (may not exist in older migrations)
+      try {
+        await db.query(`ALTER TABLE guardian_reports ADD COLUMN IF NOT EXISTS report_type VARCHAR(50)`);
+      } catch (alterErr) {
+        // Column might already exist or table permissions issue, ignore
+      }
+
+      // Try inserting with report_type first, fall back without it
+      try {
+        await db.query(
+          `INSERT INTO guardian_reports (guardian_id, student_id, organization_id, report_type, subject, message, status)
+           VALUES ($1, $2, $3, $4, $5, $6, 'open')`,
+          [parsedGuardianId, parsedStudentId, organizationId, normalizedReportType, subject, message]
+        );
+      } catch (insertErr) {
+        // If report_type column doesn't exist, insert without it
+        await db.query(
+          `INSERT INTO guardian_reports (guardian_id, student_id, organization_id, subject, message, status)
+           VALUES ($1, $2, $3, $4, $5, 'open')`,
+          [parsedGuardianId, parsedStudentId, organizationId, subject, message]
+        );
+      }
 
       // Send email to guardian if requested
       let emailSent = false;
