@@ -287,6 +287,12 @@
         <span class="meta-label">Date:</span>
         <span>📅 <%= new Date(report.created_at).toLocaleString() %></span>
       </div>
+      <% if (report.filed_by_name) { %>
+      <div class="meta-item">
+        <span class="meta-label">Filed by:</span>
+        <span>👤 <%= report.filed_by_name %></span>
+      </div>
+      <% } %>
       <div class="meta-item">
         <span class="meta-label">Status:</span>
         <span class="status-badge status-<%= report.status %>">

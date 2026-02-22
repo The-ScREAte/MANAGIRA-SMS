@@ -442,6 +442,7 @@ async function loadStudentDetails(id) {
             <div class="form-group">
               <label>Graduation Year Group:</label>
               <select name="graduation_year_group_id" onchange="hasChanges=true">
+                <option value="" ${!student.graduation_year_group_id ? 'selected' : ''}>— None —</option>
                 ${gradGroups.map(g => `<option value="${g.id}" ${g.id === student.graduation_year_group_id ? 'selected' : ''}>${g.name}</option>`).join('')}
               </select>
             </div>

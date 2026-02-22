@@ -424,6 +424,10 @@ function generateAllDatesFromStart(termStartDate) {
 
   while (currentDate <= today) {
     dates.push(currentDate.toISOString().split("T")[0]);
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+  return dates;
+}
 
 async function ensureAssessmentControlSchema(database = require("../config/db")) {
   if (global._assessmentControlSchemaPromise) {
@@ -431,19 +435,24 @@ async function ensureAssessmentControlSchema(database = require("../config/db"))
   }
 
   global._assessmentControlSchemaPromise = (async () => {
-    await database.query(`
-      ALTER TABLE assessments
-      ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT FALSE,
-      ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE,
-      ADD COLUMN IF NOT EXISTS edit_window_start TIMESTAMPTZ,
-      ADD COLUMN IF NOT EXISTS edit_window_end TIMESTAMPTZ
-    `);
+    try {
+      await database.query(`
+        ALTER TABLE assessments
+        ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE,
+        ADD COLUMN IF NOT EXISTS edit_window_start TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS edit_window_end TIMESTAMPTZ
+      `);
+    } catch (ddlErr) {
+      // Columns likely already exist or there was a transient connection issue.
+      // Log but do NOT reject — callers should not crash because the schema
+      // was already applied in a previous deployment or by our migration SQL.
+      console.warn('[AssessmentSchema] DDL warning (non-fatal):', ddlErr.message);
+    }
   })();
 
-  global._assessmentControlSchemaPromise.catch(() => {
-    global._assessmentControlSchemaPromise = null;
-  });
-
+  // Do NOT clear the global on error — a resolved-but-warned promise is far
+  // better than clearing the singleton and retrying on every single request.
   return global._assessmentControlSchemaPromise;
 }
 
@@ -558,10 +567,6 @@ async function notifyTeachersForAssessmentControl({
   );
 }
 
-    currentDate.setDate(currentDate.getDate() + 1);
-  }
-  return dates;
-}
 function calculateGrade(percentage) {
   if (percentage >= 90) return "A";
   if (percentage >= 80) return "B";
@@ -3863,7 +3868,7 @@ const commonController = {
 
   editStudentGet: async (req, res, db) => {
     try {
-      const { studentId } = req.query;
+      const { studentId, termId: queryTermId, classId: queryClassId } = req.query;
       const organizationId = req.session.organizationId;
 
       // Fetch student details
@@ -3880,31 +3885,48 @@ const commonController = {
       const student = studentResult.rows[0];
 
       if (!student) {
-        // ...removed warn for clean background operation...
         req.flash("error", "Student not found.");
         return res.redirect("/common/orgDashboard");
       }
 
-      // ✅ Fetch current term correctly (FIXED SQL QUERY)
-      const termQuery = `
-            SELECT t.term_id, t.term_name 
-            FROM enrollments e
-            INNER JOIN enrolled_classes ec ON e.enrollment_id = ec.enrollment_id
-            INNER JOIN terms t ON e.term_id = t.term_id
-            WHERE ec.class_id = $1 AND e.organization_id = $2
-            ORDER BY t.start_date DESC LIMIT 1;
-        `;
-      const termResult = await db.query(termQuery, [
-        student.class_id,
-        organizationId,
-      ]);
-      const currentTerm =
-        termResult.rows.length > 0 ? termResult.rows[0] : null;
+      // Resolve classId: prefer query param, fall back to student's class
+      const resolvedClassId = queryClassId || student.class_id;
+
+      // Resolve currentTerm: prefer termId from query param, then DB lookup
+      let currentTerm = null;
+      if (queryTermId) {
+        const termByIdResult = await db.query(
+          `SELECT term_id, term_name FROM terms WHERE term_id = $1 LIMIT 1`,
+          [queryTermId]
+        );
+        if (termByIdResult.rows.length > 0) {
+          currentTerm = termByIdResult.rows[0];
+        }
+      }
 
       if (!currentTerm) {
-        // ...removed warn for clean background operation...
-        req.flash("error", "No active term found for this class.");
-        return res.redirect("/common/orgDashboard");
+        const termQuery = `
+              SELECT t.term_id, t.term_name 
+              FROM enrollments e
+              INNER JOIN enrolled_classes ec ON e.enrollment_id = ec.enrollment_id
+              INNER JOIN terms t ON e.term_id = t.term_id
+              WHERE ec.class_id = $1 AND e.organization_id = $2
+              ORDER BY t.start_date DESC LIMIT 1;
+          `;
+        const termResult = await db.query(termQuery, [
+          resolvedClassId,
+          organizationId,
+        ]);
+        currentTerm = termResult.rows.length > 0 ? termResult.rows[0] : null;
+      }
+
+      // If still no term, try to get any term for the org as last resort
+      if (!currentTerm) {
+        const anyTermResult = await db.query(
+          `SELECT term_id, term_name FROM terms WHERE organization_id = $1 ORDER BY start_date DESC LIMIT 1`,
+          [organizationId]
+        );
+        currentTerm = anyTermResult.rows.length > 0 ? anyTermResult.rows[0] : null;
       }
 
       // Fetch classes
@@ -3958,7 +3980,7 @@ const commonController = {
 
   editStudentPost: async (req, res, db) => {
     try {
-      const { studentId } = req.params; // Ensure studentId is retrieved from req.params
+      const { studentId } = req.params;
       const {
         firstName,
         lastName,
@@ -3968,9 +3990,22 @@ const commonController = {
         classId,
         graduationYearGroupId,
         gender,
-        subjects,
-        guardians,
       } = req.body;
+
+      // subjects[] comes as an array; guardians[n][field] comes as an object keyed by index
+      const subjectsRaw = req.body.subjects || req.body['subjects[]'];
+      const subjects = Array.isArray(subjectsRaw)
+        ? subjectsRaw
+        : subjectsRaw
+        ? [subjectsRaw]
+        : [];
+
+      const guardiansRaw = req.body.guardians;
+      const guardians = Array.isArray(guardiansRaw)
+        ? guardiansRaw
+        : guardiansRaw && typeof guardiansRaw === 'object'
+        ? Object.values(guardiansRaw)
+        : [];
 
       let imageUrl = null;
       if (req.file) {
@@ -4003,7 +4038,7 @@ const commonController = {
         height,
         hometown,
         classId,
-        graduationYearGroupId,
+        graduationYearGroupId || null,
         gender,
         imageUrl,
         studentId,
@@ -6078,7 +6113,14 @@ const commonController = {
     }
 
     try {
-          await ensureAssessmentControlSchema(db);
+      // Schema DDL – columns already exist on established DBs.
+      // Wrap in try/catch so a transient connection error at startup
+      // (ECONNRESET on idle client) doesn't abort the entire page load.
+      try {
+        await ensureAssessmentControlSchema(db);
+      } catch (ddlErr) {
+        console.warn('[manageAssessment] DDL warm-up failed (non-fatal):', ddlErr.message);
+      }
       // Fetch assessments with their associated classes and subjects, grouped by group_id
       const assessmentsQuery = `
                 SELECT a.group_id, a.title, a.weight, a.max_score, a.category, a.term_id, 
@@ -6151,7 +6193,8 @@ const commonController = {
         messages: req.flash(),
       });
     } catch (err) {
-            req.flash("error", "Failed to load manage assessment data.");
+      console.error('[manageAssessment] ERROR:', err.message, err.stack);
+      req.flash("error", "Failed to load manage assessment data.");
       res.status(500).send("Error fetching manage assessment data.");
     }
   },
@@ -8907,24 +8950,64 @@ const commonController = {
 
       const guardian = guardianResult.rows[0];
 
-      // Get all students linked to this guardian (by matching name and phone)
-      const studentsResult = await db.query(
-        `
-        SELECT s.student_id, s.first_name, s.last_name, s.image_url, 
-               c.class_name, c.class_id, 'Parent/Guardian' as relationship
-        FROM guardians g
-        JOIN students s ON g.student_id = s.student_id
-        LEFT JOIN classes c ON s.class_id = c.class_id
-        WHERE g.first_name = $1 AND g.last_name = $2 
-          AND (g.phone = $3 OR $3 IS NULL)
-          AND g.organization_id = $4
-        ORDER BY s.first_name ASC
-        `,
-        [guardian.first_name, guardian.last_name, guardian.phone, organizationId]
-      );
+      const userRole = req.session.userRole || '';
+      const userId = req.session.user?.user_id || req.session.userId || null;
+
+      // Get students linked to this guardian.
+      // Teachers only see students in their own class(es) / subjects.
+      let studentsResult;
+      if (userRole === 'Teacher' && userId) {
+        studentsResult = await db.query(
+          `
+          SELECT s.student_id, s.first_name, s.last_name, s.image_url,
+                 c.class_name, c.class_id, 'Parent/Guardian' AS relationship
+          FROM guardians g
+          JOIN students s ON g.student_id = s.student_id
+          LEFT JOIN classes c ON s.class_id = c.class_id
+          WHERE g.first_name = $1 AND g.last_name = $2
+            AND (g.phone = $3 OR $3 IS NULL)
+            AND g.organization_id = $4
+            AND s.class_id IN (
+              SELECT uc.class_id FROM user_classes uc WHERE uc.user_id = $5
+              UNION
+              SELECT DISTINCT sub.class_id
+              FROM user_subjects us
+              JOIN subjects sub ON us.subject_id = sub.subject_id
+              WHERE us.user_id = $5 AND sub.organization_id = $4
+            )
+          ORDER BY s.first_name ASC
+          `,
+          [guardian.first_name, guardian.last_name, guardian.phone, organizationId, userId]
+        );
+      } else {
+        studentsResult = await db.query(
+          `
+          SELECT s.student_id, s.first_name, s.last_name, s.image_url,
+                 c.class_name, c.class_id, 'Parent/Guardian' AS relationship
+          FROM guardians g
+          JOIN students s ON g.student_id = s.student_id
+          LEFT JOIN classes c ON s.class_id = c.class_id
+          WHERE g.first_name = $1 AND g.last_name = $2
+            AND (g.phone = $3 OR $3 IS NULL)
+            AND g.organization_id = $4
+          ORDER BY s.first_name ASC
+          `,
+          [guardian.first_name, guardian.last_name, guardian.phone, organizationId]
+        );
+      }
 
       // Get current term
       const currentTermId = req.session.currentTermId;
+
+      // Determine edit capability: managers & anyone with manage_guardians permission
+      // Teachers are never allowed to edit.
+      const canEdit = userRole !== 'Teacher' && (
+        isManagerLikeRole(userRole) || await userHasPermission(
+          db,
+          { userId, userRole, organizationId },
+          PERMISSIONS.MANAGE_GUARDIANS
+        )
+      );
 
       return res.render("common/guardianDetails", {
         title: "Guardian Details",
@@ -8932,6 +9015,7 @@ const commonController = {
         students: studentsResult.rows,
         currentTermId: currentTermId,
         account: { login_email: null, login_phone: guardian.phone },
+        canEdit,
         messages: req.flash(),
         req,
       });
@@ -9083,6 +9167,8 @@ const commonController = {
       const reportTypeLabel = normalizedReportType.charAt(0).toUpperCase() + normalizedReportType.slice(1);
       const subject = `Staff Report (${reportTypeLabel}): ${studentName}`;
 
+      const staffFullName = `${staff.first_name} ${staff.last_name}`.trim();
+
       // Ensure reports table exists and schema is compatible on older deployments
       await db.query(
         `CREATE TABLE IF NOT EXISTS guardian_reports (
@@ -9095,6 +9181,8 @@ const commonController = {
           message TEXT,
           status VARCHAR(50) DEFAULT 'open',
           priority VARCHAR(50) DEFAULT 'normal',
+          filed_by_user_id INTEGER,
+          filed_by_name VARCHAR(255),
           created_at TIMESTAMP DEFAULT NOW(),
           updated_at TIMESTAMP DEFAULT NOW(),
           resolved_at TIMESTAMP,
@@ -9102,30 +9190,24 @@ const commonController = {
         )`
       );
 
-      // Ensure report_type column exists (may not exist in older migrations)
+      // Ensure all needed columns exist (safe on older deployments)
       try {
         await db.query(`ALTER TABLE guardian_reports ADD COLUMN IF NOT EXISTS report_type VARCHAR(50)`);
         await db.query(`ALTER TABLE guardian_reports ADD COLUMN IF NOT EXISTS priority VARCHAR(50) DEFAULT 'normal'`);
         await db.query(`ALTER TABLE guardian_reports ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`);
+        await db.query(`ALTER TABLE guardian_reports ADD COLUMN IF NOT EXISTS filed_by_user_id INTEGER`);
+        await db.query(`ALTER TABLE guardian_reports ADD COLUMN IF NOT EXISTS filed_by_name VARCHAR(255)`);
       } catch (alterErr) {
         // Column might already exist or table permissions issue, ignore
       }
 
-      // Try inserting with report_type first, fall back without it
-      try {
-        await db.query(
-          `INSERT INTO guardian_reports (guardian_id, student_id, organization_id, report_type, subject, message, status)
-           VALUES ($1, $2, $3, $4, $5, $6, 'open')`,
-          [targetGuardianId, parsedStudentId, organizationId, normalizedReportType, subject, trimmedMessage]
-        );
-      } catch (insertErr) {
-        // If report_type column doesn't exist, insert without it
-        await db.query(
-          `INSERT INTO guardian_reports (guardian_id, student_id, organization_id, subject, message, status)
-           VALUES ($1, $2, $3, $4, $5, 'open')`,
-          [targetGuardianId, parsedStudentId, organizationId, subject, trimmedMessage]
-        );
-      }
+      // Insert report with staff attribution
+      await db.query(
+        `INSERT INTO guardian_reports
+           (guardian_id, student_id, organization_id, report_type, subject, message, status, filed_by_user_id, filed_by_name)
+         VALUES ($1, $2, $3, $4, $5, $6, 'open', $7, $8)`,
+        [targetGuardianId, parsedStudentId, organizationId, normalizedReportType, subject, trimmedMessage, userId || null, staffFullName]
+      );
 
       // Send email to guardian if requested
       let emailSent = false;

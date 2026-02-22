@@ -407,18 +407,24 @@
   }
 
   .gd-report-modal {
-    background: white;
-    border-radius: 14px;
-    max-width: 520px;
-    width: 100%;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    background: #fff;
+    border-radius: 18px;
+    max-width: 480px;
+    width: 94%;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08);
     overflow: hidden;
+    animation: gd-modal-in 0.22s cubic-bezier(0.34,1.56,0.64,1) both;
+  }
+
+  @keyframes gd-modal-in {
+    from { opacity: 0; transform: scale(0.93) translateY(12px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
   }
 
   .gd-report-modal-header {
-    background: var(--org-primary-color, #0f5a66);
+    background: linear-gradient(135deg, var(--org-primary-color, #0f5a66) 0%, var(--org-primary-hover, #0d4f59) 100%);
     color: white;
-    padding: 18px 24px;
+    padding: 20px 24px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -428,31 +434,47 @@
     margin: 0;
     font-size: 16px;
     font-weight: 700;
+    letter-spacing: 0.1px;
   }
 
   .gd-report-close {
-    background: none;
+    background: rgba(255,255,255,0.15);
     border: none;
     color: white;
-    font-size: 22px;
+    font-size: 18px;
     cursor: pointer;
     line-height: 1;
-    padding: 4px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.18s;
+    flex-shrink: 0;
+  }
+
+  .gd-report-close:hover {
+    background: rgba(255,255,255,0.28);
   }
 
   .gd-report-modal-body {
-    padding: 24px;
+    padding: 22px 24px 24px;
   }
 
   .gd-report-student-label {
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
+    background: linear-gradient(90deg, #f0fdf4 0%, #ecfdf5 100%);
+    border: 1px solid #a7f3d0;
+    border-left: 4px solid #10b981;
     border-radius: 8px;
-    padding: 10px 14px;
-    margin-bottom: 18px;
-    font-size: 14px;
-    color: #047857;
+    padding: 11px 14px;
+    margin-bottom: 20px;
+    font-size: 13.5px;
+    color: #065f46;
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
 
   .gd-report-field {
@@ -461,21 +483,25 @@
 
   .gd-report-field label {
     display: block;
-    font-size: 13px;
-    font-weight: 600;
-    color: #475569;
-    margin-bottom: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 7px;
   }
 
   .gd-report-field select,
   .gd-report-field textarea {
     width: 100%;
     padding: 10px 12px;
-    border: 2px solid #e2e8f0;
-    border-radius: 8px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 9px;
     font-size: 14px;
     font-family: inherit;
-    transition: border-color 0.2s;
+    color: #1e293b;
+    background: #f8fafc;
+    transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
     box-sizing: border-box;
   }
 
@@ -483,78 +509,128 @@
   .gd-report-field textarea:focus {
     outline: none;
     border-color: var(--org-primary-color, #0f5a66);
-    box-shadow: 0 0 0 3px rgba(15, 90, 102, 0.1);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(15, 90, 102, 0.12);
   }
 
   .gd-report-field textarea {
-    min-height: 120px;
+    min-height: 110px;
     resize: vertical;
+    line-height: 1.55;
   }
 
+  /* Custom checkbox row */
   .gd-report-checkbox {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 18px;
-    font-size: 14px;
+    gap: 10px;
+    margin-bottom: 20px;
+    font-size: 13.5px;
     color: #334155;
     cursor: pointer;
+    padding: 10px 14px;
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 9px;
+    transition: border-color 0.18s, background 0.18s;
+    user-select: none;
+  }
+
+  .gd-report-checkbox:hover {
+    border-color: var(--org-primary-color, #0f5a66);
+    background: #f0fdf4;
   }
 
   .gd-report-checkbox input {
+    appearance: none;
+    -webkit-appearance: none;
     width: 18px;
     height: 18px;
+    border: 2px solid #cbd5e1;
+    border-radius: 5px;
+    background: #fff;
     cursor: pointer;
+    flex-shrink: 0;
+    position: relative;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .gd-report-checkbox input:checked {
+    background: var(--org-primary-color, #0f5a66);
+    border-color: var(--org-primary-color, #0f5a66);
+  }
+
+  .gd-report-checkbox input:checked::after {
+    content: '';
+    position: absolute;
+    left: 3px;
+    top: 0;
+    width: 5px;
+    height: 10px;
+    border: 2px solid #fff;
+    border-top: none;
+    border-left: none;
+    transform: rotate(45deg);
   }
 
   .gd-report-actions {
     display: flex;
     gap: 10px;
     justify-content: flex-end;
-    padding-top: 12px;
-    border-top: 1px solid #e2e8f0;
+    padding-top: 16px;
+    border-top: 1px solid #f1f5f9;
+    margin-top: 4px;
   }
 
   .gd-report-submit {
-    padding: 10px 20px;
+    padding: 10px 22px;
     background: var(--org-primary-color, #0f5a66);
     color: white;
     border: none;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 14px;
+    border-radius: 9px;
+    font-weight: 700;
+    font-size: 13.5px;
     cursor: pointer;
-    transition: opacity 0.2s;
+    box-shadow: 0 2px 8px rgba(15,90,102,0.22);
+    transition: background 0.18s, transform 0.15s, box-shadow 0.18s;
   }
 
   .gd-report-submit:hover {
-    opacity: 0.9;
+    background: var(--org-primary-hover, #0d4f59);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(15,90,102,0.28);
   }
 
   .gd-report-submit:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
   }
 
   .gd-report-cancel {
     padding: 10px 20px;
-    background: #f1f5f9;
-    color: #334155;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
+    background: #fff;
+    color: #64748b;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 9px;
     font-weight: 600;
-    font-size: 14px;
+    font-size: 13.5px;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: background 0.18s, border-color 0.18s, color 0.18s;
   }
 
   .gd-report-cancel:hover {
-    background: #e2e8f0;
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #334155;
   }
 
   @media (max-width: 768px) {
     .gd-report-modal {
       max-width: 100%;
+      border-radius: 14px 14px 0 0;
+      margin-top: auto;
     }
   }
 
@@ -643,13 +719,16 @@
           <div class="gd-info-item"><strong>Hometown:</strong> <%= guardian.hometown || 'Not provided' %></div>
         </div>
         <div class="gd-actions">
+          <% if (canEdit) { %>
           <button onclick="toggleEditForm()" class="gd-btn gd-btn-primary">✏️ Edit</button>
           <button onclick="requestPasswordSetup()" class="gd-btn gd-btn-secondary">🔑 Send Password Setup</button>
+          <% } %>
         </div>
       </div>
     </div>
 
     <!-- Edit Form with smooth animation -->
+    <% if (canEdit) { %>
     <div id="editWrapper" class="gd-edit-wrapper">
       <form id="editForm" action="/common/guardianEdit/<%= guardian.guardian_id %>" method="POST" enctype="multipart/form-data" class="gd-edit-form">
         <h3>Edit Guardian Information</h3>
@@ -687,6 +766,7 @@
         </div>
       </form>
     </div>
+    <% } %>
   </div>
 
   <!-- Linked Students -->
@@ -718,7 +798,9 @@
                 <button type="button" class="gd-dots-btn" onclick="toggleDotsMenu(this)" title="More options">⋮</button>
                 <div class="gd-dots-dropdown">
                   <button onclick="openReportModal('<%= student.student_id %>', '<%= student.first_name %> <%= student.last_name %>')">📝 File Report</button>
+                  <% if (canEdit) { %>
                   <button class="gd-dropdown-danger" onclick="removeStudent('<%= student.student_id %>', '<%= student.first_name %> <%= student.last_name %>')">🗑 Remove Student</button>
+                  <% } %>
                 </div>
               </div>
             </div>

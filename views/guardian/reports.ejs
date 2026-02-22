@@ -229,12 +229,7 @@
             <div class="report-meta">
               <span>📚 <%= report.student_name %></span>
               <span>📅 <%= new Date(report.created_at).toLocaleDateString() %></span>
-            </div>
-          </div>
-        </div>
-        
-        <div class="report-message-preview">
-          <%= report.message %>
+              <% if (report.filed_by_name) { %><span>👤 Filed by: <%= report.filed_by_name %></span><% } %>
         </div>
         
         <div class="report-footer">

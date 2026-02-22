@@ -7,254 +7,179 @@
     <style>
       :root {
         --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
+        --primary: var(--org-primary-color, #0f5a66);
+        --primary-hover: var(--org-primary-hover, #0d4f59);
       }
-
-
-        body {
-            font-family: var(--font-family);
-            background: #f7f9fb;
-            margin: 0;
-            box-sizing: border-box;
-            color: #0f2d32;
-        }
-        .main-content {
-            width: 100%;
-            max-width: 1200px;
-            margin: 0 auto;
-            box-sizing: border-box;
-            padding: 20px 24px 36px;
-        }
-        .page-header {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 16px;
-        }
-        .link-to-next-back a {
-            display: inline-block;
-            padding: 10px 18px;
-            background: var(--org-primary-color, #0f5a66);
-            color: #fff;
-            border-radius: 10px;
-            text-decoration: none;
-            font-weight: 600;
-            box-shadow: 0 6px 16px rgba(15, 90, 102, 0.18);
-            transition: background-color 0.18s ease, transform 0.15s ease;
-        }
-        .link-to-next-back a:hover {
-            background: var(--org-primary-hover, #0d4f59);
-            transform: translateY(-1px);
-        }
-        .card {
-            background: #ffffff;
-            border: 1px solid #e5e7eb;
-            border-radius: 14px;
-            padding: 18px 18px 10px;
-            box-shadow: 0 10px 24px rgba(15, 45, 50, 0.12);
-            margin-top: 12px;
-        }
-        .table-wrapper {
-            overflow-x: auto;
-            width: 100%;
-            background: none;
-            border-radius: 12px;
-            box-shadow: none;
-            padding: 0;
-            margin-bottom: 16px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background: #fff;
-            border-radius: 12px 12px 0 0;
-            box-shadow: 0 8px 18px rgba(15, 45, 50, 0.12);
-            min-width: 900px;
-            border: 1px solid #e5e7eb;
-        }
-        th, td {
-            padding: 14px 12px;
-            text-align: left;
-            font-size: 0.95rem;
-            border: 1px solid #e5e7eb;
-            background: #fff;
-        }
-        th {
-            background: var(--org-primary-color, #0f5a66);
-            color: #fff;
-            font-weight: 700;
-            border-bottom: 2px solid var(--org-primary-hover, #0d4f59);
-            text-align: center;
-            letter-spacing: 0.2px;
-        }
-        tr:nth-child(even) td {
-            background: #f5f7f9;
-        }
-        tr:hover td {
-            background: #eef4f7;
-        }
-        .action-buttons a {
-            display: inline-block;
-            padding: 8px 14px;
-            border-radius: 10px;
-            background: #f8fafc;
-            color: #0f2d32;
-            font-weight: 600;
-            text-decoration: none;
-            border: 1px solid #e2e8f0;
-            transition: background 0.18s ease, transform 0.15s ease;
-        }
-        .action-buttons a:hover {
-            background: #eef2f7;
-            transform: translateY(-1px);
-        }
-        .collapsible-btn {
-            width: 200px;
-            background: var(--org-primary-color, #0f5a66);
-            color: #fff;
-            border: none;
-            outline: none;
-            padding: 8px 14px;
-            font-size: 14px;
-            text-align: left;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            cursor: pointer;
-            border-radius: 10px;
-            margin-bottom: 8px;
-            transition: background 0.18s ease, transform 0.15s ease;
-            box-shadow: 0 4px 12px rgba(15, 90, 102, 0.16);
-        }
-        .collapsible-btn .arrow {
-            font-size: 16px;
-            margin-left: 10px;
-            transition: transform 0.2s;
-        }
-        .collapsible-content {
-            background: #f8fafc;
-            border-radius: 10px;
-            margin-top: 6px;
-            padding: 10px 14px;
-            width: 100%;
-            border: 1px solid #e2e8f0;
-        }
-        .collapsible-btn:hover,
-        .collapsible-btn:focus {
-            background: var(--org-primary-hover, #0d4f59);
-            color: #fff;
-            transform: translateY(-1px);
-        }
+      *, *::before, *::after { box-sizing: border-box; }
+      body { font-family: var(--font-family); background: #f4f6f9; margin: 0; color: #1a2e35; }
+      .page-wrap { max-width: 1260px; margin: 0 auto; padding: 28px 24px 48px; }
+      .top-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
+      .top-bar h1 { font-size: 1.55rem; font-weight: 700; margin: 0; color: #0f2d32; }
+      .top-bar-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+      .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 8px; font-size: 0.88rem; font-weight: 600; cursor: pointer; text-decoration: none; border: none; transition: background 0.17s, transform 0.14s; white-space: nowrap; }
+      .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 3px 10px rgba(15,90,102,0.22); }
+      .btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
+      .btn-outline { background: #fff; color: var(--primary); border: 2px solid var(--primary); }
+      .btn-outline:hover { background: #eef4f7; transform: translateY(-1px); }
+      .card { background: #fff; border-radius: 14px; border: 1px solid #e2e8ef; box-shadow: 0 6px 22px rgba(15,45,50,0.09); overflow: hidden; }
+      .table-scroll { overflow-x: auto; }
+      table { width: 100%; border-collapse: collapse; min-width: 860px; font-size: 0.9rem; }
+      thead th { background: var(--primary); color: #fff; font-weight: 700; padding: 13px 14px; text-align: left; letter-spacing: 0.15px; border-bottom: 2px solid var(--primary-hover); white-space: nowrap; }
+      tbody tr { border-bottom: 1px solid #edf0f4; }
+      tbody tr:last-child { border-bottom: none; }
+      tbody tr:nth-child(even) td { background: #f8fafb; }
+      tbody tr:hover td { background: #eef5f7; }
+      td { padding: 13px 14px; vertical-align: middle; color: #1a2e35; }
+      .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.2px; }
+      .badge-locked { background: #fdecea; color: #c0392b; }
+      .badge-unlocked { background: #e6f9f1; color: #1a7a4a; }
+      .window-info { font-size: 0.78rem; color: #607080; margin-top: 5px; line-height: 1.6; }
+      .window-info span { display: block; }
+      .edit-pill { display: inline-block; margin-top: 5px; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+      .edit-pill-yes { background: #e6f9f1; color: #1a7a4a; }
+      .edit-pill-no  { background: #fdecea; color: #c0392b; }
+      .collapse-btn { display: inline-flex; align-items: center; gap: 7px; padding: 6px 13px; background: var(--primary); color: #fff; border: none; border-radius: 7px; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: background 0.17s; }
+      .collapse-btn:hover { background: var(--primary-hover); }
+      .collapse-arrow { font-size: 11px; transition: transform 0.2s; }
+      .collapse-body { margin-top: 8px; background: #f4f8fa; border-radius: 8px; border: 1px solid #dde4ec; padding: 10px 14px; }
+      .collapse-body ul { margin: 2px 0 0 14px; padding: 0; font-size: 0.83rem; color: #3a5060; }
+      .collapse-body li { margin-bottom: 2px; }
+      .collapse-class-name { font-size: 0.85rem; font-weight: 600; color: #1a2e35; margin-bottom: 2px; }
+      .actions-cell { display: flex; flex-direction: column; gap: 7px; align-items: flex-start; }
+      .action-btn { display: inline-block; padding: 6px 14px; border-radius: 7px; font-size: 0.82rem; font-weight: 600; cursor: pointer; text-decoration: none; border: none; transition: background 0.17s, transform 0.14s; white-space: nowrap; }
+      .action-btn-lock   { background: #fdecea; color: #c0392b; border: 1px solid #f5c6cb; }
+      .action-btn-lock:hover   { background: #f8d7da; transform: translateY(-1px); }
+      .action-btn-unlock { background: #e6f9f1; color: #1a7a4a; border: 1px solid #b8e8d0; }
+      .action-btn-unlock:hover { background: #d0f1e2; transform: translateY(-1px); }
+      .action-btn-modify { background: #eef4f7; color: #0f5a66; border: 1px solid #c9dde5; }
+      .action-btn-modify:hover { background: #ddeef5; transform: translateY(-1px); }
+      .empty-row td { text-align: center; color: #7a919e; font-style: italic; padding: 32px; }
     </style>
 </head>
 <body>
-    <div class="main-content">
-        <div class="page-header" style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
-            <div class="link-to-next-back">
-                <a href="/common/management" style="background: transparent; color: var(--org-primary-color, #0f5a66); border: 2px solid var(--org-primary-color, #0f5a66); box-shadow: none;">← Back to Management</a>
-            </div>
-            <div class="link-to-next-back">
-                <a href="/common/createTest?organizationId=<%= organizationId %>&termId=<%= termId %>">Create New Test</a>
-            </div>
-        </div>
-        <div class="card">
-        <h1 style="text-align: center; margin: 0 0 12px 0;">Manage Assessments</h1>
-        <div class="table-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Test Name</th>
-                        <th>Weight (%)</th>
-                        <th>Score Out Of</th>
-                        <th>Category</th>
-                        <th>Control Status</th>
-                        <th>Assigned Classes and Subjects</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <% assessments.forEach(function(assessment, idx) { %>
-                        <tr>
-                            <td><%= assessment.title %></td>
-                            <td><%= assessment.weight %></td>
-                            <td><%= assessment.max_score %></td>
-                            <td><%= assessment.category %></td>
-                                                        <td>
-                                                                <div><strong><%= assessment.is_locked ? 'Locked' : 'Unlocked' %></strong></div>
-                                                                <div><%= assessment.is_active ? 'Active' : 'Inactive' %></div>
-                                                                <div style="font-size:0.85rem; color:#475569; margin-top:4px;">
-                                                                    Start: <%= assessment.edit_window_start ? new Date(assessment.edit_window_start).toLocaleString() : 'Not set' %><br>
-                                                                    End: <%= assessment.edit_window_end ? new Date(assessment.edit_window_end).toLocaleString() : 'Not set' %><br>
-                                                                    Editability: <%= assessment.can_edit_scores ? 'Allowed' : assessment.access_reason %>
-                                                                </div>
-                                                        </td>
-                            <td>
-                                <button type="button" class="collapsible-btn" onclick="toggleAssignedClassesCollapse('<%= idx %>')">
-                                    Show/Hide Classes
-                                    <span class="arrow" id="arrow-classes-<%= idx %>">&#9654;</span>
-                                </button>
-                                <div class="collapsible-content" id="collapse-classes-<%= idx %>" style="display:none;">
-                                    <% Object.keys(assessment.assigned_classes).forEach(function(classId) { %>
-                                        <div>
-                                            <strong> <%= assessment.assigned_classes[classId].class_name %>:</strong>
-                                            <ul>
-                                                <% assessment.assigned_classes[classId].subjects.forEach(function(subject) { %>
-                                                    <li><%= subject %></li>
-                                                <% }); %>
-                                            </ul>
-                                        </div>
-                                    <% }); %>
-                                </div>
-                            </td>
-                            <td class="action-buttons">
-                                <a href="javascript:void(0)" onclick="updateAssessmentControl('<%= assessment.group_id %>', '<%= organizationId %>', '<%= termId %>', '<%= assessment.is_locked ? 'unlock' : 'lock' %>')">
-                                    <%= assessment.is_locked ? 'Unlock' : 'Lock' %>
-                                </a>
-                                <a href="javascript:void(0)" onclick="updateAssessmentControl('<%= assessment.group_id %>', '<%= organizationId %>', '<%= termId %>', '<%= assessment.is_active ? 'deactivate' : 'activate' %>')" style="margin-left:6px;">
-                                    <%= assessment.is_active ? 'Deactivate' : 'Activate' %>
-                                </a>
-                                <br><br>
-                                <a href="/common/modifyAssessment?groupId=<%= assessment.group_id %>&termId=<%= termId %>&organizationId=<%= organizationId %>">
-                                    Modify
-                                </a>
-                            </td>
-                        </tr>
-                    <% }); %>
-                </tbody>
-            </table>
-        </div>
-        </div>
-    </div>
-    <script>
-        async function updateAssessmentControl(groupId, organizationId, termId, action) {
-            try {
-                const response = await fetch('/common/updateAssessmentControl', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ groupId, organizationId, termId, action }),
-                });
-                const result = await response.json();
-                if (!response.ok) {
-                    alert(result.error || 'Failed to update control status.');
-                    return;
-                }
-                window.location.reload();
-            } catch (error) {
-                alert('Failed to update control status.');
-            }
-        }
+<div class="page-wrap">
 
-        function toggleAssignedClassesCollapse(idx) {
-            const collapseDiv = document.getElementById('collapse-classes-' + idx);
-            const arrow = document.getElementById('arrow-classes-' + idx);
-            if (collapseDiv && arrow) {
-                if (collapseDiv.style.display === 'none') {
-                    collapseDiv.style.display = 'block';
-                    arrow.innerHTML = '&#9660;';
-                } else {
-                    collapseDiv.style.display = 'none';
-                    arrow.innerHTML = '&#9654;';
-                }
-            }
-        }
-    </script>
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <h1>Manage Assessments</h1>
+    <div class="top-bar-actions">
+      <a href="/common/management" class="btn btn-outline">← Back to Management</a>
+      <a href="/common/createTest?organizationId=<%= organizationId %>&termId=<%= termId %>" class="btn btn-primary">+ Create New Test</a>
+    </div>
+  </div>
+
+  <%- include('../partials/flash') %>
+
+  <!-- Table Card -->
+  <div class="card">
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Test Name</th>
+            <th>Weight (%)</th>
+            <th>Max Score</th>
+            <th>Category</th>
+            <th>Status</th>
+            <th>Assigned Classes</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (!assessments || assessments.length === 0) { %>
+            <tr class="empty-row"><td colspan="7">No assessments found for this term.</td></tr>
+          <% } %>
+          <% (assessments || []).forEach(function(assessment, idx) { %>
+            <tr>
+              <td><strong><%= assessment.title %></strong></td>
+              <td><%= assessment.weight %>%</td>
+              <td><%= assessment.max_score %></td>
+              <td><%= assessment.category %></td>
+
+              <!-- Status -->
+              <td>
+                <span class="badge <%= assessment.is_locked ? 'badge-locked' : 'badge-unlocked' %>">
+                  <%= assessment.is_locked ? '🔒 Locked' : '🔓 Unlocked' %>
+                </span>
+                <div class="window-info">
+                  <% if (assessment.edit_window_start || assessment.edit_window_end) { %>
+                    <% if (assessment.edit_window_start) { %>
+                      <span>Start: <%= new Date(assessment.edit_window_start).toLocaleString() %></span>
+                    <% } %>
+                    <% if (assessment.edit_window_end) { %>
+                      <span>End: &nbsp;&nbsp;<%= new Date(assessment.edit_window_end).toLocaleString() %></span>
+                    <% } %>
+                  <% } else { %>
+                    <span style="color:#aab4bc;">No edit window set</span>
+                  <% } %>
+                </div>
+                <span class="edit-pill <%= assessment.can_edit_scores ? 'edit-pill-yes' : 'edit-pill-no' %>">
+                  <%= assessment.can_edit_scores ? 'Scores editable' : assessment.access_reason %>
+                </span>
+              </td>
+
+              <!-- Assigned Classes -->
+              <td>
+                <button type="button" class="collapse-btn" onclick="toggleClasses('<%= idx %>')">
+                  Classes <span class="collapse-arrow" id="arrow-<%= idx %>">▶</span>
+                </button>
+                <div class="collapse-body" id="col-<%= idx %>" style="display:none;">
+                  <% Object.values(assessment.assigned_classes).forEach(function(cls) { %>
+                    <div class="collapse-class-name"><%= cls.class_name %></div>
+                    <ul>
+                      <% cls.subjects.forEach(function(sub) { %><li><%= sub %></li><% }); %>
+                    </ul>
+                  <% }); %>
+                </div>
+              </td>
+
+              <!-- Actions -->
+              <td>
+                <div class="actions-cell">
+                  <button
+                    type="button"
+                    class="action-btn <%= assessment.is_locked ? 'action-btn-unlock' : 'action-btn-lock' %>"
+                    onclick="updateControl('<%= assessment.group_id %>', '<%= organizationId %>', '<%= termId %>', '<%= assessment.is_locked ? 'unlock' : 'lock' %>')">
+                    <%= assessment.is_locked ? '🔓 Unlock' : '🔒 Lock' %>
+                  </button>
+                  <a href="/common/modifyAssessment?groupId=<%= assessment.group_id %>&termId=<%= termId %>&organizationId=<%= organizationId %>" class="action-btn action-btn-modify">
+                    ✏️ Modify
+                  </a>
+                </div>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  async function updateControl(groupId, organizationId, termId, action) {
+    try {
+      const res = await fetch('/common/updateAssessmentControl', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId, organizationId, termId, action }),
+      });
+      const result = await res.json();
+      if (!res.ok) { alert(result.error || 'Failed to update.'); return; }
+      window.location.reload();
+    } catch (e) {
+      alert('Failed to update control status.');
+    }
+  }
+
+  function toggleClasses(idx) {
+    const body  = document.getElementById('col-' + idx);
+    const arrow = document.getElementById('arrow-' + idx);
+    if (!body) return;
+    const open = body.style.display !== 'none';
+    body.style.display = open ? 'none' : 'block';
+    arrow.textContent  = open ? '▶' : '▼';
+  }
+</script>
 </body>
 </html>

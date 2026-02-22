@@ -377,7 +377,7 @@
         </div>
         <div class="es-field">
           <label>Date of Birth *</label>
-          <input type="date" name="dateOfBirth" value="<%= student.date_of_birth.toISOString().slice(0, 10) %>" required>
+          <input type="date" name="dateOfBirth" value="<%= student.date_of_birth ? (student.date_of_birth instanceof Date ? student.date_of_birth : new Date(student.date_of_birth)).toISOString().slice(0, 10) : '' %>" required>
         </div>
         <div class="es-field">
           <label>Gender *</label>
@@ -391,10 +391,19 @@
           <input type="text" name="hometown" value="<%= student.hometown %>">
         </div>
         <div class="es-field">
-          <label>Graduation Year Group *</label>
-          <select name="graduationYearGroupId" required>
+          <label>Graduation Year Group</label>
+          <select name="graduationYearGroupId">
+            <option value="">— None —</option>
             <% graduationYearGroups.forEach(group => { %>
               <option value="<%= group.id %>" <%= group.id === student.graduation_year_group_id ? 'selected' : '' %>><%= group.name %></option>
+            <% }); %>
+          </select>
+        </div>
+        <div class="es-field">
+          <label>Class *</label>
+          <select name="classId" required>
+            <% classes.forEach(cls => { %>
+              <option value="<%= cls.class_id %>" <%= cls.class_id === student.class_id ? 'selected' : '' %>><%= cls.class_name %></option>
             <% }); %>
           </select>
         </div>

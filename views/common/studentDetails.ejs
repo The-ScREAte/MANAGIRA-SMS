@@ -389,7 +389,7 @@
           </tbody>
         </table>
       </div>
-      <% if (req.session && !req.session.guardianId && req.session.userRole !== 'Teacher') { %>
+      <% if (req.session && !req.session.guardianId) { %>
       <h3>Parent/Guardians of Child</h3>
       <div class="table-container">
         <table>
@@ -401,6 +401,7 @@
               <th>Phone</th>
               <th>Email</th>
               <th>Hometown</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
@@ -412,6 +413,9 @@
               <td><%= guardian.phone %></td>
               <td><%= guardian.email %></td>
               <td><%= guardian.hometown %></td>
+              <td>
+                <a href="/common/guardianDetails?guardianId=<%= guardian.guardian_id %>" class="btn btn-sm btn-primary" style="white-space:nowrap;">View Guardian Info</a>
+              </td>
             </tr>
             <% }) %>
           </tbody>

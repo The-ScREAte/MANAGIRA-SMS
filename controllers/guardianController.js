@@ -1379,8 +1379,8 @@ module.exports = {
            WHERE pending_id = $8 AND organization_id = $9`;
 
       const updateParams = imageUrl
-        ? [firstName, lastName, dateOfBirth, gender, hometown, classId, graduationYearGroupId, imageUrl, pendingId, organizationId]
-        : [firstName, lastName, dateOfBirth, gender, hometown, classId, graduationYearGroupId, pendingId, organizationId];
+        ? [firstName, lastName, dateOfBirth, gender, hometown, classId, graduationYearGroupId || null, imageUrl, pendingId, organizationId]
+        : [firstName, lastName, dateOfBirth, gender, hometown, classId, graduationYearGroupId || null, pendingId, organizationId];
 
       await db.query(updateQuery, updateParams);
 

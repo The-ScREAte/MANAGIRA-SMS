@@ -78,11 +78,13 @@ CREATE TABLE IF NOT EXISTS guardian_reports (
 );
 
 ALTER TABLE guardian_reports
-    ADD COLUMN IF NOT EXISTS report_type  VARCHAR(50),
-    ADD COLUMN IF NOT EXISTS priority     VARCHAR(50) DEFAULT 'normal',
-    ADD COLUMN IF NOT EXISTS updated_at   TIMESTAMP   DEFAULT NOW(),
-    ADD COLUMN IF NOT EXISTS resolved_at  TIMESTAMP,
-    ADD COLUMN IF NOT EXISTS deleted_at   TIMESTAMP;
+    ADD COLUMN IF NOT EXISTS report_type       VARCHAR(50),
+    ADD COLUMN IF NOT EXISTS priority          VARCHAR(50) DEFAULT 'normal',
+    ADD COLUMN IF NOT EXISTS updated_at        TIMESTAMP   DEFAULT NOW(),
+    ADD COLUMN IF NOT EXISTS resolved_at       TIMESTAMP,
+    ADD COLUMN IF NOT EXISTS deleted_at        TIMESTAMP,
+    ADD COLUMN IF NOT EXISTS filed_by_user_id  INTEGER,
+    ADD COLUMN IF NOT EXISTS filed_by_name     VARCHAR(255);
 
 -- Normalise any null/empty status to 'open'
 UPDATE guardian_reports

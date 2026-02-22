@@ -262,13 +262,91 @@
       color: #fff;
       box-shadow: none;
     }
-    .class-checkbox input[type="checkbox"],
-    .subject-checkbox input[type="checkbox"],
-    .select-all-container input[type="checkbox"] {
-      margin: 0 0 0 2px;
+    /* ── Checkbox global styling ── */
+    input[type="checkbox"] {
+      appearance: none;
+      -webkit-appearance: none;
       width: 18px;
       height: 18px;
-      accent-color: initial;
+      border: 2px solid #b0bec5;
+      border-radius: 4px;
+      background: #fff;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.15s, border-color 0.15s;
+      position: relative;
+    }
+    input[type="checkbox"]:checked {
+      background: #01535b;
+      border-color: #01535b;
+    }
+    input[type="checkbox"]:checked::after {
+      content: '';
+      position: absolute;
+      left: 3px;
+      top: 0px;
+      width: 5px;
+      height: 10px;
+      border: 2px solid #fff;
+      border-top: none;
+      border-left: none;
+      transform: rotate(45deg);
+    }
+    input[type="checkbox"]:focus {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(1,83,91,0.18);
+    }
+    /* ── Control checkboxes ── */
+    .control-group {
+      width: 100%;
+      background: #f4f8fa;
+      border: 1px solid #dde4ec;
+      border-radius: 9px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .control-group-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #607080;
+      margin-bottom: 2px;
+    }
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+    }
+    .check-row label {
+      margin: 0;
+      padding: 0;
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: #1a2e35;
+      cursor: pointer;
+    }
+    /* ── Date group ── */
+    .date-group {
+      width: 100%;
+      background: #f4f8fa;
+      border: 1px solid #dde4ec;
+      border-radius: 9px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .date-group-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #607080;
+      margin-bottom: 0;
     }
     </style>
 </head>
@@ -308,39 +386,40 @@
             <option value="Other" <%= assessment.category === 'Other' ? 'selected' : '' %>>Other</option>
           </select>
         </div>
-        <div class="form-group" style="align-items:flex-start;">
-          <label style="display:flex; align-items:center; gap:8px; font-weight:500;">
-            <input type="checkbox" name="isLocked" <%= assessment.is_locked ? 'checked' : '' %> />
-            Lock this assessment
-          </label>
+        <!-- Lock control -->
+        <div class="control-group">
+          <div class="control-group-title">Access Control</div>
+          <div class="check-row">
+            <input type="checkbox" id="isLockedCb" name="isLocked" <%= assessment.is_locked ? 'checked' : '' %> />
+            <label for="isLockedCb">Lock this assessment (prevents score entry)</label>
+          </div>
+          <div class="check-row">
+            <input type="checkbox" id="notifyTeachersCb" name="notifyTeachers" />
+            <label for="notifyTeachersCb">Email affected class teachers about this change</label>
+          </div>
         </div>
-        <div class="form-group" style="align-items:flex-start;">
-          <label style="display:flex; align-items:center; gap:8px; font-weight:500;">
-            <input type="checkbox" name="isActive" <%= assessment.is_active ? 'checked' : '' %> />
-            Activate for score editing
-          </label>
-        </div>
-        <div class="form-group">
-          <label for="editWindowStart">Edit Window Start:</label>
-          <input
-            type="datetime-local"
-            name="editWindowStart"
-            value="<%= assessment.edit_window_start ? new Date(assessment.edit_window_start).toISOString().slice(0,16) : '' %>"
-          >
-        </div>
-        <div class="form-group">
-          <label for="editWindowEnd">Edit Window End:</label>
-          <input
-            type="datetime-local"
-            name="editWindowEnd"
-            value="<%= assessment.edit_window_end ? new Date(assessment.edit_window_end).toISOString().slice(0,16) : '' %>"
-          >
-        </div>
-        <div class="form-group" style="align-items:flex-start;">
-          <label style="display:flex; align-items:center; gap:8px; font-weight:500;">
-            <input type="checkbox" name="notifyTeachers" />
-            Email affected class teachers
-          </label>
+
+        <!-- Edit window dates -->
+        <div class="date-group">
+          <div class="date-group-title">Edit Window (optional)</div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="editWindowStart">Edit Start Date:</label>
+            <input
+              type="datetime-local"
+              id="editWindowStart"
+              name="editWindowStart"
+              value="<%= assessment.edit_window_start ? new Date(assessment.edit_window_start).toISOString().slice(0,16) : '' %>"
+            >
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="editWindowEnd">Edit End Date:</label>
+            <input
+              type="datetime-local"
+              id="editWindowEnd"
+              name="editWindowEnd"
+              value="<%= assessment.edit_window_end ? new Date(assessment.edit_window_end).toISOString().slice(0,16) : '' %>"
+            >
+          </div>
         </div>
         <h4 class="modify-classes-heading">Modify Classes and Subjects</h4>
         <button type="button" class="collapsible-btn" onclick="toggleClassesCollapse()">
@@ -425,7 +504,7 @@
         data.classes = formData.getAll('classes[]');
         data.subjects = formData.getAll('subjects[]');
         data.isLocked = formData.get('isLocked') ? 'true' : 'false';
-        data.isActive = formData.get('isActive') ? 'true' : 'false';
+        data.isActive = 'true'; // always keep active; activation managed separately
         data.notifyTeachers = formData.get('notifyTeachers') ? 'true' : 'false';
 
         try {
