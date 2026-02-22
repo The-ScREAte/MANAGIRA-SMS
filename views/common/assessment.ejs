@@ -412,6 +412,7 @@ input[type="number"]:focus {
                 <th>
                   <%= assessment.title %> (<%= assessment.weight %>%)<br />
                   <%= assessment.category %><br />
+                  <small style="display:block; margin-top:4px; color:#e2e8f0;">Status: <%= assessment.can_edit_scores ? 'Editable' : assessment.access_reason %></small>
                   <hr />
                   Score Out Of: <%= assessment.max_score %>
                 </th>
@@ -448,6 +449,7 @@ input[type="number"]:focus {
                     max="<%= assessment.max_score + 10 %>"
                     step="0.1"
                     value="<%= student.scores ? student.scores[assessment.assessment_id] : '' %>"
+                    <%= assessment.can_edit_scores ? '' : 'disabled' %>
                   />
                 </td>
                 <% }); %>
@@ -474,10 +476,15 @@ input[type="number"]:focus {
           </table>
         </div>
         <div class="center-link">
-          <button type="button" id="save-all-scores-button">
+          <button type="button" id="save-all-scores-button" <%= hasEditableAssessments ? '' : 'disabled' %>>
             Save All Scores
           </button>
         </div>
+        <% if (!hasEditableAssessments) { %>
+          <p style="margin: 0 0 10px 0; color: #b91c1c; font-weight: 600; text-align:center;">
+            Score editing is disabled. Assessment is locked, inactive, or outside its edit window.
+          </p>
+        <% } %>
       </form>
 
       <!-- Loading Spinner -->

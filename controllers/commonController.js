@@ -424,6 +424,140 @@ function generateAllDatesFromStart(termStartDate) {
 
   while (currentDate <= today) {
     dates.push(currentDate.toISOString().split("T")[0]);
+
+async function ensureAssessmentControlSchema(database = require("../config/db")) {
+  if (global._assessmentControlSchemaPromise) {
+    return global._assessmentControlSchemaPromise;
+  }
+
+  global._assessmentControlSchemaPromise = (async () => {
+    await database.query(`
+      ALTER TABLE assessments
+      ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE,
+      ADD COLUMN IF NOT EXISTS edit_window_start TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS edit_window_end TIMESTAMPTZ
+    `);
+  })();
+
+  global._assessmentControlSchemaPromise.catch(() => {
+    global._assessmentControlSchemaPromise = null;
+  });
+
+  return global._assessmentControlSchemaPromise;
+}
+
+function parseBooleanValue(value, defaultValue = false) {
+  if (value === undefined || value === null || value === "") return defaultValue;
+  const normalizedValue = String(value).trim().toLowerCase();
+  return ["1", "true", "yes", "on"].includes(normalizedValue);
+}
+
+function parseDateTimeValue(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function computeAssessmentEditability(control, now = new Date()) {
+  const locked = Boolean(control?.is_locked);
+  const active = control?.is_active === undefined || control?.is_active === null
+    ? true
+    : Boolean(control.is_active);
+
+  const windowStart = control?.edit_window_start ? new Date(control.edit_window_start) : null;
+  const windowEnd = control?.edit_window_end ? new Date(control.edit_window_end) : null;
+
+  const withinStart = !windowStart || now >= windowStart;
+  const withinEnd = !windowEnd || now <= windowEnd;
+  const withinWindow = withinStart && withinEnd;
+
+  if (locked) {
+    return { canEdit: false, reason: "Locked" };
+  }
+  if (!active) {
+    return { canEdit: false, reason: "Inactive" };
+  }
+  if (!withinWindow) {
+    return { canEdit: false, reason: "Outside time window" };
+  }
+
+  return { canEdit: true, reason: "Editable" };
+}
+
+async function notifyTeachersForAssessmentControl({
+  database,
+  organizationId,
+  classIds,
+  testTitle,
+  termName,
+  lockState,
+  activeState,
+  editWindowStart,
+  editWindowEnd,
+}) {
+  if (!database || !organizationId || !Array.isArray(classIds) || classIds.length === 0) {
+    return;
+  }
+
+  const teacherResult = await database.query(
+    `
+      SELECT DISTINCT u.email, u.first_name, u.last_name
+      FROM user_classes uc
+      JOIN users u ON u.user_id = uc.user_id
+      WHERE uc.class_id = ANY($1::int[])
+        AND u.organization_id = $2
+        AND u.account_type = 'Teacher'
+        AND u.email IS NOT NULL
+        AND u.email <> ''
+    `,
+    [classIds, organizationId]
+  );
+
+  if (teacherResult.rows.length === 0) return;
+
+  const classResult = await database.query(
+    `SELECT class_name FROM classes WHERE class_id = ANY($1::int[]) ORDER BY class_name ASC`,
+    [classIds]
+  );
+
+  const classNames = classResult.rows.map((row) => row.class_name).join(", ");
+  const lockText = lockState ? "Locked" : "Unlocked";
+  const activeText = activeState ? "Activated" : "Not activated";
+  const startText = editWindowStart ? new Date(editWindowStart).toLocaleString() : "Not set";
+  const endText = editWindowEnd ? new Date(editWindowEnd).toLocaleString() : "Not set";
+
+  await Promise.all(
+    teacherResult.rows.map(async (teacher) => {
+      const fullName = [teacher.first_name, teacher.last_name].filter(Boolean).join(" ") || "Teacher";
+      const html = renderCleanEmail({
+        title: "Assessment Access Update",
+        greeting: `Hello ${fullName},`,
+        paragraphs: [
+          `An assessment access setting has been updated for: <strong>${he.encode(String(testTitle || "Assessment"))}</strong>.`,
+          `This affects class(es): <strong>${he.encode(String(classNames || "N/A"))}</strong>.`,
+        ],
+        details: [
+          { label: "Term", value: he.encode(String(termName || "Current Term")) },
+          { label: "Lock status", value: lockText },
+          { label: "Activation", value: activeText },
+          { label: "Edit window start", value: he.encode(startText) },
+          { label: "Edit window end", value: he.encode(endText) },
+        ],
+      });
+
+      await sendEmailSafely(
+        {
+          to: teacher.email,
+          subject: `Assessment Access Update: ${testTitle || "Assessment"}`,
+          html,
+        },
+        "Assessment Access Notification"
+      );
+    })
+  );
+}
+
     currentDate.setDate(currentDate.getDate() + 1);
   }
   return dates;
@@ -5369,6 +5503,7 @@ const commonController = {
     }
 
     try {
+      await ensureAssessmentControlSchema(db);
       const organizationId = req.session.organizationId;
 
       // Validate `organizationId`
@@ -5446,7 +5581,11 @@ const commonController = {
       // Fetch assessments for the class, subject, and term
       const assessmentsResult = await db.query(
         `
-                SELECT assessment_id, title, weight, max_score, category
+                SELECT assessment_id, title, weight, max_score, category,
+                       COALESCE(is_locked, FALSE) AS is_locked,
+                       COALESCE(is_active, TRUE) AS is_active,
+                       edit_window_start,
+                       edit_window_end
                 FROM assessments
                 WHERE subject_id = $1 AND class_id = $2 AND organization_id = $3 AND term_id = $4
                 ORDER BY assessment_id
@@ -5454,7 +5593,14 @@ const commonController = {
         [subjectId, classId, organizationId, currentTerm.term_id]
       );
 
-      const assessments = assessmentsResult.rows;
+      const assessments = assessmentsResult.rows.map((assessmentRow) => {
+        const editability = computeAssessmentEditability(assessmentRow);
+        return {
+          ...assessmentRow,
+          can_edit_scores: editability.canEdit,
+          access_reason: editability.reason,
+        };
+      });
 
       if (assessments.length === 0) {
         req.flash(
@@ -5545,6 +5691,7 @@ const commonController = {
         subjectName,
         currentTerm,
         assessments,
+        hasEditableAssessments: assessments.some((assessmentRow) => assessmentRow.can_edit_scores),
         students,
         employees,
         messages: req.flash(),
@@ -5628,6 +5775,63 @@ const commonController = {
 
       const currentTermId = termResult.rows[0].term_id;
 
+      await ensureAssessmentControlSchema(db);
+
+      const submittedAssessmentIds = Array.from(
+        new Set(
+          Object.values(scores || {}).flatMap((studentScores) =>
+            Object.keys(studentScores || {})
+              .map((assessmentId) => Number(assessmentId))
+              .filter((assessmentId) => Number.isInteger(assessmentId) && assessmentId > 0)
+          )
+        )
+      );
+
+      const assessmentControlResult = await db.query(
+        `
+          SELECT assessment_id, title, weight, max_score, category,
+                 COALESCE(is_locked, FALSE) AS is_locked,
+                 COALESCE(is_active, TRUE) AS is_active,
+                 edit_window_start,
+                 edit_window_end
+          FROM assessments
+          WHERE assessment_id = ANY($1::int[])
+            AND class_id = $2
+            AND subject_id = $3
+            AND organization_id = $4
+            AND term_id = $5
+        `,
+        [submittedAssessmentIds.length ? submittedAssessmentIds : [0], classId, subjectId, organizationId, currentTermId]
+      );
+
+      const assessmentControlMap = new Map();
+      assessmentControlResult.rows.forEach((assessmentRow) => {
+        assessmentControlMap.set(
+          Number(assessmentRow.assessment_id),
+          {
+            ...assessmentRow,
+            ...computeAssessmentEditability(assessmentRow),
+          }
+        );
+      });
+
+      const blockedAssessmentTitles = new Set();
+      Object.values(scores || {}).forEach((studentScores) => {
+        Object.entries(studentScores || {}).forEach(([assessmentId, scoreValue]) => {
+          if (scoreValue === null || scoreValue === "") return;
+          const control = assessmentControlMap.get(Number(assessmentId));
+          if (control && !control.canEdit) {
+            blockedAssessmentTitles.add(`${control.title} (${control.reason})`);
+          }
+        });
+      });
+
+      if (blockedAssessmentTitles.size > 0) {
+        return res.status(403).json({
+          error: `This assessment is currently not editable: ${Array.from(blockedAssessmentTitles).join(", ")}`,
+        });
+      }
+
       await db.query("BEGIN");
 
       // Insert or update scores for each student
@@ -5640,14 +5844,9 @@ const commonController = {
           let score = scores[studentId][assessmentId];
           if (score === null || score === "") continue;
 
-          // Fetch the assessment weight, max score, and category for calculations
-          const assessmentResult = await db.query(
-            `SELECT weight, max_score, category FROM assessments WHERE assessment_id = $1`,
-            [assessmentId]
-          );
-
-          if (assessmentResult.rows.length > 0) {
-            const { weight, max_score, category } = assessmentResult.rows[0];
+          const assessmentControl = assessmentControlMap.get(Number(assessmentId));
+          if (assessmentControl && assessmentControl.canEdit) {
+            const { max_score, category } = assessmentControl;
 
             totalScore += parseFloat(score);
             maxTotalScore += parseFloat(max_score);
@@ -5814,8 +6013,16 @@ const commonController = {
     const { classId, subjectId } = req.query;
 
     try {
+      await ensureAssessmentControlSchema(db);
       const result = await db.query(
-        "SELECT * FROM assessments WHERE class_id = $1 AND subject_id = $2 AND organization_id = $3 ORDER BY assessment_id ASC",
+        `SELECT *,
+                COALESCE(is_locked, FALSE) AS is_locked,
+                COALESCE(is_active, TRUE) AS is_active,
+                edit_window_start,
+                edit_window_end
+         FROM assessments
+         WHERE class_id = $1 AND subject_id = $2 AND organization_id = $3
+         ORDER BY assessment_id ASC`,
         [classId, subjectId, req.session.organizationId]
       );
       res.json(result.rows);
@@ -5871,10 +6078,15 @@ const commonController = {
     }
 
     try {
+          await ensureAssessmentControlSchema(db);
       // Fetch assessments with their associated classes and subjects, grouped by group_id
       const assessmentsQuery = `
                 SELECT a.group_id, a.title, a.weight, a.max_score, a.category, a.term_id, 
-                       c.class_id, c.class_name, s.subject_name
+            c.class_id, c.class_name, s.subject_name,
+            BOOL_OR(COALESCE(a.is_locked, FALSE)) OVER (PARTITION BY a.group_id) AS is_locked,
+            BOOL_AND(COALESCE(a.is_active, TRUE)) OVER (PARTITION BY a.group_id) AS is_active,
+            MIN(a.edit_window_start) OVER (PARTITION BY a.group_id) AS edit_window_start,
+            MAX(a.edit_window_end) OVER (PARTITION BY a.group_id) AS edit_window_end
                 FROM assessments a
                 LEFT JOIN classes c ON a.class_id = c.class_id
                 LEFT JOIN subjects s ON a.subject_id = s.subject_id
@@ -5892,6 +6104,7 @@ const commonController = {
         const groupId = row.group_id;
 
         if (!assessmentsMap[groupId]) {
+          const editability = computeAssessmentEditability(row);
           assessmentsMap[groupId] = {
             group_id: groupId,
             title: row.title,
@@ -5899,6 +6112,12 @@ const commonController = {
             max_score: row.max_score,
             category: row.category,
             term_id: row.term_id,
+            is_locked: row.is_locked,
+            is_active: row.is_active,
+            edit_window_start: row.edit_window_start,
+            edit_window_end: row.edit_window_end,
+            can_edit_scores: editability.canEdit,
+            access_reason: editability.reason,
             assigned_classes: {},
           };
         }
@@ -5947,9 +6166,14 @@ const commonController = {
     }
 
     try {
+      await ensureAssessmentControlSchema(db);
       // Fetch assessment details for the group
       const assessmentQuery = `
-                SELECT title, weight, max_score, category
+                SELECT title, weight, max_score, category,
+                       COALESCE(is_locked, FALSE) AS is_locked,
+                       COALESCE(is_active, TRUE) AS is_active,
+                       edit_window_start,
+                       edit_window_end
                 FROM assessments
                 WHERE group_id = $1 AND organization_id = $2 AND term_id = $3
                 LIMIT 1
@@ -6034,6 +6258,11 @@ const commonController = {
       category,
       classes = [],
       subjects = [],
+      isLocked,
+      isActive,
+      editWindowStart,
+      editWindowEnd,
+      notifyTeachers,
     } = req.body;
 
     // Validate required fields
@@ -6051,26 +6280,25 @@ const commonController = {
         .json({ error: "Organization ID and Term ID are required." });
     }
 
+    const normalizedClassIds = (Array.isArray(classes) ? classes : [classes])
+      .map((value) => Number(value))
+      .filter((value) => Number.isInteger(value) && value > 0);
+
+    const locked = parseBooleanValue(isLocked, false);
+    const active = parseBooleanValue(isActive, true);
+    const shouldNotifyTeachers = parseBooleanValue(notifyTeachers, false);
+    const parsedWindowStart = parseDateTimeValue(editWindowStart);
+    const parsedWindowEnd = parseDateTimeValue(editWindowEnd);
+
+    if (parsedWindowStart && parsedWindowEnd && parsedWindowStart > parsedWindowEnd) {
+      return res.status(400).json({ error: "Edit window start must be before edit window end." });
+    }
+
     const client = await db.connect();
 
     try {
+      await ensureAssessmentControlSchema(client);
       await client.query("BEGIN"); // Start transaction
-
-      // Update the assessment group details
-      const updateGroupQuery = `
-            UPDATE assessments
-            SET title = $1, weight = $2, max_score = $3, category = $4
-            WHERE group_id = $5 AND organization_id = $6 AND term_id = $7
-        `;
-      await client.query(updateGroupQuery, [
-        testName,
-        testWeight,
-        maxScore,
-        category,
-        groupId,
-        organizationId,
-        termId,
-      ]);
 
       // Remove all existing entries for this group to prepare for re-insertion
       const deleteExistingQuery = `
@@ -6094,9 +6322,10 @@ const commonController = {
 
           const insertQuery = `
                     INSERT INTO assessments (
-                        group_id, title, weight, max_score, category, subject_id, organization_id, term_id, class_id
+                  group_id, title, weight, max_score, category, subject_id, organization_id, term_id, class_id,
+                  is_locked, is_active, edit_window_start, edit_window_end
                     ) VALUES (
-                        $1, $2, $3, $4, $5, $6, $7, $8, $9
+                  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
                     )
                     ON CONFLICT ON CONSTRAINT unique_test_per_term_class_subject DO NOTHING
                 `;
@@ -6110,6 +6339,10 @@ const commonController = {
             organizationId,
             termId,
             cls,
+            locked,
+            active,
+            parsedWindowStart,
+            parsedWindowEnd,
           ]);
         }
       }
@@ -6131,6 +6364,20 @@ const commonController = {
 
       await client.query("COMMIT"); // Commit transaction
 
+      if (shouldNotifyTeachers && normalizedClassIds.length > 0) {
+        await notifyTeachersForAssessmentControl({
+          database: db,
+          organizationId: Number(organizationId),
+          classIds: normalizedClassIds,
+          testTitle: testName,
+          termName,
+          lockState: locked,
+          activeState: active,
+          editWindowStart: parsedWindowStart,
+          editWindowEnd: parsedWindowEnd,
+        });
+      }
+
       // Respond with the success message
       res.status(200).json({
         message: `Assessment updated successfully for Term: ${termName} with Classes: ${classNames.join(
@@ -6144,6 +6391,45 @@ const commonController = {
         .json({ error: "Failed to update assessment. Please try again." });
     } finally {
       client.release();
+    }
+  },
+
+  updateAssessmentControlPost: async (req, res, db) => {
+    const { groupId, termId, action } = req.body;
+    const organizationId = req.session.organizationId;
+
+    if (!groupId || !organizationId || !termId || !action) {
+      return res.status(400).json({ error: "Missing required fields." });
+    }
+
+    const allowedActions = new Set(["lock", "unlock", "activate", "deactivate"]);
+    if (!allowedActions.has(String(action))) {
+      return res.status(400).json({ error: "Invalid action." });
+    }
+
+    const updates = {
+      lock: { column: "is_locked", value: true },
+      unlock: { column: "is_locked", value: false },
+      activate: { column: "is_active", value: true },
+      deactivate: { column: "is_active", value: false },
+    };
+
+    const { column, value } = updates[action];
+
+    try {
+      await ensureAssessmentControlSchema(db);
+      await db.query(
+        `
+          UPDATE assessments
+          SET ${column} = $1
+          WHERE group_id = $2 AND organization_id = $3 AND term_id = $4
+        `,
+        [value, groupId, organizationId, termId]
+      );
+
+      return res.status(200).json({ message: "Assessment control updated successfully." });
+    } catch (error) {
+      return res.status(500).json({ error: "Failed to update assessment control." });
     }
   },
 
@@ -6267,14 +6553,25 @@ const commonController = {
     const client = await db.connect();
 
     try {
+      await ensureAssessmentControlSchema(client);
       await client.query("BEGIN"); // Start a transaction
 
       // Track the classes for which tests were added
       const addedClasses = new Set();
+      const pendingTeacherNotifications = [];
 
       for (const test of tests) {
         const selectedClasses = test.classes;
         const selectedSubjects = test.subjects;
+        const locked = parseBooleanValue(test.isLocked, false);
+        const active = parseBooleanValue(test.isActive, true);
+        const notifyTeachers = parseBooleanValue(test.notifyTeachers, false);
+        const parsedWindowStart = parseDateTimeValue(test.editWindowStart);
+        const parsedWindowEnd = parseDateTimeValue(test.editWindowEnd);
+
+        if (parsedWindowStart && parsedWindowEnd && parsedWindowStart > parsedWindowEnd) {
+          throw new Error(`Invalid edit window for test \"${test.testName}\".`);
+        }
 
         if (
           !selectedClasses ||
@@ -6304,9 +6601,10 @@ const commonController = {
             // Insert the test while allowing duplicate names for different subjects or terms
             const insertAssessmentQuery = `
                         INSERT INTO assessments (
-                            group_id, title, weight, max_score, category, subject_id, organization_id, term_id, class_id
+                    group_id, title, weight, max_score, category, subject_id, organization_id, term_id, class_id,
+                    is_locked, is_active, edit_window_start, edit_window_end
                         ) VALUES (
-                            $1, $2, $3, $4, $5, $6, $7, $8, $9
+                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
                         )
                         ON CONFLICT (class_id, subject_id, title, term_id) DO NOTHING
                     `;
@@ -6320,8 +6618,23 @@ const commonController = {
               organizationId,
               formTermId,
               cls,
+              locked,
+              active,
+              parsedWindowStart,
+              parsedWindowEnd,
             ]);
           }
+        }
+
+        if (notifyTeachers) {
+          pendingTeacherNotifications.push({
+            classIds: selectedClasses.map((value) => Number(value)).filter((value) => Number.isInteger(value) && value > 0),
+            testTitle: test.testName,
+            lockState: locked,
+            activeState: active,
+            editWindowStart: parsedWindowStart,
+            editWindowEnd: parsedWindowEnd,
+          });
         }
       }
 
@@ -6343,6 +6656,21 @@ const commonController = {
       const classNames = classResult.rows.map((row) => row.class_name);
 
       await client.query("COMMIT"); // Commit the transaction
+
+      for (const notification of pendingTeacherNotifications) {
+        if (!notification.classIds.length) continue;
+        await notifyTeachersForAssessmentControl({
+          database: db,
+          organizationId: Number(organizationId),
+          classIds: notification.classIds,
+          testTitle: notification.testTitle,
+          termName,
+          lockState: notification.lockState,
+          activeState: notification.activeState,
+          editWindowStart: notification.editWindowStart,
+          editWindowEnd: notification.editWindowEnd,
+        });
+      }
 
       // Respond with the success message
       res.status(200).json({
@@ -8674,8 +9002,9 @@ const commonController = {
       const userId = req.session.userId;
       const { guardianId, studentId, reportType, message, sendEmail } = req.body;
       const sendEmailRequested = sendEmail === true || sendEmail === 'true' || sendEmail === 1 || sendEmail === '1';
+      const trimmedMessage = String(message || '').trim();
 
-      if (!message || !studentId || !guardianId) {
+      if (!trimmedMessage || !studentId || !guardianId) {
         return res.status(400).json({ success: false, error: 'Guardian, student and message are required.' });
       }
 
@@ -8697,7 +9026,7 @@ const commonController = {
 
       // Get staff info
       const staffResult = await db.query(
-        `SELECT first_name, last_name, role FROM users WHERE user_id = $1`, [userId]
+        `SELECT first_name, last_name, COALESCE(account_type::text, 'Staff') AS role FROM users WHERE user_id = $1`, [userId]
       );
       const staff = staffResult.rows[0] || { first_name: 'Staff', last_name: '', role: 'Staff' };
 
@@ -8708,25 +9037,76 @@ const commonController = {
          WHERE g.guardian_id = $1 AND g.organization_id = $2`,
         [parsedGuardianId, organizationId]
       );
-      let guardian = guardianResult.rows[0];
+      const guardian = guardianResult.rows[0] || null;
 
-      if (!guardian) {
+      // Resolve guardian profile ID so report appears in Parent Portal (which uses guardian_profiles.guardian_id)
+      let targetGuardianId = parsedGuardianId;
+      let guardianProfile = null;
+
+      if (guardian) {
         const guardianProfileResult = await db.query(
-          `SELECT gp.first_name, gp.last_name, gp.email, gp.phone
+          `SELECT gp.guardian_id, gp.first_name, gp.last_name, gp.email, gp.phone
            FROM guardian_profiles gp
-           WHERE gp.guardian_id = $1 AND gp.organization_id = $2`,
+           WHERE gp.organization_id = $1
+             AND (
+               gp.guardian_id = $2
+               OR (
+                 LOWER(TRIM(gp.first_name)) = LOWER(TRIM($3::text))
+                 AND LOWER(TRIM(gp.last_name)) = LOWER(TRIM($4::text))
+                 AND (
+                   ($5::text IS NOT NULL AND gp.phone = $5::text)
+                   OR ($6::text IS NOT NULL AND gp.email = $6::text)
+                 )
+               )
+             )
+           ORDER BY CASE WHEN gp.guardian_id = $2 THEN 0 ELSE 1 END, gp.guardian_id ASC
+           LIMIT 1`,
+          [organizationId, parsedGuardianId, guardian.first_name, guardian.last_name, guardian.phone || null, guardian.email || null]
+        );
+        guardianProfile = guardianProfileResult.rows[0] || null;
+      } else {
+        const guardianProfileResult = await db.query(
+          `SELECT gp.guardian_id, gp.first_name, gp.last_name, gp.email, gp.phone
+           FROM guardian_profiles gp
+           WHERE gp.guardian_id = $1 AND gp.organization_id = $2
+           LIMIT 1`,
           [parsedGuardianId, organizationId]
         );
-        guardian = guardianProfileResult.rows[0] || null;
+        guardianProfile = guardianProfileResult.rows[0] || null;
+      }
+
+      if (guardianProfile?.guardian_id) {
+        targetGuardianId = guardianProfile.guardian_id;
       }
 
       const normalizedReportType = String(reportType || 'general').trim().toLowerCase();
       const reportTypeLabel = normalizedReportType.charAt(0).toUpperCase() + normalizedReportType.slice(1);
       const subject = `Staff Report (${reportTypeLabel}): ${studentName}`;
 
+      // Ensure reports table exists and schema is compatible on older deployments
+      await db.query(
+        `CREATE TABLE IF NOT EXISTS guardian_reports (
+          report_id SERIAL PRIMARY KEY,
+          guardian_id INTEGER NOT NULL,
+          student_id INTEGER,
+          organization_id INTEGER NOT NULL,
+          report_type VARCHAR(50),
+          subject VARCHAR(255),
+          message TEXT,
+          status VARCHAR(50) DEFAULT 'open',
+          priority VARCHAR(50) DEFAULT 'normal',
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW(),
+          resolved_at TIMESTAMP,
+          deleted_at TIMESTAMP
+        )`
+      );
+
       // Ensure report_type column exists (may not exist in older migrations)
       try {
         await db.query(`ALTER TABLE guardian_reports ADD COLUMN IF NOT EXISTS report_type VARCHAR(50)`);
+        await db.query(`ALTER TABLE guardian_reports ADD COLUMN IF NOT EXISTS priority VARCHAR(50) DEFAULT 'normal'`);
+        await db.query(`ALTER TABLE guardian_reports ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`);
       } catch (alterErr) {
         // Column might already exist or table permissions issue, ignore
       }
@@ -8736,20 +9116,22 @@ const commonController = {
         await db.query(
           `INSERT INTO guardian_reports (guardian_id, student_id, organization_id, report_type, subject, message, status)
            VALUES ($1, $2, $3, $4, $5, $6, 'open')`,
-          [parsedGuardianId, parsedStudentId, organizationId, normalizedReportType, subject, message]
+          [targetGuardianId, parsedStudentId, organizationId, normalizedReportType, subject, trimmedMessage]
         );
       } catch (insertErr) {
         // If report_type column doesn't exist, insert without it
         await db.query(
           `INSERT INTO guardian_reports (guardian_id, student_id, organization_id, subject, message, status)
            VALUES ($1, $2, $3, $4, $5, 'open')`,
-          [parsedGuardianId, parsedStudentId, organizationId, subject, message]
+          [targetGuardianId, parsedStudentId, organizationId, subject, trimmedMessage]
         );
       }
 
       // Send email to guardian if requested
       let emailSent = false;
-      if (sendEmailRequested && guardian && guardian.email) {
+      const emailRecipient = guardianProfile?.email || guardian?.email || null;
+      const guardianFirstName = guardianProfile?.first_name || guardian?.first_name || 'Parent/Guardian';
+      if (sendEmailRequested && emailRecipient) {
         const { renderCleanEmail, sendEmailSafely } = require("../utils/emailHelper");
         const path = require("path");
 
@@ -8760,20 +9142,20 @@ const commonController = {
 
         const html = renderCleanEmail({
           title: `Report Filed for ${studentName}`,
-          greeting: `Dear ${guardian.first_name || 'Parent/Guardian'},`,
+          greeting: `Dear ${guardianFirstName},`,
           paragraphs: [
             `A report has been filed regarding your child <strong>${studentName}</strong> by <strong>${staff.first_name} ${staff.last_name}</strong> (${staff.role}).`,
           ],
           details: [
             { label: 'Report Type', value: reportTypeLabel },
             { label: 'Student', value: studentName },
-            { label: 'Message', value: message },
+            { label: 'Message', value: trimmedMessage },
           ],
           note: `This report is also available in your Parent Portal under "My Reports". If you have questions, please contact the school directly.`,
         });
 
         emailSent = await sendEmailSafely({
-          to: guardian.email,
+          to: emailRecipient,
           subject: `[${orgName}] Report for ${studentName}`,
           html,
           attachments: [{

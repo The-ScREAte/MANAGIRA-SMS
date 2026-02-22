@@ -640,6 +640,26 @@
                   <option value="Other">Other</option>
                 </select>
               </div>
+              <div class="form-group checkbox-group">
+                <input type="checkbox" name="isLocked-1" id="isLocked-1">
+                <label for="isLocked-1">Lock this assessment</label>
+              </div>
+              <div class="form-group checkbox-group">
+                <input type="checkbox" name="isActive-1" id="isActive-1" checked>
+                <label for="isActive-1">Activate now</label>
+              </div>
+              <div class="form-group">
+                <label>Edit Window Start:</label>
+                <input type="datetime-local" name="editWindowStart-1">
+              </div>
+              <div class="form-group">
+                <label>Edit Window End:</label>
+                <input type="datetime-local" name="editWindowEnd-1">
+              </div>
+              <div class="form-group checkbox-group">
+                <input type="checkbox" name="notifyTeachers-1" id="notifyTeachers-1">
+                <label for="notifyTeachers-1">Email affected class teachers</label>
+              </div>
               <h4 style="text-align:center; margin-bottom:8px;">Assign Test to Classes and Subjects</h4>
               <button type="button" class="collapsible-btn" onclick="toggleClassListCollapse('class-list-1', 'arrow-class-list-1')">
                 Show/Hide Classes
@@ -720,6 +740,26 @@
             <option value="Exams Assessment">Exams Assessment</option>
             <option value="Other">Other</option>
           </select>
+        </div>
+        <div class="form-group checkbox-group">
+          <input type="checkbox" name="isLocked-${testFormCount}" id="isLocked-${testFormCount}">
+          <label for="isLocked-${testFormCount}">Lock this assessment</label>
+        </div>
+        <div class="form-group checkbox-group">
+          <input type="checkbox" name="isActive-${testFormCount}" id="isActive-${testFormCount}" checked>
+          <label for="isActive-${testFormCount}">Activate now</label>
+        </div>
+        <div class="form-group">
+          <label>Edit Window Start:</label>
+          <input type="datetime-local" name="editWindowStart-${testFormCount}">
+        </div>
+        <div class="form-group">
+          <label>Edit Window End:</label>
+          <input type="datetime-local" name="editWindowEnd-${testFormCount}">
+        </div>
+        <div class="form-group checkbox-group">
+          <input type="checkbox" name="notifyTeachers-${testFormCount}" id="notifyTeachers-${testFormCount}">
+          <label for="notifyTeachers-${testFormCount}">Email affected class teachers</label>
         </div>
         <h4 style="text-align:center; margin-bottom:8px;">Assign Test to Classes and Subjects</h4>
         <button type="button" class="collapsible-btn" onclick="toggleClassListCollapse('class-list-${testFormCount}', 'arrow-class-list-${testFormCount}')">
@@ -842,6 +882,11 @@
           testWeight: testWeights[i],
           maxScore: maxScores[i],
           category: categories[i],
+          isLocked: formData.get(`isLocked-${i + 1}`) ? "true" : "false",
+          isActive: formData.get(`isActive-${i + 1}`) ? "true" : "false",
+          editWindowStart: formData.get(`editWindowStart-${i + 1}`) || null,
+          editWindowEnd: formData.get(`editWindowEnd-${i + 1}`) || null,
+          notifyTeachers: formData.get(`notifyTeachers-${i + 1}`) ? "true" : "false",
           classes,
           subjects
         });

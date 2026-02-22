@@ -724,7 +724,7 @@ module.exports = {
         for (const userId of recipientIds) {
           // fetch user name and role
           const userInfo = await db.query(
-            `SELECT first_name || ' ' || last_name as name, role FROM users WHERE user_id = $1 AND organization_id = $2`,
+            `SELECT first_name || ' ' || last_name as name, COALESCE(account_type::text, 'Staff') AS role FROM users WHERE user_id = $1 AND organization_id = $2`,
             [userId, organizationId]
           );
           if (userInfo.rows.length > 0) {
@@ -1130,7 +1130,7 @@ module.exports = {
         
         for (const userId of recipientIds) {
           const userInfo = await db.query(
-            `SELECT first_name || ' ' || last_name as name, role FROM users WHERE user_id = $1`,
+            `SELECT first_name || ' ' || last_name as name, COALESCE(account_type::text, 'Staff') AS role FROM users WHERE user_id = $1`,
             [userId]
           );
           

@@ -14,9 +14,11 @@
         margin: 0;
         background: #f7f9fb;
         color: #0f2d32;
+        min-height: 100%;
       }
 
       main {
+        flex: 1;
         text-align: center;
         margin: 0 auto;
         width: 94%;
@@ -238,6 +240,10 @@
       }
 
       @media screen and (max-width: 768px) {
+        .center-link {
+          padding-top: 72px;
+        }
+
         .checkbox-container,
         .select-all-container {
           flex-direction: column;

@@ -265,6 +265,9 @@ module.exports = (db) => {
   router.post("/deleteAssessment", isAuthenticated, (req, res) =>
     commonController.deleteAssessmentPost(req, res, db)
   );
+  router.post("/updateAssessmentControl", isAuthenticated, (req, res) =>
+    commonController.updateAssessmentControlPost(req, res, db)
+  );
   router.post("/modifyAssessment", isAuthenticated, (req, res) =>
     commonController.modifyAssessmentPost(req, res, db)
   );

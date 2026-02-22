@@ -165,6 +165,7 @@
                         <th>Weight (%)</th>
                         <th>Score Out Of</th>
                         <th>Category</th>
+                        <th>Control Status</th>
                         <th>Assigned Classes and Subjects</th>
                         <th>Actions</th>
                     </tr>
@@ -176,6 +177,15 @@
                             <td><%= assessment.weight %></td>
                             <td><%= assessment.max_score %></td>
                             <td><%= assessment.category %></td>
+                                                        <td>
+                                                                <div><strong><%= assessment.is_locked ? 'Locked' : 'Unlocked' %></strong></div>
+                                                                <div><%= assessment.is_active ? 'Active' : 'Inactive' %></div>
+                                                                <div style="font-size:0.85rem; color:#475569; margin-top:4px;">
+                                                                    Start: <%= assessment.edit_window_start ? new Date(assessment.edit_window_start).toLocaleString() : 'Not set' %><br>
+                                                                    End: <%= assessment.edit_window_end ? new Date(assessment.edit_window_end).toLocaleString() : 'Not set' %><br>
+                                                                    Editability: <%= assessment.can_edit_scores ? 'Allowed' : assessment.access_reason %>
+                                                                </div>
+                                                        </td>
                             <td>
                                 <button type="button" class="collapsible-btn" onclick="toggleAssignedClassesCollapse('<%= idx %>')">
                                     Show/Hide Classes
@@ -195,6 +205,13 @@
                                 </div>
                             </td>
                             <td class="action-buttons">
+                                <a href="javascript:void(0)" onclick="updateAssessmentControl('<%= assessment.group_id %>', '<%= organizationId %>', '<%= termId %>', '<%= assessment.is_locked ? 'unlock' : 'lock' %>')">
+                                    <%= assessment.is_locked ? 'Unlock' : 'Lock' %>
+                                </a>
+                                <a href="javascript:void(0)" onclick="updateAssessmentControl('<%= assessment.group_id %>', '<%= organizationId %>', '<%= termId %>', '<%= assessment.is_active ? 'deactivate' : 'activate' %>')" style="margin-left:6px;">
+                                    <%= assessment.is_active ? 'Deactivate' : 'Activate' %>
+                                </a>
+                                <br><br>
                                 <a href="/common/modifyAssessment?groupId=<%= assessment.group_id %>&termId=<%= termId %>&organizationId=<%= organizationId %>">
                                     Modify
                                 </a>
@@ -207,6 +224,24 @@
         </div>
     </div>
     <script>
+        async function updateAssessmentControl(groupId, organizationId, termId, action) {
+            try {
+                const response = await fetch('/common/updateAssessmentControl', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ groupId, organizationId, termId, action }),
+                });
+                const result = await response.json();
+                if (!response.ok) {
+                    alert(result.error || 'Failed to update control status.');
+                    return;
+                }
+                window.location.reload();
+            } catch (error) {
+                alert('Failed to update control status.');
+            }
+        }
+
         function toggleAssignedClassesCollapse(idx) {
             const collapseDiv = document.getElementById('collapse-classes-' + idx);
             const arrow = document.getElementById('arrow-classes-' + idx);

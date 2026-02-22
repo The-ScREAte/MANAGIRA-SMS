@@ -308,6 +308,40 @@
             <option value="Other" <%= assessment.category === 'Other' ? 'selected' : '' %>>Other</option>
           </select>
         </div>
+        <div class="form-group" style="align-items:flex-start;">
+          <label style="display:flex; align-items:center; gap:8px; font-weight:500;">
+            <input type="checkbox" name="isLocked" <%= assessment.is_locked ? 'checked' : '' %> />
+            Lock this assessment
+          </label>
+        </div>
+        <div class="form-group" style="align-items:flex-start;">
+          <label style="display:flex; align-items:center; gap:8px; font-weight:500;">
+            <input type="checkbox" name="isActive" <%= assessment.is_active ? 'checked' : '' %> />
+            Activate for score editing
+          </label>
+        </div>
+        <div class="form-group">
+          <label for="editWindowStart">Edit Window Start:</label>
+          <input
+            type="datetime-local"
+            name="editWindowStart"
+            value="<%= assessment.edit_window_start ? new Date(assessment.edit_window_start).toISOString().slice(0,16) : '' %>"
+          >
+        </div>
+        <div class="form-group">
+          <label for="editWindowEnd">Edit Window End:</label>
+          <input
+            type="datetime-local"
+            name="editWindowEnd"
+            value="<%= assessment.edit_window_end ? new Date(assessment.edit_window_end).toISOString().slice(0,16) : '' %>"
+          >
+        </div>
+        <div class="form-group" style="align-items:flex-start;">
+          <label style="display:flex; align-items:center; gap:8px; font-weight:500;">
+            <input type="checkbox" name="notifyTeachers" />
+            Email affected class teachers
+          </label>
+        </div>
         <h4 class="modify-classes-heading">Modify Classes and Subjects</h4>
         <button type="button" class="collapsible-btn" onclick="toggleClassesCollapse()">
           Show/Hide Classes & Subjects
@@ -390,6 +424,9 @@
 
         data.classes = formData.getAll('classes[]');
         data.subjects = formData.getAll('subjects[]');
+        data.isLocked = formData.get('isLocked') ? 'true' : 'false';
+        data.isActive = formData.get('isActive') ? 'true' : 'false';
+        data.notifyTeachers = formData.get('notifyTeachers') ? 'true' : 'false';
 
         try {
             const response = await fetch('/common/modifyAssessment', {

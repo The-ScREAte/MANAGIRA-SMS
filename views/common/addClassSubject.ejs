@@ -17,6 +17,17 @@
         background: var(--bg);
         margin: 0;
         padding: 0;
+        min-height: 100%;
+      }
+
+      .add-class-page .page-shell {
+        width: 100%;
+        max-width: 1200px;
+        margin: 0 auto;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
       }
 
       .add-class-page .page-banner {
@@ -294,7 +305,7 @@
       document.body.classList.add('add-class-page');
     </script>
 
-    <div style="padding-top: 80px;">
+    <div class="page-shell">
     <div class="page-banner">
       <h1>Add Classes & Subjects</h1>
       <p>Create new classes, subjects, and graduation year groups</p>
