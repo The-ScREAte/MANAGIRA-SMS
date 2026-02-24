@@ -38,6 +38,20 @@ const {
   localizeUsdAmount,
   formatCurrencyAmount,
 } = require("../utils/currencyLocalization");
+const {
+  WEEKDAY_OPTIONS,
+  parseBoolean,
+  normalizeWeekendDaysInput,
+  ensureAttendanceCalendarSchema,
+  getHolidayCountryOptions,
+  getTermRecord,
+  getAttendanceCalendarProfile,
+  getAttendanceCalendarDays,
+  upsertAttendanceCalendarProfile,
+  syncPublicHolidayDays,
+  upsertManualCalendarDay,
+  deleteManualCalendarDay,
+} = require("../utils/attendanceCalendar");
 
 function extractS3KeyFromUrl(url) {
   const value = String(url || "").trim();
@@ -4266,6 +4280,11 @@ const accountController = {
   updatePublicDashboardThemePost: async (req, res) => {
     const organizationId = req.session.organizationId;
     const theme = (req.body?.publicDashboardTheme || "").trim();
+    const redirectTo = (req.body?.redirectTo || "").trim();
+    const safeRedirect = redirectTo.startsWith("/account/")
+      ? redirectTo
+      : "/account/managePublicContent";
+    const withThemeApplied = `${safeRedirect}${safeRedirect.includes("?") ? "&" : "?"}themeApplied=1`;
     
     // Map public theme values to organization button theme values
     const themeMapping = {
@@ -4284,12 +4303,12 @@ const accountController = {
 
     if (!organizationId) {
       req.flash("error", "Missing organization.");
-      return res.redirect("/account/managePublicContent");
+      return res.redirect(safeRedirect);
     }
 
     if (!allowedThemes.has(theme)) {
       req.flash("error", "Invalid website style selected.");
-      return res.redirect("/account/managePublicContent");
+      return res.redirect(safeRedirect);
     }
 
     try {
@@ -4335,10 +4354,10 @@ const accountController = {
       req.session.themeColor = orgThemeColor;
 
       req.flash("success", "Website style updated successfully.");
-      return res.redirect("/account/managePublicContent");
+      return res.redirect(withThemeApplied);
     } catch (error) {
             req.flash("error", "Failed to update website style.");
-      return res.redirect("/account/managePublicContent");
+      return res.redirect(safeRedirect);
     }
   },
 
@@ -4769,6 +4788,7 @@ const accountController = {
   settingsGet: async (req, res, db) => {
     try {
       await ensureProfileImageColumns(db);
+      await ensureAttendanceCalendarSchema(db);
 
       const sessionUserId = req.session.user?.user_id || req.session.userId;
       const userId = req.query.userId || sessionUserId;
@@ -4945,6 +4965,108 @@ const accountController = {
         }
       }
 
+      const calendarSchoolYears = [];
+      let selectedCalendarTermId = Number(req.query.calendarTermId) || null;
+      let selectedCalendarTerm = null;
+      let attendanceCalendarProfile = null;
+      let attendanceCalendarDays = [];
+      let publicDashboardTheme = "classic";
+
+      if (orgId) {
+        const schoolYearTermResult = await db.query(
+          `
+            SELECT sy.id AS school_year_id,
+                   sy.year_label,
+                   sy.current AS school_year_current,
+                   t.term_id,
+                   t.term_name,
+                   t.start_date,
+                   t.end_date,
+                   t.current AS term_current
+            FROM school_years sy
+            LEFT JOIN terms t ON t.school_year_id = sy.id
+            WHERE sy.organization_id = $1
+            ORDER BY sy.year_label DESC, t.start_date ASC
+          `,
+          [orgId]
+        );
+
+        const yearMap = new Map();
+        schoolYearTermResult.rows.forEach((row) => {
+          if (!yearMap.has(row.school_year_id)) {
+            yearMap.set(row.school_year_id, {
+              school_year_id: row.school_year_id,
+              year_label: row.year_label,
+              current: row.school_year_current,
+              terms: [],
+            });
+          }
+
+          if (row.term_id) {
+            yearMap.get(row.school_year_id).terms.push({
+              term_id: row.term_id,
+              term_name: row.term_name,
+              start_date: row.start_date,
+              end_date: row.end_date,
+              current: row.term_current,
+            });
+          }
+        });
+
+        calendarSchoolYears.push(...Array.from(yearMap.values()));
+
+        if (!selectedCalendarTermId) {
+          const currentTerm = schoolYearTermResult.rows.find(
+            (row) => row.school_year_current && row.term_current && row.term_id
+          );
+          const fallbackTerm = schoolYearTermResult.rows.find((row) => row.term_id);
+          selectedCalendarTermId = Number(
+            (currentTerm && currentTerm.term_id) || (fallbackTerm && fallbackTerm.term_id) || null
+          );
+        }
+
+        if (selectedCalendarTermId) {
+          selectedCalendarTerm = await getTermRecord(db, orgId, selectedCalendarTermId);
+          attendanceCalendarProfile = await getAttendanceCalendarProfile(db, orgId, selectedCalendarTermId);
+
+          if (
+            attendanceCalendarProfile &&
+            selectedCalendarTerm &&
+            selectedCalendarTerm.start_date &&
+            selectedCalendarTerm.end_date
+          ) {
+            attendanceCalendarDays = await getAttendanceCalendarDays(
+              db,
+              attendanceCalendarProfile.calendar_id,
+              selectedCalendarTerm.start_date,
+              selectedCalendarTerm.end_date
+            );
+          }
+        }
+
+        try {
+          const dashRow = await db.query(
+            "SELECT order_data FROM organization_dashboard WHERE organization_id = $1",
+            [orgId]
+          );
+
+          if (dashRow.rows.length > 0) {
+            let raw = dashRow.rows[0].order_data;
+            if (typeof raw === "string") raw = JSON.parse(raw);
+
+            if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+              if (typeof raw.theme === "string" && raw.theme.trim()) {
+                publicDashboardTheme = raw.theme.trim();
+              }
+            }
+          }
+        } catch (e) {
+          publicDashboardTheme = "classic";
+        }
+      }
+
+      const holidayCountries = getHolidayCountryOptions();
+
       res.render("account/settings", {
         title: "Settings",
         org: orgRow,
@@ -4960,11 +5082,179 @@ const accountController = {
         isHubMember,
         passwordVerified: req.session.passwordVerified || false,
         userId,
+        calendarSchoolYears,
+        selectedCalendarTermId,
+        selectedCalendarTerm,
+        attendanceCalendarProfile,
+        attendanceCalendarDays,
+        weekdayOptions: WEEKDAY_OPTIONS,
+        holidayCountries,
+        publicDashboardTheme,
         messages: req.flash(),
       });
     } catch (error) {
             req.flash("error", "Unable to load settings page.");
       res.redirect("/common/orgDashboard");
+    }
+  },
+
+  saveAttendanceCalendarProfilePost: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    const redirectBase = "/account/settings?section=customize";
+
+    try {
+      await ensureAttendanceCalendarSchema(db);
+
+      const termId = Number(req.body.termId);
+      const countryCode = String(req.body.countryCode || "GH").toUpperCase();
+      const includePublicHolidays = parseBoolean(req.body.includePublicHolidays);
+      const weekendDays = normalizeWeekendDaysInput(req.body.weekendDays || []);
+
+      if (!termId) {
+        req.flash("error", "Please select a term/semester for calendar settings.");
+        return res.redirect(redirectBase);
+      }
+
+      const term = await getTermRecord(db, organizationId, termId);
+      if (!term) {
+        req.flash("error", "Invalid term selected for attendance calendar.");
+        return res.redirect(redirectBase);
+      }
+
+      const userId = req.session.userId || req.session.user?.user_id || null;
+
+      const profile = await upsertAttendanceCalendarProfile(db, {
+        organizationId,
+        schoolYearId: term.school_year_id,
+        termId,
+        countryCode,
+        weekendDays,
+        includePublicHolidays,
+        userId,
+      });
+
+      if (includePublicHolidays) {
+        await syncPublicHolidayDays(db, {
+          calendarId: profile.calendar_id,
+          organizationId,
+          countryCode,
+          startDate: term.start_date,
+          endDate: term.end_date,
+          userId,
+        });
+      } else {
+        await db.query(
+          `DELETE FROM organization_attendance_calendar_days WHERE calendar_id = $1 AND source = 'public_holiday'`,
+          [profile.calendar_id]
+        );
+      }
+
+      req.flash("success", "Attendance calendar rules saved for the selected term.");
+      return res.redirect(`${redirectBase}&calendarTermId=${termId}`);
+    } catch (error) {
+      req.flash("error", "Failed to save attendance calendar rules.");
+      return res.redirect(redirectBase);
+    }
+  },
+
+  addAttendanceCalendarDayPost: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    const redirectBase = "/account/settings?section=customize";
+
+    try {
+      await ensureAttendanceCalendarSchema(db);
+
+      const termId = Number(req.body.termId);
+      const calendarDate = req.body.calendarDate;
+      const label = (req.body.label || "").trim();
+      const countsForAttendance = parseBoolean(req.body.countsForAttendance);
+
+      if (!termId || !calendarDate) {
+        req.flash("error", "Term and date are required to add a calendar day.");
+        return res.redirect(redirectBase);
+      }
+
+      const term = await getTermRecord(db, organizationId, termId);
+      if (!term) {
+        req.flash("error", "Invalid term selected.");
+        return res.redirect(redirectBase);
+      }
+
+      if (calendarDate < String(term.start_date) || calendarDate > String(term.end_date)) {
+        req.flash("error", "Date must be inside the selected term range.");
+        return res.redirect(`${redirectBase}&calendarTermId=${termId}`);
+      }
+
+      const userId = req.session.userId || req.session.user?.user_id || null;
+      let profile = await getAttendanceCalendarProfile(db, organizationId, termId);
+
+      if (!profile) {
+        profile = await upsertAttendanceCalendarProfile(db, {
+          organizationId,
+          schoolYearId: term.school_year_id,
+          termId,
+          countryCode: "GH",
+          weekendDays: [0, 6],
+          includePublicHolidays: true,
+          userId,
+        });
+
+        await syncPublicHolidayDays(db, {
+          calendarId: profile.calendar_id,
+          organizationId,
+          countryCode: profile.country_code,
+          startDate: term.start_date,
+          endDate: term.end_date,
+          userId,
+        });
+      }
+
+      await upsertManualCalendarDay(db, {
+        calendarId: profile.calendar_id,
+        organizationId,
+        calendarDate,
+        label,
+        countsForAttendance,
+        userId,
+      });
+
+      req.flash("success", "Calendar day rule saved.");
+      return res.redirect(`${redirectBase}&calendarTermId=${termId}`);
+    } catch (error) {
+      req.flash("error", "Failed to save calendar day rule.");
+      return res.redirect(redirectBase);
+    }
+  },
+
+  deleteAttendanceCalendarDayPost: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    const termId = Number(req.body.termId);
+    const calendarDayId = Number(req.body.calendarDayId);
+    const redirectBase = "/account/settings?section=customize";
+
+    try {
+      await ensureAttendanceCalendarSchema(db);
+
+      if (!calendarDayId) {
+        req.flash("error", "Invalid calendar day selected.");
+        return res.redirect(termId ? `${redirectBase}&calendarTermId=${termId}` : redirectBase);
+      }
+
+      const deleted = await deleteManualCalendarDay(db, {
+        calendarDayId,
+        organizationId,
+      });
+
+      if (!deleted) {
+        req.flash("info", "Only manual calendar rules can be deleted.");
+      } else {
+        req.flash("success", "Manual calendar day removed.");
+      }
+
+      return res.redirect(termId ? `${redirectBase}&calendarTermId=${termId}` : redirectBase);
+    } catch (error) {
+      req.flash("error", "Failed to remove calendar day.");
+      return res.redirect(termId ? `${redirectBase}&calendarTermId=${termId}` : redirectBase);
     }
   },
 

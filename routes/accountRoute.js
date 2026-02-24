@@ -220,6 +220,24 @@ router.post("/settings/security/email", isAuthenticated, (req, res) =>
 router.post("/settings/security/password", isAuthenticated, (req, res) =>
   accountController.updateSecurityPasswordPost(req, res, db)
 );
+router.post(
+  "/settings/calendar/profile",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  (req, res) => accountController.saveAttendanceCalendarProfilePost(req, res, db)
+);
+router.post(
+  "/settings/calendar/day",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  (req, res) => accountController.addAttendanceCalendarDayPost(req, res, db)
+);
+router.post(
+  "/settings/calendar/day/delete",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  (req, res) => accountController.deleteAttendanceCalendarDayPost(req, res, db)
+);
 
 // Payment Method Management Routes
 router.get("/update-card", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) => {

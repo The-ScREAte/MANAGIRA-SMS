@@ -87,6 +87,40 @@
     text-align: center;
   }
 
+  .mpc-header-nav {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .mpc-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+  }
+
+  .mpc-back-btn {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    backdrop-filter: blur(4px);
+  }
+
+  .mpc-back-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+    color: white;
+    text-decoration: none;
+  }
+
   .mpc-page-header h1 {
     margin: 0;
     font-size: 2rem;
@@ -162,10 +196,15 @@
   }
 
   .top-panels-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-    align-items: start;
+    display: block;
+  }
+
+  .top-panels-grid > * {
+    margin-bottom: 24px;
+  }
+
+  .top-panels-grid > *:last-child {
+    margin-bottom: 0;
   }
 
   .section-collapse-toggle {
@@ -195,7 +234,8 @@
   }
 
   .theme-panel-header .section-collapse-toggle {
-    margin-top: 10px;
+    margin-top: 0;
+    margin-left: auto;
   }
 
   .content-container.is-collapsed > :not(.images-header):not(.texts-header) {
@@ -213,21 +253,9 @@
   .standalone-images {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 24px;
-    padding: 10px 4px 10px 0;
-    align-items: start;
-  }
-
-  @media (max-width: 1280px) {
-    .standalone-images {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
-
-  @media (max-width: 768px) {
-    .standalone-images {
-      grid-template-columns: 1fr;
-    }
+    gap: 16px;
+    padding: 10px 0;
+    align-items: stretch;
   }
 
   .image-content-form {
@@ -236,7 +264,9 @@
     justify-content: flex-start;
     align-items: center;
     width: 100%;
-    min-height: 460px;
+    min-height: 0;
+    max-width: 920px;
+    margin: 0 auto;
     border: 1px solid var(--border);
     border-radius: 16px;
     padding: 20px;
@@ -257,6 +287,10 @@
     object-fit: cover; /* Ensures the image is cropped to fit the container */
     border-radius: 5px;
     margin-bottom: 15px;
+  }
+
+  .image-content-form img.image-preview-trigger {
+    cursor: zoom-in;
   }
 
   .image-content-form label, .text-content-form label {
@@ -294,7 +328,7 @@
   }
 
   .btn, .image-content-form button, .text-content-form button {
-    padding: 12px 24px;
+    padding: 12px 18px;
     background: var(--primary);
     color: white;
     border: none;
@@ -318,7 +352,7 @@
     align-items: center;
     gap: 8px;
     text-decoration: none;
-    padding: 12px 24px;
+    padding: 12px 18px;
     border-radius: 10px;
     font-weight: 600;
     color: white !important;
@@ -338,7 +372,7 @@
     text-decoration: none;
     font-size: 0.95rem;
     font-weight: 600;
-    padding: 10px 16px;
+    padding: 12px 18px;
     border-radius: 8px;
     width: 100%;
     transition: all 0.2s ease;
@@ -356,25 +390,87 @@
     box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
   }
 
+  .form-action-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .form-action-row > button[type="submit"] {
+    flex: 1;
+    width: auto !important;
+    margin: 0;
+  }
+
+  .action-menu {
+    position: relative;
+    flex: 0 0 auto;
+  }
+
+  .action-menu-toggle {
+    width: 38px !important;
+    min-width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: #f8fafc;
+    color: #475569;
+    font-size: 1.1rem;
+    font-weight: 700;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .action-menu-toggle:hover,
+  .action-menu-toggle[aria-expanded="true"] {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: #ffffff;
+  }
+
+  .action-menu-dropdown {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    right: 0;
+    z-index: 40;
+    background: #ffffff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.15);
+    min-width: 136px;
+  }
+
+  .action-menu-dropdown[hidden] {
+    display: none;
+  }
+
+  .action-menu-dropdown .delete-link {
+    margin: 0;
+    width: 100%;
+    min-width: 0;
+    padding: 9px 12px;
+    font-size: 0.85rem;
+    border-radius: 8px;
+    border-width: 1px;
+    box-shadow: none;
+  }
+
   .slideshow-images {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 24px;
-    padding: 10px 4px 10px 0;
+    gap: 16px;
+    padding: 10px 0;
     max-height: none;
-    align-items: start;
-  }
-
-  @media (max-width: 1280px) {
-    .slideshow-images {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
-
-  @media (max-width: 768px) {
-    .slideshow-images {
-      grid-template-columns: 1fr;
-    }
+    align-items: stretch;
   }
 
 
@@ -382,22 +478,10 @@
   .text-content-container {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 24px;
-    padding: 10px 4px 10px 0;
+    gap: 16px;
+    padding: 10px 0;
     max-height: none;
-    align-items: start;
-  }
-
-  @media (max-width: 1280px) {
-    .text-content-container {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
-
-  @media (max-width: 768px) {
-    .text-content-container {
-      grid-template-columns: 1fr;
-    }
+    align-items: stretch;
   }
 
   /* Events and Announcements use the same grid */
@@ -405,23 +489,24 @@
   .announcements-container {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 24px;
-    padding: 10px 4px 10px 0;
-    align-items: start;
+    gap: 16px;
+    padding: 10px 0;
+    align-items: stretch;
   }
 
-  @media (max-width: 1280px) {
-    .events-container,
-    .announcements-container {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
+  .events-container .text-content-form,
+  .announcements-container .text-content-form,
+  .text-content-container .text-content-form {
+    max-width: none;
+    margin: 0;
+    width: 100%;
   }
 
-  @media (max-width: 768px) {
-    .events-container,
-    .announcements-container {
-      grid-template-columns: 1fr;
-    }
+  .slideshow-images .image-content-form,
+  .standalone-images .image-content-form {
+    max-width: none;
+    margin: 0;
+    width: 100%;
   }
 
   /* Layout Selector Styles */
@@ -563,13 +648,13 @@
   /* Layout Grid Container */
   .layout-options-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 14px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
   }
 
-  @media (max-width: 1024px) {
+  @media (max-width: 1200px) {
     .layout-options-grid {
-      grid-template-columns: 1fr;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
 
@@ -600,7 +685,8 @@
      NEW: THEME PICKER (COMPACT + CLEAR)
      ============================ */
   .theme-panel {
-    max-width: 1200px;
+    max-width: none;
+    width: 100%;
     margin: 0;
     padding: 32px;
     border: 1px solid var(--border);
@@ -610,13 +696,17 @@
   }
 
   .theme-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
     margin-bottom: 24px;
     padding-bottom: 16px;
     border-bottom: 2px solid var(--border);
   }
 
   .theme-panel-header h2 {
-    margin: 0 0 8px;
+    margin: 0;
+    flex: 1;
     font-size: 1.5rem;
     font-weight: 700;
     color: var(--text-primary);
@@ -796,6 +886,52 @@
   .inline-status.success { background: #16a34a; }
   .inline-status.error { background: #dc2626; }
 
+  .image-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 10050;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(2, 6, 23, 0.82);
+    backdrop-filter: blur(2px);
+  }
+
+  .image-lightbox.show {
+    display: flex;
+  }
+
+  .image-lightbox img {
+    max-width: min(96vw, 1200px);
+    max-height: 88vh;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 12px;
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.45);
+    background: #fff;
+  }
+
+  .image-lightbox-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 38px;
+    height: 38px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    background: rgba(15, 23, 42, 0.55);
+    color: #fff;
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .image-lightbox-close:hover {
+    background: rgba(15, 23, 42, 0.8);
+  }
+
   /* Optional: keep your section headings from looking too huge */
   .manage-public-container h2 {
     margin: 0;
@@ -807,13 +943,17 @@
     }
 
     .top-panels-grid {
-      grid-template-columns: 1fr;
-      gap: 10px;
+      display: block;
     }
 
-    .layout-options-grid,
-    .theme-grid {
+    .layout-options-grid {
+      display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .theme-grid {
+      display: flex;
+      flex-direction: column;
     }
 
     .theme-panel {
@@ -822,13 +962,67 @@
     }
 
     .theme-panel-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       margin-bottom: 12px;
       padding-bottom: 10px;
     }
 
     .theme-panel-header h2 {
       font-size: 1rem;
-      margin-bottom: 4px;
+      margin: 0;
+    }
+
+    .theme-panel-header .section-collapse-toggle {
+      padding: 6px 9px;
+      font-size: 0.72rem;
+      min-width: 70px;
+    }
+
+    .layout-option {
+      padding: 10px;
+      border-radius: 10px;
+    }
+
+    .layout-option-row {
+      gap: 6px;
+    }
+
+    .layout-option input[type="radio"] {
+      transform: scale(0.9);
+      margin-top: 2px !important;
+    }
+
+    .layout-title {
+      font-size: 0.86rem;
+      margin-bottom: 2px;
+    }
+
+    .layout-subtitle {
+      font-size: 0.72rem;
+      line-height: 1.25;
+      margin-bottom: 5px;
+    }
+
+    .layout-preview {
+      max-width: 110px;
+      padding: 4px;
+      gap: 3px;
+      border-radius: 8px;
+    }
+
+    .layout-block.hero { min-height: 14px; }
+    .layout-block.gallery,
+    .layout-block.articles,
+    .layout-block.events,
+    .layout-block.announcements,
+    .layout-block.about { min-height: 8px; }
+
+    .theme-save-btn {
+      padding: 10px 18px;
+      font-size: 0.86rem;
+      border-radius: 9px;
     }
 
     .theme-panel-header p {
@@ -907,6 +1101,66 @@
       padding: 0;
     }
 
+    .standalone-images,
+    .slideshow-images,
+    .text-content-container,
+    .events-container,
+    .announcements-container {
+      grid-template-columns: 1fr;
+    }
+
+    .images-content-container .section-subtitle {
+      font-size: 0.82rem;
+      margin-bottom: 10px;
+    }
+
+    .slideshow-images .image-content-form,
+    .standalone-images .image-content-form {
+      max-width: 100%;
+      width: 100%;
+      padding: 12px;
+      border-radius: 12px;
+    }
+
+    .slideshow-images .image-content-form img,
+    .standalone-images .image-content-form img {
+      height: 120px;
+      max-height: 120px;
+      width: 100%;
+      object-fit: cover;
+      border-radius: 10px;
+      margin-bottom: 10px;
+    }
+
+    .slideshow-images .image-content-form label,
+    .standalone-images .image-content-form label {
+      font-size: 0.8rem;
+      margin: 8px 0 4px;
+    }
+
+    .slideshow-images .image-content-form input[type="text"],
+    .slideshow-images .image-content-form select,
+    .standalone-images .image-content-form input[type="text"],
+    .standalone-images .image-content-form select {
+      font-size: 0.84rem;
+      padding: 8px 10px;
+      margin-bottom: 8px;
+    }
+
+    .slideshow-images .image-content-form button,
+    .standalone-images .image-content-form button,
+    .slideshow-images .image-content-form .delete-link,
+    .standalone-images .image-content-form .delete-link {
+      font-size: 0.82rem;
+      padding: 10px 12px;
+      border-radius: 8px;
+    }
+
+    .slideshow-images .image-content-form .delete-link,
+    .standalone-images .image-content-form .delete-link {
+      margin-top: 8px;
+    }
+
     .image-content-form img {
       height: 120px;
       margin-bottom: 10px;
@@ -922,6 +1176,18 @@
       padding: 8px 10px;
       font-size: 0.8rem;
     }
+
+    .form-action-row {
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .action-menu-toggle {
+      width: 34px !important;
+      min-width: 34px;
+      height: 34px;
+      font-size: 1rem;
+    }
   }
 
   @media screen and (max-width: 480px) {
@@ -930,9 +1196,71 @@
       gap: 8px;
     }
 
-    .layout-options-grid,
-    .theme-grid {
+    .layout-options-grid {
+      display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .theme-panel {
+      padding: 10px;
+    }
+
+    .theme-panel-header {
+      gap: 6px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+    }
+
+    .theme-panel-header h2 {
+      font-size: 0.92rem;
+    }
+
+    .theme-panel-header .section-collapse-toggle {
+      padding: 5px 8px;
+      font-size: 0.68rem;
+      min-width: 64px;
+    }
+
+    .layout-option {
+      padding: 8px;
+      border-radius: 9px;
+    }
+
+    .layout-option-row {
+      gap: 5px;
+    }
+
+    .layout-title {
+      font-size: 0.78rem;
+    }
+
+    .layout-subtitle {
+      font-size: 0.67rem;
+      margin-bottom: 4px;
+    }
+
+    .layout-preview {
+      max-width: 92px;
+      padding: 3px;
+      gap: 2px;
+    }
+
+    .layout-block.hero { min-height: 12px; }
+    .layout-block.gallery,
+    .layout-block.articles,
+    .layout-block.events,
+    .layout-block.announcements,
+    .layout-block.about { min-height: 6px; }
+
+    .theme-save-btn {
+      padding: 9px 14px;
+      font-size: 0.78rem;
+    }
+
+    .theme-grid {
+      display: flex;
+      flex-direction: column;
     }
 
     .mpc-page-header {
@@ -950,6 +1278,48 @@
     .images-header h2,
     .texts-header h2 {
       font-size: 1rem;
+    }
+
+    .images-content-container .section-subtitle {
+      font-size: 0.76rem;
+      margin-bottom: 8px;
+    }
+
+    .slideshow-images .image-content-form,
+    .standalone-images .image-content-form {
+      width: 100%;
+      padding: 10px;
+      border-radius: 10px;
+    }
+
+    .slideshow-images .image-content-form img,
+    .standalone-images .image-content-form img {
+      height: 96px;
+      max-height: 96px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+
+    .slideshow-images .image-content-form label,
+    .standalone-images .image-content-form label {
+      font-size: 0.75rem;
+    }
+
+    .slideshow-images .image-content-form input[type="text"],
+    .slideshow-images .image-content-form select,
+    .standalone-images .image-content-form input[type="text"],
+    .standalone-images .image-content-form select {
+      font-size: 0.8rem;
+      padding: 7px 9px;
+      margin-bottom: 7px;
+    }
+
+    .slideshow-images .image-content-form button,
+    .standalone-images .image-content-form button,
+    .slideshow-images .image-content-form .delete-link,
+    .standalone-images .image-content-form .delete-link {
+      font-size: 0.76rem;
+      padding: 8px 10px;
     }
 
     .section-collapse-toggle {
@@ -1081,6 +1451,234 @@
   .file-upload-field .removeFileBtn:hover {
     background-color: #c82333;
   }
+
+  /* ================================================
+     SECTION HEADER: GROUP ACTIONS ON THE RIGHT
+     ================================================ */
+  .images-header, .texts-header {
+    gap: 14px;
+  }
+
+  .images-header h2, .texts-header h2 {
+    flex: 1;
+    min-width: 0;
+    font-size: 1.15rem;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+
+  /* ================================================
+     INLINE TOGGLE PANEL (modal-style in-page forms)
+     ================================================ */
+  .inline-panel {
+    max-width: 640px;
+    margin: 0 auto 24px;
+    padding: 28px 32px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: #f8fafc;
+    position: relative;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.07);
+  }
+
+  .inline-panel-header {
+    text-align: center;
+    margin-bottom: 22px;
+    padding-bottom: 14px;
+    border-bottom: 2px solid var(--border);
+  }
+
+  .inline-panel-header h3 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .inline-panel-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: #f1f5f9;
+    border: 1px solid var(--border);
+    font-size: 20px;
+    color: #64748b;
+    cursor: pointer;
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    line-height: 1;
+    font-weight: 300;
+  }
+
+  .inline-panel-close:hover {
+    background: #ef4444;
+    border-color: #ef4444;
+    color: white;
+  }
+
+  /* ================================================
+     CONSISTENT FORM FIELD GROUPS
+     ================================================ */
+  .form-group {
+    margin-bottom: 18px;
+  }
+
+  .form-group > label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+  }
+
+  .form-group .form-help {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin: 2px 0 6px;
+  }
+
+  .form-field {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    background: #fff;
+    color: var(--text-primary);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-sizing: border-box;
+  }
+
+  .form-field:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-light);
+  }
+
+  textarea.form-field {
+    resize: vertical;
+  }
+
+  .form-actions {
+    display: flex;
+    justify-content: center;
+    padding-top: 8px;
+    gap: 10px;
+  }
+
+  /* ================================================
+     EMPTY STATE BOX
+     ================================================ */
+  .empty-state-box {
+    text-align: center;
+    padding: 40px 24px;
+    color: var(--text-secondary);
+    background: #f8fafc;
+    border-radius: 12px;
+    border: 2px dashed var(--border);
+    margin: 8px 0;
+  }
+
+  .empty-state-box p {
+    margin: 0;
+    font-size: 0.95rem;
+    font-style: italic;
+  }
+
+  /* ================================================
+     NOTICE BOX (consistent warning style)
+     ================================================ */
+  .notice-box {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-top: 18px;
+  }
+
+  .notice-box p {
+    margin: 0;
+    font-size: 0.875rem;
+    color: #1e40af;
+    line-height: 1.6;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* ================================================
+     CHECKBOX LABEL (Enable toggles)
+     ================================================ */
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    padding: 12px 16px;
+    background: #f8fafc;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    transition: border-color 0.2s;
+  }
+
+  .checkbox-label:hover {
+    border-color: var(--primary);
+  }
+
+  .checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--primary);
+    flex-shrink: 0;
+  }
+
+  /* ================================================
+     SECONDARY BUTTON
+     ================================================ */
+  .btn-secondary {
+    background: #64748b !important;
+    color: white;
+    padding: 12px 18px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+  }
+
+  .btn-secondary:hover {
+    background: #475569 !important;
+  }
+
+  @media (max-width: 768px) {
+    .header-actions {
+      gap: 6px;
+    }
+    .inline-panel {
+      padding: 18px 16px;
+      border-radius: 12px;
+    }
+    .images-header h2, .texts-header h2 {
+      font-size: 1rem;
+    }
+  }
 </style>
 </head>
 <body class="manage-public-page">
@@ -1094,14 +1692,12 @@
     <%- include('../partials/flash') %>
 
 
-<div class="manage-public-container" style="max-width: 1200px;">
-  <div class="top-panels-grid">
-  
+<div class="manage-public-container">
+
   <!-- Website Layout Panel -->
   <div class="theme-panel">
     <div class="theme-panel-header">
       <h2>🎨 Website Layout</h2>
-      <p>Choose the arrangement of sections on your School Website.</p>
       <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
     </div>
 
@@ -1186,186 +1782,37 @@
     </form>
   </div>
 
-  <!-- Themes Panel -->
-  <div class="theme-panel">
-    <div class="theme-panel-header">
-      <h2>🎨 Themes</h2>
-      <p>Pick theme for your school.</p>
-      <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
-    </div>
-
-<form action="/account/updatePublicDashboardTheme" method="POST">
-  <div class="theme-grid">
-
-    <!-- Classic Teal -->
-    <label class="theme-card">
-      <input class="theme-radio" type="radio" name="publicDashboardTheme" value="classic"
-        <%= publicDashboardTheme === 'classic' ? 'checked' : '' %> />
-      <div class="theme-meta">
-        <div class="theme-title">Ocean Teal</div>
-        <div class="swatches">
-          <span class="swatch" style="background:#01535b;"></span>
-          <span class="swatch" style="background:#014a51;"></span>
-        </div>
-        <div class="theme-desc">Trusted academic teal.</div>
-      </div>
-    </label>
-
-    <!-- Modern Blue -->
-    <label class="theme-card">
-      <input class="theme-radio" type="radio" name="publicDashboardTheme" value="modern"
-        <%= publicDashboardTheme === 'modern' ? 'checked' : '' %> />
-      <div class="theme-meta">
-        <div class="theme-title">Royal Blue</div>
-        <div class="swatches">
-          <span class="swatch" style="background:#2563eb;"></span>
-          <span class="swatch" style="background:#1d4ed8;"></span>
-        </div>
-        <div class="theme-desc">Crisp modern blue.</div>
-      </div>
-    </label>
-
-    <!-- Forest Green -->
-    <label class="theme-card">
-      <input class="theme-radio" type="radio" name="publicDashboardTheme" value="green"
-        <%= publicDashboardTheme === 'green' ? 'checked' : '' %> />
-      <div class="theme-meta">
-        <div class="theme-title">Evergreen</div>
-        <div class="swatches">
-          <span class="swatch" style="background:#2d5f4f;"></span>
-          <span class="swatch" style="background:#245043;"></span>
-        </div>
-        <div class="theme-desc">Calm natural green.</div>
-      </div>
-    </label>
-
-    <!-- Minimal Purple -->
-    <label class="theme-card">
-      <input class="theme-radio" type="radio" name="publicDashboardTheme" value="minimal"
-        <%= publicDashboardTheme === 'minimal' ? 'checked' : '' %> />
-      <div class="theme-meta">
-        <div class="theme-title">Amethyst Purple</div>
-        <div class="swatches">
-          <span class="swatch" style="background:#7c3aed;"></span>
-          <span class="swatch" style="background:#6d28d9;"></span>
-        </div>
-        <div class="theme-desc">Refined premium purple.</div>
-      </div>
-    </label>
-
-    <!-- Deep Indigo -->
-    <label class="theme-card">
-      <input class="theme-radio" type="radio" name="publicDashboardTheme" value="indigo"
-        <%= publicDashboardTheme === 'indigo' ? 'checked' : '' %> />
-      <div class="theme-meta">
-        <div class="theme-title">Deep Indigo</div>
-        <div class="swatches">
-          <span class="swatch" style="background:#4338ca;"></span>
-          <span class="swatch" style="background:#312e81;"></span>
-        </div>
-        <div class="theme-desc">Bold confident indigo.</div>
-      </div>
-    </label>
-
-    <!-- Rose Red -->
-    <label class="theme-card">
-      <input class="theme-radio" type="radio" name="publicDashboardTheme" value="rose"
-        <%= publicDashboardTheme === 'rose' ? 'checked' : '' %> />
-      <div class="theme-meta">
-        <div class="theme-title">Crimson Rose</div>
-        <div class="swatches">
-          <span class="swatch" style="background:#8b2635;"></span>
-          <span class="swatch" style="background:#7a212e;"></span>
-        </div>
-        <div class="theme-desc">Elegant institutional red.</div>
-      </div>
-    </label>
-
-    <!-- Amber Gold -->
-    <label class="theme-card">
-      <input class="theme-radio" type="radio" name="publicDashboardTheme" value="amber"
-        <%= publicDashboardTheme === 'amber' ? 'checked' : '' %> />
-      <div class="theme-meta">
-        <div class="theme-title">Amber Gold</div>
-        <div class="swatches">
-          <span class="swatch" style="background:#d97706;"></span>
-          <span class="swatch" style="background:#b45309;"></span>
-        </div>
-        <div class="theme-desc">Warm premium amber.</div>
-      </div>
-    </label>
-
-    <!-- Solar Yellow -->
-    <label class="theme-card">
-      <input class="theme-radio" type="radio" name="publicDashboardTheme" value="yellow"
-        <%= publicDashboardTheme === 'yellow' ? 'checked' : '' %> />
-      <div class="theme-meta">
-        <div class="theme-title">Solar Yellow</div>
-        <div class="swatches">
-          <span class="swatch" style="background:#eab308;"></span>
-          <span class="swatch" style="background:#ca8a04;"></span>
-        </div>
-        <div class="theme-desc">Bright energetic yellow.</div>
-      </div>
-    </label>
-
-    <!-- Slate Gray -->
-    <label class="theme-card">
-      <input class="theme-radio" type="radio" name="publicDashboardTheme" value="slate"
-        <%= publicDashboardTheme === 'slate' ? 'checked' : '' %> />
-      <div class="theme-meta">
-        <div class="theme-title">Slate Graphite</div>
-        <div class="swatches">
-          <span class="swatch" style="background:#334155;"></span>
-          <span class="swatch" style="background:#1e293b;"></span>
-        </div>
-        <div class="theme-desc">Professional balanced slate.</div>
-      </div>
-    </label>
-
-  </div>
-
-  <div class="theme-foot">
-    <button class="theme-save-btn" type="submit">Save Theme</button>
-  </div>
-</form>
-
-</div>
-</div>
-
-
-    <div class="manage-public-container">
         <div class="content-container">
             <div class="images-header">
-            <h2>📷 Gallery Images</h2>
-                <a id="toggle-upload-content-form" class="btn-primary"><i class="fa-regular fa-square-plus"></i>Upload Image</a>
-            <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
+              <h2>📷 Gallery Images</h2>
+              <div class="header-actions">
+                <a id="toggle-upload-content-form" class="btn-primary"><i class="fa-regular fa-square-plus"></i> Upload Image</a>
+                <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
+              </div>
             </div>
             
-                <div id="uploadContentForm" style="display: none; max-width: 600px; margin: 20px auto; padding: 30px; border: 1px solid #ddd; border-radius: 10px; background-color: #f9f9f9; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); position: relative;">
-                    <button type="button" id="closeUploadForm" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; color: #666; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: all 0.3s ease;" onmouseover="this.style.backgroundColor='#e9ecef'; this.style.color='#333';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='#666';">&times;</button>
-                    <form id="contentUploadForm" action="/account/uploadSlideshowImages" method="POST" enctype="multipart/form-data">
-                      <h2 style="text-align: center; margin-bottom: 25px; color: #333;">Upload Gallery &amp; Slideshow Images</h2>
-                        <div style="margin-bottom: 20px;">
-                            <label for="contentType" style="display: block; margin-bottom: 8px; font-weight: bold;">Content Type:</label>
-                            <select id="contentType" name="contentType" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px;">
-                                <option value="">Select Content Type</option>
-                          <option value="slideshow">Slideshow Image</option>
-                          <option value="siteImage">Gallery Image</option>
-                            </select>
-                        </div>
-                        <div id="fileUploadContainer" style="margin-bottom: 20px;">
-                            <!-- File upload fields will be added dynamically here -->
-                        </div>
-                        <div style="text-align: center; margin-top: 25px;">
-                            <button type="button" id="addMoreFilesBtn" style="display:none; margin-right: 10px; padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer;">Add More Images</button>
-                            <button type="submit" class="btn btn-primary">Upload Content</button>
-                        </div>
-                    </form>
+                <div id="uploadContentForm" class="inline-panel" style="display:none;">
+                  <button type="button" id="closeUploadForm" class="inline-panel-close" aria-label="Close">&times;</button>
+                  <form id="contentUploadForm" action="/account/uploadSlideshowImages" method="POST" enctype="multipart/form-data">
+                    <div class="inline-panel-header"><h3>Upload Gallery &amp; Slideshow Images</h3></div>
+                    <div class="form-group">
+                      <label for="contentType">Content Type:</label>
+                      <select id="contentType" name="contentType" required class="form-field">
+                        <option value="">Select Content Type</option>
+                        <option value="slideshow">Slideshow Image</option>
+                        <option value="siteImage">Gallery Image</option>
+                      </select>
+                    </div>
+                    <div id="fileUploadContainer"></div>
+                    <div class="form-actions">
+                      <button type="button" id="addMoreFilesBtn" class="btn-secondary" style="display:none;">Add More Images</button>
+                      <button type="submit" class="btn btn-primary">Upload Content</button>
+                    </div>
+                  </form>
                 </div>
             <div class="images-content-container">
                 <% if (images.length === 0) { %>
-                    <p style="text-align: center; color: var(--text-secondary); font-style: italic; padding: 40px 20px;">No images have been uploaded to the school website yet</p>
+                    <div class="empty-state-box"><p>No images have been uploaded to the school website yet.</p></div>
                 <% } else { %>
                     <h3 class="section-subtitle">Slideshow Images</h3>
                     <div class="slideshow-images">
@@ -1383,8 +1830,15 @@
                                         <option value="hero" <%= image.allocation === 'hero' ? 'selected' : '' %>>Gallery Image</option>
                                         <option value="slideshow" <%= image.allocation === 'slideshow' ? 'selected' : '' %>>Slideshow Image</option>
                                     </select>
-                                    <button type="submit">Update</button>
-                                    <a href="/account/deleteImage/<%= image.image_id %>" class="delete-link">Delete</a>
+                                    <div class="form-action-row">
+                                      <button type="submit">Update</button>
+                                      <div class="action-menu">
+                                        <button type="button" class="action-menu-toggle" aria-label="More actions" aria-expanded="false">:</button>
+                                        <div class="action-menu-dropdown" hidden>
+                                          <a href="/account/deleteImage/<%= image.image_id %>" class="delete-link">Delete</a>
+                                        </div>
+                                      </div>
+                                    </div>
                                 </form>
                         <% }); %>
                     </div>
@@ -1405,8 +1859,15 @@
                               <option value="slideshow" <%= image.allocation === 'slideshow' ? 'selected' : '' %>>Slideshow Image</option>
                             </select>
                       
-                            <button type="submit">Update</button>
-                            <a href="/account/deleteImage/<%= image.image_id %>" class="delete-link">Delete</a>
+                            <div class="form-action-row">
+                              <button type="submit">Update</button>
+                              <div class="action-menu">
+                                <button type="button" class="action-menu-toggle" aria-label="More actions" aria-expanded="false">:</button>
+                                <div class="action-menu-dropdown" hidden>
+                                  <a href="/account/deleteImage/<%= image.image_id %>" class="delete-link">Delete</a>
+                                </div>
+                              </div>
+                            </div>
                           </form>
                         <% }); %>
                       </div>
@@ -1416,33 +1877,35 @@
 
         <div class="content-container">
             <div class="texts-header">
-                <h2>📝 Articles</h2>
-                <a id="toggle-upload-text-form" class="btn-primary"><i class="fa-regular fa-square-plus"></i>Add Article</a>
-            <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
+              <h2>📝 Articles</h2>
+              <div class="header-actions">
+                <a id="toggle-upload-text-form" class="btn-primary"><i class="fa-regular fa-square-plus"></i> Add Article</a>
+                <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
+              </div>
             </div>
 
-            <div id="uploadTextForm" style="display: none; max-width: 600px; margin: 20px auto; padding: 30px; border: 1px solid #ddd; border-radius: 10px; background-color: #f9f9f9; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); position: relative;">
-                <button type="button" id="closeUploadTextForm" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; color: #666; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: all 0.3s ease;" onmouseover="this.style.backgroundColor='#e9ecef'; this.style.color='#333';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='#666';">&times;</button>
-                <form action="/account/addTextSection" method="POST">
-                  <h2 style="text-align: center; margin-bottom: 25px; color: #333;">Add Article</h2>
-                    <div style="margin-bottom: 20px;">
-                        <label for="heading" style="display: block; margin-bottom: 8px; font-weight: bold;">Heading:</label>
-                        <input type="text" required id="heading" name="heading" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px;">
-                    </div>
-                    <div style="margin-bottom: 20px;">
-                    <label for="paragraph" style="display: block; margin-bottom: 8px; font-weight: bold;">Article:</label>
-                        <div id="rich-text-editor" style="height: 200px; border: 1px solid #ccc; border-radius: 5px;"></div>
-                        <textarea id="paragraph" name="paragraph" style="display: none;" required></textarea>
-                    </div>
-                    <div style="text-align: center; margin-top: 25px;">
-                    <button type="submit" class="btn btn-primary">Add Article</button>
-                    </div>
-                </form>
+            <div id="uploadTextForm" class="inline-panel" style="display:none;">
+              <button type="button" id="closeUploadTextForm" class="inline-panel-close" aria-label="Close">&times;</button>
+              <form action="/account/addTextSection" method="POST">
+                <div class="inline-panel-header"><h3>Add Article</h3></div>
+                <div class="form-group">
+                  <label for="heading">Heading:</label>
+                  <input type="text" required id="heading" name="heading" class="form-field">
+                </div>
+                <div class="form-group">
+                  <label for="paragraph">Article:</label>
+                  <div id="rich-text-editor" style="border: 1px solid var(--border); border-radius: 8px;"></div>
+                  <textarea id="paragraph" name="paragraph" style="display:none;" required></textarea>
+                </div>
+                <div class="form-actions">
+                  <button type="submit" class="btn btn-primary">Add Article</button>
+                </div>
+              </form>
             </div>
     
             <div class="text-content-container">
                 <% if (texts.length === 0) { %>
-                  <p style="text-align: center; color: var(--text-secondary); font-style: italic; padding: 40px 20px;">No articles available yet.</p>
+                  <div class="empty-state-box"><p>No articles available yet.</p></div>
                 <% } else { %>
                     <% texts.forEach(text => { %>
                             <form action="/account/updateText" method="POST" class="text-content-form">
@@ -1452,8 +1915,15 @@
                         <label for="paragraph">Article:</label>
                                 <div class="rich-text-editor" style="height: 200px; border: 1px solid #ccc;"></div>
                                 <textarea name="paragraph" style="display: none;" required><%= text.paragraph %></textarea>
-                                <button type="submit">Update</button>
-                                <a href="/account/deleteText/<%= text.text_id %>" class="delete-link">Delete</a>
+                                <div class="form-action-row">
+                                  <button type="submit">Update</button>
+                                  <div class="action-menu">
+                                    <button type="button" class="action-menu-toggle" aria-label="More actions" aria-expanded="false">:</button>
+                                    <div class="action-menu-dropdown" hidden>
+                                      <a href="/account/deleteText/<%= text.text_id %>" class="delete-link">Delete</a>
+                                    </div>
+                                  </div>
+                                </div>
                             </form>
                     <% }) %>
                 <% } %>
@@ -1463,48 +1933,50 @@
         <!-- Events Section -->
         <div class="content-container">
             <div class="images-header">
-                <h2>📅 Events</h2>
-                <a id="toggle-create-event-form" class="btn-primary"><i class="fa-regular fa-square-plus"></i>Create Event</a>
-            <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
+              <h2>📅 Events</h2>
+              <div class="header-actions">
+                <a id="toggle-create-event-form" class="btn-primary"><i class="fa-regular fa-square-plus"></i> Create</a>
+                <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
+              </div>
             </div>
 
             <!-- Toggle Create Event Form -->
-            <div id="createEventForm" style="display: none; max-width: 600px; margin: 20px auto; padding: 30px; border: 1px solid #ddd; border-radius: 10px; background-color: #f9f9f9; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); position: relative;">
-                <button type="button" id="closeCreateEventForm" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; color: #666; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: all 0.3s ease;" onmouseover="this.style.backgroundColor='#e9ecef'; this.style.color='#333';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='#666';">&times;</button>
-                <form action="/common/createEventAnnouncement" method="POST">
-                    <h2 style="text-align: center; margin-bottom: 25px; color: #333;">Create Event</h2>
-                    <input type="hidden" name="type" value="event">
-                    <div style="margin-bottom: 20px;">
-                        <label for="eventName" style="display: block; margin-bottom: 8px; font-weight: bold;">Event Name:</label>
-                        <input type="text" id="eventName" name="eventName" placeholder="Event Name" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px;">
-                    </div>
-                    <div style="margin-bottom: 20px;">
-                        <label for="eventDate" style="display: block; margin-bottom: 8px; font-weight: bold;">Event Date:</label>
-                        <input type="date" id="eventDate" name="eventDate" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px;">
-                    </div>
-                    <div style="margin-bottom: 20px;">
-                        <label for="eventDetails" style="display: block; margin-bottom: 8px; font-weight: bold;">Event Details:</label>
-                        <textarea id="eventDetails" name="eventDetails" placeholder="Event Details" rows="4" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px; resize: vertical;"></textarea>
-                    </div>
-                    <div style="margin-bottom: 20px;">
-                        <label for="visibility" style="display: block; margin-bottom: 8px; font-weight: bold;">Visibility:</label>
-                        <select name="visibility" id="visibility" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px;">
-                            <option value="org">Org Dashboard</option>
-                            <option value="public">Public</option>
-                            <option value="both" selected>Both</option>
-                        </select>
-                    </div>
-                    <div style="text-align: center; margin-top: 25px;">
-                        <button type="submit" class="btn btn-primary">Create Event</button>
-                    </div>
-                </form>
+            <div id="createEventForm" class="inline-panel" style="display:none;">
+              <button type="button" id="closeCreateEventForm" class="inline-panel-close" aria-label="Close">&times;</button>
+              <form action="/common/createEventAnnouncement" method="POST">
+                <div class="inline-panel-header"><h3>Create Event</h3></div>
+                <input type="hidden" name="type" value="event">
+                <div class="form-group">
+                  <label for="eventName">Event Name:</label>
+                  <input type="text" id="eventName" name="eventName" placeholder="Event Name" required class="form-field">
+                </div>
+                <div class="form-group">
+                  <label for="eventDate">Event Date:</label>
+                  <input type="date" id="eventDate" name="eventDate" required class="form-field">
+                </div>
+                <div class="form-group">
+                  <label for="eventDetails">Event Details:</label>
+                  <textarea id="eventDetails" name="eventDetails" placeholder="Event Details" rows="4" required class="form-field"></textarea>
+                </div>
+                <div class="form-group">
+                  <label for="visibility">Visibility:</label>
+                  <select name="visibility" id="visibility" class="form-field">
+                    <option value="org">Org Dashboard</option>
+                    <option value="public">Public</option>
+                    <option value="both" selected>Both</option>
+                  </select>
+                </div>
+                <div class="form-actions">
+                  <button type="submit" class="btn btn-primary">Create</button>
+                </div>
+              </form>
             </div>
 
             <!-- Events List -->
             <div class="events-container">
                 <% if (events.length === 0) { %>
-                    <div class="empty-state" style="grid-column: 1 / -1;">
-                        <p>No events created yet. Click "Create Event" to add your first event!</p>
+                    <div class="empty-state-box">
+                        <p>No events created yet. Click &ldquo;Create&rdquo; to add your first event!</p>
                     </div>
                 <% } else { %>
                     <% events.forEach(function(event) { %>
@@ -1522,8 +1994,15 @@
                                 <option value="public" <%= event.visibility === 'public' ? 'selected' : '' %>>Public</option>
                                 <option value="both" <%= event.visibility === 'both' ? 'selected' : '' %>>Both</option>
                             </select>
-                            <button type="submit">Update</button>
-                            <a href="/common/deleteEvent/<%= event.id %>" class="delete-link">Delete</a>
+                            <div class="form-action-row">
+                              <button type="submit">Update</button>
+                              <div class="action-menu">
+                                <button type="button" class="action-menu-toggle" aria-label="More actions" aria-expanded="false">:</button>
+                                <div class="action-menu-dropdown" hidden>
+                                  <a href="/common/deleteEvent/<%= event.id %>" class="delete-link">Delete</a>
+                                </div>
+                              </div>
+                            </div>
                         </form>
                     <% }); %>
                 <% } %>
@@ -1533,9 +2012,11 @@
         <!-- Announcements Section -->
         <div class="content-container">
             <div class="images-header">
-                <h2>📢 Announcements</h2>
-                <a id="toggle-create-announcement-form" class="btn-primary"><i class="fa-regular fa-square-plus"></i>Create Announcement</a>
-            <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
+              <h2>📢 Announcements</h2>
+              <div class="header-actions">
+                <a id="toggle-create-announcement-form" class="btn-primary"><i class="fa-regular fa-square-plus"></i> Create</a>
+                <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
+              </div>
             </div>
 
             <!-- Toggle Create Announcement Form -->
@@ -1565,8 +2046,8 @@
             <!-- Announcements List -->
             <div class="announcements-container">
                 <% if (announcements.length === 0) { %>
-                    <div class="empty-state" style="grid-column: 1 / -1;">
-                        <p>No announcements have been posted yet. Click "Create Announcement" to get started!</p>
+                    <div class="empty-state-box">
+                        <p>No announcements have been posted yet. Click &ldquo;Create&rdquo; to get started!</p>
                     </div>
                 <% } else { %>
                     <% announcements.forEach(function(announcement) { %>
@@ -1580,8 +2061,15 @@
                                 <option value="public" <%= announcement.visibility === 'public' ? 'selected' : '' %>>Public</option>
                                 <option value="both" <%= announcement.visibility === 'both' ? 'selected' : '' %>>Both</option>
                             </select>
-                            <button type="submit">Update</button>
-                            <a href="/common/deleteAnnouncement/<%= announcement.announcement_id %>" class="delete-link">Delete</a>
+                            <div class="form-action-row">
+                              <button type="submit">Update</button>
+                              <div class="action-menu">
+                                <button type="button" class="action-menu-toggle" aria-label="More actions" aria-expanded="false">:</button>
+                                <div class="action-menu-dropdown" hidden>
+                                  <a href="/common/deleteAnnouncement/<%= announcement.announcement_id %>" class="delete-link">Delete</a>
+                                </div>
+                              </div>
+                            </div>
                         </form>
                     <% }); %>
                 <% } %>
@@ -1590,101 +2078,91 @@
         
         <!-- About Us Section -->
         <div class="content-container">
-            <div class="images-header" style="justify-content: center;">
-            <h2>📖 About Our School</h2>
-            <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
+            <div class="images-header">
+              <h2>📖 About Our School</h2>
+              <div class="header-actions">
+                <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
+              </div>
             </div>
             <form id="aboutUsForm" action="/account/update-about-us" method="POST" style="max-width: 700px; margin: 0 auto;">
                 <input type="hidden" name="organization_id" value="<%= orgDetails.organization_id %>">
-
-                <!-- About Us Field -->
-                <div style="margin-bottom: 20px;">
-              <label for="aboutUs" style="display: block; margin-bottom: 8px; font-weight: bold;">About Our School:</label>
-                    <textarea id="aboutUs" name="aboutUs" rows="5" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px; resize: vertical;"><%= orgDetails.aboutus ? orgDetails.aboutus : '' %></textarea>
+                <div class="form-group">
+                  <label for="aboutUs">About Our School:</label>
+                  <textarea id="aboutUs" name="aboutUs" rows="5" required class="form-field"><%= orgDetails.aboutus ? orgDetails.aboutus : '' %></textarea>
                 </div>
-
-                <!-- Motto Field -->
-                <div style="margin-bottom: 20px;">
-                    <label for="motto" style="display: block; margin-bottom: 8px; font-weight: bold;">Motto:</label>
-                    <p style="font-size: 14px; color: #666; margin-bottom: 8px;">Should usually be short and concise*</p>
-                    <input type="text" id="motto" name="motto" value="<%= orgDetails.motto ? orgDetails.motto : '' %>" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px;">
+                <div class="form-group">
+                  <label for="motto">Motto:</label>
+                  <p class="form-help">Should usually be short and concise*</p>
+                  <input type="text" id="motto" name="motto" value="<%= orgDetails.motto ? orgDetails.motto : '' %>" required class="form-field">
                 </div>
-
-                <!-- Submit Button -->
-                <div style="text-align: center; margin-top: 25px;">
-                    <button type="submit" id="aboutUsBtn" class="btn btn-primary">
+                <div class="form-actions">
+                  <button type="submit" id="aboutUsBtn" class="btn btn-primary">
                     <%= orgDetails.aboutus && orgDetails.motto ? 'Update About Our School' : 'Add About Our School' %>
-                    </button>
+                  </button>
                 </div>
             </form>
         </div>
 
         <!-- Self Enrollment Settings -->
         <div class="content-container">
-            <div class="images-header" style="justify-content: center;">
-            <h2>⚙️ Self Enrollment Settings</h2>
-          <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
+            <div class="images-header">
+              <h2>⚙️ Self Enrollment Settings</h2>
+              <div class="header-actions">
+                <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
+              </div>
             </div>
             <form action="/account/updatePublicRegistration" method="POST" style="max-width: 700px; margin: 0 auto;">
-                <div style="margin-bottom: 20px;">
-                    <label style="display: flex; align-items: center; font-weight: bold; cursor: pointer;">
-                        <input type="checkbox" name="enabled" <%= orgDetails.public_registration_enabled ? 'checked' : '' %> style="margin-right: 10px;" />
-                Enable Self Enrollment
-                    </label>
+                <div class="form-group">
+                  <label class="checkbox-label">
+                    <input type="checkbox" name="enabled" <%= orgDetails.public_registration_enabled ? 'checked' : '' %> />
+                    Enable Self Enrollment
+                  </label>
                 </div>
-                
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; margin-bottom: 8px; font-weight: bold;">Start Date:</label>
-                    <input type="date" name="startDate" value="<%= orgDetails.registration_start_date?.toISOString().split('T')[0] || '' %>" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px;" />
+                <div class="form-group">
+                  <label>Start Date:</label>
+                  <input type="date" name="startDate" value="<%= orgDetails.registration_start_date?.toISOString().split('T')[0] || '' %>" class="form-field" />
                 </div>
-                
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; margin-bottom: 8px; font-weight: bold;">End Date:</label>
-                    <input type="date" name="endDate" value="<%= orgDetails.registration_end_date?.toISOString().split('T')[0] || '' %>" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px;" />
+                <div class="form-group">
+                  <label>End Date:</label>
+                  <input type="date" name="endDate" value="<%= orgDetails.registration_end_date?.toISOString().split('T')[0] || '' %>" class="form-field" />
                 </div>
-                
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; margin-bottom: 8px; font-weight: bold;">Registration Currency:</label>
-                    <select name="currency" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px;">
-                        <option value="GHS" <%= orgDetails.public_registration_currency === 'GHS' ? 'selected' : '' %>>GHS</option>
-                        <option value="EUR" <%= orgDetails.public_registration_currency === 'EUR' ? 'selected' : '' %>>EUR</option>
-                        <option value="NGN" <%= orgDetails.public_registration_currency === 'NGN' ? 'selected' : '' %>>NGN</option>
-                        <option value="KES" <%= orgDetails.public_registration_currency === 'KES' ? 'selected' : '' %>>KES</option>
-                        <option value="ZAR" <%= orgDetails.public_registration_currency === 'ZAR' ? 'selected' : '' %>>ZAR</option>
-                        <option value="GBP" <%= orgDetails.public_registration_currency === 'GBP' ? 'selected' : '' %>>GBP</option>
-                        <option value="UGX" <%= orgDetails.public_registration_currency === 'UGX' ? 'selected' : '' %>>UGX</option>
-                        <option value="TZS" <%= orgDetails.public_registration_currency === 'TZS' ? 'selected' : '' %>>TZS</option>
-                        <option value="RWF" <%= orgDetails.public_registration_currency === 'RWF' ? 'selected' : '' %>>RWF</option>
-                        <option value="XAF" <%= orgDetails.public_registration_currency === 'XAF' ? 'selected' : '' %>>XAF</option>
-                        <option value="XOF" <%= orgDetails.public_registration_currency === 'XOF' ? 'selected' : '' %>>XOF</option>
-                    </select>
+                <div class="form-group">
+                  <label>Registration Currency:</label>
+                  <select name="currency" class="form-field">
+                    <option value="GHS" <%= orgDetails.public_registration_currency === 'GHS' ? 'selected' : '' %>>GHS</option>
+                    <option value="EUR" <%= orgDetails.public_registration_currency === 'EUR' ? 'selected' : '' %>>EUR</option>
+                    <option value="NGN" <%= orgDetails.public_registration_currency === 'NGN' ? 'selected' : '' %>>NGN</option>
+                    <option value="KES" <%= orgDetails.public_registration_currency === 'KES' ? 'selected' : '' %>>KES</option>
+                    <option value="ZAR" <%= orgDetails.public_registration_currency === 'ZAR' ? 'selected' : '' %>>ZAR</option>
+                    <option value="GBP" <%= orgDetails.public_registration_currency === 'GBP' ? 'selected' : '' %>>GBP</option>
+                    <option value="UGX" <%= orgDetails.public_registration_currency === 'UGX' ? 'selected' : '' %>>UGX</option>
+                    <option value="TZS" <%= orgDetails.public_registration_currency === 'TZS' ? 'selected' : '' %>>TZS</option>
+                    <option value="RWF" <%= orgDetails.public_registration_currency === 'RWF' ? 'selected' : '' %>>RWF</option>
+                    <option value="XAF" <%= orgDetails.public_registration_currency === 'XAF' ? 'selected' : '' %>>XAF</option>
+                    <option value="XOF" <%= orgDetails.public_registration_currency === 'XOF' ? 'selected' : '' %>>XOF</option>
+                  </select>
                 </div>
-                
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; margin-bottom: 8px; font-weight: bold;">Registration Price:</label> 
-                    <input type="number" step="0.01" name="price" value="<%= orgDetails.public_registration_price || '' %>" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px;" />
+                <div class="form-group">
+                  <label>Registration Price:</label>
+                  <input type="number" step="0.01" name="price" value="<%= orgDetails.public_registration_price || '' %>" class="form-field" />
                 </div>
-                
-                <div style="text-align: center; margin-top: 25px; margin-bottom: 20px;">
-                    <button type="submit" class="btn btn-primary">Update Registration Settings</button>
+                <div class="form-actions" style="margin-bottom: 16px;">
+                  <button type="submit" class="btn btn-primary">Update Registration Settings</button>
                 </div>
-                
-                <div class="notice">
-                    <p>
-                        REMEMBER TO SET PAYMENT METHODS & OPTIONS OTHERWISE USERS CAN'T MAKE PAYMENT AND FOR THAT REASON PUBLIC REGISTRATION WON'T GO THROUGH.
-                        <a
-                          href="/account/settings?section=billing"
-                            class="btn-primary"
-                            style="margin-left: 10px;"
-                        >
-                            Update Payment Method
-                        </a>
-                    </p>
+                <div class="notice-box">
+                  <p>
+                    REMEMBER TO SET PAYMENT METHODS &amp; OPTIONS OTHERWISE USERS CAN'T MAKE PAYMENT AND FOR THAT REASON PUBLIC REGISTRATION WON'T GO THROUGH.
+                    <a href="/account/settings?section=billing" class="btn-primary" style="width:fit-content; display:inline-flex;">Update Payment Method</a>
+                  </p>
                 </div>
             </form>
         </div>
-        
 
+</div>
+
+    <div id="imageLightbox" class="image-lightbox" aria-hidden="true" role="dialog" aria-label="Image preview">
+      <button type="button" id="imageLightboxClose" class="image-lightbox-close" aria-label="Close image preview">&times;</button>
+      <img id="imageLightboxImg" alt="Expanded preview" />
     </div>
 
     <script>
@@ -1821,12 +2299,12 @@
 
             function hideEventForm() {
                 createEventForm.style.display = "none";
-                toggleEventFormButton.innerHTML = "<i class='fa-regular fa-square-plus'></i>Create Event";
+                toggleEventFormButton.innerHTML = "<i class='fa-regular fa-square-plus'></i>Create";
             }
 
             function showEventForm() {
                 createEventForm.style.display = "block";
-                toggleEventFormButton.innerHTML = "<i class='fa-solid fa-ban'></i>Cancel Event Creation";
+                toggleEventFormButton.innerHTML = "<i class='fa-solid fa-ban'></i>Cancel";
             }
 
             toggleEventFormButton.addEventListener("click", function () {
@@ -1848,12 +2326,12 @@
 
             function hideAnnouncementForm() {
                 createAnnouncementForm.style.display = "none";
-                toggleAnnouncementFormButton.innerHTML = "<i class='fa-regular fa-square-plus'></i>Create Announcement";
+                toggleAnnouncementFormButton.innerHTML = "<i class='fa-regular fa-square-plus'></i>Create";
             }
 
             function showAnnouncementForm() {
                 createAnnouncementForm.style.display = "block";
-                toggleAnnouncementFormButton.innerHTML = "<i class='fa-solid fa-ban'></i>Cancel Announcement Creation";
+                toggleAnnouncementFormButton.innerHTML = "<i class='fa-solid fa-ban'></i>Cancel";
             }
 
             toggleAnnouncementFormButton.addEventListener("click", function () {
@@ -1917,41 +2395,77 @@
         });
 
 
-        // Initialize rich Text Editor
-        const quill = new Quill('#rich-text-editor', {
-        theme: 'snow',
-        modules: {
-            toolbar: [
-                [{ 'header': [1, 2, 3, false] }], // Header sizes
-                ['bold', 'italic', 'underline', 'strike'], // Text styling
-                [{ 'color': [] }, { 'background': [] }], // Text and background color
-                [{ 'list': 'ordered' }, { 'list': 'bullet' }], // Lists
-                [{ 'align': [] }], // Text alignment
-                ['link'], // Link upload
-                ['clean'] // Remove formatting
-            ]
-        }
-        });
+        const simpleQuillToolbar = [
+          ['bold', 'italic', 'underline'],
+          [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+          ['link', 'clean']
+        ];
 
-        // Synchronize the content of the rich text editor with the hidden textarea
+        const articleEditors = [];
+
+        function syncEditorValue(editor, textarea) {
+          if (!editor || !textarea) return { html: '', plain: '' };
+          const html = editor.root.innerHTML;
+          const plain = editor.getText().trim();
+          textarea.value = html;
+          return { html, plain };
+        }
+
+        function syncArticleEditorsForForm(form) {
+          const formEditors = articleEditors.filter((item) => item.form === form);
+          if (formEditors.length === 0) return { hasEditor: false, valid: true };
+
+          let isValid = true;
+          formEditors.forEach(({ editor, textarea }) => {
+            const { plain } = syncEditorValue(editor, textarea);
+            if (!plain) {
+              isValid = false;
+            }
+          });
+
+          return { hasEditor: true, valid: isValid };
+        }
+
+        // Initialize rich Text Editor (Add Article)
+        const createArticleForm = document.querySelector('form[action="/account/addTextSection"]');
         const paragraphTextarea = document.getElementById('paragraph');
-        quill.on('text-change', function() {
-            paragraphTextarea.value = quill.root.innerHTML; // Set Quill's content as the value of the textarea
-        });
+        const addArticleEditor = document.getElementById('rich-text-editor');
+
+        if (addArticleEditor && paragraphTextarea && createArticleForm) {
+          const quill = new Quill(addArticleEditor, {
+            theme: 'snow',
+            placeholder: 'Write article here...',
+            modules: {
+              toolbar: simpleQuillToolbar
+            }
+          });
+
+          articleEditors.push({ form: createArticleForm, editor: quill, textarea: paragraphTextarea });
+
+          quill.on('text-change', function() {
+            syncEditorValue(quill, paragraphTextarea);
+          });
+        }
 
         // Initialize Quill for each article update form only
-        document.querySelectorAll('.text-content-form').forEach(form => {
+        document.querySelectorAll('form[action="/account/updateText"].text-content-form').forEach(form => {
           const editorDiv = form.querySelector('.rich-text-editor');
-          const textarea = form.querySelector('textarea');
+          const textarea = form.querySelector('textarea[name="paragraph"]');
           if (!editorDiv || !textarea) return;
 
           const quillEditor = new Quill(editorDiv, {
-            theme: 'snow'
+            theme: 'snow',
+            placeholder: 'Write article here...',
+            modules: {
+              toolbar: simpleQuillToolbar
+            }
           });
 
           quillEditor.root.innerHTML = textarea.value;
+          articleEditors.push({ form, editor: quillEditor, textarea });
+
           quillEditor.on('text-change', function() {
-            textarea.value = quillEditor.root.innerHTML;
+            syncEditorValue(quillEditor, textarea);
           });
         });
 
@@ -1984,9 +2498,104 @@
             const pageRoot = document.querySelector('.manage-public-page');
             if (!pageRoot) return;
 
+            const lightbox = document.getElementById('imageLightbox');
+            const lightboxImg = document.getElementById('imageLightboxImg');
+            const lightboxClose = document.getElementById('imageLightboxClose');
+
+            function openLightbox(source) {
+              if (!lightbox || !lightboxImg || !source) return;
+              lightboxImg.src = source;
+              lightbox.classList.add('show');
+              lightbox.setAttribute('aria-hidden', 'false');
+              document.body.style.overflow = 'hidden';
+            }
+
+            function closeLightbox() {
+              if (!lightbox || !lightboxImg) return;
+              lightbox.classList.remove('show');
+              lightbox.setAttribute('aria-hidden', 'true');
+              lightboxImg.removeAttribute('src');
+              document.body.style.overflow = '';
+            }
+
+            pageRoot.querySelectorAll('.image-content-form img').forEach((previewImage) => {
+              previewImage.classList.add('image-preview-trigger');
+              previewImage.setAttribute('role', 'button');
+              previewImage.setAttribute('tabindex', '0');
+              previewImage.setAttribute('aria-label', 'Tap to preview full image');
+            });
+
+            pageRoot.addEventListener('click', function (event) {
+              const tappedImage = event.target.closest('.image-content-form img');
+              if (!tappedImage) return;
+              openLightbox(tappedImage.currentSrc || tappedImage.src);
+            });
+
+            pageRoot.addEventListener('keydown', function (event) {
+              const focusedImage = event.target.closest('.image-content-form img.image-preview-trigger');
+              if (!focusedImage) return;
+              if (event.key !== 'Enter' && event.key !== ' ') return;
+              event.preventDefault();
+              openLightbox(focusedImage.currentSrc || focusedImage.src);
+            });
+
+            if (lightboxClose) {
+              lightboxClose.addEventListener('click', closeLightbox);
+            }
+
+            if (lightbox) {
+              lightbox.addEventListener('click', function (event) {
+                if (event.target === lightbox) {
+                  closeLightbox();
+                }
+              });
+            }
+
+            document.addEventListener('keydown', function (event) {
+              if (event.key === 'Escape') {
+                closeLightbox();
+              }
+            });
+
             const statusEl = document.createElement('div');
             statusEl.className = 'inline-status';
             document.body.appendChild(statusEl);
+
+            function closeActionMenus(exceptMenu) {
+              pageRoot.querySelectorAll('.action-menu').forEach((menu) => {
+                if (exceptMenu && menu === exceptMenu) return;
+                const toggle = menu.querySelector('.action-menu-toggle');
+                const dropdown = menu.querySelector('.action-menu-dropdown');
+                if (toggle) toggle.setAttribute('aria-expanded', 'false');
+                if (dropdown) dropdown.hidden = true;
+              });
+            }
+
+            pageRoot.addEventListener('click', function (event) {
+              const toggle = event.target.closest('.action-menu-toggle');
+              if (toggle) {
+                event.preventDefault();
+                event.stopPropagation();
+                const menu = toggle.closest('.action-menu');
+                const dropdown = menu ? menu.querySelector('.action-menu-dropdown') : null;
+                if (!menu || !dropdown) return;
+                const isOpen = !dropdown.hidden;
+                closeActionMenus(menu);
+                dropdown.hidden = isOpen;
+                toggle.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+                return;
+              }
+
+              if (!event.target.closest('.action-menu')) {
+                closeActionMenus();
+              }
+            });
+
+            document.addEventListener('keydown', function (event) {
+              if (event.key === 'Escape') {
+                closeActionMenus();
+              }
+            });
 
             function showStatus(message, type) {
               statusEl.textContent = message;
@@ -2048,6 +2657,14 @@
               if (!(form instanceof HTMLFormElement)) return;
 
               event.preventDefault();
+
+              if (form.matches('form[action="/account/addTextSection"], form[action="/account/updateText"]')) {
+                const { hasEditor, valid } = syncArticleEditorsForForm(form);
+                if (hasEditor && !valid) {
+                  showStatus('Article content cannot be empty.', 'error');
+                  return;
+                }
+              }
 
               const submitter = event.submitter || form.querySelector('button[type="submit"], input[type="submit"]');
               setElementLoading(submitter, true);

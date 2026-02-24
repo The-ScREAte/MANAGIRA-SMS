@@ -8,6 +8,7 @@
     indigo: { primary: '#4f46e5', hover: '#4338ca' },
     rose: { primary: '#8b2635', hover: '#7a212e' },
     amber: { primary: '#d97706', hover: '#b45309' },
+    yellow: { primary: '#eab308', hover: '#ca8a04' },
     slate: { primary: '#334155', hover: '#1e293b' },
     classic: { primary: '#01535b', hover: '#014a51' },
     bold: { primary: '#0b1020', hover: '#ffb703' },
@@ -1074,7 +1075,7 @@
           <button class="settings-nav-close" type="button" aria-label="Close settings menu">x</button>
         </div>
         <ul class="nav-list">
-          <li><button class="nav-link active" data-target="customize">Customize Organization</button></li>
+          <li><button class="nav-link active" data-target="customize">School Website</button></li>
           <li><button class="nav-link" data-target="profile">Profile</button></li>
           <li><button class="nav-link" data-target="billing">Billing &amp; Plan</button></li>
           <li><button class="nav-link" data-target="security">Security</button></li>
@@ -1087,9 +1088,9 @@
           <span class="settings-nav-label">Settings Menu</span>
         </button>
         <section id="customize" class="settings-section">
-          <h1>Customize Organization</h1>
+          <h1>School Website</h1>
           <p class="lead">
-            Personalize your organization's branding and identity.
+            Manage your school website branding and settings.
           </p>
 
           <% 
@@ -1180,6 +1181,119 @@
           </div>
 
           <div class="card">
+            <h4>School Theme</h4>
+            <small>Pick theme for your school.</small>
+            <form action="/account/updatePublicDashboardTheme" method="POST">
+              <input type="hidden" name="redirectTo" value="/account/settings?section=customize" />
+              <% const selectedWebsiteTheme = (publicDashboardTheme && String(publicDashboardTheme).trim()) ? String(publicDashboardTheme).trim() : 'classic'; %>
+              <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; margin-top:12px;">
+                <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
+                  <input type="radio" name="publicDashboardTheme" value="classic" <%= selectedWebsiteTheme === 'classic' ? 'checked' : '' %> />
+                  <span style="display:flex; flex-direction:column; gap:4px;">
+                    <strong style="font-size:0.95rem;">Ocean Teal</strong>
+                    <span style="display:flex; gap:6px;">
+                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#01535b;"></span>
+                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#014a51;"></span>
+                    </span>
+                    <span class="text-muted-sm">Trusted academic teal.</span>
+                  </span>
+                </label>
+                <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
+                  <input type="radio" name="publicDashboardTheme" value="modern" <%= selectedWebsiteTheme === 'modern' ? 'checked' : '' %> />
+                  <span style="display:flex; flex-direction:column; gap:4px;">
+                    <strong style="font-size:0.95rem;">Royal Blue</strong>
+                    <span style="display:flex; gap:6px;">
+                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#2563eb;"></span>
+                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#1d4ed8;"></span>
+                    </span>
+                    <span class="text-muted-sm">Crisp modern blue.</span>
+                  </span>
+                </label>
+                <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
+                  <input type="radio" name="publicDashboardTheme" value="green" <%= selectedWebsiteTheme === 'green' ? 'checked' : '' %> />
+                  <span style="display:flex; flex-direction:column; gap:4px;">
+                    <strong style="font-size:0.95rem;">Evergreen</strong>
+                    <span style="display:flex; gap:6px;">
+                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#2d5f4f;"></span>
+                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#245043;"></span>
+                    </span>
+                    <span class="text-muted-sm">Calm natural green.</span>
+                  </span>
+                </label>
+                <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
+                  <input type="radio" name="publicDashboardTheme" value="minimal" <%= selectedWebsiteTheme === 'minimal' ? 'checked' : '' %> />
+                  <span style="display:flex; flex-direction:column; gap:4px;">
+                    <strong style="font-size:0.95rem;">Amethyst Purple</strong>
+                    <span style="display:flex; gap:6px;">
+                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#7c3aed;"></span>
+                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#6d28d9;"></span>
+                    </span>
+                    <span class="text-muted-sm">Refined premium purple.</span>
+                  </span>
+                </label>
+                <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
+                  <input type="radio" name="publicDashboardTheme" value="indigo" <%= selectedWebsiteTheme === 'indigo' ? 'checked' : '' %> />
+                  <span style="display:flex; flex-direction:column; gap:4px;">
+                    <strong style="font-size:0.95rem;">Deep Indigo</strong>
+                    <span style="display:flex; gap:6px;">
+                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#4338ca;"></span>
+                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#312e81;"></span>
+                    </span>
+                    <span class="text-muted-sm">Bold confident indigo.</span>
+                  </span>
+                </label>
+                <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
+                  <input type="radio" name="publicDashboardTheme" value="rose" <%= selectedWebsiteTheme === 'rose' ? 'checked' : '' %> />
+                  <span style="display:flex; flex-direction:column; gap:4px;">
+                    <strong style="font-size:0.95rem;">Crimson Rose</strong>
+                    <span style="display:flex; gap:6px;">
+                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#8b2635;"></span>
+                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#7a212e;"></span>
+                    </span>
+                    <span class="text-muted-sm">Elegant institutional red.</span>
+                  </span>
+                </label>
+                <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
+                  <input type="radio" name="publicDashboardTheme" value="amber" <%= selectedWebsiteTheme === 'amber' ? 'checked' : '' %> />
+                  <span style="display:flex; flex-direction:column; gap:4px;">
+                    <strong style="font-size:0.95rem;">Amber Gold</strong>
+                    <span style="display:flex; gap:6px;">
+                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#d97706;"></span>
+                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#b45309;"></span>
+                    </span>
+                    <span class="text-muted-sm">Warm premium amber.</span>
+                  </span>
+                </label>
+                <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
+                  <input type="radio" name="publicDashboardTheme" value="yellow" <%= selectedWebsiteTheme === 'yellow' ? 'checked' : '' %> />
+                  <span style="display:flex; flex-direction:column; gap:4px;">
+                    <strong style="font-size:0.95rem;">Solar Yellow</strong>
+                    <span style="display:flex; gap:6px;">
+                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#eab308;"></span>
+                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#ca8a04;"></span>
+                    </span>
+                    <span class="text-muted-sm">Bright energetic yellow.</span>
+                  </span>
+                </label>
+                <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
+                  <input type="radio" name="publicDashboardTheme" value="slate" <%= selectedWebsiteTheme === 'slate' ? 'checked' : '' %> />
+                  <span style="display:flex; flex-direction:column; gap:4px;">
+                    <strong style="font-size:0.95rem;">Slate Graphite</strong>
+                    <span style="display:flex; gap:6px;">
+                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#334155;"></span>
+                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#1e293b;"></span>
+                    </span>
+                    <span class="text-muted-sm">Professional balanced slate.</span>
+                  </span>
+                </label>
+              </div>
+              <div class="form-actions" style="margin-top:12px;">
+                <button class="btn-primary btn-link" type="submit">Save School Theme</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="card">
             <h4>Organization Nickname</h4>
             <small>This will change the subdomain name of your website.</small>
             <p class="text-muted-sm">
@@ -1201,6 +1315,185 @@
                 <button class="btn-link" type="submit">Change Organization Nickname</button>
               </div>
             </form>
+          </div>
+
+          <div class="card">
+            <h4>Yearly Attendance Calendar</h4>
+            <small>
+              Configure weekends, country public holidays, and manual term-specific day overrides for attendance counting.
+            </small>
+            <form action="/account/settings/calendar/profile" method="POST">
+              <input type="hidden" name="redirectTo" value="/account/settings?section=customize" />
+              <div class="content-row" style="align-items:flex-start;">
+                <div class="field-group">
+                  <label class="form-label" for="calendar-school-year-select">School Year</label>
+                  <select id="calendar-school-year-select" class="form-select">
+                    <% (calendarSchoolYears || []).forEach((year) => { %>
+                      <option value="<%= year.school_year_id %>" <%= year.terms.some((term) => Number(term.term_id) === Number(selectedCalendarTermId)) ? 'selected' : '' %>>
+                        <%= year.year_label %>
+                      </option>
+                    <% }) %>
+                  </select>
+                </div>
+
+                <div class="field-group">
+                  <label class="form-label" for="calendar-term-select">Term / Semester</label>
+                  <select id="calendar-term-select" name="termId" class="form-select" required>
+                    <% (calendarSchoolYears || []).forEach((year) => { %>
+                      <% (year.terms || []).forEach((term) => { %>
+                        <option
+                          value="<%= term.term_id %>"
+                          data-year-id="<%= year.school_year_id %>"
+                          data-target-url="/account/settings?section=customize&calendarTermId=<%= term.term_id %>"
+                          <%= Number(term.term_id) === Number(selectedCalendarTermId) ? 'selected' : '' %>
+                        >
+                          <%= term.term_name %> (<%= new Date(term.start_date).toLocaleDateString() %> - <%= new Date(term.end_date).toLocaleDateString() %>)
+                        </option>
+                      <% }) %>
+                    <% }) %>
+                  </select>
+                </div>
+
+                <div class="field-group">
+                  <label class="form-label" for="calendar-country">Country Public Holidays</label>
+                  <select id="calendar-country" name="countryCode" class="form-select" required>
+                    <% const selectedCountryCode = (attendanceCalendarProfile && attendanceCalendarProfile.country_code) ? attendanceCalendarProfile.country_code : 'GH'; %>
+                    <% (holidayCountries || []).forEach((country) => { %>
+                      <option value="<%= country.code %>" <%= country.code === selectedCountryCode ? 'selected' : '' %>>
+                        <%= country.name %> (<%= country.code %>)
+                      </option>
+                    <% }) %>
+                  </select>
+                </div>
+
+                <div class="field-group" style="min-width:260px;">
+                  <label class="form-label">Weekend Days (excluded by default)</label>
+                  <% const selectedWeekendDays = (attendanceCalendarProfile && Array.isArray(attendanceCalendarProfile.weekend_days) && attendanceCalendarProfile.weekend_days.length > 0)
+                    ? attendanceCalendarProfile.weekend_days.map((d) => Number(d))
+                    : [0, 6]; %>
+                  <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px;">
+                    <% (weekdayOptions || []).forEach((dayOption) => { %>
+                      <label style="display:flex; align-items:center; gap:8px; font-size:0.9rem;">
+                        <input
+                          type="checkbox"
+                          name="weekendDays"
+                          value="<%= dayOption.value %>"
+                          <%= selectedWeekendDays.includes(Number(dayOption.value)) ? 'checked' : '' %>
+                        />
+                        <span><%= dayOption.label %></span>
+                      </label>
+                    <% }) %>
+                  </div>
+                </div>
+
+                <div class="field-group" style="min-width:260px;">
+                  <label class="form-label" for="include-public-holidays">Public Holiday Rule</label>
+                  <label style="display:flex; align-items:center; gap:8px; font-size:0.92rem;">
+                    <input
+                      type="checkbox"
+                      id="include-public-holidays"
+                      name="includePublicHolidays"
+                      value="true"
+                      <%= (attendanceCalendarProfile && attendanceCalendarProfile.include_public_holidays) || !attendanceCalendarProfile ? 'checked' : '' %>
+                    />
+                    <span>Exclude country public holidays from attendance</span>
+                  </label>
+                </div>
+
+                <div class="form-actions">
+                  <button class="btn-primary btn-link" type="submit">Save Calendar Rules</button>
+                </div>
+              </div>
+            </form>
+
+            <% if (selectedCalendarTerm) { %>
+              <p class="text-muted-sm" style="margin-top:10px;">
+                Active term: <strong><%= selectedCalendarTerm.term_name %></strong> ·
+                <%= new Date(selectedCalendarTerm.start_date).toLocaleDateString() %> to
+                <%= new Date(selectedCalendarTerm.end_date).toLocaleDateString() %>
+              </p>
+            <% } %>
+          </div>
+
+          <div class="card">
+            <h4>Calendar Day Overrides</h4>
+            <small>Add specific days to force attendance counting on/off for this term.</small>
+
+            <form action="/account/settings/calendar/day" method="POST">
+              <input type="hidden" name="termId" value="<%= selectedCalendarTermId || '' %>" />
+              <div class="content-row" style="align-items:flex-end;">
+                <div class="field-group">
+                  <label class="form-label" for="calendarDate">Date</label>
+                  <input
+                    type="date"
+                    id="calendarDate"
+                    name="calendarDate"
+                    class="form-input"
+                    <%= selectedCalendarTerm ? `min=\"${new Date(selectedCalendarTerm.start_date).toISOString().split('T')[0]}\" max=\"${new Date(selectedCalendarTerm.end_date).toISOString().split('T')[0]}\"` : '' %>
+                    required
+                  />
+                </div>
+                <div class="field-group">
+                  <label class="form-label" for="calendarLabel">Reason / Label</label>
+                  <input
+                    type="text"
+                    id="calendarLabel"
+                    name="label"
+                    class="form-input"
+                    placeholder="Holiday, exam day, special class..."
+                  />
+                </div>
+                <div class="field-group">
+                  <label class="form-label" for="countsForAttendance">Attendance Count Rule</label>
+                  <select id="countsForAttendance" name="countsForAttendance" class="form-select">
+                    <option value="false">Do not count attendance</option>
+                    <option value="true">Count attendance</option>
+                  </select>
+                </div>
+                <div class="form-actions">
+                  <button class="btn-primary btn-link" type="submit" <%= selectedCalendarTermId ? '' : 'disabled' %>>Save Day Rule</button>
+                </div>
+              </div>
+            </form>
+
+            <% if (attendanceCalendarDays && attendanceCalendarDays.length > 0) { %>
+              <div style="overflow-x:auto; margin-top:12px;">
+                <table style="width:100%; border-collapse:collapse; min-width:620px;">
+                  <thead>
+                    <tr>
+                      <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Date</th>
+                      <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Type</th>
+                      <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Reason</th>
+                      <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Counts?</th>
+                      <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% attendanceCalendarDays.forEach((day) => { %>
+                      <tr>
+                        <td style="padding:8px; border-bottom:1px solid #f1f5f9;"><%= new Date(day.calendar_date).toLocaleDateString() %></td>
+                        <td style="padding:8px; border-bottom:1px solid #f1f5f9;"><%= day.source === 'manual' ? 'Manual' : 'Public Holiday' %></td>
+                        <td style="padding:8px; border-bottom:1px solid #f1f5f9;"><%= day.label || '-' %></td>
+                        <td style="padding:8px; border-bottom:1px solid #f1f5f9;"><%= day.counts_for_attendance ? 'Yes' : 'No' %></td>
+                        <td style="padding:8px; border-bottom:1px solid #f1f5f9;">
+                          <% if (day.source === 'manual') { %>
+                            <form action="/account/settings/calendar/day/delete" method="POST" style="display:inline;">
+                              <input type="hidden" name="termId" value="<%= selectedCalendarTermId %>" />
+                              <input type="hidden" name="calendarDayId" value="<%= day.calendar_day_id %>" />
+                              <button class="btn-danger btn-link" type="submit" style="padding:6px 10px;">Delete</button>
+                            </form>
+                          <% } else { %>
+                            <span class="text-muted-sm">Auto</span>
+                          <% } %>
+                        </td>
+                      </tr>
+                    <% }) %>
+                  </tbody>
+                </table>
+              </div>
+            <% } else { %>
+              <p class="text-muted-sm" style="margin-top:12px;">No day overrides yet for this term.</p>
+            <% } %>
           </div>
         </section>
 
@@ -1808,6 +2101,8 @@
         const schoolAccountMomoNumber = document.getElementById("sa-momo-number");
         const schoolAccountMomoProvider = document.getElementById("sa-momo-provider");
         const schoolAccountHolder = document.getElementById("sa-account-holder");
+        const calendarSchoolYearSelect = document.getElementById("calendar-school-year-select");
+        const calendarTermSelect = document.getElementById("calendar-term-select");
 
         function initSettingsCardCollapsibles() {
           const cards = document.querySelectorAll(".settings-section .card");
@@ -2057,6 +2352,47 @@
 
           updateFontPreview();
           fontSelect.addEventListener("change", updateFontPreview);
+        }
+
+        function syncCalendarTermOptions() {
+          if (!calendarSchoolYearSelect || !calendarTermSelect) return;
+
+          const selectedYearId = String(calendarSchoolYearSelect.value || "");
+          let firstVisibleOption = null;
+          let selectedOptionStillVisible = false;
+
+          Array.from(calendarTermSelect.options).forEach((option) => {
+            const optionYearId = String(option.dataset.yearId || "");
+            const shouldShow = !selectedYearId || optionYearId === selectedYearId;
+            option.hidden = !shouldShow;
+            option.disabled = !shouldShow;
+            if (shouldShow && !firstVisibleOption) {
+              firstVisibleOption = option;
+            }
+            if (shouldShow && option.selected) {
+              selectedOptionStillVisible = true;
+            }
+          });
+
+          if (!selectedOptionStillVisible && firstVisibleOption) {
+            firstVisibleOption.selected = true;
+          }
+        }
+
+        if (calendarSchoolYearSelect && calendarTermSelect) {
+          syncCalendarTermOptions();
+
+          calendarSchoolYearSelect.addEventListener("change", () => {
+            syncCalendarTermOptions();
+          });
+
+          calendarTermSelect.addEventListener("change", () => {
+            const selectedOption = calendarTermSelect.options[calendarTermSelect.selectedIndex];
+            const targetUrl = selectedOption ? selectedOption.dataset.targetUrl : "";
+            if (targetUrl) {
+              window.location.href = targetUrl;
+            }
+          });
         }
 
         function updateEyeIcon(button, isVisible) {
@@ -2785,8 +3121,29 @@
           });
         }
 
+        const themeRefreshKey = "theme-hard-refresh-applied";
         const urlParams = new URLSearchParams(window.location.search);
-        const initialSection = urlParams.get("section") || "customize";
+
+        if (urlParams.get("themeApplied") === "1") {
+          const alreadyRefreshed = sessionStorage.getItem(themeRefreshKey) === "1";
+
+          if (!alreadyRefreshed) {
+            sessionStorage.setItem(themeRefreshKey, "1");
+            const forcedUrl = new URL(window.location.href);
+            forcedUrl.searchParams.set("_themeRefreshTs", String(Date.now()));
+            window.location.replace(forcedUrl.toString());
+            return;
+          }
+
+          sessionStorage.removeItem(themeRefreshKey);
+          const cleanUrl = new URL(window.location.href);
+          cleanUrl.searchParams.delete("themeApplied");
+          cleanUrl.searchParams.delete("_themeRefreshTs");
+          window.history.replaceState({}, "", cleanUrl.toString());
+        }
+
+        const finalParams = new URLSearchParams(window.location.search);
+        const initialSection = finalParams.get("section") || "customize";
         showSection(initialSection);
       });
     </script>

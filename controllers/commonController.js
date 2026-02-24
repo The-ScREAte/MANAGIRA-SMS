@@ -23,6 +23,16 @@ const {
   userHasPermission,
   isManagerLikeRole,
 } = require("../middleware/permissionMiddleware");
+const {
+  toDateKey,
+  ensureAttendanceCalendarSchema,
+  getAttendanceCalendarProfile,
+  getAttendanceCalendarDays,
+  buildCalendarDayMap,
+  isAttendanceCountableForDate,
+  WEEKDAY_OPTIONS,
+  getTermRecord,
+} = require("../utils/attendanceCalendar");
 
 // Configure AWS S3
 const s3 = new S3Client({
@@ -4368,6 +4378,8 @@ const commonController = {
       }
 
       const { start_date, end_date } = termDatesResult.rows[0];
+      await ensureAttendanceCalendarSchema(db);
+
       const dates = [];
       let currentDate = new Date(start_date);
       const today = new Date();
@@ -4377,10 +4389,47 @@ const commonController = {
         currentDate.setDate(currentDate.getDate() + 1);
       }
 
-      const displayDates = dates
+      const attendanceCalendarProfile = await getAttendanceCalendarProfile(db, organizationId, termId);
+      const attendanceCalendarDays = attendanceCalendarProfile
+        ? await getAttendanceCalendarDays(
+            db,
+            attendanceCalendarProfile.calendar_id,
+            start_date,
+            end_date
+          )
+        : [];
+      const attendanceCalendarDayMap = buildCalendarDayMap(attendanceCalendarDays);
+
+      const filteredDates = attendanceCalendarProfile
+        ? dates.filter((date) => isAttendanceCountableForDate(date, attendanceCalendarProfile, attendanceCalendarDayMap))
+        : dates;
+
+      // Role-based date limit: teachers see up to 6 days; supervisors/managers see all
+      const userRole = (req.session.userRole || '').toLowerCase();
+      const isTeacher = userRole === 'teacher';
+      const dateLimit = isTeacher ? 6 : filteredDates.length;
+
+      const displayDates = filteredDates
         .sort((a, b) => new Date(b) - new Date(a))
-        .slice(0, 10)
+        .slice(0, dateLimit)
         .reverse();
+
+      const weekendLabelMap = WEEKDAY_OPTIONS.reduce((acc, item) => {
+        acc[item.value] = item.label;
+        return acc;
+      }, {});
+
+      const attendanceCalendarSummary = attendanceCalendarProfile
+        ? {
+            enabled: true,
+            countryCode: attendanceCalendarProfile.country_code,
+            includePublicHolidays: Boolean(attendanceCalendarProfile.include_public_holidays),
+            weekendLabels: (attendanceCalendarProfile.weekend_days || [])
+              .map((day) => weekendLabelMap[Number(day)])
+              .filter(Boolean),
+            hiddenDateCount: Math.max(0, dates.length - filteredDates.length),
+          }
+        : { enabled: false, hiddenDateCount: 0 };
 
       // Fetch attendance records
       const attendanceResult = await db.query(
@@ -4419,6 +4468,8 @@ const commonController = {
         attendanceMap,
         lastEditedMap,
         schoolYear,
+        userRole,
+        attendanceCalendarSummary,
       });
     } catch (error) {
       // ...removed error log for clean background operation...
@@ -4434,6 +4485,32 @@ const commonController = {
     }
 
     try {
+      await ensureAttendanceCalendarSchema(db);
+
+      const organizationId = req.session.organizationId;
+      const attendanceCalendarProfile = await getAttendanceCalendarProfile(db, organizationId, termId);
+
+      if (attendanceCalendarProfile) {
+        const term = await getTermRecord(db, organizationId, termId);
+        const attendanceCalendarDays = term
+          ? await getAttendanceCalendarDays(
+              db,
+              attendanceCalendarProfile.calendar_id,
+              term.start_date,
+              term.end_date
+            )
+          : [];
+        const dayMap = buildCalendarDayMap(attendanceCalendarDays);
+        const countable = isAttendanceCountableForDate(date, attendanceCalendarProfile, dayMap);
+
+        if (!countable) {
+          return res.status(400).json({
+            success: false,
+            message: "Attendance is disabled for this date by the term calendar settings.",
+          });
+        }
+      }
+
       await db.query("BEGIN");
 
       for (const studentId in attendance) {
@@ -4452,7 +4529,7 @@ const commonController = {
             classId,
             termId,
             req.session.userId,
-            req.session.organizationId,
+            organizationId,
           ]
         );
       }

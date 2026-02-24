@@ -73,6 +73,16 @@
         font-size: 0.75rem;
         color: gray;
     }
+
+    /* === Today Column Highlight === */
+    .today-col {
+        background-color: #e8f7f8 !important;
+        border-left: 2px solid var(--primary) !important;
+        border-right: 2px solid var(--primary) !important;
+    }
+    .attendance-sheet thead .today-col {
+        background-color: #d0eff2 !important;
+    }
     
     /* === Overall Attendance Style === */
     .overall-attendance {
@@ -412,8 +422,17 @@
 
         /* === CHECKBOX IMPROVEMENTS === */
         .attendance-sheet input[type="checkbox"] {
-            transform: scale(1.1);
-            margin: 2px;
+            transform: scale(1.6);
+            margin: 6px;
+            min-width: 20px;
+            min-height: 20px;
+            cursor: pointer;
+        }
+
+        /* Larger tap target cell on mobile */
+        .attendance-sheet td:not(.student-name):not(.overall-attendance) {
+            min-width: 52px;
+            padding: 10px 8px !important;
         }
 
         /* === OVERALL ATTENDANCE COLUMN === */
@@ -444,7 +463,7 @@
 
         /* === HORIZONTAL SCROLL INDICATOR === */
         .attendance-sheet-container::after {
-            content: "← Swipe to see more dates →";
+            content: "← Scroll left to see older dates";
             display: block;
             text-align: center;
             font-size: 0.7rem;
@@ -531,8 +550,11 @@
 
         /* === COMPACT CHECKBOXES === */
         .attendance-sheet input[type="checkbox"] {
-            transform: scale(1.0);
-            margin: 1px;
+            transform: scale(1.5);
+            margin: 5px;
+            min-width: 18px;
+            min-height: 18px;
+            cursor: pointer;
         }
 
         /* === COMPACT SUMMARY === */
@@ -554,6 +576,7 @@
 
         /* === ENHANCED SCROLL INDICATOR === */
         .attendance-sheet-container::after {
+            content: "← Scroll left to see older dates";
             font-size: 0.65rem;
             padding: 5px;
             background: #f0f0f0;
@@ -590,6 +613,18 @@
             <div class="attendance-header">
                 <h1>Attendance for <%= className %></h1>
                 <div class="attendance-meta">School Year: <%= schoolYear.year_label %> · Term: <%= termName %></div>
+                <% if (attendanceCalendarSummary && attendanceCalendarSummary.enabled) { %>
+                    <div class="attendance-meta" style="margin-top:4px;">
+                        Calendar rules active · Country: <%= attendanceCalendarSummary.countryCode %> ·
+                        Weekends: <%= (attendanceCalendarSummary.weekendLabels || []).length ? attendanceCalendarSummary.weekendLabels.join(', ') : 'None' %> ·
+                        Public holidays: <%= attendanceCalendarSummary.includePublicHolidays ? 'Excluded' : 'Included' %>
+                    </div>
+                    <% if (attendanceCalendarSummary.hiddenDateCount > 0) { %>
+                        <div class="attendance-meta" style="margin-top:2px; color:#334155;">
+                            <%= attendanceCalendarSummary.hiddenDateCount %> non-counting date(s) are hidden from this attendance table.
+                        </div>
+                    <% } %>
+                <% } %>
             </div>
 
 
@@ -642,11 +677,11 @@
                     <tr>
                         <th class="student-name">Student Name</th>
                         <% displayDates.forEach(date => { %>
-                            <th>
+                            <% const isToday = new Date(date).toDateString() === new Date().toDateString(); %>
+                            <th class="<%= isToday ? 'today-col' : '' %>">
                                 <div class="date-header">
-                                    <% const isToday = new Date(date).toDateString() === new Date().toDateString(); %>
                                     <%= isToday ? "Today" : new Date(date).toLocaleDateString() %>
-                                                                        <% if (students.length > 0) { %>
+                                    <% if (students.length > 0) { %>
                                         <div class="edit-save-link" data-date="<%= date %>" onclick="toggleEditSaveMode('<%= date %>')">Edit</div>
                                         <div class="cancel-link" data-date="<%= date %>" style="display: none;" onclick="cancelEditMode('<%= date %>')">Cancel</div>
                                     <% } %>
@@ -672,7 +707,8 @@
                             <% let presentCount = 0; %>
                             <% let totalCount = displayDates.length; %>
                             <% displayDates.forEach(date => { %>
-                                <td>
+                                <% const isTodayCell = new Date(date).toDateString() === new Date().toDateString(); %>
+                                <td class="<%= isTodayCell ? 'today-col' : '' %>">
                                     <input type="checkbox" data-date="<%= date %>" data-student-id="<%= student.student_id %>" 
                                         <%= attendanceMap[student.student_id] && attendanceMap[student.student_id][date] === 'Present' ? 'checked' : '' %> 
                                         <%= attendanceMap[student.student_id] && attendanceMap[student.student_id][date] ? 'disabled' : '' %> >
@@ -794,9 +830,20 @@
             }
         }
 
+        // Scroll attendance table so the most recent (rightmost) date is visible first
+        function scrollAttendanceToEnd() {
+            const container = document.querySelector('.attendance-sheet-container');
+            if (container) {
+                container.scrollLeft = container.scrollWidth;
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             const classId = '<%= classId %>';
             const termId = '<%= termId %>';
+
+            // Scroll to the right immediately so current date shows first
+            scrollAttendanceToEnd();
 
             fetch(`/common/getAttendanceForClass?classId=${classId}&termId=${termId}`)
                 .then(response => response.json())
@@ -838,6 +885,8 @@
 
                         // Auto-populate attendance summary on page load
                         setTimeout(updateAttendanceSummary, 100);
+                        // Scroll again after attendance data renders
+                        setTimeout(scrollAttendanceToEnd, 150);
                     } else {
                         console.error('Failed to fetch attendance:', data.error);
                     }
@@ -900,7 +949,7 @@
                     setTimeout(updateAttendanceSummary, 50);
                 } else {
                     console.error('Failed to save attendance:', data.error);
-                    alert('Failed to save attendance. Please try again.');
+                    alert(data.message || 'Failed to save attendance. Please try again.');
                 }
             })
             .catch(error => {
