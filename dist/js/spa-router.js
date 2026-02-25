@@ -34,7 +34,7 @@
       '/account/login',
       '/account/register',
       '/account/forget-password',
-      '/common/pricing',
+      '/account/service-plan',
       '/hub/login',
       '/account/guardian-login',
       '/account/reset-password',
@@ -165,7 +165,7 @@
 
   // Priority pages to preload per user type
   const PRELOAD_PRIORITY = {
-    public: ['/account/login', '/account/register', '/common/pricing'],
+    public: ['/account/login', '/account/register', '/account/service-plan'],
     organization: ['/common/orgDashboard', '/common/management', '/account/settings'],
     guardian: ['/guardian/dashboard'],
     hub: ['/hub/dashboard', '/hub/settings'],
@@ -174,7 +174,6 @@
 
   // Routes that should NEVER be SPA-handled (complex forms, file uploads, etc.)
   const EXCLUDED_PATTERNS = [
-    '/account/service-plan',
     '/account/logout',
     '/admin/org/',
     '/admin/exit-org',

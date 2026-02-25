@@ -167,6 +167,18 @@
         color: var(--text-main);
       }
 
+      .price-old {
+        display: block;
+        margin: 0;
+        font-size: 0.95rem;
+        color: #8a96a6;
+        text-decoration: line-through;
+      }
+
+      .price-free {
+        color: #0d8d5d;
+      }
+
       .price-caption {
         margin-top: 4px;
         font-size: 13px;
@@ -241,7 +253,15 @@
 
       @media (max-width: 768px) {
         .pricing-shell {
-          padding: 16px 16px 36px;
+          padding: 16px 18px 36px;
+        }
+
+        #servicePlanForm {
+          padding: 0 2px;
+        }
+
+        .form-actions {
+          padding: 0 6px 12px;
         }
 
         .pricing-header {
@@ -255,11 +275,27 @@
         .plan-grid {
           grid-template-columns: 1fr;
         }
+
+        .plan-card {
+          margin: 0 10px;
+        }
       }
 
       @media (max-width: 480px) {
         .pricing-shell {
-          padding: 14px 14px 30px;
+          padding: 14px 16px 30px;
+        }
+
+        #servicePlanForm {
+          padding: 0 1px;
+        }
+
+        .form-actions {
+          padding: 0 4px 10px;
+        }
+
+        .plan-card {
+          margin: 0 8px;
         }
       }
     </style>
@@ -296,12 +332,18 @@
             </ul>
           </div>
           <div class="plan-price">
-            <strong><%= plan.priceUsdDisplay || ('$' + plan.total_price.toFixed(2)) %></strong>
-            <div class="price-caption">per month</div>
-            <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
-              <div class="price-local">
-                ≈ <%= plan.localizedPriceDisplay %> / month
-              </div>
+            <% if (freeTrialEnabled && freeTrialLengthLabel) { %>
+              <span class="price-old"><%= plan.priceUsdDisplay || ('$' + plan.total_price.toFixed(2)) %> per month</span>
+              <strong class="price-free">FREE</strong>
+              <div class="price-caption">for <%= freeTrialLengthLabel %></div>
+            <% } else { %>
+              <strong><%= plan.priceUsdDisplay || ('$' + plan.total_price.toFixed(2)) %></strong>
+              <div class="price-caption">per month</div>
+              <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
+                <div class="price-local">
+                  ≈ <%= plan.localizedPriceDisplay %> / month
+                </div>
+              <% } %>
             <% } %>
             <% if (typeof trialRequested !== 'undefined' && trialRequested && premiumPlanId && String(plan.plan_id) === String(premiumPlanId)) { %>
               <div class="plan-trial-tag">
@@ -334,7 +376,7 @@
       </form>
     </main>
     <script>
-      document.addEventListener("DOMContentLoaded", function () {
+      (function initServicePlanPage() {
         const plans = document.querySelectorAll(".plan-card");
         const selectedPlanInput = document.getElementById("selectedPlan");
         const selectedPlanIdInput = document.getElementById("selectedPlanId");
@@ -345,6 +387,30 @@
         const premiumPlanId = "<%= premiumPlanId || '' %>";
         const premiumPlanName = <%- JSON.stringify(premiumPlanName || "") %>;
 
+        if (!form || !selectedPlanInput || !selectedPlanIdInput) {
+          return;
+        }
+
+        const syncSelectionFields = (planEl) => {
+          if (!planEl) return false;
+
+          const planName = planEl.getAttribute("data-plan");
+          const planId = planEl.getAttribute("data-plan-id");
+
+          if (!planName || !planId) return false;
+
+          selectedPlanInput.value = planName;
+          selectedPlanIdInput.value = planId;
+          return true;
+        };
+
+        const applySelection = (planEl) => {
+          if (!planEl) return;
+          plans.forEach((p) => p.classList.remove("selected"));
+          planEl.classList.add("selected");
+          syncSelectionFields(planEl);
+        };
+
         let selectedPlan = null;
         let selectedPlanId = null;
         const defaultPlanId = "<%= preferredPlanId || '' %>";
@@ -354,30 +420,28 @@
             `.plan-card[data-plan-id="${defaultPlanId}"]`
           );
           if (defaultPlanEl) {
-            defaultPlanEl.classList.add("selected");
+            applySelection(defaultPlanEl);
             selectedPlan = defaultPlanEl.getAttribute("data-plan");
             selectedPlanId = defaultPlanId;
-            selectedPlanInput.value = selectedPlan;
-            selectedPlanIdInput.value = selectedPlanId;
           }
         }
 
         plans.forEach((plan) => {
           plan.addEventListener("click", function () {
-            plans.forEach((p) => p.classList.remove("selected"));
-            this.classList.add("selected");
-
+            applySelection(this);
             selectedPlan = this.getAttribute("data-plan");
             selectedPlanId = this.getAttribute("data-plan-id");
-
-            if (selectedPlan && selectedPlanId) {
-              selectedPlanInput.value = selectedPlan;
-              selectedPlanIdInput.value = selectedPlanId;
-            }
           });
         });
 
         form.addEventListener("submit", function (event) {
+          if (!selectedPlanInput.value || !selectedPlanIdInput.value) {
+            const selectedCard = document.querySelector(".plan-card.selected");
+            if (selectedCard) {
+              syncSelectionFields(selectedCard);
+            }
+          }
+
           if (
             !selectedPlanInput.value ||
             selectedPlanInput.value.trim() === "" ||
@@ -407,18 +471,19 @@
               `.plan-card[data-plan-id="${premiumPlanId}"]`
             );
             if (premiumPlanEl) {
-              plans.forEach((p) => p.classList.remove("selected"));
-              premiumPlanEl.classList.add("selected");
+              applySelection(premiumPlanEl);
             }
-            selectedPlanInput.value = premiumPlanName;
-            selectedPlanIdInput.value = premiumPlanId;
+            if (!selectedPlanInput.value || !selectedPlanIdInput.value) {
+              selectedPlanInput.value = premiumPlanName;
+              selectedPlanIdInput.value = premiumPlanId;
+            }
             if (trialRequestedField) {
               trialRequestedField.value = "1";
             }
             form.submit();
           });
         }
-      });
+      })();
     </script>
   </body>
 </html>

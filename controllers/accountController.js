@@ -39,6 +39,11 @@ const {
   formatCurrencyAmount,
 } = require("../utils/currencyLocalization");
 const {
+  getFreeTrialSettings,
+  formatFreeTrialLength,
+  hasEmailLockedTrial,
+} = require("../utils/freeTrial");
+const {
   WEEKDAY_OPTIONS,
   parseBoolean,
   normalizeWeekendDaysInput,
@@ -522,9 +527,9 @@ const accountController = {
           };
         });
 
-      // Defaults for trial/premium display on plan page
-      const freeTrialEnabled = false;
-      const freeTrialLengthLabel = null;
+      const trialSettings = await getFreeTrialSettings(db);
+      const freeTrialEnabled = Boolean(trialSettings.enabled);
+      const freeTrialLengthLabel = formatFreeTrialLength(trialSettings.days);
       const premiumPlanId = null;
       const premiumPlanName = null;
       const trialEligible = true;

@@ -6,16 +6,6 @@ const { isAuthenticated, blockGuardians } = require("../middleware/middleware");
 const { upload } = require("../middleware/s3Upload");
 const checkFeatureAccess = require("../middleware/checkFeatureAccess");
 const { requirePermission, PERMISSIONS } = require("../middleware/permissionMiddleware");
-const {
-  getFreeTrialSettings,
-  formatFreeTrialLength,
-  getPremiumTrialPlan,
-} = require("../utils/freeTrial");
-const {
-  getCurrencyProfileForRequest,
-  localizeUsdAmount,
-  formatCurrencyAmount,
-} = require("../utils/currencyLocalization");
 const multer = require('multer');
 const path = require('path');
 
@@ -524,71 +514,9 @@ module.exports = (db) => {
     commonController.studentInfo(req, res, db)
   );
 
-  // Pricing page (public, view only)
-  router.get('/pricing', async (req, res) => {
-    const db = req.db || require('../config/db');
-    try {
-      const currencyProfile = await getCurrencyProfileForRequest(req);
-      const plansResult = await db.query(`
-        SELECT p.id AS plan_id, p.plan_name, p.description, p.is_active, p.plan_name AS category,
-        COALESCE(JSON_AGG(json_build_object('feature_name', f.feature_name) ORDER BY f.feature_name)
-        FILTER (WHERE f.id IS NOT NULL), '[]') AS features,
-        COALESCE(SUM(f.price_usd), 0) AS total_price
-        FROM plans p
-        LEFT JOIN plan_features pf ON p.id = pf.plan_id
-        LEFT JOIN features f ON pf.feature_id = f.id
-        WHERE p.is_active = TRUE
-        GROUP BY p.id
-        ORDER BY p.id;
-      `);
-      const plans = plansResult.rows.map(plan => ({
-        ...plan,
-        total_price: parseFloat(plan.total_price) || 0,
-        features: Array.isArray(plan.features) ? plan.features : []
-      })).map((plan) => {
-        const localized = localizeUsdAmount(plan.total_price, currencyProfile);
-        return {
-          ...plan,
-          priceUsdDisplay: formatCurrencyAmount(localized.amountUsd, "USD"),
-          localizedPriceDisplay: formatCurrencyAmount(
-            localized.localizedAmount,
-            localized.userCurrency,
-            currencyProfile.locale
-          ),
-          localizedCurrencyCode: localized.userCurrency,
-        };
-      });
-      const trialSettings = await getFreeTrialSettings(db);
-      const premiumPlan = await getPremiumTrialPlan(db);
-      res.render('common/pricing', {
-        title: 'Pricing',
-        plans,
-        currencyProfile,
-        messages: req.flash(),
-        freeTrialEnabled: trialSettings.enabled,
-        freeTrialLengthLabel: formatFreeTrialLength(trialSettings.days),
-        freeTrialDays: trialSettings.days,
-        premiumPlanId: premiumPlan?.id || null,
-        premiumPlanName: premiumPlan?.plan_name || "",
-      });
-    } catch (error) {
-  // ...removed error log for clean background operation...
-      req.flash('error', 'Failed to fetch pricing plans.');
-      res.render('common/pricing', {
-        title: 'Pricing',
-        plans: [],
-        currencyProfile: {
-          userCurrency: 'USD',
-          locale: 'en-US',
-        },
-        messages: req.flash(),
-        freeTrialEnabled: false,
-        freeTrialLengthLabel: null,
-        freeTrialDays: null,
-        premiumPlanId: null,
-        premiumPlanName: "",
-      });
-    }
+  // Legacy pricing URL now points to unified service-plan page
+  router.get('/pricing', (req, res) => {
+    return res.redirect('/account/service-plan');
   });
 
   // Guardian search API for autocomplete
