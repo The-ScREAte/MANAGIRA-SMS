@@ -884,7 +884,12 @@ const accountController = {
       return res.redirect("/account/register");
     }
 
-    const decodedPlan = decodeURIComponent(registrationDetails.plan);
+    let decodedPlan = registrationDetails.plan;
+    try {
+      decodedPlan = decodeURIComponent(String(registrationDetails.plan || ""));
+    } catch (_) {
+      decodedPlan = registrationDetails.plan;
+    }
 
     try {
       let currencyProfile = {
@@ -1018,9 +1023,42 @@ const accountController = {
       const ghsChargeDisplay = formatCurrencyAmount(ghsChargeBase, "GHS");
       postTrialPriceDisplay = `${usdPriceDisplay} (≈ ${localizedPriceDisplay}) ${intervalLabel}`;
 
+      let verificationChargeUsdDisplay = null;
+      let verificationChargeLocalDisplay = null;
+      if (isTrialCheckout) {
+        const verificationGhsAmount = amountDue / 100;
+        let usdPerGhs = null;
+
+        if (currencyProfile.usdToGhsRate && Number(currencyProfile.usdToGhsRate) > 0) {
+          usdPerGhs = 1 / Number(currencyProfile.usdToGhsRate);
+        } else if (localizedPlan.ghsAmount && localizedPlan.ghsAmount > 0 && planPrice > 0) {
+          usdPerGhs = planPrice / localizedPlan.ghsAmount;
+        }
+
+        const verificationUsdAmount = usdPerGhs && usdPerGhs > 0
+          ? verificationGhsAmount * usdPerGhs
+          : verificationGhsAmount;
+
+        verificationChargeUsdDisplay = formatCurrencyAmount(verificationUsdAmount, "USD");
+
+        if (
+          currencyProfile.userCurrency &&
+          currencyProfile.userCurrency !== "USD" &&
+          currencyProfile.usdToUserRate &&
+          Number(currencyProfile.usdToUserRate) > 0
+        ) {
+          const localAmount = verificationUsdAmount * Number(currencyProfile.usdToUserRate);
+          verificationChargeLocalDisplay = formatCurrencyAmount(
+            localAmount,
+            currencyProfile.userCurrency,
+            currencyProfile.locale
+          );
+        }
+      }
+
       const trialEndDisplay =
         trialActiveUntil instanceof Date
-          ? trialActiveUntil.toLocaleString("en-US", {
+          ? trialActiveUntil.toLocaleDateString("en-US", {
               weekday: "long",
 
               month: "long",
@@ -1028,12 +1066,6 @@ const accountController = {
               day: "numeric",
 
               year: "numeric",
-
-              hour: "numeric",
-
-              minute: "2-digit",
-
-              timeZoneName: "short",
             })
           : null;
 
@@ -1057,8 +1089,8 @@ const accountController = {
 
         publishableKey: process.env.PAYSTACK_PUBLIC_KEY,
 
-        orgEmail: orgRow.email || "",
-        orgPhone: orgRow.organization_phone || "",
+        orgEmail: registrationDetails.email || "",
+        orgPhone: registrationDetails.orgPhone || "",
         showFooterTopSection: true,
         messages: req.flash(),
 
@@ -1088,6 +1120,8 @@ const accountController = {
         usdPriceDisplay,
         localizedPriceDisplay,
         ghsChargeDisplay,
+        verificationChargeUsdDisplay,
+        verificationChargeLocalDisplay,
 
         // layout: false // Use default layout for header and footer
       });

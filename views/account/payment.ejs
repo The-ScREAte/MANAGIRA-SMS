@@ -1,78 +1,120 @@
 <style>
+      :root {
+        --primary: #01535b;
+        --primary-hover: #014147;
+        --text-primary: #0f172a;
+        --text-secondary: #475569;
+        --border: #dbe3ea;
+        --surface: #ffffff;
+        --surface-soft: #f8fafc;
+      }
+
       body {
-        background-color: #f5f5f5;
+        margin: 0;
+        background: linear-gradient(180deg, #f3f6f8 0%, #eef2f6 100%);
       }
 
       .payment-container {
-        max-width: 600px;
-        margin: 50px auto;
-        padding: 20px;
-        background-color: #fff;
-        border-radius: 8px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        /* display: "flex";
-        flex-direction: "column"; */
+        max-width: 760px;
+        margin: 28px auto 40px;
+        padding: 18px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        box-shadow: 0 18px 44px rgba(15, 23, 42, 0.09);
       }
 
-      h1,
-      h2 {
+      .payment-header {
         text-align: center;
-        color: #333;
+        margin: 2px 0 20px;
+      }
+
+      .payment-header h1 {
+        margin: 0 0 6px;
+        font-size: 2rem;
+        line-height: 1.2;
+        color: var(--text-primary);
+      }
+
+      .payment-header p {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: 0.96rem;
+      }
+
+      .card-block {
+        background: var(--surface-soft);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px;
+        margin-bottom: 14px;
       }
 
       h2 {
-        margin-bottom: 15px;
-        font-size: 18px;
+        margin: 0 0 12px;
+        font-size: 1.55rem;
+        color: var(--text-primary);
+        text-align: center;
       }
 
-      p {
-        font-size: 14px;
-        line-height: 1.6;
-        color: #555;
+      .section-title {
+        margin: 0 0 10px;
+        color: var(--text-primary);
+        font-size: 1.1rem;
+        font-weight: 700;
+      }
+
+      .summary-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .summary-highlight {
+        text-align: center;
+        color: #0f5132;
+        font-weight: 700;
+      }
+
+      .summary-row {
+        margin: 0;
+        font-size: 1.03rem;
+        color: #243242;
+        line-height: 1.5;
+      }
+
+      .summary-subtext {
+        margin: 0;
+        font-size: 0.88rem;
+        color: #0f5132;
+        text-align: center;
+        font-weight: 700;
       }
 
       .btn-primary {
         display: block;
         width: 100%;
-        padding: 12px;
-        font-size: 16px;
+        padding: 13px 14px;
+        font-size: 1.05rem;
+        font-weight: 700;
         color: #fff;
-        background-color: #01535b;
+        background: linear-gradient(135deg, var(--primary), #0b6a74);
         border: none;
-        border-radius: 4px;
+        border-radius: 10px;
         cursor: pointer;
         text-align: center;
-        margin-top: 15px;
+        margin-top: 12px;
+        transition: all 0.2s ease;
       }
 
       .btn-primary:hover {
-        background-color: #014147;
+        background: linear-gradient(135deg, var(--primary-hover), #0a5a63);
+        transform: translateY(-1px);
       }
 
       .btn-primary:disabled {
-        background-color: #ccc;
+        background: #94a3b8;
         cursor: not-allowed;
-      }
-
-      .selected-plan-message {
-        text-align: center;
-        font-size: 16px;
-        color: green;
-        font-weight: bold;
-        animation: fadeIn 1s ease-in-out;
-        margin-bottom: 20px;
-      }
-
-      .trial-banner {
-        max-width: 600px;
-        margin: 20px auto;
-        padding: 12px 16px;
-        background-color: #eaf6f2;
-        border: 1px solid #92d1bb;
-        border-radius: 6px;
-        color: #0f5132;
-        font-size: 14px;
-        line-height: 1.5;
+        transform: none;
       }
 
       @keyframes fadeIn {
@@ -87,24 +129,65 @@
       }
 
       #promo-section {
-        margin: 15px 0;
+        margin: 10px 0 0;
         padding: 10px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        background-color: #fafafa;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background-color: #ffffff;
+      }
+
+      #promo-section[hidden] {
+        display: none;
+      }
+
+      .promo-toggle-btn {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border: 1px dashed var(--border);
+        background: #ffffff;
+        border-radius: 10px;
+        padding: 11px 12px;
+        color: var(--text-primary);
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .promo-toggle-btn:hover {
+        border-color: var(--primary);
+      }
+
+      .promo-toggle-icon {
+        font-size: 0.9rem;
+        color: #64748b;
+        transition: transform 0.2s ease;
+      }
+
+      .promo-toggle-btn[aria-expanded="true"] .promo-toggle-icon {
+        transform: rotate(180deg);
       }
 
       #promoCode {
         width: 100%;
-        padding: 10px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
+        padding: 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
         margin-bottom: 10px;
         box-sizing: border-box;
+        font-size: 1rem;
+      }
+
+      #promoCode:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(1, 83, 91, 0.12);
       }
 
       #payment-message {
-        margin-top: 20px;
+        margin-top: 12px;
         font-size: 14px;
         font-weight: bold;
         color: red;
@@ -140,10 +223,34 @@
       }
 
       .payment-method-note {
-        font-size: 13px;
-        color: #333;
-        margin: 12px 0 18px 0;
+        font-size: 0.95rem;
+        color: #334155;
+        margin: 6px 0 10px;
         text-align: left;
+      }
+
+      @media (max-width: 640px) {
+        .payment-container {
+          margin: 14px auto 24px;
+          padding: 12px;
+          border-radius: 12px;
+        }
+
+        .payment-header h1 {
+          font-size: 1.55rem;
+        }
+
+        h2 {
+          font-size: 1.32rem;
+        }
+
+        .summary-row {
+          font-size: 0.96rem;
+        }
+
+        .btn-primary {
+          font-size: 0.98rem;
+        }
       }
   </style>
 <%- include('../partials/flash') %>
@@ -151,51 +258,68 @@
 <div class="payment-container">
   <% const rawPlanName = (registrationDetails && registrationDetails.plan) ? decodeURIComponent(registrationDetails.plan) : ""; %>
   <% const planNameDisplay = rawPlanName ? rawPlanName.charAt(0).toUpperCase() + rawPlanName.slice(1) : "Selected plan"; %>
-  <% if (isTrialCheckout) { %>
-    <div class="trial-banner">
-      You’re starting a <%= freeTrialLengthLabel || 'premium' %> free trial. A refundable GHS 1.00 verification charge will confirm your card. Your subscription renews at the plan price after the trial.
-    </div>
-  <% } %>
   <form id="payment-form" action="/account/payment" method="POST">
     <input type="hidden" name="paymentReference" id="paymentReference" />
     <input type="hidden" name="promoCode" id="hiddenPromoCode" />
 
     <% if (registrationDetails && registrationDetails.plan) { %>
-      <h1>Complete Your Payment</h1>
-      <h2>Payment Summary</h2>
-      <p><strong>Organization:</strong> <%= registrationDetails.orgName || 'N/A' %></p>
-      <p><strong>Email:</strong> <%= registrationDetails.email || 'N/A' %></p>
-      <p><strong>Plan:</strong> <%= planNameDisplay %></p>
-      <% if (trialEndDisplay) { %>
-        <p><strong>Trial Ends:</strong> <%= trialEndDisplay %></p>
-      <% } %>
-      <p><strong><%= isTrialCheckout ? "Verification Charge" : "Amount Due" %>:</strong> GHS <span id="amount-due"><%= (paymentDetails.amount / 100).toFixed(2) %></span></p>
-      <p><strong>USD Plan Price:</strong> <%= usdPriceDisplay || 'USD 0.00' %></p>
-      <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
-        <p><strong>Local Estimate (<%= currencyProfile.userCurrency %>):</strong> <%= localizedPriceDisplay || 'N/A' %></p>
-      <% } %>
-      <p><strong>Renewal Price:</strong> <%= postTrialPriceDisplay || ("USD 0.00") %></p>
-      <p style="font-size: 12px; color: #666; margin-top: 4px;">Paystack processes this checkout in <%= paystackChargeCurrency || 'GHS' %>. Your bank/card provider applies final local conversion.</p>
-      <% if (isTrialCheckout && freeTrialLengthLabel) { %>
-        <p><strong>Free Trial:</strong> <%= freeTrialLengthLabel %></p>
-      <% } %>
-
-      <h2>Promo Code</h2>
-      <div id="promo-section">
-        <input type="text" id="promoCode" name="promoCode" placeholder="Enter Promo Code" />
-        <button type="button" id="applyPromoCode" class="btn-primary">Apply</button>
-        <p id="promo-message" style="color: green; display: none">Promo code applied successfully!</p>
-        <p id="promo-error" style="color: red; display: none"></p>
+      <div class="payment-header">
+        <h1>Complete Your Payment</h1>
       </div>
 
-      <h2>Payment Method</h2>
-      <p class="payment-method-note">Secure payment via Paystack (Visa & MasterCard).</p>
+      <div class="card-block">
+        <h2>Payment Summary</h2>
+        <% if (isTrialCheckout && freeTrialLengthLabel) { %>
+          <p class="summary-row summary-highlight"><strong>Free Trial:</strong> <%= freeTrialLengthLabel %></p>
+        <% } %>
+        <% if (trialEndDisplay) { %>
+          <p class="summary-row summary-highlight"><strong>Trial Ends:</strong> <%= trialEndDisplay %></p>
+        <% } %>
+        <div class="summary-list">
+          <p class="summary-row"><strong>Organization:</strong> <%= registrationDetails.orgName || 'N/A' %></p>
+          <p class="summary-row"><strong>Email:</strong> <%= registrationDetails.email || 'N/A' %></p>
+          <p class="summary-row"><strong>Plan:</strong> <%= planNameDisplay %></p>
+          <% if (!isTrialCheckout) { %>
+            <p class="summary-row"><strong>Amount Due:</strong> GHS <span id="amount-due"><%= (paymentDetails.amount / 100).toFixed(2) %></span></p>
+          <% } %>
+          <p class="summary-row"><strong>Plan Price:</strong> <%= usdPriceDisplay || 'USD 0.00' %></p>
+          <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
+            <p class="summary-row"><strong>Local Estimate (<%= currencyProfile.userCurrency %>):</strong> <%= localizedPriceDisplay || 'N/A' %></p>
+          <% } %>
+          <p class="summary-row"><strong>Renewal Price:</strong> <%= postTrialPriceDisplay || ("USD 0.00") %></p>
+          <% if (isTrialCheckout) { %>
+            <p class="summary-row"><strong>Verification Charge:</strong>
+              <span class="amount-display"><%= verificationChargeUsdDisplay || 'USD 0.00' %><% if (verificationChargeLocalDisplay) { %> / <%= verificationChargeLocalDisplay %><% } %></span>
+              <span id="amount-due" style="display:none;"><%= (paymentDetails.amount / 100).toFixed(2) %></span>
+            </p>
+          <% } %>
+          <p class="summary-subtext">Only <%= verificationChargeUsdDisplay || 'USD 0.00' %> will be charged today to verify your card.<br>Your bank may process this charge in your local currency.</p>
+        </div>
+      </div>
 
-      <% if (isTrialCheckout) { %>
-        <button type="button" id="pay-button" class="btn-primary">Begin Free Trial</button>
-      <% } else { %>
-        <button type="button" id="pay-button" class="btn-primary">Pay <%= paystackChargeCurrency || 'GHS' %> <span id="final-amount"><%= (paymentDetails.amount / 100).toFixed(2) %></span></button>
-      <% } %>
+      <div class="card-block">
+        <button type="button" id="promo-toggle" class="promo-toggle-btn" aria-expanded="false" aria-controls="promo-section">
+          <span>Have a promo code?</span>
+          <span class="promo-toggle-icon">▾</span>
+        </button>
+        <div id="promo-section" hidden>
+          <input type="text" id="promoCode" name="promoCode" placeholder="Enter Promo Code" />
+          <button type="button" id="applyPromoCode" class="btn-primary">Apply</button>
+          <p id="promo-message" style="color: green; display: none">Promo code applied successfully!</p>
+          <p id="promo-error" style="color: red; display: none"></p>
+        </div>
+      </div>
+
+      <div class="card-block">
+        <h3 class="section-title">Payment Method</h3>
+        <p class="payment-method-note">Secure payment via Paystack (Visa &amp; MasterCard).</p>
+
+        <% if (isTrialCheckout) { %>
+          <button type="button" id="pay-button" class="btn-primary">Begin Free Trial</button>
+        <% } else { %>
+          <button type="button" id="pay-button" class="btn-primary">Pay <%= paystackChargeCurrency || 'GHS' %> <span id="final-amount"><%= (paymentDetails.amount / 100).toFixed(2) %></span></button>
+        <% } %>
+      </div>
 
       <div id="payment-message"></div>
 
@@ -206,7 +330,8 @@
 </div>
 <script>
       document.addEventListener("DOMContentLoaded", function () {
-        let finalPaymentAmount = parseInt('<%= paymentDetails.amount %>', 10);
+        const basePaymentAmount = parseInt('<%= paymentDetails.amount %>', 10);
+        let finalPaymentAmount = basePaymentAmount;
         let appliedPromoCode = '';
         const gatewayCurrency = '<%= paystackChargeCurrency || "GHS" %>';
         const defaultPayButtonHtml = '<% if (isTrialCheckout) { %>Begin Free Trial<% } else { %>Pay <%= paystackChargeCurrency || "GHS" %> <span id="final-amount"><%= (paymentDetails.amount / 100).toFixed(2) %></span><% } %>';
@@ -217,6 +342,22 @@
         );
       }
 
+      const promoToggleBtn = document.getElementById("promo-toggle");
+      const promoSectionEl = document.getElementById("promo-section");
+      function setPromoExpanded(expanded) {
+        if (!promoToggleBtn || !promoSectionEl) return;
+        promoToggleBtn.setAttribute("aria-expanded", expanded ? "true" : "false");
+        promoSectionEl.hidden = !expanded;
+      }
+
+      if (promoToggleBtn && promoSectionEl) {
+        setPromoExpanded(false);
+        promoToggleBtn.addEventListener("click", function() {
+          const isExpanded = promoToggleBtn.getAttribute("aria-expanded") === "true";
+          setPromoExpanded(!isExpanded);
+        });
+      }
+
       // Promo code functionality
       const applyBtn = document.getElementById("applyPromoCode");
       if (applyBtn) {
@@ -224,10 +365,10 @@
         const promoCode = document.getElementById("promoCode").value.trim();
         const promoMessage = document.getElementById("promo-message");
         const promoError = document.getElementById("promo-error");
-        const amountDueElement = document.getElementById("amount-due");
         const finalAmountElement = document.getElementById("final-amount");
 
         if (!promoCode) {
+          setPromoExpanded(true);
           promoError.textContent = "Please enter a promo code.";
           promoError.style.display = "block";
           promoMessage.style.display = "none";
@@ -241,25 +382,28 @@
           const data = await response.json();
 
           if (data.success) {
+            setPromoExpanded(true);
             promoMessage.style.display = "block";
             promoMessage.textContent = "✅ Promo applied! " + data.discount + "% discount.";
             promoError.style.display = "none";
 
             appliedPromoCode = promoCode;
 
-            const originalAmount = parseFloat(amountDueElement.textContent);
+            const originalAmount = basePaymentAmount / 100;
             const discountAmount = (originalAmount * (data.discount / 100)).toFixed(2);
             const finalAmount = (originalAmount - discountAmount).toFixed(2);
 
             finalAmountElement.textContent = finalAmount;
             finalPaymentAmount = Math.round(finalAmount * 100);
           } else {
+            setPromoExpanded(true);
             promoMessage.style.display = "none";
             promoError.textContent = data.message || "Invalid promo code";
             promoError.style.display = "block";
           }
         } catch (error) {
           console.error("❌ Error applying promo code:", error);
+          setPromoExpanded(true);
           promoError.textContent = "Error validating promo code.";
           promoError.style.display = "block";
           promoMessage.style.display = "none";
