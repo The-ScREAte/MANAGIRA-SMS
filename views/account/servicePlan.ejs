@@ -6,297 +6,336 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Select a Service Plan</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
       :root {
         --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
+        --brand: var(--org-primary-color, #01535b);
+        --brand-hover: var(--org-primary-hover, #01444a);
+        --border-color: #dfe5ec;
+        --text-main: #1f2937;
+        --text-muted: #5f6b7a;
+        --surface: #ffffff;
+        --page-bg: #f4f7fb;
+      }
+
+      * {
+        box-sizing: border-box;
       }
 
       body {
         font-family: var(--font-family);
         margin: 0;
-        background-color: #f5f5f5;
-      }
- 
-      form {
-        max-width: 1000px;
-        margin: 50px auto;
-        background-color: #fff;
-        border-radius: 8px;
-        border: 1px solid #ddd;
-        padding-bottom: 20px;
+        background: var(--page-bg);
+        color: var(--text-main);
       }
 
-      h1 {
+      .pricing-shell {
+        max-width: 1140px;
+        margin: 0 auto;
+        padding: 24px 16px 48px;
+      }
+
+      .pricing-header {
+        background: var(--surface);
+        border: 1px solid var(--border-color);
+        border-radius: 14px;
+        padding: 24px;
         text-align: center;
-        margin: 20px 0;
-        color: #333;
+        margin-bottom: 18px;
       }
 
-      p {
-        padding: 10px;
+      .pricing-header h1 {
+        margin: 0;
+        font-size: 2rem;
+        line-height: 1.2;
+        color: var(--text-main);
       }
 
-      .plan-table {
-        display: flex;
-        border-top: 1px solid #ddd;
+      .pricing-header p {
+        margin: 10px 0 0;
+        font-size: 15px;
+        color: var(--text-muted);
       }
 
-      .plan {
-        flex: 1;
+      .trial-banner {
+        margin-bottom: 14px;
+        padding: 12px 14px;
+        border-radius: 10px;
+        border: 1px solid #8fcab4;
+        background: #e7faf1;
+        color: #0f5132;
+        font-size: 14px;
+        line-height: 1.45;
+      }
+
+      .plan-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 16px;
+      }
+
+      .plan-card {
         cursor: pointer;
-        text-align: center;
-        transition: background-color 0.3s ease, border 0.3s ease,
-          font-weight 0.3s ease;
-        border-right: 1px solid #ddd;
+        background: var(--surface);
+        border: 1px solid var(--border-color);
+        border-radius: 14px;
+        overflow: hidden;
+        position: relative;
         display: flex;
         flex-direction: column;
-        justify-content: space-between;
-        padding: 15px;
+        min-height: 100%;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
       }
 
-      .plan:last-child {
-        border-right: none;
+      .plan-card.selected {
+        border-color: var(--brand);
+        box-shadow: 0 0 0 3px rgba(1, 83, 91, 0.28), 0 10px 24px rgba(1, 83, 91, 0.12);
+        background: #f2fbfa;
       }
 
-      .plan-header {
-        background-color: #01535b;
-        color: white;
-        padding: 15px;
+      .plan-card.selected::after {
+        content: "Selected";
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: #ffffff;
+        color: var(--brand);
+        border: 1px solid rgba(1, 83, 91, 0.25);
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+
+      .plan-card.selected .plan-name {
+        background: var(--brand-hover);
+      }
+
+      .plan-name {
+        background: var(--brand);
+        color: #fff;
+        padding: 14px 16px;
+        font-weight: 700;
         font-size: 16px;
-        font-weight: bold;
+        text-align: center;
       }
 
-      .plan-body {
-        padding: 20px;
-        background-color: #fff;
-        border-bottom: 1px solid #ddd;
-        flex-grow: 1;
+      .plan-content {
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        flex: 1;
       }
 
-      .plan-body p {
-        margin: 0 0 15px 0;
-        font-size: 14px;
-        color: #333;
-      }
-
-      .plan-body ul {
-        list-style: none;
-        padding: 0;
+      .plan-description {
         margin: 0;
-        text-align: left;
-        border-top: 1px solid #ddd;
-        padding-top: 15px;
+        font-size: 14px;
+        line-height: 1.5;
+        color: var(--text-muted);
       }
 
-      .plan-body ul li {
-        margin-bottom: 8px;
+      .feature-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        border-top: 1px solid var(--border-color);
+        padding-top: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .feature-list li {
         font-size: 14px;
-        color: #333;
+        color: var(--text-main);
+        line-height: 1.4;
       }
 
       .plan-price {
-        padding: 15px 20px;
-        font-size: 14px;
-        color: #333;
-        border-top: 1px solid #ddd;
-        background-color: #f9f9f9;
+        border-top: 1px solid var(--border-color);
+        padding: 14px 16px;
+        background: #f8fafc;
       }
 
       .plan-price strong {
         display: block;
-        margin: 5px 0;
+        margin: 0;
+        font-size: 1.15rem;
+        color: var(--text-main);
       }
 
-      .trial-banner {
-        max-width: 85%;
-        margin: 20px auto 0;
-        padding: 12px 16px;
-        background-color: #eaf6f2;
-        border: 1px solid #92d1bb;
-        border-radius: 6px;
-        color: #0f5132;
-        font-size: 14px;
-        line-height: 1.5;
+      .price-caption {
+        margin-top: 4px;
+        font-size: 13px;
+        color: var(--text-muted);
       }
 
-      /* Selected plan styling */
-      .plan.selected {
-        border: 3px solid #01535b !important;
-        background-color: #eaf4ff;
-        font-weight: bold;
+      .price-local {
+        margin-top: 6px;
+        font-size: 12px;
+        color: var(--text-muted);
+        font-weight: 500;
+      }
+
+      .plan-trial-tag {
+        margin-top: 8px;
+        font-size: 13px;
+        color: #0d8d5d;
+        font-weight: 600;
+      }
+
+      .form-actions {
+        margin-top: 16px;
+        display: grid;
+        gap: 10px;
+      }
+
+      .btn,
+      .btn-secondary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        min-height: 44px;
+        border-radius: 10px;
+        border: 1px solid transparent;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
       }
 
       .btn {
-        display: block;
-        width: 100%;
-        padding: 15px;
-        background-color: #01535b;
-        color: white;
-        border: none;
-        font-size: 16px;
-        cursor: pointer;
-        text-align: center;
+        background: var(--brand);
+        color: #fff;
       }
 
       .btn:hover {
-        background-color: #01535b;
+        background: var(--brand-hover);
       }
 
       .btn-secondary {
-        display: block;
-        width: 100%;
-        padding: 15px;
-        background-color: #fff;
-        color: #01535b;
-        border: 2px solid #01535b;
-        font-size: 16px;
-        cursor: pointer;
-        text-align: center;
-        margin-top: 10px;
+        background: #fff;
+        border-color: var(--brand);
+        color: var(--brand);
       }
 
       .btn-secondary:hover {
-        background-color: #e6f5f3;
+        background: #edf7f6;
       }
 
-      /* Responsive Styles */
+      .btn-secondary:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .trial-note {
+        margin: 0;
+        text-align: center;
+        color: #b65b00;
+        font-size: 14px;
+      }
+
       @media (max-width: 768px) {
-        form {
-          max-width: 100%;
-          margin: 20px auto;
-          padding: 15px;
-          box-shadow: none;
+        .pricing-shell {
+          padding: 16px 16px 36px;
         }
 
-        h1 {
-          font-size: 1.8rem;
-          margin: 15px 0;
+        .pricing-header {
+          padding: 18px;
         }
 
-        .plan-table {
-          flex-direction: column;
-          border-top: none;
-          gap: 15px;
+        .pricing-header h1 {
+          font-size: 1.7rem;
         }
 
-        .plan {
-          border-right: none;
-          border: 1px solid #ddd;
-          padding: 10px;
-        }
-
-        .plan-header {
-          font-size: 1.2rem;
-          padding: 10px;
-        }
-
-        .plan-body {
-          padding: 10px;
-        }
-
-        .plan-body p {
-          font-size: 0.95rem;
-        }
-
-        .plan-body ul {
-          padding-top: 10px;
-        }
-
-        .plan-body ul li {
-          font-size: 0.9rem;
-        }
-
-        .plan-price {
-          font-size: 1rem;
-          padding: 10px;
-        }
-
-        .btn {
-          padding: 12px;
-          font-size: 1rem;
+        .plan-grid {
+          grid-template-columns: 1fr;
         }
       }
 
       @media (max-width: 480px) {
-        h1 {
-          font-size: 1.6rem;
-        }
-
-        .plan-body p,
-        .plan-body ul li,
-        .plan-price strong {
-          font-size: 0.85rem;
-        }
-
-        .btn {
-          font-size: 0.9rem;
-          padding: 10px;
+        .pricing-shell {
+          padding: 14px 14px 30px;
         }
       }
     </style>
   </head>
 
   <body>
-    <form action="/account/service-plan" method="POST" id="servicePlanForm">
-      <% if (typeof trialRequested !== 'undefined' && trialRequested && premiumPlanName) { %>
-      <div class="trial-banner" style="border-color:#0d8d5d;background-color:#e7faf1;">
-        You're starting the <strong><%= premiumPlanName %></strong> free trial. We'll verify your card with a refundable GHS 1.00 charge on the next step, and you can change plans before billing begins.
-      </div>
-      <% } %>
-      <h1>Select a Service Plan</h1>
-      <div class="plan-table">
+    <main class="pricing-shell">
+      <section class="pricing-header">
+        <h1>Select a Service Plan</h1>
+        <p>Choose the package that best fits your school and continue to registration.</p>
+      </section>
+
+      <form action="/account/service-plan" method="POST" id="servicePlanForm">
+        <% if (typeof trialRequested !== 'undefined' && trialRequested && premiumPlanName) { %>
+          <div class="trial-banner">
+            You're starting the <strong><%= premiumPlanName %></strong> free trial. We'll verify your card on the next step, and you can change plans before billing begins.
+          </div>
+        <% } %>
+
+        <section class="plan-grid">
         <% plans.forEach(plan => { if (plan.is_active) { %>
-        <div
-          class="plan"
+        <article
+          class="plan-card"
           data-plan="<%= plan.plan_name %>"
           data-plan-id="<%= plan.plan_id %>"
         >
-          <div class="plan-header"><%= plan.plan_name %></div>
-          <div class="plan-body">
-            <p><%= plan.description %></p>
-            <ul>
+          <div class="plan-name"><%= plan.plan_name %></div>
+          <div class="plan-content">
+            <p class="plan-description"><%= plan.description %></p>
+            <ul class="feature-list">
               <% plan.features.forEach(feature => { %>
-              <li>- <%= feature.feature_name %></li>
-              <hr />
+                <li><%= feature.feature_name %></li>
               <% }) %>
             </ul>
           </div>
           <div class="plan-price">
             <strong><%= plan.priceUsdDisplay || ('$' + plan.total_price.toFixed(2)) %></strong>
+            <div class="price-caption">per month</div>
             <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
-              <div style="margin-top: 6px; font-size: 12px; color: #666; font-weight: 500;">
-                ≈ <%= plan.localizedPriceDisplay %>
+              <div class="price-local">
+                ≈ <%= plan.localizedPriceDisplay %> / month
               </div>
             <% } %>
             <% if (typeof trialRequested !== 'undefined' && trialRequested && premiumPlanId && String(plan.plan_id) === String(premiumPlanId)) { %>
-              <div style="margin-top: 8px; font-size: 13px; color: #0d8d5d; font-weight: 500;">
+              <div class="plan-trial-tag">
                 Pay after free trial
               </div>
             <% } %>
           </div>
-        </div>
+        </article>
         <% }}); %>
-      </div>
+        </section>
     
-      <input type="hidden" name="plan" id="selectedPlan" />
-      <input type="hidden" name="plan_id" id="selectedPlanId" />
-      <input type="hidden" name="trialRequested" id="trialRequestedField" value="<%= trialRequested ? '1' : '' %>" />
-      <button type="submit" class="btn" id="proceedPlanButton">Proceed to Registration</button>
-      <% if (typeof freeTrialEnabled !== 'undefined' && freeTrialEnabled && premiumPlanId) { %>
-      <button type="button" class="btn-secondary" id="startTrialButton" <%= (!trialEligible ? "disabled" : "") %>>
-        Start Premium Free Trial
-        <% if (freeTrialLengthLabel) { %>
-          (<%= freeTrialLengthLabel %>)
-        <% } %>
-      </button>
-      <% if (!trialEligible) { %>
-        <p style="text-align:center;color:#b65b00;margin-top:6px;font-size:14px;">This email has already redeemed the free trial.</p>
-      <% } %>
-      <% } %>
-    </form>
+        <input type="hidden" name="plan" id="selectedPlan" />
+        <input type="hidden" name="plan_id" id="selectedPlanId" />
+        <input type="hidden" name="trialRequested" id="trialRequestedField" value="<%= trialRequested ? '1' : '' %>" />
+
+        <div class="form-actions">
+          <button type="submit" class="btn" id="proceedPlanButton">Proceed to Registration</button>
+          <% if (typeof freeTrialEnabled !== 'undefined' && freeTrialEnabled && premiumPlanId) { %>
+            <button type="button" class="btn-secondary" id="startTrialButton" <%= (!trialEligible ? "disabled" : "") %>>
+              Start Premium Free Trial
+              <% if (freeTrialLengthLabel) { %>
+                (<%= freeTrialLengthLabel %>)
+              <% } %>
+            </button>
+            <% if (!trialEligible) { %>
+              <p class="trial-note">This email has already redeemed the free trial.</p>
+            <% } %>
+          <% } %>
+        </div>
+      </form>
+    </main>
     <script>
       document.addEventListener("DOMContentLoaded", function () {
-        const plans = document.querySelectorAll(".plan");
+        const plans = document.querySelectorAll(".plan-card");
         const selectedPlanInput = document.getElementById("selectedPlan");
         const selectedPlanIdInput = document.getElementById("selectedPlanId");
         const form = document.getElementById("servicePlanForm");
@@ -312,7 +351,7 @@
 
         if (defaultPlanId) {
           const defaultPlanEl = document.querySelector(
-            `.plan[data-plan-id="${defaultPlanId}"]`
+            `.plan-card[data-plan-id="${defaultPlanId}"]`
           );
           if (defaultPlanEl) {
             defaultPlanEl.classList.add("selected");
@@ -365,7 +404,7 @@
               return;
             }
             const premiumPlanEl = document.querySelector(
-              `.plan[data-plan-id="${premiumPlanId}"]`
+              `.plan-card[data-plan-id="${premiumPlanId}"]`
             );
             if (premiumPlanEl) {
               plans.forEach((p) => p.classList.remove("selected"));
