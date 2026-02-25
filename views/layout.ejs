@@ -4,12 +4,20 @@
 <head>
     <%- include('partials/head', { title: (typeof title !== 'undefined' && title) ? title : 'Managira' }) %>
     <style>
-        html, body {
+        html {
             height: 100%;
         }
 
         body {
-            min-height: 100vh;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #app-scale-root {
+            flex: 1;
             display: flex;
             flex-direction: column;
         }
