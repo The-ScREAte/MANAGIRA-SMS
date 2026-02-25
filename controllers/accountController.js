@@ -25,8 +25,6 @@ const fs = require("fs");
 
 const PDFDocument = require("pdfkit");
 
-const paystack = require("paystack")(process.env.PAYSTACK_SECRET_KEY);
-
 const axios = require("axios");
 
 const he = require("he");
@@ -43,6 +41,7 @@ const {
   formatFreeTrialLength,
   hasEmailLockedTrial,
 } = require("../utils/freeTrial");
+const { getPaystackSettings } = require("../utils/paystackConfig");
 const {
   WEEKDAY_OPTIONS,
   parseBoolean,
@@ -70,6 +69,16 @@ function extractS3KeyFromUrl(url) {
     return value;
   }
   return null;
+}
+
+async function getActivePaystackSecretKey() {
+  const settings = await getPaystackSettings(db);
+  return settings.activeSecretKey || process.env.PAYSTACK_SECRET_KEY || "";
+}
+
+async function getActivePaystackPublicKey() {
+  const settings = await getPaystackSettings(db);
+  return settings.activePublicKey || process.env.PAYSTACK_PUBLIC_KEY || "";
 }
 
 async function ensureProfileImageColumns(db) {
@@ -451,8 +460,9 @@ const accountController = {
   listPaystackBanks: async (req, res) => {
     try {
       const country = (req.query.country || "ghana").toLowerCase();
+      const paystackSecretKey = await getActivePaystackSecretKey();
       const headers = {
-        headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}` },
+        headers: { Authorization: `Bearer ${paystackSecretKey}` },
       };
       const response = await axios.get(
         `https://api.paystack.co/bank?country=${country}`,
@@ -1092,7 +1102,7 @@ const accountController = {
 
         paymentReference: paymentReference,
 
-        publishableKey: process.env.PAYSTACK_PUBLIC_KEY,
+        publishableKey: await getActivePaystackPublicKey(),
 
         orgEmail: registrationDetails.email || "",
         orgPhone: registrationDetails.orgPhone || "",
@@ -1166,7 +1176,7 @@ const accountController = {
 
         {
           headers: {
-            Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+            Authorization: `Bearer ${await getActivePaystackSecretKey()}`,
           },
         }
       );
@@ -1259,7 +1269,7 @@ const accountController = {
 
         {
           headers: {
-            Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+            Authorization: `Bearer ${await getActivePaystackSecretKey()}`,
 
             "Content-Type": "application/json",
           },
@@ -1343,7 +1353,7 @@ const accountController = {
 
           {
             headers: {
-              Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+              Authorization: `Bearer ${await getActivePaystackSecretKey()}`,
 
               "Content-Type": "application/json",
             },
@@ -1367,7 +1377,7 @@ const accountController = {
 
           {
             headers: {
-              Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+              Authorization: `Bearer ${await getActivePaystackSecretKey()}`,
 
               "Content-Type": "application/json",
             },
@@ -1615,6 +1625,20 @@ const accountController = {
     }
 
     try {
+      const result = await db.query(
+        `SELECT discount_percentage
+         FROM promo_codes
+         WHERE UPPER(code) = UPPER($1)
+           AND is_active = TRUE
+           AND expiration_date > NOW()
+         LIMIT 1`,
+        [String(code).trim()]
+      );
+
+      if (result.rows.length === 0) {
+        return res.json({ success: false, message: "Invalid or expired promo code." });
+      }
+
       const discount = result.rows[0].discount_percentage;
 
       return res.json({ success: true, discount });
@@ -1625,16 +1649,20 @@ const accountController = {
 
   paystackWebhookPost: async (req, res) => {
     try {
+      const rawBody = Buffer.isBuffer(req.body)
+        ? req.body.toString("utf8")
+        : JSON.stringify(req.body || {});
+
       const hash = crypto
         .createHmac("sha512", process.env.PAYSTACK_WEBHOOK_SECRET)
-        .update(JSON.stringify(req.body))
+        .update(rawBody)
         .digest("hex");
 
       if (hash !== req.headers["x-paystack-signature"]) {
                 return res.status(400).send("Webhook signature verification failed");
       }
 
-      const event = req.body;
+      const event = Buffer.isBuffer(req.body) ? JSON.parse(rawBody) : req.body;
 
             switch (event.event) {
         case "subscription.create": {
@@ -1663,42 +1691,20 @@ const accountController = {
                 organization_id,
                 organization_name,
                 email,
-                first_name,
-                last_name,
               } = orgResult.rows[0];
               // Update payment record
 
               await db.query(
-                "UPDATE payments SET status = 'active', amount_paid = $1, last_payment_date = NOW() WHERE organization_id = $2",
-
-                [invoice.amount / 100, organization_id]
+                "UPDATE payments SET status = 'failed' WHERE organization_id = $1",
+                [organization_id]
               );
 
-              // Send branded receipt email
-
-              await sendBrandedReceiptEmail({
-                to: email,
-
-                name: organization_name,
-
-                amount: (invoice.amount / 100).toFixed(2),
-                reference: invoice.reference || invoice.invoice_code || "",
-                organization: organization_name,
-
-                email,
-                date: new Date().toLocaleDateString(),
-              });
-
-              // Send decorated registration success email to user
-
-              try {
-                await sendRegistrationSuccessEmail(
-                  email,
-                  first_name || "",
-                  last_name || ""
-                );
-              } catch (emailErr) {
-                              }
+              if (email) {
+                await sendPaymentFailureEmail(email);
+              }
+              if (process.env.ADMIN_EMAIL) {
+                await sendPaymentFailureEmail(process.env.ADMIN_EMAIL);
+              }
             }
           }
 
@@ -2172,7 +2178,7 @@ const accountController = {
             customerData,
             {
               headers: {
-                Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+                Authorization: `Bearer ${await getActivePaystackSecretKey()}`,
                 "Content-Type": "application/json",
               },
             }
@@ -2203,7 +2209,7 @@ const accountController = {
 
             {
               headers: {
-                Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+                Authorization: `Bearer ${await getActivePaystackSecretKey()}`,
               },
             }
           );
@@ -2259,7 +2265,7 @@ const accountController = {
 
         needsPassword: false,
 
-        publishableKey: process.env.PAYSTACK_PUBLIC_KEY,
+        publishableKey: await getActivePaystackPublicKey(),
 
         orgEmail: orgRow.email || "",
         orgPhone: orgRow.organization_phone || "",
@@ -2326,7 +2332,7 @@ const accountController = {
 
         {
           headers: {
-            Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+            Authorization: `Bearer ${await getActivePaystackSecretKey()}`,
           },
         }
       );
@@ -2464,7 +2470,7 @@ const accountController = {
 
           {
             headers: {
-              Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+              Authorization: `Bearer ${await getActivePaystackSecretKey()}`,
 
               "Content-Type": "application/json",
             },
@@ -2485,7 +2491,7 @@ const accountController = {
 
         {
           headers: {
-            Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+            Authorization: `Bearer ${await getActivePaystackSecretKey()}`,
           },
         }
       );
@@ -4945,7 +4951,7 @@ const accountController = {
                   }
       }
 
-      if (orgId && process.env.PAYSTACK_SECRET_KEY && orgRow.email && !isHubMember) {
+      if (orgId && (await getActivePaystackSecretKey()) && orgRow.email && !isHubMember) {
         if (!paystackCustomerCode) {
           try {
             const customerData = {
@@ -4959,7 +4965,7 @@ const accountController = {
               customerData,
               {
                 headers: {
-                  Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+                  Authorization: `Bearer ${await getActivePaystackSecretKey()}`,
                   'Content-Type': 'application/json',
                 },
               }
@@ -4980,7 +4986,7 @@ const accountController = {
               `https://api.paystack.co/customer/${paystackCustomerCode}`,
               {
                 headers: {
-                  Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+                  Authorization: `Bearer ${await getActivePaystackSecretKey()}`,
                 },
               }
             );
@@ -6113,7 +6119,7 @@ const accountController = {
           customerData,
           {
             headers: {
-              Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+              Authorization: `Bearer ${await getActivePaystackSecretKey()}`,
               "Content-Type": "application/json",
             },
           }
@@ -6152,7 +6158,7 @@ const accountController = {
         chargeData,
         {
           headers: {
-            Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+            Authorization: `Bearer ${await getActivePaystackSecretKey()}`,
             "Content-Type": "application/json",
           },
         }
@@ -6197,7 +6203,7 @@ const accountController = {
         { reference, pin },
         {
           headers: {
-            Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+            Authorization: `Bearer ${await getActivePaystackSecretKey()}`,
             "Content-Type": "application/json",
           },
         }
@@ -6242,7 +6248,7 @@ const accountController = {
         { reference, otp },
         {
           headers: {
-            Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+            Authorization: `Bearer ${await getActivePaystackSecretKey()}`,
             "Content-Type": "application/json",
           },
         }
@@ -6287,7 +6293,7 @@ const accountController = {
         { reference, phone },
         {
           headers: {
-            Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+            Authorization: `Bearer ${await getActivePaystackSecretKey()}`,
             "Content-Type": "application/json",
           },
         }
@@ -6331,7 +6337,7 @@ const accountController = {
     const orgId = req.session.organizationId;
 
     try {
-      if (!process.env.PAYSTACK_SECRET_KEY) {
+      if (!(await getActivePaystackSecretKey())) {
         return res.status(500).json({
           success: false,
           message: "Paystack secret key is not configured.",
@@ -6381,7 +6387,7 @@ const accountController = {
 
       const paystackHeaders = {
         headers: {
-          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+          Authorization: `Bearer ${await getActivePaystackSecretKey()}`,
           "Content-Type": "application/json",
         },
       };

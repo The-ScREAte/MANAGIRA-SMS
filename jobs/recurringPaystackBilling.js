@@ -3,9 +3,52 @@
 
 const db = require('../config/db');
 const axios = require('axios');
+const { getPaystackSettings } = require('../utils/paystackConfig');
+const { sendEmailSafely, renderCleanEmail } = require('../utils/emailHelper');
 require('dotenv').config();
 
+async function getPaymentsFailureColumns() {
+  const result = await db.query(
+    `SELECT column_name
+     FROM information_schema.columns
+     WHERE table_name = 'payments'
+       AND column_name IN ('failed_attempts', 'last_failed_payment')`
+  );
+
+  const columnSet = new Set(result.rows.map((row) => row.column_name));
+  return {
+    hasFailedAttempts: columnSet.has('failed_attempts'),
+    hasLastFailedPayment: columnSet.has('last_failed_payment'),
+  };
+}
+
+async function sendRenewalFailureNotification({ email, organizationName, amount, reason }) {
+  if (!email) return;
+
+  const html = renderCleanEmail({
+    title: 'Subscription Renewal Failed',
+    greeting: `Hello <strong>${organizationName || 'Managira User'}</strong>,`,
+    paragraphs: [
+      `We could not process your automatic renewal charge of GHS ${Number(amount || 0).toFixed(2)}.`,
+      reason ? `Paystack response: ${reason}` : 'Your card may have insufficient funds or the authorization is no longer valid.',
+      'Please update your card details in billing settings to resume successful renewals.',
+    ],
+  });
+
+  await sendEmailSafely(
+    {
+      to: email,
+      subject: 'Managira: Renewal Payment Failed',
+      html,
+    },
+    'RecurringPaystackFailure'
+  );
+}
+
 async function runRecurringBilling() {
+  const paystackSettings = await getPaystackSettings(db);
+  const activePaystackSecretKey = paystackSettings.activeSecretKey || process.env.PAYSTACK_SECRET_KEY;
+  const paymentFailureColumns = await getPaymentsFailureColumns();
   
   // Fetch current billing interval from database
   let billingInterval = 'monthly';
@@ -91,7 +134,7 @@ async function runRecurringBilling() {
           currency: 'GHS',
         },
         {
-          headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}` }
+          headers: { Authorization: `Bearer ${activePaystackSecretKey}` }
         }
       );
       
@@ -124,13 +167,85 @@ async function runRecurringBilling() {
         }
         
         await db.query(
-          `UPDATE payments SET amount_paid = $1, next_payment_end_date = ${nextPaymentDate} WHERE organization_id = $2`,
+          paymentFailureColumns.hasFailedAttempts && paymentFailureColumns.hasLastFailedPayment
+            ? `UPDATE payments
+               SET amount_paid = $1,
+                   next_payment_end_date = ${nextPaymentDate},
+                   status = 'active',
+                   failed_attempts = 0,
+                   last_failed_payment = NULL
+               WHERE organization_id = $2`
+            : `UPDATE payments
+               SET amount_paid = $1,
+                   next_payment_end_date = ${nextPaymentDate},
+                   status = 'active'
+               WHERE organization_id = $2`,
           [amount / 100, org.organization_id]
         );
         
       } else {
+        const failureMessage = chargeRes.data?.message || 'Charge authorization failed.';
+
+        await db.query(
+          paymentFailureColumns.hasFailedAttempts && paymentFailureColumns.hasLastFailedPayment
+            ? `UPDATE payments
+               SET status = 'failed',
+                   failed_attempts = COALESCE(failed_attempts, 0) + 1,
+                   last_failed_payment = NOW()
+               WHERE organization_id = $1`
+            : `UPDATE payments
+               SET status = 'failed'
+               WHERE organization_id = $1`,
+          [org.organization_id]
+        );
+
+        await sendRenewalFailureNotification({
+          email: org.email,
+          organizationName: org.organization_name,
+          amount: amount / 100,
+          reason: failureMessage,
+        });
+
+        if (process.env.ADMIN_EMAIL && process.env.ADMIN_EMAIL !== org.email) {
+          await sendRenewalFailureNotification({
+            email: process.env.ADMIN_EMAIL,
+            organizationName: org.organization_name,
+            amount: amount / 100,
+            reason: failureMessage,
+          });
+        }
       }
     } catch (err) {
+      const failureMessage = err?.response?.data?.message || err.message || 'Charge request failed.';
+
+      await db.query(
+        paymentFailureColumns.hasFailedAttempts && paymentFailureColumns.hasLastFailedPayment
+          ? `UPDATE payments
+             SET status = 'failed',
+                 failed_attempts = COALESCE(failed_attempts, 0) + 1,
+                 last_failed_payment = NOW()
+             WHERE organization_id = $1`
+          : `UPDATE payments
+             SET status = 'failed'
+             WHERE organization_id = $1`,
+        [org.organization_id]
+      );
+
+      await sendRenewalFailureNotification({
+        email: org.email,
+        organizationName: org.organization_name,
+        amount: amount / 100,
+        reason: failureMessage,
+      });
+
+      if (process.env.ADMIN_EMAIL && process.env.ADMIN_EMAIL !== org.email) {
+        await sendRenewalFailureNotification({
+          email: process.env.ADMIN_EMAIL,
+          organizationName: org.organization_name,
+          amount: amount / 100,
+          reason: failureMessage,
+        });
+      }
     }
   }
   

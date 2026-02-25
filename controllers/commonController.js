@@ -11,6 +11,7 @@ const { uploadToS3, deleteFromS3 } = require("../middleware/s3Upload");
 const axios = require("axios");
 const he = require("he");
 const { sendEmailSafely, renderCleanEmail } = require("../utils/emailHelper");
+const { getPaystackSettings } = require("../utils/paystackConfig");
 const {
   PERMISSIONS,
   PERMISSION_OPTIONS,
@@ -44,6 +45,15 @@ const s3 = new S3Client({
 });
 
 const BUCKET_NAME = process.env.S3_BUCKET_NAME;
+
+async function getActivePaystackConfig(dbClient) {
+  const settings = await getPaystackSettings(dbClient);
+  return {
+    secretKey: settings.activeSecretKey || process.env.PAYSTACK_SECRET_KEY || "",
+    publicKey: settings.activePublicKey || process.env.PAYSTACK_PUBLIC_KEY || "",
+    mode: settings.mode,
+  };
+}
 
 // Helper function for ordinal suffixes (1st, 2nd, 3rd, etc.)
 function getOrdinalSuffix(n) {
@@ -2370,6 +2380,7 @@ const commonController = {
         [organizationId]
       );
       const paystackSubaccounts = paystackSubaccountsResult.rows;
+      const paystackConfig = await getActivePaystackConfig(db);
 
       res.render("common/publicRegisterStudent", {
         title: "Public Student Registration",
@@ -2381,7 +2392,7 @@ const commonController = {
         organizationId,
         orgDetails,
         paystackSubaccounts,
-        publishableKey: process.env.PAYSTACK_PUBLIC_KEY,
+        publishableKey: paystackConfig.publicKey,
         messages: req.flash(),
       });
     } catch (err) {
@@ -2621,6 +2632,7 @@ const commonController = {
     }
 
     try {
+      const paystackConfig = await getActivePaystackConfig(db);
       // ✅ Fetch organization ID with fallback
       console.log('[Initialize Payment] Fetching pending student details...');
       const studentResult = await db.query(
@@ -2712,7 +2724,7 @@ const commonController = {
           paymentPayload,
           {
             headers: {
-              Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+              Authorization: `Bearer ${paystackConfig.secretKey}`,
               "Content-Type": "application/json",
             },
           }
@@ -2764,7 +2776,7 @@ const commonController = {
             paymentPayload,
             {
               headers: {
-                Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+                Authorization: `Bearer ${paystackConfig.secretKey}`,
                 "Content-Type": "application/json",
               },
             }
@@ -2835,12 +2847,13 @@ const commonController = {
     }
 
     try {
+      const paystackConfig = await getActivePaystackConfig(db);
       // ✅ Verify payment with Paystack
       console.log('[Payment Callback] Verifying payment with Paystack...');
       const result = await axios.get(
         `https://api.paystack.co/transaction/verify/${reference}`,
         {
-          headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}` },
+          headers: { Authorization: `Bearer ${paystackConfig.secretKey}` },
         }
       );
 

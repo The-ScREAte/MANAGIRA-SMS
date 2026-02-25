@@ -15,6 +15,11 @@ const {
   localizeUsdAmount,
   formatCurrencyAmount,
 } = require("../utils/currencyLocalization");
+const {
+  getPaystackSettings,
+  upsertPaystackSettings,
+  normalizeMode,
+} = require("../utils/paystackConfig");
 
 const adminController = {
   adminDashboard: async (req, res) => {
@@ -865,6 +870,7 @@ const adminController = {
   servicePricingGet: async (req, res) => {
     try {
       const currencyProfile = await getCurrencyProfileForRequest(req);
+      const paystackSettings = await getPaystackSettings(db);
       const featuresResult = await db.query(
         "SELECT * FROM features ORDER BY feature_name ASC"
       );
@@ -950,6 +956,7 @@ const adminController = {
         freeTrialEnabled,
         freeTrialDays,
         billingInterval,
+        paystackMode: paystackSettings.mode,
         showFooterTopSection: true
       });
     } catch (error) {
@@ -996,6 +1003,38 @@ const adminController = {
             req.flash('error', 'Failed to update billing interval.');
     }
     res.redirect('/admin/servicePricing');
+  },
+
+  updatePaystackSettings: async (req, res) => {
+    try {
+      const { paystack_mode } = req.body;
+
+      const existing = await getPaystackSettings(db);
+      const mode = normalizeMode(paystack_mode);
+
+      if (mode === "live" && (!existing.liveSecretKey || !existing.livePublicKey)) {
+        req.flash("error", "Live mode requires both live secret and live public keys.");
+        return res.redirect("/admin/servicePricing");
+      }
+
+      if (mode === "test" && (!existing.testSecretKey || !existing.testPublicKey)) {
+        req.flash("error", "Test mode requires both test secret and test public keys.");
+        return res.redirect("/admin/servicePricing");
+      }
+
+      await upsertPaystackSettings(
+        {
+          paystack_mode: mode,
+        },
+        db
+      );
+
+      req.flash("success", `Paystack mode set to ${mode.toUpperCase()} and keys saved.`);
+    } catch (error) {
+      req.flash("error", "Failed to update Paystack settings.");
+    }
+
+    return res.redirect("/admin/servicePricing");
   },
 
   scheduledHoldsPage: async (req, res) => {

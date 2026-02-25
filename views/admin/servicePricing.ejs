@@ -198,6 +198,29 @@
         margin: 0 0 10px;
         font-weight: bold;
       }
+      .mode-pill {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+      }
+      .mode-pill-live {
+        background: #e7faf1;
+        color: #0f5132;
+        border: 1px solid #8fcab4;
+      }
+      .mode-pill-test {
+        background: #fff7e6;
+        color: #8a4b00;
+        border: 1px solid #f3d19b;
+      }
+      .mode-status {
+        margin: 0 0 12px;
+        color: #334155;
+        font-size: 13px;
+      }
       /* Additional responsive CSS improvements */
       label {
         font-weight: 600;
@@ -459,6 +482,27 @@
               <option value="3_years" <% if (typeof billingInterval !== 'undefined' && billingInterval === '3_years') { %>selected<% } %>>3 Years</option>
             </select>
             <button type="submit">Save Billing Interval</button>
+          </form>
+        </div>
+
+        <div class="form-container">
+          <h2>Paystack Mode & Keys</h2>
+          <p class="mode-status">
+            Active Mode:
+            <% if (paystackMode === 'live') { %>
+              <span class="mode-pill mode-pill-live">LIVE</span>
+            <% } else { %>
+              <span class="mode-pill mode-pill-test">TEST</span>
+            <% } %>
+          </p>
+          <form action="/admin/updatePaystackSettings" method="POST" id="paystack-settings-form">
+            <label for="paystack_mode">Mode:</label>
+            <select name="paystack_mode" id="paystack_mode" required>
+              <option value="test" <% if (paystackMode !== 'live') { %>selected<% } %>>Test</option>
+              <option value="live" <% if (paystackMode === 'live') { %>selected<% } %>>Live</option>
+            </select>
+
+            <button type="submit">Save Paystack Settings</button>
           </form>
         </div>
 
