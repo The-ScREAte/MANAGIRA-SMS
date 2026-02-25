@@ -5,6 +5,21 @@ const checkFeatureAccess = async (req, res, next) => {
   const routePath = req.originalUrl.split('?')[0];
   const isPublicDashboard = routePath === '/common/publicDashboard';
 
+  const normalizedRouteCandidates = (() => {
+    const prefixes = ['/common', '/print', '/account', '/transcript', '/stats'];
+    const candidates = new Set([routePath]);
+
+    for (const prefix of prefixes) {
+      if (routePath === prefix) {
+        candidates.add('/');
+      } else if (routePath.startsWith(prefix + '/')) {
+        candidates.add(routePath.slice(prefix.length));
+      }
+    }
+
+    return Array.from(candidates);
+  })();
+
   const organizationId =
     req.session?.organizationId ||
     req.query.organizationId ||
@@ -82,12 +97,56 @@ const checkFeatureAccess = async (req, res, next) => {
     const { rows: featureRows } = await db.query(
       `SELECT f.id FROM feature_routes fr
        JOIN features f ON f.id = fr.feature_id
-       WHERE fr.route_path = $1`,
-      [routePath]
+       WHERE fr.route_path = ANY($1::text[])
+          OR (
+            fr.route_path <> '/'
+            AND EXISTS (
+              SELECT 1
+              FROM unnest($1::text[]) AS c(path)
+              WHERE c.path LIKE fr.route_path || '/%'
+            )
+          )
+       LIMIT 1`,
+      [normalizedRouteCandidates]
     );
 
-    if (featureRows.length > 0) {
-      const featureId = featureRows[0].id;
+    let featureId = featureRows.length > 0 ? featureRows[0].id : null;
+
+    if (!featureId) {
+      let fallbackFeatureNames = [];
+
+      if (routePath.startsWith('/common/admissions')) {
+        fallbackFeatureNames = ['Student and Guadian Profile', 'Student and Guardian Profile'];
+      } else if (routePath.startsWith('/common/reports')) {
+        fallbackFeatureNames = ['Terminal Report', 'Progressive Student Report ', 'Class Base Merrit sheet', 'Official School Transcript'];
+      } else if (routePath.startsWith('/print/printStudentReport') || routePath.startsWith('/print/reportSettings')) {
+        fallbackFeatureNames = ['Terminal Report'];
+      } else if (routePath.startsWith('/print/meritSheetPage') || routePath.startsWith('/print/generateMeritSheet')) {
+        fallbackFeatureNames = ['Class Base Merrit sheet'];
+      } else if (routePath.startsWith('/transcript/transcript')) {
+        fallbackFeatureNames = ['Official School Transcript'];
+      } else if (routePath.startsWith('/stats/organization')) {
+        fallbackFeatureNames = ['Organization Analytics & Insights'];
+      } else if (routePath.startsWith('/stats/classes') || routePath.startsWith('/stats/class-comparison')) {
+        fallbackFeatureNames = ['Class Base Analytics & Insights'];
+      } else if (routePath.startsWith('/common/attendanceCollection')) {
+        fallbackFeatureNames = ['Attendance tracking feature'];
+      } else if (routePath.startsWith('/common/assessment')) {
+        fallbackFeatureNames = ['Assessment tracking feature'];
+      }
+
+      if (fallbackFeatureNames.length > 0) {
+        const { rows: fallbackFeatureRows } = await db.query(
+          `SELECT id FROM features WHERE feature_name = ANY($1::text[]) LIMIT 1`,
+          [fallbackFeatureNames]
+        );
+        if (fallbackFeatureRows.length > 0) {
+          featureId = fallbackFeatureRows[0].id;
+        }
+      }
+    }
+
+    if (featureId) {
 
       // Check if the plan (hub's or org's) has access to this feature
       const { rows: planAccess } = await db.query(

@@ -2,6 +2,7 @@ const db = require('../config/db');
 
 const setAllowedFeatures = async (req, res, next) => {
     res.locals.allowedFeatures = []; // Always ensure it's an array
+    req.session.allowedFeatures = [];
 
     if (!req.session.organizationId) {
         return next(); // Continue without breaking

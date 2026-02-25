@@ -97,6 +97,7 @@
 <style>
       :root {
         --font-family: "<%= (typeof session !== 'undefined' && session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
+        --dynamic-bottom-inset: 0px;
       }
 
 
@@ -203,7 +204,7 @@
   .footer-bottom-section {
     background-color: #000 !important;
     color: white !important;
-    padding: 20px 15px !important;
+    padding: 20px 15px calc(20px + var(--dynamic-bottom-inset, 0px)) !important;
     margin-bottom: 0 !important;
   }
 

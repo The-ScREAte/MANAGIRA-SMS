@@ -4,26 +4,28 @@
 <head>
     <%- include('partials/head', { title: (typeof title !== 'undefined' && title) ? title : 'Managira' }) %>
     <style>
-        html {
-            height: 100%;
+        html, body {
+            min-height: 100%;
+            margin: 0;
+            padding: 0;
         }
 
         body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
             display: flex;
             flex-direction: column;
+            min-height: 100vh;
+            min-height: 100dvh;
         }
 
         #app-scale-root {
-            flex: 1;
             display: flex;
             flex-direction: column;
+            flex: 1 0 auto;
+            min-height: 100%;
         }
 
         main {
-            flex: 1;
+            flex: 1 0 auto;
             padding: 0;
             max-width: 100%;
             margin: 0 auto;
@@ -32,8 +34,9 @@
             zoom: 0.9;
         }
 
-        /* Scale footer alongside main content, keep header at 100% */
         .managira-footer {
+            margin-top: auto;
+            flex-shrink: 0;
             zoom: 0.9;
         }
     </style>
@@ -61,5 +64,34 @@
         </main>
         <%- include('partials/footer') %>
     </div>
+
+    <script>
+        (function () {
+            function updateBottomInset() {
+                var vv = window.visualViewport;
+                var inset = 0;
+
+                if (vv) {
+                    var viewportDelta = Math.round(window.innerHeight - vv.height);
+                    var possibleBottomInset = Math.max(0, viewportDelta - Math.max(0, Math.round(vv.offsetTop || 0)));
+
+                    if (possibleBottomInset >= 14) {
+                        inset = Math.min(possibleBottomInset, 64);
+                    }
+                }
+
+                document.documentElement.style.setProperty('--dynamic-bottom-inset', inset + 'px');
+            }
+
+            updateBottomInset();
+            window.addEventListener('resize', updateBottomInset, { passive: true });
+            window.addEventListener('orientationchange', updateBottomInset, { passive: true });
+
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener('resize', updateBottomInset, { passive: true });
+                window.visualViewport.addEventListener('scroll', updateBottomInset, { passive: true });
+            }
+        })();
+    </script>
 </body>
 </html>

@@ -636,7 +636,13 @@ const accountController = {
 
     req.flash("success", "Plan selected. Please complete registration.");
 
-    return res.redirect("/account/register");
+    return req.session.save((err) => {
+      if (err) {
+        req.flash("error", "Session error. Please try again.");
+        return res.redirect("/account/service-plan");
+      }
+      return res.redirect("/account/register");
+    });
   },
 
   registerGet: async (req, res) => {
@@ -733,13 +739,11 @@ const accountController = {
       };
 
       // Helper: on error, store formData/messages in session and redirect
-
+      // Uses session.save() to guarantee persistence before redirecting (avoids mobile race condition)
       function stickyError(message) {
         req.session.formData = formData;
-
         req.session.formMessages = { error: [message] };
-
-        return res.redirect("/account/register");
+        req.session.save(() => res.redirect("/account/register"));
       }
 
       // Required fields check
@@ -885,7 +889,17 @@ const accountController = {
 
       delete req.session.formData;
       delete req.session.formMessages;
-      return res.redirect("/account/payment");
+
+      // Explicitly save session before redirect — prevents mobile race condition where
+      // the browser follows the redirect before connect-pg-simple writes to Postgres.
+      return req.session.save((err) => {
+        if (err) {
+          req.session.formData = formData;
+          req.session.formMessages = { error: ["Session error. Please try again."] };
+          return req.session.save(() => res.redirect("/account/register"));
+        }
+        return res.redirect("/account/payment");
+      });
     } catch (error) {
             // Attempt cleanup of uploaded proofs if present
       if (typeof proof1Url !== "undefined" && proof1Url) {
@@ -907,7 +921,7 @@ const accountController = {
         error: ["Registration failed. Please try again."],
       };
 
-      return res.redirect("/account/register");
+      return req.session.save(() => res.redirect("/account/register"));
     }
   },
 
