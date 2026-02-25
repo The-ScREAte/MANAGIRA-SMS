@@ -115,7 +115,9 @@ const checkFeatureAccess = async (req, res, next) => {
     if (!featureId) {
       let fallbackFeatureNames = [];
 
-      if (routePath.startsWith('/common/admissions')) {
+      if (routePath.startsWith('/common/admissionPending') || routePath.startsWith('/common/getPendingStudentDetails') || routePath.startsWith('/common/savePendingStudentChanges') || routePath.startsWith('/common/deletePendingStudentImage')) {
+        fallbackFeatureNames = ['School Website', 'SchoolWebsite'];
+      } else if (routePath.startsWith('/common/admissions')) {
         fallbackFeatureNames = ['Student and Guadian Profile', 'Student and Guardian Profile'];
       } else if (routePath.startsWith('/common/reports')) {
         fallbackFeatureNames = ['Terminal Report', 'Progressive Student Report ', 'Class Base Merrit sheet', 'Official School Transcript'];

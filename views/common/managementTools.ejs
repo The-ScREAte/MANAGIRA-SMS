@@ -513,11 +513,13 @@
             Parents/ Guardian
           </button>
         </li>
+        <% if (Array.isArray(allowedFeatures) && (allowedFeatures.includes('School Website') || allowedFeatures.includes('SchoolWebsite'))) { %>
         <li>
           <button class="nav-link" data-section="public-website">
             School Website
           </button>
         </li>
+        <% } %>
         <li>
           <button class="nav-link" data-section="documents">
             Create Files
@@ -1250,6 +1252,7 @@
       </section>
 
       <!-- Edit Public/Organization Website Section -->
+      <% if (Array.isArray(allowedFeatures) && (allowedFeatures.includes('School Website') || allowedFeatures.includes('SchoolWebsite'))) { %>
       <section id="public-website" class="management-section">
         <div class="section-header">
           <h1>School Website</h1>
@@ -1303,6 +1306,7 @@
           </div>
         </div>
       </section>
+      <% } %>
 
       <!-- Files Section -->
       <section id="documents" class="management-section">

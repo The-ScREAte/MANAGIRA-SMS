@@ -110,24 +110,26 @@ module.exports = (db) => {
   router.get("/paymentCallback", (req, res) => commonController.paymentCallback(req, res, db));
 
 
-  router.get("/admissionPending", isAuthenticated, requirePermission(PERMISSIONS.APPROVE_ADMISSIONS), (req, res) => {
+  router.get("/admissionPending", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.APPROVE_ADMISSIONS), (req, res) => {
     commonController.viewPendingAdmissions(req, res, req.db);
   });
   
   router.post("/admissionPending/approve/:id", 
+    checkFeatureAccess,
     isAuthenticated,
     requirePermission(PERMISSIONS.APPROVE_ADMISSIONS),
     upload.single("studentImage"),
     (req, res) => commonController.approvePendingStudent(req, res, db)
   );
-  router.post("/admissionPending/reject/:id", isAuthenticated, requirePermission(PERMISSIONS.APPROVE_ADMISSIONS), (req, res) =>
+  router.post("/admissionPending/reject/:id", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.APPROVE_ADMISSIONS), (req, res) =>
     commonController.rejectPendingStudent(req, res, db)
   );
-  router.get("/getPendingStudentDetails/:id", isAuthenticated, requirePermission(PERMISSIONS.APPROVE_ADMISSIONS), (req, res) =>
+  router.get("/getPendingStudentDetails/:id", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.APPROVE_ADMISSIONS), (req, res) =>
     commonController.getPendingStudentDetails(req, res, db)
   );
   router.post(
     "/savePendingStudentChanges/:id",
+    checkFeatureAccess,
     isAuthenticated, // ✅ Require login
     requirePermission(PERMISSIONS.APPROVE_ADMISSIONS),
     upload.single("studentImage"),
@@ -135,7 +137,7 @@ module.exports = (db) => {
   );
   
 
-  router.post("/deletePendingStudentImage/:id", isAuthenticated, requirePermission(PERMISSIONS.APPROVE_ADMISSIONS), (req, res) => {
+  router.post("/deletePendingStudentImage/:id", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.APPROVE_ADMISSIONS), (req, res) => {
     commonController.deletePendingStudentImage(req, res, db);
   });
 

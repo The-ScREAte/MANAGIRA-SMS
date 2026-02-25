@@ -466,11 +466,13 @@
             Data Migration
           </button>
         </li>
+        <% if (Array.isArray(allowedFeatures) && allowedFeatures.includes('Organization Analytics & Insights')) { %>
         <li>
           <button class="nav-link" data-section="org-stats">
             Organization Stats
           </button>
         </li>
+        <% } %>
       </ul>
     </nav>
 
@@ -591,6 +593,7 @@
       </section>
 
       <!-- Organization Stats Section -->
+      <% if (Array.isArray(allowedFeatures) && allowedFeatures.includes('Organization Analytics & Insights')) { %>
       <section class="hub-section" id="org-stats">
         <div class="section-header">
           <h1>Organization Statistics</h1>
@@ -640,6 +643,7 @@
           </a>
         </div>
       </section>
+      <% } %>
     </main>
   </div>
 </div>

@@ -455,11 +455,13 @@
             Create Student
           </button>
         </li>
+        <% if (Array.isArray(allowedFeatures) && (allowedFeatures.includes('School Website') || allowedFeatures.includes('SchoolWebsite'))) { %>
         <li>
           <button class="nav-link" data-section="pending">
             Pending Admissions
           </button>
         </li>
+        <% } %>
       </ul>
     </nav>
 
@@ -506,6 +508,7 @@
       </section>
 
       <!-- Pending Admissions Section -->
+      <% if (Array.isArray(allowedFeatures) && (allowedFeatures.includes('School Website') || allowedFeatures.includes('SchoolWebsite'))) { %>
       <section class="hub-section" id="pending">
         <div class="section-header">
           <h1>Pending Admissions</h1>
@@ -544,6 +547,7 @@
           </a>
         </div>
       </section>
+      <% } %>
     </main>
   </div>
 </div>
