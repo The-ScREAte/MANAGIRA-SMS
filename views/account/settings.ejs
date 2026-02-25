@@ -1865,7 +1865,9 @@
                   <% } else { %>
                     <button class="btn-link set-primary-card" type="button" data-id="<%= card.id %>">Set Active</button>
                   <% } %>
-                  <button class="btn-link remove-card" type="button" data-id="<%= card.id %>">Remove</button>
+                  <% if (paymentMethods.length > 1) { %>
+                    <button class="btn-link remove-card" type="button" data-id="<%= card.id %>">Remove</button>
+                  <% } %>
                 </div>
               </li>
             <% }) %>
@@ -2470,6 +2472,12 @@
           document.querySelectorAll(".remove-card").forEach((button) => {
             button.addEventListener("click", async () => {
               requestPassword(null, async () => {
+                const savedCardCount = document.querySelectorAll("#payment-method-modal .card-item").length;
+                if (savedCardCount <= 1) {
+                  alert("You must keep at least one saved card on file.");
+                  return;
+                }
+
                 const authorizationCode = button.dataset.id;
                 if (!confirm("Remove this card?")) {
                   return;

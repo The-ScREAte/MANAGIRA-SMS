@@ -375,7 +375,7 @@ async function saveCardAuthorization(db, orgId, authorization) {
     `INSERT INTO stored_cards (
       organization_id,
       authorization_code,
-      last_four,
+      last4,
       exp_month,
       exp_year,
       card_type,
@@ -405,6 +405,37 @@ async function saveCardAuthorization(db, orgId, authorization) {
       [orgId, authorization.authorization_code]
     );
   }
+}
+
+async function getStoredCardPaymentMethods(db, orgId) {
+  const result = await db.query(
+    `SELECT authorization_code, card_type, last4, exp_month, exp_year, is_primary
+     FROM stored_cards
+     WHERE organization_id = $1 AND is_active = true
+     ORDER BY is_primary DESC, updated_at DESC, created_at DESC`,
+    [orgId]
+  );
+
+  return result.rows.map((row) => ({
+    id: row.authorization_code,
+    brand: row.card_type || "Card",
+    last4: row.last4,
+    expMonth: row.exp_month,
+    expYear: row.exp_year,
+    isPrimary: Boolean(row.is_primary),
+  }));
+}
+
+function pickDefaultCard(paymentMethods = [], storedCardMethods = []) {
+  if (!paymentMethods.length) return null;
+
+  const primaryStoredCard = storedCardMethods.find((card) => card.isPrimary);
+  if (primaryStoredCard) {
+    const matched = paymentMethods.find((card) => card.id === primaryStoredCard.id);
+    if (matched) return matched;
+  }
+
+  return paymentMethods[0] || null;
 }
 
 async function buildChargeResponse(db, orgId, chargeResult) {
@@ -2201,6 +2232,12 @@ const accountController = {
       let paymentMethods = [];
 
       let defaultPaymentMethod = null;
+      let storedCardMethods = [];
+
+      try {
+        storedCardMethods = await getStoredCardPaymentMethods(db, orgId);
+      } catch (err) {
+              }
 
       if (!isHubMember && paystackCustomerCode) {
         try {
@@ -2234,15 +2271,17 @@ const accountController = {
 
                 email: auth.email,
               }));
-
-            // The first reusable authorization is usually the default
-
-            defaultPaymentMethod = paymentMethods[0] || null;
           }
         } catch (paystackError) {
                   // Continue with empty payment methods if API fails
         }
       }
+
+      if (!paymentMethods.length && storedCardMethods.length) {
+        paymentMethods = storedCardMethods;
+      }
+
+      defaultPaymentMethod = pickDefaultCard(paymentMethods, storedCardMethods);
 
       // ✅ Fetch all Paystack subaccounts
 
@@ -2432,11 +2471,11 @@ const accountController = {
 
       const orgId = req.session.organizationId;
 
-      if (!authorizationCode) {
+      if (!orgId || !authorizationCode) {
         return res.status(400).json({
           success: false,
 
-          message: "Authorization code is required.",
+          message: "Missing required parameters.",
         });
       }
 
@@ -2455,6 +2494,38 @@ const accountController = {
           success: false,
 
           message: "Paystack customer not found. Please contact support.",
+        });
+      }
+
+      const customerBeforeResponse = await axios.get(
+        `https://api.paystack.co/customer/${paystackCustomerCode}`,
+        {
+          headers: {
+            Authorization: `Bearer ${await getActivePaystackSecretKey()}`,
+          },
+        }
+      );
+
+      const customerBefore = customerBeforeResponse.data.data;
+      const removableCards = (customerBefore.authorizations || []).filter(
+        (auth) => auth.channel === "card" && auth.reusable
+      );
+
+      if (removableCards.length <= 1) {
+        return res.status(400).json({
+          success: false,
+          message: "You must keep at least one saved card on file.",
+        });
+      }
+
+      const selectedCardExists = removableCards.some(
+        (auth) => auth.authorization_code === authorizationCode
+      );
+
+      if (!selectedCardExists) {
+        return res.status(404).json({
+          success: false,
+          message: "Card not found for this organization.",
         });
       }
 
@@ -2520,6 +2591,23 @@ const accountController = {
           }));
 
         defaultPaymentMethod = paymentMethods[0] || null;
+      }
+
+      await db.query(
+        "UPDATE stored_cards SET is_active = false, is_primary = false WHERE organization_id = $1 AND authorization_code = $2",
+        [orgId, authorizationCode]
+      );
+
+      if (defaultPaymentMethod?.id) {
+        await db.query(
+          "UPDATE stored_cards SET is_primary = false WHERE organization_id = $1",
+          [orgId]
+        );
+
+        await db.query(
+          "UPDATE stored_cards SET is_active = true, is_primary = true WHERE organization_id = $1 AND authorization_code = $2",
+          [orgId, defaultPaymentMethod.id]
+        );
       }
 
       res.json({
@@ -4937,6 +5025,7 @@ const accountController = {
       let paymentMethods = [];
       let defaultPaymentMethod = null;
       let paystackSubaccounts = [];
+      let storedCardMethods = [];
 
       if (orgId) {
         try {
@@ -4947,6 +5036,11 @@ const accountController = {
             [orgId]
           );
           paystackSubaccounts = paystackSubaccountsResult.rows;
+        } catch (err) {
+                  }
+
+        try {
+          storedCardMethods = await getStoredCardPaymentMethods(db, orgId);
         } catch (err) {
                   }
       }
@@ -5003,12 +5097,17 @@ const accountController = {
                   expYear: auth.exp_year,
                   email: auth.email,
                 }));
-              defaultPaymentMethod = paymentMethods[0] || null;
             }
           } catch (paystackError) {
                       }
         }
       }
+
+      if (!paymentMethods.length && storedCardMethods.length) {
+        paymentMethods = storedCardMethods;
+      }
+
+      defaultPaymentMethod = pickDefaultCard(paymentMethods, storedCardMethods);
 
       const calendarSchoolYears = [];
       let selectedCalendarTermId = Number(req.query.calendarTermId) || null;

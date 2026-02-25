@@ -75,6 +75,7 @@ async function runRecurringBilling() {
     WHERE p.status = 'active' 
       AND o.on_hold = false
       AND o.scheduled_hold_date IS NULL
+      AND NOT (COALESCE(o.is_hub_member, false) = true AND o.hub_id IS NOT NULL)
       AND p.next_payment_end_date <= NOW()
       AND (o.trial_active_until IS NULL OR o.trial_active_until < NOW())
   `);
