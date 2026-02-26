@@ -111,7 +111,6 @@ const hubController = {
 
       await logHubActivity(hub.hub_id, 'LOGIN', `Hub ${hub.hub_name} logged in`, null, hub.hub_email, req.ip);
 
-      req.flash('success', `Welcome back, ${hub.first_name}!`);
       res.redirect('/hub/dashboard');
     } catch (error) {
             req.flash('error', 'An error occurred during login.');

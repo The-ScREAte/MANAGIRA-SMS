@@ -2257,13 +2257,41 @@
         function requestPassword(nextModal, nextAction) {
           pendingModal = nextModal;
           pendingAction = nextAction || null;
+
+          // If the session is already verified for this page, continue immediately.
+          if (passwordVerified === true) {
+            if (pendingAction) {
+              pendingAction();
+              pendingAction = null;
+              pendingModal = null;
+            } else if (pendingModal) {
+              openModal(pendingModal);
+            }
+            return;
+          }
+
+          // Ensure password modal is never hidden behind another open modal.
+          [planModal, paymentModal, schoolModal, cancelModal].forEach((modal) => {
+            if (modal && modal !== passwordModal) {
+              closeModal(modal);
+            }
+          });
+
           if (passwordModalInput) {
             passwordModalInput.value = "";
           }
           if (passwordModalError) {
             passwordModalError.textContent = "";
           }
-          openModal(passwordModal);
+
+          if (passwordModal) {
+            openModal(passwordModal);
+          } else if (pendingAction) {
+            // Fallback: if password modal is missing for any reason, do not block actions.
+            pendingAction();
+            pendingAction = null;
+            pendingModal = null;
+          }
         }
 
         navLinks.forEach((btn) => {
@@ -3152,6 +3180,13 @@
           const currentPlanId = selectedPlanInput.value;
           let selectedPlanName = "";
 
+          const currentSelectedOption = planOptions.find(
+            (option) => String(option.dataset.planId || "") === String(selectedPlanInput.value || "")
+          );
+          if (currentSelectedOption) {
+            selectedPlanName = currentSelectedOption.dataset.planName || "this plan";
+          }
+
           planOptions.forEach((option) => {
             option.addEventListener("click", () => {
               const planId = option.dataset.planId;
@@ -3175,6 +3210,10 @@
                 alert("Please select a different subscription plan before proceeding.");
                 return;
               }
+
+              // Avoid stacking two modals at the same z-index where password modal
+              // can appear behind the plan modal and seem non-responsive.
+              closeModal(planModal);
 
               requestPassword(null, () => {
                 if (

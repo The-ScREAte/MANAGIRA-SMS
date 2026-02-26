@@ -2840,8 +2840,6 @@ const accountController = {
               return res.redirect("/account/login");
             }
 
-            req.flash("success", `Welcome, Admin ${admin.first_name}!`);
-
             const redirectUrl =
               process.env.NODE_ENV === "production" ? "/admin" : "/admin";
 
@@ -2986,8 +2984,6 @@ const accountController = {
                     ? `https://${req.session.orgNickName}.managira.com/common/orgDashboard`
                     : "/common/orgDashboard?organizationId=" +
                       req.session.organizationId;
-
-                req.flash("success", `Welcome, ${user.first_name}!`);
 
                 return res.redirect(req.session.returnTo || redirectUrl);
               });
