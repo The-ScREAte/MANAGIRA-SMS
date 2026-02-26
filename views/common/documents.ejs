@@ -29,23 +29,34 @@ main { padding: 0 !important; max-width: none !important; }
 .docs-wrapper {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 24px 20px 60px;
+  padding: 26px 20px 60px;
 }
 
 .docs-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 24px;
+  margin-bottom: 18px;
   flex-wrap: wrap;
   gap: 12px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
 .docs-header h1 {
   margin: 0;
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
   color: var(--text);
+}
+
+.docs-subtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--muted);
 }
 
 .docs-actions {
@@ -59,12 +70,12 @@ main { padding: 0 !important; max-width: none !important; }
   align-items: center;
   gap: 6px;
   padding: 10px 18px;
-  border: none;
+  border: 1px solid transparent;
   border-radius: 8px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.18s ease;
   text-decoration: none;
 }
 
@@ -107,22 +118,23 @@ main { padding: 0 !important; max-width: none !important; }
 .docs-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 16px;
+  gap: 14px;
 }
 
 .doc-card {
   background: #fff;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 20px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
   position: relative;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
 .doc-card:hover {
   border-color: var(--primary);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.10);
   transform: translateY(-2px);
 }
 
@@ -161,6 +173,8 @@ main { padding: 0 !important; max-width: none !important; }
   font-size: 12px;
   color: var(--muted);
   line-height: 1.5;
+  display: grid;
+  gap: 2px;
 }
 
 .doc-card-actions {
@@ -230,15 +244,17 @@ main { padding: 0 !important; max-width: none !important; }
   z-index: 1000;
   align-items: center;
   justify-content: center;
+  padding: 14px;
 }
 
 .modal-overlay.active { display: flex; }
 
 .modal-box {
   background: #fff;
-  border-radius: 14px;
+  border-radius: 16px;
   padding: 28px;
   width: min(92%, 440px);
+  border: 1px solid var(--border);
   box-shadow: 0 20px 60px rgba(0,0,0,0.2);
 }
 
@@ -326,7 +342,7 @@ main { padding: 0 !important; max-width: none !important; }
 
 @media (max-width: 768px) {
   .docs-wrapper { padding: 16px 14px 40px; }
-  .docs-header { flex-direction: column; align-items: flex-start; }
+  .docs-header { flex-direction: column; align-items: flex-start; padding: 14px; }
   .docs-header h1 { font-size: 22px; }
   .docs-grid { grid-template-columns: 1fr; }
   .doc-card-actions { opacity: 1; }
@@ -343,7 +359,10 @@ main { padding: 0 !important; max-width: none !important; }
 
 <div class="docs-wrapper">
   <div class="docs-header">
-    <h1>📁 Files</h1>
+    <div>
+      <h1>📁 Files</h1>
+      <p class="docs-subtitle">Create and manage documents for this class.</p>
+    </div>
     <div class="docs-actions">
       <% if (canCreate) { %>
       <button class="btn btn-primary" onclick="openCreateModal()">

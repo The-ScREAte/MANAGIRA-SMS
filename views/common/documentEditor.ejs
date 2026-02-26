@@ -45,15 +45,16 @@
       top: 0;
       left: 0;
       right: 0;
-      height: 56px;
-      background: #fff;
+      height: 60px;
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(8px);
       border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       padding: 0 16px;
       gap: 12px;
       z-index: 100;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
     }
 
     .topbar-back {
@@ -103,6 +104,10 @@
       color: var(--muted);
       white-space: nowrap;
       flex-shrink: 0;
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px 10px;
     }
 
     .topbar-actions {
@@ -145,9 +150,10 @@
 
     /* Editor Area */
     .editor-area {
-      margin-top: 56px;
-      height: calc(100vh - 56px);
+      margin-top: 60px;
+      height: calc(100vh - 60px);
       display: flex;
+      background: linear-gradient(180deg, #f8fafc 0%, #f3f4f6 100%);
     }
 
     /* Document Editor (Quill) */
@@ -158,9 +164,9 @@
       background: #fff;
       max-width: 860px;
       margin: 24px auto;
-      border-radius: 8px;
+      border-radius: 14px;
       border: 1px solid var(--border);
-      box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
       overflow: hidden;
     }
 
@@ -186,10 +192,11 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 8px 16px;
-      background: #fff;
+      padding: 10px 14px;
+      background: rgba(255, 255, 255, 0.95);
       border-bottom: 1px solid var(--border);
       flex-wrap: wrap;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
     }
 
     .sheet-toolbar .toolbar-sep {
@@ -239,7 +246,8 @@
       max-height: calc(100vh - 140px);
       background: #fff;
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 12px;
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
     }
 
     .sheet-table {
@@ -334,16 +342,16 @@
     .settings-panel {
       display: none;
       position: fixed;
-      top: 56px;
+      top: 60px;
       right: 0;
       width: 360px;
       max-width: 90vw;
-      height: calc(100vh - 56px);
+      height: calc(100vh - 60px);
       background: #fff;
       border-left: 1px solid var(--border);
       z-index: 50;
       overflow-y: auto;
-      box-shadow: -4px 0 20px rgba(0,0,0,0.06);
+      box-shadow: -12px 0 24px rgba(15, 23, 42, 0.10);
     }
     .settings-panel.open { display: block; }
 
@@ -369,6 +377,10 @@
 
     .settings-section {
       margin-bottom: 24px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
     }
 
     .settings-section h4 {
@@ -464,6 +476,8 @@
       #doc-editor .ql-editor { padding: 20px 16px; }
       .settings-panel { width: 100%; max-width: 100%; }
       .sheet-container { padding: 8px; }
+      .editor-topbar { height: 56px; }
+      .editor-area { margin-top: 56px; height: calc(100vh - 56px); }
       .sheet-toolbar {
         padding: 10px;
         gap: 6px;

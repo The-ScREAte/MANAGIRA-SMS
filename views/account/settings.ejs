@@ -131,7 +131,7 @@
       }
 
       .settings-main{
-        padding: 28px 0 0 0;
+        padding: 40px 0 0 0;
       }
 
       .settings-main h1 {
@@ -469,8 +469,7 @@
         font: inherit;
         font-weight: 600;
         margin-bottom: 16px;
-        width: auto;
-        align-self: flex-start;
+        width: 100%;
       }
 
       .settings-nav-toggle .hub-hamburger-icon {
@@ -1048,13 +1047,21 @@
       }
 
       @media (max-width: 960px) {
+        body {
+          padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+        }
+
         .settings-layout {
           display: block;
-          margin-top: 8px;
+          margin: 8px auto 0;
         }
 
         .settings-main {
-          padding-top: 30px;
+          padding-top: 16px;
+        }
+
+        .settings-layout > main.settings-main {
+          padding-top: 16px !important;
         }
 
         .settings-main .settings-section {
@@ -1063,16 +1070,18 @@
 
         .settings-nav {
           position: fixed;
-          top: 72px;
+          top: 62px;
           left: 0;
           bottom: 0;
+          height: calc(100dvh - 72px);
+          max-height: none;
           width: 300px;
           max-width: 85vw;
           border-radius: 0;
           transform: translateX(-100%);
           transition: transform 0.3s ease;
           z-index: 1001;
-          padding: 26px 20px 20px;
+          padding: 44px 20px 20px;
           overflow-y: auto;
         }
 
@@ -1089,11 +1098,11 @@
         }
 
         .settings-nav-toggle {
-          display: inline-flex;
+          display: flex;
           position: sticky;
           top: 8px;
           z-index: 900;
-          margin-top: 6px;
+          margin-top: 12px;
         }
 
         .settings-nav-label {

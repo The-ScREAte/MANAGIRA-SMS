@@ -756,7 +756,7 @@
 
     body {
       padding-top: calc(var(--header-height) + 12px) !important;
-      padding-bottom: 60px;
+      padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--dynamic-bottom-inset, 0px));
     }
 
     header#top-header {
