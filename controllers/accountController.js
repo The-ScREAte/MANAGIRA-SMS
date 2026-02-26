@@ -2892,6 +2892,21 @@ const accountController = {
           if (orgResult.rows.length > 0) {
             const organization = orgResult.rows[0];
 
+            if (
+              user.email &&
+              organization.email &&
+              String(user.email).trim().toLowerCase() === String(organization.email).trim().toLowerCase() &&
+              String(user.account_type || '').trim().toLowerCase() !== 'manager'
+            ) {
+              await db.query(
+                `UPDATE users
+                 SET account_type = 'Manager', updated_at = NOW()
+                 WHERE user_id = $1 AND organization_id = $2`,
+                [user.user_id, user.organization_id]
+              );
+              user.account_type = 'Manager';
+            }
+
             if (organization.deleted) {
               req.flash(
                 "error",

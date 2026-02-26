@@ -1,6 +1,6 @@
 const db = require("../config/db");
 
-const MANAGER_LIKE_ROLES = new Set(["Organization", "Admin", "Mini Admin"]);
+const MANAGER_LIKE_ROLES = new Set(["organization", "admin", "mini admin"]);
 
 const PERMISSIONS = {
   MANAGE_EMPLOYEES: "manage_employees",
@@ -138,8 +138,16 @@ function normalizeRole(role) {
   return String(role || "").trim();
 }
 
+function normalizeRoleLower(role) {
+  return normalizeRole(role).toLowerCase();
+}
+
+function isManagerRole(role) {
+  return normalizeRoleLower(role) === "manager";
+}
+
 function isManagerLikeRole(role) {
-  return MANAGER_LIKE_ROLES.has(normalizeRole(role));
+  return MANAGER_LIKE_ROLES.has(normalizeRoleLower(role));
 }
 
 function normalizePermissionsList(rawPermissions) {
@@ -257,15 +265,52 @@ async function getUserPermissions(database, userId, organizationId) {
   return result.rows.map((row) => row.permission_key);
 }
 
-async function userHasPermission(database, { userId, userRole, organizationId }, permissionKey) {
+async function userHasPermission(database, { userId, userRole, organizationId, accountType, userEmail }, permissionKey) {
   if (!permissionKey) return true;
   if (!organizationId) return false;
+
+  const normalizedUserRole = normalizeRole(userRole);
+  const normalizedAccountType = normalizeRole(accountType);
+  const normalizedAccountTypeLower = normalizeRoleLower(accountType);
+
+  // Organization owner session (logs in via organizations table) should always
+  // have full access within its own organization/plan.
+  if (isManagerRole(normalizedUserRole) && normalizedAccountTypeLower === "organization") {
+    return true;
+  }
+
+  // Any user record that matches the organization's signup email is the
+  // organization owner and should always have full access.
+  if (userEmail) {
+    const ownerEmailResult = await database.query(
+      `SELECT 1
+       FROM organizations
+       WHERE organization_id = $1
+         AND LOWER(email) = LOWER($2)
+       LIMIT 1`,
+      [organizationId, userEmail]
+    );
+
+    if (ownerEmailResult.rows.length > 0) {
+      if (userId && !isManagerRole(normalizedUserRole)) {
+        await database.query(
+          `UPDATE users
+           SET account_type = 'Manager', updated_at = NOW()
+           WHERE user_id = $1
+             AND organization_id = $2`,
+          [userId, organizationId]
+        );
+      }
+      return true;
+    }
+  }
+
   if (isManagerLikeRole(userRole)) return true;
   if (!userId) return false;
 
   await ensurePermissionsSchema(database);
 
-  if (normalizeRole(userRole) === "Manager") {
+  if (isManagerRole(normalizedUserRole)) {
     const primaryManagerUserId = await getPrimaryManagerUserId(database, organizationId);
     const isPrimaryManager =
       primaryManagerUserId !== null && String(primaryManagerUserId) === String(userId);
@@ -300,22 +345,44 @@ function requirePermission(permissionKey) {
     try {
       const database = req.app.get("db") || db;
       const organizationId = req.session.organizationId;
-      const userRole = req.session.userRole;
+      const userRole = req.session.userRole || req.session.user?.account_type || null;
+      const accountType = req.session.accountType || req.session.user?.account_type || null;
       const userId = req.session.user?.user_id || req.session.userId || null;
+      const userEmail = req.session.user?.email || null;
 
       const allowed = await userHasPermission(
         database,
-        { userId, userRole, organizationId },
+        { userId, userRole, organizationId, accountType, userEmail },
         permissionKey
       );
 
       if (!allowed) {
+        console.warn("[PermissionDenied]", {
+          route: req.originalUrl,
+          permissionKey,
+          organizationId,
+          userId,
+          userRole,
+          accountType,
+          userEmail,
+          sessionId: req.sessionID,
+        });
         req.flash("error", "You do not have permission to access this page.");
         return res.redirect("/common/orgDashboard");
       }
 
       next();
     } catch (error) {
+      console.error("[PermissionCheckError]", {
+        route: req.originalUrl,
+        permissionKey,
+        organizationId: req.session?.organizationId,
+        userId: req.session?.user?.user_id || req.session?.userId || null,
+        userRole: req.session?.userRole || req.session?.user?.account_type || null,
+        accountType: req.session?.accountType || req.session?.user?.account_type || null,
+        sessionId: req.sessionID,
+        error: error?.message,
+      });
       req.flash("error", "Unable to verify your permissions.");
       return res.redirect("/common/orgDashboard");
     }

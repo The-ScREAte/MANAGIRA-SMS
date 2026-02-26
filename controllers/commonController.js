@@ -5182,6 +5182,71 @@ const commonController = {
     try {
       await ensurePermissionsSchema(db);
 
+      const orgOwnerResult = await db.query(
+        `
+          SELECT organization_id, first_name, last_name, email, password
+          FROM organizations
+          WHERE organization_id = $1
+          LIMIT 1
+        `,
+        [req.session.organizationId]
+      );
+
+      if (orgOwnerResult.rows.length > 0) {
+        const orgOwner = orgOwnerResult.rows[0];
+        const ownerEmail = String(orgOwner.email || "").trim();
+
+        if (ownerEmail) {
+          const existingOwnerUser = await db.query(
+            `
+              SELECT user_id, account_type
+              FROM users
+              WHERE organization_id = $1
+                AND LOWER(email) = LOWER($2)
+              ORDER BY user_id ASC
+              LIMIT 1
+            `,
+            [req.session.organizationId, ownerEmail]
+          );
+
+          if (existingOwnerUser.rows.length > 0) {
+            await db.query(
+              `
+                UPDATE users
+                SET first_name = $1,
+                    last_name = $2,
+                    email = $3,
+                    account_type = 'Manager',
+                    updated_at = NOW()
+                WHERE user_id = $4
+              `,
+              [
+                orgOwner.first_name,
+                orgOwner.last_name,
+                orgOwner.email,
+                existingOwnerUser.rows[0].user_id,
+              ]
+            );
+          } else {
+            await db.query(
+              `
+                INSERT INTO users (
+                  organization_id, email, first_name, last_name, password, account_type, created_at, updated_at
+                )
+                VALUES ($1, $2, $3, $4, $5, 'Manager', NOW(), NOW())
+              `,
+              [
+                req.session.organizationId,
+                orgOwner.email,
+                orgOwner.first_name,
+                orgOwner.last_name,
+                orgOwner.password || null,
+              ]
+            );
+          }
+        }
+      }
+
       // Basic employee info (with class IDs)
       const result = await db.query(
         `

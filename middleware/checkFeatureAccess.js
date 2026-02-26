@@ -26,7 +26,8 @@ const checkFeatureAccess = async (req, res, next) => {
     req.schoolDetails?.organization_id;
 
   // Support both normal users and super admin org switch
-  const userRole = req.session?.userRole || req.session?.user?.role || null;
+  const userRole = req.session?.userRole || req.session?.user?.account_type || req.session?.user?.role || null;
+  const normalizedUserRole = String(userRole || '').trim().toLowerCase();
   const userId = (req.session?.user && req.session.user.user_id) || req.session?.userId || null;
   const classId = req.query.classId || req.body.classId;
 
@@ -158,6 +159,16 @@ const checkFeatureAccess = async (req, res, next) => {
       );
 
       if (planAccess.length === 0) {
+        console.warn('[FeatureDenied]', {
+          route: routePath,
+          normalizedRouteCandidates,
+          organizationId,
+          userId,
+          userRole,
+          planIdToCheck,
+          featureId,
+          sessionId: req.sessionID,
+        });
   // ...removed warn for clean background operation...
         if (isPublicDashboard) {
           return res.status(403).send("This organization does not support school website access.");
@@ -188,11 +199,20 @@ const checkFeatureAccess = async (req, res, next) => {
 
     // 2️⃣ Role-Based Access Check
     const roleAccessMap = {
-      '/account/managePublicContent': ['Manager'],
-      '/common/adminPanel': ['Admin'],
+      '/account/managePublicContent': ['manager'],
+      '/common/adminPanel': ['admin'],
     };
 
-    if (roleAccessMap[routePath] && !roleAccessMap[routePath].includes(userRole)) {
+    if (roleAccessMap[routePath] && !roleAccessMap[routePath].includes(normalizedUserRole)) {
+      console.warn('[RoleDenied]', {
+        route: routePath,
+        requiredRoles: roleAccessMap[routePath],
+        userRole,
+        normalizedUserRole,
+        organizationId,
+        userId,
+        sessionId: req.sessionID,
+      });
   // ...removed warn for clean background operation...
       req.flash('error', 'You do not have permission to access this page.');
       return res.redirect('/common/orgDashboard');
@@ -200,11 +220,11 @@ const checkFeatureAccess = async (req, res, next) => {
 
     // 3️⃣ Teachers Can Only Access Their Assigned Classes
     if (routePath.startsWith('/common/classDashboard') && classId) {
-      if (userRole === "Manager" || userRole === "Supervisor" || userRole === "Admin") {
+      if (normalizedUserRole === "manager" || normalizedUserRole === "supervisor" || normalizedUserRole === "admin") {
         return next();
       }
 
-      if (userRole === "Teacher") {
+      if (normalizedUserRole === "teacher") {
         const { rows: classAccess } = await db.query(
           `SELECT 1 FROM user_classes WHERE user_id = $1 AND class_id = $2`,
           [userId, classId]
@@ -220,11 +240,11 @@ const checkFeatureAccess = async (req, res, next) => {
 
     // 4️⃣ ✅ Allow ONLY Main Teachers to Access Attendance
     if (routePath.startsWith('/common/attendanceCollection')) {
-      if (userRole === 'Manager' || userRole === 'Admin') {
+      if (normalizedUserRole === 'manager' || normalizedUserRole === 'admin') {
         return next();
       }
 
-      if (userRole === "Teacher") {
+      if (normalizedUserRole === "teacher") {
         if (!classId) {
           // ...removed warn for clean background operation...
           req.flash('error', 'Invalid class selection.');
