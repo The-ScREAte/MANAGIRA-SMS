@@ -465,15 +465,15 @@
         border: 1px solid var(--border);
         background: #fff;
         color: var(--primary);
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         cursor: pointer;
         font: inherit;
+        font-weight: 600;
         margin-bottom: 16px;
         width: auto;
         align-self: flex-start;
       }
 
-      .hamburger-icon {
+      .settings-nav-toggle .hub-hamburger-icon {
         position: relative;
         width: 18px;
         height: 2px;
@@ -481,8 +481,8 @@
         display: inline-block;
       }
 
-      .hamburger-icon::before,
-      .hamburger-icon::after {
+      .settings-nav-toggle .hub-hamburger-icon::before,
+      .settings-nav-toggle .hub-hamburger-icon::after {
         content: "";
         position: absolute;
         left: 0;
@@ -491,11 +491,11 @@
         background: var(--primary);
       }
 
-      .hamburger-icon::before {
+      .settings-nav-toggle .hub-hamburger-icon::before {
         top: -6px;
       }
 
-      .hamburger-icon::after {
+      .settings-nav-toggle .hub-hamburger-icon::after {
         top: 6px;
       }
 
@@ -1065,12 +1065,14 @@
           position: fixed;
           top: 72px;
           left: 0;
-          width: 260px;
-          height: auto;
-          max-height: min(72vh, 560px);
-          transform: translateX(-110%);
-          transition: transform 0.2s ease;
+          bottom: 0;
+          width: 300px;
+          max-width: 85vw;
+          border-radius: 0;
+          transform: translateX(-100%);
+          transition: transform 0.3s ease;
           z-index: 1001;
+          padding: 26px 20px 20px;
           overflow-y: auto;
         }
 
@@ -1095,7 +1097,7 @@
         }
 
         .settings-nav-label {
-          display: none;
+          display: inline;
         }
 
         #plan-modal {
@@ -1149,8 +1151,8 @@
 
       <main class="settings-main">
         <button class="settings-nav-toggle" type="button">
-          <span class="hamburger-icon" aria-hidden="true"></span>
-          <span class="settings-nav-label">Settings Menu</span>
+          <span class="hub-hamburger-icon" aria-hidden="true"></span>
+          <span class="settings-nav-label">Menu</span>
         </button>
         <section id="customize" class="settings-section">
           <h1>Customize School</h1>
