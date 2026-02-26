@@ -4670,8 +4670,12 @@ const commonController = {
       ? requestedPermissions
       : requestedPermissions.filter((permission) => !highRiskPermissions.has(permission));
 
-    // Persist exactly what was selected in the form (after safety filtering).
-    const effectivePermissions = sanitizedRequestedPermissions;
+    // Managers must always have the full manager permission set.
+    // For non-managers, persist exactly what was selected (after safety filtering).
+    const effectivePermissions =
+      accountType === "Manager"
+        ? mergePermissionsForRole("Manager", sanitizedRequestedPermissions)
+        : sanitizedRequestedPermissions;
 
     console.info(`[CreateEmployee:POST][${postId}] effective_permissions_computed`, {
       sanitizedRequestedPermissions,
@@ -5440,11 +5444,17 @@ const commonController = {
         (cls) => cls.class_id
       );
 
-      const selectedPermissions = await getUserPermissions(
+      const rawSelectedPermissions = await getUserPermissions(
         db,
         userId,
         req.session.organizationId
       );
+      // For Managers, default to all manager-level permissions so every checkbox
+      // is pre-checked. An admin can still uncheck and save overrides.
+      const selectedPermissions =
+        user.account_type === 'Manager'
+          ? mergePermissionsForRole('Manager', rawSelectedPermissions)
+          : rawSelectedPermissions;
 
       res.render("common/modifyEmployee", {
         title: "Modify Employee",
@@ -6926,72 +6936,84 @@ const commonController = {
           primaryManagerUserId !== null && String(primaryManagerUserId) === String(userId);
 
         if (isPrimaryManager) {
-          const currentManagerPermissionsResult = await db.query(
-            `
-              SELECT permission_key
-              FROM user_permissions
-              WHERE user_id = $1 AND organization_id = $2
-              ORDER BY permission_key
-            `,
-            [userId, organizationId]
-          );
+          const fullPermissionSet = toPermissionSet(allPermissionKeys);
 
-          const currentManagerEffectivePermissions =
-            currentManagerPermissionsResult.rows.length === 0
-              ? toPermissionSet(allPermissionKeys)
-              : toPermissionSet(currentManagerPermissionsResult.rows.map((row) => row.permission_key));
-
-          const replacementResult = await db.query(
+          const replacementCandidatesResult = await db.query(
             `
-              SELECT user_id
-              FROM users
-              WHERE organization_id = $1
-                AND account_type = 'Manager'
-                AND user_id <> $2
-              ORDER BY created_at ASC NULLS LAST, user_id ASC
-              LIMIT 1
+              SELECT
+                u.user_id,
+                u.account_type,
+                ARRAY(
+                  SELECT up.permission_key
+                  FROM user_permissions up
+                  WHERE up.user_id = u.user_id
+                    AND up.organization_id = u.organization_id
+                  ORDER BY up.permission_key
+                ) AS permissions
+              FROM users u
+              WHERE u.organization_id = $1
+                AND u.user_id <> $2
+                AND LOWER(u.account_type) IN ('manager', 'supervisor')
+              ORDER BY
+                CASE WHEN LOWER(u.account_type) = 'manager' THEN 0 ELSE 1 END,
+                u.created_at ASC NULLS LAST,
+                u.user_id ASC
             `,
             [organizationId, userId]
           );
 
-          const replacementManagerId = replacementResult.rows[0]?.user_id || null;
+          let replacementUser = null;
+          for (const candidate of replacementCandidatesResult.rows) {
+            const candidateRole = String(candidate.account_type || "").toLowerCase();
+            const candidatePermissions = toPermissionSet(candidate.permissions || []);
+            const candidateEffectivePermissions =
+              candidateRole === "manager" && candidatePermissions.size === 0
+                ? fullPermissionSet
+                : candidatePermissions;
 
-          if (!replacementManagerId) {
+            if (areSetsEqual(candidateEffectivePermissions, fullPermissionSet)) {
+              replacementUser = candidate;
+              break;
+            }
+          }
+
+          if (!replacementUser) {
             await db.query("ROLLBACK");
             req.flash(
               "error",
-              "Primary manager cannot be deleted until another manager with matching permissions exists."
+              "Primary manager cannot be deleted until another Manager or Supervisor with all permissions exists."
             );
             return res.redirect("/common/manageEmployees");
           }
 
-          const replacementPermissionsResult = await db.query(
-            `
-              SELECT permission_key
-              FROM user_permissions
-              WHERE user_id = $1 AND organization_id = $2
-              ORDER BY permission_key
-            `,
-            [replacementManagerId, organizationId]
-          );
-
-          const replacementEffectivePermissionsAfterPromotion =
-            replacementPermissionsResult.rows.length === 0
-              ? toPermissionSet(allPermissionKeys)
-              : toPermissionSet(replacementPermissionsResult.rows.map((row) => row.permission_key));
-
-          if (
-            !areSetsEqual(
-              currentManagerEffectivePermissions,
-              replacementEffectivePermissionsAfterPromotion
-            )
-          ) {
-            await db.query("ROLLBACK");
-            req.flash(
-              "error",
-              "Primary manager cannot be deleted because replacement manager does not have the same permissions."
+          const replacementRole = String(replacementUser.account_type || "").toLowerCase();
+          if (replacementRole === "supervisor") {
+            await db.query(
+              `
+                UPDATE users
+                SET account_type = 'Manager', updated_at = NOW()
+                WHERE user_id = $1 AND organization_id = $2
+              `,
+              [replacementUser.user_id, organizationId]
             );
-            return res.redirect("/common/manageEmployees");
+
+            await db.query(
+              "DELETE FROM user_permissions WHERE user_id = $1 AND organization_id = $2",
+              [replacementUser.user_id, organizationId]
+            );
+
+            await db.query(
+              `
+                INSERT INTO user_permissions (user_id, organization_id, permission_key, granted_by)
+                SELECT $1, $2, unnest($3::text[]), $4
+              `,
+              [
+                replacementUser.user_id,
+                organizationId,
+                allPermissionKeys,
+                requesterUserId ? Number(requesterUserId) : null,
+              ]
+            );
           }
         }
       }

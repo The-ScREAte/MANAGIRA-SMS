@@ -41,16 +41,11 @@ const PERMISSION_OPTIONS = [
 ];
 
 const MANAGER_DEFAULT_OPTIONAL_PERMISSIONS = PERMISSION_OPTIONS
-  .map((option) => option.key)
-  .filter(
-    (permissionKey) =>
-      permissionKey !== PERMISSIONS.MANAGE_BILLING &&
-      permissionKey !== PERMISSIONS.MANAGE_SETTINGS
-  );
+  .map((option) => option.key);
 
 const ROLE_DEFAULT_PERMISSIONS = {
-  // Manager gets all permissions except Billing and Settings by default.
-  // These same keys are pre-checked in the createEmployee UI via getSuggestedPermissionsForRole.
+  // Manager gets all available permissions by default.
+  // These same keys are pre-checked in the create/modify employee UI.
   // Spreading here so MANAGER_DEFAULT_OPTIONAL_PERMISSIONS changes automatically propagate.
   Manager: [...MANAGER_DEFAULT_OPTIONAL_PERMISSIONS],
   Teacher: [

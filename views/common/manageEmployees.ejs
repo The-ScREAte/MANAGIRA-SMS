@@ -322,7 +322,7 @@
               View <span class="arrow" id="arrow-permissions-<%= idx %>">▸</span>
             </button>
             <div class="collapsible-content" id="collapse-permissions-<%= idx %>" style="display:none;">
-              <% if (employee.account_type === 'Manager' && (employee.permissions || []).length === 0) { %>
+              <% if (employee.account_type === 'Manager') { %>
                 <span>All permissions (manager-level access)</span>
               <% } else if ((employee.permissions || []).length > 0) { %>
                 <ul>
