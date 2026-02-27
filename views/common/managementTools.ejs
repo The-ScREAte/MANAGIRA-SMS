@@ -19,6 +19,7 @@
     brown: { primary: '#7c4a03', hover: '#5c3802' }
   };
   const currentTheme = themeColors[themeColor] || themeColors.teal;
+  const hasFilesFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Create Files') || allowedFeatures.includes('Files & Sheets'));
 %>
 
 <style>
@@ -520,11 +521,13 @@
           </button>
         </li>
         <% } %>
+        <% if (hasFilesFeature) { %>
         <li>
           <button class="nav-link" data-section="documents">
             Create Files
           </button>
         </li>
+        <% } %>
       </ul>
     </nav>
 
@@ -1308,6 +1311,7 @@
       </section>
       <% } %>
 
+      <% if (hasFilesFeature) { %>
       <!-- Files Section -->
       <section id="documents" class="management-section">
         <div class="section-header">
@@ -1362,6 +1366,7 @@
           </div>
         </div>
       </section>
+      <% } %>
     </main>
   </div>
 </div>

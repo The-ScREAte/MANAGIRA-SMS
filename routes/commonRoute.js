@@ -193,7 +193,6 @@ module.exports = (db) => {
     "/attendanceCollection",
     checkFeatureAccess,
     isAuthenticated,
-    checkFeatureAccess,
     (req, res) => commonController.attendanceCollection(req, res, db)
   );
   router.get(

@@ -721,7 +721,9 @@
         <div class="gd-actions">
           <% if (canEdit) { %>
           <button onclick="toggleEditForm()" class="gd-btn gd-btn-primary">✏️ Edit</button>
+          <% if (hasGuardianPortalFeature) { %>
           <button onclick="requestPasswordSetup()" class="gd-btn gd-btn-secondary">🔑 Send Password Setup</button>
+          <% } %>
           <% } %>
         </div>
       </div>
@@ -817,10 +819,16 @@
       <p><strong>Login Email:</strong> <span><%= guardian.email || 'Not provided' %></span></p>
       <p><strong>Login Phone:</strong> <span><%= guardian.phone || 'Not provided' %></span></p>
     </div>
+    <% if (hasGuardianPortalFeature) { %>
     <p class="gd-portal-note">
       This guardian can use either their <strong>email</strong> or <strong>phone number</strong> to log in to the Parent Portal with their password. 
       Click "Send Password Setup" above to send instructions.
     </p>
+    <% } else { %>
+    <p class="gd-portal-note">
+      Parent Portal is not enabled for this organization's current plan.
+    </p>
+    <% } %>
   </div>
 </div>
 

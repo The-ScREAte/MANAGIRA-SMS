@@ -507,6 +507,7 @@ main {
 </style>
 
 <body>
+  <% const hasFilesFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Create Files') || allowedFeatures.includes('Files & Sheets')); %>
   <div class="dashboard-shell">
     <button class="nav-toggle" type="button">
       <span class="hamburger-icon" aria-hidden="true"></span>
@@ -541,15 +542,17 @@ main {
             <% } %>
 
             <li class="nav-section-label">Tools</li>
-            <li>
-              <a class="nav-link" href="/documents?classId=<%= classId %>&create=1" title="Files" data-no-spa>
-                <span class="files-link-inline">📁 Files
-                  <% if (userRole === 'Teacher' && (assignedFilesCount || 0) > 0) { %>
-                    <span class="files-badge" title="Assigned files"><%= assignedFilesCount %></span>
-                  <% } %>
-                </span>
-              </a>
-            </li>
+            <% if (hasFilesFeature) { %>
+              <li>
+                <a class="nav-link" href="/documents?classId=<%= classId %>&create=1" title="Files" data-no-spa>
+                  <span class="files-link-inline">📁 Files
+                    <% if (userRole === 'Teacher' && (assignedFilesCount || 0) > 0) { %>
+                      <span class="files-badge" title="Assigned files"><%= assignedFilesCount %></span>
+                    <% } %>
+                  </span>
+                </a>
+              </li>
+            <% } %>
           </ul>
         </div>
       </aside>

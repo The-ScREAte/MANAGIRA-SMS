@@ -56,6 +56,7 @@ const {
   upsertManualCalendarDay,
   deleteManualCalendarDay,
 } = require("../utils/attendanceCalendar");
+const { hasGuardianPortalFeature } = require("../utils/guardianPortalAccess");
 
 function extractS3KeyFromUrl(url) {
   const value = String(url || "").trim();
@@ -3189,6 +3190,15 @@ const accountController = {
           "error",
           "Organization account is suspended. Please contact support."
         );
+        return res.redirect("/account/guardian-login");
+      }
+
+      const guardianPortalEnabled = await hasGuardianPortalFeature(
+        db,
+        ga.organization_id
+      );
+      if (!guardianPortalEnabled) {
+        req.flash("error", "Parent portal access is not enabled for this school.");
         return res.redirect("/account/guardian-login");
       }
 

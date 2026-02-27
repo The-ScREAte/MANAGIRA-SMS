@@ -34,6 +34,7 @@ const {
   WEEKDAY_OPTIONS,
   getTermRecord,
 } = require("../utils/attendanceCalendar");
+const { hasGuardianPortalFeature } = require("../utils/guardianPortalAccess");
 
 // Configure AWS S3
 const s3 = new S3Client({
@@ -9186,6 +9187,8 @@ const commonController = {
         )
       );
 
+      const hasGuardianPortal = await hasGuardianPortalFeature(db, organizationId);
+
       return res.render("common/guardianDetails", {
         title: "Guardian Details",
         guardian: guardian,
@@ -9193,6 +9196,7 @@ const commonController = {
         currentTermId: currentTermId,
         account: { login_email: null, login_phone: guardian.phone },
         canEdit,
+        hasGuardianPortalFeature: hasGuardianPortal,
         messages: req.flash(),
         req,
       });
@@ -9436,6 +9440,14 @@ const commonController = {
     try {
       const organizationId = req.session.organizationId;
       const guardianId = req.body.guardianId;
+
+      const guardianPortalEnabled = await hasGuardianPortalFeature(db, organizationId);
+      if (!guardianPortalEnabled) {
+        return res.status(403).json({
+          success: false,
+          error: 'Parent portal feature is not enabled for this organization plan.'
+        });
+      }
 
       // Get guardian info from old guardians table
       const guardianResult = await db.query(
