@@ -7810,11 +7810,11 @@ const commonController = {
       }
 
       req.flash("success", "Event/Announcement created successfully.");
-      res.redirect("/account/managePublicContent");
+      res.redirect("/common/manageEventsAnnouncements");
     } catch (err) {
       // Log the error to understand what went wrong
             req.flash("error", "Error creating event/announcement.");
-      res.status(500).redirect("/account/managePublicContent");
+      res.status(500).redirect("/common/manageEventsAnnouncements");
     }
   },
 
@@ -7863,37 +7863,41 @@ const commonController = {
 
   // Update Event (POST)
   updateEvent: async (req, res, db) => {
-    const { id, name, eventDate, details, visibility } = req.body;
+    const { id, visibility } = req.body;
+    const eventName = req.body.eventName || req.body.name;
+    const eventDate = req.body.eventDate;
+    const eventDetails = req.body.eventDetails || req.body.details;
     const organizationId = req.session.organizationId;
     try {
       const updateResult = await db.query(
         "UPDATE school_events SET name = $1, event_date = $2, details = $3, visibility = $4 WHERE id = $5 AND organization_id = $6",
-        [name, eventDate, details, visibility, id, organizationId]
+        [eventName, eventDate, eventDetails, visibility, id, organizationId]
       );
       if (updateResult.rowCount === 0) {
         req.flash("error", "Event not found.");
       }
       req.flash("success", "Event updated successfully.");
-      res.redirect("/account/managePublicContent");
+      res.redirect("/common/manageEventsAnnouncements");
     } catch (err) {
       req.flash("error", "Error updating event.");
-      res.status(500).redirect("/account/managePublicContent");
+      res.status(500).redirect("/common/manageEventsAnnouncements");
     }
   },
 
   // Update Announcement (POST)
   updateAnnouncement: async (req, res, db) => {
-    const { id, message, visibility } = req.body;
+    const { id, visibility } = req.body;
+    const announcementMessage = req.body.announcementMessage || req.body.message;
     try {
       await db.query(
         "UPDATE announcements SET message = $1, visibility = $2 WHERE announcement_id = $3 AND organization_id = $4",
-        [message, visibility, id, req.session.organizationId]
+        [announcementMessage, visibility, id, req.session.organizationId]
       );
       req.flash("success", "Announcement updated successfully.");
-      res.redirect("/account/managePublicContent");
+      res.redirect("/common/manageEventsAnnouncements");
     } catch (err) {
       req.flash("error", "Error updating announcement.");
-      res.status(500).redirect("/account/managePublicContent");
+      res.status(500).redirect("/common/manageEventsAnnouncements");
     }
   },
 
@@ -9005,10 +9009,10 @@ const commonController = {
         [id, req.session.organizationId]
       );
       req.flash("success", "Event deleted successfully.");
-      res.redirect("/account/managePublicContent");
+      res.redirect("/common/manageEventsAnnouncements");
     } catch (err) {
       req.flash("error", "Error deleting event.");
-      res.status(500).redirect("/account/managePublicContent");
+      res.status(500).redirect("/common/manageEventsAnnouncements");
     }
   },
 
@@ -9021,10 +9025,10 @@ const commonController = {
         [id, req.session.organizationId]
       );
       req.flash("success", "Announcement deleted successfully.");
-      res.redirect("/account/managePublicContent");
+      res.redirect("/common/manageEventsAnnouncements");
     } catch (err) {
       req.flash("error", "Error deleting announcement.");
-      res.status(500).redirect("/account/managePublicContent");
+      res.status(500).redirect("/common/manageEventsAnnouncements");
     }
   },
 

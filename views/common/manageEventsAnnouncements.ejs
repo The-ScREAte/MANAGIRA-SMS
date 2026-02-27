@@ -1,0 +1,696 @@
+<%
+  const themeColor = (typeof session !== 'undefined' && session && session.themeColor) ? session.themeColor : 'teal';
+  const themeColors = {
+    teal:    { primary: '#01535b', hover: '#014a51', light: '#e6f4f5' },
+    blue:    { primary: '#2563eb', hover: '#1d4ed8', light: '#eff6ff' },
+    green:   { primary: '#2d5f4f', hover: '#245043', light: '#f0fdf4' },
+    purple:  { primary: '#7c3aed', hover: '#6d28d9', light: '#f5f3ff' },
+    indigo:  { primary: '#4f46e5', hover: '#4338ca', light: '#eef2ff' },
+    rose:    { primary: '#8b2635', hover: '#7a212e', light: '#fff1f2' },
+    amber:   { primary: '#d97706', hover: '#b45309', light: '#fffbeb' },
+    slate:   { primary: '#334155', hover: '#1e293b', light: '#f1f5f9' },
+    classic: { primary: '#01535b', hover: '#014a51', light: '#e6f4f5' },
+    bold:    { primary: '#0b1020', hover: '#1a1a2e', light: '#fefce8' },
+    modern:  { primary: '#2563eb', hover: '#1d4ed8', light: '#eff6ff' },
+    minimal: { primary: '#7c3aed', hover: '#6d28d9', light: '#f5f3ff' },
+    gold:    { primary: '#d4a017', hover: '#b8860b', light: '#fefce8' },
+    red:     { primary: '#e11d48', hover: '#be123c', light: '#fff1f2' },
+    brown:   { primary: '#7c4a03', hover: '#5c3802', light: '#fdf6ef' }
+  };
+  const ct = themeColors[themeColor] || themeColors.teal;
+  const fontFamily = (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter');
+  const hasWebsite = Array.isArray(allowedFeatures) && (
+    allowedFeatures.includes('School Website') ||
+    allowedFeatures.includes('SchoolWebsite') ||
+    allowedFeatures.includes('Public Dashboard') ||
+    allowedFeatures.includes('School Public Dashboard')
+  );
+%>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Events &amp; Announcements</title>
+  <style>
+    :root {
+      --font:          "<%= fontFamily %>", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --primary:       <%= ct.primary %>;
+      --primary-hover: <%= ct.hover %>;
+      --primary-light: <%= ct.light %>;
+      --border:        #e5e7eb;
+      --bg:            #f8fafc;
+      --card:          #ffffff;
+      --text:          #0f172a;
+      --text-2:        #374151;
+      --muted:         #6b7280;
+      --danger:        #dc2626;
+      --danger-h:      #b91c1c;
+      --radius:        12px;
+      --shadow:        0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      font-size: 15px;
+    }
+
+    .ea-page { min-height: 100vh; padding-bottom: 60px; }
+
+    /* ── Hero header ── */
+    .ea-hero {
+      background: var(--primary);
+      background: linear-gradient(135deg, var(--primary) 0%, color-mix(in sRGB, var(--primary) 70%, #000) 100%);
+      color: #fff;
+      padding: 56px 24px 40px;
+      position: relative;
+      overflow: hidden;
+    }
+    .ea-hero::after {
+      content: '';
+      position: absolute;
+      top: -60px; right: -60px;
+      width: 260px; height: 260px;
+      background: rgba(255,255,255,.06);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .ea-hero-inner {
+      max-width: 1140px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 1;
+    }
+    .ea-back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: rgba(255,255,255,.85);
+      text-decoration: none;
+      font-size: .875rem;
+      font-weight: 500;
+      margin-bottom: 20px;
+      transition: color .15s;
+    }
+    .ea-back-btn:hover { color: #fff; }
+    .ea-hero h1 {
+      margin: 0 0 6px;
+      font-size: clamp(1.5rem, 3vw, 2rem);
+      font-weight: 700;
+      letter-spacing: -.3px;
+    }
+    .ea-hero p {
+      margin: 0;
+      opacity: .85;
+      font-size: .95rem;
+    }
+
+    /* ── Flash messages ── */
+    .flash-wrap { max-width: 1140px; margin: 20px auto 0; padding: 0 24px; }
+    .flash {
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: .9rem;
+      font-weight: 500;
+      margin-bottom: 10px;
+    }
+    .flash-success { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+    .flash-error   { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+    /* ── Content ── */
+    .ea-content {
+      max-width: 1140px;
+      margin: 0 auto;
+      padding: 32px 24px 0;
+    }
+
+    /* ── Tab strip ── */
+    .tab-strip {
+      display: flex;
+      gap: 4px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 4px;
+      margin-bottom: 28px;
+      width: fit-content;
+      box-shadow: var(--shadow);
+    }
+    .tab-btn {
+      border: none;
+      background: transparent;
+      padding: 8px 22px;
+      border-radius: 7px;
+      font-family: var(--font);
+      font-size: .9rem;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all .18s;
+      white-space: nowrap;
+    }
+    .tab-btn.active { background: var(--primary); color: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.12); }
+    .tab-btn:not(.active):hover { background: var(--primary-light); color: var(--primary); }
+
+    /* ── Tab panels ── */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Two-col ── */
+    .two-col {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+    @media (max-width: 860px) { .two-col { grid-template-columns: 1fr; } }
+
+    /* ── Collapsible create form on mobile ── */
+    .create-toggle {
+      flex-shrink: 0;
+      margin-left: auto;
+      width: 28px; height: 28px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      border-radius: 6px;
+      display: none;
+      align-items: center; justify-content: center;
+      padding: 0;
+      transition: background .15s, color .15s;
+    }
+    .create-toggle svg { transition: transform .2s; }
+    .create-toggle:hover { background: var(--primary-light); color: var(--primary); }
+    .create-card.open .create-toggle svg { transform: rotate(180deg); }
+    .create-card.open .create-toggle { color: var(--primary); }
+    @media (max-width: 860px) {
+      .create-toggle { display: flex; }
+      .create-card .card-body { display: none; }
+      .create-card.open .card-body { display: block; }
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 18px 22px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .card-icon {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      background: var(--primary-light);
+      color: var(--primary);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .card-header h2 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .card-body { padding: 20px 22px; }
+
+    /* ── Forms ── */
+    .form-group { margin-bottom: 16px; }
+    .form-group:last-child { margin-bottom: 0; }
+    .form-label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: .85rem;
+      font-weight: 600;
+      color: var(--text-2);
+    }
+    .form-control {
+      width: 100%;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-family: var(--font);
+      font-size: .93rem;
+      color: var(--text);
+      background: #fff;
+      transition: border-color .15s, box-shadow .15s;
+      outline: none;
+    }
+    .form-control:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px color-mix(in sRGB, var(--primary) 15%, transparent);
+    }
+    textarea.form-control { min-height: 100px; resize: vertical; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 18px;
+      font-family: var(--font);
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background .15s, transform .1s, box-shadow .15s;
+      white-space: nowrap;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+    .btn-primary:hover { background: var(--primary-hover); box-shadow: 0 3px 8px rgba(0,0,0,.15); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-danger:hover { background: var(--danger-h); }
+    .btn-sm { padding: 6px 14px; font-size: .83rem; }
+    .btn-full { width: 100%; }
+
+    /* ── Item list / accordion ── */
+    .item-list { display: flex; flex-direction: column; gap: 12px; }
+
+    .item-card {
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+      overflow: hidden;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .item-card:hover { border-color: color-mix(in sRGB, var(--primary) 40%, transparent); box-shadow: 0 2px 8px rgba(0,0,0,.07); }
+
+    .item-head {
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .item-head:hover { background: var(--primary-light); }
+    .item-title { font-weight: 600; font-size: .95rem; color: var(--text); margin: 0 0 3px; }
+    .item-meta { font-size: .8rem; color: var(--muted); }
+
+    .item-chevron {
+      flex-shrink: 0;
+      width: 28px; height: 28px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s, color .15s, transform .2s;
+      padding: 0;
+      pointer-events: none;
+    }
+    .item-card.open .item-chevron { transform: rotate(180deg); color: var(--primary); }
+
+    .item-body {
+      display: none;
+      padding: 0 16px 16px;
+      border-top: 1px solid var(--border);
+    }
+    .item-card.open .item-body { display: block; }
+    .item-form { padding-top: 14px; }
+
+    .item-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+
+    /* ── Badge ── */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: .75rem;
+      font-weight: 600;
+      text-transform: capitalize;
+    }
+    .badge-public  { background: #dcfce7; color: #15803d; }
+    .badge-private { background: #f1f5f9; color: #475569; }
+    .badge-org     { background: #eff6ff; color: #1d4ed8; }
+    .badge-both    { background: #fdf4ff; color: #7e22ce; }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--muted);
+    }
+    .empty-state svg { margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto; opacity: .4; }
+    .empty-state p { margin: 0; font-size: .93rem; }
+
+    /* ── Section label ── */
+    .section-label {
+      font-size: .78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--muted);
+      margin: 0 0 12px;
+    }
+
+    /* ── Count pill ── */
+    .count-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 20px; height: 20px;
+      padding: 0 6px;
+      border-radius: 10px;
+      background: var(--primary-light);
+      color: var(--primary);
+      font-size: .75rem;
+      font-weight: 700;
+      margin-left: 6px;
+    }
+    .tab-btn.active .count-pill { background: rgba(255,255,255,.2); color: #fff; }
+  </style>
+</head>
+<body>
+<div class="ea-page">
+
+  <!-- ── Hero ── -->
+  <div class="ea-hero">
+    <div class="ea-hero-inner">
+      <a href="/common/management" class="ea-back-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+          <path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
+        </svg>
+        Back to Management
+      </a>
+      <h1>Events &amp; Announcements</h1>
+      <p>Create, edit, and manage school events and announcements for the current term.</p>
+    </div>
+  </div>
+
+  <!-- ── Flash ── -->
+  <div class="flash-wrap">
+    <% if (messages && messages.success && messages.success.length > 0) { %>
+      <% messages.success.forEach(function(msg) { %>
+        <div class="flash flash-success"><%= msg %></div>
+      <% }); %>
+    <% } %>
+    <% if (messages && messages.error && messages.error.length > 0) { %>
+      <% messages.error.forEach(function(msg) { %>
+        <div class="flash flash-error"><%= msg %></div>
+      <% }); %>
+    <% } %>
+  </div>
+
+  <div class="ea-content">
+
+    <!-- ── Tab strip ── -->
+    <div class="tab-strip" role="tablist">
+      <button class="tab-btn active" role="tab" data-tab="events">
+        &#128197; Events
+        <span class="count-pill"><%= (events || []).length %></span>
+      </button>
+      <button class="tab-btn" role="tab" data-tab="announcements">
+        &#128226; Announcements
+        <span class="count-pill"><%= (announcements || []).length %></span>
+      </button>
+    </div>
+
+    <!-- ══════════ EVENTS TAB ══════════ -->
+    <div id="tab-events" class="tab-panel active">
+      <div class="two-col">
+
+        <!-- Create form -->
+        <div class="card create-card" id="create-event-card">
+          <div class="card-header" style="cursor:pointer;" onclick="toggleCreateCard('create-event-card')">
+            <div class="card-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
+              </svg>
+            </div>
+            <h2>New Event</h2>
+            <button type="button" class="create-toggle" aria-label="Toggle form">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+              </svg>
+            </button>
+          </div>
+          <div class="card-body">
+            <form action="/common/createEventAnnouncement" method="POST">
+              <input type="hidden" name="type" value="event" />
+              <div class="form-group">
+                <label class="form-label" for="newEventName">Event Name</label>
+                <input class="form-control" id="newEventName" name="eventName" placeholder="e.g. Annual Sports Day" required minlength="3" maxlength="100" />
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="newEventDate">Event Date</label>
+                <input class="form-control" id="newEventDate" type="date" name="eventDate" required />
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="newEventDetails">Event Details</label>
+                <textarea class="form-control" id="newEventDetails" name="eventDetails" placeholder="Describe the event..." required minlength="10"></textarea>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="newEventVisibility">Visibility</label>
+                <select class="form-control" id="newEventVisibility" name="visibility" required>
+                  <option value="org" <%= !hasWebsite ? 'selected' : '' %>>Internal Only</option>
+                  <% if (hasWebsite) { %>
+                  <option value="public">External Only</option>
+                  <option value="both" selected>Both</option>
+                  <% } %>
+                </select>
+              </div>
+              <button class="btn btn-primary btn-full" type="submit">Save Event</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Event list -->
+        <div>
+          <p class="section-label">Current Term Events</p>
+          <% if (!events || events.length === 0) { %>
+            <div class="card">
+              <div class="empty-state">
+                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
+                </svg>
+                <p>No events yet.<br>Use the form to create one.</p>
+              </div>
+            </div>
+          <% } else { %>
+            <div class="item-list">
+              <% (events || []).forEach(function(ev, i) { %>
+                <div class="item-card" id="ev-card-<%= i %>">
+                  <div class="item-head" onclick="toggleCard('ev-card-<%= i %>')">
+                    <div>
+                      <p class="item-title"><%= ev.name %></p>
+                      <span class="item-meta">
+                        <%= ev.event_date ? new Date(ev.event_date).toISOString().slice(0,10) : 'No date' %>
+                        &nbsp;&bull;&nbsp;
+                        <span class="badge badge-<%= ev.visibility || 'both' %>"><%= ev.visibility || 'both' %></span>
+                      </span>
+                    </div>
+                    <div class="item-chevron">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                      </svg>
+                    </div>
+                  </div>
+                  <div class="item-body">
+                    <form class="item-form" action="/common/updateEvent" method="POST">
+                      <input type="hidden" name="id" value="<%= ev.id %>" />
+                      <div class="form-group">
+                        <label class="form-label">Event Name</label>
+                        <input class="form-control" name="eventName" required minlength="3" maxlength="100" value="<%= ev.name %>" />
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label">Event Date</label>
+                        <input class="form-control" type="date" name="eventDate" required value="<%= ev.event_date ? new Date(ev.event_date).toISOString().slice(0,10) : '' %>" />
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label">Event Details</label>
+                        <textarea class="form-control" name="eventDetails" required minlength="10"><%= ev.details %></textarea>
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label">Visibility</label>
+                        <select class="form-control" name="visibility" required>
+                          <option value="org" <%= (ev.visibility === 'org' || !hasWebsite) ? 'selected' : '' %>>Internal Only</option>
+                          <% if (hasWebsite) { %>
+                          <option value="public" <%= ev.visibility === 'public' ? 'selected' : '' %>>External Only</option>
+                          <option value="both"   <%= (ev.visibility === 'both' || !ev.visibility) ? 'selected' : '' %>>Both</option>
+                          <% } %>
+                        </select>
+                      </div>
+                      <div class="item-actions">
+                        <button class="btn btn-primary btn-sm" type="submit">Update Event</button>
+                      </div>
+                    </form>
+                    <hr />
+                    <form action="/common/deleteEvent" method="POST" onsubmit="return confirm('Permanently delete this event?');">
+                      <input type="hidden" name="id" value="<%= ev.id %>" />
+                      <button class="btn btn-danger btn-sm" type="submit">Delete Event</button>
+                    </form>
+                  </div>
+                </div>
+              <% }); %>
+            </div>
+          <% } %>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ══════════ ANNOUNCEMENTS TAB ══════════ -->
+    <div id="tab-announcements" class="tab-panel">
+      <div class="two-col">
+
+        <!-- Create form -->
+        <div class="card create-card" id="create-ann-card">
+          <div class="card-header" style="cursor:pointer;" onclick="toggleCreateCard('create-ann-card')">
+            <div class="card-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.5a1 1 0 0 0-.8.4l-1.9 2.533a1 1 0 0 1-1.6 0L5.3 12.4a1 1 0 0 0-.8-.4H2a2 2 0 0 1-2-2V2zm3.5 1a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2.5a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2.5a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+              </svg>
+            </div>
+            <h2>New Announcement</h2>
+            <button type="button" class="create-toggle" aria-label="Toggle form">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+              </svg>
+            </button>
+          </div>
+          <div class="card-body">
+            <form action="/common/createEventAnnouncement" method="POST">
+              <input type="hidden" name="type" value="announcement" />
+              <div class="form-group">
+                <label class="form-label" for="newAnnMsg">Announcement Message</label>
+                <textarea class="form-control" id="newAnnMsg" name="announcementMessage" placeholder="Write your announcement here..." required minlength="5"></textarea>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="newAnnVisibility">Visibility</label>
+                <select class="form-control" id="newAnnVisibility" name="visibility" required>
+                  <option value="org" <%= !hasWebsite ? 'selected' : '' %>>Internal Only</option>
+                  <% if (hasWebsite) { %>
+                  <option value="public">External Only</option>
+                  <option value="both" selected>Both</option>
+                  <% } %>
+                </select>
+              </div>
+              <button class="btn btn-primary btn-full" type="submit">Post Announcement</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Announcement list -->
+        <div>
+          <p class="section-label">Current Term Announcements</p>
+          <% if (!announcements || announcements.length === 0) { %>
+            <div class="card">
+              <div class="empty-state">
+                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.5a1 1 0 0 0-.8.4l-1.9 2.533a1 1 0 0 1-1.6 0L5.3 12.4a1 1 0 0 0-.8-.4H2a2 2 0 0 1-2-2V2zm3.5 1a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2.5a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2.5a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+                </svg>
+                <p>No announcements yet.<br>Use the form to create one.</p>
+              </div>
+            </div>
+          <% } else { %>
+            <div class="item-list">
+              <% (announcements || []).forEach(function(ann, i) { %>
+                <div class="item-card" id="ann-card-<%= i %>">
+                  <div class="item-head" onclick="toggleCard('ann-card-<%= i %>')">
+                    <div>
+                      <p class="item-title"><%= ann.message && ann.message.length > 80 ? ann.message.substring(0, 80) + '…' : ann.message %></p>
+                      <span class="item-meta">
+                        <span class="badge badge-<%= ann.visibility || 'both' %>"><%= ann.visibility || 'both' %></span>
+                      </span>
+                    </div>
+                    <div class="item-chevron">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                      </svg>
+                    </div>
+                  </div>
+                  <div class="item-body">
+                    <form class="item-form" action="/common/updateAnnouncement" method="POST">
+                      <input type="hidden" name="id" value="<%= ann.announcement_id %>" />
+                      <div class="form-group">
+                        <label class="form-label">Message</label>
+                        <textarea class="form-control" name="announcementMessage" required minlength="5"><%= ann.message %></textarea>
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label">Visibility</label>
+                        <select class="form-control" name="visibility" required>
+                          <option value="org" <%= (ann.visibility === 'org' || !hasWebsite) ? 'selected' : '' %>>Internal Only</option>
+                          <% if (hasWebsite) { %>
+                          <option value="public" <%= ann.visibility === 'public' ? 'selected' : '' %>>External Only</option>
+                          <option value="both"   <%= (ann.visibility === 'both' || !ann.visibility) ? 'selected' : '' %>>Both</option>
+                          <% } %>
+                        </select>
+                      </div>
+                      <div class="item-actions">
+                        <button class="btn btn-primary btn-sm" type="submit">Update</button>
+                      </div>
+                    </form>
+                    <hr />
+                    <form action="/common/deleteAnnouncement" method="POST" onsubmit="return confirm('Permanently delete this announcement?');">
+                      <input type="hidden" name="id" value="<%= ann.announcement_id %>" />
+                      <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+                    </form>
+                  </div>
+                </div>
+              <% }); %>
+            </div>
+          <% } %>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /ea-content -->
+</div><!-- /ea-page -->
+
+<script>
+  // Tab switching
+  document.querySelectorAll('.tab-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+      document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  // Create-form collapse (mobile only)
+  function toggleCreateCard(id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.toggle('open');
+  }
+
+  // Accordion toggle
+  function toggleCard(id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.toggle('open');
+  }
+
+  // Auto-dismiss flash messages after 4 s
+  setTimeout(function() {
+    document.querySelectorAll('.flash').forEach(function(el) {
+      el.style.transition = 'opacity .4s';
+      el.style.opacity = '0';
+      setTimeout(function() { if (el.parentNode) el.parentNode.removeChild(el); }, 400);
+    });
+  }, 4000);
+</script>
+</body>
+</html>

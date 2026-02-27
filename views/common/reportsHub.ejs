@@ -19,6 +19,10 @@
     brown: { primary: '#7c4a03', hover: '#5c3802' }
   };
   const currentTheme = themeColors[themeColor] || themeColors.teal;
+  const hasMeritFeature = Array.isArray(allowedFeatures) && (
+    allowedFeatures.includes('Class Base Merit Sheet') ||
+    allowedFeatures.includes('Class Base Merrit sheet')
+  );
 %>
 
 <style>
@@ -530,7 +534,7 @@
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
             </svg>
-            Terminal Report & Merit Sheet
+            <%= hasMeritFeature ? 'Terminal Report & Merit Sheet' : 'Terminal Report' %>
           </a>
           <a href="/common/closeGraduationYearGroup" class="action-btn">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">

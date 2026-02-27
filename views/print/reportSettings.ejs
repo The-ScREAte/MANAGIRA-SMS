@@ -128,6 +128,7 @@
     </div>
 
     <% const currentClass = (enrolledClasses && enrolledClasses.find(c => String(c.class_id) === String(classId))) || (enrolledClasses && enrolledClasses[0]); %>
+    <% const hasTranscriptFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Official School Transcript') || allowedFeatures.includes('Official Transcript')); %>
 
     <div class="card" style="margin-bottom:14px;">
       <div class="section-title">Class-specific Status Settings</div>
@@ -357,6 +358,7 @@
           </div>
         </div>
 
+        <% if (hasTranscriptFeature) { %>
         <!-- Transcript Signatures Section -->
         <div style="border-top:3px solid var(--primary);padding-top:20px;margin-top:24px;">
           <h3 style="margin:0 0 8px;font-size:1.1rem;color:var(--primary);">📜 Transcript Signatures</h3>
@@ -438,6 +440,7 @@
             </div>
           </div>
         </div>
+        <% } %>
       </div>
     </div>
 
@@ -886,6 +889,7 @@
     }
     window.saveDigitalSignature = saveDigitalSignature;
 
+    <% if (hasTranscriptFeature) { %>
     // Transcript Signature Management
     let transcriptCanvas, transcriptCtx, transcriptIsDrawing = false, transcriptLastX = 0, transcriptLastY = 0, transcriptCanvasInitialized = false;
     const transcriptSigFormContainer = document.getElementById('transcriptSignatureFormContainer');
@@ -1059,6 +1063,7 @@
       });
     }
     window.saveTranscriptSignature = saveTranscriptSignature;
+    <% } %>
 
     document.addEventListener('DOMContentLoaded', () => {
       const menus = document.querySelectorAll('.kebab-menu');
@@ -1114,6 +1119,7 @@
       }
     }
 
+    <% if (hasTranscriptFeature) { %>
     async function deleteTranscriptSignatureForClass(classId, className) {
       if (!confirm(`Remove transcript signature from ${className}?`)) return;
       showLoading();
@@ -1129,7 +1135,9 @@
         alert('Error: ' + err.message);
       }
     }
+    <% } %>
 
+    <% if (hasTranscriptFeature) { %>
     async function deleteEntireTranscriptSignature(signaturePath) {
       if (!confirm('Delete this transcript signature completely? It will be removed from all classes.')) return;
       showLoading();
@@ -1145,11 +1153,14 @@
         alert('Error: ' + err.message);
       }
     }
+    <% } %>
 
     window.deleteSignatureForClass = deleteSignatureForClass;
     window.deleteEntireSignature = deleteEntireSignature;
+    <% if (hasTranscriptFeature) { %>
     window.deleteTranscriptSignatureForClass = deleteTranscriptSignatureForClass;
     window.deleteEntireTranscriptSignature = deleteEntireTranscriptSignature;
+    <% } %>
   </script>
 </body>
 </html>
