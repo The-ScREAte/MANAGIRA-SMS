@@ -141,7 +141,7 @@ module.exports = (db) => {
     commonController.deletePendingStudentImage(req, res, db);
   });
 
-  router.get("/studentDetails", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) =>
+  router.get("/studentDetails", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) =>
     commonController.studentDetails(req, res, db)
   );
   router.get("/management", checkFeatureAccess, isAuthenticated, (req, res) =>
@@ -149,22 +149,22 @@ module.exports = (db) => {
   );
   
   // Guardian management routes
-  router.get("/guardians", isAuthenticated, (req, res) =>
+  router.get("/guardians", checkFeatureAccess, isAuthenticated, (req, res) =>
     commonController.guardiansListGet(req, res, db)
   );
-  router.get("/guardianDetails", isAuthenticated, (req, res) =>
+  router.get("/guardianDetails", checkFeatureAccess, isAuthenticated, (req, res) =>
     commonController.guardianDetailsGet(req, res, db)
   );
-  router.post("/guardianEdit/:guardianId", isAuthenticated, upload.single("guardianImage"), (req, res) =>
+  router.post("/guardianEdit/:guardianId", checkFeatureAccess, isAuthenticated, upload.single("guardianImage"), (req, res) =>
     commonController.guardianEditPost(req, res, db)
   );
-  router.post("/guardianRemoveStudent", isAuthenticated, (req, res) =>
+  router.post("/guardianRemoveStudent", checkFeatureAccess, isAuthenticated, (req, res) =>
     commonController.guardianRemoveStudent(req, res, db)
   );
-  router.post("/guardianRequestPasswordReset", isAuthenticated, (req, res) =>
+  router.post("/guardianRequestPasswordReset", checkFeatureAccess, isAuthenticated, (req, res) =>
     commonController.guardianRequestPasswordReset(req, res, db)
   );
-  router.post("/staffReportStudent", isAuthenticated, (req, res) =>
+  router.post("/staffReportStudent", checkFeatureAccess, isAuthenticated, (req, res) =>
     commonController.staffReportStudent(req, res, db)
   );
   
@@ -418,7 +418,7 @@ module.exports = (db) => {
     requirePermission(PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS),
     (req, res) => commonController.closeSchoolYear(req, res, db)
   );
-  router.get("/termDetails/:termId", isAuthenticated, (req, res) =>
+  router.get("/termDetails/:termId", checkFeatureAccess, isAuthenticated, (req, res) =>
     commonController.termDetails(req, res, db)
   );
   router.get(
