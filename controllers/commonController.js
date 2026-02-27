@@ -1237,28 +1237,61 @@ const commonController = {
         (msg) => String(msg).trim().toLowerCase() !== "invalid school year or term."
       );
 
-      const structuredData = orgDetails
+      // Build a clean plain-text aboutus snippet for description
+      const aboutusPlain = orgDetails?.aboutus
+        ? String(orgDetails.aboutus).replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim().substring(0, 160)
+        : null;
+
+      const seoTitle = orgDetails?.organization_name
+        ? `${orgDetails.organization_name} | School Portal | Managira`
+        : "School Public Portal | Managira";
+
+      const seoDescription = aboutusPlain
+        ? `${aboutusPlain}`
+        : `Official portal for ${orgDetails?.organization_name || "School"} on Managira. View announcements, events, and school information.`;
+
+      const seoKeywords = [
+        orgDetails?.organization_name,
+        orgDetails?.nickname,
+        orgDetails?.nickname ? `${orgDetails.nickname}.managira.com` : null,
+        "school portal",
+        "school website",
+        "school announcements",
+        "school events",
+        "managira",
+        "school management"
+      ].filter(Boolean).join(", ");
+
+      // Build rich Schema.org School structured data
+      const structuredDataSchema = orgDetails
         ? {
             "@context": "https://schema.org",
             "@type": "School",
             name: orgDetails.organization_name,
             alternateName: orgDetails.nickname || undefined,
             url: canonicalUrl,
-            logo: toAbsoluteUrl(orgDetails.logo),
-            image: toAbsoluteUrl(orgDetails.logo),
+            ...(toAbsoluteUrl(orgDetails.logo) ? {
+              logo: {
+                "@type": "ImageObject",
+                url: toAbsoluteUrl(orgDetails.logo)
+              },
+              image: toAbsoluteUrl(orgDetails.logo)
+            } : {}),
+            ...(aboutusPlain ? { description: aboutusPlain } : {}),
+            ...(orgDetails.motto ? { slogan: orgDetails.motto } : {}),
+            sameAs: [
+              canonicalUrl,
+              `https://www.managira.com/legal/directory`
+            ]
           }
         : null;
 
+      const structuredData = structuredDataSchema;
+
       res.render("common/publicDashboard", {
-        title: `${orgDetails?.organization_name || "School"} Public Profile`,
-        description: `${orgDetails?.organization_name || "School"} public profile on Managira.`,
-        keywords: [
-          orgDetails?.organization_name,
-          orgDetails?.nickname,
-          orgDetails?.nickname ? `${orgDetails.nickname}.managira.com` : null,
-          "school profile",
-          "managira"
-        ].filter(Boolean).join(", "),
+        title: seoTitle,
+        description: seoDescription,
+        keywords: seoKeywords,
         canonicalUrl,
         slideshowImages, // Pass slideshow images separately
         orderedItems,

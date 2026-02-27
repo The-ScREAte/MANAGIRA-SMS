@@ -10,8 +10,64 @@
   %>
   <head>
     <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <title><%= title %></title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- SEO Meta Tags -->
+    <% if (typeof description !== 'undefined' && description) { %>
+      <meta name="description" content="<%= description %>">
+    <% } else if (orgDetails && orgDetails.aboutus) { %>
+      <meta name="description" content="<%= String(orgDetails.aboutus).replace(/<[^>]*>/g, '').substring(0, 160) %>">
+    <% } %>
+    <% if (typeof keywords !== 'undefined' && keywords) { %>
+      <meta name="keywords" content="<%= keywords %>">
+    <% } %>
+    <meta name="robots" content="index, follow">
+    <meta name="author" content="Managira">
+    <% if (typeof canonicalUrl !== 'undefined' && canonicalUrl) { %>
+      <link rel="canonical" href="<%= canonicalUrl %>">
+    <% } %>
+
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Managira">
+    <meta property="og:title" content="<%= title %>">
+    <% if (typeof description !== 'undefined' && description) { %>
+      <meta property="og:description" content="<%= description %>">
+    <% } %>
+    <% if (typeof canonicalUrl !== 'undefined' && canonicalUrl) { %>
+      <meta property="og:url" content="<%= canonicalUrl %>">
+    <% } %>
+    <%
+      const _ogImage = (orgDetails && orgDetails.logo)
+        ? ((/^https?:\/\//i.test(orgDetails.logo)) ? orgDetails.logo : 'https://www.managira.com' + (orgDetails.logo.startsWith('/') ? '' : '/') + orgDetails.logo)
+        : 'https://www.managira.com/images/managira.png';
+    %>
+    <meta property="og:image" content="<%= _ogImage %>">
+    <meta property="og:image:width" content="512">
+    <meta property="og:image:height" content="512">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="<%= title %>">
+    <% if (typeof description !== 'undefined' && description) { %>
+      <meta name="twitter:description" content="<%= description %>">
+    <% } %>
+    <meta name="twitter:image" content="<%= _ogImage %>">
+
+    <!-- Structured Data (School schema) -->
+    <% if (typeof structuredData !== 'undefined' && structuredData) { %>
+      <script type="application/ld+json"><%- JSON.stringify(structuredData) %></script>
+    <% } %>
+
+    <!-- Favicons -->
+    <link rel="icon" href="/favicon.ico" type="image/x-icon" sizes="any" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon_io/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon_io/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon_io/favicon-16x16.png" />
+    <link rel="manifest" href="/images/favicon_io/site.webmanifest" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <% if (shouldLoadPublicGoogleFont) { %>

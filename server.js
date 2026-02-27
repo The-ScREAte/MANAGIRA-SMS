@@ -327,6 +327,46 @@ app.get("/health", (req, res) => {
   });
 });
 
+// Dynamic sitemap for all school public pages
+app.get("/sitemap-schools.xml", async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT organization_id, nickname, updated_at
+       FROM organizations
+       WHERE deleted = false
+         AND nickname IS NOT NULL
+         AND nickname <> ''
+       ORDER BY organization_name ASC
+       LIMIT 5000`
+    );
+
+    const today = new Date().toISOString().split("T")[0];
+    const urls = result.rows.map((org) => {
+      const lastmod = org.updated_at
+        ? new Date(org.updated_at).toISOString().split("T")[0]
+        : today;
+      return `  <url>
+    <loc>https://${org.nickname}.managira.com/common/publicDashboard</loc>
+    <lastmod>${lastmod}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>`;
+    });
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls.join("\n")}
+</urlset>`;
+
+    res.setHeader("Content-Type", "application/xml");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.send(xml);
+  } catch (err) {
+    console.error("[sitemap-schools] Error generating school sitemap:", err.message);
+    res.status(500).send("<?xml version=\"1.0\" encoding=\"UTF-8\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\"></urlset>");
+  }
+});
+
 app.get("/test-flash", (req, res) => {
   req.flash("success", "Test flash successful!");
   res.redirect("/account/login");

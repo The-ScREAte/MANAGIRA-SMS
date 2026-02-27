@@ -3,8 +3,9 @@ Allow: /
 Allow: /legal/
 Allow: /common/publicDashboard
 
-# Sitemap
+# Sitemaps
 Sitemap: https://www.managira.com/sitemap.xml
+Sitemap: https://www.managira.com/sitemap-schools.xml
 
 # Block access to admin and private areas
 Disallow: /admin/
