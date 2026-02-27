@@ -1,0 +1,1753 @@
+# Branding Asset Audit
+
+Generated: 2026-02-27T02:20:38.195Z
+
+Total image/icon files found: **66**
+Total branding-related references found: **1320**
+Total explicit image URL refs in markup/code: **333**
+
+## 1) Potential Search Result Branding Sources
+These are the references most likely to affect Google result icon/brand snippets.
+
+- [controllers/accountController.js#L63](controllers/accountController.js#L63) — if (!value \|\| value === "profilePlaceholder.png") return null;
+- [controllers/accountController.js#L86](controllers/accountController.js#L86) — await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS image_url TEXT DEFAULT 'profilePlaceholder.png'`);
+- [controllers/accountController.js#L87](controllers/accountController.js#L87) — await db.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS image_url TEXT DEFAULT 'profilePlaceholder.png'`);
+- [controllers/accountController.js#L135](controllers/accountController.js#L135) — filename: "managira.png",
+- [controllers/accountController.js#L136](controllers/accountController.js#L136) — path: path.join(__dirname, "../public/images/managira.png"),
+- [controllers/accountController.js#L137](controllers/accountController.js#L137) — cid: "managira_logo",
+- [controllers/accountController.js#L180](controllers/accountController.js#L180) — filename: "managira.png",
+- [controllers/accountController.js#L181](controllers/accountController.js#L181) — path: path.join(__dirname, "../public/images/managira.png"),
+- [controllers/accountController.js#L182](controllers/accountController.js#L182) — cid: "managira_logo",
+- [controllers/accountController.js#L220](controllers/accountController.js#L220) — filename: "managira.png",
+- [controllers/accountController.js#L221](controllers/accountController.js#L221) — path: path.join(__dirname, "../public/images/managira.png"),
+- [controllers/accountController.js#L222](controllers/accountController.js#L222) — cid: "managira_logo",
+- [controllers/accountController.js#L259](controllers/accountController.js#L259) — filename: "managira.png",
+- [controllers/accountController.js#L260](controllers/accountController.js#L260) — path: path.join(__dirname, "../public/images/managira.png"),
+- [controllers/accountController.js#L261](controllers/accountController.js#L261) — cid: "managira_logo",
+- [controllers/accountController.js#L2883](controllers/accountController.js#L2883) — CASE WHEN o.hub_id IS NOT NULL THEN mh.logo_path ELSE NULL END as hub_logo
+- [controllers/accountController.js#L2960](controllers/accountController.js#L2960) — req.session.logo = organization.logo;
+- [controllers/accountController.js#L2972](controllers/accountController.js#L2972) — req.session.hubLogo = organization.hub_logo;
+- [controllers/accountController.js#L3007](controllers/accountController.js#L3007) — CASE WHEN o.hub_id IS NOT NULL THEN mh.logo_path ELSE NULL END as hub_logo
+- [controllers/accountController.js#L3068](controllers/accountController.js#L3068) — req.session.logo = organization.logo;
+- [controllers/accountController.js#L3082](controllers/accountController.js#L3082) — req.session.hubLogo = organization.hub_logo;
+- [controllers/accountController.js#L3154](controllers/accountController.js#L3154) — o.organization_id, o.organization_name, o.nickname, o.logo, o.font_style, o.theme_color, o.deleted, o.on_hold
+- [controllers/accountController.js#L3226](controllers/accountController.js#L3226) — req.session.logo = ga.logo;
+- [controllers/accountController.js#L3248](controllers/accountController.js#L3248) — logoutGet: (req, res) => {
+- [controllers/accountController.js#L3649](controllers/accountController.js#L3649) — const placeholderImage = "profilePlaceholder.png";
+- [controllers/accountController.js#L3918](controllers/accountController.js#L3918) — personalizationLogoPost: async (req, res) => {
+- [controllers/accountController.js#L3931](controllers/accountController.js#L3931) — "SELECT logo FROM organizations WHERE organization_id = $1",
+- [controllers/accountController.js#L3936](controllers/accountController.js#L3936) — const previousLogo = result.rows[0].logo;
+- [controllers/accountController.js#L3938](controllers/accountController.js#L3938) — // Upload the new logo to S3 under images/logos/{organizationId}/ using a safe unique filename
+- [controllers/accountController.js#L3941](controllers/accountController.js#L3941) — const baseName = path.basename(file.originalname \|\| "logo", originalExt);
+- [controllers/accountController.js#L3947](controllers/accountController.js#L3947) — .toLowerCase() \|\| "logo";
+- [controllers/accountController.js#L3949](controllers/accountController.js#L3949) — const logoKey = `images/logos/${organizationId}/${uniqueSuffix}-${safeBaseName}${safeExt}`;
+- [controllers/accountController.js#L3951](controllers/accountController.js#L3951) — const logoUrl = await uploadToS3(file, logoKey);
+- [controllers/accountController.js#L3953](controllers/accountController.js#L3953) — // Update the organization record with the new logo URL
+- [controllers/accountController.js#L3956](controllers/accountController.js#L3956) — "UPDATE organizations SET logo = $1 WHERE organization_id = $2",
+- [controllers/accountController.js#L3958](controllers/accountController.js#L3958) — [logoUrl, organizationId]
+- [controllers/accountController.js#L3961](controllers/accountController.js#L3961) — // Update the session with the new logo URL
+- [controllers/accountController.js#L3963](controllers/accountController.js#L3963) — req.session.logo = logoUrl;
+- [controllers/accountController.js#L3967](controllers/accountController.js#L3967) — // Delete the old logo from S3 if it exists and is not the same key
+- [controllers/accountController.js#L3968](controllers/accountController.js#L3968) — const oldLogoKey = extractS3KeyFromUrl(previousLogo);
+- [controllers/accountController.js#L3969](controllers/accountController.js#L3969) — if (oldLogoKey && oldLogoKey !== logoKey) {
+- [controllers/accountController.js#L3971](controllers/accountController.js#L3971) — await deleteFromS3(oldLogoKey);
+- [controllers/accountController.js#L3973](controllers/accountController.js#L3973) — console.warn("Failed to delete previous logo from S3:", deleteErr.message);
+- [controllers/accountController.js#L3977](controllers/accountController.js#L3977) — req.flash("success", "Logo updated successfully.");
+- [controllers/accountController.js#L3984](controllers/accountController.js#L3984) — "An error occurred while updating the logo. Please try again."
+- [controllers/accountController.js#L4977](controllers/accountController.js#L4977) — `SELECT organization_name, logo, logo_path, image_url, font_style, nickname, role, email, paystack_customer_code, first_name, last_name, organization_phone, is_hub_member, hub_id
+- [controllers/accountController.js#L5052](controllers/accountController.js#L5052) — image_url: orgUserResult.rows[0]?.image_url \|\| req.session?.user?.image_url \|\| "profilePlaceholder.png",
+- [controllers/accountController.js#L7516](controllers/accountController.js#L7516) — filename: 'managira.png',
+- [controllers/accountController.js#L7517](controllers/accountController.js#L7517) — path: path.join(__dirname, '../public/images/managira.png'),
+- [controllers/accountController.js#L7518](controllers/accountController.js#L7518) — cid: 'managira_logo'
+- [controllers/accountController.js#L7527](controllers/accountController.js#L7527) — filename: 'managira.png',
+- [controllers/accountController.js#L7528](controllers/accountController.js#L7528) — path: path.join(__dirname, '../public/images/managira.png'),
+- [controllers/accountController.js#L7529](controllers/accountController.js#L7529) — cid: 'managira_logo'
+- [controllers/adminController.js#L638](controllers/adminController.js#L638) — filename: 'managira.png',
+- [controllers/adminController.js#L639](controllers/adminController.js#L639) — path: require('path').join(__dirname, '../public/images/managira.png'),
+- [controllers/adminController.js#L640](controllers/adminController.js#L640) — cid: 'managira_logo'
+- [controllers/adminController.js#L701](controllers/adminController.js#L701) — filename: 'managira.png',
+- [controllers/adminController.js#L702](controllers/adminController.js#L702) — path: require('path').join(__dirname, '../public/images/managira.png'),
+- [controllers/adminController.js#L703](controllers/adminController.js#L703) — cid: 'managira_logo'
+- [controllers/adminController.js#L785](controllers/adminController.js#L785) — filename: 'managira.png',
+- [controllers/adminController.js#L786](controllers/adminController.js#L786) — path: require('path').join(__dirname, '../public/images/managira.png'),
+- [controllers/adminController.js#L787](controllers/adminController.js#L787) — cid: 'managira_logo'
+- [controllers/adminController.js#L1529](controllers/adminController.js#L1529) — email, logo_path, created_at
+- [controllers/adminController.js#L1789](controllers/adminController.js#L1789) — filename: 'managira.png',
+- [controllers/adminController.js#L1790](controllers/adminController.js#L1790) — path: path.join(__dirname, '../public/images/managira.png'),
+- [controllers/adminController.js#L1791](controllers/adminController.js#L1791) — cid: 'managira_logo',
+- [controllers/adminController.js#L1816](controllers/adminController.js#L1816) — filename: 'managira.png',
+- [controllers/adminController.js#L1817](controllers/adminController.js#L1817) — path: require('path').join(__dirname, '../public/images/managira.png'),
+- [controllers/adminController.js#L1818](controllers/adminController.js#L1818) — cid: 'managira_logo'
+- [controllers/adminController.js#L1843](controllers/adminController.js#L1843) — filename: 'managira.png',
+- [controllers/adminController.js#L1844](controllers/adminController.js#L1844) — path: require('path').join(__dirname, '../public/images/managira.png'),
+- [controllers/adminController.js#L1845](controllers/adminController.js#L1845) — cid: 'managira_logo'
+- [controllers/commonController.js#L722](controllers/commonController.js#L722) — let orgHeaderLogo = null;
+- [controllers/commonController.js#L726](controllers/commonController.js#L726) — "SELECT organization_name, logo, nickname FROM organizations WHERE organization_id = $1",
+- [controllers/commonController.js#L731](controllers/commonController.js#L731) — orgHeaderLogo = orgResult.rows[0].logo;
+- [controllers/commonController.js#L751](controllers/commonController.js#L751) — orgHeaderLogo,
+- [controllers/commonController.js#L1017](controllers/commonController.js#L1017) — let orgHeaderLogo = null;
+- [controllers/commonController.js#L1021](controllers/commonController.js#L1021) — "SELECT organization_name, logo, nickname FROM organizations WHERE organization_id = $1",
+- [controllers/commonController.js#L1026](controllers/commonController.js#L1026) — orgHeaderLogo = orgResult.rows[0].logo;
+- [controllers/commonController.js#L1043](controllers/commonController.js#L1043) — orgHeaderLogo,
+- [controllers/commonController.js#L1076](controllers/commonController.js#L1076) — logo,
+- [controllers/commonController.js#L1107](controllers/commonController.js#L1107) — `SELECT hub_id, hub_name, logo_path, hub_branding_enabled, hub_footer_text
+- [controllers/commonController.js#L1247](controllers/commonController.js#L1247) — logo: toAbsoluteUrl(orgDetails.logo),
+- [controllers/commonController.js#L1248](controllers/commonController.js#L1248) — image: toAbsoluteUrl(orgDetails.logo),
+- [controllers/commonController.js#L1572](controllers/commonController.js#L1572) — let imageUrl = "profilePlaceholder.png";
+- [controllers/commonController.js#L2331](controllers/commonController.js#L2331) — public_registration_currency, logo, aboutus, motto
+- [controllers/commonController.js#L2457](controllers/commonController.js#L2457) — let imageUrl = "profilePlaceholder.png";
+- [controllers/commonController.js#L2920](controllers/commonController.js#L2920) — filename: "managira.png",
+- [controllers/commonController.js#L2921](controllers/commonController.js#L2921) — path: require("path").join(__dirname, "../public/images/managira.png"),
+- [controllers/commonController.js#L2922](controllers/commonController.js#L2922) — cid: "managira_logo",
+- [controllers/commonController.js#L3415](controllers/commonController.js#L3415) — filename: "managira.png",
+- [controllers/commonController.js#L3418](controllers/commonController.js#L3418) — "../public/images/managira.png"
+- [controllers/commonController.js#L3420](controllers/commonController.js#L3420) — cid: "managira_logo",
+- [controllers/commonController.js#L3497](controllers/commonController.js#L3497) — filename: "managira.png",
+- [controllers/commonController.js#L3500](controllers/commonController.js#L3500) — "../public/images/managira.png"
+- [controllers/commonController.js#L3502](controllers/commonController.js#L3502) — cid: "managira_logo",
+- [controllers/commonController.js#L4148](controllers/commonController.js#L4148) — if (currentImageUrl && currentImageUrl !== "profilePlaceholder.png") {
+- [controllers/commonController.js#L4159](controllers/commonController.js#L4159) — `UPDATE students SET image_url = 'profilePlaceholder.png' WHERE student_id = $1 AND organization_id = $2`,
+- [controllers/commonController.js#L4212](controllers/commonController.js#L4212) — if (currentImageUrl && currentImageUrl !== "profilePlaceholder.png") {
+- [controllers/commonController.js#L4221](controllers/commonController.js#L4221) — `UPDATE pending_students SET image_url = 'profilePlaceholder.png' WHERE pending_id = $1 AND organization_id = $2`,
+- [controllers/commonController.js#L4258](controllers/commonController.js#L4258) — if (imageUrl && imageUrl !== "profilePlaceholder.png") {
+- [controllers/commonController.js#L5107](controllers/commonController.js#L5107) — employee.image_url = "/images/profilePlaceholder.png";
+- [controllers/commonController.js#L5164](controllers/commonController.js#L5164) — employee.image_url = "/images/profilePlaceholder.png";
+- [controllers/commonController.js#L9425](controllers/commonController.js#L9425) — filename: 'managira_logo.png',
+- [controllers/commonController.js#L9426](controllers/commonController.js#L9426) — path: path.join(__dirname, '..', 'public', 'images', 'managira.png'),
+- [controllers/commonController.js#L9427](controllers/commonController.js#L9427) — cid: 'managira_logo'
+- [controllers/commonController.js#L9599](controllers/commonController.js#L9599) — filename: 'managira.png',
+- [controllers/commonController.js#L9600](controllers/commonController.js#L9600) — path: require('path').join(__dirname, '../public/images/managira.png'),
+- [controllers/commonController.js#L9601](controllers/commonController.js#L9601) — cid: 'managira_logo'
+- [controllers/commonController.js#L9888](controllers/commonController.js#L9888) — filename: "managira.png",
+- [controllers/commonController.js#L9889](controllers/commonController.js#L9889) — path: require("path").join(__dirname, "../public/images/managira.png"),
+- [controllers/commonController.js#L9890](controllers/commonController.js#L9890) — cid: "managira_logo",
+- [controllers/commonController.js#L9914](controllers/commonController.js#L9914) — filename: "managira.png",
+- [controllers/commonController.js#L9915](controllers/commonController.js#L9915) — path: require("path").join(__dirname, "../public/images/managira.png"),
+- [controllers/commonController.js#L9916](controllers/commonController.js#L9916) — cid: "managira_logo",
+- [controllers/commonController.js#L9964](controllers/commonController.js#L9964) — filename: 'managira.png',
+- [controllers/commonController.js#L9965](controllers/commonController.js#L9965) — path: require('path').join(__dirname, '../public/images/managira.png'),
+- [controllers/commonController.js#L9966](controllers/commonController.js#L9966) — cid: 'managira_logo'
+- [controllers/commonController.js#L10000](controllers/commonController.js#L10000) — filename: 'managira.png',
+- [controllers/commonController.js#L10001](controllers/commonController.js#L10001) — path: require('path').join(__dirname, '../public/images/managira.png'),
+- [controllers/commonController.js#L10002](controllers/commonController.js#L10002) — cid: 'managira_logo'
+- [controllers/enrollmentController.js#L459](controllers/enrollmentController.js#L459) — COALESCE(NULLIF(u.image_url, ''), 'profilePlaceholder.png') AS image_url,
+- [controllers/enrollmentController.js#L489](controllers/enrollmentController.js#L489) — CASE WHEN COALESCE(g.image_url, '') <> '' AND g.image_url <> 'profilePlaceholder.png' THEN 0 ELSE 1 END,
+- [controllers/enrollmentController.js#L518](controllers/enrollmentController.js#L518) — COALESCE(NULLIF(o.image_url, ''), 'profilePlaceholder.png') AS image_url,
+- [controllers/hubController.js#L121](controllers/hubController.js#L121) — // Hub Logout
+- [controllers/hubController.js#L122](controllers/hubController.js#L122) — hubLogoutGet: async (req, res) => {
+- [controllers/hubController.js#L127](controllers/hubController.js#L127) — await logHubActivity(hubId, 'LOGOUT', `Hub ${hubName} logged out`);
+- [controllers/hubController.js#L1107](controllers/hubController.js#L1107) — // Update Hub Logo
+- [controllers/hubController.js#L1108](controllers/hubController.js#L1108) — hubSettingsLogoPost: async (req, res) => {
+- [controllers/hubController.js#L1113](controllers/hubController.js#L1113) — req.flash('error', 'Please select a logo file.');
+- [controllers/hubController.js#L1119](controllers/hubController.js#L1119) — // Get current logo to delete from S3
+- [controllers/hubController.js#L1120](controllers/hubController.js#L1120) — const currentLogoResult = await db.query(
+- [controllers/hubController.js#L1121](controllers/hubController.js#L1121) — 'SELECT logo_path FROM managira_hubs WHERE hub_id = $1',
+- [controllers/hubController.js#L1125](controllers/hubController.js#L1125) — const currentLogo = currentLogoResult.rows[0]?.logo_path;
+- [controllers/hubController.js#L1127](controllers/hubController.js#L1127) — // Upload new logo to S3 with proper path including filename
+- [controllers/hubController.js#L1128](controllers/hubController.js#L1128) — const logoKey = `images/hub-logos/${hubId}/${Date.now()}_${req.file.originalname}`;
+- [controllers/hubController.js#L1129](controllers/hubController.js#L1129) — const logoUrl = await uploadToS3(req.file, logoKey);
+- [controllers/hubController.js#L1131](controllers/hubController.js#L1131) — // Update database with new logo
+- [controllers/hubController.js#L1133](controllers/hubController.js#L1133) — 'UPDATE managira_hubs SET logo_path = $1, updated_at = NOW() WHERE hub_id = $2',
+- [controllers/hubController.js#L1134](controllers/hubController.js#L1134) — [logoUrl, hubId]
+- [controllers/hubController.js#L1137](controllers/hubController.js#L1137) — // Delete old logo from S3 if it exists and is not the default
+- [controllers/hubController.js#L1138](controllers/hubController.js#L1138) — if (currentLogo && currentLogo !== '/images/managira.png' && !currentLogo.includes('managira.png')) {
+- [controllers/hubController.js#L1142](controllers/hubController.js#L1142) — const oldKey = currentLogo.startsWith(s3Prefix) ? currentLogo.substring(s3Prefix.length) : currentLogo;
+- [controllers/hubController.js#L1148](controllers/hubController.js#L1148) — // Update session with new logo
+- [controllers/hubController.js#L1149](controllers/hubController.js#L1149) — req.session.logo = logoUrl;
+- [controllers/hubController.js#L1151](controllers/hubController.js#L1151) — await logHubActivity(hubId, 'LOGO_UPDATE', 'Hub logo updated');
+- [controllers/hubController.js#L1153](controllers/hubController.js#L1153) — req.flash('success', 'Logo updated successfully.');
+- [controllers/hubController.js#L1156](controllers/hubController.js#L1156) — req.flash('error', 'Error updating logo.');
+- [controllers/legalController.js#L77](controllers/legalController.js#L77) — filename: 'managira.png',
+- [controllers/legalController.js#L78](controllers/legalController.js#L78) — path: require('path').join(__dirname, '../public/images/managira.png'),
+- [controllers/legalController.js#L79](controllers/legalController.js#L79) — cid: 'managira_logo'
+- [controllers/legalController.js#L130](controllers/legalController.js#L130) — const optionalColumns = ['nickname', 'subdomain', 'logo_path', 'city', 'country', 'theme_color', 'deleted'];
+- [controllers/legalController.js#L151](controllers/legalController.js#L151) — ${availableColumns.has('logo_path') ? 'logo_path' : 'NULL::text AS logo_path'},
+- [controllers/legalController.js#L191](controllers/legalController.js#L191) — logo: toAbsoluteUrl(org.logo_path) \|\| `${baseSiteUrl}/images/profilePlaceholder.png`,
+- [controllers/legalController.js#L192](controllers/legalController.js#L192) — image: toAbsoluteUrl(org.logo_path) \|\| `${baseSiteUrl}/images/profilePlaceholder.png`
+- [controllers/printController.js#L99](controllers/printController.js#L99) — SELECT organization_name, organization_address, organization_phone, email, logo_path
+- [controllers/printController.js#L172](controllers/printController.js#L172) — const logoUrl = organization.logo_path
+- [controllers/printController.js#L173](controllers/printController.js#L173) — ? await getFromS3(organization.logo_path)
+- [controllers/printController.js#L573](controllers/printController.js#L573) — logoUrl,
+- [controllers/printController.js#L1763](controllers/printController.js#L1763) — SELECT organization_name, logo_path
+- [controllers/printController.js#L1775](controllers/printController.js#L1775) — const logoUrl = organization.logo_path
+- [controllers/printController.js#L1776](controllers/printController.js#L1776) — ? `https://${process.env.S3_BUCKET_NAME}.s3.amazonaws.com/${organization.logo_path}`
+- [controllers/printController.js#L1829](controllers/printController.js#L1829) — // Render the page with organization name and logo
+- [controllers/printController.js#L1840](controllers/printController.js#L1840) — logoUrl: logoUrl,
+- [controllers/printController.js#L1924](controllers/printController.js#L1924) — SELECT organization_name, logo_path
+- [controllers/printController.js#L1936](controllers/printController.js#L1936) — const logoUrl = organization.logo_path
+- [controllers/printController.js#L1937](controllers/printController.js#L1937) — ? `https://${process.env.S3_BUCKET_NAME}.s3.amazonaws.com/${organization.logo_path}`
+- [controllers/printController.js#L2086](controllers/printController.js#L2086) — logoUrl,
+- [controllers/transcriptController.js#L38](controllers/transcriptController.js#L38) — SELECT organization_name, organization_address, organization_phone, email, logo_path
+- [controllers/transcriptController.js#L212](controllers/transcriptController.js#L212) — SELECT organization_name, organization_address, organization_phone, email, logo_path
+- [controllers/transcriptController.js#L218](controllers/transcriptController.js#L218) — // Use session logo first (already in session from middleware), fallback to logo_path
+- [controllers/transcriptController.js#L219](controllers/transcriptController.js#L219) — const logoPathFromDb = orgDetails.logo_path;
+- [controllers/transcriptController.js#L220](controllers/transcriptController.js#L220) — const logoPathFromSession = req.session.logo;
+- [controllers/transcriptController.js#L221](controllers/transcriptController.js#L221) — const effectiveLogoPath = logoPathFromSession \|\| logoPathFromDb;
+- [controllers/transcriptController.js#L223](controllers/transcriptController.js#L223) — console.log('[emailTranscript] Logo sources:', {
+- [controllers/transcriptController.js#L224](controllers/transcriptController.js#L224) — fromSession: logoPathFromSession,
+- [controllers/transcriptController.js#L225](controllers/transcriptController.js#L225) — fromDb: logoPathFromDb,
+- [controllers/transcriptController.js#L226](controllers/transcriptController.js#L226) — effective: effectiveLogoPath
+- [controllers/transcriptController.js#L229](controllers/transcriptController.js#L229) — // Build S3 URL for logo if it exists
+- [controllers/transcriptController.js#L235](controllers/transcriptController.js#L235) — const orgLogoUrl = effectiveLogoPath ? buildS3Url(effectiveLogoPath) : null;
+- [controllers/transcriptController.js#L246](controllers/transcriptController.js#L246) — const orgLogoDataUrl = orgLogoUrl ? await fetchImageAsDataUrl(orgLogoUrl, 'logo') : null;
+- [controllers/transcriptController.js#L248](controllers/transcriptController.js#L248) — console.log('[emailTranscript] Logo conversion:', {
+- [controllers/transcriptController.js#L249](controllers/transcriptController.js#L249) — hasOrgLogoUrl: !!orgLogoUrl,
+- [controllers/transcriptController.js#L250](controllers/transcriptController.js#L250) — hasOrgLogoDataUrl: !!orgLogoDataUrl,
+- [controllers/transcriptController.js#L251](controllers/transcriptController.js#L251) — dataUrlLength: orgLogoDataUrl ? orgLogoDataUrl.length : 0,
+- [controllers/transcriptController.js#L252](controllers/transcriptController.js#L252) — dataUrlPreview: orgLogoDataUrl ? orgLogoDataUrl.substring(0, 50) + '...' : 'none'
+- [controllers/transcriptController.js#L325](controllers/transcriptController.js#L325) — session: { ...req.session, logo: orgLogoDataUrl \|\| orgLogoUrl },
+- [controllers/transcriptController.js#L330](controllers/transcriptController.js#L330) — console.log('[emailTranscript] Logo being passed to template:', {
+- [controllers/transcriptController.js#L331](controllers/transcriptController.js#L331) — type: orgLogoDataUrl ? 'data-url' : (orgLogoUrl ? 's3-url' : 'none'),
+- [controllers/transcriptController.js#L332](controllers/transcriptController.js#L332) — value: orgLogoDataUrl ? 'data:...' : orgLogoUrl
+- [controllers/transcriptController.js#L376](controllers/transcriptController.js#L376) — // Get logo for email
+- [controllers/transcriptController.js#L377](controllers/transcriptController.js#L377) — const logoPath = path.join(__dirname, '../public/images/managira.png');
+- [controllers/transcriptController.js#L392](controllers/transcriptController.js#L392) — filename: 'managira-logo.png',
+- [controllers/transcriptController.js#L393](controllers/transcriptController.js#L393) — path: logoPath,
+- [controllers/transcriptController.js#L394](controllers/transcriptController.js#L394) — cid: 'managira_logo'
+- [dist/css/style.css#L113](dist/css/style.css#L113) — .logo {
+- [dist/css/style.css#L379](dist/css/style.css#L379) — /* Specific styling for 'Management Tools', 'Settings', and 'Logout' links */
+- [dist/css/style.css#L388](dist/css/style.css#L388) — .nav-item a.logout {
+- [dist/css/style.css#L389](dist/css/style.css#L389) — color: #ff6347; /* Distinct logout color */
+- [dist/css/style.css#L397](dist/css/style.css#L397) — .nav-item a.logout:hover {
+- [dist/js/spa-router.js#L177](dist/js/spa-router.js#L177) — '/account/logout',
+- [dist/js/spa-router.js#L740](dist/js/spa-router.js#L740) — if (typeof window.initLogoSPANavigation === 'function') {
+- [dist/js/spa-router.js#L741](dist/js/spa-router.js#L741) — window.initLogoSPANavigation();
+- [dist/static/about-us.html#L28](dist/static/about-us.html#L28) — <meta property="og:image" content="https://www.managira.com/images/managira.png">
+- [dist/static/about-us.html#L37](dist/static/about-us.html#L37) — <meta name="twitter:image" content="https://www.managira.com/images/managira.png">
+- [dist/static/about-us.html#L39](dist/static/about-us.html#L39) — <!-- Favicon Links -->
+- [dist/static/about-us.html#L40](dist/static/about-us.html#L40) — <link rel="icon" href="/images/favicon_io/favicon.ico" type="image/x-icon" />
+- [dist/static/about-us.html#L45](dist/static/about-us.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [dist/static/about-us.html#L51](dist/static/about-us.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [dist/static/about-us.html#L53](dist/static/about-us.html#L53) — <link rel="shortcut icon" href="/images/favicon_io/favicon.ico" />
+- [dist/static/about-us.html#L364](dist/static/about-us.html#L364) — header#top-header .siteName .logo {
+- [dist/static/about-us.html#L502](dist/static/about-us.html#L502) — .siteName .logo {
+- [dist/static/about-us.html#L503](dist/static/about-us.html#L503) — width: 50px; /* Optimal logo size for tablets */
+- [dist/static/about-us.html#L590](dist/static/about-us.html#L590) — .siteName .logo {
+- [dist/static/about-us.html#L698](dist/static/about-us.html#L698) — .siteName .logo {
+- [dist/static/about-us.html#L846](dist/static/about-us.html#L846) — .siteName .logo {
+- [dist/static/about-us.html#L847](dist/static/about-us.html#L847) — width: 28px; /* Smaller logo */
+- [dist/static/about-us.html#L883](dist/static/about-us.html#L883) — .siteName .logo {
+- [dist/static/about-us.html#L884](dist/static/about-us.html#L884) — width: 26px; /* Smallest logo */
+- [dist/static/about-us.html#L888](dist/static/about-us.html#L888) — /* Extra: Make header and logo smaller on small screens */
+- [dist/static/about-us.html#L897](dist/static/about-us.html#L897) — .siteName .logo {
+- [dist/static/about-us.html#L914](dist/static/about-us.html#L914) — <!-- Only show Managira logo when not logged in -->
+- [dist/static/about-us.html#L919](dist/static/about-us.html#L919) — <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+- [dist/static/about-us.html#L1057](dist/static/about-us.html#L1057) — user.image_url !== "profilePlaceholder.png"
+- [dist/static/about-us.html#L1059](dist/static/about-us.html#L1059) — : "/images/profilePlaceholder.png";
+- [dist/static/about-us.html#L1358](dist/static/about-us.html#L1358) — "logo": "https://www.managira.com/images/managira.png",
+- [dist/static/about-us.html#L1438](dist/static/about-us.html#L1438) — .logo-col {
+- [dist/static/about-us.html#L1442](dist/static/about-us.html#L1442) — .footer-logo {
+- [dist/static/about-us.html#L1542](dist/static/about-us.html#L1542) — .footer-logo {
+- [dist/static/donations.html#L28](dist/static/donations.html#L28) — <meta property="og:image" content="https://www.managira.com/images/managira.png">
+- [dist/static/donations.html#L37](dist/static/donations.html#L37) — <meta name="twitter:image" content="https://www.managira.com/images/managira.png">
+- [dist/static/donations.html#L39](dist/static/donations.html#L39) — <!-- Favicon Links -->
+- [dist/static/donations.html#L40](dist/static/donations.html#L40) — <link rel="icon" href="/images/favicon_io/favicon.ico" type="image/x-icon" />
+- [dist/static/donations.html#L45](dist/static/donations.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [dist/static/donations.html#L51](dist/static/donations.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [dist/static/donations.html#L53](dist/static/donations.html#L53) — <link rel="shortcut icon" href="/images/favicon_io/favicon.ico" />
+- [dist/static/donations.html#L364](dist/static/donations.html#L364) — header#top-header .siteName .logo {
+- [dist/static/donations.html#L502](dist/static/donations.html#L502) — .siteName .logo {
+- [dist/static/donations.html#L503](dist/static/donations.html#L503) — width: 50px; /* Optimal logo size for tablets */
+- [dist/static/donations.html#L590](dist/static/donations.html#L590) — .siteName .logo {
+- [dist/static/donations.html#L698](dist/static/donations.html#L698) — .siteName .logo {
+- [dist/static/donations.html#L846](dist/static/donations.html#L846) — .siteName .logo {
+- [dist/static/donations.html#L847](dist/static/donations.html#L847) — width: 28px; /* Smaller logo */
+- [dist/static/donations.html#L883](dist/static/donations.html#L883) — .siteName .logo {
+- [dist/static/donations.html#L884](dist/static/donations.html#L884) — width: 26px; /* Smallest logo */
+- [dist/static/donations.html#L888](dist/static/donations.html#L888) — /* Extra: Make header and logo smaller on small screens */
+- [dist/static/donations.html#L897](dist/static/donations.html#L897) — .siteName .logo {
+- [dist/static/donations.html#L914](dist/static/donations.html#L914) — <!-- Only show Managira logo when not logged in -->
+- [dist/static/donations.html#L919](dist/static/donations.html#L919) — <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+- [dist/static/donations.html#L1057](dist/static/donations.html#L1057) — user.image_url !== "profilePlaceholder.png"
+- [dist/static/donations.html#L1059](dist/static/donations.html#L1059) — : "/images/profilePlaceholder.png";
+- [dist/static/donations.html#L1270](dist/static/donations.html#L1270) — .logo-col {
+- [dist/static/donations.html#L1274](dist/static/donations.html#L1274) — .footer-logo {
+- [dist/static/donations.html#L1374](dist/static/donations.html#L1374) — .footer-logo {
+- [dist/static/employment.html#L28](dist/static/employment.html#L28) — <meta property="og:image" content="https://www.managira.com/images/managira.png">
+- [dist/static/employment.html#L37](dist/static/employment.html#L37) — <meta name="twitter:image" content="https://www.managira.com/images/managira.png">
+- [dist/static/employment.html#L39](dist/static/employment.html#L39) — <!-- Favicon Links -->
+- [dist/static/employment.html#L40](dist/static/employment.html#L40) — <link rel="icon" href="/images/favicon_io/favicon.ico" type="image/x-icon" />
+- [dist/static/employment.html#L45](dist/static/employment.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [dist/static/employment.html#L51](dist/static/employment.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [dist/static/employment.html#L53](dist/static/employment.html#L53) — <link rel="shortcut icon" href="/images/favicon_io/favicon.ico" />
+- [dist/static/employment.html#L364](dist/static/employment.html#L364) — header#top-header .siteName .logo {
+- [dist/static/employment.html#L502](dist/static/employment.html#L502) — .siteName .logo {
+- [dist/static/employment.html#L503](dist/static/employment.html#L503) — width: 50px; /* Optimal logo size for tablets */
+- [dist/static/employment.html#L590](dist/static/employment.html#L590) — .siteName .logo {
+- [dist/static/employment.html#L698](dist/static/employment.html#L698) — .siteName .logo {
+- [dist/static/employment.html#L846](dist/static/employment.html#L846) — .siteName .logo {
+- [dist/static/employment.html#L847](dist/static/employment.html#L847) — width: 28px; /* Smaller logo */
+- [dist/static/employment.html#L883](dist/static/employment.html#L883) — .siteName .logo {
+- [dist/static/employment.html#L884](dist/static/employment.html#L884) — width: 26px; /* Smallest logo */
+- [dist/static/employment.html#L888](dist/static/employment.html#L888) — /* Extra: Make header and logo smaller on small screens */
+- [dist/static/employment.html#L897](dist/static/employment.html#L897) — .siteName .logo {
+- [dist/static/employment.html#L914](dist/static/employment.html#L914) — <!-- Only show Managira logo when not logged in -->
+- [dist/static/employment.html#L919](dist/static/employment.html#L919) — <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+- [dist/static/employment.html#L1057](dist/static/employment.html#L1057) — user.image_url !== "profilePlaceholder.png"
+- [dist/static/employment.html#L1059](dist/static/employment.html#L1059) — : "/images/profilePlaceholder.png";
+- [dist/static/employment.html#L1269](dist/static/employment.html#L1269) — .logo-col {
+- [dist/static/employment.html#L1273](dist/static/employment.html#L1273) — .footer-logo {
+- [dist/static/employment.html#L1373](dist/static/employment.html#L1373) — .footer-logo {
+- [dist/static/faq.html#L28](dist/static/faq.html#L28) — <meta property="og:image" content="https://www.managira.com/images/managira.png">
+- [dist/static/faq.html#L37](dist/static/faq.html#L37) — <meta name="twitter:image" content="https://www.managira.com/images/managira.png">
+- [dist/static/faq.html#L39](dist/static/faq.html#L39) — <!-- Favicon Links -->
+- [dist/static/faq.html#L40](dist/static/faq.html#L40) — <link rel="icon" href="/images/favicon_io/favicon.ico" type="image/x-icon" />
+- [dist/static/faq.html#L45](dist/static/faq.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [dist/static/faq.html#L51](dist/static/faq.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [dist/static/faq.html#L53](dist/static/faq.html#L53) — <link rel="shortcut icon" href="/images/favicon_io/favicon.ico" />
+- [dist/static/faq.html#L364](dist/static/faq.html#L364) — header#top-header .siteName .logo {
+- [dist/static/faq.html#L502](dist/static/faq.html#L502) — .siteName .logo {
+- [dist/static/faq.html#L503](dist/static/faq.html#L503) — width: 50px; /* Optimal logo size for tablets */
+- [dist/static/faq.html#L590](dist/static/faq.html#L590) — .siteName .logo {
+- [dist/static/faq.html#L698](dist/static/faq.html#L698) — .siteName .logo {
+- [dist/static/faq.html#L846](dist/static/faq.html#L846) — .siteName .logo {
+- [dist/static/faq.html#L847](dist/static/faq.html#L847) — width: 28px; /* Smaller logo */
+- [dist/static/faq.html#L883](dist/static/faq.html#L883) — .siteName .logo {
+- [dist/static/faq.html#L884](dist/static/faq.html#L884) — width: 26px; /* Smallest logo */
+- [dist/static/faq.html#L888](dist/static/faq.html#L888) — /* Extra: Make header and logo smaller on small screens */
+- [dist/static/faq.html#L897](dist/static/faq.html#L897) — .siteName .logo {
+- [dist/static/faq.html#L914](dist/static/faq.html#L914) — <!-- Only show Managira logo when not logged in -->
+- [dist/static/faq.html#L919](dist/static/faq.html#L919) — <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+- [dist/static/faq.html#L1057](dist/static/faq.html#L1057) — user.image_url !== "profilePlaceholder.png"
+- [dist/static/faq.html#L1059](dist/static/faq.html#L1059) — : "/images/profilePlaceholder.png";
+- [dist/static/faq.html#L1246](dist/static/faq.html#L1246) — <div class="faq-item"><div class="faq-question">Can I customize the portal with my school’s logo and colors?</div><div class="faq-answer">Yes, Managira supports branding options. You can upload your logo and set your preferred colors and fo
+- [dist/static/faq.html#L1384](dist/static/faq.html#L1384) — .logo-col {
+- [dist/static/faq.html#L1388](dist/static/faq.html#L1388) — .footer-logo {
+- [dist/static/faq.html#L1488](dist/static/faq.html#L1488) — .footer-logo {
+- [dist/static/forget-password.html#L28](dist/static/forget-password.html#L28) — <meta property="og:image" content="https://www.managira.com/images/managira.png">
+- [dist/static/forget-password.html#L37](dist/static/forget-password.html#L37) — <meta name="twitter:image" content="https://www.managira.com/images/managira.png">
+- [dist/static/forget-password.html#L39](dist/static/forget-password.html#L39) — <!-- Favicon Links -->
+- [dist/static/forget-password.html#L40](dist/static/forget-password.html#L40) — <link rel="icon" href="/images/favicon_io/favicon.ico" type="image/x-icon" />
+- [dist/static/forget-password.html#L45](dist/static/forget-password.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [dist/static/forget-password.html#L51](dist/static/forget-password.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [dist/static/forget-password.html#L53](dist/static/forget-password.html#L53) — <link rel="shortcut icon" href="/images/favicon_io/favicon.ico" />
+- [dist/static/forget-password.html#L364](dist/static/forget-password.html#L364) — header#top-header .siteName .logo {
+- [dist/static/forget-password.html#L502](dist/static/forget-password.html#L502) — .siteName .logo {
+- [dist/static/forget-password.html#L503](dist/static/forget-password.html#L503) — width: 50px; /* Optimal logo size for tablets */
+- [dist/static/forget-password.html#L590](dist/static/forget-password.html#L590) — .siteName .logo {
+- [dist/static/forget-password.html#L698](dist/static/forget-password.html#L698) — .siteName .logo {
+- [dist/static/forget-password.html#L846](dist/static/forget-password.html#L846) — .siteName .logo {
+- [dist/static/forget-password.html#L847](dist/static/forget-password.html#L847) — width: 28px; /* Smaller logo */
+- [dist/static/forget-password.html#L883](dist/static/forget-password.html#L883) — .siteName .logo {
+- [dist/static/forget-password.html#L884](dist/static/forget-password.html#L884) — width: 26px; /* Smallest logo */
+- [dist/static/forget-password.html#L888](dist/static/forget-password.html#L888) — /* Extra: Make header and logo smaller on small screens */
+- [dist/static/forget-password.html#L897](dist/static/forget-password.html#L897) — .siteName .logo {
+- [dist/static/forget-password.html#L914](dist/static/forget-password.html#L914) — <!-- Only show Managira logo when not logged in -->
+- [dist/static/forget-password.html#L919](dist/static/forget-password.html#L919) — <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+- [dist/static/forget-password.html#L1057](dist/static/forget-password.html#L1057) — user.image_url !== "profilePlaceholder.png"
+- [dist/static/forget-password.html#L1059](dist/static/forget-password.html#L1059) — : "/images/profilePlaceholder.png";
+- [dist/static/forget-password.html#L1256](dist/static/forget-password.html#L1256) — .logo-col {
+- [dist/static/forget-password.html#L1260](dist/static/forget-password.html#L1260) — .footer-logo {
+- [dist/static/forget-password.html#L1360](dist/static/forget-password.html#L1360) — .footer-logo {
+- [dist/static/help.html#L28](dist/static/help.html#L28) — <meta property="og:image" content="https://www.managira.com/images/managira.png">
+- [dist/static/help.html#L37](dist/static/help.html#L37) — <meta name="twitter:image" content="https://www.managira.com/images/managira.png">
+- [dist/static/help.html#L39](dist/static/help.html#L39) — <!-- Favicon Links -->
+- [dist/static/help.html#L40](dist/static/help.html#L40) — <link rel="icon" href="/images/favicon_io/favicon.ico" type="image/x-icon" />
+- [dist/static/help.html#L45](dist/static/help.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [dist/static/help.html#L51](dist/static/help.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [dist/static/help.html#L53](dist/static/help.html#L53) — <link rel="shortcut icon" href="/images/favicon_io/favicon.ico" />
+- [dist/static/help.html#L364](dist/static/help.html#L364) — header#top-header .siteName .logo {
+- [dist/static/help.html#L502](dist/static/help.html#L502) — .siteName .logo {
+- [dist/static/help.html#L503](dist/static/help.html#L503) — width: 50px; /* Optimal logo size for tablets */
+- [dist/static/help.html#L590](dist/static/help.html#L590) — .siteName .logo {
+- [dist/static/help.html#L698](dist/static/help.html#L698) — .siteName .logo {
+- [dist/static/help.html#L846](dist/static/help.html#L846) — .siteName .logo {
+- [dist/static/help.html#L847](dist/static/help.html#L847) — width: 28px; /* Smaller logo */
+- [dist/static/help.html#L883](dist/static/help.html#L883) — .siteName .logo {
+- [dist/static/help.html#L884](dist/static/help.html#L884) — width: 26px; /* Smallest logo */
+- [dist/static/help.html#L888](dist/static/help.html#L888) — /* Extra: Make header and logo smaller on small screens */
+- [dist/static/help.html#L897](dist/static/help.html#L897) — .siteName .logo {
+- [dist/static/help.html#L914](dist/static/help.html#L914) — <!-- Only show Managira logo when not logged in -->
+- [dist/static/help.html#L919](dist/static/help.html#L919) — <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+- [dist/static/help.html#L1057](dist/static/help.html#L1057) — user.image_url !== "profilePlaceholder.png"
+- [dist/static/help.html#L1059](dist/static/help.html#L1059) — : "/images/profilePlaceholder.png";
+- [dist/static/help.html#L1680](dist/static/help.html#L1680) — header#top-header .siteName .logo {
+- [dist/static/help.html#L1818](dist/static/help.html#L1818) — .siteName .logo {
+- [dist/static/help.html#L1819](dist/static/help.html#L1819) — width: 50px; /* Optimal logo size for tablets */
+- [dist/static/help.html#L1906](dist/static/help.html#L1906) — .siteName .logo {
+- [dist/static/help.html#L2014](dist/static/help.html#L2014) — .siteName .logo {
+- [dist/static/help.html#L2162](dist/static/help.html#L2162) — .siteName .logo {
+- [dist/static/help.html#L2163](dist/static/help.html#L2163) — width: 28px; /* Smaller logo */
+- [dist/static/help.html#L2199](dist/static/help.html#L2199) — .siteName .logo {
+- [dist/static/help.html#L2200](dist/static/help.html#L2200) — width: 26px; /* Smallest logo */
+- [dist/static/help.html#L2204](dist/static/help.html#L2204) — /* Extra: Make header and logo smaller on small screens */
+- [dist/static/help.html#L2213](dist/static/help.html#L2213) — .siteName .logo {
+- [dist/static/help.html#L2230](dist/static/help.html#L2230) — <!-- Only show Managira logo when not logged in -->
+- [dist/static/help.html#L2235](dist/static/help.html#L2235) — <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+- [dist/static/help.html#L2373](dist/static/help.html#L2373) — user.image_url !== "profilePlaceholder.png"
+- [dist/static/help.html#L2375](dist/static/help.html#L2375) — : "/images/profilePlaceholder.png";
+- [dist/static/help.html#L2572](dist/static/help.html#L2572) — .logo-col {
+- [dist/static/help.html#L2576](dist/static/help.html#L2576) — .footer-logo {
+- [dist/static/help.html#L2676](dist/static/help.html#L2676) — .footer-logo {
+- [dist/static/index.html#L28](dist/static/index.html#L28) — <meta property="og:image" content="https://www.managira.com/images/managira.png">
+- [dist/static/index.html#L37](dist/static/index.html#L37) — <meta name="twitter:image" content="https://www.managira.com/images/managira.png">
+- [dist/static/index.html#L39](dist/static/index.html#L39) — <!-- Favicon Links -->
+- [dist/static/index.html#L40](dist/static/index.html#L40) — <link rel="icon" href="/images/favicon_io/favicon.ico" type="image/x-icon" />
+- [dist/static/index.html#L45](dist/static/index.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [dist/static/index.html#L51](dist/static/index.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [dist/static/index.html#L53](dist/static/index.html#L53) — <link rel="shortcut icon" href="/images/favicon_io/favicon.ico" />
+- [dist/static/index.html#L364](dist/static/index.html#L364) — header#top-header .siteName .logo {
+- [dist/static/index.html#L502](dist/static/index.html#L502) — .siteName .logo {
+- [dist/static/index.html#L503](dist/static/index.html#L503) — width: 50px; /* Optimal logo size for tablets */
+- [dist/static/index.html#L590](dist/static/index.html#L590) — .siteName .logo {
+- [dist/static/index.html#L698](dist/static/index.html#L698) — .siteName .logo {
+- [dist/static/index.html#L846](dist/static/index.html#L846) — .siteName .logo {
+- [dist/static/index.html#L847](dist/static/index.html#L847) — width: 28px; /* Smaller logo */
+- [dist/static/index.html#L883](dist/static/index.html#L883) — .siteName .logo {
+- [dist/static/index.html#L884](dist/static/index.html#L884) — width: 26px; /* Smallest logo */
+- [dist/static/index.html#L888](dist/static/index.html#L888) — /* Extra: Make header and logo smaller on small screens */
+- [dist/static/index.html#L897](dist/static/index.html#L897) — .siteName .logo {
+- [dist/static/index.html#L914](dist/static/index.html#L914) — <!-- Only show Managira logo when not logged in -->
+- [dist/static/index.html#L919](dist/static/index.html#L919) — <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+- [dist/static/index.html#L1057](dist/static/index.html#L1057) — user.image_url !== "profilePlaceholder.png"
+- [dist/static/index.html#L1059](dist/static/index.html#L1059) — : "/images/profilePlaceholder.png";
+- [dist/static/index.html#L1115](dist/static/index.html#L1115) — /* Make the scrolling-header h1 and logo-section images smaller on small screens */
+- [dist/static/index.html#L1121](dist/static/index.html#L1121) — .logo-section .logo-container img {
+- [dist/static/index.html#L1126](dist/static/index.html#L1126) — .logo-section .logo-container span {
+- [dist/static/index.html#L1137](dist/static/index.html#L1137) — .logo-section .logo-container img {
+- [dist/static/index.html#L1141](dist/static/index.html#L1141) — .logo-section .logo-container span {
+- [dist/static/index.html#L1146](dist/static/index.html#L1146) — .logo-section .logo-container img,
+- [dist/static/index.html#L1147](dist/static/index.html#L1147) — .logo-section .logo-container span {
+- [dist/static/index.html#L1462](dist/static/index.html#L1462) — /* ========== Security & Logo Section ========== */
+- [dist/static/index.html#L1479](dist/static/index.html#L1479) — .logo-section {
+- [dist/static/index.html#L1488](dist/static/index.html#L1488) — .logo-container img {
+- [dist/static/index.html#L1495](dist/static/index.html#L1495) — .logo-container img {
+- [dist/static/index.html#L1501](dist/static/index.html#L1501) — .logo-container {
+- [dist/static/index.html#L1509](dist/static/index.html#L1509) — .logo-container span {
+- [dist/static/index.html#L1514](dist/static/index.html#L1514) — .logo-container img {
+- [dist/static/index.html#L1645](dist/static/index.html#L1645) — <!-- Scrolling Logo Section -->
+- [dist/static/index.html#L1649](dist/static/index.html#L1649) — <section class="logo-section">
+- [dist/static/index.html#L1651](dist/static/index.html#L1651) — <div class="logo-container">
+- [dist/static/index.html#L1653](dist/static/index.html#L1653) — <img src="images/schoolslogo/school1.png" alt="School 1">
+- [dist/static/index.html#L1654](dist/static/index.html#L1654) — <img src="images/schoolslogo/school2.png" alt="School 2">
+- [dist/static/index.html#L1655](dist/static/index.html#L1655) — <img src="images/schoolslogo/school3.png" alt="School 3">
+- [dist/static/index.html#L1656](dist/static/index.html#L1656) — <img src="images/schoolslogo/school4.png" alt="School 4">
+- [dist/static/index.html#L1657](dist/static/index.html#L1657) — <img src="images/schoolslogo/school5.png" alt="School 5">
+- [dist/static/index.html#L1658](dist/static/index.html#L1658) — <img src="images/schoolslogo/school6.png" alt="School 6">
+- [dist/static/index.html#L1659](dist/static/index.html#L1659) — <img src="images/schoolslogo/school1.png" alt="School 1">
+- [dist/static/index.html#L1660](dist/static/index.html#L1660) — <img src="images/schoolslogo/school2.png" alt="School 2">
+- [dist/static/index.html#L1661](dist/static/index.html#L1661) — <img src="images/schoolslogo/school3.png" alt="School 3">
+- [dist/static/index.html#L1662](dist/static/index.html#L1662) — <img src="images/schoolslogo/school4.png" alt="School 4">
+- [dist/static/index.html#L1663](dist/static/index.html#L1663) — <img src="images/schoolslogo/school5.png" alt="School 5">
+- [dist/static/index.html#L1664](dist/static/index.html#L1664) — <img src="images/schoolslogo/school6.png" alt="School 6">
+- [dist/static/index.html#L1665](dist/static/index.html#L1665) — <img src="images/schoolslogo/school1.png" alt="School 1">
+- [dist/static/index.html#L1666](dist/static/index.html#L1666) — <img src="images/schoolslogo/school2.png" alt="School 2">
+- [dist/static/index.html#L1667](dist/static/index.html#L1667) — <img src="images/schoolslogo/school3.png" alt="School 3">
+- [dist/static/index.html#L1668](dist/static/index.html#L1668) — <img src="images/schoolslogo/school4.png" alt="School 4">
+- [dist/static/index.html#L1669](dist/static/index.html#L1669) — <img src="images/schoolslogo/school5.png" alt="School 5">
+- [dist/static/index.html#L1670](dist/static/index.html#L1670) — <img src="images/schoolslogo/school6.png" alt="School 6">
+- [dist/static/index.html#L1671](dist/static/index.html#L1671) — <img src="images/schoolslogo/school1.png" alt="School 1">
+- [dist/static/index.html#L1672](dist/static/index.html#L1672) — <img src="images/schoolslogo/school2.png" alt="School 2">
+- [dist/static/index.html#L1673](dist/static/index.html#L1673) — <img src="images/schoolslogo/school3.png" alt="School 3">
+- [dist/static/index.html#L1674](dist/static/index.html#L1674) — <img src="images/schoolslogo/school4.png" alt="School 4">
+- [dist/static/index.html#L1675](dist/static/index.html#L1675) — <img src="images/schoolslogo/school5.png" alt="School 5">
+- [dist/static/index.html#L1676](dist/static/index.html#L1676) — <img src="images/schoolslogo/school6.png" alt="School 6">
+- [dist/static/index.html#L1687](dist/static/index.html#L1687) — <section class="logo-section">
+- [dist/static/index.html#L1688](dist/static/index.html#L1688) — <div class="logo-container">
+- [dist/static/index.html#L1690](dist/static/index.html#L1690) — <img src="images/schoolslogo/aws.png" alt="AWS Logo">
+- [dist/static/index.html#L1693](dist/static/index.html#L1693) — <img src="images/schoolslogo/paystack.png" alt="Paystack Logo">
+- [dist/static/index.html#L1696](dist/static/index.html#L1696) — <img src="images/schoolslogo/snyk.png" alt="Snyk Logo">
+- [dist/static/index.html#L1699](dist/static/index.html#L1699) — <img src="images/schoolslogo/SECURED.png" alt="DATA Security Logo">
+- [dist/static/index.html#L1702](dist/static/index.html#L1702) — <img src="images/schoolslogo/screate.png" alt="NCA Ghana Logo">
+- [dist/static/index.html#L1705](dist/static/index.html#L1705) — <img src="images/schoolslogo/owasp.png" alt="OWASP Logo">
+- [dist/static/index.html#L1709](dist/static/index.html#L1709) — <img src="images/schoolslogo/snyk.png" alt="Snyk Logo">
+- [dist/static/index.html#L1712](dist/static/index.html#L1712) — <img src="images/schoolslogo/aws.png" alt="AWS Logo">
+- [dist/static/index.html#L1715](dist/static/index.html#L1715) — <img src="images/schoolslogo/paystack.png" alt="Paystack Logo">
+- [dist/static/index.html#L1718](dist/static/index.html#L1718) — <img src="images/schoolslogo/owasp.png" alt="OWASP Logo">
+- [dist/static/index.html#L1721](dist/static/index.html#L1721) — <img src="images/schoolslogo/SECURED.png" alt="DATA Security Logo">
+- [dist/static/index.html#L1724](dist/static/index.html#L1724) — <img src="images/schoolslogo/screate.png" alt="NCA Ghana Logo">
+- [dist/static/index.html#L1831](dist/static/index.html#L1831) — "logo": "https://www.managira.com/images/managira.png",
+- [dist/static/index.html#L1903](dist/static/index.html#L1903) — <!-- Logo -->
+- [dist/static/index.html#L1904](dist/static/index.html#L1904) — <div class="footer-col logo-col">
+- [dist/static/index.html#L1906](dist/static/index.html#L1906) — src="/images/managira.png"
+- [dist/static/index.html#L1907](dist/static/index.html#L1907) — alt="Managira Logo"
+- [dist/static/index.html#L1908](dist/static/index.html#L1908) — class="footer-logo"
+- [dist/static/index.html#L2002](dist/static/index.html#L2002) — .logo-col {
+- [dist/static/index.html#L2006](dist/static/index.html#L2006) — .footer-logo {
+- [dist/static/index.html#L2106](dist/static/index.html#L2106) — .footer-logo {
+- [dist/static/login.html#L28](dist/static/login.html#L28) — <meta property="og:image" content="https://www.managira.com/images/managira.png">
+- [dist/static/login.html#L37](dist/static/login.html#L37) — <meta name="twitter:image" content="https://www.managira.com/images/managira.png">
+- [dist/static/login.html#L39](dist/static/login.html#L39) — <!-- Favicon Links -->
+- [dist/static/login.html#L40](dist/static/login.html#L40) — <link rel="icon" href="/images/favicon_io/favicon.ico" type="image/x-icon" />
+- [dist/static/login.html#L45](dist/static/login.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [dist/static/login.html#L51](dist/static/login.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [dist/static/login.html#L53](dist/static/login.html#L53) — <link rel="shortcut icon" href="/images/favicon_io/favicon.ico" />
+- [dist/static/login.html#L364](dist/static/login.html#L364) — header#top-header .siteName .logo {
+- [dist/static/login.html#L502](dist/static/login.html#L502) — .siteName .logo {
+- [dist/static/login.html#L503](dist/static/login.html#L503) — width: 50px; /* Optimal logo size for tablets */
+- [dist/static/login.html#L590](dist/static/login.html#L590) — .siteName .logo {
+- [dist/static/login.html#L698](dist/static/login.html#L698) — .siteName .logo {
+- [dist/static/login.html#L846](dist/static/login.html#L846) — .siteName .logo {
+- [dist/static/login.html#L847](dist/static/login.html#L847) — width: 28px; /* Smaller logo */
+- [dist/static/login.html#L883](dist/static/login.html#L883) — .siteName .logo {
+- [dist/static/login.html#L884](dist/static/login.html#L884) — width: 26px; /* Smallest logo */
+- [dist/static/login.html#L888](dist/static/login.html#L888) — /* Extra: Make header and logo smaller on small screens */
+- [dist/static/login.html#L897](dist/static/login.html#L897) — .siteName .logo {
+- [dist/static/login.html#L914](dist/static/login.html#L914) — <!-- Only show Managira logo when not logged in -->
+- [dist/static/login.html#L919](dist/static/login.html#L919) — <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+- [dist/static/login.html#L1057](dist/static/login.html#L1057) — user.image_url !== "profilePlaceholder.png"
+- [dist/static/login.html#L1059](dist/static/login.html#L1059) — : "/images/profilePlaceholder.png";
+- [dist/static/login.html#L1283](dist/static/login.html#L1283) — .logo-col {
+- [dist/static/login.html#L1287](dist/static/login.html#L1287) — .footer-logo {
+- [dist/static/login.html#L1387](dist/static/login.html#L1387) — .footer-logo {
+- [dist/static/privacy-policy.html#L28](dist/static/privacy-policy.html#L28) — <meta property="og:image" content="https://www.managira.com/images/managira.png">
+- [dist/static/privacy-policy.html#L37](dist/static/privacy-policy.html#L37) — <meta name="twitter:image" content="https://www.managira.com/images/managira.png">
+- [dist/static/privacy-policy.html#L39](dist/static/privacy-policy.html#L39) — <!-- Favicon Links -->
+- [dist/static/privacy-policy.html#L40](dist/static/privacy-policy.html#L40) — <link rel="icon" href="/images/favicon_io/favicon.ico" type="image/x-icon" />
+- [dist/static/privacy-policy.html#L45](dist/static/privacy-policy.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [dist/static/privacy-policy.html#L51](dist/static/privacy-policy.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [dist/static/privacy-policy.html#L53](dist/static/privacy-policy.html#L53) — <link rel="shortcut icon" href="/images/favicon_io/favicon.ico" />
+- [dist/static/privacy-policy.html#L364](dist/static/privacy-policy.html#L364) — header#top-header .siteName .logo {
+- [dist/static/privacy-policy.html#L502](dist/static/privacy-policy.html#L502) — .siteName .logo {
+- [dist/static/privacy-policy.html#L503](dist/static/privacy-policy.html#L503) — width: 50px; /* Optimal logo size for tablets */
+- [dist/static/privacy-policy.html#L590](dist/static/privacy-policy.html#L590) — .siteName .logo {
+- [dist/static/privacy-policy.html#L698](dist/static/privacy-policy.html#L698) — .siteName .logo {
+- [dist/static/privacy-policy.html#L846](dist/static/privacy-policy.html#L846) — .siteName .logo {
+- [dist/static/privacy-policy.html#L847](dist/static/privacy-policy.html#L847) — width: 28px; /* Smaller logo */
+- [dist/static/privacy-policy.html#L883](dist/static/privacy-policy.html#L883) — .siteName .logo {
+- [dist/static/privacy-policy.html#L884](dist/static/privacy-policy.html#L884) — width: 26px; /* Smallest logo */
+- [dist/static/privacy-policy.html#L888](dist/static/privacy-policy.html#L888) — /* Extra: Make header and logo smaller on small screens */
+- [dist/static/privacy-policy.html#L897](dist/static/privacy-policy.html#L897) — .siteName .logo {
+- [dist/static/privacy-policy.html#L914](dist/static/privacy-policy.html#L914) — <!-- Only show Managira logo when not logged in -->
+- [dist/static/privacy-policy.html#L919](dist/static/privacy-policy.html#L919) — <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+- [dist/static/privacy-policy.html#L1057](dist/static/privacy-policy.html#L1057) — user.image_url !== "profilePlaceholder.png"
+- [dist/static/privacy-policy.html#L1059](dist/static/privacy-policy.html#L1059) — : "/images/profilePlaceholder.png";
+- [dist/static/privacy-policy.html#L1350](dist/static/privacy-policy.html#L1350) — .logo-col {
+- [dist/static/privacy-policy.html#L1354](dist/static/privacy-policy.html#L1354) — .footer-logo {
+- [dist/static/privacy-policy.html#L1454](dist/static/privacy-policy.html#L1454) — .footer-logo {
+- [dist/static/public-dashboard.html#L28](dist/static/public-dashboard.html#L28) — <meta property="og:image" content="https://www.managira.com/images/managira.png">
+- [dist/static/public-dashboard.html#L37](dist/static/public-dashboard.html#L37) — <meta name="twitter:image" content="https://www.managira.com/images/managira.png">
+- [dist/static/public-dashboard.html#L39](dist/static/public-dashboard.html#L39) — <!-- Favicon Links -->
+- [dist/static/public-dashboard.html#L40](dist/static/public-dashboard.html#L40) — <link rel="icon" href="/images/favicon_io/favicon.ico" type="image/x-icon" />
+- [dist/static/public-dashboard.html#L45](dist/static/public-dashboard.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [dist/static/public-dashboard.html#L51](dist/static/public-dashboard.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [dist/static/public-dashboard.html#L53](dist/static/public-dashboard.html#L53) — <link rel="shortcut icon" href="/images/favicon_io/favicon.ico" />
+- [dist/static/public-dashboard.html#L364](dist/static/public-dashboard.html#L364) — header#top-header .siteName .logo {
+- [dist/static/public-dashboard.html#L502](dist/static/public-dashboard.html#L502) — .siteName .logo {
+- [dist/static/public-dashboard.html#L503](dist/static/public-dashboard.html#L503) — width: 50px; /* Optimal logo size for tablets */
+- [dist/static/public-dashboard.html#L590](dist/static/public-dashboard.html#L590) — .siteName .logo {
+- [dist/static/public-dashboard.html#L698](dist/static/public-dashboard.html#L698) — .siteName .logo {
+- [dist/static/public-dashboard.html#L846](dist/static/public-dashboard.html#L846) — .siteName .logo {
+- [dist/static/public-dashboard.html#L847](dist/static/public-dashboard.html#L847) — width: 28px; /* Smaller logo */
+- [dist/static/public-dashboard.html#L883](dist/static/public-dashboard.html#L883) — .siteName .logo {
+- [dist/static/public-dashboard.html#L884](dist/static/public-dashboard.html#L884) — width: 26px; /* Smallest logo */
+- [dist/static/public-dashboard.html#L888](dist/static/public-dashboard.html#L888) — /* Extra: Make header and logo smaller on small screens */
+- [dist/static/public-dashboard.html#L897](dist/static/public-dashboard.html#L897) — .siteName .logo {
+- [dist/static/public-dashboard.html#L914](dist/static/public-dashboard.html#L914) — <!-- Only show Managira logo when not logged in -->
+- [dist/static/public-dashboard.html#L919](dist/static/public-dashboard.html#L919) — <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+- [dist/static/public-dashboard.html#L1057](dist/static/public-dashboard.html#L1057) — user.image_url !== "profilePlaceholder.png"
+- [dist/static/public-dashboard.html#L1059](dist/static/public-dashboard.html#L1059) — : "/images/profilePlaceholder.png";
+- [dist/static/public-dashboard.html#L2441](dist/static/public-dashboard.html#L2441) — .logo-col {
+- [dist/static/public-dashboard.html#L2445](dist/static/public-dashboard.html#L2445) — .footer-logo {
+- [dist/static/public-dashboard.html#L2545](dist/static/public-dashboard.html#L2545) — .footer-logo {
+- [dist/static/register.html#L28](dist/static/register.html#L28) — <meta property="og:image" content="https://www.managira.com/images/managira.png">
+- [dist/static/register.html#L37](dist/static/register.html#L37) — <meta name="twitter:image" content="https://www.managira.com/images/managira.png">
+- [dist/static/register.html#L39](dist/static/register.html#L39) — <!-- Favicon Links -->
+- [dist/static/register.html#L40](dist/static/register.html#L40) — <link rel="icon" href="/images/favicon_io/favicon.ico" type="image/x-icon" />
+- [dist/static/register.html#L45](dist/static/register.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [dist/static/register.html#L51](dist/static/register.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [dist/static/register.html#L53](dist/static/register.html#L53) — <link rel="shortcut icon" href="/images/favicon_io/favicon.ico" />
+- [dist/static/register.html#L364](dist/static/register.html#L364) — header#top-header .siteName .logo {
+- [dist/static/register.html#L502](dist/static/register.html#L502) — .siteName .logo {
+- [dist/static/register.html#L503](dist/static/register.html#L503) — width: 50px; /* Optimal logo size for tablets */
+- [dist/static/register.html#L590](dist/static/register.html#L590) — .siteName .logo {
+- [dist/static/register.html#L698](dist/static/register.html#L698) — .siteName .logo {
+- [dist/static/register.html#L846](dist/static/register.html#L846) — .siteName .logo {
+- [dist/static/register.html#L847](dist/static/register.html#L847) — width: 28px; /* Smaller logo */
+- [dist/static/register.html#L883](dist/static/register.html#L883) — .siteName .logo {
+- [dist/static/register.html#L884](dist/static/register.html#L884) — width: 26px; /* Smallest logo */
+- [dist/static/register.html#L888](dist/static/register.html#L888) — /* Extra: Make header and logo smaller on small screens */
+- [dist/static/register.html#L897](dist/static/register.html#L897) — .siteName .logo {
+- [dist/static/register.html#L914](dist/static/register.html#L914) — <!-- Only show Managira logo when not logged in -->
+- [dist/static/register.html#L919](dist/static/register.html#L919) — <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+- [dist/static/register.html#L1057](dist/static/register.html#L1057) — user.image_url !== "profilePlaceholder.png"
+- [dist/static/register.html#L1059](dist/static/register.html#L1059) — : "/images/profilePlaceholder.png";
+- [dist/static/register.html#L1510](dist/static/register.html#L1510) — .logo-col {
+- [dist/static/register.html#L1514](dist/static/register.html#L1514) — .footer-logo {
+- [dist/static/register.html#L1614](dist/static/register.html#L1614) — .footer-logo {
+- [dist/static/terms-of-service.html#L28](dist/static/terms-of-service.html#L28) — <meta property="og:image" content="https://www.managira.com/images/managira.png">
+- [dist/static/terms-of-service.html#L37](dist/static/terms-of-service.html#L37) — <meta name="twitter:image" content="https://www.managira.com/images/managira.png">
+- [dist/static/terms-of-service.html#L39](dist/static/terms-of-service.html#L39) — <!-- Favicon Links -->
+- [dist/static/terms-of-service.html#L40](dist/static/terms-of-service.html#L40) — <link rel="icon" href="/images/favicon_io/favicon.ico" type="image/x-icon" />
+- [dist/static/terms-of-service.html#L45](dist/static/terms-of-service.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [dist/static/terms-of-service.html#L51](dist/static/terms-of-service.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [dist/static/terms-of-service.html#L53](dist/static/terms-of-service.html#L53) — <link rel="shortcut icon" href="/images/favicon_io/favicon.ico" />
+- [dist/static/terms-of-service.html#L364](dist/static/terms-of-service.html#L364) — header#top-header .siteName .logo {
+- [dist/static/terms-of-service.html#L502](dist/static/terms-of-service.html#L502) — .siteName .logo {
+- [dist/static/terms-of-service.html#L503](dist/static/terms-of-service.html#L503) — width: 50px; /* Optimal logo size for tablets */
+- [dist/static/terms-of-service.html#L590](dist/static/terms-of-service.html#L590) — .siteName .logo {
+- [dist/static/terms-of-service.html#L698](dist/static/terms-of-service.html#L698) — .siteName .logo {
+- [dist/static/terms-of-service.html#L846](dist/static/terms-of-service.html#L846) — .siteName .logo {
+- [dist/static/terms-of-service.html#L847](dist/static/terms-of-service.html#L847) — width: 28px; /* Smaller logo */
+- [dist/static/terms-of-service.html#L883](dist/static/terms-of-service.html#L883) — .siteName .logo {
+- [dist/static/terms-of-service.html#L884](dist/static/terms-of-service.html#L884) — width: 26px; /* Smallest logo */
+- [dist/static/terms-of-service.html#L888](dist/static/terms-of-service.html#L888) — /* Extra: Make header and logo smaller on small screens */
+- [dist/static/terms-of-service.html#L897](dist/static/terms-of-service.html#L897) — .siteName .logo {
+- [dist/static/terms-of-service.html#L914](dist/static/terms-of-service.html#L914) — <!-- Only show Managira logo when not logged in -->
+- [dist/static/terms-of-service.html#L919](dist/static/terms-of-service.html#L919) — <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+- [dist/static/terms-of-service.html#L1057](dist/static/terms-of-service.html#L1057) — user.image_url !== "profilePlaceholder.png"
+- [dist/static/terms-of-service.html#L1059](dist/static/terms-of-service.html#L1059) — : "/images/profilePlaceholder.png";
+- [dist/static/terms-of-service.html#L1309](dist/static/terms-of-service.html#L1309) — .logo-col {
+- [dist/static/terms-of-service.html#L1313](dist/static/terms-of-service.html#L1313) — .footer-logo {
+- [dist/static/terms-of-service.html#L1413](dist/static/terms-of-service.html#L1413) — .footer-logo {
+- [middleware/authMiddleware.js#L134](middleware/authMiddleware.js#L134) — req.session.logo = organization.logo;
+- [middleware/hubAuthMiddleware.js#L44](middleware/hubAuthMiddleware.js#L44) — h.logo_path, h.plan_id, h.max_organizations, h.hub_branding_enabled, h.hub_footer_text,
+- [middleware/hubAuthMiddleware.js#L61](middleware/hubAuthMiddleware.js#L61) — req.session.logo = hub.logo_path && hub.logo_path.trim() !== '' ? hub.logo_path : null;
+- [middleware/middleware.js#L10](middleware/middleware.js#L10) — { name: 'logo', maxCount: 1 },    // Allow 1 logo file
+- [middleware/s3Upload.js#L20](middleware/s3Upload.js#L20) — const key = customKey \|\| `images/logos/${Date.now()}_${file.originalname}`;
+- [public/css/style.css#L75](public/css/style.css#L75) — .logo {
+- [public/css/style.css#L341](public/css/style.css#L341) — /* Specific styling for 'Management Tools', 'Settings', and 'Logout' links */
+- [public/css/style.css#L350](public/css/style.css#L350) — .nav-item a.logout {
+- [public/css/style.css#L351](public/css/style.css#L351) — color: #ff6347; /* Distinct logout color */
+- [public/css/style.css#L359](public/css/style.css#L359) — .nav-item a.logout:hover {
+- [public/js/spa-router.js#L177](public/js/spa-router.js#L177) — '/account/logout',
+- [public/js/spa-router.js#L740](public/js/spa-router.js#L740) — if (typeof window.initLogoSPANavigation === 'function') {
+- [public/js/spa-router.js#L741](public/js/spa-router.js#L741) — window.initLogoSPANavigation();
+- [public/static/about-us.html#L28](public/static/about-us.html#L28) — <meta property="og:image" content="https://www.managira.com/images/managira.png">
+- [public/static/about-us.html#L37](public/static/about-us.html#L37) — <meta name="twitter:image" content="https://www.managira.com/images/managira.png">
+- [public/static/about-us.html#L39](public/static/about-us.html#L39) — <!-- Favicon Links -->
+- [public/static/about-us.html#L40](public/static/about-us.html#L40) — <link rel="icon" href="/images/favicon_io/favicon.ico" type="image/x-icon" />
+- [public/static/about-us.html#L45](public/static/about-us.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [public/static/about-us.html#L51](public/static/about-us.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [public/static/about-us.html#L53](public/static/about-us.html#L53) — <link rel="shortcut icon" href="/images/favicon_io/favicon.ico" />
+- [public/static/about-us.html#L364](public/static/about-us.html#L364) — header#top-header .siteName .logo {
+- [public/static/about-us.html#L502](public/static/about-us.html#L502) — .siteName .logo {
+- [public/static/about-us.html#L503](public/static/about-us.html#L503) — width: 50px; /* Optimal logo size for tablets */
+- [public/static/about-us.html#L590](public/static/about-us.html#L590) — .siteName .logo {
+- [public/static/about-us.html#L698](public/static/about-us.html#L698) — .siteName .logo {
+- [public/static/about-us.html#L846](public/static/about-us.html#L846) — .siteName .logo {
+- [public/static/about-us.html#L847](public/static/about-us.html#L847) — width: 28px; /* Smaller logo */
+- [public/static/about-us.html#L883](public/static/about-us.html#L883) — .siteName .logo {
+- [public/static/about-us.html#L884](public/static/about-us.html#L884) — width: 26px; /* Smallest logo */
+- [public/static/about-us.html#L888](public/static/about-us.html#L888) — /* Extra: Make header and logo smaller on small screens */
+- [public/static/about-us.html#L897](public/static/about-us.html#L897) — .siteName .logo {
+- [public/static/about-us.html#L914](public/static/about-us.html#L914) — <!-- Only show Managira logo when not logged in -->
+- [public/static/about-us.html#L919](public/static/about-us.html#L919) — <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+- [public/static/about-us.html#L1057](public/static/about-us.html#L1057) — user.image_url !== "profilePlaceholder.png"
+- [public/static/about-us.html#L1059](public/static/about-us.html#L1059) — : "/images/profilePlaceholder.png";
+- [public/static/about-us.html#L1358](public/static/about-us.html#L1358) — "logo": "https://www.managira.com/images/managira.png",
+- [public/static/about-us.html#L1438](public/static/about-us.html#L1438) — .logo-col {
+- [public/static/about-us.html#L1442](public/static/about-us.html#L1442) — .footer-logo {
+- [public/static/about-us.html#L1542](public/static/about-us.html#L1542) — .footer-logo {
+- [public/static/donations.html#L28](public/static/donations.html#L28) — <meta property="og:image" content="https://www.managira.com/images/managira.png">
+- [public/static/donations.html#L37](public/static/donations.html#L37) — <meta name="twitter:image" content="https://www.managira.com/images/managira.png">
+- [public/static/donations.html#L39](public/static/donations.html#L39) — <!-- Favicon Links -->
+- [public/static/donations.html#L40](public/static/donations.html#L40) — <link rel="icon" href="/images/favicon_io/favicon.ico" type="image/x-icon" />
+- [public/static/donations.html#L45](public/static/donations.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [public/static/donations.html#L51](public/static/donations.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [public/static/donations.html#L53](public/static/donations.html#L53) — <link rel="shortcut icon" href="/images/favicon_io/favicon.ico" />
+- [public/static/donations.html#L364](public/static/donations.html#L364) — header#top-header .siteName .logo {
+- [public/static/donations.html#L502](public/static/donations.html#L502) — .siteName .logo {
+- [public/static/donations.html#L503](public/static/donations.html#L503) — width: 50px; /* Optimal logo size for tablets */
+- [public/static/donations.html#L590](public/static/donations.html#L590) — .siteName .logo {
+- [public/static/donations.html#L698](public/static/donations.html#L698) — .siteName .logo {
+- [public/static/donations.html#L846](public/static/donations.html#L846) — .siteName .logo {
+- [public/static/donations.html#L847](public/static/donations.html#L847) — width: 28px; /* Smaller logo */
+- [public/static/donations.html#L883](public/static/donations.html#L883) — .siteName .logo {
+- [public/static/donations.html#L884](public/static/donations.html#L884) — width: 26px; /* Smallest logo */
+- [public/static/donations.html#L888](public/static/donations.html#L888) — /* Extra: Make header and logo smaller on small screens */
+- [public/static/donations.html#L897](public/static/donations.html#L897) — .siteName .logo {
+- [public/static/donations.html#L914](public/static/donations.html#L914) — <!-- Only show Managira logo when not logged in -->
+- [public/static/donations.html#L919](public/static/donations.html#L919) — <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+- [public/static/donations.html#L1057](public/static/donations.html#L1057) — user.image_url !== "profilePlaceholder.png"
+- [public/static/donations.html#L1059](public/static/donations.html#L1059) — : "/images/profilePlaceholder.png";
+- [public/static/donations.html#L1270](public/static/donations.html#L1270) — .logo-col {
+- [public/static/donations.html#L1274](public/static/donations.html#L1274) — .footer-logo {
+- [public/static/donations.html#L1374](public/static/donations.html#L1374) — .footer-logo {
+- [public/static/employment.html#L28](public/static/employment.html#L28) — <meta property="og:image" content="https://www.managira.com/images/managira.png">
+- [public/static/employment.html#L37](public/static/employment.html#L37) — <meta name="twitter:image" content="https://www.managira.com/images/managira.png">
+- [public/static/employment.html#L39](public/static/employment.html#L39) — <!-- Favicon Links -->
+- [public/static/employment.html#L40](public/static/employment.html#L40) — <link rel="icon" href="/images/favicon_io/favicon.ico" type="image/x-icon" />
+- [public/static/employment.html#L45](public/static/employment.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [public/static/employment.html#L51](public/static/employment.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [public/static/employment.html#L53](public/static/employment.html#L53) — <link rel="shortcut icon" href="/images/favicon_io/favicon.ico" />
+- [public/static/employment.html#L364](public/static/employment.html#L364) — header#top-header .siteName .logo {
+- [public/static/employment.html#L502](public/static/employment.html#L502) — .siteName .logo {
+- [public/static/employment.html#L503](public/static/employment.html#L503) — width: 50px; /* Optimal logo size for tablets */
+- [public/static/employment.html#L590](public/static/employment.html#L590) — .siteName .logo {
+- [public/static/employment.html#L698](public/static/employment.html#L698) — .siteName .logo {
+- [public/static/employment.html#L846](public/static/employment.html#L846) — .siteName .logo {
+- [public/static/employment.html#L847](public/static/employment.html#L847) — width: 28px; /* Smaller logo */
+- [public/static/employment.html#L883](public/static/employment.html#L883) — .siteName .logo {
+- [public/static/employment.html#L884](public/static/employment.html#L884) — width: 26px; /* Smallest logo */
+- [public/static/employment.html#L888](public/static/employment.html#L888) — /* Extra: Make header and logo smaller on small screens */
+- [public/static/employment.html#L897](public/static/employment.html#L897) — .siteName .logo {
+- [public/static/employment.html#L914](public/static/employment.html#L914) — <!-- Only show Managira logo when not logged in -->
+- [public/static/employment.html#L919](public/static/employment.html#L919) — <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+- [public/static/employment.html#L1057](public/static/employment.html#L1057) — user.image_url !== "profilePlaceholder.png"
+- [public/static/employment.html#L1059](public/static/employment.html#L1059) — : "/images/profilePlaceholder.png";
+- [public/static/employment.html#L1269](public/static/employment.html#L1269) — .logo-col {
+- [public/static/employment.html#L1273](public/static/employment.html#L1273) — .footer-logo {
+- [public/static/employment.html#L1373](public/static/employment.html#L1373) — .footer-logo {
+- [public/static/faq.html#L28](public/static/faq.html#L28) — <meta property="og:image" content="https://www.managira.com/images/managira.png">
+- [public/static/faq.html#L37](public/static/faq.html#L37) — <meta name="twitter:image" content="https://www.managira.com/images/managira.png">
+- [public/static/faq.html#L39](public/static/faq.html#L39) — <!-- Favicon Links -->
+- [public/static/faq.html#L40](public/static/faq.html#L40) — <link rel="icon" href="/images/favicon_io/favicon.ico" type="image/x-icon" />
+- [public/static/faq.html#L45](public/static/faq.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [public/static/faq.html#L51](public/static/faq.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [public/static/faq.html#L53](public/static/faq.html#L53) — <link rel="shortcut icon" href="/images/favicon_io/favicon.ico" />
+- [public/static/faq.html#L364](public/static/faq.html#L364) — header#top-header .siteName .logo {
+- [public/static/faq.html#L502](public/static/faq.html#L502) — .siteName .logo {
+- [public/static/faq.html#L503](public/static/faq.html#L503) — width: 50px; /* Optimal logo size for tablets */
+- [public/static/faq.html#L590](public/static/faq.html#L590) — .siteName .logo {
+- [public/static/faq.html#L698](public/static/faq.html#L698) — .siteName .logo {
+- [public/static/faq.html#L846](public/static/faq.html#L846) — .siteName .logo {
+- [public/static/faq.html#L847](public/static/faq.html#L847) — width: 28px; /* Smaller logo */
+- [public/static/faq.html#L883](public/static/faq.html#L883) — .siteName .logo {
+- [public/static/faq.html#L884](public/static/faq.html#L884) — width: 26px; /* Smallest logo */
+- [public/static/faq.html#L888](public/static/faq.html#L888) — /* Extra: Make header and logo smaller on small screens */
+- [public/static/faq.html#L897](public/static/faq.html#L897) — .siteName .logo {
+- [public/static/faq.html#L914](public/static/faq.html#L914) — <!-- Only show Managira logo when not logged in -->
+- [public/static/faq.html#L919](public/static/faq.html#L919) — <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+- [public/static/faq.html#L1057](public/static/faq.html#L1057) — user.image_url !== "profilePlaceholder.png"
+- [public/static/faq.html#L1059](public/static/faq.html#L1059) — : "/images/profilePlaceholder.png";
+- [public/static/faq.html#L1246](public/static/faq.html#L1246) — <div class="faq-item"><div class="faq-question">Can I customize the portal with my school’s logo and colors?</div><div class="faq-answer">Yes, Managira supports branding options. You can upload your logo and set your preferred colors and fo
+- [public/static/faq.html#L1384](public/static/faq.html#L1384) — .logo-col {
+- [public/static/faq.html#L1388](public/static/faq.html#L1388) — .footer-logo {
+- [public/static/faq.html#L1488](public/static/faq.html#L1488) — .footer-logo {
+- [public/static/forget-password.html#L28](public/static/forget-password.html#L28) — <meta property="og:image" content="https://www.managira.com/images/managira.png">
+- [public/static/forget-password.html#L37](public/static/forget-password.html#L37) — <meta name="twitter:image" content="https://www.managira.com/images/managira.png">
+- [public/static/forget-password.html#L39](public/static/forget-password.html#L39) — <!-- Favicon Links -->
+- [public/static/forget-password.html#L40](public/static/forget-password.html#L40) — <link rel="icon" href="/images/favicon_io/favicon.ico" type="image/x-icon" />
+- [public/static/forget-password.html#L45](public/static/forget-password.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [public/static/forget-password.html#L51](public/static/forget-password.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [public/static/forget-password.html#L53](public/static/forget-password.html#L53) — <link rel="shortcut icon" href="/images/favicon_io/favicon.ico" />
+- [public/static/forget-password.html#L364](public/static/forget-password.html#L364) — header#top-header .siteName .logo {
+- [public/static/forget-password.html#L502](public/static/forget-password.html#L502) — .siteName .logo {
+- [public/static/forget-password.html#L503](public/static/forget-password.html#L503) — width: 50px; /* Optimal logo size for tablets */
+- [public/static/forget-password.html#L590](public/static/forget-password.html#L590) — .siteName .logo {
+- [public/static/forget-password.html#L698](public/static/forget-password.html#L698) — .siteName .logo {
+- [public/static/forget-password.html#L846](public/static/forget-password.html#L846) — .siteName .logo {
+- [public/static/forget-password.html#L847](public/static/forget-password.html#L847) — width: 28px; /* Smaller logo */
+- [public/static/forget-password.html#L883](public/static/forget-password.html#L883) — .siteName .logo {
+- [public/static/forget-password.html#L884](public/static/forget-password.html#L884) — width: 26px; /* Smallest logo */
+- [public/static/forget-password.html#L888](public/static/forget-password.html#L888) — /* Extra: Make header and logo smaller on small screens */
+- [public/static/forget-password.html#L897](public/static/forget-password.html#L897) — .siteName .logo {
+- [public/static/forget-password.html#L914](public/static/forget-password.html#L914) — <!-- Only show Managira logo when not logged in -->
+- [public/static/forget-password.html#L919](public/static/forget-password.html#L919) — <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+- [public/static/forget-password.html#L1057](public/static/forget-password.html#L1057) — user.image_url !== "profilePlaceholder.png"
+- [public/static/forget-password.html#L1059](public/static/forget-password.html#L1059) — : "/images/profilePlaceholder.png";
+- [public/static/forget-password.html#L1256](public/static/forget-password.html#L1256) — .logo-col {
+- [public/static/forget-password.html#L1260](public/static/forget-password.html#L1260) — .footer-logo {
+- [public/static/forget-password.html#L1360](public/static/forget-password.html#L1360) — .footer-logo {
+- [public/static/help.html#L28](public/static/help.html#L28) — <meta property="og:image" content="https://www.managira.com/images/managira.png">
+- [public/static/help.html#L37](public/static/help.html#L37) — <meta name="twitter:image" content="https://www.managira.com/images/managira.png">
+- [public/static/help.html#L39](public/static/help.html#L39) — <!-- Favicon Links -->
+- [public/static/help.html#L40](public/static/help.html#L40) — <link rel="icon" href="/images/favicon_io/favicon.ico" type="image/x-icon" />
+- [public/static/help.html#L45](public/static/help.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [public/static/help.html#L51](public/static/help.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [public/static/help.html#L53](public/static/help.html#L53) — <link rel="shortcut icon" href="/images/favicon_io/favicon.ico" />
+- [public/static/help.html#L364](public/static/help.html#L364) — header#top-header .siteName .logo {
+- [public/static/help.html#L502](public/static/help.html#L502) — .siteName .logo {
+- [public/static/help.html#L503](public/static/help.html#L503) — width: 50px; /* Optimal logo size for tablets */
+- [public/static/help.html#L590](public/static/help.html#L590) — .siteName .logo {
+- [public/static/help.html#L698](public/static/help.html#L698) — .siteName .logo {
+- [public/static/help.html#L846](public/static/help.html#L846) — .siteName .logo {
+- [public/static/help.html#L847](public/static/help.html#L847) — width: 28px; /* Smaller logo */
+- [public/static/help.html#L883](public/static/help.html#L883) — .siteName .logo {
+- [public/static/help.html#L884](public/static/help.html#L884) — width: 26px; /* Smallest logo */
+- [public/static/help.html#L888](public/static/help.html#L888) — /* Extra: Make header and logo smaller on small screens */
+- [public/static/help.html#L897](public/static/help.html#L897) — .siteName .logo {
+- [public/static/help.html#L914](public/static/help.html#L914) — <!-- Only show Managira logo when not logged in -->
+- [public/static/help.html#L919](public/static/help.html#L919) — <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+- [public/static/help.html#L1057](public/static/help.html#L1057) — user.image_url !== "profilePlaceholder.png"
+- [public/static/help.html#L1059](public/static/help.html#L1059) — : "/images/profilePlaceholder.png";
+- [public/static/help.html#L1680](public/static/help.html#L1680) — header#top-header .siteName .logo {
+- [public/static/help.html#L1818](public/static/help.html#L1818) — .siteName .logo {
+- [public/static/help.html#L1819](public/static/help.html#L1819) — width: 50px; /* Optimal logo size for tablets */
+- [public/static/help.html#L1906](public/static/help.html#L1906) — .siteName .logo {
+- [public/static/help.html#L2014](public/static/help.html#L2014) — .siteName .logo {
+- [public/static/help.html#L2162](public/static/help.html#L2162) — .siteName .logo {
+- [public/static/help.html#L2163](public/static/help.html#L2163) — width: 28px; /* Smaller logo */
+- [public/static/help.html#L2199](public/static/help.html#L2199) — .siteName .logo {
+- [public/static/help.html#L2200](public/static/help.html#L2200) — width: 26px; /* Smallest logo */
+- [public/static/help.html#L2204](public/static/help.html#L2204) — /* Extra: Make header and logo smaller on small screens */
+- [public/static/help.html#L2213](public/static/help.html#L2213) — .siteName .logo {
+- [public/static/help.html#L2230](public/static/help.html#L2230) — <!-- Only show Managira logo when not logged in -->
+- [public/static/help.html#L2235](public/static/help.html#L2235) — <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+- [public/static/help.html#L2373](public/static/help.html#L2373) — user.image_url !== "profilePlaceholder.png"
+- [public/static/help.html#L2375](public/static/help.html#L2375) — : "/images/profilePlaceholder.png";
+- [public/static/help.html#L2572](public/static/help.html#L2572) — .logo-col {
+- [public/static/help.html#L2576](public/static/help.html#L2576) — .footer-logo {
+- [public/static/help.html#L2676](public/static/help.html#L2676) — .footer-logo {
+- [public/static/index.html#L28](public/static/index.html#L28) — <meta property="og:image" content="https://www.managira.com/images/managira.png">
+- [public/static/index.html#L37](public/static/index.html#L37) — <meta name="twitter:image" content="https://www.managira.com/images/managira.png">
+- [public/static/index.html#L39](public/static/index.html#L39) — <!-- Favicon Links -->
+- [public/static/index.html#L40](public/static/index.html#L40) — <link rel="icon" href="/images/favicon_io/favicon.ico" type="image/x-icon" />
+- [public/static/index.html#L45](public/static/index.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [public/static/index.html#L51](public/static/index.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [public/static/index.html#L53](public/static/index.html#L53) — <link rel="shortcut icon" href="/images/favicon_io/favicon.ico" />
+- [public/static/index.html#L364](public/static/index.html#L364) — header#top-header .siteName .logo {
+- [public/static/index.html#L502](public/static/index.html#L502) — .siteName .logo {
+- [public/static/index.html#L503](public/static/index.html#L503) — width: 50px; /* Optimal logo size for tablets */
+- [public/static/index.html#L590](public/static/index.html#L590) — .siteName .logo {
+- [public/static/index.html#L698](public/static/index.html#L698) — .siteName .logo {
+- [public/static/index.html#L846](public/static/index.html#L846) — .siteName .logo {
+- [public/static/index.html#L847](public/static/index.html#L847) — width: 28px; /* Smaller logo */
+- [public/static/index.html#L883](public/static/index.html#L883) — .siteName .logo {
+- [public/static/index.html#L884](public/static/index.html#L884) — width: 26px; /* Smallest logo */
+- [public/static/index.html#L888](public/static/index.html#L888) — /* Extra: Make header and logo smaller on small screens */
+- [public/static/index.html#L897](public/static/index.html#L897) — .siteName .logo {
+- [public/static/index.html#L914](public/static/index.html#L914) — <!-- Only show Managira logo when not logged in -->
+- [public/static/index.html#L919](public/static/index.html#L919) — <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+- [public/static/index.html#L1057](public/static/index.html#L1057) — user.image_url !== "profilePlaceholder.png"
+- [public/static/index.html#L1059](public/static/index.html#L1059) — : "/images/profilePlaceholder.png";
+- [public/static/index.html#L1115](public/static/index.html#L1115) — /* Make the scrolling-header h1 and logo-section images smaller on small screens */
+- [public/static/index.html#L1121](public/static/index.html#L1121) — .logo-section .logo-container img {
+- [public/static/index.html#L1126](public/static/index.html#L1126) — .logo-section .logo-container span {
+- [public/static/index.html#L1137](public/static/index.html#L1137) — .logo-section .logo-container img {
+- [public/static/index.html#L1141](public/static/index.html#L1141) — .logo-section .logo-container span {
+- [public/static/index.html#L1146](public/static/index.html#L1146) — .logo-section .logo-container img,
+- [public/static/index.html#L1147](public/static/index.html#L1147) — .logo-section .logo-container span {
+- [public/static/index.html#L1462](public/static/index.html#L1462) — /* ========== Security & Logo Section ========== */
+- [public/static/index.html#L1479](public/static/index.html#L1479) — .logo-section {
+- [public/static/index.html#L1488](public/static/index.html#L1488) — .logo-container img {
+- [public/static/index.html#L1495](public/static/index.html#L1495) — .logo-container img {
+- [public/static/index.html#L1501](public/static/index.html#L1501) — .logo-container {
+- [public/static/index.html#L1509](public/static/index.html#L1509) — .logo-container span {
+- [public/static/index.html#L1514](public/static/index.html#L1514) — .logo-container img {
+- [public/static/index.html#L1645](public/static/index.html#L1645) — <!-- Scrolling Logo Section -->
+- [public/static/index.html#L1649](public/static/index.html#L1649) — <section class="logo-section">
+- [public/static/index.html#L1651](public/static/index.html#L1651) — <div class="logo-container">
+- [public/static/index.html#L1653](public/static/index.html#L1653) — <img src="images/schoolslogo/school1.png" alt="School 1">
+- [public/static/index.html#L1654](public/static/index.html#L1654) — <img src="images/schoolslogo/school2.png" alt="School 2">
+- [public/static/index.html#L1655](public/static/index.html#L1655) — <img src="images/schoolslogo/school3.png" alt="School 3">
+- [public/static/index.html#L1656](public/static/index.html#L1656) — <img src="images/schoolslogo/school4.png" alt="School 4">
+- [public/static/index.html#L1657](public/static/index.html#L1657) — <img src="images/schoolslogo/school5.png" alt="School 5">
+- [public/static/index.html#L1658](public/static/index.html#L1658) — <img src="images/schoolslogo/school6.png" alt="School 6">
+- [public/static/index.html#L1659](public/static/index.html#L1659) — <img src="images/schoolslogo/school1.png" alt="School 1">
+- [public/static/index.html#L1660](public/static/index.html#L1660) — <img src="images/schoolslogo/school2.png" alt="School 2">
+- [public/static/index.html#L1661](public/static/index.html#L1661) — <img src="images/schoolslogo/school3.png" alt="School 3">
+- [public/static/index.html#L1662](public/static/index.html#L1662) — <img src="images/schoolslogo/school4.png" alt="School 4">
+- [public/static/index.html#L1663](public/static/index.html#L1663) — <img src="images/schoolslogo/school5.png" alt="School 5">
+- [public/static/index.html#L1664](public/static/index.html#L1664) — <img src="images/schoolslogo/school6.png" alt="School 6">
+- [public/static/index.html#L1665](public/static/index.html#L1665) — <img src="images/schoolslogo/school1.png" alt="School 1">
+- [public/static/index.html#L1666](public/static/index.html#L1666) — <img src="images/schoolslogo/school2.png" alt="School 2">
+- [public/static/index.html#L1667](public/static/index.html#L1667) — <img src="images/schoolslogo/school3.png" alt="School 3">
+- [public/static/index.html#L1668](public/static/index.html#L1668) — <img src="images/schoolslogo/school4.png" alt="School 4">
+- [public/static/index.html#L1669](public/static/index.html#L1669) — <img src="images/schoolslogo/school5.png" alt="School 5">
+- [public/static/index.html#L1670](public/static/index.html#L1670) — <img src="images/schoolslogo/school6.png" alt="School 6">
+- [public/static/index.html#L1671](public/static/index.html#L1671) — <img src="images/schoolslogo/school1.png" alt="School 1">
+- [public/static/index.html#L1672](public/static/index.html#L1672) — <img src="images/schoolslogo/school2.png" alt="School 2">
+- [public/static/index.html#L1673](public/static/index.html#L1673) — <img src="images/schoolslogo/school3.png" alt="School 3">
+- [public/static/index.html#L1674](public/static/index.html#L1674) — <img src="images/schoolslogo/school4.png" alt="School 4">
+- [public/static/index.html#L1675](public/static/index.html#L1675) — <img src="images/schoolslogo/school5.png" alt="School 5">
+- [public/static/index.html#L1676](public/static/index.html#L1676) — <img src="images/schoolslogo/school6.png" alt="School 6">
+- [public/static/index.html#L1687](public/static/index.html#L1687) — <section class="logo-section">
+- [public/static/index.html#L1688](public/static/index.html#L1688) — <div class="logo-container">
+- [public/static/index.html#L1690](public/static/index.html#L1690) — <img src="images/schoolslogo/aws.png" alt="AWS Logo">
+- [public/static/index.html#L1693](public/static/index.html#L1693) — <img src="images/schoolslogo/paystack.png" alt="Paystack Logo">
+- [public/static/index.html#L1696](public/static/index.html#L1696) — <img src="images/schoolslogo/snyk.png" alt="Snyk Logo">
+- [public/static/index.html#L1699](public/static/index.html#L1699) — <img src="images/schoolslogo/SECURED.png" alt="DATA Security Logo">
+- [public/static/index.html#L1702](public/static/index.html#L1702) — <img src="images/schoolslogo/screate.png" alt="NCA Ghana Logo">
+- [public/static/index.html#L1705](public/static/index.html#L1705) — <img src="images/schoolslogo/owasp.png" alt="OWASP Logo">
+- [public/static/index.html#L1709](public/static/index.html#L1709) — <img src="images/schoolslogo/snyk.png" alt="Snyk Logo">
+- [public/static/index.html#L1712](public/static/index.html#L1712) — <img src="images/schoolslogo/aws.png" alt="AWS Logo">
+- [public/static/index.html#L1715](public/static/index.html#L1715) — <img src="images/schoolslogo/paystack.png" alt="Paystack Logo">
+- [public/static/index.html#L1718](public/static/index.html#L1718) — <img src="images/schoolslogo/owasp.png" alt="OWASP Logo">
+- [public/static/index.html#L1721](public/static/index.html#L1721) — <img src="images/schoolslogo/SECURED.png" alt="DATA Security Logo">
+- [public/static/index.html#L1724](public/static/index.html#L1724) — <img src="images/schoolslogo/screate.png" alt="NCA Ghana Logo">
+- [public/static/index.html#L1831](public/static/index.html#L1831) — "logo": "https://www.managira.com/images/managira.png",
+- [public/static/index.html#L1903](public/static/index.html#L1903) — <!-- Logo -->
+- [public/static/index.html#L1904](public/static/index.html#L1904) — <div class="footer-col logo-col">
+- [public/static/index.html#L1906](public/static/index.html#L1906) — src="/images/managira.png"
+- [public/static/index.html#L1907](public/static/index.html#L1907) — alt="Managira Logo"
+- [public/static/index.html#L1908](public/static/index.html#L1908) — class="footer-logo"
+- [public/static/index.html#L2002](public/static/index.html#L2002) — .logo-col {
+- [public/static/index.html#L2006](public/static/index.html#L2006) — .footer-logo {
+- [public/static/index.html#L2106](public/static/index.html#L2106) — .footer-logo {
+- [public/static/login.html#L28](public/static/login.html#L28) — <meta property="og:image" content="https://www.managira.com/images/managira.png">
+- [public/static/login.html#L37](public/static/login.html#L37) — <meta name="twitter:image" content="https://www.managira.com/images/managira.png">
+- [public/static/login.html#L39](public/static/login.html#L39) — <!-- Favicon Links -->
+- [public/static/login.html#L40](public/static/login.html#L40) — <link rel="icon" href="/images/favicon_io/favicon.ico" type="image/x-icon" />
+- [public/static/login.html#L45](public/static/login.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [public/static/login.html#L51](public/static/login.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [public/static/login.html#L53](public/static/login.html#L53) — <link rel="shortcut icon" href="/images/favicon_io/favicon.ico" />
+- [public/static/login.html#L364](public/static/login.html#L364) — header#top-header .siteName .logo {
+- [public/static/login.html#L502](public/static/login.html#L502) — .siteName .logo {
+- [public/static/login.html#L503](public/static/login.html#L503) — width: 50px; /* Optimal logo size for tablets */
+- [public/static/login.html#L590](public/static/login.html#L590) — .siteName .logo {
+- [public/static/login.html#L698](public/static/login.html#L698) — .siteName .logo {
+- [public/static/login.html#L846](public/static/login.html#L846) — .siteName .logo {
+- [public/static/login.html#L847](public/static/login.html#L847) — width: 28px; /* Smaller logo */
+- [public/static/login.html#L883](public/static/login.html#L883) — .siteName .logo {
+- [public/static/login.html#L884](public/static/login.html#L884) — width: 26px; /* Smallest logo */
+- [public/static/login.html#L888](public/static/login.html#L888) — /* Extra: Make header and logo smaller on small screens */
+- [public/static/login.html#L897](public/static/login.html#L897) — .siteName .logo {
+- [public/static/login.html#L914](public/static/login.html#L914) — <!-- Only show Managira logo when not logged in -->
+- [public/static/login.html#L919](public/static/login.html#L919) — <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+- [public/static/login.html#L1057](public/static/login.html#L1057) — user.image_url !== "profilePlaceholder.png"
+- [public/static/login.html#L1059](public/static/login.html#L1059) — : "/images/profilePlaceholder.png";
+- [public/static/login.html#L1283](public/static/login.html#L1283) — .logo-col {
+- [public/static/login.html#L1287](public/static/login.html#L1287) — .footer-logo {
+- [public/static/login.html#L1387](public/static/login.html#L1387) — .footer-logo {
+- [public/static/privacy-policy.html#L28](public/static/privacy-policy.html#L28) — <meta property="og:image" content="https://www.managira.com/images/managira.png">
+- [public/static/privacy-policy.html#L37](public/static/privacy-policy.html#L37) — <meta name="twitter:image" content="https://www.managira.com/images/managira.png">
+- [public/static/privacy-policy.html#L39](public/static/privacy-policy.html#L39) — <!-- Favicon Links -->
+- [public/static/privacy-policy.html#L40](public/static/privacy-policy.html#L40) — <link rel="icon" href="/images/favicon_io/favicon.ico" type="image/x-icon" />
+- [public/static/privacy-policy.html#L45](public/static/privacy-policy.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [public/static/privacy-policy.html#L51](public/static/privacy-policy.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [public/static/privacy-policy.html#L53](public/static/privacy-policy.html#L53) — <link rel="shortcut icon" href="/images/favicon_io/favicon.ico" />
+- [public/static/privacy-policy.html#L364](public/static/privacy-policy.html#L364) — header#top-header .siteName .logo {
+- [public/static/privacy-policy.html#L502](public/static/privacy-policy.html#L502) — .siteName .logo {
+- [public/static/privacy-policy.html#L503](public/static/privacy-policy.html#L503) — width: 50px; /* Optimal logo size for tablets */
+- [public/static/privacy-policy.html#L590](public/static/privacy-policy.html#L590) — .siteName .logo {
+- [public/static/privacy-policy.html#L698](public/static/privacy-policy.html#L698) — .siteName .logo {
+- [public/static/privacy-policy.html#L846](public/static/privacy-policy.html#L846) — .siteName .logo {
+- [public/static/privacy-policy.html#L847](public/static/privacy-policy.html#L847) — width: 28px; /* Smaller logo */
+- [public/static/privacy-policy.html#L883](public/static/privacy-policy.html#L883) — .siteName .logo {
+- [public/static/privacy-policy.html#L884](public/static/privacy-policy.html#L884) — width: 26px; /* Smallest logo */
+- [public/static/privacy-policy.html#L888](public/static/privacy-policy.html#L888) — /* Extra: Make header and logo smaller on small screens */
+- [public/static/privacy-policy.html#L897](public/static/privacy-policy.html#L897) — .siteName .logo {
+- [public/static/privacy-policy.html#L914](public/static/privacy-policy.html#L914) — <!-- Only show Managira logo when not logged in -->
+- [public/static/privacy-policy.html#L919](public/static/privacy-policy.html#L919) — <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+- [public/static/privacy-policy.html#L1057](public/static/privacy-policy.html#L1057) — user.image_url !== "profilePlaceholder.png"
+- [public/static/privacy-policy.html#L1059](public/static/privacy-policy.html#L1059) — : "/images/profilePlaceholder.png";
+- [public/static/privacy-policy.html#L1350](public/static/privacy-policy.html#L1350) — .logo-col {
+- [public/static/privacy-policy.html#L1354](public/static/privacy-policy.html#L1354) — .footer-logo {
+- [public/static/privacy-policy.html#L1454](public/static/privacy-policy.html#L1454) — .footer-logo {
+- [public/static/public-dashboard.html#L28](public/static/public-dashboard.html#L28) — <meta property="og:image" content="https://www.managira.com/images/managira.png">
+- [public/static/public-dashboard.html#L37](public/static/public-dashboard.html#L37) — <meta name="twitter:image" content="https://www.managira.com/images/managira.png">
+- [public/static/public-dashboard.html#L39](public/static/public-dashboard.html#L39) — <!-- Favicon Links -->
+- [public/static/public-dashboard.html#L40](public/static/public-dashboard.html#L40) — <link rel="icon" href="/images/favicon_io/favicon.ico" type="image/x-icon" />
+- [public/static/public-dashboard.html#L45](public/static/public-dashboard.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [public/static/public-dashboard.html#L51](public/static/public-dashboard.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [public/static/public-dashboard.html#L53](public/static/public-dashboard.html#L53) — <link rel="shortcut icon" href="/images/favicon_io/favicon.ico" />
+- [public/static/public-dashboard.html#L364](public/static/public-dashboard.html#L364) — header#top-header .siteName .logo {
+- [public/static/public-dashboard.html#L502](public/static/public-dashboard.html#L502) — .siteName .logo {
+- [public/static/public-dashboard.html#L503](public/static/public-dashboard.html#L503) — width: 50px; /* Optimal logo size for tablets */
+- [public/static/public-dashboard.html#L590](public/static/public-dashboard.html#L590) — .siteName .logo {
+- [public/static/public-dashboard.html#L698](public/static/public-dashboard.html#L698) — .siteName .logo {
+- [public/static/public-dashboard.html#L846](public/static/public-dashboard.html#L846) — .siteName .logo {
+- [public/static/public-dashboard.html#L847](public/static/public-dashboard.html#L847) — width: 28px; /* Smaller logo */
+- [public/static/public-dashboard.html#L883](public/static/public-dashboard.html#L883) — .siteName .logo {
+- [public/static/public-dashboard.html#L884](public/static/public-dashboard.html#L884) — width: 26px; /* Smallest logo */
+- [public/static/public-dashboard.html#L888](public/static/public-dashboard.html#L888) — /* Extra: Make header and logo smaller on small screens */
+- [public/static/public-dashboard.html#L897](public/static/public-dashboard.html#L897) — .siteName .logo {
+- [public/static/public-dashboard.html#L914](public/static/public-dashboard.html#L914) — <!-- Only show Managira logo when not logged in -->
+- [public/static/public-dashboard.html#L919](public/static/public-dashboard.html#L919) — <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+- [public/static/public-dashboard.html#L1057](public/static/public-dashboard.html#L1057) — user.image_url !== "profilePlaceholder.png"
+- [public/static/public-dashboard.html#L1059](public/static/public-dashboard.html#L1059) — : "/images/profilePlaceholder.png";
+- [public/static/public-dashboard.html#L2441](public/static/public-dashboard.html#L2441) — .logo-col {
+- [public/static/public-dashboard.html#L2445](public/static/public-dashboard.html#L2445) — .footer-logo {
+- [public/static/public-dashboard.html#L2545](public/static/public-dashboard.html#L2545) — .footer-logo {
+- [public/static/register.html#L28](public/static/register.html#L28) — <meta property="og:image" content="https://www.managira.com/images/managira.png">
+- [public/static/register.html#L37](public/static/register.html#L37) — <meta name="twitter:image" content="https://www.managira.com/images/managira.png">
+- [public/static/register.html#L39](public/static/register.html#L39) — <!-- Favicon Links -->
+- [public/static/register.html#L40](public/static/register.html#L40) — <link rel="icon" href="/images/favicon_io/favicon.ico" type="image/x-icon" />
+- [public/static/register.html#L45](public/static/register.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [public/static/register.html#L51](public/static/register.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [public/static/register.html#L53](public/static/register.html#L53) — <link rel="shortcut icon" href="/images/favicon_io/favicon.ico" />
+- [public/static/register.html#L364](public/static/register.html#L364) — header#top-header .siteName .logo {
+- [public/static/register.html#L502](public/static/register.html#L502) — .siteName .logo {
+- [public/static/register.html#L503](public/static/register.html#L503) — width: 50px; /* Optimal logo size for tablets */
+- [public/static/register.html#L590](public/static/register.html#L590) — .siteName .logo {
+- [public/static/register.html#L698](public/static/register.html#L698) — .siteName .logo {
+- [public/static/register.html#L846](public/static/register.html#L846) — .siteName .logo {
+- [public/static/register.html#L847](public/static/register.html#L847) — width: 28px; /* Smaller logo */
+- [public/static/register.html#L883](public/static/register.html#L883) — .siteName .logo {
+- [public/static/register.html#L884](public/static/register.html#L884) — width: 26px; /* Smallest logo */
+- [public/static/register.html#L888](public/static/register.html#L888) — /* Extra: Make header and logo smaller on small screens */
+- [public/static/register.html#L897](public/static/register.html#L897) — .siteName .logo {
+- [public/static/register.html#L914](public/static/register.html#L914) — <!-- Only show Managira logo when not logged in -->
+- [public/static/register.html#L919](public/static/register.html#L919) — <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+- [public/static/register.html#L1057](public/static/register.html#L1057) — user.image_url !== "profilePlaceholder.png"
+- [public/static/register.html#L1059](public/static/register.html#L1059) — : "/images/profilePlaceholder.png";
+- [public/static/register.html#L1510](public/static/register.html#L1510) — .logo-col {
+- [public/static/register.html#L1514](public/static/register.html#L1514) — .footer-logo {
+- [public/static/register.html#L1614](public/static/register.html#L1614) — .footer-logo {
+- [public/static/terms-of-service.html#L28](public/static/terms-of-service.html#L28) — <meta property="og:image" content="https://www.managira.com/images/managira.png">
+- [public/static/terms-of-service.html#L37](public/static/terms-of-service.html#L37) — <meta name="twitter:image" content="https://www.managira.com/images/managira.png">
+- [public/static/terms-of-service.html#L39](public/static/terms-of-service.html#L39) — <!-- Favicon Links -->
+- [public/static/terms-of-service.html#L40](public/static/terms-of-service.html#L40) — <link rel="icon" href="/images/favicon_io/favicon.ico" type="image/x-icon" />
+- [public/static/terms-of-service.html#L45](public/static/terms-of-service.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [public/static/terms-of-service.html#L51](public/static/terms-of-service.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [public/static/terms-of-service.html#L53](public/static/terms-of-service.html#L53) — <link rel="shortcut icon" href="/images/favicon_io/favicon.ico" />
+- [public/static/terms-of-service.html#L364](public/static/terms-of-service.html#L364) — header#top-header .siteName .logo {
+- [public/static/terms-of-service.html#L502](public/static/terms-of-service.html#L502) — .siteName .logo {
+- [public/static/terms-of-service.html#L503](public/static/terms-of-service.html#L503) — width: 50px; /* Optimal logo size for tablets */
+- [public/static/terms-of-service.html#L590](public/static/terms-of-service.html#L590) — .siteName .logo {
+- [public/static/terms-of-service.html#L698](public/static/terms-of-service.html#L698) — .siteName .logo {
+- [public/static/terms-of-service.html#L846](public/static/terms-of-service.html#L846) — .siteName .logo {
+- [public/static/terms-of-service.html#L847](public/static/terms-of-service.html#L847) — width: 28px; /* Smaller logo */
+- [public/static/terms-of-service.html#L883](public/static/terms-of-service.html#L883) — .siteName .logo {
+- [public/static/terms-of-service.html#L884](public/static/terms-of-service.html#L884) — width: 26px; /* Smallest logo */
+- [public/static/terms-of-service.html#L888](public/static/terms-of-service.html#L888) — /* Extra: Make header and logo smaller on small screens */
+- [public/static/terms-of-service.html#L897](public/static/terms-of-service.html#L897) — .siteName .logo {
+- [public/static/terms-of-service.html#L914](public/static/terms-of-service.html#L914) — <!-- Only show Managira logo when not logged in -->
+- [public/static/terms-of-service.html#L919](public/static/terms-of-service.html#L919) — <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+- [public/static/terms-of-service.html#L1057](public/static/terms-of-service.html#L1057) — user.image_url !== "profilePlaceholder.png"
+- [public/static/terms-of-service.html#L1059](public/static/terms-of-service.html#L1059) — : "/images/profilePlaceholder.png";
+- [public/static/terms-of-service.html#L1309](public/static/terms-of-service.html#L1309) — .logo-col {
+- [public/static/terms-of-service.html#L1313](public/static/terms-of-service.html#L1313) — .footer-logo {
+- [public/static/terms-of-service.html#L1413](public/static/terms-of-service.html#L1413) — .footer-logo {
+- [README.md#L1](README.md#L1) — # Welcome to your Lovable project
+- [README.md#L5](README.md#L5) — **URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+- [README.md#L11](README.md#L11) — **Use Lovable**
+- [README.md#L13](README.md#L13) — Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+- [README.md#L15](README.md#L15) — Changes made via Lovable will be committed automatically to this repo.
+- [README.md#L19](README.md#L19) — If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- [README.md#L65](README.md#L65) — Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+- [README.md#L67](README.md#L67) — ## Can I connect a custom domain to my Lovable project?
+- [README.md#L73](README.md#L73) — Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- [routes/accountRoute.js#L55](routes/accountRoute.js#L55) — // Login and Logout Routes
+- [routes/accountRoute.js#L74](routes/accountRoute.js#L74) — router.get("/logout", isAuthenticated, (req, res) =>
+- [routes/accountRoute.js#L75](routes/accountRoute.js#L75) — accountController.logoutGet(req, res, db)
+- [routes/accountRoute.js#L104](routes/accountRoute.js#L104) — router.post("/personalization/logo", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), upload.single("logo"), (req, res) =>
+- [routes/accountRoute.js#L105](routes/accountRoute.js#L105) — accountController.personalizationLogoPost(req, res, db)
+- [routes/hubRoute.js#L10](routes/hubRoute.js#L10) — router.get('/logout', hubController.hubLogoutGet);
+- [routes/hubRoute.js#L23](routes/hubRoute.js#L23) — router.post('/settings/logo', upload.single('logo'), hubController.hubSettingsLogoPost);
+- [scripts/tmp_generate_branding_audit.js#L12](scripts/tmp_generate_branding_audit.js#L12) — /favicon/i,
+- [scripts/tmp_generate_branding_audit.js#L13](scripts/tmp_generate_branding_audit.js#L13) — /apple-touch-icon/i,
+- [scripts/tmp_generate_branding_audit.js#L14](scripts/tmp_generate_branding_audit.js#L14) — /manifest/i,
+- [scripts/tmp_generate_branding_audit.js#L15](scripts/tmp_generate_branding_audit.js#L15) — /og:image/i,
+- [scripts/tmp_generate_branding_audit.js#L16](scripts/tmp_generate_branding_audit.js#L16) — /twitter:image/i,
+- [scripts/tmp_generate_branding_audit.js#L17](scripts/tmp_generate_branding_audit.js#L17) — /shortcut icon/i,
+- [scripts/tmp_generate_branding_audit.js#L18](scripts/tmp_generate_branding_audit.js#L18) — /logo/i,
+- [scripts/tmp_generate_branding_audit.js#L19](scripts/tmp_generate_branding_audit.js#L19) — /lovable/i,
+- [scripts/tmp_generate_branding_audit.js#L83](scripts/tmp_generate_branding_audit.js#L83) — const lovableRefs = brandingRefs.filter((r) => /lovable/i.test(r.text));
+- [scripts/tmp_generate_branding_audit.js#L133](scripts/tmp_generate_branding_audit.js#L133) — lines.push('## 4) Lovable Mentions');
+- [scripts/tmp_generate_branding_audit.js#L135](scripts/tmp_generate_branding_audit.js#L135) — if (lovableRefs.length === 0) {
+- [scripts/tmp_generate_branding_audit.js#L138](scripts/tmp_generate_branding_audit.js#L138) — for (const ref of lovableRefs) {
+- [server.js#L95](server.js#L95) — mh.hub_branding_enabled, mh.hub_footer_text, mh.on_hold as hub_on_hold, mh.logo_path as hub_logo
+- [server.js#L112](server.js#L112) — CASE WHEN o.hub_id IS NOT NULL THEN mh.logo_path ELSE NULL END as hub_logo
+- [server.js#L138](server.js#L138) — hubLogo: org.hub_logo
+- [utils/applyScheduledHolds.js#L129](utils/applyScheduledHolds.js#L129) — filename: "managira.png",
+- [utils/applyScheduledHolds.js#L130](utils/applyScheduledHolds.js#L130) — path: path.join(__dirname, "../public/images/managira.png"),
+- [utils/applyScheduledHolds.js#L131](utils/applyScheduledHolds.js#L131) — cid: "managira_logo",
+- [utils/emailHelper.js#L73](utils/emailHelper.js#L73) — <img src="cid:managira_logo" alt="Managira" style="height:40px;display:block;">
+- [utils/emailQueueProcessor.js#L15](utils/emailQueueProcessor.js#L15) — 'SELECT organization_name, organization_address, organization_phone, email, logo_path FROM organizations WHERE organization_id = $1',
+- [utils/emailQueueProcessor.js#L118](utils/emailQueueProcessor.js#L118) — const logoFilePath = path.join(__dirname, '../public/images/managira.png');
+- [utils/emailQueueProcessor.js#L129](utils/emailQueueProcessor.js#L129) — { filename: 'managira-logo.png', path: logoFilePath, cid: 'managira_logo' }
+- [utils/managiraFAQ.js#L22](utils/managiraFAQ.js#L22) — answer: "Visit our registration page and fill out your school details. Once registered, you can set up your school profile, add your logo and branding, create classes, and invite teachers and staff — all in about 15 minutes. You'll receive 
+- [utils/managiraFAQ.js#L86](utils/managiraFAQ.js#L86) — question: "Can I customise the portal with my school's logo and colours?",
+- [utils/managiraFAQ.js#L87](utils/managiraFAQ.js#L87) — answer: "Yes. Under the Personalisation settings, you can upload your school logo, set your brand colours and fonts, and customise your public-facing school website. This ensures Managira looks and feels like your own platform.",
+- [utils/managiraFAQ.js#L88](utils/managiraFAQ.js#L88) — keywords: ["customise", "portal", "school logo", "colours", "branding", "personalisation", "fonts"]
+- [utils/managiraFAQ.js#L286](utils/managiraFAQ.js#L286) — answer: "Yes. Every school on Managira gets a customisable public dashboard that serves as a school website. You can publish announcements, display school information, showcase events, and enable online enrollment — all branded with your sc
+- [utils/templates/receiptEmail.html#L35](utils/templates/receiptEmail.html#L35) — <img src="cid:managira_logo" alt="Managira Logo">
+- [utils/templates/transcriptEmail.html#L39](utils/templates/transcriptEmail.html#L39) — <img src="cid:managira_logo" alt="Managira Logo">
+- [views/account/accountPersonalization.ejs#L199](views/account/accountPersonalization.ejs#L199) — <!-- Upload logo -->
+- [views/account/accountPersonalization.ejs#L202](views/account/accountPersonalization.ejs#L202) — <h2 class="text-base font-semibold text-slate-900">Upload Logo</h2>
+- [views/account/accountPersonalization.ejs#L206](views/account/accountPersonalization.ejs#L206) — <form action="/account/personalization/logo" method="POST" enctype="multipart/form-data" class="space-y-4">
+- [views/account/accountPersonalization.ejs#L208](views/account/accountPersonalization.ejs#L208) — <% if (orgDetails.logo) { %>
+- [views/account/accountPersonalization.ejs#L209](views/account/accountPersonalization.ejs#L209) — <img src="<%= orgDetails.logo %>" alt="Current Logo" class="h-20 w-20 rounded-full border border-slate-200 object-cover" />
+- [views/account/accountPersonalization.ejs#L212](views/account/accountPersonalization.ejs#L212) — <input type="file" id="logo" name="logo" accept="image/*" class="block w-full text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-emerald-600 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:
+- [views/account/accountPersonalization.ejs#L214](views/account/accountPersonalization.ejs#L214) — <p class="text-xs text-emerald-800">Uploading a new logo replaces the existing one.</p>
+- [views/account/accountPersonalization.ejs#L219](views/account/accountPersonalization.ejs#L219) — Upload Logo
+- [views/account/accountPersonalization.ejs#L542](views/account/accountPersonalization.ejs#L542) — /* Logo Upload Section */
+- [views/account/accountPersonalization.ejs#L543](views/account/accountPersonalization.ejs#L543) — .logo-update-form {
+- [views/account/accountPersonalization.ejs#L548](views/account/accountPersonalization.ejs#L548) — .logo-update-form img {
+- [views/account/accountPersonalization.ejs#L559](views/account/accountPersonalization.ejs#L559) — .logo-update-form button {
+- [views/account/forgetPassword.ejs#L7](views/account/forgetPassword.ejs#L7) — <link rel="icon" href="/images/managira.png" type="image/png" sizes="any" />
+- [views/account/forgetPassword.ejs#L8](views/account/forgetPassword.ejs#L8) — <link rel="apple-touch-icon" href="/images/managira.png" />
+- [views/account/forgetPassword.ejs#L9](views/account/forgetPassword.ejs#L9) — <link rel="shortcut icon" href="/images/managira.png" />
+- [views/account/guardianLogin.ejs#L7](views/account/guardianLogin.ejs#L7) — <link rel="icon" href="/images/managira.png" type="image/png" sizes="any" />
+- [views/account/guardianLogin.ejs#L8](views/account/guardianLogin.ejs#L8) — <link rel="apple-touch-icon" href="/images/managira.png" />
+- [views/account/guardianLogin.ejs#L9](views/account/guardianLogin.ejs#L9) — <link rel="shortcut icon" href="/images/managira.png" />
+- [views/account/login.ejs#L7](views/account/login.ejs#L7) — <link rel="icon" href="/images/managira.png" type="image/png" sizes="any" />
+- [views/account/login.ejs#L8](views/account/login.ejs#L8) — <link rel="apple-touch-icon" href="/images/managira.png" />
+- [views/account/login.ejs#L9](views/account/login.ejs#L9) — <link rel="shortcut icon" href="/images/managira.png" />
+- [views/account/register.ejs#L9](views/account/register.ejs#L9) — <link rel="icon" href="/images/managira.png" type="image/png" sizes="any" />
+- [views/account/register.ejs#L10](views/account/register.ejs#L10) — <link rel="apple-touch-icon" href="/images/managira.png" />
+- [views/account/register.ejs#L11](views/account/register.ejs#L11) — <link rel="shortcut icon" href="/images/managira.png" />
+- [views/account/settings.ejs#L403](views/account/settings.ejs#L403) — .avatar-logo img {
+- [views/account/settings.ejs#L430](views/account/settings.ejs#L430) — #logo-submit {
+- [views/account/settings.ejs#L434](views/account/settings.ejs#L434) — #logo-submit.ready {
+- [views/account/settings.ejs#L1173](views/account/settings.ejs#L1173) — const rawLogo = (org && (org.logo \|\| org.logo_path)) ? (org.logo \|\| org.logo_path) : "";
+- [views/account/settings.ejs#L1174](views/account/settings.ejs#L1174) — const isLogoUrl = rawLogo && /^https?:\/\//i.test(rawLogo);
+- [views/account/settings.ejs#L1175](views/account/settings.ejs#L1175) — const resolvedLogoUrl = rawLogo
+- [views/account/settings.ejs#L1176](views/account/settings.ejs#L1176) — ? (isLogoUrl ? rawLogo : `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${rawLogo}`)
+- [views/account/settings.ejs#L1178](views/account/settings.ejs#L1178) — const logoUrl = resolvedLogoUrl
+- [views/account/settings.ejs#L1179](views/account/settings.ejs#L1179) — ? encodeURI(resolvedLogoUrl)
+- [views/account/settings.ejs#L1184](views/account/settings.ejs#L1184) — <h4>Organization Logo</h4>
+- [views/account/settings.ejs#L1185](views/account/settings.ejs#L1185) — <small>Upload your organization logo. Recommended size: 200x200px.</small>
+- [views/account/settings.ejs#L1186](views/account/settings.ejs#L1186) — <form action="/account/personalization/logo" method="POST" enctype="multipart/form-data">
+- [views/account/settings.ejs#L1189](views/account/settings.ejs#L1189) — <div class="avatar avatar-logo">
+- [views/account/settings.ejs#L1190](views/account/settings.ejs#L1190) — <% if (logoUrl) { %>
+- [views/account/settings.ejs#L1191](views/account/settings.ejs#L1191) — <img src="<%= logoUrl %>" alt="Org logo" />
+- [views/account/settings.ejs#L1196](views/account/settings.ejs#L1196) — <input type="file" id="logo" name="logo" accept="image/*" />
+- [views/account/settings.ejs#L1197](views/account/settings.ejs#L1197) — <button class="btn-primary btn-link" id="logo-submit" type="submit" disabled>Upload Logo</button>
+- [views/account/settings.ejs#L1589](views/account/settings.ejs#L1589) — <% if (user?.image_url && user.image_url !== 'profilePlaceholder.png') { %>
+- [views/account/settings.ejs#L1615](views/account/settings.ejs#L1615) — <% if (user?.image_url && user.image_url !== 'profilePlaceholder.png') { %>
+- [views/account/settings.ejs#L1640](views/account/settings.ejs#L1640) — <% if (user?.image_url && user.image_url !== 'profilePlaceholder.png') { %>
+- [views/account/settings.ejs#L2140](views/account/settings.ejs#L2140) — const logoInput = document.getElementById("logo");
+- [views/account/settings.ejs#L2141](views/account/settings.ejs#L2141) — const logoSubmit = document.getElementById("logo-submit");
+- [views/account/settings.ejs#L2421](views/account/settings.ejs#L2421) — if (logoInput && logoSubmit) {
+- [views/account/settings.ejs#L2422](views/account/settings.ejs#L2422) — logoSubmit.disabled = !logoInput.files.length;
+- [views/account/settings.ejs#L2423](views/account/settings.ejs#L2423) — logoSubmit.classList.toggle("ready", logoInput.files.length > 0);
+- [views/account/settings.ejs#L2424](views/account/settings.ejs#L2424) — logoInput.addEventListener("change", () => {
+- [views/account/settings.ejs#L2425](views/account/settings.ejs#L2425) — logoSubmit.disabled = !logoInput.files.length;
+- [views/account/settings.ejs#L2426](views/account/settings.ejs#L2426) — logoSubmit.classList.toggle("ready", logoInput.files.length > 0);
+- [views/common/addStudent.ejs#L1086](views/common/addStudent.ejs#L1086) — const img = g.image_url ? escapeHtml(g.image_url) : "/images/profilePlaceholder.png";
+- [views/common/addStudent.ejs#L1094](views/common/addStudent.ejs#L1094) — <img src="${img}" onerror="this.src='/images/profilePlaceholder.png'" />
+- [views/common/admissionPending.ejs#L365](views/common/admissionPending.ejs#L365) — const imageUrl = student.image_url && student.image_url !== 'profilePlaceholder.png'
+- [views/common/admissionPending.ejs#L366](views/common/admissionPending.ejs#L366) — ? student.image_url : '/images/profilePlaceholder.png';
+- [views/common/admissionPending.ejs#L453](views/common/admissionPending.ejs#L453) — ${student.image_url && student.image_url !== 'profilePlaceholder.png'
+- [views/common/documentEditor.ejs#L25](views/common/documentEditor.ejs#L25) — <link rel="icon" href="/favicon.ico" />
+- [views/common/editStudent.ejs#L344](views/common/editStudent.ejs#L344) — <% var imgUrl = '/images/profilePlaceholder.png'; %>
+- [views/common/editStudent.ejs#L345](views/common/editStudent.ejs#L345) — <% if (student.image_url && student.image_url !== 'profilePlaceholder.png') { %>
+- [views/common/editStudent.ejs#L357](views/common/editStudent.ejs#L357) — <% if (student.image_url && student.image_url !== 'profilePlaceholder.png') { %>
+- [views/common/employeeDetails.ejs#L131](views/common/employeeDetails.ejs#L131) — <% if (employee.image_url && employee.image_url !== 'profilePlaceholder.png') { %>
+- [views/common/employeeDetails.ejs#L134](views/common/employeeDetails.ejs#L134) — <img src="/images/profilePlaceholder.png" alt="Placeholder Image" />
+- [views/common/guardianDetails.ejs#L710](views/common/guardianDetails.ejs#L710) — <img src="<%= guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? guardian.image_url : '/images/profilePlaceholder.png' %>"
+- [views/common/guardianDetails.ejs#L788](views/common/guardianDetails.ejs#L788) — <img src="<%= student.image_url && student.image_url !== 'profilePlaceholder.png' ? student.image_url : '/images/profilePlaceholder.png' %>"
+- [views/common/guardians.ejs#L37](views/common/guardians.ejs#L37) — <img src="<%= guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? guardian.image_url : '/images/profilePlaceholder.png' %>"
+- [views/common/orgDashboard.ejs#L52](views/common/orgDashboard.ejs#L52) — credentials, upload your organization's logo, and personalize everything to suit your
+- [views/common/orgDashboard.ejs#L53](views/common/orgDashboard.ejs#L53) — unique needs. A great logo goes a long way and you can always click the logo or school
+- [views/common/publicDashboard.ejs#L3263](views/common/publicDashboard.ejs#L3263) — <img src="<%= orgDetails.logo %>" alt="school logo" />
+- [views/common/publicRegisterStudent.ejs#L335](views/common/publicRegisterStudent.ejs#L335) — <img id="selectedGuardianImg" src="/images/profilePlaceholder.png" alt="Guardian">
+- [views/common/publicRegisterStudent.ejs#L610](views/common/publicRegisterStudent.ejs#L610) — const imageUrl = guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? escapeHtml(guardian.image_url) : '/images/profilePlaceholder.png';
+- [views/common/publicRegisterStudent.ejs#L613](views/common/publicRegisterStudent.ejs#L613) — <img src="${imageUrl}" alt="Guardian" onerror="this.src='/images/profilePlaceholder.png'">
+- [views/common/publicRegisterStudent.ejs#L651](views/common/publicRegisterStudent.ejs#L651) — const imgUrl = guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? guardian.image_url : '/images/profilePlaceholder.png';
+- [views/common/publicRegisterStudent.ejs#L654](views/common/publicRegisterStudent.ejs#L654) — imgElement.onerror = function() { this.src = '/images/profilePlaceholder.png'; };
+- [views/common/studentDetails.ejs#L314](views/common/studentDetails.ejs#L314) — 'profilePlaceholder.png') { %>
+- [views/common/studentDetails.ejs#L320](views/common/studentDetails.ejs#L320) — <img src="/images/profilePlaceholder.png" alt="Placeholder Image" />
+- [views/common/studentInfo.ejs#L150](views/common/studentInfo.ejs#L150) — 'profilePlaceholder.png') { %>
+- [views/common/studentInfo.ejs#L158](views/common/studentInfo.ejs#L158) — src="/images/profilePlaceholder.png"
+- [views/guardian/dashboard.ejs#L592](views/guardian/dashboard.ejs#L592) — src="<%= guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? guardian.image_url : '/images/profilePlaceholder.png' %>"
+- [views/guardian/dashboard.ejs#L643](views/guardian/dashboard.ejs#L643) — src="<%= child.image_url && child.image_url !== 'profilePlaceholder.png' ? child.image_url : '/images/profilePlaceholder.png' %>"
+- [views/guardian/editPendingStudent.ejs#L294](views/guardian/editPendingStudent.ejs#L294) — <% if (student.image_url && student.image_url !== 'profilePlaceholder.png') { %>
+- [views/guardian/settings.ejs#L236](views/guardian/settings.ejs#L236) — src="<%= guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? guardian.image_url : '/images/profilePlaceholder.png' %>"
+- [views/guardian/settings.ejs#L259](views/guardian/settings.ejs#L259) — data-image="<%= student.image_url && student.image_url !== 'profilePlaceholder.png' ? student.image_url : '/images/profilePlaceholder.png' %>">
+- [views/guardian/settings.ejs#L276](views/guardian/settings.ejs#L276) — src="/images/profilePlaceholder.png"
+- [views/guardian/settings.ejs#L393](views/guardian/settings.ejs#L393) — preview.src = '/images/profilePlaceholder.png';
+- [views/guardian/student.ejs#L204](views/guardian/student.ejs#L204) — <% var img = '/images/profilePlaceholder.png'; %>
+- [views/guardian/student.ejs#L205](views/guardian/student.ejs#L205) — <% if (student.image_url && student.image_url !== 'profilePlaceholder.png') { %>
+- [views/guardian/studentAcademicDetails.ejs#L450](views/guardian/studentAcademicDetails.ejs#L450) — src="<%= student.image_url && student.image_url !== 'profilePlaceholder.png' ? student.image_url : '/images/profilePlaceholder.png' %>"
+- [views/hub/login.ejs#L7](views/hub/login.ejs#L7) — <link rel="icon" href="/images/managira.png" type="image/png" sizes="any" />
+- [views/hub/login.ejs#L8](views/hub/login.ejs#L8) — <link rel="apple-touch-icon" href="/images/managira.png" />
+- [views/hub/login.ejs#L9](views/hub/login.ejs#L9) — <link rel="shortcut icon" href="/images/managira.png" />
+- [views/hub/settings.ejs#L21](views/hub/settings.ejs#L21) — .logo-preview { width: 90px; height: 90px; }
+- [views/hub/settings.ejs#L22](views/hub/settings.ejs#L22) — .logo-placeholder { width: 90px; height: 90px; font-size: 0.75rem; }
+- [views/hub/settings.ejs#L33](views/hub/settings.ejs#L33) — .logo-preview { width: 80px; height: 80px; }
+- [views/hub/settings.ejs#L34](views/hub/settings.ejs#L34) — .logo-placeholder { width: 80px; height: 80px; }
+- [views/hub/settings.ejs#L137](views/hub/settings.ejs#L137) — .logo-preview {
+- [views/hub/settings.ejs#L148](views/hub/settings.ejs#L148) — .logo-upload-group {
+- [views/hub/settings.ejs#L154](views/hub/settings.ejs#L154) — .logo-placeholder {
+- [views/hub/settings.ejs#L173](views/hub/settings.ejs#L173) — <h2>Hub Logo</h2>
+- [views/hub/settings.ejs#L174](views/hub/settings.ejs#L174) — <form action="/hub/settings/logo" method="POST" enctype="multipart/form-data" class="logo-upload-group">
+- [views/hub/settings.ejs#L176](views/hub/settings.ejs#L176) — const hasValidLogo = hub.logo_path &&
+- [views/hub/settings.ejs#L177](views/hub/settings.ejs#L177) — hub.logo_path.trim() !== '' &&
+- [views/hub/settings.ejs#L178](views/hub/settings.ejs#L178) — !hub.logo_path.endsWith('/hub-logos') &&
+- [views/hub/settings.ejs#L179](views/hub/settings.ejs#L179) — !hub.logo_path.endsWith('/images/hub-logos');
+- [views/hub/settings.ejs#L181](views/hub/settings.ejs#L181) — <% if (hasValidLogo) { %>
+- [views/hub/settings.ejs#L182](views/hub/settings.ejs#L182) — <img src="<%= hub.logo_path %>" alt="Hub Logo" class="logo-preview" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+- [views/hub/settings.ejs#L183](views/hub/settings.ejs#L183) — <div class="logo-placeholder" style="display: none;">
+- [views/hub/settings.ejs#L184](views/hub/settings.ejs#L184) — Logo failed to load
+- [views/hub/settings.ejs#L187](views/hub/settings.ejs#L187) — <div class="logo-placeholder">
+- [views/hub/settings.ejs#L188](views/hub/settings.ejs#L188) — No logo uploaded yet
+- [views/hub/settings.ejs#L192](views/hub/settings.ejs#L192) — <label class="form-label">Upload New Logo (PNG, JPG, or SVG recommended)</label>
+- [views/hub/settings.ejs#L193](views/hub/settings.ejs#L193) — <input type="file" name="logo" class="form-input" accept="image/*" required>
+- [views/hub/settings.ejs#L195](views/hub/settings.ejs#L195) — This logo will appear in the header of all organizations under this hub.
+- [views/hub/settings.ejs#L198](views/hub/settings.ejs#L198) — <button type="submit" class="btn-primary">Update Logo</button>
+- [views/index.ejs#L4](views/index.ejs#L4) — /* Make the scrolling-header h1 and logo-section images smaller on small screens */
+- [views/index.ejs#L10](views/index.ejs#L10) — .logo-section .logo-container img {
+- [views/index.ejs#L15](views/index.ejs#L15) — .logo-section .logo-container span {
+- [views/index.ejs#L26](views/index.ejs#L26) — .logo-section .logo-container img {
+- [views/index.ejs#L30](views/index.ejs#L30) — .logo-section .logo-container span {
+- [views/index.ejs#L35](views/index.ejs#L35) — .logo-section .logo-container img,
+- [views/index.ejs#L36](views/index.ejs#L36) — .logo-section .logo-container span {
+- [views/index.ejs#L591](views/index.ejs#L591) — /* ========== Security & Logo Section ========== */
+- [views/index.ejs#L608](views/index.ejs#L608) — .logo-section {
+- [views/index.ejs#L617](views/index.ejs#L617) — .logo-container img {
+- [views/index.ejs#L624](views/index.ejs#L624) — .logo-container img {
+- [views/index.ejs#L630](views/index.ejs#L630) — .logo-container {
+- [views/index.ejs#L638](views/index.ejs#L638) — .logo-container span {
+- [views/index.ejs#L643](views/index.ejs#L643) — .logo-container img {
+- [views/index.ejs#L697](views/index.ejs#L697) — .logo-section {
+- [views/index.ejs#L700](views/index.ejs#L700) — .logo-container img {
+- [views/index.ejs#L704](views/index.ejs#L704) — .logo-container span {
+- [views/index.ejs#L812](views/index.ejs#L812) — <!-- Scrolling Logo Section -->
+- [views/index.ejs#L816](views/index.ejs#L816) — <section class="logo-section">
+- [views/index.ejs#L818](views/index.ejs#L818) — <div class="logo-container">
+- [views/index.ejs#L820](views/index.ejs#L820) — <img src="images/schoolslogo/school1.png" alt="School 1">
+- [views/index.ejs#L821](views/index.ejs#L821) — <img src="images/schoolslogo/school2.png" alt="School 2">
+- [views/index.ejs#L822](views/index.ejs#L822) — <img src="images/schoolslogo/school3.png" alt="School 3">
+- [views/index.ejs#L823](views/index.ejs#L823) — <img src="images/schoolslogo/school4.png" alt="School 4">
+- [views/index.ejs#L824](views/index.ejs#L824) — <img src="images/schoolslogo/school5.png" alt="School 5">
+- [views/index.ejs#L825](views/index.ejs#L825) — <img src="images/schoolslogo/school6.png" alt="School 6">
+- [views/index.ejs#L826](views/index.ejs#L826) — <img src="images/schoolslogo/school1.png" alt="School 1">
+- [views/index.ejs#L827](views/index.ejs#L827) — <img src="images/schoolslogo/school2.png" alt="School 2">
+- [views/index.ejs#L828](views/index.ejs#L828) — <img src="images/schoolslogo/school3.png" alt="School 3">
+- [views/index.ejs#L829](views/index.ejs#L829) — <img src="images/schoolslogo/school4.png" alt="School 4">
+- [views/index.ejs#L830](views/index.ejs#L830) — <img src="images/schoolslogo/school5.png" alt="School 5">
+- [views/index.ejs#L831](views/index.ejs#L831) — <img src="images/schoolslogo/school6.png" alt="School 6">
+- [views/index.ejs#L832](views/index.ejs#L832) — <img src="images/schoolslogo/school1.png" alt="School 1">
+- [views/index.ejs#L833](views/index.ejs#L833) — <img src="images/schoolslogo/school2.png" alt="School 2">
+- [views/index.ejs#L834](views/index.ejs#L834) — <img src="images/schoolslogo/school3.png" alt="School 3">
+- [views/index.ejs#L835](views/index.ejs#L835) — <img src="images/schoolslogo/school4.png" alt="School 4">
+- [views/index.ejs#L836](views/index.ejs#L836) — <img src="images/schoolslogo/school5.png" alt="School 5">
+- [views/index.ejs#L837](views/index.ejs#L837) — <img src="images/schoolslogo/school6.png" alt="School 6">
+- [views/index.ejs#L838](views/index.ejs#L838) — <img src="images/schoolslogo/school1.png" alt="School 1">
+- [views/index.ejs#L839](views/index.ejs#L839) — <img src="images/schoolslogo/school2.png" alt="School 2">
+- [views/index.ejs#L840](views/index.ejs#L840) — <img src="images/schoolslogo/school3.png" alt="School 3">
+- [views/index.ejs#L841](views/index.ejs#L841) — <img src="images/schoolslogo/school4.png" alt="School 4">
+- [views/index.ejs#L842](views/index.ejs#L842) — <img src="images/schoolslogo/school5.png" alt="School 5">
+- [views/index.ejs#L843](views/index.ejs#L843) — <img src="images/schoolslogo/school6.png" alt="School 6">
+- [views/index.ejs#L855](views/index.ejs#L855) — <section class="logo-section">
+- [views/index.ejs#L856](views/index.ejs#L856) — <div class="logo-container">
+- [views/index.ejs#L858](views/index.ejs#L858) — <img src="/images/schoolslogo/aws.png" alt="AWS Logo">
+- [views/index.ejs#L861](views/index.ejs#L861) — <img src="/images/schoolslogo/paystack.png" alt="Paystack Logo">
+- [views/index.ejs#L864](views/index.ejs#L864) — <img src="/images/schoolslogo/snyk.png" alt="Snyk Logo">
+- [views/index.ejs#L867](views/index.ejs#L867) — <img src="/images/schoolslogo/SECURED.png" alt="DATA Security Logo">
+- [views/index.ejs#L870](views/index.ejs#L870) — <img src="/images/schoolslogo/screate.png" alt="NCA Ghana Logo">
+- [views/index.ejs#L873](views/index.ejs#L873) — <img src="/images/schoolslogo/owasp.png" alt="OWASP Logo">
+- [views/index.ejs#L877](views/index.ejs#L877) — <img src="/images/schoolslogo/snyk.png" alt="Snyk Logo">
+- [views/index.ejs#L880](views/index.ejs#L880) — <img src="/images/schoolslogo/aws.png" alt="AWS Logo">
+- [views/index.ejs#L883](views/index.ejs#L883) — <img src="/images/schoolslogo/paystack.png" alt="Paystack Logo">
+- [views/index.ejs#L886](views/index.ejs#L886) — <img src="/images/schoolslogo/owasp.png" alt="OWASP Logo">
+- [views/index.ejs#L889](views/index.ejs#L889) — <img src="/images/schoolslogo/SECURED.png" alt="DATA Security Logo">
+- [views/index.ejs#L892](views/index.ejs#L892) — <img src="/images/schoolslogo/screate.png" alt="NCA Ghana Logo">
+- [views/index.ejs#L956](views/index.ejs#L956) — <p>Sign up and set up your school profile in under 15 minutes. Add your logo, classes, and staff.</p>
+- [views/index.ejs#L1065](views/index.ejs#L1065) — "logo": "https://www.managira.com/images/managira.png",
+- [views/index.ejs#L1120](views/index.ejs#L1120) — "logo": {
+- [views/index.ejs#L1122](views/index.ejs#L1122) — "url": "https://www.managira.com/images/managira.png"
+- [views/layout.ejs#L53](views/layout.ejs#L53) — <%- include('partials/header', { orgHeaderName: typeof orgHeaderName !== 'undefined' ? orgHeaderName : null, orgHeaderLogo: typeof orgHeaderLogo !== 'undefined' ? orgHeaderLogo : null }) %>
+- [views/legal&Compliance/AboutUs.ejs#L291](views/legal&Compliance/AboutUs.ejs#L291) — "logo": "https://www.managira.com/images/managira.png",
+- [views/legal&Compliance/directory.ejs#L110](views/legal&Compliance/directory.ejs#L110) — .dir-card-logo {
+- [views/legal&Compliance/directory.ejs#L199](views/legal&Compliance/directory.ejs#L199) — .dir-card-logo { width: 52px; height: 52px; }
+- [views/legal&Compliance/directory.ejs#L221](views/legal&Compliance/directory.ejs#L221) — <img class="dir-card-logo"
+- [views/legal&Compliance/directory.ejs#L222](views/legal&Compliance/directory.ejs#L222) — src="<%= org.logo_path && org.logo_path !== 'profilePlaceholder.png' ? org.logo_path : '/images/profilePlaceholder.png' %>"
+- [views/legal&Compliance/directory.ejs#L224](views/legal&Compliance/directory.ejs#L224) — onerror="this.src='/images/profilePlaceholder.png'" />
+- [views/legal&Compliance/FAQ.ejs#L197](views/legal&Compliance/FAQ.ejs#L197) — <div class="faq-item"><div class="faq-question">How do I register my school on Managira?</div><div class="faq-answer">Visit our registration page and fill out your school details. Once registered, you can set up your school profile, add you
+- [views/legal&Compliance/FAQ.ejs#L210](views/legal&Compliance/FAQ.ejs#L210) — <div class="faq-item"><div class="faq-question">Can I customise the portal with my school's logo and colours?</div><div class="faq-answer">Yes. Under the Personalisation settings, you can upload your school logo, set your brand colours and 
+- [views/legal&Compliance/FAQ.ejs#L269](views/legal&Compliance/FAQ.ejs#L269) — <div class="faq-item"><div class="faq-question">Does Managira have a public-facing school website?</div><div class="faq-answer">Yes. Every school on Managira gets a customisable public dashboard that serves as a school website. You can publ
+- [views/partials/adminHeader.ejs#L5](views/partials/adminHeader.ejs#L5) — <img src="/images/managira.png" alt="Logo" class="admin-header-logo" />
+- [views/partials/adminHeader.ejs#L39](views/partials/adminHeader.ejs#L39) — <li><a href="/account/logout" class="admin-header-link" data-no-spa>Logout</a></li>
+- [views/partials/adminHeader.ejs#L68](views/partials/adminHeader.ejs#L68) — .admin-header-logo {
+- [views/partials/footer.ejs#L6](views/partials/footer.ejs#L6) — <!-- Logo -->
+- [views/partials/footer.ejs#L7](views/partials/footer.ejs#L7) — <div class="footer-col logo-col">
+- [views/partials/footer.ejs#L8](views/partials/footer.ejs#L8) — <% if (typeof hubInfo !== 'undefined' && hubInfo && hubInfo.hub_branding_enabled && hubInfo.logo_path) { %>
+- [views/partials/footer.ejs#L9](views/partials/footer.ejs#L9) — <!-- Show Hub Logo -->
+- [views/partials/footer.ejs#L11](views/partials/footer.ejs#L11) — src="<%= hubInfo.logo_path %>"
+- [views/partials/footer.ejs#L12](views/partials/footer.ejs#L12) — alt="<%= hubInfo.hub_name %> Logo"
+- [views/partials/footer.ejs#L13](views/partials/footer.ejs#L13) — class="footer-logo"
+- [views/partials/footer.ejs#L17](views/partials/footer.ejs#L17) — <!-- Show Managira Logo -->
+- [views/partials/footer.ejs#L19](views/partials/footer.ejs#L19) — src="/images/managira.png"
+- [views/partials/footer.ejs#L20](views/partials/footer.ejs#L20) — alt="Managira Logo"
+- [views/partials/footer.ejs#L21](views/partials/footer.ejs#L21) — class="footer-logo"
+- [views/partials/footer.ejs#L60](views/partials/footer.ejs#L60) — <!-- Hub Logo Section for Hub Members (Left) -->
+- [views/partials/footer.ejs#L62](views/partials/footer.ejs#L62) — const hasValidHubLogo = session && session.isHubMember &&
+- [views/partials/footer.ejs#L63](views/partials/footer.ejs#L63) — session.hubLogo &&
+- [views/partials/footer.ejs#L64](views/partials/footer.ejs#L64) — !session.hubLogo.endsWith('/hub-logos') &&
+- [views/partials/footer.ejs#L65](views/partials/footer.ejs#L65) — !session.hubLogo.endsWith('/images/hub-logos') &&
+- [views/partials/footer.ejs#L68](views/partials/footer.ejs#L68) — <% if (hasValidHubLogo) { %>
+- [views/partials/footer.ejs#L70](views/partials/footer.ejs#L70) — <img src="<%= session.hubLogo %>" alt="<%= session.hubName %> Logo" class="footer-hub-logo" />
+- [views/partials/footer.ejs#L145](views/partials/footer.ejs#L145) — .logo-col {
+- [views/partials/footer.ejs#L149](views/partials/footer.ejs#L149) — .footer-logo {
+- [views/partials/footer.ejs#L243](views/partials/footer.ejs#L243) — /* Hub Logo Section */
+- [views/partials/footer.ejs#L254](views/partials/footer.ejs#L254) — .footer-hub-logo {
+- [views/partials/footer.ejs#L296](views/partials/footer.ejs#L296) — .footer-logo {
+- [views/partials/footer.ejs#L301](views/partials/footer.ejs#L301) — .logo-col {
+- [views/partials/head.ejs#L27](views/partials/head.ejs#L27) — <meta property="og:image" content="https://www.managira.com/images/managira.png">
+- [views/partials/head.ejs#L36](views/partials/head.ejs#L36) — <meta name="twitter:image" content="https://www.managira.com/images/managira.png">
+- [views/partials/head.ejs#L42](views/partials/head.ejs#L42) — <!-- Favicon Links -->
+- [views/partials/head.ejs#L43](views/partials/head.ejs#L43) — <link rel="icon" href="/images/managira.png" type="image/png" sizes="any" />
+- [views/partials/head.ejs#L44](views/partials/head.ejs#L44) — <link rel="apple-touch-icon" href="/images/managira.png" />
+- [views/partials/head.ejs#L45](views/partials/head.ejs#L45) — <link rel="icon" href="/images/favicon_io/favicon.ico" type="image/x-icon" />
+- [views/partials/head.ejs#L50](views/partials/head.ejs#L50) — href="/images/favicon_io/favicon-32x32.png"
+- [views/partials/head.ejs#L56](views/partials/head.ejs#L56) — href="/images/favicon_io/favicon-16x16.png"
+- [views/partials/head.ejs#L58](views/partials/head.ejs#L58) — <link rel="shortcut icon" href="/images/managira.png" />
+- [views/partials/head.ejs#L59](views/partials/head.ejs#L59) — <link rel="manifest" href="/images/favicon_io/site.webmanifest" />
+- [views/partials/head.ejs#L207](views/partials/head.ejs#L207) — img.closest('.custom-carousel, .slide, .hero, .public-dashboard-header, .footer-logo, .admin-header-left, header, nav');
+- [views/partials/header.ejs#L32](views/partials/header.ejs#L32) — --logo-size: 58px;
+- [views/partials/header.ejs#L93](views/partials/header.ejs#L93) — .siteName .logo {
+- [views/partials/header.ejs#L94](views/partials/header.ejs#L94) — height: var(--logo-size);
+- [views/partials/header.ejs#L96](views/partials/header.ejs#L96) — max-height: var(--logo-size);
+- [views/partials/header.ejs#L336](views/partials/header.ejs#L336) — header#top-header .nav-menu .nav-item a.management-link:not(.logout) {
+- [views/partials/header.ejs#L346](views/partials/header.ejs#L346) — header#top-header .nav-menu .nav-item a.management-link:not(.logout):hover {
+- [views/partials/header.ejs#L351](views/partials/header.ejs#L351) — header#top-header .nav-menu .nav-item a.logout {
+- [views/partials/header.ejs#L361](views/partials/header.ejs#L361) — header#top-header .nav-menu .nav-item a.logout:hover {
+- [views/partials/header.ejs#L663](views/partials/header.ejs#L663) — header#top-header .siteName .logo {
+- [views/partials/header.ejs#L684](views/partials/header.ejs#L684) — header#top-header #tools li a.logout {
+- [views/partials/header.ejs#L688](views/partials/header.ejs#L688) — header#top-header #tools li a.logout:hover {
+- [views/partials/header.ejs#L724](views/partials/header.ejs#L724) — --logo-size: 52px;
+- [views/partials/header.ejs#L756](views/partials/header.ejs#L756) — --logo-size: 40px;
+- [views/partials/header.ejs#L767](views/partials/header.ejs#L767) — header#top-header .siteName .logo {
+- [views/partials/header.ejs#L972](views/partials/header.ejs#L972) — --logo-size: 40px;
+- [views/partials/header.ejs#L994](views/partials/header.ejs#L994) — const normalizeLogoSrc = (logo) => {
+- [views/partials/header.ejs#L995](views/partials/header.ejs#L995) — if (!logo) return "";
+- [views/partials/header.ejs#L996](views/partials/header.ejs#L996) — if (/^https?:\/\//i.test(logo)) return logo;
+- [views/partials/header.ejs#L997](views/partials/header.ejs#L997) — if (logo.startsWith("/")) return logo;
+- [views/partials/header.ejs#L998](views/partials/header.ejs#L998) — return `/${logo}`;
+- [views/partials/header.ejs#L1011](views/partials/header.ejs#L1011) — <% if (isLoggedIn && typeof orgHeaderLogo !== 'undefined' && orgHeaderLogo) { %>
+- [views/partials/header.ejs#L1013](views/partials/header.ejs#L1013) — <img src="<%= normalizeLogoSrc(orgHeaderLogo) %>" alt="Organization Logo" class="logo" />
+- [views/partials/header.ejs#L1015](views/partials/header.ejs#L1015) — <% } else if (showPublicOrgIdentity && typeof orgDetails !== 'undefined' && orgDetails && orgDetails.logo) { %>
+- [views/partials/header.ejs#L1016](views/partials/header.ejs#L1016) — <!-- Show org logo on public dashboard even when logged out; clicking goes home -->
+- [views/partials/header.ejs#L1018](views/partials/header.ejs#L1018) — <img src="<%= normalizeLogoSrc(orgDetails.logo) %>" alt="<%= publicOrgFullName \|\| 'Organization' %> Logo" class="logo" />
+- [views/partials/header.ejs#L1021](views/partials/header.ejs#L1021) — <!-- Only show Managira logo when not logged in -->
+- [views/partials/header.ejs#L1026](views/partials/header.ejs#L1026) — <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+- [views/partials/header.ejs#L1028](views/partials/header.ejs#L1028) — <% } else if (session.logo) { %>
+- [views/partials/header.ejs#L1029](views/partials/header.ejs#L1029) — <!-- Show Organization logo when logged in -->
+- [views/partials/header.ejs#L1031](views/partials/header.ejs#L1031) — <img src="<%= normalizeLogoSrc(session.logo) %>" alt="<%= session.accountType === 'Hub' ? 'Hub' : 'Organization' %> Logo" class="logo" />
+- [views/partials/header.ejs#L1034](views/partials/header.ejs#L1034) — <!-- Hub without logo - show nothing or hub name only -->
+- [views/partials/header.ejs#L1118](views/partials/header.ejs#L1118) — <li class="nav-item"><a href="/hub/logout" class="logout management-link" style="color:#dc2626;">
+- [views/partials/header.ejs#L1122](views/partials/header.ejs#L1122) — Logout
+- [views/partials/header.ejs#L1153](views/partials/header.ejs#L1153) — <li class="nav-item"><a href="/account/logout" class="logout management-link" style="color:#dc2626;" data-no-spa>
+- [views/partials/header.ejs#L1157](views/partials/header.ejs#L1157) — Logout
+- [views/partials/header.ejs#L1212](views/partials/header.ejs#L1212) — <a href="/account/logout" class="logout management-link" style="color:#dc2626;" data-no-spa>
+- [views/partials/header.ejs#L1216](views/partials/header.ejs#L1216) — Logout
+- [views/partials/header.ejs#L1395](views/partials/header.ejs#L1395) — // Add SPA navigation to all nav links (include all links except logout and anchors)
+- [views/partials/header.ejs#L1396](views/partials/header.ejs#L1396) — const navLinks = navMenu.querySelectorAll('a[href]:not(.logout):not([href^="#"])');
+- [views/partials/header.ejs#L1489](views/partials/header.ejs#L1489) — item.image_url && item.image_url !== "profilePlaceholder.png"
+- [views/partials/header.ejs#L1491](views/partials/header.ejs#L1491) — : "/images/profilePlaceholder.png";
+- [views/partials/header.ejs#L1578](views/partials/header.ejs#L1578) — window.initLogoSPANavigation = initLogoSPANavigation;
+- [views/partials/header.ejs#L1586](views/partials/header.ejs#L1586) — // ⭐ Add SPA navigation to logo clicks for instant dashboard access
+- [views/partials/header.ejs#L1587](views/partials/header.ejs#L1587) — function initLogoSPANavigation() {
+- [views/partials/header.ejs#L1588](views/partials/header.ejs#L1588) — const logoLinks = document.querySelectorAll('.siteName a, .org-names a');
+- [views/partials/header.ejs#L1590](views/partials/header.ejs#L1590) — logoLinks.forEach(link => {
+- [views/partials/header.ejs#L1608](views/partials/header.ejs#L1608) — // Initialize logo SPA navigation
+- [views/partials/header.ejs#L1610](views/partials/header.ejs#L1610) — document.addEventListener("DOMContentLoaded", initLogoSPANavigation);
+- [views/partials/header.ejs#L1612](views/partials/header.ejs#L1612) — initLogoSPANavigation();
+- [views/partials/header.ejs#L1615](views/partials/header.ejs#L1615) — // Re-initialize logo SPA navigation after SPA page loads
+- [views/partials/header.ejs#L1616](views/partials/header.ejs#L1616) — window.addEventListener('spa:pageLoaded', initLogoSPANavigation);
+- [views/print/emailHistory.ejs#L7](views/print/emailHistory.ejs#L7) — <link rel="icon" type="image/png" href="/images/managira.png">
+- [views/print/meritSheetPage.ejs#L288](views/print/meritSheetPage.ejs#L288) — <% if (session.logo) { %>
+- [views/print/meritSheetPage.ejs#L289](views/print/meritSheetPage.ejs#L289) — <img src="<%= session.logo %>" alt="School Logo" />
+- [views/print/meritSheetPage.ejs#L370](views/print/meritSheetPage.ejs#L370) — <% if (session.logo) { %>
+- [views/print/meritSheetPage.ejs#L371](views/print/meritSheetPage.ejs#L371) — <img src="<%= session.logo %>" alt="School Logo" />
+- [views/print/printStudentReport.ejs#L38](views/print/printStudentReport.ejs#L38) — background-image: url('<%= session.logo %>');
+- [views/print/printStudentReport.ejs#L88](views/print/printStudentReport.ejs#L88) — .header img.logo,
+- [views/print/printStudentReport.ejs#L97](views/print/printStudentReport.ejs#L97) — .header .logo { justify-self: start; }
+- [views/print/printStudentReport.ejs#L530](views/print/printStudentReport.ejs#L530) — .header img.logo,
+- [views/print/printStudentReport.ejs#L539](views/print/printStudentReport.ejs#L539) — .header .logo { justify-self: start; }
+- [views/print/printStudentReport.ejs#L751](views/print/printStudentReport.ejs#L751) — .header img.logo,
+- [views/print/printStudentReport.ejs#L821](views/print/printStudentReport.ejs#L821) — .header img.logo,
+- [views/print/printStudentReport.ejs#L1521](views/print/printStudentReport.ejs#L1521) — <% if (session.logo) { %>
+- [views/print/printStudentReport.ejs#L1522](views/print/printStudentReport.ejs#L1522) — <img src="<%= session.logo %>" alt="" class="print-watermark-img">
+- [views/print/printStudentReport.ejs#L1525](views/print/printStudentReport.ejs#L1525) — <% if (session.logo) { %>
+- [views/print/printStudentReport.ejs#L1526](views/print/printStudentReport.ejs#L1526) — <img src="<%= session.logo %>" alt="Organization Logo" class="logo" />
+- [views/print/printStudentReport.ejs#L1528](views/print/printStudentReport.ejs#L1528) — <img src="/images/default_logo.png" alt="Default Logo" class="logo" />
+- [views/print/printStudentReport.ejs#L1537](views/print/printStudentReport.ejs#L1537) — <% if (student.image_url && student.image_url !== 'profilePlaceholder.png') { %>
+- [views/print/printStudentReport.ejs#L1540](views/print/printStudentReport.ejs#L1540) — <img src="/images/profilePlaceholder.png" alt="Placeholder Image" class="student-image">
+- [views/print/transcript.ejs#L77](views/print/transcript.ejs#L77) — .t-header .t-logo {
+- [views/print/transcript.ejs#L90](views/print/transcript.ejs#L90) — .t-header .t-logo img {
+- [views/print/transcript.ejs#L145](views/print/transcript.ejs#L145) — /* Watermark - Logo (using actual img element for PDF reliability) */
+- [views/print/transcript.ejs#L146](views/print/transcript.ejs#L146) — .transcript-watermark-logo {
+- [views/print/transcript.ejs#L645](views/print/transcript.ejs#L645) — <% if (session && session.logo) { %>
+- [views/print/transcript.ejs#L646](views/print/transcript.ejs#L646) — <img src="<%= session.logo %>" alt="" class="transcript-watermark-logo" />
+- [views/print/transcript.ejs#L664](views/print/transcript.ejs#L664) — <% if (session.logo) { %>
+- [views/print/transcript.ejs#L665](views/print/transcript.ejs#L665) — <div class="t-logo"><img src="<%= session.logo %>" alt="School Logo" /></div>
+- [views/print/transcript.ejs#L1046](views/print/transcript.ejs#L1046) — <strong style="color: var(--primary, #0f5a66);">Document Authenticity:</strong> This transcript has been issued through Managira's secure academic records management system with digital authentication, authorized signatures from institution
+
+## 2) All Image/Icon Files in Workspace
+
+- [dist/favicon.ico](dist/favicon.ico) — URL guess: /favicon.ico
+- [dist/images/favicon_io/android-chrome-192x192.png](dist/images/favicon_io/android-chrome-192x192.png) — URL guess: /images/favicon_io/android-chrome-192x192.png
+- [dist/images/favicon_io/android-chrome-512x512.png](dist/images/favicon_io/android-chrome-512x512.png) — URL guess: /images/favicon_io/android-chrome-512x512.png
+- [dist/images/favicon_io/apple-touch-icon.png](dist/images/favicon_io/apple-touch-icon.png) — URL guess: /images/favicon_io/apple-touch-icon.png
+- [dist/images/favicon_io/favicon-16x16.png](dist/images/favicon_io/favicon-16x16.png) — URL guess: /images/favicon_io/favicon-16x16.png
+- [dist/images/favicon_io/favicon-32x32.png](dist/images/favicon_io/favicon-32x32.png) — URL guess: /images/favicon_io/favicon-32x32.png
+- [dist/images/favicon_io/favicon.ico](dist/images/favicon_io/favicon.ico) — URL guess: /images/favicon_io/favicon.ico
+- [dist/images/goal.jpeg](dist/images/goal.jpeg) — URL guess: /images/goal.jpeg
+- [dist/images/hero-image.webp](dist/images/hero-image.webp) — URL guess: /images/hero-image.webp
+- [dist/images/managira-pyramid-svg.svg](dist/images/managira-pyramid-svg.svg) — URL guess: /images/managira-pyramid-svg.svg
+- [dist/images/managira.png](dist/images/managira.png) — URL guess: /images/managira.png
+- [dist/images/msgicon.png](dist/images/msgicon.png) — URL guess: /images/msgicon.png
+- [dist/images/profilePlaceholder.png](dist/images/profilePlaceholder.png) — URL guess: /images/profilePlaceholder.png
+- [dist/images/schoolslogo/aws.png](dist/images/schoolslogo/aws.png) — URL guess: /images/schoolslogo/aws.png
+- [dist/images/schoolslogo/CYBAF.png](dist/images/schoolslogo/CYBAF.png) — URL guess: /images/schoolslogo/CYBAF.png
+- [dist/images/schoolslogo/FERPA.png](dist/images/schoolslogo/FERPA.png) — URL guess: /images/schoolslogo/FERPA.png
+- [dist/images/schoolslogo/GDPR.png](dist/images/schoolslogo/GDPR.png) — URL guess: /images/schoolslogo/GDPR.png
+- [dist/images/schoolslogo/NCA.png](dist/images/schoolslogo/NCA.png) — URL guess: /images/schoolslogo/NCA.png
+- [dist/images/schoolslogo/owasp.png](dist/images/schoolslogo/owasp.png) — URL guess: /images/schoolslogo/owasp.png
+- [dist/images/schoolslogo/paystack.png](dist/images/schoolslogo/paystack.png) — URL guess: /images/schoolslogo/paystack.png
+- [dist/images/schoolslogo/school1.png](dist/images/schoolslogo/school1.png) — URL guess: /images/schoolslogo/school1.png
+- [dist/images/schoolslogo/school2.png](dist/images/schoolslogo/school2.png) — URL guess: /images/schoolslogo/school2.png
+- [dist/images/schoolslogo/school3.png](dist/images/schoolslogo/school3.png) — URL guess: /images/schoolslogo/school3.png
+- [dist/images/schoolslogo/school4.png](dist/images/schoolslogo/school4.png) — URL guess: /images/schoolslogo/school4.png
+- [dist/images/schoolslogo/school5.png](dist/images/schoolslogo/school5.png) — URL guess: /images/schoolslogo/school5.png
+- [dist/images/schoolslogo/school6.png](dist/images/schoolslogo/school6.png) — URL guess: /images/schoolslogo/school6.png
+- [dist/images/schoolslogo/screate.png](dist/images/schoolslogo/screate.png) — URL guess: /images/schoolslogo/screate.png
+- [dist/images/schoolslogo/SECURED.png](dist/images/schoolslogo/SECURED.png) — URL guess: /images/schoolslogo/SECURED.png
+- [dist/images/schoolslogo/snyk.png](dist/images/schoolslogo/snyk.png) — URL guess: /images/schoolslogo/snyk.png
+- [dist/images/social/igicon.png](dist/images/social/igicon.png) — URL guess: /images/social/igicon.png
+- [dist/images/social/linkedinicon.png](dist/images/social/linkedinicon.png) — URL guess: /images/social/linkedinicon.png
+- [dist/images/social/youtubeicon.png](dist/images/social/youtubeicon.png) — URL guess: /images/social/youtubeicon.png
+- [dist/placeholder.svg](dist/placeholder.svg) — URL guess: /placeholder.svg
+- [public/favicon.ico](public/favicon.ico) — URL guess: /favicon.ico
+- [public/images/favicon_io/android-chrome-192x192.png](public/images/favicon_io/android-chrome-192x192.png) — URL guess: /images/favicon_io/android-chrome-192x192.png
+- [public/images/favicon_io/android-chrome-512x512.png](public/images/favicon_io/android-chrome-512x512.png) — URL guess: /images/favicon_io/android-chrome-512x512.png
+- [public/images/favicon_io/apple-touch-icon.png](public/images/favicon_io/apple-touch-icon.png) — URL guess: /images/favicon_io/apple-touch-icon.png
+- [public/images/favicon_io/favicon-16x16.png](public/images/favicon_io/favicon-16x16.png) — URL guess: /images/favicon_io/favicon-16x16.png
+- [public/images/favicon_io/favicon-32x32.png](public/images/favicon_io/favicon-32x32.png) — URL guess: /images/favicon_io/favicon-32x32.png
+- [public/images/favicon_io/favicon.ico](public/images/favicon_io/favicon.ico) — URL guess: /images/favicon_io/favicon.ico
+- [public/images/goal.jpeg](public/images/goal.jpeg) — URL guess: /images/goal.jpeg
+- [public/images/hero-image.webp](public/images/hero-image.webp) — URL guess: /images/hero-image.webp
+- [public/images/managira-pyramid-svg.svg](public/images/managira-pyramid-svg.svg) — URL guess: /images/managira-pyramid-svg.svg
+- [public/images/managira.png](public/images/managira.png) — URL guess: /images/managira.png
+- [public/images/msgicon.png](public/images/msgicon.png) — URL guess: /images/msgicon.png
+- [public/images/profilePlaceholder.png](public/images/profilePlaceholder.png) — URL guess: /images/profilePlaceholder.png
+- [public/images/schoolslogo/aws.png](public/images/schoolslogo/aws.png) — URL guess: /images/schoolslogo/aws.png
+- [public/images/schoolslogo/CYBAF.png](public/images/schoolslogo/CYBAF.png) — URL guess: /images/schoolslogo/CYBAF.png
+- [public/images/schoolslogo/FERPA.png](public/images/schoolslogo/FERPA.png) — URL guess: /images/schoolslogo/FERPA.png
+- [public/images/schoolslogo/GDPR.png](public/images/schoolslogo/GDPR.png) — URL guess: /images/schoolslogo/GDPR.png
+- [public/images/schoolslogo/NCA.png](public/images/schoolslogo/NCA.png) — URL guess: /images/schoolslogo/NCA.png
+- [public/images/schoolslogo/owasp.png](public/images/schoolslogo/owasp.png) — URL guess: /images/schoolslogo/owasp.png
+- [public/images/schoolslogo/paystack.png](public/images/schoolslogo/paystack.png) — URL guess: /images/schoolslogo/paystack.png
+- [public/images/schoolslogo/school1.png](public/images/schoolslogo/school1.png) — URL guess: /images/schoolslogo/school1.png
+- [public/images/schoolslogo/school2.png](public/images/schoolslogo/school2.png) — URL guess: /images/schoolslogo/school2.png
+- [public/images/schoolslogo/school3.png](public/images/schoolslogo/school3.png) — URL guess: /images/schoolslogo/school3.png
+- [public/images/schoolslogo/school4.png](public/images/schoolslogo/school4.png) — URL guess: /images/schoolslogo/school4.png
+- [public/images/schoolslogo/school5.png](public/images/schoolslogo/school5.png) — URL guess: /images/schoolslogo/school5.png
+- [public/images/schoolslogo/school6.png](public/images/schoolslogo/school6.png) — URL guess: /images/schoolslogo/school6.png
+- [public/images/schoolslogo/screate.png](public/images/schoolslogo/screate.png) — URL guess: /images/schoolslogo/screate.png
+- [public/images/schoolslogo/SECURED.png](public/images/schoolslogo/SECURED.png) — URL guess: /images/schoolslogo/SECURED.png
+- [public/images/schoolslogo/snyk.png](public/images/schoolslogo/snyk.png) — URL guess: /images/schoolslogo/snyk.png
+- [public/images/social/igicon.png](public/images/social/igicon.png) — URL guess: /images/social/igicon.png
+- [public/images/social/linkedinicon.png](public/images/social/linkedinicon.png) — URL guess: /images/social/linkedinicon.png
+- [public/images/social/youtubeicon.png](public/images/social/youtubeicon.png) — URL guess: /images/social/youtubeicon.png
+- [public/placeholder.svg](public/placeholder.svg) — URL guess: /placeholder.svg
+
+## 3) Explicit Image References in Code/Markup
+
+- [dist/static/about-us.html#L28](dist/static/about-us.html#L28) — content="https://www.managira.com/images/managira.png"
+- [dist/static/about-us.html#L37](dist/static/about-us.html#L37) — content="https://www.managira.com/images/managira.png"
+- [dist/static/about-us.html#L40](dist/static/about-us.html#L40) — href="/images/favicon_io/favicon.ico"
+- [dist/static/about-us.html#L45](dist/static/about-us.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [dist/static/about-us.html#L51](dist/static/about-us.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [dist/static/about-us.html#L53](dist/static/about-us.html#L53) — href="/images/favicon_io/favicon.ico"
+- [dist/static/about-us.html#L919](dist/static/about-us.html#L919) — src="/images/managira.png"
+- [dist/static/donations.html#L28](dist/static/donations.html#L28) — content="https://www.managira.com/images/managira.png"
+- [dist/static/donations.html#L37](dist/static/donations.html#L37) — content="https://www.managira.com/images/managira.png"
+- [dist/static/donations.html#L40](dist/static/donations.html#L40) — href="/images/favicon_io/favicon.ico"
+- [dist/static/donations.html#L45](dist/static/donations.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [dist/static/donations.html#L51](dist/static/donations.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [dist/static/donations.html#L53](dist/static/donations.html#L53) — href="/images/favicon_io/favicon.ico"
+- [dist/static/donations.html#L919](dist/static/donations.html#L919) — src="/images/managira.png"
+- [dist/static/employment.html#L28](dist/static/employment.html#L28) — content="https://www.managira.com/images/managira.png"
+- [dist/static/employment.html#L37](dist/static/employment.html#L37) — content="https://www.managira.com/images/managira.png"
+- [dist/static/employment.html#L40](dist/static/employment.html#L40) — href="/images/favicon_io/favicon.ico"
+- [dist/static/employment.html#L45](dist/static/employment.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [dist/static/employment.html#L51](dist/static/employment.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [dist/static/employment.html#L53](dist/static/employment.html#L53) — href="/images/favicon_io/favicon.ico"
+- [dist/static/employment.html#L919](dist/static/employment.html#L919) — src="/images/managira.png"
+- [dist/static/faq.html#L28](dist/static/faq.html#L28) — content="https://www.managira.com/images/managira.png"
+- [dist/static/faq.html#L37](dist/static/faq.html#L37) — content="https://www.managira.com/images/managira.png"
+- [dist/static/faq.html#L40](dist/static/faq.html#L40) — href="/images/favicon_io/favicon.ico"
+- [dist/static/faq.html#L45](dist/static/faq.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [dist/static/faq.html#L51](dist/static/faq.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [dist/static/faq.html#L53](dist/static/faq.html#L53) — href="/images/favicon_io/favicon.ico"
+- [dist/static/faq.html#L919](dist/static/faq.html#L919) — src="/images/managira.png"
+- [dist/static/forget-password.html#L28](dist/static/forget-password.html#L28) — content="https://www.managira.com/images/managira.png"
+- [dist/static/forget-password.html#L37](dist/static/forget-password.html#L37) — content="https://www.managira.com/images/managira.png"
+- [dist/static/forget-password.html#L40](dist/static/forget-password.html#L40) — href="/images/favicon_io/favicon.ico"
+- [dist/static/forget-password.html#L45](dist/static/forget-password.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [dist/static/forget-password.html#L51](dist/static/forget-password.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [dist/static/forget-password.html#L53](dist/static/forget-password.html#L53) — href="/images/favicon_io/favicon.ico"
+- [dist/static/forget-password.html#L919](dist/static/forget-password.html#L919) — src="/images/managira.png"
+- [dist/static/help.html#L28](dist/static/help.html#L28) — content="https://www.managira.com/images/managira.png"
+- [dist/static/help.html#L37](dist/static/help.html#L37) — content="https://www.managira.com/images/managira.png"
+- [dist/static/help.html#L40](dist/static/help.html#L40) — href="/images/favicon_io/favicon.ico"
+- [dist/static/help.html#L45](dist/static/help.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [dist/static/help.html#L51](dist/static/help.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [dist/static/help.html#L53](dist/static/help.html#L53) — href="/images/favicon_io/favicon.ico"
+- [dist/static/help.html#L919](dist/static/help.html#L919) — src="/images/managira.png"
+- [dist/static/help.html#L2235](dist/static/help.html#L2235) — src="/images/managira.png"
+- [dist/static/index.html#L28](dist/static/index.html#L28) — content="https://www.managira.com/images/managira.png"
+- [dist/static/index.html#L37](dist/static/index.html#L37) — content="https://www.managira.com/images/managira.png"
+- [dist/static/index.html#L40](dist/static/index.html#L40) — href="/images/favicon_io/favicon.ico"
+- [dist/static/index.html#L45](dist/static/index.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [dist/static/index.html#L51](dist/static/index.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [dist/static/index.html#L53](dist/static/index.html#L53) — href="/images/favicon_io/favicon.ico"
+- [dist/static/index.html#L919](dist/static/index.html#L919) — src="/images/managira.png"
+- [dist/static/index.html#L1643](dist/static/index.html#L1643) — src="images/hero-image.webp"
+- [dist/static/index.html#L1653](dist/static/index.html#L1653) — src="images/schoolslogo/school1.png"
+- [dist/static/index.html#L1654](dist/static/index.html#L1654) — src="images/schoolslogo/school2.png"
+- [dist/static/index.html#L1655](dist/static/index.html#L1655) — src="images/schoolslogo/school3.png"
+- [dist/static/index.html#L1656](dist/static/index.html#L1656) — src="images/schoolslogo/school4.png"
+- [dist/static/index.html#L1657](dist/static/index.html#L1657) — src="images/schoolslogo/school5.png"
+- [dist/static/index.html#L1658](dist/static/index.html#L1658) — src="images/schoolslogo/school6.png"
+- [dist/static/index.html#L1659](dist/static/index.html#L1659) — src="images/schoolslogo/school1.png"
+- [dist/static/index.html#L1660](dist/static/index.html#L1660) — src="images/schoolslogo/school2.png"
+- [dist/static/index.html#L1661](dist/static/index.html#L1661) — src="images/schoolslogo/school3.png"
+- [dist/static/index.html#L1662](dist/static/index.html#L1662) — src="images/schoolslogo/school4.png"
+- [dist/static/index.html#L1663](dist/static/index.html#L1663) — src="images/schoolslogo/school5.png"
+- [dist/static/index.html#L1664](dist/static/index.html#L1664) — src="images/schoolslogo/school6.png"
+- [dist/static/index.html#L1665](dist/static/index.html#L1665) — src="images/schoolslogo/school1.png"
+- [dist/static/index.html#L1666](dist/static/index.html#L1666) — src="images/schoolslogo/school2.png"
+- [dist/static/index.html#L1667](dist/static/index.html#L1667) — src="images/schoolslogo/school3.png"
+- [dist/static/index.html#L1668](dist/static/index.html#L1668) — src="images/schoolslogo/school4.png"
+- [dist/static/index.html#L1669](dist/static/index.html#L1669) — src="images/schoolslogo/school5.png"
+- [dist/static/index.html#L1670](dist/static/index.html#L1670) — src="images/schoolslogo/school6.png"
+- [dist/static/index.html#L1671](dist/static/index.html#L1671) — src="images/schoolslogo/school1.png"
+- [dist/static/index.html#L1672](dist/static/index.html#L1672) — src="images/schoolslogo/school2.png"
+- [dist/static/index.html#L1673](dist/static/index.html#L1673) — src="images/schoolslogo/school3.png"
+- [dist/static/index.html#L1674](dist/static/index.html#L1674) — src="images/schoolslogo/school4.png"
+- [dist/static/index.html#L1675](dist/static/index.html#L1675) — src="images/schoolslogo/school5.png"
+- [dist/static/index.html#L1676](dist/static/index.html#L1676) — src="images/schoolslogo/school6.png"
+- [dist/static/index.html#L1690](dist/static/index.html#L1690) — src="images/schoolslogo/aws.png"
+- [dist/static/index.html#L1693](dist/static/index.html#L1693) — src="images/schoolslogo/paystack.png"
+- [dist/static/index.html#L1696](dist/static/index.html#L1696) — src="images/schoolslogo/snyk.png"
+- [dist/static/index.html#L1699](dist/static/index.html#L1699) — src="images/schoolslogo/SECURED.png"
+- [dist/static/index.html#L1702](dist/static/index.html#L1702) — src="images/schoolslogo/screate.png"
+- [dist/static/index.html#L1705](dist/static/index.html#L1705) — src="images/schoolslogo/owasp.png"
+- [dist/static/index.html#L1709](dist/static/index.html#L1709) — src="images/schoolslogo/snyk.png"
+- [dist/static/index.html#L1712](dist/static/index.html#L1712) — src="images/schoolslogo/aws.png"
+- [dist/static/index.html#L1715](dist/static/index.html#L1715) — src="images/schoolslogo/paystack.png"
+- [dist/static/index.html#L1718](dist/static/index.html#L1718) — src="images/schoolslogo/owasp.png"
+- [dist/static/index.html#L1721](dist/static/index.html#L1721) — src="images/schoolslogo/SECURED.png"
+- [dist/static/index.html#L1724](dist/static/index.html#L1724) — src="images/schoolslogo/screate.png"
+- [dist/static/index.html#L1788](dist/static/index.html#L1788) — src="/images/managira-pyramid-svg.svg"
+- [dist/static/index.html#L1906](dist/static/index.html#L1906) — src="/images/managira.png"
+- [dist/static/index.html#L1930](dist/static/index.html#L1930) — src="/images/social/youtubeicon.png"
+- [dist/static/index.html#L1935](dist/static/index.html#L1935) — src="/images/social/linkedinicon.png"
+- [dist/static/login.html#L28](dist/static/login.html#L28) — content="https://www.managira.com/images/managira.png"
+- [dist/static/login.html#L37](dist/static/login.html#L37) — content="https://www.managira.com/images/managira.png"
+- [dist/static/login.html#L40](dist/static/login.html#L40) — href="/images/favicon_io/favicon.ico"
+- [dist/static/login.html#L45](dist/static/login.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [dist/static/login.html#L51](dist/static/login.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [dist/static/login.html#L53](dist/static/login.html#L53) — href="/images/favicon_io/favicon.ico"
+- [dist/static/login.html#L919](dist/static/login.html#L919) — src="/images/managira.png"
+- [dist/static/privacy-policy.html#L28](dist/static/privacy-policy.html#L28) — content="https://www.managira.com/images/managira.png"
+- [dist/static/privacy-policy.html#L37](dist/static/privacy-policy.html#L37) — content="https://www.managira.com/images/managira.png"
+- [dist/static/privacy-policy.html#L40](dist/static/privacy-policy.html#L40) — href="/images/favicon_io/favicon.ico"
+- [dist/static/privacy-policy.html#L45](dist/static/privacy-policy.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [dist/static/privacy-policy.html#L51](dist/static/privacy-policy.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [dist/static/privacy-policy.html#L53](dist/static/privacy-policy.html#L53) — href="/images/favicon_io/favicon.ico"
+- [dist/static/privacy-policy.html#L919](dist/static/privacy-policy.html#L919) — src="/images/managira.png"
+- [dist/static/public-dashboard.html#L28](dist/static/public-dashboard.html#L28) — content="https://www.managira.com/images/managira.png"
+- [dist/static/public-dashboard.html#L37](dist/static/public-dashboard.html#L37) — content="https://www.managira.com/images/managira.png"
+- [dist/static/public-dashboard.html#L40](dist/static/public-dashboard.html#L40) — href="/images/favicon_io/favicon.ico"
+- [dist/static/public-dashboard.html#L45](dist/static/public-dashboard.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [dist/static/public-dashboard.html#L51](dist/static/public-dashboard.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [dist/static/public-dashboard.html#L53](dist/static/public-dashboard.html#L53) — href="/images/favicon_io/favicon.ico"
+- [dist/static/public-dashboard.html#L919](dist/static/public-dashboard.html#L919) — src="/images/managira.png"
+- [dist/static/register.html#L28](dist/static/register.html#L28) — content="https://www.managira.com/images/managira.png"
+- [dist/static/register.html#L37](dist/static/register.html#L37) — content="https://www.managira.com/images/managira.png"
+- [dist/static/register.html#L40](dist/static/register.html#L40) — href="/images/favicon_io/favicon.ico"
+- [dist/static/register.html#L45](dist/static/register.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [dist/static/register.html#L51](dist/static/register.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [dist/static/register.html#L53](dist/static/register.html#L53) — href="/images/favicon_io/favicon.ico"
+- [dist/static/register.html#L919](dist/static/register.html#L919) — src="/images/managira.png"
+- [dist/static/terms-of-service.html#L28](dist/static/terms-of-service.html#L28) — content="https://www.managira.com/images/managira.png"
+- [dist/static/terms-of-service.html#L37](dist/static/terms-of-service.html#L37) — content="https://www.managira.com/images/managira.png"
+- [dist/static/terms-of-service.html#L40](dist/static/terms-of-service.html#L40) — href="/images/favicon_io/favicon.ico"
+- [dist/static/terms-of-service.html#L45](dist/static/terms-of-service.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [dist/static/terms-of-service.html#L51](dist/static/terms-of-service.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [dist/static/terms-of-service.html#L53](dist/static/terms-of-service.html#L53) — href="/images/favicon_io/favicon.ico"
+- [dist/static/terms-of-service.html#L919](dist/static/terms-of-service.html#L919) — src="/images/managira.png"
+- [public/static/about-us.html#L28](public/static/about-us.html#L28) — content="https://www.managira.com/images/managira.png"
+- [public/static/about-us.html#L37](public/static/about-us.html#L37) — content="https://www.managira.com/images/managira.png"
+- [public/static/about-us.html#L40](public/static/about-us.html#L40) — href="/images/favicon_io/favicon.ico"
+- [public/static/about-us.html#L45](public/static/about-us.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [public/static/about-us.html#L51](public/static/about-us.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [public/static/about-us.html#L53](public/static/about-us.html#L53) — href="/images/favicon_io/favicon.ico"
+- [public/static/about-us.html#L919](public/static/about-us.html#L919) — src="/images/managira.png"
+- [public/static/donations.html#L28](public/static/donations.html#L28) — content="https://www.managira.com/images/managira.png"
+- [public/static/donations.html#L37](public/static/donations.html#L37) — content="https://www.managira.com/images/managira.png"
+- [public/static/donations.html#L40](public/static/donations.html#L40) — href="/images/favicon_io/favicon.ico"
+- [public/static/donations.html#L45](public/static/donations.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [public/static/donations.html#L51](public/static/donations.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [public/static/donations.html#L53](public/static/donations.html#L53) — href="/images/favicon_io/favicon.ico"
+- [public/static/donations.html#L919](public/static/donations.html#L919) — src="/images/managira.png"
+- [public/static/employment.html#L28](public/static/employment.html#L28) — content="https://www.managira.com/images/managira.png"
+- [public/static/employment.html#L37](public/static/employment.html#L37) — content="https://www.managira.com/images/managira.png"
+- [public/static/employment.html#L40](public/static/employment.html#L40) — href="/images/favicon_io/favicon.ico"
+- [public/static/employment.html#L45](public/static/employment.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [public/static/employment.html#L51](public/static/employment.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [public/static/employment.html#L53](public/static/employment.html#L53) — href="/images/favicon_io/favicon.ico"
+- [public/static/employment.html#L919](public/static/employment.html#L919) — src="/images/managira.png"
+- [public/static/faq.html#L28](public/static/faq.html#L28) — content="https://www.managira.com/images/managira.png"
+- [public/static/faq.html#L37](public/static/faq.html#L37) — content="https://www.managira.com/images/managira.png"
+- [public/static/faq.html#L40](public/static/faq.html#L40) — href="/images/favicon_io/favicon.ico"
+- [public/static/faq.html#L45](public/static/faq.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [public/static/faq.html#L51](public/static/faq.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [public/static/faq.html#L53](public/static/faq.html#L53) — href="/images/favicon_io/favicon.ico"
+- [public/static/faq.html#L919](public/static/faq.html#L919) — src="/images/managira.png"
+- [public/static/forget-password.html#L28](public/static/forget-password.html#L28) — content="https://www.managira.com/images/managira.png"
+- [public/static/forget-password.html#L37](public/static/forget-password.html#L37) — content="https://www.managira.com/images/managira.png"
+- [public/static/forget-password.html#L40](public/static/forget-password.html#L40) — href="/images/favicon_io/favicon.ico"
+- [public/static/forget-password.html#L45](public/static/forget-password.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [public/static/forget-password.html#L51](public/static/forget-password.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [public/static/forget-password.html#L53](public/static/forget-password.html#L53) — href="/images/favicon_io/favicon.ico"
+- [public/static/forget-password.html#L919](public/static/forget-password.html#L919) — src="/images/managira.png"
+- [public/static/help.html#L28](public/static/help.html#L28) — content="https://www.managira.com/images/managira.png"
+- [public/static/help.html#L37](public/static/help.html#L37) — content="https://www.managira.com/images/managira.png"
+- [public/static/help.html#L40](public/static/help.html#L40) — href="/images/favicon_io/favicon.ico"
+- [public/static/help.html#L45](public/static/help.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [public/static/help.html#L51](public/static/help.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [public/static/help.html#L53](public/static/help.html#L53) — href="/images/favicon_io/favicon.ico"
+- [public/static/help.html#L919](public/static/help.html#L919) — src="/images/managira.png"
+- [public/static/help.html#L2235](public/static/help.html#L2235) — src="/images/managira.png"
+- [public/static/index.html#L28](public/static/index.html#L28) — content="https://www.managira.com/images/managira.png"
+- [public/static/index.html#L37](public/static/index.html#L37) — content="https://www.managira.com/images/managira.png"
+- [public/static/index.html#L40](public/static/index.html#L40) — href="/images/favicon_io/favicon.ico"
+- [public/static/index.html#L45](public/static/index.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [public/static/index.html#L51](public/static/index.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [public/static/index.html#L53](public/static/index.html#L53) — href="/images/favicon_io/favicon.ico"
+- [public/static/index.html#L919](public/static/index.html#L919) — src="/images/managira.png"
+- [public/static/index.html#L1643](public/static/index.html#L1643) — src="images/hero-image.webp"
+- [public/static/index.html#L1653](public/static/index.html#L1653) — src="images/schoolslogo/school1.png"
+- [public/static/index.html#L1654](public/static/index.html#L1654) — src="images/schoolslogo/school2.png"
+- [public/static/index.html#L1655](public/static/index.html#L1655) — src="images/schoolslogo/school3.png"
+- [public/static/index.html#L1656](public/static/index.html#L1656) — src="images/schoolslogo/school4.png"
+- [public/static/index.html#L1657](public/static/index.html#L1657) — src="images/schoolslogo/school5.png"
+- [public/static/index.html#L1658](public/static/index.html#L1658) — src="images/schoolslogo/school6.png"
+- [public/static/index.html#L1659](public/static/index.html#L1659) — src="images/schoolslogo/school1.png"
+- [public/static/index.html#L1660](public/static/index.html#L1660) — src="images/schoolslogo/school2.png"
+- [public/static/index.html#L1661](public/static/index.html#L1661) — src="images/schoolslogo/school3.png"
+- [public/static/index.html#L1662](public/static/index.html#L1662) — src="images/schoolslogo/school4.png"
+- [public/static/index.html#L1663](public/static/index.html#L1663) — src="images/schoolslogo/school5.png"
+- [public/static/index.html#L1664](public/static/index.html#L1664) — src="images/schoolslogo/school6.png"
+- [public/static/index.html#L1665](public/static/index.html#L1665) — src="images/schoolslogo/school1.png"
+- [public/static/index.html#L1666](public/static/index.html#L1666) — src="images/schoolslogo/school2.png"
+- [public/static/index.html#L1667](public/static/index.html#L1667) — src="images/schoolslogo/school3.png"
+- [public/static/index.html#L1668](public/static/index.html#L1668) — src="images/schoolslogo/school4.png"
+- [public/static/index.html#L1669](public/static/index.html#L1669) — src="images/schoolslogo/school5.png"
+- [public/static/index.html#L1670](public/static/index.html#L1670) — src="images/schoolslogo/school6.png"
+- [public/static/index.html#L1671](public/static/index.html#L1671) — src="images/schoolslogo/school1.png"
+- [public/static/index.html#L1672](public/static/index.html#L1672) — src="images/schoolslogo/school2.png"
+- [public/static/index.html#L1673](public/static/index.html#L1673) — src="images/schoolslogo/school3.png"
+- [public/static/index.html#L1674](public/static/index.html#L1674) — src="images/schoolslogo/school4.png"
+- [public/static/index.html#L1675](public/static/index.html#L1675) — src="images/schoolslogo/school5.png"
+- [public/static/index.html#L1676](public/static/index.html#L1676) — src="images/schoolslogo/school6.png"
+- [public/static/index.html#L1690](public/static/index.html#L1690) — src="images/schoolslogo/aws.png"
+- [public/static/index.html#L1693](public/static/index.html#L1693) — src="images/schoolslogo/paystack.png"
+- [public/static/index.html#L1696](public/static/index.html#L1696) — src="images/schoolslogo/snyk.png"
+- [public/static/index.html#L1699](public/static/index.html#L1699) — src="images/schoolslogo/SECURED.png"
+- [public/static/index.html#L1702](public/static/index.html#L1702) — src="images/schoolslogo/screate.png"
+- [public/static/index.html#L1705](public/static/index.html#L1705) — src="images/schoolslogo/owasp.png"
+- [public/static/index.html#L1709](public/static/index.html#L1709) — src="images/schoolslogo/snyk.png"
+- [public/static/index.html#L1712](public/static/index.html#L1712) — src="images/schoolslogo/aws.png"
+- [public/static/index.html#L1715](public/static/index.html#L1715) — src="images/schoolslogo/paystack.png"
+- [public/static/index.html#L1718](public/static/index.html#L1718) — src="images/schoolslogo/owasp.png"
+- [public/static/index.html#L1721](public/static/index.html#L1721) — src="images/schoolslogo/SECURED.png"
+- [public/static/index.html#L1724](public/static/index.html#L1724) — src="images/schoolslogo/screate.png"
+- [public/static/index.html#L1788](public/static/index.html#L1788) — src="/images/managira-pyramid-svg.svg"
+- [public/static/index.html#L1906](public/static/index.html#L1906) — src="/images/managira.png"
+- [public/static/index.html#L1930](public/static/index.html#L1930) — src="/images/social/youtubeicon.png"
+- [public/static/index.html#L1935](public/static/index.html#L1935) — src="/images/social/linkedinicon.png"
+- [public/static/login.html#L28](public/static/login.html#L28) — content="https://www.managira.com/images/managira.png"
+- [public/static/login.html#L37](public/static/login.html#L37) — content="https://www.managira.com/images/managira.png"
+- [public/static/login.html#L40](public/static/login.html#L40) — href="/images/favicon_io/favicon.ico"
+- [public/static/login.html#L45](public/static/login.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [public/static/login.html#L51](public/static/login.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [public/static/login.html#L53](public/static/login.html#L53) — href="/images/favicon_io/favicon.ico"
+- [public/static/login.html#L919](public/static/login.html#L919) — src="/images/managira.png"
+- [public/static/privacy-policy.html#L28](public/static/privacy-policy.html#L28) — content="https://www.managira.com/images/managira.png"
+- [public/static/privacy-policy.html#L37](public/static/privacy-policy.html#L37) — content="https://www.managira.com/images/managira.png"
+- [public/static/privacy-policy.html#L40](public/static/privacy-policy.html#L40) — href="/images/favicon_io/favicon.ico"
+- [public/static/privacy-policy.html#L45](public/static/privacy-policy.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [public/static/privacy-policy.html#L51](public/static/privacy-policy.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [public/static/privacy-policy.html#L53](public/static/privacy-policy.html#L53) — href="/images/favicon_io/favicon.ico"
+- [public/static/privacy-policy.html#L919](public/static/privacy-policy.html#L919) — src="/images/managira.png"
+- [public/static/public-dashboard.html#L28](public/static/public-dashboard.html#L28) — content="https://www.managira.com/images/managira.png"
+- [public/static/public-dashboard.html#L37](public/static/public-dashboard.html#L37) — content="https://www.managira.com/images/managira.png"
+- [public/static/public-dashboard.html#L40](public/static/public-dashboard.html#L40) — href="/images/favicon_io/favicon.ico"
+- [public/static/public-dashboard.html#L45](public/static/public-dashboard.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [public/static/public-dashboard.html#L51](public/static/public-dashboard.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [public/static/public-dashboard.html#L53](public/static/public-dashboard.html#L53) — href="/images/favicon_io/favicon.ico"
+- [public/static/public-dashboard.html#L919](public/static/public-dashboard.html#L919) — src="/images/managira.png"
+- [public/static/register.html#L28](public/static/register.html#L28) — content="https://www.managira.com/images/managira.png"
+- [public/static/register.html#L37](public/static/register.html#L37) — content="https://www.managira.com/images/managira.png"
+- [public/static/register.html#L40](public/static/register.html#L40) — href="/images/favicon_io/favicon.ico"
+- [public/static/register.html#L45](public/static/register.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [public/static/register.html#L51](public/static/register.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [public/static/register.html#L53](public/static/register.html#L53) — href="/images/favicon_io/favicon.ico"
+- [public/static/register.html#L919](public/static/register.html#L919) — src="/images/managira.png"
+- [public/static/terms-of-service.html#L28](public/static/terms-of-service.html#L28) — content="https://www.managira.com/images/managira.png"
+- [public/static/terms-of-service.html#L37](public/static/terms-of-service.html#L37) — content="https://www.managira.com/images/managira.png"
+- [public/static/terms-of-service.html#L40](public/static/terms-of-service.html#L40) — href="/images/favicon_io/favicon.ico"
+- [public/static/terms-of-service.html#L45](public/static/terms-of-service.html#L45) — href="/images/favicon_io/favicon-32x32.png"
+- [public/static/terms-of-service.html#L51](public/static/terms-of-service.html#L51) — href="/images/favicon_io/favicon-16x16.png"
+- [public/static/terms-of-service.html#L53](public/static/terms-of-service.html#L53) — href="/images/favicon_io/favicon.ico"
+- [public/static/terms-of-service.html#L919](public/static/terms-of-service.html#L919) — src="/images/managira.png"
+- [views/account/forgetPassword.ejs#L7](views/account/forgetPassword.ejs#L7) — href="/images/managira.png"
+- [views/account/forgetPassword.ejs#L8](views/account/forgetPassword.ejs#L8) — href="/images/managira.png"
+- [views/account/forgetPassword.ejs#L9](views/account/forgetPassword.ejs#L9) — href="/images/managira.png"
+- [views/account/guardianLogin.ejs#L7](views/account/guardianLogin.ejs#L7) — href="/images/managira.png"
+- [views/account/guardianLogin.ejs#L8](views/account/guardianLogin.ejs#L8) — href="/images/managira.png"
+- [views/account/guardianLogin.ejs#L9](views/account/guardianLogin.ejs#L9) — href="/images/managira.png"
+- [views/account/login.ejs#L7](views/account/login.ejs#L7) — href="/images/managira.png"
+- [views/account/login.ejs#L8](views/account/login.ejs#L8) — href="/images/managira.png"
+- [views/account/login.ejs#L9](views/account/login.ejs#L9) — href="/images/managira.png"
+- [views/account/register.ejs#L9](views/account/register.ejs#L9) — href="/images/managira.png"
+- [views/account/register.ejs#L10](views/account/register.ejs#L10) — href="/images/managira.png"
+- [views/account/register.ejs#L11](views/account/register.ejs#L11) — href="/images/managira.png"
+- [views/common/addStudent.ejs#L1094](views/common/addStudent.ejs#L1094) — src="/images/profilePlaceholder.png"
+- [views/common/documentEditor.ejs#L25](views/common/documentEditor.ejs#L25) — href="/favicon.ico"
+- [views/common/employeeDetails.ejs#L134](views/common/employeeDetails.ejs#L134) — src="/images/profilePlaceholder.png"
+- [views/common/publicRegisterStudent.ejs#L335](views/common/publicRegisterStudent.ejs#L335) — src="/images/profilePlaceholder.png"
+- [views/common/publicRegisterStudent.ejs#L613](views/common/publicRegisterStudent.ejs#L613) — src="/images/profilePlaceholder.png"
+- [views/common/publicRegisterStudent.ejs#L654](views/common/publicRegisterStudent.ejs#L654) — src="/images/profilePlaceholder.png"
+- [views/common/studentDetails.ejs#L320](views/common/studentDetails.ejs#L320) — src="/images/profilePlaceholder.png"
+- [views/common/studentInfo.ejs#L158](views/common/studentInfo.ejs#L158) — src="/images/profilePlaceholder.png"
+- [views/guardian/settings.ejs#L276](views/guardian/settings.ejs#L276) — src="/images/profilePlaceholder.png"
+- [views/guardian/settings.ejs#L393](views/guardian/settings.ejs#L393) — src="/images/profilePlaceholder.png"
+- [views/hub/login.ejs#L7](views/hub/login.ejs#L7) — href="/images/managira.png"
+- [views/hub/login.ejs#L8](views/hub/login.ejs#L8) — href="/images/managira.png"
+- [views/hub/login.ejs#L9](views/hub/login.ejs#L9) — href="/images/managira.png"
+- [views/index.ejs#L810](views/index.ejs#L810) — src="/images/hero-image.webp"
+- [views/index.ejs#L820](views/index.ejs#L820) — src="images/schoolslogo/school1.png"
+- [views/index.ejs#L821](views/index.ejs#L821) — src="images/schoolslogo/school2.png"
+- [views/index.ejs#L822](views/index.ejs#L822) — src="images/schoolslogo/school3.png"
+- [views/index.ejs#L823](views/index.ejs#L823) — src="images/schoolslogo/school4.png"
+- [views/index.ejs#L824](views/index.ejs#L824) — src="images/schoolslogo/school5.png"
+- [views/index.ejs#L825](views/index.ejs#L825) — src="images/schoolslogo/school6.png"
+- [views/index.ejs#L826](views/index.ejs#L826) — src="images/schoolslogo/school1.png"
+- [views/index.ejs#L827](views/index.ejs#L827) — src="images/schoolslogo/school2.png"
+- [views/index.ejs#L828](views/index.ejs#L828) — src="images/schoolslogo/school3.png"
+- [views/index.ejs#L829](views/index.ejs#L829) — src="images/schoolslogo/school4.png"
+- [views/index.ejs#L830](views/index.ejs#L830) — src="images/schoolslogo/school5.png"
+- [views/index.ejs#L831](views/index.ejs#L831) — src="images/schoolslogo/school6.png"
+- [views/index.ejs#L832](views/index.ejs#L832) — src="images/schoolslogo/school1.png"
+- [views/index.ejs#L833](views/index.ejs#L833) — src="images/schoolslogo/school2.png"
+- [views/index.ejs#L834](views/index.ejs#L834) — src="images/schoolslogo/school3.png"
+- [views/index.ejs#L835](views/index.ejs#L835) — src="images/schoolslogo/school4.png"
+- [views/index.ejs#L836](views/index.ejs#L836) — src="images/schoolslogo/school5.png"
+- [views/index.ejs#L837](views/index.ejs#L837) — src="images/schoolslogo/school6.png"
+- [views/index.ejs#L838](views/index.ejs#L838) — src="images/schoolslogo/school1.png"
+- [views/index.ejs#L839](views/index.ejs#L839) — src="images/schoolslogo/school2.png"
+- [views/index.ejs#L840](views/index.ejs#L840) — src="images/schoolslogo/school3.png"
+- [views/index.ejs#L841](views/index.ejs#L841) — src="images/schoolslogo/school4.png"
+- [views/index.ejs#L842](views/index.ejs#L842) — src="images/schoolslogo/school5.png"
+- [views/index.ejs#L843](views/index.ejs#L843) — src="images/schoolslogo/school6.png"
+- [views/index.ejs#L858](views/index.ejs#L858) — src="/images/schoolslogo/aws.png"
+- [views/index.ejs#L861](views/index.ejs#L861) — src="/images/schoolslogo/paystack.png"
+- [views/index.ejs#L864](views/index.ejs#L864) — src="/images/schoolslogo/snyk.png"
+- [views/index.ejs#L867](views/index.ejs#L867) — src="/images/schoolslogo/SECURED.png"
+- [views/index.ejs#L870](views/index.ejs#L870) — src="/images/schoolslogo/screate.png"
+- [views/index.ejs#L873](views/index.ejs#L873) — src="/images/schoolslogo/owasp.png"
+- [views/index.ejs#L877](views/index.ejs#L877) — src="/images/schoolslogo/snyk.png"
+- [views/index.ejs#L880](views/index.ejs#L880) — src="/images/schoolslogo/aws.png"
+- [views/index.ejs#L883](views/index.ejs#L883) — src="/images/schoolslogo/paystack.png"
+- [views/index.ejs#L886](views/index.ejs#L886) — src="/images/schoolslogo/owasp.png"
+- [views/index.ejs#L889](views/index.ejs#L889) — src="/images/schoolslogo/SECURED.png"
+- [views/index.ejs#L892](views/index.ejs#L892) — src="/images/schoolslogo/screate.png"
+- [views/index.ejs#L987](views/index.ejs#L987) — src="/images/managira-pyramid-svg.svg"
+- [views/legal&Compliance/directory.ejs#L224](views/legal&Compliance/directory.ejs#L224) — src="/images/profilePlaceholder.png"
+- [views/partials/adminHeader.ejs#L5](views/partials/adminHeader.ejs#L5) — src="/images/managira.png"
+- [views/partials/adminHeader.ejs#L12](views/partials/adminHeader.ejs#L12) — src="/images/msgicon.png"
+- [views/partials/footer.ejs#L19](views/partials/footer.ejs#L19) — src="/images/managira.png"
+- [views/partials/footer.ejs#L45](views/partials/footer.ejs#L45) — src="/images/social/youtubeicon.png"
+- [views/partials/footer.ejs#L50](views/partials/footer.ejs#L50) — src="/images/social/linkedinicon.png"
+- [views/partials/head.ejs#L27](views/partials/head.ejs#L27) — content="https://www.managira.com/images/managira.png"
+- [views/partials/head.ejs#L36](views/partials/head.ejs#L36) — content="https://www.managira.com/images/managira.png"
+- [views/partials/head.ejs#L43](views/partials/head.ejs#L43) — href="/images/managira.png"
+- [views/partials/head.ejs#L44](views/partials/head.ejs#L44) — href="/images/managira.png"
+- [views/partials/head.ejs#L45](views/partials/head.ejs#L45) — href="/images/favicon_io/favicon.ico"
+- [views/partials/head.ejs#L50](views/partials/head.ejs#L50) — href="/images/favicon_io/favicon-32x32.png"
+- [views/partials/head.ejs#L56](views/partials/head.ejs#L56) — href="/images/favicon_io/favicon-16x16.png"
+- [views/partials/head.ejs#L58](views/partials/head.ejs#L58) — href="/images/managira.png"
+- [views/partials/header.ejs#L1026](views/partials/header.ejs#L1026) — src="/images/managira.png"
+- [views/print/emailHistory.ejs#L7](views/print/emailHistory.ejs#L7) — href="/images/managira.png"
+- [views/print/printStudentReport.ejs#L1528](views/print/printStudentReport.ejs#L1528) — src="/images/default_logo.png"
+- [views/print/printStudentReport.ejs#L1540](views/print/printStudentReport.ejs#L1540) — src="/images/profilePlaceholder.png"
+
+## 4) Lovable Mentions
+
+- [README.md#L1](README.md#L1) — # Welcome to your Lovable project
+- [README.md#L5](README.md#L5) — **URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+- [README.md#L11](README.md#L11) — **Use Lovable**
+- [README.md#L13](README.md#L13) — Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+- [README.md#L15](README.md#L15) — Changes made via Lovable will be committed automatically to this repo.
+- [README.md#L19](README.md#L19) — If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- [README.md#L65](README.md#L65) — Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+- [README.md#L67](README.md#L67) — ## Can I connect a custom domain to my Lovable project?
+- [README.md#L73](README.md#L73) — Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- [scripts/tmp_generate_branding_audit.js#L19](scripts/tmp_generate_branding_audit.js#L19) — /lovable/i,
+- [scripts/tmp_generate_branding_audit.js#L83](scripts/tmp_generate_branding_audit.js#L83) — const lovableRefs = brandingRefs.filter((r) => /lovable/i.test(r.text));
+- [scripts/tmp_generate_branding_audit.js#L133](scripts/tmp_generate_branding_audit.js#L133) — lines.push('## 4) Lovable Mentions');
+- [scripts/tmp_generate_branding_audit.js#L135](scripts/tmp_generate_branding_audit.js#L135) — if (lovableRefs.length === 0) {
+- [scripts/tmp_generate_branding_audit.js#L138](scripts/tmp_generate_branding_audit.js#L138) — for (const ref of lovableRefs) {
