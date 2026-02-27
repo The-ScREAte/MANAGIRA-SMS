@@ -20,10 +20,6 @@ const checkFeatureAccess = async (req, res, next) => {
     return Array.from(candidates);
   })();
 
-  const isAlwaysPlanAccessibleRoute =
-    routePath.startsWith('/common/attendanceCollection') ||
-    routePath.startsWith('/common/studentDetails');
-
   const organizationId =
     req.session?.organizationId ||
     req.query.organizationId ||
@@ -98,89 +94,91 @@ const checkFeatureAccess = async (req, res, next) => {
       planIdToCheck = orgRows[0].plan_id;
     }
 
-    if (!isAlwaysPlanAccessibleRoute) {
-      // 1️⃣ Check If Route Requires a Feature (Feature-Based Access)
-      const { rows: featureRows } = await db.query(
-        `SELECT f.id FROM feature_routes fr
-         JOIN features f ON f.id = fr.feature_id
-         WHERE fr.route_path = ANY($1::text[])
-            OR (
-              fr.route_path <> '/'
-              AND EXISTS (
-                SELECT 1
-                FROM unnest($1::text[]) AS c(path)
-                WHERE c.path LIKE fr.route_path || '/%'
-              )
+    // 1️⃣ Check If Route Requires a Feature (Feature-Based Access)
+    const { rows: featureRows } = await db.query(
+      `SELECT f.id FROM feature_routes fr
+       JOIN features f ON f.id = fr.feature_id
+       WHERE fr.route_path = ANY($1::text[])
+          OR (
+            fr.route_path <> '/'
+            AND EXISTS (
+              SELECT 1
+              FROM unnest($1::text[]) AS c(path)
+              WHERE c.path LIKE fr.route_path || '/%'
             )
-         LIMIT 1`,
-        [normalizedRouteCandidates]
-      );
+          )
+       LIMIT 1`,
+      [normalizedRouteCandidates]
+    );
 
-      let featureId = featureRows.length > 0 ? featureRows[0].id : null;
+    let featureId = featureRows.length > 0 ? featureRows[0].id : null;
 
-      if (!featureId) {
-        let fallbackFeatureNames = [];
+    if (!featureId) {
+      let fallbackFeatureNames = [];
 
-        if (routePath.startsWith('/common/admissionPending') || routePath.startsWith('/common/getPendingStudentDetails') || routePath.startsWith('/common/savePendingStudentChanges') || routePath.startsWith('/common/deletePendingStudentImage')) {
-          fallbackFeatureNames = ['School Website', 'SchoolWebsite'];
-        } else if (routePath.startsWith('/common/admissions')) {
-          fallbackFeatureNames = ['Student and Guadian Profile', 'Student and Guardian Profile'];
-        } else if (routePath.startsWith('/common/reports')) {
-          fallbackFeatureNames = ['Terminal Report', 'Progressive Student Report ', 'Class Base Merrit sheet', 'Official School Transcript'];
-        } else if (routePath.startsWith('/print/printStudentReport') || routePath.startsWith('/print/reportSettings')) {
-          fallbackFeatureNames = ['Terminal Report'];
-        } else if (routePath.startsWith('/print/meritSheetPage') || routePath.startsWith('/print/generateMeritSheet')) {
-          fallbackFeatureNames = ['Class Base Merrit sheet'];
-        } else if (routePath.startsWith('/transcript/transcript')) {
-          fallbackFeatureNames = ['Official School Transcript'];
-        } else if (routePath.startsWith('/stats/organization')) {
-          fallbackFeatureNames = ['Organization Analytics & Insights'];
-        } else if (routePath.startsWith('/stats/classes') || routePath.startsWith('/stats/class-comparison')) {
-          fallbackFeatureNames = ['Class Base Analytics & Insights'];
-        } else if (routePath.startsWith('/documents')) {
-          fallbackFeatureNames = ['Create Files', 'Files & Sheets'];
-        } else if (routePath.startsWith('/common/assessment')) {
-          fallbackFeatureNames = ['Assessment tracking feature'];
-        }
-
-        if (fallbackFeatureNames.length > 0) {
-          const { rows: fallbackFeatureRows } = await db.query(
-            `SELECT id FROM features WHERE feature_name = ANY($1::text[]) LIMIT 1`,
-            [fallbackFeatureNames]
-          );
-          if (fallbackFeatureRows.length > 0) {
-            featureId = fallbackFeatureRows[0].id;
-          }
-        }
+      if (routePath.startsWith('/common/admissionPending') || routePath.startsWith('/common/getPendingStudentDetails') || routePath.startsWith('/common/savePendingStudentChanges') || routePath.startsWith('/common/deletePendingStudentImage')) {
+        fallbackFeatureNames = ['Student and Guardian Profile', 'Student and Guadian Profile'];
+      } else if (routePath.startsWith('/common/admissions') || routePath.startsWith('/common/studentDetails') || routePath.startsWith('/common/guardians') || routePath.startsWith('/common/guardianDetails')) {
+        fallbackFeatureNames = ['Student and Guardian Profile', 'Student and Guadian Profile'];
+      } else if (routePath.startsWith('/common/reports')) {
+        fallbackFeatureNames = ['Terminal Report', 'Progressive Student Report', 'Progressive Student Report ', 'Class Base Merit Sheet', 'Class Base Merrit sheet', 'Official School Transcript'];
+      } else if (routePath.startsWith('/common/closeSchoolYear') || routePath.startsWith('/common/termDetails')) {
+        fallbackFeatureNames = ['Terminal Report', 'Progressive Student Report', 'Progressive Student Report '];
+      } else if (routePath.startsWith('/print/printStudentReport') || routePath.startsWith('/print/reportSettings')) {
+        fallbackFeatureNames = ['Terminal Report'];
+      } else if (routePath.startsWith('/print/meritSheetPage') || routePath.startsWith('/print/generateMeritSheet')) {
+        fallbackFeatureNames = ['Class Base Merit Sheet', 'Class Base Merrit sheet'];
+      } else if (routePath.startsWith('/transcript/transcript')) {
+        fallbackFeatureNames = ['Official School Transcript'];
+      } else if (routePath.startsWith('/stats/organization')) {
+        fallbackFeatureNames = ['Organization Analytics & Insights'];
+      } else if (routePath.startsWith('/stats/classes') || routePath.startsWith('/stats/class-comparison')) {
+        fallbackFeatureNames = ['Class Base Analytics & Insights'];
+      } else if (routePath.startsWith('/documents')) {
+        fallbackFeatureNames = ['Create Files', 'Files & Sheets'];
+      } else if (routePath.startsWith('/common/assessment')) {
+        fallbackFeatureNames = ['Assessment Tracking', 'Assessment tracking feature'];
+      } else if (routePath.startsWith('/common/attendanceCollection')) {
+        fallbackFeatureNames = ['Attendance Tracking', 'Attendance tracking feature'];
       }
 
-      if (featureId) {
-
-        // Check if the plan (hub's or org's) has access to this feature
-        const { rows: planAccess } = await db.query(
-          `SELECT 1 FROM plan_features pf
-           WHERE pf.feature_id = $1 AND pf.plan_id = $2`,
-          [featureId, planIdToCheck]
+      if (fallbackFeatureNames.length > 0) {
+        const { rows: fallbackFeatureRows } = await db.query(
+          `SELECT id FROM features WHERE feature_name = ANY($1::text[]) LIMIT 1`,
+          [fallbackFeatureNames]
         );
+        if (fallbackFeatureRows.length > 0) {
+          featureId = fallbackFeatureRows[0].id;
+        }
+      }
+    }
 
-        if (planAccess.length === 0) {
-          console.warn('[FeatureDenied]', {
-            route: routePath,
-            normalizedRouteCandidates,
-            organizationId,
-            userId,
-            userRole,
-            planIdToCheck,
-            featureId,
-            sessionId: req.sessionID,
-          });
-    // ...removed warn for clean background operation...
-          if (isPublicDashboard) {
-            return res.status(403).send("This organization does not support school website access.");
-          } else {
-            req.flash('error', 'Your plan does not support this feature.');
-            return res.redirect('/common/orgDashboard');
-          }
+    if (featureId) {
+
+      // Check if the plan (hub's or org's) has access to this feature
+      const { rows: planAccess } = await db.query(
+        `SELECT 1 FROM plan_features pf
+         WHERE pf.feature_id = $1 AND pf.plan_id = $2`,
+        [featureId, planIdToCheck]
+      );
+
+      if (planAccess.length === 0) {
+        console.warn('[FeatureDenied]', {
+          route: routePath,
+          normalizedRouteCandidates,
+          organizationId,
+          userId,
+          userRole,
+          planIdToCheck,
+          featureId,
+          sessionId: req.sessionID,
+        });
+  // ...removed warn for clean background operation...
+        if (isPublicDashboard) {
+          return res.status(403).send("This organization does not support school website access.");
+        } else {
+          req.flash('error', 'Your plan does not support this feature.');
+          return res.redirect('/common/orgDashboard');
         }
       }
     }

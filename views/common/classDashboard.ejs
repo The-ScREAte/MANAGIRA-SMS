@@ -508,6 +508,8 @@ main {
 
 <body>
   <% const hasFilesFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Create Files') || allowedFeatures.includes('Files & Sheets')); %>
+  <% const hasAttendanceFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Attendance Tracking') || allowedFeatures.includes('Attendance tracking feature')); %>
+  <% const hasAssessmentFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Assessment Tracking') || allowedFeatures.includes('Assessment tracking feature')); %>
   <div class="dashboard-shell">
     <button class="nav-toggle" type="button">
       <span class="hamburger-icon" aria-hidden="true"></span>
@@ -524,25 +526,27 @@ main {
         </div>
         <div class="side-nav">
           <ul class="nav-list">
-            <% if (allowedFeatures.includes('Attendance tracking feature') && (userRole !== "Teacher" || isMainTeacher)) { %>
+            <% if (hasAttendanceFeature && (userRole !== "Teacher" || isMainTeacher)) { %>
               <li><a class="nav-link" href="/common/attendanceCollection?classId=<%= classId %>&termId=<%= currentTerm.term_id %>">Attendance</a></li>
             <% } %>
 
-            <li class="nav-section-label">Subjects</li>
-            <% if (subjects.length > 0) { %>
-              <% subjects.forEach(function(subject) { %>
-                <li>
-                  <a class="nav-link" href="/common/assessment?classId=<%= classId %>&subjectId=<%= subject.subject_id %>">
-                    <%= subject.subject_name %>
-                  </a>
-                </li>
-              <% }); %>
-            <% } else { %>
-              <li class="card-subtext" style="padding: 4px 2px;">No subjects added yet.</li>
+            <% if (hasAssessmentFeature) { %>
+              <li class="nav-section-label">Subjects</li>
+              <% if (subjects.length > 0) { %>
+                <% subjects.forEach(function(subject) { %>
+                  <li>
+                    <a class="nav-link" href="/common/assessment?classId=<%= classId %>&subjectId=<%= subject.subject_id %>">
+                      <%= subject.subject_name %>
+                    </a>
+                  </li>
+                <% }); %>
+              <% } else { %>
+                <li class="card-subtext" style="padding: 4px 2px;">No subjects added yet.</li>
+              <% } %>
             <% } %>
 
-            <li class="nav-section-label">Tools</li>
             <% if (hasFilesFeature) { %>
+              <li class="nav-section-label">Tools</li>
               <li>
                 <a class="nav-link" href="/documents?classId=<%= classId %>&create=1" title="Files" data-no-spa>
                   <span class="files-link-inline">📁 Files

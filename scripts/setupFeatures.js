@@ -2,23 +2,23 @@ const { registerFeature } = require("../utils/featureRegistrar");
 
 (async () => {
   await registerFeature("School Website", "/publicDashboard");
-  await registerFeature("Organization Dashboard", "/");
+  await registerFeature("Organization Dashboard", "/orgDashboard");
   await registerFeature(
     "Organization Analytics & Insights",
     "/stats/organization"
   );
   await registerFeature(
     "Class Base Analytics & Insights",
-    "/attendanceCollection"
+    "/stats/classes"
   );
-  await registerFeature("Progressive Student Report ", "/");
-  await registerFeature("Attendance tracking feature", "/");
-  await registerFeature("Assessment tracking feature", "/");
+  await registerFeature("Progressive Student Report", "/termDetails");
+  await registerFeature("Attendance Tracking", "/attendanceCollection");
+  await registerFeature("Assessment Tracking", "/assessment");
   await registerFeature("Parent/Guardian Portal", "/guardian");
   await registerFeature("Create Files", "/documents");
-  await registerFeature("Class Base Merrit sheet", "/meritSheetPage");
-  await registerFeature("Terminal Report", "/");
+  await registerFeature("Class Base Merit Sheet", "/meritSheetPage");
+  await registerFeature("Terminal Report", "/reportSettings");
   await registerFeature("Official School Transcript", "/transcript");
-  await registerFeature("Student and Guardian Profile", "/");
+  await registerFeature("Student and Guardian Profile", "/studentDetails");
   process.exit(0); // Clean exit after registration
 })();

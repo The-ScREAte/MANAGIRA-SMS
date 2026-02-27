@@ -1189,7 +1189,7 @@
           </a>
         </li>
         <% } %>
-        <% if (req.session && req.session.userRole !== 'Teacher' && Array.isArray(allowedFeatures) && (allowedFeatures.includes('Terminal Report') || allowedFeatures.includes('Progressive Student Report ') || allowedFeatures.includes('Class Base Merrit sheet') || allowedFeatures.includes('Official School Transcript'))) { %>
+        <% if (req.session && req.session.userRole !== 'Teacher' && Array.isArray(allowedFeatures) && (allowedFeatures.includes('Terminal Report') || allowedFeatures.includes('Progressive Student Report') || allowedFeatures.includes('Progressive Student Report ') || allowedFeatures.includes('Class Base Merit Sheet') || allowedFeatures.includes('Class Base Merrit sheet') || allowedFeatures.includes('Official School Transcript'))) { %>
         <li class="nav-item">
           <a href="/common/reports" class="nav-item-link management-link">
             <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
