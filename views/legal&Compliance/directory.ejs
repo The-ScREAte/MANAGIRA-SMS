@@ -203,10 +203,10 @@
 <div class="dir-page">
   <div class="dir-hero">
     <h1>Organization Directory</h1>
-    <p>Find schools and organizations on Managira. Search by name to discover and visit their public pages.</p>
+    <p>Find schools and organizations on Managira. Search by school name, nickname, or URL to discover and visit public pages.</p>
     <div class="dir-search-box">
       <span class="dir-search-icon">🔍</span>
-      <input type="text" id="dirSearch" placeholder="Search for an organization..." autofocus />
+      <input type="text" id="dirSearch" placeholder="Search school name, nickname, or URL..." autofocus />
     </div>
   </div>
 
@@ -217,7 +217,7 @@
 
     <div class="dir-grid" id="dirGrid">
       <% organizations.forEach(org => { %>
-        <a class="dir-card" href="<%= org.public_url %>" data-name="<%= (org.organization_name || '').toLowerCase() %>" data-nickname="<%= (org.nickname || '').toLowerCase() %>">
+        <a class="dir-card" href="<%= org.public_url %>" data-name="<%= (org.organization_name || '').toLowerCase() %>" data-nickname="<%= (org.nickname || '').toLowerCase() %>" data-url="<%= (org.public_url || '').toLowerCase() %>">
           <img class="dir-card-logo" 
                src="<%= org.logo_path && org.logo_path !== 'profilePlaceholder.png' ? org.logo_path : '/images/profilePlaceholder.png' %>" 
                alt="<%= org.organization_name %>" 
@@ -228,7 +228,7 @@
               <%= org.city ? org.city + (org.country ? ', ' + org.country : '') : (org.country || '') %>
             </div>
             <% if (org.nickname) { %>
-              <div class="dir-card-link"><%= org.nickname %>.managira.com</div>
+              <div class="dir-card-link">https://<%= org.nickname %>.managira.com</div>
             <% } %>
           </div>
         </a>
@@ -279,7 +279,8 @@
     allCards.forEach(card => {
       const name = card.dataset.name;
       const nick = card.dataset.nickname;
-      const match = !q || name.includes(q) || nick.includes(q);
+      const url = card.dataset.url || '';
+      const match = !q || name.includes(q) || nick.includes(q) || url.includes(q);
       card.style.display = match ? '' : 'none';
       if (match) visible++;
     });

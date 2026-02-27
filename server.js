@@ -346,15 +346,23 @@ app.get("/sitemap-schools.xml", async (req, res) => {
         ? new Date(org.updated_at).toISOString().split("T")[0]
         : today;
       return `  <url>
-    <loc>https://${org.nickname}.managira.com/common/publicDashboard</loc>
+    <loc>https://${org.nickname}.managira.com/</loc>
     <lastmod>${lastmod}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>`;
     });
 
+    const directoryUrlEntry = `  <url>
+    <loc>https://www.managira.com/legal/directory</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>`;
+
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${directoryUrlEntry}
 ${urls.join("\n")}
 </urlset>`;
 
@@ -379,11 +387,11 @@ app.get("/", async (req, res) => {
   const isProduction = process.env.NODE_ENV === "production";
   const isRenderDomain = req.hostname && req.hostname.endsWith(".onrender.com");
   const homeSeo = {
-    title: "Managira | All-in-One School Management Software Platform",
+    title: "Managira | School Management System & School Management Software",
     description:
-      "Real school management software platform for enrollment, classes, attendance, assessments, communication, billing, analytics, and reporting—simple setup, reliable operations, and support that understands schools.",
+      "Managira is a complete school management system and school management software platform for enrollment, classes, attendance, assessments, communication, billing, analytics, and reporting.",
     keywords:
-      "school management software platform, student information system, enrollment management, class management, attendance tracking, assessment management, school billing, school reports, Managira",
+      "school management system, school management software, management system for schools, student information system, school ERP, school portal, enrollment management, class management, attendance tracking, assessment management, school billing, school reports, education management software, Managira",
     canonicalUrl: "https://www.managira.com/",
     showFooterTopSection: true,
   };
@@ -399,7 +407,7 @@ app.get("/", async (req, res) => {
   // ✅ Case 2: Production subdomain (e.g. myschool.managira.com)
   if (isProduction && req.schoolDetails) {
   // ...removed log for clean background operation...
-    return res.redirect("/common/publicDashboard");
+    return res.redirect(301, "/common/publicDashboard");
   }
 
   // ✅ Case 3: Render default domain for web service
@@ -412,7 +420,7 @@ app.get("/", async (req, res) => {
   // ...removed log for clean background operation...
     return res.render("index", {
       ...homeSeo,
-      title: "Managira | All-in-One School Management Software Platform [DEV]",
+      title: "Managira | School Management System & School Management Software [DEV]",
     });
   }
 

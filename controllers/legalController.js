@@ -178,26 +178,43 @@ const legalController = {
 
             const structuredData = {
                 '@context': 'https://schema.org',
-                '@type': 'ItemList',
-                name: 'Managira Organization Directory',
-                itemListElement: orgs.slice(0, 200).map((org, index) => ({
-                    '@type': 'ListItem',
-                    position: index + 1,
-                    item: {
-                        '@type': 'School',
-                        name: org.organization_name,
-                        alternateName: org.nickname || undefined,
-                        url: org.public_url.startsWith('http') ? org.public_url : `${baseSiteUrl}${org.public_url}`,
-                        logo: toAbsoluteUrl(org.logo_path) || `${baseSiteUrl}/images/profilePlaceholder.png`,
-                        image: toAbsoluteUrl(org.logo_path) || `${baseSiteUrl}/images/profilePlaceholder.png`
+                '@graph': [
+                    {
+                        '@type': 'CollectionPage',
+                        name: 'Managira School Directory',
+                        url: 'https://www.managira.com/legal/directory',
+                        description: 'Find schools on Managira by school name, nickname, or public URL.',
+                        keywords: 'school management system, school management software, school directory, school portal, school ERP, education management software',
+                        potentialAction: {
+                            '@type': 'SearchAction',
+                            target: 'https://www.managira.com/legal/directory?q={search_term_string}',
+                            'query-input': 'required name=search_term_string'
+                        }
+                    },
+                    {
+                        '@type': 'ItemList',
+                        name: 'Managira Organization Directory',
+                        description: 'Directory of schools using Managira with searchable school names, nicknames, and public URLs.',
+                        itemListElement: orgs.slice(0, 200).map((org, index) => ({
+                            '@type': 'ListItem',
+                            position: index + 1,
+                            item: {
+                                '@type': 'School',
+                                name: org.organization_name,
+                                alternateName: org.nickname || undefined,
+                                url: org.public_url.startsWith('http') ? org.public_url : `${baseSiteUrl}${org.public_url}`,
+                                logo: toAbsoluteUrl(org.logo_path) || `${baseSiteUrl}/images/profilePlaceholder.png`,
+                                image: toAbsoluteUrl(org.logo_path) || `${baseSiteUrl}/images/profilePlaceholder.png`
+                            }
+                        }))
                     }
-                }))
+                ]
             };
 
             res.render('legal&Compliance/directory', {
-                title: 'Organization Directory | Managira',
-                description: 'Browse all schools and organizations on Managira. Search by name to find and visit their public pages.',
-                keywords: 'managira directory, schools on managira, find school managira, school management platform, organization directory',
+                title: 'School Directory | School Management System | Managira',
+                description: 'School directory on Managira. Find schools by full school name, nickname, or URL. Discover school websites, portals, and public updates.',
+                keywords: 'school management system, school management software, management system for schools, school directory, school portal, school website, school ERP software, find school by name, school nickname search, school URL search, education management software, schools on managira',
                 canonicalUrl: 'https://www.managira.com/legal/directory',
                 organizations: orgs,
                 structuredData,

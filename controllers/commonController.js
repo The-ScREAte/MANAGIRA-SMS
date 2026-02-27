@@ -1229,7 +1229,7 @@ const commonController = {
       // Render the school website page
       const canonicalUrl =
         process.env.NODE_ENV === "production" && orgDetails?.nickname
-          ? `https://${orgDetails.nickname}.managira.com/common/publicDashboard`
+          ? `https://${orgDetails.nickname}.managira.com/`
           : `${baseSiteUrl}/common/publicDashboard?organizationId=${organizationId}`;
 
       const flashMessages = req.flash();
@@ -1243,23 +1243,27 @@ const commonController = {
         : null;
 
       const seoTitle = orgDetails?.organization_name
-        ? `${orgDetails.organization_name} | School Portal | Managira`
+        ? `${orgDetails.organization_name}${orgDetails?.nickname ? ` (${orgDetails.nickname})` : ""} | School Website | Managira`
         : "School Public Portal | Managira";
 
       const seoDescription = aboutusPlain
         ? `${aboutusPlain}`
-        : `Official portal for ${orgDetails?.organization_name || "School"} on Managira. View announcements, events, and school information.`;
+        : `Official website and public portal for ${orgDetails?.organization_name || "School"}${orgDetails?.nickname ? ` (${orgDetails.nickname})` : ""} on Managira. View announcements, events, registration updates, and school information.`;
 
       const seoKeywords = [
         orgDetails?.organization_name,
+        orgDetails?.organization_name ? `${orgDetails.organization_name} school` : null,
         orgDetails?.nickname,
         orgDetails?.nickname ? `${orgDetails.nickname}.managira.com` : null,
+        orgDetails?.nickname ? `https://${orgDetails.nickname}.managira.com` : null,
         "school portal",
         "school website",
+        "public school page",
         "school announcements",
         "school events",
         "managira",
-        "school management"
+        "school management",
+        "school management system"
       ].filter(Boolean).join(", ");
 
       // Build rich Schema.org School structured data
