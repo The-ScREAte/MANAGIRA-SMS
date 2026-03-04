@@ -127,7 +127,7 @@ const legalController = {
 
     directory: async (req, res) => {
         try {
-            const optionalColumns = ['nickname', 'subdomain', 'logo_path', 'city', 'country', 'theme_color', 'deleted'];
+            const optionalColumns = ['nickname', 'subdomain', 'logo', 'logo_path', 'city', 'country', 'theme_color', 'deleted'];
             const columnsResult = await db.query(
                 `SELECT column_name
                  FROM information_schema.columns
@@ -148,6 +148,7 @@ const legalController = {
                     organization_name,
                     ${hasNickname ? 'nickname' : 'NULL::text AS nickname'},
                     ${hasSubdomain ? 'subdomain' : 'NULL::text AS subdomain'},
+                    ${availableColumns.has('logo') ? 'logo' : 'NULL::text AS logo'},
                     ${availableColumns.has('logo_path') ? 'logo_path' : 'NULL::text AS logo_path'},
                     ${availableColumns.has('city') ? 'city' : 'NULL::text AS city'},
                     ${availableColumns.has('country') ? 'country' : 'NULL::text AS country'},
@@ -156,12 +157,40 @@ const legalController = {
                  ${hasDeleted ? 'WHERE deleted = false' : ''}
                  ORDER BY organization_name ASC`
             );
+            const resolveLogoUrl = (...candidates) => {
+                const fallbackLogo = '/images/profilePlaceholder.png';
+                const value = candidates.find(item => typeof item === 'string' && item.trim());
+                if (!value) return fallbackLogo;
+
+                const normalized = value.trim();
+                if (!normalized) return fallbackLogo;
+
+                const lower = normalized.toLowerCase();
+                if (
+                    lower === 'profileplaceholder.png' ||
+                    lower.endsWith('/profileplaceholder.png') ||
+                    lower.endsWith('\\profileplaceholder.png')
+                ) {
+                    return fallbackLogo;
+                }
+
+                if (/^https?:\/\//i.test(normalized)) return normalized;
+
+                const bucketName = process.env.S3_BUCKET_NAME;
+                if (!normalized.startsWith('/') && bucketName && /^images\//i.test(normalized)) {
+                    return `https://${bucketName}.s3.amazonaws.com/${normalized}`;
+                }
+
+                return normalized.startsWith('/') ? normalized : `/${normalized}`;
+            };
+
             const orgs = result.rows.map(org => {
                 const isProduction = process.env.NODE_ENV === 'production';
                 const orgSlug = org.nickname || org.subdomain || '';
                 return {
                     ...org,
                     nickname: orgSlug || null,
+                    logo_url: resolveLogoUrl(org.logo, org.logo_path),
                     public_url: isProduction 
                         ? (orgSlug ? `https://${orgSlug}.managira.com` : `/common/publicDashboard?organizationId=${org.organization_id}`)
                         : `/common/publicDashboard?organizationId=${org.organization_id}`
@@ -203,8 +232,8 @@ const legalController = {
                                 name: org.organization_name,
                                 alternateName: org.nickname || undefined,
                                 url: org.public_url.startsWith('http') ? org.public_url : `${baseSiteUrl}${org.public_url}`,
-                                logo: toAbsoluteUrl(org.logo_path) || `${baseSiteUrl}/images/profilePlaceholder.png`,
-                                image: toAbsoluteUrl(org.logo_path) || `${baseSiteUrl}/images/profilePlaceholder.png`
+                                logo: toAbsoluteUrl(org.logo_url) || `${baseSiteUrl}/images/profilePlaceholder.png`,
+                                image: toAbsoluteUrl(org.logo_url) || `${baseSiteUrl}/images/profilePlaceholder.png`
                             }
                         }))
                     }

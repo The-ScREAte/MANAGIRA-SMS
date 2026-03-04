@@ -219,7 +219,7 @@
       <% organizations.forEach(org => { %>
         <a class="dir-card" href="<%= org.public_url %>" data-name="<%= (org.organization_name || '').toLowerCase() %>" data-nickname="<%= (org.nickname || '').toLowerCase() %>" data-url="<%= (org.public_url || '').toLowerCase() %>">
           <img class="dir-card-logo" 
-               src="<%= org.logo_path && org.logo_path !== 'profilePlaceholder.png' ? org.logo_path : '/images/profilePlaceholder.png' %>" 
+            src="<%= org.logo_url || '/images/profilePlaceholder.png' %>" 
                alt="<%= org.organization_name %>" 
                onerror="this.src='/images/profilePlaceholder.png'" />
           <div class="dir-card-info">
