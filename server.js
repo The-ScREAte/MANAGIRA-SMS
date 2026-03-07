@@ -387,9 +387,9 @@ app.get("/", async (req, res) => {
   const isProduction = process.env.NODE_ENV === "production";
   const isRenderDomain = req.hostname && req.hostname.endsWith(".onrender.com");
   const homeSeo = {
-    title: "Managira | School Management System & School Management Software",
+    title: "Managira | All-in-One School Management Platform",
     description:
-      "Managira is a complete school management system and school management software platform for enrollment, classes, attendance, assessments, communication, billing, analytics, and reporting.",
+      "Manage enrollment, classes, attendance, assessments, communication, billing, analytics, and reporting in one school platform.",
     keywords:
       "school management system, school management software, management system for schools, student information system, school ERP, school portal, enrollment management, class management, attendance tracking, assessment management, school billing, school reports, education management software, Managira",
     canonicalUrl: "https://www.managira.com/",
@@ -420,7 +420,7 @@ app.get("/", async (req, res) => {
   // ...removed log for clean background operation...
     return res.render("index", {
       ...homeSeo,
-      title: "Managira | School Management System & School Management Software [DEV]",
+      title: "Managira | All-in-One School Management Platform [DEV]",
     });
   }
 
