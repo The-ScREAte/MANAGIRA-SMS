@@ -175,74 +175,72 @@ const checkFeatureAccess = async (req, res, next) => {
         });
   // ...removed warn for clean background operation...
         if (isPublicDashboard) {
-          return res.status(403).send(`<!doctype html>
+          return res.status(403).send(`<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Website Not Active</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Website Not Activated</title>
   <style>
     :root {
-      --bg-1: #f3f6fb;
-      --bg-2: #e9eef6;
-      --text: #1f2937;
-      --muted: #5b6575;
-      --border: #d5ddeb;
-      --brand: #0a6172;
-      --card: #ffffff;
+      --bg-1: #f4f7fb;
+      --bg-2: #eaf1f7;
+      --card-bg: #ffffff;
+      --border: #d7e2ee;
+      --text-main: #1f2937;
+      --text-muted: #4b5563;
+      --accent: #01535b;
     }
-    * { box-sizing: border-box; }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
     body {
       margin: 0;
-      min-height: 100vh;
+      min-height: 100%;
+    }
+
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 100%);
       display: grid;
       place-items: center;
       padding: 24px;
-      background: radial-gradient(circle at top, var(--bg-1), var(--bg-2));
-      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-      color: var(--text);
+      color: var(--text-main);
     }
+
     .notice-card {
-      width: min(680px, 100%);
+      width: min(720px, 100%);
+      background: var(--card-bg);
       border: 1px solid var(--border);
-      background: var(--card);
       border-radius: 16px;
-      padding: 24px 22px;
+      box-shadow: 0 20px 44px rgba(2, 12, 27, 0.08);
+      padding: 28px 24px;
       text-align: center;
-      box-shadow: 0 14px 36px rgba(2, 35, 57, 0.12);
     }
-    .notice-badge {
-      display: inline-block;
-      margin-bottom: 10px;
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid #b9d7df;
-      background: #edf8fb;
-      color: var(--brand);
-      font-size: 0.8rem;
-      font-weight: 700;
-      letter-spacing: 0.02em;
-      text-transform: uppercase;
+
+    .notice-title {
+      margin: 0 0 12px;
+      font-size: clamp(1.25rem, 2vw, 1.55rem);
+      color: var(--accent);
+      line-height: 1.2;
     }
-    h1 {
-      margin: 0 0 10px;
-      font-size: clamp(1.35rem, 2.6vw, 1.8rem);
-      line-height: 1.3;
-    }
-    p {
+
+    .notice-text {
       margin: 0;
-      color: var(--muted);
       font-size: 1rem;
       line-height: 1.6;
+      color: var(--text-muted);
     }
   </style>
 </head>
 <body>
-  <section class="notice-card" role="status" aria-live="polite">
-    <div class="notice-badge">School Website Unavailable</div>
-    <h1>Oops! This school has not set up a website with Managira yet.</h1>
-    <p>Please reach out to the school to encourage them to activate their School Website plan.</p>
-  </section>
+  <main class="notice-card" role="main" aria-live="polite">
+    <h1 class="notice-title">Website Not Activated Yet</h1>
+    <p class="notice-text">Oops! This school has not set up a website with Managira yet. Please reach out to the school to encourage them to activate their School Website plan.</p>
+  </main>
 </body>
 </html>`);
         } else {
