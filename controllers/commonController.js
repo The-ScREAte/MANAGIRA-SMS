@@ -1076,6 +1076,8 @@ const commonController = {
           logo, 
           aboutus, 
           motto, 
+          email,
+          organization_phone,
           organization_name,
           nickname,
           font_style,
@@ -1129,6 +1131,11 @@ const commonController = {
       let savedOrder = [];
       let publicDashboardTheme = "classic";
       let publicDashboardLayout = "wireframe1";
+      let aboutDetails = {
+        mottos: orgDetails?.motto ? [orgDetails.motto] : [],
+        emails: orgDetails?.email ? [orgDetails.email] : [],
+        phones: orgDetails?.organization_phone ? [orgDetails.organization_phone] : [],
+      };
       if (orderResult.rows.length > 0) {
         try {
           let rawData = orderResult.rows[0].order_data;
@@ -1147,6 +1154,30 @@ const commonController = {
             }
             if (typeof rawData.layout === "string" && rawData.layout.trim()) {
               publicDashboardLayout = rawData.layout.trim();
+            }
+            if (rawData.aboutDetails && typeof rawData.aboutDetails === "object") {
+              const toList = (value) => {
+                const values = Array.isArray(value) ? value : [value];
+                return values
+                  .map((item) => String(item || "").trim())
+                  .filter(Boolean);
+              };
+
+              aboutDetails = {
+                mottos: toList(rawData.aboutDetails.mottos),
+                emails: toList(rawData.aboutDetails.emails),
+                phones: toList(rawData.aboutDetails.phones),
+              };
+
+              if (!aboutDetails.mottos.length && orgDetails?.motto) {
+                aboutDetails.mottos = [orgDetails.motto];
+              }
+              if (!aboutDetails.emails.length && orgDetails?.email) {
+                aboutDetails.emails = [orgDetails.email];
+              }
+              if (!aboutDetails.phones.length && orgDetails?.organization_phone) {
+                aboutDetails.phones = [orgDetails.organization_phone];
+              }
             }
           }
         } catch (parseError) {
@@ -1303,6 +1334,7 @@ const commonController = {
         hubInfo: publicHubInfo,
         publicDashboardTheme,
         publicDashboardLayout,
+        aboutDetails,
         url,
         isLoggedIn: req.session && req.session.userId,
         accountType: req.session.accountType || null, // ✅ Pass accountType explicitly
@@ -1342,6 +1374,8 @@ const commonController = {
       );
 
       let theme = "classic";
+      let layout = "wireframe1";
+      let aboutDetails = {};
       if (existing.rows.length > 0) {
         let raw = existing.rows[0].order_data;
         try {
@@ -1350,13 +1384,21 @@ const commonController = {
             if (typeof raw.theme === "string" && raw.theme.trim()) {
               theme = raw.theme.trim();
             }
+            if (typeof raw.layout === "string" && raw.layout.trim()) {
+              layout = raw.layout.trim();
+            }
+            if (raw.aboutDetails && typeof raw.aboutDetails === "object") {
+              aboutDetails = raw.aboutDetails;
+            }
           }
         } catch (e) {
           theme = "classic";
+          layout = "wireframe1";
+          aboutDetails = {};
         }
       }
 
-      const payload = { order, theme };
+      const payload = { order, theme, layout, aboutDetails };
 
       await db.query(
         `INSERT INTO organization_dashboard (organization_id, order_data)

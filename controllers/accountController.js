@@ -4220,13 +4220,70 @@ const accountController = {
   },
 
   updateAboutUsSection: async (req, res) => {
-    const { organization_id, aboutUs, motto } = req.body;
+    const { organization_id, aboutUs } = req.body;
+
+    const toList = (value) => {
+      const values = Array.isArray(value) ? value : [value];
+      return values
+        .map((item) => String(item || "").trim())
+        .filter(Boolean);
+    };
+
+    const mottoInput = String(req.body?.motto || "").trim();
+    const mottos = mottoInput
+      ? [mottoInput]
+      : toList(req.body?.mottos).slice(0, 1);
+    const emails = toList(req.body?.contactEmails);
+    const phones = toList(req.body?.contactPhones);
+    const primaryMotto = mottos[0] || "";
 
     try {
       await db.query(
         `UPDATE organizations SET aboutUs = $1, motto = $2 WHERE organization_id = $3`,
 
-        [aboutUs, motto, organization_id]
+        [aboutUs, primaryMotto, organization_id]
+      );
+
+      const existingDash = await db.query(
+        "SELECT order_data FROM organization_dashboard WHERE organization_id = $1",
+        [organization_id]
+      );
+
+      let order = [];
+      let theme = "classic";
+      let layout = "wireframe1";
+
+      if (existingDash.rows.length > 0) {
+        let raw = existingDash.rows[0].order_data;
+        try {
+          if (typeof raw === "string") raw = JSON.parse(raw);
+          if (Array.isArray(raw)) {
+            order = raw;
+          } else if (raw && typeof raw === "object") {
+            if (Array.isArray(raw.order)) order = raw.order;
+            if (typeof raw.theme === "string" && raw.theme.trim()) theme = raw.theme.trim();
+            if (typeof raw.layout === "string" && raw.layout.trim()) layout = raw.layout.trim();
+          }
+        } catch (e) {
+          order = [];
+          theme = "classic";
+          layout = "wireframe1";
+        }
+      }
+
+      const payload = {
+        order,
+        theme,
+        layout,
+        aboutDetails: { mottos, emails, phones },
+      };
+
+      await db.query(
+        `INSERT INTO organization_dashboard (organization_id, order_data)
+         VALUES ($1, $2)
+         ON CONFLICT (organization_id)
+         DO UPDATE SET order_data = EXCLUDED.order_data`,
+        [organization_id, payload]
       );
 
       res.redirect("/account/managePublicContent"); // Replace with the actual page route
@@ -4328,6 +4385,11 @@ const accountController = {
       // Load current school website theme/layout from organization_dashboard
       let publicDashboardTheme = "classic";
       let publicDashboardLayout = "wireframe1";
+      let aboutDetails = {
+        mottos: orgDetails?.motto ? [orgDetails.motto] : [],
+        emails: orgDetails?.email ? [orgDetails.email] : [],
+        phones: orgDetails?.organization_phone ? [orgDetails.organization_phone] : [],
+      };
       try {
         const dashRow = await db.query(
           "SELECT order_data FROM organization_dashboard WHERE organization_id = $1",
@@ -4342,6 +4404,30 @@ const accountController = {
             }
             if (typeof raw.layout === "string" && raw.layout.trim()) {
               publicDashboardLayout = raw.layout.trim();
+            }
+            if (raw.aboutDetails && typeof raw.aboutDetails === "object") {
+              const toList = (value) => {
+                const values = Array.isArray(value) ? value : [value];
+                return values
+                  .map((item) => String(item || "").trim())
+                  .filter(Boolean);
+              };
+
+              aboutDetails = {
+                mottos: toList(raw.aboutDetails.mottos),
+                emails: toList(raw.aboutDetails.emails),
+                phones: toList(raw.aboutDetails.phones),
+              };
+
+              if (!aboutDetails.mottos.length && orgDetails?.motto) {
+                aboutDetails.mottos = [orgDetails.motto];
+              }
+              if (!aboutDetails.emails.length && orgDetails?.email) {
+                aboutDetails.emails = [orgDetails.email];
+              }
+              if (!aboutDetails.phones.length && orgDetails?.organization_phone) {
+                aboutDetails.phones = [orgDetails.organization_phone];
+              }
             }
           }
         }
@@ -4373,6 +4459,7 @@ const accountController = {
 
         publicDashboardTheme,
         publicDashboardLayout,
+        aboutDetails,
 
         messages: {
           error: req.flash("error"),
@@ -4410,6 +4497,7 @@ const accountController = {
 
       let order = [];
       let theme = "classic";
+      let aboutDetails = {};
 
       if (existing.rows.length > 0) {
         let raw = existing.rows[0].order_data;
@@ -4420,14 +4508,18 @@ const accountController = {
           } else if (raw && typeof raw === "object") {
             if (Array.isArray(raw.order)) order = raw.order;
             if (typeof raw.theme === "string" && raw.theme.trim()) theme = raw.theme.trim();
+            if (raw.aboutDetails && typeof raw.aboutDetails === "object") {
+              aboutDetails = raw.aboutDetails;
+            }
           }
         } catch (e) {
           order = [];
           theme = "classic";
+          aboutDetails = {};
         }
       }
 
-      const payload = { order, theme, layout };
+      const payload = { order, theme, layout, aboutDetails };
 
       await db.query(
         `INSERT INTO organization_dashboard (organization_id, order_data)
@@ -4486,6 +4578,8 @@ const accountController = {
       );
 
       let order = [];
+      let layout = "wireframe1";
+      let aboutDetails = {};
       if (existing.rows.length > 0) {
         let raw = existing.rows[0].order_data;
         try {
@@ -4494,13 +4588,28 @@ const accountController = {
             order = raw;
           } else if (raw && typeof raw === "object" && Array.isArray(raw.order)) {
             order = raw.order;
+            if (typeof raw.layout === "string" && raw.layout.trim()) {
+              layout = raw.layout.trim();
+            }
+            if (raw.aboutDetails && typeof raw.aboutDetails === "object") {
+              aboutDetails = raw.aboutDetails;
+            }
+          } else if (raw && typeof raw === "object") {
+            if (typeof raw.layout === "string" && raw.layout.trim()) {
+              layout = raw.layout.trim();
+            }
+            if (raw.aboutDetails && typeof raw.aboutDetails === "object") {
+              aboutDetails = raw.aboutDetails;
+            }
           }
         } catch (e) {
           order = [];
+          layout = "wireframe1";
+          aboutDetails = {};
         }
       }
 
-      const payload = { order, theme };
+      const payload = { order, theme, layout, aboutDetails };
 
       // Update school website theme
       await db.query(

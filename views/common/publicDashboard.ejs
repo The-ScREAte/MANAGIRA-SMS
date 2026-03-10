@@ -586,6 +586,16 @@ body[data-pd-theme="classic"] .image-container {
   padding: 0 16px !important;
 }
 
+/* Wireframes 1/3/4: show ~3 gallery rows, then scroll for the rest */
+.wf1-gallery,
+.wf3-gallery-grid,
+.wf4-gallery-compact {
+  max-height: 680px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 6px;
+}
+
 /* MEDIUM screens = 3 columns */
 @media (max-width: 1100px) {
   body[data-pd-theme="classic"] .wf1-gallery,
@@ -606,6 +616,12 @@ body[data-pd-theme="classic"] .image-container {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 12px !important;
     padding: 0 12px !important;
+  }
+
+  .wf1-gallery,
+  .wf3-gallery-grid,
+  .wf4-gallery-compact {
+    max-height: 560px;
   }
 }
 
@@ -807,10 +823,112 @@ object-fit:contain;
 /* Nice scrollbar */
 .draggable-item .ql-editor::-webkit-scrollbar{ width:8px; }
 .draggable-item .ql-editor::-webkit-scrollbar-track{
-  background:#e9e9e9; border-radius:10px;
+  background: color-mix(in srgb, var(--org-primary-color, #01535b) 18%, white); border-radius:10px;
 }
 .draggable-item .ql-editor::-webkit-scrollbar-thumb{
-  background:#01535b; border-radius:10px;
+  background:var(--org-primary-color, #01535b); border-radius:10px;
+}
+
+/* Shared scrollbar palette for all wireframe scrollers */
+:root {
+  --wf-scroll-thumb: var(--org-primary-color, #01535b);
+  --wf-scroll-track: color-mix(in srgb, var(--org-primary-color, #01535b) 18%, white);
+}
+
+.draggable-item .ql-editor,
+.event-card p:last-of-type,
+.announcement-card p,
+.wf2-event-content p,
+.wf2-announcement-badge p,
+.wf3-announcement-pill p,
+.wf3-event-card p:last-child,
+.wf4-timeline-card p,
+.events-section,
+.announcements-section,
+.wf1-events,
+.wf1-announcements,
+.wf2-events-priority,
+.wf2-announcements-list,
+.wf2-gallery-masonry,
+.wf1-gallery,
+.wf3-gallery-grid,
+.wf4-gallery-compact,
+.image-container,
+.wf2-articles-scroll,
+.wf3-articles-masonry,
+.wf3-events-grid,
+.wf3-announcements-feed,
+.wf4-timeline-container,
+.wf4-announcements-grid,
+.wf4-stories-grid {
+  scrollbar-width: thin;
+  scrollbar-color: var(--wf-scroll-thumb) var(--wf-scroll-track);
+}
+
+.events-section::-webkit-scrollbar,
+.announcements-section::-webkit-scrollbar,
+.wf1-events::-webkit-scrollbar,
+.wf1-announcements::-webkit-scrollbar,
+.wf2-events-priority::-webkit-scrollbar,
+.wf2-announcements-list::-webkit-scrollbar,
+.wf2-gallery-masonry::-webkit-scrollbar,
+.wf1-gallery::-webkit-scrollbar,
+.wf3-gallery-grid::-webkit-scrollbar,
+.wf4-gallery-compact::-webkit-scrollbar,
+.image-container::-webkit-scrollbar,
+.wf2-articles-scroll::-webkit-scrollbar,
+.wf3-articles-masonry::-webkit-scrollbar,
+.wf3-events-grid::-webkit-scrollbar,
+.wf3-announcements-feed::-webkit-scrollbar,
+.wf4-timeline-container::-webkit-scrollbar,
+.wf4-announcements-grid::-webkit-scrollbar,
+.wf4-stories-grid::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.events-section::-webkit-scrollbar-track,
+.announcements-section::-webkit-scrollbar-track,
+.wf1-events::-webkit-scrollbar-track,
+.wf1-announcements::-webkit-scrollbar-track,
+.wf2-events-priority::-webkit-scrollbar-track,
+.wf2-announcements-list::-webkit-scrollbar-track,
+.wf2-gallery-masonry::-webkit-scrollbar-track,
+.wf1-gallery::-webkit-scrollbar-track,
+.wf3-gallery-grid::-webkit-scrollbar-track,
+.wf4-gallery-compact::-webkit-scrollbar-track,
+.image-container::-webkit-scrollbar-track,
+.wf2-articles-scroll::-webkit-scrollbar-track,
+.wf3-articles-masonry::-webkit-scrollbar-track,
+.wf3-events-grid::-webkit-scrollbar-track,
+.wf3-announcements-feed::-webkit-scrollbar-track,
+.wf4-timeline-container::-webkit-scrollbar-track,
+.wf4-announcements-grid::-webkit-scrollbar-track,
+.wf4-stories-grid::-webkit-scrollbar-track {
+  background: var(--wf-scroll-track);
+  border-radius: 10px;
+}
+
+.events-section::-webkit-scrollbar-thumb,
+.announcements-section::-webkit-scrollbar-thumb,
+.wf1-events::-webkit-scrollbar-thumb,
+.wf1-announcements::-webkit-scrollbar-thumb,
+.wf2-events-priority::-webkit-scrollbar-thumb,
+.wf2-announcements-list::-webkit-scrollbar-thumb,
+.wf2-gallery-masonry::-webkit-scrollbar-thumb,
+.wf1-gallery::-webkit-scrollbar-thumb,
+.wf3-gallery-grid::-webkit-scrollbar-thumb,
+.wf4-gallery-compact::-webkit-scrollbar-thumb,
+.image-container::-webkit-scrollbar-thumb,
+.wf2-articles-scroll::-webkit-scrollbar-thumb,
+.wf3-articles-masonry::-webkit-scrollbar-thumb,
+.wf3-events-grid::-webkit-scrollbar-thumb,
+.wf3-announcements-feed::-webkit-scrollbar-thumb,
+.wf4-timeline-container::-webkit-scrollbar-thumb,
+.wf4-announcements-grid::-webkit-scrollbar-thumb,
+.wf4-stories-grid::-webkit-scrollbar-thumb {
+  background: var(--wf-scroll-thumb);
+  border-radius: 10px;
 }
 
 /* =========================================================
@@ -963,7 +1081,7 @@ body[data-pd-theme="classic"] .content-section > h2{
 }
 .event-card p:last-of-type::-webkit-scrollbar-thumb,
 .announcement-card p::-webkit-scrollbar-thumb{
-  background:rgba(1,83,91,0.35);
+  background:var(--wf-scroll-thumb);
   border-radius:10px;
 }
 
@@ -978,14 +1096,14 @@ body[data-pd-theme="classic"] .content-section > h2{
 .announcements-section::-webkit-scrollbar-track,
 .wf1-events::-webkit-scrollbar-track,
 .wf1-announcements::-webkit-scrollbar-track{
-  background:#eaeaea;
+  background:var(--wf-scroll-track);
   border-radius:10px;
 }
 .events-section::-webkit-scrollbar-thumb,
 .announcements-section::-webkit-scrollbar-thumb,
 .wf1-events::-webkit-scrollbar-thumb,
 .wf1-announcements::-webkit-scrollbar-thumb{
-  background:#01535b;
+  background:var(--wf-scroll-thumb);
   border-radius:10px;
 }
 
@@ -1008,6 +1126,110 @@ body[data-pd-theme="classic"] .content-section.wf1-section#about-us > p{
   /* remove any old corner/indent rules */
   margin-left:0 !important;
   margin-right:0 !important;
+}
+
+.about-school-split {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 24px;
+  background: #fff;
+  border: 1px solid #d8ecff;
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.07);
+}
+
+.about-motto-row {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-bottom: 6px;
+}
+
+.about-motto-label {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--org-primary-color, #01535b);
+}
+
+.about-motto-text {
+  font-size: 1rem;
+  line-height: 1.5;
+  color: #1f2937;
+}
+
+.about-school-main p {
+  margin: 0 !important;
+}
+
+.about-school-side {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.about-meta-block h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  color: var(--org-primary-color, #01535b);
+}
+
+.about-meta-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.about-meta-list li {
+  padding: 8px 0;
+  border-bottom: 1px solid #eef3f8;
+  color: #334155;
+  word-break: break-word;
+}
+
+.about-meta-list li:last-child {
+  border-bottom: none;
+}
+
+.about-meta-value {
+  margin: 0;
+  padding: 8px 0;
+  color: #334155;
+  line-height: 1.65;
+  word-break: break-word;
+}
+
+.about-inline-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.about-inline-item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 4px 0;
+  word-break: break-word;
+}
+
+.about-inline-label {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--org-primary-color, #01535b);
+  white-space: nowrap;
+}
+
+.about-inline-text {
+  color: #334155;
+  line-height: 1.6;
 }
 
 /* =========================
@@ -1033,6 +1255,13 @@ body[data-pd-theme="classic"] .content-section.wf1-section#about-us > p{
   .announcement-card p{
     font-size:0.9rem;
   }
+
+  .about-school-split {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    padding: 14px;
+  }
+
 }
 
 
@@ -2303,11 +2532,12 @@ body[data-pd-theme="minimal"] .sticky-nav a::after{
 /* ===== WIREFRAME 2: SPLIT DASHBOARD ===== */
 .wf2-hero-split {
   display: grid;
-  grid-template-columns: 1.6fr 1fr;
-  gap: 28px;
-  max-width: 1280px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+  width: min(96%, 1540px);
+  max-width: none;
   margin: 0 auto 56px;
-  padding: 0 24px;
+  padding: 0;
 }
 
 .wf2-left-panel h2,
@@ -2317,69 +2547,161 @@ body[data-pd-theme="minimal"] .sticky-nav a::after{
   font-weight: 900;
 }
 
+.wf2-left-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .wf2-gallery-masonry {
+  --wf2-gallery-card-height: 190px;
+  --wf2-gallery-caption-height: 44px;
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  /* 3 visible rows (card + caption) then vertical scroll */
+  max-height: calc((var(--wf2-gallery-card-height) + var(--wf2-gallery-caption-height) + 12px) * 3);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 6px;
 }
 
 .wf2-gallery-masonry .gallery-card {
   width: 100%;
+  max-width: none !important;
   margin: 0;
   overflow: hidden;
   border-radius: 12px;
+  display: block !important;
+  min-height: calc(var(--wf2-gallery-card-height) + var(--wf2-gallery-caption-height));
 }
 
 .wf2-gallery-masonry .gallery-card-image-section {
-  height: clamp(110px, 12vw, 160px);
+  height: var(--wf2-gallery-card-height) !important;
+  min-height: var(--wf2-gallery-card-height);
 }
 
 .wf2-gallery-masonry .gallery-card-image-section img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: cover !important;
   display: block;
+}
+
+.wf2-gallery-masonry .gallery-card .caption {
+  display: block !important;
+  min-height: var(--wf2-gallery-caption-height);
+  margin-top: 0 !important;
+  padding: 10px 12px !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Theme-specific fallback so caption remains visible in every theme */
+body[data-pd-theme] .wf2-gallery-masonry .gallery-card .caption {
+  margin-top: 0 !important;
 }
 
 .wf2-right-panel {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  gap: 14px;
+  /* Start the right column lower so events align with top gallery image row */
+  padding-top: 56px;
+}
+
+.wf2-right-block {
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 14px;
+  padding: 12px;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.wf2-right-block h2 {
+  margin: 0 0 10px;
+  font-size: 1.2rem;
+}
+
+.wf2-right-events,
+.wf2-right-announcements {
+  flex: 1;
 }
 
 .wf2-events-priority {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-  flex: 1;
-  overflow-y: auto;
-  max-height: 520px;
-  padding-right: 4px;
+  flex-direction: row;
+  gap: 18px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-height: none;
+  padding: 6px 4px 16px;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
 }
 
 .wf2-event-badge {
   display: flex !important;
-  flex-direction: row !important;
-  align-items: flex-start !important;
-  gap: 14px;
-  padding: 14px !important;
-  height: auto !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 10px;
+  padding: 18px !important;
+  height: 240px !important;
+  min-width: calc((100% - 18px) / 2);
+  max-width: calc((100% - 18px) / 2);
+  flex: 0 0 calc((100% - 18px) / 2);
+  scroll-snap-align: start;
 }
 
 .wf2-event-date-badge {
   flex-shrink: 0;
   background: var(--org-primary-color, #01535b);
   color: #fff;
-  padding: 10px 14px;
+  padding: 6px 10px;
   border-radius: 10px;
   font-weight: 800;
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   text-align: center;
-  min-width: 64px;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.wf2-event-heading-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.wf2-event-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.wf2-event-content h3 {
+  margin: 0;
+  font-size: 1rem;
   line-height: 1.3;
 }
 
-.wf2-event-content h3 { margin: 0 0 4px; font-size: 1rem; }
-.wf2-event-content p { margin: 0; font-size: 0.9rem; line-height: 1.5; }
+.wf2-event-content p {
+  margin: 10px 0 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+  padding-right: 4px;
+}
 
 .wf2-articles-section {
   max-width: 1280px;
@@ -2402,41 +2724,94 @@ body[data-pd-theme="minimal"] .sticky-nav a::after{
 }
 
 .wf2-announcements-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 12px;
+  display: flex;
+  flex-direction: row;
+  gap: 18px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-height: none;
+  padding: 6px 4px 16px;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
 }
 
 .wf2-announcement-badge {
   display: flex !important;
   flex-direction: row !important;
-  align-items: center !important;
+  align-items: flex-start !important;
   gap: 12px;
-  padding: 14px 18px !important;
-  height: auto !important;
+  padding: 18px !important;
+  height: 240px !important;
+  min-width: calc((100% - 18px) / 2);
+  max-width: calc((100% - 18px) / 2);
+  flex: 0 0 calc((100% - 18px) / 2);
+  scroll-snap-align: start;
 }
 
 .wf2-announcement-icon {
   font-size: 1.3rem;
   flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.wf2-announcement-badge p {
+  margin: 0;
+  line-height: 1.55;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+  align-self: stretch;
+  padding-right: 4px;
 }
 
 @media (max-width: 900px) {
   .wf2-hero-split {
     grid-template-columns: 1fr;
     padding: 0 16px;
+    width: 100%;
+  }
+  .wf2-right-panel {
+    padding-top: 0;
+  }
+  .wf2-left-panel {
+    order: 1;
+  }
+  .wf2-right-events {
+    order: 2;
+  }
+  .wf2-right-announcements {
+    order: 3;
+  }
+  .wf2-gallery-masonry {
+    --wf2-gallery-card-height: 135px;
+    --wf2-gallery-caption-height: 40px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-height: calc((var(--wf2-gallery-card-height) + var(--wf2-gallery-caption-height) + 12px) * 3);
   }
   .wf2-events-priority {
-    max-height: none;
+    display: flex;
     flex-direction: row;
+    gap: 12px;
     overflow-x: auto;
     overflow-y: hidden;
-  }
-  .wf2-events-priority .event-card {
-    flex: 0 0 280px;
+    max-height: none;
+    scroll-snap-type: x mandatory;
   }
   .wf2-announcements-list {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    max-height: none;
+    scroll-snap-type: x mandatory;
+  }
+  .wf2-event-badge,
+  .wf2-announcement-badge {
+    min-width: 100%;
+    max-width: 100%;
+    flex: 0 0 100%;
+    height: 190px !important;
   }
 }
 
@@ -2454,11 +2829,12 @@ body[data-pd-theme="minimal"] .sticky-nav a::after{
 
 .wf3-content-split {
   display: grid;
-  grid-template-columns: 2.2fr 1fr;
-  gap: 32px;
-  max-width: 1280px;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 24px;
+  width: min(96%, 1540px);
+  max-width: none;
   margin: 0 auto 56px;
-  padding: 0 24px;
+  padding: 0;
   align-items: start;
 }
 
@@ -2468,24 +2844,46 @@ body[data-pd-theme="minimal"] .sticky-nav a::after{
   font-weight: 900;
 }
 
-.wf3-announcements-sidebar {
-  position: relative;
+.wf3-right-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
 }
 
-.wf3-announcements-sticky {
-  position: sticky;
-  top: 80px;
+.wf3-right-block {
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 14px;
+  padding: 12px;
+  min-width: 0;
 }
-.wf3-announcements-sticky h2 {
-  margin: 0 0 14px;
-  font-size: 1.25rem;
+
+.wf3-right-block h2 {
+  margin: 0 0 10px;
+  font-size: 1.2rem;
   font-weight: 900;
 }
 
-.wf3-announcements-feed {
+.wf3-announcements-feed,
+.wf3-events-grid {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
+  flex-direction: row;
+  gap: 14px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 6px 4px 12px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.wf3-announcement-pill,
+.wf3-event-card {
+  min-width: calc((100% - 14px) / 2);
+  max-width: calc((100% - 14px) / 2);
+  flex: 0 0 calc((100% - 14px) / 2);
+  height: 205px !important;
+  scroll-snap-align: start;
 }
 
 .wf3-announcement-pill {
@@ -2493,9 +2891,12 @@ body[data-pd-theme="minimal"] .sticky-nav a::after{
   flex-direction: row !important;
   align-items: flex-start !important;
   gap: 10px;
-  padding: 14px !important;
-  height: auto !important;
+  padding: 16px !important;
   border-radius: 10px !important;
+}
+
+.wf3-announcement-pill {
+  overflow: hidden;
 }
 
 .wf3-announcement-marker {
@@ -2505,6 +2906,15 @@ body[data-pd-theme="minimal"] .sticky-nav a::after{
   background: var(--org-primary-color, #01535b);
   flex-shrink: 0;
   margin-top: 6px;
+}
+
+.wf3-announcement-pill p {
+  margin: 0;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+  align-self: stretch;
+  line-height: 1.55;
 }
 
 .wf3-events-section {
@@ -2518,13 +2928,62 @@ body[data-pd-theme="minimal"] .sticky-nav a::after{
   font-weight: 900;
 }
 
+.wf3-event-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Wireframe 3: show two article cards and make them taller for readability */
+.wf3-articles-masonry .draggable-item {
+  flex: 0 0 calc((100% - 16px) / 2) !important;
+  min-width: calc((100% - 16px) / 2) !important;
+  max-width: calc((100% - 16px) / 2) !important;
+  height: 500px !important;
+}
+
+.wf3-event-card h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
+.wf3-event-card p {
+  margin: 0 0 8px;
+  line-height: 1.5;
+}
+
+.wf3-event-card p:last-child {
+  margin: 0;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+  padding-right: 4px;
+}
+
 @media (max-width: 900px) {
   .wf3-content-split {
     grid-template-columns: 1fr;
     padding: 0 16px;
+    width: 100%;
   }
-  .wf3-announcements-sticky {
-    position: static;
+  .wf3-articles-main,
+  .wf3-right-column,
+  .wf3-right-block {
+    min-width: 0;
+  }
+  .wf3-announcement-pill,
+  .wf3-event-card {
+    min-width: 100%;
+    max-width: 100%;
+    flex: 0 0 100%;
+    height: 190px !important;
+  }
+  .wf3-articles-masonry .draggable-item {
+    flex: 0 0 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    height: 430px !important;
   }
 }
 
@@ -2553,8 +3012,12 @@ body[data-pd-theme="minimal"] .sticky-nav a::after{
 }
 
 .wf4-timeline-container {
+  --wf4-event-row-height: 198px;
   position: relative;
-  padding: 0 20px;
+  padding: 0 20px 8px;
+  max-height: calc((var(--wf4-event-row-height) + 20px) * 3);
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .wf4-timeline-container::before {
@@ -2572,7 +3035,8 @@ body[data-pd-theme="minimal"] .sticky-nav a::after{
 .wf4-timeline-block {
   display: flex;
   align-items: flex-start;
-  margin-bottom: 28px;
+  margin-bottom: 20px;
+  min-height: var(--wf4-event-row-height);
   position: relative;
 }
 
@@ -2609,6 +3073,10 @@ body[data-pd-theme="minimal"] .sticky-nav a::after{
   box-shadow: 0 8px 22px rgba(0,0,0,0.10);
   flex: 1;
   border-left: 4px solid var(--org-primary-color, #01535b);
+  height: var(--wf4-event-row-height);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .wf4-timeline-date {
@@ -2625,10 +3093,14 @@ body[data-pd-theme="minimal"] .sticky-nav a::after{
   font-size: 1.05rem;
 }
 .wf4-timeline-card p {
-  margin: 0;
+  margin: 8px 0 0;
   font-size: 0.9rem;
   line-height: 1.55;
   color: #555;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+  padding-right: 4px;
 }
 
 /* Announcements Grid */
@@ -2644,9 +3116,14 @@ body[data-pd-theme="minimal"] .sticky-nav a::after{
 }
 
 .wf4-announcements-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  display: flex;
+  flex-direction: row;
   gap: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 6px 4px 12px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
 }
 
 .wf4-announcement-card {
@@ -2655,6 +3132,10 @@ body[data-pd-theme="minimal"] .sticky-nav a::after{
   padding: 18px;
   box-shadow: 0 6px 20px rgba(0,0,0,0.08);
   border-left: 4px solid var(--org-primary-color, #01535b);
+  min-width: 320px;
+  max-width: 320px;
+  flex: 0 0 320px;
+  scroll-snap-align: start;
 }
 
 .wf4-announcement-header {
@@ -2714,6 +3195,13 @@ body[data-pd-theme="minimal"] .sticky-nav a::after{
   color: var(--org-primary-color, #01535b);
 }
 
+.wf4-about-values p {
+  margin: 0;
+  font-size: 0.96rem;
+  line-height: 1.7;
+  color: #333;
+}
+
 .wf4-about-values ul {
   list-style: none;
   padding: 0;
@@ -2742,6 +3230,9 @@ body[data-pd-theme="minimal"] .sticky-nav a::after{
 }
 
 @media (max-width: 900px) {
+  .wf4-timeline-container {
+    --wf4-event-row-height: 186px;
+  }
   .wf4-timeline-container::before {
     left: 22px;
   }
@@ -3382,13 +3873,29 @@ body[data-pd-theme] .gallery-card .caption{
       <div id="dashboard-sections"></div>
 
       <% const pdLayout = (publicDashboardLayout || 'wireframe1'); %>
+        <% const aboutMottos = (aboutDetails && Array.isArray(aboutDetails.mottos) ? aboutDetails.mottos : [])
+          .map((value) => String(value || '').trim())
+          .filter(Boolean);
+        %>
+        <% const aboutEmails = (aboutDetails && Array.isArray(aboutDetails.emails) ? aboutDetails.emails : [])
+          .map((value) => String(value || '').trim())
+          .filter(Boolean);
+        %>
+        <% const aboutPhones = (aboutDetails && Array.isArray(aboutDetails.phones) ? aboutDetails.phones : [])
+          .map((value) => String(value || '').trim())
+          .filter(Boolean);
+        %>
+        <% if (!aboutMottos.length && orgDetails?.motto) { aboutMottos.push(orgDetails.motto); } %>
+        <% const aboutMotto = aboutMottos.length ? aboutMottos[0] : ''; %>
+        <% if (!aboutEmails.length && orgDetails?.email) { aboutEmails.push(orgDetails.email); } %>
+        <% if (!aboutPhones.length && orgDetails?.organization_phone) { aboutPhones.push(orgDetails.organization_phone); } %>
 
       <% if (pdLayout === 'wireframe1') { %>
         <!-- WIREFRAME 1: Linear / Traditional School Website - Simple vertical flow -->
         
         <!-- Gallery -->
         <div class="content-section wf1-section" id="image-gallery">
-          <h2>Gallery 📷</h2>
+          <h2>Campus Gallery 📷</h2>
           <div class="wf1-gallery">
             <% orderedItems.filter(item => item.id === 'image-gallery').forEach(item => { %>
               <% item.data.forEach(image => { %>
@@ -3405,7 +3912,7 @@ body[data-pd-theme] .gallery-card .caption{
 
         <!-- Articles (Simple cards) -->
         <div class="content-section wf1-section" id="text-articles">
-          <h2>Articles 📝</h2>
+          <h2>School Highlights 📝</h2>
           <div class="wf1-articles">
             <% orderedItems.filter(item => item.id === 'text-articles').forEach(item => { %>
               <% item.data.forEach(text => { %>
@@ -3436,7 +3943,7 @@ body[data-pd-theme] .gallery-card .caption{
 
         <!-- Announcements -->
         <div class="content-section wf1-section" id="announcements">
-          <h2>Announcements 📢</h2>
+          <h2>Notices & Announcements 📢</h2>
           <div class="wf1-announcements">
             <% orderedItems.filter(item => item.type === 'announcements').forEach(item => { %>
               <% item.data.forEach((announcement) => { %>
@@ -3451,21 +3958,51 @@ body[data-pd-theme] .gallery-card .caption{
         </div>
 
         <!-- About Us -->
-     <div class="content-section wf1-section" id="about-us">
-  <h2>About Us</h2>
-  <p><%= orgDetails.aboutus %></p>
-</div>
+        <div class="content-section wf1-section" id="about-us">
+          <h2>About the School</h2>
+          <div class="about-school-split">
+            <% if (aboutMotto) { %>
+              <div class="about-motto-row">
+                <span class="about-motto-label">Motto</span>
+                <span class="about-motto-text"><%= aboutMotto %></span>
+              </div>
+            <% } %>
+            <div class="about-school-main">
+              <p><%= orgDetails.aboutus %></p>
+            </div>
+            <div class="about-school-side">
+              <% if (aboutEmails.length) { %>
+                <div class="about-meta-block">
+                  <ul class="about-inline-list">
+                    <% aboutEmails.forEach((item) => { %>
+                      <li class="about-inline-item"><span class="about-inline-label">Email</span><span class="about-inline-text"><%= item %></span></li>
+                    <% }); %>
+                  </ul>
+                </div>
+              <% } %>
+              <% if (aboutPhones.length) { %>
+                <div class="about-meta-block">
+                  <ul class="about-inline-list">
+                    <% aboutPhones.forEach((item) => { %>
+                      <li class="about-inline-item"><span class="about-inline-label">Phone</span><span class="about-inline-text"><%= item %></span></li>
+                    <% }); %>
+                  </ul>
+                </div>
+              <% } %>
+            </div>
+          </div>
+        </div>
 
       <% } else if (pdLayout === 'wireframe2') { %>
         <!-- WIREFRAME 2: Split Dashboard - Gallery LEFT + Events RIGHT -->
         
-        <!-- Top Split: Gallery (Left) + Events (Right) -->
+        <!-- Top Split: Gallery (Left) + Events/Announcements (Right) -->
         <div class="wf2-hero-split">
           <div class="wf2-left-panel" id="image-gallery">
-            <h2>Gallery 📷</h2>
+            <h2>Campus Gallery 📷</h2>
             <div class="wf2-gallery-masonry">
               <% orderedItems.filter(item => item.id === 'image-gallery').forEach(item => { %>
-                <% item.data.slice(0, 6).forEach(image => { %>
+                <% item.data.forEach(image => { %>
                   <div class="gallery-card wf2-gallery-item">
                     <div class="gallery-card-image-section">
                       <img src="<%= image.image_url %>" alt="Content Image" />
@@ -3478,28 +4015,48 @@ body[data-pd-theme] .gallery-card .caption{
           </div>
 
           <div class="wf2-right-panel" id="events">
-            <h2>⚡ Upcoming Events</h2>
-            <div class="wf2-events-priority">
-              <% orderedItems.filter(item => item.type === 'events').forEach(item => { %>
-                <% item.data.forEach((event) => { %>
-                  <div class="event-card wf2-event-badge">
-                    <div class="wf2-event-date-badge">
-                      <%= new Date(event.event_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %>
+            <div class="wf2-right-block wf2-right-events">
+              <h2>⚡ Upcoming Events</h2>
+              <div class="wf2-events-priority">
+                <% orderedItems.filter(item => item.type === 'events').forEach(item => { %>
+                  <% item.data.forEach((event) => { %>
+                    <div class="event-card wf2-event-badge">
+                      <div class="wf2-event-content">
+                        <div class="wf2-event-heading-row">
+                          <h3><%= event.name %></h3>
+                          <span class="wf2-event-date-badge">
+                            <%= new Date(event.event_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %>
+                          </span>
+                        </div>
+                        <p><%= event.details %></p>
+                      </div>
                     </div>
-                    <div class="wf2-event-content">
-                      <h3><%= event.name %></h3>
-                      <p><%= event.details %></p>
-                    </div>
-                  </div>
+                  <% }); %>
                 <% }); %>
-              <% }); %>
+              </div>
+            </div>
+
+            <div class="wf2-right-block wf2-right-announcements" id="announcements">
+              <h2>📢 Notices & Announcements</h2>
+              <div class="wf2-announcements-list">
+                <% orderedItems.filter(item => item.type === 'announcements').forEach(item => { %>
+                  <% item.data.forEach((announcement) => { %>
+                    <% if (announcement.visibility === "public" || announcement.visibility === "both") { %>
+                      <div class="announcement-card wf2-announcement-badge">
+                        <span class="wf2-announcement-icon">🔔</span>
+                        <p><%= announcement.message %></p>
+                      </div>
+                    <% } %>
+                  <% }); %>
+                <% }); %>
+              </div>
             </div>
           </div>
         </div>
 
         <!-- Articles Below (Horizontal Scroll Cards) -->
         <div class="content-section wf2-articles-section" id="text-articles">
-          <h2>Latest Articles</h2>
+          <h2>Featured Highlights</h2>
           <div class="wf2-articles-scroll">
             <% orderedItems.filter(item => item.id === 'text-articles').forEach(item => { %>
               <% item.data.forEach(text => { %>
@@ -3512,27 +4069,40 @@ body[data-pd-theme] .gallery-card .caption{
           </div>
         </div>
 
-        <!-- Announcements (Isolated Side Column) -->
-        <div class="content-section wf2-announcements-sidebar" id="announcements">
-          <h2>📢 Important Announcements</h2>
-          <div class="wf2-announcements-list">
-            <% orderedItems.filter(item => item.type === 'announcements').forEach(item => { %>
-              <% item.data.forEach((announcement) => { %>
-                <% if (announcement.visibility === "public" || announcement.visibility === "both") { %>
-                  <div class="announcement-card wf2-announcement-badge">
-                    <span class="wf2-announcement-icon">🔔</span>
-                    <p><%= announcement.message %></p>
-                  </div>
-                <% } %>
-              <% }); %>
-            <% }); %>
-          </div>
-        </div>
-
         <!-- About Us -->
         <div class="content-section wf1-section" id="about-us">
-          <h2>About Us</h2>
-          <p><%= orgDetails.aboutus %></p>
+          <h2>About the School</h2>
+          <div class="about-school-split">
+            <% if (aboutMotto) { %>
+              <div class="about-motto-row">
+                <span class="about-motto-label">Motto</span>
+                <span class="about-motto-text"><%= aboutMotto %></span>
+              </div>
+            <% } %>
+            <div class="about-school-main">
+              <p><%= orgDetails.aboutus %></p>
+            </div>
+            <div class="about-school-side">
+              <% if (aboutEmails.length) { %>
+                <div class="about-meta-block">
+                  <ul class="about-inline-list">
+                    <% aboutEmails.forEach((item) => { %>
+                      <li class="about-inline-item"><span class="about-inline-label">Email</span><span class="about-inline-text"><%= item %></span></li>
+                    <% }); %>
+                  </ul>
+                </div>
+              <% } %>
+              <% if (aboutPhones.length) { %>
+                <div class="about-meta-block">
+                  <ul class="about-inline-list">
+                    <% aboutPhones.forEach((item) => { %>
+                      <li class="about-inline-item"><span class="about-inline-label">Phone</span><span class="about-inline-text"><%= item %></span></li>
+                    <% }); %>
+                  </ul>
+                </div>
+              <% } %>
+            </div>
+          </div>
         </div>
 
       <% } else if (pdLayout === 'wireframe3') { %>
@@ -3540,7 +4110,7 @@ body[data-pd-theme] .gallery-card .caption{
         
         <!-- Gallery Full Width -->
         <div class="content-section wf3-gallery-section" id="image-gallery">
-          <h2>Gallery 📷</h2>
+          <h2>Campus Gallery 📷</h2>
           <div class="wf3-gallery-grid">
             <% orderedItems.filter(item => item.id === 'image-gallery').forEach(item => { %>
               <% item.data.forEach(image => { %>
@@ -3555,10 +4125,10 @@ body[data-pd-theme] .gallery-card .caption{
           </div>
         </div>
 
-        <!-- Articles (CENTER) + Announcements (RIGHT SIDEBAR) -->
+        <!-- Articles (LEFT) + Announcements/Events (RIGHT) -->
         <div class="wf3-content-split">
           <div class="wf3-articles-main" id="text-articles">
-            <h2>📝 Featured Articles</h2>
+            <h2>📝 Featured Highlights</h2>
             <div class="wf3-articles-masonry">
               <% orderedItems.filter(item => item.id === 'text-articles').forEach(item => { %>
                 <% item.data.forEach(text => { %>
@@ -3571,9 +4141,9 @@ body[data-pd-theme] .gallery-card .caption{
             </div>
           </div>
 
-          <div class="wf3-announcements-sidebar" id="announcements">
-            <div class="wf3-announcements-sticky">
-              <h2>📢 Announcements</h2>
+          <div class="wf3-right-column">
+            <div class="wf3-right-block" id="announcements">
+              <h2>📢 School Announcements</h2>
               <div class="wf3-announcements-feed">
                 <% orderedItems.filter(item => item.type === 'announcements').forEach(item => { %>
                   <% item.data.forEach((announcement) => { %>
@@ -3587,29 +4157,58 @@ body[data-pd-theme] .gallery-card .caption{
                 <% }); %>
               </div>
             </div>
-          </div>
-        </div>
 
-        <!-- Events Stacked Below -->
-        <div class="content-section wf3-events-section" id="events">
-          <h2>Upcoming Events</h2>
-          <div class="wf3-events-grid">
-            <% orderedItems.filter(item => item.type === 'events').forEach(item => { %>
-              <% item.data.forEach((event) => { %>
-                <div class="event-card wf3-event-card">
-                  <h3><%= event.name %></h3>
-                  <p><strong>Date:</strong> <%= new Date(event.event_date).toISOString().split('T')[0] %></p>
-                  <p><%= event.details %></p>
-                </div>
-              <% }); %>
-            <% }); %>
+            <div class="wf3-right-block" id="events">
+              <h2>Upcoming Events</h2>
+              <div class="wf3-events-grid">
+                <% orderedItems.filter(item => item.type === 'events').forEach(item => { %>
+                  <% item.data.forEach((event) => { %>
+                    <div class="event-card wf3-event-card">
+                      <h3><%= event.name %></h3>
+                      <p><strong>Date:</strong> <%= new Date(event.event_date).toISOString().split('T')[0] %></p>
+                      <p><%= event.details %></p>
+                    </div>
+                  <% }); %>
+                <% }); %>
+              </div>
+            </div>
           </div>
         </div>
 
         <!-- About Us -->
         <div class="content-section wf1-section" id="about-us">
-          <h2>About Us</h2>
-          <p><%= orgDetails.aboutus %></p>
+          <h2>About the School</h2>
+          <div class="about-school-split">
+            <% if (aboutMotto) { %>
+              <div class="about-motto-row">
+                <span class="about-motto-label">Motto</span>
+                <span class="about-motto-text"><%= aboutMotto %></span>
+              </div>
+            <% } %>
+            <div class="about-school-main">
+              <p><%= orgDetails.aboutus %></p>
+            </div>
+            <div class="about-school-side">
+              <% if (aboutEmails.length) { %>
+                <div class="about-meta-block">
+                  <ul class="about-inline-list">
+                    <% aboutEmails.forEach((item) => { %>
+                      <li class="about-inline-item"><span class="about-inline-label">Email</span><span class="about-inline-text"><%= item %></span></li>
+                    <% }); %>
+                  </ul>
+                </div>
+              <% } %>
+              <% if (aboutPhones.length) { %>
+                <div class="about-meta-block">
+                  <ul class="about-inline-list">
+                    <% aboutPhones.forEach((item) => { %>
+                      <li class="about-inline-item"><span class="about-inline-label">Phone</span><span class="about-inline-text"><%= item %></span></li>
+                    <% }); %>
+                  </ul>
+                </div>
+              <% } %>
+            </div>
+          </div>
         </div>
 
       <% } else if (pdLayout === 'wireframe4') { %>
@@ -3662,15 +4261,12 @@ body[data-pd-theme] .gallery-card .caption{
 
         <!-- Announcements as Highlight Cards -->
         <div class="content-section wf4-announcements-section" id="announcements">
-          <h2>🔔 Important Updates</h2>
+          <h2>🔔 Announcements & Updates</h2>
           <div class="wf4-announcements-grid">
             <% orderedItems.filter(item => item.type === 'announcements').forEach(item => { %>
               <% item.data.forEach((announcement) => { %>
                 <% if (announcement.visibility === "public" || announcement.visibility === "both") { %>
                   <div class="wf4-announcement-card">
-                    <div class="wf4-announcement-header">
-                      <span class="wf4-announcement-badge">NEW</span>
-                    </div>
                     <p><%= announcement.message %></p>
                   </div>
                 <% } %>
@@ -3682,25 +4278,42 @@ body[data-pd-theme] .gallery-card .caption{
         <!-- About Us EXPANDED (More Prominent) -->
         <div class="content-section wf4-about-section" id="about-us">
           <h2>Our Mission & Values</h2>
-          <div class="wf4-about-content">
-            <div class="wf4-about-main">
-              <p class="wf4-about-lead"><%= orgDetails.aboutus %></p>
+          <div class="about-school-split">
+            <% if (aboutMotto) { %>
+              <div class="about-motto-row">
+                <span class="about-motto-label">Motto</span>
+                <span class="about-motto-text"><%= aboutMotto %></span>
+              </div>
+            <% } %>
+            <div class="about-school-main">
+              <p><%= orgDetails.aboutus %></p>
             </div>
-            <div class="wf4-about-values">
-              <h3>What We Stand For</h3>
-              <ul>
-                <li><strong>Excellence:</strong> Committed to academic and personal growth</li>
-                <li><strong>Innovation:</strong> Building future leaders with modern approaches</li>
-                <li><strong>Community:</strong> Fostering connections and collaboration</li>
-                <li><strong>Integrity:</strong> Upholding trust and ethical values</li>
-              </ul>
+            <div class="about-school-side">
+              <% if (aboutEmails.length) { %>
+                <div class="about-meta-block">
+                  <ul class="about-inline-list">
+                    <% aboutEmails.forEach((item) => { %>
+                      <li class="about-inline-item"><span class="about-inline-label">Email</span><span class="about-inline-text"><%= item %></span></li>
+                    <% }); %>
+                  </ul>
+                </div>
+              <% } %>
+              <% if (aboutPhones.length) { %>
+                <div class="about-meta-block">
+                  <ul class="about-inline-list">
+                    <% aboutPhones.forEach((item) => { %>
+                      <li class="about-inline-item"><span class="about-inline-label">Phone</span><span class="about-inline-text"><%= item %></span></li>
+                    <% }); %>
+                  </ul>
+                </div>
+              <% } %>
             </div>
           </div>
         </div>
 
         <!-- Articles ("Our Stories") -->
         <div class="content-section wf4-stories-section" id="text-articles">
-          <h2>📖 Our Stories</h2>
+          <h2>📖 School Stories</h2>
           <div class="wf4-stories-grid">
             <% orderedItems.filter(item => item.id === 'text-articles').forEach(item => { %>
               <% item.data.forEach(text => { %>
@@ -3716,7 +4329,7 @@ body[data-pd-theme] .gallery-card .caption{
       <% } else { %>
         <!-- Fallback: Interactive layout (original scroll-based) -->
         <div class="content-section draggable-section" id="image-gallery" data-section-id="image-gallery">
-          <h2>Gallery 📷</h2>
+          <h2>Campus Gallery 📷</h2>
           <div class="image-container">
             <% orderedItems.filter(item => item.id === 'image-gallery').forEach(item => { %>
               <% item.data.forEach(image => { %>
@@ -3732,7 +4345,7 @@ body[data-pd-theme] .gallery-card .caption{
         </div>
 
         <div class="content-section draggable-section" id="text-articles" data-section-id="text-articles">
-          <h2>Articles 📝</h2>
+          <h2>School Highlights 📝</h2>
           <div class="text-container">
             <% orderedItems.filter(item => item.id === 'text-articles').forEach(item => { %>
               <% item.data.forEach(text => { %>
@@ -3761,7 +4374,7 @@ body[data-pd-theme] .gallery-card .caption{
         </div>
 
         <div class="content-section draggable-section" id="announcements" data-section-id="announcements">
-          <h2>Announcements 📢</h2>
+          <h2>Notices & Announcements 📢</h2>
           <div class="announcements-section">
             <% orderedItems.filter(item => item.type === 'announcements').forEach(item => { %>
               <% item.data.forEach((announcement) => { %>
@@ -3776,8 +4389,38 @@ body[data-pd-theme] .gallery-card .caption{
         </div>
 
         <div class="content-section draggable-section" id="about-us" data-section-id="about-us">
-          <h2>About Us</h2>
-          <p><%= orgDetails.aboutus %></p>
+          <h2>About the School</h2>
+          <div class="about-school-split">
+            <% if (aboutMotto) { %>
+              <div class="about-motto-row">
+                <span class="about-motto-label">Motto</span>
+                <span class="about-motto-text"><%= aboutMotto %></span>
+              </div>
+            <% } %>
+            <div class="about-school-main">
+              <p><%= orgDetails.aboutus %></p>
+            </div>
+            <div class="about-school-side">
+              <% if (aboutEmails.length) { %>
+                <div class="about-meta-block">
+                  <ul class="about-inline-list">
+                    <% aboutEmails.forEach((item) => { %>
+                      <li class="about-inline-item"><span class="about-inline-label">Email</span><span class="about-inline-text"><%= item %></span></li>
+                    <% }); %>
+                  </ul>
+                </div>
+              <% } %>
+              <% if (aboutPhones.length) { %>
+                <div class="about-meta-block">
+                  <ul class="about-inline-list">
+                    <% aboutPhones.forEach((item) => { %>
+                      <li class="about-inline-item"><span class="about-inline-label">Phone</span><span class="about-inline-text"><%= item %></span></li>
+                    <% }); %>
+                  </ul>
+                </div>
+              <% } %>
+            </div>
+          </div>
         </div>
       <% } %>
       </div>

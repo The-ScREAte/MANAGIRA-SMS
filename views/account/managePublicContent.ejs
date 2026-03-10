@@ -360,6 +360,14 @@
     box-shadow: 0 4px 12px var(--primary-light);
   }
 
+  #toggle-upload-content-form,
+  #toggle-upload-text-form {
+    padding: 9px 14px;
+    font-size: 0.85rem;
+    border-radius: 9px;
+    gap: 6px;
+  }
+
   .btn-primary:hover {
     background: var(--primary-hover) !important;
     transform: translateY(-2px);
@@ -1578,6 +1586,29 @@
     gap: 10px;
   }
 
+  .dynamic-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .dynamic-item-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .dynamic-item-row .form-field {
+    margin: 0;
+  }
+
+  .dynamic-remove-btn {
+    padding: 9px 12px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+
   /* ================================================
      EMPTY STATE BOX
      ================================================ */
@@ -1940,18 +1971,53 @@
             </div>
             <form id="aboutUsForm" action="/account/update-about-us" method="POST" style="max-width: 700px; margin: 0 auto;">
                 <input type="hidden" name="organization_id" value="<%= orgDetails.organization_id %>">
+                <% const aboutMotto = (aboutDetails && Array.isArray(aboutDetails.mottos) && aboutDetails.mottos.length)
+                  ? String(aboutDetails.mottos[0] || '').trim()
+                  : (orgDetails.motto ? String(orgDetails.motto).trim() : ''); %>
+                <% const aboutEmails = (aboutDetails && Array.isArray(aboutDetails.emails) && aboutDetails.emails.length)
+                    ? aboutDetails.emails
+                    : (orgDetails.email ? [orgDetails.email] : [""]); %>
+                <% const aboutPhones = (aboutDetails && Array.isArray(aboutDetails.phones) && aboutDetails.phones.length)
+                    ? aboutDetails.phones
+                    : (orgDetails.organization_phone ? [orgDetails.organization_phone] : [""]); %>
                 <div class="form-group">
                   <label for="aboutUs">About Our School:</label>
                   <textarea id="aboutUs" name="aboutUs" rows="5" required class="form-field"><%= orgDetails.aboutus ? orgDetails.aboutus : '' %></textarea>
                 </div>
                 <div class="form-group">
                   <label for="motto">Motto:</label>
-                  <p class="form-help">Should usually be short and concise*</p>
-                  <input type="text" id="motto" name="motto" value="<%= orgDetails.motto ? orgDetails.motto : '' %>" required class="form-field">
+                  <p class="form-help">Single motto shown first in the About details.</p>
+                  <input type="text" id="motto" name="motto" value="<%= aboutMotto %>" class="form-field" placeholder="School motto" required>
+                </div>
+                <div class="form-group">
+                  <label>Public Email(s):</label>
+                  <p class="form-help">Displayed on the school website About section.</p>
+                  <div id="emailsList" class="dynamic-list">
+                    <% aboutEmails.forEach((emailValue) => { %>
+                      <div class="dynamic-item-row">
+                        <input type="email" name="contactEmails" value="<%= emailValue %>" class="form-field" placeholder="school@example.com" required>
+                        <button type="button" class="btn-secondary dynamic-remove-btn">Remove</button>
+                      </div>
+                    <% }); %>
+                  </div>
+                  <button type="button" id="addEmailBtn" class="btn-secondary" style="margin-top:8px;">Add Email</button>
+                </div>
+                <div class="form-group">
+                  <label>Public Phone(s):</label>
+                  <p class="form-help">Displayed on the school website About section.</p>
+                  <div id="phonesList" class="dynamic-list">
+                    <% aboutPhones.forEach((phoneValue) => { %>
+                      <div class="dynamic-item-row">
+                        <input type="text" name="contactPhones" value="<%= phoneValue %>" class="form-field" placeholder="+233..." required>
+                        <button type="button" class="btn-secondary dynamic-remove-btn">Remove</button>
+                      </div>
+                    <% }); %>
+                  </div>
+                  <button type="button" id="addPhoneBtn" class="btn-secondary" style="margin-top:8px;">Add Phone</button>
                 </div>
                 <div class="form-actions">
                   <button type="submit" id="aboutUsBtn" class="btn btn-primary">
-                    <%= orgDetails.aboutus && orgDetails.motto ? 'Update About Our School' : 'Add About Our School' %>
+                    <%= orgDetails.aboutus ? 'Update About Our School' : 'Add About Our School' %>
                   </button>
                 </div>
             </form>
@@ -2030,7 +2096,19 @@
           toggleButton.innerHTML = "<i class='fa-regular fa-square-plus'></i>Upload Image";
         }
 
+        function ensureSectionExpanded() {
+          const section = toggleButton.closest('.content-container');
+          if (!section || !section.classList.contains('is-collapsed')) return;
+          section.classList.remove('is-collapsed');
+          const collapseBtn = section.querySelector('.section-collapse-toggle');
+          if (collapseBtn) {
+            collapseBtn.textContent = 'Collapse';
+            collapseBtn.setAttribute('aria-expanded', 'true');
+          }
+        }
+
         function showForm() {
+            ensureSectionExpanded();
             uploadContentForm.style.display = "block";
             toggleButton.innerHTML = "<i class='fa-solid fa-ban'></i>Cancel Upload";
         }
@@ -2058,7 +2136,19 @@
           toggleButton.innerHTML = "<i class='fa-regular fa-square-plus'></i>Add Article";
         }
 
+        function ensureSectionExpanded() {
+          const section = toggleButton.closest('.content-container');
+          if (!section || !section.classList.contains('is-collapsed')) return;
+          section.classList.remove('is-collapsed');
+          const collapseBtn = section.querySelector('.section-collapse-toggle');
+          if (collapseBtn) {
+            collapseBtn.textContent = 'Collapse';
+            collapseBtn.setAttribute('aria-expanded', 'true');
+          }
+        }
+
         function showTextForm() {
+            ensureSectionExpanded();
             uploadTextForm.style.display = "block";
             toggleButton.innerHTML = "<i class='fa-solid fa-ban'></i>Cancel Upload";
         }
@@ -2589,6 +2679,73 @@
               }
 
               setElementLoading(link, false);
+            });
+          });
+
+          document.addEventListener('DOMContentLoaded', function () {
+            const aboutForm = document.getElementById('aboutUsForm');
+            if (!aboutForm) return;
+
+            const lists = {
+              emails: document.getElementById('emailsList'),
+              phones: document.getElementById('phonesList')
+            };
+
+            function createDynamicRow(inputType, name, placeholder) {
+              const row = document.createElement('div');
+              row.className = 'dynamic-item-row';
+
+              const input = document.createElement('input');
+              input.type = inputType;
+              input.name = name;
+              input.placeholder = placeholder;
+              input.className = 'form-field';
+              input.required = true;
+
+              const removeBtn = document.createElement('button');
+              removeBtn.type = 'button';
+              removeBtn.className = 'btn-secondary dynamic-remove-btn';
+              removeBtn.textContent = 'Remove';
+
+              row.appendChild(input);
+              row.appendChild(removeBtn);
+              return row;
+            }
+
+            function removeRow(button, listEl) {
+              const row = button.closest('.dynamic-item-row');
+              if (!row || !listEl) return;
+              const rows = listEl.querySelectorAll('.dynamic-item-row');
+              if (rows.length <= 1) {
+                return;
+              }
+              row.remove();
+            }
+
+            const addEmailBtn = document.getElementById('addEmailBtn');
+            const addPhoneBtn = document.getElementById('addPhoneBtn');
+
+            if (addEmailBtn && lists.emails) {
+              addEmailBtn.addEventListener('click', function () {
+                lists.emails.appendChild(createDynamicRow('email', 'contactEmails', 'school@example.com'));
+              });
+            }
+
+            if (addPhoneBtn && lists.phones) {
+              addPhoneBtn.addEventListener('click', function () {
+                lists.phones.appendChild(createDynamicRow('text', 'contactPhones', '+233...'));
+              });
+            }
+
+            aboutForm.addEventListener('click', function (event) {
+              const removeBtn = event.target.closest('.dynamic-remove-btn');
+              if (!removeBtn) return;
+
+              if (removeBtn.closest('#emailsList')) {
+                removeRow(removeBtn, lists.emails);
+              } else if (removeBtn.closest('#phonesList')) {
+                removeRow(removeBtn, lists.phones);
+              }
             });
           });
     </script>
