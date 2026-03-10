@@ -24,10 +24,32 @@
     <meta property="og:url" content="<%- canonicalUrl %>">
     <link rel="canonical" href="<%- canonicalUrl %>">
   <% } %>
-  <meta property="og:image" content="https://www.managira.com/images/image.png">
-  <meta property="og:image:width" content="804">
-  <meta property="og:image:height" content="461">
-  <meta property="og:image:type" content="image/png">
+  <%
+    const _host = (req && req.hostname) ? String(req.hostname).toLowerCase() : '';
+    const _isManagiraRootHost = _host === 'managira.com' || _host === 'www.managira.com' || _host === 'localhost' || _host === '127.0.0.1';
+    const _schoolLogoPath = req && req.schoolDetails ? req.schoolDetails.logo_path : null;
+
+    let _shareImage = 'https://www.managira.com/images/image.png';
+    let _shareImageWidth = '804';
+    let _shareImageHeight = '461';
+    let _shareImageType = 'image/png';
+
+    if (!_isManagiraRootHost && _schoolLogoPath) {
+      const rawLogo = String(_schoolLogoPath).trim();
+      if (/^https?:\/\//i.test(rawLogo)) {
+        _shareImage = rawLogo;
+      } else if (process && process.env && process.env.S3_BUCKET_NAME && process.env.AWS_REGION) {
+        _shareImage = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${rawLogo}`;
+      }
+      _shareImageWidth = '512';
+      _shareImageHeight = '512';
+      _shareImageType = 'image/jpeg';
+    }
+  %>
+  <meta property="og:image" content="<%- _shareImage %>">
+  <meta property="og:image:width" content="<%- _shareImageWidth %>">
+  <meta property="og:image:height" content="<%- _shareImageHeight %>">
+  <meta property="og:image:type" content="<%- _shareImageType %>">
   <meta property="og:site_name" content="Managira">
   
   <!-- Twitter Meta Tags -->
@@ -36,7 +58,7 @@
   <% if (typeof description !== 'undefined' && description) { %>
     <meta name="twitter:description" content="<%- description %>">
   <% } %>
-  <meta name="twitter:image" content="https://www.managira.com/images/image.png">
+  <meta name="twitter:image" content="<%- _shareImage %>">
 
   <% if (typeof structuredData !== 'undefined' && structuredData) { %>
     <script type="application/ld+json"><%- JSON.stringify(structuredData) %></script>

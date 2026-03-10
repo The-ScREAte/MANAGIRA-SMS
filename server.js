@@ -263,6 +263,39 @@ app.use(expressLayouts);
 app.set("layout", "layout"); // Set default layout file
 app.set("view engine", "ejs");
 
+// Dynamic favicon for subdomains: root domain keeps default favicon,
+// school subdomains use school logo so search engines can show school branding.
+app.get("/favicon.ico", (req, res, next) => {
+  try {
+    const host = String(req.hostname || "").toLowerCase();
+    const isRootHost = host === "managira.com" || host === "www.managira.com" || host === "localhost" || host === "127.0.0.1";
+
+    if (isRootHost) {
+      return next();
+    }
+
+    const schoolLogo = req.schoolDetails?.logo || req.schoolDetails?.logo_path;
+    if (!schoolLogo) {
+      return next();
+    }
+
+    const rawLogo = String(schoolLogo).trim();
+    let logoUrl = rawLogo;
+
+    if (!/^https?:\/\//i.test(rawLogo)) {
+      if (process.env.S3_BUCKET_NAME && process.env.AWS_REGION) {
+        logoUrl = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${rawLogo}`;
+      } else {
+        logoUrl = `/${rawLogo.replace(/^\/+/, "")}`;
+      }
+    }
+
+    return res.redirect(302, logoUrl);
+  } catch (error) {
+    return next();
+  }
+});
+
 // Static files with long-term caching
 app.use(express.static("public", {
   maxAge: '1d',
