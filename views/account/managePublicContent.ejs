@@ -2151,6 +2151,10 @@
             const createEventForm = document.getElementById("createEventForm");
             const closeEventButton = document.getElementById("closeCreateEventForm");
 
+            if (!toggleEventFormButton || !createEventForm || !closeEventButton) {
+              return;
+            }
+
             function hideEventForm() {
                 createEventForm.style.display = "none";
                 toggleEventFormButton.innerHTML = "<i class='fa-regular fa-square-plus'></i>Create";
@@ -2177,6 +2181,10 @@
             const toggleAnnouncementFormButton = document.getElementById("toggle-create-announcement-form");
             const createAnnouncementForm = document.getElementById("createAnnouncementForm");
             const closeAnnouncementButton = document.getElementById("closeCreateAnnouncementForm");
+
+            if (!toggleAnnouncementFormButton || !createAnnouncementForm || !closeAnnouncementButton) {
+              return;
+            }
 
             function hideAnnouncementForm() {
                 createAnnouncementForm.style.display = "none";
@@ -2286,6 +2294,9 @@
         const addArticleEditor = document.getElementById('rich-text-editor');
 
         if (addArticleEditor && paragraphTextarea && createArticleForm) {
+          if (typeof Quill === 'undefined') {
+            console.error('Quill editor is not available on manage public content page.');
+          } else {
           const quill = new Quill(addArticleEditor, {
             theme: 'snow',
             placeholder: 'Write article here...',
@@ -2299,6 +2310,7 @@
           quill.on('text-change', function() {
             syncEditorValue(quill, paragraphTextarea);
           });
+          }
         }
 
         // Initialize Quill for each article update form only
@@ -2306,6 +2318,7 @@
           const editorDiv = form.querySelector('.rich-text-editor');
           const textarea = form.querySelector('textarea[name="paragraph"]');
           if (!editorDiv || !textarea) return;
+          if (typeof Quill === 'undefined') return;
 
           const quillEditor = new Quill(editorDiv, {
             theme: 'snow',
@@ -2484,14 +2497,25 @@
 
             async function sendFormAsync(form, submitter) {
               const method = (form.getAttribute('method') || 'POST').toUpperCase();
-              const formData = new FormData(form);
+              const encType = (form.getAttribute('enctype') || '').toLowerCase();
+              const isMultipart = encType.includes('multipart/form-data');
+              let body;
+              const headers = {
+                'X-Requested-With': 'XMLHttpRequest'
+              };
+
+              if (isMultipart) {
+                body = new FormData(form);
+              } else {
+                body = new URLSearchParams(new FormData(form));
+                headers['Content-Type'] = 'application/x-www-form-urlencoded;charset=UTF-8';
+              }
+
               const response = await fetch(form.action, {
                 method,
-                body: formData,
+                body,
                 credentials: 'same-origin',
-                headers: {
-                  'X-Requested-With': 'XMLHttpRequest'
-                }
+                headers
               });
 
               if (!response.ok) {

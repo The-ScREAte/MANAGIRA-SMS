@@ -4138,7 +4138,7 @@ const accountController = {
       if (!files || files.length === 0) {
         req.flash("error", "No files selected for upload.");
 
-        return res.redirect("/account/personalization");
+        return res.redirect("/account/managePublicContent");
       }
 
       if (contentType === "slideshow" && files.length < 2) {
@@ -4148,7 +4148,7 @@ const accountController = {
           "Please upload at least two images or videos for the slideshow."
         );
 
-        return res.redirect("/account/personalization");
+        return res.redirect("/account/managePublicContent");
       }
 
       // Generate a unique `slideshow_id` for this set of images
