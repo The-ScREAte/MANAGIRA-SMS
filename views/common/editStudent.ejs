@@ -273,6 +273,57 @@
 
       .es-action-row {
         margin-top: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .es-action-row .es-btn-primary {
+        width: auto;
+        flex: 1;
+      }
+
+      .es-action-menu {
+        position: relative;
+      }
+
+      .es-menu-toggle {
+        width: 42px;
+        height: 42px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: #ffffff;
+        color: #334155;
+        font-size: 22px;
+        line-height: 1;
+        cursor: pointer;
+        font-weight: 700;
+      }
+
+      .es-menu-toggle:hover {
+        background: #f8fafc;
+      }
+
+      .es-action-dropdown {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        min-width: 180px;
+        padding: 10px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: #ffffff;
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+        z-index: 10;
+        display: none;
+      }
+
+      .es-action-dropdown.open {
+        display: block;
+      }
+
+      .es-action-dropdown .es-btn-danger {
+        width: 100%;
       }
 
       .es-danger-zone {
@@ -301,6 +352,7 @@
         .es-guardian-entry .es-form-grid { grid-template-columns: 1fr; }
         .es-top-bar { flex-direction: column; gap: 8px; text-align: center; }
         .es-image-section { flex-direction: column; text-align: center; }
+        .es-action-row { width: 100%; }
       }
     </style>
     <script>
@@ -310,6 +362,35 @@
             }
         }
         function confirmDelete(message) { return confirm(message); }
+
+        function toggleActionMenu() {
+          const menu = document.getElementById('studentActionDropdown');
+          if (!menu) return;
+          menu.classList.toggle('open');
+        }
+
+        function closeActionMenu() {
+          const menu = document.getElementById('studentActionDropdown');
+          if (!menu) return;
+          menu.classList.remove('open');
+        }
+
+        function submitDeleteStudent() {
+          if (!confirmDelete('Are you sure you want to delete this student? This action cannot be undone.')) {
+            return;
+          }
+          const form = document.getElementById('deleteStudentForm');
+          if (form) {
+            form.submit();
+          }
+        }
+
+        document.addEventListener('click', function(event) {
+          const menuWrapper = event.target.closest('.es-action-menu');
+          if (!menuWrapper) {
+            closeActionMenu();
+          }
+        });
 
         function addGuardian() {
             const container = document.getElementById("guardiansContainer");
@@ -462,20 +543,20 @@
       <button type="button" class="es-add-guardian-btn" onclick="addGuardian()">+ Add Guardian</button>
     </div>
 
-    <!-- Update Button -->
+    <!-- Actions -->
     <div class="es-action-row">
       <button type="submit" class="es-btn-primary">✅ Update Student</button>
+
+      <div class="es-action-menu">
+        <button type="button" class="es-menu-toggle" onclick="toggleActionMenu()" aria-label="More actions">:</button>
+        <div id="studentActionDropdown" class="es-action-dropdown">
+          <button type="button" class="es-btn-danger" onclick="submitDeleteStudent()">🗑 Delete Student</button>
+        </div>
+      </div>
     </div>
   </form>
 
-  <!-- Danger Zone -->
-  <div class="es-danger-zone">
-    <p class="es-danger-title">⚠️ Danger Zone</p>
-    <p class="es-danger-text">Deleting a student is permanent and cannot be undone.</p>
-    <form action="/common/deleteStudent/<%= student.student_id %>" method="POST" onsubmit="return confirmDelete('Are you sure you want to delete this student? This action cannot be undone.')">
-      <button type="submit" class="es-btn-danger">🗑 Delete Student</button>
-    </form>
-  </div>
+  <form id="deleteStudentForm" action="/common/deleteStudent/<%= student.student_id %>" method="POST"></form>
 </div>
 </body>
 </html>

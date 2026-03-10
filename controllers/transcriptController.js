@@ -3,6 +3,7 @@
 const { getFirstClassForOrganization } = require("../models/classModel");
 const bcrypt = require("bcryptjs");
 const { sendEmailSafely } = require("../utils/emailHelper");
+const { getOrganizationWebsiteInfo } = require("../utils/schoolWebsiteAccess");
 const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
@@ -45,6 +46,8 @@ const transcriptController = (db) => ({
             if (!organization) {
                 return res.status(404).send('Organization not found.');
             }
+
+            const websiteInfo = await getOrganizationWebsiteInfo(db, organizationId);
 
             // Fetch student details
             const studentQuery = `
@@ -371,6 +374,9 @@ const transcriptController = (db) => ({
                 .replace(/{{organizationName}}/g, organization.organization_name)
                 .replace(/{{dateIssued}}/g, new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }))
                 .replace(/{{fileName}}/g, `${student.first_name}_${student.last_name}_Transcript.pdf`)
+                .replace(/{{schoolWebsiteSection}}/g, websiteInfo.websiteUrl
+                    ? `<p><strong>School Website:</strong> <a href="${websiteInfo.websiteUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;">${websiteInfo.websiteHost}</a></p>`
+                    : '')
                 .replace(/{{year}}/g, new Date().getFullYear());
 
             // Get logo for email

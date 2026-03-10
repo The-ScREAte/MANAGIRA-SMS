@@ -24,7 +24,10 @@
     <meta property="og:url" content="<%- canonicalUrl %>">
     <link rel="canonical" href="<%- canonicalUrl %>">
   <% } %>
-  <meta property="og:image" content="https://www.managira.com/images/managira.png">
+  <meta property="og:image" content="https://www.managira.com/images/image.png">
+  <meta property="og:image:width" content="804">
+  <meta property="og:image:height" content="461">
+  <meta property="og:image:type" content="image/png">
   <meta property="og:site_name" content="Managira">
   
   <!-- Twitter Meta Tags -->
@@ -33,7 +36,7 @@
   <% if (typeof description !== 'undefined' && description) { %>
     <meta name="twitter:description" content="<%- description %>">
   <% } %>
-  <meta name="twitter:image" content="https://www.managira.com/images/managira.png">
+  <meta name="twitter:image" content="https://www.managira.com/images/image.png">
 
   <% if (typeof structuredData !== 'undefined' && structuredData) { %>
     <script type="application/ld+json"><%- JSON.stringify(structuredData) %></script>

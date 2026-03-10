@@ -16,6 +16,8 @@ function renderCleanEmail({
   details = [],
   cta = null,
   note = "",
+  schoolWebsiteUrl = "",
+  schoolWebsiteHost = "",
   intro = "",
   message = "",
   closing = "",
@@ -66,6 +68,15 @@ function renderCleanEmail({
        </div>`
     : "";
 
+  const normalizedWebsiteUrl = String(schoolWebsiteUrl || "").trim();
+  const normalizedWebsiteHost = String(schoolWebsiteHost || "").trim();
+  const websiteLabel = normalizedWebsiteHost || normalizedWebsiteUrl.replace(/^https?:\/\//i, "");
+  const schoolWebsiteHtml = normalizedWebsiteUrl
+    ? `<p style="margin:12px 0 0;font-size:13px;color:#334155;">
+         School website: <a href="${normalizedWebsiteUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;">${escapeHtml(websiteLabel)}</a>
+       </p>`
+    : "";
+
   return `
     <div style="background:#f8fafc;padding:24px 0;">
       <div style="max-width:620px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
@@ -81,6 +92,7 @@ function renderCleanEmail({
           ${detailsHtml}
           ${ctaHtml}
           ${note ? `<p style="margin:14px 0 0;font-size:13px;color:#475569;">${note}</p>` : ""}
+          ${schoolWebsiteHtml}
           ${noReply ? `<p style="margin:18px 0 0;font-size:12px;color:#b91c1c;font-weight:700;">THIS IS A NO-REPLY MESSAGE. PLEASE DO NOT REPLY TO THIS EMAIL.</p>` : ""}
         </div>
         <div style="border-top:1px solid #e5e7eb;background:#f8fafc;padding:12px 18px;text-align:center;font-size:12px;color:#64748b;">&copy; ${year} Managira. All rights reserved.</div>

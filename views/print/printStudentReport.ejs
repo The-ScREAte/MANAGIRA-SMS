@@ -432,6 +432,29 @@
             display: inline-block;
         }
 
+        .report-card-footer {
+            margin-top: 22px;
+            padding-top: 10px;
+            border-top: 1px solid #d1d5db;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            font-size: 11px;
+            color: #475569;
+        }
+
+        .report-card-footer-left {
+            font-weight: 600;
+            text-align: left;
+            word-break: break-word;
+        }
+
+        .report-card-footer-right {
+            text-align: right;
+            white-space: nowrap;
+        }
+
         @media print {
             @page {
                 size: A4 portrait;
@@ -1689,13 +1712,33 @@
                                 <span class="grade-interpretation-item">  <%= - remark.fromPercentage %> to <%= remark.toPercentage %> = <%= remark.remark %></span>
                             <% }); %>
                         </div>
-                    </div> 
+                    </div>
+
+                    <div class="report-card-footer">
+                        <div class="report-card-footer-left">
+                            <% if (hasSchoolWebsite && schoolWebsiteHost) { %>
+                                School Website: <%= schoolWebsiteHost %>
+                            <% } %>
+                        </div>
+                        <div class="report-card-footer-right">
+                            <%= orgName %> @<%= reportYear %> all rights reserved
+                        </div>
+                    </div>
                 </div>
             </div>
         <% }); %>
     <% } %>
 
     <script>
+        let isPrintSelectionInProgress = false;
+        let reportVisibilityMode = 'default'; // default | search | selected | print
+
+        function updateReportVisibilityModeFromSearch() {
+            const searchInput = document.getElementById('studentSearch');
+            const hasSearch = !!(searchInput && searchInput.value.trim());
+            reportVisibilityMode = hasSearch ? 'search' : 'default';
+        }
+
         // Student selection and filtering functions
         function toggleSelectAll() {
             const selectAllCheckbox = document.getElementById('selectAllStudents');
@@ -1724,7 +1767,10 @@
                 }
             });
             
-            document.getElementById('selectedCount').textContent = selectedCount;
+            const selectedCountEl = document.getElementById('selectedCount');
+            if (selectedCountEl) {
+                selectedCountEl.textContent = selectedCount;
+            }
         }
 
         function updateReportSelection(checkbox) {
@@ -1740,6 +1786,8 @@
             const searchTerm = document.getElementById('studentSearch').value.toLowerCase();
             const studentReports = document.querySelectorAll('.student-report');
             let visibleCount = 0;
+
+            reportVisibilityMode = searchTerm ? 'search' : 'default';
             
             studentReports.forEach(report => {
                 const studentName = report.getAttribute('data-student-name').toLowerCase();
@@ -1753,13 +1801,18 @@
                 }
             });
             
-            document.getElementById('totalCount').textContent = visibleCount;
+            const totalCountEl = document.getElementById('totalCount');
+            if (totalCountEl) {
+                totalCountEl.textContent = visibleCount;
+            }
         }
 
         function filterBySelection(type, clickedButton) {
             const studentReports = document.querySelectorAll('.student-report');
             const buttons = document.querySelectorAll('.filter-btn:not(:last-child)');
             let visibleCount = 0;
+
+            reportVisibilityMode = type === 'selected' ? 'selected' : 'default';
             
             // Update button states
             buttons.forEach(btn => btn.classList.remove('active'));
@@ -1790,6 +1843,9 @@
                 return;
             }
             
+            isPrintSelectionInProgress = true;
+            reportVisibilityMode = 'print';
+
             // Hide unchecked reports temporarily
             const allReports = document.querySelectorAll('.student-report');
             allReports.forEach(report => {
@@ -1810,6 +1866,59 @@
                     report.removeAttribute('data-hidden-for-print');
                 }
             });
+
+            isPrintSelectionInProgress = false;
+            updateReportVisibilityModeFromSearch();
+        }
+
+        function restoreReportsIfUnexpectedlyHidden() {
+            if (isPrintSelectionInProgress) return;
+            if (reportVisibilityMode !== 'default') return;
+
+            const searchInput = document.getElementById('studentSearch');
+            const hasSearchFilter = !!(searchInput && searchInput.value.trim());
+            if (hasSearchFilter) return;
+
+            const allReports = Array.from(document.querySelectorAll('.student-report'));
+            if (allReports.length === 0) return;
+
+            const hiddenReports = allReports.filter(report => report.style.display === 'none');
+            if (hiddenReports.length === allReports.length) {
+                allReports.forEach(report => {
+                    report.style.display = '';
+                });
+            }
+        }
+
+        function initReportVisibilityGuard() {
+            const container = document.body;
+            if (!container || !('MutationObserver' in window)) return;
+
+            const observer = new MutationObserver((mutations) => {
+                if (isPrintSelectionInProgress) return;
+                if (reportVisibilityMode !== 'default') return;
+
+                let changed = false;
+                for (const mutation of mutations) {
+                    if (mutation.type !== 'attributes') continue;
+                    const el = mutation.target;
+                    if (!el.classList || !el.classList.contains('student-report')) continue;
+                    if (el.style.display === 'none') {
+                        el.style.display = '';
+                        changed = true;
+                    }
+                }
+
+                if (changed) {
+                    restoreReportsIfUnexpectedlyHidden();
+                }
+            });
+
+            observer.observe(container, {
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['style']
+            });
         }
 
         // Close dropdowns when clicking outside
@@ -1819,6 +1928,9 @@
                     dropdown.style.display = 'none';
                 });
             }
+
+            // Defensive guard: plain clicks should never make every report disappear.
+            restoreReportsIfUnexpectedlyHidden();
         });
 
         // Reposition dropdowns on scroll
@@ -2073,6 +2185,8 @@ function updateClass(studentId) {
 
     document.addEventListener('DOMContentLoaded', () => {
         syncActionsMenuState();
+        updateReportVisibilityModeFromSearch();
+        initReportVisibilityGuard();
     });
 
     // Check for unsaved changes (this is a simple heuristic - can be improved)

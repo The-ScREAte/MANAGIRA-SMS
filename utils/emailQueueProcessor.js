@@ -3,6 +3,7 @@ const path = require("path");
 const fs = require("fs");
 const db = require("../config/db");
 const { sendEmailSafely, renderCleanEmail } = require("./emailHelper");
+const { getOrganizationWebsiteInfo } = require("./schoolWebsiteAccess");
 
 // Background email processing function
 async function processEmailBatch(batchId, organizationId, classId, termId, protocol, host, cookies, specificIds = null) {
@@ -20,6 +21,8 @@ async function processEmailBatch(batchId, organizationId, classId, termId, proto
       console.error(`[processEmailBatch] Organization ${organizationId} not found`);
       return;
     }
+
+    const websiteInfo = await getOrganizationWebsiteInfo(db, organizationId);
 
     const buildS3Url = (key) => {
       if (!key) return null;
@@ -113,6 +116,8 @@ async function processEmailBatch(batchId, organizationId, classId, termId, proto
             { label: "Date", value: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) },
           ],
           note: "This report is confidential and intended only for the student's parent/guardian. Please do not forward or share without permission.",
+          schoolWebsiteUrl: websiteInfo.websiteUrl || "",
+          schoolWebsiteHost: websiteInfo.websiteHost || "",
         });
 
         const logoFilePath = path.join(__dirname, '../public/images/managira.png');

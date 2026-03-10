@@ -175,7 +175,7 @@ const checkFeatureAccess = async (req, res, next) => {
         });
   // ...removed warn for clean background operation...
         if (isPublicDashboard) {
-          return res.status(403).send("This organization does not support school website access.");
+          return res.status(403).send("Oops! This school has not set up a website with Managira yet. Please reach out to the school to encourage them to activate their School Website plan.");
         } else {
           req.flash('error', 'Your plan does not support this feature.');
           return res.redirect('/common/orgDashboard');

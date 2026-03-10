@@ -16,6 +16,7 @@ const fs = require("fs");
 const ejs = require("ejs");
 const axios = require("axios");
 const { sendEmailSafely } = require("../utils/emailHelper");
+const { getOrganizationWebsiteInfo } = require("../utils/schoolWebsiteAccess");
 // Lightweight async wrapper to avoid dependency errors
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const organizationCache = {};
@@ -168,6 +169,8 @@ const printController = (db) => ({
       if (!organization) {
         return res.status(404).send("Organization not found.");
       }
+
+      const websiteInfo = await getOrganizationWebsiteInfo(db, organizationId);
 
       const logoUrl = organization.logo_path
         ? await getFromS3(organization.logo_path)
@@ -599,6 +602,9 @@ students
         repeatedClass: repeatedClassName,
         promotedClassId,       // ✅ add this
         repeatedClassId, 
+        hasSchoolWebsite: websiteInfo.hasWebsite,
+        schoolWebsiteHost: websiteInfo.websiteHost,
+        reportYear: new Date().getFullYear(),
       });
     } catch (error) {
             res.status(500).send("Failed to generate student report.");
