@@ -175,7 +175,76 @@ const checkFeatureAccess = async (req, res, next) => {
         });
   // ...removed warn for clean background operation...
         if (isPublicDashboard) {
-          return res.status(403).send("Oops! This school has not set up a website with Managira yet. Please reach out to the school to encourage them to activate their School Website plan.");
+          return res.status(403).send(`<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Website Not Active</title>
+  <style>
+    :root {
+      --bg-1: #f3f6fb;
+      --bg-2: #e9eef6;
+      --text: #1f2937;
+      --muted: #5b6575;
+      --border: #d5ddeb;
+      --brand: #0a6172;
+      --card: #ffffff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: radial-gradient(circle at top, var(--bg-1), var(--bg-2));
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--text);
+    }
+    .notice-card {
+      width: min(680px, 100%);
+      border: 1px solid var(--border);
+      background: var(--card);
+      border-radius: 16px;
+      padding: 24px 22px;
+      text-align: center;
+      box-shadow: 0 14px 36px rgba(2, 35, 57, 0.12);
+    }
+    .notice-badge {
+      display: inline-block;
+      margin-bottom: 10px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid #b9d7df;
+      background: #edf8fb;
+      color: var(--brand);
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(1.35rem, 2.6vw, 1.8rem);
+      line-height: 1.3;
+    }
+    p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <section class="notice-card" role="status" aria-live="polite">
+    <div class="notice-badge">School Website Unavailable</div>
+    <h1>Oops! This school has not set up a website with Managira yet.</h1>
+    <p>Please reach out to the school to encourage them to activate their School Website plan.</p>
+  </section>
+</body>
+</html>`);
         } else {
           req.flash('error', 'Your plan does not support this feature.');
           return res.redirect('/common/orgDashboard');
