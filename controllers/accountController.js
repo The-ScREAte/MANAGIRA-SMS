@@ -7,6 +7,46 @@ function parseTruthyFlag(val) {
   }
   return false;
 }
+
+function startOfDayLocal(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function formatDateForInput(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parseDateInput(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  const datePattern = /^(\d{4})-(\d{2})-(\d{2})$/;
+  const match = trimmed.match(datePattern);
+  if (!match) {
+    return null;
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const parsed = new Date(year, month - 1, day);
+  parsed.setHours(0, 0, 0, 0);
+
+  if (
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return parsed;
+}
 const bcrypt = require("bcryptjs");
 
 const bcryptjs = require("bcryptjs");
@@ -1019,6 +1059,7 @@ const accountController = {
             ? "5 minutes"
             : `${freeTrialDays} day${parseInt(freeTrialDays) === 1 ? "" : "s"}`;
       }
+      isTrialCheckout = freeTrialEnabled === "true" && !!freeTrialDays;
 
       // Calculate amount based on free trial settings
       const planPrice = Number(planResult.rows[0].total_price) || 0;
@@ -1033,10 +1074,29 @@ const accountController = {
       let isTrialActive = false;
 
       let trialActiveUntil = null;
-      if (freeTrialEnabled === "true" && freeTrialDays) {
+      let trialStartAt = null;
+      const trialStartDateMin = formatDateForInput(startOfDayLocal(new Date()));
+      const trialStartMaxDate = startOfDayLocal(new Date());
+      trialStartMaxDate.setMonth(trialStartMaxDate.getMonth() + 3);
+      const trialStartDateMax = formatDateForInput(trialStartMaxDate);
+      let trialStartDateValue = trialStartDateMin;
+
+      if (isTrialCheckout) {
         amountDue = 100; // 1 cedi in pesewas for validation
 
-        trialActiveUntil = new Date();
+        const sessionTrialDate = parseDateInput(registrationDetails.trialStartDate || "");
+        if (
+          sessionTrialDate &&
+          sessionTrialDate >= startOfDayLocal(new Date()) &&
+          sessionTrialDate <= trialStartMaxDate
+        ) {
+          trialStartAt = sessionTrialDate;
+        } else {
+          trialStartAt = startOfDayLocal(new Date());
+        }
+        trialStartDateValue = formatDateForInput(trialStartAt);
+
+        trialActiveUntil = new Date(trialStartAt);
         if (freeTrialDays === "5_minutes") {
           trialActiveUntil.setMinutes(trialActiveUntil.getMinutes() + 5);
         } else {
@@ -1045,8 +1105,6 @@ const accountController = {
             trialActiveUntil.setDate(trialActiveUntil.getDate() + days);
           }
         }
-
-        isTrialCheckout = true;
       } else {
         // If not free trial, check if org has a trial period (legacy logic)
 
@@ -1172,6 +1230,9 @@ const accountController = {
         freeTrialLengthLabel,
 
         trialEndDisplay,
+        trialStartDateMin,
+        trialStartDateMax,
+        trialStartDateValue,
 
         postTrialPriceDisplay,
 
@@ -1196,7 +1257,7 @@ const accountController = {
   paymentPost: async (req, res) => {
     const { registrationDetails } = req.session;
 
-    const { paymentReference, promoCode } = req.body;
+    const { paymentReference, promoCode, trialStartDate } = req.body;
 
     if (!paymentReference) {
       req.flash("error", "Payment reference is missing. Please try again.");
@@ -1352,9 +1413,7 @@ const accountController = {
               }
 
       const isTrialCheckout =
-        freeTrialEnabled &&
-        !!registrationDetails.trialRequested &&
-        !!freeTrialDays;
+        freeTrialEnabled === "true" && !!freeTrialDays;
 
       if (isTrialCheckout) {
         amountDue = 100; // Minimal validation charge for trial
@@ -1363,8 +1422,23 @@ const accountController = {
       // Calculate trial end date if free trial is enabled
 
       let trialActiveUntil = null;
-      if (freeTrialEnabled === "true" && freeTrialDays) {
-        trialActiveUntil = new Date();
+      let trialStartAt = null;
+      if (isTrialCheckout) {
+        const minDate = startOfDayLocal(new Date());
+        const maxDate = startOfDayLocal(new Date());
+        maxDate.setMonth(maxDate.getMonth() + 3);
+
+        trialStartAt = parseDateInput(trialStartDate);
+        if (!trialStartAt || trialStartAt < minDate || trialStartAt > maxDate) {
+          req.flash(
+            "error",
+            "Please choose a valid trial start date between today and the next 3 months."
+          );
+          return res.redirect("/account/payment");
+        }
+
+        registrationDetails.trialStartDate = formatDateForInput(trialStartAt);
+        trialActiveUntil = new Date(trialStartAt);
         if (freeTrialDays === "5_minutes") {
           trialActiveUntil.setMinutes(trialActiveUntil.getMinutes() + 5);
                   } else {
@@ -1381,7 +1455,7 @@ const accountController = {
       let paystackPlanCode = null;
 
       let subscriptionCode = null;
-      if (freeTrialEnabled !== "true") {
+      if (!isTrialCheckout) {
         // ✅ Create Paystack Plan for subscription using global interval
 
         const planResponse = await axios.post(
@@ -1440,9 +1514,9 @@ const accountController = {
       await client.query("BEGIN");
 
       const orgResult = await client.query(
-        `INSERT INTO organizations (organization_name, nickname, organization_address, organization_phone, email, password, first_name, last_name, proof_of_existence_1, proof_of_existence_2, plan_id, paystack_customer_code, trial_active_until)
+        `INSERT INTO organizations (organization_name, nickname, organization_address, organization_phone, email, password, first_name, last_name, proof_of_existence_1, proof_of_existence_2, plan_id, paystack_customer_code, trial_start_at, trial_active_until)
 
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING organization_id`,
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING organization_id`,
 
         [
           orgName,
@@ -1468,6 +1542,8 @@ const accountController = {
           planId,
 
           customerCode,
+
+          trialStartAt,
 
           trialActiveUntil,
         ]
@@ -1531,9 +1607,9 @@ const accountController = {
       })();
 
                                     await client.query(
-        `INSERT INTO payments (organization_id, paystack_subscription_code, paystack_reference, amount_paid, status, discount_applied, applies_once, is_trial, trial_ends_at, next_payment_end_date)
+        `INSERT INTO payments (organization_id, paystack_subscription_code, paystack_reference, amount_paid, status, discount_applied, applies_once, is_trial, trial_starts_at, trial_ends_at, next_payment_end_date)
 
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
 
         [
           organization_id,
@@ -1551,6 +1627,8 @@ const accountController = {
           applyDiscountOnce,
 
           trialActiveUntil ? true : false,
+
+          trialStartAt || null,
 
           trialActiveUntil || null,
 

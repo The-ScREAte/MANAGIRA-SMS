@@ -240,6 +240,81 @@
         text-align: left;
       }
 
+      .trial-date-label {
+        display: block;
+        font-size: 0.92rem;
+        color: #1e293b;
+        margin-bottom: 6px;
+        font-weight: 700;
+      }
+
+      .trial-date-hint {
+        margin: 0 0 10px;
+        color: #475569;
+        font-size: 0.86rem;
+      }
+
+      .trial-date-toggle-btn {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border: 1px dashed var(--border);
+        background: #ffffff;
+        border-radius: 10px;
+        padding: 11px 12px;
+        color: var(--text-primary);
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .trial-date-toggle-btn:hover {
+        border-color: var(--primary);
+      }
+
+      .trial-date-toggle-left {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .trial-date-current {
+        font-size: 0.83rem;
+        color: #0f5132;
+        font-weight: 700;
+      }
+
+      .trial-date-toggle-btn[aria-expanded="true"] .promo-toggle-icon {
+        transform: rotate(180deg);
+      }
+
+      #trial-date-section {
+        margin-top: 10px;
+      }
+
+      #trial-date-section[hidden] {
+        display: none;
+      }
+
+      .trial-date-input {
+        width: 100%;
+        padding: 11px 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font-size: 1rem;
+        background: #fff;
+        box-sizing: border-box;
+      }
+
+      .trial-date-input:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(1, 83, 91, 0.12);
+      }
+
       @media (max-width: 640px) {
         .payment-container {
           margin: 14px auto 24px;
@@ -324,6 +399,34 @@
         </div>
       </div>
 
+      <% if (isTrialCheckout) { %>
+        <div class="card-block">
+          <h3 class="section-title">Trial Start Date</h3>
+          <p class="trial-date-hint">Default start date is today. Change it only if you prefer a future date.</p>
+          <button type="button" id="trial-date-toggle" class="trial-date-toggle-btn" aria-expanded="false" aria-controls="trial-date-section">
+            <span class="trial-date-toggle-left">
+              <span>Change trial start date (optional)</span>
+              <span id="trial-date-current" class="trial-date-current"></span>
+            </span>
+            <span class="promo-toggle-icon">▾</span>
+          </button>
+          <div id="trial-date-section" hidden>
+            <label for="trialStartDate" class="trial-date-label">When does your semester start?</label>
+            <p class="trial-date-hint">Select a date from today up to 3 months ahead. Your trial countdown starts from this date.</p>
+            <input
+              type="date"
+              id="trialStartDate"
+              name="trialStartDate"
+              class="trial-date-input"
+              min="<%= trialStartDateMin %>"
+              max="<%= trialStartDateMax %>"
+              value="<%= trialStartDateValue %>"
+              required
+            />
+          </div>
+        </div>
+      <% } %>
+
       <div class="card-block">
         <h3 class="section-title">Payment Method</h3>
         <p class="payment-method-note">Secure payment via Paystack (Visa &amp; MasterCard).</p>
@@ -370,6 +473,52 @@
           const isExpanded = promoToggleBtn.getAttribute("aria-expanded") === "true";
           setPromoExpanded(!isExpanded);
         });
+      }
+
+      const trialDateToggleBtn = document.getElementById("trial-date-toggle");
+      const trialDateSectionEl = document.getElementById("trial-date-section");
+      const trialStartDateInput = document.getElementById("trialStartDate");
+      const trialDateCurrentEl = document.getElementById("trial-date-current");
+
+      function formatTrialDateLabel(dateValue) {
+        if (!dateValue) return "";
+        const parts = dateValue.split("-");
+        if (parts.length !== 3) return dateValue;
+        const year = Number(parts[0]);
+        const month = Number(parts[1]);
+        const day = Number(parts[2]);
+        const d = new Date(year, month - 1, day);
+        if (Number.isNaN(d.getTime())) return dateValue;
+        return d.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
+      }
+
+      function updateTrialDateCurrentLabel() {
+        if (!trialDateCurrentEl || !trialStartDateInput) return;
+        const prettyDate = formatTrialDateLabel(trialStartDateInput.value);
+        trialDateCurrentEl.textContent = prettyDate ? `(Current: ${prettyDate})` : "";
+      }
+
+      function setTrialDateExpanded(expanded) {
+        if (!trialDateToggleBtn || !trialDateSectionEl) return;
+        trialDateToggleBtn.setAttribute("aria-expanded", expanded ? "true" : "false");
+        trialDateSectionEl.hidden = !expanded;
+      }
+
+      if (trialDateToggleBtn && trialDateSectionEl) {
+        setTrialDateExpanded(false);
+        updateTrialDateCurrentLabel();
+        trialDateToggleBtn.addEventListener("click", function() {
+          const isExpanded = trialDateToggleBtn.getAttribute("aria-expanded") === "true";
+          setTrialDateExpanded(!isExpanded);
+        });
+        if (trialStartDateInput) {
+          trialStartDateInput.addEventListener("change", updateTrialDateCurrentLabel);
+          trialStartDateInput.addEventListener("input", updateTrialDateCurrentLabel);
+        }
       }
 
       // Promo code functionality
@@ -429,6 +578,22 @@
       const payButtonEl = document.getElementById("pay-button");
       if (payButtonEl) {
         payButtonEl.addEventListener("click", function() {
+        if (trialStartDateInput) {
+          const selectedDate = trialStartDateInput.value;
+          const minDate = trialStartDateInput.min;
+          const maxDate = trialStartDateInput.max;
+          if (!selectedDate || selectedDate < minDate || selectedDate > maxDate) {
+            const paymentMessage = document.getElementById("payment-message");
+            if (paymentMessage) {
+              paymentMessage.textContent = "Please select a valid trial start date (today to 3 months ahead).";
+              paymentMessage.style.color = "red";
+              paymentMessage.style.display = "block";
+            }
+            trialStartDateInput.focus();
+            return;
+          }
+        }
+
         if (!confirmPayment()) {
           return;
         }
