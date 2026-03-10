@@ -46,9 +46,11 @@
       const _ogImageWidth = (orgDetails && orgDetails.logo) ? '512' : '804';
       const _ogImageHeight = (orgDetails && orgDetails.logo) ? '512' : '461';
 
-      const _schoolIcon = (orgDetails && orgDetails.logo)
+      const _sessionLogo = (session && session.logo) ? String(session.logo).trim() : '';
+      const _orgLogo = (orgDetails && orgDetails.logo)
         ? ((/^https?:\/\//i.test(orgDetails.logo)) ? orgDetails.logo : 'https://www.managira.com' + (orgDetails.logo.startsWith('/') ? '' : '/') + orgDetails.logo)
         : null;
+      const _schoolIcon = _sessionLogo || _orgLogo;
     %>
     <meta property="og:image" content="<%= _ogImage %>">
     <meta property="og:image:width" content="<%= _ogImageWidth %>">

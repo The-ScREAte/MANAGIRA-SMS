@@ -65,22 +65,43 @@
   <% } %>
 
   <!-- Favicon Links -->
-  <link rel="icon" href="/favicon.ico" type="image/x-icon" sizes="any" />
-  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon_io/apple-touch-icon.png" />
-  <link
-    rel="icon"
-    type="image/png"
-    sizes="32x32"
-    href="/images/favicon_io/favicon-32x32.png"
-  />
-  <link
-    rel="icon"
-    type="image/png"
-    sizes="16x16"
-    href="/images/favicon_io/favicon-16x16.png"
-  />
-  <link rel="shortcut icon" href="/favicon.ico" />
-  <link rel="manifest" href="/images/favicon_io/site.webmanifest" />
+  <%
+    const _sessionLogo = session && session.logo ? String(session.logo).trim() : '';
+    const _schoolLogo = req && req.schoolDetails && (req.schoolDetails.logo || req.schoolDetails.logo_path)
+      ? String(req.schoolDetails.logo || req.schoolDetails.logo_path).trim()
+      : '';
+
+    let _faviconImage = _sessionLogo || _schoolLogo || '';
+    if (_faviconImage && !/^https?:\/\//i.test(_faviconImage)) {
+      if (process && process.env && process.env.S3_BUCKET_NAME && process.env.AWS_REGION) {
+        _faviconImage = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${_faviconImage}`;
+      } else {
+        _faviconImage = `/${_faviconImage.replace(/^\/+/, '')}`;
+      }
+    }
+  %>
+  <% if (_faviconImage) { %>
+    <link rel="icon" href="<%- _faviconImage %>" type="image/png" sizes="any" />
+    <link rel="shortcut icon" href="<%- _faviconImage %>" type="image/png" />
+    <link rel="apple-touch-icon" href="<%- _faviconImage %>" />
+  <% } else { %>
+    <link rel="icon" href="/favicon.ico" type="image/x-icon" sizes="any" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon_io/apple-touch-icon.png" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/images/favicon_io/favicon-32x32.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="/images/favicon_io/favicon-16x16.png"
+    />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="manifest" href="/images/favicon_io/site.webmanifest" />
+  <% } %>
   <link
     rel="stylesheet"
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
