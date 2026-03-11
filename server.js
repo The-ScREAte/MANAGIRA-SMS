@@ -255,6 +255,13 @@ app.use(async (req, res, next) => {
 app.use(compression());
 app.use(createRequestLatencyMonitor());
 
+// Static files with long-term caching should bypass session middleware.
+app.use(express.static("public", {
+  maxAge: '1d',
+  etag: true,
+  lastModified: true
+}));
+
 // Middleware to serve static files from the uploads directory with caching
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
@@ -357,12 +364,6 @@ app.get("/favicon.ico", (req, res, next) => {
   }
 });
 
-// Static files with long-term caching
-app.use(express.static("public", {
-  maxAge: '1d',
-  etag: true,
-  lastModified: true
-}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

@@ -5,6 +5,18 @@ const { resolvePlanForOrganization } = require('../utils/accessCache');
 const FEATURE_ROUTE_CACHE_TTL_SEC = Number(process.env.FEATURE_ROUTE_CACHE_TTL_SEC || 300);
 const PLAN_FEATURE_CACHE_TTL_SEC = Number(process.env.PLAN_FEATURE_CACHE_TTL_SEC || 90);
 
+function destroySessionAndRedirect(req, res, redirectTo) {
+  if (!req.session) {
+    return res.redirect(redirectTo);
+  }
+
+  req.session.destroy(() => {
+    // Clear session cookie so header/nav renders as logged out.
+    res.clearCookie('connect.sid');
+    return res.redirect(redirectTo);
+  });
+}
+
 function getFallbackFeatureNames(routePath) {
   if (routePath.startsWith('/common/admissionPending') || routePath.startsWith('/common/getPendingStudentDetails') || routePath.startsWith('/common/savePendingStudentChanges') || routePath.startsWith('/common/deletePendingStudentImage')) {
     return ['Student and Guardian Profile', 'Student and Guadian Profile'];
@@ -81,8 +93,8 @@ const checkFeatureAccess = async (req, res, next) => {
     if (isPublicDashboard) {
       return res.status(400).send("Missing organization ID.");
     } else {
-      req.flash('error', 'You need an organization to access this feature.');
-      return res.redirect('/common/orgDashboard');
+      req.flash('error', 'Your organization session is no longer valid. Please sign in again.');
+      return destroySessionAndRedirect(req, res, '/');
     }
   }
 
@@ -90,7 +102,7 @@ const checkFeatureAccess = async (req, res, next) => {
     const planContext = await resolvePlanForOrganization(db, organizationId);
     if (!planContext) {
       req.flash('error', 'Organization not found.');
-      return res.redirect('/common/orgDashboard');
+      return destroySessionAndRedirect(req, res, '/');
     }
     const planIdToCheck = planContext.planId;
 

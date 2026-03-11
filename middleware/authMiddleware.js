@@ -1,7 +1,28 @@
 const db = require('../config/db');
 
+function safeFlash(req, type, message) {
+    if (req && req.session && typeof req.flash === 'function') {
+        req.flash(type, message);
+    }
+}
+
+function destroySessionAndRedirect(req, res, redirectTo) {
+    if (!req || !req.session) {
+        return res.redirect(redirectTo);
+    }
+
+    req.session.destroy(() => {
+        res.clearCookie('connect.sid');
+        return res.redirect(redirectTo);
+    });
+}
+
 const isAuthenticated = async (req, res, next) => {
     try {
+        if (!req.session) {
+            return res.redirect('/account/login');
+        }
+
         // Debug log removed for production
         // Allow super admin org switch session
         if (req.session.superAdminOrgSwitch && req.session.userId && req.session.organizationId) {
@@ -15,7 +36,7 @@ const isAuthenticated = async (req, res, next) => {
                 req.session.returnTo = req.originalUrl;
             }
             
-            req.flash('error', 'Session expired. Please log in again.');
+            safeFlash(req, 'error', 'Session expired. Please log in again.');
             return res.redirect('/account/login');
         }
 
@@ -27,17 +48,15 @@ const isAuthenticated = async (req, res, next) => {
             );
             
             if (org.rows.length === 0) {
-                req.session.destroy();
-                req.flash('error', 'Organization not found');
-                return res.redirect('/account/login');
+                safeFlash(req, 'error', 'Organization not found');
+                return destroySessionAndRedirect(req, res, '/');
             }
 
             const orgData = org.rows[0];
             
             if (orgData.deleted || orgData.on_hold) {
-                req.session.destroy();
-                req.flash('error', 'Account suspended. Contact support.');
-                return res.redirect('/account/login');
+                safeFlash(req, 'error', 'Account suspended. Contact support.');
+                return destroySessionAndRedirect(req, res, '/');
             }
         }
 
@@ -49,23 +68,21 @@ const isAuthenticated = async (req, res, next) => {
             );
             
             if (user.rows.length === 0) {
-                req.session.destroy();
-                req.flash('error', 'User not found');
-                return res.redirect('/account/login');
+                safeFlash(req, 'error', 'User not found');
+                return destroySessionAndRedirect(req, res, '/account/login');
             }
             
             if (user.rows[0].on_hold) {
-                req.session.destroy();
-                req.flash('error', 'Account suspended. Contact admin.');
-                return res.redirect('/account/login');
+                safeFlash(req, 'error', 'Account suspended. Contact admin.');
+                return destroySessionAndRedirect(req, res, '/account/login');
             }
         }
 
         next();
     } catch (err) {
         console.error('Auth middleware error:', err);
-        req.flash('error', 'Authentication system error');
-        res.redirect('/account/login');
+        safeFlash(req, 'error', 'Authentication system error');
+        return destroySessionAndRedirect(req, res, '/account/login');
     }
 };
 
