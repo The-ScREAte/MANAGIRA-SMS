@@ -1,4 +1,7 @@
 const db = require("../config/db");
+const cacheManager = require("../utils/cacheManager");
+
+const PERMISSION_CACHE_TTL_SEC = Number(process.env.PERMISSION_CACHE_TTL_SEC || 90);
 
 const MANAGER_LIKE_ROLES = new Set(["organization", "admin", "mini admin"]);
 
@@ -182,82 +185,113 @@ function getSuggestedPermissionsForRole(role) {
 async function getPrimaryManagerUserId(database, organizationId) {
   if (!organizationId) return null;
 
-  const orgResult = await database.query(
-    `
-    SELECT email, first_name, last_name
-    FROM organizations
-    WHERE organization_id = $1
-    LIMIT 1
-  `,
-    [organizationId]
+  const cacheKey = `perm:primary-manager:${organizationId}`;
+  return cacheManager.getOrFetch(
+    "organization",
+    cacheKey,
+    async () => {
+      const orgResult = await database.query(
+        `
+        SELECT email, first_name, last_name
+        FROM organizations
+        WHERE organization_id = $1
+        LIMIT 1
+      `,
+        [organizationId]
+      );
+
+      const orgIdentity = orgResult.rows[0] || null;
+
+      if (orgIdentity?.email) {
+        const byEmail = await database.query(
+          `
+          SELECT user_id
+          FROM users
+          WHERE organization_id = $1
+            AND account_type = 'Manager'
+            AND email::text ILIKE $2
+          ORDER BY created_at ASC NULLS LAST, user_id ASC
+          LIMIT 1
+        `,
+          [organizationId, orgIdentity.email]
+        );
+
+        if (byEmail.rows.length > 0) {
+          return byEmail.rows[0].user_id;
+        }
+      }
+
+      if (orgIdentity?.first_name && orgIdentity?.last_name) {
+        const byName = await database.query(
+          `
+          SELECT user_id
+          FROM users
+          WHERE organization_id = $1
+            AND account_type = 'Manager'
+            AND LOWER(first_name) = LOWER($2)
+            AND LOWER(last_name) = LOWER($3)
+          ORDER BY created_at ASC NULLS LAST, user_id ASC
+          LIMIT 1
+        `,
+          [organizationId, orgIdentity.first_name, orgIdentity.last_name]
+        );
+
+        if (byName.rows.length > 0) {
+          return byName.rows[0].user_id;
+        }
+      }
+
+      const earliestManager = await database.query(
+        `
+        SELECT user_id
+        FROM users
+        WHERE organization_id = $1
+          AND account_type = 'Manager'
+        ORDER BY created_at ASC NULLS LAST, user_id ASC
+        LIMIT 1
+      `,
+        [organizationId]
+      );
+
+      return earliestManager.rows[0]?.user_id || null;
+    },
+    { ttl: PERMISSION_CACHE_TTL_SEC }
   );
-
-  const orgIdentity = orgResult.rows[0] || null;
-
-  if (orgIdentity?.email) {
-    const byEmail = await database.query(
-      `
-      SELECT user_id
-      FROM users
-      WHERE organization_id = $1
-        AND account_type = 'Manager'
-        AND email::text ILIKE $2
-      ORDER BY created_at ASC NULLS LAST, user_id ASC
-      LIMIT 1
-    `,
-      [organizationId, orgIdentity.email]
-    );
-
-    if (byEmail.rows.length > 0) {
-      return byEmail.rows[0].user_id;
-    }
-  }
-
-  if (orgIdentity?.first_name && orgIdentity?.last_name) {
-    const byName = await database.query(
-      `
-      SELECT user_id
-      FROM users
-      WHERE organization_id = $1
-        AND account_type = 'Manager'
-        AND LOWER(first_name) = LOWER($2)
-        AND LOWER(last_name) = LOWER($3)
-      ORDER BY created_at ASC NULLS LAST, user_id ASC
-      LIMIT 1
-    `,
-      [organizationId, orgIdentity.first_name, orgIdentity.last_name]
-    );
-
-    if (byName.rows.length > 0) {
-      return byName.rows[0].user_id;
-    }
-  }
-
-  const earliestManager = await database.query(
-    `
-    SELECT user_id
-    FROM users
-    WHERE organization_id = $1
-      AND account_type = 'Manager'
-    ORDER BY created_at ASC NULLS LAST, user_id ASC
-    LIMIT 1
-  `,
-    [organizationId]
-  );
-
-  return earliestManager.rows[0]?.user_id || null;
 }
 
 async function getUserPermissions(database, userId, organizationId) {
   if (!userId || !organizationId) return [];
   await ensurePermissionsSchema(database);
 
-  const result = await database.query(
-    `SELECT permission_key FROM user_permissions WHERE user_id = $1 AND organization_id = $2`,
-    [userId, organizationId]
+  const cacheKey = `perm:user:${organizationId}:${userId}`;
+  return cacheManager.getOrFetch(
+    "organization",
+    cacheKey,
+    async () => {
+      const result = await database.query(
+        `SELECT permission_key FROM user_permissions WHERE user_id = $1 AND organization_id = $2`,
+        [userId, organizationId]
+      );
+      return result.rows.map((row) => row.permission_key);
+    },
+    { ttl: PERMISSION_CACHE_TTL_SEC }
   );
+}
 
-  return result.rows.map((row) => row.permission_key);
+function invalidateUserPermissionCache(organizationId, userId) {
+  if (!organizationId) {
+    return;
+  }
+
+  cacheManager.invalidatePattern("organization", `perm:primary-manager:${organizationId}`);
+
+  if (userId) {
+    cacheManager.invalidatePattern("organization", `perm:user:${organizationId}:${userId}`);
+  } else {
+    cacheManager.invalidatePattern("organization", `perm:user:${organizationId}:`);
+  }
+
+  cacheManager.invalidatePattern("organization", `perm:owner-email:${organizationId}:`);
 }
 
 async function userHasPermission(database, { userId, userRole, organizationId, accountType, userEmail }, permissionKey) {
@@ -277,16 +311,24 @@ async function userHasPermission(database, { userId, userRole, organizationId, a
   // Any user record that matches the organization's signup email is the
   // organization owner and should always have full access.
   if (userEmail) {
-    const ownerEmailResult = await database.query(
-      `SELECT 1
-       FROM organizations
-       WHERE organization_id = $1
-         AND LOWER(email) = LOWER($2)
-       LIMIT 1`,
-      [organizationId, userEmail]
+    const ownerEmailResult = await cacheManager.getOrFetch(
+      "organization",
+      `perm:owner-email:${organizationId}:${String(userEmail).toLowerCase()}`,
+      async () => {
+        const ownerEmailQuery = await database.query(
+          `SELECT 1
+           FROM organizations
+           WHERE organization_id = $1
+             AND LOWER(email) = LOWER($2)
+           LIMIT 1`,
+          [organizationId, userEmail]
+        );
+        return ownerEmailQuery.rows.length > 0;
+      },
+      { ttl: PERMISSION_CACHE_TTL_SEC }
     );
 
-    if (ownerEmailResult.rows.length > 0) {
+    if (ownerEmailResult) {
       if (userId && !isManagerRole(normalizedUserRole)) {
         await database.query(
           `UPDATE users
@@ -310,29 +352,20 @@ async function userHasPermission(database, { userId, userRole, organizationId, a
     const isPrimaryManager =
       primaryManagerUserId !== null && String(primaryManagerUserId) === String(userId);
 
-    const managerPermissionsResult = await database.query(
-      `SELECT permission_key FROM user_permissions WHERE user_id = $1 AND organization_id = $2`,
-      [userId, organizationId]
-    );
+    const managerPermissions = await getUserPermissions(database, userId, organizationId);
 
-    if (managerPermissionsResult.rows.length === 0) {
+    if (managerPermissions.length === 0) {
       return isPrimaryManager
         ? true
         : MANAGER_DEFAULT_OPTIONAL_PERMISSIONS.includes(permissionKey);
     }
 
-    const assignedPermissions = new Set(
-      managerPermissionsResult.rows.map((row) => row.permission_key)
-    );
+    const assignedPermissions = new Set(managerPermissions);
     return assignedPermissions.has(permissionKey);
   }
 
-  const result = await database.query(
-    `SELECT 1 FROM user_permissions WHERE user_id = $1 AND organization_id = $2 AND permission_key = $3 LIMIT 1`,
-    [userId, organizationId, permissionKey]
-  );
-
-  return result.rows.length > 0;
+  const userPermissions = await getUserPermissions(database, userId, organizationId);
+  return userPermissions.includes(permissionKey);
 }
 
 function requirePermission(permissionKey) {
@@ -396,6 +429,7 @@ module.exports = {
   getPrimaryManagerUserId,
   getUserPermissions,
   userHasPermission,
+  invalidateUserPermissionCache,
   requirePermission,
   isManagerLikeRole,
 };

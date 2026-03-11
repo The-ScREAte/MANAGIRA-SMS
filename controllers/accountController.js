@@ -69,7 +69,6 @@ const axios = require("axios");
 
 const he = require("he");
 
-const { readFileSync } = require("fs");
 const { sendEmailSafely, renderCleanEmail } = require("../utils/emailHelper");
 const {
   getCurrencyProfileForRequest,
@@ -97,6 +96,7 @@ const {
   deleteManualCalendarDay,
 } = require("../utils/attendanceCalendar");
 const { hasGuardianPortalFeature } = require("../utils/guardianPortalAccess");
+const { invalidateOrganizationAccessCache } = require("../utils/accessCache");
 
 function extractS3KeyFromUrl(url) {
   const value = String(url || "").trim();
@@ -146,7 +146,7 @@ async function sendBrandedReceiptEmail({
       __dirname,
       "../utils/templates/receiptEmail.html"
     );
-    let html = readFileSync(templatePath, "utf8");
+    let html = await fs.promises.readFile(templatePath, "utf8");
     const year = new Date().getFullYear();
 
     html = html
@@ -6048,6 +6048,8 @@ const accountController = {
 
             [newPlanId, orgId]
           );
+          invalidateOrganizationAccessCache(orgId);
+          req.session.allowedFeatures = [];
           req.flash(
             "success",
             "Your plan has been changed to the selected plan."
@@ -6061,6 +6063,8 @@ const accountController = {
 
           [newPlanId, orgId]
         );
+        invalidateOrganizationAccessCache(orgId);
+        req.session.allowedFeatures = [];
         req.flash(
           "success",
           "Your plan has been changed to the selected plan."

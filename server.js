@@ -34,6 +34,7 @@ const setAllowedRoles = require("./middleware/setAllowedRoles");
 const setThemeColor = require("./middleware/setThemeColor");
 const compression = require("compression");
 const { setCacheHeaders, preloadCache } = require("./middleware/cacheMiddleware");
+const { createRequestLatencyMonitor } = require("./middleware/requestLatencyMonitor");
 
 // **Dynamic BASE_URL Logic**
 const BASE_URL =
@@ -43,6 +44,99 @@ const BASE_URL =
 // Force restart to reload jobs folder
 
 app.set("db", db);
+
+const SUBDOMAIN_CACHE_TTL_MS = Number(process.env.SUBDOMAIN_CACHE_TTL_MS) || 2 * 60 * 1000;
+const SUBDOMAIN_NEGATIVE_CACHE_TTL_MS = Number(process.env.SUBDOMAIN_NEGATIVE_CACHE_TTL_MS) || 30 * 1000;
+const SUBDOMAIN_CACHE_MAX_ENTRIES = Number(process.env.SUBDOMAIN_CACHE_MAX_ENTRIES) || 10000;
+const subdomainOrgCache = new Map();
+
+const getSubdomainCache = (cacheKey) => {
+  const cached = subdomainOrgCache.get(cacheKey);
+  if (!cached) {
+    return null;
+  }
+
+  if (cached.expiresAt <= Date.now()) {
+    subdomainOrgCache.delete(cacheKey);
+    return null;
+  }
+
+  return cached;
+};
+
+const setSubdomainCache = (cacheKey, data, ttlMs) => {
+  if (subdomainOrgCache.size >= SUBDOMAIN_CACHE_MAX_ENTRIES) {
+    const oldestKey = subdomainOrgCache.keys().next().value;
+    if (oldestKey) {
+      subdomainOrgCache.delete(oldestKey);
+    }
+  }
+
+  subdomainOrgCache.set(cacheKey, {
+    ...data,
+    expiresAt: Date.now() + ttlMs,
+  });
+};
+
+const attachSchoolContext = (req, org) => {
+  req.schoolDetails = org;
+
+  if (org.is_hub_member && org.hub_id) {
+    req.isHubMember = true;
+    req.hubDetails = {
+      hubId: org.hub_id,
+      hubName: org.hub_name,
+      hubNickname: org.hub_nickname,
+      hubEmail: org.hub_email,
+      hubPlanId: org.hub_plan_id,
+      hubBrandingEnabled: org.hub_branding_enabled,
+      hubFooterText: org.hub_footer_text,
+      hubOnHold: org.hub_on_hold,
+      hubLogo: org.hub_logo,
+    };
+  } else {
+    req.isHubMember = false;
+    req.hubDetails = null;
+  }
+};
+
+const renderOrganizationNotFound = (req, res) => {
+  const backToHomeUrl = (req.session && (req.session.userId || req.session.organizationId))
+    ? "/common/orgDashboard"
+    : "https://managira.com";
+
+  return res.status(404).send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Organization Not Found - Managira</title>
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; min-height: 100vh; display: flex; align-items: center; justify-content: center; text-align: center; padding: 20px; }
+        .container { max-width: 480px; }
+        .status-code { font-size: 5rem; font-weight: 800; color: #0f5a66; margin-bottom: 8px; line-height: 1; }
+        h1 { font-size: 1.5rem; font-weight: 700; color: #1e293b; margin-bottom: 12px; }
+        p { color: #64748b; font-size: 1rem; line-height: 1.6; margin-bottom: 28px; }
+        .btn { display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #0f2d32, #0f5a66); color: white; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 0.95rem; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 4px 14px rgba(15,90,102,0.25); }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(15,90,102,0.35); }
+        .home-link { display: block; margin-top: 16px; color: #0f5a66; text-decoration: none; font-size: 0.9rem; font-weight: 600; }
+        .home-link:hover { text-decoration: underline; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="status-code">404</div>
+        <h1>Organization Not Found</h1>
+        <p>The organization you're looking for doesn't exist on Managira or may have been removed.</p>
+        <a class="btn" href="https://managira.com/legal/directory">Browse All Organizations</a>
+        <a class="home-link" href="${backToHomeUrl}">← Back to Managira Home</a>
+      </div>
+    </body>
+    </html>
+  `);
+};
 
 // middleware for dynamic subdomains
 app.use(async (req, res, next) => {
@@ -85,6 +179,23 @@ app.use(async (req, res, next) => {
   // Fetch organization and hub details
   if (subdomain) {
     try {
+      const cacheKey = host.toLowerCase();
+      const cached = getSubdomainCache(cacheKey);
+
+      if (cached) {
+        if (!cached.found) {
+          return renderOrganizationNotFound(req, res);
+        }
+
+        attachSchoolContext(req, cached.org);
+
+        if (req.hubDetails?.hubOnHold) {
+          return res.status(403).send("This organization's hub is currently on hold. Please contact the hub administrator.");
+        }
+
+        return next();
+      }
+
       let orgQuery;
       let queryParams;
 
@@ -121,67 +232,15 @@ app.use(async (req, res, next) => {
 
       if (result.rows.length > 0) {
         const org = result.rows[0];
-        req.schoolDetails = org;
-        
-        // Set hub context if organization is a hub member
-        if (org.is_hub_member && org.hub_id) {
-          req.isHubMember = true;
-          req.hubDetails = {
-            hubId: org.hub_id,
-            hubName: org.hub_name,
-            hubNickname: org.hub_nickname,
-            hubEmail: org.hub_email,
-            hubPlanId: org.hub_plan_id,
-            hubBrandingEnabled: org.hub_branding_enabled,
-            hubFooterText: org.hub_footer_text,
-            hubOnHold: org.hub_on_hold,
-            hubLogo: org.hub_logo
-          };
+        setSubdomainCache(cacheKey, { found: true, org }, SUBDOMAIN_CACHE_TTL_MS);
+        attachSchoolContext(req, org);
 
-          // Check if hub is on hold
-          if (org.hub_on_hold) {
-            return res.status(403).send("This organization's hub is currently on hold. Please contact the hub administrator.");
-          }
-        } else {
-          req.isHubMember = false;
-          req.hubDetails = null;
+        if (req.hubDetails?.hubOnHold) {
+          return res.status(403).send("This organization's hub is currently on hold. Please contact the hub administrator.");
         }
       } else {
-        const backToHomeUrl = (req.session && (req.session.userId || req.session.organizationId))
-          ? '/common/orgDashboard'
-          : 'https://managira.com';
-
-        return res.status(404).send(`
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Organization Not Found - Managira</title>
-            <style>
-              * { box-sizing: border-box; margin: 0; padding: 0; }
-              body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; min-height: 100vh; display: flex; align-items: center; justify-content: center; text-align: center; padding: 20px; }
-              .container { max-width: 480px; }
-              .status-code { font-size: 5rem; font-weight: 800; color: #0f5a66; margin-bottom: 8px; line-height: 1; }
-              h1 { font-size: 1.5rem; font-weight: 700; color: #1e293b; margin-bottom: 12px; }
-              p { color: #64748b; font-size: 1rem; line-height: 1.6; margin-bottom: 28px; }
-              .btn { display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #0f2d32, #0f5a66); color: white; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 0.95rem; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 4px 14px rgba(15,90,102,0.25); }
-              .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(15,90,102,0.35); }
-              .home-link { display: block; margin-top: 16px; color: #0f5a66; text-decoration: none; font-size: 0.9rem; font-weight: 600; }
-              .home-link:hover { text-decoration: underline; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="status-code">404</div>
-              <h1>Organization Not Found</h1>
-              <p>The organization you're looking for doesn't exist on Managira or may have been removed.</p>
-              <a class="btn" href="https://managira.com/legal/directory">Browse All Organizations</a>
-              <a class="home-link" href="${backToHomeUrl}">← Back to Managira Home</a>
-            </div>
-          </body>
-          </html>
-        `);
+        setSubdomainCache(cacheKey, { found: false }, SUBDOMAIN_NEGATIVE_CACHE_TTL_MS);
+        return renderOrganizationNotFound(req, res);
       }
     } catch (err) {
       console.error("Error fetching subdomain organization:", err);
@@ -194,6 +253,7 @@ app.use(async (req, res, next) => {
 
 // Enable gzip compression for faster loading
 app.use(compression());
+app.use(createRequestLatencyMonitor());
 
 // Middleware to serve static files from the uploads directory with caching
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
@@ -240,6 +300,7 @@ app.use((req, res, next) => {
   res.locals.getFlash = (type) => req.flash(type);
   res.locals.BASE_URL = BASE_URL;
   res.locals.showFooterTopSection = false;
+  res.locals.unresolvedCount = 0;
   next();
 });
 
@@ -305,8 +366,8 @@ app.use(express.static("public", {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Apply fetchUnresolvedCount middleware globally
-app.use(fetchUnresolvedCount);
+// Only admin pages need unresolved help-thread notifications.
+app.use("/admin", fetchUnresolvedCount);
 
 app.use((req, res, next) => {
   res.locals.req = req;

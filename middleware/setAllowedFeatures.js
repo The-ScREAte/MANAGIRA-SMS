@@ -1,4 +1,8 @@
 const db = require('../config/db');
+const cacheManager = require('../utils/cacheManager');
+const { resolvePlanForOrganization } = require('../utils/accessCache');
+
+const ALLOWED_FEATURES_CACHE_TTL_SEC = Number(process.env.ALLOWED_FEATURES_CACHE_TTL_SEC || 90);
 
 const setAllowedFeatures = async (req, res, next) => {
     res.locals.allowedFeatures = []; // Always ensure it's an array
@@ -9,44 +13,36 @@ const setAllowedFeatures = async (req, res, next) => {
     }
 
     try {
-        // Determine plan_id: use hub's plan if organization is a hub member
-        let planId;
+        const planContext = await resolvePlanForOrganization(db, req.session.organizationId);
 
-        const { rows: orgRows } = await db.query(
-            `SELECT o.plan_id, o.is_hub_member, o.hub_id, mh.plan_id as hub_plan_id
-             FROM organizations o
-             LEFT JOIN managira_hubs mh ON o.hub_id = mh.hub_id
-             WHERE o.organization_id = $1`,
-            [req.session.organizationId]
-        );
-
-        if (orgRows.length === 0) {
+        if (!planContext) {
             return next(); // Organization not found, continue
         }
 
-        const org = orgRows[0];
-
-        // If organization is a hub member, use hub's plan; otherwise use org's plan
-        if (org.is_hub_member && org.hub_plan_id) {
-            planId = org.hub_plan_id;
-        } else {
-            planId = org.plan_id;
-        }
+        const planId = planContext.planId;
 
         if (!planId) {
             return next(); // No plan assigned, continue
         }
 
-        // Fetch features based on the determined plan
-        const { rows: features } = await db.query(
-            `SELECT f.feature_name
-             FROM features f
-             JOIN plan_features pf ON pf.feature_id = f.id
-             WHERE pf.plan_id = $1`,
-            [planId]
+        const features = await cacheManager.getOrFetch(
+            'organization',
+            `access:allowed-features:${req.session.organizationId}:${planId}`,
+            async () => {
+                const { rows } = await db.query(
+                    `SELECT f.feature_name
+                     FROM features f
+                     JOIN plan_features pf ON pf.feature_id = f.id
+                     WHERE pf.plan_id = $1`,
+                    [planId]
+                );
+
+                return rows.map((f) => f.feature_name);
+            },
+            { ttl: ALLOWED_FEATURES_CACHE_TTL_SEC }
         );
 
-        res.locals.allowedFeatures = features.map(f => f.feature_name);
+        res.locals.allowedFeatures = Array.isArray(features) ? features : [];
         req.session.allowedFeatures = res.locals.allowedFeatures; // ✅ Store in session to be consistent
 
     } catch (err) {

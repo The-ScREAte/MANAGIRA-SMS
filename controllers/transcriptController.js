@@ -366,7 +366,7 @@ const transcriptController = (db) => ({
 
             // Read email template
             const emailTemplatePath = path.join(__dirname, '../utils/templates/transcriptEmail.html');
-            let emailHtml = fs.readFileSync(emailTemplatePath, 'utf8');
+            let emailHtml = await fs.promises.readFile(emailTemplatePath, 'utf8');
 
             // Replace placeholders
             emailHtml = emailHtml
@@ -405,8 +405,12 @@ const transcriptController = (db) => ({
             );
 
             // Clean up PDF file
-            if (fs.existsSync(pdfPath)) {
-                fs.unlinkSync(pdfPath);
+            try {
+                await fs.promises.unlink(pdfPath);
+            } catch (cleanupError) {
+                if (cleanupError.code !== 'ENOENT') {
+                    console.warn('[emailTranscript] Failed to delete generated PDF:', cleanupError.message);
+                }
             }
 
             if (!emailSent) {
@@ -423,8 +427,14 @@ const transcriptController = (db) => ({
             if (browser) {
                 try { await browser.close(); } catch (e) {}
             }
-            if (pdfPath && fs.existsSync(pdfPath)) {
-                try { fs.unlinkSync(pdfPath); } catch (e) {}
+            if (pdfPath) {
+                try {
+                    await fs.promises.unlink(pdfPath);
+                } catch (cleanupError) {
+                    if (cleanupError.code !== 'ENOENT') {
+                        console.warn('[emailTranscript] Cleanup failed after error:', cleanupError.message);
+                    }
+                }
             }
             
             return res.status(500).json({ success: false, message: "An error occurred while sending the transcript." });

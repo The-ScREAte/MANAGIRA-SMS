@@ -1,4 +1,49 @@
 const db = require('../config/db');
+const cacheManager = require('../utils/cacheManager');
+const { resolvePlanForOrganization } = require('../utils/accessCache');
+
+const FEATURE_ROUTE_CACHE_TTL_SEC = Number(process.env.FEATURE_ROUTE_CACHE_TTL_SEC || 300);
+const PLAN_FEATURE_CACHE_TTL_SEC = Number(process.env.PLAN_FEATURE_CACHE_TTL_SEC || 90);
+
+function getFallbackFeatureNames(routePath) {
+  if (routePath.startsWith('/common/admissionPending') || routePath.startsWith('/common/getPendingStudentDetails') || routePath.startsWith('/common/savePendingStudentChanges') || routePath.startsWith('/common/deletePendingStudentImage')) {
+    return ['Student and Guardian Profile', 'Student and Guadian Profile'];
+  }
+  if (routePath.startsWith('/common/admissions') || routePath.startsWith('/common/studentDetails') || routePath.startsWith('/common/guardians') || routePath.startsWith('/common/guardianDetails')) {
+    return ['Student and Guardian Profile', 'Student and Guadian Profile'];
+  }
+  if (routePath.startsWith('/common/reports')) {
+    return ['Terminal Report', 'Progressive Student Report', 'Progressive Student Report ', 'Class Base Merit Sheet', 'Class Base Merrit sheet', 'Official School Transcript'];
+  }
+  if (routePath.startsWith('/common/closeSchoolYear') || routePath.startsWith('/common/termDetails')) {
+    return ['Terminal Report', 'Progressive Student Report', 'Progressive Student Report '];
+  }
+  if (routePath.startsWith('/print/printStudentReport') || routePath.startsWith('/print/reportSettings')) {
+    return ['Terminal Report'];
+  }
+  if (routePath.startsWith('/print/meritSheetPage') || routePath.startsWith('/print/generateMeritSheet')) {
+    return ['Class Base Merit Sheet', 'Class Base Merrit sheet'];
+  }
+  if (routePath.startsWith('/transcript/transcript')) {
+    return ['Official School Transcript'];
+  }
+  if (routePath.startsWith('/stats/organization')) {
+    return ['Organization Analytics & Insights'];
+  }
+  if (routePath.startsWith('/stats/classes') || routePath.startsWith('/stats/class-comparison')) {
+    return ['Class Base Analytics & Insights'];
+  }
+  if (routePath.startsWith('/documents')) {
+    return ['Create Files', 'Files & Sheets'];
+  }
+  if (routePath.startsWith('/common/assessment')) {
+    return ['Assessment Tracking', 'Assessment tracking feature'];
+  }
+  if (routePath.startsWith('/common/attendanceCollection')) {
+    return ['Attendance Tracking', 'Attendance tracking feature'];
+  }
+  return [];
+}
 
 const checkFeatureAccess = async (req, res, next) => {
   // Debug logs removed for production
@@ -42,127 +87,71 @@ const checkFeatureAccess = async (req, res, next) => {
   }
 
   try {
-    // Determine the plan_id to check (hub's plan if hub member, otherwise org's plan)
-    let planIdToCheck;
-    
-    // Try to check if organization is a hub member (with fallback if columns don't exist)
-    try {
-      const { rows: orgRows } = await db.query(
-        'SELECT plan_id, is_hub_member, hub_id FROM organizations WHERE organization_id = $1',
-        [organizationId]
-      );
-      
-      if (orgRows.length === 0) {
-        req.flash('error', 'Organization not found.');
-        return res.redirect('/common/orgDashboard');
-      }
-      
-      const org = orgRows[0];
-      
-      // If organization is a hub member, get hub's plan
-      if (org.is_hub_member && org.hub_id) {
-        try {
-          const { rows: hubRows } = await db.query(
-            'SELECT plan_id FROM managira_hubs WHERE hub_id = $1',
-            [org.hub_id]
-          );
-          if (hubRows.length > 0 && hubRows[0].plan_id) {
-            planIdToCheck = hubRows[0].plan_id;
-          } else {
-            planIdToCheck = org.plan_id;
-          }
-        } catch (hubError) {
-          // Hub table doesn't exist yet, use org plan
-          planIdToCheck = org.plan_id;
-        }
-      } else {
-        // Regular organization, use its own plan
-        planIdToCheck = org.plan_id;
-      }
-    } catch (columnError) {
-      // Hub columns don't exist yet, fallback to basic query
-      const { rows: orgRows } = await db.query(
-        'SELECT plan_id FROM organizations WHERE organization_id = $1',
-        [organizationId]
-      );
-      
-      if (orgRows.length === 0) {
-        req.flash('error', 'Organization not found.');
-        return res.redirect('/common/orgDashboard');
-      }
-      
-      planIdToCheck = orgRows[0].plan_id;
+    const planContext = await resolvePlanForOrganization(db, organizationId);
+    if (!planContext) {
+      req.flash('error', 'Organization not found.');
+      return res.redirect('/common/orgDashboard');
     }
+    const planIdToCheck = planContext.planId;
 
     // 1️⃣ Check If Route Requires a Feature (Feature-Based Access)
-    const { rows: featureRows } = await db.query(
-      `SELECT f.id FROM feature_routes fr
-       JOIN features f ON f.id = fr.feature_id
-       WHERE fr.route_path = ANY($1::text[])
-          OR (
-            fr.route_path <> '/'
-            AND EXISTS (
-              SELECT 1
-              FROM unnest($1::text[]) AS c(path)
-              WHERE c.path LIKE fr.route_path || '/%'
-            )
-          )
-       LIMIT 1`,
-      [normalizedRouteCandidates]
+    const routeFeatureCache = await cacheManager.getOrFetch(
+      'static',
+      `access:route-feature:${routePath}`,
+      async () => {
+        const { rows: featureRows } = await db.query(
+          `SELECT f.id FROM feature_routes fr
+           JOIN features f ON f.id = fr.feature_id
+           WHERE fr.route_path = ANY($1::text[])
+              OR (
+                fr.route_path <> '/'
+                AND EXISTS (
+                  SELECT 1
+                  FROM unnest($1::text[]) AS c(path)
+                  WHERE c.path LIKE fr.route_path || '/%'
+                )
+              )
+           LIMIT 1`,
+          [normalizedRouteCandidates]
+        );
+
+        let featureId = featureRows.length > 0 ? featureRows[0].id : null;
+        if (!featureId) {
+          const fallbackFeatureNames = getFallbackFeatureNames(routePath);
+          if (fallbackFeatureNames.length > 0) {
+            const { rows: fallbackFeatureRows } = await db.query(
+              `SELECT id FROM features WHERE feature_name = ANY($1::text[]) LIMIT 1`,
+              [fallbackFeatureNames]
+            );
+            if (fallbackFeatureRows.length > 0) {
+              featureId = fallbackFeatureRows[0].id;
+            }
+          }
+        }
+
+        return { featureId: featureId || null };
+      },
+      { ttl: FEATURE_ROUTE_CACHE_TTL_SEC }
     );
 
-    let featureId = featureRows.length > 0 ? featureRows[0].id : null;
-
-    if (!featureId) {
-      let fallbackFeatureNames = [];
-
-      if (routePath.startsWith('/common/admissionPending') || routePath.startsWith('/common/getPendingStudentDetails') || routePath.startsWith('/common/savePendingStudentChanges') || routePath.startsWith('/common/deletePendingStudentImage')) {
-        fallbackFeatureNames = ['Student and Guardian Profile', 'Student and Guadian Profile'];
-      } else if (routePath.startsWith('/common/admissions') || routePath.startsWith('/common/studentDetails') || routePath.startsWith('/common/guardians') || routePath.startsWith('/common/guardianDetails')) {
-        fallbackFeatureNames = ['Student and Guardian Profile', 'Student and Guadian Profile'];
-      } else if (routePath.startsWith('/common/reports')) {
-        fallbackFeatureNames = ['Terminal Report', 'Progressive Student Report', 'Progressive Student Report ', 'Class Base Merit Sheet', 'Class Base Merrit sheet', 'Official School Transcript'];
-      } else if (routePath.startsWith('/common/closeSchoolYear') || routePath.startsWith('/common/termDetails')) {
-        fallbackFeatureNames = ['Terminal Report', 'Progressive Student Report', 'Progressive Student Report '];
-      } else if (routePath.startsWith('/print/printStudentReport') || routePath.startsWith('/print/reportSettings')) {
-        fallbackFeatureNames = ['Terminal Report'];
-      } else if (routePath.startsWith('/print/meritSheetPage') || routePath.startsWith('/print/generateMeritSheet')) {
-        fallbackFeatureNames = ['Class Base Merit Sheet', 'Class Base Merrit sheet'];
-      } else if (routePath.startsWith('/transcript/transcript')) {
-        fallbackFeatureNames = ['Official School Transcript'];
-      } else if (routePath.startsWith('/stats/organization')) {
-        fallbackFeatureNames = ['Organization Analytics & Insights'];
-      } else if (routePath.startsWith('/stats/classes') || routePath.startsWith('/stats/class-comparison')) {
-        fallbackFeatureNames = ['Class Base Analytics & Insights'];
-      } else if (routePath.startsWith('/documents')) {
-        fallbackFeatureNames = ['Create Files', 'Files & Sheets'];
-      } else if (routePath.startsWith('/common/assessment')) {
-        fallbackFeatureNames = ['Assessment Tracking', 'Assessment tracking feature'];
-      } else if (routePath.startsWith('/common/attendanceCollection')) {
-        fallbackFeatureNames = ['Attendance Tracking', 'Attendance tracking feature'];
-      }
-
-      if (fallbackFeatureNames.length > 0) {
-        const { rows: fallbackFeatureRows } = await db.query(
-          `SELECT id FROM features WHERE feature_name = ANY($1::text[]) LIMIT 1`,
-          [fallbackFeatureNames]
-        );
-        if (fallbackFeatureRows.length > 0) {
-          featureId = fallbackFeatureRows[0].id;
-        }
-      }
-    }
+    const featureId = routeFeatureCache?.featureId || null;
 
     if (featureId) {
-
-      // Check if the plan (hub's or org's) has access to this feature
-      const { rows: planAccess } = await db.query(
-        `SELECT 1 FROM plan_features pf
-         WHERE pf.feature_id = $1 AND pf.plan_id = $2`,
-        [featureId, planIdToCheck]
+      const planFeatureAccess = await cacheManager.getOrFetch(
+        'static',
+        `access:plan-feature:${planIdToCheck}:${featureId}`,
+        async () => {
+          const { rows: planAccess } = await db.query(
+            `SELECT 1 FROM plan_features pf
+             WHERE pf.feature_id = $1 AND pf.plan_id = $2`,
+            [featureId, planIdToCheck]
+          );
+          return { allowed: planAccess.length > 0 };
+        },
+        { ttl: PLAN_FEATURE_CACHE_TTL_SEC }
       );
 
-      if (planAccess.length === 0) {
+      if (!planFeatureAccess?.allowed) {
         console.warn('[FeatureDenied]', {
           route: routePath,
           normalizedRouteCandidates,

@@ -20,6 +20,10 @@ const {
   upsertPaystackSettings,
   normalizeMode,
 } = require("../utils/paystackConfig");
+const {
+  invalidateOrganizationAccessCache,
+  invalidateAccessForPlan,
+} = require("../utils/accessCache");
 
 const adminController = {
   adminDashboard: async (req, res) => {
@@ -1131,6 +1135,8 @@ const adminController = {
         [featurePrice, planId]
       );
 
+      await invalidateAccessForPlan(db, planId);
+
       req.flash("success", "Feature added and total cost updated.");
       res.redirect("/admin/servicePricing");
     } catch (error) {
@@ -1167,6 +1173,8 @@ const adminController = {
         "UPDATE plans SET total_cost = total_cost - $1 WHERE id = $2",
         [featurePrice, planId]
       );
+
+      await invalidateAccessForPlan(db, planId);
 
       req.flash("success", "Feature removed and total cost updated.");
       res.redirect("/admin/servicePricing");
@@ -2062,6 +2070,11 @@ adminController.hubEditPost = async (req, res) => {
   } = req.body;
 
   try {
+    const existingHubResult = await db.query(
+      'SELECT plan_id FROM managira_hubs WHERE hub_id = $1',
+      [hubId]
+    );
+
     // Check if nickname is taken by another hub
     const nicknameCheck = await db.query(
       'SELECT hub_id FROM managira_hubs WHERE hub_nickname = $1 AND hub_id != $2',
@@ -2084,6 +2097,21 @@ adminController.hubEditPost = async (req, res) => {
          planId || null, maxOrganizations || 5, hubFooterText || '',
          hubBrandingEnabled === 'on', contractStartDate || null, contractEndDate || null, hubId]
     );
+
+    const previousPlanId = existingHubResult.rows[0]?.plan_id || null;
+    const nextPlanId = planId || null;
+    if (String(previousPlanId || '') !== String(nextPlanId || '')) {
+      const memberOrganizations = await db.query(
+        `SELECT organization_id
+         FROM organizations
+         WHERE hub_id = $1 AND deleted = false AND COALESCE(is_hub_member, false) = true`,
+        [hubId]
+      );
+
+      for (const row of memberOrganizations.rows) {
+        invalidateOrganizationAccessCache(row.organization_id);
+      }
+    }
 
     req.flash('success', 'Hub updated successfully.');
     res.redirect('/admin/hubs');

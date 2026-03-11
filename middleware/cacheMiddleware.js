@@ -75,7 +75,7 @@ const apiCache = (options = {}) => {
     }
 
     // Check cache first
-    const cached = cacheManager.get(cacheType, cacheKey);
+    const cached = await cacheManager.getShared(cacheType, cacheKey, ttl);
     if (cached) {
       // Add header to indicate cache hit
       res.set('X-Cache', 'HIT');

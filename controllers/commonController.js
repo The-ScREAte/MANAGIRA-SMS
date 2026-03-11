@@ -23,6 +23,7 @@ const {
   getUserPermissions,
   userHasPermission,
   isManagerLikeRole,
+  invalidateUserPermissionCache,
 } = require("../middleware/permissionMiddleware");
 const {
   toDateKey,
@@ -2207,7 +2208,7 @@ const commonController = {
           // Parse CSV file
           let fileContent;
           if (file.buffer) fileContent = file.buffer.toString('utf-8');
-          else if (file.path) fileContent = fs.readFileSync(file.path, 'utf-8');
+          else if (file.path) fileContent = await fs.promises.readFile(file.path, 'utf-8');
           else throw new Error('File data not accessible');
 
           const lines = fileContent.split(/\r?\n/).filter((line) => line.trim());
@@ -2230,7 +2231,7 @@ const commonController = {
 
         } else if (fileExtension === '.pdf') {
           // Parse PDF text with pdf-parse
-          const buffer = file.buffer || (file.path ? fs.readFileSync(file.path) : null);
+          const buffer = file.buffer || (file.path ? await fs.promises.readFile(file.path) : null);
           if (!buffer) throw new Error('File data not accessible');
           const parsed = await pdfParse(buffer);
           students = parseTextToStudents(parsed.text || '');
@@ -2251,7 +2252,7 @@ const commonController = {
         // Clean up uploaded file if it was saved to disk
         if (file.path) {
           try {
-            fs.unlinkSync(file.path);
+            await fs.promises.unlink(file.path);
           } catch (e) {
             // Ignore cleanup errors
           }
@@ -2371,7 +2372,7 @@ const commonController = {
         // Clean up file on error
         if (file.path) {
           try {
-            fs.unlinkSync(file.path);
+            await fs.promises.unlink(file.path);
           } catch (e) {
             // Ignore cleanup errors
           }
@@ -4942,6 +4943,7 @@ const commonController = {
 
       console.info(`[CreateEmployee:POST][${postId}] step9_commit_start`, { elapsed: elapsed() });
       await client.query("COMMIT");
+      invalidateUserPermissionCache(organizationId, userId);
       console.info(`[CreateEmployee:POST][${postId}] step9_commit_done`, { userId, elapsed: elapsed() });
 
       setImmediate(async () => {
@@ -5754,6 +5756,7 @@ const commonController = {
       }
 
       await client.query("COMMIT");
+      invalidateUserPermissionCache(organizationId, userId);
       console.info(`[ModifyEmployee:POST][${modId}] ====== COMMITTED — total ${elapsed()} ======\n`);
 
       req.flash("success", "Employee details updated successfully.");
@@ -7156,6 +7159,10 @@ const commonController = {
       }
 
       await db.query("COMMIT");
+      if (replacementUser?.user_id) {
+        invalidateUserPermissionCache(organizationId, replacementUser.user_id);
+      }
+      invalidateUserPermissionCache(organizationId, userId);
 
       req.flash("success", "Employee deleted successfully.");
       res.redirect("/common/manageEmployees");

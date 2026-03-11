@@ -6,6 +6,7 @@ const dbConnectionString = process.env.DB_CONNECTION_STRING;
 const shouldUseSsl =
   process.env.DB_SSL === 'true' ||
   (dbConnectionString || '').includes('sslmode=require');
+const slowQueryThresholdMs = Number(process.env.DB_SLOW_QUERY_MS || 800);
 
 function warnIfDbConfigLooksWrong() {
   if (!dbConnectionString) {
@@ -39,6 +40,37 @@ const pool = new Pool({
   // Kill any query that hangs for more than 30 s so a stalled query never
   // blocks the pool and makes the entire app appear to hang.
   statement_timeout: 30000,
+});
+
+const dbMetrics = {
+  totalQueries: 0,
+  slowQueries: 0,
+};
+
+const originalQuery = pool.query.bind(pool);
+
+pool.query = async (...args) => {
+  const startedAt = process.hrtime.bigint();
+  try {
+    return await originalQuery(...args);
+  } finally {
+    const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
+    dbMetrics.totalQueries += 1;
+
+    if (elapsedMs >= slowQueryThresholdMs) {
+      dbMetrics.slowQueries += 1;
+      const queryInput = args[0];
+      const sqlText = typeof queryInput === 'string'
+        ? queryInput
+        : (queryInput && typeof queryInput.text === 'string' ? queryInput.text : '[unknown query]');
+      const compactSql = sqlText.replace(/\s+/g, ' ').trim().slice(0, 240);
+      console.warn(`[DB][SLOW] ${elapsedMs.toFixed(1)}ms ${compactSql}`);
+    }
+  }
+};
+
+pool.getQueryMetrics = () => ({
+  ...dbMetrics,
 });
 
 pool.on('connect', () => {
