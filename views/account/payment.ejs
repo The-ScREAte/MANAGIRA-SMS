@@ -221,6 +221,66 @@
         text-decoration: underline;
       }
 
+      .redirect-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(2px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+      }
+
+      .redirect-overlay.active {
+        display: flex;
+      }
+
+      .redirect-overlay-content {
+        text-align: center;
+        padding: 24px;
+        max-width: 360px;
+      }
+
+      .redirect-overlay-spinner {
+        width: 46px;
+        height: 46px;
+        border: 4px solid #dbe3ea;
+        border-top-color: var(--primary);
+        border-radius: 50%;
+        margin: 0 auto 14px;
+        animation: spin 0.8s linear infinite;
+      }
+
+      .redirect-overlay-title {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+      }
+
+      .redirect-overlay-subtitle {
+        margin: 8px 0 0;
+        font-size: 0.94rem;
+        color: var(--text-secondary);
+      }
+
+      .redirect-overlay-status {
+        margin: 12px 0 0;
+        min-height: 1.3em;
+        font-size: 0.92rem;
+        color: #0f5132;
+        font-weight: 700;
+      }
+
+      .redirect-overlay-status-secondary {
+        margin: 8px 0 0;
+        min-height: 1.2em;
+        font-size: 0.88rem;
+        color: #475569;
+        font-weight: 600;
+      }
+
       .flash-message {
         padding: 15px;
         margin-bottom: 20px;
@@ -337,6 +397,26 @@
         .btn-primary {
           font-size: 0.98rem;
         }
+
+        .redirect-overlay-content {
+          max-width: 90vw;
+          padding: 18px;
+        }
+      }
+
+      @media (max-width: 420px) {
+        .redirect-overlay-spinner {
+          width: 40px;
+          height: 40px;
+        }
+
+        .redirect-overlay-title {
+          font-size: 1rem;
+        }
+
+        .redirect-overlay-subtitle {
+          font-size: 0.88rem;
+        }
       }
   </style>
 <%- include('../partials/flash') %>
@@ -445,13 +525,94 @@
     <% } %>
   </form>
 </div>
+<div id="redirect-overlay" class="redirect-overlay" aria-hidden="true" role="status" aria-live="polite">
+  <div class="redirect-overlay-content">
+    <div class="redirect-overlay-spinner" aria-hidden="true"></div>
+    <p class="redirect-overlay-title">Setting up your school...</p>
+    <p class="redirect-overlay-subtitle">Don&apos;t leave this page.</p>
+    <p id="redirect-overlay-status" class="redirect-overlay-status" aria-live="polite"></p>
+    <p id="redirect-overlay-status-secondary" class="redirect-overlay-status-secondary" aria-live="polite"></p>
+  </div>
+</div>
 <script>
       document.addEventListener("DOMContentLoaded", function () {
         const basePaymentAmount = parseInt('<%= paymentDetails.amount %>', 10);
         let finalPaymentAmount = basePaymentAmount;
         let appliedPromoCode = '';
+        let isSubmittingAfterPayment = false;
         const gatewayCurrency = '<%= paystackChargeCurrency || "GHS" %>';
         const defaultPayButtonHtml = '<% if (isTrialCheckout) { %>Begin Free Trial<% } else { %>Pay <%= paystackChargeCurrency || "GHS" %> <span id="final-amount"><%= (paymentDetails.amount / 100).toFixed(2) %></span><% } %>';
+        const redirectOverlay = document.getElementById("redirect-overlay");
+        const redirectStatusText = document.getElementById("redirect-overlay-status");
+        const redirectSecondaryStatusText = document.getElementById("redirect-overlay-status-secondary");
+        const redirectProgressMessages = [
+          "Just a few seconds left, hang tight...",
+          "Now almost there...",
+          "Setup almost complete..."
+        ];
+        const redirectSecondaryMessages = [
+          "Running final checks...",
+          "Applying finishing touches...",
+          "Preparing your dashboard..."
+        ];
+        let redirectProgressTimeouts = [];
+
+      function setRedirectStatusText(message) {
+        if (!redirectStatusText) return;
+        redirectStatusText.textContent = message || "";
+      }
+
+      function setRedirectSecondaryStatusText(message) {
+        if (!redirectSecondaryStatusText) return;
+        redirectSecondaryStatusText.textContent = message || "";
+      }
+
+      function clearRedirectProgressMessages() {
+        redirectProgressTimeouts.forEach(function(timeoutId) {
+          clearTimeout(timeoutId);
+        });
+        redirectProgressTimeouts = [];
+      }
+
+      function startRedirectProgressMessages() {
+        clearRedirectProgressMessages();
+        setRedirectStatusText("");
+        setRedirectSecondaryStatusText("");
+
+        const baseDelay = 1800;
+        const stepDelay = 2200;
+        const secondaryStartDelay = baseDelay + ((redirectProgressMessages.length - 1) * stepDelay) + 1700;
+        const secondaryStepDelay = 1700;
+
+        redirectProgressMessages.forEach(function(message, index) {
+          const timeoutId = setTimeout(function() {
+            setRedirectStatusText(message);
+          }, baseDelay + (index * stepDelay));
+          redirectProgressTimeouts.push(timeoutId);
+        });
+
+        redirectSecondaryMessages.forEach(function(message, index) {
+          const timeoutId = setTimeout(function() {
+            setRedirectSecondaryStatusText(message);
+          }, secondaryStartDelay + (index * secondaryStepDelay));
+          redirectProgressTimeouts.push(timeoutId);
+        });
+      }
+
+      function showRedirectOverlay() {
+        if (!redirectOverlay) return;
+        redirectOverlay.classList.add("active");
+        redirectOverlay.setAttribute("aria-hidden", "false");
+      }
+
+      function hideRedirectOverlay() {
+        if (!redirectOverlay) return;
+        redirectOverlay.classList.remove("active");
+        redirectOverlay.setAttribute("aria-hidden", "true");
+        clearRedirectProgressMessages();
+        setRedirectStatusText("");
+        setRedirectSecondaryStatusText("");
+      }
 
       function confirmPayment() {
         return confirm(
@@ -626,23 +787,35 @@
               ]
             },
             callback: function(response) {
+              if (isSubmittingAfterPayment) {
+                return;
+              }
+              isSubmittingAfterPayment = true;
+
               // Payment was successful
               document.getElementById("paymentReference").value = response.reference;
               document.getElementById("hiddenPromoCode").value = appliedPromoCode;
               
               const paymentMessage = document.getElementById("payment-message");
               if (paymentMessage) {
-                paymentMessage.textContent = "Payment successful! Redirecting...";
+                paymentMessage.textContent = "Payment successful! Setting up your school. Don't leave this page.";
                 paymentMessage.style.color = "green";
                 paymentMessage.style.display = "block";
               }
+
+              showRedirectOverlay();
+              startRedirectProgressMessages();
               
-              document.getElementById("payment-form").submit();
+              setTimeout(function() {
+                document.getElementById("payment-form").submit();
+              }, 13000);
             },
             onClose: function() {
               // Payment was cancelled
               payButton.disabled = false;
               payButton.innerHTML = defaultPayButtonHtml;
+              isSubmittingAfterPayment = false;
+              hideRedirectOverlay();
               
               const paymentMessage = document.getElementById("payment-message");
               if (paymentMessage) {
@@ -658,6 +831,8 @@
           console.error("Error opening Paystack:", error);
           payButton.disabled = false;
           payButton.innerHTML = defaultPayButtonHtml;
+          isSubmittingAfterPayment = false;
+          hideRedirectOverlay();
           
           const paymentMessage = document.getElementById("payment-message");
           if (paymentMessage) {

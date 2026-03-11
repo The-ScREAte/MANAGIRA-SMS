@@ -567,6 +567,30 @@ li {
     padding: 0 !important;
   }
 
+  .org-welcome-card {
+    padding: 20px 16px;
+  }
+
+  .org-welcome-card h1 {
+    font-size: 1.55rem;
+  }
+
+  .org-welcome-card h3 {
+    font-size: 1rem;
+    margin-bottom: 10px;
+  }
+
+  .org-welcome-card p {
+    font-size: 1rem;
+    line-height: 1.55;
+  }
+
+  .start-link {
+    margin-top: 14px;
+    padding: 10px 14px;
+    font-size: 1rem;
+  }
+
   /* Stack dashboard header elements */
   .public-dashboard-header {
     grid-template-columns: 1fr;
@@ -665,6 +689,16 @@ li {
   .dashboard-buttons button {
     max-width: 44%;
     font-size: 0.8rem;
+  }
+}
+
+@media screen and (max-width: 420px) {
+  .org-welcome-card h1 {
+    font-size: 1.4rem;
+  }
+
+  .org-welcome-card p {
+    font-size: 0.95rem;
   }
 }
 
