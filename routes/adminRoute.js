@@ -131,6 +131,9 @@ module.exports = (db) => {
     router.get('/employment', isAuthenticated, ensureAdmin, adminController.getEmploymentAdmin);
     router.post('/employment', isAuthenticated, ensureAdmin, adminController.postEmployment);
     router.post('/employment/delete/:id', isAuthenticated, ensureAdmin, adminController.deleteEmployment);
+    router.post('/employment/applications/:id/approve', isAuthenticated, ensureAdmin, adminController.approveEmploymentApplication);
+    router.post('/employment/applications/:id/reject', isAuthenticated, ensureAdmin, adminController.rejectEmploymentApplication);
+    router.post('/employment/applications/:id/delete', isAuthenticated, ensureAdmin, adminController.deleteEmploymentApplication);
     
     router.get('/donations', isAuthenticated, ensureAdmin, adminController.getDonationsAdmin);
     router.post('/donations', isAuthenticated, ensureAdmin, upload.single('image'), adminController.postDonation);

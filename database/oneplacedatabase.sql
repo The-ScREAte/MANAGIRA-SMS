@@ -890,7 +890,33 @@ CREATE TABLE employment (
     id SERIAL PRIMARY KEY,
     title TEXT NOT NULL,
     description TEXT NOT NULL,
-    external_link TEXT NOT NULL,
+    external_link TEXT,
+    application_mode TEXT NOT NULL DEFAULT 'external' CHECK (application_mode IN ('external', 'in_app')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE employment_applications (
+    id SERIAL PRIMARY KEY,
+    employment_id INTEGER NOT NULL REFERENCES employment(id) ON DELETE CASCADE,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    location TEXT NOT NULL,
+    whatsapp_number TEXT,
+    contact_via_text BOOLEAN NOT NULL DEFAULT false,
+    contact_via_email BOOLEAN NOT NULL DEFAULT true,
+    cover_letter TEXT NOT NULL,
+    resume_url TEXT NOT NULL,
+    resume_s3_key TEXT,
+    resume_filename TEXT,
+    cover_letter_url TEXT,
+    cover_letter_s3_key TEXT,
+    cover_letter_filename TEXT,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    rejection_reason TEXT,
+    reviewed_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

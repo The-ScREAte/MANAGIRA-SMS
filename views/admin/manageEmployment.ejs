@@ -59,27 +59,60 @@
   }
 
   .job-wrapper {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
     padding: 0 0 40px;
   }
 
   .job-card {
+    width: 100%;
     background: #ffffff;
     border: 1px solid #e5e7eb;
     border-radius: 12px;
-    padding: 20px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     transition: all 0.2s ease;
-    display: flex;
-    flex-direction: column;
-    text-align: center;
+    overflow: hidden;
   }
 
   .job-card:hover {
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
     border-color: var(--admin-primary, #2563eb);
+  }
+
+  .job-summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 18px 20px;
+    background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  }
+
+  .job-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .job-card[open] .job-summary {
+    border-bottom: 1px solid #e5e7eb;
+    background: #f8fbff;
+  }
+
+  .job-body {
+    padding: 18px 20px 20px;
+    text-align: left;
+  }
+
+  .job-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .expand-hint {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #4b5563;
   }
 
   .job-icon {
@@ -100,7 +133,10 @@
     color: var(--admin-text-secondary, #4b5563);
     margin: 0 0 16px;
     line-height: 1.5;
-    flex: 1;
+  }
+
+  .job-description {
+    white-space: pre-line;
   }
 
   .job-link {
@@ -130,10 +166,6 @@
   }
 
   @media (max-width: 768px) {
-    .job-wrapper {
-      grid-template-columns: 1fr;
-    }
-
     .job-form {
       margin: 0 10px 32px;
       padding: 20px;
@@ -153,7 +185,7 @@
 
 <div class="employment-container">
   <div class="page-header">
-    <h1>💼 Employment Management</h1>
+    <h1>Employment Management</h1>
   </div>
 
   <%- include('../partials/flash') %>
@@ -161,9 +193,23 @@
   <form method="POST" action="/admin/employment" class="job-form">
     <input type="text" name="title" placeholder="Job Title" required />
     <textarea name="description" placeholder="Job Description" required></textarea>
-    <input type="url" name="external_link" placeholder="External Link (e.g., LinkedIn Job Posting)" required />
+
+    <label for="application_mode" style="display: block; margin-bottom: 8px; font-weight: 600; color: #1f2937;">Application Type</label>
+    <select id="application_mode" name="application_mode" style="width: 100%; margin-bottom: 16px; padding: 12px; font-size: 0.9rem; border-radius: 8px; border: 1px solid #d1d5db;">
+      <option value="external" selected>External Link</option>
+      <option value="in_app">In-App Application Form</option>
+    </select>
+
+    <div id="externalLinkWrapper">
+      <input id="external_link" type="url" name="external_link" placeholder="External Link (e.g., LinkedIn Job Posting)" required />
+    </div>
+
+    <p style="margin: -6px 0 16px; color: #6b7280; font-size: 0.85rem;">
+      In-app mode uses the built-in application form with resume upload, contact info, and cover letter.
+    </p>
+
     <button type="submit" class="admin-btn admin-btn-primary admin-btn-lg" style="width: 100%;">
-      + Post Job Opening
+      Post Job Opening
     </button>
   </form>
 
@@ -174,18 +220,160 @@
       </div>
     <% } else { %>
       <% jobs.forEach(job => { %>
-        <div class="job-card">
-          <div class="job-icon">💼</div>
-          <h3><%= job.title %></h3>
-          <p><%= job.description %></p>
-          <a href="<%= job.external_link %>" class="job-link" target="_blank">🔗 View Job Posting</a>
-          <form action="/admin/employment/delete/<%= job.id %>" method="POST">
-            <button type="submit" class="admin-btn admin-btn-delete admin-btn-sm" onclick="return confirm('Delete this job posting?')" style="width: 100%;">
-              🗑 Delete Job
-            </button>
-          </form>
-        </div>
+        <details class="job-card admin-job">
+          <summary class="job-summary">
+            <div class="job-header-row">
+              <h3><%= job.title %></h3>
+              <span class="expand-hint">Click to expand</span>
+            </div>
+            <p style="margin: 0; font-weight: 600; color: #111827;">
+              Apply via: <%= job.application_mode === 'in_app' ? 'In-App Form' : 'External Link' %>
+            </p>
+          </summary>
+
+          <div class="job-body">
+            <p class="job-description"><%= job.description %></p>
+
+            <% if (job.application_mode === 'external' && job.external_link) { %>
+              <a href="<%= job.external_link %>" class="job-link" target="_blank">View Job Posting</a>
+            <% } %>
+
+            <% const jobApplications = (applications || []).filter(app => app.employment_id === job.id); %>
+            <% if (job.application_mode === 'in_app') { %>
+              <details style="margin-bottom: 16px; text-align: left; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px;">
+                <summary style="cursor: pointer; font-weight: 600; color: #1f2937;">
+                  Applications (<%= jobApplications.length %>)
+                </summary>
+                <div style="margin-top: 12px;">
+                  <% if (jobApplications.length === 0) { %>
+                    <p style="margin: 0; color: #6b7280; font-size: 0.9rem;">No applications yet.</p>
+                  <% } else { %>
+                    <% jobApplications.forEach(application => { %>
+                      <details style="margin-bottom: 10px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; background: #f9fafb;">
+                        <summary style="cursor: pointer; font-weight: 600; color: #111827;">
+                          <%= application.first_name %> <%= application.last_name %> - <%= new Date(application.created_at).toLocaleDateString() %>
+                        </summary>
+                        <div style="font-size: 0.88rem; color: #374151; line-height: 1.5; margin-top: 10px;">
+                          <p style="margin: 4px 0;">
+                            <strong>Status:</strong>
+                            <span style="display: inline-block; margin-left: 6px; padding: 3px 8px; border-radius: 999px; background: <%= application.status === 'rejected' ? '#fee2e2' : (application.status === 'approved' ? '#dbeafe' : '#dcfce7') %>; color: <%= application.status === 'rejected' ? '#991b1b' : (application.status === 'approved' ? '#1e3a8a' : '#166534') %>; font-size: 0.78rem; font-weight: 700; text-transform: uppercase;">
+                              <%= application.status || 'pending' %>
+                            </span>
+                          </p>
+                          <p style="margin: 4px 0;"><strong>Email:</strong> <a href="mailto:<%= application.email %>"><%= application.email %></a></p>
+                          <p style="margin: 4px 0;"><strong>Phone:</strong> <a href="tel:<%= application.phone %>"><%= application.phone %></a></p>
+                          <p style="margin: 4px 0;"><strong>Location:</strong> <%= application.location || 'Not provided' %></p>
+                          <% if (application.whatsapp_number) { %>
+                            <p style="margin: 4px 0;"><strong>WhatsApp:</strong> <a href="https://wa.me/<%= application.whatsapp_number.replace(/[^\d]/g, '') %>" target="_blank"><%= application.whatsapp_number %></a></p>
+                          <% } %>
+                          <p style="margin: 4px 0;"><strong>Contact Preference:</strong>
+                            <%= application.contact_via_text ? 'Text' : '' %><%= application.contact_via_text && application.contact_via_email ? ' & ' : '' %><%= application.contact_via_email ? 'Email' : '' %>
+                          </p>
+                          <p style="margin: 8px 0 4px;"><strong>Cover Letter Note:</strong></p>
+                          <p style="margin: 0 0 8px; white-space: pre-wrap;"><%= application.cover_letter %></p>
+                          <% if (application.cover_letter_url) { %>
+                            <p style="margin: 0 0 8px;"><a href="<%= application.cover_letter_url %>" target="_blank" rel="noopener">Download Cover Letter</a></p>
+                          <% } %>
+                          <% if (application.rejection_reason) { %>
+                            <p style="margin: 8px 0 4px;"><strong>Rejection Reason:</strong></p>
+                            <p style="margin: 0 0 8px; white-space: pre-wrap;"><%= application.rejection_reason %></p>
+                          <% } %>
+                          <p style="margin: 0;"><a href="<%= application.resume_url %>" target="_blank" rel="noopener">Download Resume</a></p>
+
+                          <div style="display: grid; gap: 8px; margin-top: 12px;">
+                            <form method="POST" action="/admin/employment/applications/<%= application.id %>/approve" onsubmit="return confirm('Send approval email for this applicant?');" style="margin: 0;">
+                              <button
+                                type="submit"
+                                class="admin-btn admin-btn-sm"
+                                style="width: 100%; background: #0f766e; color: #fff; border: 1px solid #115e59;"
+                                <%= application.status === 'approved' ? 'disabled' : '' %>
+                              >
+                                <%= application.status === 'approved' ? 'Already Approved' : 'Approve and Send Email' %>
+                              </button>
+                            </form>
+
+                            <form method="POST" action="/admin/employment/applications/<%= application.id %>/reject" onsubmit="return confirm('Send rejection email for this applicant?');" style="margin: 0;">
+                              <textarea
+                                name="rejection_reason"
+                                placeholder="Optional rejection reason to include in email"
+                                style="width: 100%; min-height: 70px; border: 1px solid #d1d5db; border-radius: 8px; padding: 8px; font-family: inherit; font-size: 0.85rem; margin-bottom: 8px; box-sizing: border-box;"
+                              ></textarea>
+                              <button
+                                type="submit"
+                                class="admin-btn admin-btn-sm"
+                                style="width: 100%; background: #b91c1c; color: #fff; border: 1px solid #991b1b;"
+                                <%= application.status === 'rejected' ? 'disabled' : '' %>
+                              >
+                                <%= application.status === 'rejected' ? 'Already Rejected' : 'Reject and Send Email' %>
+                              </button>
+                            </form>
+
+                            <form method="POST" action="/admin/employment/applications/<%= application.id %>/delete" onsubmit="return confirm('Delete this application permanently?');" style="margin: 0;">
+                              <button type="submit" class="admin-btn admin-btn-delete admin-btn-sm" style="width: 100%;">
+                                Delete Application
+                              </button>
+                            </form>
+                          </div>
+                        </div>
+                      </details>
+                    <% }) %>
+                  <% } %>
+                </div>
+              </details>
+            <% } %>
+
+            <form action="/admin/employment/delete/<%= job.id %>" method="POST">
+              <button type="submit" class="admin-btn admin-btn-delete admin-btn-sm" onclick="return confirm('Delete this job posting?')" style="width: 100%;">
+                Delete Job
+              </button>
+            </form>
+          </div>
+        </details>
       <% }) %>
     <% } %>
   </div>
 </div>
+
+<script>
+  (function () {
+    const modeSelect = document.getElementById('application_mode');
+    const externalLinkWrapper = document.getElementById('externalLinkWrapper');
+    const externalLinkInput = document.getElementById('external_link');
+
+    if (!modeSelect || !externalLinkWrapper || !externalLinkInput) return;
+
+    function syncApplicationMode() {
+      const isExternal = modeSelect.value === 'external';
+      externalLinkWrapper.style.display = isExternal ? 'block' : 'none';
+      externalLinkInput.required = isExternal;
+      if (!isExternal) {
+        externalLinkInput.value = '';
+      }
+    }
+
+    modeSelect.addEventListener('change', syncApplicationMode);
+    syncApplicationMode();
+
+    const jobPanels = Array.from(document.querySelectorAll('.admin-job'));
+    jobPanels.forEach((panel) => {
+      const hint = panel.querySelector('.expand-hint');
+      const setHint = () => {
+        if (hint) {
+          hint.textContent = panel.open ? 'Click to collapse' : 'Click to expand';
+        }
+      };
+
+      setHint();
+      panel.addEventListener('toggle', () => {
+        if (panel.open) {
+          jobPanels.forEach((otherPanel) => {
+            if (otherPanel !== panel && otherPanel.open) {
+              otherPanel.open = false;
+            }
+          });
+        }
+        setHint();
+      });
+    });
+  })();
+</script>

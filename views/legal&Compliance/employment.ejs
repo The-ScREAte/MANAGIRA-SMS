@@ -1,16 +1,90 @@
-<h1 class="page-title">Employment Opportunities</h1>
+<h1 class="page-title">Job Posting</h1>
+
+<%- include('../partials/flash') %>
 
 <div class="job-container">
   <% if (jobs.length === 0) { %>
     <p class="no-jobs">No job openings available at this time. Please check back later.</p>
   <% } else { %>
     <% jobs.forEach(job => { %>
-      <div class="job-posting">
-        <i class="fas fa-briefcase"></i>
-        <h2><%= job.title %></h2>
-        <p><%= job.description %></p>
-        <a href="<%= job.external_link %>" target="_blank" class="btn">Apply Now</a>
-      </div>
+      <details class="job-posting" id="job-<%= job.id %>">
+        <summary class="job-summary">
+          <div class="job-top-row">
+            <h2><%= job.title %></h2>
+            <span class="mode-pill"><%= job.application_mode === 'in_app' ? 'In-App Application' : 'External Application' %></span>
+          </div>
+          <span class="expand-hint">Click to expand</span>
+        </summary>
+
+        <div class="job-details">
+          <p class="job-description"><%= job.description %></p>
+
+          <% if (job.application_mode === 'external') { %>
+            <a href="<%= job.external_link %>" target="_blank" class="btn" rel="noopener">Apply Externally</a>
+          <% } else { %>
+            <details class="apply-panel">
+              <summary class="apply-summary">Apply for this role <span class="apply-hint">(expand)</span></summary>
+
+              <form class="application-form" method="POST" action="/legal/employment/<%= job.id %>/apply" enctype="multipart/form-data">
+                <div class="grid-two">
+                  <div class="field-group">
+                    <label for="first_name_<%= job.id %>">First Name</label>
+                    <input id="first_name_<%= job.id %>" type="text" name="first_name" required />
+                  </div>
+                  <div class="field-group">
+                    <label for="last_name_<%= job.id %>">Last Name</label>
+                    <input id="last_name_<%= job.id %>" type="text" name="last_name" required />
+                  </div>
+                </div>
+
+                <div class="grid-two">
+                  <div class="field-group">
+                    <label for="email_<%= job.id %>">Email</label>
+                    <input id="email_<%= job.id %>" type="email" name="email" required />
+                  </div>
+                  <div class="field-group">
+                    <label for="phone_<%= job.id %>">Phone Number</label>
+                    <input id="phone_<%= job.id %>" type="tel" name="phone" required />
+                  </div>
+                </div>
+
+                <div class="field-group">
+                  <label for="location_<%= job.id %>">Current Location (City, State/Country)</label>
+                  <input id="location_<%= job.id %>" type="text" name="location" required />
+                </div>
+
+                <div class="field-group">
+                  <label for="whatsapp_<%= job.id %>">WhatsApp Number (Optional)</label>
+                  <input id="whatsapp_<%= job.id %>" type="tel" name="whatsapp_number" />
+                </div>
+
+                <div class="field-group checkbox-group">
+                  <span>Preferred contact method (choose at least one):</span>
+                  <label><input type="checkbox" name="contact_via_email" checked /> Email</label>
+                  <label><input type="checkbox" name="contact_via_text" /> Text</label>
+                </div>
+
+                <div class="field-group">
+                  <label for="resume_<%= job.id %>">Resume (PDF, DOC, DOCX up to 5MB)</label>
+                  <input id="resume_<%= job.id %>" type="file" name="resume" accept=".pdf,.doc,.docx" required />
+                </div>
+
+                <div class="field-group">
+                  <label for="cover_letter_file_<%= job.id %>">Cover Letter File (Optional: PDF, DOC, DOCX up to 5MB)</label>
+                  <input id="cover_letter_file_<%= job.id %>" type="file" name="cover_letter_file" accept=".pdf,.doc,.docx" />
+                </div>
+
+                <div class="field-group">
+                  <label for="cover_letter_note_<%= job.id %>">Cover Letter Note (Optional)</label>
+                  <textarea id="cover_letter_note_<%= job.id %>" name="cover_letter_note" placeholder="Optional short note for hiring team"></textarea>
+                </div>
+
+                <button type="submit" class="btn">Submit Application</button>
+              </form>
+            </details>
+          <% } %>
+        </div>
+      </details>
     <% }) %>
   <% } %>
 </div>
@@ -18,63 +92,196 @@
 <style>
   .page-title {
     text-align: center;
-    font-size: 2rem;
-    color: #2c3e50;
-    margin: 40px 20px 20px;
+    font-size: 2.2rem;
+    color: #0b1424;
+    margin: 44px 20px 24px;
+    letter-spacing: 0.2px;
   }
 
   .job-container {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 0 16px 50px;
+    gap: 20px;
+    padding: 0 16px 56px;
     max-width: 100%;
     box-sizing: border-box;
   }
 
   .job-posting {
     width: 100%;
-    max-width: 500px;
-    background: #fff;
-    border-left: 4px solid #2c3e50;
-    padding: 20px;
-    margin: 0 auto 25px auto;
-    border-radius: 5px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    max-width: 760px;
+    background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+    border: 1px solid #d5dfeb;
+    border-radius: 14px;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
     text-align: left;
+    overflow: hidden;
   }
 
-  .job-posting i {
-    color: #2c3e50;
-    margin-right: 6px;
-    font-size: 1.2rem;
+  .job-summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 20px 22px;
+    transition: background-color 0.2s ease;
+  }
+
+  .job-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .job-posting[open] .job-summary {
+    background: #f7fbff;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .job-details {
+    padding: 18px 22px 22px;
+  }
+
+  .job-top-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
   }
 
   .job-posting h2 {
-    margin: 10px 0;
-    font-size: 1.25rem;
-    color: #2c3e50;
+    margin: 0 0 10px;
+    font-size: 1.35rem;
+    color: #10223f;
+  }
+
+  .expand-hint {
+    display: inline-flex;
+    margin-top: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #334155;
   }
 
   .job-posting p {
     font-size: 1rem;
-    color: #555;
-    margin-bottom: 15px;
+    color: #334155;
+    margin-bottom: 16px;
+    line-height: 1.6;
+  }
+
+  .job-description {
+    white-space: pre-line;
+  }
+
+  .mode-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #eaf4ff;
+    color: #174ea6;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
+  .apply-panel {
+    margin-top: 8px;
+    border: 1px solid #d8e4f0;
+    border-radius: 10px;
+    background: #ffffff;
+  }
+
+  .apply-summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 12px 14px;
+    font-weight: 700;
+    color: #0f172a;
+    border-bottom: 1px dashed transparent;
+  }
+
+  .apply-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .apply-panel[open] .apply-summary {
+    border-bottom-color: #d8e4f0;
+    background: #f8fbff;
   }
 
   .btn {
     display: inline-block;
-    background-color: #2c3e50;
+    background-color: #0d2d5a;
     color: #fff;
-    padding: 10px 18px;
+    border: none;
+    padding: 11px 18px;
     text-decoration: none;
     font-size: 0.95rem;
-    border-radius: 4px;
+    border-radius: 8px;
     transition: background-color 0.2s ease;
+    cursor: pointer;
   }
 
   .btn:hover {
-    background-color: #1b2a38;
+    background-color: #14407a;
+  }
+
+  .application-form {
+    padding: 14px;
+  }
+
+  .grid-two {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .field-group {
+    margin-bottom: 12px;
+  }
+
+  .field-group label,
+  .field-group span {
+    display: block;
+    margin-bottom: 6px;
+    color: #1e293b;
+    font-weight: 600;
+    font-size: 0.88rem;
+  }
+
+  .field-group input,
+  .field-group textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 11px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.92rem;
+  }
+
+  .field-group textarea {
+    min-height: 100px;
+    resize: vertical;
+  }
+
+  .field-group input:focus,
+  .field-group textarea:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  }
+
+  .checkbox-group label {
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-right: 14px;
+    margin-bottom: 0;
+  }
+
+  .checkbox-group input {
+    width: auto;
+    margin: 0;
   }
 
   .no-jobs {
@@ -84,16 +291,54 @@
     padding: 30px 10px;
   }
 
-  @media (min-width: 700px) {
-    .job-container {
-      flex-direction: row;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 20px;
+  @media (max-width: 700px) {
+    .grid-two {
+      grid-template-columns: 1fr;
     }
 
-    .job-posting {
-      margin: 10px;
+    .job-top-row {
+      flex-direction: column;
+      align-items: flex-start;
     }
   }
 </style>
+
+<script>
+  (function () {
+    const jobPanels = Array.from(document.querySelectorAll('.job-posting'));
+    const applyPanels = Array.from(document.querySelectorAll('.apply-panel'));
+
+    function setJobHint(panel) {
+      const hint = panel.querySelector('.expand-hint');
+      if (!hint) return;
+      hint.textContent = panel.open ? 'Click to collapse' : 'Click to expand';
+    }
+
+    function setApplyHint(panel) {
+      const hint = panel.querySelector('.apply-hint');
+      if (!hint) return;
+      hint.textContent = panel.open ? '(collapse)' : '(expand)';
+    }
+
+    jobPanels.forEach((panel) => {
+      setJobHint(panel);
+      panel.addEventListener('toggle', () => {
+        if (panel.open) {
+          jobPanels.forEach((otherPanel) => {
+            if (otherPanel !== panel && otherPanel.open) {
+              otherPanel.open = false;
+            }
+          });
+        }
+        setJobHint(panel);
+      });
+    });
+
+    applyPanels.forEach((panel) => {
+      setApplyHint(panel);
+      panel.addEventListener('toggle', () => {
+        setApplyHint(panel);
+      });
+    });
+  })();
+</script>

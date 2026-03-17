@@ -24,6 +24,7 @@ const {
   invalidateOrganizationAccessCache,
   invalidateAccessForPlan,
 } = require("../utils/accessCache");
+const { ensureEmploymentSchema } = require("../utils/employmentSchema");
 
 const adminController = {
   adminDashboard: async (req, res) => {
@@ -1340,28 +1341,71 @@ const adminController = {
   },
 
   getEmploymentAdmin: async (req, res) => {
-    const jobs = await db.query(
-      `SELECT * FROM employment ORDER BY created_at DESC`
-    );
+    await ensureEmploymentSchema(db);
+
+    const jobs = await db.query(`
+      SELECT
+        e.*,
+        COALESCE(a.application_count, 0)::int AS application_count
+      FROM employment e
+      LEFT JOIN (
+        SELECT employment_id, COUNT(*) AS application_count
+        FROM employment_applications
+        GROUP BY employment_id
+      ) a ON a.employment_id = e.id
+      ORDER BY e.created_at DESC
+    `);
+
+    const applications = await db.query(`
+      SELECT
+        ea.*,
+        e.title AS job_title
+      FROM employment_applications ea
+      JOIN employment e ON e.id = ea.employment_id
+      ORDER BY
+        CASE
+          WHEN ea.status = 'pending' THEN 0
+          WHEN ea.status = 'approved' THEN 1
+          ELSE 2
+        END,
+        ea.created_at DESC
+    `);
+
     res.render("admin/manageEmployment", {
       title: "Manage Employment",
       jobs: jobs.rows,
+      applications: applications.rows,
       messages: req.flash(),
       showFooterTopSection: true
     });
   },
 
   postEmployment: async (req, res) => {
-    const { title, description, external_link } = req.body;
-    if (!title || !description || !external_link) {
+    await ensureEmploymentSchema(db);
+
+    const { title, description, external_link, application_mode } = req.body;
+    const normalizedMode = application_mode === "in_app" ? "in_app" : "external";
+    const normalizedExternalLink = external_link ? external_link.trim() : "";
+
+    if (!title || !description) {
       req.flash("error", "All fields are required.");
+      return res.redirect("/admin/employment");
+    }
+
+    if (normalizedMode === "external" && !normalizedExternalLink) {
+      req.flash("error", "External application link is required for external mode.");
       return res.redirect("/admin/employment");
     }
 
     try {
       await db.query(
-        `INSERT INTO employment (title, description, external_link) VALUES ($1, $2, $3)`,
-        [title, description, external_link]
+        `INSERT INTO employment (title, description, external_link, application_mode) VALUES ($1, $2, $3, $4)`,
+        [
+          title.trim(),
+          description.trim(),
+          normalizedMode === "external" ? normalizedExternalLink : null,
+          normalizedMode,
+        ]
       );
       req.flash("success", "Job added successfully.");
     } catch (err) {
@@ -1393,6 +1437,8 @@ const adminController = {
   },
 
   deleteEmployment: async (req, res) => {
+    await ensureEmploymentSchema(db);
+
     const { id } = req.params;
     try {
       await db.query(`DELETE FROM employment WHERE id = $1`, [id]);
@@ -1401,6 +1447,209 @@ const adminController = {
             req.flash("error", "Error deleting job.");
     }
     res.redirect("/admin/employment");
+  },
+
+  approveEmploymentApplication: async (req, res) => {
+    await ensureEmploymentSchema(db);
+
+    const applicationId = Number.parseInt(req.params.id, 10);
+
+    if (!Number.isInteger(applicationId)) {
+      req.flash("error", "Invalid application selected.");
+      return res.redirect("/admin/employment");
+    }
+
+    try {
+      const applicationResult = await db.query(
+        `SELECT
+          ea.id,
+          ea.first_name,
+          ea.last_name,
+          ea.email,
+          ea.status,
+          e.title AS job_title
+        FROM employment_applications ea
+        JOIN employment e ON e.id = ea.employment_id
+        WHERE ea.id = $1`,
+        [applicationId]
+      );
+
+      if (!applicationResult.rows.length) {
+        req.flash("error", "Application not found.");
+        return res.redirect("/admin/employment");
+      }
+
+      const application = applicationResult.rows[0];
+
+      const html = renderCleanEmail({
+        title: "Employment Application Approved",
+        greeting: `Dear <strong>${he.encode(application.first_name)} ${he.encode(application.last_name)}</strong>,`,
+        paragraphs: [
+          `Thank you for applying for the <strong>${he.encode(application.job_title)}</strong> role at Managira.`,
+          "Your application has been approved for the next stage, and our team will contact you.",
+          "If you do not hear back from us, please reply to this email within one week.",
+        ],
+        details: [
+          { label: "Position", value: application.job_title },
+          { label: "Status", value: "Approved for next stage" },
+        ],
+      });
+
+      const emailSent = await sendEmailSafely(
+        {
+          from: process.env.EMAIL_USER,
+          to: application.email,
+          subject: `Your ${application.job_title} application has been approved`,
+          html,
+          attachments: [
+            {
+              filename: "managira.png",
+              path: path.join(__dirname, "../public/images/managira.png"),
+              cid: "managira_logo",
+            },
+          ],
+        },
+        "Employment Approval Email"
+      );
+
+      if (!emailSent) {
+        req.flash("error", "Could not send approval email. Please try again.");
+        return res.redirect("/admin/employment");
+      }
+
+      await db.query(
+        `UPDATE employment_applications
+         SET status = 'approved',
+             rejection_reason = NULL,
+             reviewed_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [applicationId]
+      );
+
+      req.flash("success", "Approval email sent and application marked as approved.");
+    } catch (error) {
+      req.flash("error", "Failed to approve application.");
+    }
+
+    return res.redirect("/admin/employment");
+  },
+
+  rejectEmploymentApplication: async (req, res) => {
+    await ensureEmploymentSchema(db);
+
+    const applicationId = Number.parseInt(req.params.id, 10);
+    const rejectionReason = (req.body.rejection_reason || "").trim();
+
+    if (!Number.isInteger(applicationId)) {
+      req.flash("error", "Invalid application selected.");
+      return res.redirect("/admin/employment");
+    }
+
+    try {
+      const applicationResult = await db.query(
+        `SELECT
+          ea.id,
+          ea.first_name,
+          ea.last_name,
+          ea.email,
+          ea.status,
+          e.title AS job_title
+        FROM employment_applications ea
+        JOIN employment e ON e.id = ea.employment_id
+        WHERE ea.id = $1`,
+        [applicationId]
+      );
+
+      if (!applicationResult.rows.length) {
+        req.flash("error", "Application not found.");
+        return res.redirect("/admin/employment");
+      }
+
+      const application = applicationResult.rows[0];
+
+      const details = [
+        { label: "Position", value: application.job_title },
+      ];
+      if (rejectionReason) {
+        details.push({ label: "Reason", value: rejectionReason });
+      }
+
+      const html = renderCleanEmail({
+        title: "Employment Application Update",
+        greeting: `Dear <strong>${he.encode(application.first_name)} ${he.encode(application.last_name)}</strong>,`,
+        paragraphs: [
+          `Thank you for your interest in the <strong>${he.encode(application.job_title)}</strong> role at Managira.`,
+          "After careful review, we will not be moving forward with your application at this time.",
+          "We appreciate the time you spent applying and encourage you to apply for future roles that fit your profile.",
+        ],
+        details,
+      });
+
+      const emailSent = await sendEmailSafely(
+        {
+          from: process.env.EMAIL_USER,
+          to: application.email,
+          subject: `Update on your ${application.job_title} application`,
+          html,
+          attachments: [
+            {
+              filename: "managira.png",
+              path: path.join(__dirname, "../public/images/managira.png"),
+              cid: "managira_logo",
+            },
+          ],
+        },
+        "Employment Rejection Email"
+      );
+
+      if (!emailSent) {
+        req.flash("error", "Could not send rejection email. Please try again.");
+        return res.redirect("/admin/employment");
+      }
+
+      await db.query(
+        `UPDATE employment_applications
+         SET status = 'rejected',
+             rejection_reason = $2,
+             reviewed_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [applicationId, rejectionReason || null]
+      );
+
+      req.flash("success", "Rejection email sent and application marked as rejected.");
+    } catch (error) {
+      req.flash("error", "Failed to reject application.");
+    }
+
+    return res.redirect("/admin/employment");
+  },
+
+  deleteEmploymentApplication: async (req, res) => {
+    await ensureEmploymentSchema(db);
+
+    const applicationId = Number.parseInt(req.params.id, 10);
+
+    if (!Number.isInteger(applicationId)) {
+      req.flash("error", "Invalid application selected.");
+      return res.redirect("/admin/employment");
+    }
+
+    try {
+      const deleteResult = await db.query(
+        `DELETE FROM employment_applications WHERE id = $1 RETURNING id`,
+        [applicationId]
+      );
+
+      if (!deleteResult.rows.length) {
+        req.flash("error", "Application not found.");
+      } else {
+        req.flash("success", "Application deleted.");
+      }
+    } catch (error) {
+      req.flash("error", "Failed to delete application.");
+    }
+
+    return res.redirect("/admin/employment");
   },
 
   getDonationsAdmin: async (req, res) => {

@@ -1,7 +1,26 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const legalController = require('../controllers/legalController');
 const checkFeatureAccess = require('../middleware/checkFeatureAccess'); 
+
+const upload = multer({
+	dest: 'uploads/',
+	limits: { fileSize: 5 * 1024 * 1024 },
+	fileFilter: (req, file, cb) => {
+		const allowedMimeTypes = [
+			'application/pdf',
+			'application/msword',
+			'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+		];
+
+		if (allowedMimeTypes.includes(file.mimetype)) {
+			return cb(null, true);
+		}
+
+		return cb(new Error('Only PDF, DOC, and DOCX files are allowed.'));
+	},
+});
 
 
 router.get('/about-us', legalController.aboutUs);
@@ -11,6 +30,19 @@ router.post('/help', legalController.postHelp);
 router.get('/privacy-policy', legalController.privacyPolicy);
 router.get('/terms-of-service', legalController.termsOfService);
 router.get('/employment', legalController.employmentPage);
+router.post('/employment/:id/apply', (req, res, next) => {
+	upload.fields([
+		{ name: 'resume', maxCount: 1 },
+		{ name: 'cover_letter_file', maxCount: 1 },
+	])(req, res, (err) => {
+		if (err) {
+			const message = err.message || 'File upload failed.';
+			req.flash('error', message);
+			return res.redirect('/legal/employment');
+		}
+		return next();
+	});
+}, legalController.submitEmploymentApplication);
 router.get('/donations', legalController.donationsPage);
 // router.get('/directory', legalController.directory); // Temporarily disabled
 module.exports = router;

@@ -1,6 +1,8 @@
 const nodemailer = require('nodemailer');
 const db = require('../config/db');
+const { uploadToS3 } = require('../config/s3');
 const { sendEmailSafely, renderCleanEmail } = require('../utils/emailHelper');
+const { ensureEmploymentSchema } = require('../utils/employmentSchema');
 
 const legalController = {
     aboutUs: (req, res) => {
@@ -94,12 +96,167 @@ const legalController = {
     },
 
     employmentPage: async (req, res) => {
-        const jobs = await db.query(`SELECT * FROM employment ORDER BY created_at DESC`);
-        res.render('legal&Compliance/employment', { 
-            title: 'Employment Opportunities', 
+        await ensureEmploymentSchema(db);
+
+        const jobs = await db.query(`
+            SELECT
+                e.*,
+                COALESCE(a.application_count, 0)::int AS application_count
+            FROM employment e
+            LEFT JOIN (
+                SELECT employment_id, COUNT(*) AS application_count
+                FROM employment_applications
+                GROUP BY employment_id
+            ) a ON a.employment_id = e.id
+            ORDER BY e.created_at DESC
+        `);
+        res.render('legal&Compliance/employment', {
+            title: 'Job Posting',
             jobs: jobs.rows,
+            messages: req.flash(),
             showFooterTopSection: true
         });
+    },
+
+    submitEmploymentApplication: async (req, res) => {
+        await ensureEmploymentSchema(db);
+
+        const employmentId = Number.parseInt(req.params.id, 10);
+        const {
+            first_name,
+            last_name,
+            email,
+            phone,
+            location,
+            whatsapp_number,
+            cover_letter_note,
+            contact_via_text,
+            contact_via_email,
+        } = req.body;
+        const resume = req.files?.resume?.[0];
+        const coverLetterFile = req.files?.cover_letter_file?.[0];
+
+        if (!Number.isInteger(employmentId)) {
+            req.flash('error', 'Invalid job selected.');
+            return res.redirect('/legal/employment');
+        }
+
+        try {
+            const jobResult = await db.query(
+                `SELECT id, title, application_mode FROM employment WHERE id = $1`,
+                [employmentId]
+            );
+
+            if (!jobResult.rows.length) {
+                req.flash('error', 'This job posting no longer exists.');
+                return res.redirect('/legal/employment');
+            }
+
+            const selectedJob = jobResult.rows[0];
+            if (selectedJob.application_mode !== 'in_app') {
+                req.flash('error', 'This role only accepts external applications.');
+                return res.redirect('/legal/employment');
+            }
+
+            if (!first_name || !last_name || !email || !phone || !location || !resume) {
+                req.flash('error', 'Please complete all required fields and upload your resume.');
+                return res.redirect('/legal/employment');
+            }
+
+            const wantsText = contact_via_text === 'on';
+            const wantsEmail = contact_via_email === 'on';
+            if (!wantsText && !wantsEmail) {
+                req.flash('error', 'Select at least one preferred contact method (text or email).');
+                return res.redirect('/legal/employment');
+            }
+
+            const uploadedResume = await uploadToS3(resume);
+            const uploadedCoverLetter = coverLetterFile ? await uploadToS3(coverLetterFile) : null;
+            const normalizedCoverLetterNote = cover_letter_note
+                ? cover_letter_note.trim()
+                : (coverLetterFile ? 'Cover letter uploaded as document.' : 'No cover letter provided.');
+
+            await db.query(
+                `INSERT INTO employment_applications (
+                    employment_id,
+                    first_name,
+                    last_name,
+                    email,
+                    phone,
+                    location,
+                    whatsapp_number,
+                    contact_via_text,
+                    contact_via_email,
+                    cover_letter,
+                    resume_url,
+                    resume_s3_key,
+                    resume_filename,
+                    cover_letter_url,
+                    cover_letter_s3_key,
+                    cover_letter_filename
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+                [
+                    employmentId,
+                    first_name.trim(),
+                    last_name.trim(),
+                    email.trim().toLowerCase(),
+                    phone.trim(),
+                    location.trim(),
+                    whatsapp_number ? whatsapp_number.trim() : null,
+                    wantsText,
+                    wantsEmail,
+                    normalizedCoverLetterNote,
+                    uploadedResume.Location,
+                    uploadedResume.Key,
+                    resume.originalname || null,
+                    uploadedCoverLetter ? uploadedCoverLetter.Location : null,
+                    uploadedCoverLetter ? uploadedCoverLetter.Key : null,
+                    coverLetterFile ? coverLetterFile.originalname : null,
+                ]
+            );
+
+            const alertRecipient = process.env.EMPLOYMENT_ALERT_EMAIL || process.env.EMAIL_USER;
+            if (alertRecipient) {
+                const internalAlertHtml = renderCleanEmail({
+                    title: 'New Employment Application Received',
+                    greeting: 'Hello Team,',
+                    paragraphs: [
+                        'People are applying. A new employment application has been submitted.',
+                        'Please review this application from the Admin Employment page.',
+                    ],
+                    details: [
+                        { label: 'Position', value: selectedJob.title },
+                        { label: 'Applicant', value: `${first_name.trim()} ${last_name.trim()}` },
+                        { label: 'Email', value: email.trim().toLowerCase() },
+                        { label: 'Phone', value: phone.trim() },
+                        { label: 'Location', value: location.trim() },
+                    ],
+                });
+
+                await sendEmailSafely(
+                    {
+                        from: process.env.EMAIL_USER,
+                        to: alertRecipient,
+                        subject: `New Application: ${selectedJob.title}`,
+                        html: internalAlertHtml,
+                        attachments: [
+                            {
+                                filename: 'managira.png',
+                                path: require('path').join(__dirname, '../public/images/managira.png'),
+                                cid: 'managira_logo'
+                            }
+                        ]
+                    },
+                    'Employment New Application Alert Email'
+                );
+            }
+
+            req.flash('success', `Application submitted for ${selectedJob.title}. We will be in touch.`);
+            return res.redirect('/legal/employment');
+        } catch (error) {
+            req.flash('error', 'Could not submit application right now. Please try again.');
+            return res.redirect('/legal/employment');
+        }
     },
 
     donationsPage: async (req, res) => {
