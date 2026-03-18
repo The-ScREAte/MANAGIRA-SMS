@@ -2273,7 +2273,6 @@ async function sendPasswordSetSuccessEmail(email, firstName, lastName) {
     note: 'If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
   });
   const mailOptions = {
-    from: process.env.NOTIFY_EMAIL_USER,
     to: email,
     subject: "Your Password Has Been Set Successfully",
     html,
