@@ -37,7 +37,6 @@ const sendEmploymentApplicantConfirmationEmail = async ({
 
     return sendWithSingleRetry(() => sendEmailSafely(
         {
-            from: process.env.EMAIL_USER,
             to: applicantEmail,
             subject: `Application Received: ${selectedJob.title}`,
             html: applicantConfirmationHtml,
