@@ -1604,7 +1604,7 @@ const adminController = {
 
       const emailSent = await sendEmailSafely(
         {
-          from: process.env.EMAIL_USER,
+          from: process.env.NOTIFY_EMAIL_USER,
           to: application.email,
           subject: `Your ${application.job_title} application has been approved`,
           html,
@@ -1687,7 +1687,7 @@ const adminController = {
 
       const emailSent = await sendEmailSafely(
         {
-          from: process.env.EMAIL_USER,
+          from: process.env.NOTIFY_EMAIL_USER,
           to: application.email,
           subject: `Update on your ${application.job_title} application`,
           html,
@@ -1776,7 +1776,7 @@ const adminController = {
 
       const emailSent = await sendEmailSafely(
         {
-          from: process.env.EMAIL_USER,
+          from: process.env.NOTIFY_EMAIL_USER,
           to: application.email,
           subject: `Update: ${application.job_title} application reconsideration`,
           html,
