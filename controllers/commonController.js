@@ -10058,7 +10058,7 @@ const sendGuardianWelcomeEmail = async (guardianEmail, guardianFirstName, guardi
       ]
     };
 
-    await sendEmailSafely(mailOptions, "Guardian Welcome Email");
+    sendEmailInBackground(mailOptions, "Guardian Welcome Email");
       } catch (error) {
       }
 };
