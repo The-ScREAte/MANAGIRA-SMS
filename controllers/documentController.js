@@ -1,5 +1,5 @@
 const bcrypt = require("bcryptjs");
-const { sendEmailSafely } = require("../utils/emailHelper");
+const { sendEmailInBackground } = require("../utils/emailHelper");
 const { PERMISSIONS, userHasPermission } = require("../middleware/permissionMiddleware");
 
 let documentsSchemaReadyPromise = null;
@@ -342,7 +342,7 @@ const notifyTeachersOnNewClassAssignments = async ({ db, req, orgId, docId, docT
         </div>
       `;
 
-      return sendEmailSafely({
+      sendEmailInBackground({
         to: row.email,
         subject: `New file assigned: ${safeDocTitle}`,
         html,

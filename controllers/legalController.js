@@ -2,7 +2,7 @@ const nodemailer = require('nodemailer');
 const db = require('../config/db');
 const path = require('path');
 const { uploadToS3 } = require('../config/s3');
-const { sendEmailSafely, renderCleanEmail } = require('../utils/emailHelper');
+const { sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require('../utils/emailHelper');
 const { ensureEmploymentSchema } = require('../utils/employmentSchema');
 
 const sendWithSingleRetry = async (sendFn) => {
@@ -35,9 +35,8 @@ const sendEmploymentApplicantConfirmationEmail = async ({
         ],
     });
 
-    return sendWithSingleRetry(() => sendEmailSafely(
+    sendEmailInBackground(
         {
-            from: process.env.EMAIL_USER,
             to: applicantEmail,
             subject: `Application Received: ${selectedJob.title}`,
             html: applicantConfirmationHtml,
@@ -50,7 +49,7 @@ const sendEmploymentApplicantConfirmationEmail = async ({
             ]
         },
         'Employment Applicant Confirmation Email'
-    ));
+    );
 };
 
 const sendEmploymentInternalAlertEmail = async ({
@@ -83,9 +82,8 @@ const sendEmploymentInternalAlertEmail = async ({
         ],
     });
 
-    return sendWithSingleRetry(() => sendEmailSafely(
+    sendEmailInBackground(
         {
-            from: process.env.EMAIL_USER,
             to: alertRecipient,
             subject: `New Application: ${selectedJob.title}`,
             html: internalAlertHtml,
@@ -98,7 +96,7 @@ const sendEmploymentInternalAlertEmail = async ({
             ]
         },
         'Employment New Application Alert Email'
-    ));
+    );
 };
 
 const legalController = {
@@ -166,8 +164,7 @@ const legalController = {
                 ],
             });
 
-            const emailSent = await sendEmailSafely({
-                from: process.env.EMAIL_USER,
+            sendEmailInBackground({
                 to: email,
                 subject: `Support Ticket Created - Ticket #${threadId}`,
                 html,
@@ -180,11 +177,7 @@ const legalController = {
                 ]
             }, 'Legal Help Confirmation Email');
 
-            if (!emailSent) {
-                req.flash('error', 'Help request submitted, but confirmation email could not be sent.');
-            } else {
-                req.flash('success', 'Help request submitted successfully.');
-            }
+            req.flash('success', 'Help request submitted successfully.');
             res.redirect('/legal/help');
         } catch (error) {
                         req.flash('error', 'Failed to submit your request.');

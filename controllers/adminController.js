@@ -9,7 +9,7 @@ const PDFDocument = require("pdfkit");
 const { uploadToS3, deleteFromS3 } = require("../config/s3");
 const he = require("he");
 const cacheManager = require("../utils/cacheManager");
-const { sendEmailSafely, renderCleanEmail } = require("../utils/emailHelper");
+const { sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require("../utils/emailHelper");
 const {
   getCurrencyProfileForRequest,
   localizeUsdAmount,
@@ -647,8 +647,8 @@ const adminController = {
         ]
       };
 
-      const sent = await sendEmailSafely(mailOptions, "Admin Support Response Email");
-      req.flash(sent ? "success" : "error", sent ? "Response sent and saved successfully." : "Response saved, but failed to send email.");
+      sendEmailInBackground(mailOptions, "Admin Support Response Email");
+      req.flash("success", "Response sent and saved successfully.");
       res.redirect("/admin/helpMessages");
     } catch (error) {
             req.flash("error", "Failed to process the response.");
@@ -710,8 +710,8 @@ const adminController = {
         ]
       };
 
-      const sent = await sendEmailSafely(mailOptions, "Admin Ticket Resolved Email");
-      req.flash(sent ? "success" : "error", sent ? "Ticket marked as closed and an email notification was sent." : "Ticket marked as closed, but failed to send notification email.");
+      sendEmailInBackground(mailOptions, "Admin Ticket Resolved Email");
+      req.flash("success", "Ticket marked as closed and email notification queued.");
       res.redirect("/admin/helpMessages");
     } catch (error) {
             req.flash("error", "Failed to mark as closed.");
@@ -794,8 +794,8 @@ const adminController = {
         ]
       };
 
-      const sent = await sendEmailSafely(mailOptions, "Admin Ticket Reopened Email");
-      req.flash(sent ? "success" : "error", sent ? "Ticket reopened and an email notification was sent." : "Ticket reopened, but failed to send notification email.");
+      sendEmailInBackground(mailOptions, "Admin Ticket Reopened Email");
+      req.flash("success", "Ticket reopened and email notification queued.");
       res.redirect("/admin/helpHistory");
     } catch (error) {
             req.flash("error", "Failed to reopen the thread.");
@@ -1602,9 +1602,8 @@ const adminController = {
         noReply: false,
       });
 
-      const emailSent = await sendEmailSafely(
+      sendEmailInBackground(
         {
-          from: process.env.EMAIL_USER,
           to: application.email,
           subject: `Your ${application.job_title} application has been approved`,
           html,
@@ -1619,12 +1618,7 @@ const adminController = {
         "Employment Approval Email"
       );
 
-      if (!emailSent) {
-        req.flash("info", "Application approved, but approval email could not be sent.");
-        return res.redirect("/admin/employment");
-      }
-
-      req.flash("success", "Approval email sent and application marked as approved.");
+      req.flash("success", "Application approved and notification email queued.");
     } catch (error) {
       req.flash("error", "Failed to approve application.");
     }
@@ -1685,9 +1679,8 @@ const adminController = {
         noReply: true,
       });
 
-      const emailSent = await sendEmailSafely(
+      sendEmailInBackground(
         {
-          from: process.env.EMAIL_USER,
           to: application.email,
           subject: `Update on your ${application.job_title} application`,
           html,
@@ -1702,11 +1695,6 @@ const adminController = {
         "Employment Rejection Email"
       );
 
-      if (!emailSent) {
-        req.flash("error", "Could not send rejection email. Please try again.");
-        return res.redirect("/admin/employment");
-      }
-
       await db.query(
         `UPDATE employment_applications
          SET status = 'rejected',
@@ -1716,7 +1704,7 @@ const adminController = {
         [applicationId, rejectionReason || null]
       );
 
-      req.flash("success", "Rejection email sent and application marked as rejected.");
+      req.flash("success", "Application rejected and notification email queued.");
     } catch (error) {
       req.flash("error", "Failed to reject application.");
     }
@@ -1774,9 +1762,8 @@ const adminController = {
         noReply: true,
       });
 
-      const emailSent = await sendEmailSafely(
+      sendEmailInBackground(
         {
-          from: process.env.EMAIL_USER,
           to: application.email,
           subject: `Update: ${application.job_title} application reconsideration`,
           html,
@@ -1790,11 +1777,6 @@ const adminController = {
         },
         "Employment Reversal Email"
       );
-
-      if (!emailSent) {
-        req.flash("error", "Could not send reversal email. Please try again.");
-        return res.redirect("/admin/employment");
-      }
 
       await db.query(
         `UPDATE employment_applications
@@ -2224,9 +2206,8 @@ async function sendEmailNotification(to, subject, text) {
     note: 'For help, visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
   });
 
-  await sendEmailSafely(
+  sendEmailInBackground(
     {
-      from: process.env.NOTIFY_EMAIL_USER || process.env.ADMIN_NOTIFY_EMAIL_USER,
       to,
       subject,
       html,
@@ -2265,7 +2246,7 @@ async function sendAdminInviteEmail(email, firstName, lastName, link) {
       }
     ]
   };
-  await sendEmailSafely(mailOptions, "Admin Invite Email");
+  sendEmailInBackground(mailOptions, "Admin Invite Email");
 }
 
 async function sendPasswordSetSuccessEmail(email, firstName, lastName) {
@@ -2292,7 +2273,7 @@ async function sendPasswordSetSuccessEmail(email, firstName, lastName) {
       }
     ]
   };
-  await sendEmailSafely(mailOptions, "Admin Password Success Email");
+  sendEmailInBackground(mailOptions, "Admin Password Success Email");
 }
 
 // =====================================================
@@ -2435,21 +2416,11 @@ adminController.hubCreatePost = async (req, res) => {
       closing: 'This is a no-reply message. Please do not reply to this email.',
     });
 
-    await sendEmailSafely({
-      smtpConfig: {
-        host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT),
-        secure: process.env.SMTP_SECURE === 'true',
-        auth: {
-          user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-          pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-        },
-      },
+    sendEmailInBackground({
       to: hubEmail,
       subject: 'Welcome to Managira Hub - Set Up Your Password',
       html: emailHtml,
-      from: process.env.NOTIFY_EMAIL_USER,
-    });
+    }, 'Hub Setup Email');
 
     req.flash('success', 'Hub created successfully! Setup instructions sent to the hub email.');
     res.redirect('/admin/hubs');

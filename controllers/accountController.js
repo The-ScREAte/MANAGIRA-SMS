@@ -69,7 +69,7 @@ const axios = require("axios");
 
 const he = require("he");
 
-const { sendEmailSafely, renderCleanEmail } = require("../utils/emailHelper");
+const { sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require("../utils/emailHelper");
 const {
   getCurrencyProfileForRequest,
   localizeUsdAmount,
@@ -165,7 +165,7 @@ async function sendBrandedReceiptEmail({
 
       .replace(/{{year}}/g, year);
 
-    await sendEmailSafely(
+    sendEmailInBackground(
       {
         to,
         subject: "Payment Receipt - Managira",
@@ -224,7 +224,7 @@ async function sendInvoiceEmail(email, orgName, invoice) {
       ],
     };
 
-    await sendEmailSafely(mailOptions, "Invoice Email");
+    sendEmailInBackground(mailOptions, "Invoice Email");
   } catch (error) {
         throw new Error("Failed to send invoice email.");
   }
@@ -263,7 +263,7 @@ async function sendCancellationEmail(orgName, firstName, email) {
       },
     ],
   };
-  await sendEmailSafely(mailOptions, "Cancellation Email");
+  sendEmailInBackground(mailOptions, "Cancellation Email");
 }
 
 async function sendRegistrationSuccessEmail(
@@ -312,7 +312,7 @@ async function sendRegistrationSuccessEmail(
       ],
     };
 
-    await sendEmailSafely(mailOptions, "Registration Success Email");
+    sendEmailInBackground(mailOptions, "Registration Success Email");
   } catch (error) {
         throw new Error("Failed to send registration success email.");
   }
@@ -344,7 +344,7 @@ async function sendPasswordResetEmail(email, token, baseUrl) {
     html,
   };
 
-  await sendEmailSafely(mailOptions, "Password Reset Request Email");
+  sendEmailInBackground(mailOptions, "Password Reset Request Email");
 }
 
 async function sendPasswordResetConfirmationEmail(email) {
@@ -368,7 +368,7 @@ async function sendPasswordResetConfirmationEmail(email) {
   };
 
   try {
-    await sendEmailSafely(mailOptions, "Password Reset Confirmation Email");
+    sendEmailInBackground(mailOptions, "Password Reset Confirmation Email");
   } catch (error) {
       }
 }
@@ -384,31 +384,11 @@ async function notifyAdminOfRegistration(
 
   orgPhone
 ) {
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST, // e.g., smtp.gmail.com, smtp.zoho.com
-
-    port: parseInt(process.env.SMTP_PORT), // usually 465 or 587
-
-    secure: process.env.SMTP_SECURE === "true", // true for 465, false for 587
-
-    auth: {
-      user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-
-      pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-    },
-  });
-
-  const mailOptions = {
-    from: process.env.NOTIFY_EMAIL_USER,
-
+  sendEmailInBackground({
     to: process.env.ADMIN_EMAIL,
-
     subject: "New Account Registration",
-
     text: `A new account has been registered:\n\nName: ${firstName} ${lastName}\nOrganization: ${orgName}\nEmail: ${email}\nPhone: ${orgPhone}\n\nPlease review the registration details.`,
-  };
-
-  await transporter.sendMail(mailOptions);
+  }, "Admin Registration Notification");
 }
 
 async function saveCardAuthorization(db, orgId, authorization) {
@@ -7387,13 +7367,11 @@ const accountController = {
         },
       };
 
-      await sendEmailSafely({
-        smtpConfig,
+      sendEmailInBackground({
         to: admin_email,
         subject: `Welcome to ${invitation.hub_name} Hub - Managira SMS`,
         html: welcomeEmailHtml,
-        from: process.env.NOTIFY_EMAIL_USER,
-      });
+      }, 'HubWelcomeEmail');
 
       // Notify hub
       const hubNotificationHtml = renderCleanEmail({
@@ -7410,13 +7388,11 @@ const accountController = {
         closing: 'You can now manage this organization from your hub dashboard.',
       });
 
-      await sendEmailSafely({
-        smtpConfig,
+      sendEmailInBackground({
         to: invitation.hub_email,
         subject: `${invitation.organization_name} Joined Your Hub`,
         html: hubNotificationHtml,
-        from: process.env.NOTIFY_EMAIL_USER,
-      });
+      }, 'HubJoinNotification');
 
                   
       await client.query('COMMIT');
@@ -7699,7 +7675,7 @@ const accountController = {
       });
 
       // Send emails
-      await sendEmailSafely({
+      sendEmailInBackground({
         to: invitation.hub_email,
         subject: `${organization.organization_name} Joined Your Hub`,
         html: hubEmailHtml,
@@ -7710,7 +7686,7 @@ const accountController = {
         }]
       }, 'HubJoinConfirmation');
 
-      await sendEmailSafely({
+      sendEmailInBackground({
         to: organization.email,
         subject: `Welcome to ${invitation.hub_name} Hub`,
         html: orgEmailHtml,

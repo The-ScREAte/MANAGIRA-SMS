@@ -128,6 +128,9 @@ function getTransporter() {
     pool: true,           // keep-alive connection pool
     maxConnections: 3,
     maxMessages: 100,
+    connectionTimeout: 10000,  // 10s to establish connection
+    greetingTimeout: 10000,    // 10s for SMTP greeting
+    socketTimeout: 15000,      // 15s for socket inactivity
   });
 
   _transporterConfig = configKey;
@@ -136,6 +139,7 @@ function getTransporter() {
 
 /**
  * Safely send email with proper error handling.
+ * Always uses ADMIN_NOTIFY_EMAIL_USER as the from address (ignores caller's from).
  */
 async function sendEmailSafely(mailOptions, context = "Email") {
   const sendStart = Date.now();
@@ -147,11 +151,17 @@ async function sendEmailSafely(mailOptions, context = "Email") {
 
     const transporter = getTransporter();
 
-    console.info(`[Email][${context}] sending via SMTP to ${mailOptions.to}`);
+    // Always use the authenticated SMTP user as the from address
+    const from = process.env.ADMIN_NOTIFY_EMAIL_USER;
+
+    // Strip smtpConfig if caller passed it (we ignore custom transporter configs)
+    const { smtpConfig, from: _ignoredFrom, ...restOptions } = mailOptions;
+
+    console.info(`[Email][${context}] sending via SMTP to ${restOptions.to}`);
 
     const info = await transporter.sendMail({
-      from: process.env.ADMIN_NOTIFY_EMAIL_USER,
-      ...mailOptions,
+      from,
+      ...restOptions,
     });
 
     console.info(`[Email][${context}] SMTP sent OK in ${Date.now() - sendStart}ms`, info.messageId);
@@ -169,8 +179,21 @@ async function sendEmailSafely(mailOptions, context = "Email") {
   }
 }
 
+/**
+ * Fire-and-forget email sender. Queues the email in the background and returns
+ * immediately so the HTTP response is never blocked by SMTP latency/timeouts.
+ * Use this for all non-critical emails (notifications, confirmations, etc.).
+ */
+function sendEmailInBackground(mailOptions, context = "Email") {
+  // Intentionally NOT awaited — runs in background
+  sendEmailSafely(mailOptions, context).catch((err) => {
+    console.error(`[Email][${context}] Background send error:`, err.message);
+  });
+}
+
 module.exports = {
   sendEmailSafely,
+  sendEmailInBackground,
   renderCleanEmail,
   escapeHtml,
 };

@@ -10,7 +10,7 @@ require("dotenv").config(); // Load environment variables from .env file
 const { uploadToS3, deleteFromS3 } = require("../middleware/s3Upload");
 const axios = require("axios");
 const he = require("he");
-const { sendEmailSafely, renderCleanEmail } = require("../utils/emailHelper");
+const { sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require("../utils/emailHelper");
 const { getPaystackSettings } = require("../utils/paystackConfig");
 const {
   PERMISSIONS,
@@ -577,7 +577,7 @@ async function notifyTeachersForAssessmentControl({
         ],
       });
 
-      await sendEmailSafely(
+      sendEmailInBackground(
         {
           to: teacher.email,
           subject: `Assessment Access Update: ${testTitle || "Assessment"}`,
@@ -2990,8 +2990,7 @@ const commonController = {
           });
 
           try {
-            await sendEmailSafely({
-              from: process.env.NOTIFY_EMAIL_USER,
+            sendEmailInBackground({
               to: primaryGuardian.email,
               subject: `Student Registration & Payment Confirmation - ${orgName}`,
               html,
@@ -3501,7 +3500,7 @@ const commonController = {
             },
           ],
         };
-        await sendEmailSafely(mailOptions, "Admission Approved Email");
+        sendEmailInBackground(mailOptions, "Admission Approved Email");
       }
 
       await client.query("COMMIT");
@@ -3583,7 +3582,7 @@ const commonController = {
             },
           ],
         };
-        await sendEmailSafely(mailOptions, "Admission Rejected Email");
+        sendEmailInBackground(mailOptions, "Admission Rejected Email");
       }
 
       res.redirect("/common/admissionPending");
@@ -9485,7 +9484,7 @@ const commonController = {
       const emailRecipient = guardianProfile?.email || guardian?.email || null;
       const guardianFirstName = guardianProfile?.first_name || guardian?.first_name || 'Parent/Guardian';
       if (sendEmailRequested && emailRecipient) {
-        const { renderCleanEmail, sendEmailSafely } = require("../utils/emailHelper");
+        const { renderCleanEmail, sendEmailInBackground } = require("../utils/emailHelper");
         const path = require("path");
 
         const orgResult = await db.query(
@@ -9507,7 +9506,7 @@ const commonController = {
           note: `This report is also available in your Parent Portal under "My Reports". If you have questions, please contact the school directly.`,
         });
 
-        emailSent = await sendEmailSafely({
+        sendEmailInBackground({
           to: emailRecipient,
           subject: `[${orgName}] Report for ${studentName}`,
           html,
@@ -9517,6 +9516,7 @@ const commonController = {
             cid: 'managira_logo'
           }]
         }, 'Staff Report Email');
+        emailSent = true; // Queued in background
       }
 
       return res.json({ success: true, emailSent });
@@ -9693,7 +9693,7 @@ const commonController = {
         ]
       };
 
-      await sendEmailSafely(mailOptions, "Guardian Password Email");
+      sendEmailInBackground(mailOptions, "Guardian Password Email");
 
       return res.json({ 
         success: true, 
@@ -9981,7 +9981,7 @@ async function sendInviteEmail(
       },
     ],
   };
-  return sendEmailSafely(mailOptions, "Employee Invite Email");
+  sendEmailInBackground(mailOptions, "Employee Invite Email");
 }
 
 async function sendPasswordSetSuccessEmail(email, firstName, lastName) {
@@ -10007,7 +10007,7 @@ async function sendPasswordSetSuccessEmail(email, firstName, lastName) {
       },
     ],
   };
-  await sendEmailSafely(mailOptions, "Password Set Success Email");
+  sendEmailInBackground(mailOptions, "Password Set Success Email");
 }
 
 
@@ -10058,7 +10058,7 @@ const sendGuardianWelcomeEmail = async (guardianEmail, guardianFirstName, guardi
       ]
     };
 
-    await sendEmailSafely(mailOptions, "Guardian Welcome Email");
+    sendEmailInBackground(mailOptions, "Guardian Welcome Email");
       } catch (error) {
       }
 };
@@ -10094,7 +10094,7 @@ const sendGuardianStudentAddedEmail = async (guardianEmail, guardianFirstName, g
       ]
     };
 
-    await sendEmailSafely(mailOptions, "Guardian Student Added Email");
+    sendEmailInBackground(mailOptions, "Guardian Student Added Email");
       } catch (error) {
       }
 };
