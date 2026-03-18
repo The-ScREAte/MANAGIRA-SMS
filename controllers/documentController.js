@@ -342,7 +342,7 @@ const notifyTeachersOnNewClassAssignments = async ({ db, req, orgId, docId, docT
         </div>
       `;
 
-      return sendEmailSafely({
+      sendEmailInBackground({
         to: row.email,
         subject: `New file assigned: ${safeDocTitle}`,
         html,
