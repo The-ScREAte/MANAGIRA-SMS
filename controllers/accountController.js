@@ -344,7 +344,7 @@ async function sendPasswordResetEmail(email, token, baseUrl) {
     html,
   };
 
-  await sendEmailSafely(mailOptions, "Password Reset Request Email");
+  sendEmailInBackground(mailOptions, "Password Reset Request Email");
 }
 
 async function sendPasswordResetConfirmationEmail(email) {
