@@ -779,7 +779,6 @@ const adminController = {
       });
 
       const mailOptions = {
-        from: process.env.NOTIFY_EMAIL_USER,
         to: thread.email,
         subject: `Your Support Ticket #${threadIdInt} Has Been Reopened`,
         html,
