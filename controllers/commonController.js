@@ -10074,7 +10074,6 @@ const sendGuardianStudentAddedEmail = async (guardianEmail, guardianFirstName, g
     });
 
     const mailOptions = {
-      from: process.env.ADMIN_NOTIFY_EMAIL_USER,
       to: guardianEmail,
       subject: `New Student Added - ${organizationName} Parent Portal`,
       html,

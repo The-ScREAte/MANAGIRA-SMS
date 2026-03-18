@@ -2428,19 +2428,9 @@ adminController.hubCreatePost = async (req, res) => {
     });
 
     await sendEmailSafely({
-      smtpConfig: {
-        host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT),
-        secure: process.env.SMTP_SECURE === 'true',
-        auth: {
-          user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-          pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-        },
-      },
       to: hubEmail,
       subject: 'Welcome to Managira Hub - Set Up Your Password',
       html: emailHtml,
-      from: process.env.NOTIFY_EMAIL_USER,
     });
 
     req.flash('success', 'Hub created successfully! Setup instructions sent to the hub email.');

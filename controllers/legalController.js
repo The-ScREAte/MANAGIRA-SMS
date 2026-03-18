@@ -165,7 +165,7 @@ const legalController = {
             });
 
             const emailSent = await sendEmailSafely({
-                from: process.env.EMAIL_USER,
+                
                 to: email,
                 subject: `Support Ticket Created - Ticket #${threadId}`,
                 html,

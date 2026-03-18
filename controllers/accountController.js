@@ -7364,11 +7364,9 @@ const accountController = {
       });
 
       await sendEmailSafely({
-        smtpConfig,
         to: invitation.hub_email,
         subject: `${invitation.organization_name} Joined Your Hub`,
         html: hubNotificationHtml,
-        from: process.env.NOTIFY_EMAIL_USER,
       });
 
                   
