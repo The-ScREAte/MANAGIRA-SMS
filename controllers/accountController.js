@@ -354,7 +354,6 @@ async function sendPasswordResetConfirmationEmail(email) {
   });
 
   const mailOptions = {
-    from: process.env.NOTIFY_EMAIL_USER,
 
     to: email,
 
