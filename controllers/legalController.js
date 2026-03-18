@@ -5,6 +5,90 @@ const { uploadToS3 } = require('../config/s3');
 const { sendEmailSafely, renderCleanEmail } = require('../utils/emailHelper');
 const { ensureEmploymentSchema } = require('../utils/employmentSchema');
 
+const sendEmploymentApplicationEmailsInBackground = async ({
+    applicantFullName,
+    applicantEmail,
+    phone,
+    location,
+    selectedJob,
+    applicationId,
+    alertRecipient,
+}) => {
+    const applicantConfirmationHtml = renderCleanEmail({
+        title: 'Employment Application Received',
+        greeting: `Dear <strong>${applicantFullName}</strong>,`,
+        paragraphs: [
+            `Thank you for applying for the <strong>${selectedJob.title}</strong> role at Managira.`,
+            'Your application has been received successfully, and our team will review it.',
+            'Follow us on LinkedIn for more information and updates.',
+        ],
+        details: [
+            { label: 'Application ID', value: applicationId ? `#${applicationId}` : 'Submitted' },
+            { label: 'Position', value: selectedJob.title },
+            { label: 'Location', value: location },
+        ],
+    });
+
+    const applicantEmailPromise = sendEmailSafely(
+        {
+            from: process.env.EMAIL_USER,
+            to: applicantEmail,
+            subject: `Application Received: ${selectedJob.title}`,
+            html: applicantConfirmationHtml,
+            attachments: [
+                {
+                    filename: 'managira.png',
+                    path: path.join(__dirname, '../public/images/managira.png'),
+                    cid: 'managira_logo'
+                }
+            ]
+        },
+        'Employment Applicant Confirmation Email'
+    );
+
+    const emailPromises = [applicantEmailPromise];
+
+    if (alertRecipient) {
+        const internalAlertHtml = renderCleanEmail({
+            title: 'New Employment Application Received',
+            greeting: 'Hello Team,',
+            paragraphs: [
+                'People are applying. A new employment application has been submitted.',
+                'Please review this application from the Admin Employment page.',
+            ],
+            details: [
+                { label: 'Position', value: selectedJob.title },
+                { label: 'Applicant', value: applicantFullName },
+                { label: 'Email', value: applicantEmail },
+                { label: 'Phone', value: phone },
+                { label: 'Location', value: location },
+                { label: 'Application ID', value: applicationId ? `#${applicationId}` : 'Submitted' },
+            ],
+        });
+
+        emailPromises.push(
+            sendEmailSafely(
+                {
+                    from: process.env.EMAIL_USER,
+                    to: alertRecipient,
+                    subject: `New Application: ${selectedJob.title}`,
+                    html: internalAlertHtml,
+                    attachments: [
+                        {
+                            filename: 'managira.png',
+                            path: path.join(__dirname, '../public/images/managira.png'),
+                            cid: 'managira_logo'
+                        }
+                    ]
+                },
+                'Employment New Application Alert Email'
+            )
+        );
+    }
+
+    await Promise.allSettled(emailPromises);
+};
+
 const legalController = {
     aboutUs: (req, res) => {
         res.render('legal&Compliance/AboutUs', { 
@@ -187,8 +271,10 @@ const legalController = {
                 return res.redirect('/legal/employment');
             }
 
-            const uploadedResume = await uploadToS3(resume);
-            const uploadedCoverLetter = coverLetterFile ? await uploadToS3(coverLetterFile) : null;
+            const [uploadedResume, uploadedCoverLetter] = await Promise.all([
+                uploadToS3(resume),
+                coverLetterFile ? uploadToS3(coverLetterFile) : Promise.resolve(null),
+            ]);
             const normalizedCoverLetterNote = cover_letter_note
                 ? cover_letter_note.trim()
                 : (coverLetterFile ? 'Cover letter uploaded as document.' : 'No cover letter provided.');
@@ -240,80 +326,22 @@ const legalController = {
             const applicationId = savedApplication.rows[0]?.id;
             const applicantFullName = `${first_name.trim()} ${last_name.trim()}`;
             const normalizedApplicantEmail = email.trim().toLowerCase();
-
-            const applicantConfirmationHtml = renderCleanEmail({
-                title: 'Employment Application Received',
-                greeting: `Dear <strong>${applicantFullName}</strong>,`,
-                paragraphs: [
-                    `Thank you for applying for the <strong>${selectedJob.title}</strong> role at Managira.`,
-                    'Your application has been received successfully, and our team will review it.',
-                    'Follow us on LinkedIn for more information and updates.',
-                ],
-                details: [
-                    { label: 'Application ID', value: applicationId ? `#${applicationId}` : 'Submitted' },
-                    { label: 'Position', value: selectedJob.title },
-                    { label: 'Location', value: location.trim() },
-                ],
-            });
-
-            const applicantEmailSent = await sendEmailSafely(
-                {
-                    from: process.env.EMAIL_USER,
-                    to: normalizedApplicantEmail,
-                    subject: `Application Received: ${selectedJob.title}`,
-                    html: applicantConfirmationHtml,
-                    attachments: [
-                        {
-                            filename: 'managira.png',
-                            path: path.join(__dirname, '../public/images/managira.png'),
-                            cid: 'managira_logo'
-                        }
-                    ]
-                },
-                'Employment Applicant Confirmation Email'
-            );
-
             const alertRecipient = process.env.EMPLOYMENT_ALERT_EMAIL || process.env.EMAIL_USER;
-            let internalAlertSent = true;
-            if (alertRecipient) {
-                const internalAlertHtml = renderCleanEmail({
-                    title: 'New Employment Application Received',
-                    greeting: 'Hello Team,',
-                    paragraphs: [
-                        'People are applying. A new employment application has been submitted.',
-                        'Please review this application from the Admin Employment page.',
-                    ],
-                    details: [
-                        { label: 'Position', value: selectedJob.title },
-                        { label: 'Applicant', value: applicantFullName },
-                        { label: 'Email', value: normalizedApplicantEmail },
-                        { label: 'Phone', value: phone.trim() },
-                        { label: 'Location', value: location.trim() },
-                        { label: 'Application ID', value: applicationId ? `#${applicationId}` : 'Submitted' },
-                    ],
+
+            // Keep request fast: send confirmation + internal alert asynchronously after save.
+            setImmediate(() => {
+                sendEmploymentApplicationEmailsInBackground({
+                    applicantFullName,
+                    applicantEmail: normalizedApplicantEmail,
+                    phone: phone.trim(),
+                    location: location.trim(),
+                    selectedJob,
+                    applicationId,
+                    alertRecipient,
+                }).catch(() => {
+                    // Intentionally swallow background email errors to avoid impacting UX.
                 });
-
-                internalAlertSent = await sendEmailSafely(
-                    {
-                        from: process.env.EMAIL_USER,
-                        to: alertRecipient,
-                        subject: `New Application: ${selectedJob.title}`,
-                        html: internalAlertHtml,
-                        attachments: [
-                            {
-                                filename: 'managira.png',
-                                path: path.join(__dirname, '../public/images/managira.png'),
-                                cid: 'managira_logo'
-                            }
-                        ]
-                    },
-                    'Employment New Application Alert Email'
-                );
-            }
-
-            if (!applicantEmailSent || !internalAlertSent) {
-                req.flash('info', 'Application saved, but one email notification could not be sent right now.');
-            }
+            });
 
             req.flash('success', `Application submitted for ${selectedJob.title}. We will be in touch. Follow us on LinkedIn for more information.`);
             return res.redirect('/legal/employment');

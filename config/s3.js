@@ -36,13 +36,24 @@ const uploadToS3 = async (file) => {
     ContentType: file.mimetype,
   };
 
-  const command = new PutObjectCommand(params);
-  await s3Client.send(command);
+  try {
+    const command = new PutObjectCommand(params);
+    await s3Client.send(command);
 
-  return {
-    Location: `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`,
-    Key: fileName,
-  };
+    return {
+      Location: `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`,
+      Key: fileName,
+    };
+  } finally {
+    // Cleanup temporary multer disk file after upload attempt.
+    if (safePath && fs.existsSync(safePath)) {
+      try {
+        fs.unlinkSync(safePath);
+      } catch (cleanupError) {
+        // Ignore cleanup errors so upload response behavior is not affected.
+      }
+    }
+  }
 };
 
 // Delete from S3
