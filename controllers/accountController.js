@@ -224,7 +224,7 @@ async function sendInvoiceEmail(email, orgName, invoice) {
       ],
     };
 
-    await sendEmailSafely(mailOptions, "Invoice Email");
+    sendEmailInBackground(mailOptions, "Invoice Email");
   } catch (error) {
         throw new Error("Failed to send invoice email.");
   }
