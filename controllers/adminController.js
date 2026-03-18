@@ -1771,7 +1771,7 @@ const adminController = {
 
       const emailSent = await sendEmailSafely(
         {
-          from: process.env.EMAIL_USER,
+          
           to: application.email,
           subject: `Update: ${application.job_title} application reconsideration`,
           html,
