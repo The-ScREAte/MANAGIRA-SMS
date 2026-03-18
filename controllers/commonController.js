@@ -9981,7 +9981,7 @@ async function sendInviteEmail(
       },
     ],
   };
-  return sendEmailSafely(mailOptions, "Employee Invite Email");
+  sendEmailInBackground(mailOptions, "Employee Invite Email");
 }
 
 async function sendPasswordSetSuccessEmail(email, firstName, lastName) {
