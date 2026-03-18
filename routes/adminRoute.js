@@ -130,6 +130,8 @@ module.exports = (db) => {
 
     router.get('/employment', isAuthenticated, ensureAdmin, adminController.getEmploymentAdmin);
     router.post('/employment', isAuthenticated, ensureAdmin, adminController.postEmployment);
+    router.post('/employment/update/:id', isAuthenticated, ensureAdmin, adminController.updateEmployment);
+    router.post('/employment/toggle-status/:id', isAuthenticated, ensureAdmin, adminController.toggleEmploymentStatus);
     router.post('/employment/delete/:id', isAuthenticated, ensureAdmin, adminController.deleteEmployment);
     router.post('/employment/applications/:id/approve', isAuthenticated, ensureAdmin, adminController.approveEmploymentApplication);
     router.post('/employment/applications/:id/reject', isAuthenticated, ensureAdmin, adminController.rejectEmploymentApplication);

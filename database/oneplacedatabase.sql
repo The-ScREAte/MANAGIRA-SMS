@@ -892,6 +892,7 @@ CREATE TABLE employment (
     description TEXT NOT NULL,
     external_link TEXT,
     application_mode TEXT NOT NULL DEFAULT 'external' CHECK (application_mode IN ('external', 'in_app')),
+    is_active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

@@ -19,6 +19,7 @@ async function ensureEmploymentSchema(db) {
         description TEXT NOT NULL,
         external_link TEXT,
         application_mode TEXT NOT NULL DEFAULT 'external',
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -32,6 +33,11 @@ async function ensureEmploymentSchema(db) {
     await db.query(`
       ALTER TABLE employment
       ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    `);
+
+    await db.query(`
+      ALTER TABLE employment
+      ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE
     `);
 
     await db.query(`

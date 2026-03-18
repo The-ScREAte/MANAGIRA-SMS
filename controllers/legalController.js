@@ -108,6 +108,7 @@ const legalController = {
                 FROM employment_applications
                 GROUP BY employment_id
             ) a ON a.employment_id = e.id
+            WHERE e.is_active = TRUE
             ORDER BY e.created_at DESC
         `);
         res.render('legal&Compliance/employment', {
@@ -251,7 +252,7 @@ const legalController = {
                 );
             }
 
-            req.flash('success', `Application submitted for ${selectedJob.title}. We will be in touch.`);
+            req.flash('success', `Application submitted for ${selectedJob.title}. We will be in touch. Follow us on LinkedIn for more information.`);
             return res.redirect('/legal/employment');
         } catch (error) {
             req.flash('error', 'Could not submit application right now. Please try again.');

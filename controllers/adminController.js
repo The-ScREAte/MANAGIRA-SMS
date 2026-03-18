@@ -1399,7 +1399,7 @@ const adminController = {
 
     try {
       await db.query(
-        `INSERT INTO employment (title, description, external_link, application_mode) VALUES ($1, $2, $3, $4)`,
+        `INSERT INTO employment (title, description, external_link, application_mode, is_active) VALUES ($1, $2, $3, $4, TRUE)`,
         [
           title.trim(),
           description.trim(),
@@ -1413,6 +1413,91 @@ const adminController = {
     }
 
     res.redirect("/admin/employment");
+  },
+
+  updateEmployment: async (req, res) => {
+    await ensureEmploymentSchema(db);
+
+    const employmentId = Number.parseInt(req.params.id, 10);
+    const { title, description, external_link, application_mode } = req.body;
+    const normalizedMode = application_mode === "in_app" ? "in_app" : "external";
+    const normalizedExternalLink = external_link ? external_link.trim() : "";
+
+    if (!Number.isInteger(employmentId)) {
+      req.flash("error", "Invalid job selected.");
+      return res.redirect("/admin/employment");
+    }
+
+    if (!title || !description) {
+      req.flash("error", "Title and description are required.");
+      return res.redirect("/admin/employment");
+    }
+
+    if (normalizedMode === "external" && !normalizedExternalLink) {
+      req.flash("error", "External application link is required for external mode.");
+      return res.redirect("/admin/employment");
+    }
+
+    try {
+      const result = await db.query(
+        `UPDATE employment
+         SET title = $2,
+             description = $3,
+             external_link = $4,
+             application_mode = $5,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1
+         RETURNING id`,
+        [
+          employmentId,
+          title.trim(),
+          description.trim(),
+          normalizedMode === "external" ? normalizedExternalLink : null,
+          normalizedMode,
+        ]
+      );
+
+      if (!result.rows.length) {
+        req.flash("error", "Job not found.");
+      } else {
+        req.flash("success", "Job updated successfully.");
+      }
+    } catch (error) {
+      req.flash("error", "Failed to update job.");
+    }
+
+    return res.redirect("/admin/employment");
+  },
+
+  toggleEmploymentStatus: async (req, res) => {
+    await ensureEmploymentSchema(db);
+
+    const employmentId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(employmentId)) {
+      req.flash("error", "Invalid job selected.");
+      return res.redirect("/admin/employment");
+    }
+
+    try {
+      const result = await db.query(
+        `UPDATE employment
+         SET is_active = NOT is_active,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1
+         RETURNING is_active`,
+        [employmentId]
+      );
+
+      if (!result.rows.length) {
+        req.flash("error", "Job not found.");
+      } else {
+        req.flash("success", result.rows[0].is_active ? "Job is now active and visible on Job Posting." : "Job is now inactive and hidden from Job Posting.");
+      }
+    } catch (error) {
+      req.flash("error", "Failed to change job status.");
+    }
+
+    return res.redirect("/admin/employment");
   },
 
   recalculateAllPlanTotals: async (req, res) => {

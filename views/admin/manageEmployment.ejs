@@ -229,10 +229,42 @@
             <p style="margin: 0; font-weight: 600; color: #111827;">
               Apply via: <%= job.application_mode === 'in_app' ? 'In-App Form' : 'External Link' %>
             </p>
+            <p style="margin: 8px 0 0;">
+              <span style="display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; background: <%= job.is_active ? '#dcfce7' : '#fee2e2' %>; color: <%= job.is_active ? '#166534' : '#991b1b' %>;"><%= job.is_active ? 'Active' : 'Inactive' %></span>
+            </p>
           </summary>
 
           <div class="job-body">
             <p class="job-description"><%= job.description %></p>
+
+            <form action="/admin/employment/toggle-status/<%= job.id %>" method="POST" style="margin: 0 0 14px;">
+              <button type="submit" class="admin-btn admin-btn-sm" style="width: 100%; background: <%= job.is_active ? '#b91c1c' : '#0f766e' %>; color: #fff; border: 1px solid <%= job.is_active ? '#991b1b' : '#115e59' %>;">
+                <%= job.is_active ? 'Set Inactive (Hide from Job Posting)' : 'Set Active (Show on Job Posting)' %>
+              </button>
+            </form>
+
+            <details style="margin-bottom: 16px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; background: #f9fafb;">
+              <summary style="cursor: pointer; font-weight: 600; color: #1f2937;">Edit Job</summary>
+              <form method="POST" action="/admin/employment/update/<%= job.id %>" style="margin-top: 10px;">
+                <input type="text" name="title" value="<%= job.title %>" required style="width: 100%; margin-bottom: 12px; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; box-sizing: border-box;" />
+
+                <textarea name="description" required style="width: 100%; min-height: 110px; margin-bottom: 12px; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; box-sizing: border-box; resize: vertical;"><%= job.description %></textarea>
+
+                <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #1f2937;">Application Type</label>
+                <select class="edit-mode-select" name="application_mode" style="width: 100%; margin-bottom: 12px; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; box-sizing: border-box;">
+                  <option value="external" <%= job.application_mode === 'external' ? 'selected' : '' %>>External Link</option>
+                  <option value="in_app" <%= job.application_mode === 'in_app' ? 'selected' : '' %>>In-App Application Form</option>
+                </select>
+
+                <div class="edit-external-link-wrap" style="margin-bottom: 12px;">
+                  <input class="edit-external-link" type="url" name="external_link" value="<%= job.external_link || '' %>" placeholder="External Link (required for external mode)" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; box-sizing: border-box;" />
+                </div>
+
+                <button type="submit" class="admin-btn admin-btn-primary admin-btn-sm" style="width: 100%;">
+                  Save Changes
+                </button>
+              </form>
+            </details>
 
             <% if (job.application_mode === 'external' && job.external_link) { %>
               <a href="<%= job.external_link %>" class="job-link" target="_blank">View Job Posting</a>
@@ -374,6 +406,26 @@
         }
         setHint();
       });
+    });
+
+    const editForms = Array.from(document.querySelectorAll('.job-body'));
+    editForms.forEach((container) => {
+      const modeSelect = container.querySelector('.edit-mode-select');
+      const externalWrap = container.querySelector('.edit-external-link-wrap');
+      const externalInput = container.querySelector('.edit-external-link');
+      if (!modeSelect || !externalWrap || !externalInput) return;
+
+      const syncEditMode = () => {
+        const isExternal = modeSelect.value === 'external';
+        externalWrap.style.display = isExternal ? 'block' : 'none';
+        externalInput.required = isExternal;
+        if (!isExternal) {
+          externalInput.value = '';
+        }
+      };
+
+      modeSelect.addEventListener('change', syncEditMode);
+      syncEditMode();
     });
   })();
 </script>
