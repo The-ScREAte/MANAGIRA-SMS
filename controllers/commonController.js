@@ -9506,7 +9506,7 @@ const commonController = {
           note: `This report is also available in your Parent Portal under "My Reports". If you have questions, please contact the school directly.`,
         });
 
-        emailSent = await sendEmailSafely({
+        sendEmailInBackground({
           to: emailRecipient,
           subject: `[${orgName}] Report for ${studentName}`,
           html,
@@ -9516,6 +9516,7 @@ const commonController = {
             cid: 'managira_logo'
           }]
         }, 'Staff Report Email');
+        emailSent = true; // Queued in background
       }
 
       return res.json({ success: true, emailSent });
