@@ -1,5 +1,5 @@
 const bcrypt = require("bcryptjs");
-const { sendEmailSafely } = require("../utils/emailHelper");
+const { sendEmailInBackground } = require("../utils/emailHelper");
 const { PERMISSIONS, userHasPermission } = require("../middleware/permissionMiddleware");
 
 let documentsSchemaReadyPromise = null;
