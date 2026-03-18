@@ -343,36 +343,34 @@ const legalController = {
                 process.env.ADMIN_NOTIFY_EMAIL_USER ||
                 process.env.EMAIL_USER;
 
-            // Keep request fast: both applicant confirmation and internal alert are asynchronous.
-            setImmediate(() => {
-                Promise.allSettled([
-                    sendEmploymentApplicantConfirmationEmail({
-                        applicantFullName,
-                        applicantEmail: normalizedApplicantEmail,
-                        location: location.trim(),
-                        selectedJob,
-                        applicationId,
-                    }),
-                    sendEmploymentInternalAlertEmail({
-                        applicantFullName,
-                        applicantEmail: normalizedApplicantEmail,
-                        phone: phone.trim(),
-                        location: location.trim(),
-                        selectedJob,
-                        applicationId,
-                        alertRecipient,
-                    }),
-                ]).then((results) => {
-                    const [applicantResult, internalResult] = results;
-                    if (applicantResult?.status === 'rejected' || applicantResult?.value === false) {
-                        console.error('[Employment Email] Applicant confirmation email failed for application', applicationId);
-                    }
-                    if (internalResult?.status === 'rejected' || internalResult?.value === false) {
-                        console.error('[Employment Email] Internal alert email failed for application', applicationId);
-                    }
-                }).catch((backgroundError) => {
-                    console.error('[Employment Email] Unexpected background email dispatcher failure:', backgroundError.message);
-                });
+            // Keep request fast: trigger both emails in background without awaiting.
+            Promise.allSettled([
+                sendEmploymentApplicantConfirmationEmail({
+                    applicantFullName,
+                    applicantEmail: normalizedApplicantEmail,
+                    location: location.trim(),
+                    selectedJob,
+                    applicationId,
+                }),
+                sendEmploymentInternalAlertEmail({
+                    applicantFullName,
+                    applicantEmail: normalizedApplicantEmail,
+                    phone: phone.trim(),
+                    location: location.trim(),
+                    selectedJob,
+                    applicationId,
+                    alertRecipient,
+                }),
+            ]).then((results) => {
+                const [applicantResult, internalResult] = results;
+                if (applicantResult?.status === 'rejected' || applicantResult?.value === false) {
+                    console.error('[Employment Email] Applicant confirmation email failed for application', applicationId);
+                }
+                if (internalResult?.status === 'rejected' || internalResult?.value === false) {
+                    console.error('[Employment Email] Internal alert email failed for application', applicationId);
+                }
+            }).catch((backgroundError) => {
+                console.error('[Employment Email] Unexpected background email dispatcher failure:', backgroundError.message);
             });
 
             req.flash('success', `Application submitted for ${selectedJob.title}. We will be in touch. Follow us on LinkedIn for more information.`);
