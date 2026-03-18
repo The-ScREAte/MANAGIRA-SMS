@@ -368,7 +368,7 @@ async function sendPasswordResetConfirmationEmail(email) {
   };
 
   try {
-    await sendEmailSafely(mailOptions, "Password Reset Confirmation Email");
+    sendEmailInBackground(mailOptions, "Password Reset Confirmation Email");
   } catch (error) {
       }
 }
