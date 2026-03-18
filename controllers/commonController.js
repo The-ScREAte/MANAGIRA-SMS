@@ -3500,7 +3500,7 @@ const commonController = {
             },
           ],
         };
-        await sendEmailSafely(mailOptions, "Admission Approved Email");
+        sendEmailInBackground(mailOptions, "Admission Approved Email");
       }
 
       await client.query("COMMIT");
