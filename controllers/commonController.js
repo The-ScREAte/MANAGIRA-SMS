@@ -3566,7 +3566,6 @@ const commonController = {
           note: 'If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
         });
         const mailOptions = {
-          from: process.env.NOTIFY_EMAIL_USER,
           to: guardianEmails.join(","),
           subject: `Admission Rejected: ${student.first_name} ${student.last_name}`,
           html,
