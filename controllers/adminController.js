@@ -634,7 +634,6 @@ const adminController = {
       });
 
       const mailOptions = {
-        from: process.env.NOTIFY_EMAIL_USER,
         to: thread.email,
         subject: `Response to Support Ticket #${threadIdInt}`,
         html,
