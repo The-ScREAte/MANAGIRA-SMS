@@ -710,8 +710,8 @@ const adminController = {
         ]
       };
 
-      const sent = await sendEmailSafely(mailOptions, "Admin Ticket Resolved Email");
-      req.flash(sent ? "success" : "error", sent ? "Ticket marked as closed and an email notification was sent." : "Ticket marked as closed, but failed to send notification email.");
+      sendEmailInBackground(mailOptions, "Admin Ticket Resolved Email");
+      req.flash("success", "Ticket marked as closed and email notification queued.");
       res.redirect("/admin/helpMessages");
     } catch (error) {
             req.flash("error", "Failed to mark as closed.");
