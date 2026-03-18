@@ -263,7 +263,7 @@ async function sendCancellationEmail(orgName, firstName, email) {
       },
     ],
   };
-  await sendEmailSafely(mailOptions, "Cancellation Email");
+  sendEmailInBackground(mailOptions, "Cancellation Email");
 }
 
 async function sendRegistrationSuccessEmail(
