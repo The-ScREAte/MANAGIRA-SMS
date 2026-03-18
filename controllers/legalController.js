@@ -164,8 +164,7 @@ const legalController = {
                 ],
             });
 
-            const emailSent = await sendEmailSafely({
-                from: process.env.EMAIL_USER,
+            sendEmailInBackground({
                 to: email,
                 subject: `Support Ticket Created - Ticket #${threadId}`,
                 html,
@@ -178,11 +177,7 @@ const legalController = {
                 ]
             }, 'Legal Help Confirmation Email');
 
-            if (!emailSent) {
-                req.flash('error', 'Help request submitted, but confirmation email could not be sent.');
-            } else {
-                req.flash('success', 'Help request submitted successfully.');
-            }
+            req.flash('success', 'Help request submitted successfully.');
             res.redirect('/legal/help');
         } catch (error) {
                         req.flash('error', 'Failed to submit your request.');
