@@ -794,8 +794,8 @@ const adminController = {
         ]
       };
 
-      const sent = await sendEmailSafely(mailOptions, "Admin Ticket Reopened Email");
-      req.flash(sent ? "success" : "error", sent ? "Ticket reopened and an email notification was sent." : "Ticket reopened, but failed to send notification email.");
+      sendEmailInBackground(mailOptions, "Admin Ticket Reopened Email");
+      req.flash("success", "Ticket reopened and email notification queued.");
       res.redirect("/admin/helpHistory");
     } catch (error) {
             req.flash("error", "Failed to reopen the thread.");
