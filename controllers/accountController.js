@@ -7675,7 +7675,7 @@ const accountController = {
       });
 
       // Send emails
-      await sendEmailSafely({
+      sendEmailInBackground({
         to: invitation.hub_email,
         subject: `${organization.organization_name} Joined Your Hub`,
         html: hubEmailHtml,
@@ -7686,7 +7686,7 @@ const accountController = {
         }]
       }, 'HubJoinConfirmation');
 
-      await sendEmailSafely({
+      sendEmailInBackground({
         to: organization.email,
         subject: `Welcome to ${invitation.hub_name} Hub`,
         html: orgEmailHtml,
