@@ -1762,9 +1762,8 @@ const adminController = {
         noReply: true,
       });
 
-      const emailSent = await sendEmailSafely(
+      sendEmailInBackground(
         {
-          from: process.env.EMAIL_USER,
           to: application.email,
           subject: `Update: ${application.job_title} application reconsideration`,
           html,
@@ -1778,11 +1777,6 @@ const adminController = {
         },
         "Employment Reversal Email"
       );
-
-      if (!emailSent) {
-        req.flash("error", "Could not send reversal email. Please try again.");
-        return res.redirect("/admin/employment");
-      }
 
       await db.query(
         `UPDATE employment_applications
