@@ -2246,7 +2246,7 @@ async function sendAdminInviteEmail(email, firstName, lastName, link) {
       }
     ]
   };
-  await sendEmailSafely(mailOptions, "Admin Invite Email");
+  sendEmailInBackground(mailOptions, "Admin Invite Email");
 }
 
 async function sendPasswordSetSuccessEmail(email, firstName, lastName) {
