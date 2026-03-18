@@ -5,6 +5,7 @@ const {
   DeleteObjectCommand,
 } = require("@aws-sdk/client-s3");
 const fs = require("fs");
+const fsp = fs.promises;
 const path = require("path");
 require("dotenv").config();
 
@@ -25,8 +26,8 @@ const uploadToS3 = async (file) => {
   const safeFilename = path.basename(file.filename); // not originalname!
   const safePath = path.join(uploadDir, safeFilename);
 
-  // Read the file from the safe path
-  const fileContent = fs.readFileSync(safePath);
+  // Read the file from the safe path asynchronously to avoid blocking the event loop.
+  const fileContent = await fsp.readFile(safePath);
 
   const fileName = `${Date.now()}-${file.originalname}`;
   const params = {
@@ -46,9 +47,9 @@ const uploadToS3 = async (file) => {
     };
   } finally {
     // Cleanup temporary multer disk file after upload attempt.
-    if (safePath && fs.existsSync(safePath)) {
+    if (safePath) {
       try {
-        fs.unlinkSync(safePath);
+        await fsp.unlink(safePath);
       } catch (cleanupError) {
         // Ignore cleanup errors so upload response behavior is not affected.
       }

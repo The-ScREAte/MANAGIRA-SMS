@@ -5,6 +5,14 @@ const { uploadToS3 } = require('../config/s3');
 const { sendEmailSafely, renderCleanEmail } = require('../utils/emailHelper');
 const { ensureEmploymentSchema } = require('../utils/employmentSchema');
 
+const sendWithSingleRetry = async (sendFn) => {
+    const firstAttempt = await sendFn();
+    if (firstAttempt) {
+        return true;
+    }
+    return sendFn();
+};
+
 const sendEmploymentApplicantConfirmationEmail = async ({
     applicantFullName,
     applicantEmail,
@@ -27,7 +35,7 @@ const sendEmploymentApplicantConfirmationEmail = async ({
         ],
     });
 
-    const firstAttempt = await sendEmailSafely(
+    return sendWithSingleRetry(() => sendEmailSafely(
         {
             from: process.env.EMAIL_USER,
             to: applicantEmail,
@@ -42,29 +50,7 @@ const sendEmploymentApplicantConfirmationEmail = async ({
             ]
         },
         'Employment Applicant Confirmation Email'
-    );
-
-    if (firstAttempt) {
-        return true;
-    }
-
-    // Retry once for transient SMTP/network hiccups.
-    return sendEmailSafely(
-        {
-            from: process.env.EMAIL_USER,
-            to: applicantEmail,
-            subject: `Application Received: ${selectedJob.title}`,
-            html: applicantConfirmationHtml,
-            attachments: [
-                {
-                    filename: 'managira.png',
-                    path: path.join(__dirname, '../public/images/managira.png'),
-                    cid: 'managira_logo'
-                }
-            ]
-        },
-        'Employment Applicant Confirmation Email (Retry)'
-    );
+    ));
 };
 
 const sendEmploymentInternalAlertEmail = async ({
@@ -97,7 +83,7 @@ const sendEmploymentInternalAlertEmail = async ({
         ],
     });
 
-    return sendEmailSafely(
+    return sendWithSingleRetry(() => sendEmailSafely(
         {
             from: process.env.EMAIL_USER,
             to: alertRecipient,
@@ -112,7 +98,7 @@ const sendEmploymentInternalAlertEmail = async ({
             ]
         },
         'Employment New Application Alert Email'
-    );
+    ));
 };
 
 const legalController = {
@@ -352,7 +338,10 @@ const legalController = {
             const applicationId = savedApplication.rows[0]?.id;
             const applicantFullName = `${first_name.trim()} ${last_name.trim()}`;
             const normalizedApplicantEmail = email.trim().toLowerCase();
-            const alertRecipient = process.env.EMPLOYMENT_ALERT_EMAIL || process.env.EMAIL_USER;
+            const alertRecipient =
+                process.env.EMPLOYMENT_ALERT_EMAIL ||
+                process.env.ADMIN_NOTIFY_EMAIL_USER ||
+                process.env.EMAIL_USER;
 
             // Keep request fast: both applicant confirmation and internal alert are asynchronous.
             setImmediate(() => {
@@ -373,8 +362,16 @@ const legalController = {
                         applicationId,
                         alertRecipient,
                     }),
-                ]).catch(() => {
-                    // Intentionally swallow background email errors to avoid impacting UX.
+                ]).then((results) => {
+                    const [applicantResult, internalResult] = results;
+                    if (applicantResult?.status === 'rejected' || applicantResult?.value === false) {
+                        console.error('[Employment Email] Applicant confirmation email failed for application', applicationId);
+                    }
+                    if (internalResult?.status === 'rejected' || internalResult?.value === false) {
+                        console.error('[Employment Email] Internal alert email failed for application', applicationId);
+                    }
+                }).catch((backgroundError) => {
+                    console.error('[Employment Email] Unexpected background email dispatcher failure:', backgroundError.message);
                 });
             });
 

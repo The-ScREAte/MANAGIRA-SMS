@@ -1566,18 +1566,40 @@ const adminController = {
 
       const application = applicationResult.rows[0];
 
+      if (application.status !== "pending") {
+        req.flash("error", "Only pending applications can be approved. Reverse rejection first if needed.");
+        return res.redirect("/admin/employment");
+      }
+
+      const updateResult = await db.query(
+        `UPDATE employment_applications
+         SET status = 'approved',
+             rejection_reason = NULL,
+             reviewed_at = CURRENT_TIMESTAMP
+         WHERE id = $1
+         RETURNING id`,
+        [applicationId]
+      );
+
+      if (!updateResult.rows.length) {
+        req.flash("error", "Application not found.");
+        return res.redirect("/admin/employment");
+      }
+
       const html = renderCleanEmail({
         title: "Employment Application Approved",
         greeting: `Dear <strong>${he.encode(application.first_name)} ${he.encode(application.last_name)}</strong>,`,
         paragraphs: [
-          `Thank you for applying for the <strong>${he.encode(application.job_title)}</strong> role at Managira.`,
-          "Your application has been approved for the next stage, and our team will contact you.",
-          "If you do not hear back from us, please reply to this email within one week.",
+          "Thank you for applying for the Content Manager - Tanzania position at Managira.",
+          "We are pleased to inform you that your application has been approved for the next stage of the selection process.",
+          "Our team will be in touch shortly with the next steps, which may include an interview and/or additional assessments.",
+          "If you have any questions in the meantime, please feel free to reply to this email.",
         ],
         details: [
           { label: "Position", value: application.job_title },
-          { label: "Status", value: "Approved for next stage" },
+          { label: "Application Status", value: "Approved for Next Stage" },
         ],
+        noReply: false,
       });
 
       const emailSent = await sendEmailSafely(
@@ -1598,18 +1620,9 @@ const adminController = {
       );
 
       if (!emailSent) {
-        req.flash("error", "Could not send approval email. Please try again.");
+        req.flash("info", "Application approved, but approval email could not be sent.");
         return res.redirect("/admin/employment");
       }
-
-      await db.query(
-        `UPDATE employment_applications
-         SET status = 'approved',
-             rejection_reason = NULL,
-             reviewed_at = CURRENT_TIMESTAMP
-         WHERE id = $1`,
-        [applicationId]
-      );
 
       req.flash("success", "Approval email sent and application marked as approved.");
     } catch (error) {
@@ -1654,6 +1667,7 @@ const adminController = {
 
       const details = [
         { label: "Position", value: application.job_title },
+        { label: "Application Status", value: "Rejected" },
       ];
       if (rejectionReason) {
         details.push({ label: "Reason", value: rejectionReason });
@@ -1663,11 +1677,12 @@ const adminController = {
         title: "Employment Application Update",
         greeting: `Dear <strong>${he.encode(application.first_name)} ${he.encode(application.last_name)}</strong>,`,
         paragraphs: [
-          `Thank you for your interest in the <strong>${he.encode(application.job_title)}</strong> role at Managira.`,
-          "After careful review, we will not be moving forward with your application at this time.",
-          "We appreciate the time you spent applying and encourage you to apply for future roles that fit your profile.",
+          "Thank you for your interest in the Content Manager - Tanzania position at Managira.",
+          "After careful consideration, we regret to inform you that we will not be progressing with your application at this stage.",
+          "We sincerely appreciate the time and effort you invested in your application. We encourage you to apply for future opportunities with Managira that align with your experience and skills.",
         ],
         details,
+        noReply: true,
       });
 
       const emailSent = await sendEmailSafely(
@@ -1704,6 +1719,95 @@ const adminController = {
       req.flash("success", "Rejection email sent and application marked as rejected.");
     } catch (error) {
       req.flash("error", "Failed to reject application.");
+    }
+
+    return res.redirect("/admin/employment");
+  },
+
+  reverseEmploymentRejection: async (req, res) => {
+    await ensureEmploymentSchema(db);
+
+    const applicationId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(applicationId)) {
+      req.flash("error", "Invalid application selected.");
+      return res.redirect("/admin/employment");
+    }
+
+    try {
+      const applicationResult = await db.query(
+        `SELECT
+          ea.id,
+          ea.first_name,
+          ea.last_name,
+          ea.email,
+          ea.status,
+          e.title AS job_title
+        FROM employment_applications ea
+        JOIN employment e ON e.id = ea.employment_id
+        WHERE ea.id = $1`,
+        [applicationId]
+      );
+
+      if (!applicationResult.rows.length) {
+        req.flash("error", "Application not found.");
+        return res.redirect("/admin/employment");
+      }
+
+      const application = applicationResult.rows[0];
+      if (application.status !== "rejected") {
+        req.flash("error", "Only rejected applications can be reversed.");
+        return res.redirect("/admin/employment");
+      }
+
+      const html = renderCleanEmail({
+        title: "Update on Your Employment Application",
+        greeting: `Dear <strong>${he.encode(application.first_name)} ${he.encode(application.last_name)}</strong>,`,
+        paragraphs: [
+          "Please disregard the previous email regarding your application for the Content Manager - Tanzania position.",
+          "Following an additional review, we are pleased to inform you that your application has been reopened and is currently under consideration.",
+          "Our team will share a further update with you shortly regarding next steps.",
+        ],
+        details: [
+          { label: "Position", value: application.job_title },
+          { label: "Application Status", value: "Reopened for Review" },
+        ],
+        noReply: true,
+      });
+
+      const emailSent = await sendEmailSafely(
+        {
+          from: process.env.EMAIL_USER,
+          to: application.email,
+          subject: `Update: ${application.job_title} application reconsideration`,
+          html,
+          attachments: [
+            {
+              filename: "managira.png",
+              path: path.join(__dirname, "../public/images/managira.png"),
+              cid: "managira_logo",
+            },
+          ],
+        },
+        "Employment Reversal Email"
+      );
+
+      if (!emailSent) {
+        req.flash("error", "Could not send reversal email. Please try again.");
+        return res.redirect("/admin/employment");
+      }
+
+      await db.query(
+        `UPDATE employment_applications
+         SET status = 'pending',
+             rejection_reason = NULL,
+             reviewed_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [applicationId]
+      );
+
+      req.flash("success", "Rejection reversed and applicant notified by email.");
+    } catch (error) {
+      req.flash("error", "Failed to reverse rejection.");
     }
 
     return res.redirect("/admin/employment");

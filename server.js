@@ -535,9 +535,14 @@ app.use((err, req, res, next) => {
   res.status(500).send('Something went wrong!');
 });
 
-cron.schedule("0 0 * * *", async () => {
-  await applyScheduledHolds();
-});
+const shouldRunScheduledHolds = process.env.NODE_ENV === "production" || process.env.ENABLE_SCHEDULED_HOLDS_CRON === "true";
+if (shouldRunScheduledHolds) {
+  cron.schedule("0 0 * * *", async () => {
+    await applyScheduledHolds();
+  });
+} else {
+  console.log("[Scheduled Holds] Disabled outside production. Set ENABLE_SCHEDULED_HOLDS_CRON=true to enable.");
+}
 
 const { ensurePermissionsSchema } = require('./middleware/permissionMiddleware');
 

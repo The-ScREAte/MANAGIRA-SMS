@@ -322,9 +322,9 @@
                                 type="submit"
                                 class="admin-btn admin-btn-sm"
                                 style="width: 100%; background: #0f766e; color: #fff; border: 1px solid #115e59;"
-                                <%= application.status === 'approved' ? 'disabled' : '' %>
+                                <%= application.status !== 'pending' ? 'disabled' : '' %>
                               >
-                                <%= application.status === 'approved' ? 'Already Approved' : 'Approve and Send Email' %>
+                                <%= application.status === 'approved' ? 'Already Approved' : (application.status === 'rejected' ? 'Approve Disabled Until Reversed' : 'Approve and Send Email') %>
                               </button>
                             </form>
 
@@ -343,6 +343,18 @@
                                 <%= application.status === 'rejected' ? 'Already Rejected' : 'Reject and Send Email' %>
                               </button>
                             </form>
+
+                            <% if (application.status === 'rejected') { %>
+                              <form method="POST" action="/admin/employment/applications/<%= application.id %>/reverse-rejection" onsubmit="return confirm('Reverse rejection and notify applicant to disregard previous rejection email?');" style="margin: 0;">
+                                <button
+                                  type="submit"
+                                  class="admin-btn admin-btn-sm"
+                                  style="width: 100%; background: #1d4ed8; color: #fff; border: 1px solid #1e40af;"
+                                >
+                                  Reverse Rejection and Notify
+                                </button>
+                              </form>
+                            <% } %>
 
                             <form method="POST" action="/admin/employment/applications/<%= application.id %>/delete" onsubmit="return confirm('Delete this application permanently?');" style="margin: 0;">
                               <button type="submit" class="admin-btn admin-btn-delete admin-btn-sm" style="width: 100%;">

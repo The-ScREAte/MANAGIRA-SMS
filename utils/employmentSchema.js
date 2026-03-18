@@ -135,14 +135,17 @@ async function ensureEmploymentSchema(db) {
     await db.query(`
       DO $$
       BEGIN
-        IF NOT EXISTS (
+        IF EXISTS (
           SELECT 1 FROM pg_constraint
           WHERE conname = 'employment_applications_status_check'
         ) THEN
           ALTER TABLE employment_applications
-            ADD CONSTRAINT employment_applications_status_check
-            CHECK (status IN ('pending', 'approved', 'rejected'));
+            DROP CONSTRAINT employment_applications_status_check;
         END IF;
+
+        ALTER TABLE employment_applications
+          ADD CONSTRAINT employment_applications_status_check
+          CHECK (status IN ('pending', 'approved', 'rejected'));
       END $$
     `);
 

@@ -4,6 +4,34 @@ const { sendEmailSafely, renderCleanEmail } = require("./emailHelper");
 const HUB_CONTRACT_HOLD_BY = "SystemHubContract";
 
 async function enforceHubContractAccess() {
+  const hubColumnResult = await db.query(
+    `SELECT column_name
+     FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'managira_hubs'
+       AND column_name = ANY($1::text[])`,
+    [["contract_start_date", "contract_end_date"]]
+  );
+  const availableColumns = new Set(hubColumnResult.rows.map((row) => row.column_name));
+  const hasContractStartDate = availableColumns.has("contract_start_date");
+  const hasContractEndDate = availableColumns.has("contract_end_date");
+
+  const holdContractChecks = [];
+  const resumeContractChecks = [];
+
+  if (hasContractStartDate) {
+    holdContractChecks.push("(h.contract_start_date IS NOT NULL AND h.contract_start_date > CURRENT_DATE)");
+    resumeContractChecks.push("(h.contract_start_date IS NULL OR h.contract_start_date <= CURRENT_DATE)");
+  }
+
+  if (hasContractEndDate) {
+    holdContractChecks.push("(h.contract_end_date IS NOT NULL AND h.contract_end_date < CURRENT_DATE)");
+    resumeContractChecks.push("(h.contract_end_date IS NULL OR h.contract_end_date >= CURRENT_DATE)");
+  }
+
+  const holdContractClause = holdContractChecks.length ? ` OR ${holdContractChecks.join(" OR ")}` : "";
+  const resumeContractClause = resumeContractChecks.length ? ` AND ${resumeContractChecks.join(" AND ")}` : "";
+
   const dueForHoldResult = await db.query(
     `SELECT o.organization_id, o.organization_name, o.email
      FROM organizations o
@@ -15,8 +43,7 @@ async function enforceHubContractAccess() {
        AND (
          h.deleted = true
          OR h.on_hold = true
-         OR (h.contract_start_date IS NOT NULL AND h.contract_start_date > CURRENT_DATE)
-         OR (h.contract_end_date IS NOT NULL AND h.contract_end_date < CURRENT_DATE)
+         ${holdContractClause}
        )`
   );
 
@@ -48,8 +75,7 @@ async function enforceHubContractAccess() {
        AND o.hold_by = $1
        AND h.deleted = false
        AND h.on_hold = false
-       AND (h.contract_start_date IS NULL OR h.contract_start_date <= CURRENT_DATE)
-       AND (h.contract_end_date IS NULL OR h.contract_end_date >= CURRENT_DATE)`,
+       ${resumeContractClause}`,
     [HUB_CONTRACT_HOLD_BY]
   );
 
