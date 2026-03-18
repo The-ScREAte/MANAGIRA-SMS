@@ -1601,7 +1601,6 @@ const adminController = {
 
       const emailSent = await sendEmailSafely(
         {
-          from: process.env.EMAIL_USER,
           to: application.email,
           subject: `Your ${application.job_title} application has been approved`,
           html,
