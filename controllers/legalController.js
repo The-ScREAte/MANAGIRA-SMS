@@ -84,7 +84,6 @@ const sendEmploymentInternalAlertEmail = async ({
 
     return sendWithSingleRetry(() => sendEmailSafely(
         {
-            from: process.env.EMAIL_USER,
             to: alertRecipient,
             subject: `New Application: ${selectedJob.title}`,
             html: internalAlertHtml,
