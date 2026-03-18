@@ -4,18 +4,13 @@ const crypto = require("crypto");
 const { uploadToS3, deleteFromS3 } = require("../config/s3");
 const { sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require("../utils/emailHelper");
 
-// Helper function to send emails
-async function sendEmail({ to, subject, html }) {
-  try {
-    return await sendEmailSafely({
-      to,
-      subject,
-      html,
-      from: process.env.NOTIFY_EMAIL_USER,
-    }, "Hub email");
-  } catch (error) {
-        return false;
-  }
+// Helper function to send emails (fire-and-forget)
+function sendEmail({ to, subject, html }) {
+  sendEmailInBackground({
+    to,
+    subject,
+    html,
+  }, "Hub email");
 }
 
 // Log hub activity
