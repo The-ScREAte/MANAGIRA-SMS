@@ -3582,7 +3582,7 @@ const commonController = {
             },
           ],
         };
-        await sendEmailSafely(mailOptions, "Admission Rejected Email");
+        sendEmailInBackground(mailOptions, "Admission Rejected Email");
       }
 
       res.redirect("/common/admissionPending");
