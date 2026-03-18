@@ -312,7 +312,7 @@ async function sendRegistrationSuccessEmail(
       ],
     };
 
-    await sendEmailSafely(mailOptions, "Registration Success Email");
+    sendEmailInBackground(mailOptions, "Registration Success Email");
   } catch (error) {
         throw new Error("Failed to send registration success email.");
   }
