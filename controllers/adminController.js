@@ -1679,9 +1679,8 @@ const adminController = {
         noReply: true,
       });
 
-      const emailSent = await sendEmailSafely(
+      sendEmailInBackground(
         {
-          from: process.env.EMAIL_USER,
           to: application.email,
           subject: `Update on your ${application.job_title} application`,
           html,
@@ -1696,11 +1695,6 @@ const adminController = {
         "Employment Rejection Email"
       );
 
-      if (!emailSent) {
-        req.flash("error", "Could not send rejection email. Please try again.");
-        return res.redirect("/admin/employment");
-      }
-
       await db.query(
         `UPDATE employment_applications
          SET status = 'rejected',
@@ -1710,7 +1704,7 @@ const adminController = {
         [applicationId, rejectionReason || null]
       );
 
-      req.flash("success", "Rejection email sent and application marked as rejected.");
+      req.flash("success", "Application rejected and notification email queued.");
     } catch (error) {
       req.flash("error", "Failed to reject application.");
     }
