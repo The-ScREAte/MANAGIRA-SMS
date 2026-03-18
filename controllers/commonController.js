@@ -10094,7 +10094,7 @@ const sendGuardianStudentAddedEmail = async (guardianEmail, guardianFirstName, g
       ]
     };
 
-    await sendEmailSafely(mailOptions, "Guardian Student Added Email");
+    sendEmailInBackground(mailOptions, "Guardian Student Added Email");
       } catch (error) {
       }
 };
