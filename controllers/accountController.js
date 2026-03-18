@@ -165,7 +165,7 @@ async function sendBrandedReceiptEmail({
 
       .replace(/{{year}}/g, year);
 
-    await sendEmailSafely(
+    sendEmailInBackground(
       {
         to,
         subject: "Payment Receipt - Managira",
