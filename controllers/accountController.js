@@ -207,7 +207,6 @@ async function sendInvoiceEmail(email, orgName, invoice) {
     });
 
     const mailOptions = {
-      from: process.env.NOTIFY_EMAIL_USER,
 
       to: email,
 
