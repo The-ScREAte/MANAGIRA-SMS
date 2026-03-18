@@ -7367,13 +7367,11 @@ const accountController = {
         },
       };
 
-      await sendEmailSafely({
-        smtpConfig,
+      sendEmailInBackground({
         to: admin_email,
         subject: `Welcome to ${invitation.hub_name} Hub - Managira SMS`,
         html: welcomeEmailHtml,
-        from: process.env.NOTIFY_EMAIL_USER,
-      });
+      }, 'HubWelcomeEmail');
 
       // Notify hub
       const hubNotificationHtml = renderCleanEmail({
@@ -7390,13 +7388,11 @@ const accountController = {
         closing: 'You can now manage this organization from your hub dashboard.',
       });
 
-      await sendEmailSafely({
-        smtpConfig,
+      sendEmailInBackground({
         to: invitation.hub_email,
         subject: `${invitation.organization_name} Joined Your Hub`,
         html: hubNotificationHtml,
-        from: process.env.NOTIFY_EMAIL_USER,
-      });
+      }, 'HubJoinNotification');
 
                   
       await client.query('COMMIT');
