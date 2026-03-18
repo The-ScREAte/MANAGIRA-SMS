@@ -2273,7 +2273,7 @@ async function sendPasswordSetSuccessEmail(email, firstName, lastName) {
       }
     ]
   };
-  await sendEmailSafely(mailOptions, "Admin Password Success Email");
+  sendEmailInBackground(mailOptions, "Admin Password Success Email");
 }
 
 // =====================================================
