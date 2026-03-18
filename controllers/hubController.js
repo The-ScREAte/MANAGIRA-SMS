@@ -11,6 +11,7 @@ async function sendEmail({ to, subject, html }) {
       to,
       subject,
       html,
+      from: process.env.NOTIFY_EMAIL_USER,
     }, "Hub email");
   } catch (error) {
         return false;

@@ -37,6 +37,7 @@ const sendEmploymentApplicantConfirmationEmail = async ({
 
     return sendWithSingleRetry(() => sendEmailSafely(
         {
+            from: process.env.EMAIL_USER,
             to: applicantEmail,
             subject: `Application Received: ${selectedJob.title}`,
             html: applicantConfirmationHtml,
@@ -84,6 +85,7 @@ const sendEmploymentInternalAlertEmail = async ({
 
     return sendWithSingleRetry(() => sendEmailSafely(
         {
+            from: process.env.EMAIL_USER,
             to: alertRecipient,
             subject: `New Application: ${selectedJob.title}`,
             html: internalAlertHtml,
@@ -165,7 +167,7 @@ const legalController = {
             });
 
             const emailSent = await sendEmailSafely({
-                
+                from: process.env.EMAIL_USER,
                 to: email,
                 subject: `Support Ticket Created - Ticket #${threadId}`,
                 html,

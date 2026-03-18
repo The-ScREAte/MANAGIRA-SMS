@@ -634,6 +634,7 @@ const adminController = {
       });
 
       const mailOptions = {
+        from: process.env.NOTIFY_EMAIL_USER,
         to: thread.email,
         subject: `Response to Support Ticket #${threadIdInt}`,
         html,
@@ -696,6 +697,7 @@ const adminController = {
       });
 
       const mailOptions = {
+        from: process.env.NOTIFY_EMAIL_USER,
         to: thread.email,
         subject: `Your Support Ticket #${threadIdInt} Has Been Resolved`,
         html,
@@ -779,6 +781,7 @@ const adminController = {
       });
 
       const mailOptions = {
+        from: process.env.NOTIFY_EMAIL_USER,
         to: thread.email,
         subject: `Your Support Ticket #${threadIdInt} Has Been Reopened`,
         html,
@@ -1601,6 +1604,7 @@ const adminController = {
 
       const emailSent = await sendEmailSafely(
         {
+          from: process.env.EMAIL_USER,
           to: application.email,
           subject: `Your ${application.job_title} application has been approved`,
           html,
@@ -1683,6 +1687,7 @@ const adminController = {
 
       const emailSent = await sendEmailSafely(
         {
+          from: process.env.EMAIL_USER,
           to: application.email,
           subject: `Update on your ${application.job_title} application`,
           html,
@@ -1771,7 +1776,7 @@ const adminController = {
 
       const emailSent = await sendEmailSafely(
         {
-          
+          from: process.env.EMAIL_USER,
           to: application.email,
           subject: `Update: ${application.job_title} application reconsideration`,
           html,
@@ -2221,6 +2226,7 @@ async function sendEmailNotification(to, subject, text) {
 
   await sendEmailSafely(
     {
+      from: process.env.NOTIFY_EMAIL_USER || process.env.ADMIN_NOTIFY_EMAIL_USER,
       to,
       subject,
       html,
@@ -2247,6 +2253,7 @@ async function sendAdminInviteEmail(email, firstName, lastName, link) {
     note: 'This link will expire in 24 hours. For help, visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
   });
   const mailOptions = {
+    from: process.env.NOTIFY_EMAIL_USER,
     to: email,
     subject: "You are invited to Managira - Set Your Password",
     html,
@@ -2273,6 +2280,7 @@ async function sendPasswordSetSuccessEmail(email, firstName, lastName) {
     note: 'If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
   });
   const mailOptions = {
+    from: process.env.NOTIFY_EMAIL_USER,
     to: email,
     subject: "Your Password Has Been Set Successfully",
     html,
@@ -2428,9 +2436,19 @@ adminController.hubCreatePost = async (req, res) => {
     });
 
     await sendEmailSafely({
+      smtpConfig: {
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT),
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: {
+          user: process.env.ADMIN_NOTIFY_EMAIL_USER,
+          pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
+        },
+      },
       to: hubEmail,
       subject: 'Welcome to Managira Hub - Set Up Your Password',
       html: emailHtml,
+      from: process.env.NOTIFY_EMAIL_USER,
     });
 
     req.flash('success', 'Hub created successfully! Setup instructions sent to the hub email.');

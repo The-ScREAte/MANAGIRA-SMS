@@ -259,14 +259,5 @@ module.exports = (db) => {
     router.post('/hubs/permanently-delete', ensureAdmin, adminController.permanentlyDeleteHub);
     router.get('/hubs/:hubId/organizations', ensureAdmin, adminController.hubOrganizationsGet);
 
-    // Email test endpoint (admin only)
-    const { testAllEmails } = require('../controllers/emailTestController');
-    router.post('/testAllEmails', ensureAdmin, testAllEmails);
-    router.get('/testAllEmails', ensureAdmin, (req, res) => {
-      // Allow GET for convenience: /admin/testAllEmails?testEmail=someone@example.com
-      req.body = { testEmail: req.query.testEmail };
-      testAllEmails(req, res);
-    });
-
     return router;
 };
