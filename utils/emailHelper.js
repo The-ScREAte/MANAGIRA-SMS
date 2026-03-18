@@ -128,6 +128,9 @@ function getTransporter() {
     pool: true,           // keep-alive connection pool
     maxConnections: 3,
     maxMessages: 100,
+    connectionTimeout: 10000,  // 10s to establish connection
+    greetingTimeout: 10000,    // 10s for SMTP greeting
+    socketTimeout: 15000,      // 15s for socket inactivity
   });
 
   _transporterConfig = configKey;
