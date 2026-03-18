@@ -37,7 +37,7 @@ const sendEmploymentApplicantConfirmationEmail = async ({
 
     return sendWithSingleRetry(() => sendEmailSafely(
         {
-            from: process.env.NOTIFY_EMAIL_USER,
+            from: process.env.EMAIL_USER,
             to: applicantEmail,
             subject: `Application Received: ${selectedJob.title}`,
             html: applicantConfirmationHtml,
@@ -85,7 +85,7 @@ const sendEmploymentInternalAlertEmail = async ({
 
     return sendWithSingleRetry(() => sendEmailSafely(
         {
-            from: process.env.NOTIFY_EMAIL_USER,
+            from: process.env.EMAIL_USER,
             to: alertRecipient,
             subject: `New Application: ${selectedJob.title}`,
             html: internalAlertHtml,
@@ -343,7 +343,7 @@ const legalController = {
                 process.env.ADMIN_NOTIFY_EMAIL_USER ||
                 process.env.EMAIL_USER;
 
-            // Fire both emails in background so the form submits fast.
+            // Keep request fast: trigger both emails in background without awaiting.
             Promise.allSettled([
                 sendEmploymentApplicantConfirmationEmail({
                     applicantFullName,
@@ -369,8 +369,8 @@ const legalController = {
                 if (internalResult?.status === 'rejected' || internalResult?.value === false) {
                     console.error('[Employment Email] Internal alert email failed for application', applicationId);
                 }
-            }).catch((err) => {
-                console.error('[Employment Email] Background email dispatcher error:', err?.message);
+            }).catch((backgroundError) => {
+                console.error('[Employment Email] Unexpected background email dispatcher failure:', backgroundError.message);
             });
 
             req.flash('success', `Application submitted for ${selectedJob.title}. We will be in touch. Follow us on LinkedIn for more information.`);
