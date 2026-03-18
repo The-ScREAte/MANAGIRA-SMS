@@ -5,14 +5,12 @@ const { uploadToS3 } = require('../config/s3');
 const { sendEmailSafely, renderCleanEmail } = require('../utils/emailHelper');
 const { ensureEmploymentSchema } = require('../utils/employmentSchema');
 
-const sendEmploymentApplicationEmailsInBackground = async ({
+const sendEmploymentApplicantConfirmationEmail = async ({
     applicantFullName,
     applicantEmail,
-    phone,
     location,
     selectedJob,
     applicationId,
-    alertRecipient,
 }) => {
     const applicantConfirmationHtml = renderCleanEmail({
         title: 'Employment Application Received',
@@ -29,7 +27,7 @@ const sendEmploymentApplicationEmailsInBackground = async ({
         ],
     });
 
-    const applicantEmailPromise = sendEmailSafely(
+    const firstAttempt = await sendEmailSafely(
         {
             from: process.env.EMAIL_USER,
             to: applicantEmail,
@@ -46,47 +44,75 @@ const sendEmploymentApplicationEmailsInBackground = async ({
         'Employment Applicant Confirmation Email'
     );
 
-    const emailPromises = [applicantEmailPromise];
-
-    if (alertRecipient) {
-        const internalAlertHtml = renderCleanEmail({
-            title: 'New Employment Application Received',
-            greeting: 'Hello Team,',
-            paragraphs: [
-                'People are applying. A new employment application has been submitted.',
-                'Please review this application from the Admin Employment page.',
-            ],
-            details: [
-                { label: 'Position', value: selectedJob.title },
-                { label: 'Applicant', value: applicantFullName },
-                { label: 'Email', value: applicantEmail },
-                { label: 'Phone', value: phone },
-                { label: 'Location', value: location },
-                { label: 'Application ID', value: applicationId ? `#${applicationId}` : 'Submitted' },
-            ],
-        });
-
-        emailPromises.push(
-            sendEmailSafely(
-                {
-                    from: process.env.EMAIL_USER,
-                    to: alertRecipient,
-                    subject: `New Application: ${selectedJob.title}`,
-                    html: internalAlertHtml,
-                    attachments: [
-                        {
-                            filename: 'managira.png',
-                            path: path.join(__dirname, '../public/images/managira.png'),
-                            cid: 'managira_logo'
-                        }
-                    ]
-                },
-                'Employment New Application Alert Email'
-            )
-        );
+    if (firstAttempt) {
+        return true;
     }
 
-    await Promise.allSettled(emailPromises);
+    // Retry once for transient SMTP/network hiccups.
+    return sendEmailSafely(
+        {
+            from: process.env.EMAIL_USER,
+            to: applicantEmail,
+            subject: `Application Received: ${selectedJob.title}`,
+            html: applicantConfirmationHtml,
+            attachments: [
+                {
+                    filename: 'managira.png',
+                    path: path.join(__dirname, '../public/images/managira.png'),
+                    cid: 'managira_logo'
+                }
+            ]
+        },
+        'Employment Applicant Confirmation Email (Retry)'
+    );
+};
+
+const sendEmploymentInternalAlertEmail = async ({
+    applicantFullName,
+    applicantEmail,
+    phone,
+    location,
+    selectedJob,
+    applicationId,
+    alertRecipient,
+}) => {
+    if (!alertRecipient) {
+        return false;
+    }
+
+    const internalAlertHtml = renderCleanEmail({
+        title: 'New Employment Application Received',
+        greeting: 'Hello Team,',
+        paragraphs: [
+            'People are applying. A new employment application has been submitted.',
+            'Please review this application from the Admin Employment page.',
+        ],
+        details: [
+            { label: 'Position', value: selectedJob.title },
+            { label: 'Applicant', value: applicantFullName },
+            { label: 'Email', value: applicantEmail },
+            { label: 'Phone', value: phone },
+            { label: 'Location', value: location },
+            { label: 'Application ID', value: applicationId ? `#${applicationId}` : 'Submitted' },
+        ],
+    });
+
+    return sendEmailSafely(
+        {
+            from: process.env.EMAIL_USER,
+            to: alertRecipient,
+            subject: `New Application: ${selectedJob.title}`,
+            html: internalAlertHtml,
+            attachments: [
+                {
+                    filename: 'managira.png',
+                    path: path.join(__dirname, '../public/images/managira.png'),
+                    cid: 'managira_logo'
+                }
+            ]
+        },
+        'Employment New Application Alert Email'
+    );
 };
 
 const legalController = {
@@ -328,17 +354,26 @@ const legalController = {
             const normalizedApplicantEmail = email.trim().toLowerCase();
             const alertRecipient = process.env.EMPLOYMENT_ALERT_EMAIL || process.env.EMAIL_USER;
 
-            // Keep request fast: send confirmation + internal alert asynchronously after save.
+            // Keep request fast: both applicant confirmation and internal alert are asynchronous.
             setImmediate(() => {
-                sendEmploymentApplicationEmailsInBackground({
-                    applicantFullName,
-                    applicantEmail: normalizedApplicantEmail,
-                    phone: phone.trim(),
-                    location: location.trim(),
-                    selectedJob,
-                    applicationId,
-                    alertRecipient,
-                }).catch(() => {
+                Promise.allSettled([
+                    sendEmploymentApplicantConfirmationEmail({
+                        applicantFullName,
+                        applicantEmail: normalizedApplicantEmail,
+                        location: location.trim(),
+                        selectedJob,
+                        applicationId,
+                    }),
+                    sendEmploymentInternalAlertEmail({
+                        applicantFullName,
+                        applicantEmail: normalizedApplicantEmail,
+                        phone: phone.trim(),
+                        location: location.trim(),
+                        selectedJob,
+                        applicationId,
+                        alertRecipient,
+                    }),
+                ]).catch(() => {
                     // Intentionally swallow background email errors to avoid impacting UX.
                 });
             });
