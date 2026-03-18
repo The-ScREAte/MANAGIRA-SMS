@@ -2,7 +2,7 @@ const nodemailer = require('nodemailer');
 const db = require('../config/db');
 const path = require('path');
 const { uploadToS3 } = require('../config/s3');
-const { sendEmailSafely, renderCleanEmail } = require('../utils/emailHelper');
+const { sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require('../utils/emailHelper');
 const { ensureEmploymentSchema } = require('../utils/employmentSchema');
 
 const sendWithSingleRetry = async (sendFn) => {

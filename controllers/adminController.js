@@ -9,7 +9,7 @@ const PDFDocument = require("pdfkit");
 const { uploadToS3, deleteFromS3 } = require("../config/s3");
 const he = require("he");
 const cacheManager = require("../utils/cacheManager");
-const { sendEmailSafely, renderCleanEmail } = require("../utils/emailHelper");
+const { sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require("../utils/emailHelper");
 const {
   getCurrencyProfileForRequest,
   localizeUsdAmount,

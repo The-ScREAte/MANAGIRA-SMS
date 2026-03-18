@@ -10,7 +10,7 @@ require("dotenv").config(); // Load environment variables from .env file
 const { uploadToS3, deleteFromS3 } = require("../middleware/s3Upload");
 const axios = require("axios");
 const he = require("he");
-const { sendEmailSafely, renderCleanEmail } = require("../utils/emailHelper");
+const { sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require("../utils/emailHelper");
 const { getPaystackSettings } = require("../utils/paystackConfig");
 const {
   PERMISSIONS,

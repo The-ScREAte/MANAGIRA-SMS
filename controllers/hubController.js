@@ -2,7 +2,7 @@ const db = require("../config/db");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const { uploadToS3, deleteFromS3 } = require("../config/s3");
-const { sendEmailSafely, renderCleanEmail } = require("../utils/emailHelper");
+const { sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require("../utils/emailHelper");
 
 // Helper function to send emails
 async function sendEmail({ to, subject, html }) {
