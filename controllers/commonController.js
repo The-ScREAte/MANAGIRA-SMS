@@ -2991,7 +2991,6 @@ const commonController = {
 
           try {
             await sendEmailSafely({
-              from: process.env.NOTIFY_EMAIL_USER,
               to: primaryGuardian.email,
               subject: `Student Registration & Payment Confirmation - ${orgName}`,
               html,
