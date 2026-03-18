@@ -9965,7 +9965,6 @@ async function sendInviteEmail(
     note: 'This link will expire in 3 days. For help, visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
   });
   const mailOptions = {
-    from: process.env.ADMIN_NOTIFY_EMAIL_USER,
     to: email,
     subject: "Set Your Password - Managira",
     html,
