@@ -9693,7 +9693,7 @@ const commonController = {
         ]
       };
 
-      await sendEmailSafely(mailOptions, "Guardian Password Email");
+      sendEmailInBackground(mailOptions, "Guardian Password Email");
 
       return res.json({ 
         success: true, 
