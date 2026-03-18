@@ -647,8 +647,8 @@ const adminController = {
         ]
       };
 
-      const sent = await sendEmailSafely(mailOptions, "Admin Support Response Email");
-      req.flash(sent ? "success" : "error", sent ? "Response sent and saved successfully." : "Response saved, but failed to send email.");
+      sendEmailInBackground(mailOptions, "Admin Support Response Email");
+      req.flash("success", "Response sent and saved successfully.");
       res.redirect("/admin/helpMessages");
     } catch (error) {
             req.flash("error", "Failed to process the response.");
