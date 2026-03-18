@@ -577,7 +577,7 @@ async function notifyTeachersForAssessmentControl({
         ],
       });
 
-      await sendEmailSafely(
+      sendEmailInBackground(
         {
           to: teacher.email,
           subject: `Assessment Access Update: ${testTitle || "Assessment"}`,
