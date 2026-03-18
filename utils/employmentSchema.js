@@ -69,6 +69,8 @@ async function ensureEmploymentSchema(db) {
         phone TEXT NOT NULL,
         location TEXT NOT NULL DEFAULT '',
         whatsapp_number TEXT,
+        has_institution_experience BOOLEAN NOT NULL DEFAULT FALSE,
+        institution_experience_name TEXT,
         contact_via_text BOOLEAN NOT NULL DEFAULT FALSE,
         contact_via_email BOOLEAN NOT NULL DEFAULT TRUE,
         cover_letter TEXT NOT NULL,
@@ -88,6 +90,16 @@ async function ensureEmploymentSchema(db) {
     await db.query(`
       ALTER TABLE employment_applications
       ADD COLUMN IF NOT EXISTS location TEXT NOT NULL DEFAULT ''
+    `);
+
+    await db.query(`
+      ALTER TABLE employment_applications
+      ADD COLUMN IF NOT EXISTS has_institution_experience BOOLEAN NOT NULL DEFAULT FALSE
+    `);
+
+    await db.query(`
+      ALTER TABLE employment_applications
+      ADD COLUMN IF NOT EXISTS institution_experience_name TEXT
     `);
 
     await db.query(`

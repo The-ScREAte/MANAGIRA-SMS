@@ -906,6 +906,8 @@ CREATE TABLE employment_applications (
     phone TEXT NOT NULL,
     location TEXT NOT NULL,
     whatsapp_number TEXT,
+    has_institution_experience BOOLEAN NOT NULL DEFAULT false,
+    institution_experience_name TEXT,
     contact_via_text BOOLEAN NOT NULL DEFAULT false,
     contact_via_email BOOLEAN NOT NULL DEFAULT true,
     cover_letter TEXT NOT NULL,

@@ -58,6 +58,19 @@
                   <input id="whatsapp_<%= job.id %>" type="tel" name="whatsapp_number" />
                 </div>
 
+                <div class="field-group">
+                  <label for="institution_experience_<%= job.id %>">Are you currently working with any institution, or have you worked with one in the past?</label>
+                  <select id="institution_experience_<%= job.id %>" class="institution-experience-select" name="has_institution_experience" required>
+                    <option value="no" selected>No</option>
+                    <option value="yes">Yes</option>
+                  </select>
+                </div>
+
+                <div class="field-group institution-name-wrap" style="display: none;">
+                  <label for="institution_experience_name_<%= job.id %>">Institution Name</label>
+                  <input id="institution_experience_name_<%= job.id %>" class="institution-name-input" type="text" name="institution_experience_name" placeholder="Enter institution name" />
+                </div>
+
                 <div class="field-group checkbox-group">
                   <span>Preferred contact method (choose at least one):</span>
                   <label><input type="checkbox" name="contact_via_email" checked /> Email</label>
@@ -339,6 +352,26 @@
       panel.addEventListener('toggle', () => {
         setApplyHint(panel);
       });
+    });
+
+    const applicationForms = Array.from(document.querySelectorAll('.application-form'));
+    applicationForms.forEach((form) => {
+      const select = form.querySelector('.institution-experience-select');
+      const nameWrap = form.querySelector('.institution-name-wrap');
+      const nameInput = form.querySelector('.institution-name-input');
+      if (!select || !nameWrap || !nameInput) return;
+
+      const syncInstitutionExperience = () => {
+        const isYes = select.value === 'yes';
+        nameWrap.style.display = isYes ? 'block' : 'none';
+        nameInput.required = isYes;
+        if (!isYes) {
+          nameInput.value = '';
+        }
+      };
+
+      select.addEventListener('change', syncInstitutionExperience);
+      syncInstitutionExperience();
     });
   })();
 </script>

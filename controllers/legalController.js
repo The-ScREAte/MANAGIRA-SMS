@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const db = require('../config/db');
+const path = require('path');
 const { uploadToS3 } = require('../config/s3');
 const { sendEmailSafely, renderCleanEmail } = require('../utils/emailHelper');
 const { ensureEmploymentSchema } = require('../utils/employmentSchema');
@@ -131,6 +132,8 @@ const legalController = {
             location,
             whatsapp_number,
             cover_letter_note,
+            has_institution_experience,
+            institution_experience_name,
             contact_via_text,
             contact_via_email,
         } = req.body;
@@ -166,6 +169,19 @@ const legalController = {
 
             const wantsText = contact_via_text === 'on';
             const wantsEmail = contact_via_email === 'on';
+            const hasInstitutionExperience = has_institution_experience === 'yes';
+            const normalizedInstitutionName = institution_experience_name ? institution_experience_name.trim() : '';
+
+            if (hasInstitutionExperience && !normalizedInstitutionName) {
+                req.flash('error', 'Please enter the institution name if you selected yes.');
+                return res.redirect('/legal/employment');
+            }
+
+            if (!hasInstitutionExperience && normalizedInstitutionName) {
+                req.flash('error', 'Institution name should only be entered when you select yes.');
+                return res.redirect('/legal/employment');
+            }
+
             if (!wantsText && !wantsEmail) {
                 req.flash('error', 'Select at least one preferred contact method (text or email).');
                 return res.redirect('/legal/employment');
@@ -177,7 +193,7 @@ const legalController = {
                 ? cover_letter_note.trim()
                 : (coverLetterFile ? 'Cover letter uploaded as document.' : 'No cover letter provided.');
 
-            await db.query(
+            const savedApplication = await db.query(
                 `INSERT INTO employment_applications (
                     employment_id,
                     first_name,
@@ -186,6 +202,8 @@ const legalController = {
                     phone,
                     location,
                     whatsapp_number,
+                    has_institution_experience,
+                    institution_experience_name,
                     contact_via_text,
                     contact_via_email,
                     cover_letter,
@@ -195,7 +213,8 @@ const legalController = {
                     cover_letter_url,
                     cover_letter_s3_key,
                     cover_letter_filename
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+                RETURNING id, created_at`,
                 [
                     employmentId,
                     first_name.trim(),
@@ -204,6 +223,8 @@ const legalController = {
                     phone.trim(),
                     location.trim(),
                     whatsapp_number ? whatsapp_number.trim() : null,
+                    hasInstitutionExperience,
+                    hasInstitutionExperience ? normalizedInstitutionName : null,
                     wantsText,
                     wantsEmail,
                     normalizedCoverLetterNote,
@@ -216,7 +237,44 @@ const legalController = {
                 ]
             );
 
+            const applicationId = savedApplication.rows[0]?.id;
+            const applicantFullName = `${first_name.trim()} ${last_name.trim()}`;
+            const normalizedApplicantEmail = email.trim().toLowerCase();
+
+            const applicantConfirmationHtml = renderCleanEmail({
+                title: 'Employment Application Received',
+                greeting: `Dear <strong>${applicantFullName}</strong>,`,
+                paragraphs: [
+                    `Thank you for applying for the <strong>${selectedJob.title}</strong> role at Managira.`,
+                    'Your application has been received successfully, and our team will review it.',
+                    'Follow us on LinkedIn for more information and updates.',
+                ],
+                details: [
+                    { label: 'Application ID', value: applicationId ? `#${applicationId}` : 'Submitted' },
+                    { label: 'Position', value: selectedJob.title },
+                    { label: 'Location', value: location.trim() },
+                ],
+            });
+
+            const applicantEmailSent = await sendEmailSafely(
+                {
+                    from: process.env.EMAIL_USER,
+                    to: normalizedApplicantEmail,
+                    subject: `Application Received: ${selectedJob.title}`,
+                    html: applicantConfirmationHtml,
+                    attachments: [
+                        {
+                            filename: 'managira.png',
+                            path: path.join(__dirname, '../public/images/managira.png'),
+                            cid: 'managira_logo'
+                        }
+                    ]
+                },
+                'Employment Applicant Confirmation Email'
+            );
+
             const alertRecipient = process.env.EMPLOYMENT_ALERT_EMAIL || process.env.EMAIL_USER;
+            let internalAlertSent = true;
             if (alertRecipient) {
                 const internalAlertHtml = renderCleanEmail({
                     title: 'New Employment Application Received',
@@ -227,14 +285,15 @@ const legalController = {
                     ],
                     details: [
                         { label: 'Position', value: selectedJob.title },
-                        { label: 'Applicant', value: `${first_name.trim()} ${last_name.trim()}` },
-                        { label: 'Email', value: email.trim().toLowerCase() },
+                        { label: 'Applicant', value: applicantFullName },
+                        { label: 'Email', value: normalizedApplicantEmail },
                         { label: 'Phone', value: phone.trim() },
                         { label: 'Location', value: location.trim() },
+                        { label: 'Application ID', value: applicationId ? `#${applicationId}` : 'Submitted' },
                     ],
                 });
 
-                await sendEmailSafely(
+                internalAlertSent = await sendEmailSafely(
                     {
                         from: process.env.EMAIL_USER,
                         to: alertRecipient,
@@ -243,13 +302,17 @@ const legalController = {
                         attachments: [
                             {
                                 filename: 'managira.png',
-                                path: require('path').join(__dirname, '../public/images/managira.png'),
+                                path: path.join(__dirname, '../public/images/managira.png'),
                                 cid: 'managira_logo'
                             }
                         ]
                     },
                     'Employment New Application Alert Email'
                 );
+            }
+
+            if (!applicantEmailSent || !internalAlertSent) {
+                req.flash('info', 'Application saved, but one email notification could not be sent right now.');
             }
 
             req.flash('success', `Application submitted for ${selectedJob.title}. We will be in touch. Follow us on LinkedIn for more information.`);

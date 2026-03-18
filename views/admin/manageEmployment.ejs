@@ -295,6 +295,10 @@
                           <p style="margin: 4px 0;"><strong>Email:</strong> <a href="mailto:<%= application.email %>"><%= application.email %></a></p>
                           <p style="margin: 4px 0;"><strong>Phone:</strong> <a href="tel:<%= application.phone %>"><%= application.phone %></a></p>
                           <p style="margin: 4px 0;"><strong>Location:</strong> <%= application.location || 'Not provided' %></p>
+                          <p style="margin: 4px 0;"><strong>Worked with institution (current/past):</strong> <%= application.has_institution_experience ? 'Yes' : 'No' %></p>
+                          <% if (application.has_institution_experience && application.institution_experience_name) { %>
+                            <p style="margin: 4px 0;"><strong>Institution Name:</strong> <%= application.institution_experience_name %></p>
+                          <% } %>
                           <% if (application.whatsapp_number) { %>
                             <p style="margin: 4px 0;"><strong>WhatsApp:</strong> <a href="https://wa.me/<%= application.whatsapp_number.replace(/[^\d]/g, '') %>" target="_blank"><%= application.whatsapp_number %></a></p>
                           <% } %>
