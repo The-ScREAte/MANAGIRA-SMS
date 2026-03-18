@@ -10007,7 +10007,7 @@ async function sendPasswordSetSuccessEmail(email, firstName, lastName) {
       },
     ],
   };
-  await sendEmailSafely(mailOptions, "Password Set Success Email");
+  sendEmailInBackground(mailOptions, "Password Set Success Email");
 }
 
 
