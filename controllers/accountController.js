@@ -207,7 +207,6 @@ async function sendInvoiceEmail(email, orgName, invoice) {
     });
 
     const mailOptions = {
-      from: process.env.NOTIFY_EMAIL_USER,
 
       to: email,
 
@@ -248,7 +247,6 @@ async function sendCancellationEmail(orgName, firstName, email) {
   });
 
   const mailOptions = {
-    from: process.env.NOTIFY_EMAIL_USER,
 
     to: email,
 
@@ -286,7 +284,6 @@ async function sendRegistrationSuccessEmail(
     });
 
     const mailOptions = {
-      from: process.env.NOTIFY_EMAIL_USER,
 
       to: email,
 
@@ -335,7 +332,6 @@ async function sendPasswordResetEmail(email, token, baseUrl) {
   });
 
   const mailOptions = {
-    from: process.env.NOTIFY_EMAIL_USER,
 
     to: email,
 
@@ -358,7 +354,6 @@ async function sendPasswordResetConfirmationEmail(email) {
   });
 
   const mailOptions = {
-    from: process.env.NOTIFY_EMAIL_USER,
 
     to: email,
 
@@ -373,42 +368,12 @@ async function sendPasswordResetConfirmationEmail(email) {
       }
 }
 
-async function notifyAdminOfRegistration(
-  firstName,
-
-  lastName,
-
-  orgName,
-
-  email,
-
-  orgPhone
-) {
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST, // e.g., smtp.gmail.com, smtp.zoho.com
-
-    port: parseInt(process.env.SMTP_PORT), // usually 465 or 587
-
-    secure: process.env.SMTP_SECURE === "true", // true for 465, false for 587
-
-    auth: {
-      user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-
-      pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-    },
-  });
-
-  const mailOptions = {
-    from: process.env.NOTIFY_EMAIL_USER,
-
+async function notifyAdminOfRegistration(firstName, lastName, orgName, email, orgPhone) {
+  await sendEmailSafely({
     to: process.env.ADMIN_EMAIL,
-
     subject: "New Account Registration",
-
     text: `A new account has been registered:\n\nName: ${firstName} ${lastName}\nOrganization: ${orgName}\nEmail: ${email}\nPhone: ${orgPhone}\n\nPlease review the registration details.`,
-  };
-
-  await transporter.sendMail(mailOptions);
+  }, "Admin Registration Notification");
 }
 
 async function saveCardAuthorization(db, orgId, authorization) {
@@ -7377,22 +7342,10 @@ const accountController = {
         closing: 'Welcome aboard!',
       });
 
-      const smtpConfig = {
-        host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT),
-        secure: process.env.SMTP_SECURE === 'true',
-        auth: {
-          user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-          pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-        },
-      };
-
       await sendEmailSafely({
-        smtpConfig,
         to: admin_email,
         subject: `Welcome to ${invitation.hub_name} Hub - Managira SMS`,
         html: welcomeEmailHtml,
-        from: process.env.NOTIFY_EMAIL_USER,
       });
 
       // Notify hub
@@ -7411,11 +7364,9 @@ const accountController = {
       });
 
       await sendEmailSafely({
-        smtpConfig,
         to: invitation.hub_email,
         subject: `${invitation.organization_name} Joined Your Hub`,
         html: hubNotificationHtml,
-        from: process.env.NOTIFY_EMAIL_USER,
       });
 
                   

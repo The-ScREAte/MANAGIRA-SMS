@@ -2991,7 +2991,6 @@ const commonController = {
 
           try {
             await sendEmailSafely({
-              from: process.env.NOTIFY_EMAIL_USER,
               to: primaryGuardian.email,
               subject: `Student Registration & Payment Confirmation - ${orgName}`,
               html,
@@ -3484,7 +3483,6 @@ const commonController = {
           note: 'If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
         });
         const mailOptions = {
-          from: process.env.NOTIFY_EMAIL_USER,
           to: guardianEmails.join(","),
           subject: `Admission Approved: ${he.encode(
             student.first_name
@@ -3568,7 +3566,6 @@ const commonController = {
           note: 'If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
         });
         const mailOptions = {
-          from: process.env.NOTIFY_EMAIL_USER,
           to: guardianEmails.join(","),
           subject: `Admission Rejected: ${student.first_name} ${student.last_name}`,
           html,
@@ -9680,7 +9677,6 @@ const commonController = {
       });
 
       const mailOptions = {
-        from: process.env.ADMIN_NOTIFY_EMAIL_USER,
         to: contactEmail,
         subject: `${emailTitle} - ${organizationName} Parent Portal`,
         html,
@@ -9969,7 +9965,6 @@ async function sendInviteEmail(
     note: 'This link will expire in 3 days. For help, visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
   });
   const mailOptions = {
-    from: process.env.ADMIN_NOTIFY_EMAIL_USER,
     to: email,
     subject: "Set Your Password - Managira",
     html,
@@ -9995,7 +9990,6 @@ async function sendPasswordSetSuccessEmail(email, firstName, lastName) {
     note: 'If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
   });
   const mailOptions = {
-    from: process.env.NOTIFY_EMAIL_USER,
     to: email,
     subject: "Your Password Has Been Set Successfully",
     html,
@@ -10045,7 +10039,6 @@ const sendGuardianWelcomeEmail = async (guardianEmail, guardianFirstName, guardi
     });
 
     const mailOptions = {
-      from: process.env.ADMIN_NOTIFY_EMAIL_USER,
       to: guardianEmail,
       subject: `Welcome to ${organizationName} Parent Portal - Set Your Password`,
       html,
@@ -10081,7 +10074,6 @@ const sendGuardianStudentAddedEmail = async (guardianEmail, guardianFirstName, g
     });
 
     const mailOptions = {
-      from: process.env.ADMIN_NOTIFY_EMAIL_USER,
       to: guardianEmail,
       subject: `New Student Added - ${organizationName} Parent Portal`,
       html,
