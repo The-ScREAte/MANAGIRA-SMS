@@ -81,7 +81,7 @@ function renderCleanEmail({
     <div style="background:#f8fafc;padding:24px 0;">
       <div style="max-width:620px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
         <div style="background:#0f766e;padding:18px 22px;">
-          <img src="cid:managira_logo" alt="Managira" style="height:40px;display:block;">
+          <img src="https://www.managira.com/images/managira.png" alt="Managira" style="height:40px;display:block;">
         </div>
         <div style="padding:24px 22px;color:#0f172a;line-height:1.65;">
           <h2 style="margin:0 0 14px;font-size:21px;color:#0f766e;font-weight:700;">${escapeHtml(title || "Notification")}</h2>
@@ -135,39 +135,35 @@ function getTransporter() {
 }
 
 /**
- * Safely send email with proper error handling
- * @param {Object} mailOptions - Email options (to, subject, text, html, attachments, etc.)
- * @param {string} context - Context description for logging
- * @returns {Promise<boolean>} - Returns true if email sent successfully, false otherwise
+ * Safely send email with proper error handling.
  */
 async function sendEmailSafely(mailOptions, context = "Email") {
   const sendStart = Date.now();
   try {
     if (!process.env.ADMIN_NOTIFY_EMAIL_USER || !process.env.ADMIN_NOTIFY_EMAIL_PASSWORD) {
-      console.warn(`[Email][${context}] SMTP credentials not configured — skipping send.`);
+      console.warn(`[Email][${context}] SMTP credentials not configured — skipping.`);
       return false;
     }
 
     const transporter = getTransporter();
 
-    console.info(`[Email][${context}] sending to ${mailOptions.to}`);
+    console.info(`[Email][${context}] sending via SMTP to ${mailOptions.to}`);
 
     const info = await transporter.sendMail({
       from: process.env.ADMIN_NOTIFY_EMAIL_USER,
       ...mailOptions,
     });
 
-    console.info(`[Email][${context}] sent OK in ${Date.now() - sendStart}ms`, info.messageId);
+    console.info(`[Email][${context}] SMTP sent OK in ${Date.now() - sendStart}ms`, info.messageId);
     return true;
   } catch (error) {
-    // On any SMTP error, drop the cached transporter so the next call reconnects fresh.
     _transporter = null;
     _transporterConfig = null;
-    console.error(`[Email][${context}] FAILED after ${Date.now() - sendStart}ms:`, error.message);
+    console.error(`[Email][${context}] SMTP FAILED after ${Date.now() - sendStart}ms:`, error.message);
     if (error.code === 'EAUTH') {
       console.error(`[Email][${context}] Authentication failed — check ADMIN_NOTIFY_EMAIL_USER / ADMIN_NOTIFY_EMAIL_PASSWORD.`);
     } else if (error.code === 'ECONNECTION' || error.code === 'ETIMEDOUT' || error.code === 'ESOCKET') {
-      console.error(`[Email][${context}] SMTP connection failed — check SMTP_HOST (${process.env.SMTP_HOST}), SMTP_PORT (${process.env.SMTP_PORT}), SMTP_SECURE (${process.env.SMTP_SECURE}).`);
+      console.error(`[Email][${context}] SMTP connection failed — SMTP_HOST=${process.env.SMTP_HOST} SMTP_PORT=${process.env.SMTP_PORT}`);
     }
     return false;
   }
