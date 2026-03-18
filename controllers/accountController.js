@@ -247,7 +247,6 @@ async function sendCancellationEmail(orgName, firstName, email) {
   });
 
   const mailOptions = {
-    from: process.env.NOTIFY_EMAIL_USER,
 
     to: email,
 
