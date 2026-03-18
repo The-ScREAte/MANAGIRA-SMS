@@ -35,9 +35,8 @@ const sendEmploymentApplicantConfirmationEmail = async ({
         ],
     });
 
-    return sendWithSingleRetry(() => sendEmailSafely(
+    sendEmailInBackground(
         {
-            from: process.env.EMAIL_USER,
             to: applicantEmail,
             subject: `Application Received: ${selectedJob.title}`,
             html: applicantConfirmationHtml,
@@ -50,7 +49,7 @@ const sendEmploymentApplicantConfirmationEmail = async ({
             ]
         },
         'Employment Applicant Confirmation Email'
-    ));
+    );
 };
 
 const sendEmploymentInternalAlertEmail = async ({
