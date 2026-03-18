@@ -101,6 +101,39 @@ function renderCleanEmail({
   `;
 }
 
+// Persistent transporter — created once and reused across all sends to avoid
+// repeated TCP/TLS handshake overhead on every call. If credentials are not
+// yet available at module load, it is created lazily on first use.
+let _transporter = null;
+let _transporterConfig = null;
+
+function getTransporter() {
+  const user = process.env.ADMIN_NOTIFY_EMAIL_USER;
+  const pass = process.env.ADMIN_NOTIFY_EMAIL_PASSWORD;
+  const host = process.env.SMTP_HOST;
+  const port = process.env.SMTP_PORT;
+  const secure = process.env.SMTP_SECURE;
+
+  // Rebuild if config has changed (e.g. env hot-reload) or not yet created.
+  const configKey = `${user}:${host}:${port}:${secure}`;
+  if (_transporter && _transporterConfig === configKey) {
+    return _transporter;
+  }
+
+  _transporter = nodemailer.createTransport({
+    host,
+    port: parseInt(port, 10),
+    secure: secure === "true",
+    auth: { user, pass },
+    pool: true,           // keep-alive connection pool
+    maxConnections: 3,
+    maxMessages: 100,
+  });
+
+  _transporterConfig = configKey;
+  return _transporter;
+}
+
 /**
  * Safely send email with proper error handling
  * @param {Object} mailOptions - Email options (to, subject, text, html, attachments, etc.)
@@ -110,32 +143,15 @@ function renderCleanEmail({
 async function sendEmailSafely(mailOptions, context = "Email") {
   const sendStart = Date.now();
   try {
-    // Check if email credentials are configured
     if (!process.env.ADMIN_NOTIFY_EMAIL_USER || !process.env.ADMIN_NOTIFY_EMAIL_PASSWORD) {
       console.warn(`[Email][${context}] SMTP credentials not configured — skipping send.`);
       return false;
     }
 
-    // NOTE: transporter is created per-call intentionally (env vars may change at runtime),
-    // but we do NOT call transporter.verify() — it opens a full SMTP handshake and can
-    // stall for 10-30 s on a slow server. We rely on sendMail() to fail fast instead.
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT),
-      secure: process.env.SMTP_SECURE === "true",
-      auth: {
-        user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-        pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-      },
-      // Hard cap: give up after 15 s so the event loop is never blocked indefinitely
-      connectionTimeout: 15000,
-      greetingTimeout: 10000,
-      socketTimeout: 15000,
-    });
+    const transporter = getTransporter();
 
     console.info(`[Email][${context}] sending to ${mailOptions.to}`);
 
-    // Send email
     const info = await transporter.sendMail({
       from: process.env.ADMIN_NOTIFY_EMAIL_USER,
       ...mailOptions,
@@ -144,11 +160,14 @@ async function sendEmailSafely(mailOptions, context = "Email") {
     console.info(`[Email][${context}] sent OK in ${Date.now() - sendStart}ms`, info.messageId);
     return true;
   } catch (error) {
+    // On any SMTP error, drop the cached transporter so the next call reconnects fresh.
+    _transporter = null;
+    _transporterConfig = null;
     console.error(`[Email][${context}] FAILED after ${Date.now() - sendStart}ms:`, error.message);
     if (error.code === 'EAUTH') {
-      console.error(`[Email][${context}] Authentication failed — check SMTP credentials.`);
-    } else if (error.code === 'ECONNECTION' || error.code === 'ETIMEDOUT') {
-      console.error(`[Email][${context}] SMTP connection failed/timed out — check SMTP_HOST/PORT.`);
+      console.error(`[Email][${context}] Authentication failed — check ADMIN_NOTIFY_EMAIL_USER / ADMIN_NOTIFY_EMAIL_PASSWORD.`);
+    } else if (error.code === 'ECONNECTION' || error.code === 'ETIMEDOUT' || error.code === 'ESOCKET') {
+      console.error(`[Email][${context}] SMTP connection failed — check SMTP_HOST (${process.env.SMTP_HOST}), SMTP_PORT (${process.env.SMTP_PORT}), SMTP_SECURE (${process.env.SMTP_SECURE}).`);
     }
     return false;
   }
