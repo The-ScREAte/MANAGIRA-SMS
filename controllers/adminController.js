@@ -1602,9 +1602,8 @@ const adminController = {
         noReply: false,
       });
 
-      const emailSent = await sendEmailSafely(
+      sendEmailInBackground(
         {
-          from: process.env.EMAIL_USER,
           to: application.email,
           subject: `Your ${application.job_title} application has been approved`,
           html,
@@ -1619,12 +1618,7 @@ const adminController = {
         "Employment Approval Email"
       );
 
-      if (!emailSent) {
-        req.flash("info", "Application approved, but approval email could not be sent.");
-        return res.redirect("/admin/employment");
-      }
-
-      req.flash("success", "Approval email sent and application marked as approved.");
+      req.flash("success", "Application approved and notification email queued.");
     } catch (error) {
       req.flash("error", "Failed to approve application.");
     }
