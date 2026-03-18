@@ -7342,22 +7342,10 @@ const accountController = {
         closing: 'Welcome aboard!',
       });
 
-      const smtpConfig = {
-        host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT),
-        secure: process.env.SMTP_SECURE === 'true',
-        auth: {
-          user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-          pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-        },
-      };
-
       await sendEmailSafely({
-        smtpConfig,
         to: admin_email,
         subject: `Welcome to ${invitation.hub_name} Hub - Managira SMS`,
         html: welcomeEmailHtml,
-        from: process.env.NOTIFY_EMAIL_USER,
       });
 
       // Notify hub
