@@ -2221,7 +2221,6 @@ async function sendEmailNotification(to, subject, text) {
 
   await sendEmailSafely(
     {
-      from: process.env.NOTIFY_EMAIL_USER || process.env.ADMIN_NOTIFY_EMAIL_USER,
       to,
       subject,
       html,
