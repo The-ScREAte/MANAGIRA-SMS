@@ -9484,7 +9484,7 @@ const commonController = {
       const emailRecipient = guardianProfile?.email || guardian?.email || null;
       const guardianFirstName = guardianProfile?.first_name || guardian?.first_name || 'Parent/Guardian';
       if (sendEmailRequested && emailRecipient) {
-        const { renderCleanEmail, sendEmailSafely } = require("../utils/emailHelper");
+        const { renderCleanEmail, sendEmailInBackground } = require("../utils/emailHelper");
         const path = require("path");
 
         const orgResult = await db.query(
