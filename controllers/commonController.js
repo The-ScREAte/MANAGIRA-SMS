@@ -9677,7 +9677,6 @@ const commonController = {
       });
 
       const mailOptions = {
-        from: process.env.ADMIN_NOTIFY_EMAIL_USER,
         to: contactEmail,
         subject: `${emailTitle} - ${organizationName} Parent Portal`,
         html,
