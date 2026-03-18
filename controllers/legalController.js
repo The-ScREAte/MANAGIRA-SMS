@@ -82,9 +82,8 @@ const sendEmploymentInternalAlertEmail = async ({
         ],
     });
 
-    return sendWithSingleRetry(() => sendEmailSafely(
+    sendEmailInBackground(
         {
-            from: process.env.EMAIL_USER,
             to: alertRecipient,
             subject: `New Application: ${selectedJob.title}`,
             html: internalAlertHtml,
@@ -97,7 +96,7 @@ const sendEmploymentInternalAlertEmail = async ({
             ]
         },
         'Employment New Application Alert Email'
-    ));
+    );
 };
 
 const legalController = {
