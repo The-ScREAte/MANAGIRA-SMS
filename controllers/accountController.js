@@ -4877,60 +4877,66 @@ const accountController = {
 
   forgetPasswordPost: async (req, res) => {
     const { email } = req.body;
-
-    const baseUrl = res.locals.BASE_URL; // Get BASE_URL from middleware
+    const baseUrl = res.locals.BASE_URL;
 
     try {
+      // Search all loginable tables for this email
       const userResult = await db.query(
-        `SELECT email, 'users' AS table FROM users WHERE email = $1
-
-                 UNION
-
-                 SELECT email, 'organizations' AS table FROM organizations WHERE email = $1`,
-
+        `SELECT email, 'users' AS source FROM users WHERE LOWER(email) = LOWER($1)
+         UNION
+         SELECT email, 'organizations' AS source FROM organizations WHERE LOWER(email) = LOWER($1)
+         UNION
+         SELECT login_email AS email, 'guardian_accounts' AS source FROM guardian_accounts WHERE LOWER(login_email) = LOWER($1)
+         UNION
+         SELECT hub_email AS email, 'managira_hubs' AS source FROM managira_hubs WHERE LOWER(hub_email) = LOWER($1) AND deleted = false`,
         [email]
       );
 
       if (userResult.rows.length === 0) {
         req.flash("error", "No account found with that email address.");
-
         return res.redirect("/account/forget-password");
       }
 
-      const user = userResult.rows[0];
-
-      const table = user.table;
-
       const token = crypto.randomBytes(32).toString("hex");
+      const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+      const tokenExpiration = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
-      const hashedToken = crypto
+      // Store reset token in ALL matching tables (user could exist in multiple)
+      for (const row of userResult.rows) {
+        if (row.source === "users") {
+          await db.query(
+            `UPDATE users SET reset_password_token = $1, reset_password_expires = $2 WHERE LOWER(email) = LOWER($3)`,
+            [hashedToken, tokenExpiration, email]
+          );
+        } else if (row.source === "organizations") {
+          await db.query(
+            `UPDATE organizations SET reset_password_token = $1, reset_password_expires = $2 WHERE LOWER(email) = LOWER($3)`,
+            [hashedToken, tokenExpiration, email]
+          );
+        } else if (row.source === "guardian_accounts") {
+          await db.query(
+            `UPDATE guardian_accounts SET reset_password_token = $1, reset_password_expires = $2 WHERE LOWER(login_email) = LOWER($3)`,
+            [hashedToken, tokenExpiration, email]
+          );
+        } else if (row.source === "managira_hubs") {
+          await db.query(
+            `UPDATE managira_hubs SET reset_password_token = $1, reset_password_expires = $2 WHERE LOWER(hub_email) = LOWER($3)`,
+            [hashedToken, tokenExpiration, email]
+          );
+        }
+      }
 
-        .createHash("sha256")
-
-        .update(token)
-
-        .digest("hex");
-
-      const tokenExpiration = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes from now
-
-      await db.query(
-        `UPDATE ${table} SET reset_password_token = $1, reset_password_expires = $2 WHERE email = $3`,
-
-        [hashedToken, tokenExpiration, email]
-      );
-
-      await sendPasswordResetEmail(email, token, baseUrl); // Pass BASE_URL here
+      sendPasswordResetEmail(email, token, baseUrl);
 
       req.flash(
         "success",
-
         "A password reset link has been sent to your email. The link will expire in 15 minutes."
       );
 
       res.redirect("/account/login");
     } catch (error) {
-            req.flash("error", "An error occurred. Please try again.");
-
+      console.error("[forgetPasswordPost] Error:", error.message);
+      req.flash("error", "An error occurred. Please try again.");
       res.redirect("/account/forget-password");
     }
   },
@@ -4940,15 +4946,11 @@ const accountController = {
 
     if (!token) {
       req.flash("error", "Invalid reset link.");
-
       return res.render("account/resetPassword", {
         title: "Reset Password",
-
         token: null,
-
         email: null,
         showFooterTopSection: true,
-
         messages: { error: req.flash("error"), success: [] },
       });
     }
@@ -4956,58 +4958,44 @@ const accountController = {
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
     try {
-      // Query without checking expiration
-
+      // Search all tables for the token
       const userResult = await db.query(
-        `SELECT email 
-
-                 FROM users WHERE reset_password_token = $1
-
-                 UNION
-
-                 SELECT email 
-
-                 FROM organizations WHERE reset_password_token = $1`,
-
+        `SELECT email, 'users' AS source FROM users WHERE reset_password_token = $1
+         UNION
+         SELECT email, 'organizations' AS source FROM organizations WHERE reset_password_token = $1
+         UNION
+         SELECT login_email AS email, 'guardian_accounts' AS source FROM guardian_accounts WHERE reset_password_token = $1
+         UNION
+         SELECT hub_email AS email, 'managira_hubs' AS source FROM managira_hubs WHERE reset_password_token = $1`,
         [hashedToken]
       );
 
       if (userResult.rows.length === 0) {
         req.flash("error", "Invalid reset link.");
-
         return res.render("account/resetPassword", {
           title: "Reset Password",
-
           token: null,
-
           email: null,
           showFooterTopSection: true,
-
           messages: { error: req.flash("error"), success: [] },
         });
       }
-
-      // Extract email
 
       const email = userResult.rows[0].email;
 
       res.render("account/resetPassword", {
         title: "Reset Password",
-
         token,
-
         email,
         showFooterTopSection: true,
         messages: { error: req.flash("error"), success: [] },
       });
     } catch (error) {
-            req.flash("error", "An error occurred. Please try again.");
-
+      console.error("[resetPasswordGet] Error:", error.message);
+      req.flash("error", "An error occurred. Please try again.");
       res.render("account/resetPassword", {
         title: "Reset Password",
-
         token: null,
-
         email: null,
         showFooterTopSection: true,
         messages: { error: req.flash("error"), success: [] },
@@ -5020,10 +5008,8 @@ const accountController = {
 
     if (password !== confirmPassword) {
       req.flash("error", "Passwords do not match.");
-
       return res.render("account/resetPassword", {
         title: "Reset Password",
-
         token,
         showFooterTopSection: true,
         messages: req.flash(),
@@ -5036,13 +5022,10 @@ const accountController = {
     if (!passwordRegex.test(password)) {
       req.flash(
         "error",
-
         "Password must be at least 6 characters long, contain uppercase, lowercase, a number, and a special character."
       );
-
       return res.render("account/resetPassword", {
         title: "Reset Password",
-
         token,
         showFooterTopSection: true,
         messages: req.flash(),
@@ -5050,69 +5033,90 @@ const accountController = {
     }
 
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
-
     const hashedPassword = await bcrypt.hash(password, 10);
 
     try {
-      // Update the password for the user or organization
+      let email = null;
+      let updated = false;
 
+      // Try users table
       const userResult = await db.query(
-        `UPDATE users SET password = $1, reset_password_token = NULL
-
-                 WHERE reset_password_token = $2
-
-                 RETURNING email`,
-
+        `UPDATE users SET password = $1, reset_password_token = NULL, reset_password_expires = NULL
+         WHERE reset_password_token = $2
+         RETURNING email`,
         [hashedPassword, hashedToken]
       );
-
-      let email = null;
-
-      if (userResult.rows.length === 0) {
-        const orgResult = await db.query(
-          `UPDATE organizations SET password = $1, reset_password_token = NULL
-
-                     WHERE reset_password_token = $2
-
-                     RETURNING email`,
-
-          [hashedPassword, hashedToken]
-        );
-
-        if (orgResult.rowCount === 0) {
-          req.flash("error", "Invalid reset link.");
-
-          return res.render("account/resetPassword", {
-            title: "Reset Password",
-
-            token: null,
-            showFooterTopSection: true,
-            messages: req.flash(),
-          });
-        }
-
-        email = orgResult.rows[0].email;
-      } else {
+      if (userResult.rows.length > 0) {
         email = userResult.rows[0].email;
+        updated = true;
       }
 
-      // Notify user about the password reset
+      // Try organizations table
+      if (!updated) {
+        const orgResult = await db.query(
+          `UPDATE organizations SET password = $1, reset_password_token = NULL, reset_password_expires = NULL
+           WHERE reset_password_token = $2
+           RETURNING email`,
+          [hashedPassword, hashedToken]
+        );
+        if (orgResult.rows.length > 0) {
+          email = orgResult.rows[0].email;
+          updated = true;
+        }
+      }
 
-      await sendPasswordResetConfirmationEmail(email);
+      // Try guardian_accounts table
+      if (!updated) {
+        const guardianResult = await db.query(
+          `UPDATE guardian_accounts SET password_hash = $1, reset_password_token = NULL, reset_password_expires = NULL, must_reset_password = false
+           WHERE reset_password_token = $2
+           RETURNING login_email AS email`,
+          [hashedPassword, hashedToken]
+        );
+        if (guardianResult.rows.length > 0) {
+          email = guardianResult.rows[0].email;
+          updated = true;
+        }
+      }
+
+      // Try managira_hubs table
+      if (!updated) {
+        const hubResult = await db.query(
+          `UPDATE managira_hubs SET hub_password = $1, reset_password_token = NULL, reset_password_expires = NULL
+           WHERE reset_password_token = $2
+           RETURNING hub_email AS email`,
+          [hashedPassword, hashedToken]
+        );
+        if (hubResult.rows.length > 0) {
+          email = hubResult.rows[0].email;
+          updated = true;
+        }
+      }
+
+      if (!updated) {
+        req.flash("error", "Invalid or expired reset link.");
+        return res.render("account/resetPassword", {
+          title: "Reset Password",
+          token: null,
+          showFooterTopSection: true,
+          messages: req.flash(),
+        });
+      }
+
+      // Notify user about the password reset (fire-and-forget)
+      sendPasswordResetConfirmationEmail(email);
 
       req.flash(
         "success",
-
         "Password reset successful. A confirmation email has been sent to you."
       );
 
       res.redirect("/account/login");
     } catch (error) {
-            req.flash("error", "An error occurred. Please try again.");
-
+      console.error("[resetPasswordPost] Error:", error.message);
+      req.flash("error", "An error occurred. Please try again.");
       res.render("account/resetPassword", {
         title: "Reset Password",
-
         token,
         showFooterTopSection: true,
         messages: req.flash(),
