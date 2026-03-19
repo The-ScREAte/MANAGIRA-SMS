@@ -1553,7 +1553,7 @@
 
                         <div class="school-info">
                             <h1><%= orgName %></h1>
-                            <h3><%= orgAddress %></h3>
+                            <h3><%= orgAddress %><% if (orgCountry || orgProvince) { %>, <%= [orgProvince, orgCountry].filter(Boolean).join(', ') %><% } %></h3>
                             <h3><%= email %> | <%= orgPhone %></h3>
                         </div>
 

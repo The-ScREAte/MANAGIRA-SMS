@@ -1602,12 +1602,14 @@ const hubController = {
       const {
         organization_name,
         organization_address,
+        organization_country,
+        organization_province,
         organization_phone
       } = req.body;
 
                   // Validate
       if (!organization_name || !organization_address || !organization_phone) {
-        req.flash('error', 'All fields are required.');
+        req.flash('error', 'Organization name, address, and phone are required.');
         return res.redirect(`/hub/organizations/edit/${organizationId}`);
       }
 
@@ -1625,9 +1627,9 @@ const hubController = {
       // Update organization
       await db.query(
         `UPDATE organizations 
-         SET organization_name = $1, organization_address = $2, organization_phone = $3
-         WHERE organization_id = $4`,
-        [organization_name, organization_address, organization_phone, organizationId]
+         SET organization_name = $1, organization_address = $2, organization_country = $3, organization_province = $4, organization_phone = $5
+         WHERE organization_id = $6`,
+        [organization_name, organization_address, organization_country || null, organization_province || null, organization_phone, organizationId]
       );
 
       // Log activity

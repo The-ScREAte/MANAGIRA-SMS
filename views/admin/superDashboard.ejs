@@ -284,7 +284,7 @@
               <td colspan="5">
                 <div class="details-panel">
                   <div class="details-grid">
-                    <div><strong>Address:</strong> <%= account.organization_address || 'N/A' %></div>
+                    <div><strong>Address:</strong> <%= account.organization_address || 'N/A' %><% if (account.organization_country || account.organization_province) { %>, <%= [account.organization_province, account.organization_country].filter(Boolean).join(', ') %><% } %></div>
                   </div>
                   <div class="details-actions">
                     <form action="/admin/restore" method="post" onsubmit="return confirmAction('restore this organization?')">

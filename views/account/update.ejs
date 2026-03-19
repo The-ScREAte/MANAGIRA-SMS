@@ -59,6 +59,41 @@
       />
     </div>
 
+    <% if (isManager) { %>
+    <div class="form-group">
+      <label for="orgAddress">Organization Address</label>
+      <input
+        type="text"
+        id="orgAddress"
+        name="orgAddress"
+        value="<%= userDetails.organization_address || '' %>"
+        placeholder="123 Main Street, City"
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="orgCountry">Country</label>
+      <input
+        type="text"
+        id="orgCountry"
+        name="orgCountry"
+        value="<%= userDetails.organization_country || '' %>"
+        placeholder="e.g. United States"
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="orgProvince">Province / Region / State</label>
+      <input
+        type="text"
+        id="orgProvince"
+        name="orgProvince"
+        value="<%= userDetails.organization_province || '' %>"
+        placeholder="e.g. Ontario"
+      />
+    </div>
+    <% } %>
+
     <div class="form-group">
       <label for="password">New Password (optional):</label>
       <div class="password-input-wrapper">
@@ -159,6 +194,9 @@
       firstName: updateForm.firstName.value,
       lastName: updateForm.lastName.value,
       email: updateForm.email.value,
+      orgAddress: updateForm.orgAddress ? updateForm.orgAddress.value : null,
+      orgCountry: updateForm.orgCountry ? updateForm.orgCountry.value : null,
+      orgProvince: updateForm.orgProvince ? updateForm.orgProvince.value : null,
     };
 
     updateForm.addEventListener("submit", (event) => {
@@ -182,7 +220,10 @@
         updateForm.firstName.value !== originalValues.firstName ||
         updateForm.lastName.value !== originalValues.lastName ||
         updateForm.email.value !== originalValues.email ||
-        password.value; // new password is a change
+        password.value || // new password is a change
+        (updateForm.orgAddress && updateForm.orgAddress.value !== originalValues.orgAddress) ||
+        (updateForm.orgCountry && updateForm.orgCountry.value !== originalValues.orgCountry) ||
+        (updateForm.orgProvince && updateForm.orgProvince.value !== originalValues.orgProvince);
 
       if (!changed) {
         noChangeMsg.style.display = "block";

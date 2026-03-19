@@ -36,7 +36,7 @@ const transcriptController = (db) => ({
         try {
             // Fetch organization details
             const organizationQuery = `
-                SELECT organization_name, organization_address, organization_phone, email, logo_path
+                SELECT organization_name, organization_address, organization_country, organization_province, organization_phone, email, logo_path
                 FROM organizations
                 WHERE organization_id = $1;
             `;
@@ -212,7 +212,7 @@ const transcriptController = (db) => ({
 
             // Fetch all the data needed for the transcript (same as generateTranscript)
             const organizationQuery = `
-                SELECT organization_name, organization_address, organization_phone, email, logo_path
+                SELECT organization_name, organization_address, organization_country, organization_province, organization_phone, email, logo_path
                 FROM organizations WHERE organization_id = $1
             `;
             const orgData = await db.query(organizationQuery, [organizationId]);

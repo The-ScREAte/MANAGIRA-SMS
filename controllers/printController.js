@@ -97,7 +97,7 @@ async function getCachedOrganizationDetails(organizationId, db) {
 
   const organizationResult = await db.query(
     `
-        SELECT organization_name, organization_address, organization_phone, email, logo_path 
+        SELECT organization_name, organization_address, organization_country, organization_province, organization_phone, email, logo_path 
         FROM organizations 
         WHERE organization_id = $1
     `,
@@ -571,6 +571,8 @@ students
         students,
         orgName: organization.organization_name || "Default School Name",
         orgAddress: organization.organization_address,
+        orgCountry: organization.organization_country,
+        orgProvince: organization.organization_province,
         orgPhone: organization.organization_phone,
         email: organization.email,
         logoUrl,

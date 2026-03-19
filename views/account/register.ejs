@@ -486,6 +486,16 @@
         </div>
 
         <div class="form-group">
+          <label class="form-label" for="orgCountry">Country</label>
+          <input type="text" name="orgCountry" id="orgCountry" class="form-input" placeholder="e.g. United States" required value="<%= formData?.orgCountry || '' %>">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="orgProvince">Province / Region / State</label>
+          <input type="text" name="orgProvince" id="orgProvince" class="form-input" placeholder="e.g. Ontario" required value="<%= formData?.orgProvince || '' %>">
+        </div>
+
+        <div class="form-group">
           <label class="form-label" for="orgPhone">Organization Phone</label>
           <input type="text" name="orgPhone" id="orgPhone" class="form-input" placeholder="+1 234 567 8900" required value="<%= formData?.orgPhone || '' %>">
         </div>
@@ -582,6 +592,8 @@
       'orgName',
       'orgNickName',
       'orgAddress',
+      'orgCountry',
+      'orgProvince',
       'orgPhone',
       'password',
       'confirmPassword',

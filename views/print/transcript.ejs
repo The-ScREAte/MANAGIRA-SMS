@@ -668,7 +668,7 @@
             <h1><%= organization.organization_name %></h1>
             <div class="t-subtitle">Official Academic Transcript</div>
             <div class="t-contact">
-              <%= organization.organization_address %><br>
+              <%= organization.organization_address %><% if (organization.organization_country || organization.organization_province) { %>, <%= [organization.organization_province, organization.organization_country].filter(Boolean).join(', ') %><% } %><br>
               Email: <%= organization.email %> &nbsp;|&nbsp; Phone: <%= organization.organization_phone %>
             </div>
           </div>

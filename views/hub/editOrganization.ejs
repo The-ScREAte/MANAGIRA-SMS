@@ -222,6 +222,34 @@
       </div>
 
       <div class="form-group">
+        <label for="organization_country">
+          Country
+        </label>
+        <input
+          type="text"
+          id="organization_country"
+          name="organization_country"
+          class="form-control"
+          value="<%= organization.organization_country || '' %>"
+          placeholder="e.g. United States"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="organization_province">
+          Province / Region / State
+        </label>
+        <input
+          type="text"
+          id="organization_province"
+          name="organization_province"
+          class="form-control"
+          value="<%= organization.organization_province || '' %>"
+          placeholder="e.g. Ontario"
+        />
+      </div>
+
+      <div class="form-group">
         <label for="organization_phone">
           Phone Number <span style="color: #dc3545;">*</span>
         </label>

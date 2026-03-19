@@ -726,6 +726,10 @@ const accountController = {
 
         orgAddress,
 
+        orgCountry,
+
+        orgProvince,
+
         orgPhone,
       } = req.body;
 
@@ -754,6 +758,10 @@ const accountController = {
 
         orgAddress,
 
+        orgCountry,
+
+        orgProvince,
+
         orgPhone,
 
         confirmEmail: req.body.confirmEmail,
@@ -778,6 +786,8 @@ const accountController = {
         !orgName ||
         !orgNickName ||
         !orgAddress ||
+        !orgCountry ||
+        !orgProvince ||
         !orgPhone
       ) {
         return stickyError("All fields are required.");
@@ -888,6 +898,10 @@ const accountController = {
         orgNickName,
 
         orgAddress,
+
+        orgCountry,
+
+        orgProvince,
 
         orgPhone,
 
@@ -1295,6 +1309,10 @@ const accountController = {
 
         orgAddress,
 
+        orgCountry,
+
+        orgProvince,
+
         orgPhone,
 
         proof1Url,
@@ -1494,9 +1512,9 @@ const accountController = {
       await client.query("BEGIN");
 
       const orgResult = await client.query(
-        `INSERT INTO organizations (organization_name, nickname, organization_address, organization_phone, email, password, first_name, last_name, proof_of_existence_1, proof_of_existence_2, plan_id, paystack_customer_code, trial_start_at, trial_active_until)
+        `INSERT INTO organizations (organization_name, nickname, organization_address, organization_country, organization_province, organization_phone, email, password, first_name, last_name, proof_of_existence_1, proof_of_existence_2, plan_id, paystack_customer_code, trial_start_at, trial_active_until)
 
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING organization_id`,
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING organization_id`,
 
         [
           orgName,
@@ -1504,6 +1522,10 @@ const accountController = {
           orgNickName,
 
           orgAddress,
+
+          orgCountry,
+
+          orgProvince,
 
           orgPhone,
 
@@ -2102,11 +2124,11 @@ const accountController = {
       const result = await client.query(
         `INSERT INTO organizations 
 
-                 (organization_name, nickname, organization_address, organization_phone, email, password, 
+                 (organization_name, nickname, organization_address, organization_country, organization_province, organization_phone, email, password, 
 
                   first_name, last_name, proof_of_existence_1, proof_of_existence_2, plan_id, trial_active_until) 
 
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING organization_id`,
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING organization_id`,
 
         [
           registrationDetails.orgName,
@@ -2114,6 +2136,10 @@ const accountController = {
           registrationDetails.orgNickName,
 
           registrationDetails.orgAddress,
+
+          registrationDetails.orgCountry || null,
+
+          registrationDetails.orgProvince || null,
 
           registrationDetails.orgPhone,
 
@@ -3351,9 +3377,9 @@ const accountController = {
 
       if (req.session.user.account_type === "Manager") {
         const orgQuery = await db.query(
-          `SELECT organization_id, first_name, last_name, email, scheduled_hold_date, on_hold 
-
-                 FROM organizations WHERE organization_id = $1`,
+          `SELECT organization_id, first_name, last_name, email, scheduled_hold_date, on_hold, 
+                   organization_address, organization_country, organization_province 
+                   FROM organizations WHERE organization_id = $1`,
 
           [req.session.organizationId]
         );
@@ -3370,6 +3396,12 @@ const accountController = {
           last_name: orgQuery.rows[0].last_name,
 
           email: orgQuery.rows[0].email,
+
+          organization_address: orgQuery.rows[0].organization_address,
+
+          organization_country: orgQuery.rows[0].organization_country,
+
+          organization_province: orgQuery.rows[0].organization_province,
         };
 
         orgDetails = orgQuery.rows[0];
@@ -3404,6 +3436,8 @@ const accountController = {
 
         orgDetails,
 
+        isManager: req.session.user.account_type === "Manager",
+
         messages: req.flash(),
       });
     } catch (error) {
@@ -3420,7 +3454,7 @@ const accountController = {
       return res.redirect("/account/login");
     }
 
-    const { firstName, lastName, email, password, confirmPassword } = req.body;
+    const { firstName, lastName, email, password, confirmPassword, orgAddress, orgCountry, orgProvince } = req.body;
 
     const userId = req.session.user.user_id;
 
@@ -3464,18 +3498,18 @@ const accountController = {
       if (req.session.user.account_type === "Manager") {
         // Update organization
 
-        let updateQuery = `UPDATE organizations SET first_name = $1, last_name = $2, email = $3`;
+        let updateQuery = `UPDATE organizations SET first_name = $1, last_name = $2, email = $3, organization_address = $4, organization_country = $5, organization_province = $6`;
 
-        let params = [firstName, lastName, email];
+        let params = [firstName, lastName, email, orgAddress || null, orgCountry || null, orgProvince || null];
 
         if (password) {
           const hashedPassword = await bcrypt.hash(password, 10);
 
-          updateQuery += ", password = $4 WHERE organization_id = $5";
+          updateQuery += ", password = $7 WHERE organization_id = $8";
 
           params.push(hashedPassword, orgId);
         } else {
-          updateQuery += " WHERE organization_id = $4";
+          updateQuery += " WHERE organization_id = $7";
 
           params.push(orgId);
         }

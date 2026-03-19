@@ -549,7 +549,7 @@
                     <div><strong>Last Name:</strong> <%= application.last_name %></div>
                     <div><strong>Email:</strong> <%= application.email %></div>
                     <div><strong>Phone:</strong> <%= application.organization_phone %></div>
-                    <div style="grid-column: 1 / -1;"><strong>Address:</strong> <%= application.organization_address %></div>
+                    <div><strong>Address:</strong> <%= application.organization_address %><% if (application.organization_country || application.organization_province) { %>, <%= [application.organization_province, application.organization_country].filter(Boolean).join(', ') %><% } %></div>
                   </div>
 
                   <div class="proofs-grid">

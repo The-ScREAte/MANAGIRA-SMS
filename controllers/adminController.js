@@ -36,7 +36,7 @@ const adminController = {
         async () => {
           const result = await db.query(`
             SELECT organization_id, organization_name, on_hold, hold_by, 
-                   first_name, last_name, email, organization_address, 
+                   first_name, last_name, email, organization_address, organization_country, organization_province,
                    organization_phone, proof_of_existence_1, proof_of_existence_2, subdomain
             FROM organizations 
             WHERE deleted = false
@@ -248,7 +248,7 @@ const adminController = {
     try {
       // Fetch deleted organizations
       const deletedAccounts = await db.query(`
-                SELECT organization_id, first_name, last_name, email, organization_name, organization_address, organization_phone, proof_of_existence_1, proof_of_existence_2
+                SELECT organization_id, first_name, last_name, email, organization_name, organization_address, organization_country, organization_province, organization_phone, proof_of_existence_1, proof_of_existence_2
                 FROM organizations
                 WHERE deleted = true
             `);
