@@ -564,7 +564,40 @@ students
       student.promotionClassId = repeatedClassId; // ✅ SET repeated class id
     }
   });
-  
+
+      // ✅ Auto-save promotion status to student_reports so promotion scheduler has data
+      if (statusSettings.activate_promotion && cutOffPoint > 0) {
+        try {
+          const autoSavePromises = students
+            .filter(s => s.promotionStatus && s.promotionClassId)
+            .map(student =>
+              db.query(
+                `INSERT INTO student_reports (
+                  organization_id, class_id, term_id, student_id,
+                  promotion_status, promotion_class_id
+                ) VALUES ($1, $2, $3, $4, $5, $6)
+                ON CONFLICT (organization_id, class_id, term_id, student_id)
+                DO UPDATE SET
+                  promotion_status = EXCLUDED.promotion_status,
+                  promotion_class_id = EXCLUDED.promotion_class_id,
+                  updated_at = CURRENT_TIMESTAMP`,
+                [
+                  organizationId,
+                  parsedClassId,
+                  parsedTermId,
+                  student.student_id,
+                  student.promotionStatus,
+                  student.promotionClassId,
+                ]
+              )
+            );
+          await Promise.all(autoSavePromises);
+          console.log(`[printStudentReport] Auto-saved promotion status for ${autoSavePromises.length} students`);
+        } catch (autoSaveErr) {
+          console.error("[printStudentReport] Auto-save promotion status failed (non-blocking):", autoSaveErr.message);
+        }
+      }
+
       // Render the report
       res.render("print/printStudentReport", {
         title: "Student Final Report",

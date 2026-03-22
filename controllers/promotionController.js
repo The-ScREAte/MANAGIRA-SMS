@@ -334,6 +334,121 @@ module.exports = {
   },
   
 
+  // Shared core logic for applying a single promotion
+  _applyPromotionCore: async (promo) => {
+    const {
+      id: scheduleId,
+      organization_id,
+      target_term_id,
+      target_school_year_id,
+      current_term_id
+    } = promo;
+
+    await db.query('BEGIN');
+
+    // 1️⃣ Get class filter from promotion_schedule_classes
+    const classFilterResult = await db.query(
+      `SELECT class_id FROM promotion_schedule_classes WHERE schedule_id = $1`,
+      [scheduleId]
+    );
+    const filterClassIds = classFilterResult.rows.map(r => r.class_id);
+
+    // 2️⃣ Check activate_promotion flag on status_settings for filtered classes
+    let classCondition = '';
+    const queryParams = [organization_id, current_term_id];
+    if (filterClassIds.length > 0) {
+      classCondition = ` AND ss.class_id = ANY($3)`;
+      queryParams.push(filterClassIds);
+    }
+
+    // Only process classes where activate_promotion = true
+    const activeClassesResult = await db.query(
+      `SELECT ss.class_id FROM status_settings ss
+       WHERE ss.organization_id = $1 AND ss.term_id = $2 AND ss.activate_promotion = true${classCondition}`,
+      queryParams
+    );
+    const activeClassIds = activeClassesResult.rows.map(r => r.class_id);
+
+    if (activeClassIds.length === 0) {
+      await db.query('ROLLBACK');
+      return { success: false, reason: 'No classes have promotion activated' };
+    }
+
+    // 3️⃣ Fetch students with promotion data, filtered by active classes
+    const promotedStudentsResult = await db.query(`
+      SELECT student_id, class_id AS current_class_id, promotion_status, promotion_class_id
+      FROM student_reports
+      WHERE organization_id = $1 AND term_id = $2
+        AND class_id = ANY($3)
+        AND promotion_status IN ('Promoted', 'Repeated') AND promotion_class_id IS NOT NULL
+    `, [organization_id, current_term_id, activeClassIds]);
+
+    if (promotedStudentsResult.rows.length === 0) {
+      await db.query('ROLLBACK');
+      return { success: false, reason: 'No students eligible for promotion. Generate reports first to auto-calculate promotion status.' };
+    }
+
+    // 4️⃣ Ensure enrollment exists or create one
+    let enrollmentId;
+    const existingEnrollmentResult = await db.query(`
+      SELECT enrollment_id FROM enrollments
+      WHERE term_id = $1 AND school_year_id = $2 AND organization_id = $3
+    `, [target_term_id, target_school_year_id, organization_id]);
+
+    if (existingEnrollmentResult.rows.length > 0) {
+      enrollmentId = existingEnrollmentResult.rows[0].enrollment_id;
+    } else {
+      const newEnrollmentResult = await db.query(`
+        INSERT INTO enrollments (school_year_id, term_id, organization_id, created_at)
+        VALUES ($1, $2, $3, NOW())
+        RETURNING enrollment_id
+      `, [target_school_year_id, target_term_id, organization_id]);
+      enrollmentId = newEnrollmentResult.rows[0].enrollment_id;
+    }
+
+    const finalEnrollments = promotedStudentsResult.rows.map(row => ({
+      student_id: row.student_id,
+      target_class_id: row.promotion_class_id
+    }));
+
+    // 5️⃣ Insert classes
+    const classCheckResult = await db.query(
+      `SELECT class_id FROM enrolled_classes WHERE enrollment_id = $1`,
+      [enrollmentId]
+    );
+    const existingClassIds = new Set(classCheckResult.rows.map(r => r.class_id));
+    const newClassIds = [...new Set(
+      finalEnrollments.map(r => r.target_class_id)
+    )].filter(cid => !existingClassIds.has(cid));
+
+    if (newClassIds.length > 0) {
+      await db.query(`
+        INSERT INTO enrolled_classes (enrollment_id, class_id)
+        SELECT $1, unnest($2::int[])
+      `, [enrollmentId, newClassIds]);
+    }
+
+    // 6️⃣ Insert students
+    let enrolledCount = 0;
+    for (const { student_id, target_class_id } of finalEnrollments) {
+      const result = await db.query(`
+        INSERT INTO enrolled_students (enrollment_id, student_id, class_id, added_by_promotion)
+        VALUES ($1, $2, $3, TRUE)
+        ON CONFLICT DO NOTHING
+      `, [enrollmentId, student_id, target_class_id]);
+      enrolledCount += result.rowCount;
+    }
+
+    // 7️⃣ Mark schedule as completed
+    await db.query(`
+      UPDATE promotion_schedule SET status = 'completed' WHERE id = $1
+    `, [scheduleId]);
+
+    await db.query('COMMIT');
+    return { success: true, enrolledCount, totalEligible: finalEnrollments.length };
+  },
+
+  // Cron job entry point
   applyScheduledPromotions: async () => {
     try {
       const now = new Date().toISOString();
@@ -341,103 +456,54 @@ module.exports = {
         SELECT * FROM promotion_schedule 
         WHERE scheduled_date <= $1 AND status = 'scheduled'
       `, [now]);
-  
+
       for (const promo of promotionsResult.rows) {
-        const {
-          id: scheduleId,
-          organization_id,
-          target_term_id,
-          target_school_year_id,
-          current_term_id
-        } = promo;
-  
-  
-        await db.query('BEGIN');
-  
-        const promotedStudentsResult = await db.query(`
-          SELECT student_id, class_id AS current_class_id, promotion_status, promotion_class_id
-          FROM student_reports
-          WHERE organization_id = $1 AND term_id = $2
-        `, [organization_id, current_term_id]);
-  
-        if (promotedStudentsResult.rows.length === 0) {
+        try {
+          const result = await module.exports._applyPromotionCore(promo);
+          if (result.success) {
+            console.log(`✅ Promotion ${promo.id} applied: ${result.enrolledCount}/${result.totalEligible} students enrolled`);
+          } else {
+            console.warn(`⚠️ Promotion ${promo.id} skipped: ${result.reason}`);
+          }
+        } catch (innerErr) {
           await db.query('ROLLBACK');
-          continue;
+          console.error(`❌ Promotion ${promo.id} failed:`, innerErr.message);
         }
-  
-        const missingPromotions = promotedStudentsResult.rows.filter(row =>
-          (row.promotion_status === 'Promoted' && !row.promotion_class_id)
-          || (row.promotion_status === 'Repeated' && !row.promotion_class_id)
-        );
-        if (missingPromotions.length > 0) {
-          await db.query('ROLLBACK');
-          continue;
-        }
-  
-        // Ensure enrollment exists or create one
-        let enrollmentId;
-        const existingEnrollmentResult = await db.query(`
-          SELECT enrollment_id FROM enrollments
-          WHERE term_id = $1 AND school_year_id = $2 AND organization_id = $3
-        `, [target_term_id, target_school_year_id, organization_id]);
-  
-        if (existingEnrollmentResult.rows.length > 0) {
-          enrollmentId = existingEnrollmentResult.rows[0].enrollment_id;
-        } else {
-          const newEnrollmentResult = await db.query(`
-            INSERT INTO enrollments (school_year_id, term_id, organization_id, created_at)
-            VALUES ($1, $2, $3, NOW())
-            RETURNING enrollment_id
-          `, [target_school_year_id, target_term_id, organization_id]);
-          enrollmentId = newEnrollmentResult.rows[0].enrollment_id;
-        }
-  
-        // Determine students and target classes
-        const finalEnrollments = promotedStudentsResult.rows.map(row => ({
-          student_id: row.student_id,
-          target_class_id: row.promotion_class_id
-        }));
-  
-        // Only insert classes that aren't already in enrolled_classes
-        const classCheckResult = await db.query(`
-          SELECT class_id FROM enrolled_classes WHERE enrollment_id = $1
-        `, [enrollmentId]);
-  
-        const existingClassIds = new Set(classCheckResult.rows.map(r => r.class_id));
-        const newClassIds = [...new Set(
-          finalEnrollments.map(r => r.target_class_id)
-        )].filter(cid => !existingClassIds.has(cid));
-  
-        // Insert only truly new class references
-        if (newClassIds.length > 0) {
-          await db.query(`
-            INSERT INTO enrolled_classes (enrollment_id, class_id)
-            SELECT $1, unnest($2::int[])
-          `, [enrollmentId, newClassIds]);
-        }
-  
-        // Insert students with added_by_promotion = TRUE
-        for (const { student_id, target_class_id } of finalEnrollments) {
-          await db.query(`
-            INSERT INTO enrolled_students (enrollment_id, student_id, class_id, added_by_promotion)
-            VALUES ($1, $2, $3, TRUE)
-            ON CONFLICT DO NOTHING
-          `, [enrollmentId, student_id, target_class_id]);
-        }
-  
-        await db.query(`
-          UPDATE promotion_schedule
-          SET status = 'completed'
-          WHERE id = $1
-        `, [scheduleId]);
-  
-        await db.query('COMMIT');
-  
       }
     } catch (err) {
+      console.error("❌ applyScheduledPromotions error:", err.message);
+    }
+  },
+
+  // "Apply Now" - instant promotion
+  applyNow: async (req, res) => {
+    const scheduleId = req.body.scheduleId;
+    const organizationId = req.session.organizationId;
+
+    try {
+      const scheduleResult = await db.query(
+        `SELECT * FROM promotion_schedule WHERE id = $1 AND organization_id = $2 AND status = 'scheduled'`,
+        [scheduleId, organizationId]
+      );
+
+      if (scheduleResult.rows.length === 0) {
+        req.flash("error", "Promotion not found or already applied.");
+        return res.redirect("/promotion/apply");
+      }
+
+      const result = await module.exports._applyPromotionCore(scheduleResult.rows[0]);
+
+      if (result.success) {
+        req.flash("success", `Promotion applied! ${result.enrolledCount} students enrolled into their new classes.`);
+      } else {
+        req.flash("error", result.reason);
+      }
+      res.redirect("/promotion/apply");
+    } catch (err) {
       await db.query('ROLLBACK');
-          }
+      console.error("❌ Apply Now failed:", err);
+      req.flash("error", "Failed to apply promotion: " + err.message);
+      res.redirect("/promotion/apply");
+    }
   }
-  
-        
 };
