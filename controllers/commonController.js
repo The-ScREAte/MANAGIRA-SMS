@@ -7629,6 +7629,25 @@ const commonController = {
         oldSchoolYear: schoolYear,
       });
     }
+    // ——— Backend overlap validation ———
+    const termsArr = Array.isArray(terms) ? terms : [];
+    for (let i = 0; i < termsArr.length; i++) {
+      const s = new Date(termsArr[i].startDate);
+      const e = new Date(termsArr[i].endDate);
+      if (s > e) {
+        req.flash("error", `Start date must be before end date for term: ${termsArr[i].termName}`);
+        return res.redirect("/common/registerSchoolYear");
+      }
+      for (let j = i + 1; j < termsArr.length; j++) {
+        const s2 = new Date(termsArr[j].startDate);
+        const e2 = new Date(termsArr[j].endDate);
+        if (s <= e2 && e >= s2) {
+          req.flash("error", `Date ranges for "${termsArr[i].termName}" and "${termsArr[j].termName}" overlap.`);
+          return res.redirect("/common/registerSchoolYear");
+        }
+      }
+    }
+
     try {
       // Insert the new school year into the database
       const yearResult = await db.query(
