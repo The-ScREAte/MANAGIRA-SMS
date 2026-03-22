@@ -399,6 +399,10 @@
             <td><%= schedule.status %></td>
             <td class="promotion-table-actions">
               <% if (schedule.status === 'scheduled') { %>
+                <form method="POST" action="/promotion/applyNow" style="display:inline;">
+                  <input type="hidden" name="scheduleId" value="<%= schedule.id %>">
+                  <button type="submit" onclick="return confirm('Apply this promotion now? Students will be moved to their new classes immediately.');">Apply Now</button>
+                </form>
                 <form method="POST" action="/promotion/cancel" style="display:inline;">
                   <input type="hidden" name="scheduleId" value="<%= schedule.id %>">
                   <button type="submit" class="btn-cancel">Cancel</button>
