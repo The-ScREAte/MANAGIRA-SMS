@@ -10,5 +10,6 @@ router.post("/schedule", isAuthenticated, requirePermission(PERMISSIONS.APPROVE_
 router.post("/cancel", isAuthenticated, requirePermission(PERMISSIONS.APPROVE_PROMOTIONS), promotionController.cancelScheduledPromotion);
 router.post("/reverse", isAuthenticated, requirePermission(PERMISSIONS.APPROVE_PROMOTIONS), promotionController.reverseAppliedPromotion);
 router.post("/deleteReversed", isAuthenticated, requirePermission(PERMISSIONS.APPROVE_PROMOTIONS), promotionController.deleteReversedPromotion);
+router.post("/applyNow", isAuthenticated, requirePermission(PERMISSIONS.APPROVE_PROMOTIONS), promotionController.applyNow);
 
 module.exports = router;
