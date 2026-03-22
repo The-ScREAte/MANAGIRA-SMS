@@ -49,6 +49,40 @@
             color: #475569;
             font-size: 0.95rem;
         }
+
+        .calendar-rules-toggle {
+            display: none;
+            margin-top: 8px;
+            background: #eef2ff;
+            color: #1e3a8a;
+            border: 1px solid #c7d2fe;
+            border-radius: 8px;
+            padding: 6px 10px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .calendar-rules-content {
+            display: block;
+        }
+
+        .attendance-summary-toggle {
+            display: none;
+            margin: 12px auto 0;
+            background: #e5f5f7;
+            color: var(--primary);
+            border: 1px solid #b7e1e8;
+            border-radius: 8px;
+            padding: 6px 10px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .attendance-summary-wrapper {
+            display: block;
+        }
       
 </style>
 <style>
@@ -58,8 +92,36 @@
         flex-direction: column;
         align-items: center;
     }
+    .day-name {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: var(--primary);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        margin-bottom: 2px;
+    }
+    .day-name .day-full { display: inline; }
+    .day-name .day-short { display: none; }
+    .excluded-day-tag {
+        display: inline-block;
+        margin-top: 3px;
+        font-size: 0.54rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #92400e;
+        background: #fef3c7;
+        border: 1px solid #f59e0b;
+        border-radius: 999px;
+        padding: 0 5px;
+        letter-spacing: 0.03em;
+        white-space: normal;
+        line-height: 1.15;
+        max-width: 120px;
+        text-align: center;
+    }
     .edit-save-link,
-    .cancel-link {
+    .cancel-link,
+    .mark-all-link {
         font-size: 0.85rem;
         cursor: pointer;
         text-decoration: underline;
@@ -68,6 +130,9 @@
     }
     .cancel-link {
         color: red;
+    }
+    .mark-all-link {
+        color: #0f5a66;
     }
     .last-edited {
         font-size: 0.75rem;
@@ -207,7 +272,7 @@
     
     /* === Attendance Table === */
     .attendance-sheet-container {
-        padding: 20px;
+        padding: 16px 0;
         margin: 30px auto;
         background: #fff;
         border: 1px solid var(--border);
@@ -232,6 +297,74 @@
         white-space: nowrap;
         color: #333;
     }
+    .attendance-sheet th.date-col-excluded {
+        background: #fff8e1;
+    }
+    .attendance-sheet td.inactive-day-cell {
+        position: relative;
+        background: #f8fafc;
+    }
+    .inactive-watermark {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) rotate(-34deg);
+        font-size: 0.46rem;
+        font-weight: 700;
+        color: rgba(148, 163, 184, 0.62);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        pointer-events: none;
+        white-space: nowrap;
+    }
+
+    .inactive-watermark.paired-watermark {
+        top: 100%;
+        font-size: 0.6rem;
+        opacity: 0.95;
+        z-index: 4;
+    }
+
+    .term-end-watermark {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) rotate(-34deg);
+        font-size: 0.45rem;
+        font-weight: 700;
+        color: rgba(30, 64, 175, 0.5);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        pointer-events: none;
+        white-space: normal;
+        text-align: center;
+        width: 90%;
+        line-height: 1.1;
+    }
+
+    .term-end-watermark.paired-watermark {
+        top: 100%;
+        width: 180%;
+        font-size: 0.58rem;
+        z-index: 4;
+    }
+
+    .attendance-sheet th.term-end-col {
+        background: #eef2ff;
+    }
+
+    .attendance-sheet td.term-end-cell {
+        position: relative;
+    }
+
+    .attendance-sheet td.inactive-day-cell,
+    .attendance-sheet td.term-end-cell {
+        overflow: visible;
+    }
+    .attendance-sheet input.attendance-inactive {
+        opacity: 0.45;
+        pointer-events: none;
+    }
 
     #attendance-summary {
         margin: 30px auto;
@@ -254,9 +387,14 @@
         min-width: 160px;
         max-width: 200px;
         text-align: left;
-        padding-left: 10px;
+        padding-left: 8px;
         font-weight: 600;
         color: #000;
+    }
+
+    .attendance-sheet th.overall-attendance,
+    .attendance-sheet td.overall-attendance {
+        min-width: 130px;
     }
     
     /* Sticky Header */
@@ -373,7 +511,7 @@
 
         /* === TABLE CONTAINER IMPROVEMENTS === */
         .attendance-sheet-container {
-            padding: 10px 5px;
+            padding: 10px 0;
             margin: 10px auto;
             overflow-x: auto;
             -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
@@ -407,9 +545,13 @@
             padding: 5px 2px;
             line-height: 1.2;
         }
+        .day-name { font-size: 0.7rem; }
+        .day-name .day-full { display: none; }
+        .day-name .day-short { display: inline; }
       
-        .edit-save-link,
-        .cancel-link {
+                .edit-save-link,
+                .cancel-link,
+                .mark-all-link {
           font-size: 0.65rem;
           padding: 2px 4px;
           margin-top: 2px;
@@ -437,7 +579,7 @@
 
         /* === OVERALL ATTENDANCE COLUMN === */
         .overall-attendance {
-            min-width: 60px;
+            min-width: 92px;
             font-size: 0.7rem;
             background-color: #e5f5f7;
             font-weight: bold;
@@ -537,9 +679,13 @@
         .date-header {
             padding: 3px 1px;
         }
+        .day-name { font-size: 0.62rem; }
+        .day-name .day-full { display: none; }
+        .day-name .day-short { display: inline; }
       
-        .edit-save-link,
-        .cancel-link {
+                .edit-save-link,
+                .cancel-link,
+                .mark-all-link {
           font-size: 0.6rem;
           padding: 1px 2px;
         }
@@ -601,6 +747,43 @@
                 .attendance-meta {
                     font-size: 0.85rem;
                 }
+
+                .calendar-rules-toggle {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                }
+
+                .calendar-rules-content {
+                    max-height: 260px;
+                    overflow: hidden;
+                    transition: max-height 0.25s ease;
+                }
+
+                .calendar-rules-content.collapsed-mobile {
+                    max-height: 0;
+                }
+
+                .attendance-summary-toggle {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                }
+
+                .attendance-summary-wrapper {
+                    max-height: 420px;
+                    overflow: hidden;
+                    transition: max-height 0.25s ease;
+                }
+
+                .attendance-summary-wrapper.collapsed-mobile {
+                    max-height: 0;
+                }
+
+                .inactive-watermark.paired-watermark,
+                .term-end-watermark.paired-watermark {
+                    font-size: 0.5rem;
+                }
             }
     
 </style>
@@ -614,16 +797,24 @@
                 <h1>Attendance for <%= className %></h1>
                 <div class="attendance-meta">School Year: <%= schoolYear.year_label %> · Term: <%= termName %></div>
                 <% if (attendanceCalendarSummary && attendanceCalendarSummary.enabled) { %>
-                    <div class="attendance-meta" style="margin-top:4px;">
-                        Calendar rules active · Country: <%= attendanceCalendarSummary.countryCode %> ·
-                        Weekends: <%= (attendanceCalendarSummary.weekendLabels || []).length ? attendanceCalendarSummary.weekendLabels.join(', ') : 'None' %> ·
-                        Public holidays: <%= attendanceCalendarSummary.includePublicHolidays ? 'Excluded' : 'Included' %>
-                    </div>
-                    <% if (attendanceCalendarSummary.hiddenDateCount > 0) { %>
-                        <div class="attendance-meta" style="margin-top:2px; color:#334155;">
-                            <%= attendanceCalendarSummary.hiddenDateCount %> non-counting date(s) are hidden from this attendance table.
+                    <button type="button" id="calendarRulesToggle" class="calendar-rules-toggle" onclick="toggleCalendarRules()">Calendar Rules</button>
+                    <div id="calendarRulesContent" class="calendar-rules-content collapsed-mobile">
+                        <div class="attendance-meta" style="margin-top:4px;">
+                            Calendar rules active · Country: <%= attendanceCalendarSummary.countryCode %> ·
+                            Weekends: <%= (attendanceCalendarSummary.weekendLabels || []).length ? attendanceCalendarSummary.weekendLabels.join(', ') : 'None' %> ·
+                            Public holidays: <%= attendanceCalendarSummary.includePublicHolidays ? 'Excluded' : 'Included' %>
                         </div>
-                    <% } %>
+                        <% if (attendanceCalendarSummary.excludedDisplayDateCount > 0) { %>
+                            <div class="attendance-meta" style="margin-top:2px; color:#334155;">
+                                <%= attendanceCalendarSummary.excludedDisplayDateCount %> excluded date(s) are shown as inactive (Weekend/Holiday/Excluded).
+                            </div>
+                        <% } %>
+                    </div>
+                <% } else { %>
+                    <div class="attendance-meta" style="margin-top:6px; background:#fff8e1; border:1px solid #f59e0b; border-radius:6px; padding:6px 14px; color:#92400e; display:inline-block;">
+                        ⚠️ No attendance calendar is configured for this term — all dates including weekends are shown.
+                        <a href="/account/settings?section=customize&calendarTermId=<%= termId %>" style="color:#b45309; font-weight:600; margin-left:6px;">Configure Calendar for this term →</a>
+                    </div>
                 <% } %>
             </div>
 
@@ -650,13 +841,18 @@
                 </select>
             </label>
 
+            <% const _now = new Date(); %>
+            <% const todayKey = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`; %>
+
             <label>
                 Filter by date:
                 <select id="dateFilter">
                     <option value="all">All</option>
                     <% displayDates.forEach(date => { %>
-                        <% const isToday = new Date(date).toDateString() === new Date().toDateString(); %>
-                        <option value="<%= date %>"><%= isToday ? "Today" : new Date(date).toLocaleDateString() %></option>
+                        <% const isToday = date === todayKey; %>
+                        <% const dateParts = String(date).split('-'); %>
+                        <% const formattedDate = `${Number(dateParts[1])}/${Number(dateParts[2])}/${dateParts[0]}`; %>
+                        <option value="<%= date %>"><%= isToday ? "Today" : formattedDate %></option>
                     <% }) %>
                 </select>
             </label>
@@ -677,13 +873,29 @@
                     <tr>
                         <th class="student-name">Student Name</th>
                         <% displayDates.forEach(date => { %>
-                            <% const isToday = new Date(date).toDateString() === new Date().toDateString(); %>
-                            <th class="<%= isToday ? 'today-col' : '' %>">
+                            <% const isToday = date === todayKey; %>
+                            <% const dateMeta = (dateMetaMap && dateMetaMap[date]) ? dateMetaMap[date] : { countable: true }; %>
+                            <th data-date="<%= date %>" class="<%= isToday ? 'today-col' : '' %> <%= !dateMeta.countable ? 'date-col-excluded' : '' %> <%= dateMeta.isOfficialTermEnd ? 'term-end-col' : '' %>">
                                 <div class="date-header">
-                                    <%= isToday ? "Today" : new Date(date).toLocaleDateString() %>
-                                    <% if (students.length > 0) { %>
+                                    <% const _parts = String(date).split('-'); %>
+                                    <% const _d = new Date(Number(_parts[0]), Number(_parts[1]) - 1, Number(_parts[2])); %>
+                                    <% const _formattedDate = `${Number(_parts[1])}/${Number(_parts[2])}/${_parts[0]}`; %>
+                                    <% const _days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']; %>
+                                    <% const _dayShorts = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']; %>
+                                    <% if (!isToday) { %>
+                                    <span class="day-name">
+                                        <span class="day-full"><%= _days[_d.getDay()] %></span>
+                                        <span class="day-short"><%= _dayShorts[_d.getDay()] %></span>
+                                    </span>
+                                    <% } %>
+                                    <%= isToday ? "Today" : _formattedDate %>
+                                    <% if (students.length > 0 && dateMeta.countable) { %>
                                         <div class="edit-save-link" data-date="<%= date %>" onclick="toggleEditSaveMode('<%= date %>')">Edit</div>
                                         <div class="cancel-link" data-date="<%= date %>" style="display: none;" onclick="cancelEditMode('<%= date %>')">Cancel</div>
+                                        <div class="mark-all-link" data-date="<%= date %>" style="display: none;" onclick="markAllPresentForDate('<%= date %>')">Mark All Present</div>
+                                    <% } %>
+                                    <% if (!dateMeta.countable || dateMeta.isOfficialTermEnd) { %>
+                                        <div class="excluded-day-tag"><%= dateMeta.markerLabel || 'Excluded' %></div>
                                     <% } %>
                                     <div class="last-edited" id="last-edited-<%= date %>">
                                         <% if (lastEditedMap && lastEditedMap[date]) { %>
@@ -697,7 +909,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <% students.forEach(student => { %>
+                    <% students.forEach((student, rowIndex) => { %>
                         <tr 
                         data-name="<%= (student.first_name + ' ' + student.last_name).toLowerCase() %>" 
                         data-gender="<%= student.gender ? student.gender.toLowerCase() : '' %>">
@@ -705,14 +917,25 @@
                                 <%= student.first_name %> <%= student.last_name %>
                             </td>
                             <% let presentCount = 0; %>
-                            <% let totalCount = displayDates.length; %>
+                            <% let totalCount = 0; %>
                             <% displayDates.forEach(date => { %>
-                                <% const isTodayCell = new Date(date).toDateString() === new Date().toDateString(); %>
-                                <td class="<%= isTodayCell ? 'today-col' : '' %>">
+                                <% const isTodayCell = date === todayKey; %>
+                                <% const dateMeta = (dateMetaMap && dateMetaMap[date]) ? dateMetaMap[date] : { countable: true, markerLabel: null }; %>
+                                <% const showPairedWatermark = (rowIndex % 2) === 0; %>
+                                <td class="<%= isTodayCell ? 'today-col' : '' %> <%= !dateMeta.countable ? 'inactive-day-cell' : '' %> <%= dateMeta.isOfficialTermEnd ? 'term-end-cell' : '' %>">
                                     <input type="checkbox" data-date="<%= date %>" data-student-id="<%= student.student_id %>" 
+                                        data-countable="<%= dateMeta.countable ? 'true' : 'false' %>"
+                                        class="<%= !dateMeta.countable ? 'attendance-inactive' : '' %>"
                                         <%= attendanceMap[student.student_id] && attendanceMap[student.student_id][date] === 'Present' ? 'checked' : '' %> 
-                                        <%= attendanceMap[student.student_id] && attendanceMap[student.student_id][date] ? 'disabled' : '' %> >
-                                    <% if (attendanceMap[student.student_id] && attendanceMap[student.student_id][date] === 'Present') { %>
+                                        <%= (!dateMeta.countable || (attendanceMap[student.student_id] && attendanceMap[student.student_id][date])) ? 'disabled' : '' %> >
+                                    <% if (!dateMeta.countable && showPairedWatermark) { %>
+                                        <span class="inactive-watermark paired-watermark"><%= (dateMeta.markerLabel || 'Excluded').toUpperCase() %></span>
+                                    <% } %>
+                                    <% if (dateMeta.isOfficialTermEnd && showPairedWatermark) { %>
+                                        <span class="term-end-watermark paired-watermark">OFFICIAL TERM END DATE</span>
+                                    <% } %>
+                                    <% if (dateMeta.countable) { totalCount++; } %>
+                                    <% if (dateMeta.countable && attendanceMap[student.student_id] && attendanceMap[student.student_id][date] === 'Present') { %>
                                         <% presentCount++; %>
                                     <% } %>
                                 </td>
@@ -728,31 +951,34 @@
     <% } %>
 
     <br>
-    <table id="attendance-summary" style="width: 100%; border-collapse: collapse; margin-top: 20px;">
-        <thead>
-            <tr>
-                <th colspan="3" style="background: #e5f5f7; padding: 10px; color: var(--org-primary-color);">Attendance Summary</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td>Total Male Students: <span id="maleTotal">0</span></td>
-                <td>Present: <span id="malePresent">0</span></td>
-                <td>Absent: <span id="maleAbsent">0</span></td>
-            </tr>
-            <tr>
-                <td>Total Female Students: <span id="femaleTotal">0</span></td>
-                <td>Present: <span id="femalePresent">0</span></td>
-                <td>Absent: <span id="femaleAbsent">0</span></td>
-            </tr>
-            <tr style="font-weight: bold;">
-                <td>Class Total: <span id="classTotal">0</span></td>
-                <td>Present: <span id="classPresent">0</span></td>
-                <td>Absent: <span id="classAbsent">0</span></td>
-            </tr>
-        </tbody>
-        
-    </table>
+    <button type="button" id="attendanceSummaryToggle" class="attendance-summary-toggle" onclick="toggleAttendanceSummary()">Attendance Summary</button>
+    <div id="attendanceSummaryWrapper" class="attendance-summary-wrapper collapsed-mobile">
+      <table id="attendance-summary" style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+          <thead>
+              <tr>
+                  <th colspan="3" style="background: #e5f5f7; padding: 10px; color: var(--org-primary-color);">Attendance Summary</th>
+              </tr>
+          </thead>
+          <tbody>
+              <tr>
+                  <td>Total Male Students: <span id="maleTotal">0</span></td>
+                  <td>Present: <span id="malePresent">0</span></td>
+                  <td>Absent: <span id="maleAbsent">0</span></td>
+              </tr>
+              <tr>
+                  <td>Total Female Students: <span id="femaleTotal">0</span></td>
+                  <td>Present: <span id="femalePresent">0</span></td>
+                  <td>Absent: <span id="femaleAbsent">0</span></td>
+              </tr>
+              <tr style="font-weight: bold;">
+                  <td>Class Total: <span id="classTotal">0</span></td>
+                  <td>Present: <span id="classPresent">0</span></td>
+                  <td>Absent: <span id="classAbsent">0</span></td>
+              </tr>
+          </tbody>
+          
+      </table>
+    </div>
     
 
     </div>
@@ -768,6 +994,18 @@
             
             content.classList.toggle('collapsed');
             button.classList.toggle('collapsed');
+        }
+
+        function toggleCalendarRules() {
+            const content = document.getElementById('calendarRulesContent');
+            if (!content) return;
+            content.classList.toggle('collapsed-mobile');
+        }
+
+        function toggleAttendanceSummary() {
+            const content = document.getElementById('attendanceSummaryWrapper');
+            if (!content) return;
+            content.classList.toggle('collapsed-mobile');
         }
 
         // Auto-populate attendance summary
@@ -787,6 +1025,7 @@
 
                 const checkboxes = row.querySelectorAll('input[type="checkbox"]');
                 checkboxes.forEach(checkbox => {
+                    if (checkbox.dataset.countable !== 'true') return;
                     const cell = checkbox.closest('td');
                     if (cell.style.display === 'none') return; // Skip hidden cells
                     
@@ -841,6 +1080,15 @@
         document.addEventListener('DOMContentLoaded', () => {
             const classId = '<%= classId %>';
             const termId = '<%= termId %>';
+            const calendarRulesContent = document.getElementById('calendarRulesContent');
+            const attendanceSummaryWrapper = document.getElementById('attendanceSummaryWrapper');
+
+            if (calendarRulesContent && window.matchMedia('(min-width: 769px)').matches) {
+                calendarRulesContent.classList.remove('collapsed-mobile');
+            }
+            if (attendanceSummaryWrapper && window.matchMedia('(min-width: 769px)').matches) {
+                attendanceSummaryWrapper.classList.remove('collapsed-mobile');
+            }
 
             // Scroll to the right immediately so current date shows first
             scrollAttendanceToEnd();
@@ -900,6 +1148,7 @@
             const checkboxes = document.querySelectorAll(`input[data-date='${date}']`);
             const link = document.querySelector(`.edit-save-link[data-date='${date}']`);
             const cancelLink = document.querySelector(`.cancel-link[data-date='${date}']`);
+            const markAllLink = document.querySelector(`.mark-all-link[data-date='${date}']`);
 
             if (link.textContent === 'Save') {
                 saveAttendanceForDate(date, checkboxes, link);
@@ -910,7 +1159,18 @@
                 });
                 link.textContent = 'Save';
                 cancelLink.style.display = 'block';
+                if (markAllLink) markAllLink.style.display = 'block';
             }
+        }
+
+        function markAllPresentForDate(date) {
+            const checkboxes = document.querySelectorAll(`input[data-date='${date}']`);
+            checkboxes.forEach(checkbox => {
+                if (checkbox.dataset.countable === 'true' && !checkbox.disabled) {
+                    checkbox.checked = true;
+                }
+            });
+            setTimeout(updateAttendanceSummary, 10);
         }
 
         function saveAttendanceForDate(date, checkboxes, link) {
@@ -939,6 +1199,8 @@
                     });
                     const cancelLink = document.querySelector(`.cancel-link[data-date='${date}']`);
                     cancelLink.style.display = 'none';
+                    const markAllLink = document.querySelector(`.mark-all-link[data-date='${date}']`);
+                    if (markAllLink) markAllLink.style.display = 'none';
 
                     const lastEditedElement = document.getElementById(`last-edited-${date}`);
                     if (lastEditedElement) {
@@ -979,6 +1241,8 @@
             link.textContent = 'Edit';
             const cancelLink = document.querySelector(`.cancel-link[data-date='${date}']`);
             cancelLink.style.display = 'none';
+            const markAllLink = document.querySelector(`.mark-all-link[data-date='${date}']`);
+            if (markAllLink) markAllLink.style.display = 'none';
         }
 
 
@@ -1032,10 +1296,9 @@
                 });
             
                 // Update <thead> columns (show only selected date if filtering)
-                const dateHeaders = Array.from(document.querySelectorAll('.attendance-sheet thead .date-header')).map(h => h.closest('th'));
+                const dateHeaders = Array.from(document.querySelectorAll('.attendance-sheet thead th[data-date]'));
                 dateHeaders.forEach(th => {
-                    const headerDate = th.querySelector('.edit-save-link')?.dataset.date;
-                    if (!headerDate) return;
+                    const headerDate = th.dataset.date;
                     th.style.display = (selectedDate === 'all' || selectedDate === headerDate) ? '' : 'none';
                 });
             

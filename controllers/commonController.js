@@ -751,6 +751,7 @@ const commonController = {
         orgHeaderName,
         orgHeaderLogo,
         orgHeaderNickname,
+        todayAttendanceStatus: null,
       });
       // ...removed log for clean background operation...
     } catch (error) {
@@ -837,6 +838,60 @@ const commonController = {
       if (!schoolYear || !currentTerm) {
         req.flash("error", "Invalid school year or term.");
         return res.redirect("/common/orgDashboard");
+      }
+
+      let todayAttendanceStatus = null;
+
+      // Build today's attendance status label (weekend/holiday/manual/school day)
+      // using the same source data as attendance collection.
+      try {
+        await ensureAttendanceCalendarSchema(db);
+        const attendanceCalendarProfile = await getAttendanceCalendarProfile(
+          db,
+          organizationId,
+          currentTerm.term_id
+        );
+
+        if (attendanceCalendarProfile) {
+          const attendanceCalendarDays = await getAttendanceCalendarDays(
+            db,
+            attendanceCalendarProfile.calendar_id,
+            currentTerm.start_date,
+            currentTerm.end_date
+          );
+          const dayMap = buildCalendarDayMap(attendanceCalendarDays);
+          const todayKey = toDateKey(new Date());
+          const matchedDay = dayMap.get(todayKey);
+
+          let label = "School Day";
+
+          if (matchedDay && String(matchedDay.source || "").toLowerCase() === "manual") {
+            label = matchedDay.label || (Boolean(matchedDay.counts_for_attendance) ? "School Day" : "Excluded");
+          } else if (
+            matchedDay &&
+            String(matchedDay.source || "").toLowerCase() === "public_holiday" &&
+            Boolean(attendanceCalendarProfile.include_public_holidays)
+          ) {
+            label = matchedDay.label || "Public Holiday";
+          } else {
+            const weekendDays = new Set(
+              ((attendanceCalendarProfile && attendanceCalendarProfile.weekend_days) || [])
+                .map((day) => Number(day))
+                .filter((day) => Number.isInteger(day))
+            );
+            const todayDow = new Date(`${todayKey}T00:00:00.000Z`).getUTCDay();
+
+            if (weekendDays.has(todayDow)) {
+              label = "Weekend";
+            }
+          }
+
+          todayAttendanceStatus = {
+            label,
+          };
+        }
+      } catch (_calendarError) {
+        todayAttendanceStatus = null;
       }
 
       let classes = [];
@@ -1043,6 +1098,7 @@ const commonController = {
         orgHeaderName,
         orgHeaderLogo,
         orgHeaderNickname,
+        todayAttendanceStatus,
         // Include any additional data as needed
       });
     } catch (error) {
@@ -4389,7 +4445,20 @@ const commonController = {
 
     try {
       const result = await db.query(
-        "SELECT * FROM attendance_records WHERE class_id = $1 AND term_id = $2",
+        `
+          SELECT attendance_id,
+                 student_id,
+                 class_id,
+                 term_id,
+                 organization_id,
+                 status,
+                 marked_by,
+                 marked_at,
+                 updated_at,
+                 date::text AS date
+          FROM attendance_records
+          WHERE class_id = $1 AND term_id = $2
+        `,
         [classId, termId]
       );
       res.json({ success: true, attendance: result.rows });
@@ -4459,7 +4528,8 @@ const commonController = {
       // Fetch term dates for the class
       const termDatesResult = await db.query(
         `
-                SELECT start_date, end_date
+                SELECT start_date::text AS start_date_key,
+                       end_date::text AS end_date_key
                 FROM terms
                 WHERE term_id = $1
             `,
@@ -4470,16 +4540,21 @@ const commonController = {
         return res.status(404).send("Term not found");
       }
 
-      const { start_date, end_date } = termDatesResult.rows[0];
+      const { start_date_key, end_date_key } = termDatesResult.rows[0];
       await ensureAttendanceCalendarSchema(db);
 
+      const termStartKey = String(start_date_key).slice(0, 10);
+      const termEndKey = String(end_date_key).slice(0, 10);
+      const termStart = new Date(`${termStartKey}T00:00:00.000Z`);
+      const termEnd = new Date(`${termEndKey}T23:59:59.999Z`);
+
       const dates = [];
-      let currentDate = new Date(start_date);
+      let currentDate = new Date(termStart);
       const today = new Date();
 
-      while (currentDate <= end_date && currentDate <= today) {
+      while (currentDate <= termEnd && currentDate <= today) {
         dates.push(currentDate.toISOString().split("T")[0]);
-        currentDate.setDate(currentDate.getDate() + 1);
+        currentDate.setUTCDate(currentDate.getUTCDate() + 1);
       }
 
       const attendanceCalendarProfile = await getAttendanceCalendarProfile(db, organizationId, termId);
@@ -4487,25 +4562,94 @@ const commonController = {
         ? await getAttendanceCalendarDays(
             db,
             attendanceCalendarProfile.calendar_id,
-            start_date,
-            end_date
+            termStart,
+            termEnd
           )
         : [];
       const attendanceCalendarDayMap = buildCalendarDayMap(attendanceCalendarDays);
 
-      const filteredDates = attendanceCalendarProfile
-        ? dates.filter((date) => isAttendanceCountableForDate(date, attendanceCalendarProfile, attendanceCalendarDayMap))
-        : dates;
+      const weekendDays = new Set(
+        ((attendanceCalendarProfile && attendanceCalendarProfile.weekend_days) || [])
+          .map((day) => Number(day))
+          .filter((day) => Number.isInteger(day))
+      );
 
-      // Role-based date limit: teachers see up to 6 days; supervisors/managers see all
+      const getDateMeta = (dateKey) => {
+        if (!attendanceCalendarProfile) {
+          return {
+            countable: true,
+            marker: null,
+            markerLabel: null,
+          };
+        }
+
+        const matchedDay = attendanceCalendarDayMap.get(dateKey);
+        if (matchedDay && String(matchedDay.source || '').toLowerCase() === 'manual') {
+          const countable = Boolean(matchedDay.counts_for_attendance);
+          return {
+            countable,
+            marker: countable ? null : 'manual',
+            markerLabel: countable ? null : (matchedDay.label || 'Excluded'),
+          };
+        }
+
+        if (
+          matchedDay &&
+          String(matchedDay.source || '').toLowerCase() === 'public_holiday' &&
+          Boolean(attendanceCalendarProfile.include_public_holidays)
+        ) {
+          return {
+            countable: false,
+            marker: 'holiday',
+            markerLabel: matchedDay.label || 'Holiday',
+          };
+        }
+
+        const dayOfWeek = new Date(`${dateKey}T00:00:00.000Z`).getUTCDay();
+        if (weekendDays.has(dayOfWeek)) {
+          return {
+            countable: false,
+            marker: 'weekend',
+            markerLabel: 'Weekend',
+          };
+        }
+
+        return {
+          countable: true,
+          marker: null,
+          markerLabel: null,
+        };
+      };
+
+      // Role-based date limit: teachers see up to 6 calendar days; supervisors/managers see all.
+      // We intentionally limit by calendar days (not only valid days) so term-end days still appear.
       const userRole = (req.session.userRole || '').toLowerCase();
       const isTeacher = userRole === 'teacher';
-      const dateLimit = isTeacher ? 6 : filteredDates.length;
+      const dateLimit = isTeacher ? 6 : dates.length;
 
-      const displayDates = filteredDates
+      const displayDates = [...dates]
         .sort((a, b) => new Date(b) - new Date(a))
         .slice(0, dateLimit)
         .reverse();
+
+      const dateMetaMap = {};
+      displayDates.forEach((dateKey) => {
+        dateMetaMap[dateKey] = getDateMeta(dateKey);
+
+        // Always mark the official term end date and keep it editable/countable.
+        if (dateKey === termEndKey) {
+          dateMetaMap[dateKey] = {
+            ...dateMetaMap[dateKey],
+            countable: true,
+            isOfficialTermEnd: true,
+            marker: 'term_end',
+            markerLabel: 'Official Term End Date',
+          };
+        }
+      });
+
+      const excludedDisplayDateCount = displayDates.filter((dateKey) => !dateMetaMap[dateKey].countable).length;
+      const excludedTotalDateCount = dates.filter((dateKey) => !getDateMeta(dateKey).countable).length;
 
       const weekendLabelMap = WEEKDAY_OPTIONS.reduce((acc, item) => {
         acc[item.value] = item.label;
@@ -4520,14 +4664,16 @@ const commonController = {
             weekendLabels: (attendanceCalendarProfile.weekend_days || [])
               .map((day) => weekendLabelMap[Number(day)])
               .filter(Boolean),
-            hiddenDateCount: Math.max(0, dates.length - filteredDates.length),
+            hiddenDateCount: 0,
+            excludedDisplayDateCount,
+            excludedTotalDateCount,
           }
-        : { enabled: false, hiddenDateCount: 0 };
+        : { enabled: false, hiddenDateCount: 0, excludedDisplayDateCount: 0, excludedTotalDateCount: 0 };
 
       // Fetch attendance records
       const attendanceResult = await db.query(
         `
-                SELECT student_id, date, status, updated_at
+                SELECT student_id, date::text AS date, status, updated_at
                 FROM attendance_records
                 WHERE class_id = $1 AND term_id = $2 AND organization_id = $3
             `,
@@ -4538,7 +4684,7 @@ const commonController = {
       const lastEditedMap = {};
 
       attendanceResult.rows.forEach((record) => {
-        const dateKey = record.date.toISOString().split("T")[0];
+        const dateKey = String(record.date).slice(0, 10);
         if (!attendanceMap[record.student_id]) {
           attendanceMap[record.student_id] = {};
         }
@@ -4557,6 +4703,7 @@ const commonController = {
         termId,
         termName,
         displayDates,
+        dateMetaMap,
         students,
         attendanceMap,
         lastEditedMap,
@@ -4585,6 +4732,12 @@ const commonController = {
 
       if (attendanceCalendarProfile) {
         const term = await getTermRecord(db, organizationId, termId);
+        const termEndKey = term ? toDateKey(term.end_date) : null;
+        const submittedDateKey = toDateKey(date);
+
+        if (termEndKey && submittedDateKey && submittedDateKey === termEndKey) {
+          // Official term end date is always allowed for marking.
+        } else {
         const attendanceCalendarDays = term
           ? await getAttendanceCalendarDays(
               db,
@@ -4601,6 +4754,7 @@ const commonController = {
             success: false,
             message: "Attendance is disabled for this date by the term calendar settings.",
           });
+        }
         }
       }
 

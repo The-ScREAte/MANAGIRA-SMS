@@ -139,6 +139,12 @@
               <span id="daysUntilEnd"><%= daysUntilEnd %></span>
               <% } %>
             </div>
+            <% if (todayAttendanceStatus && todayAttendanceStatus.label) { %>
+            <div style="margin-top:6px; font-size:0.9rem; color:#334155;">
+              <strong></strong>
+              <span><%= todayAttendanceStatus.label %></span>
+            </div>
+            <% } %>
             <% } else { %>
             <p>No current term information available.</p>
             <% } %>

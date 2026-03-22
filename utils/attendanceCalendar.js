@@ -27,6 +27,14 @@ function parseBoolean(value) {
 }
 
 function normalizeWeekendDaysInput(rawWeekendDays) {
+  // Handle PostgreSQL array string format like "{0,6}" that pg may return for SMALLINT[]
+  if (typeof rawWeekendDays === 'string') {
+    const trimmed = rawWeekendDays.trim();
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      rawWeekendDays = trimmed.slice(1, -1).split(',').map((s) => s.trim()).filter(Boolean);
+    }
+  }
+
   const arrayValue = Array.isArray(rawWeekendDays)
     ? rawWeekendDays
     : rawWeekendDays === undefined || rawWeekendDays === null
@@ -109,16 +117,47 @@ async function getTermRecord(db, organizationId, termId) {
 }
 
 async function getAttendanceCalendarProfile(db, organizationId, termId) {
-  const result = await db.query(
-    `
-      SELECT calendar_id, organization_id, school_year_id, term_id, country_code,
-             weekend_days, include_public_holidays, created_at, updated_at
-      FROM organization_attendance_calendars
-      WHERE organization_id = $1 AND term_id = $2
-      LIMIT 1
-    `,
-    [organizationId, termId]
-  );
+  let result;
+
+  if (termId) {
+    result = await db.query(
+      `
+        SELECT calendar_id, organization_id, school_year_id, term_id, country_code,
+               weekend_days, include_public_holidays, created_at, updated_at
+        FROM organization_attendance_calendars
+        WHERE organization_id = $1::int AND term_id = $2::int
+        LIMIT 1
+      `,
+      [organizationId, termId]
+    );
+
+    // Org-wide fallback: if no term-specific row exists, use the latest rules for the organization.
+    if (result.rows.length === 0) {
+      result = await db.query(
+        `
+          SELECT calendar_id, organization_id, school_year_id, term_id, country_code,
+                 weekend_days, include_public_holidays, created_at, updated_at
+          FROM organization_attendance_calendars
+          WHERE organization_id = $1::int
+          ORDER BY updated_at DESC, created_at DESC
+          LIMIT 1
+        `,
+        [organizationId]
+      );
+    }
+  } else {
+    result = await db.query(
+      `
+        SELECT calendar_id, organization_id, school_year_id, term_id, country_code,
+               weekend_days, include_public_holidays, created_at, updated_at
+        FROM organization_attendance_calendars
+        WHERE organization_id = $1::int
+        ORDER BY updated_at DESC, created_at DESC
+        LIMIT 1
+      `,
+      [organizationId]
+    );
+  }
 
   if (result.rows.length === 0) return null;
 
@@ -128,17 +167,32 @@ async function getAttendanceCalendarProfile(db, organizationId, termId) {
 }
 
 async function getAttendanceCalendarDays(db, calendarId, startDate, endDate) {
-  const result = await db.query(
-    `
-      SELECT calendar_day_id, calendar_id, organization_id, calendar_date,
-             label, source, counts_for_attendance, updated_at
-      FROM organization_attendance_calendar_days
-      WHERE calendar_id = $1
-        AND calendar_date BETWEEN $2 AND $3
-      ORDER BY calendar_date ASC
-    `,
-    [calendarId, startDate, endDate]
-  );
+  let result;
+
+  if (startDate && endDate) {
+    result = await db.query(
+      `
+        SELECT calendar_day_id, calendar_id, organization_id, calendar_date,
+               label, source, counts_for_attendance, updated_at
+        FROM organization_attendance_calendar_days
+        WHERE calendar_id = $1
+          AND calendar_date BETWEEN $2 AND $3
+        ORDER BY calendar_date ASC
+      `,
+      [calendarId, startDate, endDate]
+    );
+  } else {
+    result = await db.query(
+      `
+        SELECT calendar_day_id, calendar_id, organization_id, calendar_date,
+               label, source, counts_for_attendance, updated_at
+        FROM organization_attendance_calendar_days
+        WHERE calendar_id = $1
+        ORDER BY calendar_date ASC
+      `,
+      [calendarId]
+    );
+  }
 
   return result.rows.map((row) => ({
     ...row,
@@ -214,6 +268,45 @@ async function upsertAttendanceCalendarProfile(db, {
   userId,
 }) {
   const safeWeekendDays = normalizeWeekendDaysInput(weekendDays);
+
+  // Organization-bound behavior: update the latest row for this organization regardless of term,
+  // and only insert a new row when none exists yet.
+  const existingProfile = await db.query(
+    `
+      SELECT calendar_id
+      FROM organization_attendance_calendars
+      WHERE organization_id = $1
+      ORDER BY updated_at DESC, created_at DESC
+      LIMIT 1
+    `,
+    [organizationId]
+  );
+
+  if (existingProfile.rows.length > 0) {
+    const result = await db.query(
+      `
+        UPDATE organization_attendance_calendars
+        SET country_code = $2,
+            weekend_days = $3::smallint[],
+            include_public_holidays = $4,
+            updated_by = $5,
+            updated_at = NOW()
+        WHERE calendar_id = $1
+        RETURNING *
+      `,
+      [
+        existingProfile.rows[0].calendar_id,
+        countryCode,
+        safeWeekendDays,
+        includePublicHolidays,
+        userId || null,
+      ]
+    );
+
+    const profile = result.rows[0];
+    profile.weekend_days = normalizeWeekendDaysInput(profile.weekend_days || []);
+    return profile;
+  }
 
   const result = await db.query(
     `

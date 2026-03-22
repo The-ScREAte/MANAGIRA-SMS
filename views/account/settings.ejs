@@ -1394,42 +1394,13 @@
           </div>
 
           <div class="card">
-            <h4>Yearly Attendance Calendar</h4>
+            <h4>School Calender Rule</h4>
             <small>
-              Configure weekends, country public holidays, and manual term-specific day overrides for attendance counting.
+              Configure organization-wide attendance rules, then add date overrides below.
             </small>
             <form action="/account/settings/calendar/profile" method="POST">
               <input type="hidden" name="redirectTo" value="/account/settings?section=customize" />
               <div class="content-row" style="align-items:flex-start;">
-                <div class="field-group">
-                  <label class="form-label" for="calendar-school-year-select">School Year</label>
-                  <select id="calendar-school-year-select" class="form-select">
-                    <% (calendarSchoolYears || []).forEach((year) => { %>
-                      <option value="<%= year.school_year_id %>" <%= year.terms.some((term) => Number(term.term_id) === Number(selectedCalendarTermId)) ? 'selected' : '' %>>
-                        <%= year.year_label %>
-                      </option>
-                    <% }) %>
-                  </select>
-                </div>
-
-                <div class="field-group">
-                  <label class="form-label" for="calendar-term-select">Term / Semester</label>
-                  <select id="calendar-term-select" name="termId" class="form-select" required>
-                    <% (calendarSchoolYears || []).forEach((year) => { %>
-                      <% (year.terms || []).forEach((term) => { %>
-                        <option
-                          value="<%= term.term_id %>"
-                          data-year-id="<%= year.school_year_id %>"
-                          data-target-url="/account/settings?section=customize&calendarTermId=<%= term.term_id %>"
-                          <%= Number(term.term_id) === Number(selectedCalendarTermId) ? 'selected' : '' %>
-                        >
-                          <%= term.term_name %> (<%= new Date(term.start_date).toLocaleDateString() %> - <%= new Date(term.end_date).toLocaleDateString() %>)
-                        </option>
-                      <% }) %>
-                    <% }) %>
-                  </select>
-                </div>
-
                 <div class="field-group">
                   <label class="form-label" for="calendar-country">Country Public Holidays</label>
                   <select id="calendar-country" name="countryCode" class="form-select" required>
@@ -1482,21 +1453,10 @@
               </div>
             </form>
 
-            <% if (selectedCalendarTerm) { %>
-              <p class="text-muted-sm" style="margin-top:10px;">
-                Active term: <strong><%= selectedCalendarTerm.term_name %></strong> ·
-                <%= new Date(selectedCalendarTerm.start_date).toLocaleDateString() %> to
-                <%= new Date(selectedCalendarTerm.end_date).toLocaleDateString() %>
-              </p>
-            <% } %>
-          </div>
+            <hr style="margin: 16px 0; border: none; border-top: 1px solid #e5e7eb;" />
 
-          <div class="card">
-            <h4>Calendar Day Overrides</h4>
-            <small>Add specific days to force attendance counting on/off for this term.</small>
-
+            <small>Add specific days to force attendance counting on/off across the organization.</small>
             <form action="/account/settings/calendar/day" method="POST">
-              <input type="hidden" name="termId" value="<%= selectedCalendarTermId || '' %>" />
               <div class="content-row" style="align-items:flex-end;">
                 <div class="field-group">
                   <label class="form-label" for="calendarDate">Date</label>
@@ -1505,7 +1465,6 @@
                     id="calendarDate"
                     name="calendarDate"
                     class="form-input"
-                    <%= selectedCalendarTerm ? `min=\"${new Date(selectedCalendarTerm.start_date).toISOString().split('T')[0]}\" max=\"${new Date(selectedCalendarTerm.end_date).toISOString().split('T')[0]}\"` : '' %>
                     required
                   />
                 </div>
@@ -1527,13 +1486,13 @@
                   </select>
                 </div>
                 <div class="form-actions">
-                  <button class="btn-primary btn-link" type="submit" <%= selectedCalendarTermId ? '' : 'disabled' %>>Save Day Rule</button>
+                  <button class="btn-primary btn-link" type="submit">Save Day Rule</button>
                 </div>
               </div>
             </form>
 
             <% if (attendanceCalendarDays && attendanceCalendarDays.length > 0) { %>
-              <div style="overflow-x:auto; margin-top:12px;">
+              <div style="overflow:auto; margin-top:12px; max-height:340px; border:1px solid #e5e7eb; border-radius:10px;">
                 <table style="width:100%; border-collapse:collapse; min-width:620px;">
                   <thead>
                     <tr>
@@ -1554,7 +1513,6 @@
                         <td style="padding:8px; border-bottom:1px solid #f1f5f9;">
                           <% if (day.source === 'manual') { %>
                             <form action="/account/settings/calendar/day/delete" method="POST" style="display:inline;">
-                              <input type="hidden" name="termId" value="<%= selectedCalendarTermId %>" />
                               <input type="hidden" name="calendarDayId" value="<%= day.calendar_day_id %>" />
                               <button class="btn-danger btn-link" type="submit" style="padding:6px 10px;">Delete</button>
                             </form>
@@ -1568,7 +1526,7 @@
                 </table>
               </div>
             <% } else { %>
-              <p class="text-muted-sm" style="margin-top:12px;">No day overrides yet for this term.</p>
+              <p class="text-muted-sm" style="margin-top:12px;">No day overrides yet.</p>
             <% } %>
           </div>
         </section>
