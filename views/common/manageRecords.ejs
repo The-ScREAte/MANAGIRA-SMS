@@ -779,7 +779,6 @@
 
         if (currentYearSelected) {
           const currentYearId = parseInt(currentYearSelected.value, 10);
-          // Try to get the year label from the input field in the same form
           let yearLabel = '';
           const yearLabelInput = form.querySelector('input[name="year_label"]');
           if (yearLabelInput) {
@@ -794,7 +793,7 @@
               alert(
                 `The selected current term does not belong to the selected current school year. Please correct your selection.`
               );
-              return false; // Prevent form submission
+              return false;
             }
             const selectedTermId = parseInt(currentTermSelected.value, 10);
             const validTermIds = Array.from(
@@ -806,7 +805,48 @@
               alert(
                 `The selected current term does not belong to the selected current school year. Please correct your selection.`
               );
-              return false; // Prevent form submission
+              return false;
+            }
+
+            // ——— Smart term selection warning based on current date ———
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const termFieldsets = termSection.querySelectorAll('fieldset');
+            let suggestedTermName = null;
+            let selectedTermName = '';
+
+            termFieldsets.forEach(function(fs) {
+              const tidInput = fs.querySelector('input[name="termIds[]"]');
+              const tnameInput = fs.querySelector('input[name="termNames[]"]');
+              const sInput = fs.querySelector('input[name="startDates[]"]');
+              const eInput = fs.querySelector('input[name="endDates[]"]');
+              if (!tidInput || !tnameInput || !sInput || !eInput) return;
+
+              const tid = parseInt(tidInput.value, 10);
+              const tStart = new Date(sInput.value);
+              const tEnd = new Date(eInput.value);
+              tStart.setHours(0, 0, 0, 0);
+              tEnd.setHours(0, 0, 0, 0);
+
+              if (tid === selectedTermId) {
+                selectedTermName = tnameInput.value;
+              }
+
+              // Check if today falls within this term's date range (with 7-day grace on either side)
+              const graceStart = new Date(tStart);
+              graceStart.setDate(graceStart.getDate() - 7);
+              const graceEnd = new Date(tEnd);
+              graceEnd.setDate(graceEnd.getDate() + 7);
+              if (today >= graceStart && today <= graceEnd) {
+                suggestedTermName = tnameInput.value;
+              }
+            });
+
+            if (suggestedTermName && selectedTermName && suggestedTermName !== selectedTermName) {
+              const proceed = confirm(
+                `⚠️ Based on today's date, it looks like you should be in "${suggestedTermName}", but you are selecting "${selectedTermName}" as the current term under school year "${yearLabel}".\n\nDo you want to proceed?`
+              );
+              if (!proceed) return false;
             }
           } else {
             if (yearLabel) {
@@ -818,7 +858,7 @@
                 `A school year is set as current, but no term is selected as current. Please select a term for the current school year.`
               );
             }
-            return false; // Prevent form submission
+            return false;
           }
         }
 

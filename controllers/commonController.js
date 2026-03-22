@@ -7629,6 +7629,25 @@ const commonController = {
         oldSchoolYear: schoolYear,
       });
     }
+    // ——— Backend overlap validation ———
+    const termsArr = Array.isArray(terms) ? terms : [];
+    for (let i = 0; i < termsArr.length; i++) {
+      const s = new Date(termsArr[i].startDate);
+      const e = new Date(termsArr[i].endDate);
+      if (s > e) {
+        req.flash("error", `Start date must be before end date for term: ${termsArr[i].termName}`);
+        return res.redirect("/common/registerSchoolYear");
+      }
+      for (let j = i + 1; j < termsArr.length; j++) {
+        const s2 = new Date(termsArr[j].startDate);
+        const e2 = new Date(termsArr[j].endDate);
+        if (s <= e2 && e >= s2) {
+          req.flash("error", `Date ranges for "${termsArr[i].termName}" and "${termsArr[j].termName}" overlap.`);
+          return res.redirect("/common/registerSchoolYear");
+        }
+      }
+    }
+
     try {
       // Insert the new school year into the database
       const yearResult = await db.query(
@@ -7859,6 +7878,27 @@ const commonController = {
       const yearIdInt = Array.isArray(yearId)
         ? parseInt(yearId[0], 10)
         : parseInt(yearId, 10);
+
+      // ——— Backend overlap validation for term dates ———
+      const termNamesArr = Array.isArray(termNames) ? termNames : [termNames];
+      const startDatesArr = Array.isArray(startDates) ? startDates : [startDates];
+      const endDatesArr = Array.isArray(endDates) ? endDates : [endDates];
+      for (let i = 0; i < startDatesArr.length; i++) {
+        const s = new Date(startDatesArr[i]);
+        const e = new Date(endDatesArr[i]);
+        if (s > e) {
+          req.flash("error", `Start date must be before end date for term: ${termNamesArr[i]}`);
+          return res.redirect("/common/manageRecords");
+        }
+        for (let j = i + 1; j < startDatesArr.length; j++) {
+          const s2 = new Date(startDatesArr[j]);
+          const e2 = new Date(endDatesArr[j]);
+          if (s <= e2 && e >= s2) {
+            req.flash("error", `Date ranges for "${termNamesArr[i]}" and "${termNamesArr[j]}" overlap.`);
+            return res.redirect("/common/manageRecords");
+          }
+        }
+      }
 
       await db.query("BEGIN");
 
