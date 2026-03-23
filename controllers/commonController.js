@@ -1012,29 +1012,23 @@ const commonController = {
         `
           SELECT * FROM school_events 
           WHERE organization_id = $1 
-          AND (visibility = 'org' OR visibility = 'both') 
-          AND term_id = $2
+          AND (visibility = 'org' OR visibility = 'both')
           ORDER BY event_date DESC
         `,
-        [organizationId, currentTerm.term_id]
+        [organizationId]
       );
-      const events = eventsResult.rows.filter(
-        (event) => event.school_year_id == schoolYearId
-      );
+      const events = eventsResult.rows;
 
       const announcementsResult = await db.query(
         `
           SELECT * FROM announcements 
           WHERE organization_id = $1 
-          AND (visibility = 'org' OR visibility = 'both') 
-          AND term_id = $2
+          AND (visibility = 'org' OR visibility = 'both')
           ORDER BY announcement_id DESC
         `,
-        [organizationId, currentTerm.term_id]
+        [organizationId]
       );
-      const announcements = announcementsResult.rows.filter(
-        (a) => a.school_year_id == schoolYearId
-      );
+      const announcements = announcementsResult.rows;
 
       // ✅ Fetch BOTH global and org-specific admin announcements
       const adminAnnouncementResult = await db.query(

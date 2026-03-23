@@ -730,6 +730,9 @@
               onsubmit="return validateAndConfirmChanges(this)"
             >
               <input type="hidden" name="yearId" value="<%= year.id %>" />
+              <input type="hidden" name="currentYear" class="current-year-hidden" value="<%= year.current ? year.id : '' %>" />
+              <% const selectedCurrentTerm = (year.terms || []).find(function(t){ return t.current; }); %>
+              <input type="hidden" name="currentTerm" class="current-term-hidden" value="<%= selectedCurrentTerm ? selectedCurrentTerm.term_id : '' %>" />
               <div
                 class="school-year-header"
                 onclick="toggleTerms('<%= year.id %>')"
@@ -750,8 +753,9 @@
                 <label class="current-label">
                   <input 
                     type="radio" 
-                    name="currentYear" 
+                    name="currentYearChoice" 
                     value="<%= year.id %>"
+                    class="current-year-radio"
                     <%= year.current ? 'checked' : '' %>
                     onclick="event.stopPropagation()"
                   > 
@@ -826,8 +830,7 @@
                       required
                     />
                     <label>
-                      <input type="radio" name="currentTerm" value="<%=
-                      term.term_id %>" <%= term.current ? 'checked' : '' %>>
+                      <input type="radio" name="currentTermChoice" value="<%= term.term_id %>" class="current-term-radio" <%= term.current ? 'checked' : '' %>>
                       Current
                     </label>
                     
@@ -1020,6 +1023,8 @@
 
       // Validation to ensure the current term belongs to the selected current school year
       function validateAndConfirmChanges(form) {
+        syncCurrentSelectionForForm(form);
+
         const yearInput = form.querySelector('input[name="year_label"]');
         const parsedYear = parseYearLabel(yearInput ? yearInput.value : '');
         if (!parsedYear || parsedYear.end !== parsedYear.start + 1) {
@@ -1029,10 +1034,10 @@
         }
 
         const currentYearSelected = form.querySelector(
-          'input[type="radio"][name="currentYear"]:checked'
+          'input.current-year-radio:checked'
         );
         const currentTermSelected = form.querySelector(
-          'input[type="radio"][name="currentTerm"]:checked'
+          'input.current-term-radio:checked'
         );
 
         // --- Prevent overlapping term dates ---
@@ -1166,6 +1171,20 @@
 
       function closeNote() {
         document.getElementById("noteSection").style.display = "none";
+      }
+
+      function syncCurrentSelectionForForm(form) {
+        const currentYearHidden = form.querySelector('.current-year-hidden');
+        const currentYearRadio = form.querySelector('input.current-year-radio');
+        if (currentYearHidden) {
+          currentYearHidden.value = currentYearRadio && currentYearRadio.checked ? currentYearRadio.value : '';
+        }
+
+        const currentTermHidden = form.querySelector('.current-term-hidden');
+        const selectedTermRadio = form.querySelector('input.current-term-radio:checked');
+        if (currentTermHidden) {
+          currentTermHidden.value = selectedTermRadio ? selectedTermRadio.value : '';
+        }
       }
 
       // Toggle three-dot menu for term actions
@@ -1311,6 +1330,22 @@
 
         // Sort terms within each school year and enforce sequential date rules
         schoolYearWrappers.forEach((schoolYearWrapper) => {
+          const form = schoolYearWrapper.querySelector('form.school-year-form');
+          if (form) {
+            const yearRadio = form.querySelector('input.current-year-radio');
+            if (yearRadio) {
+              yearRadio.addEventListener('change', function () {
+                syncCurrentSelectionForForm(form);
+              });
+            }
+            form.querySelectorAll('input.current-term-radio').forEach((radio) => {
+              radio.addEventListener('change', function () {
+                syncCurrentSelectionForForm(form);
+              });
+            });
+            syncCurrentSelectionForForm(form);
+          }
+
           let termSections =
             schoolYearWrapper.getElementsByClassName("term-section");
 
@@ -1348,6 +1383,7 @@
 
       function addTermToSchoolYear(yearId) {
         event.preventDefault();
+        const form = event.target.closest('form.school-year-form');
         const termSection = document.getElementById(`termSection${yearId}`);
         const termDiv = document.createElement("fieldset");
         termDiv.innerHTML = `
@@ -1356,7 +1392,7 @@
           <div class="term-section-header">
             <input type="text" name="termNames[]" placeholder="Term / Semester Name" required />
             <label>
-              <input type="radio" name="currentTerm" value=""> Current
+              <input type="radio" name="currentTermChoice" value="" class="current-term-radio"> Current
             </label>
           </div>
           <div class="date-fields">
@@ -1373,6 +1409,15 @@
         termSection.appendChild(termDiv);
         attachTermDateListeners(termSection);
         applySequentialDateRules(termSection);
+
+        if (form) {
+          termDiv.querySelectorAll('input.current-term-radio').forEach((radio) => {
+            radio.addEventListener('change', function () {
+              syncCurrentSelectionForForm(form);
+            });
+          });
+          syncCurrentSelectionForForm(form);
+        }
       }
 
       // async function deleteTerm(termId, button) {

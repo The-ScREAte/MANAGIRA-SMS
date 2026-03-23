@@ -146,8 +146,7 @@
                   <li>You are not assigned to any classes yet.</li>
                 <% } else { %>
                   <li>
-                    No classes have been set up for this current term yet.
-                    <a href="/common/manageClassSubjectAndGradYr">Create</a> classes for your organization if you haven't done so already. Otherwise, click <a href="/enrollment/manageEnrollment">here</a> to enroll a class.
+                    No classes have been set up for this current term yet. <a href="/enrollment/manageEnrollment">Enroll classes for this term</a>, or <a href="/common/manageClassSubjectAndGradYr">create classes for your organization</a> if you haven't done so already.
                   </li>
                 <% } %>
               <% } %>
@@ -170,13 +169,13 @@
               * 60 * 24)); %> <% const daysUntilEnd = Math.ceil((new
               Date(currentTerm.end_date) - today) / (1000 * 60 * 60 * 24)); %>
               <% if (daysUntilStart > 0) { %>
-              <strong>Days until start of term:</strong>
+              <strong><%= currentTerm.term_name %> starts in:</strong>
               <span id="daysUntilStart"><%= daysUntilStart %></span>
               <% } else if (daysUntilEnd >= 0) { %>
-              <strong>Days until end of term:</strong>
+              <strong>Days until <%= currentTerm.term_name %> ends:</strong>
               <span id="daysUntilEnd"><%= daysUntilEnd %></span>
               <% } else { %>
-              <strong>Term / Semester has ended successfully.</strong>
+              <strong><%= currentTerm.term_name %> has ended successfully.</strong>
               <span style="margin-left:4px; color:#475569;"><%= Math.abs(daysUntilEnd) %> days ago.</span>
               <span style="display:block; margin-top:4px; color:#334155;">Activate the next term/semester.</span>
               <% } %>
