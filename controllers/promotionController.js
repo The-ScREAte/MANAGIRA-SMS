@@ -80,9 +80,14 @@ module.exports = {
       targetYearId,
       targetTermId,
       scheduledDate,
-      classIds
+      classIds,
+      applyMode
     } = req.body;
     const organizationId = req.session.organizationId;
+    const normalizedApplyMode = applyMode === 'applyNow' ? 'applyNow' : 'scheduleLater';
+    const selectedClassIds = Array.isArray(classIds)
+      ? classIds.map(Number).filter(Boolean)
+      : (classIds ? [Number(classIds)].filter(Boolean) : []);
   
     try {
       // 0️⃣ Check if it's already scheduled
@@ -150,6 +155,15 @@ module.exports = {
       }
   
       // 4️⃣ Insert the schedule
+      const effectiveScheduleDate = normalizedApplyMode === 'applyNow'
+        ? new Date()
+        : new Date(scheduledDate);
+
+      if (normalizedApplyMode === 'scheduleLater' && Number.isNaN(effectiveScheduleDate.getTime())) {
+        req.flash("error", "Please select a valid schedule date.");
+        return res.redirect("/promotion/apply");
+      }
+
       const scheduleInsertResult = await db.query(`
         INSERT INTO promotion_schedule (
           organization_id, current_school_year_id, current_term_id,
@@ -163,23 +177,35 @@ module.exports = {
         fromTermId,
         targetYearId,
         targetTermId,
-        new Date(scheduledDate)
+        effectiveScheduleDate
       ]);
   
       const scheduleId = scheduleInsertResult.rows[0].id;
   
       // 5️⃣ Insert selected classes (if any)
-      if (Array.isArray(classIds) && classIds.length > 0) {
-        const values = classIds
-          .map(cid => `(${scheduleId}, ${cid}, ${organizationId})`)
-          .join(", ");
+      if (selectedClassIds.length > 0) {
         await db.query(`
           INSERT INTO promotion_schedule_classes (schedule_id, class_id, organization_id)
-          VALUES ${values}
-        `);
+          SELECT $1, unnest($2::int[]), $3
+        `, [scheduleId, selectedClassIds, organizationId]);
       }
-  
-      req.flash("success", "Promotion scheduled successfully.");
+
+      if (normalizedApplyMode === 'applyNow') {
+        const justCreated = await db.query(
+          `SELECT * FROM promotion_schedule WHERE id = $1 AND organization_id = $2`,
+          [scheduleId, organizationId]
+        );
+
+        const result = await module.exports._applyPromotionCore(justCreated.rows[0]);
+        if (result.success) {
+          req.flash("success", `Promotion applied! ${result.enrolledCount} students enrolled into their new classes.`);
+        } else {
+          req.flash("error", result.reason || "Promotion could not be applied now.");
+        }
+      } else {
+        req.flash("success", "Promotion scheduled successfully.");
+      }
+
       res.redirect("/promotion/apply");
   
     } catch (err) {

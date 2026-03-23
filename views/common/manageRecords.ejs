@@ -221,11 +221,73 @@
         border-radius: 10px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         border: 1px solid var(--border);
+        position: relative;
       }
 
       .school-year-wrapper.current-year-wrapper {
         border-color: var(--org-primary-color);
         box-shadow: 0 0 0 2px rgba(1, 83, 91, 0.1);
+      }
+
+      .school-year-completed {
+        border-color: #cbd5e1 !important;
+        background: #f8fafc;
+      }
+
+      .school-year-completed-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--org-primary-color);
+        background: rgba(1, 83, 91, 0.08);
+        border: 1px solid rgba(1, 83, 91, 0.25);
+        border-radius: 999px;
+        padding: 4px 10px;
+      }
+
+      .school-year-completed-watermark {
+        position: absolute;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      .school-year-completed-watermark span {
+        transform: rotate(-14deg);
+        font-size: clamp(20px, 2.6vw, 28px);
+        font-weight: 800;
+        letter-spacing: 1px;
+        color: rgba(1, 83, 91, 0.16);
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .school-year-completed.is-readonly .school-year-completed-watermark {
+        display: flex;
+      }
+
+      .school-year-completed.is-readonly .school-year-header input[type="text"],
+      .school-year-completed.is-readonly .school-year-header input[type="radio"],
+      .school-year-completed.is-readonly .save-button,
+      .school-year-completed.is-readonly .add-term-link {
+        pointer-events: none;
+        opacity: 0.6;
+      }
+
+      .school-year-ended-current-note {
+        margin-top: 10px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(1, 83, 91, 0.25);
+        background: rgba(1, 83, 91, 0.08);
+        color: var(--org-primary-color);
+        font-size: 12px;
+        font-weight: 600;
       }
 
       .school-year-form {
@@ -282,7 +344,7 @@
       .current-term-indicator {
         height: 10px;
         width: 10px;
-        background-color: #10b981;
+        background-color: var(--org-primary-color);
         border-radius: 50%;
         display: inline-block;
         margin-right: 6px;
@@ -434,6 +496,76 @@
         background-color: #fef2f2;
       }
 
+      .term-menu-item.edit {
+        color: var(--org-primary-color);
+      }
+
+      .term-menu-item.edit:hover {
+        background-color: rgba(1, 83, 91, 0.08);
+      }
+
+      .term-completed {
+        position: relative;
+        border-color: #cbd5e1 !important;
+        background: #f8fafc;
+      }
+
+      .term-completed-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--org-primary-color);
+        background: rgba(1, 83, 91, 0.08);
+        border: 1px solid rgba(1, 83, 91, 0.25);
+        border-radius: 999px;
+        padding: 4px 10px;
+        margin-left: 8px;
+      }
+
+      .term-completed-watermark {
+        position: absolute;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        z-index: 2;
+      }
+
+      .term-completed-watermark span {
+        transform: rotate(-18deg);
+        font-size: clamp(16px, 2.2vw, 22px);
+        font-weight: 800;
+        letter-spacing: 0.8px;
+        color: rgba(1, 83, 91, 0.16);
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .term-completed.is-readonly .term-completed-watermark {
+        display: flex;
+      }
+
+      .term-completed.is-readonly input[type="text"],
+      .term-completed.is-readonly input[type="date"],
+      .term-completed.is-readonly input[type="radio"] {
+        pointer-events: none;
+        background: #f1f5f9;
+      }
+
+      .term-ended-current-note {
+        margin-top: 10px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(1, 83, 91, 0.25);
+        background: rgba(1, 83, 91, 0.08);
+        color: var(--org-primary-color);
+        font-size: 12px;
+        font-weight: 600;
+      }
+
       .save-button {
         background: var(--org-primary-color);
         color: white;
@@ -546,7 +678,7 @@
       </script>
 
       <div class="page-header">
-        <h1>Manage School Years & Terms</h1>
+        <h1>Manage School Years & Terms / Semesters</h1>
         <p>Configure academic periods and term schedules</p>
       </div>
 
@@ -563,7 +695,7 @@
         <div class="note-section" id="noteSection">
           <button class="close-note" onclick="closeNote()">&times;</button>
           <p>
-            <strong>Note:</strong> Use this page to manage school years and terms. You can add, edit, delete, and set the current school year or term.
+            <strong>Note:</strong> Use this page to manage school years and terms / semesters. You can add, edit, delete, and set the current school year or term / semester.
           </p>
         </div>
       </div>
@@ -580,10 +712,17 @@
 
         <div id="schoolYearContainer">
           <% schoolYears.forEach(function(year) { %>
+          <% const schoolYearTodayKey = new Date().toISOString().slice(0, 10); %>
+          <% const completedTerms = (year.terms || []).filter(function(t){ return new Date(t.end_date).toISOString().slice(0, 10) < schoolYearTodayKey; }).length; %>
+          <% const schoolYearIsCompleted = (year.terms || []).length > 0 && completedTerms === (year.terms || []).length; %>
           <div
-            class="school-year-wrapper <%= year.current ? 'current-year-wrapper' : '' %>"
+            class="school-year-wrapper <%= year.current ? 'current-year-wrapper' : '' %> <%= schoolYearIsCompleted ? 'school-year-completed is-readonly' : '' %>"
             id="yearWrapper<%= year.id %>"
+            data-school-year-completed="<%= schoolYearIsCompleted ? 'true' : 'false' %>"
           >
+            <div class="school-year-completed-watermark">
+              <span>School Year Successfully Completed</span>
+            </div>
             <form
               action="/common/updateSchoolYearAndTerms"
               method="post"
@@ -618,6 +757,10 @@
                   > 
                   Current
                 </label>
+
+                <% if (schoolYearIsCompleted) { %>
+                <span class="school-year-completed-badge">Completed</span>
+                <% } %>
                 
                 <div class="year-menu-container">
                   <span class="arrow" id="arrow<%= year.id %>">&#9660;</span>
@@ -628,6 +771,13 @@
                       ⋮
                     </button>
                     <div class="term-menu-dropdown">
+                      <button
+                        type="button"
+                        class="term-menu-item edit"
+                        onclick="enableSchoolYearEdit(this)"
+                      >
+                        Edit School Year
+                      </button>
                       <button
                         type="button"
                         class="term-menu-item delete"
@@ -646,8 +796,18 @@
                 style="display: none;"
               >
                 <% year.terms.forEach(function(term) { %>
-                <fieldset style="position: relative">
+                <% const termEndKey = new Date(term.end_date).toISOString().slice(0, 10); %>
+                <% const todayKey = new Date().toISOString().slice(0, 10); %>
+                <% const termIsCompleted = termEndKey < todayKey; %>
+                <fieldset class="term-fieldset <%= termIsCompleted ? 'term-completed is-readonly' : '' %>" data-term-completed="<%= termIsCompleted ? 'true' : 'false' %>" style="position: relative">
                   <legend>Term / Semester</legend>
+                  <% if (termIsCompleted) { %>
+                  <span class="term-completed-badge">Completed</span>
+                  <% } %>
+
+                  <div class="term-completed-watermark">
+                    <span>Semester Successfully Completed</span>
+                  </div>
 
                   <input
                     type="hidden"
@@ -679,10 +839,17 @@
                       <div class="term-menu-dropdown">
                         <button
                           type="button"
+                          class="term-menu-item edit"
+                          onclick="enableTermEdit(this)"
+                        >
+                            Edit Term / Semester
+                        </button>
+                        <button
+                          type="button"
                           class="term-menu-item delete"
                           onclick="deleteTerm('<%= term.term_id %>', this)"
                         >
-                          Delete Term
+                            Delete Term / Semester
                         </button>
                       </div>
                     </div>
@@ -707,13 +874,24 @@
                       />
                     </div>
                   </div>
+                  <% if (termIsCompleted && term.current) { %>
+                  <div class="term-ended-current-note">
+                    This term / semester has ended. Select Current on the next term / semester or in a different school year to start that term / semester.
+                  </div>
+                  <% } %>
                 </fieldset>
                 <% }); %>
               </div>
 
               <a href="#" onclick="addTermToSchoolYear('<%= year.id %>')"
-                >Add Term / Semester</a
+                class="add-term-link">Add Term / Semester</a
               >
+
+              <% if (schoolYearIsCompleted && year.current) { %>
+              <div class="school-year-ended-current-note">
+                This school year has ended. Select Current on the next term / semester or in another school year to continue activities.
+              </div>
+              <% } %>
 
               <button type="submit" class="save-button">Save Changes</button>
             </form>
@@ -726,6 +904,105 @@
     </div>
 
     <script>
+      function parseYearLabel(value) {
+        const text = String(value || '').trim();
+        const match = text.match(/^(\d{4})\s*-\s*(\d{4})$/);
+        if (!match) return null;
+        const start = Number(match[1]);
+        const end = Number(match[2]);
+        return { start, end };
+      }
+
+      function addDaysIso(dateIso, daysToAdd) {
+        const date = new Date(`${dateIso}T00:00:00`);
+        date.setDate(date.getDate() + daysToAdd);
+        return date.toISOString().slice(0, 10);
+      }
+
+      function extractTermRank(termName) {
+        const label = String(termName || '').toLowerCase();
+        const numeric = label.match(/(?:term|semester)?\s*(\d+)/i);
+        if (numeric) return Number(numeric[1]);
+
+        const map = {
+          first: 1,
+          second: 2,
+          third: 3,
+          fourth: 4,
+          fifth: 5,
+          sixth: 6
+        };
+
+        for (const key of Object.keys(map)) {
+          if (label.includes(key)) return map[key];
+        }
+
+        return Number.MAX_SAFE_INTEGER;
+      }
+
+      function smartSortTermFieldsets(termSection) {
+        const termFields = Array.from(termSection.getElementsByTagName('fieldset'));
+        termFields.sort((a, b) => {
+          const aStart = a.querySelector('input[name="startDates[]"]')?.value || '';
+          const bStart = b.querySelector('input[name="startDates[]"]')?.value || '';
+
+          if (aStart && bStart && aStart !== bStart) return aStart.localeCompare(bStart);
+          if (aStart && !bStart) return -1;
+          if (!aStart && bStart) return 1;
+
+          const aName = a.querySelector('input[name="termNames[]"]')?.value || '';
+          const bName = b.querySelector('input[name="termNames[]"]')?.value || '';
+          const rankDiff = extractTermRank(aName) - extractTermRank(bName);
+          if (rankDiff !== 0) return rankDiff;
+          return aName.localeCompare(bName, undefined, { sensitivity: 'base' });
+        });
+
+        termSection.innerHTML = '';
+        termFields.forEach((field) => termSection.appendChild(field));
+        return termFields;
+      }
+
+      function applySequentialDateRules(termSection) {
+        const ordered = smartSortTermFieldsets(termSection);
+        ordered.forEach((fieldset, idx) => {
+          const startInput = fieldset.querySelector('input[name="startDates[]"]');
+          const endInput = fieldset.querySelector('input[name="endDates[]"]');
+          const prevEnd = idx > 0
+            ? ordered[idx - 1].querySelector('input[name="endDates[]"]')?.value
+            : '';
+
+          const minStart = prevEnd ? addDaysIso(prevEnd, 1) : '';
+          startInput.min = minStart;
+          if (startInput.value && minStart && startInput.value < minStart) {
+            startInput.value = '';
+          }
+
+          endInput.min = startInput.value || minStart || '';
+          if (endInput.value && endInput.min && endInput.value < endInput.min) {
+            endInput.value = '';
+          }
+        });
+      }
+
+      function attachTermDateListeners(termSection) {
+        const fields = Array.from(termSection.getElementsByTagName('fieldset'));
+        fields.forEach((fieldset) => {
+          const startInput = fieldset.querySelector('input[name="startDates[]"]');
+          const endInput = fieldset.querySelector('input[name="endDates[]"]');
+          const nameInput = fieldset.querySelector('input[name="termNames[]"]');
+
+          [startInput, endInput, nameInput].forEach((input) => {
+            if (!input) return;
+            input.addEventListener('change', () => applySequentialDateRules(termSection));
+            input.addEventListener('input', () => {
+              if (input === nameInput) {
+                smartSortTermFieldsets(termSection);
+              }
+            });
+          });
+        });
+      }
+
       // Toggle terms visibility
       function toggleTerms(yearId) {
         const termSection = document.getElementById(`termSection${yearId}`);
@@ -743,6 +1020,14 @@
 
       // Validation to ensure the current term belongs to the selected current school year
       function validateAndConfirmChanges(form) {
+        const yearInput = form.querySelector('input[name="year_label"]');
+        const parsedYear = parseYearLabel(yearInput ? yearInput.value : '');
+        if (!parsedYear || parsedYear.end !== parsedYear.start + 1) {
+          alert('Kindly use School Year format YYYY-YYYY (example: 2026-2027).');
+          if (yearInput) yearInput.focus();
+          return false;
+        }
+
         const currentYearSelected = form.querySelector(
           'input[type="radio"][name="currentYear"]:checked'
         );
@@ -773,6 +1058,18 @@
               alert(`Date ranges for terms "${ranges[i].name}" and "${ranges[j].name}" overlap. Please correct them.`);
               return false;
             }
+          }
+        }
+
+        const ordered = ranges
+          .map((r) => ({ ...r, startKey: r.start.toISOString().slice(0, 10), endKey: r.end.toISOString().slice(0, 10) }))
+          .sort((a, b) => a.startKey.localeCompare(b.startKey));
+
+        for (let i = 1; i < ordered.length; i++) {
+          const requiredStart = addDaysIso(ordered[i - 1].endKey, 1);
+          if (ordered[i].startKey < requiredStart) {
+            alert(`Please make sure "${ordered[i].name}" starts on or after ${requiredStart} to avoid overlapping terms.`);
+            return false;
           }
         }
         // --- End overlap check ---
@@ -905,6 +1202,26 @@
         }
       }
 
+      function enableSchoolYearEdit(button) {
+        const wrapper = button.closest('.school-year-wrapper');
+        if (!wrapper) return;
+
+        wrapper.classList.remove('is-readonly');
+        wrapper.querySelectorAll('.term-completed.is-readonly').forEach((fieldset) => {
+          fieldset.classList.remove('is-readonly');
+        });
+
+        alert('Editing has been enabled for this completed school year. Please save your changes when done.');
+      }
+
+      function enableTermEdit(button) {
+        const fieldset = button.closest('fieldset');
+        if (!fieldset) return;
+
+        fieldset.classList.remove('is-readonly');
+        alert('Editing has been enabled for this completed term. Please save your changes when done.');
+      }
+
       // Delete school year function
       async function deleteSchoolYear(yearId, button) {
         if (!confirm('Are you sure you want to delete this school year?')) {
@@ -961,9 +1278,7 @@
           }
         }
 
-        let schoolYearContainer = document.getElementById(
-          "schoolYearContainer"
-        );
+        let schoolYearContainer = document.getElementById("schoolYearContainer");
 
         let schoolYearWrappers = Array.from(
           schoolYearContainer.getElementsByClassName("school-year-wrapper")
@@ -994,27 +1309,28 @@
           schoolYearContainer.appendChild(wrapper);
         });
 
-        // Sort terms within each school year
+        // Sort terms within each school year and enforce sequential date rules
         schoolYearWrappers.forEach((schoolYearWrapper) => {
           let termSections =
             schoolYearWrapper.getElementsByClassName("term-section");
 
           Array.from(termSections).forEach((termSection) => {
-            let termFields = Array.from(
-              termSection.getElementsByTagName("fieldset")
-            );
-
-            termFields.sort((a, b) => {
-              let termA = a.querySelector('input[name="termNames[]"]').value;
-              let termB = b.querySelector('input[name="termNames[]"]').value;
-              return termA.localeCompare(termB);
-            });
-
-            termSection.innerHTML = "";
-            termFields.forEach((termField) => {
-              termSection.appendChild(termField);
-            });
+            smartSortTermFieldsets(termSection);
+            attachTermDateListeners(termSection);
+            applySequentialDateRules(termSection);
           });
+
+          const yearInput = schoolYearWrapper.querySelector('input[name="year_label"]');
+          if (yearInput) {
+            yearInput.addEventListener('blur', function () {
+              if (!yearInput.value.trim()) return;
+              const parsed = parseYearLabel(yearInput.value);
+              if (!parsed || parsed.end !== parsed.start + 1) {
+                alert('Please use School Year format YYYY-YYYY (example: 2026-2027).');
+                yearInput.focus();
+              }
+            });
+          }
         });
 
         // Ensure all term sections are collapsed on first load
@@ -1055,6 +1371,8 @@
           </div>
         `;
         termSection.appendChild(termDiv);
+        attachTermDateListeners(termSection);
+        applySequentialDateRules(termSection);
       }
 
       // async function deleteTerm(termId, button) {

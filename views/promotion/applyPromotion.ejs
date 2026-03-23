@@ -257,9 +257,108 @@
       margin-top: 8px;
     }
 
+    .intro-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .form-group.full-width {
+      grid-column: 1 / -1;
+    }
+
+    .mode-toggle {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+
+    .mode-option {
+      border: 1px solid #d7dde5;
+      border-radius: 999px;
+      padding: 8px 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      background: #fff;
+      transition: border-color 0.2s ease, background-color 0.2s ease;
+    }
+
+    .mode-option input {
+      margin: 0;
+    }
+
+    .mode-option.active {
+      border-color: var(--org-primary-color, #0f5a66);
+      background: rgba(15, 90, 102, 0.09);
+    }
+
+    .classes-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .muted-text {
+      font-size: 12px;
+      color: #64748b;
+    }
+
+    .history-card {
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 6px 18px rgba(15, 45, 50, 0.1);
+      overflow: hidden;
+      margin-top: 16px;
+    }
+
+    .history-card > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 14px 16px;
+      font-weight: 700;
+      background: #f8fafc;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .history-card > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .history-card-content {
+      padding: 10px 14px 14px;
+    }
+
+    .submit-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 10px;
+    }
+
+    #submitPromotionBtn {
+      min-width: 180px;
+    }
+
     @media (max-width: 768px) {
       .promotion-page {
         padding: 18px 14px 26px;
+      }
+
+      .form-grid {
+        grid-template-columns: 1fr;
       }
 
       table {
@@ -291,7 +390,7 @@
       This page schedules student promotions from one class to another. Before proceeding, ensure all promotion and repetition changes are saved in the report card.
     </p>
     <p>
-      <strong>To save changes:</strong> Visit the <a href="/common/closeSchoolYear" target="_blank" style="color: var(--org-primary-color); text-decoration: underline;">Promotion and Report Settings</a> page, select your school year and term, then update the report card or settings as needed.
+      <strong>To save changes:</strong> Visit the <a href="/print/reportSettings?classId=46&termId=150" target="_blank" style="color: var(--org-primary-color); text-decoration: underline;">Report and Promotion Settings</a> page, select your school year and term, then update the report card or settings as needed.
     </p>
     
     <button onclick="showForm()">Continue</button>
@@ -300,145 +399,228 @@
 <!-- Form container (hidden initially) -->
 <div id="form-container" style="display: none;">
   <form method="POST" action="/promotion/schedule" class="form-card">
-    <h3>Schedule New Promotion</h3>
-
-<!-- From School Year -->
-<div class="form-group">
-  <label for="fromSchoolYearId">Promoting From School Year</label>
-  <select name="fromSchoolYearId" id="fromSchoolYearId" required>
-    <option value="">Select</option>
-    <% allYears.forEach(year => { %>
-      <option value="<%= year.school_year_id %>"><%= year.label %></option>
-    <% }) %>
-  </select>
-</div>
-
-<!-- From Term -->
-<div class="form-group">
-  <label for="fromTermId">Promoting From Term</label>
-  <select name="fromTermId" id="fromTermId" required>
-    <option value="">Select</option>
-    <% allTerms.forEach(term => { %>
-      <option value="<%= term.term_id %>" data-year-id="<%= term.school_year_id %>"><%= term.term_name %></option>
-    <% }) %>
-  </select>
-</div>
-
-<!-- Target School Year -->
-<div class="form-group">
-  <label for="targetYearId">Target School Year</label>
-  <select name="targetYearId" id="targetYearId" required>
-    <option value="">Select</option>
-    <% allYears.forEach(year => { %>
-      <option value="<%= year.school_year_id %>"><%= year.label %></option>
-    <% }) %>
-  </select>
-</div>
-
-<!-- Target Term -->
-<div class="form-group">
-  <label for="targetTermId">Target Term</label>
-  <select name="targetTermId" id="targetTermId" required>
-    <option value="">Select</option>
-    <% allTerms.forEach(term => { %>
-      <option value="<%= term.term_id %>" data-year-id="<%= term.school_year_id %>"><%= term.term_name %></option>
-    <% }) %>
-  </select>
-</div>
-    <!-- Date -->
-    <div class="form-group">
-      <label for="scheduledDate">Scheduled Date</label>
-      <input type="date" name="scheduledDate" required>
+    <h3>Plan Promotion</h3>
+    <div class="intro-grid muted-text">
+      <span>Promotion can only run from the current school year to the current or future school years.</span>
     </div>
 
-<!-- Classes -->
-<div class="form-group">
-  <label>Classes to Apply Promotion:</label>
-  <div class="collapsible" style="margin-bottom: 10px;">
-    <button type="button" class="collapsible-btn" onclick="togglePromotionClassCollapsible()">
-      <span>Show/Hide Class List</span>
-      <span id="promotionClassArrow" class="arrow">&#9654;</span>
-    </button>
-    <div id="promotionClassCollapsibleContent" class="collapsible-content">
-      <% allClasses.forEach(cls => { %>
-        <label class="checkbox-label">
-          <input type="checkbox" name="classIds[]" value="<%= cls.class_id %>"> <%= cls.class_name %>
-        </label>
-      <% }) %>
-    </div>
-  </div>
-</div>
+    <input type="hidden" name="applyMode" id="applyModeInput" value="scheduleLater">
 
-    <button type="submit">Schedule Promotion</button>
+    <div class="form-grid">
+      <div class="form-group">
+        <label for="fromSchoolYearId">Promoting From School Year</label>
+        <select name="fromSchoolYearId" id="fromSchoolYearId" required>
+          <option value="">Select</option>
+          <% allYears.forEach(year => { %>
+            <option value="<%= year.school_year_id %>"><%= year.label %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="fromTermId">Promoting From Term</label>
+        <select name="fromTermId" id="fromTermId" required>
+          <option value="">Select</option>
+          <% allTerms.forEach(term => { %>
+            <option value="<%= term.term_id %>" data-year-id="<%= term.school_year_id %>"><%= term.term_name %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="targetYearId">Target School Year</label>
+        <select name="targetYearId" id="targetYearId" required>
+          <option value="">Select</option>
+          <% allYears.forEach(year => { %>
+            <option value="<%= year.school_year_id %>"><%= year.label %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="targetTermId">Target Term</label>
+        <select name="targetTermId" id="targetTermId" required>
+          <option value="">Select</option>
+          <% allTerms.forEach(term => { %>
+            <option value="<%= term.term_id %>" data-year-id="<%= term.school_year_id %>"><%= term.term_name %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="form-group full-width">
+        <label>When should this happen?</label>
+        <div class="mode-toggle" id="modeToggle">
+          <label class="mode-option active" data-mode="scheduleLater">
+            <input type="radio" name="applyModeChoice" value="scheduleLater" checked>
+            Schedule Promotion
+          </label>
+          <label class="mode-option" data-mode="applyNow">
+            <input type="radio" name="applyModeChoice" value="applyNow">
+            Apply Now
+          </label>
+        </div>
+      </div>
+
+      <div class="form-group full-width" id="scheduledDateGroup">
+        <label for="scheduledDate">Scheduled Date</label>
+        <input type="date" name="scheduledDate" id="scheduledDate" required>
+      </div>
+
+      <div class="form-group full-width">
+        <label>Classes to Apply Promotion</label>
+        <div class="classes-toolbar">
+          <button type="button" class="collapsible-btn" onclick="togglePromotionClassCollapsible()" style="margin-bottom: 0; max-width: 320px;">
+            <span>Show/Hide Class List</span>
+            <span id="promotionClassArrow" class="arrow">&#9654;</span>
+          </button>
+          <label class="checkbox-label" style="margin: 0; font-weight: 600;">
+            <input type="checkbox" id="selectAllClasses"> Select All Classes
+          </label>
+        </div>
+        <div id="promotionClassCollapsibleContent" class="collapsible-content active">
+          <% allClasses.forEach(cls => { %>
+            <label class="checkbox-label">
+              <input type="checkbox" name="classIds[]" value="<%= cls.class_id %>" class="promotion-class-checkbox"> <%= cls.class_name %>
+            </label>
+          <% }) %>
+        </div>
+      </div>
+    </div>
+
+    <div class="submit-row">
+      <button type="submit" id="submitPromotionBtn">Schedule Promotion</button>
+    </div>
   </form>
 </div>
 
   <hr>
 
   <% if (schedules && schedules.length > 0) { %>
-    <h3>Scheduled Promotions</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>School Year & Term</th>
-          <th>Classes</th>
-          <th>Status</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <% schedules.forEach((schedule, index) => { %>
-          <tr class="promotion-schedule-row <%= index >= 5 ? 'extra-schedule' : '' %>" style="<%= index >= 5 ? 'display: none;' : '' %>">
-            <td><%= new Date(schedule.scheduled_date).toLocaleDateString() %></td>
-            <td>
-              <%= allYears.find(y => y.school_year_id == schedule.target_school_year_id)?.label || 'Unknown Year' %> -
-              <%= allTerms.find(t => t.term_id == schedule.target_term_id)?.term_name || 'Unknown Term' %>
-            </td>
-            <td><%= schedule.classes.length ? schedule.classes.join(', ') : 'None' %></td>
-            <td><%= schedule.status %></td>
-            <td class="promotion-table-actions">
-              <% if (schedule.status === 'scheduled') { %>
-                <form method="POST" action="/promotion/applyNow" style="display:inline;">
-                  <input type="hidden" name="scheduleId" value="<%= schedule.id %>">
-                  <button type="submit" onclick="return confirm('Apply this promotion now? Students will be moved to their new classes immediately.');">Apply Now</button>
-                </form>
-                <form method="POST" action="/promotion/cancel" style="display:inline;">
-                  <input type="hidden" name="scheduleId" value="<%= schedule.id %>">
-                  <button type="submit" class="btn-cancel">Cancel</button>
-                </form>
-              <% } %>
-              <% if (schedule.status === 'completed' && (new Date() - new Date(schedule.scheduled_date)) <= 15*24*60*60*1000) { %>
-                <form method="POST" action="/promotion/reverse" style="display:inline;">
-                  <input type="hidden" name="scheduleId" value="<%= schedule.id %>">
-                  <button type="submit" class="btn-reverse">Reverse</button>
-                </form>
-              <% } %>
-              <% if (schedule.status === 'reversed') { %>
-                <form method="POST" action="/promotion/deleteReversed" style="display:inline;">
-                  <input type="hidden" name="scheduleId" value="<%= schedule.id %>">
-                  <button type="submit" class="btn-cancel">Delete</button>
-                </form>
-              <% } %>
-            </td>
-            
-          </tr>
-        <% }) %>
-      </tbody>
-    </table>
-  
-    <% if (schedules.length > 5) { %>
-      <div style="text-align: center; margin-top: 10px;">
-        <button type="button" id="toggleMoreButton" onclick="toggleMoreSchedules()">Show More</button>
+    <details class="history-card">
+      <summary>Promotion History (<%= schedules.length %>)</summary>
+      <div class="history-card-content">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>School Year & Term</th>
+              <th>Classes</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% schedules.forEach((schedule, index) => { %>
+              <tr class="promotion-schedule-row <%= index >= 5 ? 'extra-schedule' : '' %>" style="<%= index >= 5 ? 'display: none;' : '' %>">
+                <td><%= new Date(schedule.scheduled_date).toLocaleDateString() %></td>
+                <td>
+                  <%= allYears.find(y => y.school_year_id == schedule.target_school_year_id)?.label || 'Unknown Year' %> -
+                  <%= allTerms.find(t => t.term_id == schedule.target_term_id)?.term_name || 'Unknown Term' %>
+                </td>
+                <td><%= schedule.classes.length ? schedule.classes.join(', ') : 'None' %></td>
+                <td><%= schedule.status %></td>
+                <td class="promotion-table-actions">
+                  <% if (schedule.status === 'scheduled') { %>
+                    <form method="POST" action="/promotion/applyNow" style="display:inline;">
+                      <input type="hidden" name="scheduleId" value="<%= schedule.id %>">
+                      <button type="submit" onclick="return confirm('Apply this promotion now? Students will be moved to their new classes immediately.');">Apply Now</button>
+                    </form>
+                    <form method="POST" action="/promotion/cancel" style="display:inline;">
+                      <input type="hidden" name="scheduleId" value="<%= schedule.id %>">
+                      <button type="submit" class="btn-cancel">Cancel</button>
+                    </form>
+                  <% } %>
+                  <% if (schedule.status === 'completed' && (new Date() - new Date(schedule.scheduled_date)) <= 15*24*60*60*1000) { %>
+                    <form method="POST" action="/promotion/reverse" style="display:inline;">
+                      <input type="hidden" name="scheduleId" value="<%= schedule.id %>">
+                      <button type="submit" class="btn-reverse">Reverse</button>
+                    </form>
+                  <% } %>
+                  <% if (schedule.status === 'reversed') { %>
+                    <form method="POST" action="/promotion/deleteReversed" style="display:inline;">
+                      <input type="hidden" name="scheduleId" value="<%= schedule.id %>">
+                      <button type="submit" class="btn-cancel">Delete</button>
+                    </form>
+                  <% } %>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+
+        <% if (schedules.length > 5) { %>
+          <div style="text-align: center; margin-top: 10px;">
+            <button type="button" id="toggleMoreButton" onclick="toggleMoreSchedules()">Show More</button>
+          </div>
+        <% } %>
       </div>
-    <% } %>
+    </details>
   <% } else { %>
-    <p style="text-align:center; margin-top:20px;">No scheduled promotions found.</p>
+    <p style="text-align:center; margin-top:20px;">No promotion history yet.</p>
   <% } %>
   <br>
   </div>
   
   <script>
+  const currentSchoolYearId = <%= currentSchoolYear?.school_year_id || 0 %>;
+
+  function getYearTermsMap() {
+    const map = {};
+    const termOptions = document.querySelectorAll('#fromTermId option[data-year-id], #targetTermId option[data-year-id]');
+    termOptions.forEach(opt => {
+      const yearId = opt.dataset.yearId;
+      if (!map[yearId]) map[yearId] = [];
+      if (!map[yearId].includes(opt.value)) map[yearId].push(opt.value);
+    });
+    return map;
+  }
+
+  function keepCurrentAndFutureYears() {
+    ['fromSchoolYearId', 'targetYearId'].forEach(id => {
+      const select = document.getElementById(id);
+      select.querySelectorAll('option').forEach(opt => {
+        if (!opt.value) return;
+        const yearId = Number(opt.value);
+        opt.style.display = yearId >= Number(currentSchoolYearId) ? 'block' : 'none';
+      });
+    });
+  }
+
+  function syncTermOptions(yearSelectId, termSelectId) {
+    const yearSelect = document.getElementById(yearSelectId);
+    const termSelect = document.getElementById(termSelectId);
+    const selectedYearId = yearSelect.value;
+
+    termSelect.value = '';
+    termSelect.querySelectorAll('option').forEach(opt => {
+      if (!opt.value) return;
+      opt.style.display = opt.dataset.yearId === selectedYearId ? 'block' : 'none';
+    });
+  }
+
+  function updateApplyModeUI() {
+    const selectedMode = document.querySelector('input[name="applyModeChoice"]:checked')?.value || 'scheduleLater';
+    const applyModeInput = document.getElementById('applyModeInput');
+    const submitBtn = document.getElementById('submitPromotionBtn');
+    const dateGroup = document.getElementById('scheduledDateGroup');
+    const dateInput = document.getElementById('scheduledDate');
+
+    applyModeInput.value = selectedMode;
+    document.querySelectorAll('.mode-option').forEach(el => {
+      el.classList.toggle('active', el.dataset.mode === selectedMode);
+    });
+
+    if (selectedMode === 'applyNow') {
+      submitBtn.textContent = 'Apply Now';
+      dateGroup.style.display = 'none';
+      dateInput.required = false;
+    } else {
+      submitBtn.textContent = 'Schedule Promotion';
+      dateGroup.style.display = 'block';
+      dateInput.required = true;
+    }
+  }
+
   function togglePromotionClassCollapsible() {
     var content = document.getElementById('promotionClassCollapsibleContent');
     var arrow = document.getElementById('promotionClassArrow');
@@ -450,37 +632,61 @@
       document.getElementById('form-container').style.display = 'block';
     }
   
-    document.getElementById('fromSchoolYearId').addEventListener('change', function () {
-      const selectedFromYearId = this.value;
-  
-      // 1️⃣ Hide selected 'from' year in 'target' year dropdown
-      const targetYearSelect = document.getElementById('targetYearId');
-      targetYearSelect.querySelectorAll('option').forEach(opt => {
-        if (opt.value === selectedFromYearId && opt.value !== '') {
-          opt.style.display = 'none';
-        } else {
-          opt.style.display = 'block';
-        }
+    keepCurrentAndFutureYears();
+
+    const fromSchoolYearSelect = document.getElementById('fromSchoolYearId');
+    const targetYearSelect = document.getElementById('targetYearId');
+    const allClassCheckboxes = document.querySelectorAll('.promotion-class-checkbox');
+    const selectAllClasses = document.getElementById('selectAllClasses');
+    const form = document.querySelector('#form-container form');
+    const dateInput = document.getElementById('scheduledDate');
+
+    if (currentSchoolYearId) {
+      fromSchoolYearSelect.value = String(currentSchoolYearId);
+      targetYearSelect.value = String(currentSchoolYearId);
+    }
+
+    syncTermOptions('fromSchoolYearId', 'fromTermId');
+    syncTermOptions('targetYearId', 'targetTermId');
+
+    fromSchoolYearSelect.addEventListener('change', function () {
+      syncTermOptions('fromSchoolYearId', 'fromTermId');
+    });
+
+    targetYearSelect.addEventListener('change', function () {
+      syncTermOptions('targetYearId', 'targetTermId');
+    });
+
+    document.querySelectorAll('input[name="applyModeChoice"]').forEach(radio => {
+      radio.addEventListener('change', updateApplyModeUI);
+    });
+
+    if (dateInput) {
+      const todayIso = new Date().toISOString().split('T')[0];
+      dateInput.min = todayIso;
+      dateInput.value = todayIso;
+    }
+
+    updateApplyModeUI();
+
+    selectAllClasses.addEventListener('change', function () {
+      allClassCheckboxes.forEach(cb => {
+        cb.checked = this.checked;
       });
-      if (targetYearSelect.value === selectedFromYearId) {
-        targetYearSelect.value = '';
+    });
+
+    allClassCheckboxes.forEach(cb => {
+      cb.addEventListener('change', function () {
+        selectAllClasses.checked = Array.from(allClassCheckboxes).every(c => c.checked);
+      });
+    });
+
+    form.addEventListener('submit', function (e) {
+      const checked = Array.from(allClassCheckboxes).some(cb => cb.checked);
+      if (!checked) {
+        e.preventDefault();
+        alert('Please select at least one class to apply promotion.');
       }
-  
-      // 2️⃣ Update 'from term' to only show terms of selected year
-      const fromTermSelect = document.getElementById('fromTermId');
-      fromTermSelect.value = '';
-      fromTermSelect.querySelectorAll('option').forEach(opt => {
-        if (opt.value === '') return;
-        opt.style.display = (opt.dataset.yearId === selectedFromYearId) ? 'block' : 'none';
-      });
-  
-      // 3️⃣ Update 'target term' to exclude terms of the selected 'from' year
-      const targetTermSelect = document.getElementById('targetTermId');
-      targetTermSelect.value = '';
-      targetTermSelect.querySelectorAll('option').forEach(opt => {
-        if (opt.value === '') return;
-        opt.style.display = (opt.dataset.yearId === selectedFromYearId) ? 'none' : 'block';
-      });
     });
   
     function toggleMoreSchedules() {

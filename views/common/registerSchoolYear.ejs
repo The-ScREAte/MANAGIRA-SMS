@@ -122,6 +122,12 @@
       box-shadow: 0 0 0 3px var(--primary-light);
     }
 
+    .form-hint {
+      margin-top: 6px;
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+    }
+
     .terms-container {
       margin: 24px 0;
     }
@@ -277,6 +283,7 @@
           <div class="form-group">
             <label class="form-label" for="schoolYear">School Year Label</label>
             <input type="text" id="schoolYear" name="schoolYear" class="form-input" placeholder="e.g., 2024-2025" required>
+            <div class="form-hint">Use format YYYY-YYYY, for example 2026-2027.</div>
           </div>
 
           <div class="terms-container" id="termsContainer">
@@ -306,6 +313,112 @@
         return false;
       }
     });
+
+    function addDaysIso(dateIso, daysToAdd) {
+      const date = new Date(`${dateIso}T00:00:00`);
+      date.setDate(date.getDate() + daysToAdd);
+      return date.toISOString().slice(0, 10);
+    }
+
+    function parseYearLabel(label) {
+      const trimmed = String(label || '').trim();
+      const match = trimmed.match(/^(\d{4})\s*-\s*(\d{4})$/);
+      if (!match) return null;
+      const start = Number(match[1]);
+      const end = Number(match[2]);
+      return { start, end };
+    }
+
+    function extractTermRank(termName) {
+      const label = String(termName || '').toLowerCase();
+      const numeric = label.match(/(?:term|semester)?\s*(\d+)/i);
+      if (numeric) return Number(numeric[1]);
+
+      const map = {
+        first: 1,
+        second: 2,
+        third: 3,
+        fourth: 4,
+        fifth: 5,
+        sixth: 6
+      };
+
+      for (const key of Object.keys(map)) {
+        if (label.includes(key)) return map[key];
+      }
+
+      return Number.MAX_SAFE_INTEGER;
+    }
+
+    function smartSortTermCards() {
+      const termsContainer = document.getElementById('termsContainer');
+      const cards = Array.from(termsContainer.querySelectorAll('.term-card'));
+
+      cards.sort((a, b) => {
+        const aStart = a.querySelector('input[name$="[startDate]"]')?.value || '';
+        const bStart = b.querySelector('input[name$="[startDate]"]')?.value || '';
+
+        if (aStart && bStart && aStart !== bStart) {
+          return aStart.localeCompare(bStart);
+        }
+
+        if (aStart && !bStart) return -1;
+        if (!aStart && bStart) return 1;
+
+        const aName = a.querySelector('input[name$="[termName]"]')?.value || '';
+        const bName = b.querySelector('input[name$="[termName]"]')?.value || '';
+        const rankDiff = extractTermRank(aName) - extractTermRank(bName);
+        if (rankDiff !== 0) return rankDiff;
+
+        return aName.localeCompare(bName, undefined, { sensitivity: 'base' });
+      });
+
+      cards.forEach((card, idx) => {
+        const title = card.querySelector('.term-card-header h3');
+        if (title) title.textContent = `Term ${idx + 1}`;
+        termsContainer.appendChild(card);
+      });
+
+      return cards;
+    }
+
+    function applyTermDateConstraints() {
+      const orderedCards = smartSortTermCards();
+
+      orderedCards.forEach((card, idx) => {
+        const startInput = card.querySelector('input[name$="[startDate]"]');
+        const endInput = card.querySelector('input[name$="[endDate]"]');
+        const prevEndInput = idx > 0
+          ? orderedCards[idx - 1].querySelector('input[name$="[endDate]"]')
+          : null;
+
+        const prevEnd = prevEndInput ? prevEndInput.value : '';
+        const minStart = prevEnd ? addDaysIso(prevEnd, 1) : '';
+
+        startInput.min = minStart;
+        if (startInput.value && minStart && startInput.value < minStart) {
+          startInput.value = '';
+        }
+
+        endInput.min = startInput.value || minStart || '';
+        if (endInput.value && endInput.min && endInput.value < endInput.min) {
+          endInput.value = '';
+        }
+      });
+    }
+
+    function attachTermListeners(termCard) {
+      const startInput = termCard.querySelector('input[name$="[startDate]"]');
+      const endInput = termCard.querySelector('input[name$="[endDate]"]');
+      const nameInput = termCard.querySelector('input[name$="[termName]"]');
+
+      [startInput, endInput, nameInput].forEach((input) => {
+        input.addEventListener('change', applyTermDateConstraints);
+        input.addEventListener('input', () => {
+          if (input === nameInput) smartSortTermCards();
+        });
+      });
+    }
 
     function addTerm() {
       const termsContainer = document.getElementById('termsContainer');
@@ -338,6 +451,8 @@
         </div>
       `;
       termsContainer.appendChild(termDiv);
+      attachTermListeners(termDiv);
+      applyTermDateConstraints();
     }
 
     function toggleTermDeleteMenu(event, button) {
@@ -356,9 +471,24 @@
 
     function removeField(button) {
       button.closest('.term-card').remove();
+      applyTermDateConstraints();
     }
 
     function validateRegisterSchoolYearForm(form) {
+      const schoolYearInput = form.querySelector('#schoolYear');
+      const parsedYear = parseYearLabel(schoolYearInput.value);
+      if (!parsedYear) {
+        alert('Please use the School Year format YYYY-YYYY (for example 2026-2027).');
+        schoolYearInput.focus();
+        return false;
+      }
+
+      if (parsedYear.end !== parsedYear.start + 1) {
+        alert('Please enter consecutive years. Example: 2026-2027.');
+        schoolYearInput.focus();
+        return false;
+      }
+
       const startDates = Array.from(form.querySelectorAll('input[name^="terms"][name$="[startDate]"]'));
       const endDates = Array.from(form.querySelectorAll('input[name^="terms"][name$="[endDate]"]'));
       const termNames = Array.from(form.querySelectorAll('input[name^="terms"][name$="[termName]"]'));
@@ -382,8 +512,33 @@
           }
         }
       }
+
+      const ordered = ranges
+        .map((r) => ({ ...r, startKey: r.start.toISOString().slice(0, 10), endKey: r.end.toISOString().slice(0, 10) }))
+        .sort((a, b) => a.startKey.localeCompare(b.startKey));
+
+      for (let i = 1; i < ordered.length; i++) {
+        const requiredStart = addDaysIso(ordered[i - 1].endKey, 1);
+        if (ordered[i].startKey < requiredStart) {
+          alert(`Please adjust term dates so "${ordered[i].name}" starts on or after ${requiredStart}.`);
+          return false;
+        }
+      }
+
       return true;
     }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      const schoolYearInput = document.getElementById('schoolYear');
+      schoolYearInput.addEventListener('blur', function () {
+        if (!schoolYearInput.value.trim()) return;
+        const parsed = parseYearLabel(schoolYearInput.value);
+        if (!parsed || parsed.end !== parsed.start + 1) {
+          alert('Kindly enter the School Year in this format: YYYY-YYYY (example: 2026-2027).');
+          schoolYearInput.focus();
+        }
+      });
+    });
   </script>
 </body>
 </html>

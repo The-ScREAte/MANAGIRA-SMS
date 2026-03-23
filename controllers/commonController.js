@@ -722,6 +722,33 @@ const commonController = {
       let orgHeaderName = null;
       let orgHeaderLogo = null;
       let orgHeaderNickname = null;
+      let nextTermSuggestion = null;
+
+      if (currentTerm && currentTerm.end_date) {
+        const nextTermResult = await db.query(
+          `
+            SELECT
+              t.term_id,
+              t.term_name,
+              t.school_year_id,
+              sy.year_label,
+              t.start_date,
+              t.end_date
+            FROM terms t
+            JOIN school_years sy ON sy.id = t.school_year_id
+            WHERE t.organization_id = $1
+              AND t.start_date > $2::date
+            ORDER BY t.start_date ASC
+            LIMIT 1
+          `,
+          [organizationId, currentTerm.end_date]
+        );
+
+        if (nextTermResult.rows.length > 0) {
+          nextTermSuggestion = nextTermResult.rows[0];
+        }
+      }
+
       if (req.session.superAdminOrgSwitch) {
         const orgResult = await db.query(
           "SELECT organization_name, logo, nickname FROM organizations WHERE organization_id = $1",
@@ -752,6 +779,7 @@ const commonController = {
         orgHeaderLogo,
         orgHeaderNickname,
         todayAttendanceStatus: null,
+        nextTermSuggestion,
       });
       // ...removed log for clean background operation...
     } catch (error) {
@@ -1072,6 +1100,33 @@ const commonController = {
       let orgHeaderName = null;
       let orgHeaderLogo = null;
       let orgHeaderNickname = null;
+      let nextTermSuggestion = null;
+
+      if (currentTerm && currentTerm.end_date) {
+        const nextTermResult = await db.query(
+          `
+            SELECT
+              t.term_id,
+              t.term_name,
+              t.school_year_id,
+              sy.year_label,
+              t.start_date,
+              t.end_date
+            FROM terms t
+            JOIN school_years sy ON sy.id = t.school_year_id
+            WHERE t.organization_id = $1
+              AND t.start_date > $2::date
+            ORDER BY t.start_date ASC
+            LIMIT 1
+          `,
+          [organizationId, currentTerm.end_date]
+        );
+
+        if (nextTermResult.rows.length > 0) {
+          nextTermSuggestion = nextTermResult.rows[0];
+        }
+      }
+
       if (req.session.superAdminOrgSwitch) {
         const orgResult = await db.query(
           "SELECT organization_name, logo, nickname FROM organizations WHERE organization_id = $1",
@@ -1099,6 +1154,7 @@ const commonController = {
         orgHeaderLogo,
         orgHeaderNickname,
         todayAttendanceStatus,
+        nextTermSuggestion,
         // Include any additional data as needed
       });
     } catch (error) {
@@ -7581,13 +7637,25 @@ const commonController = {
 
   registerSchoolYear: async (req, res, db) => {
     const { schoolYear, terms } = req.body;
+    const trimmedSchoolYear = String(schoolYear || "").trim();
+    const yearMatch = trimmedSchoolYear.match(/^(\d{4})\s*-\s*(\d{4})$/);
+
+    if (!yearMatch) {
+      req.flash("error", "Please enter School Year in the format YYYY-YYYY (for example 2026-2027).");
+      return res.redirect("/common/registerSchoolYear");
+    }
+
+    if (Number(yearMatch[2]) !== Number(yearMatch[1]) + 1) {
+      req.flash("error", "Please use consecutive years in School Year, such as 2026-2027.");
+      return res.redirect("/common/registerSchoolYear");
+    }
 
     const dup = await db.query(
       `SELECT 1
          FROM school_years
         WHERE year_label = $1
           AND organization_id = $2`,
-      [schoolYear, req.session.organizationId]
+      [trimmedSchoolYear, req.session.organizationId]
     );
     if (dup.rowCount) {
       req.flash("error", "A school year with that label already exists.");
@@ -7603,7 +7671,7 @@ const commonController = {
         title: "Register School Year",
         classes: classesResult.rows,
         messages: req.flash(),
-        oldSchoolYear: schoolYear,
+        oldSchoolYear: trimmedSchoolYear,
         oldTerms: terms,
         // oldCurrent: isCurrent,
       });
@@ -7626,7 +7694,7 @@ const commonController = {
         messages: req.flash(),
         // (optional) you can pass oldSchoolYear back as well, if you’ve wired up
         // your view to prefill it:
-        oldSchoolYear: schoolYear,
+        oldSchoolYear: trimmedSchoolYear,
       });
     }
     // ——— Backend overlap validation ———
@@ -7648,11 +7716,29 @@ const commonController = {
       }
     }
 
+    const orderedTerms = [...termsArr]
+      .map((t) => ({ ...t, _start: String(t.startDate || ""), _end: String(t.endDate || "") }))
+      .sort((a, b) => a._start.localeCompare(b._start));
+
+    for (let i = 1; i < orderedTerms.length; i++) {
+      const previousEnd = new Date(orderedTerms[i - 1]._end);
+      previousEnd.setDate(previousEnd.getDate() + 1);
+      const currentStart = new Date(orderedTerms[i]._start);
+
+      if (currentStart < previousEnd) {
+        req.flash(
+          "error",
+          `Please adjust term dates: "${orderedTerms[i].termName}" should start on or after ${previousEnd.toISOString().slice(0, 10)}.`
+        );
+        return res.redirect("/common/registerSchoolYear");
+      }
+    }
+
     try {
       // Insert the new school year into the database
       const yearResult = await db.query(
         "INSERT INTO school_years (year_label, organization_id) VALUES ($1, $2) RETURNING id",
-        [schoolYear, req.session.organizationId]
+        [trimmedSchoolYear, req.session.organizationId]
       );
       const schoolYearId = yearResult.rows[0].id;
 
@@ -7863,8 +7949,26 @@ const commonController = {
       termClasses = [],
     } = req.body;
     const { organizationId } = req.session;
+    const normalizedYearLabel = String(year_label || "").trim();
+    const yearMatch = normalizedYearLabel.match(/^(\d{4})\s*-\s*(\d{4})$/);
+    const termIdsArr = Array.isArray(termIds) ? termIds : (termIds ? [termIds] : []);
+    const termNamesArr = Array.isArray(termNames) ? termNames : (termNames ? [termNames] : []);
+    const startDatesArr = Array.isArray(startDates) ? startDates : (startDates ? [startDates] : []);
+    const endDatesArr = Array.isArray(endDates) ? endDates : (endDates ? [endDates] : []);
+    const termClassesArr = Array.isArray(termClasses) ? termClasses : (termClasses ? [termClasses] : []);
+    const currentTermArr = Array.isArray(currentTerm) ? currentTerm.map(String) : (currentTerm ? [String(currentTerm)] : []);
 
     try {
+      if (!yearMatch) {
+        req.flash("error", "Please enter School Year in the format YYYY-YYYY (for example 2026-2027).");
+        return res.redirect("/common/manageRecords");
+      }
+
+      if (Number(yearMatch[2]) !== Number(yearMatch[1]) + 1) {
+        req.flash("error", "Please use consecutive years in School Year, such as 2026-2027.");
+        return res.redirect("/common/manageRecords");
+      }
+
       // Validate current term selection if current year is set
       if (currentYear && (!currentTerm || currentTerm.length === 0)) {
         req.flash(
@@ -7880,9 +7984,6 @@ const commonController = {
         : parseInt(yearId, 10);
 
       // ——— Backend overlap validation for term dates ———
-      const termNamesArr = Array.isArray(termNames) ? termNames : [termNames];
-      const startDatesArr = Array.isArray(startDates) ? startDates : [startDates];
-      const endDatesArr = Array.isArray(endDates) ? endDates : [endDates];
       for (let i = 0; i < startDatesArr.length; i++) {
         const s = new Date(startDatesArr[i]);
         const e = new Date(endDatesArr[i]);
@@ -7900,12 +8001,34 @@ const commonController = {
         }
       }
 
+      const orderedTerms = termNamesArr
+        .map((name, idx) => ({
+          name,
+          start: String(startDatesArr[idx] || ""),
+          end: String(endDatesArr[idx] || ""),
+        }))
+        .sort((a, b) => a.start.localeCompare(b.start));
+
+      for (let i = 1; i < orderedTerms.length; i++) {
+        const previousEnd = new Date(orderedTerms[i - 1].end);
+        previousEnd.setDate(previousEnd.getDate() + 1);
+        const currentStart = new Date(orderedTerms[i].start);
+
+        if (currentStart < previousEnd) {
+          req.flash(
+            "error",
+            `Please adjust term dates: "${orderedTerms[i].name}" should start on or after ${previousEnd.toISOString().slice(0, 10)}.`
+          );
+          return res.redirect("/common/manageRecords");
+        }
+      }
+
       await db.query("BEGIN");
 
       // Update school year label
       await db.query(
         "UPDATE school_years SET year_label = $1 WHERE id = $2 AND organization_id = $3",
-        [year_label, yearIdInt, organizationId]
+        [normalizedYearLabel, yearIdInt, organizationId]
       );
 
       // Mark current year
@@ -7920,23 +8043,23 @@ const commonController = {
         );
       }
 
-      for (let i = 0; i < termNames.length; i++) {
+      for (let i = 0; i < termNamesArr.length; i++) {
         // ✅ Sanitize term ID
-        const rawTermId = termIds[i];
+        const rawTermId = termIdsArr[i];
         const termIdInt = rawTermId
           ? parseInt(Array.isArray(rawTermId) ? rawTermId[0] : rawTermId, 10)
           : null;
 
-        const termName = termNames[i];
-        const startDate = startDates[i];
-        const endDate = endDates[i];
+        const termName = termNamesArr[i];
+        const startDate = startDatesArr[i];
+        const endDate = endDatesArr[i];
 
         // ✅ Check if current term for this term
         const termIdStr = termIdInt ? termIdInt.toString() : "";
-        const isCurrent = currentTerm.includes(termIdStr);
+        const isCurrent = currentTermArr.includes(termIdStr);
 
         // ✅ Parse classes properly
-        let rawClasses = termClasses[i];
+        let rawClasses = termClassesArr[i];
         let selectedClasses = [];
         if (Array.isArray(rawClasses)) {
           selectedClasses = rawClasses.map((v) => v.toString().trim());

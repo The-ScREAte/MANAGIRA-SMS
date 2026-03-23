@@ -1507,8 +1507,8 @@
                     <a href="/print/reportSettings?classId=<%= classId %>&termId=<%= termId %>" class="btn btn-primary" data-no-spa>Settings & Signature</a>
                     <a href="/print/emailHistoryPage?classId=<%= classId %>&termId=<%= termId %>" class="btn btn-primary history-btn" data-no-spa>📜 History</a>
           
-          <div class="search-box" style="display: inline-block; margin-left: 10px;">
-            <input type="text" id="studentSearch" placeholder="Search student..." onkeyup="filterStudents()" style="padding: 10px 15px 10px 35px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 14px; width: 200px;">
+                    <div class="search-box" style="display: inline-block; margin-left: 10px;">
+                        <input type="text" id="studentSearch" name="student-report-search" placeholder="Search student..." value="" readonly autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" style="padding: 10px 15px 10px 35px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 14px; width: 200px;">
           </div>
           
           <div class="select-all-checkbox" style="display: inline-flex; margin-left: 10px;">
@@ -1727,6 +1727,11 @@
     <script>
         let isPrintSelectionInProgress = false;
         let reportVisibilityMode = 'default'; // default | search | selected | print
+        let hasUserAppliedSearchFilter = false;
+        let isSearchUserActivated = false;
+        let lastSearchUserIntentAt = 0;
+        let searchAutofillGuardInterval = null;
+        let visibilityGuardInterval = null;
 
         function updateReportVisibilityModeFromSearch() {
             const searchInput = document.getElementById('studentSearch');
@@ -1777,10 +1782,16 @@
             }
         }
 
-        function filterStudents() {
+        function filterStudents(source = 'user-input') {
             const searchTerm = document.getElementById('studentSearch').value.toLowerCase();
             const studentReports = document.querySelectorAll('.student-report');
             let visibleCount = 0;
+
+            if (searchTerm.trim()) {
+                hasUserAppliedSearchFilter = (source === 'user-input' || source === 'keyboard-search') || hasUserAppliedSearchFilter;
+            } else {
+                hasUserAppliedSearchFilter = false;
+            }
 
             reportVisibilityMode = searchTerm ? 'search' : 'default';
             
@@ -1800,6 +1811,7 @@
             if (totalCountEl) {
                 totalCountEl.textContent = visibleCount;
             }
+
         }
 
         function filterBySelection(type, clickedButton) {
@@ -1866,23 +1878,35 @@
             updateReportVisibilityModeFromSearch();
         }
 
-        function restoreReportsIfUnexpectedlyHidden() {
+        function restoreReportsIfUnexpectedlyHidden(source = 'unknown') {
             if (isPrintSelectionInProgress) return;
             if (reportVisibilityMode !== 'default') return;
 
             const searchInput = document.getElementById('studentSearch');
             const hasSearchFilter = !!(searchInput && searchInput.value.trim());
-            if (hasSearchFilter) return;
+            if (hasSearchFilter && hasUserAppliedSearchFilter) return;
+
+            // If a non-user value was auto-filled into the search box, clear it to avoid false hidden state.
+            if (hasSearchFilter && !hasUserAppliedSearchFilter && searchInput) {
+                searchInput.value = '';
+                reportVisibilityMode = 'default';
+            }
 
             const allReports = Array.from(document.querySelectorAll('.student-report'));
             if (allReports.length === 0) return;
 
-            const hiddenReports = allReports.filter(report => report.style.display === 'none');
-            if (hiddenReports.length === allReports.length) {
-                allReports.forEach(report => {
+            // In default mode, every report should be visible. Recover from any accidental hide.
+            let recoveredCount = 0;
+            allReports.forEach(report => {
+                const isInlineHidden = report.style.display === 'none';
+                const isComputedHidden = window.getComputedStyle(report).display === 'none';
+                if (isInlineHidden || isComputedHidden || report.hidden) {
                     report.style.display = '';
-                });
-            }
+                    report.hidden = false;
+                    recoveredCount += 1;
+                }
+            });
+
         }
 
         function initReportVisibilityGuard() {
@@ -1898,21 +1922,22 @@
                     if (mutation.type !== 'attributes') continue;
                     const el = mutation.target;
                     if (!el.classList || !el.classList.contains('student-report')) continue;
-                    if (el.style.display === 'none') {
+                    if (el.style.display === 'none' || el.hidden || window.getComputedStyle(el).display === 'none') {
                         el.style.display = '';
+                        el.hidden = false;
                         changed = true;
                     }
                 }
 
                 if (changed) {
-                    restoreReportsIfUnexpectedlyHidden();
+                    restoreReportsIfUnexpectedlyHidden('mutation-observer');
                 }
             });
 
             observer.observe(container, {
                 subtree: true,
                 attributes: true,
-                attributeFilter: ['style']
+                attributeFilter: ['style', 'class', 'hidden']
             });
         }
 
@@ -1925,7 +1950,20 @@
             }
 
             // Defensive guard: plain clicks should never make every report disappear.
-            restoreReportsIfUnexpectedlyHidden();
+            restoreReportsIfUnexpectedlyHidden('document-click');
+        });
+
+        // Extra guard for browsers/extensions that mutate DOM on pointer interactions.
+        document.addEventListener('pointerup', function () {
+            restoreReportsIfUnexpectedlyHidden('pointerup');
+        });
+        window.addEventListener('focus', function () {
+            restoreReportsIfUnexpectedlyHidden('window-focus');
+        });
+        document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'visible') {
+                restoreReportsIfUnexpectedlyHidden('visibilitychange-visible');
+            }
         });
 
         // Reposition dropdowns on scroll
@@ -2180,8 +2218,93 @@ function updateClass(studentId) {
 
     document.addEventListener('DOMContentLoaded', () => {
         syncActionsMenuState();
+        const studentSearchInput = document.getElementById('studentSearch');
+        if (studentSearchInput) {
+            const forceClearSearchField = () => {
+                if (isSearchUserActivated) return;
+                studentSearchInput.value = '';
+                studentSearchInput.defaultValue = '';
+                studentSearchInput.setAttribute('value', '');
+                hasUserAppliedSearchFilter = false;
+                reportVisibilityMode = 'default';
+            };
+
+            const clearNonUserSearchValue = (source) => {
+                if (isSearchUserActivated) return;
+                if (!studentSearchInput.value.trim()) return;
+
+                studentSearchInput.value = '';
+                hasUserAppliedSearchFilter = false;
+                reportVisibilityMode = 'default';
+                restoreReportsIfUnexpectedlyHidden(`${source}-clear`);
+            };
+
+            const markSearchIntent = () => {
+                isSearchUserActivated = true;
+                lastSearchUserIntentAt = Date.now();
+                studentSearchInput.readOnly = false;
+            };
+
+            // Reset accidental browser autofill so report visibility remains stable until user searches intentionally.
+            forceClearSearchField();
+            clearNonUserSearchValue('init');
+
+            // Some browsers repopulate after layout/paint and BFCache restore.
+            window.requestAnimationFrame(forceClearSearchField);
+            window.setTimeout(forceClearSearchField, 0);
+            window.setTimeout(forceClearSearchField, 250);
+            window.setTimeout(forceClearSearchField, 1000);
+
+            window.addEventListener('pageshow', function () {
+                forceClearSearchField();
+            });
+
+            studentSearchInput.addEventListener('pointerdown', markSearchIntent);
+            studentSearchInput.addEventListener('keydown', markSearchIntent);
+            studentSearchInput.addEventListener('paste', markSearchIntent);
+
+            studentSearchInput.addEventListener('keyup', function () {
+                filterStudents('keyboard-search');
+            });
+
+            studentSearchInput.addEventListener('input', function () {
+                const recentlyIntended = Date.now() - lastSearchUserIntentAt < 2000;
+                if (isSearchUserActivated || recentlyIntended) {
+                    filterStudents('user-input');
+                    return;
+                }
+
+                clearNonUserSearchValue('search-input');
+            });
+
+            studentSearchInput.addEventListener('blur', function () {
+                if (!studentSearchInput.value.trim()) {
+                    isSearchUserActivated = false;
+                }
+            });
+
+            // Keep guarding against delayed autofill until user explicitly activates the search box.
+            if (searchAutofillGuardInterval) {
+                window.clearInterval(searchAutofillGuardInterval);
+            }
+            searchAutofillGuardInterval = window.setInterval(() => {
+                forceClearSearchField();
+                clearNonUserSearchValue('autofill-guard');
+                if (isSearchUserActivated) {
+                    window.clearInterval(searchAutofillGuardInterval);
+                    searchAutofillGuardInterval = null;
+                }
+            }, 400);
+        }
+
         updateReportVisibilityModeFromSearch();
         initReportVisibilityGuard();
+
+        if (!visibilityGuardInterval) {
+            visibilityGuardInterval = window.setInterval(() => {
+                restoreReportsIfUnexpectedlyHidden('interval-guard');
+            }, 1200);
+        }
     });
 
     // Check for unsaved changes (this is a simple heuristic - can be improved)
@@ -2216,7 +2339,6 @@ function updateClass(studentId) {
         
         const storageKey = `emailData_class<%= classId %>_term<%= termId %>`;
         localStorage.setItem(storageKey, JSON.stringify(emailData));
-        console.log('Emails saved to localStorage');
     }
 
     // Restore email inputs from localStorage
@@ -2240,8 +2362,6 @@ function updateClass(studentId) {
                     });
                 }
             });
-            
-            console.log('Emails restored from localStorage');
         } catch (e) {
             console.error('Failed to restore emails from storage:', e);
         }
@@ -2251,7 +2371,6 @@ function updateClass(studentId) {
     function clearEmailStorage() {
         const storageKey = `emailData_class<%= classId %>_term<%= termId %>`;
         localStorage.removeItem(storageKey);
-        console.log('Email storage cleared');
     }
 
     function renderEmailList(students) {
