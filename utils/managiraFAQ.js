@@ -521,6 +521,98 @@ const managiraFAQ = [
     question: "Can multiple staff members manage the same school?",
     answer: "Yes. You can create multiple employee accounts with different roles and permissions. Managers have full access, while Teachers and Supervisors have access based on their assigned permissions. This allows collaborative school management.",
     keywords: ["multiple staff", "multiple users", "shared access", "team management", "collaborative", "many admins", "several managers"]
+  },
+
+  // Promotion System
+  {
+    id: 72,
+    category: "Promotions",
+    question: "How does student promotion work in Managira?",
+    answer: "Managira automates student promotions based on academic performance. In Report Settings, you set a cut-off point (e.g. 50%), a 'Promoted To' class, and a 'Repeated In' class. When student reports are generated, the system automatically calculates whether each student meets the cut-off. Students who pass are marked for promotion to the next class; those who don't are marked to repeat. You can then apply promotions instantly with the 'Apply Now' button, which moves all students to their new classes in one click.",
+    keywords: ["promotion", "promote", "advance", "next class", "next grade", "cut off", "cutoff", "pass", "fail", "repeat", "move students", "apply now", "automatic promotion", "promoted to", "repeated in"]
+  },
+  {
+    id: 73,
+    category: "Promotions",
+    question: "Can I promote students instantly without scheduling?",
+    answer: "Yes! Use the 'Apply Now' button on the Promotion page. This immediately enrolls all students into their promoted or repeated classes based on their report scores. No need to wait for a scheduled job — promotions happen in real-time with one click.",
+    keywords: ["apply now", "instant promotion", "immediate", "one click", "quick promote", "no schedule", "promote now", "fast promotion"]
+  },
+  {
+    id: 74,
+    category: "Promotions",
+    question: "How do I set promotion cut-off points?",
+    answer: "Go to Report Settings for the relevant class and term. You'll find fields to set the minimum passing percentage (cut-off point), the class students are promoted to if they pass, and the class they repeat if they don't meet the cut-off. These settings are used automatically when generating student reports.",
+    keywords: ["cut off", "cutoff", "passing grade", "minimum score", "promotion settings", "report settings", "pass mark", "threshold"]
+  },
+  {
+    id: 75,
+    category: "Promotions",
+    question: "Can I reverse a promotion that was already applied?",
+    answer: "Yes. On the Promotion page, you can reverse promotions that have already been applied. This will move students back to their original classes. You can also delete reversed promotions to clean up the records.",
+    keywords: ["reverse promotion", "undo promotion", "cancel promotion", "move back", "wrong promotion", "fix promotion", "revert"]
+  },
+
+  // Term & Semester Management
+  {
+    id: 76,
+    category: "Term Management",
+    question: "How do terms and semesters work in Managira?",
+    answer: "Each school year contains one or more terms (or semesters). You define the name, start date, and end date for each term when registering a school year. The system validates that term dates don't overlap and that each term's start date comes before its end date. One term is always set as 'current', which controls what appears on dashboards, attendance, and assessments.",
+    keywords: ["term", "semester", "school year", "academic year", "current term", "term dates", "set current", "quarters", "periods"]
+  },
+  {
+    id: 77,
+    category: "Term Management",
+    question: "What happens if I set the wrong term as current?",
+    answer: "Managira includes a smart warning system. If you try to set a term as 'current' that doesn't align with today's date, you'll see a confirmation prompt like: 'Based on today's date, it looks like you should be in Term 2, but you are selecting Term 3. Do you want to proceed?' This helps prevent accidental misconfiguration while still allowing you to view historical records.",
+    keywords: ["wrong term", "smart warning", "term warning", "accidental", "set current", "current term", "date mismatch", "confirmation", "prompt"]
+  },
+  {
+    id: 78,
+    category: "Term Management",
+    question: "Can term dates overlap?",
+    answer: "No. Managira validates all term dates when you create or update a school year. If any two terms have overlapping date ranges, the system will display an error and prevent saving. This ensures clean academic periods with no conflicts in attendance or assessment records.",
+    keywords: ["overlap", "overlapping terms", "date conflict", "term dates", "validation", "date range", "duplicate dates"]
+  },
+  {
+    id: 79,
+    category: "Term Management",
+    question: "How do I switch to a new term or semester?",
+    answer: "Go to Manage Records, find the school year and term you want to activate, and click 'Set as Current'. The system will check if the selected term aligns with today's date and warn you if it doesn't. Once set, all dashboards, attendance, and assessments will reflect the new current term.",
+    keywords: ["switch term", "change term", "new semester", "activate term", "set as current", "next term", "advance term", "move to next term"]
+  },
+
+  // Password Reset
+  {
+    id: 80,
+    category: "Account Management",
+    question: "How do I reset my password if I forgot it?",
+    answer: "Click 'Forgot Password' on the login page and enter your email address. Managira supports password reset for all account types — school administrators, staff users, guardians, and hub administrators. You'll receive a reset link via email that's valid for 1 hour. Click the link to set a new password.",
+    keywords: ["forgot password", "forget password", "reset password", "lost password", "can't login", "password recovery", "change password", "new password", "locked out"]
+  },
+  {
+    id: 81,
+    category: "Account Management",
+    question: "Can guardians and hub admins reset their passwords?",
+    answer: "Yes! All account types can reset passwords using the same 'Forgot Password' flow. Whether you're a school user, organisation admin, guardian, or hub administrator, simply enter your registered email on the forgot password page and you'll receive a reset link.",
+    keywords: ["guardian password", "hub password", "parent password", "all accounts", "password reset all", "universal reset", "any account type"]
+  },
+
+  // Email System
+  {
+    id: 82,
+    category: "System & Performance",
+    question: "Why do some pages take long to load when emails are being sent?",
+    answer: "Managira processes all emails in the background, so page loads are never delayed by email sending. If you experience slow loading, it's not related to emails — it may be due to network connectivity or server load. All actions like approvals, password resets, and report emails complete instantly on your screen while emails are delivered separately in the background.",
+    keywords: ["slow loading", "email delay", "page slow", "email blocking", "performance", "speed", "loading time", "background email", "non-blocking"]
+  },
+  {
+    id: 83,
+    category: "System & Performance",
+    question: "What happens if an email fails to send?",
+    answer: "If an email fails to send (e.g., due to a temporary server issue), the action itself (like approving an application or resetting a password) still completes successfully. The email failure is logged for troubleshooting but does not affect the core operation. For report card emails, you can view email history and retry failed emails from the Email History page.",
+    keywords: ["email failed", "email error", "email not received", "email problem", "retry email", "email history", "email log", "delivery failure"]
   }
 ];
 
