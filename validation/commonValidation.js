@@ -38,6 +38,16 @@ const validateStudents = (req, res, next) => {
     indexes.push("single");
   }
 
+  // ── Pre-process: sanitize phones & normalize gender in-place ──────────
+  for (const key of Object.keys(body)) {
+    if (key.startsWith('guardianPhone')) {
+      body[key] = sanitizePhone(body[key]);
+    }
+    if (key.startsWith('gender')) {
+      body[key] = normalizeGender(body[key]);
+    }
+  }
+
   for (const index of indexes) {
     const prefix = index === "single" ? "" : `_${index}`;
     const getField = (field) => {
@@ -63,19 +73,19 @@ const validateStudents = (req, res, next) => {
       continue;
     }
 
-    if (!firstName.match(/^[A-Za-z\s]+$/)) {
+    if (!firstName || !NAME_REGEX.test(firstName)) {
       errors.push(
         `Student ${
           +index + 1
-        }: First name is required and must contain only letters and spaces.`
+        }: First name is required and must contain only letters, spaces, hyphens, or apostrophes.`
       );
     }
 
-    if (!lastName.match(/^[A-Za-z\s]+$/)) {
+    if (!lastName || !NAME_REGEX.test(lastName)) {
       errors.push(
         `Student ${
           +index + 1
-        }: Last name is required and must contain only letters and spaces.`
+        }: Last name is required and must contain only letters, spaces, hyphens, or apostrophes.`
       );
     }
 
@@ -98,21 +108,39 @@ const validateStudents = (req, res, next) => {
     for (const gk of guardianKeys) {
       const gIdx = gk.split("_")[2];
       const gFirstName = body[`guardianFirstName${prefix}_${gIdx}`]?.trim();
-      const gPhone = body[`guardianPhone${prefix}_${gIdx}`]?.trim();
+      const gPhone = body[`guardianPhone${prefix}_${gIdx}`]?.trim(); // already sanitized above
 
-      if (gFirstName && !gFirstName.match(/^[A-Za-z\s]+$/)) {
+      if (gFirstName && !NAME_REGEX.test(gFirstName)) {
         errors.push(
           `Student ${+index + 1}: Guardian ${
             +gIdx + 1
-          } first name must contain only letters.`
+          } first name must contain only letters, spaces, hyphens, or apostrophes.`
         );
       }
 
-      if (gPhone && !gPhone.match(/^\d{9,15}$/)) {
+      // Phone is already sanitized (digits only), so validate length
+      if (gPhone && !/^\d{7,15}$/.test(gPhone)) {
         errors.push(
           `Student ${+index + 1}: Guardian ${
             +gIdx + 1
-          } phone must be numeric (9-15 digits).`
+          } phone must be 7-15 digits.`
+        );
+      }
+    }
+  }
+
+  if (errors.length) {
+    console.warn('[AddStudent Validation] Failed required checks', {
+      indexes,
+      sampleKeys: Object.keys(body).slice(0, 30),
+      errors
+    });
+    req.flash("error", errors);
+    return res.redirect("back");
+  }
+
+  next();
+};
         );
       }
     }
