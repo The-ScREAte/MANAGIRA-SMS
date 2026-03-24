@@ -151,8 +151,6 @@ const validatePublicRegister = [
     .withMessage("First name must contain only letters, spaces, hyphens, or apostrophes.")
     .notEmpty()
     .withMessage("First name is required"),
-    .notEmpty()
-    .withMessage("First name is required"),
 
   check("lastName")
     .trim()
