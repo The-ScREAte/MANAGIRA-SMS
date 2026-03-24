@@ -1171,6 +1171,17 @@
       let submitBypassCheck = false;
       let saveDraftTimer = null;
     
+      // ── Smart sanitization helpers (client-side) ──
+      function sanitizePhoneClient(val) {
+        return String(val || '').replace(/[\s\-\(\)\.\+]/g, '');
+      }
+      function normalizeGenderClient(val) {
+        const g = String(val || '').trim().toLowerCase();
+        if (g === 'm' || g === 'male' || g === 'boy') return 'Male';
+        if (g === 'f' || g === 'female' || g === 'girl') return 'Female';
+        return val;
+      }
+
       async function confirmAddStudent(event) {
         if (submitBypassCheck) return;
 
