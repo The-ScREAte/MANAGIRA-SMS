@@ -398,6 +398,9 @@ const validateGraduationYearResult = (req, res, next) => {
 };
 
 module.exports = {
+  sanitizePhone,
+  normalizeGender,
+  NAME_REGEX,
   validateStudents,
   validatePublicRegister,
   validatePublicRegisterResult,
