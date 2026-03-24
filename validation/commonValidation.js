@@ -174,8 +174,8 @@ const validatePublicRegister = [
   check("lastName")
     .trim()
     .escape()
-    .matches(/^[A-Za-z\s]+$/)
-    .withMessage("Last name must contain only letters and spaces.")
+    .matches(/^[A-Za-zÀ-ÖØ-öø-ÿ\s'\-\.]+$/)
+    .withMessage("Last name must contain only letters, spaces, hyphens, or apostrophes.")
     .notEmpty()
     .withMessage("Last name is required"),
 
