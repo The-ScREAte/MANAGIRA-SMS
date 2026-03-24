@@ -141,23 +141,6 @@ const validateStudents = (req, res, next) => {
 
   next();
 };
-        );
-      }
-    }
-  }
-
-  if (errors.length) {
-    console.warn('[AddStudent Validation] Failed required checks', {
-      indexes,
-      sampleKeys: Object.keys(body).slice(0, 30),
-      errors
-    });
-    req.flash("error", errors);
-    return res.redirect("back");
-  }
-
-  next();
-};
 
 // Validate public register
 const validatePublicRegister = [
