@@ -1249,6 +1249,17 @@
         }
         duplicateInput.value = allowDuplicateSave ? 'true' : 'false';
 
+        // ── Pre-submit: sanitize all phone & gender fields ──
+        form.querySelectorAll('input[name*="guardianPhone"]').forEach(input => {
+          input.value = sanitizePhoneClient(input.value);
+        });
+        form.querySelectorAll('select[name*="gender"]').forEach(select => {
+          const normalized = normalizeGenderClient(select.value);
+          if (normalized && select.querySelector(`option[value="${normalized}"]`)) {
+            select.value = normalized;
+          }
+        });
+
         submitBypassCheck = true;
         form.submit();
       }
