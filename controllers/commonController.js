@@ -331,7 +331,7 @@ function parseTextToStudents(text) {
         firstName: parts[0] || '',
         lastName: parts[1] || '',
         dateOfBirth: parts[2] ? formatDate(parts[2]) : '',
-        gender: parts[3] || '',
+        gender: normalizeGenderValue(parts[3] || ''),
         class: parts[4] || '',
         hometown: parts[5] || '',
         subjects: parts[6] || '',
@@ -339,7 +339,7 @@ function parseTextToStudents(text) {
         guardian: {
           firstName: parts[8] || '',
           lastName: parts[9] || '',
-          phone: (parts[10] || '').replace(/\s+/g, ''),
+          phone: sanitizePhoneNumber(parts[10] || ''),
           email: (parts[11] || '').toLowerCase(),
           address: parts[12] || '',
           hometown: parts[13] || ''
