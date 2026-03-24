@@ -216,6 +216,21 @@ function valueAt(row = [], index = -1) {
   return String(row[index] ?? '').trim();
 }
 
+function normalizeGenderValue(raw) {
+  if (!raw) return '';
+  const g = String(raw).trim().toLowerCase();
+  if (g === 'm' || g === 'male' || g === 'boy' || g === 'b') return 'Male';
+  if (g === 'f' || g === 'female' || g === 'girl' || g === 'g') return 'Female';
+  // Capitalize first letter for anything else
+  return raw.trim().charAt(0).toUpperCase() + raw.trim().slice(1).toLowerCase();
+}
+
+function sanitizePhoneNumber(raw) {
+  if (!raw) return '';
+  // Strip +, spaces, dashes, parens, dots — keep only digits
+  return String(raw).replace(/[\s\-\(\)\.\+]/g, '');
+}
+
 function mapRowToStudent(rowValues = [], indexMap) {
   const guardianNameRaw = valueAt(rowValues, indexMap.guardianName);
   const splitGuardian = splitGuardianName(guardianNameRaw);
@@ -224,7 +239,7 @@ function mapRowToStudent(rowValues = [], indexMap) {
     firstName: valueAt(rowValues, indexMap.firstName),
     lastName: valueAt(rowValues, indexMap.lastName),
     dateOfBirth: formatDate(valueAt(rowValues, indexMap.dateOfBirth)),
-    gender: valueAt(rowValues, indexMap.gender),
+    gender: normalizeGenderValue(valueAt(rowValues, indexMap.gender)),
     class: valueAt(rowValues, indexMap.class),
     hometown: valueAt(rowValues, indexMap.hometown),
     subjects: valueAt(rowValues, indexMap.subjects),
@@ -232,7 +247,7 @@ function mapRowToStudent(rowValues = [], indexMap) {
     guardian: {
       firstName: valueAt(rowValues, indexMap.guardianFirstName) || splitGuardian.firstName,
       lastName: valueAt(rowValues, indexMap.guardianLastName) || splitGuardian.lastName,
-      phone: valueAt(rowValues, indexMap.guardianPhone).replace(/\s+/g, ''),
+      phone: sanitizePhoneNumber(valueAt(rowValues, indexMap.guardianPhone)),
       email: valueAt(rowValues, indexMap.guardianEmail).toLowerCase(),
       address: valueAt(rowValues, indexMap.guardianAddress),
       hometown: valueAt(rowValues, indexMap.guardianHometown)
