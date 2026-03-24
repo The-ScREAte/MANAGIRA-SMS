@@ -129,6 +129,7 @@ module.exports = (db) => {
     router.get('/create-promo', ensureAdmin, adminController.createPromoPage);
 
     router.get('/employment', isAuthenticated, ensureAdmin, adminController.getEmploymentAdmin);
+    router.get('/employment/applications/overview', isAuthenticated, ensureAdmin, adminController.getEmploymentApplicationsAjax);
     router.post('/employment', isAuthenticated, ensureAdmin, adminController.postEmployment);
     router.post('/employment/update/:id', isAuthenticated, ensureAdmin, adminController.updateEmployment);
     router.post('/employment/toggle-status/:id', isAuthenticated, ensureAdmin, adminController.toggleEmploymentStatus);

@@ -1380,6 +1380,46 @@ const adminController = {
     });
   },
 
+  getEmploymentApplicationsAjax: async (req, res) => {
+    await ensureEmploymentSchema(db);
+
+    try {
+      const applications = await db.query(`
+        SELECT
+          ea.id,
+          ea.first_name,
+          ea.last_name,
+          ea.email,
+          ea.phone,
+          ea.status,
+          ea.created_at,
+          ea.contact_via_email,
+          ea.contact_via_text,
+          e.title AS job_title
+        FROM employment_applications ea
+        JOIN employment e ON e.id = ea.employment_id
+        ORDER BY
+          CASE
+            WHEN ea.status = 'pending' THEN 0
+            WHEN ea.status = 'approved' THEN 1
+            ELSE 2
+          END,
+          ea.created_at DESC
+      `);
+
+      return res.json({
+        success: true,
+        total: applications.rows.length,
+        applications: applications.rows,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: "Unable to load applicants right now.",
+      });
+    }
+  },
+
   postEmployment: async (req, res) => {
     await ensureEmploymentSchema(db);
 
@@ -1590,7 +1630,7 @@ const adminController = {
         title: "Employment Application Approved",
         greeting: `Dear <strong>${he.encode(application.first_name)} ${he.encode(application.last_name)}</strong>,`,
         paragraphs: [
-          "Thank you for applying for the Content Manager - Tanzania position at Managira.",
+          `Thank you for applying for the ${application.job_title} position at Managira.`,
           "We are pleased to inform you that your application has been approved for the next stage of the selection process.",
           "Our team will be in touch shortly with the next steps, which may include an interview and/or additional assessments.",
           "If you have any questions in the meantime, please feel free to reply to this email.",
@@ -1671,7 +1711,7 @@ const adminController = {
         title: "Employment Application Update",
         greeting: `Dear <strong>${he.encode(application.first_name)} ${he.encode(application.last_name)}</strong>,`,
         paragraphs: [
-          "Thank you for your interest in the Content Manager - Tanzania position at Managira.",
+          `Thank you for your interest in the ${application.job_title} position at Managira.`,
           "After careful consideration, we regret to inform you that we will not be progressing with your application at this stage.",
           "We sincerely appreciate the time and effort you invested in your application. We encourage you to apply for future opportunities with Managira that align with your experience and skills.",
         ],
@@ -1751,7 +1791,7 @@ const adminController = {
         title: "Update on Your Employment Application",
         greeting: `Dear <strong>${he.encode(application.first_name)} ${he.encode(application.last_name)}</strong>,`,
         paragraphs: [
-          "Please disregard the previous email regarding your application for the Content Manager - Tanzania position.",
+          `Please disregard the previous email regarding your application for the ${application.job_title} position.`,
           "Following an additional review, we are pleased to inform you that your application has been reopened and is currently under consideration.",
           "Our team will share a further update with you shortly regarding next steps.",
         ],

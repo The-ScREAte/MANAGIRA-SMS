@@ -256,6 +256,22 @@ const legalController = {
                 return res.redirect('/legal/employment');
             }
 
+            const normalizedApplicantEmail = email.trim().toLowerCase();
+
+            const existingApplication = await db.query(
+                `SELECT id
+                 FROM employment_applications
+                 WHERE employment_id = $1
+                   AND lower(email) = $2
+                 LIMIT 1`,
+                [employmentId, normalizedApplicantEmail]
+            );
+
+            if (existingApplication.rows.length > 0) {
+                req.flash('error', `You already applied for ${selectedJob.title}. Only one application per position is allowed.`);
+                return res.redirect('/legal/employment');
+            }
+
             const wantsText = contact_via_text === 'on';
             const wantsEmail = contact_via_email === 'on';
             const hasInstitutionExperience = has_institution_experience === 'yes';
@@ -310,7 +326,7 @@ const legalController = {
                     employmentId,
                     first_name.trim(),
                     last_name.trim(),
-                    email.trim().toLowerCase(),
+                    normalizedApplicantEmail,
                     phone.trim(),
                     location.trim(),
                     whatsapp_number ? whatsapp_number.trim() : null,
@@ -330,7 +346,6 @@ const legalController = {
 
             const applicationId = savedApplication.rows[0]?.id;
             const applicantFullName = `${first_name.trim()} ${last_name.trim()}`;
-            const normalizedApplicantEmail = email.trim().toLowerCase();
             const alertRecipient =
                 process.env.EMPLOYMENT_ALERT_EMAIL ||
                 process.env.ADMIN_NOTIFY_EMAIL_USER ||
