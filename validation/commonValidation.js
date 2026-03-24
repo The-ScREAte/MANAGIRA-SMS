@@ -1,5 +1,24 @@
 const { check, body, validationResult } = require("express-validator");
 
+// ── Smart sanitization helpers ──────────────────────────────────────────────
+function sanitizePhone(raw) {
+  if (!raw) return '';
+  // Strip everything except digits: +, spaces, dashes, parens, dots
+  return String(raw).replace(/[\s\-\(\)\.\+]/g, '');
+}
+
+function normalizeGender(raw) {
+  if (!raw) return '';
+  const g = String(raw).trim().toLowerCase();
+  if (g === 'm' || g === 'male' || g === 'boy') return 'Male';
+  if (g === 'f' || g === 'female' || g === 'girl') return 'Female';
+  // Return original if already "Male"/"Female" or unrecognized
+  return raw.trim();
+}
+
+// Names: allow letters, spaces, hyphens, apostrophes, accents, periods
+const NAME_REGEX = /^[A-Za-zÀ-ÖØ-öø-ÿ\s'\-\.]+$/;
+
 // Helper to validate dynamic student fields
 const validateStudents = (req, res, next) => {
   const errors = [];
@@ -17,6 +36,16 @@ const validateStudents = (req, res, next) => {
     });
   } else {
     indexes.push("single");
+  }
+
+  // ── Pre-process: sanitize phones & normalize gender in-place ──────────
+  for (const key of Object.keys(body)) {
+    if (key.startsWith('guardianPhone')) {
+      body[key] = sanitizePhone(body[key]);
+    }
+    if (key.startsWith('gender')) {
+      body[key] = normalizeGender(body[key]);
+    }
   }
 
   for (const index of indexes) {
@@ -44,19 +73,19 @@ const validateStudents = (req, res, next) => {
       continue;
     }
 
-    if (!firstName.match(/^[A-Za-z\s]+$/)) {
+    if (!firstName || !NAME_REGEX.test(firstName)) {
       errors.push(
         `Student ${
           +index + 1
-        }: First name is required and must contain only letters and spaces.`
+        }: First name is required and must contain only letters, spaces, hyphens, or apostrophes.`
       );
     }
 
-    if (!lastName.match(/^[A-Za-z\s]+$/)) {
+    if (!lastName || !NAME_REGEX.test(lastName)) {
       errors.push(
         `Student ${
           +index + 1
-        }: Last name is required and must contain only letters and spaces.`
+        }: Last name is required and must contain only letters, spaces, hyphens, or apostrophes.`
       );
     }
 
@@ -79,21 +108,22 @@ const validateStudents = (req, res, next) => {
     for (const gk of guardianKeys) {
       const gIdx = gk.split("_")[2];
       const gFirstName = body[`guardianFirstName${prefix}_${gIdx}`]?.trim();
-      const gPhone = body[`guardianPhone${prefix}_${gIdx}`]?.trim();
+      const gPhone = body[`guardianPhone${prefix}_${gIdx}`]?.trim(); // already sanitized above
 
-      if (gFirstName && !gFirstName.match(/^[A-Za-z\s]+$/)) {
+      if (gFirstName && !NAME_REGEX.test(gFirstName)) {
         errors.push(
           `Student ${+index + 1}: Guardian ${
             +gIdx + 1
-          } first name must contain only letters.`
+          } first name must contain only letters, spaces, hyphens, or apostrophes.`
         );
       }
 
-      if (gPhone && !gPhone.match(/^\d{9,15}$/)) {
+      // Phone is already sanitized (digits only), so validate length
+      if (gPhone && !/^\d{7,15}$/.test(gPhone)) {
         errors.push(
           `Student ${+index + 1}: Guardian ${
             +gIdx + 1
-          } phone must be numeric (9-15 digits).`
+          } phone must be 7-15 digits.`
         );
       }
     }
@@ -117,16 +147,16 @@ const validatePublicRegister = [
   check("firstName")
     .trim()
     .escape()
-    .matches(/^[A-Za-z\s]+$/)
-    .withMessage("First name must contain only letters and spaces.")
+    .matches(/^[A-Za-zÀ-ÖØ-öø-ÿ\s'\-\.]+$/)
+    .withMessage("First name must contain only letters, spaces, hyphens, or apostrophes.")
     .notEmpty()
     .withMessage("First name is required"),
 
   check("lastName")
     .trim()
     .escape()
-    .matches(/^[A-Za-z\s]+$/)
-    .withMessage("Last name must contain only letters and spaces.")
+    .matches(/^[A-Za-zÀ-ÖØ-öø-ÿ\s'\-\.]+$/)
+    .withMessage("Last name must contain only letters, spaces, hyphens, or apostrophes.")
     .notEmpty()
     .withMessage("Last name is required"),
 
@@ -145,8 +175,9 @@ const validatePublicRegister = [
 
   check("guardianPhone0")
     .optional({ checkFalsy: true })
-    .matches(/^\d{9,15}$/)
-    .withMessage("Guardian phone must be 9–15 digits"),
+    .customSanitizer(value => sanitizePhone(value))
+    .matches(/^\d{7,15}$/)
+    .withMessage("Guardian phone must be 7–15 digits"),
 ];
 
 const validatePublicRegisterResult = (req, res, next) => {
@@ -172,8 +203,8 @@ const validateCreateEmployees = [
     .withMessage("First name is required.")
     .isLength({ min: 2, max: 30 })
     .withMessage("First name must be 2-30 characters.")
-    .matches(/^[A-Za-z\s]+$/)
-    .withMessage("First name must contain only letters and spaces."),
+    .matches(/^[A-Za-zÀ-ÖØ-öø-ÿ\s'\-\.]+$/)
+    .withMessage("First name must contain only letters, spaces, hyphens, or apostrophes."),
 
   body("lastName")
     .trim()
@@ -181,8 +212,8 @@ const validateCreateEmployees = [
     .withMessage("Last name is required.")
     .isLength({ min: 2, max: 30 })
     .withMessage("Last name must be 2-30 characters.")
-    .matches(/^[A-Za-z\s]+$/)
-    .withMessage("Last name must contain only letters and spaces."),
+    .matches(/^[A-Za-zÀ-ÖØ-öø-ÿ\s'\-\.]+$/)
+    .withMessage("Last name must contain only letters, spaces, hyphens, or apostrophes."),
 
   body("email")
     .trim()
@@ -348,6 +379,9 @@ const validateGraduationYearResult = (req, res, next) => {
 };
 
 module.exports = {
+  sanitizePhone,
+  normalizeGender,
+  NAME_REGEX,
   validateStudents,
   validatePublicRegister,
   validatePublicRegisterResult,
