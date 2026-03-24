@@ -277,22 +277,35 @@ function parseRowsToStudents(headers = [], rows = []) {
 function formatDate(dateString) {
   if (!dateString) return '';
 
-  if (typeof dateString === 'number') {
+  // Handle Excel serial numbers (as number or numeric string like "43510")
+  let numVal = typeof dateString === 'number' ? dateString : null;
+  if (numVal === null && /^\d{4,5}(\.\d+)?$/.test(String(dateString).trim())) {
+    const parsed = parseFloat(dateString);
+    if (parsed > 1000 && parsed < 100000) numVal = parsed; // Likely an Excel serial
+  }
+  if (numVal !== null) {
     const excelEpoch = new Date(1899, 11, 30);
-    const date = new Date(excelEpoch.getTime() + dateString * 86400000);
+    const date = new Date(excelEpoch.getTime() + numVal * 86400000);
     return isNaN(date.getTime()) ? '' : date.toISOString().split('T')[0];
   }
 
+  // Try direct Date parse (handles ISO, US formats etc.)
   const direct = new Date(dateString);
-  if (!isNaN(direct.getTime())) {
+  if (!isNaN(direct.getTime()) && String(dateString).length > 4) {
     return direct.toISOString().split('T')[0];
   }
 
-  const parts = String(dateString).split(/[/-]/);
+  // Try DD/MM/YYYY or DD-MM-YYYY
+  const parts = String(dateString).split(/[/\-\.]/);
   if (parts.length === 3) {
-    const [day, month, year] = parts;
-    if (year && year.length === 4) {
-      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const [a, b, c] = parts.map(p => p.trim());
+    // If third part is 4 digits → DD/MM/YYYY
+    if (c && c.length === 4) {
+      return `${c}-${String(b).padStart(2, '0')}-${String(a).padStart(2, '0')}`;
+    }
+    // If first part is 4 digits → YYYY/MM/DD (already handled by Date parse above but just in case)
+    if (a && a.length === 4) {
+      return `${a}-${String(b).padStart(2, '0')}-${String(c).padStart(2, '0')}`;
     }
   }
 
