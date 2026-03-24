@@ -4985,7 +4985,7 @@ const commonController = {
     // Managers must always have the full manager permission set.
     // For non-managers, persist exactly what was selected (after safety filtering).
     const effectivePermissions =
-      accountType === "Manager"
+      account_type === "Manager"
         ? mergePermissionsForRole("Manager", sanitizedRequestedPermissions)
         : sanitizedRequestedPermissions;
 
