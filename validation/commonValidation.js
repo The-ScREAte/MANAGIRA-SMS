@@ -231,8 +231,8 @@ const validateCreateEmployees = [
     .withMessage("Last name is required.")
     .isLength({ min: 2, max: 30 })
     .withMessage("Last name must be 2-30 characters.")
-    .matches(/^[A-Za-z\s]+$/)
-    .withMessage("Last name must contain only letters and spaces."),
+    .matches(/^[A-Za-zÀ-ÖØ-öø-ÿ\s'\-\.]+$/)
+    .withMessage("Last name must contain only letters, spaces, hyphens, or apostrophes."),
 
   body("email")
     .trim()
