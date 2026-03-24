@@ -194,8 +194,9 @@ const validatePublicRegister = [
 
   check("guardianPhone0")
     .optional({ checkFalsy: true })
-    .matches(/^\d{9,15}$/)
-    .withMessage("Guardian phone must be 9–15 digits"),
+    .customSanitizer(value => sanitizePhone(value))
+    .matches(/^\d{7,15}$/)
+    .withMessage("Guardian phone must be 7–15 digits"),
 ];
 
 const validatePublicRegisterResult = (req, res, next) => {
