@@ -1,5 +1,24 @@
 const { check, body, validationResult } = require("express-validator");
 
+// ── Smart sanitization helpers ──────────────────────────────────────────────
+function sanitizePhone(raw) {
+  if (!raw) return '';
+  // Strip everything except digits: +, spaces, dashes, parens, dots
+  return String(raw).replace(/[\s\-\(\)\.\+]/g, '');
+}
+
+function normalizeGender(raw) {
+  if (!raw) return '';
+  const g = String(raw).trim().toLowerCase();
+  if (g === 'm' || g === 'male' || g === 'boy') return 'Male';
+  if (g === 'f' || g === 'female' || g === 'girl') return 'Female';
+  // Return original if already "Male"/"Female" or unrecognized
+  return raw.trim();
+}
+
+// Names: allow letters, spaces, hyphens, apostrophes, accents, periods
+const NAME_REGEX = /^[A-Za-zÀ-ÖØ-öø-ÿ\s'\-\.]+$/;
+
 // Helper to validate dynamic student fields
 const validateStudents = (req, res, next) => {
   const errors = [];
