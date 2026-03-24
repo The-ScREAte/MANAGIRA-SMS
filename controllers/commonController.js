@@ -216,6 +216,21 @@ function valueAt(row = [], index = -1) {
   return String(row[index] ?? '').trim();
 }
 
+function normalizeGenderValue(raw) {
+  if (!raw) return '';
+  const g = String(raw).trim().toLowerCase();
+  if (g === 'm' || g === 'male' || g === 'boy' || g === 'b') return 'Male';
+  if (g === 'f' || g === 'female' || g === 'girl' || g === 'g') return 'Female';
+  // Capitalize first letter for anything else
+  return raw.trim().charAt(0).toUpperCase() + raw.trim().slice(1).toLowerCase();
+}
+
+function sanitizePhoneNumber(raw) {
+  if (!raw) return '';
+  // Strip +, spaces, dashes, parens, dots — keep only digits
+  return String(raw).replace(/[\s\-\(\)\.\+]/g, '');
+}
+
 function mapRowToStudent(rowValues = [], indexMap) {
   const guardianNameRaw = valueAt(rowValues, indexMap.guardianName);
   const splitGuardian = splitGuardianName(guardianNameRaw);
@@ -224,7 +239,7 @@ function mapRowToStudent(rowValues = [], indexMap) {
     firstName: valueAt(rowValues, indexMap.firstName),
     lastName: valueAt(rowValues, indexMap.lastName),
     dateOfBirth: formatDate(valueAt(rowValues, indexMap.dateOfBirth)),
-    gender: valueAt(rowValues, indexMap.gender),
+    gender: normalizeGenderValue(valueAt(rowValues, indexMap.gender)),
     class: valueAt(rowValues, indexMap.class),
     hometown: valueAt(rowValues, indexMap.hometown),
     subjects: valueAt(rowValues, indexMap.subjects),
@@ -232,7 +247,7 @@ function mapRowToStudent(rowValues = [], indexMap) {
     guardian: {
       firstName: valueAt(rowValues, indexMap.guardianFirstName) || splitGuardian.firstName,
       lastName: valueAt(rowValues, indexMap.guardianLastName) || splitGuardian.lastName,
-      phone: valueAt(rowValues, indexMap.guardianPhone).replace(/\s+/g, ''),
+      phone: sanitizePhoneNumber(valueAt(rowValues, indexMap.guardianPhone)),
       email: valueAt(rowValues, indexMap.guardianEmail).toLowerCase(),
       address: valueAt(rowValues, indexMap.guardianAddress),
       hometown: valueAt(rowValues, indexMap.guardianHometown)
@@ -262,22 +277,35 @@ function parseRowsToStudents(headers = [], rows = []) {
 function formatDate(dateString) {
   if (!dateString) return '';
 
-  if (typeof dateString === 'number') {
+  // Handle Excel serial numbers (as number or numeric string like "43510")
+  let numVal = typeof dateString === 'number' ? dateString : null;
+  if (numVal === null && /^\d{4,5}(\.\d+)?$/.test(String(dateString).trim())) {
+    const parsed = parseFloat(dateString);
+    if (parsed > 1000 && parsed < 100000) numVal = parsed; // Likely an Excel serial
+  }
+  if (numVal !== null) {
     const excelEpoch = new Date(1899, 11, 30);
-    const date = new Date(excelEpoch.getTime() + dateString * 86400000);
+    const date = new Date(excelEpoch.getTime() + numVal * 86400000);
     return isNaN(date.getTime()) ? '' : date.toISOString().split('T')[0];
   }
 
+  // Try direct Date parse (handles ISO, US formats etc.)
   const direct = new Date(dateString);
-  if (!isNaN(direct.getTime())) {
+  if (!isNaN(direct.getTime()) && String(dateString).length > 4) {
     return direct.toISOString().split('T')[0];
   }
 
-  const parts = String(dateString).split(/[/-]/);
+  // Try DD/MM/YYYY or DD-MM-YYYY
+  const parts = String(dateString).split(/[/\-\.]/);
   if (parts.length === 3) {
-    const [day, month, year] = parts;
-    if (year && year.length === 4) {
-      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const [a, b, c] = parts.map(p => p.trim());
+    // If third part is 4 digits → DD/MM/YYYY
+    if (c && c.length === 4) {
+      return `${c}-${String(b).padStart(2, '0')}-${String(a).padStart(2, '0')}`;
+    }
+    // If first part is 4 digits → YYYY/MM/DD (already handled by Date parse above but just in case)
+    if (a && a.length === 4) {
+      return `${a}-${String(b).padStart(2, '0')}-${String(c).padStart(2, '0')}`;
     }
   }
 
@@ -316,7 +344,7 @@ function parseTextToStudents(text) {
         firstName: parts[0] || '',
         lastName: parts[1] || '',
         dateOfBirth: parts[2] ? formatDate(parts[2]) : '',
-        gender: parts[3] || '',
+        gender: normalizeGenderValue(parts[3] || ''),
         class: parts[4] || '',
         hometown: parts[5] || '',
         subjects: parts[6] || '',
@@ -324,7 +352,7 @@ function parseTextToStudents(text) {
         guardian: {
           firstName: parts[8] || '',
           lastName: parts[9] || '',
-          phone: (parts[10] || '').replace(/\s+/g, ''),
+          phone: sanitizePhoneNumber(parts[10] || ''),
           email: (parts[11] || '').toLowerCase(),
           address: parts[12] || '',
           hometown: parts[13] || ''
