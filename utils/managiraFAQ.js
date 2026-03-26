@@ -613,6 +613,78 @@ const managiraFAQ = [
     question: "What happens if an email fails to send?",
     answer: "If an email fails to send (e.g., due to a temporary server issue), the action itself (like approving an application or resetting a password) still completes successfully. The email failure is logged for troubleshooting but does not affect the core operation. For report card emails, you can view email history and retry failed emails from the Email History page.",
     keywords: ["email failed", "email error", "email not received", "email problem", "retry email", "email history", "email log", "delivery failure"]
+  },
+
+  // User Documentation topics
+  {
+    id: 84,
+    category: "User Documentation",
+    question: "Where can I find the Managira user documentation?",
+    answer: "The full Managira User Documentation is available at /legal/user-documentation. It covers everything from getting started, setting up your organization, roles and permissions, student management, attendance tracking, assessments, report cards, promotions, admissions, school websites, and troubleshooting. You can also find a link to it on the FAQ page and in the footer of every page.",
+    keywords: ["user documentation", "documentation", "user guide", "manual", "help guide", "how to use managira", "docs", "user docs", "guide", "tutorial", "instructions"]
+  },
+  {
+    id: 85,
+    category: "User Documentation",
+    question: "How do I set up my school organization on Managira?",
+    answer: "To set up your organization: 1) Set up school years and terms. 2) Create classes using the naming structure that fits your school. 3) Create subjects. 4) Configure graduation years. 5) Activate the current school year and term. 6) Start enrollment to assign students to classes. 7) Invite staff through Employee Management and assign roles. 8) Set up your school website. Full details are in the User Documentation at /legal/user-documentation.",
+    keywords: ["setup organization", "set up school", "organization setup", "configure school", "first time setup", "initial setup", "onboard school", "school configuration", "how to setup"]
+  },
+  {
+    id: 86,
+    category: "User Documentation",
+    question: "What are the different service plans available on Managira?",
+    answer: "Managira offers three plans: 1) Starter Plan — core student, attendance, assessment, and reporting tools. 2) Professional Plan — adds parent/guardian portal access and official transcript capability. 3) Premium/Business Plan — adds school website, class-based analytics and merit sheets, document management, and included multi-school hub support. All plans include student profiles, assessment tracking, attendance, terminal reports, and organization dashboard with analytics. Visit /legal/user-documentation for the full plan comparison.",
+    keywords: ["plans", "pricing", "starter", "professional", "premium", "business plan", "service plan", "plan comparison", "which plan", "features comparison", "plan differences"]
+  },
+  {
+    id: 87,
+    category: "User Documentation",
+    question: "How does the school website feature work in Managira?",
+    answer: "The School Website gives each school a professional public presence. Schools can publish hero images, banners, image galleries, about sections, announcements, event information, and contact details. Authorized users manage content directly — uploading images, creating/updating/reordering sections, and publishing updates. When online admissions are enabled, the school website also acts as a public entry point for applications. This feature is available on the Premium/Business plan. See /legal/user-documentation for full details.",
+    keywords: ["school website", "public website", "website feature", "publish website", "school site", "web presence", "school page", "website setup", "online presence"]
+  },
+  {
+    id: 88,
+    category: "User Documentation",
+    question: "How does the admissions process work on Managira?",
+    answer: "Managira supports two admissions pathways: 1) Self Admission — parents/guardians apply through the school website by entering student and guardian details and making any required payment. Applications are stored as pending for review. 2) School Managed Admission — authorized users admit students through manual entry, bulk-assisted workflows, or image/document-based extraction. All pending admissions are reviewed and approved/rejected by authorized school users. See /legal/user-documentation for the complete admissions guide.",
+    keywords: ["admissions", "admission process", "enroll student", "enrollment process", "student admission", "apply for admission", "self admission", "school admission", "how to admit", "new student admission"]
+  },
+  {
+    id: 89,
+    category: "User Documentation",
+    question: "How do assessments and tests work in Managira?",
+    answer: "Managira lets schools build assessment structures matching their academic model — letter grades, percentages, or custom scoring. Authorized users create assessment structures per class and subject, deciding how many tests, exams, and assignments contribute to the final grade with weighted components. Assessment periods can be opened/closed per the school calendar. Teachers enter scores through simple forms, and results flow into report cards and the parent portal automatically. See /legal/user-documentation for details.",
+    keywords: ["assessments", "tests", "grading", "scoring", "exam", "assessment structure", "grade entry", "score entry", "weighted grades", "test setup", "how assessments work"]
+  },
+  {
+    id: 90,
+    category: "User Documentation",
+    question: "How does attendance tracking work in Managira?",
+    answer: "Teachers record attendance for assigned classes. The system captures each student's status and stores a full attendance history. Managers can access attendance for any class, while teachers can collect attendance only for classes where they are Main Teacher. School leaders can review summaries by class, grade, or across the school. Parents can view attendance through the parent portal. Attendance settings align with the school calendar to handle holidays and exam periods. See /legal/user-documentation for complete details.",
+    keywords: ["attendance tracking", "mark attendance", "attendance system", "roll call", "attendance record", "student attendance", "how attendance works", "attendance collection", "daily attendance"]
+  },
+  {
+    id: 91,
+    category: "User Documentation",
+    question: "How do I generate report cards in Managira?",
+    answer: "Schools can generate terminal report cards using recorded grades, attendance data, and teacher comments. Reports can be printed or shared digitally. School leaders can also access school-level reporting on enrollment, attendance, grade distribution, and academic indicators. Reports can be shared with parents through the parent portal or by email. All reports respect user roles and permissions. See /legal/user-documentation for full reporting guidance.",
+    keywords: ["report cards", "generate reports", "terminal reports", "student reports", "print report", "report generation", "how to generate report", "create report card", "merit sheet"]
+  },
+  {
+    id: 92,
+    category: "User Documentation",
+    question: "What common issues can I troubleshoot myself in Managira?",
+    answer: "Common issues and fixes: 1) Cannot mark attendance — confirm you are listed as the Main Teacher for that class. 2) Teacher cannot see a class — verify role assignments in user settings. 3) Report not generating — confirm all grades are entered and current term is correctly selected. 4) Parent cannot log in — use the Forgot Password option to reset access. 5) Feature is not visible — review your service plan or contact support. For more troubleshooting help, see /legal/user-documentation.",
+    keywords: ["troubleshooting", "common issues", "problems", "fix", "not working", "cannot", "error", "issue", "help fix", "broken", "bug", "something wrong"]
+  },
+  {
+    id: 93,
+    category: "User Documentation",
+    question: "How does promotion and graduation work in Managira?",
+    answer: "Schools can review student performance and apply promotion rules based on their own criteria including score thresholds and attendance expectations. Promotions can be applied immediately or scheduled after term closure. Authorized users can review, reverse, or correct actions. When students graduate or leave, records can be archived while preserving the full academic history. See /legal/user-documentation for the complete promotion and graduation guide.",
+    keywords: ["promotion", "graduation", "student progression", "promote students", "graduate students", "archive students", "next grade", "advancement", "how promotion works"]
   }
 ];
 
