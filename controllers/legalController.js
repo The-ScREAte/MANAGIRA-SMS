@@ -389,6 +389,16 @@ const legalController = {
         }
     },
 
+    userDocumentation: (req, res) => {
+        res.render('legal&Compliance/userDocumentation', {
+            title: 'User Documentation - Managira School Management System',
+            description: 'Complete user documentation for Managira school management system. Learn how to manage students, attendance, assessments, reports, promotions, admissions, and more.',
+            keywords: 'managira user documentation, managira guide, school management guide, how to use managira, managira help, managira tutorial, managira Nigeria, school management Nigeria',
+            canonicalUrl: 'https://www.managira.com/legal/user-documentation',
+            showFooterTopSection: true
+        });
+    },
+
     donationsPage: async (req, res) => {
         const donations = await db.query(`SELECT * FROM donations ORDER BY created_at DESC`);
         res.render('legal&Compliance/donations', { 
