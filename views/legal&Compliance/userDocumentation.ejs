@@ -1,708 +1,84 @@
 <style>
-  :root {
-    --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
-    --primary: #01535b;
-    --primary-light: #e8f4f5;
-    --border: #e5e7eb;
-    --text: #1f2937;
-    --text-muted: #6b7280;
-    --bg: #f9fafb;
-  }
-
-  body {
-    font-family: var(--font-family);
-    color: var(--text);
-    margin: 0;
-    background-color: var(--bg);
-    line-height: 1.7;
-    box-sizing: border-box;
-  }
-
-  *, *::before, *::after { box-sizing: border-box; }
-
-  main {
-    max-width: 860px;
-    margin: 0 auto;
-  }
-
-  .doc-header {
+  .doc-container {
+    max-width: 700px;
+    margin: 60px auto;
     text-align: center;
-    margin-bottom: 36px;
+    padding: 0 20px;
+    font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
   }
 
-  .doc-header h1 {
-    color: var(--primary);
-    font-size: 2.2rem;
+  .doc-container h1 {
+    color: #01535b;
+    font-size: 2rem;
     font-weight: 700;
-    margin: 0 0 8px;
-  }
-
-  .doc-header p {
-    color: var(--text-muted);
-    font-size: 0.95rem;
-    margin: 0;
-  }
-
-  .doc-nav {
-    background: #fff;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 20px 24px;
-    margin-bottom: 36px;
-  }
-
-  .doc-nav h2 {
-    font-size: 1.1rem;
-    color: var(--primary);
     margin: 0 0 12px;
   }
 
-  .doc-nav ol {
-    columns: 2;
-    padding-left: 20px;
-    margin: 0;
-    font-size: 0.93rem;
+  .doc-container p {
+    color: #6b7280;
+    font-size: 1rem;
+    line-height: 1.6;
+    margin: 0 0 28px;
   }
 
-  .doc-nav ol li {
-    margin-bottom: 6px;
-    break-inside: avoid;
-  }
-
-  .doc-nav ol li a {
-    color: var(--primary);
-    text-decoration: none;
-  }
-
-  .doc-nav ol li a:hover {
-    text-decoration: underline;
-  }
-
-  .doc-section {
-    background: #fff;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 24px 28px;
-    margin-bottom: 24px;
-  }
-
-  .doc-section h2 {
-    font-size: 1.35rem;
-    font-weight: 700;
-    color: var(--primary);
-    margin: 0 0 16px;
-    padding-bottom: 10px;
-    border-bottom: 2px solid var(--primary-light);
-  }
-
-  .doc-section h3 {
+  .doc-link-btn {
+    display: inline-block;
+    background-color: #01535b;
+    color: #fff !important;
+    padding: 14px 36px;
+    border-radius: 8px;
     font-size: 1.05rem;
     font-weight: 600;
-    color: var(--text);
-    margin: 18px 0 8px;
-  }
-
-  .doc-section p, .doc-section li {
-    font-size: 0.94rem;
-    color: var(--text-muted);
-    line-height: 1.7;
-  }
-
-  .doc-section ul, .doc-section ol {
-    padding-left: 20px;
-  }
-
-  .doc-section ul li, .doc-section ol li {
-    margin-bottom: 4px;
-  }
-
-  .doc-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.88rem;
-    margin: 12px 0;
-  }
-
-  .doc-table th, .doc-table td {
-    border: 1px solid var(--border);
-    padding: 10px 12px;
-    text-align: left;
-  }
-
-  .doc-table th {
-    background: var(--primary-light);
-    color: var(--primary);
-    font-weight: 600;
-  }
-
-  .doc-table td {
-    color: var(--text-muted);
-  }
-
-  .back-link {
-    display: inline-block;
-    margin-bottom: 20px;
-    color: var(--primary);
     text-decoration: none;
-    font-size: 0.92rem;
-    font-weight: 500;
+    transition: background-color 0.2s;
   }
 
-  .back-link:hover { text-decoration: underline; }
-
-  .help-cta {
-    background: #fff;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 24px;
-    text-align: center;
-    margin-top: 20px;
-  }
-
-  .help-cta p {
-    margin: 0 0 12px;
-    font-size: 0.95rem;
-    color: var(--text);
-  }
-
-  .help-cta a {
-    display: inline-block;
-    padding: 10px 24px;
-    background: var(--primary);
-    color: #fff;
-    border-radius: 8px;
+  .doc-link-btn:hover {
+    background-color: #026972;
     text-decoration: none;
-    font-weight: 600;
-    font-size: 0.92rem;
-    transition: background 0.2s;
-    margin: 0 6px;
   }
 
-  .help-cta a:hover { background: #014048; }
-
-  @media (max-width: 768px) {
-    main { padding: 100px 20px 40px; }
-    .doc-header h1 { font-size: 1.8rem; padding-top: 20px; }
-    .doc-section { padding: 18px 16px; }
-    .doc-nav ol { columns: 1; }
-    .doc-table { font-size: 0.82rem; }
-    .doc-table th, .doc-table td { padding: 8px; }
-  }
-
-  @media (max-width: 480px) {
-    main { padding: 110px 16px 40px; }
-    .doc-header h1 { font-size: 1.5rem; padding-top: 30px; }
+  .doc-link-btn svg {
+    vertical-align: middle;
+    margin-right: 8px;
   }
 </style>
 
-<!-- SEO: JSON-LD Structured Data -->
+<!-- SEO: JSON-LD structured data for search engines -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "TechArticle",
-  "headline": "Managira School Management System - User Documentation",
-  "description": "Complete user documentation for Managira school management system. Learn how to manage students, attendance, assessments, reports, promotions, admissions, school websites, and more.",
-  "author": {
-    "@type": "Organization",
-    "name": "Managira",
-    "url": "https://www.managira.com"
-  },
-  "publisher": {
-    "@type": "Organization",
-    "name": "Managira",
-    "url": "https://www.managira.com"
-  },
+  "name": "Managira User Documentation – Complete Platform Guide",
+  "headline": "Managira User Documentation",
+  "description": "Official step-by-step guide for using Managira – the school management platform in Nigeria. Covers setup, student admissions, assessments, attendance, report cards, guardian portal, promotions, and more.",
+  "url": "https://www.managira.com/legal/user-documentation",
   "mainEntityOfPage": "https://www.managira.com/legal/user-documentation",
-  "keywords": "managira, school management system, user documentation, Nigeria school management, student management, attendance tracking, assessments, report cards, admissions, guardian portal, hub management",
+  "author": { "@type": "Organization", "name": "Managira" },
+  "publisher": { "@type": "Organization", "name": "Managira", "url": "https://www.managira.com" },
   "inLanguage": "en",
-  "about": {
-    "@type": "SoftwareApplication",
-    "name": "Managira",
-    "applicationCategory": "Education",
-    "operatingSystem": "Web Browser"
-  }
+  "keywords": "Managira, user documentation, school management Nigeria, how to use Managira, student registration, report cards, guardian portal, attendance, assessments, promotions",
+  "datePublished": "2026-03-26",
+  "dateModified": "2026-03-27",
+  "about": [
+    { "@type": "Thing", "name": "School Management Software" },
+    { "@type": "Thing", "name": "Education Technology Nigeria" }
+  ]
 }
 </script>
 
-<main>
-  <a href="/legal/faq" class="back-link">← Back to FAQ</a>
-
-  <div class="doc-header">
-    <h1>Managira User Documentation</h1>
-    <p>Complete guide to using the Managira School Management System</p>
-  </div>
-
-  <!-- Table of Contents -->
-  <div class="doc-nav" id="toc">
-    <h2>Table of Contents</h2>
-    <ol>
-      <li><a href="#introduction">Introduction</a></li>
-      <li><a href="#system-overview">System Overview</a></li>
-      <li><a href="#plans-features">Plans and Features</a></li>
-      <li><a href="#getting-started">How to Get Started</a></li>
-      <li><a href="#roles-permissions">Roles and Permissions</a></li>
-      <li><a href="#org-setup">Setting Up Organization</a></li>
-      <li><a href="#school-website">School Website</a></li>
-      <li><a href="#admissions">Admissions</a></li>
-      <li><a href="#attendance">Attendance Tracking</a></li>
-      <li><a href="#assessments">Assessments and Tests</a></li>
-      <li><a href="#reports">Reports</a></li>
-      <li><a href="#promotion">Promotion and Graduation</a></li>
-      <li><a href="#legal-policies">Legal Policies</a></li>
-      <li><a href="#help-support">Help and Support</a></li>
-      <li><a href="#troubleshooting">Troubleshooting</a></li>
-      <li><a href="#technical">Technical Overview</a></li>
-    </ol>
-  </div>
-
-  <!-- Section 1: Introduction -->
-  <div class="doc-section" id="introduction">
-    <h2>1. Introduction</h2>
-
-    <h3>1.1 Purpose of This Document</h3>
-    <p>This document provides a comprehensive introduction to Managira and explains how the platform supports the daily operations of schools, school networks, and education administrators. It is designed to help school leaders, teachers, staff, parents, and hub operators understand the platform's core functions, value, and practical use.</p>
-    <p>Managira is built to be intuitive and accessible. Users do not need technical expertise to use the platform effectively because it has been designed around the real workflows of educators and school administrators.</p>
-
-    <h3>1.2 About Managira</h3>
-    <p>Managira is an all-in-one school management platform that brings together the essential areas of school operations within a single unified system. From enrollment and attendance to assessments, reporting, communication, and school visibility, the platform replaces fragmented tools, spreadsheets, and paper-based processes with a more structured digital environment.</p>
-    <p>Managira is designed to reduce administrative workload, strengthen parent communication, improve record accuracy, and support a professional institutional presence through features such as the school website and parent portal. It is suitable for both single schools and larger structures operating under a hub or multi-school model.</p>
-
-    <h3>1.3 Vision and Operating Philosophy</h3>
-    <p>Managira was created to give schools technology that works the way schools actually operate. Its design is guided by a practical operating philosophy:</p>
-    <ul>
-      <li><strong>Simplicity first</strong> — Everyday tasks such as marking attendance, generating report cards, and updating school information should be straightforward and efficient.</li>
-      <li><strong>Everything in one place</strong> — Student records, academic data, communication, and public-facing content are managed within one system.</li>
-      <li><strong>Access for everyone</strong> — Teachers, administrators, parents, and hub operators each see the tools and information appropriate to their role.</li>
-      <li><strong>Reliability you can count on</strong> — School operations depend on accurate and dependable systems.</li>
-      <li><strong>Built for growth</strong> — Whether a school is expanding enrollment or joining a broader network, Managira scales with that growth.</li>
-    </ul>
-
-    <h3>1.4 Target Users and Stakeholders</h3>
-    <ul>
-      <li><strong>School Administrators</strong> — Manage admissions, student records, staff information, school settings, and public-facing content from a central dashboard.</li>
-      <li><strong>Teachers and Academic Staff</strong> — Record attendance, enter grades, manage assessments, generate reports, and communicate with parents.</li>
-      <li><strong>Finance and Operations Staff</strong> — Manage payment records, deductions, and admissions-related payments.</li>
-      <li><strong>Parents and Guardians</strong> — Access grades, attendance records, report cards, and school announcements through a secure portal.</li>
-      <li><strong>Hub Operators</strong> — Oversee multiple schools from one central structure while preserving each school's operational identity and branding.</li>
-    </ul>
-  </div>
-
-  <!-- Section 2: System Overview -->
-  <div class="doc-section" id="system-overview">
-    <h2>2. System Overview</h2>
-
-    <h3>2.1 What Makes Managira Different</h3>
-    <p>Managira is a connected operational system built around the way schools function. Rather than separating attendance, grading, reporting, communication, and administration into disconnected tools, Managira unifies these areas within one platform. Once information is entered, it flows across related workflows — student records entered during enrollment support attendance, assessments, reporting, and parent visibility without repeated data entry.</p>
-
-    <h3>2.2 Core Modules and Capabilities</h3>
-    <ul>
-      <li>Personalized School Website</li>
-      <li>Student Management</li>
-      <li>Attendance Tracking</li>
-      <li>Assessments and Tests</li>
-      <li>Report Cards and Transcripts</li>
-      <li>Parent Portal</li>
-      <li>Online Admissions</li>
-      <li>Employee Management</li>
-      <li>User Roles and Permissions</li>
-      <li>Multi-School Management (Hubs)</li>
-      <li>Promotion and Graduation</li>
-      <li>Reports and Analytics</li>
-      <li>Legal Policies</li>
-    </ul>
-
-    <h3>2.3 User Experience and Role-Based Access</h3>
-    <p>When a user logs in, the system presents the tools and information relevant to that user's role. Administrators access school-wide management tools. Teachers access class and student workflows. Parents access only information relevant to their children. Hub Operators access broader visibility across multiple schools.</p>
-
-    <h3>2.4 Multi-School and Hub Management</h3>
-    <p>For school groups, networks, or education authorities, Managira supports centralized oversight across multiple schools. Hub users can manage shared visibility, compare school-level performance, and maintain coordination while preserving the identity and operations of each institution.</p>
-
-    <h3>2.5 Deployment and Accessibility</h3>
-    <p>Managira is a cloud-based platform accessible through supported web browsers on desktop computers, laptops, tablets, and smartphones. Schools do not need to install software or manage local servers.</p>
-  </div>
-
-  <!-- Section 3: Plans and Features -->
-  <div class="doc-section" id="plans-features">
-    <h2>3. Plans and Features</h2>
-
-    <h3>3.1 Overview of Service Plans</h3>
-    <p>Managira offers flexible service plans designed to support schools of different sizes, structures, and operational needs. All plans are built on the same core platform. The main differences relate to feature depth, visibility tools, and advanced capabilities.</p>
-
-    <h3>3.2 Plan Comparison</h3>
-    <table class="doc-table">
-      <thead>
-        <tr><th>Feature Area</th><th>Starter</th><th>Professional</th><th>Premium / Business</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>Student & Guardian Profiles</td><td>✓</td><td>✓</td><td>✓</td></tr>
-        <tr><td>Assessment Tracking</td><td>✓</td><td>✓</td><td>✓</td></tr>
-        <tr><td>Attendance Tracking</td><td>✓</td><td>✓</td><td>✓</td></tr>
-        <tr><td>Terminal Reports</td><td>✓</td><td>✓</td><td>✓</td></tr>
-        <tr><td>Progressive Student Reports</td><td>✓</td><td>✓</td><td>✓</td></tr>
-        <tr><td>Organization Dashboard</td><td>✓</td><td>✓</td><td>✓</td></tr>
-        <tr><td>Organization Analytics & Insights</td><td>✓</td><td>✓</td><td>✓</td></tr>
-        <tr><td>Official School Transcript</td><td>—</td><td>✓</td><td>✓</td></tr>
-        <tr><td>Parent/Guardian Portal</td><td>—</td><td>✓</td><td>✓</td></tr>
-        <tr><td>School Website</td><td>—</td><td>—</td><td>✓</td></tr>
-        <tr><td>Class Based Analytics</td><td>—</td><td>—</td><td>✓</td></tr>
-        <tr><td>Class Based Merit Sheets</td><td>—</td><td>—</td><td>✓</td></tr>
-        <tr><td>Document Management</td><td>—</td><td>—</td><td>✓</td></tr>
-        <tr><td>Multi-School Management</td><td>Add-on</td><td>Add-on</td><td>Included</td></tr>
-      </tbody>
-    </table>
-
-    <h3>3.3 Pricing and Payment Options</h3>
-    <p>Managira offers flexible billing structures. Schools may select monthly, yearly, or multi-year billing options. Secure payment processing is used for all supported transactions. For hub structures, custom agreements may apply.</p>
-
-    <h3>3.4 Choosing the Right Plan</h3>
-    <ul>
-      <li><strong>Starter Plan</strong> — Core student, attendance, assessment, and reporting tools.</li>
-      <li><strong>Professional Plan</strong> — Adds parent access and official transcript capability.</li>
-      <li><strong>Premium / Business Plan</strong> — Adds school website, class-based insights, merit sheets, document management, and included multi-school support.</li>
-    </ul>
-  </div>
-
-  <!-- Section 4: Getting Started -->
-  <div class="doc-section" id="getting-started">
-    <h2>4. How to Get Started</h2>
-
-    <h3>4.1 Hub Registration</h3>
-    <p>If you are setting up a hub or government structure that oversees multiple schools, contact Managira Support through the Help page or by emailing info@managira.com. The team will guide you through setup based on the number of schools involved and features required.</p>
-
-    <h3>4.2 Single School Registration</h3>
-    <ol>
-      <li>Go to the Managira website and click Sign In.</li>
-      <li>Create an account and select Single School as your organization type.</li>
-      <li>Choose your plan: Starter, Professional, or Premium.</li>
-      <li>Enter your school details including school name, address, proof of organization, and your details as the primary administrator.</li>
-      <li>Review the payment summary and confirm the selected plan and billing cycle.</li>
-      <li>Complete payment securely. If a free trial is available, billing begins only after the trial period ends.</li>
-      <li>Check your email for login details and the onboarding file, then sign in and begin setup.</li>
-    </ol>
-
-    <h3>4.3 Alternative Setup Option</h3>
-    <p>If your organization prefers not to use the online registration process, Managira can prepare a custom contract and complete the setup manually.</p>
-
-    <h3>4.4 Helpful Resources</h3>
-    <p>The welcome email includes an onboarding file with setup instructions. Video tutorials are also available to guide users through major workflows. Support remains available through the Help page or by email.</p>
-  </div>
-
-  <!-- Section 5: Roles and Permissions -->
-  <div class="doc-section" id="roles-permissions">
-    <h2>5. Roles and Permissions</h2>
-
-    <h3>5.1 Role Overview</h3>
-    <table class="doc-table">
-      <thead>
-        <tr><th>Role</th><th>Typical Responsibilities</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>Manager</td><td>Full operational control including staff management, billing, settings, and all academic workflows.</td></tr>
-        <tr><td>Supervisor</td><td>Broad academic oversight including admissions, assessments, reports, class management, and transcripts.</td></tr>
-        <tr><td>Teacher</td><td>Classroom-focused responsibilities including assessments, attendance, and access to assigned class resources.</td></tr>
-        <tr><td>Main Teacher</td><td>A teacher assigned as lead for a specific class who can manage attendance for that class.</td></tr>
-      </tbody>
-    </table>
-
-    <h3>5.2 What Each Role Can Do</h3>
-    <table class="doc-table">
-      <thead>
-        <tr><th>Permission</th><th>Manager</th><th>Supervisor</th><th>Teacher</th><th>Main Teacher</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>Manage staff and role assignments</td><td>✔</td><td>—</td><td>—</td><td>—</td></tr>
-        <tr><td>Manage students and guardians</td><td>✔</td><td>✔</td><td>—</td><td>—</td></tr>
-        <tr><td>Manage assessments and exams</td><td>✔</td><td>✔</td><td>✔</td><td>✔</td></tr>
-        <tr><td>Mark attendance</td><td>✔</td><td>✔</td><td>✔</td><td>✔</td></tr>
-        <tr><td>Manage reports and printing</td><td>✔</td><td>✔</td><td>—</td><td>—</td></tr>
-        <tr><td>Manage records and documents</td><td>✔</td><td>—</td><td>—</td><td>—</td></tr>
-        <tr><td>Manage promotions</td><td>✔</td><td>✔</td><td>—</td><td>—</td></tr>
-        <tr><td>Approve promotions</td><td>✔</td><td>—</td><td>—</td><td>—</td></tr>
-        <tr><td>Approve admissions</td><td>✔</td><td>✔</td><td>—</td><td>—</td></tr>
-        <tr><td>Publish announcements and events</td><td>✔</td><td>✔</td><td>—</td><td>—</td></tr>
-        <tr><td>Manage school years and terms</td><td>✔</td><td>—</td><td>—</td><td>—</td></tr>
-        <tr><td>Manage classes and subjects</td><td>✔</td><td>✔</td><td>—</td><td>—</td></tr>
-        <tr><td>Generate official transcripts</td><td>✔</td><td>✔</td><td>—</td><td>—</td></tr>
-        <tr><td>Manage billing and subscriptions</td><td>✔</td><td>—</td><td>—</td><td>—</td></tr>
-        <tr><td>Manage organization settings</td><td>✔</td><td>—</td><td>—</td><td>—</td></tr>
-      </tbody>
-    </table>
-
-    <h3>5.3 File and Document Access</h3>
-    <ul>
-      <li><strong>Managers</strong> can create, edit, delete, and share files with users or classes.</li>
-      <li><strong>Supervisors</strong> can do the same only if they have the manage_records permission. Otherwise, they can view only files they created or files shared with them.</li>
-      <li><strong>Teachers</strong> cannot create or delete files by default. They can view files only when they created the file, were given direct permission, or the file is shared with a class where they are assigned.</li>
-    </ul>
-
-    <h3>5.4 Main Teacher and Attendance</h3>
-    <p>Managers can access attendance collection for any class. Teachers can collect attendance only for classes where they are assigned as Main Teacher. If a class does not have a Main Teacher assigned, the attendance workflow remains unavailable to teachers until one is assigned.</p>
-
-    <h3>5.5 Best Practices for Using Roles</h3>
-    <ol>
-      <li>Limit Manager accounts to users who genuinely require full control.</li>
-      <li>Use Supervisors for academic coordination and day-to-day class and student oversight.</li>
-      <li>Keep Teachers focused on instructional workflows.</li>
-      <li>Assign Main Teachers each term so responsibility is clear.</li>
-      <li>Review file permissions regularly and grant edit access only where necessary.</li>
-    </ol>
-  </div>
-
-  <!-- Section 6: Setting Up Organization -->
-  <div class="doc-section" id="org-setup">
-    <h2>6. Setting Up Organization</h2>
-
-    <h3>6.1 Access Requirements</h3>
-    <p>Only authenticated users with valid access can complete the setup process.</p>
-
-    <h3>6.2 Welcome Page and Setup Guidance</h3>
-    <p>On first login, Managira displays a welcome page with security guidance and setup instructions.</p>
-
-    <h3>6.3 Core Setup Sequence</h3>
-    <ol>
-      <li>Set up school years and terms.</li>
-      <li>Create classes using the naming structure that fits the school model.</li>
-      <li>Create subjects using the preferred subject structure.</li>
-    </ol>
-
-    <h3>6.4 Editing Academic Structure</h3>
-    <p>If class or subject structures change over time, Managira allows these to be updated without rebuilding the full system configuration.</p>
-
-    <h3>6.5 Graduation Year Configuration</h3>
-    <p>Schools can configure graduation school years to assign students to their expected graduation year for progression tracking.</p>
-
-    <h3>6.6 Activate Current Academic Context</h3>
-    <p>After setup, the school selects the active school year and active term. This prepares the dashboard and places the system in the correct context.</p>
-
-    <h3>6.7 Enrollment Activation</h3>
-    <p>Once classes have been created, enrollment is used to assign students to classes so that class rosters and student participation become active.</p>
-
-    <h3>6.8 Employee Onboarding and Role Assignment</h3>
-    <p>Staff can be invited through Employee Management and assigned classes, roles, and relevant operational responsibilities.</p>
-
-    <h3>6.9 School Website Setup</h3>
-    <p>Organization setup also includes school website configuration for publishing public information and institutional updates.</p>
-
-    <h3>6.10 Outcome of Setup Completion</h3>
-    <p>Once complete, the organization is ready for operational use: active dashboards, student and class operations, teacher participation, and public communication through the school website.</p>
-  </div>
-
-  <!-- Section 7: School Website -->
-  <div class="doc-section" id="school-website">
-    <h2>7. School Website</h2>
-
-    <h3>7.1 Purpose and Strategic Value</h3>
-    <p>The Managira School Website gives each school a professional public presence where parents, guardians, prospective families, and the wider community can access current and reliable information about the institution.</p>
-
-    <h3>7.2 What Schools Can Publish</h3>
-    <ul>
-      <li>Hero images and banners</li>
-      <li>Image galleries</li>
-      <li>About sections</li>
-      <li>Announcements and updates</li>
-      <li>Event information</li>
-      <li>Contact and profile details</li>
-    </ul>
-
-    <h3>7.3 Self-Service Editing</h3>
-    <p>Authorized users can manage website content directly: upload and replace images, create/update/reorder/remove sections, edit About information, adjust layout and style options, and publish updates to the live website.</p>
-
-    <h3>7.4 School Website and Admissions</h3>
-    <p>When online admissions are enabled, the school website also acts as a public entry point for applications, connecting public engagement with admissions intake.</p>
-  </div>
-
-  <!-- Section 8: Admissions -->
-  <div class="doc-section" id="admissions">
-    <h2>8. Admissions</h2>
-
-    <h3>8.1 Admissions Model Overview</h3>
-    <p>Managira supports two admissions pathways:</p>
-    <ol>
-      <li><strong>Self Admission</strong> — Parents or guardians apply through the school website.</li>
-      <li><strong>School Managed Admission</strong> — Authorized users admit students through internal workflows.</li>
-    </ol>
-
-    <h3>8.2 Self Admission Through the School Website</h3>
-    <ol>
-      <li>The school enables public admissions on its website.</li>
-      <li>The parent or guardian opens the admissions page.</li>
-      <li>The applicant enters student and guardian details.</li>
-      <li>Any required admissions payment is initiated according to school settings.</li>
-      <li>The application is submitted and stored as pending for school review.</li>
-    </ol>
-
-    <h3>8.3 School Managed Admission</h3>
-    <p>Schools can admit students through manual entry, bulk-assisted workflows, and image/document-based extraction workflows.</p>
-
-    <h3>8.4 Data Captured During Admission</h3>
-    <ul>
-      <li>Student identity and demographic details</li>
-      <li>Class assignment</li>
-      <li>Subject association</li>
-      <li>School year and term context</li>
-      <li>Expected graduation or year group placement</li>
-      <li>Guardian information</li>
-    </ul>
-
-    <h3>8.5 Admissions Queue and Decision Process</h3>
-    <p>Pending admissions are reviewed by authorized school users before approval. The process includes visibility of pending applications, review and editing, approval or rejection, and communication of the decision.</p>
-  </div>
-
-  <!-- Section 9: Attendance Tracking -->
-  <div class="doc-section" id="attendance">
-    <h2>9. Attendance Tracking</h2>
-
-    <h3>9.1 What It Does</h3>
-    <p>Attendance tracking in Managira is designed to be fast, accurate, and practical for everyday school use.</p>
-
-    <h3>9.2 How It Works</h3>
-    <p>Teachers record attendance for assigned classes. The system captures each student's attendance status and stores a full attendance history. Built-in efficiencies help reduce repetitive work when attendance patterns are routine.</p>
-
-    <h3>9.3 Visibility and Alerts</h3>
-    <p>School leaders can review attendance summaries by class, grade, or across the school. Parents can view attendance records through the parent portal where enabled.</p>
-
-    <h3>9.4 Alignment with the School Calendar</h3>
-    <p>Attendance settings can be aligned with the school calendar so that holidays, exam periods, and special events are handled appropriately.</p>
-  </div>
-
-  <!-- Section 10: Assessments and Tests -->
-  <div class="doc-section" id="assessments">
-    <h2>10. Assessments and Tests</h2>
-
-    <h3>10.1 What It Does</h3>
-    <p>Managira allows schools to build assessment structures that match their own academic model, whether they use letter grades, percentages, or a custom scoring system.</p>
-
-    <h3>10.2 How It Works</h3>
-    <p>Authorized users create assessment structures for each class and subject. Schools decide how many tests, exams, assignments, or other components contribute to the final grade and assign a weight to each one.</p>
-
-    <h3>10.3 Controlled Access</h3>
-    <p>Assessment periods can be opened and closed according to the school calendar. Only authorized users can enter or edit scores during active periods.</p>
-
-    <h3>10.4 Visibility for Parents and Reporting</h3>
-    <p>Assessment results flow into report cards and the parent portal, helping parents see more than just final grades.</p>
-  </div>
-
-  <!-- Section 11: Reports -->
-  <div class="doc-section" id="reports">
-    <h2>11. Reports</h2>
-
-    <h3>11.1 What It Does</h3>
-    <p>Managira transforms academic and operational data into professional reports, from student report cards to broader school-level reporting.</p>
-
-    <h3>11.2 Student Report Cards</h3>
-    <p>Schools can generate terminal report cards using recorded grades, attendance, and teacher comments. Reports can be printed or shared digitally.</p>
-
-    <h3>11.3 School Level Reports</h3>
-    <p>School leaders can access reporting on enrollment, attendance, grade distribution, and related academic indicators.</p>
-
-    <h3>11.4 Parent Communication</h3>
-    <p>Reports can be shared with parents through the parent portal or by email, depending on the school's configuration.</p>
-
-    <h3>11.5 Security</h3>
-    <p>All reports respect user roles and permissions. Sensitive information is visible only to authorized users and the student's own parents or guardians.</p>
-  </div>
-
-  <!-- Section 12: Promotion and Graduation -->
-  <div class="doc-section" id="promotion">
-    <h2>12. Promotion and Graduation</h2>
-
-    <h3>12.1 What It Does</h3>
-    <p>Promotion and graduation workflows help schools manage student progression in a structured way.</p>
-
-    <h3>12.2 Promotion Decisions</h3>
-    <p>At the end of a term or academic year, schools can review student performance and apply promotion rules based on school policy.</p>
-
-    <h3>12.3 Flexible Rules</h3>
-    <p>Schools control their own promotion criteria, including score thresholds, attendance expectations, and other internal rules.</p>
-
-    <h3>12.4 Execution Options</h3>
-    <p>Promotions can be applied immediately or scheduled after term closure. Authorized users can review, reverse, or correct actions where needed.</p>
-
-    <h3>12.5 Graduation and Archiving</h3>
-    <p>When students graduate or leave, records can be archived while preserving the full academic history for future reference.</p>
-  </div>
-
-  <!-- Section 13: Legal Policies -->
-  <div class="doc-section" id="legal-policies">
-    <h2>13. Legal Policies</h2>
-    <p>Managira includes legal and policy pages that help define service expectations, support transparency, and promote responsible platform use:</p>
-    <ul>
-      <li><strong>Terms of Service</strong> — Defines the agreement between the school and Managira.</li>
-      <li><strong>Privacy Policy</strong> — Explains how data is collected, used, stored, and protected.</li>
-      <li><strong>Frequently Asked Questions</strong> — Provides answers to common platform questions.</li>
-      <li><strong>Help and Contact</strong> — Provides a path to support and accountability.</li>
-    </ul>
-  </div>
-
-  <!-- Section 14: Help and Support -->
-  <div class="doc-section" id="help-support">
-    <h2>14. Help and Support</h2>
-
-    <h3>14.1 How to Get Help</h3>
-    <ul>
-      <li><strong>Help Center</strong> — Access articles, guides, and frequently asked questions.</li>
-      <li><strong>Ticket Submission</strong> — Submit a support request with issue details for follow-up.</li>
-      <li><strong>Email Support</strong> — Contact the support team directly at info@managira.com.</li>
-    </ul>
-
-    <h3>14.2 What to Expect</h3>
-    <p>When a support request is submitted, confirmation is provided and the issue can be followed through the available support workflow.</p>
-  </div>
-
-  <!-- Section 15: Troubleshooting -->
-  <div class="doc-section" id="troubleshooting">
-    <h2>15. Troubleshooting and Common Issues</h2>
-
-    <table class="doc-table">
-      <thead>
-        <tr><th>Issue</th><th>Likely Cause</th><th>Quick Fix</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>Cannot mark attendance</td><td>Class not assigned to teacher</td><td>Confirm you are listed as the Main Teacher for that class</td></tr>
-        <tr><td>Teacher cannot see a class</td><td>Permission or role mismatch</td><td>Verify role assignments in user settings</td></tr>
-        <tr><td>Report is not generating</td><td>Missing data or term not set</td><td>Confirm all grades are entered and the current term is correctly selected</td></tr>
-        <tr><td>Parent cannot log in</td><td>Incorrect email or password</td><td>Use the Forgot Password option to reset access</td></tr>
-        <tr><td>Feature is not visible</td><td>Feature not included in your plan</td><td>Review your service plan or contact support</td></tr>
-      </tbody>
-    </table>
-
-    <h3>When to Contact Support</h3>
-    <p>If the steps above do not resolve the issue, submit a support request and include a clear description of the problem, the steps already attempted, and screenshots where applicable.</p>
-  </div>
-
-  <!-- Section 16: Technical Overview -->
-  <div class="doc-section" id="technical">
-    <h2>16. Technical Overview</h2>
-
-    <h3>16.1 What You Need to Know</h3>
-    <p>Managira is a cloud-based platform. Schools do not need to install software, manage servers, or perform routine technical maintenance.</p>
-
-    <h3>16.2 Reliability and Security</h3>
-    <ul>
-      <li><strong>Data protection</strong> — Information is stored securely and protected through controlled access measures.</li>
-      <li><strong>Backups</strong> — Regular backups help protect against data loss.</li>
-      <li><strong>Access control</strong> — Role-based permissions keep sensitive information secure.</li>
-      <li><strong>Reliability</strong> — The platform supports dependable access for daily school operations.</li>
-    </ul>
-
-    <h3>16.3 What You Do Not Need to Worry About</h3>
-    <ul>
-      <li>No hardware purchases for hosting</li>
-      <li>No software installation process</li>
-      <li>No manual updates or patching</li>
-      <li>No advanced technical expertise required for routine use</li>
-    </ul>
-  </div>
-
-  <!-- Closing Note -->
-  <div class="doc-section">
-    <h2>Closing Note</h2>
-    <p>Managira is designed to be powerful, practical, and easy to use. Every feature exists to help schools operate more efficiently, support staff more effectively, and keep parents more informed and engaged. When assistance is needed, support remains available to help schools continue with confidence.</p>
-  </div>
-
-  <div class="help-cta">
-    <p>Need more help?</p>
-    <a href="/legal/faq">View FAQ</a>
-    <a href="/legal/help">Contact Support</a>
-  </div>
-</main>
+<div class="doc-container">
+  <h1>Managira User Documentation</h1>
+  <p>
+    Our comprehensive guide covers everything you need to manage your school on Managira — from initial setup and student admissions to assessments, report cards, attendance, guardian portal, promotions, and more.
+  </p>
+  <a
+    href="https://docs.google.com/document/d/1bgFP5cCQyr-9jdaYZTsWO8ONAnAuNUKqKQ2if_4TBOM/edit?usp=drivesdk"
+    target="_blank"
+    rel="noopener noreferrer"
+    class="doc-link-btn"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+    Open User Documentation
+  </a>
+</div>
