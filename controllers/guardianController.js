@@ -5,6 +5,10 @@ function getOrdinalSuffix(n) {
 }
 
 const { uploadToS3, deleteFromS3 } = require("../middleware/s3Upload");
+const {
+  notifyStaffOnGuardianReportCreated,
+  notifyStaffOnGuardianReply,
+} = require("../utils/notificationDigestService");
 
 module.exports = {
   dashboardGet: async (req, res, db) => {
@@ -742,6 +746,14 @@ module.exports = {
         }
       }
 
+      // Notify selected school staff that a guardian has filed a report.
+      notifyStaffOnGuardianReportCreated(db, {
+        organizationId,
+        reportId,
+      }).catch((notifyError) => {
+        console.error("[Guardian Report] Staff notification failed:", notifyError.message);
+      });
+
       req.flash('success', 'Report submitted successfully! The school will review and respond soon.');
       return res.redirect('/guardian/report');
     } catch (error) {
@@ -1144,6 +1156,14 @@ module.exports = {
         }
       }
 
+      // Notify selected school staff that a guardian has filed a report.
+      notifyStaffOnGuardianReportCreated(db, {
+        organizationId,
+        reportId,
+      }).catch((notifyError) => {
+        console.error("[Guardian Report] Staff notification failed:", notifyError.message);
+      });
+
       req.flash('success', 'Report submitted successfully');
       res.redirect(`/guardian/reports/${reportId}`);
     } catch (error) {
@@ -1235,6 +1255,15 @@ module.exports = {
          VALUES ($1, 'guardian', $2, $3, $4)`,
         [reportId, guardianId, guardianInfo.rows[0].name, message]
       );
+
+      // Notify relevant school staff that the guardian replied.
+      notifyStaffOnGuardianReply(db, {
+        organizationId,
+        reportId: Number.parseInt(reportId, 10),
+        replyMessage: message,
+      }).catch((notifyError) => {
+        console.error("[Guardian Reply] Staff notification failed:", notifyError.message);
+      });
 
       // Update report status to in_progress if it was open
       await db.query(

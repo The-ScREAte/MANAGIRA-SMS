@@ -36,6 +36,7 @@ const {
   getTermRecord,
 } = require("../utils/attendanceCalendar");
 const { hasGuardianPortalFeature } = require("../utils/guardianPortalAccess");
+const { triggerAbsenceAlertsForStudents, broadcastEventAnnouncement, notifyGuardiansOnClassChange, notifyTeacherOnReassignment, notifyTeachersOnAssessmentControl, resolveAssignmentNames, notifyEmployeeOnHoldChange, notifyGuardianAdmissionReceived, notifyGuardianOnStaffReply } = require("../utils/notificationDigestService");
 
 // Configure AWS S3
 const s3 = new S3Client({
@@ -2803,6 +2804,18 @@ const commonController = {
       req.session.pendingStudentId = pendingStudentId;
       console.log('[Public Register] ✅ Session updated with pending student ID');
 
+      // Send admission received confirmation to guardian
+      const guardianEmail = body.guardianEmail0 || body.existingGuardianEmail || null;
+      const guardianFirstName = body.guardianFirstName0 || "Parent/Guardian";
+      if (guardianEmail) {
+        notifyGuardianAdmissionReceived(db, {
+          organizationId,
+          guardianEmail,
+          guardianFirstName,
+          studentName: `${body.firstName} ${body.lastName}`,
+        }).catch(err => console.error("[Notify] Admission confirmation failed:", err.message));
+      }
+
       // Send response for payment initiation
       console.log('[Public Register] ✅✅✅ SUCCESS! Returning response:', { success: true, amount, currency, pendingStudentId });
       res.json({ success: true, amount, currency, pendingStudentId });
@@ -4253,6 +4266,16 @@ const commonController = {
 
       await db.query("BEGIN"); // Start a database transaction
 
+      // Fetch old class info before update (for class-change notification)
+      const oldStudentResult = await db.query(
+        `SELECT s.class_id, c.class_name AS old_class_name
+         FROM students s LEFT JOIN classes c ON c.class_id = s.class_id
+         WHERE s.student_id = $1 AND s.organization_id = $2`,
+        [studentId, req.session.organizationId]
+      );
+      const oldClassId = oldStudentResult.rows[0]?.class_id;
+      const oldClassName = oldStudentResult.rows[0]?.old_class_name;
+
       // Update student details
       const updateStudentQuery = `
             UPDATE students
@@ -4321,6 +4344,24 @@ const commonController = {
       }
 
       await db.query("COMMIT"); // Commit the transaction
+
+      // Notify guardians if class changed
+      if (classId && String(classId) !== String(oldClassId)) {
+        const newClassResult = await db.query(
+          `SELECT class_name FROM classes WHERE class_id = $1`, [classId]
+        );
+        const newClassName = newClassResult.rows[0]?.class_name;
+        if (oldClassName && newClassName) {
+          notifyGuardiansOnClassChange(db, {
+            organizationId: req.session.organizationId,
+            studentId,
+            studentName: `${firstName} ${lastName}`,
+            oldClassName,
+            newClassName,
+          }).catch(err => console.error("[Notify] Class change notification failed:", err.message));
+        }
+      }
+
       req.flash("success", "Student updated successfully.");
       res.redirect("/common/editStudent?studentId=" + studentId);
     } catch (error) {
@@ -4838,8 +4879,13 @@ const commonController = {
 
       await db.query("BEGIN");
 
+      const touchedStudentIds = [];
       for (const studentId in attendance) {
         const status = attendance[studentId];
+        const parsedStudentId = Number.parseInt(studentId, 10);
+        if (Number.isInteger(parsedStudentId)) {
+          touchedStudentIds.push(parsedStudentId);
+        }
 
         await db.query(
           `
@@ -4860,6 +4906,16 @@ const commonController = {
       }
 
       await db.query("COMMIT");
+
+      // Trigger parent absence-threshold checks in background; dedupe protects against duplicate sends.
+      if (touchedStudentIds.length > 0) {
+        setImmediate(() => {
+          triggerAbsenceAlertsForStudents(db, organizationId, touchedStudentIds).catch((notifyError) => {
+            console.error("[Attendance] Absence-threshold notification trigger failed:", notifyError.message);
+          });
+        });
+      }
+
       res.json({ success: true });
     } catch (error) {
       await db.query("ROLLBACK");
@@ -5178,11 +5234,16 @@ const commonController = {
       console.info(`[CreateEmployee:POST][${postId}] step9_commit_done`, { userId, elapsed: elapsed() });
 
       setImmediate(async () => {
-        const sent = await sendInviteEmail(email, firstName, lastName, setPasswordUrl, organizationName);
-        if (!sent) {
-          console.warn(`[CreateEmployee:POST][${postId}] email_send_FAILED for user ${userId} (${email})`);
-        } else {
-          console.info(`[CreateEmployee:POST][${postId}] email_sent for user ${userId}`);
+        try {
+          const { classNames, subjectNames } = await resolveAssignmentNames(db, normalizedClassIds, normalizedSubjectIds);
+          const sent = await sendInviteEmail(email, firstName, lastName, setPasswordUrl, organizationName, classNames, subjectNames);
+          if (!sent) {
+            console.warn(`[CreateEmployee:POST][${postId}] email_send_FAILED for user ${userId} (${email})`);
+          } else {
+            console.info(`[CreateEmployee:POST][${postId}] email_sent for user ${userId}`);
+          }
+        } catch (err) {
+          console.warn(`[CreateEmployee:POST][${postId}] email_send_ERROR:`, err.message);
         }
       });
 
@@ -5673,7 +5734,16 @@ const commonController = {
         "UPDATE users SET on_hold = NOT on_hold WHERE user_id = $1 AND organization_id = $2 RETURNING on_hold",
         [userId, req.session.organizationId]
       );
-      const newStatus = result.rows[0].on_hold ? "on hold" : "resumed";
+      const onHold = result.rows[0].on_hold;
+      const newStatus = onHold ? "on hold" : "resumed";
+
+      // Notify the employee
+      notifyEmployeeOnHoldChange(db, {
+        organizationId: req.session.organizationId,
+        userId,
+        onHold,
+      }).catch(err => console.error("[Notify] Hold/resume notification failed:", err.message));
+
       req.flash("success", `Employee has been ${newStatus}.`);
       res.redirect(`/common/modifyEmployee?userId=${userId}`);
     } catch (error) {
@@ -5880,6 +5950,18 @@ const commonController = {
       await client.query("BEGIN");
       console.info(`[ModifyEmployee:POST][${modId2}] transaction_begun`, { elapsed: elapsed() });
 
+      // Fetch old class/subject assignments for change detection
+      const oldClassesResult = await client.query(
+        `SELECT c.class_name FROM user_classes uc JOIN classes c ON c.class_id = uc.class_id WHERE uc.user_id = $1 ORDER BY c.class_name`,
+        [userId]
+      );
+      const oldClassNames = oldClassesResult.rows.map(r => r.class_name);
+      const oldSubjectsResult = await client.query(
+        `SELECT s.subject_name FROM user_subjects us JOIN subjects s ON s.subject_id = us.subject_id WHERE us.user_id = $1 ORDER BY s.subject_name`,
+        [userId]
+      );
+      const oldSubjectNames = oldSubjectsResult.rows.map(r => r.subject_name);
+
       const currentUserResult = await client.query(
         "SELECT email FROM users WHERE user_id = $1 AND organization_id = $2",
         [userId, organizationId]
@@ -5989,6 +6071,22 @@ const commonController = {
       await client.query("COMMIT");
       invalidateUserPermissionCache(organizationId, userId);
       console.info(`[ModifyEmployee:POST][${modId}] ====== COMMITTED — total ${elapsed()} ======\n`);
+
+      // Notify teacher about assignment changes (fire-and-forget)
+      (async () => {
+        try {
+          const { classNames: newClassNames, subjectNames: newSubjectNames } = await resolveAssignmentNames(db, normalizedClassIds, normalizedSubjectIds);
+          await notifyTeacherOnReassignment(db, {
+            organizationId, userId,
+            teacherName: `${firstName} ${lastName}`,
+            teacherEmail: email,
+            oldClasses: oldClassNames,
+            newClasses: newClassNames,
+            oldSubjects: oldSubjectNames,
+            newSubjects: newSubjectNames,
+          });
+        } catch (err) { console.error("[Notify] Teacher reassignment notification failed:", err.message); }
+      })();
 
       req.flash("success", "Employee details updated successfully.");
       // Redirect back to the same employee page so the user can immediately
@@ -6948,6 +7046,10 @@ const commonController = {
         `,
         [value, groupId, organizationId, termId]
       );
+
+      // Notify teachers about the assessment control change
+      notifyTeachersOnAssessmentControl(db, { organizationId, groupId, termId, action })
+        .catch(err => console.error("[Notify] Assessment control notification failed:", err.message));
 
       return res.status(200).json({ message: "Assessment control updated successfully." });
     } catch (error) {
@@ -8205,10 +8307,12 @@ const commonController = {
 
       const { school_year_id, term_id } = currentSchoolYearTerm.rows[0];
 
+      const notifyByEmail = req.body.notifyByEmail === 'true' || req.body.notifyByEmail === '1';
+
       if (type === "event") {
         // Insert new event with the current school year and term
-        await db.query(
-          "INSERT INTO school_events (name, event_date, details, visibility, organization_id, school_year_id, term_id) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        const insertResult = await db.query(
+          "INSERT INTO school_events (name, event_date, details, visibility, organization_id, school_year_id, term_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
           [
             req.body.eventName,
             req.body.eventDate,
@@ -8219,10 +8323,23 @@ const commonController = {
             term_id,
           ]
         );
+
+        if (notifyByEmail) {
+          const contentId = insertResult.rows[0]?.id;
+          broadcastEventAnnouncement(db, {
+            organizationId: req.session.organizationId,
+            contentType: 'event',
+            visibility: req.body.visibility || 'both',
+            title: req.body.eventName,
+            body: req.body.eventDetails,
+            eventDate: req.body.eventDate,
+            contentId,
+          }).catch((err) => console.error('[Broadcast] Event notification failed:', err.message));
+        }
       } else if (type === "announcement") {
         // Insert new announcement with the current school year and term
-        await db.query(
-          "INSERT INTO announcements (message, visibility, organization_id, school_year_id, term_id) VALUES ($1, $2, $3, $4, $5)",
+        const insertResult = await db.query(
+          "INSERT INTO announcements (message, visibility, organization_id, school_year_id, term_id) VALUES ($1, $2, $3, $4, $5) RETURNING announcement_id",
           [
             req.body.announcementMessage,
             req.body.visibility,
@@ -8231,9 +8348,23 @@ const commonController = {
             term_id,
           ]
         );
+
+        if (notifyByEmail) {
+          const contentId = insertResult.rows[0]?.announcement_id;
+          broadcastEventAnnouncement(db, {
+            organizationId: req.session.organizationId,
+            contentType: 'announcement',
+            visibility: req.body.visibility || 'both',
+            title: (req.body.announcementMessage || '').substring(0, 80),
+            body: req.body.announcementMessage,
+            contentId,
+          }).catch((err) => console.error('[Broadcast] Announcement notification failed:', err.message));
+        }
       }
 
-      req.flash("success", "Event/Announcement created successfully.");
+      req.flash("success", notifyByEmail
+        ? "Event/Announcement created and email notifications are being sent."
+        : "Event/Announcement created successfully.");
       res.redirect("/common/manageEventsAnnouncements");
     } catch (err) {
       // Log the error to understand what went wrong
@@ -8292,6 +8423,7 @@ const commonController = {
     const eventDate = req.body.eventDate;
     const eventDetails = req.body.eventDetails || req.body.details;
     const organizationId = req.session.organizationId;
+    const notifyByEmail = req.body.notifyByEmail === 'true' || req.body.notifyByEmail === '1';
     try {
       const updateResult = await db.query(
         "UPDATE school_events SET name = $1, event_date = $2, details = $3, visibility = $4 WHERE id = $5 AND organization_id = $6",
@@ -8299,8 +8431,20 @@ const commonController = {
       );
       if (updateResult.rowCount === 0) {
         req.flash("error", "Event not found.");
+      } else if (notifyByEmail) {
+        broadcastEventAnnouncement(db, {
+          organizationId,
+          contentType: 'event',
+          visibility: visibility || 'both',
+          title: eventName,
+          body: eventDetails,
+          eventDate,
+          contentId: id,
+        }).catch((err) => console.error('[Broadcast] Event update notification failed:', err.message));
       }
-      req.flash("success", "Event updated successfully.");
+      req.flash("success", notifyByEmail
+        ? "Event updated and email notifications are being sent."
+        : "Event updated successfully.");
       res.redirect("/common/manageEventsAnnouncements");
     } catch (err) {
       req.flash("error", "Error updating event.");
@@ -8312,12 +8456,25 @@ const commonController = {
   updateAnnouncement: async (req, res, db) => {
     const { id, visibility } = req.body;
     const announcementMessage = req.body.announcementMessage || req.body.message;
+    const notifyByEmail = req.body.notifyByEmail === 'true' || req.body.notifyByEmail === '1';
     try {
       await db.query(
         "UPDATE announcements SET message = $1, visibility = $2 WHERE announcement_id = $3 AND organization_id = $4",
         [announcementMessage, visibility, id, req.session.organizationId]
       );
-      req.flash("success", "Announcement updated successfully.");
+      if (notifyByEmail) {
+        broadcastEventAnnouncement(db, {
+          organizationId: req.session.organizationId,
+          contentType: 'announcement',
+          visibility: visibility || 'both',
+          title: (announcementMessage || '').substring(0, 80),
+          body: announcementMessage,
+          contentId: id,
+        }).catch((err) => console.error('[Broadcast] Announcement update notification failed:', err.message));
+      }
+      req.flash("success", notifyByEmail
+        ? "Announcement updated and email notifications are being sent."
+        : "Announcement updated successfully.");
       res.redirect("/common/manageEventsAnnouncements");
     } catch (err) {
       req.flash("error", "Error updating announcement.");
@@ -9694,7 +9851,10 @@ const commonController = {
       const organizationId = req.session.organizationId;
       const userId = req.session.userId;
       const { guardianId, studentId, reportType, message, sendEmail } = req.body;
-      const sendEmailRequested = sendEmail === true || sendEmail === 'true' || sendEmail === 1 || sendEmail === '1';
+      const sendEmailRequested =
+        sendEmail === undefined || sendEmail === null
+          ? true
+          : (sendEmail === true || sendEmail === 'true' || sendEmail === 1 || sendEmail === '1');
       const trimmedMessage = String(message || '').trim();
 
       if (!trimmedMessage || !studentId || !guardianId) {
@@ -9862,6 +10022,108 @@ const commonController = {
     } catch (error) {
       console.error('Staff report error:', error);
       return res.status(500).json({ success: false, error: 'Error submitting report' });
+    }
+  },
+
+  /**
+   * Staff replies to an existing guardian report — inserts a reply and notifies the guardian.
+   */
+  staffReplyToReport: async (req, res, db) => {
+    try {
+      const organizationId = req.session.organizationId;
+      const userId = req.session.userId;
+      const { reportId, message } = req.body;
+      const trimmedMessage = String(message || "").trim();
+
+      if (!reportId || !trimmedMessage) {
+        return res.status(400).json({ success: false, error: "Report ID and message are required." });
+      }
+
+      // Get report info
+      const reportResult = await db.query(
+        `SELECT r.report_id, r.guardian_id, r.student_id, r.subject, r.organization_id
+         FROM guardian_reports r
+         WHERE r.report_id = $1 AND r.organization_id = $2 AND r.deleted_at IS NULL`,
+        [reportId, organizationId]
+      );
+      if (!reportResult.rows.length) {
+        return res.status(404).json({ success: false, error: "Report not found." });
+      }
+      const report = reportResult.rows[0];
+
+      // Get staff name
+      const staffResult = await db.query(
+        `SELECT first_name, last_name FROM users WHERE user_id = $1`, [userId]
+      );
+      const staffName = staffResult.rows[0]
+        ? `${staffResult.rows[0].first_name} ${staffResult.rows[0].last_name}`.trim()
+        : "Staff";
+
+      // Ensure reply table exists
+      await db.query(
+        `CREATE TABLE IF NOT EXISTS guardian_report_replies (
+          reply_id SERIAL PRIMARY KEY,
+          report_id INTEGER NOT NULL,
+          sender_type VARCHAR(20) NOT NULL,
+          sender_id INTEGER,
+          sender_name VARCHAR(255),
+          message TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT NOW()
+        )`
+      );
+
+      // Insert reply
+      await db.query(
+        `INSERT INTO guardian_report_replies (report_id, sender_type, sender_id, sender_name, message)
+         VALUES ($1, 'staff', $2, $3, $4)`,
+        [reportId, userId, staffName, trimmedMessage]
+      );
+
+      // Update report status
+      await db.query(
+        `UPDATE guardian_reports SET status = 'in_progress', updated_at = NOW() WHERE report_id = $1`,
+        [reportId]
+      );
+
+      // Get guardian email and student name for notification
+      const guardianInfo = await db.query(
+        `SELECT COALESCE(gp.email, g.email) AS email, COALESCE(gp.first_name, g.first_name) AS first_name
+         FROM guardian_reports r
+         LEFT JOIN guardian_profiles gp ON gp.guardian_id = r.guardian_id AND gp.organization_id = r.organization_id
+         LEFT JOIN guardians g ON g.guardian_id = r.guardian_id AND g.organization_id = r.organization_id
+         WHERE r.report_id = $1`,
+        [reportId]
+      );
+      const guardianEmail = guardianInfo.rows[0]?.email;
+      const guardianFirstName = guardianInfo.rows[0]?.first_name;
+
+      let studentName = "";
+      if (report.student_id) {
+        const studentResult = await db.query(
+          `SELECT first_name || ' ' || last_name AS name FROM students WHERE student_id = $1`,
+          [report.student_id]
+        );
+        studentName = studentResult.rows[0]?.name || "";
+      }
+
+      // Notify guardian
+      if (guardianEmail) {
+        notifyGuardianOnStaffReply(db, {
+          organizationId,
+          reportId,
+          guardianEmail,
+          guardianFirstName,
+          staffName,
+          replyMessage: trimmedMessage,
+          studentName,
+          reportSubject: report.subject,
+        }).catch(err => console.error("[Notify] Staff reply to guardian notification failed:", err.message));
+      }
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Staff reply error:", error);
+      return res.status(500).json({ success: false, error: "Error submitting reply." });
     }
   },
 
@@ -10293,14 +10555,26 @@ async function sendInviteEmail(
   firstName,
   lastName,
   link,
-  organizationName
+  organizationName,
+  classNames = [],
+  subjectNames = []
 ) {
+  const assignmentDetails = [];
+  if (classNames.length) {
+    assignmentDetails.push({ label: "Assigned Classes", value: classNames.map(n => he.encode(n)).join(", ") });
+  }
+  if (subjectNames.length) {
+    assignmentDetails.push({ label: "Assigned Subjects", value: subjectNames.map(n => he.encode(n)).join(", ") });
+  }
+
   const html = renderCleanEmail({
     title: `You're Invited to Join ${he.encode(organizationName)}`,
     greeting: `Hello <strong>${he.encode(firstName)} ${he.encode(lastName)}</strong>,`,
     paragraphs: [
       `${he.encode(organizationName)} is inviting you to join their institution. Accept this invitation to set your password.`,
+      ...(assignmentDetails.length ? ["Here are your initial assignments:"] : []),
     ],
+    details: assignmentDetails.length ? assignmentDetails : undefined,
     cta: {
       text: "Accept Invite & Set Password",
       url: he.encode(link),

@@ -471,6 +471,15 @@
                   <% } %>
                 </select>
               </div>
+              <div class="form-group">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.88rem;font-weight:600;color:var(--text-2);">
+                  <input type="checkbox" name="notifyByEmail" value="true" class="notify-toggle" style="width:16px;height:16px;accent-color:var(--primary);" />
+                  Notify everyone by email
+                </label>
+                <p style="margin:4px 0 0;font-size:.78rem;color:var(--muted);" class="notify-hint">
+                  This will notify everyone — all staff and parents.
+                </p>
+              </div>
               <button class="btn btn-primary btn-full" type="submit">Save Event</button>
             </form>
           </div>
@@ -532,6 +541,12 @@
                           <% } %>
                         </select>
                       </div>
+                      <div class="form-group">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.88rem;font-weight:600;color:var(--text-2);">
+                          <input type="checkbox" name="notifyByEmail" value="true" class="notify-toggle" style="width:16px;height:16px;accent-color:var(--primary);" />
+                          Notify everyone by email
+                        </label>
+                      </div>
                       <div class="item-actions">
                         <button class="btn btn-primary btn-sm" type="submit">Update Event</button>
                       </div>
@@ -587,6 +602,15 @@
                   <% } %>
                 </select>
               </div>
+              <div class="form-group">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.88rem;font-weight:600;color:var(--text-2);">
+                  <input type="checkbox" name="notifyByEmail" value="true" class="notify-toggle" style="width:16px;height:16px;accent-color:var(--primary);" />
+                  Notify everyone by email
+                </label>
+                <p style="margin:4px 0 0;font-size:.78rem;color:var(--muted);" class="notify-hint">
+                  This will notify everyone — all staff and parents.
+                </p>
+              </div>
               <button class="btn btn-primary btn-full" type="submit">Post Announcement</button>
             </form>
           </div>
@@ -637,6 +661,12 @@
                           <option value="both"   <%= (ann.visibility === 'both' || !ann.visibility) ? 'selected' : '' %>>Both</option>
                           <% } %>
                         </select>
+                      </div>
+                      <div class="form-group">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.88rem;font-weight:600;color:var(--text-2);">
+                          <input type="checkbox" name="notifyByEmail" value="true" class="notify-toggle" style="width:16px;height:16px;accent-color:var(--primary);" />
+                          Notify everyone by email
+                        </label>
                       </div>
                       <div class="item-actions">
                         <button class="btn btn-primary btn-sm" type="submit">Update</button>
@@ -691,6 +721,47 @@
       setTimeout(function() { if (el.parentNode) el.parentNode.removeChild(el); }, 400);
     });
   }, 4000);
+
+  // ── Notify hint + confirmation helpers ────────────────────────
+  var hintMessages = {
+    org:    'This will notify all internal staff (teachers, supervisors, managers).',
+    public: 'This will notify all parents/guardians only.',
+    both:   'This will notify everyone \u2014 all staff and parents/guardians.'
+  };
+
+  // Update hint text whenever visibility changes
+  function updateNotifyHint(form) {
+    var vis = form.querySelector('select[name="visibility"]');
+    var hint = form.querySelector('.notify-hint');
+    if (vis && hint) hint.textContent = hintMessages[vis.value] || hintMessages.both;
+  }
+
+  // Wire up all forms that have a notify checkbox
+  document.querySelectorAll('form').forEach(function(form) {
+    var vis = form.querySelector('select[name="visibility"]');
+    var hint = form.querySelector('.notify-hint');
+    if (vis && hint) {
+      updateNotifyHint(form);
+      vis.addEventListener('change', function() { updateNotifyHint(form); });
+    }
+
+    form.addEventListener('submit', function(e) {
+      var cb = form.querySelector('.notify-toggle');
+      if (!cb || !cb.checked) return;
+
+      var v = vis ? vis.value : 'both';
+      var audience = v === 'org'
+        ? 'all internal staff (teachers, supervisors, managers)'
+        : v === 'public'
+        ? 'all parents/guardians only'
+        : 'everyone \u2014 all internal staff AND parents/guardians';
+
+      if (!confirm('This will send an email notification to ' + audience + '. Continue?')) {
+        e.preventDefault();
+        cb.checked = false;
+      }
+    });
+  });
 </script>
 </body>
 </html>

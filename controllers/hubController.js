@@ -1703,15 +1703,22 @@ const hubController = {
         title: 'Detachment Request Approved',
         greeting: `Dear ${request.organization_name} Administrator,`,
         paragraphs: [
-          `Your request to detach from ${hub.hub_name} has been approved.`,
-          'Log in to your dashboard and set up your own subscription plan to continue service.',
-          'If you need help, contact info@managira.com.',
+          `Your request to detach from <strong>${hub.hub_name}</strong> has been approved. Your organization is now independent.`,
+          '<strong>What happens next:</strong>',
+          '1. Your organization data remains fully intact — nothing has been deleted.',
+          '2. You will need to set up your own subscription plan to continue using Managira.',
+          '3. Log in to your dashboard and navigate to Billing to choose a plan.',
+          '4. If you were using a custom subdomain under the hub, your new subdomain is shown below.',
+          'If you need any assistance during this transition, don\'t hesitate to reach out.',
         ],
         details: [
-          { label: 'Status', value: 'Approved' },
-          { label: 'New Subdomain', value: `${request.nickname}.managira.com` },
-          { label: 'Data', value: 'All your organization data remains intact' },
+          { label: 'Status', value: 'Approved — Now Independent' },
+          { label: 'Previous Hub', value: hub.hub_name },
+          { label: 'Your Subdomain', value: `${request.nickname}.managira.com` },
+          { label: 'Your Data', value: 'All organization data remains intact' },
+          { label: 'Next Step', value: 'Set up your own subscription plan in Billing settings' },
         ],
+        note: 'Need help? Contact us at info@managira.com or visit managira.com/legal/help.',
       });
 
       await sendEmail({
@@ -1773,12 +1780,19 @@ const hubController = {
         title: 'Detachment Request Update',
         greeting: `Dear ${request.organization_name} Administrator,`,
         paragraphs: [
-          `Your request to detach from ${hub.hub_name} has been reviewed.`,
-          notes ? `Response from ${hub.hub_name}: ${notes}` : '',
-          `If you wish to discuss this decision, contact ${hub.hub_name} at ${hub.hub_email}.`,
-          'You can submit a new request in the future if needed.',
+          `Your request to detach from <strong>${hub.hub_name}</strong> has been reviewed and was not approved at this time.`,
+          notes ? `<strong>Reason from ${hub.hub_name}:</strong> ${notes}` : '',
+          `If you would like to discuss this decision, you can contact ${hub.hub_name} directly at <strong>${hub.hub_email}</strong>.`,
+          'Your organization continues to operate as part of the hub with no changes to your data or access.',
+          'You may submit a new detachment request in the future if needed.',
         ].filter(Boolean),
-        details: [{ label: 'Status', value: 'Reviewed' }],
+        details: [
+          { label: 'Status', value: 'Not Approved' },
+          { label: 'Hub', value: hub.hub_name },
+          { label: 'Hub Contact', value: hub.hub_email },
+          { label: 'Your Access', value: 'Unchanged — all services remain active' },
+        ],
+        note: 'Need help? Contact us at info@managira.com or visit managira.com/legal/help.',
       });
 
       await sendEmail({

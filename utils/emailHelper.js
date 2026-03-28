@@ -1,4 +1,76 @@
 const nodemailer = require("nodemailer");
+const dns = require("dns");
+require("dotenv").config();
+
+// Cache verified domains to avoid repeated DNS lookups
+const _domainCache = new Map();
+
+/**
+ * Check if an email domain has valid MX records (can actually receive mail).
+ * Results are cached for the lifetime of the process.
+ */
+async function hasMxRecords(email) {
+  const domain = String(email).split("@")[1];
+  if (!domain) return false;
+
+  if (_domainCache.has(domain)) return _domainCache.get(domain);
+
+  try {
+    const records = await dns.promises.resolveMx(domain);
+    // Filter out parked/catch-all domains with dummy MX records like "~" or "."
+    const realRecords = (records || []).filter(r =>
+      r.exchange && r.exchange.length > 2 && r.exchange !== "~" && r.exchange !== "."
+    );
+    const valid = realRecords.length > 0;
+    _domainCache.set(domain, valid);
+    return valid;
+  } catch (_err) {
+    _domainCache.set(domain, false);
+    return false;
+  }
+}
+
+function firstNonEmpty(...values) {
+  for (const value of values) {
+    if (value !== undefined && value !== null && String(value).trim() !== "") {
+      return String(value).trim();
+    }
+  }
+  return "";
+}
+
+function resolveSmtpConfig() {
+  const user = firstNonEmpty(
+    process.env.ADMIN_NOTIFY_EMAIL_USER,
+    process.env.NOTIFY_EMAIL_USER,
+    process.env.EMAIL_USER,
+    process.env.SMTP_USER,
+    process.env.MAIL_USER
+  );
+
+  const pass = firstNonEmpty(
+    process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
+    process.env.NOTIFY_EMAIL_PASSWORD,
+    process.env.EMAIL_PASSWORD,
+    process.env.EMAIL_PASS,
+    process.env.SMTP_PASSWORD,
+    process.env.SMTP_PASS,
+    process.env.MAIL_PASSWORD,
+    process.env.MAIL_PASS
+  );
+
+  const host = firstNonEmpty(
+    process.env.SMTP_HOST,
+    process.env.EMAIL_HOST,
+    process.env.MAIL_HOST,
+    "smtp.zoho.com"
+  );
+
+  const port = firstNonEmpty(process.env.SMTP_PORT, process.env.EMAIL_PORT, process.env.MAIL_PORT, "587");
+  const secure = firstNonEmpty(process.env.SMTP_SECURE, process.env.EMAIL_SECURE, process.env.MAIL_SECURE, "false");
+
+  return { user, pass, host, port, secure };
+}
 
 function escapeHtml(value = "") {
   return String(value)
@@ -108,11 +180,7 @@ let _transporter = null;
 let _transporterConfig = null;
 
 function getTransporter() {
-  const user = process.env.ADMIN_NOTIFY_EMAIL_USER;
-  const pass = process.env.ADMIN_NOTIFY_EMAIL_PASSWORD;
-  const host = process.env.SMTP_HOST;
-  const port = process.env.SMTP_PORT;
-  const secure = process.env.SMTP_SECURE;
+  const { user, pass, host, port, secure } = resolveSmtpConfig();
 
   // Rebuild if config has changed (e.g. env hot-reload) or not yet created.
   const configKey = `${user}:${host}:${port}:${secure}`;
@@ -131,6 +199,12 @@ function getTransporter() {
     connectionTimeout: 10000,  // 10s to establish connection
     greetingTimeout: 10000,    // 10s for SMTP greeting
     socketTimeout: 15000,      // 15s for socket inactivity
+    dsn: {
+      id: 'managira-notify',
+      return: 'HDRS',
+      notify: ['NEVER'],       // suppress all bounce-back / DSN replies
+      recipient: user,
+    },
   });
 
   _transporterConfig = configKey;
@@ -144,15 +218,31 @@ function getTransporter() {
 async function sendEmailSafely(mailOptions, context = "Email") {
   const sendStart = Date.now();
   try {
-    if (!process.env.ADMIN_NOTIFY_EMAIL_USER || !process.env.ADMIN_NOTIFY_EMAIL_PASSWORD) {
+    const { user, pass } = resolveSmtpConfig();
+
+    if (!user || !pass) {
       console.warn(`[Email][${context}] SMTP credentials not configured — skipping.`);
+      return false;
+    }
+
+    // Validate recipient email before attempting send
+    const recipient = String(mailOptions.to || "").trim().toLowerCase();
+    if (!recipient || !/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/.test(recipient)) {
+      console.warn(`[Email][${context}] Invalid recipient address "${mailOptions.to}" — skipping.`);
+      return false;
+    }
+
+    // Verify the domain can receive email (has MX records)
+    const domainOk = await hasMxRecords(recipient);
+    if (!domainOk) {
+      console.warn(`[Email][${context}] Domain has no MX records for "${recipient}" — skipping.`);
       return false;
     }
 
     const transporter = getTransporter();
 
     // Always use the authenticated SMTP user as the from address
-    const from = process.env.ADMIN_NOTIFY_EMAIL_USER;
+    const from = user;
 
     // Strip smtpConfig if caller passed it (we ignore custom transporter configs)
     const { smtpConfig, from: _ignoredFrom, ...restOptions } = mailOptions;
@@ -162,6 +252,11 @@ async function sendEmailSafely(mailOptions, context = "Email") {
     const info = await transporter.sendMail({
       from,
       ...restOptions,
+      headers: {
+        ...restOptions.headers,
+        'X-Auto-Response-Suppress': 'All',
+        'Auto-Submitted': 'auto-generated',
+      },
     });
 
     console.info(`[Email][${context}] SMTP sent OK in ${Date.now() - sendStart}ms`, info.messageId);
@@ -171,9 +266,10 @@ async function sendEmailSafely(mailOptions, context = "Email") {
     _transporterConfig = null;
     console.error(`[Email][${context}] SMTP FAILED after ${Date.now() - sendStart}ms:`, error.message);
     if (error.code === 'EAUTH') {
-      console.error(`[Email][${context}] Authentication failed — check ADMIN_NOTIFY_EMAIL_USER / ADMIN_NOTIFY_EMAIL_PASSWORD.`);
+      console.error(`[Email][${context}] Authentication failed — check ADMIN_NOTIFY_EMAIL_*, NOTIFY_EMAIL_*, EMAIL_* or SMTP_* credentials.`);
     } else if (error.code === 'ECONNECTION' || error.code === 'ETIMEDOUT' || error.code === 'ESOCKET') {
-      console.error(`[Email][${context}] SMTP connection failed — SMTP_HOST=${process.env.SMTP_HOST} SMTP_PORT=${process.env.SMTP_PORT}`);
+      const smtp = resolveSmtpConfig();
+      console.error(`[Email][${context}] SMTP connection failed — SMTP_HOST=${smtp.host} SMTP_PORT=${smtp.port}`);
     }
     return false;
   }

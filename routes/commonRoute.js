@@ -167,6 +167,9 @@ module.exports = (db) => {
   router.post("/staffReportStudent", checkFeatureAccess, isAuthenticated, (req, res) =>
     commonController.staffReportStudent(req, res, db)
   );
+  router.post("/staffReplyToReport", checkFeatureAccess, isAuthenticated, (req, res) =>
+    commonController.staffReplyToReport(req, res, db)
+  );
   
   router.get("/editStudent", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) =>
     commonController.editStudentGet(req, res, db)
