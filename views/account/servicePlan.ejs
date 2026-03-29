@@ -95,18 +95,22 @@
       }
 
       .plan-card.selected::after {
-        content: "Selected";
+        content: "✓";
         position: absolute;
         top: 10px;
         right: 10px;
-        background: #ffffff;
-        color: var(--brand);
-        border: 1px solid rgba(1, 83, 91, 0.25);
-        border-radius: 999px;
-        padding: 4px 10px;
-        font-size: 11px;
+        background: var(--brand);
+        color: #fff;
+        border: none;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
         font-weight: 700;
-        letter-spacing: 0.02em;
+        line-height: 1;
       }
 
       .plan-card.selected .plan-name {
@@ -167,18 +171,6 @@
         color: var(--text-main);
       }
 
-      .price-old {
-        display: block;
-        margin: 0;
-        font-size: 0.95rem;
-        color: #8a96a6;
-        text-decoration: line-through;
-      }
-
-      .price-free {
-        color: #0d8d5d;
-      }
-
       .price-caption {
         margin-top: 4px;
         font-size: 13px;
@@ -192,17 +184,167 @@
         font-weight: 500;
       }
 
-      .plan-trial-tag {
-        margin-top: 8px;
-        font-size: 13px;
-        color: #0d8d5d;
+      .price-after-trial {
+        margin-top: 3px;
+        font-size: 12px;
+        color: #5f6b7a;
+        font-style: italic;
+      }
+
+      /* ── Collapsible inherited features in higher plans ── */
+      .core-toggle {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 0;
+        padding: 10px 10px;
+        border: none;
+        border-radius: 8px;
+        background: #f0f5f5;
+        cursor: pointer;
+        font-family: var(--font-family);
+        font-size: 12.5px;
         font-weight: 600;
+        color: var(--brand);
+        transition: background 0.18s, color 0.15s;
+        width: 100%;
+      }
+
+      .core-toggle:hover {
+        background: #e2eded;
+        color: var(--brand-hover);
+      }
+
+      .core-toggle .toggle-arrow {
+        display: inline-block;
+        font-size: 9px;
+        transition: transform 0.2s ease;
+      }
+
+      .core-toggle.open .toggle-arrow {
+        transform: rotate(90deg);
+      }
+
+      .core-features-collapse {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease;
+      }
+
+      .core-features-collapse.open {
+        max-height: 500px;
+      }
+
+      .core-features-collapse .feature-list {
+        border-top: none;
+        padding-top: 6px;
+      }
+
+      .core-features-collapse .feature-list li {
+        font-size: 13px;
+        color: var(--text-muted);
+      }
+
+      /* ── Footer billing note ── */
+      .billing-footer-note {
+        margin: 10px 0 0;
+        text-align: center;
+        font-size: 12px;
+        color: var(--text-muted);
+        line-height: 1.4;
+      }
+
+      /* ── Billing Period Cards (secondary) ── */
+      .period-section {
+        margin-top: 16px;
+        padding: 0;
+      }
+
+      .period-section h3 {
+        margin: 0 0 8px;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-align: center;
+        letter-spacing: 0.01em;
+        text-transform: uppercase;
+      }
+
+      .period-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 8px;
+        max-width: 720px;
+        margin: 0 auto;
+      }
+
+      .period-card {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 8px;
+        border: 1.5px solid var(--border-color);
+        border-radius: 10px;
+        background: var(--surface);
+        cursor: pointer;
+        transition: all 0.22s ease;
+        text-align: center;
+        min-height: 60px;
+        font-family: var(--font-family);
+      }
+
+      .period-card:hover {
+        border-color: #94b8bb;
+        background: #f7fbfb;
+      }
+
+      .period-card.active {
+        border-color: var(--brand);
+        background: #f4fafa;
+        box-shadow: 0 0 0 2px rgba(1, 83, 91, 0.12);
+      }
+
+      .period-card-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-main);
+        margin-bottom: 2px;
+      }
+
+      .period-card-price {
+        font-size: 12px;
+        color: var(--text-muted);
+        line-height: 1.4;
+      }
+
+      .period-card-price .period-price-strike {
+        text-decoration: line-through;
+        color: #b0b7c3;
+        font-size: 11px;
+      }
+
+      .period-card-badge {
+        display: inline-block;
+        margin-top: 2px;
+        padding: 1px 7px;
+        border-radius: 99px;
+        font-size: 10px;
+        font-weight: 700;
+        background: rgba(13, 141, 93, 0.1);
+        color: #0d8d5d;
+      }
+
+      .period-card.active .period-card-badge {
+        background: var(--brand);
+        color: #fff;
       }
 
       .form-actions {
-        margin-top: 16px;
+        margin-top: 14px;
         display: grid;
-        gap: 10px;
+        gap: 8px;
       }
 
       .btn,
@@ -225,7 +367,12 @@
         color: #fff;
       }
 
-      .btn:hover {
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .btn:hover:not(:disabled) {
         background: var(--brand-hover);
       }
 
@@ -279,6 +426,14 @@
         .plan-card {
           margin: 0 10px;
         }
+
+        .period-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .period-card {
+          min-height: 55px;
+        }
       }
 
       @media (max-width: 480px) {
@@ -297,6 +452,15 @@
         .plan-card {
           margin: 0 8px;
         }
+
+        .period-card {
+          padding: 8px 6px;
+          min-height: 50px;
+        }
+
+        .period-card-label {
+          font-size: 14px;
+        }
       }
     </style>
   </head>
@@ -305,7 +469,11 @@
     <main class="pricing-shell">
       <section class="pricing-header">
         <h1>Select a Service Plan</h1>
-        <p>Choose the package that best fits your school and continue to registration.</p>
+        <% if (freeTrialEnabled && freeTrialLengthLabel) { %>
+          <p>Enjoy <strong><%= freeTrialLengthLabel %></strong> free on any plan. Choose a plan and billing cycle below.</p>
+        <% } else { %>
+          <p>Choose the package that best fits your school and continue to registration.</p>
+        <% } %>
       </section>
 
       <form action="/account/service-plan" method="POST" id="servicePlanForm">
@@ -315,52 +483,140 @@
           </div>
         <% } %>
 
+        <%
+          /* ── Deduplicate features: find common vs unique ── */
+          var activePlans = plans.filter(function(p) { return p.is_active; });
+          var featuresByPlan = activePlans.map(function(p) {
+            return p.features.map(function(f) { return f.feature_name; });
+          });
+          var commonFeatures = [];
+          if (featuresByPlan.length > 0) {
+            commonFeatures = featuresByPlan[0].filter(function(fname) {
+              return featuresByPlan.every(function(list) { return list.indexOf(fname) !== -1; });
+            });
+          }
+          var uniqueFeaturesByPlan = {};
+          activePlans.forEach(function(p) {
+            uniqueFeaturesByPlan[p.plan_id] = p.features
+              .map(function(f) { return f.feature_name; })
+              .filter(function(fname) { return commonFeatures.indexOf(fname) === -1; });
+          });
+          /* Build cumulative inherited features for each plan tier */
+          var inheritedByPlan = {};
+          for (var pi = 0; pi < activePlans.length; pi++) {
+            if (pi === 0) {
+              inheritedByPlan[activePlans[pi].plan_id] = [];
+            } else {
+              /* inherit ALL features from the previous plan */
+              var prevPlan = activePlans[pi - 1];
+              var prevAllFeatures = prevPlan.features.map(function(f) { return f.feature_name; });
+              inheritedByPlan[activePlans[pi].plan_id] = { label: prevPlan.plan_name, features: prevAllFeatures };
+            }
+          }
+          var planIndex = 0;
+        %>
+
         <section class="plan-grid">
         <% plans.forEach(plan => { if (plan.is_active) { %>
         <article
           class="plan-card"
           data-plan="<%= plan.plan_name %>"
           data-plan-id="<%= plan.plan_id %>"
+          data-base-usd="<%= plan.total_price %>"
+          data-base-local="<%= (currencyProfile && currencyProfile.usdToUserRate) ? (plan.total_price * currencyProfile.usdToUserRate).toFixed(2) : plan.total_price %>"
+          data-local-currency="<%= (currencyProfile && currencyProfile.userCurrency) ? currencyProfile.userCurrency : 'USD' %>"
         >
           <div class="plan-name"><%= plan.plan_name %></div>
           <div class="plan-content">
             <p class="plan-description"><%= plan.description %></p>
-            <ul class="feature-list">
-              <% plan.features.forEach(feature => { %>
-                <li><%= feature.feature_name %></li>
-              <% }) %>
-            </ul>
-          </div>
-          <div class="plan-price">
-            <% if (freeTrialEnabled && freeTrialLengthLabel) { %>
-              <span class="price-old"><%= plan.priceUsdDisplay || ('$' + plan.total_price.toFixed(2)) %> per month</span>
-              <strong class="price-free">FREE</strong>
-              <div class="price-caption">for <%= freeTrialLengthLabel %></div>
+            <% var uniqueF = uniqueFeaturesByPlan[plan.plan_id] || []; %>
+            <% var inherited = inheritedByPlan[plan.plan_id]; %>
+            <% if (planIndex === 0) { %>
+              <%/* Basic plan: show ALL its features */%>
+              <ul class="feature-list">
+                <% plan.features.forEach(function(f) { %>
+                  <li><%= f.feature_name %></li>
+                <% }); %>
+              </ul>
             <% } else { %>
-              <strong><%= plan.priceUsdDisplay || ('$' + plan.total_price.toFixed(2)) %></strong>
-              <div class="price-caption">per month</div>
-              <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
-                <div class="price-local">
-                  ≈ <%= plan.localizedPriceDisplay %> / month
+              <%/* Higher plans: collapsible inherited FIRST, then unique features */%>
+              <% if (inherited && inherited.features && inherited.features.length > 0) { %>
+                <button type="button" class="core-toggle" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">
+                  <span class="toggle-arrow">▶</span> Includes all <%= inherited.label %> features
+                </button>
+                <div class="core-features-collapse">
+                  <ul class="feature-list">
+                    <% inherited.features.forEach(function(fname) { %>
+                      <li><%= fname %></li>
+                    <% }); %>
+                  </ul>
                 </div>
               <% } %>
+              <% if (uniqueF.length > 0) { %>
+                <ul class="feature-list">
+                  <% uniqueF.forEach(function(fname) { %>
+                    <li><%= fname %></li>
+                  <% }); %>
+                </ul>
+              <% } %>
             <% } %>
-            <% if (typeof trialRequested !== 'undefined' && trialRequested && premiumPlanId && String(plan.plan_id) === String(premiumPlanId)) { %>
-              <div class="plan-trial-tag">
-                Pay after free trial
+            <% planIndex++; %>
+          </div>
+          <div class="plan-price">
+            <strong><%= plan.priceUsdDisplay || ('$' + plan.total_price.toFixed(2)) %></strong>
+            <div class="price-caption">per month</div>
+            <% if (freeTrialEnabled && freeTrialLengthLabel) { %>
+              <div class="price-after-trial">after trial ends</div>
+            <% } %>
+            <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
+              <div class="price-local">
+                ≈ <%= plan.localizedPriceDisplay %> / month
               </div>
             <% } %>
           </div>
         </article>
         <% }}); %>
         </section>
+
+        <!-- Billing Period Cards -->
+        <% if (typeof billingPeriods !== 'undefined' && billingPeriods.length > 1) { %>
+        <div class="period-section">
+          <h3>Choose Your Billing Cycle</h3>
+          <div class="period-grid" role="radiogroup" aria-label="Billing period">
+            <% billingPeriods.forEach(function(bp, idx) { %>
+              <div
+                class="period-card"
+                data-key="<%= bp.period_key %>"
+                data-months="<%= bp.months %>"
+                data-discount="<%= bp.discount_percentage %>"
+                role="radio"
+                tabindex="0"
+                aria-checked="<%= idx === 0 ? 'true' : 'false' %>"
+              >
+                <div class="period-card-label"><%= bp.label %></div>
+                <div class="period-card-price" data-period-price></div>
+                <% if (bp.discount_percentage > 0) { %>
+                  <span class="period-card-badge">Save <%= bp.discount_percentage %>%</span>
+                <% } %>
+              </div>
+            <% }) %>
+          </div>
+        </div>
+        <% } %>
+        <input type="hidden" name="billing_period" id="billingPeriodInput" value="" />
     
         <input type="hidden" name="plan" id="selectedPlan" />
         <input type="hidden" name="plan_id" id="selectedPlanId" />
         <input type="hidden" name="trialRequested" id="trialRequestedField" value="<%= trialRequested ? '1' : '' %>" />
 
+        <% if (freeTrialEnabled && freeTrialLengthLabel) { %>
+          <p class="billing-footer-note">
+            Free for <%= freeTrialLengthLabel %>, then billed based on your selected plan and cycle.
+          </p>
+        <% } %>
+
         <div class="form-actions">
-          <button type="submit" class="btn" id="proceedPlanButton">Proceed to Registration</button>
+          <button type="submit" class="btn" id="proceedPlanButton" disabled>Proceed to Registration</button>
           <% if (typeof freeTrialEnabled !== 'undefined' && freeTrialEnabled && premiumPlanId) { %>
             <button type="button" class="btn-secondary" id="startTrialButton" <%= (!trialEligible ? "disabled" : "") %>>
               Start Premium Free Trial
@@ -386,10 +642,144 @@
         const startTrialButton = document.getElementById("startTrialButton");
         const premiumPlanId = "<%= premiumPlanId || '' %>";
         const premiumPlanName = <%- JSON.stringify(premiumPlanName || "") %>;
+        const periodBtns = document.querySelectorAll('.period-card');
+        const periodInput = document.getElementById('billingPeriodInput');
+        const periodHint = document.getElementById("billingPeriodHint");
+        const isTrial = <%= freeTrialEnabled ? 'true' : 'false' %>;
+        const trialLabel = <%- JSON.stringify(freeTrialLengthLabel || '') %>;
+        let billingCycleSelected = false;
+        const hasBillingCards = periodBtns.length > 0;
 
         if (!form || !selectedPlanInput || !selectedPlanIdInput) {
           return;
         }
+
+        // Billing period card logic
+        function selectPeriod(card) {
+          periodBtns.forEach(function(c) {
+            c.classList.remove('active');
+            c.setAttribute('aria-checked', 'false');
+          });
+          card.classList.add('active');
+          card.setAttribute('aria-checked', 'true');
+          if (periodInput) periodInput.value = card.getAttribute('data-key');
+          billingCycleSelected = true;
+          updateSubmitState();
+          updatePriceDisplay(card);
+          updateAllPeriodPrices();
+        }
+
+        function updateSubmitState() {
+          if (!proceedPlanButton) return;
+          var planOk = !!(selectedPlanInput.value && selectedPlanInput.value.trim());
+          var cycleOk = !hasBillingCards || billingCycleSelected;
+          proceedPlanButton.disabled = !(planOk && cycleOk);
+        }
+
+        function getSelectedPlanBase() {
+          var selectedCard = document.querySelector('.plan-card.selected');
+          if (selectedCard) return parseFloat(selectedCard.getAttribute('data-base-usd')) || 0;
+          // fallback: first plan's price
+          var first = document.querySelector('.plan-card');
+          if (first) return parseFloat(first.getAttribute('data-base-usd')) || 0;
+          return 0;
+        }
+
+        // Update the price shown inside each period card
+        function updateAllPeriodPrices() {
+          var baseUsd = getSelectedPlanBase();
+
+          periodBtns.forEach(function(card) {
+            var months = parseInt(card.getAttribute('data-months')) || 1;
+            var discount = parseInt(card.getAttribute('data-discount')) || 0;
+            var priceEl = card.querySelector('[data-period-price]');
+            if (!priceEl) return;
+
+            if (baseUsd <= 0) {
+              priceEl.innerHTML = '';
+              return;
+            }
+
+            var raw = baseUsd * months;
+            var final_ = discount > 0 ? raw * (1 - discount / 100) : raw;
+            var perMo = final_ / months;
+
+            if (isTrial) {
+              // Trial: just show what it will cost after trial
+              if (months === 1) {
+                priceEl.innerHTML = '$' + baseUsd.toFixed(2) + '/mo';
+              } else if (discount > 0) {
+                priceEl.innerHTML = '<span class="period-price-strike">$' + raw.toFixed(2) + '</span> $' + final_.toFixed(2);
+              } else {
+                priceEl.innerHTML = '$' + final_.toFixed(2) + ' total';
+              }
+            } else {
+              // Normal: show full price breakdown
+              if (months === 1) {
+                priceEl.innerHTML = '$' + baseUsd.toFixed(2) + '/mo';
+              } else if (discount > 0) {
+                priceEl.innerHTML = '<span class="period-price-strike">$' + raw.toFixed(2) + '</span> $' + final_.toFixed(2)
+                  + '<span style="display:block;font-size:11px;color:#5f6b7a;margin-top:1px;">~$' + perMo.toFixed(2) + '/mo</span>';
+              } else {
+                priceEl.innerHTML = '$' + final_.toFixed(2) + ' (~$' + perMo.toFixed(2) + '/mo)';
+              }
+            }
+          });
+        }
+
+        function updatePriceDisplay(activeCard) {
+          var months = parseInt(activeCard.getAttribute('data-months')) || 1;
+          var discount = parseInt(activeCard.getAttribute('data-discount')) || 0;
+          var suffix = months === 1 ? '' : months === 6 ? '6 months' : months === 12 ? '1 year' : months === 24 ? '2 years' : months + ' months';
+
+          // Update plan card prices
+          if (!isTrial) {
+            plans.forEach(function(card) {
+              var priceDiv = card.querySelector('.plan-price');
+              if (!priceDiv) return;
+              var priceStrong = priceDiv.querySelector('strong');
+              var captionDiv = priceDiv.querySelector('.price-caption');
+              var localDiv = priceDiv.querySelector('.price-local');
+              if (!priceStrong) return;
+
+              var baseUsd = parseFloat(card.getAttribute('data-base-usd')) || 0;
+              var baseLocal = parseFloat(card.getAttribute('data-base-local')) || 0;
+              var localCurrency = card.getAttribute('data-local-currency') || '';
+
+              if (months === 1) {
+                priceStrong.textContent = '$' + baseUsd.toFixed(2);
+                if (captionDiv) captionDiv.textContent = 'per month';
+                if (localDiv) localDiv.textContent = '\u2248 ' + localCurrency + ' ' + baseLocal.toFixed(2) + ' / month';
+              } else {
+                var originalTotal = baseUsd * months;
+                var discountedTotal = discount > 0 ? originalTotal * (1 - discount / 100) : originalTotal;
+                var perMonth = discountedTotal / months;
+                var localTotal = baseLocal * months;
+                if (discount > 0) localTotal = localTotal * (1 - discount / 100);
+
+                if (discount > 0) {
+                  priceStrong.innerHTML = '<span style="text-decoration:line-through;color:#9ca3af;font-size:0.82em;">$' + originalTotal.toFixed(2) + '</span> $' + discountedTotal.toFixed(2);
+                } else {
+                  priceStrong.textContent = '$' + discountedTotal.toFixed(2);
+                }
+                if (captionDiv) captionDiv.textContent = 'for ' + suffix + ' (~$' + perMonth.toFixed(2) + '/mo)';
+                if (localDiv) localDiv.textContent = '\u2248 ' + localCurrency + ' ' + localTotal.toFixed(2) + ' total';
+              }
+            });
+          }
+        }
+
+        periodBtns.forEach(function(card) {
+          card.addEventListener('click', function() { selectPeriod(this); });
+          card.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectPeriod(this); }
+          });
+        });
+
+        // Initialize — no period pre-selected
+        updateAllPeriodPrices();
+        // Remove initial active state so user must click
+        periodBtns.forEach(function(c) { c.classList.remove('active'); c.setAttribute('aria-checked', 'false'); });
 
         const syncSelectionFields = (planEl) => {
           if (!planEl) return false;
@@ -409,6 +799,7 @@
           plans.forEach((p) => p.classList.remove("selected"));
           planEl.classList.add("selected");
           syncSelectionFields(planEl);
+          updateSubmitState();
         };
 
         let selectedPlan = null;
@@ -431,6 +822,7 @@
             applySelection(this);
             selectedPlan = this.getAttribute("data-plan");
             selectedPlanId = this.getAttribute("data-plan-id");
+            updateAllPeriodPrices();
           });
         });
 
@@ -449,8 +841,12 @@
             selectedPlanIdInput.value.trim() === ""
           ) {
             event.preventDefault();
-            alert("⚠️ Please select a service plan before proceeding.");
+            alert("⚠️ Please select a service plan before proceeding.");            return;
           }
+
+          if (hasBillingCards && (!periodInput.value || periodInput.value.trim() === '')) {
+            event.preventDefault();
+            alert("\u26a0\ufe0f Please select a billing cycle before proceeding.");          }
         });
 
         if (proceedPlanButton) {

@@ -64,6 +64,7 @@ async function runRecurringBilling() {
   
   const orgsDue = await db.query(`
     SELECT o.organization_id, o.email, o.organization_name, o.plan_id, c.authorization_code, p.next_payment_end_date, o.trial_active_until,
+           COALESCE(p.billing_period_key, 'monthly') AS billing_period_key,
            CASE 
              WHEN o.trial_active_until IS NULL THEN 'No Trial'
              WHEN o.trial_active_until > NOW() THEN 'Trial Active'
@@ -122,7 +123,26 @@ async function runRecurringBilling() {
     if (!planRes.rows.length) {
       continue;
     }
-    const amount = Math.round(planRes.rows[0].total_cost * 100); // pesewas
+    const monthlyPrice = planRes.rows[0].total_cost;
+
+    // Calculate period-aware charge amount
+    let periodMonths = 1;
+    let periodDiscount = 0;
+    try {
+      const bpRes = await db.query(
+        'SELECT months, discount_percentage FROM billing_periods WHERE period_key = $1',
+        [org.billing_period_key || 'monthly']
+      );
+      if (bpRes.rows.length > 0) {
+        periodMonths = bpRes.rows[0].months;
+        periodDiscount = bpRes.rows[0].discount_percentage || 0;
+      }
+    } catch (bpErr) {
+      // fallback to monthly
+    }
+    const rawTotal = monthlyPrice * periodMonths;
+    const chargeAmount = periodDiscount > 0 ? rawTotal * (1 - periodDiscount / 100) : rawTotal;
+    const amount = Math.round(chargeAmount * 100); // pesewas
 
     // 3. Charge via Paystack
     try {
@@ -140,31 +160,35 @@ async function runRecurringBilling() {
       );
       
       if (chargeRes.data.status) {
-        // 4. Update payment record with dynamic billing interval
+        // 4. Update payment record — use billing period months or fall back to global interval
         let nextPaymentDate;
-        switch (billingInterval) {
-          case '5_minutes':
-            nextPaymentDate = "NOW() + interval '5 minutes'";
-            break;
-          case 'daily':
-            nextPaymentDate = "NOW() + interval '1 day'";
-            break;
-          case 'weekly':
-            nextPaymentDate = "NOW() + interval '1 week'";
-            break;
-          case 'yearly':
-            nextPaymentDate = "NOW() + interval '1 year'";
-            break;
-          case '2_years':
-            nextPaymentDate = "NOW() + interval '2 years'";
-            break;
-          case '3_years':
-            nextPaymentDate = "NOW() + interval '3 years'";
-            break;
-          case 'monthly':
-          default:
-            nextPaymentDate = "NOW() + interval '1 month'";
-            break;
+        if (periodMonths > 1) {
+          nextPaymentDate = `NOW() + interval '${periodMonths} months'`;
+        } else {
+          switch (billingInterval) {
+            case '5_minutes':
+              nextPaymentDate = "NOW() + interval '5 minutes'";
+              break;
+            case 'daily':
+              nextPaymentDate = "NOW() + interval '1 day'";
+              break;
+            case 'weekly':
+              nextPaymentDate = "NOW() + interval '1 week'";
+              break;
+            case 'yearly':
+              nextPaymentDate = "NOW() + interval '1 year'";
+              break;
+            case '2_years':
+              nextPaymentDate = "NOW() + interval '2 years'";
+              break;
+            case '3_years':
+              nextPaymentDate = "NOW() + interval '3 years'";
+              break;
+            case 'monthly':
+            default:
+              nextPaymentDate = "NOW() + interval '1 month'";
+              break;
+          }
         }
         
         await db.query(

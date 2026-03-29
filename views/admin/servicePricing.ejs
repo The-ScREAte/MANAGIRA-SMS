@@ -517,6 +517,65 @@
             Recalculate All Plan Totals
           </button>
         </div>
+
+        <div class="form-container">
+          <h2>💰 Billing Period Discounts</h2>
+          <p style="font-size:13px;color:#6b7280;margin-bottom:12px;">
+            Set discount percentages for each billing period. Users will see these options when choosing a plan.
+            Monthly cannot be disabled. Discounts are capped at 50%.
+          </p>
+          <table style="width:100%;border-collapse:collapse;font-size:14px;">
+            <thead>
+              <tr style="text-align:left;border-bottom:2px solid #e5e7eb;">
+                <th style="padding:8px 6px;">Period</th>
+                <th style="padding:8px 6px;">Months</th>
+                <th style="padding:8px 6px;">Discount %</th>
+                <th style="padding:8px 6px;">Active</th>
+                <th style="padding:8px 6px;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <% (typeof billingPeriods !== 'undefined' ? billingPeriods : []).forEach(function(bp) { %>
+                <tr data-period-key="<%= bp.period_key %>" style="border-bottom:1px solid #f0f0f0;">
+                  <td style="padding:8px 6px;font-weight:600;"><%= bp.label %></td>
+                  <td style="padding:8px 6px;"><%= bp.months %></td>
+                  <td style="padding:8px 6px;">
+                    <input
+                      type="number"
+                      class="bp-discount"
+                      data-key="<%= bp.period_key %>"
+                      value="<%= bp.discount_percentage %>"
+                      min="0"
+                      max="50"
+                      style="width:60px;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;"
+                      <% if (bp.period_key === 'monthly') { %>disabled title="Monthly is always 0% discount"<% } %>
+                    />
+                  </td>
+                  <td style="padding:8px 6px;">
+                    <input
+                      type="checkbox"
+                      class="bp-active"
+                      data-key="<%= bp.period_key %>"
+                      <% if (bp.is_active) { %>checked<% } %>
+                      <% if (bp.period_key === 'monthly') { %>disabled title="Monthly cannot be disabled"<% } %>
+                    />
+                  </td>
+                  <td style="padding:8px 6px;">
+                    <% if (bp.period_key !== 'monthly') { %>
+                      <button
+                        type="button"
+                        class="bp-save-btn"
+                        data-key="<%= bp.period_key %>"
+                        style="background:#2563eb;color:white;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;"
+                      >Save</button>
+                    <% } %>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+          <p class="bp-status-msg" style="margin-top:8px;font-size:13px;color:#059669;display:none;"></p>
+        </div>
       </div>
 
       <!-- Column 2: Feature Pricing -->
@@ -821,6 +880,41 @@
             );
           }
         }
+      });
+
+      // Billing Period Discount Save Handlers
+      document.querySelectorAll('.bp-save-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          const key = this.dataset.key;
+          const row = document.querySelector('tr[data-period-key="' + key + '"]');
+          if (!row) return;
+          const discount = row.querySelector('.bp-discount').value;
+          const active = row.querySelector('.bp-active').checked;
+          const statusMsg = document.querySelector('.bp-status-msg');
+
+          fetch('/admin/updateBillingPeriod', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ period_key: key, discount_percentage: discount, is_active: String(active) })
+          })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+              if (data.success) {
+                statusMsg.textContent = key.replace(/_/g, ' ') + ' updated: ' + data.discount + '% discount, ' + (data.is_active ? 'active' : 'inactive');
+                statusMsg.style.color = '#059669';
+              } else {
+                statusMsg.textContent = 'Failed: ' + (data.message || 'Unknown error');
+                statusMsg.style.color = '#dc2626';
+              }
+              statusMsg.style.display = 'block';
+              setTimeout(function() { statusMsg.style.display = 'none'; }, 4000);
+            })
+            .catch(function() {
+              statusMsg.textContent = 'Network error. Please try again.';
+              statusMsg.style.color = '#dc2626';
+              statusMsg.style.display = 'block';
+            });
+        });
       });
     </script>
   </body>

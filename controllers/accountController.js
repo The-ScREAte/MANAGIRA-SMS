@@ -596,6 +596,15 @@ const accountController = {
       const premiumPlanName = null;
       const trialEligible = true;
 
+      // Fetch active billing periods for period selector
+      let billingPeriods = [];
+      try {
+        const bpResult = await db.query('SELECT * FROM billing_periods WHERE is_active = TRUE ORDER BY sort_order');
+        billingPeriods = bpResult.rows || [];
+      } catch (err) {
+        billingPeriods = [{ period_key: 'monthly', label: 'Monthly', months: 1, discount_percentage: 0 }];
+      }
+
       res.render("account/servicePlan", {
         title: "Choose Your Plan",
 
@@ -612,6 +621,7 @@ const accountController = {
         premiumPlanName,
         trialEligible,
         currencyProfile,
+        billingPeriods,
         paystackChargeCurrency: "GHS",
 
         showFooterTopSection: true,
@@ -625,7 +635,7 @@ const accountController = {
   },
 
   servicePlanPost: async (req, res) => {
-    const { plan, plan_id } = req.body;
+    const { plan, plan_id, billing_period } = req.body;
     if (!plan || !plan_id) {
       req.flash("error", "Please select a plan.");
 
@@ -647,11 +657,38 @@ const accountController = {
 
     const totalCost = Number(planQuery.rows[0].total_cost);
 
+    // Validate and fetch the billing period
+    const selectedPeriodKey = billing_period || 'monthly';
+    let billingPeriodData = { period_key: 'monthly', months: 1, discount_percentage: 0, label: 'Monthly' };
+    try {
+      const bpResult = await db.query(
+        'SELECT * FROM billing_periods WHERE period_key = $1 AND is_active = TRUE',
+        [selectedPeriodKey]
+      );
+      if (bpResult.rows.length > 0) {
+        billingPeriodData = bpResult.rows[0];
+      }
+    } catch (err) {
+      // fallback to monthly
+    }
+
+    // Calculate discounted total for the period
+    const monthlyPrice = totalCost;
+    const periodMonths = billingPeriodData.months;
+    const discountPct = billingPeriodData.discount_percentage || 0;
+    const rawTotal = monthlyPrice * periodMonths;
+    const periodTotal = discountPct > 0 ? rawTotal * (1 - discountPct / 100) : rawTotal;
+
     // Store the plan choice until registration is completed
     req.session.planSelection = {
       plan,
       planId: plan_id,
-      totalCost,
+      totalCost: periodTotal,
+      monthlyPrice,
+      billingPeriodKey: billingPeriodData.period_key,
+      billingPeriodLabel: billingPeriodData.label,
+      billingPeriodMonths: periodMonths,
+      billingPeriodDiscount: discountPct,
       trialRequested: parseTruthyFlag(req.body.trialRequested),
     };
 
@@ -733,7 +770,7 @@ const accountController = {
         orgPhone,
       } = req.body;
 
-      const { trialRequested = false, plan, planId, totalCost } = planSelection;
+      const { trialRequested = false, plan, planId, totalCost, billingPeriodKey, billingPeriodLabel, billingPeriodMonths, billingPeriodDiscount, monthlyPrice } = planSelection;
 
       const proof1 = req.files?.proof1?.[0] || null;
 
@@ -915,6 +952,16 @@ const accountController = {
 
         totalCost,
 
+        monthlyPrice: monthlyPrice || totalCost,
+
+        billingPeriodKey: billingPeriodKey || 'monthly',
+
+        billingPeriodLabel: billingPeriodLabel || 'Monthly',
+
+        billingPeriodMonths: billingPeriodMonths || 1,
+
+        billingPeriodDiscount: billingPeriodDiscount || 0,
+
         trialRequested: wantsTrial,
       };
 
@@ -1056,7 +1103,20 @@ const accountController = {
       isTrialCheckout = freeTrialEnabled === "true" && !!freeTrialDays;
 
       // Calculate amount based on free trial settings
-      const planPrice = Number(planResult.rows[0].total_price) || 0;
+      const planMonthlyPrice = Number(planResult.rows[0].total_price) || 0;
+
+      // Use billing period from session (set during plan selection)
+      const billingPeriodKey = registrationDetails.billingPeriodKey || 'monthly';
+      const billingPeriodMonths = Number(registrationDetails.billingPeriodMonths) || 1;
+      const billingPeriodDiscount = Number(registrationDetails.billingPeriodDiscount) || 0;
+      const billingPeriodLabel = registrationDetails.billingPeriodLabel || 'Monthly';
+
+      // Calculate period-aware price
+      const rawPeriodTotal = planMonthlyPrice * billingPeriodMonths;
+      const planPrice = billingPeriodDiscount > 0
+        ? rawPeriodTotal * (1 - billingPeriodDiscount / 100)
+        : rawPeriodTotal;
+
       const localizedPlan = localizeUsdAmount(planPrice, currencyProfile);
       const ghsChargeBase =
         localizedPlan.ghsAmount && localizedPlan.ghsAmount > 0
@@ -1126,7 +1186,11 @@ const accountController = {
         }
       }
 
-      const intervalLabel = billingInterval === "yearly" ? "per year" : "per month";
+      const intervalLabel = billingPeriodMonths === 1 ? "per month"
+        : billingPeriodMonths === 6 ? "per 6 months"
+        : billingPeriodMonths === 12 ? "per year"
+        : billingPeriodMonths === 24 ? "per 2 years"
+        : `per ${billingPeriodMonths} months`;
       const usdPriceDisplay = formatCurrencyAmount(planPrice, "USD");
       const localizedPriceDisplay = formatCurrencyAmount(
         localizedPlan.localizedAmount,
@@ -1238,6 +1302,10 @@ const accountController = {
         ghsChargeDisplay,
         verificationChargeUsdDisplay,
         verificationChargeLocalDisplay,
+        billingPeriodKey,
+        billingPeriodLabel,
+        billingPeriodMonths,
+        billingPeriodDiscount,
 
         // layout: false // Use default layout for header and footer
       });
@@ -1453,18 +1521,29 @@ const accountController = {
       let paystackPlanCode = null;
 
       let subscriptionCode = null;
+
+      // Get billing period from registration details
+      const billingPeriodKey = registrationDetails.billingPeriodKey || 'monthly';
+      const billingPeriodMonths = Number(registrationDetails.billingPeriodMonths) || 1;
+
+      // Map billing period to Paystack interval
+      const paystackInterval = billingPeriodMonths <= 1 ? billingInterval
+        : billingPeriodMonths <= 6 ? 'biannually'
+        : billingPeriodMonths <= 12 ? 'annually'
+        : 'biannually'; // Paystack doesn't support 2yr natively, we handle via recurring billing
+
       if (!isTrialCheckout) {
-        // ✅ Create Paystack Plan for subscription using global interval
+        // ✅ Create Paystack Plan for subscription using billing period
 
         const planResponse = await axios.post(
           "https://api.paystack.co/plan",
 
           {
-            name: `${orgName} - ${registrationDetails.plan}`,
+            name: `${orgName} - ${registrationDetails.plan} (${registrationDetails.billingPeriodLabel || 'Monthly'})`,
 
             amount: amountDue,
 
-            interval: billingInterval,
+            interval: paystackInterval,
 
             currency: "GHS",
           },
@@ -1568,10 +1647,15 @@ const accountController = {
                     return new Date(trialActiveUntil);
         }
 
-        // No trial - use normal billing interval
-
+        // No trial - use billing period months
         const d = new Date();
-                switch (billingInterval) {
+        if (billingPeriodMonths > 1) {
+          d.setMonth(d.getMonth() + billingPeriodMonths);
+          return d;
+        }
+
+        // Fallback to global billing interval for monthly
+        switch (billingInterval) {
           case "5_minutes":
             d.setMinutes(d.getMinutes() + 5);
 
@@ -1609,9 +1693,9 @@ const accountController = {
       })();
 
                                     await client.query(
-        `INSERT INTO payments (organization_id, paystack_subscription_code, paystack_reference, amount_paid, status, discount_applied, applies_once, is_trial, trial_starts_at, trial_ends_at, next_payment_end_date)
+        `INSERT INTO payments (organization_id, paystack_subscription_code, paystack_reference, amount_paid, status, discount_applied, applies_once, is_trial, trial_starts_at, trial_ends_at, next_payment_end_date, billing_period_key)
 
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
 
         [
           organization_id,
@@ -1635,6 +1719,8 @@ const accountController = {
           trialActiveUntil || null,
 
           nextPaymentEndDate,
+
+          billingPeriodKey,
         ]
       );
 

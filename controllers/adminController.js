@@ -952,6 +952,15 @@ const adminController = {
       } catch (err) {
               }
 
+      // Fetch billing periods for discount management
+      let billingPeriods = [];
+      try {
+        const bpResult = await db.query('SELECT * FROM billing_periods ORDER BY sort_order');
+        billingPeriods = bpResult.rows || [];
+      } catch (err) {
+        // Table may not exist yet
+      }
+
       res.render("admin/servicePricing", {
         title: "Service Pricing Management",
         features: localizedFeatures,
@@ -961,6 +970,7 @@ const adminController = {
         freeTrialEnabled,
         freeTrialDays,
         billingInterval,
+        billingPeriods,
         paystackMode: paystackSettings.mode,
         showFooterTopSection: true
       });
@@ -1008,6 +1018,33 @@ const adminController = {
             req.flash('error', 'Failed to update billing interval.');
     }
     res.redirect('/admin/servicePricing');
+  },
+
+  updateBillingPeriod: async (req, res) => {
+    try {
+      const { period_key, discount_percentage, is_active } = req.body;
+      if (!period_key) {
+        return res.status(400).json({ success: false, message: 'Missing period_key' });
+      }
+      const discount = Math.max(0, Math.min(50, parseInt(discount_percentage, 10) || 0));
+      const active = is_active === 'true' || is_active === true;
+      await db.query(
+        `UPDATE billing_periods SET discount_percentage = $1, is_active = $2, updated_at = NOW() WHERE period_key = $3`,
+        [discount, active, period_key]
+      );
+      return res.json({ success: true, discount, is_active: active });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: 'Failed to update billing period.' });
+    }
+  },
+
+  getBillingPeriods: async (req, res) => {
+    try {
+      const result = await db.query('SELECT * FROM billing_periods ORDER BY sort_order');
+      return res.json({ success: true, periods: result.rows });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: 'Failed to fetch billing periods.' });
+    }
   },
 
   updatePaystackSettings: async (req, res) => {
