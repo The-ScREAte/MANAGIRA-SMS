@@ -1048,14 +1048,16 @@ main {
             </ul>
           </div>
 
-          <!-- Reports Panel (hidden by default, toggled from sidebar) -->
-          <div class="section-card" id="reports-panel" style="display:none; margin-top:16px;">
-            <div class="rp-panel-header">
-              <h3 class="rp-panel-title">📋 Parent Reports</h3>
-              <button class="rp-panel-close" onclick="document.getElementById('reports-panel').style.display='none'" title="Close">×</button>
-            </div>
-            <div id="reports-list-content">
-              <p style="color:#6b7280;font-size:13px;">Loading reports...</p>
+          <!-- Reports List Overlay -->
+          <div class="report-modal-overlay" id="reportsListModal">
+            <div class="report-modal-box">
+              <button class="report-modal-close" onclick="closeReportsListModal()">×</button>
+              <div class="rd-modal-body">
+                <h2 class="rd-title">📋 Parent Reports</h2>
+                <div id="reports-list-content">
+                  <p style="color:#6b7280;font-size:13px;">Loading reports...</p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1205,15 +1207,16 @@ main {
     // --- Reports Panel ---
     function toggleReportsPanel(e) {
       if (e) e.preventDefault();
-      var panel = document.getElementById('reports-panel');
-      if (panel.style.display === 'none') {
-        panel.style.display = '';
-        loadClassReports();
-        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      } else {
-        panel.style.display = 'none';
-      }
+      var modal = document.getElementById('reportsListModal');
+      modal.classList.add('active');
+      loadClassReports();
     }
+    function closeReportsListModal() {
+      document.getElementById('reportsListModal').classList.remove('active');
+    }
+    document.getElementById('reportsListModal').addEventListener('click', function(e) {
+      if (e.target === this) closeReportsListModal();
+    });
 
     function loadClassReports() {
       var container = document.getElementById('reports-list-content');
