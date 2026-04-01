@@ -652,12 +652,12 @@ module.exports = {
 
       // Get staff members for CC (teachers, managers, supervisors)
       const staffQuery = await db.query(
-        `SELECT user_id, first_name, last_name, role
+        `SELECT user_id, first_name, last_name, account_type AS role
          FROM users
          WHERE organization_id = $1
-           AND role IN ('Teacher', 'Manager', 'Supervisor', 'Admin')
-           AND account_status = 'active'
-         ORDER BY role, first_name ASC`,
+           AND account_type IN ('Teacher', 'Manager', 'Supervisor', 'Admin')
+           AND on_hold = FALSE
+         ORDER BY account_type, first_name ASC`,
         [organizationId]
       );
 
@@ -1053,6 +1053,40 @@ module.exports = {
     const organizationId = req.session.organizationId;
 
     try {
+      // Get guardian profile for name/phone matching
+      const guardianProfile = await db.query(
+        `SELECT first_name, last_name, phone FROM guardian_profiles WHERE guardian_id = $1 AND organization_id = $2`,
+        [guardianId, organizationId]
+      );
+      const gp = guardianProfile.rows[0];
+
+      // Get children using same logic as dashboard (old guardians table + new guardian_students)
+      let students = [];
+      if (gp) {
+        const studentsQuery = await db.query(
+          `SELECT DISTINCT s.student_id, s.first_name, s.last_name, c.class_name
+           FROM students s
+           LEFT JOIN classes c ON s.class_id = c.class_id
+           WHERE s.organization_id = $1
+             AND (
+               EXISTS (
+                 SELECT 1 FROM guardians g
+                 WHERE g.student_id = s.student_id
+                   AND g.first_name = $2 AND g.last_name = $3
+                   AND (g.phone = $4 OR $4 IS NULL)
+                   AND g.organization_id = $1
+               )
+               OR EXISTS (
+                 SELECT 1 FROM guardian_students gs
+                 WHERE gs.student_id = s.student_id AND gs.guardian_id = $5
+               )
+             )
+           ORDER BY s.first_name ASC`,
+          [organizationId, gp.first_name, gp.last_name, gp.phone, guardianId]
+        );
+        students = studentsQuery.rows;
+      }
+
       const reports = await db.query(
         `SELECT r.*, s.first_name || ' ' || s.last_name as student_name,
                 COUNT(rr.reply_id) as reply_count,
@@ -1069,6 +1103,7 @@ module.exports = {
       res.render('guardian/reports', {
         title: 'My Reports',
         reports: reports.rows,
+        students,
         messages: req.flash(),
         req
       });
@@ -1079,44 +1114,93 @@ module.exports = {
   },
 
   reportNewGet: async (req, res, db) => {
+    // Form is now an inline modal on the reports list page
+    res.redirect('/guardian/reports');
+  },
+
+  // AJAX: Get staff relevant to a student (class teachers + supervisors/managers)
+  getStudentStaff: async (req, res, db) => {
     const guardianId = req.session.guardianId;
     const organizationId = req.session.organizationId;
+    const studentId = req.query.studentId;
+
+    if (!studentId) {
+      return res.json({ success: false, staff: [] });
+    }
 
     try {
-      // Get guardian's students
-      const studentsQuery = await db.query(
-        `SELECT s.student_id, s.first_name, s.last_name, c.class_name
-         FROM guardians g
-         JOIN students s ON g.student_id = s.student_id
-         LEFT JOIN classes c ON s.class_id = c.class_id
-         WHERE g.first_name = (SELECT first_name FROM guardian_profiles WHERE guardian_id = $1)
-           AND g.last_name = (SELECT last_name FROM guardian_profiles WHERE guardian_id = $1)
-           AND g.organization_id = $2
-         ORDER BY s.first_name ASC`,
+      // Verify guardian owns this student (check both old guardians table and new guardian_students)
+      const guardianProfile = await db.query(
+        `SELECT first_name, last_name, phone FROM guardian_profiles WHERE guardian_id = $1 AND organization_id = $2`,
         [guardianId, organizationId]
       );
+      const gp = guardianProfile.rows[0];
+      if (!gp) return res.json({ success: false, staff: [] });
 
-      // Get staff for CC (teachers, managers, supervisors)
-      const staffQuery = await db.query(
-        `SELECT user_id, first_name, last_name, role
-         FROM users
-         WHERE organization_id = $1 
-           AND role IN ('Teacher', 'Manager', 'Supervisor', 'Admin')
-           AND account_status = 'active'
-         ORDER BY role, first_name ASC`,
-        [organizationId]
+      const ownership = await db.query(
+        `SELECT 1 FROM students s
+         WHERE s.student_id = $1 AND s.organization_id = $2
+           AND (
+             EXISTS (
+               SELECT 1 FROM guardians g
+               WHERE g.student_id = s.student_id
+                 AND g.first_name = $3 AND g.last_name = $4
+                 AND (g.phone = $5 OR $5 IS NULL)
+                 AND g.organization_id = $2
+             )
+             OR EXISTS (
+               SELECT 1 FROM guardian_students gs
+               WHERE gs.student_id = s.student_id AND gs.guardian_id = $6
+             )
+           )
+         LIMIT 1`,
+        [studentId, organizationId, gp.first_name, gp.last_name, gp.phone, guardianId]
       );
 
-      res.render('guardian/reportNew', {
-        title: 'Submit Report',
-        students: studentsQuery.rows,
-        staff: staffQuery.rows,
-        messages: req.flash(),
-        req
-      });
+      if (ownership.rows.length === 0) {
+        return res.json({ success: false, staff: [] });
+      }
+
+      // Get the student's class_id
+      const studentResult = await db.query(
+        `SELECT class_id FROM students WHERE student_id = $1 AND organization_id = $2`,
+        [studentId, organizationId]
+      );
+
+      const classId = studentResult.rows[0]?.class_id;
+      let staff = [];
+
+      if (classId) {
+        // Get class teachers assigned to this student's class
+        const teachersQuery = await db.query(
+          `SELECT u.user_id, u.first_name, u.last_name, u.account_type AS role, TRUE AS is_class_teacher
+           FROM user_classes uc
+           JOIN users u ON uc.user_id = u.user_id
+           WHERE uc.class_id = $1 AND u.organization_id = $2 AND u.on_hold = FALSE
+           ORDER BY uc.main DESC, u.first_name ASC`,
+          [classId, organizationId]
+        );
+        staff = teachersQuery.rows;
+      }
+
+      // Also get supervisors and managers (always relevant)
+      const managersQuery = await db.query(
+        `SELECT u.user_id, u.first_name, u.last_name, u.account_type AS role, FALSE AS is_class_teacher
+         FROM users u
+         WHERE u.organization_id = $1
+           AND u.account_type IN ('Manager', 'Supervisor')
+           AND u.on_hold = FALSE
+           AND u.user_id NOT IN (SELECT user_id FROM unnest($2::int[]) AS user_id)
+         ORDER BY u.account_type, u.first_name ASC`,
+        [organizationId, staff.map(s => s.user_id)]
+      );
+
+      staff = [...staff, ...managersQuery.rows];
+
+      res.json({ success: true, staff });
     } catch (error) {
-            req.flash('error', 'Error loading form');
-      res.redirect('/guardian/dashboard');
+      console.error('[Guardian] Error fetching student staff:', error);
+      res.json({ success: false, staff: [] });
     }
   },
 
@@ -1194,27 +1278,65 @@ module.exports = {
 
       const report = reportQuery.rows[0];
 
-      // Get replies
+      // Get replies with real sender names
       const repliesQuery = await db.query(
-        `SELECT * FROM guardian_report_replies
-         WHERE report_id = $1
-         ORDER BY created_at ASC`,
+        `SELECT rr.*,
+                CASE 
+                  WHEN rr.sender_type = 'staff' THEN COALESCE(
+                    (SELECT u.first_name || ' ' || u.last_name FROM users u WHERE u.user_id = rr.sender_id),
+                    rr.sender_name
+                  )
+                  WHEN rr.sender_type = 'guardian' THEN COALESCE(
+                    (SELECT gp.first_name || ' ' || gp.last_name FROM guardian_profiles gp WHERE gp.guardian_id = rr.sender_id),
+                    rr.sender_name
+                  )
+                  ELSE rr.sender_name
+                END AS display_name
+         FROM guardian_report_replies rr
+         WHERE rr.report_id = $1
+         ORDER BY rr.created_at ASC`,
         [reportId]
       );
 
-      // Get CC recipients
+      // Get CC recipients with real names
       const recipientsQuery = await db.query(
-        `SELECT * FROM guardian_report_recipients
-         WHERE report_id = $1
-         ORDER BY user_name ASC`,
+        `SELECT grr.*,
+                COALESCE(u.first_name || ' ' || u.last_name, grr.user_name) AS display_name,
+                COALESCE(u.account_type::text, grr.user_role) AS display_role
+         FROM guardian_report_recipients grr
+         LEFT JOIN users u ON u.user_id = grr.user_id
+         WHERE grr.report_id = $1
+         ORDER BY display_name ASC`,
         [reportId]
       );
+
+      // Get class teachers for this student
+      let classTeachers = [];
+      if (report.student_id) {
+        const studentClass = await db.query(
+          `SELECT class_id FROM students WHERE student_id = $1 AND organization_id = $2`,
+          [report.student_id, organizationId]
+        );
+        const classId = studentClass.rows[0]?.class_id;
+        if (classId) {
+          const teachersQuery = await db.query(
+            `SELECT u.first_name || ' ' || u.last_name AS name, u.account_type AS role, uc.main
+             FROM user_classes uc
+             JOIN users u ON uc.user_id = u.user_id
+             WHERE uc.class_id = $1 AND u.organization_id = $2 AND u.on_hold = FALSE
+             ORDER BY uc.main DESC, u.first_name ASC`,
+            [classId, organizationId]
+          );
+          classTeachers = teachersQuery.rows;
+        }
+      }
 
       res.render('guardian/reportDetails', {
         title: 'Report Details',
         report,
         replies: repliesQuery.rows,
         recipients: recipientsQuery.rows,
+        classTeachers,
         messages: req.flash(),
         req
       });

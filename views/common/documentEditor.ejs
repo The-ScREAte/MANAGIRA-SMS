@@ -1012,6 +1012,7 @@
         });
 
         if (expr.includes('#REF')) return '#REF';
+        if (!/^[\d+\-*/().,%\s]+$/.test(expr)) return '#ERROR';
         return Function('"use strict"; return (' + expr + ')')();
       } catch(e) { return '#ERROR'; }
     }

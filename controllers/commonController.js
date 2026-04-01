@@ -7715,6 +7715,24 @@ const commonController = {
         assignedFilesCount = Number(assignedFiles.rows[0]?.total || 0);
       }
 
+      // Count reports where this user is a CC recipient for students in this class
+      let classReportsCount = 0;
+      if (currentUserId) {
+        const reportsCountResult = await db.query(
+          `SELECT COUNT(DISTINCT r.report_id) AS total
+           FROM guardian_reports r
+           JOIN students s ON r.student_id = s.student_id
+           LEFT JOIN guardian_report_recipients grr ON grr.report_id = r.report_id
+           LEFT JOIN user_classes uc ON uc.class_id = s.class_id AND uc.user_id = $3
+           WHERE r.organization_id = $1
+             AND s.class_id = $2
+             AND r.deleted_at IS NULL
+             AND (grr.user_id = $3 OR uc.user_id IS NOT NULL)`,
+          [organizationId, classId, currentUserId]
+        );
+        classReportsCount = Number(reportsCountResult.rows[0]?.total || 0);
+      }
+
       // Render the classDashboard view with the updated context
       res.render("common/classDashboard", {
         title: `Class Dashboard - ${className}`,
@@ -7731,6 +7749,7 @@ const commonController = {
         csrfToken: csrfToken,
         isMainTeacher: isMainTeacher,
         assignedFilesCount,
+        classReportsCount,
       });
     } catch (err) {
             res.status(500).send("Error loading class dashboard");
@@ -10124,6 +10143,121 @@ const commonController = {
     } catch (error) {
       console.error("Staff reply error:", error);
       return res.status(500).json({ success: false, error: "Error submitting reply." });
+    }
+  },
+
+  // AJAX: Get reports for a class (where current user is a recipient or class teacher)
+  classReports: async (req, res, db) => {
+    try {
+      const organizationId = req.session.organizationId;
+      const userId = req.session.userId || (req.session.user ? req.session.user.user_id : null);
+      const classId = req.query.classId;
+
+      if (!classId || !userId) {
+        return res.status(400).json({ success: false, error: "Missing classId" });
+      }
+
+      const result = await db.query(
+        `SELECT DISTINCT r.report_id, r.subject, r.status, r.priority, r.created_at,
+                s.first_name || ' ' || s.last_name AS student_name,
+                COALESCE(gp.first_name || ' ' || gp.last_name, 'Parent') AS guardian_name,
+                COUNT(rr.reply_id) AS reply_count
+         FROM guardian_reports r
+         JOIN students s ON r.student_id = s.student_id
+         LEFT JOIN guardian_profiles gp ON gp.guardian_id = r.guardian_id AND gp.organization_id = r.organization_id
+         LEFT JOIN guardian_report_replies rr ON rr.report_id = r.report_id
+         LEFT JOIN guardian_report_recipients grr ON grr.report_id = r.report_id
+         LEFT JOIN user_classes uc ON uc.class_id = s.class_id AND uc.user_id = $3
+         WHERE r.organization_id = $1
+           AND s.class_id = $2
+           AND r.deleted_at IS NULL
+           AND (grr.user_id = $3 OR uc.user_id IS NOT NULL)
+         GROUP BY r.report_id, s.first_name, s.last_name, gp.first_name, gp.last_name
+         ORDER BY r.created_at DESC`,
+        [organizationId, classId, userId]
+      );
+
+      return res.json({ success: true, reports: result.rows });
+    } catch (error) {
+      console.error("classReports error:", error);
+      return res.status(500).json({ success: false, error: "Error loading reports." });
+    }
+  },
+
+  // AJAX: Get a single report detail with replies and recipients (for staff)
+  classReportDetail: async (req, res, db) => {
+    try {
+      const organizationId = req.session.organizationId;
+      const userId = req.session.userId || (req.session.user ? req.session.user.user_id : null);
+      const reportId = req.query.reportId;
+
+      if (!reportId || !userId) {
+        return res.status(400).json({ success: false, error: "Missing reportId" });
+      }
+
+      // Get report + verify this user has access (is a recipient or class teacher)
+      const reportResult = await db.query(
+        `SELECT r.report_id, r.subject, r.message, r.status, r.priority, r.created_at,
+                s.first_name || ' ' || s.last_name AS student_name,
+                COALESCE(gp.first_name || ' ' || gp.last_name, 'Parent') AS guardian_name
+         FROM guardian_reports r
+         JOIN students s ON r.student_id = s.student_id
+         LEFT JOIN guardian_profiles gp ON gp.guardian_id = r.guardian_id AND gp.organization_id = r.organization_id
+         LEFT JOIN guardian_report_recipients grr ON grr.report_id = r.report_id AND grr.user_id = $3
+         LEFT JOIN user_classes uc ON uc.class_id = s.class_id AND uc.user_id = $3
+         WHERE r.report_id = $1 AND r.organization_id = $2 AND r.deleted_at IS NULL
+           AND (grr.user_id IS NOT NULL OR uc.user_id IS NOT NULL)
+         LIMIT 1`,
+        [reportId, organizationId, userId]
+      );
+
+      if (!reportResult.rows.length) {
+        return res.status(404).json({ success: false, error: "Report not found or access denied." });
+      }
+
+      const report = reportResult.rows[0];
+
+      // Get replies with display names
+      const repliesResult = await db.query(
+        `SELECT rr.*,
+                CASE 
+                  WHEN rr.sender_type = 'staff' THEN COALESCE(
+                    (SELECT u.first_name || ' ' || u.last_name FROM users u WHERE u.user_id = rr.sender_id),
+                    rr.sender_name
+                  )
+                  WHEN rr.sender_type = 'guardian' THEN COALESCE(
+                    (SELECT gp2.first_name || ' ' || gp2.last_name FROM guardian_profiles gp2 WHERE gp2.guardian_id = rr.sender_id),
+                    rr.sender_name
+                  )
+                  ELSE rr.sender_name
+                END AS display_name
+         FROM guardian_report_replies rr
+         WHERE rr.report_id = $1
+         ORDER BY rr.created_at ASC`,
+        [reportId]
+      );
+
+      // Get CC recipients
+      const recipientsResult = await db.query(
+        `SELECT grr.*,
+                COALESCE(u.first_name || ' ' || u.last_name, grr.user_name) AS display_name,
+                COALESCE(u.account_type::text, grr.user_role) AS display_role
+         FROM guardian_report_recipients grr
+         LEFT JOIN users u ON u.user_id = grr.user_id
+         WHERE grr.report_id = $1
+         ORDER BY display_name ASC`,
+        [reportId]
+      );
+
+      return res.json({
+        success: true,
+        report,
+        replies: repliesResult.rows,
+        recipients: recipientsResult.rows,
+      });
+    } catch (error) {
+      console.error("classReportDetail error:", error);
+      return res.status(500).json({ success: false, error: "Error loading report." });
     }
   },
 

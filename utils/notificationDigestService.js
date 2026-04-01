@@ -1437,6 +1437,18 @@ async function notifyStaffOnGuardianReply(database, {
 }) {
   await ensureNotificationSchema(database);
 
+  // Skip email if there was a staff reply within the last 20 minutes (active conversation)
+  const recentActivity = await database.query(
+    `SELECT 1 FROM guardian_report_replies
+     WHERE report_id = $1 AND sender_type = 'staff'
+       AND created_at > NOW() - INTERVAL '20 minutes'
+     LIMIT 1`,
+    [reportId]
+  );
+  if (recentActivity.rows.length > 0) {
+    return { sent: 0, skipped: 'active_conversation' };
+  }
+
   const reportRes = await database.query(
     `SELECT report_id, subject, student_id FROM guardian_reports WHERE organization_id = $1 AND report_id = $2 LIMIT 1`,
     [organizationId, reportId]
@@ -1867,6 +1879,17 @@ async function notifyGuardianAdmissionReceived(database, { organizationId, guard
  */
 async function notifyGuardianOnStaffReply(database, { organizationId, reportId, guardianEmail, guardianFirstName, staffName, replyMessage, studentName, reportSubject }) {
   if (!guardianEmail) return;
+
+  // Skip email if there was a guardian reply within the last 20 minutes (active conversation)
+  const recentActivity = await database.query(
+    `SELECT 1 FROM guardian_report_replies
+     WHERE report_id = $1 AND sender_type = 'guardian'
+       AND created_at > NOW() - INTERVAL '20 minutes'
+     LIMIT 1`,
+    [reportId]
+  );
+  if (recentActivity.rows.length > 0) return;
+
   const { organizationName } = await getOrganizationSummary(database, organizationId);
 
   const html = renderCleanEmail({

@@ -1,244 +1,85 @@
 <style>
-  .reports-container {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 20px;
-  }
-  
-  .reports-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 25px;
-    flex-wrap: wrap;
-    gap: 15px;
-  }
-  
-  .reports-header h1 {
-    font-size: 1.75rem;
-    color: var(--guardian-text-primary, #1e293b);
-    margin: 0;
-    font-weight: 700;
-  }
-  
-  .btn-new-report {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--primary);
-    color: white;
-    padding: 12px 24px;
-    border-radius: 10px;
-    text-decoration: none;
-    font-weight: 600;
-    font-size: 0.9rem;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-    transition: all 0.2s ease;
-  }
-  
-  .btn-new-report:hover {
-    background: var(--primary-hover);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
-  }
-  
-  .report-card {
-    background: var(--guardian-bg-primary, white);
-    border: 1px solid var(--guardian-border, #e2e8f0);
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 16px;
-    transition: all 0.2s ease;
-    text-decoration: none;
-    display: block;
-    color: inherit;
-  }
-  
-  .report-card:hover {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-    border-color: var(--primary);
-    transform: translateY(-2px);
-  }
-  
-  .report-header-info {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 12px;
-  }
-  
-  .report-subject {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--guardian-text-primary, #1e293b);
-    margin: 0 0 6px 0;
-  }
-  
-  .report-meta {
-    display: flex;
-    gap: 16px;
-    font-size: 0.85rem;
-    color: var(--guardian-text-secondary, #64748b);
-    margin-bottom: 10px;
-    flex-wrap: wrap;
-  }
-  
-  .report-message-preview {
-    color: var(--guardian-text-secondary, #64748b);
-    font-size: 0.9rem;
-    line-height: 1.6;
-    margin: 12px 0;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-  
-  .report-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px solid var(--guardian-border, #e2e8f0);
-  }
-  
-  .status-badge {
-    padding: 6px 14px;
-    border-radius: 20px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-  
-  .status-open {
-    background: #fef3c7;
-    color: #d97706;
-  }
-  
-  .status-in_progress {
-    background: #dbeafe;
-    color: #2563eb;
-  }
-  
-  .status-resolved {
-    background: #d1fae5;
-    color: #059669;
-  }
-  
-  .status-closed {
-    background: #f3f4f6;
-    color: #6b7280;
-  }
-  
-  .reply-count {
-    font-size: 0.85rem;
-    color: var(--guardian-text-muted, #94a3b8);
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-  
-  .empty-state {
-    text-align: center;
-    padding: 60px 24px;
-    background: linear-gradient(to bottom, var(--guardian-bg-secondary, #f8fafc), var(--guardian-bg-primary, white));
-    border-radius: 16px;
-    border: 2px dashed var(--guardian-border-hover, #cbd5e1);
-  }
-  
-  .empty-state-icon {
-    font-size: 56px;
-    margin-bottom: 16px;
-    display: block;
-  }
-  
-  .empty-state h3 {
-    color: var(--guardian-text-secondary, #64748b);
-    font-size: 1.125rem;
-    margin: 0 0 8px;
-    font-weight: 600;
-  }
-  
-  .empty-state p {
-    color: var(--guardian-text-muted, #94a3b8);
-    font-size: 0.9rem;
-    margin: 0 0 20px;
-    line-height: 1.5;
-  }
-  
-  @media (max-width: 768px) {
-    .reports-container {
-      padding: 16px;
-    }
-    
-    .reports-header {
-      flex-direction: column;
-      align-items: stretch;
-    }
-    
-    .reports-header h1 {
-      font-size: 1.5rem;
-    }
-    
-    .btn-new-report {
-      text-align: center;
-      justify-content: center;
-    }
-    
-    .report-meta {
-      flex-direction: column;
-      gap: 6px;
-    }
-    
-    .report-footer {
-      flex-direction: column;
-      gap: 12px;
-      align-items: flex-start;
-    }
-  }
-  
-  @media (max-width: 480px) {
-    .reports-container {
-      padding: 12px;
-    }
-    
-    .report-card {
-      padding: 16px;
-    }
-    
-    .report-subject {
-      font-size: 1rem;
-    }
+  .reports-container { max-width: 800px; margin: 0 auto; padding: 16px; }
+  .reports-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px; }
+  .reports-header h1 { font-size: 1.3rem; color: #1e293b; margin: 0; font-weight: 700; }
+  .btn-new-report { display: inline-flex; align-items: center; gap: 6px; background: var(--primary, #27ae60); color: #fff; padding: 8px 18px; border-radius: 8px; border: none; font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: background 0.2s; }
+  .btn-new-report:hover { background: var(--primary-hover, #229954); }
+
+  .report-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px; margin-bottom: 10px; text-decoration: none; display: flex; justify-content: space-between; align-items: center; color: inherit; transition: border-color 0.2s, box-shadow 0.2s; gap: 12px; }
+  .report-card:hover { border-color: var(--primary, #27ae60); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .report-left { flex: 1; min-width: 0; }
+  .report-subject { font-size: 0.95rem; font-weight: 600; color: #1e293b; margin: 0 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .report-meta { display: flex; gap: 12px; font-size: 0.78rem; color: #64748b; flex-wrap: wrap; }
+  .report-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  .status-badge { padding: 3px 10px; border-radius: 12px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; }
+  .status-open { background: #fef3c7; color: #d97706; }
+  .status-in_progress { background: #dbeafe; color: #2563eb; }
+  .status-resolved { background: #d1fae5; color: #059669; }
+  .status-closed { background: #f3f4f6; color: #6b7280; }
+  .reply-count { font-size: 0.78rem; color: #94a3b8; white-space: nowrap; }
+
+  .empty-state { text-align: center; padding: 40px 20px; border: 2px dashed #cbd5e1; border-radius: 12px; }
+  .empty-state-icon { font-size: 40px; margin-bottom: 10px; display: block; }
+  .empty-state h3 { color: #64748b; font-size: 1rem; margin: 0 0 6px; }
+  .empty-state p { color: #94a3b8; font-size: 0.85rem; margin: 0 0 14px; }
+
+  /* Modal */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; justify-content: center; align-items: flex-start; padding: 40px 16px; overflow-y: auto; }
+  .modal-overlay.active { display: flex; }
+  .modal-box { background: #fff; border-radius: 10px; width: 100%; max-width: 560px; padding: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); position: relative; }
+  .modal-box h2 { font-size: 1.15rem; margin: 0 0 18px; color: #1e293b; }
+  .modal-close { position: absolute; top: 14px; right: 16px; background: none; border: none; font-size: 1.3rem; cursor: pointer; color: #94a3b8; line-height: 1; }
+  .modal-close:hover { color: #1e293b; }
+  .fg { margin-bottom: 14px; }
+  .fg label { display: block; font-weight: 600; font-size: 0.82rem; color: #334155; margin-bottom: 4px; }
+  .fg label .req { color: #e74c3c; }
+  .fg select, .fg input, .fg textarea { width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.85rem; font-family: inherit; box-sizing: border-box; }
+  .fg textarea { min-height: 80px; resize: vertical; }
+  .fg select:focus, .fg input:focus, .fg textarea:focus { outline: none; border-color: var(--primary, #27ae60); }
+  .cc-box { background: #f8fafc; padding: 12px; border-radius: 6px; margin-bottom: 14px; }
+  .cc-box h4 { font-size: 0.85rem; margin: 0 0 4px; color: #334155; }
+  .cc-box p { font-size: 0.75rem; color: #94a3b8; margin: 0 0 8px; }
+  .staff-list { max-height: 180px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px; background: #fff; }
+  .staff-item { display: flex; align-items: center; padding: 5px 6px; gap: 8px; font-size: 0.82rem; }
+  .staff-item input[type="checkbox"] { width: auto; margin: 0; }
+  .staff-role { color: #94a3b8; font-size: 0.75rem; }
+  .staff-badge { font-size: 0.68rem; padding: 1px 6px; border-radius: 8px; margin-left: 4px; font-weight: 600; background: #d1fae5; color: #059669; }
+  .staff-loading { text-align: center; padding: 14px; color: #94a3b8; font-size: 0.82rem; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+  .btn-submit { background: var(--primary, #27ae60); color: #fff; padding: 8px 20px; border: none; border-radius: 6px; font-weight: 600; font-size: 0.85rem; cursor: pointer; }
+  .btn-submit:hover { background: var(--primary-hover, #229954); }
+  .btn-cancel { background: #e2e8f0; color: #475569; padding: 8px 20px; border: none; border-radius: 6px; font-weight: 500; font-size: 0.85rem; cursor: pointer; }
+  .btn-cancel:hover { background: #cbd5e1; }
+
+  @media (max-width: 640px) {
+    .reports-header { flex-direction: column; align-items: stretch; }
+    .btn-new-report { justify-content: center; }
+    .report-card { flex-direction: column; align-items: flex-start; }
+    .report-right { width: 100%; justify-content: space-between; }
+    .modal-overlay { padding: 20px 10px; }
+    .modal-box { padding: 18px; }
   }
 </style>
 
 <div class="reports-container">
   <div class="reports-header">
-    <h1>📋 My Reports</h1>
-    <a href="/guardian/reports/new" class="btn-new-report">➕ Submit New Report</a>
+    <h1>My Reports</h1>
+    <button class="btn-new-report" onclick="openModal()">+ New Report</button>
   </div>
-  
+
   <% if (reports && reports.length > 0) { %>
-    <% reports.forEach(report => { %>
+    <% reports.forEach(function(report) { %>
       <a href="/guardian/reports/<%= report.report_id %>" class="report-card">
-        <div class="report-header-info">
-          <div>
-            <h3 class="report-subject"><%= report.subject %></h3>
-            <div class="report-meta">
-              <span>📚 <%= report.student_name %></span>
-              <span>📅 <%= new Date(report.created_at).toLocaleDateString() %></span>
-              <% if (report.filed_by_name) { %><span>👤 Filed by: <%= report.filed_by_name %></span><% } %>
+        <div class="report-left">
+          <h3 class="report-subject"><%= report.subject %></h3>
+          <div class="report-meta">
+            <span><%= report.student_name %></span>
+            <span><%= new Date(report.created_at).toLocaleDateString() %></span>
+          </div>
         </div>
-        
-        <div class="report-footer">
-          <span class="status-badge status-<%= report.status %>">
-            <%= report.status.replace('_', ' ') %>
-          </span>
-          <span class="reply-count">
-            💬 <%= report.reply_count %> <%= report.reply_count === '1' ? 'reply' : 'replies' %>
-          </span>
+        <div class="report-right">
+          <span class="status-badge status-<%= report.status %>"><%= report.status.replace('_', ' ') %></span>
+          <span class="reply-count"><%= report.reply_count %> <%= report.reply_count === '1' ? 'reply' : 'replies' %></span>
         </div>
       </a>
     <% }); %>
@@ -246,8 +87,79 @@
     <div class="empty-state">
       <span class="empty-state-icon">📋</span>
       <h3>No reports yet</h3>
-      <p>Submit your first report to communicate with the school staff about your child's progress</p>
-      <a href="/guardian/reports/new" class="btn-new-report">➕ Submit Report</a>
+      <p>Submit a report to communicate with school staff</p>
+      <button class="btn-new-report" onclick="openModal()">+ New Report</button>
     </div>
   <% } %>
 </div>
+
+<!-- New Report Modal -->
+<div class="modal-overlay" id="reportModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal()">&times;</button>
+    <h2>Submit a Report</h2>
+    <form action="/guardian/reports/create" method="POST">
+      <div class="fg">
+        <label>Student <span class="req">*</span></label>
+        <select name="student_id" id="modalStudentId" required>
+          <option value="">-- Choose student --</option>
+          <% students.forEach(function(s) { %>
+            <option value="<%= s.student_id %>"><%= s.first_name %> <%= s.last_name %><% if (s.class_name) { %> (<%= s.class_name %>)<% } %></option>
+          <% }); %>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Subject <span class="req">*</span></label>
+        <input type="text" name="subject" placeholder="e.g. Attendance Issue" required maxlength="255">
+      </div>
+      <div class="fg">
+        <label>Priority <span class="req">*</span></label>
+        <select name="priority" required>
+          <option value="normal" selected>Normal</option>
+          <option value="high">High</option>
+          <option value="urgent">Urgent</option>
+          <option value="low">Low</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Message <span class="req">*</span></label>
+        <textarea name="message" placeholder="Describe your concern..." required></textarea>
+      </div>
+      <div class="cc-box">
+        <h4>CC Staff Members</h4>
+        <p>Select a student above to see available staff</p>
+        <div class="staff-list" id="modalStaffList">
+          <div class="staff-loading">Select a student first</div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-cancel" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn-submit">Submit Report</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function openModal() { document.getElementById('reportModal').classList.add('active'); }
+  function closeModal() { document.getElementById('reportModal').classList.remove('active'); }
+  document.getElementById('reportModal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+
+  document.getElementById('modalStudentId').addEventListener('change', function() {
+    var sid = this.value, list = document.getElementById('modalStaffList');
+    if (!sid) { list.innerHTML = '<div class="staff-loading">Select a student first</div>'; return; }
+    list.innerHTML = '<div class="staff-loading">Loading...</div>';
+    fetch('/guardian/reports/student-staff?studentId=' + encodeURIComponent(sid))
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (!d.success || !d.staff || !d.staff.length) { list.innerHTML = '<div class="staff-loading">No staff found</div>'; return; }
+        var h = '';
+        d.staff.forEach(function(p) {
+          var badge = p.is_class_teacher ? '<span class="staff-badge">Class Teacher</span>' : '';
+          h += '<div class="staff-item"><input type="checkbox" name="cc_recipients" value="' + p.user_id + '" id="ms_' + p.user_id + '"' + (p.is_class_teacher ? ' checked' : '') + '><label for="ms_' + p.user_id + '">' + p.first_name + ' ' + p.last_name + ' <span class="staff-role">(' + p.role + ')</span>' + badge + '</label></div>';
+        });
+        list.innerHTML = h;
+      })
+      .catch(function() { list.innerHTML = '<div class="staff-loading" style="color:#e74c3c;">Failed to load staff</div>'; });
+  });
+</script>

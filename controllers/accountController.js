@@ -5317,6 +5317,15 @@ const accountController = {
           `)
         : { rows: [] };
 
+      // Fetch active billing periods for plan change modal
+      let billingPeriods = [];
+      try {
+        const bpResult = await db.query('SELECT * FROM billing_periods WHERE is_active = TRUE ORDER BY sort_order');
+        billingPeriods = bpResult.rows;
+      } catch (e) {
+        billingPeriods = [];
+      }
+
       let user = null;
       if (userId && orgId) {
         const userResult = await db.query(
@@ -5499,6 +5508,30 @@ const accountController = {
 
       const holidayCountries = getHolidayCountryOptions();
 
+      // Fetch latest payment + billing period info for the current plan card
+      let billingInfo = null;
+      if (orgId) {
+        try {
+          const billingResult = await db.query(
+            `SELECT p.billing_period_key, p.amount_paid, p.status, p.created_at,
+                    p.is_trial, p.trial_starts_at, p.trial_ends_at, p.next_payment_end_date,
+                    bp.label AS period_label, bp.months AS period_months, bp.discount_percentage
+             FROM payments p
+             LEFT JOIN billing_periods bp ON bp.period_key = p.billing_period_key
+             WHERE p.organization_id = $1 AND p.status IN ('active', 'completed')
+             ORDER BY p.created_at DESC
+             LIMIT 1`,
+            [orgId]
+          );
+          if (billingResult.rows.length > 0) {
+            billingInfo = billingResult.rows[0];
+          }
+        } catch (e) {
+          // billing_periods table may not exist yet
+          billingInfo = null;
+        }
+      }
+
       res.render("account/settings", {
         title: "Settings",
         org: orgRow,
@@ -5506,7 +5539,9 @@ const accountController = {
         planName: currentPlan ? currentPlan.plan_name : "",
         currentPlan,
         pendingPlan,
+        billingInfo,
         plans: plansResult.rows,
+        billingPeriods,
         paymentMethods,
         defaultPaymentMethod,
         paystackSubaccounts,
@@ -5898,11 +5933,20 @@ const accountController = {
 
       await db.query(
         `UPDATE organizations 
-
                  SET scheduled_hold_date = NULL, hold_by = NULL, on_hold = false 
-
                  WHERE organization_id = $1`,
+        [orgId]
+      );
 
+      // Reactivate stored cards so recurring billing can charge again
+      await db.query(
+        `UPDATE stored_cards SET is_active = true WHERE organization_id = $1`,
+        [orgId]
+      );
+
+      // Reactivate payment status so recurring billing picks them up
+      await db.query(
+        `UPDATE payments SET status = 'active' WHERE organization_id = $1 AND status = 'cancelled'`,
         [orgId]
       );
 
@@ -6032,131 +6076,241 @@ const accountController = {
 
   updatePlanPost: async (req, res) => {
     try {
-      const { newPlanId, redirectTo } = req.body;
+      const { newPlanId, newBillingPeriod, redirectTo } = req.body;
 
       const orgId = req.session.organizationId;
 
-      // Fetch the current plan of the organization
-
-      const currentPlanResult = await db.query(
-        "SELECT plan_id FROM organizations WHERE organization_id = $1",
-
+      // Fetch the current plan and trial status of the organization
+      const currentOrgResult = await db.query(
+        `SELECT o.plan_id, o.trial_active_until, o.email, o.organization_name
+         FROM organizations o WHERE o.organization_id = $1`,
         [orgId]
       );
 
-      if (currentPlanResult.rows.length === 0) {
+      if (currentOrgResult.rows.length === 0) {
         req.flash("error", "Organization not found.");
-
         return res.redirect(redirectTo || "/account/update-plan");
       }
 
-      const currentPlanId = currentPlanResult.rows[0].plan_id;
+      const currentPlanId = currentOrgResult.rows[0].plan_id;
+      const orgEmail = currentOrgResult.rows[0].email;
+      const isOnTrial = currentOrgResult.rows[0].trial_active_until &&
+        new Date(currentOrgResult.rows[0].trial_active_until) > new Date();
 
-      // Prevent selecting the same plan
+      // Check if user is changing billing period only (same plan)
+      const billingPeriodChanged = !!newBillingPeriod;
+      const planChanged = parseInt(newPlanId) !== parseInt(currentPlanId);
 
-      if (parseInt(newPlanId) === parseInt(currentPlanId)) {
+      if (!planChanged && !billingPeriodChanged) {
         req.flash(
           "error",
-
-          "⚠️ You are already on this plan. Please select a different one to upgrade."
+          "⚠️ Please select a different plan or billing cycle."
         );
+        return res.redirect(redirectTo || "/account/update-plan");
+      }
 
+      // If only billing period changed, update it and redirect
+      if (!planChanged && billingPeriodChanged) {
+        await db.query(
+          `UPDATE payments SET billing_period_key = $1 WHERE organization_id = $2 AND status = 'active'`,
+          [newBillingPeriod, orgId]
+        );
+        req.flash(
+          "success",
+          "Your billing cycle has been updated. The change will take effect at your next renewal."
+        );
         return res.redirect(redirectTo || "/account/update-plan");
       }
 
       // Fetch the price of the current and new plan
-
       const planPrices = await db.query(
-        `SELECT p.id, COALESCE(SUM(f.price_usd), 0) AS total_price
-
+        `SELECT p.id, p.plan_name, COALESCE(SUM(f.price_usd), 0) AS total_price
          FROM plans p
-
          LEFT JOIN plan_features pf ON p.id = pf.plan_id
-
          LEFT JOIN features f ON pf.feature_id = f.id
-
          WHERE p.id = $1 OR p.id = $2
-
          GROUP BY p.id`,
-
         [currentPlanId, newPlanId]
       );
-      let currentPrice = 0,
-        newPrice = 0;
+      let currentPrice = 0, newPrice = 0, newPlanName = '';
       for (const row of planPrices.rows) {
         if (parseInt(row.id) === parseInt(currentPlanId))
           currentPrice = parseFloat(row.total_price);
-        if (parseInt(row.id) === parseInt(newPlanId))
+        if (parseInt(row.id) === parseInt(newPlanId)) {
           newPrice = parseFloat(row.total_price);
+          newPlanName = row.plan_name;
+        }
       }
 
-      // If downgrading (new plan is cheaper), schedule for next payment period
+      // Also update billing period if changed
+      const updateBillingPeriod = billingPeriodChanged
+        ? db.query(
+            `UPDATE payments SET billing_period_key = $1 WHERE organization_id = $2 AND status = 'active'`,
+            [newBillingPeriod, orgId]
+          )
+        : Promise.resolve();
 
+      // ── DOWNGRADE (new plan is cheaper) ──
       if (newPrice < currentPrice) {
-        // Get next payment end date
-
         const paymentResult = await db.query(
           `SELECT next_payment_end_date FROM payments WHERE organization_id = $1 ORDER BY created_at DESC LIMIT 1`,
-
           [orgId]
         );
 
         let effectiveDate = null;
-        if (
-          paymentResult.rows.length > 0 &&
-          paymentResult.rows[0].next_payment_end_date
-        ) {
+        if (paymentResult.rows.length > 0 && paymentResult.rows[0].next_payment_end_date) {
           effectiveDate = paymentResult.rows[0].next_payment_end_date;
         }
 
         if (effectiveDate) {
           await db.query(
             `UPDATE organizations SET pending_plan_id = $1, pending_plan_effective_date = $2 WHERE organization_id = $3`,
-
             [newPlanId, effectiveDate, orgId]
           );
-          req.flash(
-            "success",
-            `Your plan will be changed to the selected plan on ${new Date(
-              effectiveDate
-            ).toLocaleDateString()}. You will retain your current plan until then.`
-          );
+          await updateBillingPeriod;
+          const msgs = [`Your plan will be downgraded to ${newPlanName} on ${new Date(effectiveDate).toLocaleDateString()}. You will retain your current plan features until then.`];
+          if (billingPeriodChanged) msgs.push('Your billing cycle update will take effect at the next renewal.');
+          req.flash("success", msgs.join(' '));
         } else {
-          // If no payment info, downgrade immediately
-
           await db.query(
             `UPDATE organizations SET plan_id = $1, pending_plan_id = NULL, pending_plan_effective_date = NULL WHERE organization_id = $2`,
-
             [newPlanId, orgId]
           );
+          await updateBillingPeriod;
           invalidateOrganizationAccessCache(orgId);
           req.session.allowedFeatures = [];
-          req.flash(
-            "success",
-            "Your plan has been changed to the selected plan."
-          );
+          req.flash("success", `Your plan has been changed to ${newPlanName}.` + (billingPeriodChanged ? ' Billing cycle updated.' : ''));
         }
-      } else {
-        // Upgrade or same price: change immediately
 
+        return res.redirect(redirectTo || "/account/update-plan");
+      }
+
+      // ── UPGRADE (new plan is more expensive) ──
+
+      // If on free trial, upgrade immediately without charging
+      if (isOnTrial) {
         await db.query(
           `UPDATE organizations SET plan_id = $1, pending_plan_id = NULL, pending_plan_effective_date = NULL WHERE organization_id = $2`,
-
           [newPlanId, orgId]
         );
+        await updateBillingPeriod;
         invalidateOrganizationAccessCache(orgId);
         req.session.allowedFeatures = [];
-        req.flash(
-          "success",
-          "Your plan has been changed to the selected plan."
-        );
+        req.flash("success", `Your plan has been upgraded to ${newPlanName}. Since you are on a free trial, you will be charged the new plan rate when your trial ends.` + (billingPeriodChanged ? ' Billing cycle updated.' : ''));
+        return res.redirect(redirectTo || "/account/update-plan");
       }
+
+      // Not on trial — calculate prorated upgrade charge
+      const paymentResult = await db.query(
+        `SELECT next_payment_end_date, billing_period_key, created_at FROM payments
+         WHERE organization_id = $1 AND status = 'active'
+         ORDER BY created_at DESC LIMIT 1`,
+        [orgId]
+      );
+
+      if (paymentResult.rows.length === 0) {
+        // No payment record — just switch immediately
+        await db.query(
+          `UPDATE organizations SET plan_id = $1, pending_plan_id = NULL, pending_plan_effective_date = NULL WHERE organization_id = $2`,
+          [newPlanId, orgId]
+        );
+        await updateBillingPeriod;
+        invalidateOrganizationAccessCache(orgId);
+        req.session.allowedFeatures = [];
+        req.flash("success", `Your plan has been upgraded to ${newPlanName}.` + (billingPeriodChanged ? ' Billing cycle updated.' : ''));
+        return res.redirect(redirectTo || "/account/update-plan");
+      }
+
+      const payment = paymentResult.rows[0];
+      const nextPaymentDate = new Date(payment.next_payment_end_date);
+      const now = new Date();
+
+      // Calculate remaining days in current billing period
+      const periodKey = payment.billing_period_key || 'monthly';
+      let periodMonths = 1;
+      try {
+        const bpRes = await db.query(
+          'SELECT months FROM billing_periods WHERE period_key = $1',
+          [periodKey]
+        );
+        if (bpRes.rows.length > 0) periodMonths = bpRes.rows[0].months;
+      } catch (e) { /* fallback to 1 */ }
+
+      const totalPeriodDays = periodMonths * 30; // approximate
+      const remainingMs = nextPaymentDate.getTime() - now.getTime();
+      const remainingDays = Math.max(0, Math.ceil(remainingMs / (1000 * 60 * 60 * 24)));
+
+      // Prorated difference: (newMonthlyPrice - currentMonthlyPrice) * remainingDays / 30
+      const monthlyDifference = newPrice - currentPrice;
+      const proratedAmount = Math.max(0, (monthlyDifference * remainingDays) / 30);
+
+      if (proratedAmount > 0) {
+        // Get the stored card to charge
+        const cardResult = await db.query(
+          `SELECT authorization_code FROM stored_cards
+           WHERE organization_id = $1 AND is_primary = true AND is_active = true
+           LIMIT 1`,
+          [orgId]
+        );
+
+        if (cardResult.rows.length === 0) {
+          req.flash("error", "No payment card on file. Please add a payment method before upgrading.");
+          return res.redirect(redirectTo || "/account/update-plan");
+        }
+
+        const authorizationCode = cardResult.rows[0].authorization_code;
+        const chargeAmountPesewas = Math.round(proratedAmount * 100);
+
+        try {
+          const paystackKey = await getActivePaystackSecretKey();
+          const chargeRes = await axios.post(
+            'https://api.paystack.co/transaction/charge_authorization',
+            {
+              email: orgEmail,
+              amount: chargeAmountPesewas,
+              authorization_code: authorizationCode,
+              currency: 'GHS',
+              metadata: {
+                reason: 'Plan upgrade proration',
+                from_plan: currentPlanId,
+                to_plan: newPlanId,
+                prorated_days: remainingDays,
+              },
+            },
+            {
+              headers: { Authorization: `Bearer ${paystackKey}` },
+            }
+          );
+
+          if (!chargeRes.data.status) {
+            req.flash("error", "Payment failed: " + (chargeRes.data.message || "Unable to charge your card for the upgrade."));
+            return res.redirect(redirectTo || "/account/update-plan");
+          }
+        } catch (chargeErr) {
+          const errMsg = chargeErr?.response?.data?.message || chargeErr.message || 'Payment processing failed.';
+          req.flash("error", "Payment failed: " + errMsg);
+          return res.redirect(redirectTo || "/account/update-plan");
+        }
+      }
+
+      // Payment succeeded (or no charge needed) — apply the upgrade immediately
+      await db.query(
+        `UPDATE organizations SET plan_id = $1, pending_plan_id = NULL, pending_plan_effective_date = NULL WHERE organization_id = $2`,
+        [newPlanId, orgId]
+      );
+      await updateBillingPeriod;
+      invalidateOrganizationAccessCache(orgId);
+      req.session.allowedFeatures = [];
+
+      const proratedMsg = proratedAmount > 0
+        ? ` A prorated charge of GHS ${proratedAmount.toFixed(2)} has been applied for the remaining ${remainingDays} day${remainingDays !== 1 ? 's' : ''} in your current billing period.`
+        : '';
+      req.flash("success", `Your plan has been upgraded to ${newPlanName}.${proratedMsg}` + (billingPeriodChanged ? ' Billing cycle updated.' : ''));
 
       return res.redirect(redirectTo || "/account/update-plan");
     } catch (error) {
-            req.flash("error", "❌ Failed to update plan.");
-
-      return res.redirect(redirectTo || "/account/update-plan");
+      req.flash("error", "❌ Failed to update plan.");
+      return res.redirect(req.body.redirectTo || "/account/update-plan");
     }
   },
 

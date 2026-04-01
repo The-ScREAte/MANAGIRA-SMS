@@ -504,6 +504,400 @@ main {
     padding-bottom: 0 !important;
   }
 }
+
+/* Report panel - list cards */
+.rp-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  background: #fff;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  gap: 12px;
+}
+.rp-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+.rp-left { flex: 1; min-width: 0; }
+.rp-subject {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+  margin: 0 0 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rp-meta {
+  font-size: 12px;
+  color: var(--muted);
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.rp-meta span { display: inline-flex; align-items: center; gap: 3px; }
+.rp-meta .rp-dot { width: 3px; height: 3px; border-radius: 50%; background: #cbd5e1; flex-shrink: 0; }
+.rp-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.rp-status {
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+.rp-status-open { background: #fef3c7; color: #b45309; }
+.rp-status-in_progress { background: #dbeafe; color: #1d4ed8; }
+.rp-status-resolved { background: #d1fae5; color: #047857; }
+.rp-status-closed { background: #f3f4f6; color: #6b7280; }
+.rp-status-pending { background: #fef3c7; color: #b45309; }
+.rp-replies {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.rp-empty {
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.rp-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.rp-panel-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rp-panel-close {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--muted);
+  transition: all 0.15s;
+}
+.rp-panel-close:hover {
+  background: #f3f4f6;
+  color: var(--text);
+  border-color: #d1d5db;
+}
+
+/* Report detail modal */
+.report-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1100;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 80px 16px 40px;
+  overflow-y: auto;
+  backdrop-filter: blur(2px);
+}
+.report-modal-overlay.active { display: flex; }
+.report-modal-box {
+  background: #fff;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 640px;
+  padding: 0;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  position: relative;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  animation: modalSlideIn 0.2s ease-out;
+}
+@keyframes modalSlideIn {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.report-modal-close {
+  position: sticky;
+  top: 0;
+  float: right;
+  margin: 14px 14px 0 0;
+  background: #f3f4f6;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--muted);
+  line-height: 1;
+  z-index: 2;
+  transition: all 0.15s;
+}
+.report-modal-close:hover {
+  background: #e5e7eb;
+  color: var(--text);
+}
+
+/* Report detail content */
+.rd-modal-body { padding: 20px 24px 24px; }
+.rd-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 14px;
+  line-height: 1.35;
+}
+.rd-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 14px;
+  background: #f9fafb;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.rd-info-item {}
+.rd-info-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin: 0 0 2px;
+}
+.rd-info-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+.rd-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+  letter-spacing: 0.02em;
+}
+.rd-priority-urgent { background: #fef2f2; color: #dc2626; }
+.rd-priority-high { background: #fff7ed; color: #c2410c; }
+.rd-priority-normal { background: #eff6ff; color: #2563eb; }
+.rd-priority-low { background: #f9fafb; color: #6b7280; }
+
+.rd-message {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 14px 16px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: #334155;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.rd-section {
+  margin-bottom: 16px;
+}
+.rd-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rd-section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.rd-recipients {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.rd-tag {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  color: #0369a1;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Conversation thread */
+.rd-reply {
+  padding: 12px 14px;
+  border-radius: 10px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+.rd-reply:last-child { margin-bottom: 0; }
+.rd-reply.is-guardian {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+.rd-reply.is-staff {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+.rd-reply-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.rd-reply-sender {
+  font-weight: 600;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rd-reply-sender .sender-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.rd-reply-sender .sender-dot.guardian { background: #10b981; }
+.rd-reply-sender .sender-dot.staff { background: #3b82f6; }
+.rd-reply-sender .sender-name { color: var(--text); }
+.rd-reply-sender .sender-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.rd-reply-date {
+  font-size: 11px;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+.rd-reply-msg {
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.6;
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+.rd-no-replies {
+  text-align: center;
+  padding: 20px 12px;
+  color: #94a3b8;
+  font-size: 13px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+}
+
+/* Reply form */
+.rd-reply-form {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 2px solid var(--border);
+}
+.rd-reply-form label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.rd-reply-form textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  color: var(--text);
+}
+.rd-reply-form textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(1, 83, 91, 0.1);
+}
+.rd-reply-form textarea::placeholder { color: #9ca3af; }
+.rd-reply-form .rd-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+.rd-reply-form button {
+  background: var(--primary);
+  color: #fff;
+  padding: 9px 22px;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.rd-reply-form button:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+.rd-reply-form button:active { transform: translateY(0); }
+.rd-reply-form button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+@media (max-width: 640px) {
+  .report-modal-overlay { padding: 60px 8px 20px; }
+  .rd-modal-body { padding: 16px; }
+  .rd-info-grid { grid-template-columns: 1fr 1fr; }
+  .rd-reply-header { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .rp-card { flex-direction: column; align-items: flex-start; }
+  .rp-right { width: 100%; justify-content: space-between; }
+}
 </style>
 
 <body>
@@ -557,6 +951,16 @@ main {
                 </a>
               </li>
             <% } %>
+              <li class="nav-section-label">Communication</li>
+              <li>
+                <a class="nav-link" href="#" id="reports-nav-link" onclick="toggleReportsPanel(event)">
+                  <span class="files-link-inline">📋 Reports
+                    <% if ((classReportsCount || 0) > 0) { %>
+                      <span class="files-badge" title="Reports"><%= classReportsCount %></span>
+                    <% } %>
+                  </span>
+                </a>
+              </li>
           </ul>
         </div>
       </aside>
@@ -642,6 +1046,27 @@ main {
                 <li class="card-subtext">No students enrolled for this term yet.</li>
               <% } %>
             </ul>
+          </div>
+
+          <!-- Reports Panel (hidden by default, toggled from sidebar) -->
+          <div class="section-card" id="reports-panel" style="display:none; margin-top:16px;">
+            <div class="rp-panel-header">
+              <h3 class="rp-panel-title">📋 Parent Reports</h3>
+              <button class="rp-panel-close" onclick="document.getElementById('reports-panel').style.display='none'" title="Close">×</button>
+            </div>
+            <div id="reports-list-content">
+              <p style="color:#6b7280;font-size:13px;">Loading reports...</p>
+            </div>
+          </div>
+
+          <!-- Report Detail Modal -->
+          <div class="report-modal-overlay" id="reportDetailModal">
+            <div class="report-modal-box">
+              <button class="report-modal-close" onclick="closeReportModal()">×</button>
+              <div id="reportDetailContent">
+                <p style="color:#6b7280;">Loading...</p>
+              </div>
+            </div>
           </div>
         </div>
       </main>
@@ -776,5 +1201,181 @@ main {
 
       initClassDashboard();
     })();
+
+    // --- Reports Panel ---
+    function toggleReportsPanel(e) {
+      if (e) e.preventDefault();
+      var panel = document.getElementById('reports-panel');
+      if (panel.style.display === 'none') {
+        panel.style.display = '';
+        loadClassReports();
+        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } else {
+        panel.style.display = 'none';
+      }
+    }
+
+    function loadClassReports() {
+      var container = document.getElementById('reports-list-content');
+      container.innerHTML = '<p style="color:#6b7280;font-size:13px;">Loading reports...</p>';
+      fetch('/common/classReports?classId=<%= classId %>')
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (!d.success || !d.reports || !d.reports.length) {
+            container.innerHTML = '<div class="rp-empty">No reports for this class yet.</div>';
+            return;
+          }
+          var html = '';
+          d.reports.forEach(function(r) {
+            var statusCls = 'rp-status-' + (r.status || 'open');
+            var replyLabel = (r.reply_count == 1) ? '1 reply' : (r.reply_count || 0) + ' replies';
+            html += '<div class="rp-card" onclick="openReportDetail(' + r.report_id + ')">' +
+              '<div class="rp-left">' +
+                '<div class="rp-subject">' + esc(r.subject) + '</div>' +
+                '<div class="rp-meta">' +
+                  '<span>' + esc(r.student_name) + '</span>' +
+                  '<span class="rp-dot"></span>' +
+                  '<span>' + esc(r.guardian_name) + '</span>' +
+                  '<span class="rp-dot"></span>' +
+                  '<span>' + new Date(r.created_at).toLocaleDateString() + '</span>' +
+                '</div>' +
+              '</div>' +
+              '<div class="rp-right">' +
+                '<span class="rp-status ' + statusCls + '">' + (r.status || 'open').replace('_',' ') + '</span>' +
+                '<span class="rp-replies">💬 ' + replyLabel + '</span>' +
+              '</div>' +
+            '</div>';
+          });
+          container.innerHTML = html;
+        })
+        .catch(function() {
+          container.innerHTML = '<div class="rp-empty" style="color:#e74c3c;">Failed to load reports.</div>';
+        });
+    }
+
+    function esc(s) {
+      if (!s) return '';
+      var d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    function openReportDetail(reportId) {
+      var modal = document.getElementById('reportDetailModal');
+      var content = document.getElementById('reportDetailContent');
+      content.innerHTML = '<p style="color:#6b7280;">Loading...</p>';
+      modal.classList.add('active');
+
+      fetch('/common/classReportDetail?reportId=' + reportId)
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (!d.success) { content.innerHTML = '<p style="color:#e74c3c;">Report not found.</p>'; return; }
+          var rp = d.report;
+          var statusCls = 'rp-status-' + (rp.status || 'open');
+          var prCls = 'rd-priority-' + (rp.priority || 'normal');
+
+          var html = '<div class="rd-modal-body">';
+          html += '<h2 class="rd-title">' + esc(rp.subject) + '</h2>';
+
+          // Info grid
+          html += '<div class="rd-info-grid">';
+          html += '<div class="rd-info-item"><p class="rd-info-label">Student</p><p class="rd-info-value">' + esc(rp.student_name) + '</p></div>';
+          html += '<div class="rd-info-item"><p class="rd-info-label">Guardian</p><p class="rd-info-value">' + esc(rp.guardian_name) + '</p></div>';
+          html += '<div class="rd-info-item"><p class="rd-info-label">Date</p><p class="rd-info-value">' + new Date(rp.created_at).toLocaleDateString('en-US', {year:'numeric',month:'short',day:'numeric'}) + '</p></div>';
+          html += '<div class="rd-info-item"><p class="rd-info-label">Status</p><p class="rd-info-value"><span class="rd-badge ' + statusCls + '">' + (rp.status || 'open').replace('_',' ') + '</span></p></div>';
+          html += '<div class="rd-info-item"><p class="rd-info-label">Priority</p><p class="rd-info-value"><span class="rd-badge ' + prCls + '">' + esc(rp.priority || 'normal') + '</span></p></div>';
+          html += '</div>';
+
+          // Original message
+          html += '<div class="rd-message">' + esc(rp.message) + '</div>';
+
+          // Recipients
+          if (d.recipients && d.recipients.length) {
+            html += '<div class="rd-section"><div class="rd-section-title">Copied Staff</div><div class="rd-recipients">';
+            d.recipients.forEach(function(rc) {
+              html += '<span class="rd-tag">' + esc(rc.display_name) + ' · ' + esc(rc.display_role) + '</span>';
+            });
+            html += '</div></div>';
+          }
+
+          // Conversation
+          var replyCount = d.replies ? d.replies.length : 0;
+          html += '<div class="rd-section"><div class="rd-section-title">Conversation (' + replyCount + ')</div>';
+          if (replyCount > 0) {
+            d.replies.forEach(function(reply) {
+              var isGuardian = reply.sender_type === 'guardian';
+              var bubbleCls = isGuardian ? 'is-guardian' : 'is-staff';
+              var dotCls = isGuardian ? 'guardian' : 'staff';
+              var label = isGuardian ? 'Parent' : 'Staff';
+              html += '<div class="rd-reply ' + bubbleCls + '">' +
+                '<div class="rd-reply-header">' +
+                  '<span class="rd-reply-sender">' +
+                    '<span class="sender-dot ' + dotCls + '"></span>' +
+                    '<span class="sender-name">' + esc(reply.display_name) + '</span>' +
+                    '<span class="sender-label">' + label + '</span>' +
+                  '</span>' +
+                  '<span class="rd-reply-date">' + new Date(reply.created_at).toLocaleString('en-US', {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) + '</span>' +
+                '</div>' +
+                '<p class="rd-reply-msg">' + esc(reply.message) + '</p>' +
+              '</div>';
+            });
+          } else {
+            html += '<div class="rd-no-replies">No replies yet. Start the conversation below.</div>';
+          }
+          html += '</div>';
+
+          // Reply form
+          html += '<div class="rd-reply-form">' +
+            '<label for="staffReplyMsg">Your Reply</label>' +
+            '<textarea id="staffReplyMsg" placeholder="Write your response to this report..."></textarea>' +
+            '<div class="rd-form-actions">' +
+              '<button id="staffReplyBtn" onclick="submitStaffReply(' + rp.report_id + ')">Send Reply</button>' +
+            '</div>' +
+          '</div>';
+
+          html += '</div>'; // close rd-modal-body
+          content.innerHTML = html;
+        })
+        .catch(function() {
+          content.innerHTML = '<p style="color:#e74c3c;">Failed to load report.</p>';
+        });
+    }
+
+    function closeReportModal() {
+      document.getElementById('reportDetailModal').classList.remove('active');
+    }
+    document.getElementById('reportDetailModal').addEventListener('click', function(e) {
+      if (e.target === this) closeReportModal();
+    });
+
+    function submitStaffReply(reportId) {
+      var msg = document.getElementById('staffReplyMsg').value.trim();
+      if (!msg) return;
+      var btn = document.getElementById('staffReplyBtn');
+      btn.disabled = true;
+      btn.textContent = 'Sending...';
+
+      fetch('/common/staffReplyToReport', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportId: reportId, message: msg })
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.success) {
+            openReportDetail(reportId); // refresh
+            loadClassReports(); // refresh list counts
+          } else {
+            alert(d.error || 'Error sending reply');
+            btn.disabled = false;
+            btn.textContent = 'Send Reply';
+          }
+        })
+        .catch(function() {
+          alert('Error sending reply');
+          btn.disabled = false;
+          btn.textContent = 'Send Reply';
+        });
+    }
   </script>
 </body>

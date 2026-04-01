@@ -65,6 +65,7 @@ async function runRecurringBilling() {
   const orgsDue = await db.query(`
     SELECT o.organization_id, o.email, o.organization_name, o.plan_id, c.authorization_code, p.next_payment_end_date, o.trial_active_until,
            COALESCE(p.billing_period_key, 'monthly') AS billing_period_key,
+           o.pending_plan_id, o.pending_plan_effective_date,
            CASE 
              WHEN o.trial_active_until IS NULL THEN 'No Trial'
              WHEN o.trial_active_until > NOW() THEN 'Trial Active'
@@ -115,6 +116,20 @@ async function runRecurringBilling() {
       if (trialEnd > now) {
         continue;
       } else {
+      }
+    }
+
+    // Apply pending plan downgrade if effective date has arrived
+    // We store this flag but only apply AFTER successful payment
+    let shouldApplyPendingPlan = false;
+    let pendingPlanId = null;
+    if (org.pending_plan_id && org.pending_plan_effective_date) {
+      const effectiveDate = new Date(org.pending_plan_effective_date);
+      if (effectiveDate <= new Date()) {
+        shouldApplyPendingPlan = true;
+        pendingPlanId = org.pending_plan_id;
+        // Use the new (downgraded) plan for the charge amount
+        org.plan_id = org.pending_plan_id;
       }
     }
     
@@ -207,6 +222,20 @@ async function runRecurringBilling() {
                WHERE organization_id = $2`,
           [amount / 100, org.organization_id]
         );
+
+        // Apply pending plan downgrade only after successful payment
+        if (shouldApplyPendingPlan && pendingPlanId) {
+          try {
+            await db.query(
+              `UPDATE organizations
+               SET plan_id = $1, pending_plan_id = NULL, pending_plan_effective_date = NULL
+               WHERE organization_id = $2`,
+              [pendingPlanId, org.organization_id]
+            );
+          } catch (pendingErr) {
+            // Plan switch failed but payment succeeded — will retry next cycle
+          }
+        }
         
       } else {
         const failureMessage = chargeRes.data?.message || 'Charge authorization failed.';

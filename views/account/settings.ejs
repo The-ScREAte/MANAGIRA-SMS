@@ -1046,6 +1046,115 @@
         background: #f9fafb;
       }
 
+      /* ── Billing Period Cards in Plan Modal ── */
+      .modal-period-section {
+        margin-top: 20px;
+        padding: 0;
+      }
+
+      .modal-period-section h3 {
+        margin: 0 0 8px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #6b7280;
+        text-align: center;
+        letter-spacing: 0.01em;
+        text-transform: uppercase;
+      }
+
+      .modal-period-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 8px;
+        max-width: 720px;
+        margin: 0 auto;
+      }
+
+      .modal-period-card {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 8px;
+        border: 1.5px solid var(--border);
+        border-radius: 10px;
+        background: #fff;
+        cursor: pointer;
+        transition: all 0.22s ease;
+        text-align: center;
+        min-height: 60px;
+      }
+
+      .modal-period-card:hover {
+        border-color: #94b8bb;
+        background: #f7fbfb;
+      }
+
+      .modal-period-card.active {
+        border-color: var(--primary);
+        background: #f4fafa;
+        box-shadow: 0 0 0 2px rgba(2, 105, 114, 0.12);
+      }
+
+      .modal-period-card.current-period {
+        border-color: #d1d5db;
+        background: #f3f4f6;
+      }
+
+      .modal-period-card.active.current-period {
+        border-color: var(--primary);
+        background: #f4fafa;
+      }
+
+      .modal-period-card-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 2px;
+      }
+
+      .modal-period-card-price {
+        font-size: 12px;
+        color: #6b7280;
+        line-height: 1.4;
+      }
+
+      .modal-period-card-price .period-price-strike {
+        text-decoration: line-through;
+        color: #b0b7c3;
+        font-size: 11px;
+      }
+
+      .modal-period-card-badge {
+        display: inline-block;
+        margin-top: 2px;
+        padding: 1px 7px;
+        border-radius: 99px;
+        font-size: 10px;
+        font-weight: 700;
+        background: rgba(13, 141, 93, 0.1);
+        color: #0d8d5d;
+      }
+
+      .modal-period-card.active .modal-period-card-badge {
+        background: var(--primary);
+        color: #fff;
+      }
+
+      .modal-period-current-tag {
+        display: inline-block;
+        margin-top: 2px;
+        padding: 1px 6px;
+        border-radius: 99px;
+        font-size: 9px;
+        font-weight: 700;
+        background: #e5e7eb;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+
       @media (max-width: 960px) {
         body {
           padding-bottom: env(safe-area-inset-bottom, 0px) !important;
@@ -1694,9 +1803,64 @@
           <% if (!isHubMember) { %>
           <div class="card">
             <h4>Current Plan</h4>
-            <small>Update your subscription plan.</small>
+            <small>Your subscription plan and billing details.</small>
             <div class="content-row">
-              <div><strong><%= planName || 'Not set' %></strong></div>
+              <div>
+                <strong><%= planName || 'Not set' %></strong>
+                <% if (pendingPlan) { %>
+                  <div style="margin-top:6px;padding:8px 12px;border-radius:8px;background:#e8f4fd;border:1px solid #90caf9;">
+                    <span style="font-weight:600;color:#1565c0;font-size:13px;">Pending Downgrade</span>
+                    <div style="margin-top:2px;font-size:12px;color:#5f6b7a;">
+                      Switching to <strong><%= pendingPlan.plan_name %></strong>
+                      on <strong><%= new Date(pendingPlan.effective_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %></strong>
+                    </div>
+                    <div style="margin-top:2px;font-size:11px;color:#6b7280;">
+                      You keep your current plan features until then.
+                    </div>
+                  </div>
+                <% } %>
+                <% if (typeof billingInfo !== 'undefined' && billingInfo) { %>
+                  <div style="margin-top:6px;font-size:13px;color:#5f6b7a;line-height:1.6;">
+                    <span style="display:inline-block;padding:2px 8px;border-radius:6px;background:#e7faf1;color:#0f5132;font-size:12px;font-weight:600;">
+                      <%= billingInfo.period_label || 'Monthly' %>
+                    </span>
+                    <% if (billingInfo.discount_percentage > 0) { %>
+                      <span style="margin-left:4px;font-size:11px;color:#0d8d5d;font-weight:600;">
+                        (<%= billingInfo.discount_percentage %>% off)
+                      </span>
+                    <% } %>
+                    <% if (billingInfo.is_trial && billingInfo.trial_ends_at && new Date(billingInfo.trial_ends_at) > new Date()) { %>
+                      <div style="margin-top:6px;padding:8px 12px;border-radius:8px;background:#fff8e1;border:1px solid #ffe082;">
+                        <span style="font-weight:600;color:#e65100;">Free Trial Active</span>
+                        <div style="margin-top:2px;font-size:12px;color:#5f6b7a;">
+                          <% var trialEnd = new Date(billingInfo.trial_ends_at); %>
+                          <% var daysLeft = Math.ceil((trialEnd - new Date()) / (1000*60*60*24)); %>
+                          Ends <strong><%= trialEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %></strong>
+                          (<%= daysLeft %> day<%= daysLeft !== 1 ? 's' : '' %> remaining)
+                        </div>
+                        <div style="margin-top:2px;font-size:12px;color:#5f6b7a;">
+                          First payment will be charged after trial ends.
+                        </div>
+                      </div>
+                    <% } else { %>
+                      <% if (!billingInfo.is_trial || parseFloat(billingInfo.amount_paid || 0) > 1) { %>
+                        <div style="margin-top:4px;">
+                          Last payment: <strong>$<%= parseFloat(billingInfo.amount_paid || 0).toFixed(2) %></strong>
+                          on <%= new Date(billingInfo.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %>
+                        </div>
+                      <% } %>
+                      <% if (billingInfo.next_payment_end_date) { %>
+                        <div>
+                          Next renewal: <strong><%= new Date(billingInfo.next_payment_end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %></strong>
+                          <% if (pendingPlan) { %>
+                            <span style="font-size:11px;color:#1565c0;">(will switch to <%= pendingPlan.plan_name %>)</span>
+                          <% } %>
+                        </div>
+                      <% } %>
+                    <% } %>
+                  </div>
+                <% } %>
+              </div>
               <button class="btn-link" id="open-plan-modal" type="button">Change Plan</button>
             </div>
           </div>
@@ -2047,6 +2211,7 @@
             id="selectedPlanId"
             value="<%= currentPlan ? currentPlan.plan_id : '' %>"
           />
+          <input type="hidden" name="newBillingPeriod" id="selectedBillingPeriod" value="" />
           <input type="hidden" name="redirectTo" value="/account/settings?section=billing" />
           <div class="plan-grid">
             <% if (plans && plans.length) { %>
@@ -2055,6 +2220,7 @@
                   class="plan-option <%= currentPlan && plan.plan_id === currentPlan.plan_id ? 'disabled' : '' %>"
                   data-plan-id="<%= plan.plan_id %>"
                   data-plan-name="<%= plan.plan_name %>"
+                  data-base-usd="<%= plan.total_price %>"
                 >
                   <div class="plan-option-header"><%= plan.plan_name %></div>
                   <div class="plan-option-body">
@@ -2069,15 +2235,45 @@
                       <% } %>
                     </ul>
                   </div>
-                  <div class="plan-option-footer">$<%= plan.total_price %></div>
+                  <div class="plan-option-footer" data-base-price="$<%= plan.total_price %>">$<%= plan.total_price %></div>
                 </div>
               <% }) %>
             <% } else { %>
               <p class="list-empty">No active plans are available right now.</p>
             <% } %>
           </div>
+
+          <% if (typeof billingPeriods !== 'undefined' && billingPeriods.length > 1) { %>
+          <div class="modal-period-section">
+            <h3>Choose Your Billing Cycle</h3>
+            <div class="modal-period-grid" role="radiogroup" aria-label="Billing period">
+              <% var currentBillingKey = (typeof billingInfo !== 'undefined' && billingInfo && billingInfo.billing_period_key) ? billingInfo.billing_period_key : ''; %>
+              <% billingPeriods.forEach(function(bp) { %>
+                <div
+                  class="modal-period-card <%= bp.period_key === currentBillingKey ? 'active current-period' : '' %>"
+                  data-key="<%= bp.period_key %>"
+                  data-months="<%= bp.months %>"
+                  data-discount="<%= bp.discount_percentage %>"
+                  role="radio"
+                  tabindex="0"
+                  aria-checked="<%= bp.period_key === currentBillingKey ? 'true' : 'false' %>"
+                >
+                  <div class="modal-period-card-label"><%= bp.label %></div>
+                  <div class="modal-period-card-price" data-period-price></div>
+                  <% if (bp.discount_percentage > 0) { %>
+                    <span class="modal-period-card-badge">Save <%= bp.discount_percentage %>%</span>
+                  <% } %>
+                  <% if (bp.period_key === currentBillingKey) { %>
+                    <span class="modal-period-current-tag">Current</span>
+                  <% } %>
+                </div>
+              <% }) %>
+            </div>
+          </div>
+          <% } %>
+
           <div class="content-row">
-            <button type="submit" class="btn-primary btn-link">Update Plan</button>
+            <button type="submit" class="btn-primary btn-link" id="updatePlanBtn" disabled>Update Plan</button>
           </div>
         </form>
       </div>
@@ -3137,6 +3333,12 @@
         if (planOptions.length && selectedPlanInput) {
           const currentPlanId = selectedPlanInput.value;
           let selectedPlanName = "";
+          const billingPeriodInput = document.getElementById("selectedBillingPeriod");
+          const periodCards = Array.from(document.querySelectorAll(".modal-period-card"));
+          const updatePlanBtn = document.getElementById("updatePlanBtn");
+          const currentBillingKey = <%- JSON.stringify((typeof billingInfo !== 'undefined' && billingInfo && billingInfo.billing_period_key) ? billingInfo.billing_period_key : '') %>;
+          let planChanged = false;
+          let billingCycleChanged = false;
 
           const currentSelectedOption = planOptions.find(
             (option) => String(option.dataset.planId || "") === String(selectedPlanInput.value || "")
@@ -3145,11 +3347,89 @@
             selectedPlanName = currentSelectedOption.dataset.planName || "this plan";
           }
 
+          function getSelectedPlanBaseUsd() {
+            const selected = planOptions.find((o) => o.classList.contains("selected"));
+            if (selected) return parseFloat(selected.dataset.baseUsd) || 0;
+            // Fall back to current plan
+            const current = planOptions.find((o) => o.classList.contains("disabled"));
+            if (current) return parseFloat(current.dataset.baseUsd) || 0;
+            return 0;
+          }
+
+          function updateModalPeriodPrices() {
+            const baseUsd = getSelectedPlanBaseUsd();
+            periodCards.forEach(function(card) {
+              const months = parseInt(card.dataset.months) || 1;
+              const discount = parseInt(card.dataset.discount) || 0;
+              const priceEl = card.querySelector("[data-period-price]");
+              if (!priceEl) return;
+              if (baseUsd <= 0) { priceEl.innerHTML = ""; return; }
+
+              const raw = baseUsd * months;
+              const final_ = discount > 0 ? raw * (1 - discount / 100) : raw;
+              const perMo = final_ / months;
+
+              if (months === 1) {
+                priceEl.innerHTML = "$" + baseUsd.toFixed(2) + "/mo";
+              } else if (discount > 0) {
+                priceEl.innerHTML = '<span class="period-price-strike">$' + raw.toFixed(2) + "</span> $" + final_.toFixed(2)
+                  + '<span style="display:block;font-size:11px;color:#5f6b7a;margin-top:1px;">~$' + perMo.toFixed(2) + "/mo</span>";
+              } else {
+                priceEl.innerHTML = "$" + final_.toFixed(2) + " (~$" + perMo.toFixed(2) + "/mo)";
+              }
+            });
+          }
+
+          function updatePlanFooterPrices() {
+            let activePeriodCard = periodCards.find((c) => c.classList.contains("active"));
+            const months = activePeriodCard ? (parseInt(activePeriodCard.dataset.months) || 1) : 1;
+            const discount = activePeriodCard ? (parseInt(activePeriodCard.dataset.discount) || 0) : 0;
+
+            planOptions.forEach(function(option) {
+              const base = parseFloat(option.dataset.baseUsd) || 0;
+              const footer = option.querySelector(".plan-option-footer");
+              if (!footer) return;
+              if (months === 1 && discount === 0) {
+                footer.textContent = "$" + base.toFixed(2);
+              } else {
+                const raw = base * months;
+                const final_ = discount > 0 ? raw * (1 - discount / 100) : raw;
+                footer.textContent = "$" + final_.toFixed(2);
+              }
+            });
+          }
+
+          function updateSubmitState() {
+            if (!updatePlanBtn) return;
+            updatePlanBtn.disabled = !(planChanged || billingCycleChanged);
+          }
+
+          function selectPeriodCard(card) {
+            periodCards.forEach(function(c) {
+              c.classList.remove("active");
+              c.setAttribute("aria-checked", "false");
+            });
+            card.classList.add("active");
+            card.setAttribute("aria-checked", "true");
+            if (billingPeriodInput) billingPeriodInput.value = card.dataset.key;
+            billingCycleChanged = card.dataset.key !== currentBillingKey;
+            updatePlanFooterPrices();
+            updateModalPeriodPrices();
+            updateSubmitState();
+          }
+
+          // Plan card click
           planOptions.forEach((option) => {
             option.addEventListener("click", () => {
               const planId = option.dataset.planId;
               if (planId === currentPlanId) {
-                alert("You are already on this plan. Please select a different one to upgrade.");
+                // Re-selecting current plan (deselect any other)
+                planOptions.forEach((plan) => plan.classList.remove("selected"));
+                selectedPlanInput.value = currentPlanId;
+                planChanged = false;
+                updateModalPeriodPrices();
+                updatePlanFooterPrices();
+                updateSubmitState();
                 return;
               }
 
@@ -3157,28 +3437,49 @@
               option.classList.add("selected");
               selectedPlanInput.value = planId;
               selectedPlanName = option.dataset.planName || "this plan";
+              planChanged = true;
+              updateModalPeriodPrices();
+              updatePlanFooterPrices();
+              updateSubmitState();
             });
           });
+
+          // Billing period card click
+          periodCards.forEach(function(card) {
+            card.addEventListener("click", function() { selectPeriodCard(this); });
+            card.addEventListener("keydown", function(e) {
+              if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectPeriodCard(this); }
+            });
+          });
+
+          // Initial price calculation
+          updateModalPeriodPrices();
+          updatePlanFooterPrices();
 
           if (planForm) {
             planForm.addEventListener("submit", (event) => {
               event.preventDefault();
-              const newPlanId = selectedPlanInput.value;
-              if (!newPlanId || newPlanId === currentPlanId) {
-                alert("Please select a different subscription plan before proceeding.");
+              if (!planChanged && !billingCycleChanged) {
+                alert("Please select a different plan or billing cycle before proceeding.");
                 return;
               }
 
-              // Avoid stacking two modals at the same z-index where password modal
-              // can appear behind the plan modal and seem non-responsive.
+              // Build confirmation message
+              let confirmMsg = "";
+              if (planChanged) {
+                confirmMsg += 'You are about to change your plan to "' + selectedPlanName + '".';
+              }
+              if (billingCycleChanged) {
+                const activeCard = periodCards.find((c) => c.classList.contains("active"));
+                const newLabel = activeCard ? activeCard.querySelector(".modal-period-card-label").textContent : "selected cycle";
+                confirmMsg += (confirmMsg ? " " : "") + "Your billing cycle will change to " + newLabel + ".";
+              }
+              confirmMsg += " Continue?";
+
               closeModal(planModal);
 
               requestPassword(null, () => {
-                if (
-                  confirm(
-                    `You are about to change your plan to \"${selectedPlanName}\". This will update your subscription. Continue?`
-                  )
-                ) {
+                if (confirm(confirmMsg)) {
                   planForm.submit();
                 }
               });

@@ -1,274 +1,53 @@
-<%- include('../layout', { body: `
 <style>
-  .report-details-container {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 20px;
-  }
-  
-  .back-link {
-    display: inline-flex;
-    align-items: center;
-    color: #27ae60;
-    text-decoration: none;
-    margin-bottom: 20px;
-    font-weight: 500;
-  }
-  
-  .back-link:hover {
-    text-decoration: underline;
-  }
-  
-  .report-header {
-    background: white;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 25px;
-    margin-bottom: 20px;
-  }
-  
-  .report-title {
-    font-size: 24px;
-    color: #2c3e50;
-    margin: 0 0 15px 0;
-  }
-  
-  .report-meta-row {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 15px;
-    margin-bottom: 15px;
-  }
-  
-  .meta-item {
-    display: flex;
-    align-items: center;
-    font-size: 14px;
-    color: #555;
-  }
-  
-  .meta-label {
-    font-weight: 600;
-    margin-right: 8px;
-  }
-  
-  .status-badge {
-    padding: 6px 14px;
-    border-radius: 12px;
-    font-size: 13px;
-    font-weight: 600;
-    text-transform: uppercase;
-    display: inline-block;
-  }
-  
-  .status-open {
-    background: #fef5e7;
-    color: #f39c12;
-  }
-  
-  .status-in_progress {
-    background: #ebf5fb;
-    color: #3498db;
-  }
-  
-  .status-resolved {
-    background: #eafaf1;
-    color: #27ae60;
-  }
-  
-  .status-closed {
-    background: #f4f6f7;
-    color: #7f8c8d;
-  }
-  
-  .priority-badge {
-    padding: 4px 10px;
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-  }
-  
-  .priority-urgent {
-    background: #fadbd8;
-    color: #e74c3c;
-  }
-  
-  .priority-high {
-    background: #fef5e7;
-    color: #f39c12;
-  }
-  
-  .priority-normal {
-    background: #ebf5fb;
-    color: #3498db;
-  }
-  
-  .priority-low {
-    background: #f4f6f7;
-    color: #95a5a6;
-  }
-  
-  .original-message {
-    background: #f8f9fa;
-    padding: 20px;
-    border-radius: 6px;
-    margin-top: 15px;
-  }
-  
-  .original-message p {
-    margin: 0;
-    line-height: 1.6;
-    color: #2c3e50;
-  }
-  
-  .cc-recipients {
-    background: white;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 20px;
-  }
-  
-  .cc-recipients h3 {
-    font-size: 16px;
-    color: #2c3e50;
-    margin: 0 0 15px 0;
-  }
-  
-  .recipient-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-  
-  .recipient-tag {
-    background: #ebf5fb;
-    color: #3498db;
-    padding: 6px 12px;
-    border-radius: 16px;
-    font-size: 13px;
-  }
-  
-  .conversation-section {
-    background: white;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 25px;
-    margin-bottom: 20px;
-  }
-  
-  .conversation-section h3 {
-    font-size: 18px;
-    color: #2c3e50;
-    margin: 0 0 20px 0;
-  }
-  
-  .reply-item {
-    margin-bottom: 20px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid #f0f0f0;
-  }
-  
-  .reply-item:last-child {
-    border-bottom: none;
-    margin-bottom: 0;
-    padding-bottom: 0;
-  }
-  
-  .reply-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-  }
-  
-  .reply-sender {
-    font-weight: 600;
-    color: #2c3e50;
-  }
-  
-  .sender-type-guardian {
-    color: #27ae60;
-  }
-  
-  .sender-type-staff {
-    color: #3498db;
-  }
-  
-  .reply-date {
-    font-size: 13px;
-    color: #7f8c8d;
-  }
-  
-  .reply-message {
-    color: #555;
-    line-height: 1.6;
-    margin: 0;
-  }
-  
-  .no-replies {
-    text-align: center;
-    color: #7f8c8d;
-    padding: 30px;
-    font-style: italic;
-  }
-  
-  .reply-form {
-    background: white;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 25px;
-  }
-  
-  .reply-form h3 {
-    font-size: 18px;
-    color: #2c3e50;
-    margin: 0 0 15px 0;
-  }
-  
-  .reply-form textarea {
-    width: 100%;
-    min-height: 100px;
-    padding: 12px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    font-size: 14px;
-    font-family: inherit;
-    resize: vertical;
-  }
-  
-  .reply-form textarea:focus {
-    outline: none;
-    border-color: #27ae60;
-  }
-  
-  .reply-form button {
-    background: #27ae60;
-    color: white;
-    padding: 12px 24px;
-    border: none;
-    border-radius: 6px;
-    font-weight: 500;
-    cursor: pointer;
-    margin-top: 15px;
-  }
-  
-  .reply-form button:hover {
-    background: #229954;
-  }
-  
-  @media (max-width: 768px) {
-    .report-meta-row {
-      grid-template-columns: 1fr;
-      gap: 10px;
-    }
-    
-    .reply-header {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 5px;
-    }
+  .report-details-container { max-width: 800px; margin: 0 auto; padding: 16px; }
+  .back-link { display: inline-flex; align-items: center; color: var(--primary, #27ae60); text-decoration: none; margin-bottom: 14px; font-weight: 500; font-size: 0.85rem; }
+  .back-link:hover { text-decoration: underline; }
+
+  .report-header { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 18px; margin-bottom: 14px; }
+  .report-title { font-size: 1.15rem; color: #1e293b; margin: 0 0 10px; }
+  .report-meta-row { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 10px; font-size: 0.82rem; color: #64748b; }
+  .meta-item { display: flex; align-items: center; gap: 4px; }
+  .meta-label { font-weight: 600; color: #334155; }
+  .status-badge { padding: 3px 10px; border-radius: 12px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; display: inline-block; }
+  .status-open { background: #fef3c7; color: #d97706; }
+  .status-in_progress { background: #dbeafe; color: #2563eb; }
+  .status-resolved { background: #d1fae5; color: #059669; }
+  .status-closed { background: #f3f4f6; color: #6b7280; }
+  .priority-badge { padding: 2px 8px; border-radius: 8px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; }
+  .priority-urgent { background: #fadbd8; color: #e74c3c; }
+  .priority-high { background: #fef3c7; color: #d97706; }
+  .priority-normal { background: #dbeafe; color: #2563eb; }
+  .priority-low { background: #f3f4f6; color: #95a5a6; }
+  .original-message { background: #f8fafc; padding: 14px; border-radius: 6px; margin-top: 10px; }
+  .original-message p { margin: 0; line-height: 1.6; color: #334155; font-size: 0.9rem; }
+
+  .cc-recipients { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 18px; margin-bottom: 14px; }
+  .cc-recipients h3 { font-size: 0.9rem; color: #334155; margin: 0 0 8px; }
+  .recipient-list { display: flex; flex-wrap: wrap; gap: 6px; }
+  .recipient-tag { background: #ebf5fb; color: #2563eb; padding: 3px 10px; border-radius: 12px; font-size: 0.78rem; }
+
+  .conversation-section { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 18px; margin-bottom: 14px; }
+  .conversation-section h3 { font-size: 0.95rem; color: #1e293b; margin: 0 0 14px; }
+  .reply-item { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid #f1f5f9; }
+  .reply-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  .reply-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .reply-sender { font-weight: 600; font-size: 0.85rem; color: #1e293b; }
+  .sender-type-guardian { color: #059669; }
+  .sender-type-staff { color: #2563eb; }
+  .reply-date { font-size: 0.75rem; color: #94a3b8; }
+  .reply-message { color: #475569; line-height: 1.6; margin: 0; font-size: 0.85rem; }
+  .no-replies { text-align: center; color: #94a3b8; padding: 20px; font-size: 0.85rem; }
+
+  .reply-form { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 18px; }
+  .reply-form h3 { font-size: 0.95rem; color: #1e293b; margin: 0 0 10px; }
+  .reply-form textarea { width: 100%; min-height: 80px; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.85rem; font-family: inherit; resize: vertical; box-sizing: border-box; }
+  .reply-form textarea:focus { outline: none; border-color: var(--primary, #27ae60); }
+  .reply-form button { background: var(--primary, #27ae60); color: #fff; padding: 8px 20px; border: none; border-radius: 6px; font-weight: 600; font-size: 0.85rem; cursor: pointer; margin-top: 10px; }
+  .reply-form button:hover { background: var(--primary-hover, #229954); }
+
+  @media (max-width: 640px) {
+    .report-meta-row { flex-direction: column; gap: 6px; }
+    .reply-header { flex-direction: column; align-items: flex-start; gap: 2px; }
   }
 </style>
 
@@ -318,7 +97,20 @@
       <div class="recipient-list">
         <% recipients.forEach(recipient => { %>
           <span class="recipient-tag">
-            <%= recipient.user_name %> (<%= recipient.user_role %>)
+            <%= recipient.display_name %> (<%= recipient.display_role %>)
+          </span>
+        <% }); %>
+      </div>
+    </div>
+  <% } %>
+
+  <% if (classTeachers && classTeachers.length > 0) { %>
+    <div class="cc-recipients">
+      <h3>👩‍🏫 Class Teachers</h3>
+      <div class="recipient-list">
+        <% classTeachers.forEach(teacher => { %>
+          <span class="recipient-tag">
+            <%= teacher.name %> (<%= teacher.role %>)<% if (teacher.main) { %> — Main<% } %>
           </span>
         <% }); %>
       </div>
@@ -333,7 +125,7 @@
         <div class="reply-item">
           <div class="reply-header">
             <span class="reply-sender sender-type-<%= reply.sender_type %>">
-              <%= reply.sender_name %>
+              <%= reply.display_name %>
               <% if (reply.sender_type === 'guardian') { %>(You)<% } %>
             </span>
             <span class="reply-date">
@@ -360,4 +152,3 @@
     <button type="submit">Send Reply</button>
   </form>
 </div>
-` }); %>

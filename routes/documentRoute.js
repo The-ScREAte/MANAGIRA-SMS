@@ -16,17 +16,17 @@ module.exports = (db) => {
   );
 
   // Document editor
-  router.get("/edit/:id", checkFeatureAccess, isAuthenticated, (req, res) =>
+  router.get("/edit/:id", checkFeatureAccess, isAuthenticated, blockGuardians, (req, res) =>
     documentController.documentEditor(req, res, db)
   );
 
   // Auto-save document
-  router.post("/save/:id", checkFeatureAccess, isAuthenticated, express.json(), (req, res) =>
+  router.post("/save/:id", checkFeatureAccess, isAuthenticated, blockGuardians, express.json(), (req, res) =>
     documentController.saveDocument(req, res, db)
   );
 
   // Get document content (polling)
-  router.get("/content/:id", checkFeatureAccess, isAuthenticated, (req, res) =>
+  router.get("/content/:id", checkFeatureAccess, isAuthenticated, blockGuardians, (req, res) =>
     documentController.getDocumentContent(req, res, db)
   );
 

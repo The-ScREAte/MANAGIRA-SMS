@@ -51,6 +51,10 @@ module.exports = (db) => {
     guardianController.reportNewGet(req, res, db)
   );
 
+  router.get("/reports/student-staff", isGuardianAuthenticated, (req, res) =>
+    guardianController.getStudentStaff(req, res, db)
+  );
+
   router.post("/reports/create", isGuardianAuthenticated, (req, res) =>
     guardianController.reportCreatePost(req, res, db)
   );

@@ -187,59 +187,9 @@ const resolveCreatorUserId = async (
       return null;
     }
 
-    if (totalManagers === 0 && orgIdentity?.email && orgIdentity?.password) {
-      const createdManager = await db.query(
-        `
-        INSERT INTO users (
-          first_name,
-          last_name,
-          email,
-          password,
-          account_type,
-          organization_id,
-          created_at,
-          updated_at
-        )
-        VALUES (
-          $1,
-          $2,
-          $3,
-          $4,
-          'Manager',
-          $5,
-          NOW(),
-          NOW()
-        )
-        ON CONFLICT (email) DO NOTHING
-        RETURNING user_id
-      `,
-        [
-          orgIdentity.first_name || 'Organization',
-          orgIdentity.last_name || 'Account',
-          orgIdentity.email,
-          orgIdentity.password,
-          orgId,
-        ]
-      );
-
-      if (createdManager.rows.length > 0) {
-        return createdManager.rows[0].user_id;
-      }
-
-      const existingByEmail = await db.query(
-        `
-        SELECT user_id
-        FROM users
-        WHERE organization_id = $1
-          AND email::text ILIKE $2
-        LIMIT 1
-      `,
-        [orgId, orgIdentity.email]
-      );
-
-      if (existingByEmail.rows.length > 0) {
-        return existingByEmail.rows[0].user_id;
-      }
+    if (totalManagers === 0) {
+      // No managers found — cannot auto-create users as a side effect
+      return null;
     }
 
     const organizationOwnerUser = await db.query(
@@ -737,15 +687,45 @@ const documentController = {
     try {
       const docId = req.params.id;
       const orgId = req.session.organizationId;
+      const userId = req.session.userId || req.session.user?.user_id || null;
+      const userRole = req.session.userRole;
 
       const result = await db.query(`
-        SELECT content, title, updated_at FROM documents
+        SELECT content, title, updated_at, created_by FROM documents
         WHERE id = $1 AND organization_id = $2 AND is_deleted = FALSE
       `, [docId, orgId]);
 
       if (result.rows.length === 0) return res.status(404).json({ success: false });
 
-      res.json({ success: true, data: result.rows[0] });
+      const doc = result.rows[0];
+
+      // Verify user has access
+      const canManageRecords = await userHasPermission(
+        db,
+        { userId, userRole, organizationId: orgId },
+        PERMISSIONS.MANAGE_RECORDS
+      );
+
+      if (doc.created_by !== userId && !canManageRecords) {
+        const directPerm = await db.query(
+          `SELECT 1 FROM document_permissions WHERE document_id = $1 AND user_id = $2 LIMIT 1`,
+          [docId, userId]
+        );
+        if (directPerm.rows.length === 0) {
+          const classPerm = await db.query(`
+            SELECT 1 FROM document_class_assignments dca
+            JOIN class_employees ce ON dca.class_id = ce.class_id
+            JOIN classes c ON c.class_id = dca.class_id AND c.organization_id = $3
+            WHERE dca.document_id = $1 AND ce.user_id = $2
+            LIMIT 1
+          `, [docId, userId, orgId]);
+          if (classPerm.rows.length === 0) {
+            return res.status(403).json({ success: false });
+          }
+        }
+      }
+
+      res.json({ success: true, data: { content: doc.content, title: doc.title, updated_at: doc.updated_at } });
     } catch (error) {
       res.status(500).json({ success: false });
     }
@@ -802,77 +782,94 @@ const documentController = {
       const doc = await db.query(`SELECT id, title FROM documents WHERE id = $1 AND organization_id = $2`, [docId, orgId]);
       if (doc.rows.length === 0) return res.status(404).json({ success: false });
 
-      // Update user permissions
-      if (permissions) {
-        const permissionUserIds = Array.from(new Set(
-          permissions
-            .map((perm) => Number(perm.user_id))
-            .filter((id) => Number.isInteger(id) && id > 0)
-        ));
+      // Use a dedicated client for transactional permission updates
+      const client = await db.connect();
+      try {
+        await client.query('BEGIN');
 
-        if (permissionUserIds.length > 0) {
-          const validUsers = await db.query(`
-            SELECT user_id FROM users
-            WHERE organization_id = $1 AND user_id = ANY($2::int[])
-          `, [orgId, permissionUserIds]);
+        // Update user permissions
+        if (permissions) {
+          const permissionUserIds = Array.from(new Set(
+            permissions
+              .map((perm) => Number(perm.user_id))
+              .filter((id) => Number.isInteger(id) && id > 0)
+          ));
 
-          const validUserIds = new Set(validUsers.rows.map((row) => row.user_id));
-          const hasInvalidUser = permissionUserIds.some((id) => !validUserIds.has(id));
-          if (hasInvalidUser) {
-            return res.status(400).json({ success: false, message: 'One or more users do not belong to this organization.' });
+          if (permissionUserIds.length > 0) {
+            const validUsers = await client.query(`
+              SELECT user_id FROM users
+              WHERE organization_id = $1 AND user_id = ANY($2::int[])
+            `, [orgId, permissionUserIds]);
+
+            const validUserIds = new Set(validUsers.rows.map((row) => row.user_id));
+            const hasInvalidUser = permissionUserIds.some((id) => !validUserIds.has(id));
+            if (hasInvalidUser) {
+              await client.query('ROLLBACK');
+              client.release();
+              return res.status(400).json({ success: false, message: 'One or more users do not belong to this organization.' });
+            }
+          }
+
+          await client.query(`DELETE FROM document_permissions WHERE document_id = $1`, [docId]);
+          for (const perm of permissions) {
+            await client.query(`
+              INSERT INTO document_permissions (document_id, user_id, permission_level)
+              VALUES ($1, $2, $3)
+              ON CONFLICT (document_id, user_id) DO UPDATE SET permission_level = $3
+            `, [docId, perm.user_id, perm.permission_level]);
           }
         }
 
-        await db.query(`DELETE FROM document_permissions WHERE document_id = $1`, [docId]);
-        for (const perm of permissions) {
-          await db.query(`
-            INSERT INTO document_permissions (document_id, user_id, permission_level)
-            VALUES ($1, $2, $3)
-            ON CONFLICT (document_id, user_id) DO UPDATE SET permission_level = $3
-          `, [docId, perm.user_id, perm.permission_level]);
-        }
-      }
+        // Update class assignments
+        if (classAssignments) {
+          const existingAssignments = await client.query(`
+            SELECT dca.class_id
+            FROM document_class_assignments dca
+            JOIN classes c ON c.class_id = dca.class_id
+            WHERE dca.document_id = $1 AND c.organization_id = $2
+          `, [docId, orgId]);
 
-      // Update class assignments
-      if (classAssignments) {
-        const existingAssignments = await db.query(`
-          SELECT dca.class_id
-          FROM document_class_assignments dca
-          JOIN classes c ON c.class_id = dca.class_id
-          WHERE dca.document_id = $1 AND c.organization_id = $2
-        `, [docId, orgId]);
+          const existingClassIds = new Set(existingAssignments.rows.map((row) => Number(row.class_id)));
 
-        const existingClassIds = new Set(existingAssignments.rows.map((row) => Number(row.class_id)));
+          const classIds = Array.from(new Set(
+            classAssignments
+              .map((assignment) => Number(assignment.class_id))
+              .filter((id) => Number.isInteger(id) && id > 0)
+          ));
 
-        const classIds = Array.from(new Set(
-          classAssignments
-            .map((assignment) => Number(assignment.class_id))
-            .filter((id) => Number.isInteger(id) && id > 0)
-        ));
+          if (classIds.length > 0) {
+            const validClasses = await client.query(`
+              SELECT class_id FROM classes
+              WHERE organization_id = $1 AND class_id = ANY($2::int[])
+            `, [orgId, classIds]);
 
-        if (classIds.length > 0) {
-          const validClasses = await db.query(`
-            SELECT class_id FROM classes
-            WHERE organization_id = $1 AND class_id = ANY($2::int[])
-          `, [orgId, classIds]);
+            const validClassIds = new Set(validClasses.rows.map((row) => row.class_id));
+            const hasInvalidClass = classIds.some((id) => !validClassIds.has(id));
+            if (hasInvalidClass) {
+              await client.query('ROLLBACK');
+              client.release();
+              return res.status(400).json({ success: false, message: 'One or more classes do not belong to this organization.' });
+            }
+          }
 
-          const validClassIds = new Set(validClasses.rows.map((row) => row.class_id));
-          const hasInvalidClass = classIds.some((id) => !validClassIds.has(id));
-          if (hasInvalidClass) {
-            return res.status(400).json({ success: false, message: 'One or more classes do not belong to this organization.' });
+          addedClassIds = classIds.filter((id) => !existingClassIds.has(id));
+
+          await client.query(`DELETE FROM document_class_assignments WHERE document_id = $1`, [docId]);
+          for (const assignment of classAssignments) {
+            await client.query(`
+              INSERT INTO document_class_assignments (document_id, class_id, include_students, include_subjects, permission_level)
+              VALUES ($1, $2, $3, $4, $5)
+              ON CONFLICT (document_id, class_id) DO UPDATE SET include_students = $3, include_subjects = $4, permission_level = $5
+            `, [docId, assignment.class_id, assignment.include_students || false, assignment.include_subjects || false, assignment.permission_level || 'view']);
           }
         }
 
-        addedClassIds = classIds.filter((id) => !existingClassIds.has(id));
-
-        await db.query(`DELETE FROM document_class_assignments WHERE document_id = $1`, [docId]);
-        for (const assignment of classAssignments) {
-          await db.query(`
-            INSERT INTO document_class_assignments (document_id, class_id, include_students, include_subjects, permission_level)
-            VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT (document_id, class_id) DO UPDATE SET include_students = $3, include_subjects = $4, permission_level = $5
-          `, [docId, assignment.class_id, assignment.include_students || false, assignment.include_subjects || false, assignment.permission_level || 'view']);
-        }
+        await client.query('COMMIT');
+      } catch (txError) {
+        await client.query('ROLLBACK');
+        throw txError;
+      } finally {
+        client.release();
       }
 
       if (addedClassIds.length > 0) {

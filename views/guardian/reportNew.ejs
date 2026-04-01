@@ -1,4 +1,3 @@
-<%- include('../layout', { body: `
 <style>
   .report-form-container {
     max-width: 700px;
@@ -78,7 +77,7 @@
   .cc-section h3 {
     font-size: 16px;
     color: #2c3e50;
-    margin: 0 0 15px 0;
+    margin: 0 0 8px 0;
   }
   
   .cc-section p {
@@ -88,7 +87,7 @@
   }
   
   .staff-list {
-    max-height: 200px;
+    max-height: 250px;
     overflow-y: auto;
     border: 1px solid #ddd;
     border-radius: 6px;
@@ -119,6 +118,26 @@
     font-size: 12px;
     color: #7f8c8d;
     margin-left: 5px;
+  }
+
+  .staff-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: 6px;
+    font-weight: 600;
+  }
+
+  .staff-badge.class-teacher {
+    background: #d1fae5;
+    color: #059669;
+  }
+
+  .staff-loading {
+    text-align: center;
+    padding: 20px;
+    color: #7f8c8d;
+    font-size: 14px;
   }
   
   .form-actions {
@@ -186,7 +205,7 @@
         <% students.forEach(student => { %>
           <option value="<%= student.student_id %>">
             <%= student.first_name %> <%= student.last_name %> 
-            <% if (student.class_name) { %>(<%=student.class_name %>)<% } %>
+            <% if (student.class_name) { %>(<%= student.class_name %>)<% } %>
           </option>
         <% }); %>
       </select>
@@ -226,27 +245,10 @@
     
     <div class="cc-section">
       <h3>📧 Copy (CC) Staff Members</h3>
-      <p>Select teachers, managers, or supervisors you want to notify about this report. They will be able to view and respond to this conversation.</p>
+      <p>Select a student above to see their class teachers, supervisors, and managers.</p>
       
-      <div class="staff-list">
-        <% if (staff && staff.length > 0) { %>
-          <% staff.forEach(person => { %>
-            <div class="staff-item">
-              <input 
-                type="checkbox" 
-                name="cc_recipients" 
-                value="<%= person.user_id %>" 
-                id="staff_<%= person.user_id %>"
-              >
-              <label for="staff_<%= person.user_id %>">
-                <%= person.first_name %> <%= person.last_name %>
-                <span class="staff-role">(<%= person.role %>)</span>
-              </label>
-            </div>
-          <% }); %>
-        <% } else { %>
-          <p style="text-align: center; color: #7f8c8d; padding: 20px;">No staff members available</p>
-        <% } %>
+      <div class="staff-list" id="staffList">
+        <p style="text-align: center; color: #7f8c8d; padding: 20px;">Please select a student first</p>
       </div>
     </div>
     
@@ -256,4 +258,44 @@
     </div>
   </form>
 </div>
-` }); %>
+
+<script>
+  document.getElementById('student_id').addEventListener('change', function() {
+    const studentId = this.value;
+    const staffList = document.getElementById('staffList');
+
+    if (!studentId) {
+      staffList.innerHTML = '<p style="text-align:center;color:#7f8c8d;padding:20px;">Please select a student first</p>';
+      return;
+    }
+
+    staffList.innerHTML = '<div class="staff-loading">Loading staff...</div>';
+
+    fetch('/guardian/reports/student-staff?studentId=' + encodeURIComponent(studentId))
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        if (!data.success || !data.staff || data.staff.length === 0) {
+          staffList.innerHTML = '<p style="text-align:center;color:#7f8c8d;padding:20px;">No staff members found for this student</p>';
+          return;
+        }
+
+        var html = '';
+        data.staff.forEach(function(person) {
+          var badge = person.is_class_teacher ? '<span class="staff-badge class-teacher">Class Teacher</span>' : '';
+          html += '<div class="staff-item">' +
+            '<input type="checkbox" name="cc_recipients" value="' + person.user_id + '" id="staff_' + person.user_id + '"' + (person.is_class_teacher ? ' checked' : '') + '>' +
+            '<label for="staff_' + person.user_id + '">' +
+              person.first_name + ' ' + person.last_name +
+              ' <span class="staff-role">(' + person.role + ')</span>' +
+              badge +
+            '</label>' +
+          '</div>';
+        });
+
+        staffList.innerHTML = html;
+      })
+      .catch(function() {
+        staffList.innerHTML = '<p style="text-align:center;color:#e74c3c;padding:20px;">Failed to load staff. Please try again.</p>';
+      });
+  });
+</script>
