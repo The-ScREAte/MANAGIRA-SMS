@@ -41,22 +41,31 @@
       width: 100%;
     }
       .test-form {
-        flex: 1 1 440px;
-        max-width: 520px;
+        flex: 1 1 700px;
+        max-width: 780px;
         box-sizing: border-box;
         background-color: #fff;
         border: 1px solid #e0e0e0;
         box-shadow: 0 2px 12px rgba(1,83,91,0.12);
-        padding: 28px 24px 22px 24px;
+        padding: 28px 28px 22px 28px;
         margin-bottom: 10px;
         min-width: 320px;
         border-radius: 14px;
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 14px;
+        gap: 0;
         margin-left: auto;
         margin-right: auto;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 20px;
+      width: 100%;
+    }
+    .form-grid .full-width {
+      grid-column: 1 / -1;
     }
     .test-form:focus-within {
       box-shadow: none;
@@ -93,7 +102,7 @@
       outline: none;
     }
     .collapsible-btn {
-      width: 70%;
+      width: 100%;
       margin: 0 auto 8px auto;
       background: var(--org-primary-color, #01535b);
       color: #fff;
@@ -165,19 +174,32 @@
     .form-group.checkbox-group {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 12px;
+      gap: 10px;
+      margin-bottom: 6px;
       justify-content: flex-start;
       width: 100%;
-      padding-left: 2px;
+      padding: 8px 10px;
       flex-direction: row;
+      background: #f8fafa;
+      border-radius: 6px;
+      border: 1px solid #e8edef;
+    }
+    .form-group.checkbox-group input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      margin: 0;
+      flex-shrink: 0;
+      cursor: pointer;
+      accent-color: var(--org-primary-color, #01535b);
     }
     .form-group.checkbox-group label {
       font-weight: 500;
       color: var(--org-primary-color, #01535b);
-      font-size: 1rem;
+      font-size: 0.95rem;
       margin: 0;
       padding: 0;
+      cursor: pointer;
+      line-height: 1.2;
     }
     .center-link {
       display: flex;
@@ -477,6 +499,10 @@
         margin-bottom: 0;
       }
 
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+
       .form-group {
         margin-bottom: 10px;
       }
@@ -624,43 +650,45 @@
                   </div>
                 </div>
               </div>
-              <div class="form-group">
-                <label>Test Weight (%):</label>
-                <input type="number" name="testWeight[]" step="0.1" required />
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Test Weight (%):</label>
+                  <input type="number" name="testWeight[]" step="0.1" required />
+                </div>
+                <div class="form-group">
+                  <label>Score Out Of:</label>
+                  <input type="number" name="maxScore[]" required />
+                </div>
+                <div class="form-group">
+                  <label>Category:</label>
+                  <select name="category[]" required>
+                    <option value="Class Assessment">Class Assessment</option>
+                    <option value="Exams Assessment">Exams Assessment</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Edit Window Start:</label>
+                  <input type="datetime-local" name="editWindowStart-1">
+                </div>
+                <div class="form-group">
+                  <label>Edit Window End:</label>
+                  <input type="datetime-local" name="editWindowEnd-1">
+                </div>
+                <div class="form-group checkbox-group">
+                  <input type="checkbox" name="isLocked-1" id="isLocked-1">
+                  <label for="isLocked-1">Lock this assessment</label>
+                </div>
+                <div class="form-group checkbox-group">
+                  <input type="checkbox" name="isActive-1" id="isActive-1" checked>
+                  <label for="isActive-1">Activate now</label>
+                </div>
+                <div class="form-group checkbox-group">
+                  <input type="checkbox" name="notifyTeachers-1" id="notifyTeachers-1">
+                  <label for="notifyTeachers-1">Email affected class teachers</label>
+                </div>
               </div>
-              <div class="form-group">
-                <label>Score Out Of:</label>
-                <input type="number" name="maxScore[]" required />
-              </div>
-              <div class="form-group">
-                <label>Category:</label>
-                <select name="category[]" required>
-                  <option value="Class Assessment">Class Assessment</option>
-                  <option value="Exams Assessment">Exams Assessment</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-              <div class="form-group checkbox-group">
-                <input type="checkbox" name="isLocked-1" id="isLocked-1">
-                <label for="isLocked-1">Lock this assessment</label>
-              </div>
-              <div class="form-group checkbox-group">
-                <input type="checkbox" name="isActive-1" id="isActive-1" checked>
-                <label for="isActive-1">Activate now</label>
-              </div>
-              <div class="form-group">
-                <label>Edit Window Start:</label>
-                <input type="datetime-local" name="editWindowStart-1">
-              </div>
-              <div class="form-group">
-                <label>Edit Window End:</label>
-                <input type="datetime-local" name="editWindowEnd-1">
-              </div>
-              <div class="form-group checkbox-group">
-                <input type="checkbox" name="notifyTeachers-1" id="notifyTeachers-1">
-                <label for="notifyTeachers-1">Email affected class teachers</label>
-              </div>
-              <h4 style="text-align:center; margin-bottom:8px;">Assign Test to Classes and Subjects</h4>
+              <h4 style="text-align:center; margin:12px 0 8px 0; width:100%;">Assign Test to Classes and Subjects</h4>
               <button type="button" class="collapsible-btn" onclick="toggleClassListCollapse('class-list-1', 'arrow-class-list-1')">
                 Show/Hide Classes
                 <span class="arrow" id="arrow-class-list-1">&#9654;</span>
@@ -725,6 +753,7 @@
             </div>
           </div>
         </div>
+        <div class="form-grid">
         <div class="form-group">
           <label>Test Weight (%):</label>
           <input type="number" name="testWeight[]" step="0.1" required>
@@ -741,14 +770,6 @@
             <option value="Other">Other</option>
           </select>
         </div>
-        <div class="form-group checkbox-group">
-          <input type="checkbox" name="isLocked-${testFormCount}" id="isLocked-${testFormCount}">
-          <label for="isLocked-${testFormCount}">Lock this assessment</label>
-        </div>
-        <div class="form-group checkbox-group">
-          <input type="checkbox" name="isActive-${testFormCount}" id="isActive-${testFormCount}" checked>
-          <label for="isActive-${testFormCount}">Activate now</label>
-        </div>
         <div class="form-group">
           <label>Edit Window Start:</label>
           <input type="datetime-local" name="editWindowStart-${testFormCount}">
@@ -758,10 +779,19 @@
           <input type="datetime-local" name="editWindowEnd-${testFormCount}">
         </div>
         <div class="form-group checkbox-group">
+          <input type="checkbox" name="isLocked-${testFormCount}" id="isLocked-${testFormCount}">
+          <label for="isLocked-${testFormCount}">Lock this assessment</label>
+        </div>
+        <div class="form-group checkbox-group">
+          <input type="checkbox" name="isActive-${testFormCount}" id="isActive-${testFormCount}" checked>
+          <label for="isActive-${testFormCount}">Activate now</label>
+        </div>
+        <div class="form-group checkbox-group">
           <input type="checkbox" name="notifyTeachers-${testFormCount}" id="notifyTeachers-${testFormCount}">
           <label for="notifyTeachers-${testFormCount}">Email affected class teachers</label>
         </div>
-        <h4 style="text-align:center; margin-bottom:8px;">Assign Test to Classes and Subjects</h4>
+        </div>
+        <h4 style="text-align:center; margin:12px 0 8px 0; width:100%;">Assign Test to Classes and Subjects</h4>
         <button type="button" class="collapsible-btn" onclick="toggleClassListCollapse('class-list-${testFormCount}', 'arrow-class-list-${testFormCount}')">
           Show/Hide Classes
           <span class="arrow" id="arrow-class-list-${testFormCount}">&#9654;</span>
