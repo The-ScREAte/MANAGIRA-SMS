@@ -7,7 +7,8 @@ const { getPaystackSettings } = require('../utils/paystackConfig');
 const { sendEmailSafely, renderCleanEmail } = require('../utils/emailHelper');
 require('dotenv').config();
 
-const FAILED_RETRY_COOLDOWN_HOURS = 24;
+const FAILED_RETRY_COOLDOWN_DAYS = 4;
+const MAX_FAILED_RETRY_ATTEMPTS = 4;
 
 function computeTierMonthlyPrice(planBasePrice, tier) {
   const basePrice = Number(planBasePrice || 0);
@@ -106,13 +107,51 @@ async function sendRenewalFailureNotification({ email, organizationName, amount,
   );
 }
 
+async function recordRenewalFailure({
+  organizationId,
+  paymentFailureColumns,
+}) {
+  if (paymentFailureColumns.hasFailedAttempts && paymentFailureColumns.hasLastFailedPayment) {
+    const failureUpdate = await db.query(
+      `UPDATE payments
+       SET status = 'failed',
+           failed_attempts = COALESCE(failed_attempts, 0) + 1,
+           last_failed_payment = NOW()
+       WHERE organization_id = $1
+       RETURNING COALESCE(failed_attempts, 0) AS failed_attempts`,
+      [organizationId]
+    );
+
+    const failedAttempts = Number(failureUpdate.rows[0]?.failed_attempts || 0);
+    if (failedAttempts >= MAX_FAILED_RETRY_ATTEMPTS) {
+      await db.query(
+        `UPDATE organizations
+         SET on_hold = true
+         WHERE organization_id = $1`,
+        [organizationId]
+      );
+    }
+
+    return failedAttempts;
+  }
+
+  await db.query(
+    `UPDATE payments
+     SET status = 'failed'
+     WHERE organization_id = $1`,
+    [organizationId]
+  );
+
+  return null;
+}
+
 async function runRecurringBilling() {
   const paystackSettings = await getPaystackSettings(db);
   const activePaystackSecretKey = paystackSettings.activeSecretKey || process.env.PAYSTACK_SECRET_KEY;
   const paymentFailureColumns = await getPaymentsFailureColumns();
-  const retryStatusClause = paymentFailureColumns.hasLastFailedPayment
-    ? `(p.status = 'active' OR (p.status = 'failed' AND (p.last_failed_payment IS NULL OR p.last_failed_payment <= NOW() - interval '${FAILED_RETRY_COOLDOWN_HOURS} hours')))`
-    : `p.status IN ('active', 'failed')`;
+  const retryStatusClause = paymentFailureColumns.hasFailedAttempts && paymentFailureColumns.hasLastFailedPayment
+    ? `(p.status = 'active' OR (p.status = 'failed' AND COALESCE(p.failed_attempts, 0) < ${MAX_FAILED_RETRY_ATTEMPTS} AND (p.last_failed_payment IS NULL OR p.last_failed_payment <= NOW() - interval '${FAILED_RETRY_COOLDOWN_DAYS} days')))`
+    : `p.status = 'active'`;
   
   // Fetch current billing interval from database
   let billingInterval = 'monthly';
@@ -397,18 +436,10 @@ async function runRecurringBilling() {
       } else {
         const failureMessage = chargeRes.data?.message || 'Charge authorization failed.';
 
-        await db.query(
-          paymentFailureColumns.hasFailedAttempts && paymentFailureColumns.hasLastFailedPayment
-            ? `UPDATE payments
-               SET status = 'failed',
-                   failed_attempts = COALESCE(failed_attempts, 0) + 1,
-                   last_failed_payment = NOW()
-               WHERE organization_id = $1`
-            : `UPDATE payments
-               SET status = 'failed'
-               WHERE organization_id = $1`,
-          [org.organization_id]
-        );
+        await recordRenewalFailure({
+          organizationId: org.organization_id,
+          paymentFailureColumns,
+        });
 
         await sendRenewalFailureNotification({
           email: org.email,
@@ -429,18 +460,10 @@ async function runRecurringBilling() {
     } catch (err) {
       const failureMessage = err?.response?.data?.message || err.message || 'Charge request failed.';
 
-      await db.query(
-        paymentFailureColumns.hasFailedAttempts && paymentFailureColumns.hasLastFailedPayment
-          ? `UPDATE payments
-             SET status = 'failed',
-                 failed_attempts = COALESCE(failed_attempts, 0) + 1,
-                 last_failed_payment = NOW()
-             WHERE organization_id = $1`
-          : `UPDATE payments
-             SET status = 'failed'
-             WHERE organization_id = $1`,
-        [org.organization_id]
-      );
+      await recordRenewalFailure({
+        organizationId: org.organization_id,
+        paymentFailureColumns,
+      });
 
       await sendRenewalFailureNotification({
         email: org.email,
