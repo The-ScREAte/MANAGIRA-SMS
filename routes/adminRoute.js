@@ -115,6 +115,9 @@ module.exports = (db) => {
             res.redirect('/admin');
         }
     });
+    router.get('/superDashboard/users/ajax', ensureAdmin, adminController.superDashboardUsersAjax);
+    router.post('/superDashboard/users/:userId/status', ensureAdmin, adminController.superDashboardUserStatusAjax);
+    router.post('/superDashboard/users/:userId/delete', ensureAdmin, adminController.superDashboardDeleteUserAjax);
 
     router.get('/superSettings', ensureAdmin, async (req, res) => {
         try {

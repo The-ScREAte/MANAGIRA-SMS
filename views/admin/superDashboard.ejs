@@ -43,6 +43,13 @@
       font-weight: 700;
     }
 
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
     .btn-secondary {
       border: 1px solid var(--border);
       background: #fff;
@@ -55,6 +62,16 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
+    }
+
+    .btn-secondary.is-accent {
+      background: #ecfeff;
+      color: #155e75;
+      border-color: #a5f3fc;
+    }
+
+    .btn-secondary.is-accent:hover {
+      background: #cffafe;
     }
 
     .section-card {
@@ -232,13 +249,281 @@
       color: var(--text-secondary);
     }
 
+    .users-modal[hidden] {
+      display: none;
+    }
+
+    .users-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 1200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .users-modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.48);
+      backdrop-filter: blur(3px);
+    }
+
+    .users-modal-panel {
+      position: relative;
+      width: min(1220px, 100%);
+      max-height: calc(100vh - 40px);
+      overflow: hidden;
+      border-radius: 18px;
+      background: #ffffff;
+      border: 1px solid rgba(229, 231, 235, 0.9);
+      box-shadow: 0 30px 80px rgba(15, 23, 42, 0.25);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .users-modal-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 20px 22px 16px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(135deg, #f8fafc, #ecfeff);
+    }
+
+    .users-modal-header h2 {
+      margin: 0 0 6px;
+      font-size: 1.15rem;
+      font-weight: 800;
+    }
+
+    .users-modal-close {
+      border: 1px solid var(--border);
+      background: #fff;
+      color: #374151;
+      width: 38px;
+      height: 38px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 1.2rem;
+      line-height: 1;
+    }
+
+    .users-modal-toolbar {
+      padding: 16px 22px;
+      border-bottom: 1px solid var(--border);
+      background: #fff;
+      display: grid;
+      gap: 14px;
+    }
+
+    .users-filter-grid {
+      display: grid;
+      grid-template-columns: minmax(240px, 1.8fr) repeat(3, minmax(150px, 1fr));
+      gap: 10px;
+    }
+
+    .users-filter-grid input,
+    .users-filter-grid select {
+      width: 100%;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      padding: 11px 12px;
+      font: inherit;
+      color: var(--text-primary);
+      background: #fff;
+    }
+
+    .users-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+    }
+
+    .users-summary-card {
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      background: #f8fafc;
+      padding: 12px 14px;
+    }
+
+    .users-summary-card strong {
+      display: block;
+      font-size: 1.15rem;
+      color: #0f172a;
+      margin-bottom: 4px;
+    }
+
+    .users-summary-card span {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-secondary);
+      font-weight: 700;
+    }
+
+    .users-feedback {
+      margin: 16px 22px 0;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 0.9rem;
+      border: 1px solid transparent;
+    }
+
+    .users-feedback.is-success {
+      background: #ecfdf5;
+      color: #166534;
+      border-color: #a7f3d0;
+    }
+
+    .users-feedback.is-error {
+      background: #fef2f2;
+      color: #991b1b;
+      border-color: #fecaca;
+    }
+
+    .users-modal-body {
+      padding: 0 22px 22px;
+      overflow: auto;
+    }
+
+    .users-table {
+      min-width: 980px;
+    }
+
+    .user-name-cell {
+      display: grid;
+      gap: 4px;
+    }
+
+    .user-name-cell strong {
+      font-size: 0.92rem;
+    }
+
+    .user-meta {
+      font-size: 0.79rem;
+      color: var(--text-secondary);
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 0.73rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .status-pill.is-active {
+      background: #ecfdf5;
+      color: #166534;
+    }
+
+    .status-pill.is-hold {
+      background: #fff7ed;
+      color: #c2410c;
+    }
+
+    .school-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .school-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #f3f4f6;
+      color: #374151;
+      font-size: 0.76rem;
+      font-weight: 700;
+    }
+
+    .school-tag.is-deleted {
+      background: #fef2f2;
+      color: #991b1b;
+    }
+
+    .table-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .btn-inline {
+      border: none;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .btn-inline.is-hold {
+      background: #fff7ed;
+      color: #c2410c;
+    }
+
+    .btn-inline.is-resume {
+      background: #ecfdf5;
+      color: #166534;
+    }
+
+    .btn-inline.is-delete {
+      background: #fef2f2;
+      color: #991b1b;
+    }
+
+    .users-loading {
+      padding: 18px 0;
+    }
+
     @media (max-width: 768px) {
       .dashboard-header h1 {
         font-size: 1.4rem;
       }
 
+      .dashboard-header {
+        align-items: center;
+      }
+
       .clean-table {
         min-width: 760px;
+      }
+
+      .users-modal {
+        padding: 10px;
+      }
+
+      .users-modal-panel {
+        width: 100%;
+        max-height: calc(100vh - 20px);
+      }
+
+      .users-filter-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .header-actions {
+        width: 100%;
+        flex-wrap: nowrap;
+        gap: 8px;
+      }
+
+      .header-actions .btn-secondary {
+        flex: 1 1 0;
+        min-width: 0;
+        white-space: nowrap;
+        padding-left: 10px;
+        padding-right: 10px;
       }
     }
   </style>
@@ -247,10 +532,67 @@
   <div class="dashboard-wrapper">
     <div class="dashboard-header">
       <h1>Super Admin Dashboard</h1>
-      <a href="/admin/superSettings" class="btn-secondary">⚙️ Settings</a>
+      <div class="header-actions">
+        <button type="button" class="btn-secondary is-accent" id="open-users-modal">All Users</button>
+        <a href="/admin/superSettings" class="btn-secondary">⚙️ Settings</a>
+      </div>
     </div>
 
     <%- include('../partials/flash') %>
+
+    <div id="users-modal" class="users-modal" hidden>
+      <div class="users-modal-backdrop" data-close-users-modal></div>
+      <div class="users-modal-panel" role="dialog" aria-modal="true" aria-labelledby="users-modal-title">
+        <div class="users-modal-header">
+          <div>
+            <h2 id="users-modal-title">All Users</h2>
+            <div class="muted">Browse every user account, see the school they belong to, and manage hold, resume, or delete actions without leaving this page.</div>
+          </div>
+          <button type="button" class="users-modal-close" data-close-users-modal aria-label="Close user manager">×</button>
+        </div>
+
+        <div class="users-modal-toolbar">
+          <form id="users-filter-form" class="users-filter-grid">
+            <input type="search" name="q" id="users-filter-search" placeholder="Search by name, email, or school" autocomplete="off" />
+            <select name="status" id="users-filter-status">
+              <option value="all">All statuses</option>
+              <option value="active">Active only</option>
+              <option value="on_hold">On hold only</option>
+            </select>
+            <select name="role" id="users-filter-role">
+              <option value="all">All roles</option>
+            </select>
+            <select name="organizationId" id="users-filter-organization">
+              <option value="all">All schools</option>
+              <option value="none">No school assigned</option>
+            </select>
+          </form>
+          <div id="users-summary" class="users-summary-grid"></div>
+        </div>
+
+        <div id="users-feedback" class="users-feedback" hidden></div>
+
+        <div class="users-modal-body">
+          <div id="users-loading" class="empty-state users-loading" hidden>Loading users...</div>
+          <div id="users-empty" class="empty-state" hidden>No users match the current filters.</div>
+          <div class="table-wrapper">
+            <table class="clean-table users-table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Schools</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="users-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div class="section-card">
       <div class="section-header">
@@ -469,6 +811,277 @@
 
     function confirmAction(message) {
       return confirm(`Are you sure you want to ${message}`);
+    }
+
+    const usersModal = document.getElementById('users-modal');
+    const openUsersModalButton = document.getElementById('open-users-modal');
+    const usersFilterForm = document.getElementById('users-filter-form');
+    const usersTableBody = document.getElementById('users-table-body');
+    const usersSummary = document.getElementById('users-summary');
+    const usersFeedback = document.getElementById('users-feedback');
+    const usersLoading = document.getElementById('users-loading');
+    const usersEmpty = document.getElementById('users-empty');
+    const roleFilter = document.getElementById('users-filter-role');
+    const organizationFilter = document.getElementById('users-filter-organization');
+    const usersState = {
+      loadedOnce: false,
+      loading: false,
+      searchTimer: null,
+    };
+
+    function escapeHtml(value) {
+      return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function toggleUsersModal(show) {
+      if (!usersModal) return;
+      usersModal.hidden = !show;
+      document.body.style.overflow = show ? 'hidden' : '';
+      if (show && !usersState.loadedOnce) {
+        loadUsers();
+      }
+    }
+
+    function showUsersFeedback(message, type) {
+      if (!usersFeedback) return;
+      if (!message) {
+        usersFeedback.hidden = true;
+        usersFeedback.textContent = '';
+        usersFeedback.className = 'users-feedback';
+        return;
+      }
+
+      usersFeedback.hidden = false;
+      usersFeedback.textContent = message;
+      usersFeedback.className = `users-feedback ${type === 'error' ? 'is-error' : 'is-success'}`;
+    }
+
+    function setUsersLoading(isLoading) {
+      usersState.loading = isLoading;
+      usersLoading.hidden = !isLoading;
+    }
+
+    function buildUsersQuery() {
+      const params = new URLSearchParams();
+      const formData = new FormData(usersFilterForm);
+      for (const [key, value] of formData.entries()) {
+        if (value && value !== 'all') {
+          params.set(key, value);
+        }
+      }
+      return params.toString();
+    }
+
+    function renderSummary(summary) {
+      if (!usersSummary) return;
+      const cards = [
+        { label: 'Total users', value: summary.total || 0 },
+        { label: 'Active', value: summary.active || 0 },
+        { label: 'On hold', value: summary.onHold || 0 },
+        { label: 'School-linked', value: summary.schoolLinked || 0 },
+        { label: 'Platform', value: summary.platform || 0 },
+      ];
+
+      usersSummary.innerHTML = cards.map((card) => `
+        <div class="users-summary-card">
+          <strong>${escapeHtml(card.value)}</strong>
+          <span>${escapeHtml(card.label)}</span>
+        </div>
+      `).join('');
+    }
+
+    function renderFilterOptions(filters) {
+      const currentRole = roleFilter.value || 'all';
+      const currentOrganization = organizationFilter.value || 'all';
+
+      roleFilter.innerHTML = '<option value="all">All roles</option>' +
+        (filters.roles || []).map((role) => `
+          <option value="${escapeHtml(role)}">${escapeHtml(role)}</option>
+        `).join('');
+
+      organizationFilter.innerHTML = '<option value="all">All schools</option><option value="none">No school assigned</option>' +
+        (filters.organizations || []).map((org) => `
+          <option value="${escapeHtml(org.organizationId)}">${escapeHtml(org.organizationName)}${org.deleted ? ' (Deleted)' : ''}${org.onHold ? ' (On Hold)' : ''}</option>
+        `).join('');
+
+      roleFilter.value = currentRole;
+      if (!Array.from(roleFilter.options).some((option) => option.value === currentRole)) {
+        roleFilter.value = 'all';
+      }
+
+      organizationFilter.value = currentOrganization;
+      if (!Array.from(organizationFilter.options).some((option) => option.value === currentOrganization)) {
+        organizationFilter.value = 'all';
+      }
+    }
+
+    function renderUsers(users) {
+      const rows = (users || []).map((user) => {
+        const schoolMarkup = user.schools && user.schools.length
+          ? `<div class="school-tags">${user.schools.map((school) => `
+              <span class="school-tag ${school.deleted ? 'is-deleted' : ''}">
+                ${escapeHtml(school.name)}${school.onHold ? ' • On Hold' : ''}${school.deleted ? ' • Deleted' : ''}
+              </span>
+            `).join('')}</div>`
+          : '<span class="muted">No school assigned</span>';
+
+        return `
+          <tr>
+            <td>
+              <div class="user-name-cell">
+                <strong>${escapeHtml(user.fullName)}</strong>
+                <span class="user-meta">User ID: ${escapeHtml(user.userId)}</span>
+              </div>
+            </td>
+            <td>${escapeHtml(user.email)}</td>
+            <td>${escapeHtml(user.accountType || 'N/A')}</td>
+            <td>${schoolMarkup}</td>
+            <td>
+              <span class="status-pill ${user.onHold ? 'is-hold' : 'is-active'}">
+                ${user.onHold ? 'On Hold' : 'Active'}
+              </span>
+            </td>
+            <td>
+              <div class="table-actions">
+                <button type="button" class="btn-inline ${user.onHold ? 'is-resume' : 'is-hold'}" data-user-action="status" data-user-id="${escapeHtml(user.userId)}" data-status="${user.onHold ? 'resume' : 'hold'}">
+                  ${user.onHold ? 'Resume' : 'Put On Hold'}
+                </button>
+                <button type="button" class="btn-inline is-delete" data-user-action="delete" data-user-id="${escapeHtml(user.userId)}">
+                  Delete
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      usersTableBody.innerHTML = rows;
+      usersEmpty.hidden = users.length > 0;
+    }
+
+    async function loadUsers() {
+      if (!usersFilterForm || usersState.loading) return;
+
+      setUsersLoading(true);
+      showUsersFeedback('');
+
+      try {
+        const query = buildUsersQuery();
+        const response = await fetch(`/admin/superDashboard/users/ajax${query ? `?${query}` : ''}`, {
+          headers: { 'Accept': 'application/json' },
+          credentials: 'same-origin',
+        });
+        const payload = await response.json();
+
+        if (!response.ok || !payload.success) {
+          throw new Error(payload.message || 'Failed to load users.');
+        }
+
+        usersState.loadedOnce = true;
+        renderSummary(payload.summary || {});
+        renderFilterOptions(payload.filters || { roles: [], organizations: [] });
+        renderUsers(payload.users || []);
+      } catch (error) {
+        usersTableBody.innerHTML = '';
+        usersEmpty.hidden = false;
+        showUsersFeedback(error.message || 'Failed to load users.', 'error');
+      } finally {
+        setUsersLoading(false);
+      }
+    }
+
+    async function handleUserAction(action, userId, statusValue) {
+      if (!userId) return;
+
+      let endpoint = `/admin/superDashboard/users/${encodeURIComponent(userId)}/delete`;
+      let body = {};
+      let confirmMessage = 'delete this user? This may fail if the user still owns protected records.';
+
+      if (action === 'status') {
+        endpoint = `/admin/superDashboard/users/${encodeURIComponent(userId)}/status`;
+        body = { status: statusValue };
+        confirmMessage = `${statusValue === 'hold' ? 'put this user on hold' : 'resume this user'}?`;
+      }
+
+      if (!confirmAction(confirmMessage)) {
+        return;
+      }
+
+      showUsersFeedback('');
+
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify(body),
+        });
+        const payload = await response.json();
+
+        if (!response.ok || !payload.success) {
+          throw new Error(payload.message || 'Action failed.');
+        }
+
+        showUsersFeedback(payload.message || 'Action completed successfully.', 'success');
+        await loadUsers();
+      } catch (error) {
+        showUsersFeedback(error.message || 'Action failed.', 'error');
+      }
+    }
+
+    if (openUsersModalButton) {
+      openUsersModalButton.addEventListener('click', () => toggleUsersModal(true));
+    }
+
+    document.querySelectorAll('[data-close-users-modal]').forEach((element) => {
+      element.addEventListener('click', () => toggleUsersModal(false));
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && usersModal && !usersModal.hidden) {
+        toggleUsersModal(false);
+      }
+    });
+
+    if (usersFilterForm) {
+      usersFilterForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        loadUsers();
+      });
+
+      usersFilterForm.addEventListener('change', (event) => {
+        if (event.target.matches('select')) {
+          loadUsers();
+        }
+      });
+    }
+
+    const usersSearchInput = document.getElementById('users-filter-search');
+    if (usersSearchInput) {
+      usersSearchInput.addEventListener('input', () => {
+        clearTimeout(usersState.searchTimer);
+        usersState.searchTimer = setTimeout(() => loadUsers(), 250);
+      });
+    }
+
+    if (usersTableBody) {
+      usersTableBody.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-user-action]');
+        if (!button) return;
+
+        const action = button.getAttribute('data-user-action');
+        const userId = button.getAttribute('data-user-id');
+        const statusValue = button.getAttribute('data-status');
+        handleUserAction(action, userId, statusValue);
+      });
     }
   </script>
 </body>

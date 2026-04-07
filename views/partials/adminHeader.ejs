@@ -264,26 +264,48 @@
     }
     @media (max-width: 768px) {
       .admin-header-pro {
-        padding: 7px 3px;
-        flex-direction: column;
-        align-items: stretch;
+        padding: 8px 10px;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        flex-wrap: nowrap;
         border-radius: 10px;
         margin: 8px 8px 0;
       }
+      .admin-header-left {
+        gap: 0.65rem;
+        min-width: 0;
+        flex: 1 1 auto;
+      }
+      .admin-header-logo {
+        width: 34px;
+        height: 34px;
+      }
       .admin-header-title {
-        font-size: 1rem;
-        margin-bottom: 8px;
-        text-align: center;
+        font-size: 0.95rem;
+        margin-bottom: 0;
+        text-align: left;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .admin-header-nav {
+        flex: 0 0 auto;
       }
       .admin-header-nav-list {
         flex-direction: row;
         align-items: center;
         gap: 6px;
-        width: 100%;
+        width: auto;
         padding: 0.2rem 0.2rem;
         background: none;
         border-radius: 0;
         box-shadow: none;
+        flex-wrap: nowrap;
+      }
+      .admin-hamburger-container {
+        margin-left: 0;
       }
       .admin-hamburger-menu {
         width: 280px;
@@ -296,6 +318,7 @@
       }
       .notification-icon {
         margin-bottom: 0;
+        margin-right: 0;
       }
     }
 </style>

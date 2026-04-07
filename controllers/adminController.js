@@ -35,6 +35,154 @@ function computeTierMonthlyPrice(planBasePrice, tier) {
   return Number(tier?.price_usd || 0);
 }
 
+function parseOptionalInteger(value) {
+  if (value === undefined || value === null || value === "" || value === "all") {
+    return null;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function buildUserFullName(user) {
+  return [user.first_name, user.last_name].filter(Boolean).join(" ").trim() || user.email;
+}
+
+async function buildConstraintErrorMessage(error, referenceId, fallbackMessage, entityLabel) {
+  if (error?.code !== "23503" || !error?.constraint) {
+    return error?.message ? `${fallbackMessage} ${error.message}` : fallbackMessage;
+  }
+
+  try {
+    const fkInfoResult = await db.query(
+      `SELECT ns.nspname AS schema_name,
+              cls.relname AS table_name,
+              att.attname AS column_name
+       FROM pg_constraint con
+       JOIN pg_class cls ON cls.oid = con.conrelid
+       JOIN pg_namespace ns ON ns.oid = cls.relnamespace
+       JOIN unnest(con.conkey) WITH ORDINALITY AS ck(attnum, ord) ON true
+       JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ck.attnum
+       WHERE con.conname = $1
+       LIMIT 1`,
+      [error.constraint]
+    );
+
+    const fkInfo = fkInfoResult.rows[0];
+    if (!fkInfo) {
+      return fallbackMessage;
+    }
+
+    const qSchema = String(fkInfo.schema_name).replace(/"/g, '""');
+    const qTable = String(fkInfo.table_name).replace(/"/g, '""');
+    const qColumn = String(fkInfo.column_name).replace(/"/g, '""');
+
+    const countResult = await db.query(
+      `SELECT COUNT(*)::int AS count
+       FROM "${qSchema}"."${qTable}"
+       WHERE "${qColumn}" = $1`,
+      [referenceId]
+    );
+
+    const linkedCount = countResult.rows[0]?.count || 0;
+    return linkedCount > 0
+      ? `Cannot delete this ${entityLabel}. It is still linked to ${linkedCount} record(s) in ${fkInfo.table_name} (${fkInfo.column_name}).`
+      : `Cannot delete this ${entityLabel}. It is still linked to protected records in ${fkInfo.table_name} (${fkInfo.column_name}).`;
+  } catch (lookupError) {
+    return fallbackMessage;
+  }
+}
+
+async function deleteUserWithDependencies({ userId, actorUserId }) {
+  const userResult = await db.query(
+    `SELECT user_id, organization_id, first_name, last_name, email, account_type, on_hold
+     FROM users
+     WHERE user_id = $1`,
+    [userId]
+  );
+
+  const user = userResult.rows[0];
+  if (!user) {
+    const notFoundError = new Error("User not found.");
+    notFoundError.statusCode = 404;
+    throw notFoundError;
+  }
+
+  if (actorUserId && Number(actorUserId) === Number(userId)) {
+    const selfDeleteError = new Error("You cannot delete your own account from this page.");
+    selfDeleteError.statusCode = 400;
+    throw selfDeleteError;
+  }
+
+  try {
+    await db.query("BEGIN");
+
+    const organizationId = user.organization_id ? Number(user.organization_id) : null;
+    let fallbackOwnerId = null;
+
+    if (organizationId) {
+      const fallbackResult = await db.query(
+        `SELECT user_id
+         FROM users
+         WHERE organization_id = $1
+           AND user_id <> $2
+         ORDER BY CASE
+                    WHEN account_type IN ('Manager', 'Admin', 'Mini Admin', 'Supervisor') THEN 0
+                    ELSE 1
+                  END,
+                  created_at ASC
+         LIMIT 1`,
+        [organizationId, userId]
+      );
+      fallbackOwnerId = fallbackResult.rows[0]?.user_id || null;
+
+      const docsTableExists = await db.query(`SELECT to_regclass('public.documents') AS tbl`);
+      if (docsTableExists.rows[0]?.tbl) {
+        const docsOwnedResult = await db.query(
+          `SELECT COUNT(*)::int AS count
+           FROM documents
+           WHERE organization_id = $1 AND created_by = $2`,
+          [organizationId, userId]
+        );
+        const docsOwnedCount = docsOwnedResult.rows[0]?.count || 0;
+
+        if (docsOwnedCount > 0 && !fallbackOwnerId) {
+          throw new Error(
+            "This user owns documents and cannot be deleted because there is no fallback user to transfer them to."
+          );
+        }
+
+        if (docsOwnedCount > 0 && fallbackOwnerId) {
+          await db.query(
+            `UPDATE documents
+             SET created_by = $1, updated_at = NOW()
+             WHERE organization_id = $2 AND created_by = $3`,
+            [fallbackOwnerId, organizationId, userId]
+          );
+        }
+      }
+    }
+
+    await db.query("DELETE FROM user_classes WHERE user_id = $1", [userId]);
+    await db.query("DELETE FROM user_subjects WHERE user_id = $1", [userId]);
+    await db.query("DELETE FROM user_permissions WHERE user_id = $1", [userId]);
+
+    const deleteResult = await db.query("DELETE FROM users WHERE user_id = $1", [userId]);
+    if (deleteResult.rowCount === 0) {
+      throw new Error("User deletion failed.");
+    }
+
+    await db.query("COMMIT");
+    return user;
+  } catch (error) {
+    try {
+      await db.query("ROLLBACK");
+    } catch (rollbackError) {
+    }
+    throw error;
+  }
+}
+
 const adminController = {
   adminDashboard: async (req, res) => {
     try {
@@ -326,6 +474,211 @@ const adminController = {
         deletedTickets: [], // Default to an empty array if the query fails
         messages: req.flash(),
         showFooterTopSection: true
+      });
+    }
+  },
+
+  superDashboardUsersAjax: async (req, res) => {
+    try {
+      const search = String(req.query.q || "").trim();
+      const status = String(req.query.status || "all").trim().toLowerCase();
+      const role = String(req.query.role || "all").trim();
+      const organizationId = String(req.query.organizationId || "all").trim();
+
+      const conditions = [];
+      const values = [];
+
+      if (search) {
+        values.push(`%${search}%`);
+        const idx = values.length;
+        conditions.push(`(
+          u.first_name ILIKE $${idx}
+          OR u.last_name ILIKE $${idx}
+          OR (u.first_name || ' ' || u.last_name) ILIKE $${idx}
+          OR u.email ILIKE $${idx}
+          OR COALESCE(o.organization_name, '') ILIKE $${idx}
+        )`);
+      }
+
+      if (status === "active") {
+        conditions.push("u.on_hold = false");
+      } else if (status === "on_hold") {
+        conditions.push("u.on_hold = true");
+      }
+
+      if (role && role !== "all") {
+        values.push(role);
+        conditions.push(`u.account_type::text = $${values.length}`);
+      }
+
+      if (organizationId === "none") {
+        conditions.push("u.organization_id IS NULL");
+      } else {
+        const parsedOrganizationId = parseOptionalInteger(organizationId);
+        if (parsedOrganizationId !== null) {
+          values.push(parsedOrganizationId);
+          conditions.push(`u.organization_id = $${values.length}`);
+        }
+      }
+
+      const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+      const usersResult = await db.query(
+        `SELECT u.user_id,
+                u.first_name,
+                u.last_name,
+                u.email,
+                u.account_type::text AS account_type,
+                u.on_hold,
+                u.organization_id,
+                u.created_at,
+                u.updated_at,
+                o.organization_name,
+                COALESCE(o.deleted, false) AS organization_deleted,
+                COALESCE(o.on_hold, false) AS organization_on_hold
+         FROM users u
+         LEFT JOIN organizations o ON o.organization_id = u.organization_id
+         ${whereClause}
+         ORDER BY COALESCE(o.organization_name, 'zzzzzz'), u.first_name ASC, u.last_name ASC, u.user_id ASC`,
+        values
+      );
+
+      const [rolesResult, organizationsResult] = await Promise.all([
+        db.query(
+          `SELECT DISTINCT account_type::text AS account_type
+           FROM users
+           ORDER BY account_type::text ASC`
+        ),
+        db.query(
+          `SELECT organization_id, organization_name, deleted, on_hold
+           FROM organizations
+           ORDER BY organization_name ASC`
+        ),
+      ]);
+
+      const users = usersResult.rows.map((row) => ({
+        userId: row.user_id,
+        firstName: row.first_name,
+        lastName: row.last_name,
+        fullName: buildUserFullName(row),
+        email: row.email,
+        accountType: row.account_type,
+        onHold: !!row.on_hold,
+        organizationId: row.organization_id,
+        schools: row.organization_id
+          ? [
+              {
+                organizationId: row.organization_id,
+                name: row.organization_name || "Unknown school",
+                deleted: !!row.organization_deleted,
+                onHold: !!row.organization_on_hold,
+              },
+            ]
+          : [],
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }));
+
+      return res.json({
+        success: true,
+        users,
+        summary: {
+          total: users.length,
+          active: users.filter((user) => !user.onHold).length,
+          onHold: users.filter((user) => user.onHold).length,
+          schoolLinked: users.filter((user) => user.schools.length > 0).length,
+          platform: users.filter((user) => user.schools.length === 0).length,
+        },
+        filters: {
+          current: { search, status, role, organizationId },
+          roles: rolesResult.rows.map((row) => row.account_type).filter(Boolean),
+          organizations: organizationsResult.rows.map((row) => ({
+            organizationId: row.organization_id,
+            organizationName: row.organization_name,
+            deleted: !!row.deleted,
+            onHold: !!row.on_hold,
+          })),
+        },
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to load users.",
+      });
+    }
+  },
+
+  superDashboardUserStatusAjax: async (req, res) => {
+    const userId = parseOptionalInteger(req.params.userId);
+    const action = String(req.body.status || "").trim().toLowerCase();
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "Invalid user selected." });
+    }
+
+    if (!["hold", "resume"].includes(action)) {
+      return res.status(400).json({ success: false, message: "Invalid status action." });
+    }
+
+    if (req.session?.userId && Number(req.session.userId) === Number(userId)) {
+      return res.status(400).json({ success: false, message: "You cannot change your own hold status here." });
+    }
+
+    try {
+      const result = await db.query(
+        `UPDATE users
+         SET on_hold = $1, updated_at = NOW()
+         WHERE user_id = $2
+         RETURNING user_id, first_name, last_name, on_hold`,
+        [action === "hold", userId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ success: false, message: "User not found." });
+      }
+
+      const updatedUser = result.rows[0];
+      return res.json({
+        success: true,
+        message: `${buildUserFullName(updatedUser)} has been ${updatedUser.on_hold ? "put on hold" : "resumed"}.`,
+        user: {
+          userId: updatedUser.user_id,
+          onHold: !!updatedUser.on_hold,
+        },
+      });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Failed to update user status." });
+    }
+  },
+
+  superDashboardDeleteUserAjax: async (req, res) => {
+    const userId = parseOptionalInteger(req.params.userId);
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "Invalid user selected." });
+    }
+
+    try {
+      const deletedUser = await deleteUserWithDependencies({
+        userId,
+        actorUserId: req.session?.userId,
+      });
+
+      return res.json({
+        success: true,
+        message: `${buildUserFullName(deletedUser)} was deleted successfully.`,
+      });
+    } catch (error) {
+      const statusCode = error?.statusCode || (error?.code === "23503" ? 409 : 500);
+      const message = await buildConstraintErrorMessage(
+        error,
+        userId,
+        "Failed to delete this user.",
+        "user"
+      );
+
+      return res.status(statusCode).json({
+        success: false,
+        message,
       });
     }
   },
