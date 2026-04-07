@@ -47,6 +47,15 @@ function parseDateInput(value) {
 
   return parsed;
 }
+
+function computeTierMonthlyPrice(planBasePrice, tier) {
+  const basePrice = Number(planBasePrice || 0);
+  const adjustmentPercent = Number(tier?.adjustment_percentage);
+  if (Number.isFinite(adjustmentPercent)) {
+    return Math.max(0, basePrice * (1 + adjustmentPercent / 100));
+  }
+  return Number(tier?.price_usd || 0);
+}
 const bcrypt = require("bcryptjs");
 
 const bcryptjs = require("bcryptjs");
@@ -605,10 +614,50 @@ const accountController = {
         billingPeriods = [{ period_key: 'monthly', label: 'Monthly', months: 1, discount_percentage: 0 }];
       }
 
+      // Fetch student count tiers per plan
+      let studentTiersByPlan = {};
+      const lowestTierPriceByPlan = new Map();
+      try {
+        const tiersResult = await db.query('SELECT * FROM plan_student_tiers ORDER BY plan_id, sort_order, min_students');
+        const planBasePriceById = new Map(plans.map((plan) => [String(plan.plan_id), Number(plan.total_price || 0)]));
+        (tiersResult.rows || []).forEach(tier => {
+          if (!studentTiersByPlan[tier.plan_id]) studentTiersByPlan[tier.plan_id] = [];
+          const usd = computeTierMonthlyPrice(planBasePriceById.get(String(tier.plan_id)), tier);
+          const currentLowest = lowestTierPriceByPlan.get(String(tier.plan_id));
+          if (currentLowest == null || usd < currentLowest) {
+            lowestTierPriceByPlan.set(String(tier.plan_id), usd);
+          }
+          const loc = localizeUsdAmount(usd, currencyProfile);
+          studentTiersByPlan[tier.plan_id].push({
+            ...tier,
+            adjustment_percentage: tier.adjustment_percentage != null ? Number(tier.adjustment_percentage) : null,
+            computed_price_usd: usd,
+            priceUsdDisplay: formatCurrencyAmount(loc.amountUsd, "USD"),
+            localizedPriceDisplay: formatCurrencyAmount(loc.localizedAmount, loc.userCurrency, currencyProfile.locale),
+          });
+        });
+      } catch (err) {
+        // Table may not exist yet
+      }
+
+      const plansWithDefaultDisplayPrice = plans.map((plan) => {
+        const defaultUsd = lowestTierPriceByPlan.has(String(plan.plan_id))
+          ? Number(lowestTierPriceByPlan.get(String(plan.plan_id)))
+          : Number(plan.total_price || 0);
+        const localized = localizeUsdAmount(defaultUsd, currencyProfile);
+        return {
+          ...plan,
+          defaultDisplayUsd: defaultUsd,
+          defaultDisplayLocal: localized.localizedAmount,
+          defaultPriceUsdDisplay: formatCurrencyAmount(localized.amountUsd, 'USD'),
+          defaultLocalizedPriceDisplay: formatCurrencyAmount(localized.localizedAmount, localized.userCurrency, currencyProfile.locale),
+        };
+      });
+
       res.render("account/servicePlan", {
         title: "Choose Your Plan",
 
-        plans,
+        plans: plansWithDefaultDisplayPrice,
 
         url,
 
@@ -622,6 +671,7 @@ const accountController = {
         trialEligible,
         currencyProfile,
         billingPeriods,
+        studentTiersByPlan,
         paystackChargeCurrency: "GHS",
 
         showFooterTopSection: true,
@@ -635,7 +685,7 @@ const accountController = {
   },
 
   servicePlanPost: async (req, res) => {
-    const { plan, plan_id, billing_period } = req.body;
+    const { plan, plan_id, billing_period, student_tier_id, approx_student_count } = req.body;
     if (!plan || !plan_id) {
       req.flash("error", "Please select a plan.");
 
@@ -655,7 +705,26 @@ const accountController = {
       return res.redirect("/account/service-plan");
     }
 
-    const totalCost = Number(planQuery.rows[0].total_cost);
+    let totalCost = Number(planQuery.rows[0].total_cost);
+    let selectedTierId = null;
+    let approxCount = null;
+
+    // If a student tier is selected, use its price instead
+    if (student_tier_id) {
+      try {
+        const tierQuery = await db.query(
+          'SELECT id, price_usd, adjustment_percentage, plan_id FROM plan_student_tiers WHERE id = $1 AND plan_id = $2',
+          [student_tier_id, plan_id]
+        );
+        if (tierQuery.rows.length > 0) {
+          totalCost = computeTierMonthlyPrice(totalCost, tierQuery.rows[0]);
+          selectedTierId = tierQuery.rows[0].id;
+          approxCount = parseInt(approx_student_count, 10) || null;
+        }
+      } catch (err) {
+        // fallback to plan total_cost
+      }
+    }
 
     // Validate and fetch the billing period
     const selectedPeriodKey = billing_period || 'monthly';
@@ -690,6 +759,8 @@ const accountController = {
       billingPeriodMonths: periodMonths,
       billingPeriodDiscount: discountPct,
       trialRequested: parseTruthyFlag(req.body.trialRequested),
+      selectedTierId,
+      approxStudentCount: approxCount,
     };
 
     req.flash("success", "Plan selected. Please complete registration.");
@@ -770,7 +841,7 @@ const accountController = {
         orgPhone,
       } = req.body;
 
-      const { trialRequested = false, plan, planId, totalCost, billingPeriodKey, billingPeriodLabel, billingPeriodMonths, billingPeriodDiscount, monthlyPrice } = planSelection;
+      const { trialRequested = false, plan, planId, totalCost, billingPeriodKey, billingPeriodLabel, billingPeriodMonths, billingPeriodDiscount, monthlyPrice, selectedTierId, approxStudentCount } = planSelection;
 
       const proof1 = req.files?.proof1?.[0] || null;
 
@@ -963,6 +1034,10 @@ const accountController = {
         billingPeriodDiscount: billingPeriodDiscount || 0,
 
         trialRequested: wantsTrial,
+
+        selectedTierId: selectedTierId || null,
+
+        approxStudentCount: approxStudentCount || null,
       };
 
       delete req.session.planSelection;
@@ -1591,9 +1666,9 @@ const accountController = {
       await client.query("BEGIN");
 
       const orgResult = await client.query(
-        `INSERT INTO organizations (organization_name, nickname, organization_address, organization_country, organization_province, organization_phone, email, password, first_name, last_name, proof_of_existence_1, proof_of_existence_2, plan_id, paystack_customer_code, trial_start_at, trial_active_until)
+        `INSERT INTO organizations (organization_name, nickname, organization_address, organization_country, organization_province, organization_phone, email, password, first_name, last_name, proof_of_existence_1, proof_of_existence_2, plan_id, paystack_customer_code, trial_start_at, trial_active_until, selected_student_tier_id, approx_student_count)
 
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING organization_id`,
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING organization_id`,
 
         [
           orgName,
@@ -1627,6 +1702,10 @@ const accountController = {
           trialStartAt,
 
           trialActiveUntil,
+
+          registrationDetails.selectedTierId || null,
+
+          registrationDetails.approxStudentCount || null,
         ]
       );
 

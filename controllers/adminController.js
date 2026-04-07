@@ -26,6 +26,15 @@ const {
 } = require("../utils/accessCache");
 const { ensureEmploymentSchema } = require("../utils/employmentSchema");
 
+function computeTierMonthlyPrice(planBasePrice, tier) {
+  const basePrice = Number(planBasePrice || 0);
+  const adjustmentPercent = Number(tier?.adjustment_percentage);
+  if (Number.isFinite(adjustmentPercent)) {
+    return Math.max(0, basePrice * (1 + adjustmentPercent / 100));
+  }
+  return Number(tier?.price_usd || 0);
+}
+
 const adminController = {
   adminDashboard: async (req, res) => {
     try {
@@ -961,6 +970,27 @@ const adminController = {
         // Table may not exist yet
       }
 
+      // Fetch student count tiers grouped by plan
+      let studentTiersByPlan = {};
+      try {
+        const tiersResult = await db.query('SELECT * FROM plan_student_tiers ORDER BY plan_id, sort_order, min_students');
+        const planBasePriceById = new Map(localizedPlans.map((plan) => [String(plan.plan_id), Number(plan.total_cost || 0)]));
+        (tiersResult.rows || []).forEach(tier => {
+          if (!studentTiersByPlan[tier.plan_id]) studentTiersByPlan[tier.plan_id] = [];
+          const usd = computeTierMonthlyPrice(planBasePriceById.get(String(tier.plan_id)), tier);
+          const loc = localizeUsdAmount(usd, currencyProfile);
+          studentTiersByPlan[tier.plan_id].push({
+            ...tier,
+            adjustment_percentage: tier.adjustment_percentage != null ? Number(tier.adjustment_percentage) : null,
+            computedPriceUsd: usd,
+            priceUsdDisplay: formatCurrencyAmount(loc.amountUsd, "USD"),
+            localizedPriceDisplay: formatCurrencyAmount(loc.localizedAmount, loc.userCurrency, currencyProfile.locale),
+          });
+        });
+      } catch (err) {
+        // Table may not exist yet
+      }
+
       res.render("admin/servicePricing", {
         title: "Service Pricing Management",
         features: localizedFeatures,
@@ -971,6 +1001,7 @@ const adminController = {
         freeTrialDays,
         billingInterval,
         billingPeriods,
+        studentTiersByPlan,
         paystackMode: paystackSettings.mode,
         showFooterTopSection: true
       });
@@ -1595,6 +1626,177 @@ const adminController = {
     } catch (error) {
             req.flash("error", "Failed to recalculate plan totals.");
       res.redirect("/admin/servicePricing");
+    }
+  },
+
+  // ── Student Count Tier CRUD ──
+
+  addStudentTier: async (req, res) => {
+    const { plan_id, min_students, max_students, adjustment_percentage } = req.body;
+    try {
+      const planCheck = await db.query('SELECT id FROM plans WHERE id = $1', [plan_id]);
+      if (planCheck.rows.length === 0) {
+        req.flash("error", "Plan not found.");
+        return res.redirect("/admin/servicePricing");
+      }
+      const minVal = parseInt(min_students, 10) || 0;
+      const maxVal = max_students === '' || max_students === undefined || max_students === null ? null : parseInt(max_students, 10);
+      const label = maxVal != null ? `${minVal} – ${maxVal} students` : `${minVal}+ students`;
+      const adjustment = Number.parseFloat(adjustment_percentage);
+      const sortOrder = await db.query('SELECT COALESCE(MAX(sort_order), 0) + 1 AS next FROM plan_student_tiers WHERE plan_id = $1', [plan_id]);
+      await db.query(
+        `INSERT INTO plan_student_tiers (plan_id, label, min_students, max_students, price_usd, adjustment_percentage, sort_order)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [plan_id, label, minVal, maxVal, 0, Number.isFinite(adjustment) ? adjustment : 0, sortOrder.rows[0].next]
+      );
+      req.flash("success", "Student tier added.");
+    } catch (error) {
+      req.flash("error", "Failed to add student tier.");
+    }
+    res.redirect("/admin/servicePricing");
+  },
+
+  updateStudentTier: async (req, res) => {
+    const { tier_id, min_students, max_students, adjustment_percentage } = req.body;
+    try {
+      const minVal = parseInt(min_students, 10) || 0;
+      const maxVal = max_students === '' || max_students === undefined || max_students === null ? null : parseInt(max_students, 10);
+      const label = maxVal != null ? `${minVal} – ${maxVal} students` : `${minVal}+ students`;
+      const adjustment = Number.parseFloat(adjustment_percentage);
+      await db.query(
+        `UPDATE plan_student_tiers SET label = $1, min_students = $2, max_students = $3, adjustment_percentage = $4 WHERE id = $5`,
+        [label, minVal, maxVal, Number.isFinite(adjustment) ? adjustment : 0, tier_id]
+      );
+      req.flash("success", "Student tier updated.");
+    } catch (error) {
+      req.flash("error", "Failed to update student tier.");
+    }
+    res.redirect("/admin/servicePricing");
+  },
+
+  saveStudentTiers: async (req, res) => {
+    const {
+      plan_id,
+      tier_id,
+      min_students,
+      max_students,
+      adjustment_percentage,
+      new_min_students,
+      new_max_students,
+      new_adjustment_percentage,
+    } = req.body;
+
+    const asArray = (value) => {
+      if (Array.isArray(value)) return value;
+      if (value === undefined || value === null) return [];
+      return [value];
+    };
+
+    const tierIds = asArray(tier_id);
+    const minValues = asArray(min_students);
+    const maxValues = asArray(max_students);
+    const adjustmentValues = asArray(adjustment_percentage);
+    const newMinValues = asArray(new_min_students);
+    const newMaxValues = asArray(new_max_students);
+    const newAdjustmentValues = asArray(new_adjustment_percentage);
+
+    const client = await db.connect();
+    try {
+      await client.query('BEGIN');
+
+      for (let index = 0; index < tierIds.length; index += 1) {
+        const currentTierId = tierIds[index];
+        const minVal = parseInt(minValues[index], 10) || 0;
+        const rawMax = maxValues[index];
+        const maxVal = rawMax === '' || rawMax === undefined || rawMax === null ? null : parseInt(rawMax, 10);
+        const adjustment = Number.parseFloat(adjustmentValues[index]);
+        const label = maxVal != null ? `${minVal} – ${maxVal} students` : `${minVal}+ students`;
+
+        await client.query(
+          `UPDATE plan_student_tiers
+           SET label = $1, min_students = $2, max_students = $3, adjustment_percentage = $4
+           WHERE id = $5 AND plan_id = $6`,
+          [label, minVal, maxVal, Number.isFinite(adjustment) ? adjustment : 0, currentTierId, plan_id]
+        );
+      }
+
+      let nextSortOrder = null;
+      for (let index = 0; index < newMinValues.length; index += 1) {
+        const rawNewMin = newMinValues[index];
+        const rawNewMax = newMaxValues[index];
+        const rawNewAdjustment = newAdjustmentValues[index];
+        const newMin = rawNewMin === '' || rawNewMin === undefined || rawNewMin === null
+          ? null
+          : parseInt(rawNewMin, 10);
+        const newMax = rawNewMax === '' || rawNewMax === undefined || rawNewMax === null
+          ? null
+          : parseInt(rawNewMax, 10);
+        const newAdjustment = Number.parseFloat(rawNewAdjustment);
+
+        if (newMin === null && (rawNewAdjustment === '' || rawNewAdjustment === undefined || rawNewAdjustment === null)) {
+          continue;
+        }
+
+        if (newMin === null || !Number.isFinite(newAdjustment)) {
+          throw new Error('Invalid new student tier row');
+        }
+
+        if (nextSortOrder === null) {
+          const sortOrder = await client.query(
+            'SELECT COALESCE(MAX(sort_order), 0) + 1 AS next FROM plan_student_tiers WHERE plan_id = $1',
+            [plan_id]
+          );
+          nextSortOrder = Number(sortOrder.rows[0].next || 1);
+        }
+
+        const label = newMax != null ? `${newMin} – ${newMax} students` : `${newMin}+ students`;
+        await client.query(
+          `INSERT INTO plan_student_tiers (plan_id, label, min_students, max_students, price_usd, adjustment_percentage, sort_order)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [plan_id, label, newMin, newMax, 0, newAdjustment, nextSortOrder]
+        );
+        nextSortOrder += 1;
+      }
+
+      await client.query('COMMIT');
+      req.flash('success', 'Student tiers saved.');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      req.flash('error', 'Failed to save student tiers.');
+    } finally {
+      client.release();
+    }
+
+    res.redirect('/admin/servicePricing');
+  },
+
+  deleteStudentTier: async (req, res) => {
+    const { tier_id } = req.body;
+    try {
+      // Check if any org is using this tier
+      const usage = await db.query('SELECT COUNT(*) AS cnt FROM organizations WHERE selected_student_tier_id = $1', [tier_id]);
+      if (parseInt(usage.rows[0].cnt, 10) > 0) {
+        req.flash("error", `Cannot delete: ${usage.rows[0].cnt} organization(s) are using this tier. Reassign them first.`);
+        return res.redirect("/admin/servicePricing");
+      }
+      await db.query('DELETE FROM plan_student_tiers WHERE id = $1', [tier_id]);
+      req.flash("success", "Student tier deleted.");
+    } catch (error) {
+      req.flash("error", "Failed to delete student tier.");
+    }
+    res.redirect("/admin/servicePricing");
+  },
+
+  getStudentTiers: async (req, res) => {
+    const { plan_id } = req.query;
+    try {
+      const result = await db.query(
+        'SELECT * FROM plan_student_tiers WHERE plan_id = $1 ORDER BY sort_order, min_students',
+        [plan_id]
+      );
+      return res.json({ success: true, tiers: result.rows });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: 'Failed to fetch student tiers.' });
     }
   },
 

@@ -317,6 +317,7 @@
         font-size: 12px;
         color: var(--text-muted);
         line-height: 1.4;
+        min-height: 18px;
       }
 
       .period-card-price .period-price-strike {
@@ -462,6 +463,70 @@
           font-size: 14px;
         }
       }
+
+      /* ── Student Tier Picker ── */
+      .tier-section {
+        margin-top: 16px;
+        padding: 0;
+      }
+      .tier-section h3 {
+        margin: 0 0 8px;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-align: center;
+        letter-spacing: 0.01em;
+        text-transform: uppercase;
+      }
+      .tier-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 8px;
+        max-width: 800px;
+        margin: 0 auto;
+      }
+      .tier-card {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 8px;
+        border: 1.5px solid var(--border-color);
+        border-radius: 10px;
+        background: var(--surface);
+        cursor: pointer;
+        transition: all 0.22s ease;
+        text-align: center;
+        min-height: 60px;
+        font-family: var(--font-family);
+      }
+      .tier-card:hover {
+        border-color: #94b8bb;
+        background: #f7fbfb;
+      }
+      .tier-card.active {
+        border-color: var(--brand);
+        background: #f4fafa;
+        box-shadow: 0 0 0 2px rgba(1, 83, 91, 0.12);
+      }
+      .tier-card-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-main);
+        margin-bottom: 2px;
+      }
+      .tier-card-price {
+        font-size: 12px;
+        color: var(--text-muted);
+        line-height: 1.4;
+      }
+      .tier-card-range {
+        font-size: 13px;
+        color: var(--text-main);
+        font-weight: 600;
+        margin-top: 1px;
+      }
     </style>
   </head>
 
@@ -522,8 +587,8 @@
           class="plan-card"
           data-plan="<%= plan.plan_name %>"
           data-plan-id="<%= plan.plan_id %>"
-          data-base-usd="<%= plan.total_price %>"
-          data-base-local="<%= (currencyProfile && currencyProfile.usdToUserRate) ? (plan.total_price * currencyProfile.usdToUserRate).toFixed(2) : plan.total_price %>"
+          data-base-usd="<%= typeof plan.defaultDisplayUsd !== 'undefined' ? plan.defaultDisplayUsd : plan.total_price %>"
+          data-base-local="<%= typeof plan.defaultDisplayLocal !== 'undefined' ? Number(plan.defaultDisplayLocal).toFixed(2) : ((currencyProfile && currencyProfile.usdToUserRate) ? (plan.total_price * currencyProfile.usdToUserRate).toFixed(2) : plan.total_price) %>"
           data-local-currency="<%= (currencyProfile && currencyProfile.userCurrency) ? currencyProfile.userCurrency : 'USD' %>"
         >
           <div class="plan-name"><%= plan.plan_name %></div>
@@ -563,20 +628,36 @@
             <% planIndex++; %>
           </div>
           <div class="plan-price">
-            <strong><%= plan.priceUsdDisplay || ('$' + plan.total_price.toFixed(2)) %></strong>
+            <strong><%= plan.defaultPriceUsdDisplay || plan.priceUsdDisplay || ('$' + plan.total_price.toFixed(2)) %></strong>
             <div class="price-caption">per month</div>
             <% if (freeTrialEnabled && freeTrialLengthLabel) { %>
               <div class="price-after-trial">after trial ends</div>
             <% } %>
             <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
               <div class="price-local">
-                ≈ <%= plan.localizedPriceDisplay %> / month
+                ≈ <%= plan.defaultLocalizedPriceDisplay || plan.localizedPriceDisplay %> / month
               </div>
             <% } %>
           </div>
         </article>
         <% }}); %>
         </section>
+
+        <!-- Student Count Tier Picker -->
+        <%
+          const stTiersByPlan = typeof studentTiersByPlan !== 'undefined' ? studentTiersByPlan : {};
+          const hasTiersData = Object.keys(stTiersByPlan).length > 0;
+        %>
+        <% if (hasTiersData) { %>
+        <div class="tier-section" id="tierSection" style="display:none;">
+          <h3>Select Approximate School Size</h3>
+          <div class="tier-grid" id="tierGrid" role="radiogroup" aria-label="Student count tier">
+            <!-- Populated dynamically by JS based on selected plan -->
+          </div>
+        </div>
+        <% } %>
+        <input type="hidden" name="approx_student_count" id="approxStudentCount" value="" />
+        <input type="hidden" name="student_tier_id" id="selectedTierId" value="" />
 
         <!-- Billing Period Cards -->
         <% if (typeof billingPeriods !== 'undefined' && billingPeriods.length > 1) { %>
@@ -604,7 +685,7 @@
         </div>
         <% } %>
         <input type="hidden" name="billing_period" id="billingPeriodInput" value="" />
-    
+
         <input type="hidden" name="plan" id="selectedPlan" />
         <input type="hidden" name="plan_id" id="selectedPlanId" />
         <input type="hidden" name="trialRequested" id="trialRequestedField" value="<%= trialRequested ? '1' : '' %>" />
@@ -650,6 +731,89 @@
         let billingCycleSelected = false;
         const hasBillingCards = periodBtns.length > 0;
 
+        // Student tier data
+        const allTiersByPlan = <%- JSON.stringify(typeof studentTiersByPlan !== 'undefined' ? studentTiersByPlan : {}) %>;
+        const tierSection = document.getElementById('tierSection');
+        const tierGrid = document.getElementById('tierGrid');
+        const tierIdInput = document.getElementById('selectedTierId');
+        const approxInput = document.getElementById('approxStudentCount');
+        let tierSelected = false;
+        let currentPlanHasTiers = false;
+
+        function populateTierCards(planId) {
+          const tiers = allTiersByPlan[planId] || [];
+          currentPlanHasTiers = tiers.length > 0;
+          if (!tierSection || !tierGrid) return;
+          if (!currentPlanHasTiers) {
+            tierSection.style.display = 'none';
+            if (tierIdInput) tierIdInput.value = '';
+            if (approxInput) approxInput.value = '';
+            tierSelected = false;
+            updateAllPeriodPrices();
+            return;
+          }
+          tierSection.style.display = '';
+          tierGrid.innerHTML = '';
+          tierSelected = false;
+          if (tierIdInput) tierIdInput.value = '';
+          if (approxInput) approxInput.value = '';
+
+          tiers.forEach(function(tier) {
+            var card = document.createElement('div');
+            card.className = 'tier-card';
+            card.setAttribute('data-tier-id', tier.id);
+            card.setAttribute('data-tier-price', tier.computed_price_usd != null ? tier.computed_price_usd : tier.price_usd);
+            card.setAttribute('data-tier-min', tier.min_students);
+            card.setAttribute('data-tier-max', tier.max_students != null ? tier.max_students : '');
+            card.setAttribute('role', 'radio');
+            card.setAttribute('tabindex', '0');
+            card.setAttribute('aria-checked', 'false');
+            card.innerHTML =
+              '<div class="tier-card-range">' + tier.min_students + (tier.max_students != null ? ' – ' + tier.max_students : '+') + ' students</div>';
+            card.addEventListener('click', function() { selectTier(this); });
+            card.addEventListener('keydown', function(e) {
+              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectTier(this); }
+            });
+            tierGrid.appendChild(card);
+          });
+          updateAllPeriodPrices();
+          updateSubmitState();
+        }
+
+        function selectTier(card) {
+          var allTierCards = tierGrid.querySelectorAll('.tier-card');
+          allTierCards.forEach(function(c) {
+            c.classList.remove('active');
+            c.setAttribute('aria-checked', 'false');
+          });
+          card.classList.add('active');
+          card.setAttribute('aria-checked', 'true');
+          tierSelected = true;
+          if (tierIdInput) tierIdInput.value = card.getAttribute('data-tier-id');
+          if (approxInput) {
+            var min = parseInt(card.getAttribute('data-tier-min'), 10) || 0;
+            var maxAttr = card.getAttribute('data-tier-max');
+            var max = maxAttr !== '' ? parseInt(maxAttr, 10) : null;
+            approxInput.value = max !== null ? String(Math.round((min + max) / 2)) : String(min);
+          }
+
+          // Update plan card price to show tier price
+          var tierPrice = parseFloat(card.getAttribute('data-tier-price')) || 0;
+          var selectedCard = document.querySelector('.plan-card.selected');
+          if (selectedCard) {
+            selectedCard.setAttribute('data-base-usd', tierPrice);
+            var localRate = parseFloat(selectedCard.getAttribute('data-base-local')) / (parseFloat(selectedCard.getAttribute('data-original-base-usd') || selectedCard.getAttribute('data-base-usd')) || 1);
+            selectedCard.setAttribute('data-base-local', (tierPrice * (localRate || 1)).toFixed(2));
+            // Update the price display within the plan card
+            var priceStrong = selectedCard.querySelector('.plan-price strong');
+            var captionDiv = selectedCard.querySelector('.plan-price .price-caption');
+            if (priceStrong) priceStrong.textContent = '$' + tierPrice.toFixed(2);
+            if (captionDiv) captionDiv.textContent = 'per month';
+          }
+          updateAllPeriodPrices();
+          updateSubmitState();
+        }
+
         if (!form || !selectedPlanInput || !selectedPlanIdInput) {
           return;
         }
@@ -673,7 +837,8 @@
           if (!proceedPlanButton) return;
           var planOk = !!(selectedPlanInput.value && selectedPlanInput.value.trim());
           var cycleOk = !hasBillingCards || billingCycleSelected;
-          proceedPlanButton.disabled = !(planOk && cycleOk);
+          var tierOk = !currentPlanHasTiers || tierSelected;
+          proceedPlanButton.disabled = !(planOk && cycleOk && tierOk);
         }
 
         function getSelectedPlanBase() {
@@ -694,6 +859,11 @@
             var discount = parseInt(card.getAttribute('data-discount')) || 0;
             var priceEl = card.querySelector('[data-period-price]');
             if (!priceEl) return;
+
+            if (currentPlanHasTiers && !tierSelected) {
+              priceEl.innerHTML = 'Select school size';
+              return;
+            }
 
             if (baseUsd <= 0) {
               priceEl.innerHTML = '';
@@ -798,7 +968,18 @@
           if (!planEl) return;
           plans.forEach((p) => p.classList.remove("selected"));
           planEl.classList.add("selected");
+          // Store original base price before tier overrides it
+          if (!planEl.getAttribute('data-original-base-usd')) {
+            planEl.setAttribute('data-original-base-usd', planEl.getAttribute('data-base-usd'));
+            planEl.setAttribute('data-original-base-local', planEl.getAttribute('data-base-local'));
+          } else {
+            // Reset to original when switching plans
+            planEl.setAttribute('data-base-usd', planEl.getAttribute('data-original-base-usd'));
+            planEl.setAttribute('data-base-local', planEl.getAttribute('data-original-base-local'));
+          }
           syncSelectionFields(planEl);
+          var planId = planEl.getAttribute('data-plan-id');
+          populateTierCards(planId);
           updateSubmitState();
         };
 
@@ -846,7 +1027,13 @@
 
           if (hasBillingCards && (!periodInput.value || periodInput.value.trim() === '')) {
             event.preventDefault();
-            alert("\u26a0\ufe0f Please select a billing cycle before proceeding.");          }
+            alert("\u26a0\ufe0f Please select a billing cycle before proceeding.");
+            return;
+          }
+
+          if (currentPlanHasTiers && (!tierIdInput || !tierIdInput.value || tierIdInput.value.trim() === '')) {
+            event.preventDefault();
+            alert("\u26a0\ufe0f Please select a student count tier for your school.");          }
         });
 
         if (proceedPlanButton) {

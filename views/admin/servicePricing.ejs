@@ -34,28 +34,44 @@
       }
       
       .container {
-        max-width: 1400px;
+        max-width: none;
+        width: calc(100% - 48px);
         margin: 40px auto;
-        padding: 0 20px;
-        display: flex;
-        gap: 24px;
-        align-items: flex-start;
-      }
-      
-      /* Create three main columns using flexbox */
-      .column-1 {
-        flex: 1;
+        padding: 0 24px;
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 24px;
+        align-items: stretch;
+      }
+      
+      /* Full-page sections */
+      .column-1 {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 20px;
+        align-items: start;
       }
       
       .column-2 {
-        flex: 1;
+        width: 100%;
       }
       
       .column-3 {
-        flex: 1;
+        width: 100%;
+      }
+      .column-4 {
+        width: 100%;
+      }
+      .secondary-sections-grid {
+        width: calc(100% - 48px);
+        margin: 0 auto 40px;
+        padding: 0 24px;
+        box-sizing: border-box;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 24px;
+        align-items: start;
       }
       
       .form-container {
@@ -133,6 +149,184 @@
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
         gap: 20px;
+      }
+      .manage-plans-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+      }
+      .manage-plan-card {
+        background: linear-gradient(180deg, #ffffff 0%, #f8fbfc 100%);
+        border: 1px solid #dbe9ec;
+        border-radius: 16px;
+        box-shadow: 0 8px 22px rgba(1, 83, 91, 0.06);
+        overflow: hidden;
+      }
+      .manage-plan-card.is-collapsed .manage-plan-body {
+        display: none;
+      }
+      .manage-plan-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 18px;
+        border-bottom: 1px solid #e7f0f2;
+        background: linear-gradient(135deg, #f8fcfd 0%, #eef6f7 100%);
+      }
+      .manage-plan-title {
+        margin: 0;
+        color: #01535b;
+        font-size: 1.05rem;
+        font-weight: 700;
+      }
+      .manage-plan-meta {
+        margin: 4px 0 0;
+        color: #64748b;
+        font-size: 12px;
+      }
+      .manage-plan-toggle {
+        width: auto;
+        margin: 0;
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid #c9dde1;
+        background: #fff;
+        color: #01535b;
+        font-size: 12px;
+        font-weight: 700;
+        box-shadow: none;
+      }
+      .manage-plan-toggle:hover {
+        background: #eaf7f8;
+        transform: none;
+      }
+      .manage-plan-body {
+        padding: 18px;
+      }
+      .feature-pricing-card {
+        overflow: hidden;
+      }
+      .feature-pricing-card.is-collapsed .feature-pricing-body {
+        display: none;
+      }
+      .feature-pricing-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 0;
+        padding-bottom: 14px;
+        border-bottom: 2px solid #e8f4f8;
+      }
+      .feature-pricing-heading {
+        margin: 0;
+        color: #01535b;
+        font-size: 1.4rem;
+        font-weight: 600;
+      }
+      .feature-pricing-meta {
+        margin: 4px 0 0;
+        color: #64748b;
+        font-size: 13px;
+      }
+      .feature-pricing-toggle {
+        width: auto;
+        margin: 0;
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid #c9dde1;
+        background: #fff;
+        color: #01535b;
+        font-size: 12px;
+        font-weight: 700;
+        box-shadow: none;
+      }
+      .feature-pricing-toggle:hover {
+        background: #eaf7f8;
+        transform: none;
+      }
+      .feature-pricing-body {
+        padding-top: 18px;
+      }
+      .top-section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 0;
+        padding-bottom: 14px;
+        border-bottom: 2px solid #e8f4f8;
+      }
+      .top-section-heading {
+        margin: 0;
+        color: #01535b;
+        font-size: 1.4rem;
+        font-weight: 600;
+      }
+      .top-section-meta {
+        margin: 4px 0 0;
+        color: #64748b;
+        font-size: 13px;
+      }
+      .top-section-toggle {
+        width: auto;
+        margin: 0;
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid #c9dde1;
+        background: #fff;
+        color: #01535b;
+        font-size: 12px;
+        font-weight: 700;
+        box-shadow: none;
+      }
+      .top-section-toggle:hover {
+        background: #eaf7f8;
+        transform: none;
+      }
+      .settings-card.is-collapsed .settings-card-body {
+        display: none;
+      }
+      .settings-card.is-collapsed,
+      .feature-pricing-card.is-collapsed,
+      .manage-plans-section.is-collapsed,
+      .student-tiers-section.is-collapsed {
+        padding-top: 20px;
+        padding-bottom: 18px;
+      }
+      .settings-card.is-collapsed .settings-card-header,
+      .feature-pricing-card.is-collapsed .feature-pricing-header,
+      .manage-plans-section.is-collapsed .top-section-header,
+      .student-tiers-section.is-collapsed .top-section-header {
+        padding-bottom: 0;
+        border-bottom: none;
+      }
+      .settings-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 0;
+        padding-bottom: 14px;
+        border-bottom: 2px solid #e8f4f8;
+      }
+      .settings-card-heading {
+        margin: 0;
+        color: #01535b;
+        font-size: 1.4rem;
+        font-weight: 600;
+      }
+      .settings-card-body {
+        padding-top: 18px;
+      }
+      .manage-plans-section.is-collapsed .manage-plans-body,
+      .student-tiers-section.is-collapsed .student-tiers-body {
+        display: none;
+      }
+      .manage-plans-body,
+      .student-tiers-body {
+        padding-top: 18px;
       }
       .plan-actions {
         display: flex;
@@ -288,32 +482,30 @@
       
       /* Responsive breakpoints */
       @media (max-width: 1200px) {
-        .container {
-          flex-direction: column;
-          gap: 20px;
-        }
-        
         .column-1 {
-          display: flex;
-          flex-direction: row;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 20px;
         }
-        
-        .column-1 .form-container {
-          flex: 1;
+        .secondary-sections-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
         }
       }
       
       @media (max-width: 768px) {
         .container {
-          flex-direction: column;
           padding: 0 16px;
           gap: 16px;
           margin: 20px auto;
         }
         
         .column-1 {
-          flex-direction: column;
+          grid-template-columns: 1fr;
+          gap: 16px;
+        }
+        .secondary-sections-grid {
+          width: calc(100% - 32px);
+          padding: 0 16px;
+          grid-template-columns: 1fr;
           gap: 16px;
         }
         
@@ -331,8 +523,9 @@
           padding: 0 12px;
           gap: 12px;
         }
-        
-        .column-1 {
+        .secondary-sections-grid {
+          width: calc(100% - 24px);
+          padding: 0 12px;
           gap: 12px;
         }
         
@@ -376,16 +569,285 @@
         background: #f9fbfc;
         font-size: 1rem;
       }
+      .student-tier-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 18px;
+      }
+      .student-tier-plan {
+        border: 1px solid #dbe9ec;
+        border-radius: 16px;
+        background: #ffffff;
+        box-shadow: 0 8px 20px rgba(1, 83, 91, 0.05);
+        overflow: hidden;
+      }
+      .student-tier-plan.is-collapsed .student-tier-body {
+        display: none;
+      }
+      .student-tier-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 18px 18px 16px;
+        border-bottom: 1px solid #e7f0f2;
+        background: linear-gradient(135deg, #f8fcfd 0%, #eef6f7 100%);
+      }
+      .student-tier-title {
+        margin: 0;
+        color: #01535b;
+        font-size: 1.05rem;
+      }
+      .student-tier-summary {
+        margin: 4px 0 0;
+        font-size: 12px;
+        color: #64748b;
+      }
+      .student-tier-toggle {
+        width: auto;
+        margin: 0;
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid #c9dde1;
+        background: #fff;
+        color: #01535b;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        box-shadow: none;
+      }
+      .student-tier-toggle:hover {
+        background: #eaf7f8;
+        transform: none;
+      }
+      .student-tier-body {
+        padding: 18px;
+        background: #fbfdfe;
+      }
+      .student-tier-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+      .student-tier-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: end;
+        gap: 12px;
+        padding: 14px;
+        background: #fff;
+        border: 1px solid #dfe9ec;
+        border-radius: 14px;
+      }
+      .student-tier-form {
+        display: grid;
+        grid-template-columns: minmax(220px, 1.5fr) minmax(160px, 1fr) auto;
+        align-items: end;
+        gap: 12px;
+        width: 100%;
+      }
+      .student-tier-field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .student-tier-field-label {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #64748b;
+      }
+      .student-tier-range,
+      .student-tier-price {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .student-tier-mini-input {
+        width: 96px;
+        min-width: 0;
+        padding: 8px 10px;
+        margin-bottom: 0;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 13px;
+        text-align: center;
+        background: #fff;
+      }
+      .student-tier-range .student-tier-mini-input {
+        flex: 1 1 100px;
+      }
+      .student-tier-price .student-tier-mini-input {
+        flex: 1 1 110px;
+      }
+      .student-tier-text-muted {
+        color: #6b7280;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .student-tier-separator {
+        color: #9ca3af;
+        margin: 0 2px;
+      }
+      .student-tier-delete {
+        width: auto;
+        margin: 0;
+        padding: 8px 10px;
+        border: 1px solid #f3c5c0;
+        background: #fff5f4;
+        color: #e74c3c;
+        font-size: 14px;
+        border-radius: 10px;
+        box-shadow: none;
+      }
+      .student-tier-delete:hover {
+        background: #fdebea;
+        color: #c0392b;
+        transform: none;
+      }
+      .student-tier-add {
+        display: grid;
+        grid-template-columns: minmax(220px, 1.5fr) minmax(180px, 1fr);
+        align-items: start;
+        gap: 12px;
+        padding: 14px;
+        background: #f6fbfc;
+        border: 1px dashed #b8d8dc;
+        border-radius: 14px;
+      }
+      .student-tier-empty {
+        margin: 0 0 14px;
+        padding: 14px;
+        border-radius: 12px;
+        background: #f8fbfc;
+        border: 1px dashed #d6e7ea;
+        color: #64748b;
+        font-size: 13px;
+      }
+      .student-tier-plan-form {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .student-tier-row-menu {
+        position: relative;
+      }
+      .student-tier-row-menu details {
+        position: relative;
+      }
+      .student-tier-row-menu summary {
+        list-style: none;
+        cursor: pointer;
+        width: 34px;
+        height: 34px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        border: 1px solid #d7e4e8;
+        background: #fff;
+        color: #4b5563;
+        font-weight: 700;
+        font-size: 18px;
+      }
+      .student-tier-row-menu summary::-webkit-details-marker {
+        display: none;
+      }
+      .student-tier-row-menu[open] summary,
+      .student-tier-row-menu summary:hover {
+        background: #f4f8fa;
+      }
+      .student-tier-row-menu-panel {
+        position: absolute;
+        right: 0;
+        top: calc(100% + 6px);
+        z-index: 2;
+        min-width: 96px;
+        padding: 8px;
+        border-radius: 12px;
+        border: 1px solid #dbe7eb;
+        background: #fff;
+        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+      }
+      .student-tier-save-all {
+        width: auto;
+        align-self: flex-start;
+        margin: 0;
+        padding: 10px 16px;
+        font-size: 13px;
+        white-space: nowrap;
+      }
+      .student-tier-drafts {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .student-tier-add-row-button {
+        width: auto;
+        align-self: flex-start;
+        margin: 0;
+        padding: 8px 12px;
+        font-size: 12px;
+        background: #ffffff;
+        color: #01535b;
+        border: 1px solid #c7dadd;
+      }
+      .student-tier-add-row-button:hover {
+        background: #eef6f7;
+      }
+      .student-tier-draft-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        grid-column: 1 / -1;
+        padding-top: 4px;
+      }
+      .student-tier-remove-draft {
+        width: auto;
+        margin: 0;
+        padding: 8px 12px;
+        font-size: 12px;
+        background: #fff5f4;
+        color: #b42318;
+        border: 1px solid #f3c5c0;
+        border-radius: 10px;
+        white-space: nowrap;
+      }
+      .student-tier-remove-draft:hover {
+        background: #fdebea;
+      }
+      @media (max-width: 1100px) {
+        .manage-plans-grid,
+        .student-tier-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
       /* Responsive Design */
       @media (max-width: 1024px) {
         .container {
-          max-width: 98vw;
-          padding: 0 6px;
-          gap: 6px 16px;
+          padding: 0 12px;
+          width: calc(100% - 24px);
+          gap: 16px;
+        }
+        .secondary-sections-grid {
+          width: calc(100% - 24px);
+          padding: 0 12px;
+          gap: 16px;
         }
         .form-container,
         .plan-container {
-          padding: 14px 6px 10px 6px;
+          padding: 24px 18px;
+        }
+        .manage-plan-body,
+        .student-tier-body,
+        .settings-card-body,
+        .feature-pricing-body,
+        .manage-plans-body,
+        .student-tiers-body {
+          padding-top: 16px;
         }
       }
       @media (max-width: 700px) {
@@ -393,15 +855,59 @@
           font-size: 1.3rem;
         }
         .container {
-          padding: 0 2px;
-          gap: 4px;
+          padding: 0 12px;
+          width: calc(100% - 24px);
+          gap: 14px;
+        }
+        .secondary-sections-grid {
+          width: calc(100% - 24px);
+          padding: 0 12px;
+          gap: 14px;
         }
         .form-container,
         .plan-container {
-          padding: 10px 2px 8px 2px;
+          padding: 20px 16px;
+          border-radius: 14px;
         }
         .plan-description {
           font-size: 0.95rem;
+        }
+        .manage-plans-grid,
+        .student-tier-grid {
+          grid-template-columns: 1fr;
+        }
+        .settings-card-header,
+        .feature-pricing-header,
+        .top-section-header,
+        .manage-plan-header,
+        .student-tier-header {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 10px;
+        }
+        .top-section-toggle,
+        .feature-pricing-toggle,
+        .manage-plan-toggle,
+        .student-tier-toggle {
+          align-self: flex-end;
+        }
+        .student-tier-row,
+        .student-tier-add,
+        .student-tier-form {
+          gap: 8px;
+        }
+        .student-tier-row {
+          grid-template-columns: 1fr;
+        }
+        .student-tier-form,
+        .student-tier-add {
+          grid-template-columns: 1fr;
+        }
+        .student-tier-delete {
+          justify-self: start;
+        }
+        .student-tier-draft-actions {
+          justify-content: flex-start;
         }
       }
       @media (max-width: 600px) {
@@ -413,14 +919,48 @@
         }
         .container {
           margin-top: 10px;
-          gap: 4px;
+          padding: 0 10px;
+          width: calc(100% - 20px);
+          gap: 12px;
+        }
+        .secondary-sections-grid {
+          width: calc(100% - 20px);
+          padding: 0 10px;
+          gap: 12px;
         }
         .form-container,
         .plan-container {
-          padding: 7px 0 6px 0;
+          padding: 18px 14px;
+          border-radius: 12px;
         }
         .plan-description {
           font-size: 0.9rem;
+        }
+        .student-tier-header,
+        .student-tier-body,
+        .student-tier-row,
+        .student-tier-add,
+        .student-tier-form {
+          padding-left: 0;
+          padding-right: 0;
+        }
+        .settings-card-heading,
+        .feature-pricing-heading,
+        .top-section-heading {
+          font-size: 1.15rem;
+        }
+        .student-tier-range,
+        .student-tier-price {
+          flex-wrap: wrap;
+        }
+        .student-tier-mini-input {
+          width: 100%;
+        }
+        .student-tier-add-row-button,
+        .student-tier-save-all,
+        .student-tier-remove-draft {
+          width: 100%;
+          justify-content: center;
         }
       }
     </style>
@@ -445,239 +985,401 @@
     <div class="container">
       <!-- Column 1: Three stacked containers -->
       <div class="column-1">
-        <div class="form-container">
-          <h2>Free Trial Settings</h2>
-          <form action="/admin/updateFreeTrialSettings" method="POST" id="free-trial-form">
-            <label for="free_trial_enabled">Enable Free Trial:</label>
-            <select name="free_trial_enabled" id="free_trial_enabled">
-              <option value="true" <% if (typeof freeTrialEnabled !== 'undefined' && freeTrialEnabled === 'true') { %>selected<% } %>>Yes</option>
-              <option value="false" <% if (typeof freeTrialEnabled === 'undefined' || freeTrialEnabled !== 'true') { %>selected<% } %>>No</option>
-            </select>
-            <label for="free_trial_days">Trial Duration:</label>
-            <select name="free_trial_days" id="free_trial_days" required>
-              <option value="5_minutes" <% if (typeof freeTrialDays !== 'undefined' && freeTrialDays === '5_minutes') { %>selected<% } %>>5 Minutes</option>
-              <option value="1" <% if (typeof freeTrialDays !== 'undefined' && freeTrialDays === '1') { %>selected<% } %>>1 Day</option>
-              <option value="7" <% if (typeof freeTrialDays === 'undefined' || freeTrialDays === '7') { %>selected<% } %>>7 Days</option>
-              <option value="14" <% if (typeof freeTrialDays !== 'undefined' && freeTrialDays === '14') { %>selected<% } %>>14 Days</option>
-              <option value="30" <% if (typeof freeTrialDays !== 'undefined' && freeTrialDays === '30') { %>selected<% } %>>30 Days</option>
-              <option value="60" <% if (typeof freeTrialDays !== 'undefined' && freeTrialDays === '60') { %>selected<% } %>>60 Days</option>
-              <option value="90" <% if (typeof freeTrialDays !== 'undefined' && freeTrialDays === '90') { %>selected<% } %>>90 Days</option>
-              <option value="120" <% if (typeof freeTrialDays !== 'undefined' && freeTrialDays === '120') { %>selected<% } %>>120 Days</option>
-            </select>
-            <button type="submit">Save Free Trial Settings</button>
-          </form>
+        <div class="form-container settings-card is-collapsed" data-settings-card>
+          <div class="settings-card-header">
+            <h2 class="settings-card-heading">Free Trial Settings</h2>
+            <button type="button" class="top-section-toggle" data-settings-toggle aria-expanded="false">Expand</button>
+          </div>
+          <div class="settings-card-body">
+            <form action="/admin/updateFreeTrialSettings" method="POST" id="free-trial-form">
+              <label for="free_trial_enabled">Enable Free Trial:</label>
+              <select name="free_trial_enabled" id="free_trial_enabled">
+                <option value="true" <% if (typeof freeTrialEnabled !== 'undefined' && freeTrialEnabled === 'true') { %>selected<% } %>>Yes</option>
+                <option value="false" <% if (typeof freeTrialEnabled === 'undefined' || freeTrialEnabled !== 'true') { %>selected<% } %>>No</option>
+              </select>
+              <label for="free_trial_days">Trial Duration:</label>
+              <select name="free_trial_days" id="free_trial_days" required>
+                <option value="5_minutes" <% if (typeof freeTrialDays !== 'undefined' && freeTrialDays === '5_minutes') { %>selected<% } %>>5 Minutes</option>
+                <option value="1" <% if (typeof freeTrialDays !== 'undefined' && freeTrialDays === '1') { %>selected<% } %>>1 Day</option>
+                <option value="7" <% if (typeof freeTrialDays === 'undefined' || freeTrialDays === '7') { %>selected<% } %>>7 Days</option>
+                <option value="14" <% if (typeof freeTrialDays !== 'undefined' && freeTrialDays === '14') { %>selected<% } %>>14 Days</option>
+                <option value="30" <% if (typeof freeTrialDays !== 'undefined' && freeTrialDays === '30') { %>selected<% } %>>30 Days</option>
+                <option value="60" <% if (typeof freeTrialDays !== 'undefined' && freeTrialDays === '60') { %>selected<% } %>>60 Days</option>
+                <option value="90" <% if (typeof freeTrialDays !== 'undefined' && freeTrialDays === '90') { %>selected<% } %>>90 Days</option>
+                <option value="120" <% if (typeof freeTrialDays !== 'undefined' && freeTrialDays === '120') { %>selected<% } %>>120 Days</option>
+              </select>
+              <button type="submit">Save Free Trial Settings</button>
+            </form>
+          </div>
         </div>
 
-        <div class="form-container">
-          <h2>Billing Interval</h2>
-          <form action="/admin/updateBillingInterval" method="POST" id="billing-interval-form">
-            <label for="billing_interval">Billing Interval:</label>
-            <select name="billing_interval" id="billing_interval">
-              <option value="5_minutes" <% if (typeof billingInterval !== 'undefined' && billingInterval === '5_minutes') { %>selected<% } %>>5 Minutes</option>
-              <option value="daily" <% if (typeof billingInterval !== 'undefined' && billingInterval === 'daily') { %>selected<% } %>>Daily</option>
-              <option value="weekly" <% if (typeof billingInterval !== 'undefined' && billingInterval === 'weekly') { %>selected<% } %>>Weekly</option>
-              <option value="monthly" <% if (typeof billingInterval === 'undefined' || billingInterval === 'monthly') { %>selected<% } %>>Monthly</option>
-              <option value="yearly" <% if (typeof billingInterval !== 'undefined' && billingInterval === 'yearly') { %>selected<% } %>>Yearly</option>
-              <option value="2_years" <% if (typeof billingInterval !== 'undefined' && billingInterval === '2_years') { %>selected<% } %>>2 Years</option>
-              <option value="3_years" <% if (typeof billingInterval !== 'undefined' && billingInterval === '3_years') { %>selected<% } %>>3 Years</option>
-            </select>
-            <button type="submit">Save Billing Interval</button>
-          </form>
+        <div class="form-container settings-card is-collapsed" data-settings-card>
+          <div class="settings-card-header">
+            <h2 class="settings-card-heading">Billing Interval</h2>
+            <button type="button" class="top-section-toggle" data-settings-toggle aria-expanded="false">Expand</button>
+          </div>
+          <div class="settings-card-body">
+            <form action="/admin/updateBillingInterval" method="POST" id="billing-interval-form">
+              <label for="billing_interval">Billing Interval:</label>
+              <select name="billing_interval" id="billing_interval">
+                <option value="5_minutes" <% if (typeof billingInterval !== 'undefined' && billingInterval === '5_minutes') { %>selected<% } %>>5 Minutes</option>
+                <option value="daily" <% if (typeof billingInterval !== 'undefined' && billingInterval === 'daily') { %>selected<% } %>>Daily</option>
+                <option value="weekly" <% if (typeof billingInterval !== 'undefined' && billingInterval === 'weekly') { %>selected<% } %>>Weekly</option>
+                <option value="monthly" <% if (typeof billingInterval === 'undefined' || billingInterval === 'monthly') { %>selected<% } %>>Monthly</option>
+                <option value="yearly" <% if (typeof billingInterval !== 'undefined' && billingInterval === 'yearly') { %>selected<% } %>>Yearly</option>
+                <option value="2_years" <% if (typeof billingInterval !== 'undefined' && billingInterval === '2_years') { %>selected<% } %>>2 Years</option>
+                <option value="3_years" <% if (typeof billingInterval !== 'undefined' && billingInterval === '3_years') { %>selected<% } %>>3 Years</option>
+              </select>
+              <button type="submit">Save Billing Interval</button>
+            </form>
+          </div>
         </div>
 
-        <div class="form-container">
-          <h2>Paystack Mode & Keys</h2>
-          <p class="mode-status">
-            Active Mode:
-            <% if (paystackMode === 'live') { %>
-              <span class="mode-pill mode-pill-live">LIVE</span>
-            <% } else { %>
-              <span class="mode-pill mode-pill-test">TEST</span>
-            <% } %>
-          </p>
-          <form action="/admin/updatePaystackSettings" method="POST" id="paystack-settings-form">
-            <label for="paystack_mode">Mode:</label>
-            <select name="paystack_mode" id="paystack_mode" required>
-              <option value="test" <% if (paystackMode !== 'live') { %>selected<% } %>>Test</option>
-              <option value="live" <% if (paystackMode === 'live') { %>selected<% } %>>Live</option>
-            </select>
+        <div class="form-container settings-card is-collapsed" data-settings-card>
+          <div class="settings-card-header">
+            <h2 class="settings-card-heading">Paystack Mode & Keys</h2>
+            <button type="button" class="top-section-toggle" data-settings-toggle aria-expanded="false">Expand</button>
+          </div>
+          <div class="settings-card-body">
+            <p class="mode-status">
+              Active Mode:
+              <% if (paystackMode === 'live') { %>
+                <span class="mode-pill mode-pill-live">LIVE</span>
+              <% } else { %>
+                <span class="mode-pill mode-pill-test">TEST</span>
+              <% } %>
+            </p>
+            <form action="/admin/updatePaystackSettings" method="POST" id="paystack-settings-form">
+              <label for="paystack_mode">Mode:</label>
+              <select name="paystack_mode" id="paystack_mode" required>
+                <option value="test" <% if (paystackMode !== 'live') { %>selected<% } %>>Test</option>
+                <option value="live" <% if (paystackMode === 'live') { %>selected<% } %>>Live</option>
+              </select>
 
-            <button type="submit">Save Paystack Settings</button>
-          </form>
+              <button type="submit">Save Paystack Settings</button>
+            </form>
+          </div>
         </div>
 
-        <div class="form-container">
-          <h2>🔄 Recalculate Plan Totals</h2>
-          <p>Use this button if plan total costs seem incorrect or after making multiple feature price changes:</p>
-          <button 
-            class="action-btn update-btn" 
-            id="recalculate-totals-btn"
-            style="background: #28a745; color: white; padding: 10px 20px; font-size: 16px;"
-          >
-            Recalculate All Plan Totals
-          </button>
+        <div class="form-container settings-card is-collapsed" data-settings-card>
+          <div class="settings-card-header">
+            <h2 class="settings-card-heading">🔄 Recalculate Plan Totals</h2>
+            <button type="button" class="top-section-toggle" data-settings-toggle aria-expanded="false">Expand</button>
+          </div>
+          <div class="settings-card-body">
+            <p>Use this button if plan total costs seem incorrect or after making multiple feature price changes:</p>
+            <button 
+              class="action-btn update-btn" 
+              id="recalculate-totals-btn"
+              style="background: #28a745; color: white; padding: 10px 20px; font-size: 16px;"
+            >
+              Recalculate All Plan Totals
+            </button>
+          </div>
         </div>
 
-        <div class="form-container">
-          <h2>💰 Billing Period Discounts</h2>
-          <p style="font-size:13px;color:#6b7280;margin-bottom:12px;">
-            Set discount percentages for each billing period. Users will see these options when choosing a plan.
-            Monthly cannot be disabled. Discounts are capped at 50%.
-          </p>
-          <table style="width:100%;border-collapse:collapse;font-size:14px;">
-            <thead>
-              <tr style="text-align:left;border-bottom:2px solid #e5e7eb;">
-                <th style="padding:8px 6px;">Period</th>
-                <th style="padding:8px 6px;">Months</th>
-                <th style="padding:8px 6px;">Discount %</th>
-                <th style="padding:8px 6px;">Active</th>
-                <th style="padding:8px 6px;"></th>
-              </tr>
-            </thead>
-            <tbody>
-              <% (typeof billingPeriods !== 'undefined' ? billingPeriods : []).forEach(function(bp) { %>
-                <tr data-period-key="<%= bp.period_key %>" style="border-bottom:1px solid #f0f0f0;">
-                  <td style="padding:8px 6px;font-weight:600;"><%= bp.label %></td>
-                  <td style="padding:8px 6px;"><%= bp.months %></td>
-                  <td style="padding:8px 6px;">
-                    <input
-                      type="number"
-                      class="bp-discount"
-                      data-key="<%= bp.period_key %>"
-                      value="<%= bp.discount_percentage %>"
-                      min="0"
-                      max="50"
-                      style="width:60px;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;"
-                      <% if (bp.period_key === 'monthly') { %>disabled title="Monthly is always 0% discount"<% } %>
-                    />
-                  </td>
-                  <td style="padding:8px 6px;">
-                    <input
-                      type="checkbox"
-                      class="bp-active"
-                      data-key="<%= bp.period_key %>"
-                      <% if (bp.is_active) { %>checked<% } %>
-                      <% if (bp.period_key === 'monthly') { %>disabled title="Monthly cannot be disabled"<% } %>
-                    />
-                  </td>
-                  <td style="padding:8px 6px;">
-                    <% if (bp.period_key !== 'monthly') { %>
-                      <button
-                        type="button"
-                        class="bp-save-btn"
-                        data-key="<%= bp.period_key %>"
-                        style="background:#2563eb;color:white;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;"
-                      >Save</button>
-                    <% } %>
-                  </td>
+        <div class="form-container settings-card is-collapsed" data-settings-card>
+          <div class="settings-card-header">
+            <h2 class="settings-card-heading">💰 Billing Period Discounts</h2>
+            <button type="button" class="top-section-toggle" data-settings-toggle aria-expanded="false">Expand</button>
+          </div>
+          <div class="settings-card-body">
+            <p style="font-size:13px;color:#6b7280;margin-bottom:12px;">
+              Set discount percentages for each billing period. Users will see these options when choosing a plan.
+              Monthly cannot be disabled. Discounts are capped at 50%.
+            </p>
+            <table style="width:100%;border-collapse:collapse;font-size:14px;">
+              <thead>
+                <tr style="text-align:left;border-bottom:2px solid #e5e7eb;">
+                  <th style="padding:8px 6px;">Period</th>
+                  <th style="padding:8px 6px;">Months</th>
+                  <th style="padding:8px 6px;">Discount %</th>
+                  <th style="padding:8px 6px;">Active</th>
+                  <th style="padding:8px 6px;"></th>
                 </tr>
-              <% }) %>
-            </tbody>
-          </table>
-          <p class="bp-status-msg" style="margin-top:8px;font-size:13px;color:#059669;display:none;"></p>
+              </thead>
+              <tbody>
+                <% (typeof billingPeriods !== 'undefined' ? billingPeriods : []).forEach(function(bp) { %>
+                  <tr data-period-key="<%= bp.period_key %>" style="border-bottom:1px solid #f0f0f0;">
+                    <td style="padding:8px 6px;font-weight:600;"><%= bp.label %></td>
+                    <td style="padding:8px 6px;"><%= bp.months %></td>
+                    <td style="padding:8px 6px;">
+                      <input
+                        type="number"
+                        class="bp-discount"
+                        data-key="<%= bp.period_key %>"
+                        value="<%= bp.discount_percentage %>"
+                        min="0"
+                        max="50"
+                        style="width:60px;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;"
+                        <% if (bp.period_key === 'monthly') { %>disabled title="Monthly is always 0% discount"<% } %>
+                      />
+                    </td>
+                    <td style="padding:8px 6px;">
+                      <input
+                        type="checkbox"
+                        class="bp-active"
+                        data-key="<%= bp.period_key %>"
+                        <% if (bp.is_active) { %>checked<% } %>
+                        <% if (bp.period_key === 'monthly') { %>disabled title="Monthly cannot be disabled"<% } %>
+                      />
+                    </td>
+                    <td style="padding:8px 6px;">
+                      <% if (bp.period_key !== 'monthly') { %>
+                        <button
+                          type="button"
+                          class="bp-save-btn"
+                          data-key="<%= bp.period_key %>"
+                          style="background:#2563eb;color:white;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;"
+                        >Save</button>
+                      <% } %>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+            <p class="bp-status-msg" style="margin-top:8px;font-size:13px;color:#059669;display:none;"></p>
+          </div>
         </div>
       </div>
 
+    </div>
+
+    <div class="secondary-sections-grid">
+
       <!-- Column 2: Feature Pricing -->
       <div class="column-2">
-        <div class="form-container">
-          <h2>Feature Pricing</h2>
-          <form action="/admin/setFeaturePrice" method="POST">
-            <label>Select Feature:</label>
-            <select name="featureId" required>
+        <div class="form-container feature-pricing-card is-collapsed" data-feature-pricing>
+          <div class="feature-pricing-header">
+            <div>
+              <h2 class="feature-pricing-heading">Feature Pricing</h2>
+              <p class="feature-pricing-meta">Manage feature prices and collapse this section when you do not need it.</p>
+            </div>
+            <button type="button" class="feature-pricing-toggle" data-feature-toggle aria-expanded="false">Expand</button>
+          </div>
+          <div class="feature-pricing-body">
+            <form action="/admin/setFeaturePrice" method="POST">
+              <label>Select Feature:</label>
+              <select name="featureId" required>
+                <% features.slice().sort((a, b) => a.feature_name.localeCompare(b.feature_name)).forEach(feature => { %>
+                  <option value="<%= feature.id %>">
+                    <%= feature.feature_name %>
+                  </option>
+                <% }) %>
+              </select>
+
+              <label>Price (USD base):</label>
+              <input type="number" name="priceUsd" step="0.01" required />
+
+              <button type="submit">Set Price</button>
+            </form>
+            <ul class="feature-list">
               <% features.slice().sort((a, b) => a.feature_name.localeCompare(b.feature_name)).forEach(feature => { %>
-                <option value="<%= feature.id %>">
-                  <%= feature.feature_name %>
-                </option>
+                <li>
+                  <%= feature.feature_name %> (<%= feature.priceUsdDisplay || ('$' + feature.price_usd) %>)
+                  <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
+                    <span style="font-size:12px;color:#6b7280;">≈ <%= feature.localizedPriceDisplay %></span>
+                  <% } %>
+                  <span
+                    class="action-icon remove-feature-from-list"
+                    data-featureid="<%= feature.id %>"
+                  >-</span>
+                </li>
               <% }) %>
-            </select>
-
-            <label>Price (USD base):</label>
-            <input type="number" name="priceUsd" step="0.01" required />
-
-            <button type="submit">Set Price</button>
-          </form>
-          <ul class="feature-list">
-            <% features.slice().sort((a, b) => a.feature_name.localeCompare(b.feature_name)).forEach(feature => { %>
-              <li>
-                <%= feature.feature_name %> (<%= feature.priceUsdDisplay || ('$' + feature.price_usd) %>)
-                <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
-                  <span style="font-size:12px;color:#6b7280;">≈ <%= feature.localizedPriceDisplay %></span>
-                <% } %>
-                <span
-                  class="action-icon remove-feature-from-list"
-                  data-featureid="<%= feature.id %>"
-                >-</span>
-              </li>
-            <% }) %>
-          </ul>
+            </ul>
+          </div>
         </div>
       </div>
 
       <!-- Column 3: Manage Plans -->
       <div class="column-3">
-        <div class="form-container">
-          <h2>Manage Plans</h2>
-          <% plans.forEach(plan => { %>
-            <div class="plan-container">
-              <p><strong>Plan:</strong> <%= plan.plan_name %></p>
-              <p>
-                <strong>Description:</strong>
-                <input
-                  type="text"
-                  class="plan-description"
-                  data-planid="<%= plan.plan_id %>"
-                  value="<%= plan.description %>"
-                />
-              </p>
-              <p><strong>Features:</strong></p>
-              <ul class="feature-list">
-                <% plan.features.slice().sort((a, b) => a.feature_name.localeCompare(b.feature_name)).forEach(feature => { %>
-                  <li>
-                    <%= feature.feature_name %> (<%= feature.priceUsdDisplay || ('$' + feature.price_usd) %>)
-                    <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
-                      <span style="font-size:12px;color:#6b7280;">≈ <%= feature.localizedPriceDisplay %></span>
-                    <% } %>
-                    <span
-                      class="action-icon remove-feature"
-                      data-planid="<%= plan.plan_id %>"
-                      data-featureid="<%= feature.id %>"
-                    >-</span>
-                  </li>
-                <% }) %>
-              </ul>
-              <p><strong>Total Cost: <%= plan.totalUsdDisplay || ('$' + plan.total_cost) %></strong></p>
-              <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
-                <p style="margin-top:-8px;color:#6b7280;font-size:13px;">≈ <%= plan.localizedTotalDisplay %></p>
-              <% } %>
-              <div class="feature-input">
-                <select class="feature-select" data-planid="<%= plan.plan_id %>">
-                  <% features.slice().sort((a, b) => a.feature_name.localeCompare(b.feature_name)).forEach(feature => { %>
-                    <% if (!plan.features.some(f => f.id === feature.id)) { %>
-                      <option value="<%= feature.id %>">
-                        <%= feature.feature_name %> (<%= feature.priceUsdDisplay || ('$' + feature.price_usd) %>)
-                      </option>
-                    <% } %>
-                  <% }); %>
-                </select>
-                <span
-                  class="action-icon add-feature"
-                  data-planid="<%= plan.plan_id %>"
-                >+</span>
-              </div>
-              <div class="plan-actions">
-                <button class="update-btn" data-planid="<%= plan.plan_id %>">
-                  Update
-                </button>
-                <input
-                  type="checkbox"
-                  class="toggle-status"
-                  data-planid="<%= plan.plan_id %>"
-                  <% if (plan.is_active) { %>checked<% } %>
-                /> Active
-              </div>
+        <div class="form-container manage-plans-section is-collapsed" data-manage-section>
+          <div class="top-section-header">
+            <div>
+              <h2 class="top-section-heading">Manage Plans</h2>
+              <p class="top-section-meta">Open this section to work with plan descriptions, features, and active status.</p>
             </div>
-          <% }) %>
+            <button type="button" class="top-section-toggle" data-manage-section-toggle aria-expanded="false">Expand</button>
+          </div>
+          <div class="manage-plans-body">
+            <div class="manage-plans-grid">
+            <% plans.forEach(plan => { %>
+              <section class="manage-plan-card is-collapsed" data-manage-plan>
+                <div class="manage-plan-header">
+                  <div>
+                    <h3 class="manage-plan-title"><%= plan.plan_name %></h3>
+                    <p class="manage-plan-meta"><%= plan.features.length %> <%= plan.features.length === 1 ? 'feature' : 'features' %> attached</p>
+                  </div>
+                  <button type="button" class="manage-plan-toggle" data-manage-toggle aria-expanded="false">Expand</button>
+                </div>
+                <div class="manage-plan-body">
+                  <p>
+                    <strong>Description:</strong>
+                    <input
+                      type="text"
+                      class="plan-description"
+                      data-planid="<%= plan.plan_id %>"
+                      value="<%= plan.description %>"
+                    />
+                  </p>
+                  <p><strong>Features:</strong></p>
+                  <ul class="feature-list">
+                    <% plan.features.slice().sort((a, b) => a.feature_name.localeCompare(b.feature_name)).forEach(feature => { %>
+                      <li>
+                        <%= feature.feature_name %> (<%= feature.priceUsdDisplay || ('$' + feature.price_usd) %>)
+                        <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
+                          <span style="font-size:12px;color:#6b7280;">≈ <%= feature.localizedPriceDisplay %></span>
+                        <% } %>
+                        <span
+                          class="action-icon remove-feature"
+                          data-planid="<%= plan.plan_id %>"
+                          data-featureid="<%= feature.id %>"
+                        >-</span>
+                      </li>
+                    <% }) %>
+                  </ul>
+                  <p><strong>Total Cost: <%= plan.totalUsdDisplay || ('$' + plan.total_cost) %></strong></p>
+                  <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
+                    <p style="margin-top:-8px;color:#6b7280;font-size:13px;">≈ <%= plan.localizedTotalDisplay %></p>
+                  <% } %>
+                  <div class="feature-input">
+                    <select class="feature-select" data-planid="<%= plan.plan_id %>">
+                      <% features.slice().sort((a, b) => a.feature_name.localeCompare(b.feature_name)).forEach(feature => { %>
+                        <% if (!plan.features.some(f => f.id === feature.id)) { %>
+                          <option value="<%= feature.id %>">
+                            <%= feature.feature_name %> (<%= feature.priceUsdDisplay || ('$' + feature.price_usd) %>)
+                          </option>
+                        <% } %>
+                      <% }); %>
+                    </select>
+                    <span
+                      class="action-icon add-feature"
+                      data-planid="<%= plan.plan_id %>"
+                    >+</span>
+                  </div>
+                  <div class="plan-actions">
+                    <button class="update-btn" data-planid="<%= plan.plan_id %>">
+                      Update
+                    </button>
+                    <input
+                      type="checkbox"
+                      class="toggle-status"
+                      data-planid="<%= plan.plan_id %>"
+                      <% if (plan.is_active) { %>checked<% } %>
+                    /> Active
+                  </div>
+                </div>
+              </section>
+            <% }) %>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Column 4: Student Count Tiers -->
+      <div class="column-4">
+        <div class="form-container student-tiers-section is-collapsed" data-student-tiers-section>
+          <div class="top-section-header">
+            <div>
+              <h2 class="top-section-heading">🎓 Student Count Pricing Tiers</h2>
+              <p class="top-section-meta">Open this section to manage student-based pricing for each plan.</p>
+            </div>
+            <button type="button" class="top-section-toggle" data-student-tiers-toggle aria-expanded="false">Expand</button>
+          </div>
+          <div class="student-tiers-body">
+            <p style="font-size:13px;color:#6b7280;margin-bottom:20px;">
+              Set a student range and percentage adjustment for each plan. Use negative values for discounts and positive values for markups based on the plan's normal monthly price.
+            </p>
+
+            <% const stByPlan = typeof studentTiersByPlan !== 'undefined' ? studentTiersByPlan : {}; %>
+            <div class="student-tier-grid">
+              <% plans.forEach(plan => { %>
+                <% const tiers = stByPlan[plan.plan_id] || []; %>
+                <section class="student-tier-plan is-collapsed" data-tier-plan>
+                  <div class="student-tier-header">
+                    <div>
+                      <h3 class="student-tier-title"><%= plan.plan_name %></h3>
+                      <p class="student-tier-summary"><%= tiers.length %> <%= tiers.length === 1 ? 'tier' : 'tiers' %> configured</p>
+                    </div>
+                    <button type="button" class="student-tier-toggle" data-tier-toggle aria-expanded="false">Expand</button>
+                  </div>
+
+                  <div class="student-tier-body">
+                    <form action="/admin/saveStudentTiers" method="POST" class="student-tier-plan-form">
+                      <input type="hidden" name="plan_id" value="<%= plan.plan_id %>" />
+                      <% if (tiers.length > 0) { %>
+                        <div class="student-tier-list">
+                          <% tiers.forEach(tier => { %>
+                            <div class="student-tier-row">
+                              <div class="student-tier-form">
+                                <input type="hidden" name="tier_id" value="<%= tier.id %>" />
+                                <div class="student-tier-field">
+                                  <span class="student-tier-field-label">Student Range</span>
+                                  <div class="student-tier-range">
+                                    <input type="number" name="min_students" value="<%= tier.min_students %>" min="0" class="student-tier-mini-input" required />
+                                    <span class="student-tier-separator">–</span>
+                                    <input type="number" name="max_students" value="<%= tier.max_students != null ? tier.max_students : '' %>" min="0" placeholder="∞" class="student-tier-mini-input" />
+                                    <span class="student-tier-text-muted">students</span>
+                                  </div>
+                                </div>
+                                <div class="student-tier-field">
+                                  <span class="student-tier-field-label">Adjustment %</span>
+                                  <div class="student-tier-price">
+                                    <input type="number" name="adjustment_percentage" value="<%= tier.adjustment_percentage != null ? tier.adjustment_percentage : 0 %>" step="0.01" class="student-tier-mini-input" required />
+                                    <span class="student-tier-text-muted">%</span>
+                                  </div>
+                                  <span class="student-tier-text-muted"><%= tier.priceUsdDisplay %>/mo preview<% if (currencyProfile && currencyProfile.userCurrency !== 'USD') { %> • ≈ <%= tier.localizedPriceDisplay %><% } %></span>
+                                </div>
+                              </div>
+                              <div class="student-tier-row-menu">
+                                <details>
+                                  <summary title="More actions">:</summary>
+                                  <div class="student-tier-row-menu-panel">
+                                    <button type="button" class="student-tier-delete" title="Delete" data-delete-tier-id="<%= tier.id %>">Remove</button>
+                                  </div>
+                                </details>
+                              </div>
+                            </div>
+                          <% }); %>
+                        </div>
+                      <% } else { %>
+                        <p class="student-tier-empty">No student tiers yet. Add a size range and percentage adjustment for this plan.</p>
+                      <% } %>
+
+                      <div class="student-tier-drafts" data-student-tier-drafts>
+                        <div class="student-tier-add" data-student-tier-draft-row>
+                          <div class="student-tier-field">
+                            <span class="student-tier-field-label">New Range</span>
+                            <div class="student-tier-range">
+                              <input type="number" name="new_min_students" placeholder="Min" min="0" class="student-tier-mini-input" />
+                              <span class="student-tier-separator">–</span>
+                              <input type="number" name="new_max_students" placeholder="∞" min="0" class="student-tier-mini-input" />
+                              <span class="student-tier-text-muted">students</span>
+                            </div>
+                          </div>
+                          <div class="student-tier-field">
+                            <span class="student-tier-field-label">Adjustment %</span>
+                            <div class="student-tier-price">
+                              <input type="number" name="new_adjustment_percentage" step="0.01" placeholder="-10 or 20" class="student-tier-mini-input" />
+                              <span class="student-tier-text-muted">%</span>
+                            </div>
+                            <span class="student-tier-text-muted">Example: -10 means 10% less, 20 means 20% more.</span>
+                          </div>
+                              <div class="student-tier-draft-actions">
+                                <button type="button" class="student-tier-remove-draft" data-remove-tier-row>Remove</button>
+                              </div>
+                        </div>
+                      </div>
+
+                      <button type="button" class="student-tier-add-row-button" data-add-tier-row>+ Add another range</button>
+
+                      <button type="submit" class="student-tier-save-all">Save All</button>
+                    </form>
+                  </div>
+                </section>
+              <% }) %>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -689,6 +1391,140 @@
             callback();
           }
         }
+
+        const tierMenus = document.querySelectorAll('.student-tier-row-menu details');
+        tierMenus.forEach((menu) => {
+          menu.addEventListener('toggle', function () {
+            if (!this.open) return;
+            tierMenus.forEach((otherMenu) => {
+              if (otherMenu !== this) {
+                otherMenu.open = false;
+              }
+            });
+          });
+        });
+
+        document.addEventListener('click', function (event) {
+          if (event.target.closest('.student-tier-row-menu')) {
+            return;
+          }
+          tierMenus.forEach((menu) => {
+            menu.open = false;
+          });
+        });
+
+        document.querySelectorAll('[data-delete-tier-id]').forEach((button) => {
+          button.addEventListener('click', function () {
+            const tierId = this.getAttribute('data-delete-tier-id');
+            if (!tierId) return;
+            if (!confirm('Delete this tier?')) return;
+
+            const deleteForm = document.createElement('form');
+            deleteForm.method = 'POST';
+            deleteForm.action = '/admin/deleteStudentTier';
+
+            const tierInput = document.createElement('input');
+            tierInput.type = 'hidden';
+            tierInput.name = 'tier_id';
+            tierInput.value = tierId;
+            deleteForm.appendChild(tierInput);
+
+            document.body.appendChild(deleteForm);
+            deleteForm.submit();
+          });
+        });
+
+        document.querySelectorAll('[data-add-tier-row]').forEach((button) => {
+          button.addEventListener('click', function () {
+            const form = this.closest('.student-tier-plan-form');
+            const draftsContainer = form ? form.querySelector('[data-student-tier-drafts]') : null;
+            const firstDraft = draftsContainer ? draftsContainer.querySelector('[data-student-tier-draft-row]') : null;
+            if (!draftsContainer || !firstDraft) return;
+
+            const clone = firstDraft.cloneNode(true);
+            clone.querySelectorAll('input').forEach((input) => {
+              input.value = '';
+            });
+            draftsContainer.appendChild(clone);
+          });
+        });
+
+        document.addEventListener('click', function (event) {
+          const removeDraftButton = event.target.closest('[data-remove-tier-row]');
+          if (!removeDraftButton) {
+            return;
+          }
+
+          const draftRow = removeDraftButton.closest('[data-student-tier-draft-row]');
+          const draftsContainer = draftRow ? draftRow.parentElement : null;
+          if (!draftRow || !draftsContainer) {
+            return;
+          }
+
+          const allDraftRows = draftsContainer.querySelectorAll('[data-student-tier-draft-row]');
+          if (allDraftRows.length <= 1) {
+            draftRow.querySelectorAll('input').forEach((input) => {
+              input.value = '';
+            });
+            return;
+          }
+
+          draftRow.remove();
+        });
+
+        document.querySelectorAll("[data-tier-toggle]").forEach((button) => {
+          button.addEventListener("click", function () {
+            const card = this.closest("[data-tier-plan]");
+            const isCollapsed = card.classList.toggle("is-collapsed");
+            this.textContent = isCollapsed ? "Expand" : "Minimize";
+            this.setAttribute("aria-expanded", String(!isCollapsed));
+          });
+        });
+
+        document.querySelectorAll("[data-feature-toggle]").forEach((button) => {
+          button.addEventListener("click", function () {
+            const card = this.closest("[data-feature-pricing]");
+            const isCollapsed = card.classList.toggle("is-collapsed");
+            this.textContent = isCollapsed ? "Expand" : "Minimize";
+            this.setAttribute("aria-expanded", String(!isCollapsed));
+          });
+        });
+
+        document.querySelectorAll("[data-manage-toggle]").forEach((button) => {
+          button.addEventListener("click", function () {
+            const card = this.closest("[data-manage-plan]");
+            const isCollapsed = card.classList.toggle("is-collapsed");
+            this.textContent = isCollapsed ? "Expand" : "Minimize";
+            this.setAttribute("aria-expanded", String(!isCollapsed));
+          });
+        });
+
+        document.querySelectorAll("[data-manage-section-toggle]").forEach((button) => {
+          button.addEventListener("click", function () {
+            const card = this.closest("[data-manage-section]");
+            const isCollapsed = card.classList.toggle("is-collapsed");
+            this.textContent = isCollapsed ? "Expand" : "Minimize";
+            this.setAttribute("aria-expanded", String(!isCollapsed));
+          });
+        });
+
+        document.querySelectorAll("[data-student-tiers-toggle]").forEach((button) => {
+          button.addEventListener("click", function () {
+            const card = this.closest("[data-student-tiers-section]");
+            const isCollapsed = card.classList.toggle("is-collapsed");
+            this.textContent = isCollapsed ? "Expand" : "Minimize";
+            this.setAttribute("aria-expanded", String(!isCollapsed));
+          });
+        });
+
+        document.querySelectorAll("[data-settings-toggle]").forEach((button) => {
+          button.addEventListener("click", function () {
+            const card = this.closest("[data-settings-card]");
+            const isCollapsed = card.classList.toggle("is-collapsed");
+            this.textContent = isCollapsed ? "Expand" : "Minimize";
+            this.setAttribute("aria-expanded", String(!isCollapsed));
+          });
+        });
 
         // Recalculate All Plan Totals
         document.getElementById("recalculate-totals-btn").addEventListener("click", function () {

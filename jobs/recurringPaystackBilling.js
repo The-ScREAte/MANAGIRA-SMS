@@ -7,6 +7,67 @@ const { getPaystackSettings } = require('../utils/paystackConfig');
 const { sendEmailSafely, renderCleanEmail } = require('../utils/emailHelper');
 require('dotenv').config();
 
+const FAILED_RETRY_COOLDOWN_HOURS = 24;
+
+function computeTierMonthlyPrice(planBasePrice, tier) {
+  const basePrice = Number(planBasePrice || 0);
+  const adjustmentPercent = Number(
+    tier?.tier_adjustment_percentage ?? tier?.adjustment_percentage
+  );
+  if (Number.isFinite(adjustmentPercent)) {
+    return Math.max(0, basePrice * (1 + adjustmentPercent / 100));
+  }
+  return Number((tier?.tier_price_usd ?? tier?.price_usd) || 0);
+}
+
+function tierMatchesStudentCount(tier, studentCount) {
+  const minStudents = Number(tier?.min_students || 0);
+  const maxStudents =
+    tier?.max_students === null || tier?.max_students === undefined
+      ? null
+      : Number(tier.max_students);
+
+  return studentCount >= minStudents && (maxStudents === null || studentCount <= maxStudents);
+}
+
+function pickTierForStudentCount(tiers, studentCount) {
+  if (!Array.isArray(tiers) || tiers.length === 0) {
+    return null;
+  }
+
+  const exactMatch = tiers.find((tier) => tierMatchesStudentCount(tier, studentCount));
+  if (exactMatch) {
+    return exactMatch;
+  }
+
+  const fallbackTier = [...tiers]
+    .reverse()
+    .find((tier) => studentCount >= Number(tier.min_students || 0));
+
+  return fallbackTier || tiers[0];
+}
+
+async function getOrganizationStudentCount(organizationId) {
+  const countRes = await db.query(
+    'SELECT COUNT(*) AS cnt FROM students WHERE organization_id = $1',
+    [organizationId]
+  );
+
+  return parseInt(countRes.rows[0]?.cnt, 10) || 0;
+}
+
+async function getPlanStudentTiers(planId) {
+  const tiersRes = await db.query(
+    `SELECT id, label, min_students, max_students, price_usd, adjustment_percentage
+     FROM plan_student_tiers
+     WHERE plan_id = $1
+     ORDER BY sort_order, min_students, id`,
+    [planId]
+  );
+
+  return tiersRes.rows;
+}
+
 async function getPaymentsFailureColumns() {
   const result = await db.query(
     `SELECT column_name
@@ -49,6 +110,9 @@ async function runRecurringBilling() {
   const paystackSettings = await getPaystackSettings(db);
   const activePaystackSecretKey = paystackSettings.activeSecretKey || process.env.PAYSTACK_SECRET_KEY;
   const paymentFailureColumns = await getPaymentsFailureColumns();
+  const retryStatusClause = paymentFailureColumns.hasLastFailedPayment
+    ? `(p.status = 'active' OR (p.status = 'failed' AND (p.last_failed_payment IS NULL OR p.last_failed_payment <= NOW() - interval '${FAILED_RETRY_COOLDOWN_HOURS} hours')))`
+    : `p.status IN ('active', 'failed')`;
   
   // Fetch current billing interval from database
   let billingInterval = 'monthly';
@@ -59,13 +123,20 @@ async function runRecurringBilling() {
     }
   } catch (err) {
   }
-  // Find all organizations whose next_payment_end_date is today or earlier and are active
-  // ONLY exclude if they are currently in an ACTIVE trial (trial_active_until > NOW())
+  // Find all organizations whose next_payment_end_date is today or earlier and are retryable.
+  // ONLY exclude if they are currently in an ACTIVE trial (trial_active_until > NOW()).
   
   const orgsDue = await db.query(`
     SELECT o.organization_id, o.email, o.organization_name, o.plan_id, c.authorization_code, p.next_payment_end_date, o.trial_active_until,
            COALESCE(p.billing_period_key, 'monthly') AS billing_period_key,
            o.pending_plan_id, o.pending_plan_effective_date,
+           o.selected_student_tier_id,
+          o.approx_student_count,
+           pst.price_usd AS tier_price_usd,
+           pst.adjustment_percentage AS tier_adjustment_percentage,
+           pst.max_students AS tier_max_students,
+           pst.label AS tier_label,
+           COALESCE(o.student_tier_exceeded_notified, false) AS student_tier_exceeded_notified,
            CASE 
              WHEN o.trial_active_until IS NULL THEN 'No Trial'
              WHEN o.trial_active_until > NOW() THEN 'Trial Active'
@@ -74,7 +145,8 @@ async function runRecurringBilling() {
     FROM organizations o
     JOIN payments p ON o.organization_id = p.organization_id
     JOIN stored_cards c ON c.organization_id = o.organization_id AND c.is_primary = true AND c.is_active = true
-    WHERE p.status = 'active' 
+    LEFT JOIN plan_student_tiers pst ON pst.id = o.selected_student_tier_id
+    WHERE ${retryStatusClause}
       AND o.on_hold = false
       AND o.scheduled_hold_date IS NULL
       AND NOT (COALESCE(o.is_hub_member, false) = true AND o.hub_id IS NOT NULL)
@@ -138,7 +210,59 @@ async function runRecurringBilling() {
     if (!planRes.rows.length) {
       continue;
     }
-    const monthlyPrice = planRes.rows[0].total_cost;
+    const actualStudentCount = await getOrganizationStudentCount(org.organization_id);
+    const planTiers = await getPlanStudentTiers(org.plan_id);
+    const billingTier = pickTierForStudentCount(planTiers, actualStudentCount);
+    const tierCoversCurrentCount = billingTier
+      ? tierMatchesStudentCount(billingTier, actualStudentCount)
+      : false;
+
+    if (billingTier) {
+      const shouldResetExceededFlag = tierCoversCurrentCount && org.student_tier_exceeded_notified;
+      const tierChanged = Number(org.selected_student_tier_id) !== Number(billingTier.id);
+      const countChanged = Number(org.approx_student_count) !== actualStudentCount;
+
+      if (tierChanged || countChanged || shouldResetExceededFlag) {
+        await db.query(
+          `UPDATE organizations
+           SET selected_student_tier_id = $1,
+               approx_student_count = $2,
+               student_tier_exceeded_notified = $3
+           WHERE organization_id = $4`,
+          [
+            billingTier.id,
+            actualStudentCount,
+            shouldResetExceededFlag ? false : org.student_tier_exceeded_notified,
+            org.organization_id,
+          ]
+        );
+      }
+
+      org.selected_student_tier_id = billingTier.id;
+      org.tier_price_usd = billingTier.price_usd;
+      org.tier_adjustment_percentage = billingTier.adjustment_percentage;
+      org.tier_max_students = billingTier.max_students;
+      org.tier_label = billingTier.label;
+      org.student_tier_exceeded_notified = shouldResetExceededFlag ? false : org.student_tier_exceeded_notified;
+    } else if (org.selected_student_tier_id || Number(org.approx_student_count) !== actualStudentCount) {
+      await db.query(
+        `UPDATE organizations
+         SET selected_student_tier_id = NULL,
+             approx_student_count = $1,
+             student_tier_exceeded_notified = false
+         WHERE organization_id = $2`,
+        [actualStudentCount, org.organization_id]
+      );
+
+      org.selected_student_tier_id = null;
+      org.tier_max_students = null;
+      org.tier_label = null;
+      org.student_tier_exceeded_notified = false;
+    }
+
+    const monthlyPrice = billingTier
+      ? computeTierMonthlyPrice(planRes.rows[0].total_cost, billingTier)
+      : Number(planRes.rows[0].total_cost);
 
     // Calculate period-aware charge amount
     let periodMonths = 1;
@@ -234,6 +358,39 @@ async function runRecurringBilling() {
             );
           } catch (pendingErr) {
             // Plan switch failed but payment succeeded — will retry next cycle
+          }
+        }
+
+        // Check if school has exceeded their student tier limit (one-time notification)
+        if (org.selected_student_tier_id && org.tier_max_students != null && !org.student_tier_exceeded_notified) {
+          try {
+            if (actualStudentCount > org.tier_max_students) {
+              // Send congratulations email
+              const congratsHtml = renderCleanEmail({
+                title: 'Congratulations on Your Growth!',
+                greeting: `Hello <strong>${org.organization_name || 'Managira User'}</strong>,`,
+                paragraphs: [
+                  `Great news! Your school has grown to <strong>${actualStudentCount} students</strong>, exceeding your current tier limit of <strong>${org.tier_max_students} students</strong> (${org.tier_label || 'current tier'}).`,
+                  'This is a wonderful milestone! To ensure you get the best pricing and service for your school size, we recommend upgrading your student count tier.',
+                  'You can update your tier in your account billing settings.',
+                ],
+              });
+              await sendEmailSafely(
+                {
+                  to: org.email,
+                  subject: 'Managira: Congratulations on Your School Growth!',
+                  html: congratsHtml,
+                },
+                'StudentTierExceeded'
+              );
+              // Mark as notified so we don't send again
+              await db.query(
+                'UPDATE organizations SET student_tier_exceeded_notified = true WHERE organization_id = $1',
+                [org.organization_id]
+              );
+            }
+          } catch (tierCheckErr) {
+            // Non-critical — don't fail the billing cycle
           }
         }
         

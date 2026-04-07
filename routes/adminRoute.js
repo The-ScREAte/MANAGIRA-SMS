@@ -244,6 +244,13 @@ module.exports = (db) => {
     router.get('/getBillingPeriods', ensureAdmin, adminController.getBillingPeriods);
     router.post('/updatePaystackSettings', ensureAdmin, adminController.updatePaystackSettings);
 
+    // Student count tier routes
+    router.post('/addStudentTier', ensureAdmin, adminController.addStudentTier);
+    router.post('/saveStudentTiers', ensureAdmin, adminController.saveStudentTiers);
+    router.post('/updateStudentTier', ensureAdmin, adminController.updateStudentTier);
+    router.post('/deleteStudentTier', ensureAdmin, adminController.deleteStudentTier);
+    router.get('/getStudentTiers', ensureAdmin, adminController.getStudentTiers);
+
     router.post("/deleteFeature", ensureAdmin, adminController.deleteFeature);
 
     router.get('/data-export', ensureAdmin, adminController.dataExportPage);
