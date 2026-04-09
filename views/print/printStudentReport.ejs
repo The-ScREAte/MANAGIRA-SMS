@@ -1530,7 +1530,7 @@
       
 
     <% if (students.length === 0) { %>
-        <p>No student data available</p>
+        <p>No data yet.</p>
     <% } else { %>
         <% students.forEach((student) => { %>
             <div class="student-report" id="report-<%= student.student_id %>" data-student-id="<%= student.student_id %>" data-student-name="<%= student.first_name %> <%= student.last_name %>">
@@ -2376,7 +2376,7 @@ function updateClass(studentId) {
     function renderEmailList(students) {
         const container = document.getElementById('emailStudentList');
         if (!students || students.length === 0) {
-            container.innerHTML = '<p style="color:#999;">No students found.</p>';
+            container.innerHTML = '<p style="color:#999;">No data yet.</p>';
             return;
         }
 

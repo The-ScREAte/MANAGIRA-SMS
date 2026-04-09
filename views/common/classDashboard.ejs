@@ -685,7 +685,6 @@ main {
   border: 1px solid var(--border);
   border-radius: 10px;
 }
-.rd-info-item {}
 .rd-info-label {
   font-size: 11px;
   font-weight: 600;
@@ -901,7 +900,7 @@ main {
 </style>
 
 <body>
-  <% const hasFilesFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Create Files') || allowedFeatures.includes('Files & Sheets')); %>
+  <% const hasFilesFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Create Files') || allowedFeatures.includes('Files & Sheets') || allowedFeatures.includes('Docs/Sheets')); %>
   <% const hasAttendanceFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Attendance Tracking') || allowedFeatures.includes('Attendance tracking feature')); %>
   <% const hasAssessmentFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Assessment Tracking') || allowedFeatures.includes('Assessment tracking feature')); %>
   <div class="dashboard-shell">
@@ -935,17 +934,17 @@ main {
                   </li>
                 <% }); %>
               <% } else { %>
-                <li class="card-subtext" style="padding: 4px 2px;">No subjects added yet.</li>
+                <li class="card-subtext" style="padding: 4px 2px;">No data yet.</li>
               <% } %>
             <% } %>
 
             <% if (hasFilesFeature) { %>
               <li class="nav-section-label">Tools</li>
               <li>
-                <a class="nav-link" href="/documents?classId=<%= classId %>&create=1" title="Files" data-no-spa>
-                  <span class="files-link-inline">📁 Files
+                <a class="nav-link" href="/documents?classId=<%= classId %>&create=1" title="Docs/Sheets" data-no-spa>
+                  <span class="files-link-inline">📁 Docs/Sheets
                     <% if (userRole === 'Teacher' && (assignedFilesCount || 0) > 0) { %>
-                      <span class="files-badge" title="Assigned files"><%= assignedFilesCount %></span>
+                      <span class="files-badge" title="Assigned docs/sheets"><%= assignedFilesCount %></span>
                     <% } %>
                   </span>
                 </a>
@@ -1043,7 +1042,7 @@ main {
                   </li>
                 <% }); %>
               <% } else { %>
-                <li class="card-subtext">No students enrolled for this term yet.</li>
+                <li class="card-subtext">No data yet.</li>
               <% } %>
             </ul>
           </div>
@@ -1225,7 +1224,7 @@ main {
         .then(function(r) { return r.json(); })
         .then(function(d) {
           if (!d.success || !d.reports || !d.reports.length) {
-            container.innerHTML = '<div class="rp-empty">No reports for this class yet.</div>';
+            container.innerHTML = '<div class="rp-empty">No data yet.</div>';
             return;
           }
           var html = '';
@@ -1323,7 +1322,7 @@ main {
               '</div>';
             });
           } else {
-            html += '<div class="rd-no-replies">No replies yet. Start the conversation below.</div>';
+            html += '<div class="rd-no-replies">No data yet. Start the conversation below.</div>';
           }
           html += '</div>';
 

@@ -86,8 +86,8 @@
   <% } else { %>
     <div class="empty-state">
       <span class="empty-state-icon">📋</span>
-      <h3>No reports yet</h3>
-      <p>Submit a report to communicate with school staff</p>
+      <h3>No data yet.</h3>
+      <p>Submit a report to communicate with school staff.</p>
       <button class="btn-new-report" onclick="openModal()">+ New Report</button>
     </div>
   <% } %>
@@ -152,7 +152,7 @@
     fetch('/guardian/reports/student-staff?studentId=' + encodeURIComponent(sid))
       .then(function(r) { return r.json(); })
       .then(function(d) {
-        if (!d.success || !d.staff || !d.staff.length) { list.innerHTML = '<div class="staff-loading">No staff found</div>'; return; }
+        if (!d.success || !d.staff || !d.staff.length) { list.innerHTML = '<div class="staff-loading">No data yet.</div>'; return; }
         var h = '';
         d.staff.forEach(function(p) {
           var badge = p.is_class_teacher ? '<span class="staff-badge">Class Teacher</span>' : '';

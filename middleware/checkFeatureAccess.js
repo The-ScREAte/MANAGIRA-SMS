@@ -46,7 +46,7 @@ function getFallbackFeatureNames(routePath) {
     return ['Class Base Analytics & Insights'];
   }
   if (routePath.startsWith('/documents')) {
-    return ['Create Files', 'Files & Sheets'];
+    return ['Create Files', 'Files & Sheets', 'Docs/Sheets'];
   }
   if (routePath.startsWith('/common/assessment')) {
     return ['Assessment Tracking', 'Assessment tracking feature'];

@@ -423,7 +423,7 @@ const documentController = {
       `, [orgId]);
 
       res.render("common/documents", {
-        title: "Files",
+        title: "Docs/Sheets",
         documents: documentRows,
         classes: classes.rows,
         employees: employees.rows,
@@ -446,7 +446,7 @@ const documentController = {
 
       try {
         return res.render("common/documents", {
-          title: "Files",
+          title: "Docs/Sheets",
           documents: [],
           classes: [],
           employees: [],
@@ -486,7 +486,7 @@ const documentController = {
       );
 
       if (!canManageRecords) {
-        return res.status(403).json({ success: false, message: "You do not have permission to create files." });
+        return res.status(403).json({ success: false, message: "You do not have permission to create docs or sheets." });
       }
 
       const creatorUserId = await resolveCreatorUserId(db, {

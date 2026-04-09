@@ -260,7 +260,7 @@
         <div id="loading" class="loading" style="display: none;">Loading email history...</div>
 
         <div class="email-list" id="emailList">
-            <div class="empty-state">No email history found</div>
+            <div class="empty-state">No data yet.</div>
         </div>
     </div>
 
@@ -313,7 +313,7 @@
             const list = document.getElementById('emailList');
             
             if (!emails || emails.length === 0) {
-                list.innerHTML = '<div class="empty-state">No email history found</div>';
+                list.innerHTML = '<div class="empty-state">No data yet.</div>';
                 return;
             }
             

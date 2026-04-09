@@ -652,37 +652,55 @@ students
     await ensureSignatureMetaColumns(db);
 
     try {
+      const organizationClassesResult = await db.query(
+        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY class_name ASC`,
+        [organizationId],
+      );
+      const organizationClasses = organizationClassesResult.rows;
+
+      const currentTermResult = await db.query(
+        `SELECT term_id FROM terms WHERE organization_id = $1 AND current = TRUE ORDER BY start_date DESC LIMIT 1`,
+        [organizationId],
+      );
+
+      let fallbackTermId = currentTermResult.rows[0]?.term_id;
+      if (!fallbackTermId) {
+        const latestTermResult = await db.query(
+          `SELECT term_id FROM terms WHERE organization_id = $1 ORDER BY start_date DESC LIMIT 1`,
+          [organizationId],
+        );
+        fallbackTermId = latestTermResult.rows[0]?.term_id;
+      }
+
+      if (organizationClasses.length === 0 || !fallbackTermId) {
+        return res.render("print/reportSettings", {
+          title: "Report Settings",
+          statusSettings: {},
+          groupedStatusSettings: [],
+          remarks: [],
+          scoreRemarks: [],
+          availableClasses: [],
+          signatureImageUrl: null,
+          signatureName: null,
+          signatureTitle: null,
+          signatureGroups: {},
+          transcriptSignatureGroups: {},
+          statusSettingsClasses: [],
+          enrolledClasses: organizationClasses,
+          classId: null,
+          termId: fallbackTermId || null,
+          setupRequired: true,
+          setupMessage: "This is for classes. Kindly start by adding classes and setting up your school first to be able to access it.",
+          messages: req.flash(),
+        });
+      }
+
       let resolvedClassId = classId;
       let resolvedTermId = termId;
 
       if (!resolvedClassId || isNaN(resolvedClassId) || !resolvedTermId || isNaN(resolvedTermId)) {
-        const classResult = await db.query(
-          `SELECT class_id FROM classes WHERE organization_id = $1 ORDER BY class_name ASC LIMIT 1`,
-          [organizationId],
-        );
-
-        const currentTermResult = await db.query(
-          `SELECT term_id FROM terms WHERE organization_id = $1 AND current = TRUE ORDER BY start_date DESC LIMIT 1`,
-          [organizationId],
-        );
-
-        let fallbackTermId = currentTermResult.rows[0]?.term_id;
-        if (!fallbackTermId) {
-          const latestTermResult = await db.query(
-            `SELECT term_id FROM terms WHERE organization_id = $1 ORDER BY start_date DESC LIMIT 1`,
-            [organizationId],
-          );
-          fallbackTermId = latestTermResult.rows[0]?.term_id;
-        }
-
-        const fallbackClassId = classResult.rows[0]?.class_id;
-
-        if (!fallbackClassId || !fallbackTermId) {
-          return res.status(400).send("Invalid or missing classId or termId.");
-        }
-
         return res.redirect(
-          `/print/reportSettings?classId=${fallbackClassId}&termId=${fallbackTermId}`,
+          `/print/reportSettings?classId=${organizationClasses[0].class_id}&termId=${fallbackTermId}`,
         );
       }
 
@@ -696,14 +714,7 @@ students
       );
       if (classCheck.rows.length === 0) {
         // ClassId doesn't belong to this org, redirect to fallback
-        const fallbackClass = await db.query(
-          `SELECT class_id FROM classes WHERE organization_id = $1 ORDER BY class_name ASC LIMIT 1`,
-          [organizationId]
-        );
-        if (fallbackClass.rows.length === 0) {
-          return res.status(400).send("No classes found for this organization.");
-        }
-        return res.redirect(`/print/reportSettings?classId=${fallbackClass.rows[0].class_id}&termId=${parsedTermId}`);
+        return res.redirect(`/print/reportSettings?classId=${organizationClasses[0].class_id}&termId=${parsedTermId}`);
       }
   
       // Fetch all classes with saved status settings for the given term
@@ -717,15 +728,7 @@ students
       );
   
       // Fetch enrolled classes
-      const enrolledClassesResult = await db.query(
-        `SELECT DISTINCT c.class_id, c.class_name
-         FROM enrolled_classes ec
-         JOIN classes c ON ec.class_id = c.class_id
-         WHERE c.organization_id = $1
-         ORDER BY c.class_name ASC`,
-        [organizationId]
-      );
-      const enrolledClasses = enrolledClassesResult.rows;
+      const enrolledClasses = organizationClasses;
   
       // Fetch remarks
       const remarksResult = await db.query(
@@ -876,6 +879,8 @@ students
         enrolledClasses,
         classId: parsedClassId,
         termId: parsedTermId,
+        setupRequired: false,
+        setupMessage: null,
         messages: req.flash(),
       });
     } catch (error) {

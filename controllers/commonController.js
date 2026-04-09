@@ -5773,58 +5773,25 @@ const commonController = {
       }
       const user = userResult.rows[0];
 
-      const classesResult = await db.query(
+      const assignedClassesResult = await db.query(
         `
-                SELECT c.class_id, c.class_name
-                FROM classes c
-                WHERE c.organization_id = $1
-                ORDER BY c.class_name ASC`,
-        [req.session.organizationId]
-      );
-
-      const subjectsResult = await db.query(
-        `
-          SELECT subject_id, subject_name, class_id
-          FROM subjects
-          WHERE organization_id = $1
-          ORDER BY class_id ASC, subject_name ASC
-        `,
-        [req.session.organizationId]
-      );
-
-      const classMap = classesResult.rows.reduce((map, cls) => {
-        map[cls.class_id] = { ...cls, subjects: [] };
-        return map;
-      }, {});
-
-      subjectsResult.rows.forEach((subject) => {
-        if (classMap[subject.class_id]) {
-          classMap[subject.class_id].subjects.push(subject);
-        }
-      });
-
-      const classes = Object.values(classMap);
-
-      const enrolledSubjectsResult = await db.query(
-        `
-                SELECT us.subject_id
-                FROM user_subjects us
-                WHERE us.user_id = $1`,
+          SELECT c.class_id, c.class_name
+          FROM user_classes uc
+          JOIN classes c ON c.class_id = uc.class_id
+          WHERE uc.user_id = $1
+          ORDER BY c.class_name ASC`,
         [userId]
       );
-      const enrolledSubjects = enrolledSubjectsResult.rows.map(
-        (subject) => subject.subject_id
-      );
 
-      const employeeClassesResult = await db.query(
+      const assignedSubjectsResult = await db.query(
         `
-                SELECT class_id
-                FROM user_classes
-                WHERE user_id = $1`,
+          SELECT s.subject_id, s.subject_name, c.class_name
+          FROM user_subjects us
+          JOIN subjects s ON s.subject_id = us.subject_id
+          LEFT JOIN classes c ON c.class_id = s.class_id
+          WHERE us.user_id = $1
+          ORDER BY c.class_name ASC NULLS LAST, s.subject_name ASC`,
         [userId]
-      );
-      const enrolledClasses = employeeClassesResult.rows.map(
-        (cls) => cls.class_id
       );
 
       const rawSelectedPermissions = await getUserPermissions(
@@ -5842,9 +5809,8 @@ const commonController = {
       res.render("common/modifyEmployee", {
         title: "Modify Employee",
         user,
-        classes,
-        enrolledClasses,
-        enrolledSubjects,
+        assignedClasses: assignedClassesResult.rows,
+        assignedSubjects: assignedSubjectsResult.rows,
         permissionOptions: PERMISSION_OPTIONS,
         managerDefaultPermissions: getSuggestedPermissionsForRole("Manager"),
         roleDefaultPermissionsMap: {
@@ -5868,24 +5834,12 @@ const commonController = {
     console.info(`\n====== [ModifyEmployee:POST][${modId}] START ======`);
     console.info(`[ModifyEmployee:POST][${modId}] body_received`, {
       userId: req.params.userId,
-      firstName: req.body.firstName,
-      lastName: req.body.lastName,
-      email: req.body.email,
       accountType: req.body.accountType,
       rawPermissions: req.body.permissions,
-      rawClassIds: req.body.classIds,
-      rawSubjects: req.body.subjects,
     });
 
     const { userId } = req.params;
-    const {
-      firstName,
-      lastName,
-      email,
-      accountType,
-      classIds = [],
-      subjects = [],
-    } = req.body;
+    const { accountType } = req.body;
     const requestorRole = req.session.userRole;
     const requestorId = req.session.user?.user_id || req.session.userId || null;
     const organizationId = req.session.organizationId;
@@ -5901,6 +5855,11 @@ const commonController = {
     const requestorRoleName = String(requestorRole || "").trim();
     const canAssignSensitivePermissions =
       isManagerLikeRole(requestorRole) || requestorRoleName === "Manager";
+
+    if (!accountType) {
+      req.flash("error", "Please select a role for this employee.");
+      return res.redirect(`/common/modifyEmployee?userId=${userId}`);
+    }
 
     if (accountType === "Manager" && !canAssignSensitivePermissions) {
       req.flash("error", "Only managers can assign manager role.");
@@ -5950,20 +5909,10 @@ const commonController = {
       await client.query("BEGIN");
       console.info(`[ModifyEmployee:POST][${modId2}] transaction_begun`, { elapsed: elapsed() });
 
-      // Fetch old class/subject assignments for change detection
-      const oldClassesResult = await client.query(
-        `SELECT c.class_name FROM user_classes uc JOIN classes c ON c.class_id = uc.class_id WHERE uc.user_id = $1 ORDER BY c.class_name`,
-        [userId]
-      );
-      const oldClassNames = oldClassesResult.rows.map(r => r.class_name);
-      const oldSubjectsResult = await client.query(
-        `SELECT s.subject_name FROM user_subjects us JOIN subjects s ON s.subject_id = us.subject_id WHERE us.user_id = $1 ORDER BY s.subject_name`,
-        [userId]
-      );
-      const oldSubjectNames = oldSubjectsResult.rows.map(r => r.subject_name);
-
       const currentUserResult = await client.query(
-        "SELECT email FROM users WHERE user_id = $1 AND organization_id = $2",
+        `SELECT first_name, last_name, email, account_type
+         FROM users
+         WHERE user_id = $1 AND organization_id = $2`,
         [userId, organizationId]
       );
       if (currentUserResult.rows.length === 0) {
@@ -5973,54 +5922,22 @@ const commonController = {
         return res.redirect("/common/manageEmployees");
       }
 
-      const currentEmail = currentUserResult.rows[0].email;
+      const currentUser = currentUserResult.rows[0];
       console.info(`[ModifyEmployee:POST][${modId2}] employee_found`, {
-        currentEmail, newEmail: email, emailChanged: email !== currentEmail, elapsed: elapsed(),
+        currentEmail: currentUser.email,
+        currentAccountType: currentUser.account_type,
+        newAccountType: accountType,
+        elapsed: elapsed(),
       });
 
-      if (email !== currentEmail) {
-        const emailCheckResult = await client.query(
-          `SELECT 1 FROM users WHERE LOWER(email) = LOWER($1) AND user_id != $2
-           UNION
-           SELECT 1 FROM organizations WHERE LOWER(email) = LOWER($1)`,
-          [email, userId]
-        );
-        if (emailCheckResult.rows.length > 0) {
-          console.warn(`[ModifyEmployee:POST][${modId2}] email_conflict`, { email });
-          await client.query("ROLLBACK");
-          req.flash("error", "Email already in use by another user or organization. Please use a different email.");
-          return res.redirect(`/common/modifyEmployee?userId=${userId}`);
-        }
-      }
-
-      // ✅ Update user details
+      // Only role is editable on this page. Identity and assignments stay unchanged.
       await client.query(
-        `UPDATE users SET first_name=$1, last_name=$2, email=$3, account_type=$4, updated_at=NOW()
-         WHERE user_id=$5 AND organization_id=$6`,
-        [firstName, lastName, email, accountType, userId, organizationId]
+        `UPDATE users
+         SET account_type = $1, updated_at = NOW()
+         WHERE user_id = $2 AND organization_id = $3`,
+        [accountType, userId, organizationId]
       );
       console.info(`[ModifyEmployee:POST][${modId}] user_updated`, { elapsed: elapsed() });
-
-      // ✅ Update classes
-      await client.query("DELETE FROM user_classes WHERE user_id = $1", [userId]);
-      if (normalizedClassIds.length > 0) {
-        await client.query(
-          `INSERT INTO user_classes (user_id, class_id, main) SELECT $1, unnest($2::int[]), FALSE`,
-          [userId, normalizedClassIds]
-        );
-      }
-      console.info(`[ModifyEmployee:POST][${modId}] classes_updated`, { count: normalizedClassIds.length, elapsed: elapsed() });
-
-      // ✅ Update subjects
-      await client.query("DELETE FROM user_subjects WHERE user_id = $1", [userId]);
-      if (normalizedSubjectIds.length > 0) {
-        await client.query(
-          `INSERT INTO user_subjects (user_id, subject_id)
-           SELECT $1, unnest($2::int[]) ON CONFLICT (user_id, subject_id) DO NOTHING`,
-          [userId, normalizedSubjectIds]
-        );
-      }
-      console.info(`[ModifyEmployee:POST][${modId}] subjects_updated`, { count: normalizedSubjectIds.length, elapsed: elapsed() });
 
       // ✅ Replace permissions — hard DELETE for this user+org, then fresh INSERT
       //    No ON CONFLICT needed: DELETE cleared our rows; a plain INSERT is cleaner
@@ -6072,23 +5989,7 @@ const commonController = {
       invalidateUserPermissionCache(organizationId, userId);
       console.info(`[ModifyEmployee:POST][${modId}] ====== COMMITTED — total ${elapsed()} ======\n`);
 
-      // Notify teacher about assignment changes (fire-and-forget)
-      (async () => {
-        try {
-          const { classNames: newClassNames, subjectNames: newSubjectNames } = await resolveAssignmentNames(db, normalizedClassIds, normalizedSubjectIds);
-          await notifyTeacherOnReassignment(db, {
-            organizationId, userId,
-            teacherName: `${firstName} ${lastName}`,
-            teacherEmail: email,
-            oldClasses: oldClassNames,
-            newClasses: newClassNames,
-            oldSubjects: oldSubjectNames,
-            newSubjects: newSubjectNames,
-          });
-        } catch (err) { console.error("[Notify] Teacher reassignment notification failed:", err.message); }
-      })();
-
-      req.flash("success", "Employee details updated successfully.");
+      req.flash("success", "Employee role and permissions updated successfully.");
       // Redirect back to the same employee page so the user can immediately
       // see the saved state (checkboxes reflect what's now in the DB).
       res.redirect(`/common/modifyEmployee?userId=${userId}`);

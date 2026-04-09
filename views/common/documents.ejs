@@ -357,17 +357,17 @@ main { padding: 0 !important; max-width: none !important; }
 }
 </style>
 
-<div class="docs-wrapper">
+<div class="docs-wrapper" data-can-create="<%= canCreate ? 'true' : 'false' %>" data-auto-create="<%= autoCreate ? 'true' : 'false' %>">
   <div class="docs-header">
     <div>
-      <h1>📁 Files</h1>
-      <p class="docs-subtitle">Create and manage documents for this class.</p>
+      <h1>📁 Docs/Sheets</h1>
+      <p class="docs-subtitle">Create and manage documents and sheets for this class.</p>
     </div>
     <div class="docs-actions">
       <% if (canCreate) { %>
       <button class="btn btn-primary" onclick="openCreateModal()">
         <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-        New File
+        New Doc/Sheet
       </button>
       <% } %>
       <a href="<%= classId ? ('/common/classDashboard?classId=' + classId) : '/common/management' %>" class="btn btn-outline" data-no-spa>← Back</a>
@@ -377,15 +377,15 @@ main { padding: 0 !important; max-width: none !important; }
   <% if (documents.length === 0) { %>
     <div class="empty-state">
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-      <h3>No files yet</h3>
-      <p><%= canCreate ? 'Create your first file to get started.' : 'No files are currently assigned to you.' %></p>
+      <h3>No data yet.</h3>
+      <p><%= canCreate ? 'Create your first doc or sheet to get started.' : 'No docs or sheets are currently assigned to you.' %></p>
     </div>
   <% } else { %>
     <div class="docs-grid">
       <% documents.forEach(doc => { %>
         <div class="doc-card" onclick="window.location='/documents/edit/<%= doc.id %>'">
           <div class="doc-card-actions">
-            <button onclick="event.stopPropagation(); deleteDoc(<%= doc.id %>, '<%= doc.title.replace(/'/g, "\\'") %>')" title="Delete">🗑</button>
+            <button type="button" class="doc-delete-btn" data-doc-id="<%= doc.id %>" data-doc-title="<%= doc.title %>" title="Delete">🗑</button>
           </div>
           <div class="doc-card-icon <%= doc.doc_type %>">
             <%= doc.doc_type === 'spreadsheet' ? '📊' : '📝' %>
@@ -404,7 +404,7 @@ main { padding: 0 !important; max-width: none !important; }
 <!-- Create Modal -->
 <div class="modal-overlay" id="createModal">
   <div class="modal-box">
-    <h2>Create New File</h2>
+    <h2>Create New Doc/Sheet</h2>
     <div class="type-selector">
       <div class="type-option selected" data-type="document" onclick="selectType('document')">
         <div class="icon">📝</div>
@@ -431,11 +431,12 @@ main { padding: 0 !important; max-width: none !important; }
 <script>
 (function () {
 let selectedType = 'document';
-const canCreate = <%= canCreate ? 'true' : 'false' %>;
-const autoCreate = <%= autoCreate ? 'true' : 'false' %>;
+const docsWrapper = document.querySelector('.docs-wrapper');
+const canCreateEnabled = docsWrapper?.dataset.canCreate === 'true';
+const autoCreateEnabled = docsWrapper?.dataset.autoCreate === 'true';
 
 function selectType(type) {
-  if (!canCreate) return;
+  if (!canCreateEnabled) return;
   selectedType = type;
   
   const typeOptions = document.querySelectorAll('.type-option');
@@ -454,7 +455,7 @@ function selectType(type) {
 window.selectType = selectType;
 
 function openCreateModal() {
-  if (!canCreate) return;
+  if (!canCreateEnabled) return;
   
   const modalEl = document.getElementById('createModal');
   const titleEl = document.getElementById('docTitle');
@@ -478,7 +479,7 @@ function closeCreateModal() {
 window.closeCreateModal = closeCreateModal;
 
 async function createDocument() {
-  if (!canCreate) return;
+  if (!canCreateEnabled) return;
   
   const titleEl = document.getElementById('docTitle');
   if (!titleEl) {
@@ -498,10 +499,10 @@ async function createDocument() {
     if (data.success) {
       window.location.href = '/documents/edit/' + data.documentId;
     } else {
-      alert(data.message || 'Failed to create file.');
+      alert(data.message || 'Failed to create doc or sheet.');
     }
   } catch (e) {
-    alert('Error creating file.');
+    alert('Error creating doc or sheet.');
   }
 }
 window.createDocument = createDocument;
@@ -535,8 +536,17 @@ function initDocumentsPage() {
       });
     }
   }
+
+  document.querySelectorAll('.doc-delete-btn').forEach((button) => {
+    if (button.dataset.bound === '1') return;
+    button.dataset.bound = '1';
+    button.addEventListener('click', function (event) {
+      event.stopPropagation();
+      deleteDoc(this.dataset.docId, this.dataset.docTitle || 'this item');
+    });
+  });
   
-  if (canCreate && autoCreate) {
+  if (canCreateEnabled && autoCreateEnabled) {
     requestAnimationFrame(() => openCreateModal());
   }
 }

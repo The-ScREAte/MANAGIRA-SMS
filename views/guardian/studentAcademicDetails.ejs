@@ -488,7 +488,7 @@
         <p style="margin: 4px 0; font-size: 13px; color: #64748b;">📧 <%= mainTeacher.email || 'Not provided' %></p>
       </div>
     <% } else { %>
-      <p class="no-data">No main teacher assigned</p>
+      <p class="no-data">No data yet.</p>
     <% } %>
 
     <% if (subjectTeachers && subjectTeachers.length > 0) { %>
@@ -501,7 +501,7 @@
               <% if (teacher.first_name) { %>
                 <%= teacher.first_name %> <%= teacher.last_name %>
               <% } else { %>
-                No teacher assigned
+                No data yet.
               <% } %>
             </span>
           </div>
@@ -533,7 +533,7 @@
         </div>
       </div>
     <% } else { %>
-      <p class="no-data">No attendance records found for this term</p>
+      <p class="no-data">No data yet.</p>
     <% } %>
   </div>
 
@@ -581,7 +581,7 @@
       </div>
       <p style="margin-top: 12px; font-size: 12px; color: #64748b; font-style: italic;">💡 Swipe left to see more columns</p>
     <% } else { %>
-      <p class="no-data">No assessment data available for this term</p>
+      <p class="no-data">No data yet.</p>
     <% } %>
   </div>
 

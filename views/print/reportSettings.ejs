@@ -55,6 +55,10 @@
 
     .tag { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: rgba(15,90,102,0.08); font-weight: 600; font-size: 0.92rem; }
     .notice { background: #e7f3fe; border: 1px solid #bee5eb; border-radius: 10px; padding: 12px 14px; color: #0c5460; margin: 10px 0 14px; }
+    .empty-panel { background: #fff; border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 10px 24px rgba(15,45,50,0.12); padding: 28px 24px; text-align: center; }
+    .empty-panel h2 { margin: 0 0 10px; color: var(--primary); }
+    .empty-panel p { margin: 0 auto 18px; max-width: 640px; color: var(--muted); line-height: 1.6; }
+    .empty-inline { padding: 14px 16px; border: 1px dashed var(--border); border-radius: 10px; background: #f8fafc; color: var(--muted); }
 
     .class-layout { display: grid; grid-template-columns: 260px 1fr; gap: 12px; align-items: start; }
     .class-list { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 10px; box-shadow: 0 6px 18px rgba(15,45,50,0.1); display: flex; flex-wrap: wrap; gap: 8px; }
@@ -129,6 +133,15 @@
 
     <% const currentClass = (enrolledClasses && enrolledClasses.find(c => String(c.class_id) === String(classId))) || (enrolledClasses && enrolledClasses[0]); %>
     <% const hasTranscriptFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Official School Transcript') || allowedFeatures.includes('Official Transcript')); %>
+    <% const hasSavedRemarks = Array.isArray(remarks) && remarks.length > 0; %>
+
+    <% if (setupRequired) { %>
+      <div class="empty-panel">
+        <h2>Classes Setup Required</h2>
+        <p><%= setupMessage || 'No data yet.' %></p>
+        <a href="/common/management" class="btn" data-no-spa>Open School Setup</a>
+      </div>
+    <% } else { %>
 
     <div class="card" style="margin-bottom:14px;">
       <div class="section-title">Class-specific Status Settings</div>
@@ -149,7 +162,7 @@
               <input type="hidden" name="termId" value="<%= termId %>" />
               <input type="hidden" name="selectedStatusClasses" id="selectedStatusClasses" value="<%= currentClass ? currentClass.class_id : '' %>" />
 
-              <div id="noSettingsMsg" style="display:none;padding:16px;background:#f0f4f8;border-radius:8px;margin-bottom:12px;color:#64748b;font-weight:600;">No settings saved for this class. Fill the form below to create settings.</div>
+              <div id="noSettingsMsg" style="display:none;padding:16px;background:#f0f4f8;border-radius:8px;margin-bottom:12px;color:#64748b;font-weight:600;">No data yet. Add settings for this class below.</div>
               <div class="form-grid">
                 <div class="form-group"><label>Promoted Class</label>
                   <select name="promotedClass" id="promotedClassSelect">
@@ -258,20 +271,24 @@
         <div class="table-wrapper">
           <div class="section-title" style="margin-top:14px;">Saved Remarks</div>
           <div class="remarks-list">
-            <% ['teacher','conduct','interest','attitude'].forEach(function(type){ const label = {teacher:"Teacher's Remarks",conduct:'Conduct Remarks',interest:'Interest Remarks',attitude:'Attitude Remarks'}[type]; if(remarks.some(r=>r.remark_type===type)){ %>
-              <h3 style="margin:10px 0 6px;color:var(--primary);"><%= label %></h3>
-              <% remarks.filter(r=>r.remark_type===type).forEach(function(remark){ %>
-                <div class="remark-row">
-                  <span class="remark-text"><%= remark.remark %></span>
-                  <div class="kebab-menu" data-remark-id="<%= remark.id %>">
-                    <div class="kebab" aria-label="More actions">⋮</div>
-                    <ul>
-                      <li><a href="/print/deleteRemark/<%= remark.id %>?classId=<%= classId %>&termId=<%= termId %>" data-no-spa>Delete</a></li>
-                    </ul>
+            <% if (!hasSavedRemarks) { %>
+              <div class="empty-inline">No data yet.</div>
+            <% } else { %>
+              <% ['teacher','conduct','interest','attitude'].forEach(function(type){ const label = {teacher:"Teacher's Remarks",conduct:'Conduct Remarks',interest:'Interest Remarks',attitude:'Attitude Remarks'}[type]; if(remarks.some(r=>r.remark_type===type)){ %>
+                <h3 style="margin:10px 0 6px;color:var(--primary);"><%= label %></h3>
+                <% remarks.filter(r=>r.remark_type===type).forEach(function(remark){ %>
+                  <div class="remark-row">
+                    <span class="remark-text"><%= remark.remark %></span>
+                    <div class="kebab-menu" data-remark-id="<%= remark.id %>">
+                      <div class="kebab" aria-label="More actions">⋮</div>
+                      <ul>
+                        <li><a href="/print/deleteRemark/<%= remark.id %>?classId=<%= classId %>&termId=<%= termId %>" data-no-spa>Delete</a></li>
+                      </ul>
+                    </div>
                   </div>
-                </div>
-              <% }); %>
-            <% } }); %>
+                <% }); %>
+              <% } }); %>
+            <% } %>
           </div>
         </div>
       </div>
@@ -326,6 +343,8 @@
               </div>
             <% }); %>
           </div>
+        <% } else { %>
+          <div class="empty-inline" style="margin-bottom:20px;">No data yet.</div>
         <% } %>
         
         <div style="border-top:2px solid var(--border);padding-top:16px;margin-top:8px;">
@@ -408,6 +427,8 @@
                 </div>
               <% }); %>
             </div>
+          <% } else { %>
+            <div class="empty-inline" style="margin-bottom:20px;">No data yet.</div>
           <% } %>
 
           <div style="border-top:2px solid var(--border);padding-top:16px;margin-top:8px;">
@@ -444,8 +465,11 @@
       </div>
     </div>
 
+    <% } %>
+
   </main>
 
+  <% if (!setupRequired) { %>
   <script>
     document.getElementById('add-remark-btn')?.addEventListener('click', () => {
       const container = document.getElementById('remarks-container');
@@ -508,7 +532,7 @@
       const classScoreRemarks = scoreRemarksMap[String(classId)] || [];
       const remarksListEl = document.getElementById('classScoreRemarks');
       if(classScoreRemarks.length === 0){
-        remarksListEl.innerHTML = '<p style="color:var(--muted);font-size:0.9rem;margin-top:10px;">No score remarks for this class yet.</p>';
+        remarksListEl.innerHTML = '<p style="color:var(--muted);font-size:0.9rem;margin-top:10px;">No data yet.</p>';
       } else {
         remarksListEl.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;">' + classScoreRemarks.map(remark => `
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;background:#fff;">
@@ -1162,5 +1186,6 @@
     window.deleteEntireTranscriptSignature = deleteEntireTranscriptSignature;
     <% } %>
   </script>
+  <% } %>
 </body>
 </html>

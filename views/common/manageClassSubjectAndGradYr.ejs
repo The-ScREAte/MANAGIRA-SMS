@@ -512,7 +512,7 @@
     <% if (classes.length === 0 && graduationYearGroups.length === 0) { %>
     <div style="width: 100%; max-width: 1100px; padding: 0 20px; margin: 0 auto 24px;">
       <div class="note" style="display: block; background: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px 20px; border-radius: 0 8px 8px 0; text-align: center;">
-        <p style="margin: 0; color: #92400e;">No classes created yet. Click the button above to create them.</p>
+        <p style="margin: 0; color: #92400e;">No data yet. Click the button above to create classes.</p>
       </div>
     </div>
     <% } %>
@@ -602,7 +602,7 @@
       <fieldset>
         <legend>Subjects</legend>
         <% if (!subjectGroups || subjectGroups.length === 0) { %>
-          <div class="subject-empty">No subjects found yet. Add subjects first to manage assignments here.</div>
+          <div class="subject-empty">No data yet. Add subjects first to manage assignments here.</div>
         <% } else { %>
           <form id="bulkSubjectUpdateForm" action="/common/editSubject" method="post"></form>
 

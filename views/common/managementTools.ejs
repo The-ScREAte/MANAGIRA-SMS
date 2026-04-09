@@ -19,7 +19,7 @@
     brown: { primary: '#7c4a03', hover: '#5c3802' }
   };
   const currentTheme = themeColors[themeColor] || themeColors.teal;
-  const hasFilesFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Create Files') || allowedFeatures.includes('Files & Sheets'));
+  const hasFilesFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Create Files') || allowedFeatures.includes('Files & Sheets') || allowedFeatures.includes('Docs/Sheets'));
   const hasPublicWebsiteFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('School Website') || allowedFeatures.includes('SchoolWebsite') || allowedFeatures.includes('Public Dashboard') || allowedFeatures.includes('School Public Dashboard'));
 %>
 
@@ -530,7 +530,7 @@
         <% if (hasFilesFeature) { %>
         <li>
           <button class="nav-link" data-section="documents">
-            Create Files
+            Docs/Sheets
           </button>
         </li>
         <% } %>
@@ -1364,12 +1364,12 @@
       <!-- Files Section -->
       <section id="documents" class="management-section">
         <div class="section-header">
-          <h1>Files & Sheets</h1>
+          <h1>Docs/Sheets</h1>
           <p>Create and manage collaborative files and sheets</p>
         </div>
         <div class="section-content">
           <div class="section-card">
-            <h2>File Hub</h2>
+            <h2>Docs/Sheets Hub</h2>
             <p>Create rich text files and sheets with formulas. Assign to classes and teachers with view, edit, or comment permissions. All changes auto-save in real time.</p>
             <div class="features-grid">
               <div class="feature-item">
@@ -1379,7 +1379,7 @@
                   </svg>
                 </div>
                 <div class="feature-content">
-                  <h4>Files</h4>
+                  <h4>Docs</h4>
                   <p>Rich text editor with formatting and tables</p>
                 </div>
               </div>
@@ -1410,7 +1410,7 @@
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
               </svg>
-              Open Files
+              Open Docs/Sheets
             </a>
           </div>
         </div>

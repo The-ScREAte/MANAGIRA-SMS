@@ -409,7 +409,7 @@ Managira file access is controlled by role permissions and explicit assignment l
 #### File Capabilities by Role Context
 
 ##### Manager
-- Can create files when manage_records is available (default for manager baseline).
+- Can create docs/sheets when manage_records is available (default for manager baseline).
 - Can edit and delete files as part of records authority.
 - Can update file sharing permissions (user-level and class-level).
 - Can access class data used for spreadsheet population in file workflows.
