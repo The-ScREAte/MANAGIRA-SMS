@@ -186,15 +186,15 @@
     align-items: flex-start;
     gap: 14px;
     padding: 18px;
-    background: #f9fafb;
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
     border-radius: 10px;
     border: 1px solid var(--border);
-    transition: all 0.2s ease;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
   }
 
   .feature-item:hover {
-    border-color: var(--primary);
-    background: #fff;
+    border-color: var(--border);
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
   }
 
   .feature-icon {
@@ -227,6 +227,16 @@
     font-size: 13px;
     color: var(--muted);
     line-height: 1.5;
+  }
+
+  .feature-item a {
+    color: var(--primary);
+    font-weight: 600;
+    text-decoration: underline;
+  }
+
+  .feature-item a:hover {
+    color: var(--primary-hover);
   }
 
   .action-btn {
