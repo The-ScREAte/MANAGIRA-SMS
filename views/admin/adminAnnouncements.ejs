@@ -249,6 +249,63 @@
     padding: 20px;
   }
 
+  .collapsible-card-toggle {
+    width: 100%;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+  }
+
+  .collapsible-card-toggle-main {
+    min-width: 0;
+  }
+
+  .collapsible-card-toggle-main h3,
+  .collapsible-card-toggle-main h4 {
+    margin: 0;
+  }
+
+  .collapsible-card-summary {
+    margin: 8px 0 0;
+    color: var(--automation-muted);
+    font-size: 0.92rem;
+    line-height: 1.5;
+  }
+
+  .collapsible-card-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .collapsible-card-indicator {
+    min-width: 86px;
+    text-align: center;
+    padding: 8px 10px;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
+
+  .collapsible-card-body {
+    display: none;
+    margin-top: 16px;
+  }
+
+  .collapsible-card-body.is-open {
+    display: block;
+  }
+
   .campaign-card {
     position: relative;
     overflow: hidden;
@@ -385,6 +442,90 @@
   .search-result span {
     color: var(--automation-muted);
     font-size: 0.8rem;
+  }
+
+  .recipient-toggle {
+    width: 100%;
+    margin-top: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    border: 1px solid rgba(16, 37, 66, 0.1);
+    background: #f8fbff;
+    color: var(--automation-ink);
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+  }
+
+  .recipient-toggle strong {
+    display: block;
+    font-size: 0.92rem;
+  }
+
+  .recipient-toggle span {
+    color: var(--automation-muted);
+    font-size: 0.82rem;
+  }
+
+  .recipient-toggle-indicator {
+    flex-shrink: 0;
+    font-size: 0.84rem;
+    color: var(--automation-accent);
+    font-weight: 700;
+  }
+
+  .recipient-panel {
+    display: none;
+    margin-top: 12px;
+    padding: 14px;
+    border-radius: 18px;
+    background: #fbfdff;
+    border: 1px solid rgba(16, 37, 66, 0.08);
+  }
+
+  .recipient-panel.is-open {
+    display: block;
+  }
+
+  .recipient-list {
+    display: grid;
+    gap: 10px;
+  }
+
+  .recipient-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: #fff;
+    border: 1px solid rgba(16, 37, 66, 0.08);
+  }
+
+  .recipient-line strong,
+  .recipient-line span {
+    display: block;
+  }
+
+  .recipient-line span {
+    color: var(--automation-muted);
+    font-size: 0.84rem;
+    word-break: break-word;
+  }
+
+  .recipient-kind {
+    flex-shrink: 0;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    background: #ecfeff;
+    color: #155e75;
   }
 
   .empty-state {
@@ -695,23 +836,29 @@
           <% } else { %>
             <div class="announcement-stack">
               <% generalAnnouncements.forEach((announcement) => { %>
-                <article class="announcement-card">
-                  <div class="card-header">
-                    <div>
+                <article class="announcement-card" data-card-id="general-<%= announcement.id %>">
+                  <button type="button" class="collapsible-card-toggle" data-action="toggle-card" data-card-id="general-<%= announcement.id %>" aria-expanded="false">
+                    <span class="collapsible-card-toggle-main">
                       <h4><%= announcement.title %></h4>
+                      <span class="collapsible-card-summary"><%= announcement.description.length > 110 ? `${announcement.description.slice(0, 110)}...` : announcement.description %></span>
+                    </span>
+                    <span class="collapsible-card-right">
+                      <span class="tag-pill <%= announcement.is_active ? 'active' : 'inactive' %>"><%= announcement.is_active ? 'Active' : 'Inactive' %></span>
+                      <span class="collapsible-card-indicator">Expand</span>
+                    </span>
+                  </button>
+                  <div class="collapsible-card-body" data-card-body="general-<%= announcement.id %>">
+                    <p class="card-copy"><%= announcement.description %></p>
+                    <div class="campaign-actions">
+                      <form action="/admin/announcements/toggle/<%= announcement.id %>" method="POST">
+                        <button type="submit" class="admin-btn <%= announcement.is_active ? 'automation-warm' : 'automation-primary' %>">
+                          <%= announcement.is_active ? 'Deactivate' : 'Activate' %>
+                        </button>
+                      </form>
+                      <form action="/admin/announcements/delete/<%= announcement.id %>" method="POST">
+                        <button type="submit" class="admin-btn automation-danger" onclick="return confirm('Delete this announcement?')">Delete</button>
+                      </form>
                     </div>
-                    <span class="tag-pill <%= announcement.is_active ? 'active' : 'inactive' %>"><%= announcement.is_active ? 'Active' : 'Inactive' %></span>
-                  </div>
-                  <p class="card-copy"><%= announcement.description %></p>
-                  <div class="campaign-actions">
-                    <form action="/admin/announcements/toggle/<%= announcement.id %>" method="POST">
-                      <button type="submit" class="admin-btn <%= announcement.is_active ? 'automation-warm' : 'automation-primary' %>">
-                        <%= announcement.is_active ? 'Deactivate' : 'Activate' %>
-                      </button>
-                    </form>
-                    <form action="/admin/announcements/delete/<%= announcement.id %>" method="POST">
-                      <button type="submit" class="admin-btn automation-danger" onclick="return confirm('Delete this announcement?')">Delete</button>
-                    </form>
                   </div>
                 </article>
               <% }) %>
@@ -731,23 +878,29 @@
           <% } else { %>
             <div class="announcement-stack">
               <% orgAnnouncements.forEach((announcement) => { %>
-                <article class="announcement-card">
-                  <div class="card-header">
-                    <div>
+                <article class="announcement-card" data-card-id="org-<%= announcement.id %>">
+                  <button type="button" class="collapsible-card-toggle" data-action="toggle-card" data-card-id="org-<%= announcement.id %>" aria-expanded="false">
+                    <span class="collapsible-card-toggle-main">
                       <h4><%= announcement.title %></h4>
+                      <span class="collapsible-card-summary"><%= announcement.description.length > 110 ? `${announcement.description.slice(0, 110)}...` : announcement.description %></span>
+                    </span>
+                    <span class="collapsible-card-right">
+                      <span class="tag-pill <%= announcement.is_active ? 'active' : 'inactive' %>"><%= announcement.is_active ? 'Active' : 'Inactive' %></span>
+                      <span class="collapsible-card-indicator">Expand</span>
+                    </span>
+                  </button>
+                  <div class="collapsible-card-body" data-card-body="org-<%= announcement.id %>">
+                    <p class="card-copy"><%= announcement.description %></p>
+                    <div class="campaign-actions">
+                      <form action="/admin/announcements/toggle/<%= announcement.id %>" method="POST">
+                        <button type="submit" class="admin-btn <%= announcement.is_active ? 'automation-warm' : 'automation-primary' %>">
+                          <%= announcement.is_active ? 'Deactivate' : 'Activate' %>
+                        </button>
+                      </form>
+                      <form action="/admin/announcements/delete/<%= announcement.id %>" method="POST">
+                        <button type="submit" class="admin-btn automation-danger" onclick="return confirm('Delete this announcement?')">Delete</button>
+                      </form>
                     </div>
-                    <span class="tag-pill <%= announcement.is_active ? 'active' : 'inactive' %>"><%= announcement.is_active ? 'Active' : 'Inactive' %></span>
-                  </div>
-                  <p class="card-copy"><%= announcement.description %></p>
-                  <div class="campaign-actions">
-                    <form action="/admin/announcements/toggle/<%= announcement.id %>" method="POST">
-                      <button type="submit" class="admin-btn <%= announcement.is_active ? 'automation-warm' : 'automation-primary' %>">
-                        <%= announcement.is_active ? 'Deactivate' : 'Activate' %>
-                      </button>
-                    </form>
-                    <form action="/admin/announcements/delete/<%= announcement.id %>" method="POST">
-                      <button type="submit" class="admin-btn automation-danger" onclick="return confirm('Delete this announcement?')">Delete</button>
-                    </form>
                   </div>
                 </article>
               <% }) %>
@@ -886,6 +1039,7 @@
     let campaigns = <%- JSON.stringify(campaignList).replace(/</g, '\\u003c') %>;
     let selectedUsers = new Map();
     let searchResultCache = new Map();
+    let expandedCampaigns = new Set();
     let searchTimer = null;
 
     const modal = document.getElementById('campaign-modal');
@@ -912,6 +1066,7 @@
     const selectedUsersContainer = document.getElementById('selected-users');
     const saveButton = document.getElementById('save-campaign-btn');
     const modalTitle = document.getElementById('campaign-modal-title');
+    let expandedCards = new Set();
 
     function escapeHtml(value) {
       return String(value || '')
@@ -987,42 +1142,84 @@
 
       campaignGrid.innerHTML = campaigns.map((campaign) => {
         const targetUsers = Array.isArray(campaign.targetUsers) ? campaign.targetUsers : [];
+        const manualEmails = Array.isArray(campaign.manualEmails) ? campaign.manualEmails : [];
         const recipientSummary = [];
         if (targetUsers.length > 0) {
           recipientSummary.push(`${targetUsers.length} platform user${targetUsers.length === 1 ? '' : 's'}`);
         }
-        if (Array.isArray(campaign.manualEmails) && campaign.manualEmails.length > 0) {
-          recipientSummary.push(`${campaign.manualEmails.length} manual email${campaign.manualEmails.length === 1 ? '' : 's'}`);
+        if (manualEmails.length > 0) {
+          recipientSummary.push(`${manualEmails.length} manual email${manualEmails.length === 1 ? '' : 's'}`);
         }
-
-        const previewUsers = targetUsers.slice(0, 3).map((user) => `<span class="meta-pill">${escapeHtml(user.name || user.email)}</span>`).join('');
-        const previewManual = (campaign.manualEmails || []).slice(0, 2).map((email) => `<span class="meta-pill">${escapeHtml(email)}</span>`).join('');
+        const recipients = [
+          ...targetUsers.map((user) => ({
+            label: user.name || user.email,
+            secondary: user.email,
+            kind: 'Platform user',
+          })),
+          ...manualEmails.map((email) => ({
+            label: email,
+            secondary: 'Manual email',
+            kind: 'Manual',
+          })),
+        ];
+        const recipientCount = recipients.length;
+        const isExpanded = expandedCampaigns.has(Number(campaign.id));
+        const recipientLines = recipients.map((recipient) => `
+          <div class="recipient-line">
+            <div>
+              <strong>${escapeHtml(recipient.label)}</strong>
+              <span>${escapeHtml(recipient.secondary)}</span>
+            </div>
+            <span class="recipient-kind">${escapeHtml(recipient.kind)}</span>
+          </div>
+        `).join('');
 
         return `
           <article class="campaign-card" data-campaign-id="${campaign.id}">
-            <div class="card-header">
-              <div>
+            <button type="button" class="collapsible-card-toggle" data-action="toggle-card" data-card-id="campaign-${campaign.id}" aria-expanded="${expandedCards.has(`campaign-${campaign.id}`) ? 'true' : 'false'}">
+              <span class="collapsible-card-toggle-main">
                 <h3>${escapeHtml(campaign.subject)}</h3>
-                <p class="panel-subtitle">${escapeHtml(scheduleDescription(campaign))}</p>
+                <p class="collapsible-card-summary">${escapeHtml(scheduleDescription(campaign))}</p>
+              </span>
+              <span class="collapsible-card-right">
+                <span class="tag-pill ${campaign.isActive ? 'active' : 'inactive'}">${campaign.isActive ? 'Active' : 'Inactive'}</span>
+                <span class="collapsible-card-indicator">${expandedCards.has(`campaign-${campaign.id}`) ? 'Hide' : 'Expand'}</span>
+              </span>
+            </button>
+            <div class="collapsible-card-body ${expandedCards.has(`campaign-${campaign.id}`) ? 'is-open' : ''}" data-card-body="campaign-${campaign.id}">
+              <p class="card-copy">${escapeHtml(campaign.content)}</p>
+              <div class="card-meta">
+                <span class="meta-pill">Recipients: ${escapeHtml(recipientSummary.join(' + ') || 'None')}</span>
+                <span class="meta-pill">Starts: ${escapeHtml(formatDate(campaign.startDate))}</span>
+                <span class="meta-pill">Next send: ${escapeHtml(campaign.nextRunAt ? formatDateTime(campaign.nextRunAt) : 'Not scheduled')}</span>
+                <span class="meta-pill">Last sent: ${escapeHtml(campaign.lastSentAt ? formatDateTime(campaign.lastSentAt) : 'Not yet sent')}</span>
               </div>
-              <span class="tag-pill ${campaign.isActive ? 'active' : 'inactive'}">${campaign.isActive ? 'Active' : 'Inactive'}</span>
-            </div>
-            <p class="card-copy">${escapeHtml(campaign.content)}</p>
-            <div class="card-meta">
-              <span class="meta-pill">Recipients: ${escapeHtml(recipientSummary.join(' + ') || 'None')}</span>
-              <span class="meta-pill">Starts: ${escapeHtml(formatDate(campaign.startDate))}</span>
-              <span class="meta-pill">Next send: ${escapeHtml(campaign.nextRunAt ? formatDateTime(campaign.nextRunAt) : 'Not scheduled')}</span>
-              <span class="meta-pill">Last sent: ${escapeHtml(campaign.lastSentAt ? formatDateTime(campaign.lastSentAt) : 'Not yet sent')}</span>
-            </div>
-            ${(campaign.lastError ? `<div class="notice is-visible notice-error" style="margin-top: 14px;">${escapeHtml(campaign.lastError)}</div>` : '')}
-            <div class="recipient-chips" style="margin-top: 14px;">
-              ${previewUsers}
-              ${previewManual}
-            </div>
-            <div class="campaign-actions">
-              <button type="button" class="admin-btn automation-secondary" data-action="edit" data-id="${campaign.id}">Edit</button>
-              <button type="button" class="admin-btn ${campaign.isActive ? 'automation-warm' : 'automation-primary'}" data-action="toggle" data-id="${campaign.id}">${campaign.isActive ? 'Make inactive' : 'Activate'}</button>
-              <button type="button" class="admin-btn automation-danger" data-action="delete" data-id="${campaign.id}">Delete</button>
+              ${(campaign.lastError ? `<div class="notice is-visible notice-error" style="margin-top: 14px;">${escapeHtml(campaign.lastError)}</div>` : '')}
+              ${recipientCount > 0 ? `
+                <button
+                  type="button"
+                  class="recipient-toggle"
+                  data-action="toggle-recipients"
+                  data-id="${campaign.id}"
+                  aria-expanded="${isExpanded ? 'true' : 'false'}"
+                >
+                  <span>
+                    <strong>${isExpanded ? 'Hide recipients' : 'Show recipients'}</strong>
+                    <span>${escapeHtml(recipientSummary.join(' + ') || `${recipientCount} recipients`)}</span>
+                  </span>
+                  <span class="recipient-toggle-indicator">${isExpanded ? 'Hide' : `Expand ${recipientCount}`}</span>
+                </button>
+                <div class="recipient-panel ${isExpanded ? 'is-open' : ''}">
+                  <div class="recipient-list">
+                    ${recipientLines}
+                  </div>
+                </div>
+              ` : ''}
+              <div class="campaign-actions">
+                <button type="button" class="admin-btn automation-secondary" data-action="edit" data-id="${campaign.id}">Edit</button>
+                <button type="button" class="admin-btn ${campaign.isActive ? 'automation-warm' : 'automation-primary'}" data-action="toggle" data-id="${campaign.id}">${campaign.isActive ? 'Make inactive' : 'Activate'}</button>
+                <button type="button" class="admin-btn automation-danger" data-action="delete" data-id="${campaign.id}">Delete</button>
+              </div>
             </div>
           </article>
         `;
@@ -1197,13 +1394,35 @@
       const button = event.target.closest('button[data-action]');
       if (!button) return;
 
-      const campaignId = Number(button.getAttribute('data-id'));
       const action = button.getAttribute('data-action');
+      if (action === 'toggle-card') {
+        const cardId = button.getAttribute('data-card-id');
+        if (!cardId) return;
+        if (expandedCards.has(cardId)) {
+          expandedCards.delete(cardId);
+        } else {
+          expandedCards.add(cardId);
+        }
+        renderCampaigns();
+        return;
+      }
+
+      const campaignId = Number(button.getAttribute('data-id'));
       const campaign = campaigns.find((item) => Number(item.id) === campaignId);
       if (!campaign) return;
 
       if (action === 'edit') {
         openModal(campaign);
+        return;
+      }
+
+      if (action === 'toggle-recipients') {
+        if (expandedCampaigns.has(campaignId)) {
+          expandedCampaigns.delete(campaignId);
+        } else {
+          expandedCampaigns.add(campaignId);
+        }
+        renderCampaigns();
         return;
       }
 
@@ -1296,6 +1515,25 @@
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape' && !modal.hidden) {
         closeModal();
+      }
+    });
+
+    document.addEventListener('click', (event) => {
+      const toggleButton = event.target.closest('button[data-action="toggle-card"][data-card-id]');
+      if (!toggleButton || toggleButton.closest('#campaign-grid')) {
+        return;
+      }
+
+      const cardId = toggleButton.getAttribute('data-card-id');
+      const body = document.querySelector(`[data-card-body="${cardId}"]`);
+      const indicator = toggleButton.querySelector('.collapsible-card-indicator');
+      const expanded = toggleButton.getAttribute('aria-expanded') === 'true';
+      toggleButton.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+      if (indicator) {
+        indicator.textContent = expanded ? 'Expand' : 'Hide';
+      }
+      if (body) {
+        body.classList.toggle('is-open', !expanded);
       }
     });
 
