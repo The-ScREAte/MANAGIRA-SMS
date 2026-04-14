@@ -8,9 +8,11 @@ const {
   runAbsenceAlertSweep,
   runWeeklyDigestSweep,
 } = require('../utils/notificationDigestService');
+const { runAdminEmailCampaignSweep } = require('../utils/adminEmailCampaignRunner');
 
 const shouldRunScheduler = process.env.NODE_ENV === 'production' || process.env.ENABLE_BILLING_SCHEDULER === 'true';
 const shouldRunNotifications = process.env.NODE_ENV === 'production' || process.env.ENABLE_NOTIFICATION_SCHEDULER === 'true';
+const shouldRunAdminEmailScheduler = process.env.ENABLE_ADMIN_EMAIL_SCHEDULER !== 'false';
 
 if (shouldRunScheduler) {
   // Schedule to run every minute for dynamic billing
@@ -54,4 +56,21 @@ if (shouldRunNotifications) {
   });
 } else {
   console.log('[Notification Scheduler] Disabled outside production. Set ENABLE_NOTIFICATION_SCHEDULER=true to enable.');
+}
+
+if (shouldRunAdminEmailScheduler) {
+  cron.schedule('* * * * *', async () => {
+    try {
+      const summary = await runAdminEmailCampaignSweep();
+      if (summary.processed > 0) {
+        console.log(
+          `[Admin Email Scheduler] Sweep complete. campaigns=${summary.processed}, sent=${summary.sent}, failed=${summary.failed}`
+        );
+      }
+    } catch (error) {
+      console.error('[Admin Email Scheduler] Sweep failed:', error.message);
+    }
+  });
+} else {
+  console.log('[Admin Email Scheduler] Disabled. Set ENABLE_ADMIN_EMAIL_SCHEDULER=true to enable.');
 }

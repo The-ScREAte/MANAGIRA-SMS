@@ -291,7 +291,7 @@ async function sendRegistrationSuccessEmail(
         "You can now log in and start using all the features of Managira.",
       ],
       cta: { text: "Log In to Your Account", url: "https://www.managira.com/account/login" },
-      note: 'To get onboarded fast, open the attached Managira Starter Pack (PDF). You can also watch our walkthrough on YouTube: <a href="https://youtu.be/D8da4yiDBWc?si=NMJKd9PCmMq98IzJ" target="_blank" rel="noopener">Watch the walkthrough</a>.',
+      note: 'To get onboarded fast, open the attached Managira Starter Pack (PDF). You can also review our <a href="https://docs.google.com/document/d/1bgFP5cCQyr-9jdaYZTsWO8ONAnAuNUKqKQ2if_4TBOM/edit?tab=t.o84y9ldsnqto#heading=h.o10u93e8wqgq" target="_blank" rel="noopener">User Documentation Guide</a> and watch our <a href="https://youtu.be/D8da4yiDBWc?si=NMJKd9PCmMq98IzJ" target="_blank" rel="noopener">Walkthrough Video</a>.',
     });
 
     const mailOptions = {

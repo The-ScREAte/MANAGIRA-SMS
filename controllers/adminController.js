@@ -25,6 +25,11 @@ const {
   invalidateAccessForPlan,
 } = require("../utils/accessCache");
 const { ensureEmploymentSchema } = require("../utils/employmentSchema");
+const {
+  ensureAdminEmailCampaignSchema,
+  normalizeCampaignInput,
+  computeNextRunAt,
+} = require("../utils/adminEmailCampaigns");
 
 function computeTierMonthlyPrice(planBasePrice, tier) {
   const basePrice = Number(planBasePrice || 0);
@@ -42,6 +47,173 @@ function parseOptionalInteger(value) {
 
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isAjaxRequest(req) {
+  return req.xhr || req.get("X-Requested-With") === "XMLHttpRequest";
+}
+
+async function fetchAdminEmailCampaigns() {
+  await ensureAdminEmailCampaignSchema(db);
+
+  const result = await db.query(
+    `SELECT c.id,
+            c.subject,
+            c.content,
+            c.manual_emails,
+            c.target_user_ids,
+            c.frequency,
+            c.send_time,
+            c.day_of_week,
+            c.day_of_month,
+            c.start_date,
+            c.end_date,
+            c.is_active,
+            c.last_sent_at,
+            c.next_run_at,
+            c.last_error,
+            c.created_at,
+            c.updated_at,
+            c.created_by,
+            CONCAT_WS(' ', creator.first_name, creator.last_name) AS created_by_name,
+            COALESCE(target_users.users_json, '[]'::json) AS target_users
+     FROM admin_email_campaigns c
+     LEFT JOIN users creator ON creator.user_id = c.created_by
+     LEFT JOIN LATERAL (
+       SELECT json_agg(
+                json_build_object(
+                  'userId', u.user_id,
+                  'name', CONCAT_WS(' ', u.first_name, u.last_name),
+                  'email', u.email,
+                  'accountType', u.account_type
+                )
+                ORDER BY u.first_name, u.last_name, u.email
+              ) AS users_json
+       FROM users u
+       WHERE u.user_id = ANY(c.target_user_ids)
+     ) target_users ON TRUE
+     ORDER BY c.created_at DESC`
+  );
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    subject: row.subject,
+    content: row.content,
+    manualEmails: Array.isArray(row.manual_emails) ? row.manual_emails : [],
+    targetUserIds: Array.isArray(row.target_user_ids) ? row.target_user_ids.map((value) => Number(value)) : [],
+    targetUsers: Array.isArray(row.target_users) ? row.target_users : [],
+    frequency: row.frequency,
+    sendTime: row.send_time,
+    dayOfWeek: row.day_of_week,
+    dayOfMonth: row.day_of_month,
+    startDate: row.start_date,
+    endDate: row.end_date,
+    isActive: Boolean(row.is_active),
+    lastSentAt: row.last_sent_at,
+    nextRunAt: row.next_run_at,
+    lastError: row.last_error,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    createdBy: row.created_by,
+    createdByName: row.created_by_name || null,
+  }));
+}
+
+async function resolveTargetUsers(targetUserIds) {
+  if (!Array.isArray(targetUserIds) || targetUserIds.length === 0) {
+    return [];
+  }
+
+  const result = await db.query(
+    `SELECT user_id, first_name, last_name, email, account_type
+     FROM users
+     WHERE user_id = ANY($1::int[])
+     ORDER BY first_name, last_name, email`,
+    [targetUserIds]
+  );
+
+  return result.rows;
+}
+
+async function createOrUpdateAdminEmailCampaign({ payload, campaignId, actorUserId }) {
+  await ensureAdminEmailCampaignSchema(db);
+
+  const normalized = normalizeCampaignInput(payload);
+  const targetUsers = await resolveTargetUsers(normalized.targetUserIds);
+  const validTargetUserIds = targetUsers.map((user) => Number(user.user_id));
+
+  if (normalized.manualEmails.length === 0 && validTargetUserIds.length === 0) {
+    throw new Error("Select valid users or provide at least one manual email.");
+  }
+
+  const schedule = {
+    frequency: normalized.frequency,
+    sendTime: normalized.sendTime,
+    dayOfWeek: normalized.dayOfWeek,
+    dayOfMonth: normalized.dayOfMonth,
+    startDate: normalized.startDate,
+    endDate: normalized.endDate,
+  };
+
+  const nextRunAt = normalized.isActive ? computeNextRunAt(schedule) : null;
+  const params = [
+    normalized.subject,
+    normalized.content,
+    normalized.manualEmails,
+    validTargetUserIds,
+    normalized.frequency,
+    normalized.sendTime,
+    normalized.dayOfWeek,
+    normalized.dayOfMonth,
+    normalized.startDate,
+    normalized.endDate,
+    normalized.isActive,
+    nextRunAt,
+  ];
+
+  if (campaignId) {
+    params.push(campaignId);
+    await db.query(
+      `UPDATE admin_email_campaigns
+       SET subject = $1,
+           content = $2,
+           manual_emails = $3,
+           target_user_ids = $4,
+           frequency = $5,
+           send_time = $6,
+           day_of_week = $7,
+           day_of_month = $8,
+           start_date = $9,
+           end_date = $10,
+           is_active = $11,
+           next_run_at = $12,
+           last_error = NULL
+       WHERE id = $13`,
+      params
+    );
+  } else {
+    params.push(actorUserId || null);
+    await db.query(
+      `INSERT INTO admin_email_campaigns (
+         subject,
+         content,
+         manual_emails,
+         target_user_ids,
+         frequency,
+         send_time,
+         day_of_week,
+         day_of_month,
+         start_date,
+         end_date,
+         is_active,
+         next_run_at,
+         created_by
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+      params
+    );
+  }
+
+  return fetchAdminEmailCampaigns();
 }
 
 function buildUserFullName(user) {
@@ -2513,12 +2685,16 @@ const adminController = {
 
   getAdminAnnouncements: async (req, res) => {
     try {
-      const result = await db.query(
-        `SELECT * FROM admin_announcements ORDER BY created_at DESC`
-      );
+      await ensureAdminEmailCampaignSchema(db);
+      const [announcementResult, campaigns] = await Promise.all([
+        db.query(`SELECT * FROM admin_announcements ORDER BY created_at DESC`),
+        fetchAdminEmailCampaigns(),
+      ]);
+
       res.render("admin/adminAnnouncements", {
         title: "Manage Admin Announcements",
-        announcements: result.rows,
+        announcements: announcementResult.rows,
+        campaigns,
         messages: req.flash(),
       });
     } catch (error) {
@@ -2572,6 +2748,153 @@ const adminController = {
     }
 
     res.redirect("/admin/announcements");
+  },
+
+  listAdminEmailCampaigns: async (req, res) => {
+    try {
+      const campaigns = await fetchAdminEmailCampaigns();
+      return res.json({ success: true, campaigns });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Failed to load scheduled emails." });
+    }
+  },
+
+  searchAdminEmailRecipients: async (req, res) => {
+    try {
+      const query = String(req.query.q || "").trim();
+      const params = [];
+      let whereClause = "WHERE email IS NOT NULL";
+
+      if (query) {
+        params.push(`%${query}%`);
+        whereClause += ` AND (
+          CONCAT_WS(' ', first_name, last_name) ILIKE $1
+          OR email ILIKE $1
+          OR account_type::text ILIKE $1
+        )`;
+      }
+
+      const result = await db.query(
+        `SELECT user_id, first_name, last_name, email, account_type, organization_id
+         FROM users
+         ${whereClause}
+         ORDER BY first_name, last_name, email
+         LIMIT 25`,
+        params
+      );
+
+      return res.json({
+        success: true,
+        users: result.rows.map((user) => ({
+          userId: user.user_id,
+          name: buildUserFullName(user),
+          email: user.email,
+          accountType: user.account_type,
+          organizationId: user.organization_id,
+        })),
+      });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Failed to search users." });
+    }
+  },
+
+  createAdminEmailCampaign: async (req, res) => {
+    try {
+      const campaigns = await createOrUpdateAdminEmailCampaign({
+        payload: req.body,
+        actorUserId: req.session?.userId,
+      });
+
+      return res.status(201).json({ success: true, campaigns, message: "Scheduled email created." });
+    } catch (error) {
+      return res.status(400).json({ success: false, message: error.message || "Failed to create scheduled email." });
+    }
+  },
+
+  updateAdminEmailCampaign: async (req, res) => {
+    const campaignId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(campaignId) || campaignId <= 0) {
+      return res.status(400).json({ success: false, message: "Invalid scheduled email selected." });
+    }
+
+    try {
+      const campaigns = await createOrUpdateAdminEmailCampaign({
+        payload: req.body,
+        campaignId,
+        actorUserId: req.session?.userId,
+      });
+
+      return res.json({ success: true, campaigns, message: "Scheduled email updated." });
+    } catch (error) {
+      return res.status(400).json({ success: false, message: error.message || "Failed to update scheduled email." });
+    }
+  },
+
+  toggleAdminEmailCampaign: async (req, res) => {
+    const campaignId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(campaignId) || campaignId <= 0) {
+      return res.status(400).json({ success: false, message: "Invalid scheduled email selected." });
+    }
+
+    try {
+      await ensureAdminEmailCampaignSchema(db);
+      const currentResult = await db.query(`SELECT * FROM admin_email_campaigns WHERE id = $1`, [campaignId]);
+      const campaign = currentResult.rows[0];
+
+      if (!campaign) {
+        return res.status(404).json({ success: false, message: "Scheduled email not found." });
+      }
+
+      const nextIsActive = !campaign.is_active;
+      const nextRunAt = nextIsActive
+        ? computeNextRunAt({
+            frequency: campaign.frequency,
+            sendTime: campaign.send_time,
+            dayOfWeek: campaign.day_of_week,
+            dayOfMonth: campaign.day_of_month,
+            startDate: campaign.start_date,
+            endDate: campaign.end_date,
+          })
+        : null;
+
+      await db.query(
+        `UPDATE admin_email_campaigns
+         SET is_active = $1,
+             next_run_at = $2,
+             last_error = NULL
+         WHERE id = $3`,
+        [nextIsActive, nextRunAt, campaignId]
+      );
+
+      const campaigns = await fetchAdminEmailCampaigns();
+      return res.json({
+        success: true,
+        campaigns,
+        message: nextIsActive ? "Scheduled email activated." : "Scheduled email deactivated.",
+      });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Failed to update scheduled email status." });
+    }
+  },
+
+  deleteAdminEmailCampaign: async (req, res) => {
+    const campaignId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(campaignId) || campaignId <= 0) {
+      return res.status(400).json({ success: false, message: "Invalid scheduled email selected." });
+    }
+
+    try {
+      await ensureAdminEmailCampaignSchema(db);
+      const result = await db.query(`DELETE FROM admin_email_campaigns WHERE id = $1`, [campaignId]);
+      if (result.rowCount === 0) {
+        return res.status(404).json({ success: false, message: "Scheduled email not found." });
+      }
+
+      const campaigns = await fetchAdminEmailCampaigns();
+      return res.json({ success: true, campaigns, message: "Scheduled email deleted." });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Failed to delete scheduled email." });
+    }
   },
 
   generateOrganizationCSV: async (req, res) => {
@@ -2890,7 +3213,7 @@ async function sendPasswordSetSuccessEmail(email, firstName, lastName) {
       "If you did not perform this action, please contact your administrator immediately.",
     ],
     cta: { text: "Log in to Managira", url: "https://www.managira.com/account/login" },
-    note: 'If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
+    note: 'If you have any questions, please visit our <a href="https://docs.google.com/document/d/1bgFP5cCQyr-9jdaYZTsWO8ONAnAuNUKqKQ2if_4TBOM/edit?tab=t.o84y9ldsnqto#heading=h.o10u93e8wqgq" target="_blank" rel="noopener">User Documentation Guide</a>, <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a>, or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
   });
   const mailOptions = {
     from: process.env.NOTIFY_EMAIL_USER,

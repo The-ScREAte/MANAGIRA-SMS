@@ -1,205 +1,1305 @@
 <link rel="stylesheet" href="/css/admin.css" />
 
 <style>
-  .announcements-container {
-    max-width: 900px;
+  :root {
+    --automation-ink: #102542;
+    --automation-muted: #5b6b82;
+    --automation-accent: #0f766e;
+    --automation-accent-soft: #ccfbf1;
+    --automation-warm: #f59e0b;
+    --automation-danger: #dc2626;
+    --automation-surface: #ffffff;
+    --automation-surface-soft: #f6f9fc;
+    --automation-border: rgba(16, 37, 66, 0.12);
+    --automation-shadow: 0 22px 50px rgba(15, 23, 42, 0.08);
+  }
+
+  .announcements-shell {
+    display: grid;
+    gap: 24px;
+    max-width: 1220px;
     margin: 0 auto;
   }
 
-  .page-header {
-    text-align: center;
-    margin-bottom: 32px;
+  .hero-panel {
+    position: relative;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at top left, rgba(20, 184, 166, 0.18), transparent 38%),
+      radial-gradient(circle at bottom right, rgba(245, 158, 11, 0.14), transparent 32%),
+      linear-gradient(135deg, #ffffff 0%, #f4fafb 48%, #fff7ed 100%);
+    border: 1px solid rgba(15, 118, 110, 0.18);
+    border-radius: 28px;
+    padding: 28px;
+    box-shadow: var(--automation-shadow);
   }
 
-  .page-header h1 {
-    color: var(--admin-text-primary, #111827);
-    font-size: 1.75rem;
+  .hero-panel::after {
+    content: "";
+    position: absolute;
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    background: rgba(15, 118, 110, 0.08);
+    top: -70px;
+    right: -60px;
+  }
+
+  .hero-grid {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.95fr);
+    gap: 20px;
+    align-items: start;
+  }
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
     font-weight: 700;
+    background: rgba(16, 37, 66, 0.08);
+    color: var(--automation-ink);
+  }
+
+  .hero-title {
+    margin: 14px 0 10px;
+    font-size: clamp(2rem, 3vw, 3rem);
+    line-height: 1.05;
+    color: var(--automation-ink);
+  }
+
+  .hero-copy {
     margin: 0;
+    color: var(--automation-muted);
+    max-width: 680px;
+    line-height: 1.7;
+    font-size: 1rem;
   }
 
-  .announcement-form {
-    background: #fff;
+  .hero-stats {
+    display: grid;
+    gap: 14px;
+  }
+
+  .hero-stat {
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid rgba(16, 37, 66, 0.08);
+    border-radius: 20px;
+    padding: 18px;
+    backdrop-filter: blur(10px);
+  }
+
+  .hero-stat strong {
+    display: block;
+    font-size: 1.9rem;
+    color: var(--automation-ink);
+  }
+
+  .hero-stat span {
+    display: block;
+    margin-top: 4px;
+    color: var(--automation-muted);
+    font-size: 0.92rem;
+  }
+
+  .workspace-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.25fr);
+    gap: 24px;
+    align-items: start;
+  }
+
+  .glass-panel {
+    background: var(--automation-surface);
+    border-radius: 24px;
     padding: 24px;
-    border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-    border: 1px solid #e5e7eb;
-    margin-bottom: 32px;
+    border: 1px solid var(--automation-border);
+    box-shadow: var(--automation-shadow);
   }
 
-  .announcement-form input,
-  .announcement-form textarea {
-    width: 100%;
-    margin-bottom: 16px;
-    padding: 12px;
-    font-size: 0.9rem;
-    border-radius: 8px;
-    border: 1px solid #d1d5db;
-    font-family: inherit;
-    box-sizing: border-box;
+  .panel-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+    margin-bottom: 20px;
   }
 
-  .announcement-form input:focus,
-  .announcement-form textarea:focus {
-    outline: none;
-    border-color: var(--admin-primary, #2563eb);
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  .panel-title {
+    margin: 0;
+    color: var(--automation-ink);
+    font-size: 1.35rem;
   }
 
-  .announcement-form textarea {
-    min-height: 100px;
-    resize: vertical;
-  }
-
-  .section-title {
-    font-size: 1.25rem;
-    color: var(--admin-text-primary, #111827);
-    margin: 32px 0 16px;
-    padding-bottom: 8px;
-    border-bottom: 2px solid var(--admin-primary, #2563eb);
-    font-weight: 600;
-  }
-
-  .announcement-card {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    padding: 20px;
-    margin-bottom: 16px;
-    border-radius: 10px;
-    transition: all 0.2s ease;
-  }
-
-  .announcement-card:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    border-color: var(--admin-primary, #2563eb);
-  }
-
-  .announcement-card h3 {
-    margin: 0 0 8px;
-    color: var(--admin-text-primary, #111827);
-    font-size: 1.1rem;
-    font-weight: 600;
-  }
-
-  .announcement-card p {
-    color: var(--admin-text-secondary, #4b5563);
-    margin: 0 0 16px;
+  .panel-subtitle {
+    margin: 8px 0 0;
+    color: var(--automation-muted);
     line-height: 1.6;
+    font-size: 0.95rem;
   }
 
-  .announcement-actions {
+  .panel-actions {
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
   }
 
-  .announcement-actions form {
+  .announcement-form,
+  .campaign-form-grid {
+    display: grid;
+    gap: 14px;
+  }
+
+  .field-label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--automation-ink);
+    font-weight: 700;
+    font-size: 0.92rem;
+  }
+
+  .field-help {
+    margin-top: 6px;
+    color: var(--automation-muted);
+    font-size: 0.82rem;
+    line-height: 1.5;
+  }
+
+  .automation-input,
+  .automation-textarea,
+  .automation-select {
+    width: 100%;
+    border-radius: 16px;
+    border: 1px solid rgba(16, 37, 66, 0.14);
+    background: #fff;
+    padding: 14px 15px;
+    font: inherit;
+    color: var(--automation-ink);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    box-sizing: border-box;
+  }
+
+  .automation-input:focus,
+  .automation-textarea:focus,
+  .automation-select:focus {
+    outline: none;
+    border-color: rgba(15, 118, 110, 0.62);
+    box-shadow: 0 0 0 4px rgba(20, 184, 166, 0.14);
+    transform: translateY(-1px);
+  }
+
+  .automation-textarea {
+    min-height: 120px;
+    resize: vertical;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .form-row-3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .notice {
+    display: none;
+    margin-bottom: 16px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    font-weight: 600;
+  }
+
+  .notice.is-visible {
+    display: block;
+  }
+
+  .notice-success {
+    background: #ecfdf5;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+  }
+
+  .notice-error {
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+  }
+
+  .announcement-stack,
+  .campaign-grid {
+    display: grid;
+    gap: 16px;
+  }
+
+  .announcement-card,
+  .campaign-card {
+    border-radius: 22px;
+    border: 1px solid rgba(16, 37, 66, 0.1);
+    background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+    padding: 20px;
+  }
+
+  .campaign-card {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .campaign-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, #0f766e 0%, #14b8a6 55%, #f59e0b 100%);
+  }
+
+  .card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 12px;
+  }
+
+  .card-header h3,
+  .card-header h4 {
     margin: 0;
-    padding: 0;
-    background: none;
-    box-shadow: none;
+    color: var(--automation-ink);
+  }
+
+  .card-copy {
+    margin: 0;
+    white-space: pre-line;
+    color: var(--automation-muted);
+    line-height: 1.7;
+  }
+
+  .card-meta,
+  .campaign-tags,
+  .recipient-chips,
+  .selected-users,
+  .search-results,
+  .campaign-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .card-meta {
+    margin-top: 14px;
+  }
+
+  .meta-pill,
+  .tag-pill,
+  .selected-user-chip,
+  .search-result {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: var(--automation-surface-soft);
+    color: var(--automation-ink);
+    font-size: 0.84rem;
+    border: 1px solid rgba(16, 37, 66, 0.08);
+  }
+
+  .tag-pill.active {
+    background: var(--automation-accent-soft);
+    color: #115e59;
+    border-color: rgba(15, 118, 110, 0.24);
+  }
+
+  .tag-pill.inactive {
+    background: #fff7ed;
+    color: #9a3412;
+    border-color: rgba(245, 158, 11, 0.24);
+  }
+
+  .selected-user-chip button {
     border: none;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    padding: 0;
+    font-size: 1rem;
+    line-height: 1;
+  }
+
+  .campaign-actions {
+    margin-top: 18px;
+  }
+
+  .search-shell {
+    position: relative;
+  }
+
+  .search-results {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 8px);
+    z-index: 8;
+    display: none;
+    flex-direction: column;
+    padding: 8px;
+    border-radius: 18px;
+    background: #fff;
+    border: 1px solid rgba(16, 37, 66, 0.12);
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14);
+    max-height: 240px;
+    overflow-y: auto;
+  }
+
+  .search-results.is-visible {
+    display: flex;
+  }
+
+  .search-result {
+    width: 100%;
+    justify-content: space-between;
+    cursor: pointer;
+    border-radius: 14px;
+    background: transparent;
+  }
+
+  .search-result:hover {
+    background: #f0fdfa;
+  }
+
+  .search-result strong,
+  .search-result span {
+    display: block;
+  }
+
+  .search-result span {
+    color: var(--automation-muted);
+    font-size: 0.8rem;
   }
 
   .empty-state {
+    border-radius: 22px;
+    padding: 28px 20px;
     text-align: center;
-    color: var(--admin-text-secondary, #4b5563);
-    padding: 40px 20px;
-    background: #f9fafb;
-    border-radius: 10px;
+    color: var(--automation-muted);
+    background: linear-gradient(180deg, #f8fbff 0%, #f8fafc 100%);
+    border: 1px dashed rgba(16, 37, 66, 0.16);
+  }
+
+  .modal-shell[hidden] {
+    display: none;
+  }
+
+  .modal-shell {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+  }
+
+  .modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.54);
+    backdrop-filter: blur(8px);
+  }
+
+  .modal-panel {
+    position: relative;
+    width: min(860px, 100%);
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    border-radius: 28px;
+    background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+    border: 1px solid rgba(16, 37, 66, 0.12);
+    box-shadow: 0 28px 80px rgba(15, 23, 42, 0.24);
+    padding: 24px;
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .modal-title {
+    margin: 0;
+    color: var(--automation-ink);
+    font-size: 1.45rem;
+  }
+
+  .modal-subtitle {
+    margin: 8px 0 0;
+    color: var(--automation-muted);
+    max-width: 620px;
+    line-height: 1.6;
+  }
+
+  .close-modal-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid rgba(16, 37, 66, 0.12);
+    background: #fff;
+    font-size: 1.35rem;
+    cursor: pointer;
+  }
+
+  .toggle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 18px;
+    border-radius: 18px;
+    background: rgba(15, 118, 110, 0.06);
+    border: 1px solid rgba(15, 118, 110, 0.14);
+  }
+
+  .toggle-row strong {
+    display: block;
+    color: var(--automation-ink);
+  }
+
+  .toggle-row span {
+    display: block;
+    margin-top: 4px;
+    color: var(--automation-muted);
+    font-size: 0.88rem;
+  }
+
+  .toggle-switch {
+    position: relative;
+    width: 60px;
+    height: 34px;
+  }
+
+  .toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .toggle-slider {
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.9);
+    transition: background 0.2s ease;
+  }
+
+  .toggle-slider::before {
+    content: "";
+    position: absolute;
+    width: 26px;
+    height: 26px;
+    left: 4px;
+    top: 4px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.2s ease;
+  }
+
+  .toggle-switch input:checked + .toggle-slider {
+    background: linear-gradient(90deg, #0f766e 0%, #14b8a6 100%);
+  }
+
+  .toggle-switch input:checked + .toggle-slider::before {
+    transform: translateX(26px);
+  }
+
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 8px;
+    flex-wrap: wrap;
   }
 
   .section-divider {
+    height: 1px;
     border: none;
-    border-top: 2px dashed var(--admin-info, #0891b2);
-    margin: 32px 0;
+    background: linear-gradient(90deg, rgba(15, 118, 110, 0), rgba(15, 118, 110, 0.4), rgba(15, 118, 110, 0));
+    margin: 20px 0;
   }
 
-  @media (max-width: 768px) {
-    .announcement-actions {
-      flex-direction: column;
+  .admin-btn.automation-primary {
+    background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);
+    border: none;
+    color: #fff;
+    box-shadow: 0 16px 30px rgba(20, 184, 166, 0.24);
+  }
+
+  .admin-btn.automation-secondary {
+    background: #fff;
+    color: var(--automation-ink);
+    border: 1px solid rgba(16, 37, 66, 0.14);
+  }
+
+  .admin-btn.automation-danger {
+    background: #fff1f2;
+    color: var(--automation-danger);
+    border: 1px solid rgba(220, 38, 38, 0.18);
+  }
+
+  .admin-btn.automation-warm {
+    background: #fff7ed;
+    color: #b45309;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+  }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+  }
+
+  @media (max-width: 1040px) {
+    .hero-grid,
+    .workspace-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .hero-panel,
+    .glass-panel,
+    .modal-panel {
+      padding: 20px;
+      border-radius: 22px;
     }
 
-    .announcement-actions .admin-btn {
+    .form-row,
+    .form-row-3,
+    .panel-header,
+    .card-header,
+    .toggle-row,
+    .modal-header {
+      grid-template-columns: 1fr;
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .panel-actions,
+    .campaign-actions,
+    .modal-actions {
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+
+    .panel-actions .admin-btn,
+    .campaign-actions .admin-btn,
+    .modal-actions .admin-btn {
       width: 100%;
+    }
+
+    .modal-shell {
+      padding: 12px;
     }
   }
 </style>
 
-<div class="announcements-container">
-  <div class="page-header">
-    <h1>📢 Admin Announcements</h1>
-  </div>
+<%
+  const campaignList = Array.isArray(campaigns) ? campaigns : [];
+  const totalRecipients = campaignList.reduce((sum, campaign) => {
+    const manualCount = Array.isArray(campaign.manualEmails) ? campaign.manualEmails.length : 0;
+    const userCount = Array.isArray(campaign.targetUserIds) ? campaign.targetUserIds.length : 0;
+    return sum + manualCount + userCount;
+  }, 0);
+  const activeCampaigns = campaignList.filter((campaign) => campaign.isActive).length;
+  const generalAnnouncements = announcements.filter((a) => !a.organization_id);
+  const orgAnnouncements = announcements.filter((a) => a.organization_id);
+%>
 
-  <%- include('../partials/flash') %>
-
-  <form method="POST" action="/admin/announcements" class="announcement-form">
-    <input type="text" name="title" placeholder="Announcement Title" required />
-    <textarea name="description" placeholder="Announcement Description" required></textarea>
-    <button type="submit" class="admin-btn admin-btn-primary admin-btn-lg" style="width: 100%;">
-      + Create Announcement
-    </button>
-  </form>
-
-  <% if (announcements.length === 0) { %>
-    <div class="empty-state">
-      <p>No announcements yet. Create one above!</p>
+<div class="announcements-shell">
+  <section class="hero-panel">
+    <div class="hero-grid">
+      <div>
+        <span class="eyebrow">Admin Broadcast Center</span>
+        <h1 class="hero-title">Announcements and scheduled email automation in one workspace.</h1>
+        <p class="hero-copy">
+          Publish platform announcements, build recurring email campaigns, target live users or manual email lists,
+          and keep everything on this page without leaving the admin flow. URLs in the email body are automatically sent as clickable links.
+        </p>
+      </div>
+      <div class="hero-stats">
+        <article class="hero-stat">
+          <strong><%= campaignList.length %></strong>
+          <span>Scheduled email workflows configured</span>
+        </article>
+        <article class="hero-stat">
+          <strong><%= activeCampaigns %></strong>
+          <span>Currently active automations</span>
+        </article>
+        <article class="hero-stat">
+          <strong><%= totalRecipients %></strong>
+          <span>Total saved recipients across campaigns</span>
+        </article>
+      </div>
     </div>
-  <% } else { %>
-    <h2 class="section-title">🌐 General Announcements</h2>
-    <% const generalAnnouncements = announcements.filter(a => !a.organization_id); %>
-    <% if (generalAnnouncements.length === 0) { %>
-      <div class="empty-state">
-        <p>No general announcements.</p>
-      </div>
-    <% } else { %>
-      <% generalAnnouncements.forEach(a => { %>
-        <div class="announcement-card">
-          <h3><%= a.title %></h3>
-          <p><%= a.description %></p>
-          <div class="announcement-actions">
-            <form action="/admin/announcements/toggle/<%= a.id %>" method="POST">
-              <button type="submit" class="admin-btn admin-btn-sm <%= a.is_active ? 'admin-btn-hold' : 'admin-btn-success' %>">
-                <%= a.is_active ? '⏸ Deactivate' : '▶ Activate' %>
-              </button>
-            </form>
-            <form action="/admin/announcements/delete/<%= a.id %>" method="POST">
-              <button type="submit" class="admin-btn admin-btn-sm admin-btn-delete" onclick="return confirm('Delete this announcement?')">
-                🗑 Delete
-              </button>
-            </form>
-          </div>
-        </div>
-      <% }) %>
-    <% } %>
+  </section>
 
-    <hr class="section-divider">
-
-    <h2 class="section-title">🏫 Organization-specific Announcements</h2>
-    <% const orgAnnouncements = announcements.filter(a => a.organization_id); %>
-    <% if (orgAnnouncements.length === 0) { %>
-      <div class="empty-state">
-        <p>No organization-specific announcements.</p>
-      </div>
-    <% } else { %>
-      <% orgAnnouncements.forEach(a => { %>
-        <div class="announcement-card">
-          <h3><%= a.title %></h3>
-          <p><%= a.description %></p>
-          <div class="announcement-actions">
-            <form action="/admin/announcements/toggle/<%= a.id %>" method="POST">
-              <button type="submit" class="admin-btn admin-btn-sm <%= a.is_active ? 'admin-btn-hold' : 'admin-btn-success' %>">
-                <%= a.is_active ? '⏸ Deactivate' : '▶ Activate' %>
-              </button>
-            </form>
-            <form action="/admin/announcements/delete/<%= a.id %>" method="POST">
-              <button type="submit" class="admin-btn admin-btn-sm admin-btn-delete" onclick="return confirm('Delete this announcement?')">
-                🗑 Delete
-              </button>
-            </form>
-          </div>
+  <div class="workspace-grid">
+    <section class="glass-panel">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">Admin announcements</h2>
+          <p class="panel-subtitle">Keep the existing announcement flow available for quick global or organization-specific notices.</p>
         </div>
-      <% }) %>
-    <% } %>
-  <% } %>
+      </div>
+
+      <%- include('../partials/flash') %>
+
+      <form method="POST" action="/admin/announcements" class="announcement-form">
+        <div>
+          <label class="field-label" for="announcement-title">Announcement title</label>
+          <input id="announcement-title" class="automation-input" type="text" name="title" placeholder="School reopening notice" required />
+        </div>
+        <div>
+          <label class="field-label" for="announcement-description">Announcement message</label>
+          <textarea id="announcement-description" class="automation-textarea" name="description" placeholder="Write the notice you want admins, schools, or users to see." required></textarea>
+        </div>
+        <button type="submit" class="admin-btn automation-primary">Create announcement</button>
+      </form>
+
+      <hr class="section-divider" />
+
+      <div class="announcement-stack">
+        <div>
+          <div class="panel-header">
+            <div>
+              <h3 class="panel-title">General announcements</h3>
+              <p class="panel-subtitle">Shown without an organization binding.</p>
+            </div>
+          </div>
+          <% if (generalAnnouncements.length === 0) { %>
+            <div class="empty-state">No general announcements yet.</div>
+          <% } else { %>
+            <div class="announcement-stack">
+              <% generalAnnouncements.forEach((announcement) => { %>
+                <article class="announcement-card">
+                  <div class="card-header">
+                    <div>
+                      <h4><%= announcement.title %></h4>
+                    </div>
+                    <span class="tag-pill <%= announcement.is_active ? 'active' : 'inactive' %>"><%= announcement.is_active ? 'Active' : 'Inactive' %></span>
+                  </div>
+                  <p class="card-copy"><%= announcement.description %></p>
+                  <div class="campaign-actions">
+                    <form action="/admin/announcements/toggle/<%= announcement.id %>" method="POST">
+                      <button type="submit" class="admin-btn <%= announcement.is_active ? 'automation-warm' : 'automation-primary' %>">
+                        <%= announcement.is_active ? 'Deactivate' : 'Activate' %>
+                      </button>
+                    </form>
+                    <form action="/admin/announcements/delete/<%= announcement.id %>" method="POST">
+                      <button type="submit" class="admin-btn automation-danger" onclick="return confirm('Delete this announcement?')">Delete</button>
+                    </form>
+                  </div>
+                </article>
+              <% }) %>
+            </div>
+          <% } %>
+        </div>
+
+        <div>
+          <div class="panel-header">
+            <div>
+              <h3 class="panel-title">Organization-specific announcements</h3>
+              <p class="panel-subtitle">Announcements already scoped to a specific organization.</p>
+            </div>
+          </div>
+          <% if (orgAnnouncements.length === 0) { %>
+            <div class="empty-state">No organization-specific announcements yet.</div>
+          <% } else { %>
+            <div class="announcement-stack">
+              <% orgAnnouncements.forEach((announcement) => { %>
+                <article class="announcement-card">
+                  <div class="card-header">
+                    <div>
+                      <h4><%= announcement.title %></h4>
+                    </div>
+                    <span class="tag-pill <%= announcement.is_active ? 'active' : 'inactive' %>"><%= announcement.is_active ? 'Active' : 'Inactive' %></span>
+                  </div>
+                  <p class="card-copy"><%= announcement.description %></p>
+                  <div class="campaign-actions">
+                    <form action="/admin/announcements/toggle/<%= announcement.id %>" method="POST">
+                      <button type="submit" class="admin-btn <%= announcement.is_active ? 'automation-warm' : 'automation-primary' %>">
+                        <%= announcement.is_active ? 'Deactivate' : 'Activate' %>
+                      </button>
+                    </form>
+                    <form action="/admin/announcements/delete/<%= announcement.id %>" method="POST">
+                      <button type="submit" class="admin-btn automation-danger" onclick="return confirm('Delete this announcement?')">Delete</button>
+                    </form>
+                  </div>
+                </article>
+              <% }) %>
+            </div>
+          <% } %>
+        </div>
+      </div>
+    </section>
+
+    <section class="glass-panel">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">Scheduled emails</h2>
+          <p class="panel-subtitle">Create reusable email automations with subject, content, recipient selection, activation control, and recurring daily, weekly, monthly, or one-time delivery.</p>
+        </div>
+        <div class="panel-actions">
+          <button type="button" id="open-campaign-modal" class="admin-btn automation-primary">Add automated email</button>
+        </div>
+      </div>
+
+      <div id="campaign-notice" class="notice" role="status" aria-live="polite"></div>
+
+      <div id="campaign-grid" class="campaign-grid"></div>
+    </section>
+  </div>
 </div>
+
+<section id="campaign-modal" class="modal-shell" hidden>
+  <div class="modal-backdrop" data-close-modal></div>
+  <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="campaign-modal-title">
+    <div class="modal-header">
+      <div>
+        <h2 id="campaign-modal-title" class="modal-title">Add automated email</h2>
+        <p class="modal-subtitle">Create a scheduled email without leaving this page. You can target users from the platform, add manual email addresses, and enable or disable the schedule any time.</p>
+      </div>
+      <button type="button" class="close-modal-btn" data-close-modal aria-label="Close scheduled email form">&times;</button>
+    </div>
+
+    <form id="campaign-form" class="campaign-form-grid">
+      <input type="hidden" id="campaign-id" />
+
+      <div class="toggle-row">
+        <div>
+          <strong>Automation status</strong>
+          <span>Keep the campaign ready but inactive until you want it to start sending.</span>
+        </div>
+        <label class="toggle-switch" for="campaign-active">
+          <input id="campaign-active" type="checkbox" checked />
+          <span class="toggle-slider"></span>
+          <span class="visually-hidden">Active status</span>
+        </label>
+      </div>
+
+      <div>
+        <label class="field-label" for="campaign-subject">Email subject</label>
+        <input id="campaign-subject" class="automation-input" type="text" placeholder="Monthly account health update" required />
+      </div>
+
+      <div>
+        <label class="field-label" for="campaign-content">Main content</label>
+        <textarea id="campaign-content" class="automation-textarea" placeholder="Write the email body here. Pasted links such as https://example.com are sent as clickable links." required></textarea>
+        <p class="field-help">Line breaks are preserved and pasted URLs become clickable links in the email.</p>
+      </div>
+
+      <div class="form-row">
+        <div>
+          <label class="field-label" for="campaign-frequency">Schedule</label>
+          <select id="campaign-frequency" class="automation-select">
+            <option value="once">One time</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label" for="campaign-send-time">Send time</label>
+          <input id="campaign-send-time" class="automation-input" type="time" value="09:00" required />
+        </div>
+      </div>
+
+      <div class="form-row-3">
+        <div>
+          <label class="field-label" for="campaign-start-date">Start date</label>
+          <input id="campaign-start-date" class="automation-input" type="date" required />
+        </div>
+        <div>
+          <label class="field-label" for="campaign-end-date">End date</label>
+          <input id="campaign-end-date" class="automation-input" type="date" />
+        </div>
+        <div id="campaign-weekday-field" hidden>
+          <label class="field-label" for="campaign-day-of-week">Day of week</label>
+          <select id="campaign-day-of-week" class="automation-select">
+            <option value="0">Sunday</option>
+            <option value="1">Monday</option>
+            <option value="2">Tuesday</option>
+            <option value="3">Wednesday</option>
+            <option value="4">Thursday</option>
+            <option value="5">Friday</option>
+            <option value="6">Saturday</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="campaign-monthday-field" hidden>
+        <label class="field-label" for="campaign-day-of-month">Day of month</label>
+        <input id="campaign-day-of-month" class="automation-input" type="number" min="1" max="31" placeholder="15" />
+      </div>
+
+      <div>
+        <label class="field-label" for="campaign-user-search">Choose existing users</label>
+        <div class="search-shell">
+          <input id="campaign-user-search" class="automation-input" type="search" placeholder="Search by name, email, or role" autocomplete="off" />
+          <div id="campaign-search-results" class="search-results" role="listbox"></div>
+        </div>
+        <div id="selected-users" class="selected-users" style="margin-top: 12px;"></div>
+      </div>
+
+      <div>
+        <label class="field-label" for="campaign-manual-emails">Manual email addresses</label>
+        <textarea id="campaign-manual-emails" class="automation-textarea" placeholder="person@example.com&#10;another@example.com"></textarea>
+        <p class="field-help">Separate addresses with a comma, semicolon, or a new line.</p>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="admin-btn automation-secondary" data-close-modal>Cancel</button>
+        <button type="submit" id="save-campaign-btn" class="admin-btn automation-primary">Save automated email</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<script>
+  (() => {
+    const campaignsEndpoint = '/admin/announcements/email-campaigns';
+    const recipientsEndpoint = '/admin/announcements/email-recipients';
+    let campaigns = <%- JSON.stringify(campaignList).replace(/</g, '\\u003c') %>;
+    let selectedUsers = new Map();
+    let searchResultCache = new Map();
+    let searchTimer = null;
+
+    const modal = document.getElementById('campaign-modal');
+    const openModalButton = document.getElementById('open-campaign-modal');
+    const closeModalButtons = Array.from(document.querySelectorAll('[data-close-modal]'));
+    const campaignGrid = document.getElementById('campaign-grid');
+    const notice = document.getElementById('campaign-notice');
+    const campaignForm = document.getElementById('campaign-form');
+    const campaignIdInput = document.getElementById('campaign-id');
+    const subjectInput = document.getElementById('campaign-subject');
+    const contentInput = document.getElementById('campaign-content');
+    const frequencyInput = document.getElementById('campaign-frequency');
+    const sendTimeInput = document.getElementById('campaign-send-time');
+    const startDateInput = document.getElementById('campaign-start-date');
+    const endDateInput = document.getElementById('campaign-end-date');
+    const weekdayField = document.getElementById('campaign-weekday-field');
+    const weekdayInput = document.getElementById('campaign-day-of-week');
+    const monthdayField = document.getElementById('campaign-monthday-field');
+    const monthdayInput = document.getElementById('campaign-day-of-month');
+    const activeInput = document.getElementById('campaign-active');
+    const manualEmailsInput = document.getElementById('campaign-manual-emails');
+    const userSearchInput = document.getElementById('campaign-user-search');
+    const searchResults = document.getElementById('campaign-search-results');
+    const selectedUsersContainer = document.getElementById('selected-users');
+    const saveButton = document.getElementById('save-campaign-btn');
+    const modalTitle = document.getElementById('campaign-modal-title');
+
+    function escapeHtml(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatDate(value) {
+      if (!value) return 'Not set';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return String(value);
+      return date.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+    }
+
+    function formatDateTime(value) {
+      if (!value) return 'Pending';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return String(value);
+      return date.toLocaleString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      });
+    }
+
+    function getToday() {
+      const today = new Date();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      return `${today.getFullYear()}-${month}-${day}`;
+    }
+
+    function showNotice(message, type) {
+      notice.textContent = message;
+      notice.className = `notice is-visible ${type === 'error' ? 'notice-error' : 'notice-success'}`;
+    }
+
+    function clearNotice() {
+      notice.className = 'notice';
+      notice.textContent = '';
+    }
+
+    function scheduleDescription(campaign) {
+      const frequency = String(campaign.frequency || '').toLowerCase();
+      const time = campaign.sendTime || '09:00';
+      if (frequency === 'daily') {
+        return `Daily at ${time}`;
+      }
+      if (frequency === 'weekly') {
+        const day = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][Number(campaign.dayOfWeek) || 0];
+        return `Weekly on ${day} at ${time}`;
+      }
+      if (frequency === 'monthly') {
+        return `Monthly on day ${campaign.dayOfMonth || 1} at ${time}`;
+      }
+      return `One time on ${formatDate(campaign.startDate)} at ${time}`;
+    }
+
+    function renderCampaigns() {
+      if (!Array.isArray(campaigns) || campaigns.length === 0) {
+        campaignGrid.innerHTML = '<div class="empty-state">No automated emails yet. Click "Add automated email" to create the first one.</div>';
+        return;
+      }
+
+      campaignGrid.innerHTML = campaigns.map((campaign) => {
+        const targetUsers = Array.isArray(campaign.targetUsers) ? campaign.targetUsers : [];
+        const recipientSummary = [];
+        if (targetUsers.length > 0) {
+          recipientSummary.push(`${targetUsers.length} platform user${targetUsers.length === 1 ? '' : 's'}`);
+        }
+        if (Array.isArray(campaign.manualEmails) && campaign.manualEmails.length > 0) {
+          recipientSummary.push(`${campaign.manualEmails.length} manual email${campaign.manualEmails.length === 1 ? '' : 's'}`);
+        }
+
+        const previewUsers = targetUsers.slice(0, 3).map((user) => `<span class="meta-pill">${escapeHtml(user.name || user.email)}</span>`).join('');
+        const previewManual = (campaign.manualEmails || []).slice(0, 2).map((email) => `<span class="meta-pill">${escapeHtml(email)}</span>`).join('');
+
+        return `
+          <article class="campaign-card" data-campaign-id="${campaign.id}">
+            <div class="card-header">
+              <div>
+                <h3>${escapeHtml(campaign.subject)}</h3>
+                <p class="panel-subtitle">${escapeHtml(scheduleDescription(campaign))}</p>
+              </div>
+              <span class="tag-pill ${campaign.isActive ? 'active' : 'inactive'}">${campaign.isActive ? 'Active' : 'Inactive'}</span>
+            </div>
+            <p class="card-copy">${escapeHtml(campaign.content)}</p>
+            <div class="card-meta">
+              <span class="meta-pill">Recipients: ${escapeHtml(recipientSummary.join(' + ') || 'None')}</span>
+              <span class="meta-pill">Starts: ${escapeHtml(formatDate(campaign.startDate))}</span>
+              <span class="meta-pill">Next send: ${escapeHtml(campaign.nextRunAt ? formatDateTime(campaign.nextRunAt) : 'Not scheduled')}</span>
+              <span class="meta-pill">Last sent: ${escapeHtml(campaign.lastSentAt ? formatDateTime(campaign.lastSentAt) : 'Not yet sent')}</span>
+            </div>
+            ${(campaign.lastError ? `<div class="notice is-visible notice-error" style="margin-top: 14px;">${escapeHtml(campaign.lastError)}</div>` : '')}
+            <div class="recipient-chips" style="margin-top: 14px;">
+              ${previewUsers}
+              ${previewManual}
+            </div>
+            <div class="campaign-actions">
+              <button type="button" class="admin-btn automation-secondary" data-action="edit" data-id="${campaign.id}">Edit</button>
+              <button type="button" class="admin-btn ${campaign.isActive ? 'automation-warm' : 'automation-primary'}" data-action="toggle" data-id="${campaign.id}">${campaign.isActive ? 'Make inactive' : 'Activate'}</button>
+              <button type="button" class="admin-btn automation-danger" data-action="delete" data-id="${campaign.id}">Delete</button>
+            </div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    function updateScheduleFieldVisibility() {
+      const frequency = frequencyInput.value;
+      weekdayField.hidden = frequency !== 'weekly';
+      monthdayField.hidden = frequency !== 'monthly';
+    }
+
+    function resetForm() {
+      campaignForm.reset();
+      selectedUsers = new Map();
+      campaignIdInput.value = '';
+      modalTitle.textContent = 'Add automated email';
+      activeInput.checked = true;
+      sendTimeInput.value = '09:00';
+      startDateInput.value = getToday();
+      endDateInput.value = '';
+      weekdayInput.value = '1';
+      monthdayInput.value = '';
+      renderSelectedUsers();
+      renderSearchResults([]);
+      updateScheduleFieldVisibility();
+    }
+
+    function openModal(campaign) {
+      resetForm();
+      if (campaign) {
+        modalTitle.textContent = 'Edit automated email';
+        campaignIdInput.value = campaign.id;
+        subjectInput.value = campaign.subject || '';
+        contentInput.value = campaign.content || '';
+        frequencyInput.value = campaign.frequency || 'once';
+        sendTimeInput.value = campaign.sendTime || '09:00';
+        startDateInput.value = campaign.startDate ? String(campaign.startDate).slice(0, 10) : getToday();
+        endDateInput.value = campaign.endDate ? String(campaign.endDate).slice(0, 10) : '';
+        weekdayInput.value = campaign.dayOfWeek ?? '1';
+        monthdayInput.value = campaign.dayOfMonth || '';
+        activeInput.checked = Boolean(campaign.isActive);
+        manualEmailsInput.value = Array.isArray(campaign.manualEmails) ? campaign.manualEmails.join('\n') : '';
+        selectedUsers = new Map((campaign.targetUsers || []).map((user) => [Number(user.userId), user]));
+        renderSelectedUsers();
+        updateScheduleFieldVisibility();
+      }
+
+      modal.hidden = false;
+      document.body.style.overflow = 'hidden';
+      window.setTimeout(() => subjectInput.focus(), 30);
+    }
+
+    function closeModal() {
+      modal.hidden = true;
+      document.body.style.overflow = '';
+      renderSearchResults([]);
+    }
+
+    function renderSelectedUsers() {
+      if (selectedUsers.size === 0) {
+        selectedUsersContainer.innerHTML = '<span class="field-help">No platform users selected yet.</span>';
+        return;
+      }
+
+      selectedUsersContainer.innerHTML = Array.from(selectedUsers.values()).map((user) => `
+        <span class="selected-user-chip">
+          <span>${escapeHtml(user.name || user.email)} (${escapeHtml(user.email)})</span>
+          <button type="button" data-remove-user="${user.userId}" aria-label="Remove ${escapeHtml(user.name || user.email)}">&times;</button>
+        </span>
+      `).join('');
+    }
+
+    function renderSearchResults(users) {
+      if (!Array.isArray(users) || users.length === 0) {
+        searchResultCache = new Map();
+        searchResults.classList.remove('is-visible');
+        searchResults.innerHTML = '';
+        return;
+      }
+
+      searchResultCache = new Map(users.map((user) => [Number(user.userId), user]));
+      searchResults.innerHTML = users.map((user) => `
+        <button type="button" class="search-result" data-user-id="${user.userId}">
+          <span>
+            <strong>${escapeHtml(user.name || user.email)}</strong>
+            <span>${escapeHtml(user.email)}</span>
+          </span>
+          <span>${escapeHtml(user.accountType || 'User')}</span>
+        </button>
+      `).join('');
+      searchResults.classList.add('is-visible');
+    }
+
+    async function searchUsers(query) {
+      const response = await fetch(`${recipientsEndpoint}?q=${encodeURIComponent(query || '')}`, {
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json'
+        }
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.message || 'Failed to search users.');
+      }
+      renderSearchResults((payload.users || []).filter((user) => !selectedUsers.has(Number(user.userId))));
+    }
+
+    function collectPayload() {
+      return {
+        subject: subjectInput.value.trim(),
+        content: contentInput.value.trim(),
+        frequency: frequencyInput.value,
+        sendTime: sendTimeInput.value,
+        startDate: startDateInput.value,
+        endDate: endDateInput.value,
+        dayOfWeek: weekdayInput.value,
+        dayOfMonth: monthdayInput.value,
+        isActive: activeInput.checked,
+        manualEmails: manualEmailsInput.value,
+        targetUserIds: Array.from(selectedUsers.keys()),
+      };
+    }
+
+    async function fetchJson(url, options) {
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          ...(options && options.headers ? options.headers : {}),
+        },
+      });
+
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.message || 'Request failed.');
+      }
+      return payload;
+    }
+
+    async function saveCampaign(event) {
+      event.preventDefault();
+      clearNotice();
+      saveButton.disabled = true;
+      saveButton.textContent = 'Saving...';
+
+      try {
+        const campaignId = campaignIdInput.value;
+        const payload = collectPayload();
+        const method = campaignId ? 'PUT' : 'POST';
+        const url = campaignId ? `${campaignsEndpoint}/${campaignId}` : campaignsEndpoint;
+        const result = await fetchJson(url, {
+          method,
+          body: JSON.stringify(payload),
+        });
+
+        campaigns = result.campaigns || [];
+        renderCampaigns();
+        showNotice(result.message || 'Scheduled email saved.', 'success');
+        closeModal();
+      } catch (error) {
+        showNotice(error.message || 'Unable to save the scheduled email.', 'error');
+      } finally {
+        saveButton.disabled = false;
+        saveButton.textContent = 'Save automated email';
+      }
+    }
+
+    async function onCampaignAction(event) {
+      const button = event.target.closest('button[data-action]');
+      if (!button) return;
+
+      const campaignId = Number(button.getAttribute('data-id'));
+      const action = button.getAttribute('data-action');
+      const campaign = campaigns.find((item) => Number(item.id) === campaignId);
+      if (!campaign) return;
+
+      if (action === 'edit') {
+        openModal(campaign);
+        return;
+      }
+
+      if (action === 'toggle') {
+        try {
+          const result = await fetchJson(`${campaignsEndpoint}/${campaignId}/toggle`, { method: 'POST' });
+          campaigns = result.campaigns || [];
+          renderCampaigns();
+          showNotice(result.message || 'Scheduled email updated.', 'success');
+        } catch (error) {
+          showNotice(error.message || 'Unable to update the scheduled email.', 'error');
+        }
+        return;
+      }
+
+      if (action === 'delete') {
+        if (!window.confirm('Delete this automated email?')) return;
+        try {
+          const result = await fetchJson(`${campaignsEndpoint}/${campaignId}`, { method: 'DELETE' });
+          campaigns = result.campaigns || [];
+          renderCampaigns();
+          showNotice(result.message || 'Scheduled email deleted.', 'success');
+        } catch (error) {
+          showNotice(error.message || 'Unable to delete the scheduled email.', 'error');
+        }
+      }
+    }
+
+    openModalButton.addEventListener('click', () => openModal(null));
+    closeModalButtons.forEach((button) => button.addEventListener('click', closeModal));
+    campaignForm.addEventListener('submit', saveCampaign);
+    campaignGrid.addEventListener('click', onCampaignAction);
+    frequencyInput.addEventListener('change', updateScheduleFieldVisibility);
+
+    selectedUsersContainer.addEventListener('click', (event) => {
+      const removeButton = event.target.closest('button[data-remove-user]');
+      if (!removeButton) return;
+      const userId = Number(removeButton.getAttribute('data-remove-user'));
+      selectedUsers.delete(userId);
+      renderSelectedUsers();
+    });
+
+    userSearchInput.addEventListener('input', () => {
+      const query = userSearchInput.value.trim();
+      window.clearTimeout(searchTimer);
+
+      if (!query) {
+        renderSearchResults([]);
+        return;
+      }
+
+      searchTimer = window.setTimeout(async () => {
+        try {
+          await searchUsers(query);
+        } catch (error) {
+          showNotice(error.message || 'Unable to search users.', 'error');
+        }
+      }, 220);
+    });
+
+    userSearchInput.addEventListener('focus', async () => {
+      if (userSearchInput.value.trim()) {
+        return;
+      }
+
+      try {
+        await searchUsers('');
+      } catch (error) {
+        showNotice(error.message || 'Unable to search users.', 'error');
+      }
+    });
+
+    searchResults.addEventListener('click', (event) => {
+      const resultButton = event.target.closest('button[data-user-id]');
+      if (!resultButton) return;
+
+      const userId = Number(resultButton.getAttribute('data-user-id'));
+      const payload = searchResultCache.get(userId);
+      if (!payload) {
+        showNotice('Unable to add that user right now.', 'error');
+        return;
+      }
+
+      selectedUsers.set(Number(payload.userId), payload);
+      renderSelectedUsers();
+      renderSearchResults([]);
+      userSearchInput.value = '';
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !modal.hidden) {
+        closeModal();
+      }
+    });
+
+    renderCampaigns();
+    resetForm();
+  })();
+</script>

@@ -10640,7 +10640,7 @@ async function sendPasswordSetSuccessEmail(email, firstName, lastName) {
       "Your password has been set successfully. You can now log in with your email and new password.",
       "If you did not perform this action, please contact your administrator immediately.",
     ],
-    note: 'If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
+    note: 'If you have any questions, please visit our <a href="https://docs.google.com/document/d/1bgFP5cCQyr-9jdaYZTsWO8ONAnAuNUKqKQ2if_4TBOM/edit?tab=t.o84y9ldsnqto#heading=h.o10u93e8wqgq" target="_blank" rel="noopener">User Documentation Guide</a>, <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a>, or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
   });
   const mailOptions = {
     from: process.env.NOTIFY_EMAIL_USER,

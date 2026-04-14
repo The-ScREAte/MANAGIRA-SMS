@@ -164,6 +164,12 @@ module.exports = (db) => {
     router.post("/announcements", isAuthenticated, ensureAdmin, adminController.createAdminAnnouncement);
     router.post("/announcements/toggle/:id", isAuthenticated, ensureAdmin, adminController.toggleAdminAnnouncement);
     router.post("/announcements/delete/:id", isAuthenticated, ensureAdmin, adminController.deleteAdminAnnouncement);
+    router.get("/announcements/email-campaigns", isAuthenticated, ensureAdmin, adminController.listAdminEmailCampaigns);
+    router.get("/announcements/email-recipients", isAuthenticated, ensureAdmin, adminController.searchAdminEmailRecipients);
+    router.post("/announcements/email-campaigns", isAuthenticated, ensureAdmin, adminController.createAdminEmailCampaign);
+    router.put("/announcements/email-campaigns/:id", isAuthenticated, ensureAdmin, adminController.updateAdminEmailCampaign);
+    router.post("/announcements/email-campaigns/:id/toggle", isAuthenticated, ensureAdmin, adminController.toggleAdminEmailCampaign);
+    router.delete("/announcements/email-campaigns/:id", isAuthenticated, ensureAdmin, adminController.deleteAdminEmailCampaign);
     
 
     // Help tickets and messages

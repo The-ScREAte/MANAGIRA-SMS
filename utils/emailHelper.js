@@ -1,6 +1,9 @@
 const nodemailer = require("nodemailer");
 const dns = require("dns");
+const path = require("path");
 require("dotenv").config();
+
+const MANAGIRA_LOGO_PATH = path.join(__dirname, "../public/images/managira.png");
 
 // Cache verified domains to avoid repeated DNS lookups
 const _domainCache = new Map();
@@ -153,7 +156,7 @@ function renderCleanEmail({
     <div style="background:#f8fafc;padding:24px 0;">
       <div style="max-width:620px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
         <div style="background:#0f766e;padding:18px 22px;">
-          <img src="https://www.managira.com/images/managira.png" alt="Managira" style="height:40px;display:block;">
+          <img src="cid:managira_logo" alt="Managira" style="height:40px;display:block;">
         </div>
         <div style="padding:24px 22px;color:#0f172a;line-height:1.65;">
           <h2 style="margin:0 0 14px;font-size:21px;color:#0f766e;font-weight:700;">${escapeHtml(title || "Notification")}</h2>
@@ -246,16 +249,25 @@ async function sendEmailSafely(mailOptions, context = "Email") {
 
     // Strip smtpConfig if caller passed it (we ignore custom transporter configs)
     const { smtpConfig, from: _ignoredFrom, ...restOptions } = mailOptions;
+    const mergedAttachments = Array.isArray(restOptions.attachments) ? [...restOptions.attachments] : [];
+    const hasInlineLogo = mergedAttachments.some((item) => item && item.cid === 'managira_logo');
+    if (restOptions.html && !hasInlineLogo) {
+      mergedAttachments.push({
+        filename: 'managira.png',
+        path: MANAGIRA_LOGO_PATH,
+        cid: 'managira_logo',
+      });
+    }
 
     console.info(`[Email][${context}] sending via SMTP to ${restOptions.to}`);
 
     const info = await transporter.sendMail({
       from,
       ...restOptions,
+      attachments: mergedAttachments,
       headers: {
         ...restOptions.headers,
         'X-Auto-Response-Suppress': 'All',
-        'Auto-Submitted': 'auto-generated',
       },
     });
 
