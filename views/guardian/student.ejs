@@ -119,6 +119,62 @@
     font-size: 0.9rem;
   }
 
+  .schedule-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .schedule-day-card {
+    border: 1px solid var(--guardian-border, #e2e8f0);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--guardian-bg-secondary, #f8fafc);
+  }
+
+  .schedule-day-card h4 {
+    margin: 0;
+    padding: 12px 14px;
+    background: rgba(15, 90, 102, 0.08);
+    color: var(--guardian-text-primary, #1e293b);
+    border-bottom: 1px solid var(--guardian-border, #e2e8f0);
+    font-size: 0.95rem;
+  }
+
+  .schedule-day-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .schedule-day-list li {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--guardian-border, #e2e8f0);
+  }
+
+  .schedule-day-list li:last-child {
+    border-bottom: none;
+  }
+
+  .schedule-time {
+    font-weight: 700;
+    color: var(--guardian-text-primary, #1e293b);
+    white-space: nowrap;
+  }
+
+  .schedule-subject {
+    color: var(--guardian-text-secondary, #64748b);
+    text-align: right;
+  }
+
+  .schedule-empty {
+    color: var(--guardian-text-secondary, #64748b);
+    margin: 0;
+  }
+
   .scores-table tbody tr:hover {
     background: var(--guardian-bg-secondary, #f8fafc);
   }
@@ -182,6 +238,10 @@
     .scores-table td {
       padding: 10px 12px;
       font-size: 0.85rem;
+    }
+
+    .schedule-grid {
+      grid-template-columns: 1fr;
     }
   }
 
@@ -273,6 +333,32 @@
           </tbody>
         </table>
       </div>
+    <% } %>
+  </div>
+
+  <div class="content-card">
+    <h3>🗓️ Class Schedule</h3>
+    <% if (classSchedule && classSchedule.groupedByDay.some(day => day.items.length)) { %>
+      <p style="margin: 0 0 16px; color: #64748b;"><%= classSchedule.schoolYearLabel %> · <%= classSchedule.termName %></p>
+      <div class="schedule-grid">
+        <% classSchedule.groupedByDay.forEach(day => { %>
+          <% if (day.items.length) { %>
+          <section class="schedule-day-card">
+            <h4><%= day.dayLabel %></h4>
+            <ul class="schedule-day-list">
+              <% day.items.forEach(item => { %>
+              <li>
+                <span class="schedule-time"><%= item.startTime %> - <%= item.endTime %></span>
+                <span class="schedule-subject"><%= item.subjectName || 'Subject pending' %></span>
+              </li>
+              <% }) %>
+            </ul>
+          </section>
+          <% } %>
+        <% }) %>
+      </div>
+    <% } else { %>
+      <p class="schedule-empty">The timetable for this term has not been added yet.</p>
     <% } %>
   </div>
 

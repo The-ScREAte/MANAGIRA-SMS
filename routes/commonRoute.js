@@ -291,6 +291,18 @@ module.exports = (db) => {
     isAuthenticated,
     (req, res) => commonController.classDashboard(req, res, db)
   );
+  router.get("/classSchedule", isAuthenticated, (req, res) =>
+    commonController.getClassSchedule(req, res, db)
+  );
+  router.post("/classSchedule/save", isAuthenticated, (req, res) =>
+    commonController.saveClassSchedule(req, res, db)
+  );
+  router.post("/classSchedule/delete", isAuthenticated, (req, res) =>
+    commonController.deleteClassSchedule(req, res, db)
+  );
+  router.post("/classSchedule/reuse", isAuthenticated, (req, res) =>
+    commonController.reuseClassSchedule(req, res, db)
+  );
   router.post("/registerSchoolYear", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS), (req, res) =>
     commonController.registerSchoolYear(req, res, db)
   );

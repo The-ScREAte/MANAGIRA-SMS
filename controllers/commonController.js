@@ -35,6 +35,17 @@ const {
   WEEKDAY_OPTIONS,
   getTermRecord,
 } = require("../utils/attendanceCalendar");
+const {
+  WEEKDAY_OPTIONS: CLASS_SCHEDULE_WEEKDAYS,
+  canManageClassSchedule,
+  getClassScheduleBundle,
+  getClassScheduleForTerm,
+  getClassScheduleSubjects,
+  getTermContext,
+  saveClassSchedule: persistClassSchedule,
+  deleteClassSchedule: removeClassSchedule,
+  clonePreviousClassSchedule,
+} = require("../utils/classScheduleService");
 const { hasGuardianPortalFeature } = require("../utils/guardianPortalAccess");
 const { triggerAbsenceAlertsForStudents, broadcastEventAnnouncement, notifyGuardiansOnClassChange, notifyTeacherOnReassignment, notifyTeachersOnAssessmentControl, resolveAssignmentNames, notifyEmployeeOnHoldChange, notifyGuardianAdmissionReceived, notifyGuardianOnStaffReply } = require("../utils/notificationDigestService");
 
@@ -416,6 +427,39 @@ async function getClassEmployeesWithMain(db, classId) {
     `;
   const result = await db.query(employeesQuery, [classId]);
   return result.rows;
+}
+
+function getSessionUserId(req) {
+  return req?.session?.userId || req?.session?.user?.user_id || null;
+}
+
+function buildClassSchedulePermissions(req, isMainTeacher) {
+  return canManageClassSchedule(req?.session?.userRole, isMainTeacher);
+}
+
+function buildClassSchedulePayload(options) {
+  const {
+    canEdit,
+    subjects,
+    term,
+    schedule,
+    previousSchedule,
+  } = options;
+
+  return {
+    success: true,
+    canEdit: Boolean(canEdit),
+    weekdays: CLASS_SCHEDULE_WEEKDAYS,
+    subjects: subjects || [],
+    currentTerm: {
+      termId: term?.term_id || null,
+      termName: term?.term_name || "Current Term",
+      schoolYearId: term?.school_year_id || null,
+      schoolYearLabel: term?.year_label || "",
+    },
+    schedule: schedule || null,
+    previousSchedule: previousSchedule || null,
+  };
 }
 
 async function fetchStudentsByClass(db, classId) {
@@ -4039,6 +4083,9 @@ const commonController = {
       );
 
       const termNameForPage = termResult.rows[0]?.term_name || "Unknown";
+      const classSchedule = classId
+        ? await getClassScheduleForTerm(db, { organizationId, classId, termId })
+        : null;
 
       res.render("common/studentDetails", {
         title: "Student Details",
@@ -4055,6 +4102,7 @@ const commonController = {
         currentTermName,
         enrolledClassForTerm,
         termNameForPage,
+        classSchedule,
         studentEnrolledInCurrent,
         messages: req.flash(),
       });
@@ -7597,6 +7645,21 @@ const commonController = {
           ? mainTeacherResult.rows[0].user_id
           : null;
       const isMainTeacher = currentUserId === mainTeacherId;
+      const canEditClassSchedule = buildClassSchedulePermissions(req, isMainTeacher);
+      const scheduleSubjects = await getClassScheduleSubjects(db, { organizationId, classId });
+      const scheduleBundle = await getClassScheduleBundle(db, { organizationId, classId, termId: currentTerm.term_id });
+      const initialClassScheduleData = buildClassSchedulePayload({
+        canEdit: canEditClassSchedule,
+        subjects: scheduleSubjects,
+        term: scheduleBundle?.term || {
+          term_id: currentTerm.term_id,
+          term_name: currentTerm.term_name,
+          school_year_id: schoolYear.id,
+          year_label: schoolYear.year_label,
+        },
+        schedule: scheduleBundle?.currentSchedule || null,
+        previousSchedule: scheduleBundle?.previousSchedule || null,
+      });
 
       // Fetch employees associated with the class
       const employees = await getClassEmployeesWithMain(db, classId);
@@ -7649,11 +7712,169 @@ const commonController = {
         messages: req.flash(),
         csrfToken: csrfToken,
         isMainTeacher: isMainTeacher,
+        canEditClassSchedule,
+        classScheduleWeekdays: CLASS_SCHEDULE_WEEKDAYS,
+        scheduleSubjects,
+        initialClassScheduleData,
         assignedFilesCount,
         classReportsCount,
       });
     } catch (err) {
             res.status(500).send("Error loading class dashboard");
+    }
+  },
+
+  getClassSchedule: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    const classId = Number.parseInt(req.query.classId, 10);
+    const termId = Number.parseInt(req.query.termId || req.session.currentTermId, 10);
+    const currentUserId = getSessionUserId(req);
+
+    if (!Number.isInteger(classId) || !Number.isInteger(termId)) {
+      return res.status(400).json({ success: false, message: "Class and term are required." });
+    }
+
+    try {
+      const mainTeacherResult = await db.query(
+        `SELECT user_id FROM user_classes WHERE class_id = $1 AND main = TRUE LIMIT 1`,
+        [classId]
+      );
+      const isMainTeacher = Number(mainTeacherResult.rows[0]?.user_id || 0) === Number(currentUserId || 0);
+      const bundle = await getClassScheduleBundle(db, { organizationId, classId, termId });
+      const subjects = await getClassScheduleSubjects(db, { organizationId, classId });
+      if (!bundle) {
+        const term = await getTermContext(db, organizationId, termId);
+        if (!term) {
+          return res.status(404).json({ success: false, message: "Class schedule context could not be loaded." });
+        }
+
+        return res.json(
+          buildClassSchedulePayload({
+            canEdit: buildClassSchedulePermissions(req, isMainTeacher),
+            subjects,
+            term,
+            schedule: null,
+            previousSchedule: null,
+          })
+        );
+      }
+
+      return res.json(
+        buildClassSchedulePayload({
+          canEdit: buildClassSchedulePermissions(req, isMainTeacher),
+          subjects,
+          term: bundle.term,
+          schedule: bundle.currentSchedule,
+          previousSchedule: bundle.previousSchedule,
+        })
+      );
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Failed to load class schedule." });
+    }
+  },
+
+  saveClassSchedule: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    const classId = Number.parseInt(req.body.classId, 10);
+    const termId = Number.parseInt(req.body.termId || req.session.currentTermId, 10);
+    const schoolYearId = Number.parseInt(req.body.schoolYearId, 10);
+    const actorUserId = getSessionUserId(req);
+
+    if (!Number.isInteger(classId) || !Number.isInteger(termId) || !Number.isInteger(schoolYearId)) {
+      return res.status(400).json({ success: false, message: "Class, school year, and term are required." });
+    }
+
+    try {
+      const mainTeacherResult = await db.query(
+        `SELECT user_id FROM user_classes WHERE class_id = $1 AND main = TRUE LIMIT 1`,
+        [classId]
+      );
+      const isMainTeacher = Number(mainTeacherResult.rows[0]?.user_id || 0) === Number(actorUserId || 0);
+
+      if (!buildClassSchedulePermissions(req, isMainTeacher)) {
+        return res.status(403).json({ success: false, message: "You can only view this schedule." });
+      }
+
+      const schedule = await persistClassSchedule(db, {
+        organizationId,
+        classId,
+        termId,
+        schoolYearId,
+        entries: req.body.entries,
+        actorUserId,
+      });
+
+      return res.json({ success: true, message: "Class schedule saved.", schedule });
+    } catch (error) {
+      return res.status(400).json({ success: false, message: error.message || "Failed to save class schedule." });
+    }
+  },
+
+  deleteClassSchedule: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    const classId = Number.parseInt(req.body.classId, 10);
+    const termId = Number.parseInt(req.body.termId || req.session.currentTermId, 10);
+    const actorUserId = getSessionUserId(req);
+
+    if (!Number.isInteger(classId) || !Number.isInteger(termId)) {
+      return res.status(400).json({ success: false, message: "Class and term are required." });
+    }
+
+    try {
+      const mainTeacherResult = await db.query(
+        `SELECT user_id FROM user_classes WHERE class_id = $1 AND main = TRUE LIMIT 1`,
+        [classId]
+      );
+      const isMainTeacher = Number(mainTeacherResult.rows[0]?.user_id || 0) === Number(actorUserId || 0);
+
+      if (!buildClassSchedulePermissions(req, isMainTeacher)) {
+        return res.status(403).json({ success: false, message: "You can only view this schedule." });
+      }
+
+      await removeClassSchedule(db, { organizationId, classId, termId });
+      return res.json({ success: true, message: "Class schedule deleted." });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Failed to delete class schedule." });
+    }
+  },
+
+  reuseClassSchedule: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    const classId = Number.parseInt(req.body.classId, 10);
+    const termId = Number.parseInt(req.body.termId || req.session.currentTermId, 10);
+    const schoolYearId = Number.parseInt(req.body.schoolYearId, 10);
+    const actorUserId = getSessionUserId(req);
+
+    if (!Number.isInteger(classId) || !Number.isInteger(termId) || !Number.isInteger(schoolYearId)) {
+      return res.status(400).json({ success: false, message: "Class, school year, and term are required." });
+    }
+
+    try {
+      const mainTeacherResult = await db.query(
+        `SELECT user_id FROM user_classes WHERE class_id = $1 AND main = TRUE LIMIT 1`,
+        [classId]
+      );
+      const isMainTeacher = Number(mainTeacherResult.rows[0]?.user_id || 0) === Number(actorUserId || 0);
+
+      if (!buildClassSchedulePermissions(req, isMainTeacher)) {
+        return res.status(403).json({ success: false, message: "You can only view this schedule." });
+      }
+
+      const schedule = await clonePreviousClassSchedule(db, {
+        organizationId,
+        classId,
+        termId,
+        schoolYearId,
+        actorUserId,
+      });
+
+      return res.json({
+        success: true,
+        message: "Previous schedule copied. Subjects not found in this term were left empty and may need to be filled in.",
+        schedule,
+      });
+    } catch (error) {
+      return res.status(400).json({ success: false, message: error.message || "Failed to reuse previous class schedule." });
     }
   },
 

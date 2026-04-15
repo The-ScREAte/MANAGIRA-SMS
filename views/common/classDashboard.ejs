@@ -889,6 +889,459 @@ main {
   transform: none;
 }
 
+.schedule-modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.52);
+  z-index: 1100;
+  backdrop-filter: blur(6px);
+}
+
+.schedule-modal-overlay.active { display: flex; }
+
+.schedule-modal-box {
+  width: min(1100px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.18);
+  position: relative;
+}
+
+.schedule-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: #475569;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.schedule-modal-body {
+  padding: 28px;
+}
+
+.schedule-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.schedule-title {
+  margin: 0;
+  font-size: 1.65rem;
+  color: var(--text);
+}
+
+.schedule-subtext {
+  margin: 8px 0 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.schedule-toolbar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.schedule-toolbar .nav-link {
+  white-space: nowrap;
+}
+
+.schedule-action-button {
+  position: relative;
+  justify-content: center;
+}
+
+.schedule-action-button[disabled] {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.schedule-action-button.is-loading {
+  padding-left: 36px;
+}
+
+.schedule-action-button.is-loading::before {
+  content: '';
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin-top: -6px;
+  border-radius: 999px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: schedule-spin 0.8s linear infinite;
+}
+
+.schedule-readonly-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #dbeafe;
+  background: #f8fbff;
+  border-radius: 14px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.schedule-notice {
+  display: none;
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.schedule-notice.is-visible { display: block; }
+.schedule-notice.is-success { background: #ecfdf5; color: #166534; border: 1px solid #bbf7d0; }
+.schedule-notice.is-error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+.schedule-notice.is-info { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+
+.schedule-shell {
+  display: grid;
+  gap: 18px;
+  position: relative;
+}
+
+.schedule-shell.with-watermark::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--schedule-watermark-image);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: min(380px, 72%);
+  opacity: 0.07;
+  pointer-events: none;
+}
+
+.schedule-shell > * {
+  position: relative;
+  z-index: 1;
+}
+
+.schedule-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.schedule-summary-card {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #fff;
+  padding: 14px 16px;
+}
+
+.schedule-summary-card span {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
+
+.schedule-summary-card strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--text);
+  font-size: 16px;
+}
+
+.schedule-empty,
+.schedule-prompt {
+  border: 1px dashed rgba(148, 163, 184, 0.5);
+  border-radius: 18px;
+  padding: 24px;
+  background: #fff;
+}
+
+.schedule-empty h4,
+.schedule-prompt h4 {
+  margin: 0 0 10px;
+  font-size: 1.1rem;
+  color: var(--text);
+}
+
+.schedule-empty p,
+.schedule-prompt p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.schedule-prompt-actions,
+.schedule-editor-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.schedule-table-wrap {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: #fff;
+}
+
+.schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 980px;
+  table-layout: fixed;
+}
+
+.schedule-table th,
+.schedule-table td {
+  padding: 0;
+  border: 1px solid #d7dee8;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.schedule-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.schedule-table tr:last-child td { border-bottom: none; }
+
+.schedule-table .schedule-day-cell {
+  min-width: 140px;
+  padding: 14px 10px;
+  background: #f8fafc;
+  font-weight: 800;
+  color: #0f172a;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+}
+
+.schedule-slot-header {
+  min-width: 140px;
+  background: linear-gradient(180deg, #fff 0%, #f8fbff 100%);
+}
+
+.schedule-slot-header-inner {
+  padding: 10px 10px 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.schedule-slot-period-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.schedule-slot-period {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.schedule-slot-time-grid {
+  display: grid;
+  gap: 6px;
+}
+
+.schedule-slot-time-display {
+  font-size: 12px;
+  color: #0f172a;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.schedule-slot-remove {
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid #fecaca;
+  background: #fff5f5;
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.schedule-day-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.schedule-day-label-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schedule-day-restore-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.schedule-day-restore-label {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.schedule-day-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.schedule-cell-input,
+.schedule-cell-select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #cbd5e1;
+  font: inherit;
+  background: #fff;
+  color: #0f172a;
+  box-sizing: border-box;
+}
+
+.schedule-cell-input:focus,
+.schedule-cell-select:focus {
+  outline: none;
+  border-color: rgba(1, 83, 91, 0.55);
+  box-shadow: 0 0 0 4px rgba(1, 83, 91, 0.08);
+}
+
+.schedule-slot-time-input {
+  text-align: center;
+  font-weight: 700;
+  padding: 5px 4px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+
+.schedule-cell-select {
+  min-width: 140px;
+  min-height: 78px;
+  border: none;
+  border-radius: 0;
+  text-align: center;
+  background: transparent;
+  appearance: none;
+  cursor: pointer;
+  padding-right: 34px;
+}
+
+.schedule-cell-select-wrap {
+  position: relative;
+  min-width: 140px;
+  min-height: 78px;
+}
+
+.schedule-cell-arrow {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  color: #64748b;
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.schedule-readonly-cell {
+  min-width: 140px;
+  min-height: 78px;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.schedule-readonly-cell.is-empty {
+  color: #94a3b8;
+}
+
+.schedule-readonly-value {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.schedule-readonly-subject {
+  display: inline-block;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #334155;
+  font-weight: 600;
+}
+
+.schedule-row-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.schedule-inline-note {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+@keyframes schedule-spin {
+  to { transform: rotate(360deg); }
+}
+
 @media (max-width: 640px) {
   .report-modal-overlay { padding: 60px 8px 20px; }
   .rd-modal-body { padding: 16px; }
@@ -896,6 +1349,20 @@ main {
   .rd-reply-header { flex-direction: column; align-items: flex-start; gap: 2px; }
   .rp-card { flex-direction: column; align-items: flex-start; }
   .rp-right { width: 100%; justify-content: space-between; }
+  .schedule-modal-overlay { padding: 12px; }
+  .schedule-modal-box { width: 100%; max-height: calc(100vh - 24px); border-radius: 18px; }
+  .schedule-modal-body { padding: 18px; }
+  .schedule-header { flex-direction: column; }
+  .schedule-toolbar { width: 100%; flex-wrap: wrap; justify-content: flex-start; }
+  .schedule-toolbar .nav-link { flex: 1 1 120px; }
+  .schedule-readonly-banner { flex-direction: column; align-items: flex-start; }
+  .schedule-summary-grid { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 480px) {
+  .schedule-summary-grid { grid-template-columns: 1fr; }
+  .schedule-day-restore-row { align-items: flex-start; }
+  .schedule-day-chip { width: 100%; justify-content: center; }
 }
 </style>
 
@@ -919,6 +1386,22 @@ main {
         </div>
         <div class="side-nav">
           <ul class="nav-list">
+            <li class="nav-section-label">Communication</li>
+            <li>
+              <a class="nav-link" href="#" id="reports-nav-link" onclick="toggleReportsPanel(event)">
+                <span class="files-link-inline">📋 Reports
+                  <% if ((classReportsCount || 0) > 0) { %>
+                    <span class="files-badge" title="Reports"><%= classReportsCount %></span>
+                  <% } %>
+                </span>
+              </a>
+            </li>
+
+            <li class="nav-section-label">Tools</li>
+            <li>
+              <a class="nav-link" href="#" id="class-schedule-nav-link" onclick="toggleClassScheduleModal(event)">Class Schedule</a>
+            </li>
+
             <% if (hasAttendanceFeature && (userRole !== "Teacher" || isMainTeacher)) { %>
               <li><a class="nav-link" href="/common/attendanceCollection?classId=<%= classId %>&termId=<%= currentTerm.term_id %>">Attendance</a></li>
             <% } %>
@@ -939,7 +1422,6 @@ main {
             <% } %>
 
             <% if (hasFilesFeature) { %>
-              <li class="nav-section-label">Tools</li>
               <li>
                 <a class="nav-link" href="/documents?classId=<%= classId %>&create=1" title="Docs/Sheets" data-no-spa>
                   <span class="files-link-inline">📁 Docs/Sheets
@@ -950,16 +1432,7 @@ main {
                 </a>
               </li>
             <% } %>
-              <li class="nav-section-label">Communication</li>
-              <li>
-                <a class="nav-link" href="#" id="reports-nav-link" onclick="toggleReportsPanel(event)">
-                  <span class="files-link-inline">📋 Reports
-                    <% if ((classReportsCount || 0) > 0) { %>
-                      <span class="files-badge" title="Reports"><%= classReportsCount %></span>
-                    <% } %>
-                  </span>
-                </a>
-              </li>
+
           </ul>
         </div>
       </aside>
@@ -1069,13 +1542,55 @@ main {
               </div>
             </div>
           </div>
+
+          <div class="schedule-modal-overlay" id="classScheduleModal">
+            <div class="schedule-modal-box">
+              <button class="schedule-modal-close" type="button" onclick="closeClassScheduleModal()">×</button>
+              <div class="schedule-modal-body">
+                <div class="schedule-header">
+                  <div>
+                    <h2 class="schedule-title">Class Schedule</h2>
+                    <p class="schedule-subtext">Build, reuse, print, and review this class timetable for the current term without leaving the dashboard.</p>
+                  </div>
+                  <div class="schedule-toolbar" id="classScheduleToolbar"></div>
+                </div>
+                <div id="classScheduleNotice" class="schedule-notice" role="status" aria-live="polite"></div>
+                <div id="classScheduleContent" class="schedule-shell">
+                  <p style="color:#6b7280;font-size:13px;">Loading class schedule...</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </main>
     </div>
   </div>
 
   <script>
+    var classScheduleContext;
+    var classScheduleState;
+
     (function () {
+      classScheduleContext = {
+        classId: Number('<%= classId %>'),
+        termId: Number('<%= currentTerm.term_id %>'),
+        schoolYearId: Number('<%= schoolYear.id %>'),
+        schoolYearLabel: <%- JSON.stringify(schoolYear.year_label) %>,
+        termName: <%- JSON.stringify(currentTerm.term_name) %>,
+        className: <%- JSON.stringify(className) %>,
+        logoUrl: <%- JSON.stringify((session && session.logo) || '') %>,
+        canEdit: <%= canEditClassSchedule ? 'true' : 'false' %>,
+        weekdays: <%- JSON.stringify(classScheduleWeekdays || []) %>,
+      };
+      classScheduleState = {
+        payload: <%- JSON.stringify(initialClassScheduleData || null) %>,
+        draftRows: [],
+        isLoadedOnce: <%= initialClassScheduleData ? 'true' : 'false' %>,
+        isCreating: false,
+        isEditing: false,
+        pendingAction: '',
+      };
+
       window.setMainEmployee = function (classId, userId) {
         const confirmationMessage = "Are you sure you want to set this teacher as the main teacher for this class? The main teacher will have full access and is the only teacher who can mark attendance.";
         if (!confirm(confirmationMessage)) return;
@@ -1379,5 +1894,819 @@ main {
           btn.textContent = 'Send Reply';
         });
     }
+
+    function toggleClassScheduleModal(e) {
+      if (e) e.preventDefault();
+      var modal = document.getElementById('classScheduleModal');
+      if (!modal) return;
+      classScheduleState.isEditing = false;
+      classScheduleState.pendingAction = '';
+      modal.classList.add('active');
+      if (classScheduleState.payload) {
+        syncDraftRowsFromPayload(classScheduleState.payload);
+        renderClassSchedule();
+        refreshClassScheduleInBackground();
+        return;
+      }
+      loadClassSchedule();
+    }
+
+    function closeClassScheduleModal() {
+      var modal = document.getElementById('classScheduleModal');
+      classScheduleState.isEditing = false;
+      classScheduleState.pendingAction = '';
+      if (classScheduleState.payload) {
+        syncDraftRowsFromPayload(classScheduleState.payload);
+      }
+      if (modal) modal.classList.remove('active');
+    }
+
+    document.getElementById('classScheduleModal').addEventListener('click', function(e) {
+      if (e.target === this) closeClassScheduleModal();
+    });
+
+    function setClassScheduleNotice(message, type) {
+      var notice = document.getElementById('classScheduleNotice');
+      if (!notice) return;
+      if (!message) {
+        notice.className = 'schedule-notice';
+        notice.textContent = '';
+        return;
+      }
+      notice.className = 'schedule-notice is-visible ' + (type ? ('is-' + type) : 'is-info');
+      notice.textContent = message;
+    }
+
+    function scheduleFetch(url, options) {
+      var controller = new AbortController();
+      var timeoutId = window.setTimeout(function() {
+        controller.abort();
+      }, 12000);
+
+      return fetch(url, Object.assign({
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json'
+        },
+        signal: controller.signal
+      }, options || {})).then(function(response) {
+        return response.text().then(function(text) {
+          var payload;
+          try {
+            payload = text ? JSON.parse(text) : {};
+          } catch (error) {
+            throw new Error('The server returned an invalid response.');
+          } finally {
+            window.clearTimeout(timeoutId);
+          }
+          if (!response.ok || !payload.success) {
+            throw new Error(payload.message || 'Request failed.');
+          }
+          return payload;
+        });
+      }).catch(function(error) {
+        window.clearTimeout(timeoutId);
+        if (error && error.name === 'AbortError') {
+          throw new Error('Class schedule request timed out.');
+        }
+        throw error;
+      });
+    }
+
+    function loadClassSchedule() {
+      var container = document.getElementById('classScheduleContent');
+      if (!container) return;
+      setClassScheduleNotice('', 'info');
+      container.innerHTML = '<p style="color:#6b7280;font-size:13px;">Loading class schedule...</p>';
+      scheduleFetch('/common/classSchedule?classId=' + classScheduleContext.classId + '&termId=' + classScheduleContext.termId)
+        .then(function(payload) {
+          classScheduleState.payload = payload;
+          classScheduleState.isLoadedOnce = true;
+          syncDraftRowsFromPayload(payload);
+          renderClassSchedule();
+        })
+        .catch(function(error) {
+          if (classScheduleState.payload) {
+            setClassScheduleNotice('Showing the last available schedule state. ' + (error.message || ''), 'error');
+            renderClassSchedule();
+            return;
+          }
+          container.innerHTML = '<div class="schedule-empty"><h4>Unable to load class schedule</h4><p>' + esc(error.message || 'Please try again.') + '</p></div>';
+        });
+    }
+
+    function refreshClassScheduleInBackground() {
+      if (!classScheduleState.isLoadedOnce) return;
+      scheduleFetch('/common/classSchedule?classId=' + classScheduleContext.classId + '&termId=' + classScheduleContext.termId)
+        .then(function(payload) {
+          classScheduleState.payload = payload;
+          syncDraftRowsFromPayload(payload);
+          renderClassSchedule();
+        })
+        .catch(function() {
+          // Keep the already-rendered local state when background refresh fails.
+        });
+    }
+
+    function syncDraftRowsFromPayload(payload) {
+      classScheduleState.isCreating = false;
+      classScheduleState.draftRows = payload && payload.schedule && payload.schedule.entries && payload.schedule.entries.length
+        ? payload.schedule.entries.map(function(entry) {
+            return {
+              dayOfWeek: entry.dayOfWeek,
+              startTime: entry.startTime,
+              endTime: entry.endTime,
+              subjectId: entry.customLabel && !entry.subjectId ? 'custom:' + entry.customLabel : (entry.subjectId || ''),
+            };
+          })
+        : buildDraftRowsFromSlots(getDefaultScheduleSlots());
+    }
+
+    function isScheduleBusy(actionName) {
+      if (!classScheduleState.pendingAction) return false;
+      return actionName ? classScheduleState.pendingAction === actionName : true;
+    }
+
+    function setSchedulePendingAction(actionName) {
+      classScheduleState.pendingAction = actionName || '';
+      if (classScheduleState.payload) {
+        renderClassSchedule();
+      }
+    }
+
+    function buildScheduleButtonMarkup(label, onclick, options) {
+      var config = options || {};
+      var isLoading = Boolean(config.actionName) && isScheduleBusy(config.actionName);
+      var isDisabled = isScheduleBusy() && !isLoading;
+      var buttonLabel = isLoading ? (config.loadingLabel || (label + '...')) : label;
+      var classes = 'nav-link schedule-action-button' + (config.active ? ' active' : '') + (isLoading ? ' is-loading' : '');
+      var styleAttr = config.style ? ' style="' + config.style + '"' : '';
+      var disabledAttr = (isDisabled || isLoading) ? ' disabled' : '';
+      return '<button type="button" class="' + classes + '" onclick="' + onclick + '"' + styleAttr + disabledAttr + '>' + esc(buttonLabel) + '</button>';
+    }
+
+    function getScheduleWeekdays() {
+      return Array.isArray(classScheduleContext.weekdays) && classScheduleContext.weekdays.length
+        ? classScheduleContext.weekdays
+        : [
+            { value: 1, label: 'Monday' },
+            { value: 2, label: 'Tuesday' },
+            { value: 3, label: 'Wednesday' },
+            { value: 4, label: 'Thursday' },
+            { value: 5, label: 'Friday' },
+            { value: 6, label: 'Saturday' },
+            { value: 7, label: 'Sunday' },
+          ];
+    }
+
+    function getDefaultScheduleSlots() {
+      return [
+        { startTime: '07:30', endTime: '08:30' },
+        { startTime: '08:30', endTime: '09:30' },
+        { startTime: '09:30', endTime: '10:30' },
+        { startTime: '10:30', endTime: '11:30' },
+      ];
+    }
+
+    function buildSlotKey(startTime, endTime) {
+      return String(startTime || '') + '__' + String(endTime || '');
+    }
+
+    function buildDraftRowsFromSlots(slots) {
+      var weekdays = getScheduleWeekdays();
+      var safeSlots = Array.isArray(slots) && slots.length ? slots : getDefaultScheduleSlots();
+      var rows = [];
+
+      weekdays.forEach(function(day) {
+        safeSlots.forEach(function(slot, index) {
+          rows.push({
+            dayOfWeek: Number(day.value),
+            startTime: slot.startTime,
+            endTime: slot.endTime,
+            subjectId: '',
+            rowOrder: index,
+          });
+        });
+      });
+
+      return rows;
+    }
+
+    function getDraftSlots() {
+      var slotMap = new Map();
+      (classScheduleState.draftRows || []).forEach(function(row) {
+        var key = buildSlotKey(row.startTime, row.endTime);
+        if (!slotMap.has(key)) {
+          slotMap.set(key, {
+            key: key,
+            startTime: row.startTime,
+            endTime: row.endTime,
+          });
+        }
+      });
+
+      return Array.from(slotMap.values()).sort(function(left, right) {
+        if (left.startTime !== right.startTime) {
+          return String(left.startTime).localeCompare(String(right.startTime));
+        }
+        return String(left.endTime).localeCompare(String(right.endTime));
+      });
+    }
+
+    function getActiveDraftWeekdays() {
+      var activeDayValues = new Set((classScheduleState.draftRows || []).map(function(row) {
+        return Number(row.dayOfWeek);
+      }));
+
+      return getScheduleWeekdays().filter(function(day) {
+        return activeDayValues.has(Number(day.value));
+      });
+    }
+
+    function getMissingDraftWeekdays() {
+      var activeDayValues = new Set(getActiveDraftWeekdays().map(function(day) {
+        return Number(day.value);
+      }));
+
+      return getScheduleWeekdays().filter(function(day) {
+        return !activeDayValues.has(Number(day.value));
+      });
+    }
+
+    function getCellDraftRow(dayOfWeek, slot) {
+      var slotKey = buildSlotKey(slot.startTime, slot.endTime);
+      return (classScheduleState.draftRows || []).find(function(row) {
+        return Number(row.dayOfWeek) === Number(dayOfWeek) && buildSlotKey(row.startTime, row.endTime) === slotKey;
+      });
+    }
+
+    function getSubjectOptionsMarkup(selectedValue) {
+      var subjects = (classScheduleState.payload && classScheduleState.payload.subjects) || [];
+      var sv = String(selectedValue || '');
+      var options = ['<option value="">Select subject</option>'];
+      options.push('<optgroup label="Subjects">');
+      subjects.forEach(function(subject) {
+        var selected = String(subject.subjectId) === sv ? ' selected' : '';
+        options.push('<option value="' + subject.subjectId + '"' + selected + '>' + esc(subject.subjectName) + '</option>');
+      });
+      options.push('</optgroup>');
+      var breakOptions = [
+        { value: 'custom:Break', label: 'Break' },
+        { value: 'custom:Lunch Break', label: 'Lunch Break' },
+        { value: 'custom:Free Period', label: 'Free Period' },
+        { value: 'custom:Assembly', label: 'Assembly' },
+      ];
+      options.push('<optgroup label="Breaks and Other">');
+      breakOptions.forEach(function(opt) {
+        var selected = sv === opt.value ? ' selected' : '';
+        options.push('<option value="' + esc(opt.value) + '"' + selected + '>' + esc(opt.label) + '</option>');
+      });
+      options.push('</optgroup>');
+      return options.join('');
+    }
+
+    function getDayLabel(dayOfWeek) {
+      var weekdays = (classScheduleState.payload && classScheduleState.payload.weekdays) || getScheduleWeekdays();
+      var match = weekdays.find(function(day) { return Number(day.value) === Number(dayOfWeek); });
+      return match ? match.label : 'Day ' + dayOfWeek;
+    }
+
+    function renderClassSchedule() {
+      var payload = classScheduleState.payload;
+      var container = document.getElementById('classScheduleContent');
+      var toolbar = document.getElementById('classScheduleToolbar');
+      if (!container || !payload) return;
+
+      container.classList.toggle('with-watermark', Boolean(classScheduleContext.logoUrl));
+      if (classScheduleContext.logoUrl) {
+        container.style.setProperty('--schedule-watermark-image', 'url("' + String(classScheduleContext.logoUrl).replace(/"/g, '\\"') + '")');
+      } else {
+        container.style.removeProperty('--schedule-watermark-image');
+      }
+
+      toolbar.innerHTML = '';
+      var currentTerm = payload.currentTerm || {};
+      var schedule = payload.schedule;
+      var previous = payload.previousSchedule;
+      var canEdit = Boolean(payload.canEdit);
+      var isEditing = canEdit && classScheduleState.isEditing;
+
+      if (schedule) {
+        var toolbarButtons = buildScheduleButtonMarkup('Print', 'printClassSchedule()', {
+          style: 'border:1px solid var(--border);'
+        });
+        if (canEdit && !isEditing) {
+          toolbarButtons += buildScheduleButtonMarkup('Edit', 'enterClassScheduleEditMode()', {
+            active: true
+          });
+        }
+        if (canEdit && isEditing) {
+          toolbarButtons += buildScheduleButtonMarkup('Save', 'saveCurrentClassSchedule()', {
+            active: true,
+            actionName: 'save',
+            loadingLabel: 'Saving...'
+          });
+          toolbarButtons += buildScheduleButtonMarkup('Delete', 'deleteCurrentClassSchedule()', {
+            style: 'border:1px solid #fecaca;color:#b91c1c;',
+            actionName: 'delete',
+            loadingLabel: 'Deleting...'
+          });
+          toolbarButtons += buildScheduleButtonMarkup('Cancel', 'cancelClassScheduleEdit()', {
+            style: 'border:1px solid var(--border);'
+          });
+        }
+        toolbar.innerHTML = toolbarButtons;
+      } else if (canEdit && classScheduleState.isCreating) {
+        toolbar.innerHTML = buildScheduleButtonMarkup('Save', 'saveCurrentClassSchedule()', {
+          active: true,
+          actionName: 'save',
+          loadingLabel: 'Saving...'
+        }) + buildScheduleButtonMarkup('Cancel', 'cancelClassScheduleEdit()', {
+          style: 'border:1px solid var(--border);'
+        });
+      }
+
+      if (!schedule && previous && canEdit) {
+        container.innerHTML =
+          '<div class="schedule-prompt">' +
+            '<h4>Reuse existing schedule?</h4>' +
+            '<p>There is an existing timetable for ' + esc(previous.schoolYearLabel) + ' · ' + esc(previous.termName) + '. Would you like to use it again this semester?</p>' +
+            '<div class="schedule-prompt-actions">' +
+              buildScheduleButtonMarkup('Yes, use it again', 'reusePreviousClassSchedule()', { active: true, actionName: 'reuse', loadingLabel: 'Reusing...' }) +
+              buildScheduleButtonMarkup('No, start from scratch', 'startClassScheduleFromScratch()', { style: 'border:1px solid var(--border);' }) +
+            '</div>' +
+          '</div>';
+        return;
+      }
+
+      if (!schedule && canEdit && !classScheduleState.isCreating) {
+        container.innerHTML =
+          '<div class="schedule-empty">' +
+            '<h4>No class schedule yet</h4>' +
+            '<p>No timetable has been created for ' + esc(currentTerm.termName || classScheduleContext.termName) + ' yet. Create one now for this class.</p>' +
+            '<div class="schedule-editor-actions">' +
+              buildScheduleButtonMarkup('Create Schedule', 'startClassScheduleFromScratch()', { active: true }) +
+            '</div>' +
+          '</div>';
+        return;
+      }
+
+      if (!schedule && !canEdit) {
+        container.innerHTML = '<div class="schedule-empty"><h4>No class schedule yet</h4><p>The class teacher, supervisor, or manager has not created a schedule for ' + esc(currentTerm.termName || classScheduleContext.termName) + ' yet.</p></div>';
+        return;
+      }
+
+      renderScheduleEditor(schedule, canEdit, isEditing);
+    }
+
+    function renderScheduleEditor(schedule, canEdit, isEditing) {
+      var container = document.getElementById('classScheduleContent');
+      var slots = getDraftSlots();
+      if (!slots.length) {
+        classScheduleState.draftRows = buildDraftRowsFromSlots(getDefaultScheduleSlots());
+        slots = getDraftSlots();
+      }
+
+      var weekdays = isEditing ? getActiveDraftWeekdays() : getScheduleWeekdays();
+      var missingWeekdays = isEditing ? getMissingDraftWeekdays() : [];
+      var summaryGrid = '';
+      if (schedule) {
+        summaryGrid =
+          '<div class="schedule-summary-grid">' +
+            '<div class="schedule-summary-card"><span>School Year</span><strong>' + esc(schedule.schoolYearLabel || classScheduleContext.schoolYearLabel) + '</strong></div>' +
+            '<div class="schedule-summary-card"><span>Term</span><strong>' + esc(schedule.termName || classScheduleContext.termName) + '</strong></div>' +
+            '<div class="schedule-summary-card"><span>Columns</span><strong>' + String(slots.length) + '</strong></div>' +
+            '<div class="schedule-summary-card"><span>Updated</span><strong>' + esc(new Date(schedule.updatedAt || schedule.createdAt).toLocaleString()) + '</strong></div>' +
+          '</div>';
+      } else {
+        summaryGrid =
+          '<div class="schedule-summary-grid">' +
+            '<div class="schedule-summary-card"><span>School Year</span><strong>' + esc(classScheduleContext.schoolYearLabel) + '</strong></div>' +
+            '<div class="schedule-summary-card"><span>Term</span><strong>' + esc(classScheduleContext.termName) + '</strong></div>' +
+            '<div class="schedule-summary-card"><span>Columns</span><strong>' + String(slots.length) + '</strong></div>' +
+            '<div class="schedule-summary-card"><span>Rows</span><strong>' + String(weekdays.length) + '</strong></div>' +
+          '</div>';
+      }
+
+      var headerCells = slots.map(function(slot, index) {
+        if (isEditing) {
+          return '' +
+            '<th class="schedule-slot-header">' +
+              '<div class="schedule-slot-header-inner">' +
+                '<div class="schedule-slot-period-row">' +
+                  '<div class="schedule-slot-period">Period ' + (index + 1) + '</div>' +
+                  (slots.length > 1 ? '<button type="button" class="schedule-slot-remove" onclick="removeScheduleColumn(' + index + ')" title="Remove column">&times;</button>' : '') +
+                '</div>' +
+                '<div class="schedule-slot-time-grid">' +
+                  '<input class="schedule-cell-input schedule-slot-time-input" type="time" value="' + esc(slot.startTime) + '" data-slot-index="' + index + '" data-slot-field="startTime" />' +
+                  '<input class="schedule-cell-input schedule-slot-time-input" type="time" value="' + esc(slot.endTime) + '" data-slot-index="' + index + '" data-slot-field="endTime" />' +
+                '</div>' +
+              '</div>' +
+            '</th>';
+        }
+
+        return '' +
+          '<th class="schedule-slot-header">' +
+            '<div class="schedule-slot-header-inner">' +
+              '<div class="schedule-slot-period">Period ' + (index + 1) + '</div>' +
+              '<div class="schedule-slot-time-display">' + esc(slot.startTime) + '<br />' + esc(slot.endTime) + '</div>' +
+            '</div>' +
+          '</th>';
+      }).join('');
+
+      var bodyRows = weekdays.filter(function(day) {
+        if (isEditing) return true;
+        return slots.some(function(slot) {
+          var row = getCellDraftRow(day.value, slot);
+          return row && (row.subjectId !== '' && row.subjectId !== null && row.subjectId !== undefined);
+        });
+      }).map(function(day) {
+        var cells = slots.map(function(slot, slotIndex) {
+          var row = getCellDraftRow(day.value, slot) || { subjectId: '', startTime: slot.startTime, endTime: slot.endTime };
+          var subjectName = resolveSubjectName(row.subjectId) || '';
+
+          if (isEditing) {
+            return '' +
+              '<td>' +
+                '<div class="schedule-cell-select-wrap">' +
+                  '<select class="schedule-cell-select" data-day-of-week="' + day.value + '" data-slot-index="' + slotIndex + '" data-cell-field="subjectId">' + getSubjectOptionsMarkup(row.subjectId) + '</select>' +
+                  '<span class="schedule-cell-arrow">▾</span>' +
+                '</div>' +
+              '</td>';
+          }
+
+          return '' +
+            '<td>' +
+              '<div class="schedule-readonly-cell' + (subjectName ? '' : ' is-empty') + '">' + esc(subjectName || 'Empty') + '</div>' +
+            '</td>';
+        }).join('');
+
+        return '<tr><th class="schedule-day-cell"><div class="schedule-day-label-row"><span class="schedule-day-label-text">' + esc(day.label) + '</span>' + (isEditing && weekdays.length > 1 ? '<button type="button" class="schedule-slot-remove" onclick="removeScheduleDay(' + Number(day.value) + ')" title="Remove day">&times;</button>' : '') + '</div></th>' + cells + '</tr>';
+      }).join('');
+
+      container.innerHTML =
+        summaryGrid +
+        (canEdit && !isEditing
+          ? '<div class="schedule-readonly-banner"><span>Tap Edit to change periods, days, subjects, and breaks.</span><span>View mode</span></div>'
+          : '') +
+        '<div class="schedule-table-wrap">' +
+          '<table class="schedule-table">' +
+            '<thead><tr><th class="schedule-day-cell">Day</th>' + headerCells + '</tr></thead>' +
+            '<tbody>' + bodyRows + '</tbody>' +
+          '</table>' +
+        '</div>' +
+        (isEditing
+          ? '<div class="schedule-editor-actions">' +
+              buildScheduleButtonMarkup('Add time column', 'addScheduleColumn()', { style: 'border:1px solid var(--border);' }) +
+              (missingWeekdays.length
+                ? '<div class="schedule-day-restore-row"><span class="schedule-day-restore-label">Add day:</span>' + missingWeekdays.map(function(day) {
+                    return '<button type="button" class="schedule-day-chip" onclick="restoreScheduleDay(' + Number(day.value) + ')">' + esc(day.label) + '</button>';
+                  }).join('') + '</div>'
+                : '') +
+            '</div>'
+          : '<div class="schedule-inline-note">' + (canEdit ? 'View mode is active until you tap Edit.' : 'This schedule is view only for your role.') + '</div>');
+
+      bindScheduleEditorInputs();
+    }
+
+    function resolveSubjectName(subjectId) {
+      if (typeof subjectId === 'string' && subjectId.indexOf('custom:') === 0) {
+        return subjectId.slice(7);
+      }
+      var subjects = (classScheduleState.payload && classScheduleState.payload.subjects) || [];
+      var match = subjects.find(function(subject) { return String(subject.subjectId) === String(subjectId || ''); });
+      return match ? match.subjectName : '';
+    }
+
+    function bindScheduleEditorInputs() {
+      var container = document.getElementById('classScheduleContent');
+      if (!container) return;
+      Array.prototype.forEach.call(container.querySelectorAll('[data-slot-index][data-slot-field]'), function(input) {
+        input.addEventListener('change', function() {
+          updateScheduleSlot(Number(this.getAttribute('data-slot-index')), this.getAttribute('data-slot-field'), this.value);
+        });
+      });
+
+      Array.prototype.forEach.call(container.querySelectorAll('[data-day-of-week][data-slot-index][data-cell-field]'), function(input) {
+        input.addEventListener('change', function() {
+          updateScheduleCell(
+            Number(this.getAttribute('data-day-of-week')),
+            Number(this.getAttribute('data-slot-index')),
+            this.getAttribute('data-cell-field'),
+            this.value
+          );
+        });
+      });
+    }
+
+    function updateScheduleSlot(slotIndex, field, value) {
+      if (!classScheduleState.isEditing) return;
+      var slots = getDraftSlots();
+      var slot = slots[slotIndex];
+      if (!slot) return;
+      var oldKey = buildSlotKey(slot.startTime, slot.endTime);
+
+      classScheduleState.draftRows = (classScheduleState.draftRows || []).map(function(row) {
+        if (buildSlotKey(row.startTime, row.endTime) !== oldKey) return row;
+        var updatedRow = Object.assign({}, row);
+        updatedRow[field] = value;
+        return updatedRow;
+      });
+      renderClassSchedule();
+    }
+
+    function updateScheduleCell(dayOfWeek, slotIndex, field, value) {
+      if (!classScheduleState.isEditing) return;
+      var slots = getDraftSlots();
+      var slot = slots[slotIndex];
+      if (!slot) return;
+      var slotKey = buildSlotKey(slot.startTime, slot.endTime);
+
+      classScheduleState.draftRows = (classScheduleState.draftRows || []).map(function(row) {
+        if (Number(row.dayOfWeek) !== Number(dayOfWeek) || buildSlotKey(row.startTime, row.endTime) !== slotKey) {
+          return row;
+        }
+
+        var updatedRow = Object.assign({}, row);
+        updatedRow[field] = value;
+        return updatedRow;
+      });
+    }
+
+    function addScheduleColumn() {
+      if (!classScheduleState.isEditing) return;
+      var slots = getDraftSlots();
+      var lastSlot = slots[slots.length - 1] || { startTime: '08:00', endTime: '09:00' };
+      var nextStartTime = lastSlot.endTime || '09:00';
+      var nextEndTime = incrementTimeByHour(nextStartTime);
+      var weekdays = getActiveDraftWeekdays();
+
+      weekdays.forEach(function(day, index) {
+        classScheduleState.draftRows.push({
+          dayOfWeek: Number(day.value),
+          startTime: nextStartTime,
+          endTime: nextEndTime,
+          subjectId: '',
+          rowOrder: slots.length + index,
+        });
+      });
+
+      renderClassSchedule();
+    }
+
+    function removeScheduleDay(dayOfWeek) {
+      if (!classScheduleState.isEditing) return;
+      var weekdays = getActiveDraftWeekdays();
+      if (weekdays.length <= 1) {
+        setClassScheduleNotice('Keep at least one day in the schedule.', 'error');
+        return;
+      }
+
+      classScheduleState.draftRows = (classScheduleState.draftRows || []).filter(function(row) {
+        return Number(row.dayOfWeek) !== Number(dayOfWeek);
+      });
+
+      renderClassSchedule();
+    }
+
+    function restoreScheduleDay(dayOfWeek) {
+      if (!classScheduleState.isEditing) return;
+      var slots = getDraftSlots();
+      if (!slots.length) {
+        slots = getDefaultScheduleSlots();
+      }
+
+      slots.forEach(function(slot, index) {
+        classScheduleState.draftRows.push({
+          dayOfWeek: Number(dayOfWeek),
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          subjectId: '',
+          rowOrder: index,
+        });
+      });
+
+      classScheduleState.draftRows.sort(function(left, right) {
+        if (Number(left.dayOfWeek) !== Number(right.dayOfWeek)) {
+          return Number(left.dayOfWeek) - Number(right.dayOfWeek);
+        }
+        if (left.startTime !== right.startTime) {
+          return String(left.startTime).localeCompare(String(right.startTime));
+        }
+        return String(left.endTime).localeCompare(String(right.endTime));
+      });
+
+      renderClassSchedule();
+    }
+
+    function removeScheduleColumn(slotIndex) {
+      if (!classScheduleState.isEditing) return;
+      var slots = getDraftSlots();
+      var slot = slots[slotIndex];
+      if (!slot) return;
+      var slotKey = buildSlotKey(slot.startTime, slot.endTime);
+
+      classScheduleState.draftRows = (classScheduleState.draftRows || []).filter(function(row) {
+        return buildSlotKey(row.startTime, row.endTime) !== slotKey;
+      });
+
+      if (!classScheduleState.draftRows.length) {
+        classScheduleState.draftRows = buildDraftRowsFromSlots(getDefaultScheduleSlots());
+      }
+
+      renderClassSchedule();
+    }
+
+    function incrementTimeByHour(timeText) {
+      var parts = String(timeText || '08:00').split(':');
+      var hours = Number(parts[0] || 0);
+      var minutes = Number(parts[1] || 0);
+      var totalMinutes = hours * 60 + minutes + 60;
+      var nextHours = Math.floor(totalMinutes / 60) % 24;
+      var nextMinutes = totalMinutes % 60;
+      return String(nextHours).padStart(2, '0') + ':' + String(nextMinutes).padStart(2, '0');
+    }
+
+    function startClassScheduleFromScratch() {
+      classScheduleState.isCreating = true;
+      classScheduleState.isEditing = true;
+      classScheduleState.payload.schedule = null;
+      classScheduleState.payload.previousSchedule = null;
+      classScheduleState.draftRows = buildDraftRowsFromSlots(getDefaultScheduleSlots());
+      setClassScheduleNotice('', 'info');
+      renderClassSchedule();
+    }
+
+    function enterClassScheduleEditMode() {
+      classScheduleState.isEditing = true;
+      if (classScheduleState.payload && classScheduleState.payload.schedule) {
+        syncDraftRowsFromPayload(classScheduleState.payload);
+      }
+      renderClassSchedule();
+    }
+
+    function cancelClassScheduleEdit() {
+      classScheduleState.isEditing = false;
+      classScheduleState.pendingAction = '';
+      if (classScheduleState.payload && classScheduleState.payload.schedule) {
+        syncDraftRowsFromPayload(classScheduleState.payload);
+      } else {
+        classScheduleState.isCreating = false;
+        classScheduleState.draftRows = buildDraftRowsFromSlots(getDefaultScheduleSlots());
+      }
+      setClassScheduleNotice('', 'info');
+      renderClassSchedule();
+    }
+
+    function collectScheduleRows() {
+      return (classScheduleState.draftRows || []).map(function(row) {
+        var isCustom = typeof row.subjectId === 'string' && row.subjectId.indexOf('custom:') === 0;
+        return {
+          dayOfWeek: Number(row.dayOfWeek),
+          startTime: row.startTime,
+          endTime: row.endTime,
+          subjectId: isCustom ? null : (row.subjectId === '' ? null : Number(row.subjectId)),
+          customLabel: isCustom ? row.subjectId.slice(7) : null,
+        };
+      });
+    }
+
+    function saveCurrentClassSchedule() {
+      if (!classScheduleState.isEditing) return;
+      setClassScheduleNotice('', 'info');
+      setSchedulePendingAction('save');
+      scheduleFetch('/common/classSchedule/save', {
+        method: 'POST',
+        body: JSON.stringify({
+          classId: classScheduleContext.classId,
+          termId: classScheduleContext.termId,
+          schoolYearId: classScheduleContext.schoolYearId,
+          entries: collectScheduleRows(),
+        })
+      })
+        .then(function(payload) {
+          classScheduleState.payload.schedule = payload.schedule;
+          classScheduleState.payload.previousSchedule = null;
+          classScheduleState.isCreating = false;
+          classScheduleState.isEditing = false;
+          syncDraftRowsFromPayload(classScheduleState.payload);
+          setClassScheduleNotice(payload.message || 'Class schedule saved.', 'success');
+          setSchedulePendingAction('');
+          renderClassSchedule();
+        })
+        .catch(function(error) {
+          setSchedulePendingAction('');
+          setClassScheduleNotice(error.message || 'Failed to save class schedule.', 'error');
+        });
+    }
+
+    function deleteCurrentClassSchedule() {
+      if (!classScheduleState.isEditing) return;
+      if (!confirm('Delete the class schedule for this term?')) return;
+      setSchedulePendingAction('delete');
+      scheduleFetch('/common/classSchedule/delete', {
+        method: 'POST',
+        body: JSON.stringify({
+          classId: classScheduleContext.classId,
+          termId: classScheduleContext.termId,
+        })
+      })
+        .then(function(payload) {
+          classScheduleState.payload.schedule = null;
+          classScheduleState.payload.previousSchedule = null;
+          classScheduleState.isCreating = false;
+          classScheduleState.isEditing = false;
+          classScheduleState.draftRows = buildDraftRowsFromSlots(getDefaultScheduleSlots());
+          setSchedulePendingAction('');
+          setClassScheduleNotice(payload.message || 'Class schedule deleted.', 'success');
+          renderClassSchedule();
+        })
+        .catch(function(error) {
+          setSchedulePendingAction('');
+          setClassScheduleNotice(error.message || 'Failed to delete class schedule.', 'error');
+        });
+    }
+
+    function reusePreviousClassSchedule() {
+      setSchedulePendingAction('reuse');
+      scheduleFetch('/common/classSchedule/reuse', {
+        method: 'POST',
+        body: JSON.stringify({
+          classId: classScheduleContext.classId,
+          termId: classScheduleContext.termId,
+          schoolYearId: classScheduleContext.schoolYearId,
+        })
+      })
+        .then(function(payload) {
+          classScheduleState.payload.schedule = payload.schedule;
+          classScheduleState.payload.previousSchedule = null;
+          classScheduleState.isCreating = false;
+          classScheduleState.isEditing = false;
+          syncDraftRowsFromPayload(classScheduleState.payload);
+          setSchedulePendingAction('');
+          setClassScheduleNotice(payload.message || 'Previous schedule copied.', 'info');
+          renderClassSchedule();
+        })
+        .catch(function(error) {
+          setSchedulePendingAction('');
+          setClassScheduleNotice(error.message || 'Failed to reuse previous schedule.', 'error');
+        });
+    }
+
+    function printClassSchedule() {
+      var rows = collectScheduleRows();
+      var draftRows = classScheduleState.draftRows || [];
+      var weekdays = getScheduleWeekdays();
+      var slots = getDraftSlots();
+
+      var printWeekdays = weekdays.filter(function(day) {
+        return slots.some(function(slot) {
+          var dr = getCellDraftRow(day.value, slot);
+          return dr && (dr.subjectId !== '' && dr.subjectId !== null && dr.subjectId !== undefined);
+        });
+      });
+      if (!printWeekdays.length) printWeekdays = weekdays;
+
+      var content = '<table style="width:100%;border-collapse:collapse;table-layout:fixed;">' +
+        '<thead><tr><th style="border:1px solid #cbd5e1;padding:10px;background:#f8fafc;">Day</th>' +
+        slots.map(function(slot, index) {
+          return '<th style="border:1px solid #cbd5e1;padding:10px;background:#f8fafc;"><div style="font-size:11px;color:#64748b;font-weight:700;">Period ' + (index + 1) + '</div><div>' + esc(slot.startTime) + ' - ' + esc(slot.endTime) + '</div></th>';
+        }).join('') +
+        '</tr></thead><tbody>' +
+        printWeekdays.map(function(day) {
+          return '<tr><th style="border:1px solid #cbd5e1;padding:10px;background:#f8fafc;">' + esc(day.label) + '</th>' +
+            slots.map(function(slot) {
+              var row = rows.find(function(entry) {
+                return Number(entry.dayOfWeek) === Number(day.value) && buildSlotKey(entry.startTime, entry.endTime) === buildSlotKey(slot.startTime, slot.endTime);
+              });
+              var cellLabel = (row && row.customLabel) ? row.customLabel : (resolveSubjectName(row && row.subjectId) || '');
+              return '<td style="border:1px solid #cbd5e1;padding:12px;text-align:center;vertical-align:middle;min-height:60px;">' + esc(cellLabel || 'Empty') + '</td>';
+            }).join('') +
+          '</tr>';
+        }).join('') +
+        '</tbody></table>';
+
+      var printWindow = window.open('', '_blank');
+      if (!printWindow) return;
+      printWindow.document.write('<html><head><title>Class Schedule</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#0f172a;} .schedule-print{position:relative;min-height:100vh;} .schedule-print::before{content:"";position:fixed;inset:0;background-image:' + (classScheduleContext.logoUrl ? 'url("' + esc(classScheduleContext.logoUrl) + '")' : 'none') + ';background-repeat:no-repeat;background-position:center;background-size:320px 320px;opacity:0.09;pointer-events:none;} .schedule-print > *{position:relative;z-index:1;} h1{margin-bottom:8px;} p{color:#475569;} table td, table th{padding:8px;}</style></head><body><div class="schedule-print"><h1>' + esc(classScheduleContext.className) + ' Class Schedule</h1><p>' + esc(classScheduleContext.schoolYearLabel) + ' · ' + esc(classScheduleContext.termName) + '</p>' + content + '</div></body></html>');
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+    }
+
+    window.toggleClassScheduleModal = toggleClassScheduleModal;
+    window.closeClassScheduleModal = closeClassScheduleModal;
+    window.addScheduleColumn = addScheduleColumn;
+    window.removeScheduleColumn = removeScheduleColumn;
+    window.removeScheduleDay = removeScheduleDay;
+    window.restoreScheduleDay = restoreScheduleDay;
+    window.saveCurrentClassSchedule = saveCurrentClassSchedule;
+    window.deleteCurrentClassSchedule = deleteCurrentClassSchedule;
+    window.reusePreviousClassSchedule = reusePreviousClassSchedule;
+    window.startClassScheduleFromScratch = startClassScheduleFromScratch;
+    window.enterClassScheduleEditMode = enterClassScheduleEditMode;
+    window.cancelClassScheduleEdit = cancelClassScheduleEdit;
+    window.printClassSchedule = printClassSchedule;
   </script>
 </body>
