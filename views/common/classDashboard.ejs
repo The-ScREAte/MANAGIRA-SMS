@@ -1524,7 +1524,7 @@ main {
                   </li>
                 <% }); %>
               <% } else { %>
-                <li class="card-subtext" style="padding: 4px 2px;">No data yet.</li>
+                <li class="card-subtext" style="padding: 4px 2px;">No subjects assigned yet.</li>
               <% } %>
             <% } %>
 
@@ -1622,7 +1622,7 @@ main {
                   </li>
                 <% }); %>
               <% } else { %>
-                <li class="card-subtext">No data yet.</li>
+                <li class="card-subtext">No students in this class yet.</li>
               <% } %>
             </ul>
           </div>
@@ -1851,7 +1851,7 @@ main {
         .then(function(r) { return r.json(); })
         .then(function(d) {
           if (!d.success || !d.reports || !d.reports.length) {
-            container.innerHTML = '<div class="rp-empty">No data yet.</div>';
+            container.innerHTML = '<div class="rp-empty">No reports yet.</div>';
             return;
           }
           var html = '';
@@ -1962,7 +1962,7 @@ main {
               '</div>';
             });
           } else {
-            html += '<div class="rd-no-replies">No data yet. Start the conversation below.</div>';
+            html += '<div class="rd-no-replies">No replies yet. Start the conversation below.</div>';
           }
           html += '</div>';
 
@@ -2502,7 +2502,7 @@ main {
                   }).join('') + '</div>'
                 : '') +
             '</div>'
-          : '<div class="schedule-inline-note">' + (canEdit ? 'View mode is active until you tap Edit.' : 'This schedule is view only for your role.') + '</div>');
+          : (!canEdit ? '<div class="schedule-inline-note">This schedule is view only for your role.</div>' : ''));
 
       bindScheduleEditorInputs();
     }

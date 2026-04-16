@@ -193,6 +193,10 @@
       width: 100%;
     }
     .submit-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
       background: #01535b;
       color: #fff;
       border: none;
@@ -209,6 +213,43 @@
     }
     .submit-btn:hover {
       background: #013a40;
+    }
+    .submit-btn:disabled,
+    .delete-button:disabled {
+      opacity: 0.7;
+      cursor: wait;
+    }
+    .submit-spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.35);
+      border-top-color: #fff;
+      border-radius: 50%;
+      display: none;
+      animation: modifyAssessmentSpin 0.8s linear infinite;
+    }
+    .submit-btn.is-saving .submit-spinner {
+      display: inline-block;
+    }
+    .submit-btn.is-saving .submit-btn-text::after {
+      content: '...';
+    }
+    .submit-status {
+      min-height: 20px;
+      margin-top: -10px;
+      margin-bottom: 8px;
+      color: #475569;
+      font-size: 0.92rem;
+      text-align: center;
+    }
+    .submit-status.is-active {
+      color: #01535b;
+      font-weight: 500;
+    }
+    @keyframes modifyAssessmentSpin {
+      to {
+        transform: rotate(360deg);
+      }
     }
     .delete-button {
       background-color: #e53935;
@@ -452,15 +493,39 @@
             </div>
           <% }); %>
         </div>
+        <div class="submit-status" id="submitStatus" aria-live="polite"></div>
         <div class="form-actions">
-          <button type="submit" class="submit-btn">Save Changes</button>
-          <button type="button" class="delete-button" onclick="deleteAssessment()">Delete Assessment</button>
+          <button type="submit" class="submit-btn" id="saveAssessmentBtn">
+            <span class="submit-spinner" aria-hidden="true"></span>
+            <span class="submit-btn-text">Save Changes</span>
+          </button>
+          <button type="button" class="delete-button" id="deleteAssessmentBtn" onclick="deleteAssessment()">Delete Assessment</button>
         </div>
       </div>
     </form>
 </main>
 
 <script>
+  function setModifyAssessmentSavingState(isSaving) {
+    const saveButton = document.getElementById('saveAssessmentBtn');
+    const deleteButton = document.getElementById('deleteAssessmentBtn');
+    const submitStatus = document.getElementById('submitStatus');
+
+    if (saveButton) {
+      saveButton.disabled = isSaving;
+      saveButton.classList.toggle('is-saving', isSaving);
+    }
+
+    if (deleteButton) {
+      deleteButton.disabled = isSaving;
+    }
+
+    if (submitStatus) {
+      submitStatus.textContent = isSaving ? 'Saving your changes. Please wait.' : '';
+      submitStatus.classList.toggle('is-active', isSaving);
+    }
+  }
+
     function toggleSubjects(classId) {
         const classCheckbox = document.getElementById(`class_${classId}`);
         const subjectContainer = document.getElementById(`subjects_${classId}`);
@@ -497,6 +562,7 @@
 
     document.getElementById('modifyAssessmentForm').addEventListener('submit', async function (event) {
         event.preventDefault();
+      setModifyAssessmentSavingState(true);
 
         const formData = new FormData(this);
         const data = Object.fromEntries(formData.entries());
@@ -522,9 +588,11 @@
                 const termId = '<%= termId %>';
                 window.location.href = `/common/manageAssessment?organizationId=${organizationId}&termId=${termId}`;
             } else {
+              setModifyAssessmentSavingState(false);
                 alert(result.error);
             }
         } catch (error) {
+            setModifyAssessmentSavingState(false);
             console.error('Error submitting modified assessment:', error);
             alert('An error occurred. Please try again.');
         }

@@ -5,7 +5,6 @@ function getOrdinalSuffix(n) {
 }
 
 const { uploadToS3, deleteFromS3 } = require("../middleware/s3Upload");
-const { getClassScheduleForTerm } = require("../utils/classScheduleService");
 const {
   notifyStaffOnGuardianReportCreated,
   notifyStaffOnGuardianReply,
@@ -343,9 +342,6 @@ module.exports = {
       );
 
       const termNameForPage = termResult.rows[0]?.term_name || "Unknown";
-      const classSchedule = classId
-        ? await getClassScheduleForTerm(db, { organizationId, classId, termId })
-        : null;
 
       return res.render("common/studentDetails", {
         title: "Student Details",
@@ -362,7 +358,6 @@ module.exports = {
         currentTermName,
         enrolledClassForTerm,
         termNameForPage,
-        classSchedule,
         studentEnrolledInCurrent,
         messages: req.flash(),
       });

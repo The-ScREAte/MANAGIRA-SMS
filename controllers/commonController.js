@@ -4083,9 +4083,6 @@ const commonController = {
       );
 
       const termNameForPage = termResult.rows[0]?.term_name || "Unknown";
-      const classSchedule = classId
-        ? await getClassScheduleForTerm(db, { organizationId, classId, termId })
-        : null;
 
       res.render("common/studentDetails", {
         title: "Student Details",
@@ -4102,7 +4099,6 @@ const commonController = {
         currentTermName,
         enrolledClassForTerm,
         termNameForPage,
-        classSchedule,
         studentEnrolledInCurrent,
         messages: req.flash(),
       });
@@ -5821,25 +5817,58 @@ const commonController = {
       }
       const user = userResult.rows[0];
 
-      const assignedClassesResult = await db.query(
+      const classesResult = await db.query(
         `
-          SELECT c.class_id, c.class_name
-          FROM user_classes uc
-          JOIN classes c ON c.class_id = uc.class_id
-          WHERE uc.user_id = $1
-          ORDER BY c.class_name ASC`,
-        [userId]
+                SELECT c.class_id, c.class_name
+                FROM classes c
+                WHERE c.organization_id = $1
+                ORDER BY c.class_name ASC`,
+        [req.session.organizationId]
       );
 
-      const assignedSubjectsResult = await db.query(
+      const subjectsResult = await db.query(
         `
-          SELECT s.subject_id, s.subject_name, c.class_name
-          FROM user_subjects us
-          JOIN subjects s ON s.subject_id = us.subject_id
-          LEFT JOIN classes c ON c.class_id = s.class_id
-          WHERE us.user_id = $1
-          ORDER BY c.class_name ASC NULLS LAST, s.subject_name ASC`,
+          SELECT subject_id, subject_name, class_id
+          FROM subjects
+          WHERE organization_id = $1
+          ORDER BY class_id ASC, subject_name ASC
+        `,
+        [req.session.organizationId]
+      );
+
+      const classMap = classesResult.rows.reduce((map, cls) => {
+        map[cls.class_id] = { ...cls, subjects: [] };
+        return map;
+      }, {});
+
+      subjectsResult.rows.forEach((subject) => {
+        if (classMap[subject.class_id]) {
+          classMap[subject.class_id].subjects.push(subject);
+        }
+      });
+
+      const classes = Object.values(classMap);
+
+      const enrolledSubjectsResult = await db.query(
+        `
+                SELECT us.subject_id
+                FROM user_subjects us
+                WHERE us.user_id = $1`,
         [userId]
+      );
+      const enrolledSubjects = enrolledSubjectsResult.rows.map(
+        (subject) => subject.subject_id
+      );
+
+      const employeeClassesResult = await db.query(
+        `
+                SELECT class_id
+                FROM user_classes
+                WHERE user_id = $1`,
+        [userId]
+      );
+      const enrolledClasses = employeeClassesResult.rows.map(
+        (cls) => cls.class_id
       );
 
       const rawSelectedPermissions = await getUserPermissions(
@@ -5857,8 +5886,9 @@ const commonController = {
       res.render("common/modifyEmployee", {
         title: "Modify Employee",
         user,
-        assignedClasses: assignedClassesResult.rows,
-        assignedSubjects: assignedSubjectsResult.rows,
+        classes,
+        enrolledClasses,
+        enrolledSubjects,
         permissionOptions: PERMISSION_OPTIONS,
         managerDefaultPermissions: getSuggestedPermissionsForRole("Manager"),
         roleDefaultPermissionsMap: {
@@ -5882,12 +5912,24 @@ const commonController = {
     console.info(`\n====== [ModifyEmployee:POST][${modId}] START ======`);
     console.info(`[ModifyEmployee:POST][${modId}] body_received`, {
       userId: req.params.userId,
+      firstName: req.body.firstName,
+      lastName: req.body.lastName,
+      email: req.body.email,
       accountType: req.body.accountType,
       rawPermissions: req.body.permissions,
+      rawClassIds: req.body.classIds,
+      rawSubjects: req.body.subjects,
     });
 
     const { userId } = req.params;
-    const { accountType } = req.body;
+    const {
+      firstName,
+      lastName,
+      email,
+      accountType,
+      classIds = [],
+      subjects = [],
+    } = req.body;
     const requestorRole = req.session.userRole;
     const requestorId = req.session.user?.user_id || req.session.userId || null;
     const organizationId = req.session.organizationId;
@@ -5958,7 +6000,7 @@ const commonController = {
       console.info(`[ModifyEmployee:POST][${modId2}] transaction_begun`, { elapsed: elapsed() });
 
       const currentUserResult = await client.query(
-        `SELECT first_name, last_name, email, account_type
+        `SELECT email
          FROM users
          WHERE user_id = $1 AND organization_id = $2`,
         [userId, organizationId]
@@ -5970,22 +6012,63 @@ const commonController = {
         return res.redirect("/common/manageEmployees");
       }
 
-      const currentUser = currentUserResult.rows[0];
+      const currentEmail = currentUserResult.rows[0].email;
       console.info(`[ModifyEmployee:POST][${modId2}] employee_found`, {
-        currentEmail: currentUser.email,
-        currentAccountType: currentUser.account_type,
-        newAccountType: accountType,
+        currentEmail,
+        newEmail: email,
+        emailChanged: email !== currentEmail,
         elapsed: elapsed(),
       });
 
-      // Only role is editable on this page. Identity and assignments stay unchanged.
+      if (email !== currentEmail) {
+        const emailCheckResult = await client.query(
+          `SELECT 1 FROM users WHERE LOWER(email) = LOWER($1) AND user_id != $2
+           UNION
+           SELECT 1 FROM organizations WHERE LOWER(email) = LOWER($1)`,
+          [email, userId]
+        );
+        if (emailCheckResult.rows.length > 0) {
+          console.warn(`[ModifyEmployee:POST][${modId2}] email_conflict`, { email });
+          await client.query("ROLLBACK");
+          req.flash("error", "Email already in use by another user or organization. Please use a different email.");
+          return res.redirect(`/common/modifyEmployee?userId=${userId}`);
+        }
+      }
+
       await client.query(
         `UPDATE users
-         SET account_type = $1, updated_at = NOW()
-         WHERE user_id = $2 AND organization_id = $3`,
-        [accountType, userId, organizationId]
+         SET first_name = $1, last_name = $2, email = $3, account_type = $4, updated_at = NOW()
+         WHERE user_id = $5 AND organization_id = $6`,
+        [firstName, lastName, email, accountType, userId, organizationId]
       );
       console.info(`[ModifyEmployee:POST][${modId}] user_updated`, { elapsed: elapsed() });
+
+      await client.query("DELETE FROM user_classes WHERE user_id = $1", [userId]);
+      if (normalizedClassIds.length > 0) {
+        await client.query(
+          `INSERT INTO user_classes (user_id, class_id, main)
+           SELECT $1, unnest($2::int[]), FALSE`,
+          [userId, normalizedClassIds]
+        );
+      }
+      console.info(`[ModifyEmployee:POST][${modId}] classes_updated`, {
+        count: normalizedClassIds.length,
+        elapsed: elapsed(),
+      });
+
+      await client.query("DELETE FROM user_subjects WHERE user_id = $1", [userId]);
+      if (normalizedSubjectIds.length > 0) {
+        await client.query(
+          `INSERT INTO user_subjects (user_id, subject_id)
+           SELECT $1, unnest($2::int[])
+           ON CONFLICT (user_id, subject_id) DO NOTHING`,
+          [userId, normalizedSubjectIds]
+        );
+      }
+      console.info(`[ModifyEmployee:POST][${modId}] subjects_updated`, {
+        count: normalizedSubjectIds.length,
+        elapsed: elapsed(),
+      });
 
       // ✅ Replace permissions — hard DELETE for this user+org, then fresh INSERT
       //    No ON CONFLICT needed: DELETE cleared our rows; a plain INSERT is cleaner
@@ -6037,9 +6120,7 @@ const commonController = {
       invalidateUserPermissionCache(organizationId, userId);
       console.info(`[ModifyEmployee:POST][${modId}] ====== COMMITTED — total ${elapsed()} ======\n`);
 
-      req.flash("success", "Employee role and permissions updated successfully.");
-      // Redirect back to the same employee page so the user can immediately
-      // see the saved state (checkboxes reflect what's now in the DB).
+      req.flash("success", "Employee details updated successfully.");
       res.redirect(`/common/modifyEmployee?userId=${userId}`);
     } catch (error) {
       console.error(`[ModifyEmployee:POST][${modId}] ====== ERROR at ${elapsed()} ======`, {
@@ -6852,6 +6933,13 @@ const commonController = {
     const normalizedClassIds = (Array.isArray(classes) ? classes : [classes])
       .map((value) => Number(value))
       .filter((value) => Number.isInteger(value) && value > 0);
+    const normalizedSubjectSelections = [
+      ...new Set(
+        (Array.isArray(subjects) ? subjects : [subjects])
+          .map((value) => String(value || "").trim())
+          .filter(Boolean)
+      ),
+    ];
 
     const locked = parseBooleanValue(isLocked, false);
     const active = parseBooleanValue(isActive, true);
@@ -6863,56 +6951,374 @@ const commonController = {
       return res.status(400).json({ error: "Edit window start must be before edit window end." });
     }
 
+    const desiredAssignments = normalizedSubjectSelections
+      .map((value) => {
+        const [classIdValue, subjectIdValue] = value.split("-");
+        const classIdNumber = Number(classIdValue);
+        const subjectIdNumber = Number(subjectIdValue);
+        if (
+          !Number.isInteger(classIdNumber) ||
+          classIdNumber <= 0 ||
+          !Number.isInteger(subjectIdNumber) ||
+          subjectIdNumber <= 0 ||
+          !normalizedClassIds.includes(classIdNumber)
+        ) {
+          return null;
+        }
+
+        return {
+          key: `${classIdNumber}-${subjectIdNumber}`,
+          classId: classIdNumber,
+          subjectId: subjectIdNumber,
+        };
+      })
+      .filter(Boolean);
+
+    if (desiredAssignments.length === 0) {
+      return res.status(400).json({ error: "Please select at least one subject for the chosen class list." });
+    }
+
     const client = await db.connect();
 
     try {
       await ensureAssessmentControlSchema(client);
       await client.query("BEGIN"); // Start transaction
 
-      // Remove all existing entries for this group to prepare for re-insertion
-      const deleteExistingQuery = `
-            DELETE FROM assessments
-            WHERE group_id = $1 AND organization_id = $2 AND term_id = $3
-        `;
-      await client.query(deleteExistingQuery, [
-        groupId,
-        organizationId,
-        termId,
-      ]);
+      const existingAssessmentsResult = await client.query(
+        `
+          SELECT a.assessment_id, a.class_id, a.subject_id,
+                 EXISTS (
+                   SELECT 1
+                   FROM assessment_results ar
+                   WHERE ar.assessment_id = a.assessment_id
+                 ) AS has_results
+          FROM assessments a
+          WHERE a.group_id = $1 AND a.organization_id = $2 AND a.term_id = $3
+          ORDER BY a.assessment_id ASC
+        `,
+        [groupId, organizationId, termId]
+      );
 
-      // Add the updated classes and subjects
-      for (const cls of classes) {
-        const clsSubjects = subjects.filter((subject) =>
-          subject.startsWith(cls + "-")
-        );
+      const existingAssessments = existingAssessmentsResult.rows;
+      const existingByPair = new Map(
+        existingAssessments.map((row) => [`${row.class_id}-${row.subject_id}`, row])
+      );
+      const desiredByPair = new Map(
+        desiredAssignments.map((assignment) => [assignment.key, assignment])
+      );
 
-        for (const subject of clsSubjects) {
-          const [, subjectId] = subject.split("-");
-
-          const insertQuery = `
-                    INSERT INTO assessments (
-                  group_id, title, weight, max_score, category, subject_id, organization_id, term_id, class_id,
-                  is_locked, is_active, edit_window_start, edit_window_end
-                    ) VALUES (
-                  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
-                    )
-                    ON CONFLICT ON CONSTRAINT unique_test_per_term_class_subject DO NOTHING
-                `;
-          await client.query(insertQuery, [
-            groupId,
+      const updateAssessmentMetadata = async (assessmentId, assignment) => {
+        await client.query(
+          `
+            UPDATE assessments
+            SET title = $1,
+                weight = $2,
+                max_score = $3,
+                category = $4,
+                subject_id = $5,
+                class_id = $6,
+                is_locked = $7,
+                is_active = $8,
+                edit_window_start = $9,
+                edit_window_end = $10
+            WHERE assessment_id = $11
+          `,
+          [
             testName,
             testWeight,
             maxScore,
             category,
-            subjectId,
-            organizationId,
-            termId,
-            cls,
+            assignment.subjectId,
+            assignment.classId,
             locked,
             active,
             parsedWindowStart,
             parsedWindowEnd,
-          ]);
+            assessmentId,
+          ]
+        );
+
+        await client.query(
+          `
+            UPDATE assessment_results
+            SET title = $1,
+                subject_id = $2,
+                class_id = $3,
+                category = $4,
+                term_id = $5,
+                organization_id = $6
+            WHERE assessment_id = $7
+          `,
+          [
+            testName,
+            assignment.subjectId,
+            assignment.classId,
+            category,
+            termId,
+            organizationId,
+            assessmentId,
+          ]
+        );
+      };
+
+      const calculateGradeForPercentage = (totalPercentage) => {
+        if (totalPercentage === null || totalPercentage === undefined || Number.isNaN(totalPercentage)) {
+          return "-";
+        }
+        if (totalPercentage >= 90) return "A";
+        if (totalPercentage >= 80) return "B";
+        if (totalPercentage >= 70) return "C";
+        if (totalPercentage >= 60) return "D";
+        return "F";
+      };
+
+      const recalculateAssignmentSummaries = async (assignment) => {
+        await client.query(
+          `
+            UPDATE assessment_results
+            SET total_subject_score = NULL,
+                total_percentage = NULL,
+                grade = '-'
+            WHERE subject_id = $1 AND class_id = $2 AND organization_id = $3 AND term_id = $4
+          `,
+          [assignment.subjectId, assignment.classId, organizationId, termId]
+        );
+
+        await client.query(
+          `
+            DELETE FROM category_scores
+            WHERE subject_id = $1 AND class_id = $2 AND organization_id = $3 AND term_id = $4
+          `,
+          [assignment.subjectId, assignment.classId, organizationId, termId]
+        );
+
+        const scoreRowsResult = await client.query(
+          `
+            SELECT ar.student_id, ar.score, a.max_score, a.category
+            FROM assessment_results ar
+            JOIN assessments a ON a.assessment_id = ar.assessment_id
+            WHERE ar.subject_id = $1
+              AND ar.class_id = $2
+              AND ar.organization_id = $3
+              AND ar.term_id = $4
+          `,
+          [assignment.subjectId, assignment.classId, organizationId, termId]
+        );
+
+        const studentSummaryMap = new Map();
+
+        scoreRowsResult.rows.forEach((row) => {
+          const studentId = Number(row.student_id);
+          if (!Number.isInteger(studentId)) {
+            return;
+          }
+
+          if (!studentSummaryMap.has(studentId)) {
+            studentSummaryMap.set(studentId, {
+              totalScore: 0,
+              maxTotalScore: 0,
+              categoryScores: new Map(),
+            });
+          }
+
+          if (row.score === null || row.score === "") {
+            return;
+          }
+
+          const summary = studentSummaryMap.get(studentId);
+          const numericScore = Number(row.score);
+          const numericMaxScore = Number(row.max_score);
+          summary.totalScore += numericScore;
+          summary.maxTotalScore += numericMaxScore;
+
+          const currentCategoryTotal = summary.categoryScores.get(row.category) || 0;
+          summary.categoryScores.set(row.category, currentCategoryTotal + numericScore);
+        });
+
+        for (const [studentId, summary] of studentSummaryMap.entries()) {
+          const totalPercentage =
+            summary.maxTotalScore > 0 ? (summary.totalScore / summary.maxTotalScore) * 100 : null;
+          const grade = calculateGradeForPercentage(totalPercentage);
+
+          await client.query(
+            `
+              UPDATE assessment_results
+              SET total_subject_score = $1,
+                  total_percentage = $2,
+                  grade = $3
+              WHERE student_id = $4
+                AND subject_id = $5
+                AND class_id = $6
+                AND organization_id = $7
+                AND term_id = $8
+            `,
+            [
+              summary.totalScore,
+              totalPercentage,
+              grade,
+              studentId,
+              assignment.subjectId,
+              assignment.classId,
+              organizationId,
+              termId,
+            ]
+          );
+
+          for (const [categoryName, totalCategoryScore] of summary.categoryScores.entries()) {
+            await client.query(
+              `
+                INSERT INTO category_scores (student_id, class_id, subject_id, organization_id, category, total_score, term_id)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                ON CONFLICT (student_id, class_id, subject_id, organization_id, category, term_id)
+                DO UPDATE SET total_score = EXCLUDED.total_score
+              `,
+              [
+                studentId,
+                assignment.classId,
+                assignment.subjectId,
+                organizationId,
+                categoryName,
+                totalCategoryScore,
+                termId,
+              ]
+            );
+          }
+        }
+
+        await client.query(
+          `
+            WITH ranked_scores AS (
+              SELECT
+                student_id,
+                subject_id,
+                class_id,
+                term_id,
+                SUM(score) AS total_subject_score,
+                RANK() OVER (
+                  PARTITION BY subject_id, class_id, term_id
+                  ORDER BY SUM(score) DESC
+                ) AS position
+              FROM assessment_results
+              WHERE subject_id = $1 AND class_id = $2 AND organization_id = $3 AND term_id = $4
+              GROUP BY student_id, subject_id, class_id, term_id
+            )
+            INSERT INTO student_positions (student_id, subject_id, organization_id, total_subject_score, position, class_id, term_id)
+            SELECT student_id, subject_id, $3, total_subject_score, position, class_id, term_id
+            FROM ranked_scores
+            ON CONFLICT (student_id, subject_id)
+            DO UPDATE SET
+              total_subject_score = EXCLUDED.total_subject_score,
+              position = EXCLUDED.position,
+              class_id = EXCLUDED.class_id,
+              term_id = EXCLUDED.term_id
+          `,
+          [assignment.subjectId, assignment.classId, organizationId, termId]
+        );
+      };
+
+      for (const assignment of desiredAssignments) {
+        const existingAssessment = existingByPair.get(assignment.key);
+        if (existingAssessment) {
+          await updateAssessmentMetadata(existingAssessment.assessment_id, assignment);
+        }
+      }
+
+      const reusableAssessments = existingAssessments.filter(
+        (row) => !desiredByPair.has(`${row.class_id}-${row.subject_id}`)
+      );
+      const newAssignments = desiredAssignments.filter(
+        (assignment) => !existingByPair.has(assignment.key)
+      );
+      const assignmentsChanged =
+        newAssignments.length > 0 || reusableAssessments.length > 0;
+
+      const reusableCount = Math.min(reusableAssessments.length, newAssignments.length);
+      for (let index = 0; index < reusableCount; index += 1) {
+        await updateAssessmentMetadata(
+          reusableAssessments[index].assessment_id,
+          newAssignments[index]
+        );
+      }
+
+      for (let index = reusableCount; index < newAssignments.length; index += 1) {
+        const assignment = newAssignments[index];
+        const insertQuery = `
+                  INSERT INTO assessments (
+                group_id, title, weight, max_score, category, subject_id, organization_id, term_id, class_id,
+                is_locked, is_active, edit_window_start, edit_window_end
+                  ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+                  )
+                  ON CONFLICT ON CONSTRAINT unique_test_per_term_class_subject DO NOTHING
+              `;
+        await client.query(insertQuery, [
+        groupId,
+          testName,
+          testWeight,
+          maxScore,
+          category,
+          assignment.subjectId,
+          organizationId,
+          termId,
+          assignment.classId,
+          locked,
+          active,
+          parsedWindowStart,
+          parsedWindowEnd,
+        ]);
+      }
+
+      const staleAssessments = reusableAssessments.slice(reusableCount);
+      for (const staleAssessment of staleAssessments) {
+        if (!staleAssessment.has_results) {
+          await client.query(
+            `DELETE FROM assessments WHERE assessment_id = $1`,
+            [staleAssessment.assessment_id]
+          );
+        } else {
+          await client.query(
+            `
+              UPDATE assessments
+              SET title = $1,
+                  weight = $2,
+                  max_score = $3,
+                  category = $4,
+                  is_locked = $5,
+                  is_active = $6,
+                  edit_window_start = $7,
+                  edit_window_end = $8
+              WHERE assessment_id = $9
+            `,
+            [
+              testName,
+              testWeight,
+              maxScore,
+              category,
+              locked,
+              active,
+              parsedWindowStart,
+              parsedWindowEnd,
+              staleAssessment.assessment_id,
+            ]
+          );
+        }
+      }
+
+      if (assignmentsChanged) {
+        const finalAssignmentsResult = await client.query(
+          `
+            SELECT DISTINCT class_id, subject_id
+            FROM assessments
+            WHERE group_id = $1 AND organization_id = $2 AND term_id = $3
+          `,
+          [groupId, organizationId, termId]
+        );
+
+        for (const row of finalAssignmentsResult.rows) {
+          await recalculateAssignmentSummaries({
+            classId: Number(row.class_id),
+            subjectId: Number(row.subject_id),
+          });
         }
       }
 
@@ -6928,7 +7334,7 @@ const commonController = {
             WHERE class_id = ANY($1::int[])
             ORDER BY class_name
         `;
-      const classResult = await client.query(classQuery, [classes]);
+      const classResult = await client.query(classQuery, [normalizedClassIds]);
       const classNames = classResult.rows.map((row) => row.class_name);
 
       await client.query("COMMIT"); // Commit transaction
@@ -6957,7 +7363,7 @@ const commonController = {
             await client.query("ROLLBACK"); // Rollback transaction
       res
         .status(500)
-        .json({ error: "Failed to update assessment. Please try again." });
+        .json({ error: `Failed to update assessment. ${error.message}` });
     } finally {
       client.release();
     }

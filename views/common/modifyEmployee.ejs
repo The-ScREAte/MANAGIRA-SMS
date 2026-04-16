@@ -76,12 +76,6 @@
         margin-bottom: 18px;
         box-sizing: border-box;
     }
-      .modify-employee-card input[readonly],
-      .modify-employee-card input[disabled] {
-        background: #f8fafc;
-        color: #475569;
-        cursor: not-allowed;
-      }
     .modify-employee-card .btn {
         display: block;
         margin: 12px auto 0 auto;
@@ -131,42 +125,6 @@
         margin-left: 8px;
         transition: transform 0.2s;
     }
-    .helper-note {
-      width: 100%;
-      margin: 0 0 18px;
-      padding: 12px 14px;
-      background: #eff6ff;
-      border: 1px solid #bfdbfe;
-      border-radius: 8px;
-      color: #1e3a8a;
-      font-size: 13px;
-      line-height: 1.5;
-    }
-    .assignment-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-bottom: 18px;
-    }
-    .assignment-chip {
-      display: inline-flex;
-      align-items: center;
-      padding: 8px 10px;
-      border-radius: 999px;
-      background: #f1f5f9;
-      color: #0f172a;
-      font-size: 13px;
-      border: 1px solid #cbd5e1;
-    }
-    .empty-state-note {
-      margin: 0 0 18px;
-      padding: 12px 14px;
-      border: 1px dashed #cbd5e1;
-      border-radius: 8px;
-      color: #64748b;
-      background: #f8fafc;
-      font-size: 13px;
-    }
 
     @media (max-width: 768px) {
       .link-button {
@@ -184,16 +142,17 @@
 <h1 style="text-align:center; color:#01535b; margin-bottom:24px;"><%= title %></h1>
 <div class="modify-employee-card">
   <form action="/common/modifyEmployee/<%= user.user_id %>" method="post">
-  <div class="helper-note">
-    Only role and permissions can be changed on this page. Employee identity and assignment details are shown for reference only.
-  </div>
     <div>
-    <label for="employeeName">Employee Name:</label>
-    <input id="employeeName" type="text" value="<%= `${user.first_name || ''} ${user.last_name || ''}`.trim() %>" readonly>
+        <label for="firstName">First Name:</label>
+        <input type="text" name="firstName" value="<%= user.first_name %>">
     </div>
     <div>
-    <label for="employeeEmail">Email:</label>
-    <input id="employeeEmail" type="email" value="<%= user.email %>" readonly>
+        <label for="lastName">Last Name:</label>
+        <input type="text" name="lastName" value="<%= user.last_name %>">
+    </div>
+    <div>
+        <label for="email">Email:</label>
+        <input type="email" name="email" value="<%= user.email %>">
     </div>
     <div>
         <label for="accountType">Role:</label>
@@ -207,49 +166,57 @@
     <div id="permission-assignment-group">
       <label>Optional Extra Permissions:</label>
       <div style="border:1px solid #e2e8f0; background:#f8fafc; border-radius:8px; padding:12px; margin-top:8px;">
-        <% if ((permissionOptions || []).length > 0) { %>
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px 16px;">
-            <% (permissionOptions || []).forEach(function(permission) { %>
-              <label style="display:flex; align-items:center; gap:8px; font-size:14px;">
-                <input
-                  type="checkbox"
-                  name="permissions"
-                  value="<%= permission.key %>"
-                  <%= (selectedPermissions || []).includes(permission.key) ? 'checked' : '' %>
-                >
-                <span><%= permission.label %></span>
-              </label>
-            <% }) %>
-          </div>
-        <% } else { %>
-          <div class="empty-state-note">No data yet.</div>
-        <% } %>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px 16px;">
+          <% (permissionOptions || []).forEach(function(permission) { %>
+            <label style="display:flex; align-items:center; gap:8px; font-size:14px;">
+              <input
+                type="checkbox"
+                name="permissions"
+                value="<%= permission.key %>"
+                <%= (selectedPermissions || []).includes(permission.key) ? 'checked' : '' %>
+              >
+              <span><%= permission.label %></span>
+            </label>
+          <% }) %>
+        </div>
         <div style="margin-top:8px; color:#64748b; font-size:12px;">Permissions are pre-selected based on role. You can add or remove any. High-risk permissions (Billing, Settings) require a Manager account.</div>
       </div>
     </div>
     <div>
-      <label>Assigned Classes:</label>
-      <% if ((assignedClasses || []).length > 0) { %>
-        <div class="assignment-list">
-          <% assignedClasses.forEach(function(cls) { %>
-            <span class="assignment-chip"><%= cls.class_name %></span>
-          <% }) %>
+      <label>Classes:</label>
+      <div class="class-collapsible">
+        <button type="button" class="collapsible-btn" onclick="toggleClassCollapse('all-classes')">
+          <span>Show/Hide Classes</span>
+          <span class="arrow" id="arrow-all-classes">&#9654;</span>
+        </button>
+        <div class="class-checkboxes" id="collapse-all-classes" style="display: none;">
+          <% classes.forEach(cls => { %>
+            <div class="class-container">
+              <input type="checkbox" name="classIds[]" value="<%= cls.class_id %>" <%= enrolledClasses.includes(cls.class_id) ? 'checked' : '' %> style="margin-right:8px;">
+              <%= cls.class_name %>
+              <div class="class-collapsible subject-collapsible" style="margin-top:8px;">
+                <button type="button" class="collapsible-btn" onclick="toggleClassCollapse('subjects-<%= cls.class_id %>')">
+                  <span>Show/Hide Subjects</span>
+                  <span class="arrow" id="arrow-subjects-<%= cls.class_id %>">&#9654;</span>
+                </button>
+                <div class="class-checkboxes" id="collapse-subjects-<%= cls.class_id %>" style="display: none;">
+                  <div class="subject-container">
+                    <% if (cls.subjects && cls.subjects.length > 0) { %>
+                      <% cls.subjects.forEach(sub => { %>
+                        <div>
+                          <input type="checkbox" name="subjects[]" value="<%= sub.subject_id %>" <%= enrolledSubjects.includes(sub.subject_id) ? 'checked' : '' %>> <%= sub.subject_name %>
+                        </div>
+                      <% }); %>
+                    <% } else { %>
+                      <div style="color:#888; margin:10px 0;">No subjects have been assigned to this class.</div>
+                    <% } %>
+                  </div>
+                </div>
+              </div>
+            </div>
+          <% }); %>
         </div>
-      <% } else { %>
-        <div class="empty-state-note">No data yet.</div>
-      <% } %>
-    </div>
-    <div>
-      <label>Assigned Subjects:</label>
-      <% if ((assignedSubjects || []).length > 0) { %>
-        <div class="assignment-list">
-          <% assignedSubjects.forEach(function(subject) { %>
-            <span class="assignment-chip"><%= subject.subject_name %><%= subject.class_name ? ` (${subject.class_name})` : '' %></span>
-          <% }) %>
-        </div>
-      <% } else { %>
-        <div class="empty-state-note">No data yet.</div>
-      <% } %>
+      </div>
     </div>
     <button type="submit" class="btn btn-primary">Save Changes</button>
   </form>
@@ -261,13 +228,33 @@
   </form>
 </div>
 
+<script id="role-default-permissions-data" type="application/json"><%- JSON.stringify(roleDefaultPermissionsMap || {}) %></script>
+<script id="current-saved-permissions-data" type="application/json"><%- JSON.stringify(selectedPermissions || []) %></script>
+
 <script>
+    function toggleClassCollapse(id) {
+      const collapseDiv = document.getElementById('collapse-' + id);
+      const arrow = document.getElementById('arrow-' + id);
+      if (collapseDiv && arrow) {
+        if (collapseDiv.style.display === 'none') {
+          collapseDiv.style.display = 'block';
+          arrow.innerHTML = '&#9660;';
+        } else {
+          collapseDiv.style.display = 'none';
+          arrow.innerHTML = '&#9654;';
+        }
+      }
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
       const accountTypeSelect = document.querySelector("select[name='accountType']");
       const permissionGroup = document.getElementById("permission-assignment-group");
+      const roleDefaultsData = document.getElementById("role-default-permissions-data");
+      const currentPermissionsData = document.getElementById("current-saved-permissions-data");
 
       // Role → default permission keys (injected from server)
-      const ROLE_DEFAULT_PERMISSIONS_MAP = <%- JSON.stringify(roleDefaultPermissionsMap || {}) %>;
+      const ROLE_DEFAULT_PERMISSIONS_MAP = roleDefaultsData ? JSON.parse(roleDefaultsData.textContent || "{}") : {};
+      const CURRENT_SAVED_PERMISSIONS = currentPermissionsData ? JSON.parse(currentPermissionsData.textContent || "[]") : [];
 
       // On role change: reset checkboxes to that role's defaults.
       // The user can still customise before saving.
@@ -290,6 +277,37 @@
         });
       }
       syncPermissionVisibility();
+
+      if (accountTypeSelect && accountTypeSelect.value) {
+        document.querySelectorAll('input[name="permissions"]').forEach(cb => {
+          cb.checked = CURRENT_SAVED_PERMISSIONS.includes(cb.value);
+        });
+      }
+
+      const collapseAllClasses = document.getElementById('collapse-all-classes');
+      const arrowAllClasses = document.getElementById('arrow-all-classes');
+      if (collapseAllClasses && arrowAllClasses) {
+        collapseAllClasses.style.display = 'none';
+        arrowAllClasses.innerHTML = '&#9654;';
+      }
+
+      document.querySelectorAll('input[name="classIds[]"]').forEach(classCheckbox => {
+        const collapseSubjects = document.getElementById('collapse-subjects-' + classCheckbox.value);
+        const arrowSubjects = document.getElementById('arrow-subjects-' + classCheckbox.value);
+        if (collapseSubjects && arrowSubjects) {
+          collapseSubjects.style.display = 'none';
+          arrowSubjects.innerHTML = '&#9654;';
+          classCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+              collapseSubjects.style.display = 'block';
+              arrowSubjects.innerHTML = '&#9660;';
+            } else {
+              collapseSubjects.style.display = 'none';
+              arrowSubjects.innerHTML = '&#9654;';
+            }
+          });
+        }
+      });
 
       // Confirmation dialog for form submit
       const modifyForm = document.querySelector("form[action^='/common/modifyEmployee']");

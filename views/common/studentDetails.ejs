@@ -219,11 +219,6 @@
           width: 100%;
         }
 
-        .schedule-grid {
-          grid-template-columns: 1fr;
-          padding: 12px;
-        }
-      
         table {
           font-size: 13px;
         }
@@ -286,87 +281,6 @@
         border-spacing: 0;
       }
 
-      .schedule-card {
-        margin: 18px 0;
-        border: 1px solid var(--border);
-        border-radius: 14px;
-        background: #fff;
-        overflow: hidden;
-      }
-
-      .schedule-card-header {
-        padding: 16px 18px;
-        background: linear-gradient(135deg, rgba(1, 83, 91, 0.08) 0%, rgba(1, 83, 91, 0.02) 100%);
-        border-bottom: 1px solid var(--border);
-      }
-
-      .schedule-card-header h3 {
-        margin: 0 0 6px;
-      }
-
-      .schedule-card-header p {
-        margin: 0;
-        color: #64748b;
-        line-height: 1.6;
-      }
-
-      .schedule-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 14px;
-        padding: 16px;
-      }
-
-      .schedule-day-card {
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        background: #f8fafc;
-        overflow: hidden;
-      }
-
-      .schedule-day-card h4 {
-        margin: 0;
-        padding: 12px 14px;
-        font-size: 0.95rem;
-        color: var(--text);
-        background: #eef2f7;
-        border-bottom: 1px solid var(--border);
-      }
-
-      .schedule-day-list {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-      }
-
-      .schedule-day-list li {
-        display: flex;
-        justify-content: space-between;
-        gap: 12px;
-        padding: 12px 14px;
-        border-bottom: 1px solid #e2e8f0;
-      }
-
-      .schedule-day-list li:last-child {
-        border-bottom: none;
-      }
-
-      .schedule-time {
-        font-weight: 700;
-        color: var(--text);
-        white-space: nowrap;
-      }
-
-      .schedule-subject {
-        color: #475569;
-        text-align: right;
-      }
-
-      .schedule-empty {
-        padding: 20px 16px;
-        color: #64748b;
-      }
-      
       .table-container th:first-child,
       .table-container td:first-child {
         position: sticky;
@@ -474,35 +388,6 @@
             <% }) %>
           </tbody>
         </table>
-      </div>
-      <div class="schedule-card">
-        <div class="schedule-card-header">
-          <h3>Class Schedule</h3>
-          <p>
-            <%= classSchedule ? `${classSchedule.schoolYearLabel} · ${classSchedule.termName}` : `No class schedule has been published for ${termNameForPage} yet.` %>
-          </p>
-        </div>
-        <% if (classSchedule && classSchedule.groupedByDay.some(day => day.items.length)) { %>
-        <div class="schedule-grid">
-          <% classSchedule.groupedByDay.forEach(day => { %>
-            <% if (day.items.length) { %>
-            <section class="schedule-day-card">
-              <h4><%= day.dayLabel %></h4>
-              <ul class="schedule-day-list">
-                <% day.items.forEach(item => { %>
-                <li>
-                  <span class="schedule-time"><%= item.startTime %> - <%= item.endTime %></span>
-                  <span class="schedule-subject"><%= item.subjectName || 'Subject pending' %></span>
-                </li>
-                <% }) %>
-              </ul>
-            </section>
-            <% } %>
-          <% }) %>
-        </div>
-        <% } else { %>
-        <div class="schedule-empty">The timetable for this term has not been added yet.</div>
-        <% } %>
       </div>
       <% if (req.session && !req.session.guardianId) { %>
       <h3>Parent/Guardians of Child</h3>
