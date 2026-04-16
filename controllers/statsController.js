@@ -82,20 +82,46 @@ const statsController = {
         }
       });
 
-      const selectedSchoolYear = schoolYears.find(y => y.school_year_id == selectedSchoolYearId) || schoolYears[0];
+      const selectedSchoolYear = schoolYears.find(y => y.school_year_id == selectedSchoolYearId)
+        || schoolYears.find(y => Array.isArray(y.terms) && y.terms.length > 0)
+        || schoolYears[0];
+      const selectedSchoolYearTerms = Array.isArray(selectedSchoolYear?.terms) ? selectedSchoolYear.terms : [];
+
       let currentTerm = null;
       if (selectedTermId) {
-        currentTerm = selectedSchoolYear.terms.find(t => t.term_id == selectedTermId);
+        currentTerm = selectedSchoolYearTerms.find(t => t.term_id == selectedTermId) || null;
         if (!currentTerm) {
-          req.flash("error", "Selected term not found for this school year.");
-          return res.redirect("/stats/organization");
+          req.flash("error", "Selected term not found for this school year. Showing the first available term instead.");
         }
-      } else {
-        currentTerm = selectedSchoolYear.terms.find(t => t.current);
-        if (!currentTerm) {
-          req.flash("error", "No current term available. Please select a term.");
-          return res.redirect("/stats/organization");
-        }
+      }
+
+      if (!currentTerm) {
+        currentTerm = selectedSchoolYearTerms.find(t => t.current) || selectedSchoolYearTerms[0] || null;
+      }
+
+      if (!currentTerm) {
+        req.flash("error", "No term is available for the selected school year yet.");
+        return res.render("stats/organizationStats", {
+          title: "Organization Stats",
+          schoolYears,
+          selectedSchoolYear,
+          currentTerm: null,
+          organizationData: {
+            total_students: 0,
+            total_employees: 0,
+            total_classes: 0,
+            total_subjects: 0,
+          },
+          attendanceByClass: [],
+          assessmentByClass: [],
+          topPerformingClasses: [],
+          classStrengthProfile: [],
+          studentCountPerClass: [],
+          organizationGrowth: [],
+          enrollmentOverTerms: [],
+          genderDistribution: [],
+          employeeRoles: [],
+        });
       }
 
       const organizationData = (await db.query(`

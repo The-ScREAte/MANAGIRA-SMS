@@ -1,0 +1,55 @@
+<svg width="1440" height="2500" viewBox="0 0 1440 2500" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1440" height="2500" fill="#FFF7ED"/>
+  <rect x="34" y="28" width="1372" height="2444" rx="42" fill="#FFFFFF"/>
+  <rect x="34" y="28" width="250" height="2444" rx="42" fill="#7C2D12"/>
+  <rect x="314" y="70" width="1058" height="88" rx="24" fill="#FFFBEB" stroke="#FDE68A"/>
+  <rect x="80" y="96" width="126" height="42" rx="12" fill="#EA580C"/>
+  <rect x="80" y="206" width="160" height="50" rx="16" fill="#9A3412"/>
+  <rect x="80" y="284" width="160" height="50" rx="16" fill="#7C2D12"/>
+  <rect x="80" y="362" width="160" height="50" rx="16" fill="#7C2D12"/>
+  <text x="318" y="234" fill="#0F172A" font-size="42" font-family="Inter, Arial, sans-serif" font-weight="700">Attendance</text>
+  <text x="318" y="276" fill="#78716C" font-size="22" font-family="Inter, Arial, sans-serif">Track daily participation, class completion, and late follow-up actions.</text>
+  <rect x="318" y="324" width="320" height="190" rx="30" fill="#FFF7ED" stroke="#FED7AA"/>
+  <rect x="658" y="324" width="320" height="190" rx="30" fill="#FFEDD5"/>
+  <rect x="998" y="324" width="374" height="190" rx="30" fill="#FDBA74"/>
+  <text x="354" y="388" fill="#9A3412" font-size="22" font-family="Inter, Arial, sans-serif">Marked Today</text>
+  <text x="354" y="456" fill="#7C2D12" font-size="58" font-family="Inter, Arial, sans-serif" font-weight="700">28 Classes</text>
+  <text x="694" y="388" fill="#C2410C" font-size="22" font-family="Inter, Arial, sans-serif">Outstanding</text>
+  <text x="694" y="456" fill="#7C2D12" font-size="58" font-family="Inter, Arial, sans-serif" font-weight="700">4 Left</text>
+  <text x="1034" y="388" fill="#7C2D12" font-size="22" font-family="Inter, Arial, sans-serif">Average Rate</text>
+  <text x="1034" y="456" fill="#7C2D12" font-size="58" font-family="Inter, Arial, sans-serif" font-weight="700">92%</text>
+  <rect x="318" y="548" width="640" height="720" rx="32" fill="#FFFFFF" stroke="#FED7AA"/>
+  <text x="358" y="612" fill="#0F172A" font-size="28" font-family="Inter, Arial, sans-serif" font-weight="700">Daily Attendance Board</text>
+  <rect x="358" y="666" width="560" height="94" rx="24" fill="#FFFBEB"/>
+  <rect x="358" y="778" width="560" height="94" rx="24" fill="#FFFBEB"/>
+  <rect x="358" y="890" width="560" height="94" rx="24" fill="#FFFBEB"/>
+  <rect x="358" y="1002" width="560" height="94" rx="24" fill="#FFFBEB"/>
+  <rect x="358" y="1114" width="560" height="94" rx="24" fill="#FFFBEB"/>
+  <rect x="984" y="548" width="388" height="720" rx="32" fill="#0F172A"/>
+  <text x="1024" y="612" fill="#F8FAFC" font-size="28" font-family="Inter, Arial, sans-serif" font-weight="700">Completion Trend</text>
+  <path d="M1038 1130C1080 1048 1128 1010 1176 970C1218 934 1260 888 1318 818" stroke="#FDBA74" stroke-width="14" stroke-linecap="round"/>
+  <path d="M1038 1182C1088 1158 1136 1126 1184 1070C1244 1000 1284 950 1318 908" stroke="#FACC15" stroke-width="14" stroke-linecap="round"/>
+  <rect x="318" y="1300" width="1054" height="1028" rx="32" fill="#FFFBEB" stroke="#FED7AA"/>
+  <text x="358" y="1364" fill="#7C2D12" font-size="28" font-family="Inter, Arial, sans-serif" font-weight="700">Class Marking Sheet</text>
+  <rect x="358" y="1410" width="974" height="74" rx="20" fill="#FFFFFF"/>
+  <rect x="358" y="1510" width="974" height="112" rx="24" fill="#FFFFFF"/>
+  <rect x="358" y="1644" width="974" height="112" rx="24" fill="#FFFFFF"/>
+  <rect x="358" y="1778" width="974" height="112" rx="24" fill="#FFFFFF"/>
+  <rect x="358" y="1912" width="974" height="112" rx="24" fill="#FFFFFF"/>
+  <rect x="358" y="2046" width="974" height="112" rx="24" fill="#FFFFFF"/>
+  <circle cx="424" cy="1566" r="20" fill="#86EFAC"/>
+  <circle cx="424" cy="1700" r="20" fill="#FDE68A"/>
+  <circle cx="424" cy="1834" r="20" fill="#FCA5A5"/>
+  <circle cx="424" cy="1968" r="20" fill="#86EFAC"/>
+  <circle cx="424" cy="2102" r="20" fill="#86EFAC"/>
+  <rect x="470" y="1548" width="220" height="18" rx="9" fill="#0F172A"/>
+  <rect x="470" y="1682" width="220" height="18" rx="9" fill="#0F172A"/>
+  <rect x="470" y="1816" width="220" height="18" rx="9" fill="#0F172A"/>
+  <rect x="470" y="1950" width="220" height="18" rx="9" fill="#0F172A"/>
+  <rect x="470" y="2084" width="220" height="18" rx="9" fill="#0F172A"/>
+  <rect x="1080" y="1540" width="208" height="34" rx="17" fill="#EA580C"/>
+  <rect x="1080" y="1674" width="208" height="34" rx="17" fill="#F59E0B"/>
+  <rect x="1080" y="1808" width="208" height="34" rx="17" fill="#EF4444"/>
+  <rect x="1080" y="1942" width="208" height="34" rx="17" fill="#EA580C"/>
+  <rect x="1080" y="2076" width="208" height="34" rx="17" fill="#EA580C"/>
+</svg>

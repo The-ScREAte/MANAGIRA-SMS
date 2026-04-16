@@ -7646,7 +7646,12 @@ const commonController = {
           : null;
       const isMainTeacher = currentUserId === mainTeacherId;
       const canEditClassSchedule = buildClassSchedulePermissions(req, isMainTeacher);
-      const scheduleSubjects = await getClassScheduleSubjects(db, { organizationId, classId });
+      const scheduleSubjects = await getClassScheduleSubjects(db, {
+        organizationId,
+        classId,
+        currentUserId,
+        currentUserRole,
+      });
       const scheduleBundle = await getClassScheduleBundle(db, { organizationId, classId, termId: currentTerm.term_id });
       const initialClassScheduleData = buildClassSchedulePayload({
         canEdit: canEditClassSchedule,
@@ -7741,7 +7746,12 @@ const commonController = {
       );
       const isMainTeacher = Number(mainTeacherResult.rows[0]?.user_id || 0) === Number(currentUserId || 0);
       const bundle = await getClassScheduleBundle(db, { organizationId, classId, termId });
-      const subjects = await getClassScheduleSubjects(db, { organizationId, classId });
+      const subjects = await getClassScheduleSubjects(db, {
+        organizationId,
+        classId,
+        currentUserId,
+        currentUserRole: req.session.userRole,
+      });
       if (!bundle) {
         const term = await getTermContext(db, organizationId, termId);
         if (!term) {

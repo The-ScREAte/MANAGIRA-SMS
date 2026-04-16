@@ -6,7 +6,7 @@ const checkFeatureAccess = require('../middleware/checkFeatureAccess');
 
 
 // 📊 Organization Stats with optional term selection
-router.get("/organization",  checkFeatureAccess, checkFeatureAccess, isAuthenticated, statsController.getOrganizationStats);
+router.get("/organization", checkFeatureAccess, isAuthenticated, statsController.getOrganizationStats);
 
 
 // 📚 Fetch Classes by Term (for class comparison selection)

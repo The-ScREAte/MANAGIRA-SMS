@@ -620,7 +620,7 @@ main {
   z-index: 1100;
   justify-content: center;
   align-items: flex-start;
-  padding: 80px 16px 40px;
+  padding: 108px 16px 32px;
   overflow-y: auto;
   backdrop-filter: blur(2px);
 }
@@ -633,7 +633,7 @@ main {
   padding: 0;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05);
   position: relative;
-  max-height: calc(100vh - 120px);
+  max-height: calc(100vh - 152px);
   overflow-y: auto;
   animation: modalSlideIn 0.2s ease-out;
 }
@@ -930,7 +930,7 @@ main {
 }
 
 .schedule-modal-body {
-  padding: 28px;
+  padding: 36px 28px 28px;
 }
 
 .schedule-header {
@@ -939,6 +939,7 @@ main {
   gap: 16px;
   align-items: flex-start;
   margin-bottom: 20px;
+  padding-right: 72px;
 }
 
 .schedule-title {
@@ -1027,7 +1028,7 @@ main {
   position: relative;
 }
 
-.schedule-shell.with-watermark::before {
+.schedule-shell.with-watermark::after {
   content: '';
   position: absolute;
   inset: 0;
@@ -1035,8 +1036,9 @@ main {
   background-repeat: no-repeat;
   background-position: center;
   background-size: min(380px, 72%);
-  opacity: 0.07;
+  opacity: 0.08;
   pointer-events: none;
+  z-index: 2;
 }
 
 .schedule-shell > * {
@@ -1048,6 +1050,57 @@ main {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
+}
+
+.schedule-summary-details {
+  margin-bottom: 16px;
+}
+
+.schedule-summary-toggle {
+  display: none;
+}
+
+.schedule-summary-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.schedule-summary-toggle::marker {
+  content: "";
+}
+
+.schedule-summary-toggle-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fff;
+  padding: 12px 14px;
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.schedule-summary-toggle-label {
+  font-size: 14px;
+}
+
+.schedule-summary-toggle-icon {
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+  transition: transform 0.2s ease;
+}
+
+.schedule-summary-details[open] .schedule-summary-toggle-icon {
+  transform: rotate(90deg);
+}
+
+.schedule-summary-content {
+  margin-top: 12px;
 }
 
 .schedule-summary-card {
@@ -1104,6 +1157,9 @@ main {
 }
 
 .schedule-table-wrap {
+  --schedule-day-column-width: 116px;
+  --schedule-slot-column-width: 122px;
+  --schedule-cell-min-height: 62px;
   overflow: auto;
   border: 1px solid var(--border);
   border-radius: 18px;
@@ -1113,7 +1169,7 @@ main {
 .schedule-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 980px;
+  min-width: calc(var(--schedule-day-column-width) + (var(--schedule-slot-column-width) * 5));
   table-layout: fixed;
 }
 
@@ -1136,8 +1192,9 @@ main {
 .schedule-table tr:last-child td { border-bottom: none; }
 
 .schedule-table .schedule-day-cell {
-  min-width: 140px;
-  padding: 14px 10px;
+  width: var(--schedule-day-column-width);
+  min-width: var(--schedule-day-column-width);
+  padding: 12px 8px;
   background: #f8fafc;
   font-weight: 800;
   color: #0f172a;
@@ -1147,14 +1204,14 @@ main {
 }
 
 .schedule-slot-header {
-  min-width: 140px;
+  min-width: var(--schedule-slot-column-width);
   background: linear-gradient(180deg, #fff 0%, #f8fbff 100%);
 }
 
 .schedule-slot-header-inner {
-  padding: 10px 10px 12px;
+  padding: 9px 8px 10px;
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .schedule-slot-period-row {
@@ -1177,10 +1234,10 @@ main {
 }
 
 .schedule-slot-time-display {
-  font-size: 12px;
+  font-size: 11px;
   color: #0f172a;
   font-weight: 700;
-  line-height: 1.4;
+  line-height: 1.3;
 }
 
 .schedule-slot-remove {
@@ -1205,13 +1262,14 @@ main {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
 }
 
 .schedule-day-label-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 12px;
 }
 
 .schedule-day-restore-row {
@@ -1270,8 +1328,8 @@ main {
 }
 
 .schedule-cell-select {
-  min-width: 140px;
-  min-height: 78px;
+  min-width: var(--schedule-slot-column-width);
+  min-height: var(--schedule-cell-min-height);
   border: none;
   border-radius: 0;
   text-align: center;
@@ -1283,8 +1341,8 @@ main {
 
 .schedule-cell-select-wrap {
   position: relative;
-  min-width: 140px;
-  min-height: 78px;
+  min-width: var(--schedule-slot-column-width);
+  min-height: var(--schedule-cell-min-height);
 }
 
 .schedule-cell-arrow {
@@ -1298,15 +1356,31 @@ main {
 }
 
 .schedule-readonly-cell {
-  min-width: 140px;
-  min-height: 78px;
-  padding: 10px;
+  min-width: var(--schedule-slot-column-width);
+  min-height: var(--schedule-cell-min-height);
+  padding: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
   font-weight: 600;
   color: #0f172a;
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.schedule-readonly-cell.is-assigned-teacher-subject {
+  background: color-mix(in srgb, var(--primary) 10%, white);
+  color: var(--primary);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--primary) 22%, white);
+  font-weight: 800;
+}
+
+.schedule-readonly-cell.is-custom-entry {
+  background: transparent;
+  color: #c77700;
+  box-shadow: none;
+  font-weight: 700;
 }
 
 .schedule-readonly-cell.is-empty {
@@ -1343,16 +1417,49 @@ main {
 }
 
 @media (max-width: 640px) {
-  .report-modal-overlay { padding: 60px 8px 20px; }
+  .report-modal-overlay { padding: 112px 12px 20px; }
   .rd-modal-body { padding: 16px; }
   .rd-info-grid { grid-template-columns: 1fr 1fr; }
   .rd-reply-header { flex-direction: column; align-items: flex-start; gap: 2px; }
   .rp-card { flex-direction: column; align-items: flex-start; }
   .rp-right { width: 100%; justify-content: space-between; }
-  .schedule-modal-overlay { padding: 12px; }
-  .schedule-modal-box { width: 100%; max-height: calc(100vh - 24px); border-radius: 18px; }
-  .schedule-modal-body { padding: 18px; }
-  .schedule-header { flex-direction: column; }
+  .schedule-table-wrap {
+    --schedule-day-column-width: 90px;
+    --schedule-slot-column-width: 96px;
+    --schedule-cell-min-height: 52px;
+  }
+  .schedule-modal-overlay {
+    align-items: flex-start;
+    padding: 112px 12px 12px;
+  }
+  .schedule-modal-box { width: 100%; max-height: calc(100vh - 124px); border-radius: 18px; }
+  .schedule-modal-body { padding: 24px 18px 18px; }
+  .schedule-header {
+    flex-direction: column;
+    padding-right: 0;
+    padding-top: 28px;
+  }
+  .schedule-summary-toggle {
+    display: block;
+  }
+  .schedule-summary-details:not([open]) .schedule-summary-content {
+    display: none;
+  }
+  .schedule-table th {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+  }
+  .schedule-table .schedule-day-cell {
+    padding: 10px 6px;
+  }
+  .schedule-slot-period {
+    font-size: 10px;
+  }
+  .schedule-slot-time-display,
+  .schedule-day-label-text,
+  .schedule-readonly-cell {
+    font-size: 11px;
+  }
   .schedule-toolbar { width: 100%; flex-wrap: wrap; justify-content: flex-start; }
   .schedule-toolbar .nav-link { flex: 1 1 120px; }
   .schedule-readonly-banner { flex-direction: column; align-items: flex-start; }
@@ -1360,7 +1467,7 @@ main {
 }
 
 @media (max-width: 480px) {
-  .schedule-summary-grid { grid-template-columns: 1fr; }
+  .schedule-summary-grid { grid-template-columns: 1fr 1fr; }
   .schedule-day-restore-row { align-items: flex-start; }
   .schedule-day-chip { width: 100%; justify-content: center; }
 }
@@ -1550,7 +1657,6 @@ main {
                 <div class="schedule-header">
                   <div>
                     <h2 class="schedule-title">Class Schedule</h2>
-                    <p class="schedule-subtext">Build, reuse, print, and review this class timetable for the current term without leaving the dashboard.</p>
                   </div>
                   <div class="schedule-toolbar" id="classScheduleToolbar"></div>
                 </div>
@@ -1578,10 +1684,16 @@ main {
         schoolYearLabel: <%- JSON.stringify(schoolYear.year_label) %>,
         termName: <%- JSON.stringify(currentTerm.term_name) %>,
         className: <%- JSON.stringify(className) %>,
+        schoolName: <%- JSON.stringify((session && session.organizationName) || '') %>,
         logoUrl: <%- JSON.stringify((session && session.logo) || '') %>,
+        orgPrimaryColor: '',
+        orgPrimaryHover: '',
         canEdit: <%= canEditClassSchedule ? 'true' : 'false' %>,
         weekdays: <%- JSON.stringify(classScheduleWeekdays || []) %>,
       };
+      var classScheduleRootStyles = window.getComputedStyle(document.documentElement);
+      classScheduleContext.orgPrimaryColor = classScheduleRootStyles.getPropertyValue('--org-primary-color').trim() || <%- JSON.stringify(currentTheme.primary) %>;
+      classScheduleContext.orgPrimaryHover = classScheduleRootStyles.getPropertyValue('--org-primary-hover').trim() || <%- JSON.stringify(currentTheme.hover) %>;
       classScheduleState = {
         payload: <%- JSON.stringify(initialClassScheduleData || null) %>,
         draftRows: [],
@@ -1775,6 +1887,19 @@ main {
       var d = document.createElement('div');
       d.textContent = s;
       return d.innerHTML;
+    }
+
+    function formatScheduleTime(timeValue) {
+      if (!timeValue) return '';
+      var parts = String(timeValue).split(':');
+      if (parts.length < 2) return String(timeValue);
+      var hour = Number(parts[0]);
+      var minute = parts[1];
+      if (!Number.isFinite(hour)) return String(timeValue);
+      var suffix = hour >= 12 ? 'PM' : 'AM';
+      var displayHour = hour % 12;
+      if (displayHour === 0) displayHour = 12;
+      return String(displayHour) + ':' + minute + ' ' + suffix;
     }
 
     function openReportDetail(reportId) {
@@ -2263,6 +2388,7 @@ main {
     function renderScheduleEditor(schedule, canEdit, isEditing) {
       var container = document.getElementById('classScheduleContent');
       var slots = getDraftSlots();
+      var isCompactScheduleViewport = window.matchMedia('(max-width: 640px)').matches;
       if (!slots.length) {
         classScheduleState.draftRows = buildDraftRowsFromSlots(getDefaultScheduleSlots());
         slots = getDraftSlots();
@@ -2289,6 +2415,17 @@ main {
           '</div>';
       }
 
+      summaryGrid =
+        '<details class="schedule-summary-details"' + (isCompactScheduleViewport ? '' : ' open') + '>' +
+          '<summary class="schedule-summary-toggle">' +
+            '<span class="schedule-summary-toggle-button">' +
+              '<span class="schedule-summary-toggle-label">Schedule details</span>' +
+              '<span class="schedule-summary-toggle-icon" aria-hidden="true">›</span>' +
+            '</span>' +
+          '</summary>' +
+          '<div class="schedule-summary-content">' + summaryGrid + '</div>' +
+        '</details>';
+
       var headerCells = slots.map(function(slot, index) {
         if (isEditing) {
           return '' +
@@ -2310,7 +2447,7 @@ main {
           '<th class="schedule-slot-header">' +
             '<div class="schedule-slot-header-inner">' +
               '<div class="schedule-slot-period">Period ' + (index + 1) + '</div>' +
-              '<div class="schedule-slot-time-display">' + esc(slot.startTime) + '<br />' + esc(slot.endTime) + '</div>' +
+              '<div class="schedule-slot-time-display">' + esc(formatScheduleTime(slot.startTime)) + '<br />' + esc(formatScheduleTime(slot.endTime)) + '</div>' +
             '</div>' +
           '</th>';
       }).join('');
@@ -2338,7 +2475,7 @@ main {
 
           return '' +
             '<td>' +
-              '<div class="schedule-readonly-cell' + (subjectName ? '' : ' is-empty') + '">' + esc(subjectName || 'Empty') + '</div>' +
+              '<div class="schedule-readonly-cell' + (subjectName ? '' : ' is-empty') + (subjectName && isAssignedTeacherScheduleSubject(row.subjectId) ? ' is-assigned-teacher-subject' : '') + (subjectName && isCustomScheduleEntry(row.subjectId) ? ' is-custom-entry' : '') + '">' + esc(subjectName || 'Empty') + '</div>' +
             '</td>';
         }).join('');
 
@@ -2348,7 +2485,7 @@ main {
       container.innerHTML =
         summaryGrid +
         (canEdit && !isEditing
-          ? '<div class="schedule-readonly-banner"><span>Tap Edit to change periods, days, subjects, and breaks.</span><span>View mode</span></div>'
+          ? '<div class="schedule-readonly-banner"><span>Tap Edit to make changes.</span><span>View mode</span></div>'
           : '') +
         '<div class="schedule-table-wrap">' +
           '<table class="schedule-table">' +
@@ -2377,6 +2514,19 @@ main {
       var subjects = (classScheduleState.payload && classScheduleState.payload.subjects) || [];
       var match = subjects.find(function(subject) { return String(subject.subjectId) === String(subjectId || ''); });
       return match ? match.subjectName : '';
+    }
+
+    function isAssignedTeacherScheduleSubject(subjectId) {
+      if (typeof subjectId === 'string' && subjectId.indexOf('custom:') === 0) {
+        return false;
+      }
+      var subjects = (classScheduleState.payload && classScheduleState.payload.subjects) || [];
+      var match = subjects.find(function(subject) { return String(subject.subjectId) === String(subjectId || ''); });
+      return Boolean(match && match.assignedToCurrentTeacher);
+    }
+
+    function isCustomScheduleEntry(subjectId) {
+      return typeof subjectId === 'string' && subjectId.indexOf('custom:') === 0;
     }
 
     function bindScheduleEditorInputs() {
@@ -2656,9 +2806,14 @@ main {
 
     function printClassSchedule() {
       var rows = collectScheduleRows();
-      var draftRows = classScheduleState.draftRows || [];
       var weekdays = getScheduleWeekdays();
       var slots = getDraftSlots();
+      var orgPrimaryColor = classScheduleContext.orgPrimaryColor || '#01535b';
+      var orgPrimaryHover = classScheduleContext.orgPrimaryHover || orgPrimaryColor;
+      var orgTintColor = toAlphaColor(orgPrimaryColor, 0.08);
+      var schoolName = classScheduleContext.schoolName || 'School';
+      var printedAt = new Date().toLocaleString();
+      var ownershipNotice = 'This class schedule is the property of ' + schoolName + '. Any unauthorized use, reproduction, distribution, or alteration of this document may be addressed by the said organization or institution. ' + schoolName + ' reserves the right to take appropriate action regarding misuse.';
 
       var printWeekdays = weekdays.filter(function(day) {
         return slots.some(function(slot) {
@@ -2668,20 +2823,21 @@ main {
       });
       if (!printWeekdays.length) printWeekdays = weekdays;
 
-      var content = '<table style="width:100%;border-collapse:collapse;table-layout:fixed;">' +
-        '<thead><tr><th style="border:1px solid #cbd5e1;padding:10px;background:#f8fafc;">Day</th>' +
+      var content = '<table style="width:100%;border-collapse:collapse;table-layout:fixed;background:#ffffff;border-radius:18px;overflow:hidden;">' +
+        '<thead><tr><th style="border:1px solid #d7dee8;padding:12px 10px;background:' + esc(orgTintColor) + ';color:' + esc(orgPrimaryColor) + ';font-size:11px;text-transform:uppercase;letter-spacing:0.06em;">Day</th>' +
         slots.map(function(slot, index) {
-          return '<th style="border:1px solid #cbd5e1;padding:10px;background:#f8fafc;"><div style="font-size:11px;color:#64748b;font-weight:700;">Period ' + (index + 1) + '</div><div>' + esc(slot.startTime) + ' - ' + esc(slot.endTime) + '</div></th>';
+          return '<th style="border:1px solid #d7dee8;padding:12px 10px;background:' + esc(orgTintColor) + ';"><div style="font-size:11px;color:' + esc(orgPrimaryColor) + ';font-weight:800;text-transform:uppercase;letter-spacing:0.06em;">Period ' + (index + 1) + '</div><div style="margin-top:4px;color:#0f172a;font-weight:700;">' + esc(formatScheduleTime(slot.startTime)) + ' - ' + esc(formatScheduleTime(slot.endTime)) + '</div></th>';
         }).join('') +
         '</tr></thead><tbody>' +
         printWeekdays.map(function(day) {
-          return '<tr><th style="border:1px solid #cbd5e1;padding:10px;background:#f8fafc;">' + esc(day.label) + '</th>' +
+          return '<tr><th style="border:1px solid #d7dee8;padding:12px 10px;background:' + esc(orgTintColor) + ';color:#0f172a;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;">' + esc(day.label) + '</th>' +
             slots.map(function(slot) {
               var row = rows.find(function(entry) {
                 return Number(entry.dayOfWeek) === Number(day.value) && buildSlotKey(entry.startTime, entry.endTime) === buildSlotKey(slot.startTime, slot.endTime);
               });
+              var isCustomEntry = Boolean(row && row.customLabel);
               var cellLabel = (row && row.customLabel) ? row.customLabel : (resolveSubjectName(row && row.subjectId) || '');
-              return '<td style="border:1px solid #cbd5e1;padding:12px;text-align:center;vertical-align:middle;min-height:60px;">' + esc(cellLabel || 'Empty') + '</td>';
+              return '<td style="border:1px solid #d7dee8;padding:14px 10px;text-align:center;vertical-align:middle;min-height:60px;background:rgba(255,255,255,0.92);font-weight:' + (isCustomEntry ? '700' : '600') + ';color:' + (isCustomEntry ? '#c77700' : (cellLabel ? '#0f172a' : '#94a3b8')) + ';">' + esc(cellLabel || 'Empty') + '</td>';
             }).join('') +
           '</tr>';
         }).join('') +
@@ -2689,10 +2845,31 @@ main {
 
       var printWindow = window.open('', '_blank');
       if (!printWindow) return;
-      printWindow.document.write('<html><head><title>Class Schedule</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#0f172a;} .schedule-print{position:relative;min-height:100vh;} .schedule-print::before{content:"";position:fixed;inset:0;background-image:' + (classScheduleContext.logoUrl ? 'url("' + esc(classScheduleContext.logoUrl) + '")' : 'none') + ';background-repeat:no-repeat;background-position:center;background-size:320px 320px;opacity:0.09;pointer-events:none;} .schedule-print > *{position:relative;z-index:1;} h1{margin-bottom:8px;} p{color:#475569;} table td, table th{padding:8px;}</style></head><body><div class="schedule-print"><h1>' + esc(classScheduleContext.className) + ' Class Schedule</h1><p>' + esc(classScheduleContext.schoolYearLabel) + ' · ' + esc(classScheduleContext.termName) + '</p>' + content + '</div></body></html>');
+      printWindow.document.write('<html><head><title>Class Schedule</title><style>@page{size:landscape;margin:12mm;} body{font-family:' + esc(getComputedStyle(document.body).fontFamily || 'Arial, sans-serif') + ';margin:0;color:#0f172a;background:#f4f7fb;} .schedule-print{position:relative;min-height:100vh;padding:20px;background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%);display:flex;flex-direction:column;} .schedule-print::after{content:"";position:fixed;inset:0;background-image:' + (classScheduleContext.logoUrl ? 'url("' + esc(classScheduleContext.logoUrl) + '")' : 'none') + ';background-repeat:no-repeat;background-position:center;background-size:360px 360px;opacity:0.06;pointer-events:none;z-index:2;} .schedule-print > *{position:relative;z-index:1;} .schedule-print-header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:20px 22px;border-radius:24px;background:linear-gradient(135deg,' + esc(orgPrimaryColor) + ' 0%,' + esc(orgPrimaryHover) + ' 100%);color:#ffffff;box-shadow:0 18px 40px rgba(15,23,42,0.14);} .schedule-print-brand{display:flex;align-items:center;gap:16px;} .schedule-print-logo{width:64px;height:64px;border-radius:18px;background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.3);display:flex;align-items:center;justify-content:center;overflow:hidden;flex:0 0 auto;} .schedule-print-logo img{width:100%;height:100%;object-fit:contain;} .schedule-print-kicker{margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:rgba(255,255,255,0.78);} .schedule-print-school{margin:0;font-size:28px;line-height:1.1;font-weight:800;} .schedule-print-title{margin:6px 0 0;font-size:15px;line-height:1.5;color:rgba(255,255,255,0.9);} .schedule-print-header-side{display:flex;flex-direction:column;align-items:flex-end;gap:10px;min-width:220px;} .schedule-print-pill{display:inline-flex;align-items:center;padding:10px 14px;border-radius:999px;background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.26);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;} .schedule-print-header-meta{display:grid;gap:6px;text-align:right;} .schedule-print-header-meta-row{font-size:13px;line-height:1.4;color:rgba(255,255,255,0.92);} .schedule-print-header-meta-label{font-weight:700;color:rgba(255,255,255,0.72);text-transform:uppercase;letter-spacing:0.08em;font-size:10px;margin-right:6px;} .schedule-print-table{margin-top:18px;border-radius:20px;overflow:hidden;border:1px solid #d7dee8;box-shadow:0 10px 28px rgba(15,23,42,0.06);} .schedule-print-disclaimer{max-width:760px;margin:28px auto 0;padding:18px 22px;text-align:center;color:#475569;font-size:13px;line-height:1.75;} .schedule-print-disclaimer strong{display:block;margin-bottom:8px;color:' + esc(orgPrimaryColor) + ';font-size:12px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;} .schedule-print-footer{margin-top:auto;padding-top:18px;display:flex;justify-content:center;color:#64748b;font-size:12px;font-weight:600;} table{width:100%;border-collapse:collapse;table-layout:fixed;background:#ffffff;} @media print{body{background:#ffffff;} .schedule-print{padding:0;background:#ffffff;} .schedule-print-header{box-shadow:none;} .schedule-print-table{box-shadow:none;}}</style></head><body><div class="schedule-print"><div class="schedule-print-header"><div class="schedule-print-brand">' + (classScheduleContext.logoUrl ? '<div class="schedule-print-logo"><img src="' + esc(classScheduleContext.logoUrl) + '" alt="School logo" /></div>' : '') + '<div><p class="schedule-print-kicker">Class Timetable</p><h1 class="schedule-print-school">' + esc(schoolName) + '</h1><p class="schedule-print-title">' + esc(classScheduleContext.className) + ' Class Schedule</p></div></div><div class="schedule-print-header-side"><div class="schedule-print-pill">' + esc(classScheduleContext.termName) + '</div><div class="schedule-print-header-meta"><div class="schedule-print-header-meta-row"><span class="schedule-print-header-meta-label">Class</span>' + esc(classScheduleContext.className) + '</div><div class="schedule-print-header-meta-row"><span class="schedule-print-header-meta-label">School Year</span>' + esc(classScheduleContext.schoolYearLabel) + '</div></div></div></div><div class="schedule-print-table">' + content + '</div><div class="schedule-print-disclaimer"><strong>Ownership Notice</strong><span>' + esc(ownershipNotice) + '</span></div><div class="schedule-print-footer">Printed on ' + esc(printedAt) + '</div></div></body></html>');
       printWindow.document.close();
       printWindow.focus();
       printWindow.print();
+    }
+
+    function toAlphaColor(color, alpha) {
+      if (!color) return 'rgba(1, 83, 91, ' + alpha + ')';
+      var trimmedColor = String(color).trim();
+      if (/^#([0-9a-f]{3}){1,2}$/i.test(trimmedColor)) {
+        var hex = trimmedColor.slice(1);
+        if (hex.length === 3) {
+          hex = hex.split('').map(function(char) { return char + char; }).join('');
+        }
+        var red = parseInt(hex.slice(0, 2), 16);
+        var green = parseInt(hex.slice(2, 4), 16);
+        var blue = parseInt(hex.slice(4, 6), 16);
+        return 'rgba(' + red + ', ' + green + ', ' + blue + ', ' + alpha + ')';
+      }
+      var rgbaMatch = trimmedColor.match(/^rgba?\(([^)]+)\)$/i);
+      if (rgbaMatch) {
+        var parts = rgbaMatch[1].split(',').slice(0, 3).map(function(part) { return part.trim(); });
+        return 'rgba(' + parts.join(', ') + ', ' + alpha + ')';
+      }
+      return trimmedColor;
     }
 
     window.toggleClassScheduleModal = toggleClassScheduleModal;

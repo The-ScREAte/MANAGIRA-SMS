@@ -399,6 +399,16 @@ const legalController = {
         });
     },
 
+    appDemo: (req, res) => {
+        res.render('legal&Compliance/appDemo', {
+            title: 'App Demo - Explore Managira',
+            description: 'Explore Managira through an interactive visual demo covering the dashboard, student management, attendance, fees, reports, and settings.',
+            keywords: 'managira demo, school management software demo, dashboard demo, attendance demo, fees demo, reports demo',
+            canonicalUrl: 'https://www.managira.com/legal/app-demo',
+            showFooterTopSection: true
+        });
+    },
+
     donationsPage: async (req, res) => {
         const donations = await db.query(`SELECT * FROM donations ORDER BY created_at DESC`);
         res.render('legal&Compliance/donations', { 

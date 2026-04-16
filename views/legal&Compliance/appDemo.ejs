@@ -1,0 +1,826 @@
+<%
+  const demoPages = [
+    {
+      title: 'Dashboard',
+      tagline: 'Operations overview',
+      description: 'See attendance health, finance signals, announcements, and school-wide activity in one place.',
+      image: '/images/app-demo/dashboard-overview.svg',
+      accent: '#0f766e'
+    },
+    {
+      title: 'Student Management',
+      tagline: 'Records and profiles',
+      description: 'Browse student records, enrollment status, profile history, and next actions from one workspace.',
+      image: '/images/app-demo/student-management.svg',
+      accent: '#2563eb'
+    },
+    {
+      title: 'Attendance',
+      tagline: 'Daily tracking',
+      description: 'Review class attendance trends, mark daily presence, and spot follow-up cases quickly.',
+      image: '/images/app-demo/attendance-tracker.svg',
+      accent: '#b45309'
+    },
+    {
+      title: 'Fees / Finance',
+      tagline: 'Billing visibility',
+      description: 'Monitor collections, overdue balances, payment channels, and finance operations without clutter.',
+      image: '/images/app-demo/fees-finance.svg',
+      accent: '#7c2d12'
+    },
+    {
+      title: 'Reports',
+      tagline: 'Academic outputs',
+      description: 'Preview reporting workflows for academic summaries, printable outputs, and distribution status.',
+      image: '/images/app-demo/reports-center.svg',
+      accent: '#4338ca'
+    },
+    {
+      title: 'Settings',
+      tagline: 'Control panel',
+      description: 'Explore organization controls, branding options, permissions, and platform preferences.',
+      image: '/images/app-demo/settings-control.svg',
+      accent: '#334155'
+    }
+  ];
+%>
+
+<section class="app-demo-page">
+  <div class="app-demo-orb app-demo-orb--left"></div>
+  <div class="app-demo-orb app-demo-orb--right"></div>
+
+  <div class="app-demo-shell">
+    <section class="app-demo-hero">
+      <div class="app-demo-hero__copy">
+        <p class="app-demo-kicker">Interactive product walkthrough</p>
+        <h1>Explore each part of Managira without opening the full app.</h1>
+        <p class="app-demo-intro">
+          Open any section to inspect a full-page visual preview, move to the next screen, and zoom in when you need a closer look.
+        </p>
+
+        <div class="app-demo-metrics" aria-label="Demo summary">
+          <div>
+            <strong>6</strong>
+            <span>guided screens</span>
+          </div>
+          <div>
+            <strong>Responsive</strong>
+            <span>desktop and mobile</span>
+          </div>
+          <div>
+            <strong>Fast</strong>
+            <span>SVG-based previews</span>
+          </div>
+        </div>
+
+        <div class="app-demo-actions">
+          <button type="button" class="app-demo-primary" data-open-demo="0">Open Demo</button>
+          <a href="#app-demo-grid" class="app-demo-secondary">Browse sections</a>
+        </div>
+      </div>
+
+      <div class="app-demo-hero__feature-card">
+        <div class="app-demo-hero__window-bar">
+          <span></span><span></span><span></span>
+        </div>
+        <div class="app-demo-hero__preview-frame">
+          <img src="/images/app-demo/dashboard-overview.svg" alt="Dashboard demo preview" loading="eager" decoding="async" />
+        </div>
+        <div class="app-demo-hero__feature-copy">
+          <p>Featured</p>
+          <strong>Dashboard overview</strong>
+          <span>High-level KPIs, trend cards, live activity, and quick actions.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="app-demo-gallery">
+      <div class="app-demo-section-heading">
+        <div>
+          <p class="app-demo-kicker">Choose a view</p>
+          <h2>Sections included in the demo gallery</h2>
+        </div>
+        <p class="app-demo-note">Click a tile to open the full visual preview in a focused modal.</p>
+      </div>
+
+      <div id="app-demo-grid" class="app-demo-grid">
+        <% demoPages.forEach((page, index) => { %>
+          <button
+            type="button"
+            class="app-demo-card"
+            data-demo-index="<%= index %>"
+            data-demo-title="<%- page.title %>"
+            data-demo-tagline="<%- page.tagline %>"
+            data-demo-description="<%- page.description %>"
+            data-demo-image="<%- page.image %>"
+            data-demo-accent="<%- page.accent %>"
+            aria-label="Open <%= page.title %> preview"
+          >
+            <span class="app-demo-card__glow" style="--card-accent: <%= page.accent %>"></span>
+            <div class="app-demo-card__media">
+              <img src="<%= page.image %>" alt="<%= page.title %> preview" loading="lazy" decoding="async" />
+            </div>
+            <div class="app-demo-card__body">
+              <div class="app-demo-card__meta">
+                <span><%= String(index + 1).padStart(2, '0') %></span>
+                <span><%= page.tagline %></span>
+              </div>
+              <h3><%= page.title %></h3>
+              <p><%= page.description %></p>
+            </div>
+          </button>
+        <% }) %>
+      </div>
+    </section>
+  </div>
+</section>
+
+<div class="app-demo-modal" data-demo-modal hidden aria-hidden="true">
+  <div class="app-demo-modal__scrim" data-demo-close></div>
+  <div class="app-demo-modal__panel" role="dialog" aria-modal="true" aria-labelledby="app-demo-modal-title">
+    <div class="app-demo-modal__topbar">
+      <div>
+        <p class="app-demo-modal__eyebrow">App Demo</p>
+        <span id="app-demo-modal-count" class="app-demo-modal__count"></span>
+      </div>
+      <button type="button" class="app-demo-icon-btn" data-demo-close aria-label="Close app demo">&times;</button>
+    </div>
+
+    <div class="app-demo-modal__header">
+      <div>
+        <p id="app-demo-modal-tagline" class="app-demo-modal__tagline"></p>
+        <h2 id="app-demo-modal-title"></h2>
+        <p id="app-demo-modal-description" class="app-demo-modal__description"></p>
+      </div>
+
+      <div class="app-demo-modal__toolbar">
+        <div class="app-demo-zoom-controls" aria-label="Zoom controls">
+          <button type="button" class="app-demo-icon-btn" data-demo-zoom="out" aria-label="Zoom out">-</button>
+          <span id="app-demo-zoom-label">100%</span>
+          <button type="button" class="app-demo-icon-btn" data-demo-zoom="in" aria-label="Zoom in">+</button>
+        </div>
+
+        <div class="app-demo-nav-controls" aria-label="Page navigation">
+          <button type="button" class="app-demo-nav-btn" data-demo-prev>Previous</button>
+          <button type="button" class="app-demo-nav-btn app-demo-nav-btn--solid" data-demo-next>Next</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="app-demo-modal__viewer" id="app-demo-viewer">
+      <div class="app-demo-modal__canvas" id="app-demo-canvas">
+        <img id="app-demo-modal-image" src="" alt="" />
+      </div>
+    </div>
+  </div>
+</div>
+
+<script id="app-demo-data" type="application/json"><%- JSON.stringify(demoPages) %></script>
+
+<style>
+  .app-demo-page {
+    position: relative;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at top left, rgba(16, 185, 129, 0.12), transparent 28%),
+      radial-gradient(circle at top right, rgba(14, 165, 233, 0.12), transparent 30%),
+      linear-gradient(180deg, #f7f8f4 0%, #eef2f6 52%, #ffffff 100%);
+    color: #0f172a;
+  }
+
+  .app-demo-shell {
+    position: relative;
+    z-index: 1;
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 72px 20px 88px;
+  }
+
+  .app-demo-orb {
+    position: absolute;
+    border-radius: 999px;
+    filter: blur(10px);
+    opacity: 0.8;
+    pointer-events: none;
+  }
+
+  .app-demo-orb--left {
+    width: 240px;
+    height: 240px;
+    left: -80px;
+    top: 120px;
+    background: radial-gradient(circle, rgba(15, 118, 110, 0.26), rgba(15, 118, 110, 0));
+  }
+
+  .app-demo-orb--right {
+    width: 280px;
+    height: 280px;
+    right: -70px;
+    top: 320px;
+    background: radial-gradient(circle, rgba(217, 119, 6, 0.2), rgba(217, 119, 6, 0));
+  }
+
+  .app-demo-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+    gap: 28px;
+    align-items: center;
+    margin-bottom: 48px;
+  }
+
+  .app-demo-kicker,
+  .app-demo-modal__eyebrow,
+  .app-demo-modal__tagline {
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 12px;
+    font-weight: 700;
+    color: #0f766e;
+  }
+
+  .app-demo-hero h1 {
+    margin: 12px 0 16px;
+    max-width: 10ch;
+    font-size: clamp(2.6rem, 5vw, 4.8rem);
+    line-height: 0.94;
+    letter-spacing: -0.06em;
+  }
+
+  .app-demo-intro {
+    max-width: 62ch;
+    margin: 0;
+    font-size: 1.05rem;
+    line-height: 1.8;
+    color: #475569;
+  }
+
+  .app-demo-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin: 28px 0;
+  }
+
+  .app-demo-metrics div,
+  .app-demo-hero__feature-card,
+  .app-demo-card,
+  .app-demo-modal__panel {
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    box-shadow: 0 24px 80px rgba(15, 23, 42, 0.08);
+    backdrop-filter: blur(12px);
+  }
+
+  .app-demo-metrics div {
+    padding: 18px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.72);
+  }
+
+  .app-demo-metrics strong {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 1.15rem;
+  }
+
+  .app-demo-metrics span {
+    color: #64748b;
+    font-size: 0.92rem;
+  }
+
+  .app-demo-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+
+  .app-demo-primary,
+  .app-demo-secondary,
+  .app-demo-nav-btn,
+  .app-demo-icon-btn,
+  .app-demo-card {
+    font: inherit;
+  }
+
+  .app-demo-primary,
+  .app-demo-secondary,
+  .app-demo-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    padding: 0 18px;
+    border-radius: 999px;
+    text-decoration: none;
+    transition: transform 180ms ease, background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+  }
+
+  .app-demo-primary {
+    border: none;
+    color: #ffffff;
+    background: linear-gradient(135deg, #0f766e, #0f172a);
+    box-shadow: 0 14px 30px rgba(15, 118, 110, 0.28);
+  }
+
+  .app-demo-secondary,
+  .app-demo-nav-btn {
+    border: 1px solid rgba(15, 23, 42, 0.14);
+    background: rgba(255, 255, 255, 0.72);
+    color: #0f172a;
+  }
+
+  .app-demo-nav-btn--solid {
+    border-color: transparent;
+    background: #0f172a;
+    color: #ffffff;
+  }
+
+  .app-demo-primary:hover,
+  .app-demo-secondary:hover,
+  .app-demo-nav-btn:hover,
+  .app-demo-icon-btn:hover,
+  .app-demo-card:hover {
+    transform: translateY(-2px);
+  }
+
+  .app-demo-hero__feature-card {
+    padding: 18px;
+    border-radius: 32px;
+    background: rgba(8, 15, 28, 0.92);
+    color: #e2e8f0;
+  }
+
+  .app-demo-hero__window-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .app-demo-hero__window-bar span {
+    width: 11px;
+    height: 11px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.45);
+  }
+
+  .app-demo-hero__preview-frame {
+    overflow: hidden;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: #0f172a;
+  }
+
+  .app-demo-hero__preview-frame img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 13;
+    object-fit: cover;
+    object-position: top;
+  }
+
+  .app-demo-hero__feature-copy {
+    display: grid;
+    gap: 6px;
+    margin-top: 14px;
+  }
+
+  .app-demo-hero__feature-copy p,
+  .app-demo-hero__feature-copy span,
+  .app-demo-note,
+  .app-demo-card p,
+  .app-demo-modal__description,
+  .app-demo-modal__count {
+    color: #64748b;
+  }
+
+  .app-demo-hero__feature-copy p {
+    color: #94a3b8;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 11px;
+  }
+
+  .app-demo-hero__feature-copy strong {
+    font-size: 1.2rem;
+    color: #f8fafc;
+  }
+
+  .app-demo-section-heading {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    align-items: end;
+    margin-bottom: 22px;
+  }
+
+  .app-demo-section-heading h2 {
+    margin: 10px 0 0;
+    font-size: clamp(1.7rem, 3vw, 2.6rem);
+    letter-spacing: -0.04em;
+  }
+
+  .app-demo-note {
+    max-width: 34ch;
+    margin: 0;
+    line-height: 1.7;
+  }
+
+  .app-demo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .app-demo-card {
+    position: relative;
+    overflow: hidden;
+    padding: 0;
+    border-radius: 28px;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    background: rgba(255, 255, 255, 0.82);
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .app-demo-card__glow {
+    position: absolute;
+    inset: -40% auto auto -10%;
+    width: 180px;
+    height: 180px;
+    border-radius: 999px;
+    background: radial-gradient(circle, color-mix(in srgb, var(--card-accent) 28%, white 72%), transparent 68%);
+    opacity: 0.8;
+    pointer-events: none;
+  }
+
+  .app-demo-card__media {
+    position: relative;
+    padding: 16px 16px 0;
+  }
+
+  .app-demo-card__media img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 11;
+    object-fit: cover;
+    object-position: top;
+    border-radius: 20px;
+    background: #e2e8f0;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+  }
+
+  .app-demo-card__body {
+    position: relative;
+    padding: 18px 18px 20px;
+  }
+
+  .app-demo-card__meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #0f766e;
+  }
+
+  .app-demo-card h3 {
+    margin: 0 0 10px;
+    font-size: 1.3rem;
+    letter-spacing: -0.03em;
+  }
+
+  .app-demo-card p,
+  .app-demo-modal__description {
+    margin: 0;
+    line-height: 1.75;
+    font-size: 0.98rem;
+  }
+
+  .app-demo-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+  }
+
+  .app-demo-modal[hidden] {
+    display: none;
+  }
+
+  .app-demo-modal__scrim {
+    position: absolute;
+    inset: 0;
+    background: rgba(2, 6, 23, 0.7);
+    backdrop-filter: blur(10px);
+    animation: app-demo-fade-in 180ms ease;
+  }
+
+  .app-demo-modal__panel {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    width: min(1280px, 100%);
+    max-height: min(92vh, 980px);
+    border-radius: 28px;
+    overflow: hidden;
+    background: rgba(248, 250, 252, 0.97);
+    animation: app-demo-rise-in 220ms ease;
+  }
+
+  .app-demo-modal__topbar,
+  .app-demo-modal__header {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 22px;
+  }
+
+  .app-demo-modal__topbar {
+    align-items: start;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.86));
+  }
+
+  .app-demo-modal__header {
+    align-items: end;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+  }
+
+  .app-demo-modal__header h2 {
+    margin: 8px 0 10px;
+    font-size: clamp(1.8rem, 3vw, 2.6rem);
+    letter-spacing: -0.04em;
+  }
+
+  .app-demo-modal__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: end;
+    gap: 12px;
+  }
+
+  .app-demo-zoom-controls,
+  .app-demo-nav-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.86);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+  }
+
+  .app-demo-icon-btn {
+    display: inline-grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 999px;
+    background: #ffffff;
+    color: #0f172a;
+    cursor: pointer;
+    transition: transform 180ms ease, background-color 180ms ease, border-color 180ms ease;
+  }
+
+  .app-demo-modal__viewer {
+    flex: 1 1 auto;
+    overflow: auto;
+    background:
+      linear-gradient(90deg, rgba(148, 163, 184, 0.09) 1px, transparent 1px),
+      linear-gradient(rgba(148, 163, 184, 0.09) 1px, transparent 1px),
+      #dfe7ef;
+    background-size: 24px 24px;
+    padding: 24px;
+  }
+
+  .app-demo-modal__canvas {
+    min-width: fit-content;
+    transform-origin: top center;
+  }
+
+  .app-demo-modal__canvas img {
+    display: block;
+    width: min(100%, calc(1024px * var(--app-demo-zoom, 1)));
+    max-width: none;
+    margin: 0 auto;
+    border-radius: 22px;
+    box-shadow: 0 32px 90px rgba(15, 23, 42, 0.18);
+    background: #ffffff;
+  }
+
+  .app-demo-modal-open {
+    overflow: hidden;
+  }
+
+  @keyframes app-demo-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes app-demo-rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(18px) scale(0.985);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @media (max-width: 1080px) {
+    .app-demo-hero,
+    .app-demo-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .app-demo-hero {
+      align-items: start;
+    }
+  }
+
+  @media (max-width: 780px) {
+    .app-demo-shell {
+      padding: 48px 16px 64px;
+    }
+
+    .app-demo-hero,
+    .app-demo-grid,
+    .app-demo-metrics {
+      grid-template-columns: 1fr;
+    }
+
+    .app-demo-hero h1 {
+      max-width: none;
+      font-size: clamp(2.3rem, 13vw, 3.4rem);
+    }
+
+    .app-demo-section-heading,
+    .app-demo-modal__header,
+    .app-demo-modal__topbar {
+      flex-direction: column;
+      align-items: start;
+    }
+
+    .app-demo-modal__toolbar {
+      width: 100%;
+      justify-content: space-between;
+    }
+
+    .app-demo-zoom-controls,
+    .app-demo-nav-controls {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .app-demo-modal {
+      padding: 10px;
+    }
+
+    .app-demo-modal__panel {
+      max-height: 94vh;
+      border-radius: 22px;
+    }
+
+    .app-demo-modal__viewer {
+      padding: 14px;
+    }
+  }
+</style>
+
+<script>
+  (function () {
+    const dataNode = document.getElementById('app-demo-data');
+    const pages = dataNode ? JSON.parse(dataNode.textContent) : [];
+    const modal = document.querySelector('[data-demo-modal]');
+    const titleNode = document.getElementById('app-demo-modal-title');
+    const taglineNode = document.getElementById('app-demo-modal-tagline');
+    const descriptionNode = document.getElementById('app-demo-modal-description');
+    const countNode = document.getElementById('app-demo-modal-count');
+    const imageNode = document.getElementById('app-demo-modal-image');
+    const zoomLabel = document.getElementById('app-demo-zoom-label');
+    const canvas = document.getElementById('app-demo-canvas');
+    const viewer = document.getElementById('app-demo-viewer');
+    const openButtons = document.querySelectorAll('[data-demo-index], [data-open-demo]');
+    const closeButtons = document.querySelectorAll('[data-demo-close]');
+    const nextButton = document.querySelector('[data-demo-next]');
+    const prevButton = document.querySelector('[data-demo-prev]');
+    const zoomButtons = document.querySelectorAll('[data-demo-zoom]');
+    const zoomLevels = [1, 1.2, 1.4, 1.7, 2];
+
+    let activeIndex = 0;
+    let zoomIndex = 0;
+    let lastTrigger = null;
+
+    function setZoom(nextZoomIndex) {
+      zoomIndex = Math.max(0, Math.min(zoomLevels.length - 1, nextZoomIndex));
+      const zoom = zoomLevels[zoomIndex];
+      canvas.style.setProperty('--app-demo-zoom', String(zoom));
+      zoomLabel.textContent = Math.round(zoom * 100) + '%';
+    }
+
+    function renderModal(index) {
+      const page = pages[index];
+      if (!page) {
+        return;
+      }
+
+      activeIndex = index;
+      titleNode.textContent = page.title;
+      taglineNode.textContent = page.tagline;
+      descriptionNode.textContent = page.description;
+      countNode.textContent = 'Screen ' + (index + 1) + ' of ' + pages.length;
+      imageNode.src = page.image;
+      imageNode.alt = page.title + ' full-page preview';
+      setZoom(0);
+      viewer.scrollTop = 0;
+      viewer.scrollLeft = 0;
+    }
+
+    function openModal(index, trigger) {
+      lastTrigger = trigger || document.activeElement;
+      modal.hidden = false;
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('app-demo-modal-open');
+      renderModal(index);
+      const closeButton = modal.querySelector('[data-demo-close]');
+      if (closeButton) {
+        closeButton.focus();
+      }
+    }
+
+    function closeModal() {
+      modal.hidden = true;
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('app-demo-modal-open');
+      imageNode.src = '';
+      if (lastTrigger && typeof lastTrigger.focus === 'function') {
+        lastTrigger.focus();
+      }
+    }
+
+    function move(step) {
+      const nextIndex = (activeIndex + step + pages.length) % pages.length;
+      renderModal(nextIndex);
+    }
+
+    openButtons.forEach((button) => {
+      button.addEventListener('click', function () {
+        const rawIndex = button.getAttribute('data-demo-index') || button.getAttribute('data-open-demo') || '0';
+        const index = Number.parseInt(rawIndex, 10) || 0;
+        openModal(index, button);
+      });
+    });
+
+    closeButtons.forEach((button) => {
+      button.addEventListener('click', closeModal);
+    });
+
+    if (nextButton) {
+      nextButton.addEventListener('click', function () {
+        move(1);
+      });
+    }
+
+    if (prevButton) {
+      prevButton.addEventListener('click', function () {
+        move(-1);
+      });
+    }
+
+    zoomButtons.forEach((button) => {
+      button.addEventListener('click', function () {
+        const direction = button.getAttribute('data-demo-zoom');
+        setZoom(zoomIndex + (direction === 'in' ? 1 : -1));
+      });
+    });
+
+    document.addEventListener('keydown', function (event) {
+      if (modal.hidden) {
+        return;
+      }
+
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeModal();
+      }
+
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        move(1);
+      }
+
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        move(-1);
+      }
+    });
+  })();
+</script>
