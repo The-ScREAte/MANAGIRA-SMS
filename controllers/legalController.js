@@ -405,7 +405,9 @@ const legalController = {
             description: 'Explore Managira through an interactive visual demo covering the dashboard, student management, attendance, fees, reports, and settings.',
             keywords: 'managira demo, school management software demo, dashboard demo, attendance demo, fees demo, reports demo',
             canonicalUrl: 'https://www.managira.com/legal/app-demo',
-            showFooterTopSection: true
+            showFooterTopSection: false,
+            hideGlobalHeader: true,
+            hideGlobalFooter: true
         });
     },
 

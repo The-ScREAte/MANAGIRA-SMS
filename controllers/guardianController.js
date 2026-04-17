@@ -5,10 +5,146 @@ function getOrdinalSuffix(n) {
 }
 
 const { uploadToS3, deleteFromS3 } = require("../middleware/s3Upload");
+const { getClassScheduleForTerm } = require("../utils/classScheduleService");
 const {
   notifyStaffOnGuardianReportCreated,
   notifyStaffOnGuardianReply,
 } = require("../utils/notificationDigestService");
+
+async function ensureGuardianReportReadSchema(db) {
+  await db.query(
+    `CREATE TABLE IF NOT EXISTS guardian_report_reads (
+      read_id SERIAL PRIMARY KEY,
+      report_id INTEGER NOT NULL,
+      guardian_id INTEGER NOT NULL,
+      organization_id INTEGER NOT NULL,
+      last_viewed_at TIMESTAMP DEFAULT NOW(),
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(report_id, guardian_id)
+    )`
+  );
+}
+
+async function getGuardianUnreadReportSummary(db, guardianId, organizationId) {
+  await ensureGuardianReportReadSchema(db);
+
+  const unreadResult = await db.query(
+    `
+    SELECT
+      r.report_id,
+      COUNT(rr.reply_id)::int AS unread_count
+    FROM guardian_reports r
+    LEFT JOIN guardian_report_reads gr
+      ON gr.report_id = r.report_id
+     AND gr.guardian_id = r.guardian_id
+     AND gr.organization_id = r.organization_id
+    LEFT JOIN guardian_report_replies rr
+      ON rr.report_id = r.report_id
+     AND rr.sender_type = 'staff'
+     AND rr.created_at > COALESCE(gr.last_viewed_at, r.created_at)
+    WHERE r.guardian_id = $1
+      AND r.organization_id = $2
+      AND r.deleted_at IS NULL
+    GROUP BY r.report_id
+    HAVING COUNT(rr.reply_id) > 0
+    `,
+    [guardianId, organizationId]
+  );
+
+  const unreadByReport = new Map();
+  let totalUnreadMessages = 0;
+
+  unreadResult.rows.forEach((row) => {
+    const unreadCount = Number.parseInt(row.unread_count, 10) || 0;
+    unreadByReport.set(String(row.report_id), unreadCount);
+    totalUnreadMessages += unreadCount;
+  });
+
+  return {
+    totalUnreadMessages,
+    unreadReportCount: unreadResult.rows.length,
+    unreadByReport,
+  };
+}
+
+async function getGuardianApprovedStudents(db, guardianId, organizationId) {
+  return db.query(
+    `
+    SELECT DISTINCT s.student_id, s.first_name, s.last_name, s.image_url,
+           c.class_name, c.class_id, 'approved' as status
+    FROM students s
+    LEFT JOIN classes c ON s.class_id = c.class_id
+    WHERE s.organization_id = $2
+      AND (
+        EXISTS (
+          SELECT 1 FROM guardians g
+          WHERE g.student_id = s.student_id
+            AND g.guardian_id = $1
+            AND g.organization_id = $2
+        )
+        OR EXISTS (
+          SELECT 1 FROM guardian_students gs
+          WHERE gs.student_id = s.student_id
+            AND gs.guardian_id = $1
+        )
+      )
+    ORDER BY s.first_name ASC
+    `,
+    [guardianId, organizationId]
+  );
+}
+
+async function getGuardianPendingStudents(db, guardianId, organizationId) {
+  try {
+    return await db.query(
+      `
+      SELECT DISTINCT ps.pending_id, ps.first_name, ps.last_name, ps.image_url,
+             c.class_name, c.class_id, 'pending' as status
+      FROM pending_students ps
+      LEFT JOIN classes c ON ps.class_id = c.class_id
+      WHERE ps.organization_id = $2
+        AND EXISTS (
+          SELECT 1 FROM pending_student_guardians psg
+          WHERE psg.pending_student_id = ps.pending_id
+            AND psg.guardian_id = $1
+        )
+      ORDER BY ps.first_name ASC
+      `,
+      [guardianId, organizationId]
+    );
+  } catch (error) {
+    return { rows: [] };
+  }
+}
+
+async function guardianHasStudentAccess(db, guardianId, organizationId, studentId) {
+  const ownership = await db.query(
+    `
+    SELECT 1
+    FROM students s
+    WHERE s.student_id = $1
+      AND s.organization_id = $2
+      AND (
+        EXISTS (
+          SELECT 1 FROM guardians g
+          WHERE g.student_id = s.student_id
+            AND g.guardian_id = $3
+            AND g.organization_id = $2
+        )
+        OR EXISTS (
+          SELECT 1 FROM guardian_students gs
+          WHERE gs.student_id = s.student_id
+            AND gs.guardian_id = $3
+        )
+      )
+    LIMIT 1
+    `,
+    [studentId, organizationId, guardianId]
+  );
+
+  return ownership.rows.length > 0;
+}
 
 module.exports = {
   dashboardGet: async (req, res, db) => {
@@ -33,61 +169,9 @@ module.exports = {
 
       const guardian = guardianProfile.rows[0];
 
-      // Query approved students from OLD guardians table AND new guardian_students linking table
-      const kids = await db.query(
-        `
-        SELECT DISTINCT s.student_id, s.first_name, s.last_name, s.image_url,
-               c.class_name, c.class_id, 'approved' as status
-        FROM students s
-        LEFT JOIN classes c ON s.class_id = c.class_id
-        WHERE s.organization_id = $4
-          AND (
-            -- Old guardians table matching
-            EXISTS (
-              SELECT 1 FROM guardians g 
-              WHERE g.student_id = s.student_id 
-                AND g.first_name = $1 
-                AND g.last_name = $2 
-                AND (g.phone = $3 OR $3 IS NULL)
-                AND g.organization_id = $4
-            )
-            -- New guardian_students linking table
-            OR EXISTS (
-              SELECT 1 FROM guardian_students gs
-              WHERE gs.student_id = s.student_id
-                AND gs.guardian_id = $5
-            )
-          )
-        ORDER BY s.first_name ASC
-        `,
-        [guardian.first_name, guardian.last_name, guardian.phone, organizationId, guardianId]
-      );
-
-      // Query pending students linked to this guardian via pending_guardians table
-      // This matches guardians by name, phone, and email from existing guardian profile
-      let pendingKids = { rows: [] };
-      try {
-        pendingKids = await db.query(
-          `
-          SELECT DISTINCT ps.pending_id, ps.first_name, ps.last_name, ps.image_url,
-                 c.class_name, c.class_id, 'pending' as status
-          FROM pending_students ps
-          LEFT JOIN classes c ON ps.class_id = c.class_id
-          WHERE ps.organization_id = $1
-            AND EXISTS (
-              SELECT 1 FROM pending_guardians pg
-              WHERE pg.pending_id = ps.pending_id
-                AND pg.first_name = $2
-                AND pg.last_name = $3
-                AND (pg.phone = $4 OR pg.email = $5)
-            )
-          ORDER BY ps.first_name ASC
-          `,
-          [organizationId, guardian.first_name, guardian.last_name, guardian.phone, guardian.email]
-        );
-      } catch (pendingError) {
-        // Continue without pending students if query fails
-      }
+      const kids = await getGuardianApprovedStudents(db, guardianId, organizationId);
+      const pendingKids = await getGuardianPendingStudents(db, guardianId, organizationId);
+      const inboxSummary = await getGuardianUnreadReportSummary(db, guardianId, organizationId);
 
       // Combine approved and pending students
       const allChildren = [...kids.rows, ...pendingKids.rows];
@@ -96,6 +180,7 @@ module.exports = {
         title: "Parent Portal",
         guardian: guardian,
         children: allChildren,
+        inboxSummary,
         currentTermId: req.session.currentTermId || null,
         messages: req.flash(),
         req,
@@ -129,37 +214,7 @@ module.exports = {
         return res.redirect("/guardian/dashboard");
       }
 
-      // ✅ Security: guardian must be linked to this student
-      // Prefer guardian_students, but fall back to legacy guardians matching (same behavior as dashboard)
-      let hasAccess = false;
-      const link = await db.query(
-        `SELECT 1 FROM guardian_students WHERE guardian_id=$1 AND student_id=$2 LIMIT 1`,
-        [guardianId, studentId]
-      );
-      if (link.rows.length) {
-        hasAccess = true;
-      } else {
-        const guardianProfile = await db.query(
-          `SELECT first_name, last_name, phone
-           FROM guardian_profiles
-           WHERE guardian_id = $1 AND organization_id = $2
-           LIMIT 1`,
-          [guardianId, organizationId]
-        );
-        if (guardianProfile.rows.length) {
-          const g = guardianProfile.rows[0];
-          const legacy = await db.query(
-            `SELECT 1
-             FROM guardians
-             WHERE student_id = $1 AND organization_id = $2
-               AND first_name = $3 AND last_name = $4
-               AND (phone = $5 OR $5 IS NULL)
-             LIMIT 1`,
-            [studentId, organizationId, g.first_name, g.last_name, g.phone]
-          );
-          hasAccess = legacy.rows.length > 0;
-        }
-      }
+      const hasAccess = await guardianHasStudentAccess(db, guardianId, organizationId, studentId);
 
       if (!hasAccess) {
         req.flash("error", "You do not have access to that student.");
@@ -556,14 +611,7 @@ module.exports = {
       const guardian = guardianProfile.rows[0];
 
       // Get guardian's students
-      const students = await db.query(
-        `SELECT s.student_id, s.first_name, s.last_name, s.image_url
-         FROM guardians g
-         JOIN students s ON g.student_id = s.student_id
-         WHERE g.guardian_id = $1 AND g.organization_id = $2
-         ORDER BY s.first_name ASC`,
-        [guardianId, organizationId]
-      );
+      const students = await getGuardianApprovedStudents(db, guardianId, organizationId);
 
       return res.render("guardian/settings", {
         title: "Settings",
@@ -584,11 +632,18 @@ module.exports = {
     const { firstName, lastName, phone, email, address, hometown, studentId } = req.body;
 
     try {
+      const normalizedFirstName = String(firstName || '').trim();
+      const normalizedLastName = String(lastName || '').trim();
+      const normalizedPhone = String(phone || '').trim();
+      const normalizedEmail = String(email || '').trim().toLowerCase();
+      const normalizedAddress = String(address || '').trim();
+      const normalizedHometown = String(hometown || '').trim();
+
       // Handle guardian profile image upload
       let guardianImageUrl = null;
       if (req.files && req.files['guardianImage']) {
         const guardianImageFile = req.files['guardianImage'][0];
-        const s3Key = `images/guardians/${organizationId}/${guardianImageFile.originalname}`;
+        const s3Key = `images/guardians/${organizationId}/${Date.now()}_${guardianImageFile.originalname}`;
         guardianImageUrl = await uploadToS3(guardianImageFile, s3Key);
         
         // Update guardian profile image
@@ -603,7 +658,7 @@ module.exports = {
       // Handle student image upload if a student was selected
       if (studentId && req.files && req.files['studentImage']) {
         const studentImageFile = req.files['studentImage'][0];
-        const s3Key = `images/studentimages/${organizationId}/${studentImageFile.originalname}`;
+        const s3Key = `images/studentimages/${organizationId}/${Date.now()}_${studentImageFile.originalname}`;
         const studentImageUrl = await uploadToS3(studentImageFile, s3Key);
         
         // Update student image
@@ -621,7 +676,7 @@ module.exports = {
          SET first_name = $1, last_name = $2, phone = $3, email = $4, 
              address = $5, hometown = $6, updated_at = NOW()
          WHERE guardian_id = $7 AND organization_id = $8`,
-        [firstName, lastName, phone, email, address, hometown, guardianId, organizationId]
+        [normalizedFirstName, normalizedLastName, normalizedPhone, normalizedEmail, normalizedAddress, normalizedHometown, guardianId, organizationId]
       );
 
       // Update guardian account email and phone
@@ -629,8 +684,26 @@ module.exports = {
         `UPDATE guardian_accounts 
          SET login_email = $1, login_phone = $2
          WHERE guardian_id = $3 AND organization_id = $4`,
-        [email, phone, guardianId, organizationId]
+        [normalizedEmail, normalizedPhone, guardianId, organizationId]
       );
+
+      if (guardianImageUrl) {
+        await db.query(
+          `UPDATE guardians
+           SET first_name = $1, last_name = $2, phone = $3, email = $4,
+               address = $5, hometown = $6, image_url = $7
+           WHERE guardian_id = $8 AND organization_id = $9`,
+          [normalizedFirstName, normalizedLastName, normalizedPhone, normalizedEmail, normalizedAddress, normalizedHometown, guardianImageUrl, guardianId, organizationId]
+        );
+      } else {
+        await db.query(
+          `UPDATE guardians
+           SET first_name = $1, last_name = $2, phone = $3, email = $4,
+               address = $5, hometown = $6
+           WHERE guardian_id = $7 AND organization_id = $8`,
+          [normalizedFirstName, normalizedLastName, normalizedPhone, normalizedEmail, normalizedAddress, normalizedHometown, guardianId, organizationId]
+        );
+      }
 
       req.flash('success', 'Settings updated successfully!');
       return res.redirect('/guardian/settings');
@@ -779,41 +852,7 @@ module.exports = {
     }
 
     try {
-      // ✅ Security: Verify guardian has access to this student
-      const guardianProfile = await db.query(
-        `SELECT first_name, last_name, phone
-         FROM guardian_profiles
-         WHERE guardian_id = $1 AND organization_id = $2`,
-        [guardianId, organizationId]
-      );
-
-      if (!guardianProfile.rows.length) {
-        req.flash('error', 'Guardian profile not found');
-        return res.redirect('/account/login');
-      }
-
-      const guardian = guardianProfile.rows[0];
-      
-      // Check access via guardian_students or legacy guardians table
-      const link = await db.query(
-        `SELECT 1 FROM guardian_students WHERE guardian_id=$1 AND student_id=$2 LIMIT 1`,
-        [guardianId, studentId]
-      );
-
-      let hasAccess = link.rows.length > 0;
-
-      if (!hasAccess) {
-        const legacy = await db.query(
-          `SELECT 1
-           FROM guardians
-           WHERE student_id = $1 AND organization_id = $2
-             AND first_name = $3 AND last_name = $4
-             AND (phone = $5 OR $5 IS NULL)
-           LIMIT 1`,
-          [studentId, organizationId, guardian.first_name, guardian.last_name, guardian.phone]
-        );
-        hasAccess = legacy.rows.length > 0;
-      }
+      const hasAccess = await guardianHasStudentAccess(db, guardianId, organizationId, studentId);
 
       if (!hasAccess) {
         req.flash('error', 'You do not have access to that student');
@@ -1028,6 +1067,10 @@ module.exports = {
         [organizationId]
       );
 
+      const classSchedule = classId
+        ? await getClassScheduleForTerm(db, { organizationId, classId, termId })
+        : null;
+
       return res.render('guardian/studentAcademicDetails', {
         title: `${student.first_name}'s Academic Details`,
         student,
@@ -1042,6 +1085,7 @@ module.exports = {
         selectedTermId: termId,
         termNameForPage,
         enrolledClassForTerm,
+        classSchedule,
         messages: req.flash(),
         req,
       });
@@ -1065,42 +1109,38 @@ module.exports = {
       );
       const gp = guardianProfile.rows[0];
 
-      // Get children using same logic as dashboard (old guardians table + new guardian_students)
       let students = [];
       if (gp) {
-        const studentsQuery = await db.query(
-          `SELECT DISTINCT s.student_id, s.first_name, s.last_name, c.class_name
-           FROM students s
-           LEFT JOIN classes c ON s.class_id = c.class_id
-           WHERE s.organization_id = $1
-             AND (
-               EXISTS (
-                 SELECT 1 FROM guardians g
-                 WHERE g.student_id = s.student_id
-                   AND g.first_name = $2 AND g.last_name = $3
-                   AND (g.phone = $4 OR $4 IS NULL)
-                   AND g.organization_id = $1
-               )
-               OR EXISTS (
-                 SELECT 1 FROM guardian_students gs
-                 WHERE gs.student_id = s.student_id AND gs.guardian_id = $5
-               )
-             )
-           ORDER BY s.first_name ASC`,
-          [organizationId, gp.first_name, gp.last_name, gp.phone, guardianId]
-        );
+        const studentsQuery = await getGuardianApprovedStudents(db, guardianId, organizationId);
         students = studentsQuery.rows;
       }
+
+      await ensureGuardianReportReadSchema(db);
 
       const reports = await db.query(
         `SELECT r.*, s.first_name || ' ' || s.last_name as student_name,
                 COUNT(rr.reply_id) as reply_count,
-                MAX(rr.created_at) as last_reply_at
+                MAX(rr.created_at) as last_reply_at,
+                COALESCE(unread.unread_count, 0) as unread_count
          FROM guardian_reports r
          JOIN students s ON r.student_id = s.student_id
          LEFT JOIN guardian_report_replies rr ON r.report_id = rr.report_id
+         LEFT JOIN (
+           SELECT r2.report_id, COUNT(rr2.reply_id)::int AS unread_count
+           FROM guardian_reports r2
+           LEFT JOIN guardian_report_reads gr2
+             ON gr2.report_id = r2.report_id
+            AND gr2.guardian_id = r2.guardian_id
+            AND gr2.organization_id = r2.organization_id
+           LEFT JOIN guardian_report_replies rr2
+             ON rr2.report_id = r2.report_id
+            AND rr2.sender_type = 'staff'
+            AND rr2.created_at > COALESCE(gr2.last_viewed_at, r2.created_at)
+           WHERE r2.guardian_id = $1 AND r2.organization_id = $2 AND r2.deleted_at IS NULL
+           GROUP BY r2.report_id
+         ) unread ON unread.report_id = r.report_id
          WHERE r.guardian_id = $1 AND r.organization_id = $2 AND r.deleted_at IS NULL
-         GROUP BY r.report_id, s.first_name, s.last_name
+         GROUP BY r.report_id, s.first_name, s.last_name, unread.unread_count
          ORDER BY r.created_at DESC`,
         [guardianId, organizationId]
       );
@@ -1134,35 +1174,9 @@ module.exports = {
     }
 
     try {
-      // Verify guardian owns this student (check both old guardians table and new guardian_students)
-      const guardianProfile = await db.query(
-        `SELECT first_name, last_name, phone FROM guardian_profiles WHERE guardian_id = $1 AND organization_id = $2`,
-        [guardianId, organizationId]
-      );
-      const gp = guardianProfile.rows[0];
-      if (!gp) return res.json({ success: false, staff: [] });
+      const hasAccess = await guardianHasStudentAccess(db, guardianId, organizationId, studentId);
 
-      const ownership = await db.query(
-        `SELECT 1 FROM students s
-         WHERE s.student_id = $1 AND s.organization_id = $2
-           AND (
-             EXISTS (
-               SELECT 1 FROM guardians g
-               WHERE g.student_id = s.student_id
-                 AND g.first_name = $3 AND g.last_name = $4
-                 AND (g.phone = $5 OR $5 IS NULL)
-                 AND g.organization_id = $2
-             )
-             OR EXISTS (
-               SELECT 1 FROM guardian_students gs
-               WHERE gs.student_id = s.student_id AND gs.guardian_id = $6
-             )
-           )
-         LIMIT 1`,
-        [studentId, organizationId, gp.first_name, gp.last_name, gp.phone, guardianId]
-      );
-
-      if (ownership.rows.length === 0) {
+      if (!hasAccess) {
         return res.json({ success: false, staff: [] });
       }
 
@@ -1267,6 +1281,8 @@ module.exports = {
     const reportId = req.params.id;
 
     try {
+      await ensureGuardianReportReadSchema(db);
+
       // Get report details
       const reportQuery = await db.query(
         `SELECT r.*, s.first_name || ' ' || s.last_name as student_name
@@ -1282,6 +1298,14 @@ module.exports = {
       }
 
       const report = reportQuery.rows[0];
+
+      await db.query(
+        `INSERT INTO guardian_report_reads (report_id, guardian_id, organization_id, last_viewed_at, updated_at)
+         VALUES ($1, $2, $3, NOW(), NOW())
+         ON CONFLICT (report_id, guardian_id)
+         DO UPDATE SET last_viewed_at = EXCLUDED.last_viewed_at, updated_at = NOW()`,
+        [reportId, guardianId, organizationId]
+      );
 
       // Get replies with real sender names
       const repliesQuery = await db.query(

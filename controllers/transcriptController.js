@@ -73,22 +73,27 @@ const transcriptController = (db) => ({
                 return res.status(404).send('Student not found.');
             }
 
-            // Fetch total percentage and grade for each subject for closed school years
+                        // Fetch total percentage and grade for each subject for ended semesters
             const scoresQuery = `
-                SELECT sub.subject_name, 
-                       ar.total_percentage, 
-                       ar.grade, 
-                       t.term_name, 
-                       sy.year_label
+                                SELECT sub.subject_name,
+                                             MAX(ar.total_percentage) AS total_percentage,
+                                             MAX(ar.grade) AS grade,
+                                             t.term_name,
+                                             t.start_date,
+                                             t.end_date,
+                                             sy.year_label
                 FROM assessment_results ar
                 JOIN assessments a ON ar.assessment_id = a.assessment_id
                 JOIN subjects sub ON a.subject_id = sub.subject_id
                 JOIN terms t ON ar.term_id = t.term_id
                 JOIN school_years sy ON t.school_year_id = sy.id
                 WHERE ar.student_id = $1 AND ar.organization_id = $2
-                  AND sy.current = FALSE -- Include only closed school years
-                GROUP BY sub.subject_name, ar.total_percentage, ar.grade, t.term_name, sy.year_label
-                ORDER BY sy.year_label, t.term_name, sub.subject_name;
+                                    AND (
+                                        t.current = FALSE
+                                        OR (t.end_date IS NOT NULL AND t.end_date < CURRENT_DATE)
+                                    )
+                                GROUP BY sub.subject_name, t.term_name, t.start_date, t.end_date, sy.year_label
+                                ORDER BY COALESCE(t.end_date, t.start_date), t.start_date, sub.subject_name;
             `;
             const scoresResult = await db.query(scoresQuery, [studentId, organizationId]);
             const scores = scoresResult.rows;
@@ -217,6 +222,7 @@ const transcriptController = (db) => ({
             `;
             const orgData = await db.query(organizationQuery, [organizationId]);
             const orgDetails = orgData.rows[0];
+            const websiteInfo = await getOrganizationWebsiteInfo(db, organizationId);
             
             // Use session logo first (already in session from middleware), fallback to logo_path
             const logoPathFromDb = orgDetails.logo_path;
@@ -275,20 +281,25 @@ const transcriptController = (db) => ({
             const fullStudent = fullStudentResult.rows[0];
 
             const scoresQuery = `
-                SELECT sub.subject_name, 
-                       ar.total_percentage, 
-                       ar.grade, 
-                       t.term_name, 
-                       sy.year_label
+                                SELECT sub.subject_name,
+                                             MAX(ar.total_percentage) AS total_percentage,
+                                             MAX(ar.grade) AS grade,
+                                             t.term_name,
+                                             t.start_date,
+                                             t.end_date,
+                                             sy.year_label
                 FROM assessment_results ar
                 JOIN assessments a ON ar.assessment_id = a.assessment_id
                 JOIN subjects sub ON a.subject_id = sub.subject_id
                 JOIN terms t ON ar.term_id = t.term_id
                 JOIN school_years sy ON t.school_year_id = sy.id
                 WHERE ar.student_id = $1 AND ar.organization_id = $2
-                  AND sy.current = FALSE
-                GROUP BY sub.subject_name, ar.total_percentage, ar.grade, t.term_name, sy.year_label
-                ORDER BY sy.year_label, t.term_name, sub.subject_name
+                                    AND (
+                                        t.current = FALSE
+                                        OR (t.end_date IS NOT NULL AND t.end_date < CURRENT_DATE)
+                                    )
+                                GROUP BY sub.subject_name, t.term_name, t.start_date, t.end_date, sy.year_label
+                                ORDER BY COALESCE(t.end_date, t.start_date), t.start_date, sub.subject_name
             `;
             const scoresResult = await db.query(scoresQuery, [studentId, organizationId]);
             const scores = scoresResult.rows;
@@ -387,6 +398,7 @@ const transcriptController = (db) => ({
             const emailSent = await sendEmailSafely(
                 {
                     to: recipientEmail,
+                    skipMxCheck: true,
                     subject: `Official Transcript - ${student.first_name} ${student.last_name}`,
                     html: emailHtml,
                     attachments: [

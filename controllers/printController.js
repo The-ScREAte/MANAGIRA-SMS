@@ -336,11 +336,14 @@ const printController = (db) => ({
           [parsedClassId, parsedTermId, organizationId]
         ),
         db.query(
-          `SELECT student_id, subject_id, category,
-                    SUM(total_score) AS total_score
-             FROM category_scores
-             WHERE class_id = $1 AND term_id = $2 AND organization_id = $3
-             GROUP BY student_id, subject_id, category`,
+          `SELECT ar.student_id, ar.subject_id, a.category,
+                    SUM(ar.score) AS total_score
+             FROM assessment_results ar
+             JOIN assessments a ON a.assessment_id = ar.assessment_id
+             WHERE ar.class_id = $1
+               AND ar.term_id = $2
+               AND ar.organization_id = $3
+             GROUP BY ar.student_id, ar.subject_id, a.category`,
           [parsedClassId, parsedTermId, organizationId]
         ),
         db.query(
@@ -415,6 +418,14 @@ const printController = (db) => ({
       });
 
       // Process students
+      const getCategoryScore = (studentId, subjectId, categories) =>
+        categories.reduce(
+          (total, categoryName) =>
+            total +
+            parseFloat(scoresMap[`${studentId}_${subjectId}_${categoryName}`] || 0),
+          0
+        );
+
       students.forEach((student) => {
         const savedReport = savedReportsMap[student.student_id] || {};
 
@@ -437,21 +448,17 @@ const printController = (db) => ({
         student.subjects = allSubjects.map((subject) => {
           const maxScore = maxScoresMap[subject.subject_id] || 100;
 
-          const classScore = parseFloat(
-            scoresMap[
-              `${student.student_id}_${subject.subject_id}_Class Assessment`
-            ] || 0
-          );
-          const examsScore = parseFloat(
-            scoresMap[
-              `${student.student_id}_${subject.subject_id}_Exams Assessment`
-            ] || 0
-          );
-          const otherScore = parseFloat(
-            scoresMap[
-              `${student.student_id}_${subject.subject_id}_Other Assessment`
-            ] || 0
-          );
+          const classScore = getCategoryScore(student.student_id, subject.subject_id, [
+            "Class Assessment",
+          ]);
+          const examsScore = getCategoryScore(student.student_id, subject.subject_id, [
+            "Exams Assessment",
+            "Exam Assessment",
+          ]);
+          const otherScore = getCategoryScore(student.student_id, subject.subject_id, [
+            "Other",
+            "Other Assessment",
+          ]);
 
           const totalScore = classScore + examsScore + otherScore;
           const totalPercentage =

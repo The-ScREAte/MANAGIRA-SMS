@@ -189,6 +189,75 @@
     width: 100%;
   }
 
+  .guardian-quick-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .guardian-quick-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 18px 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+
+  .guardian-quick-link:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(15, 90, 102, 0.12);
+    border-color: #b6d7dd;
+  }
+
+  .guardian-quick-link.unread {
+    border-color: #0f5a66;
+    box-shadow: 0 6px 18px rgba(15, 90, 102, 0.14);
+  }
+
+  .quick-link-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  .quick-link-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f2d32;
+  }
+
+  .quick-link-count {
+    min-width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: #e2e8f0;
+    color: #334155;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .guardian-quick-link.unread .quick-link-count {
+    background: #0f5a66;
+    color: white;
+  }
+
+  .quick-link-copy {
+    margin: 0;
+    color: #64748b;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
   .children-grid {
     display: grid;
     gap: 18px;
@@ -617,6 +686,22 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <div class="guardian-quick-actions">
+    <a href="/guardian/reports" class="guardian-quick-link <%= inboxSummary && inboxSummary.totalUnreadMessages > 0 ? 'unread' : '' %>">
+      <div class="quick-link-top">
+        <span class="quick-link-title">Inbox</span>
+        <span class="quick-link-count"><%= inboxSummary ? inboxSummary.totalUnreadMessages : 0 %></span>
+      </div>
+      <p class="quick-link-copy">
+        <% if (inboxSummary && inboxSummary.totalUnreadMessages > 0) { %>
+          <%= inboxSummary.totalUnreadMessages %> unread message<%= inboxSummary.totalUnreadMessages !== 1 ? 's' : '' %> across <%= inboxSummary.unreadReportCount %> report<%= inboxSummary.unreadReportCount !== 1 ? 's' : '' %>.
+        <% } else { %>
+          No unread replies from the school right now.
+        <% } %>
+      </p>
+    </a>
   </div>
 
   <!-- Children Section -->

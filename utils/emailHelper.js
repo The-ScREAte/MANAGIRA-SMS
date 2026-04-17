@@ -27,9 +27,18 @@ async function hasMxRecords(email) {
     const valid = realRecords.length > 0;
     _domainCache.set(domain, valid);
     return valid;
-  } catch (_err) {
-    _domainCache.set(domain, false);
-    return false;
+  } catch (error) {
+    const hardFailureCodes = new Set(["ENOTFOUND", "ENODATA", "EINVAL", "EBADNAME", "NOTFOUND"]);
+
+    if (hardFailureCodes.has(error?.code)) {
+      _domainCache.set(domain, false);
+      return false;
+    }
+
+    // Do not block outbound email on transient DNS issues in the app host.
+    console.warn(`[Email][MX] Lookup failed for domain "${domain}" with ${error?.code || 'unknown error'}; allowing SMTP send attempt.`);
+    _domainCache.set(domain, true);
+    return true;
   }
 }
 
@@ -235,11 +244,15 @@ async function sendEmailSafely(mailOptions, context = "Email") {
       return false;
     }
 
-    // Verify the domain can receive email (has MX records)
-    const domainOk = await hasMxRecords(recipient);
-    if (!domainOk) {
-      console.warn(`[Email][${context}] Domain has no MX records for "${recipient}" — skipping.`);
-      return false;
+    const skipMxCheck = Boolean(mailOptions.skipMxCheck);
+
+    // Verify the domain can receive email (has MX records) unless explicitly bypassed.
+    if (!skipMxCheck) {
+      const domainOk = await hasMxRecords(recipient);
+      if (!domainOk) {
+        console.warn(`[Email][${context}] Domain has no MX records for "${recipient}" — skipping.`);
+        return false;
+      }
     }
 
     const transporter = getTransporter();
@@ -248,7 +261,7 @@ async function sendEmailSafely(mailOptions, context = "Email") {
     const from = user;
 
     // Strip smtpConfig if caller passed it (we ignore custom transporter configs)
-    const { smtpConfig, from: _ignoredFrom, ...restOptions } = mailOptions;
+    const { smtpConfig, from: _ignoredFrom, skipMxCheck: _skipMxCheck, ...restOptions } = mailOptions;
     const mergedAttachments = Array.isArray(restOptions.attachments) ? [...restOptions.attachments] : [];
     const hasInlineLogo = mergedAttachments.some((item) => item && item.cid === 'managira_logo');
     if (restOptions.html && !hasInlineLogo) {

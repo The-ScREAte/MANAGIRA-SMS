@@ -5,27 +5,6 @@
     padding: 24px;
   }
 
-  .settings-header {
-    background: var(--primary);
-    color: white;
-    padding: 28px;
-    border-radius: 12px;
-    margin-bottom: 28px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-  }
-
-  .settings-header h1 {
-    margin: 0 0 8px 0;
-    font-size: 26px;
-    font-weight: 700;
-  }
-
-  .settings-header p {
-    margin: 0;
-    opacity: 0.95;
-    font-size: 14px;
-  }
-
   .settings-form-card {
     background: white;
     border-radius: 12px;
@@ -178,14 +157,6 @@
         padding: 16px;
       }
 
-      .settings-header {
-        padding: 20px;
-      }
-
-      .settings-header h1 {
-        font-size: 22px;
-      }
-
       .settings-form-card {
         padding: 20px;
       }
@@ -212,11 +183,6 @@
 </style>
 
 <div class="settings-container">
-  <div class="settings-header">
-    <h1>⚙️ Account Settings</h1>
-    <p>Update your profile information and contact details</p>
-  </div>
-
   <div class="settings-form-card">
     <form action="/guardian/settings" method="POST" enctype="multipart/form-data">
       

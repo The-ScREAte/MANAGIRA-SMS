@@ -1,46 +1,111 @@
 <%
   const demoPages = [
     {
-      title: 'Dashboard',
-      tagline: 'Operations overview',
-      description: 'See attendance health, finance signals, announcements, and school-wide activity in one place.',
-      image: '/images/app-demo/dashboard-overview.svg',
+      title: 'Organization Dashboard',
+      tagline: 'School overview',
+      description: 'Get an immediate view of school activity, priority items, and operational updates from one central dashboard. All staff can access the platform easily from here and move directly into their assigned responsibilities.',
+      image: '/Demo%20Images/Organization%20Dasboard.png',
+      mediaType: 'image',
       accent: '#0f766e'
     },
     {
-      title: 'Student Management',
-      tagline: 'Records and profiles',
-      description: 'Browse student records, enrollment status, profile history, and next actions from one workspace.',
-      image: '/images/app-demo/student-management.svg',
+      title: 'School Website',
+      tagline: 'Public presence',
+      description: 'Preview the school\'s public-facing website in a format specially built and customized for the institution. It helps each school present its identity, information, and public presence in a professional way.',
+      image: '/Demo%20Images/School%20Website.png',
+      mediaType: 'image',
+      accent: '#0f766e'
+    },
+    {
+      title: 'Organization Statistics',
+      tagline: 'Performance summary',
+      description: 'Track school-wide performance, enrollment patterns, student progress, and key operational metrics in one consolidated view. This supports leadership reporting and adds to the weekly email report with a live overview of school progress.',
+      image: '/Demo%20Images/Organization%20Statistics.png',
+      mediaType: 'image',
       accent: '#2563eb'
+    },
+    {
+      title: 'Class Dashboard',
+      tagline: 'Class operations',
+      description: 'Manage classroom activity from one central workspace with quick access to schedules, updates, and teaching actions. It supports day-to-day classroom coordination without unnecessary complexity.',
+      image: '/Demo%20Images/Class%20Dashboard.png',
+      mediaType: 'image',
+      accent: '#0f766e'
+    },
+    {
+      title: 'Class Schedule',
+      tagline: 'Timetable planning',
+      description: 'View lesson timing and weekly class structure in a timetable designed for clarity and quick reference. This makes it easier for staff to follow daily teaching schedules across devices.',
+      image: '/Demo%20Images/Class%20Schedule.jpeg',
+      mediaType: 'image',
+      accent: '#b45309'
+    },
+    {
+      title: 'Assessment',
+      tagline: 'Score management',
+      description: 'Record assessment scores and review subject performance from a structured grading interface designed for consistency and accuracy. It supports efficient score entry while keeping academic records organized.',
+      image: '/Demo%20Images/Assessment.png',
+      mediaType: 'image',
+      accent: '#7c3aed'
     },
     {
       title: 'Attendance',
       tagline: 'Daily tracking',
-      description: 'Review class attendance trends, mark daily presence, and spot follow-up cases quickly.',
-      image: '/images/app-demo/attendance-tracker.svg',
-      accent: '#b45309'
+      description: 'Capture daily attendance efficiently and identify absences or follow-up cases without slowing classroom routines. The page is designed to support fast, consistent record keeping.',
+      image: '/Demo%20Images/Attendance.png',
+      mediaType: 'image',
+      accent: '#d97706'
     },
     {
-      title: 'Fees / Finance',
-      tagline: 'Billing visibility',
-      description: 'Monitor collections, overdue balances, payment channels, and finance operations without clutter.',
-      image: '/images/app-demo/fees-finance.svg',
-      accent: '#7c2d12'
+      title: 'Student Enrollment',
+      tagline: 'Admissions workflow',
+      description: 'Register student information through a structured admissions workflow that supports accurate placement and complete record capture from the start.',
+      image: '/Demo%20Images/Student%20enrollement.png',
+      mediaType: 'image',
+      accent: '#0284c7'
     },
     {
-      title: 'Reports',
-      tagline: 'Academic outputs',
-      description: 'Preview reporting workflows for academic summaries, printable outputs, and distribution status.',
-      image: '/images/app-demo/reports-center.svg',
+      title: 'Student Portal',
+      tagline: 'Learner access',
+      description: 'Keep student information readily available through a focused portal that gives access to academic records, transcript details, and parent information in one place.',
+      image: '/Demo%20Images/Student%20Portal.png',
+      mediaType: 'image',
+      accent: '#1d4ed8'
+    },
+    {
+      title: 'Report Card',
+      tagline: 'Printable results',
+      description: 'Generate polished report cards that present grades, remarks, and summary information in a modern digital format. Schools can share results through mail, email, or the parent portal instead of relying only on printed copies.',
+      image: '/Demo%20Images/Report%20card.png',
+      mediaType: 'image',
       accent: '#4338ca'
     },
     {
-      title: 'Settings',
-      tagline: 'Control panel',
-      description: 'Explore organization controls, branding options, permissions, and platform preferences.',
-      image: '/images/app-demo/settings-control.svg',
+      title: 'Merit Sheet',
+      tagline: 'Academic ranking',
+      description: 'Review class rankings and comparative performance in a clear merit sheet format designed for academic analysis and printing.',
+      image: '/Demo%20Images/Merit%20Sheet.png',
+      mediaType: 'image',
+      accent: '#be123c'
+    },
+    {
+      title: 'Transcript',
+      tagline: 'Academic record',
+      description: 'Produce formal transcript documents that present a student\'s academic history in a clear format suitable for review, printing, and official use.',
+      image: '/Demo%20Images/Transcript.pdf',
+      mediaType: 'pdf',
       accent: '#334155'
+    }
+  ];
+  const featuredDemo = demoPages[0];
+  const platformPoints = [
+    {
+      title: 'All in one platform.',
+      text: 'Admissions, academics, reporting, and records work together in one complete system.'
+    },
+    {
+      title: 'Made for everyone',
+      text: 'Built for school officials, families, and the general public who interact with the school.'
     }
   ];
 %>
@@ -52,44 +117,28 @@
   <div class="app-demo-shell">
     <section class="app-demo-hero">
       <div class="app-demo-hero__copy">
-        <p class="app-demo-kicker">Interactive product walkthrough</p>
-        <h1>Explore each part of Managira without opening the full app.</h1>
-        <p class="app-demo-intro">
-          Open any section to inspect a full-page visual preview, move to the next screen, and zoom in when you need a closer look.
-        </p>
+        <p class="app-demo-kicker">Managira platform tour</p>
+        <h1>Explore some of the major keys that can take your school to a higher level.</h1>
 
-        <div class="app-demo-metrics" aria-label="Demo summary">
-          <div>
-            <strong>6</strong>
-            <span>guided screens</span>
-          </div>
-          <div>
-            <strong>Responsive</strong>
-            <span>desktop and mobile</span>
-          </div>
-          <div>
-            <strong>Fast</strong>
-            <span>SVG-based previews</span>
-          </div>
+        <div class="app-demo-highlights" aria-label="Managira platform highlights">
+          <% platformPoints.forEach((point) => { %>
+            <article>
+              <strong><%= point.title %></strong>
+              <span><%= point.text %></span>
+            </article>
+          <% }) %>
         </div>
 
         <div class="app-demo-actions">
-          <button type="button" class="app-demo-primary" data-open-demo="0">Open Demo</button>
-          <a href="#app-demo-grid" class="app-demo-secondary">Browse sections</a>
+          <button type="button" class="app-demo-primary" data-open-demo="0">Start Tour</button>
         </div>
       </div>
 
-      <div class="app-demo-hero__feature-card">
-        <div class="app-demo-hero__window-bar">
-          <span></span><span></span><span></span>
-        </div>
-        <div class="app-demo-hero__preview-frame">
-          <img src="/images/app-demo/dashboard-overview.svg" alt="Dashboard demo preview" loading="eager" decoding="async" />
-        </div>
-        <div class="app-demo-hero__feature-copy">
-          <p>Featured</p>
-          <strong>Dashboard overview</strong>
-          <span>High-level KPIs, trend cards, live activity, and quick actions.</span>
+      <div class="app-demo-hero__logo-panel">
+        <img src="/images/managira.png" alt="Managira logo" class="app-demo-hero__logo-panel-image" />
+        <div class="app-demo-hero__logo-panel-copy">
+          <span>Managira</span>
+          <strong>Interactive App Demo</strong>
         </div>
       </div>
     </section>
@@ -97,10 +146,9 @@
     <section class="app-demo-gallery">
       <div class="app-demo-section-heading">
         <div>
-          <p class="app-demo-kicker">Choose a view</p>
-          <h2>Sections included in the demo gallery</h2>
+          <p class="app-demo-kicker">Explore the platform</p>
+          <h2>Open any screen and move through the product flow</h2>
         </div>
-        <p class="app-demo-note">Click a tile to open the full visual preview in a focused modal.</p>
       </div>
 
       <div id="app-demo-grid" class="app-demo-grid">
@@ -113,12 +161,21 @@
             data-demo-tagline="<%- page.tagline %>"
             data-demo-description="<%- page.description %>"
             data-demo-image="<%- page.image %>"
+            data-demo-type="<%- page.mediaType %>"
             data-demo-accent="<%- page.accent %>"
             aria-label="Open <%= page.title %> preview"
           >
             <span class="app-demo-card__glow" style="--card-accent: <%= page.accent %>"></span>
             <div class="app-demo-card__media">
-              <img src="<%= page.image %>" alt="<%= page.title %> preview" loading="lazy" decoding="async" />
+              <% if (page.mediaType === 'pdf') { %>
+                <div class="app-demo-card__file-preview">
+                  <span class="app-demo-file-badge">PDF</span>
+                  <strong><%= page.title %></strong>
+                  <p>Official academic record</p>
+                </div>
+              <% } else { %>
+                <img src="<%= page.image %>" alt="<%= page.title %> preview" loading="lazy" decoding="async" />
+              <% } %>
             </div>
             <div class="app-demo-card__body">
               <div class="app-demo-card__meta">
@@ -131,6 +188,18 @@
           </button>
         <% }) %>
       </div>
+    </section>
+
+    <section class="app-demo-platform-info" aria-label="Why schools use Managira">
+      <p class="app-demo-kicker">Why Managira</p>
+      <h2>All in one management platform just for your school.</h2>
+      <p>
+        The above features are some of the few items you will have access to as you join Managira. It comes with many more features designed to support everyday school work across administration, academics, reporting, and communication.
+      </p>
+      <p>
+        Managira is built to help schools manage student records, classroom activity, assessment, report generation, and official documents within one professional system. It gives school leaders, staff, families, and the wider school community a more connected way to work.
+      </p>
+      <a href="https://managira.com/account/service-plan" class="app-demo-primary app-demo-platform-info__cta">Start with Managira today and transform your school like the elite schools around the world.</a>
     </section>
   </div>
 </section>
@@ -152,24 +221,31 @@
         <h2 id="app-demo-modal-title"></h2>
         <p id="app-demo-modal-description" class="app-demo-modal__description"></p>
       </div>
-
-      <div class="app-demo-modal__toolbar">
-        <div class="app-demo-zoom-controls" aria-label="Zoom controls">
-          <button type="button" class="app-demo-icon-btn" data-demo-zoom="out" aria-label="Zoom out">-</button>
-          <span id="app-demo-zoom-label">100%</span>
-          <button type="button" class="app-demo-icon-btn" data-demo-zoom="in" aria-label="Zoom in">+</button>
-        </div>
-
-        <div class="app-demo-nav-controls" aria-label="Page navigation">
-          <button type="button" class="app-demo-nav-btn" data-demo-prev>Previous</button>
-          <button type="button" class="app-demo-nav-btn app-demo-nav-btn--solid" data-demo-next>Next</button>
-        </div>
-      </div>
     </div>
 
     <div class="app-demo-modal__viewer" id="app-demo-viewer">
       <div class="app-demo-modal__canvas" id="app-demo-canvas">
         <img id="app-demo-modal-image" src="" alt="" />
+        <div id="app-demo-modal-document" class="app-demo-modal__document" hidden>
+          <iframe id="app-demo-modal-pdf" title="Demo document preview" loading="lazy"></iframe>
+          <p class="app-demo-modal__document-note">
+            If the PDF preview does not load in your browser,
+            <a id="app-demo-modal-pdf-link" href="#" target="_blank" rel="noopener">open the file directly</a>.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="app-demo-modal__toolbar">
+      <div class="app-demo-zoom-controls" aria-label="Zoom controls">
+        <button type="button" class="app-demo-icon-btn" data-demo-zoom="out" aria-label="Zoom out">-</button>
+        <span id="app-demo-zoom-label">100%</span>
+        <button type="button" class="app-demo-icon-btn" data-demo-zoom="in" aria-label="Zoom in">+</button>
+      </div>
+
+      <div class="app-demo-nav-controls" aria-label="Page navigation">
+        <button type="button" class="app-demo-nav-btn" data-demo-prev>Previous</button>
+        <button type="button" class="app-demo-nav-btn app-demo-nav-btn--solid" data-demo-next>Next</button>
       </div>
     </div>
   </div>
@@ -228,6 +304,11 @@
     margin-bottom: 48px;
   }
 
+  .app-demo-hero__copy {
+    width: min(100%, 780px);
+    margin: 0 auto 0 0;
+  }
+
   .app-demo-kicker,
   .app-demo-modal__eyebrow,
   .app-demo-modal__tagline {
@@ -241,29 +322,103 @@
 
   .app-demo-hero h1 {
     margin: 12px 0 16px;
-    max-width: 10ch;
+    max-width: 12ch;
     font-size: clamp(2.6rem, 5vw, 4.8rem);
     line-height: 0.94;
     letter-spacing: -0.06em;
+    text-align: left;
   }
 
-  .app-demo-intro {
-    max-width: 62ch;
-    margin: 0;
-    font-size: 1.05rem;
-    line-height: 1.8;
-    color: #475569;
-  }
-
-  .app-demo-metrics {
+  .app-demo-hero__logo-panel {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    place-items: center;
+    gap: 18px;
+    position: relative;
+    isolation: isolate;
+    min-height: 100%;
+    padding: 42px 28px;
+    border-radius: 24px;
+    background:
+      radial-gradient(circle at 50% 42%, rgba(14, 165, 233, 0.12), transparent 42%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(241, 245, 249, 0.88) 100%);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    box-shadow: 0 24px 80px rgba(15, 23, 42, 0.08);
+    text-align: center;
+    overflow: hidden;
+  }
+
+  .app-demo-hero__logo-panel::before,
+  .app-demo-hero__logo-panel::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .app-demo-hero__logo-panel::before {
+    background:
+      radial-gradient(128% 82% at 18% 20%, rgba(34, 211, 238, 0.24), transparent 38%),
+      radial-gradient(104% 72% at 84% 16%, rgba(59, 130, 246, 0.24), transparent 40%),
+      radial-gradient(94% 70% at 32% 84%, rgba(14, 165, 233, 0.18), transparent 42%),
+      conic-gradient(from 216deg at 24% 40%, transparent 0deg 28deg, rgba(56, 189, 248, 0.18) 28deg 54deg, transparent 54deg 360deg),
+      conic-gradient(from 20deg at 76% 58%, transparent 0deg 22deg, rgba(45, 212, 191, 0.18) 22deg 46deg, transparent 46deg 360deg),
+      conic-gradient(from 160deg at 58% 28%, transparent 0deg 32deg, rgba(96, 165, 250, 0.14) 32deg 50deg, transparent 50deg 360deg);
+    opacity: 0.96;
+    transform: scale(1.03);
+    filter: blur(1.5px);
+  }
+
+  .app-demo-hero__logo-panel::after {
+    background:
+      radial-gradient(74% 24% at 50% 16%, rgba(255, 255, 255, 0.76), transparent 64%),
+      radial-gradient(42% 58% at 22% 44%, rgba(125, 211, 252, 0.2), transparent 70%),
+      radial-gradient(48% 60% at 80% 58%, rgba(59, 130, 246, 0.18), transparent 72%),
+      radial-gradient(40% 48% at 58% 74%, rgba(45, 212, 191, 0.12), transparent 76%);
+    mix-blend-mode: screen;
+    animation: app-demo-electric-pulse 4.8s ease-in-out infinite;
+  }
+
+  .app-demo-hero__logo-panel > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .app-demo-hero__logo-panel-image {
+    display: block;
+    width: min(100%, 360px);
+    height: auto;
+    object-fit: contain;
+  }
+
+  .app-demo-hero__logo-panel-copy {
+    display: grid;
+    gap: 6px;
+  }
+
+  .app-demo-hero__logo-panel-copy span {
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: #0f766e;
+  }
+
+  .app-demo-hero__logo-panel-copy strong {
+    font-size: clamp(1.35rem, 2.4vw, 1.8rem);
+    letter-spacing: -0.04em;
+    color: #0f172a;
+  }
+
+  .app-demo-highlights {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 14px;
     margin: 28px 0;
   }
 
-  .app-demo-metrics div,
-  .app-demo-hero__feature-card,
+  .app-demo-highlights article,
+  .app-demo-platform-info,
   .app-demo-card,
   .app-demo-modal__panel {
     border: 1px solid rgba(148, 163, 184, 0.2);
@@ -271,21 +426,22 @@
     backdrop-filter: blur(12px);
   }
 
-  .app-demo-metrics div {
+  .app-demo-highlights article {
     padding: 18px;
-    border-radius: 20px;
+    border-radius: 16px;
     background: rgba(255, 255, 255, 0.72);
   }
 
-  .app-demo-metrics strong {
+  .app-demo-highlights strong {
     display: block;
     margin-bottom: 5px;
     font-size: 1.15rem;
   }
 
-  .app-demo-metrics span {
+  .app-demo-highlights span {
     color: #64748b;
     font-size: 0.92rem;
+    line-height: 1.7;
   }
 
   .app-demo-actions {
@@ -308,8 +464,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 48px;
-    padding: 0 18px;
+    min-height: 44px;
+    padding: 0 16px;
     border-radius: 999px;
     text-decoration: none;
     transition: transform 180ms ease, background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
@@ -342,68 +498,54 @@
   .app-demo-card:hover {
     transform: translateY(-2px);
   }
-
-  .app-demo-hero__feature-card {
-    padding: 18px;
-    border-radius: 32px;
-    background: rgba(8, 15, 28, 0.92);
-    color: #e2e8f0;
-  }
-
-  .app-demo-hero__window-bar {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 14px;
-  }
-
-  .app-demo-hero__window-bar span {
-    width: 11px;
-    height: 11px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.45);
-  }
-
-  .app-demo-hero__preview-frame {
-    overflow: hidden;
-    border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    background: #0f172a;
-  }
-
-  .app-demo-hero__preview-frame img {
-    display: block;
-    width: 100%;
-    aspect-ratio: 16 / 13;
-    object-fit: cover;
-    object-position: top;
-  }
-
-  .app-demo-hero__feature-copy {
+  .app-demo-card__file-preview {
     display: grid;
-    gap: 6px;
-    margin-top: 14px;
+    place-items: center;
+    text-align: center;
+    gap: 10px;
+    min-height: 100%;
+    padding: 26px 22px;
+    background:
+      radial-gradient(circle at top, rgba(15, 118, 110, 0.18), transparent 40%),
+      linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    border-radius: 14px;
   }
 
-  .app-demo-hero__feature-copy p,
-  .app-demo-hero__feature-copy span,
+  .app-demo-file-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 56px;
+    min-height: 32px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: #0f172a;
+    color: #ffffff;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  .app-demo-card__file-preview strong {
+    font-size: 1.15rem;
+    letter-spacing: -0.03em;
+    color: #0f172a;
+  }
+
+  .app-demo-card__file-preview p {
+    margin: 0;
+    max-width: 28ch;
+    color: #475569;
+    line-height: 1.6;
+  }
+
+  .app-demo-platform-info p,
   .app-demo-note,
   .app-demo-card p,
   .app-demo-modal__description,
   .app-demo-modal__count {
     color: #64748b;
-  }
-
-  .app-demo-hero__feature-copy p {
-    color: #94a3b8;
-    margin: 0;
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
-    font-size: 11px;
-  }
-
-  .app-demo-hero__feature-copy strong {
-    font-size: 1.2rem;
-    color: #f8fafc;
   }
 
   .app-demo-section-heading {
@@ -426,17 +568,46 @@
     line-height: 1.7;
   }
 
+  .app-demo-platform-info {
+    display: block;
+    margin-top: 34px;
+    padding: 28px;
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.82);
+  }
+
+  .app-demo-platform-info h2 {
+    margin: 10px 0 14px;
+    font-size: clamp(1.8rem, 3vw, 2.7rem);
+    letter-spacing: -0.04em;
+  }
+
+  .app-demo-platform-info p {
+    margin: 0;
+    line-height: 1.8;
+  }
+
+  .app-demo-platform-info p + p {
+    margin-top: 14px;
+  }
+
+  .app-demo-platform-info__cta {
+    margin-top: 20px;
+    width: fit-content;
+    max-width: 100%;
+  }
+
   .app-demo-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 18px;
+    gap: 16px;
   }
 
   .app-demo-card {
     position: relative;
     overflow: hidden;
     padding: 0;
-    border-radius: 28px;
+    border-radius: 22px;
     border: 1px solid rgba(148, 163, 184, 0.22);
     background: rgba(255, 255, 255, 0.82);
     cursor: pointer;
@@ -456,30 +627,34 @@
 
   .app-demo-card__media {
     position: relative;
-    padding: 16px 16px 0;
+    padding: 10px 10px 0;
   }
 
   .app-demo-card__media img {
     display: block;
     width: 100%;
-    aspect-ratio: 16 / 11;
+    aspect-ratio: 16 / 9;
     object-fit: cover;
     object-position: top;
-    border-radius: 20px;
+    border-radius: 14px;
     background: #e2e8f0;
     border: 1px solid rgba(15, 23, 42, 0.06);
   }
 
+  .app-demo-card__media {
+    min-height: 152px;
+  }
+
   .app-demo-card__body {
     position: relative;
-    padding: 18px 18px 20px;
+    padding: 13px 13px 15px;
   }
 
   .app-demo-card__meta {
     display: flex;
     justify-content: space-between;
     gap: 10px;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
     font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 0.12em;
@@ -487,16 +662,16 @@
   }
 
   .app-demo-card h3 {
-    margin: 0 0 10px;
-    font-size: 1.3rem;
+    margin: 0 0 5px;
+    font-size: 1.05rem;
     letter-spacing: -0.03em;
   }
 
   .app-demo-card p,
   .app-demo-modal__description {
     margin: 0;
-    line-height: 1.75;
-    font-size: 0.98rem;
+    line-height: 1.58;
+    font-size: 0.88rem;
   }
 
   .app-demo-modal {
@@ -526,8 +701,8 @@
     display: flex;
     flex-direction: column;
     width: min(1280px, 100%);
-    max-height: min(92vh, 980px);
-    border-radius: 28px;
+    max-height: min(96vh, 980px);
+    border-radius: 22px;
     overflow: hidden;
     background: rgba(248, 250, 252, 0.97);
     animation: app-demo-rise-in 220ms ease;
@@ -538,7 +713,7 @@
     display: flex;
     justify-content: space-between;
     gap: 16px;
-    padding: 18px 22px;
+    padding: 12px 16px;
   }
 
   .app-demo-modal__topbar {
@@ -553,24 +728,32 @@
   }
 
   .app-demo-modal__header h2 {
-    margin: 8px 0 10px;
-    font-size: clamp(1.8rem, 3vw, 2.6rem);
+    margin: 4px 0 6px;
+    font-size: clamp(1.35rem, 2.3vw, 1.95rem);
     letter-spacing: -0.04em;
+  }
+
+  .app-demo-modal__header p:first-child {
+    margin-top: 0;
   }
 
   .app-demo-modal__toolbar {
     display: flex;
     flex-wrap: wrap;
-    justify-content: end;
-    gap: 12px;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px 10px;
+    border-top: 1px solid rgba(148, 163, 184, 0.18);
+    background: linear-gradient(180deg, rgba(248, 250, 252, 0.92), rgba(255, 255, 255, 0.96));
   }
 
   .app-demo-zoom-controls,
   .app-demo-nav-controls {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px;
+    gap: 6px;
+    padding: 4px;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.86);
     border: 1px solid rgba(148, 163, 184, 0.22);
@@ -579,8 +762,8 @@
   .app-demo-icon-btn {
     display: inline-grid;
     place-items: center;
-    width: 42px;
-    height: 42px;
+    width: 36px;
+    height: 36px;
     border: 1px solid rgba(148, 163, 184, 0.28);
     border-radius: 999px;
     background: #ffffff;
@@ -590,17 +773,46 @@
   }
 
   .app-demo-modal__viewer {
+    position: relative;
+    isolation: isolate;
     flex: 1 1 auto;
     overflow: auto;
     background:
-      linear-gradient(90deg, rgba(148, 163, 184, 0.09) 1px, transparent 1px),
-      linear-gradient(rgba(148, 163, 184, 0.09) 1px, transparent 1px),
-      #dfe7ef;
-    background-size: 24px 24px;
-    padding: 24px;
+      radial-gradient(circle at 12% 18%, rgba(34, 211, 238, 0.12), transparent 22%),
+      radial-gradient(circle at 84% 22%, rgba(59, 130, 246, 0.12), transparent 24%),
+      linear-gradient(180deg, #edf4fb 0%, #dfe7ef 100%);
+    padding: 12px;
+  }
+
+  .app-demo-modal__viewer::before,
+  .app-demo-modal__viewer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .app-demo-modal__viewer::before {
+    background:
+      radial-gradient(120% 74% at 14% 20%, rgba(34, 211, 238, 0.12), transparent 38%),
+      radial-gradient(94% 62% at 82% 18%, rgba(59, 130, 246, 0.12), transparent 40%),
+      conic-gradient(from 212deg at 22% 38%, transparent 0deg 30deg, rgba(56, 189, 248, 0.12) 30deg 54deg, transparent 54deg 360deg),
+      conic-gradient(from 26deg at 78% 62%, transparent 0deg 24deg, rgba(45, 212, 191, 0.1) 24deg 44deg, transparent 44deg 360deg);
+    opacity: 0.95;
+    filter: blur(1.2px);
+  }
+
+  .app-demo-modal__viewer::after {
+    background:
+      radial-gradient(48% 42% at 26% 62%, rgba(125, 211, 252, 0.12), transparent 72%),
+      radial-gradient(42% 38% at 74% 54%, rgba(96, 165, 250, 0.12), transparent 72%);
+    mix-blend-mode: screen;
+    animation: app-demo-electric-pulse 5.6s ease-in-out infinite;
   }
 
   .app-demo-modal__canvas {
+    position: relative;
+    z-index: 1;
     min-width: fit-content;
     transform-origin: top center;
   }
@@ -610,9 +822,36 @@
     width: min(100%, calc(1024px * var(--app-demo-zoom, 1)));
     max-width: none;
     margin: 0 auto;
-    border-radius: 22px;
+    border-radius: 16px;
     box-shadow: 0 32px 90px rgba(15, 23, 42, 0.18);
     background: #ffffff;
+  }
+
+  .app-demo-modal__document {
+    width: min(100%, calc(1024px * var(--app-demo-zoom, 1)));
+    margin: 0 auto;
+  }
+
+  .app-demo-modal__document iframe {
+    display: block;
+    width: 100%;
+    min-height: 78vh;
+    border: 0;
+    border-radius: 16px;
+    background: #ffffff;
+    box-shadow: 0 32px 90px rgba(15, 23, 42, 0.18);
+  }
+
+  .app-demo-modal__document-note {
+    margin: 14px 0 0;
+    text-align: center;
+    color: #475569;
+    line-height: 1.7;
+  }
+
+  .app-demo-modal__document-note a {
+    color: #0f766e;
+    font-weight: 700;
   }
 
   .app-demo-modal-open {
@@ -635,6 +874,17 @@
     }
   }
 
+  @keyframes app-demo-electric-pulse {
+    0%, 100% {
+      opacity: 0.58;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.03);
+    }
+  }
+
   @media (max-width: 1080px) {
     .app-demo-hero,
     .app-demo-grid {
@@ -644,6 +894,19 @@
     .app-demo-hero {
       align-items: start;
     }
+
+    .app-demo-hero__logo-panel {
+      padding: 34px 24px;
+    }
+
+    .app-demo-hero__logo-panel-image {
+      width: min(100%, 300px);
+    }
+
+    .app-demo-modal__viewer {
+      padding: 12px;
+    }
+
   }
 
   @media (max-width: 780px) {
@@ -651,15 +914,40 @@
       padding: 48px 16px 64px;
     }
 
+    .app-demo-hero__logo-panel {
+      order: -1;
+      min-height: 0;
+      padding: 24px 18px;
+      gap: 12px;
+    }
+
+    .app-demo-hero__logo-panel-image {
+      width: min(100%, 190px);
+    }
+
+    .app-demo-hero__logo-panel-copy strong {
+      font-size: 1.2rem;
+    }
+
+    .app-demo-hero__logo-panel-copy span {
+      font-size: 0.7rem;
+    }
+
+    .app-demo-hero__copy {
+      width: 100%;
+      margin: 0;
+    }
+
     .app-demo-hero,
     .app-demo-grid,
-    .app-demo-metrics {
+    .app-demo-highlights {
       grid-template-columns: 1fr;
     }
 
     .app-demo-hero h1 {
-      max-width: none;
+      max-width: 100%;
       font-size: clamp(2.3rem, 13vw, 3.4rem);
+      text-align: left;
     }
 
     .app-demo-section-heading,
@@ -672,12 +960,19 @@
     .app-demo-modal__toolbar {
       width: 100%;
       justify-content: space-between;
+      padding: 8px 10px 10px;
     }
 
     .app-demo-zoom-controls,
     .app-demo-nav-controls {
       width: 100%;
       justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .app-demo-nav-btn {
+      min-height: 40px;
+      padding: 0 14px;
     }
 
     .app-demo-modal {
@@ -686,11 +981,65 @@
 
     .app-demo-modal__panel {
       max-height: 94vh;
-      border-radius: 22px;
+      border-radius: 18px;
     }
 
     .app-demo-modal__viewer {
       padding: 14px;
+    }
+
+    .app-demo-modal__canvas img,
+    .app-demo-modal__document,
+    .app-demo-modal__document iframe {
+      width: 100%;
+    }
+
+    .app-demo-modal__document iframe {
+      min-height: 62vh;
+    }
+  }
+
+  @media (max-width: 520px) {
+    .app-demo-shell {
+      padding: 40px 14px 56px;
+    }
+
+    .app-demo-hero h1 {
+      font-size: clamp(2rem, 11vw, 2.7rem);
+    }
+
+    .app-demo-highlights article,
+    .app-demo-platform-info,
+    .app-demo-card__body {
+      padding-left: 16px;
+      padding-right: 16px;
+    }
+
+    .app-demo-card__media {
+      min-height: 132px;
+      padding: 10px 10px 0;
+    }
+
+    .app-demo-modal__header,
+    .app-demo-modal__topbar {
+      padding: 16px;
+    }
+
+    .app-demo-modal__toolbar {
+      padding: 12px;
+    }
+
+    .app-demo-icon-btn {
+      width: 34px;
+      height: 34px;
+    }
+
+    .app-demo-card h3 {
+      font-size: 1rem;
+    }
+
+    .app-demo-card p {
+      font-size: 0.84rem;
     }
   }
 </style>
@@ -705,6 +1054,9 @@
     const descriptionNode = document.getElementById('app-demo-modal-description');
     const countNode = document.getElementById('app-demo-modal-count');
     const imageNode = document.getElementById('app-demo-modal-image');
+    const documentNode = document.getElementById('app-demo-modal-document');
+    const pdfNode = document.getElementById('app-demo-modal-pdf');
+    const pdfLinkNode = document.getElementById('app-demo-modal-pdf-link');
     const zoomLabel = document.getElementById('app-demo-zoom-label');
     const canvas = document.getElementById('app-demo-canvas');
     const viewer = document.getElementById('app-demo-viewer');
@@ -737,8 +1089,23 @@
       taglineNode.textContent = page.tagline;
       descriptionNode.textContent = page.description;
       countNode.textContent = 'Screen ' + (index + 1) + ' of ' + pages.length;
-      imageNode.src = page.image;
-      imageNode.alt = page.title + ' full-page preview';
+
+      if (page.mediaType === 'pdf') {
+        imageNode.hidden = true;
+        imageNode.src = '';
+        imageNode.alt = '';
+        documentNode.hidden = false;
+        pdfNode.src = page.image + '#view=FitH';
+        pdfLinkNode.href = page.image;
+      } else {
+        documentNode.hidden = true;
+        pdfNode.src = '';
+        pdfLinkNode.href = '#';
+        imageNode.hidden = false;
+        imageNode.src = page.image;
+        imageNode.alt = page.title + ' full-page preview';
+      }
+
       setZoom(0);
       viewer.scrollTop = 0;
       viewer.scrollLeft = 0;
@@ -761,6 +1128,9 @@
       modal.setAttribute('aria-hidden', 'true');
       document.body.classList.remove('app-demo-modal-open');
       imageNode.src = '';
+      pdfNode.src = '';
+      documentNode.hidden = true;
+      imageNode.hidden = false;
       if (lastTrigger && typeof lastTrigger.focus === 'function') {
         lastTrigger.focus();
       }

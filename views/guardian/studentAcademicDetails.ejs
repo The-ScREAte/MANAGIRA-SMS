@@ -319,6 +319,62 @@
     background: rgba(255, 255, 255, 0.35);
   }
 
+  .schedule-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .schedule-day-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #f8fafc;
+  }
+
+  .schedule-day-card h4 {
+    margin: 0;
+    padding: 12px 14px;
+    background: rgba(15, 90, 102, 0.08);
+    color: #1e293b;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 0.95rem;
+  }
+
+  .schedule-day-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .schedule-day-list li {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .schedule-day-list li:last-child {
+    border-bottom: none;
+  }
+
+  .schedule-time {
+    font-weight: 700;
+    color: #1e293b;
+    white-space: nowrap;
+  }
+
+  .schedule-subject {
+    color: #64748b;
+    text-align: right;
+  }
+
+  .schedule-empty {
+    color: #64748b;
+    margin: 0;
+  }
+
   @media (max-width: 768px) {
     .academic-container {
       padding: 12px;
@@ -393,6 +449,10 @@
 
     .assessment-table th {
       padding: 10px 5px;
+    }
+
+    .schedule-grid {
+      grid-template-columns: 1fr;
     }
 
     .back-btn {
@@ -582,6 +642,32 @@
       <p style="margin-top: 12px; font-size: 12px; color: #64748b; font-style: italic;">💡 Swipe left to see more columns</p>
     <% } else { %>
       <p class="no-data">No performance records yet.</p>
+    <% } %>
+  </div>
+
+  <div class="section-card">
+    <h2>🗓️ Class Schedule</h2>
+    <% if (classSchedule && classSchedule.groupedByDay && classSchedule.groupedByDay.some(day => day.items.length)) { %>
+      <p style="margin: 0 0 16px; color: #64748b;"><%= classSchedule.schoolYearLabel %> · <%= classSchedule.termName %></p>
+      <div class="schedule-grid">
+        <% classSchedule.groupedByDay.forEach(day => { %>
+          <% if (day.items.length) { %>
+            <section class="schedule-day-card">
+              <h4><%= day.dayLabel %></h4>
+              <ul class="schedule-day-list">
+                <% day.items.forEach(item => { %>
+                  <li>
+                    <span class="schedule-time"><%= item.startTime %> - <%= item.endTime %></span>
+                    <span class="schedule-subject"><%= item.subjectName || 'Subject pending' %></span>
+                  </li>
+                <% }) %>
+              </ul>
+            </section>
+          <% } %>
+        <% }) %>
+      </div>
+    <% } else { %>
+      <p class="schedule-empty">The timetable for this term has not been added yet.</p>
     <% } %>
   </div>
 

@@ -7216,9 +7216,18 @@ const commonController = {
         );
       };
 
+      let scoreRelevantMetadataChanged = false;
+
       for (const assignment of desiredAssignments) {
         const existingAssessment = existingByPair.get(assignment.key);
         if (existingAssessment) {
+          if (
+            Number(existingAssessment.max_score) !== Number(maxScore) ||
+            String(existingAssessment.category || "") !== String(category || "")
+          ) {
+            scoreRelevantMetadataChanged = true;
+          }
+
           await updateAssessmentMetadata(existingAssessment.assessment_id, assignment);
         }
       }
@@ -7304,7 +7313,7 @@ const commonController = {
         }
       }
 
-      if (assignmentsChanged) {
+      if (assignmentsChanged || scoreRelevantMetadataChanged) {
         const finalAssignmentsResult = await client.query(
           `
             SELECT DISTINCT class_id, subject_id
@@ -10214,23 +10223,133 @@ const commonController = {
     try {
       const organizationId = req.session.organizationId;
 
-            // Use the old guardians table structure
       const guardiansResult = await db.query(
         `
-        SELECT 
-          DISTINCT ON (g.first_name, g.last_name, g.phone) 
-          g.guardian_id,
-          g.first_name,
-          g.last_name,
-          g.phone,
-          g.address,
-          g.hometown,
-          g.image_url,
-          COUNT(g.student_id) OVER (PARTITION BY g.first_name, g.last_name, g.phone) as student_count,
-          false as has_portal_access
-        FROM guardians g
-        WHERE g.organization_id = $1
-        ORDER BY g.first_name, g.last_name, g.phone, g.guardian_id DESC
+        WITH legacy_guardians AS (
+          SELECT
+            MAX(g.guardian_id) AS guardian_id,
+            MIN(TRIM(g.first_name)) AS first_name,
+            MIN(TRIM(COALESCE(g.last_name, ''))) AS last_name,
+            MAX(NULLIF(TRIM(COALESCE(g.email, '')), '')) AS email,
+            MAX(NULLIF(TRIM(COALESCE(g.phone, '')), '')) AS phone,
+            MAX(NULLIF(TRIM(COALESCE(g.address, '')), '')) AS address,
+            MAX(NULLIF(TRIM(COALESCE(g.hometown, '')), '')) AS hometown,
+            MAX(NULLIF(TRIM(COALESCE(g.image_url, '')), '')) AS image_url,
+            COUNT(DISTINCT g.student_id) AS student_count,
+            LOWER(TRIM(g.first_name)) AS first_name_key,
+            LOWER(TRIM(COALESCE(g.last_name, ''))) AS last_name_key,
+            COALESCE(NULLIF(TRIM(COALESCE(g.phone, '')), ''), '__NO_PHONE__') AS phone_key
+          FROM guardians g
+          WHERE g.organization_id = $1
+          GROUP BY
+            LOWER(TRIM(g.first_name)),
+            LOWER(TRIM(COALESCE(g.last_name, ''))),
+            COALESCE(NULLIF(TRIM(COALESCE(g.phone, '')), ''), '__NO_PHONE__')
+        ),
+        legacy_with_access AS (
+          SELECT
+            lg.guardian_id,
+            lg.first_name,
+            lg.last_name,
+            lg.email,
+            lg.phone,
+            lg.address,
+            lg.hometown,
+            lg.image_url,
+            lg.student_count,
+            EXISTS (
+              SELECT 1
+              FROM guardian_profiles gp
+              LEFT JOIN guardian_accounts ga
+                ON ga.guardian_id = gp.guardian_id
+               AND ga.organization_id = gp.organization_id
+              WHERE gp.organization_id = $1
+                AND (
+                  (lg.email IS NOT NULL AND LOWER(TRIM(COALESCE(gp.email, ''))) = LOWER(TRIM(lg.email)))
+                  OR (
+                    LOWER(TRIM(gp.first_name)) = lg.first_name_key
+                    AND LOWER(TRIM(COALESCE(gp.last_name, ''))) = lg.last_name_key
+                    AND COALESCE(NULLIF(TRIM(COALESCE(gp.phone, '')), ''), '__NO_PHONE__') = lg.phone_key
+                  )
+                )
+            ) AS has_portal_access,
+            'legacy'::text AS source
+          FROM legacy_guardians lg
+        ),
+        profile_guardians AS (
+          SELECT
+            gp.guardian_id,
+            TRIM(gp.first_name) AS first_name,
+            TRIM(COALESCE(gp.last_name, '')) AS last_name,
+            NULLIF(TRIM(COALESCE(gp.email, '')), '') AS email,
+            NULLIF(TRIM(COALESCE(gp.phone, '')), '') AS phone,
+            NULLIF(TRIM(COALESCE(gp.address, '')), '') AS address,
+            NULLIF(TRIM(COALESCE(gp.hometown, '')), '') AS hometown,
+            NULLIF(TRIM(COALESCE(gp.image_url, '')), '') AS image_url,
+            COUNT(DISTINCT gs.student_id) AS student_count,
+            EXISTS (
+              SELECT 1
+              FROM guardian_accounts ga
+              WHERE ga.guardian_id = gp.guardian_id
+                AND ga.organization_id = gp.organization_id
+            ) AS has_portal_access,
+            'profile'::text AS source
+          FROM guardian_profiles gp
+          LEFT JOIN guardian_students gs ON gs.guardian_id = gp.guardian_id
+          WHERE gp.organization_id = $1
+          GROUP BY
+            gp.guardian_id,
+            gp.first_name,
+            gp.last_name,
+            gp.email,
+            gp.phone,
+            gp.address,
+            gp.hometown,
+            gp.image_url,
+            gp.organization_id
+        )
+        SELECT
+          lga.guardian_id,
+          lga.first_name,
+          lga.last_name,
+          lga.email,
+          lga.phone,
+          lga.address,
+          lga.hometown,
+          lga.image_url,
+          lga.student_count,
+          lga.has_portal_access,
+          lga.source
+        FROM legacy_with_access lga
+        UNION ALL
+        SELECT
+          pg.guardian_id,
+          pg.first_name,
+          pg.last_name,
+          pg.email,
+          pg.phone,
+          pg.address,
+          pg.hometown,
+          pg.image_url,
+          pg.student_count,
+          pg.has_portal_access,
+          pg.source
+        FROM profile_guardians pg
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM legacy_with_access lga
+          WHERE (
+            pg.email IS NOT NULL
+            AND lga.email IS NOT NULL
+            AND LOWER(TRIM(pg.email)) = LOWER(TRIM(lga.email))
+          )
+          OR (
+            LOWER(TRIM(pg.first_name)) = LOWER(TRIM(lga.first_name))
+            AND LOWER(TRIM(COALESCE(pg.last_name, ''))) = LOWER(TRIM(COALESCE(lga.last_name, '')))
+            AND COALESCE(NULLIF(TRIM(COALESCE(pg.phone, '')), ''), '__NO_PHONE__') = COALESCE(NULLIF(TRIM(COALESCE(lga.phone, '')), ''), '__NO_PHONE__')
+          )
+        )
+        ORDER BY first_name ASC, last_name ASC, guardian_id DESC
         `,
         [organizationId]
       );
@@ -10251,69 +10370,133 @@ const commonController = {
     try {
       const organizationId = req.session.organizationId;
       const guardianId = req.query.guardianId;
+      const guardianSource = req.query.source === 'profile' ? 'profile' : 'legacy';
 
       if (!guardianId) {
         req.flash('error', 'Guardian ID is required');
         return res.redirect('/common/guardians');
       }
 
-      // Get guardian info from old guardians table
-      const guardianResult = await db.query(
-        `SELECT * FROM guardians WHERE guardian_id = $1 AND organization_id = $2`,
-        [guardianId, organizationId]
-      );
-
-      if (!guardianResult.rows.length) {
-        req.flash('error', 'Guardian not found');
-        return res.redirect('/common/guardians');
-      }
-
-      const guardian = guardianResult.rows[0];
-
       const userRole = req.session.userRole || '';
       const userId = req.session.user?.user_id || req.session.userId || null;
 
-      // Get students linked to this guardian.
-      // Teachers only see students in their own class(es) / subjects.
+      let guardian = null;
+      let account = { login_email: null, login_phone: null };
       let studentsResult;
-      if (userRole === 'Teacher' && userId) {
-        studentsResult = await db.query(
-          `
-          SELECT s.student_id, s.first_name, s.last_name, s.image_url,
-                 c.class_name, c.class_id, 'Parent/Guardian' AS relationship
-          FROM guardians g
-          JOIN students s ON g.student_id = s.student_id
-          LEFT JOIN classes c ON s.class_id = c.class_id
-          WHERE g.first_name = $1 AND g.last_name = $2
-            AND (g.phone = $3 OR $3 IS NULL)
-            AND g.organization_id = $4
+
+      if (guardianSource === 'profile') {
+        const guardianResult = await db.query(
+          `SELECT gp.*, ga.login_email, ga.login_phone, 'profile'::text AS source
+           FROM guardian_profiles gp
+           LEFT JOIN guardian_accounts ga
+             ON ga.guardian_id = gp.guardian_id
+            AND ga.organization_id = gp.organization_id
+           WHERE gp.guardian_id = $1 AND gp.organization_id = $2
+           LIMIT 1`,
+          [guardianId, organizationId]
+        );
+
+        if (!guardianResult.rows.length) {
+          req.flash('error', 'Guardian not found');
+          return res.redirect('/common/guardians');
+        }
+
+        guardian = guardianResult.rows[0];
+        account = {
+          login_email: guardian.login_email || guardian.email || null,
+          login_phone: guardian.login_phone || guardian.phone || null,
+        };
+
+        const teacherFilter = userRole === 'Teacher' && userId
+          ? `
             AND s.class_id IN (
-              SELECT uc.class_id FROM user_classes uc WHERE uc.user_id = $5
+              SELECT uc.class_id FROM user_classes uc WHERE uc.user_id = $3
               UNION
               SELECT DISTINCT sub.class_id
               FROM user_subjects us
               JOIN subjects sub ON us.subject_id = sub.subject_id
-              WHERE us.user_id = $5 AND sub.organization_id = $4
-            )
-          ORDER BY s.first_name ASC
-          `,
-          [guardian.first_name, guardian.last_name, guardian.phone, organizationId, userId]
-        );
-      } else {
+              WHERE us.user_id = $3 AND sub.organization_id = $2
+            )`
+          : '';
+        const studentParams = userRole === 'Teacher' && userId
+          ? [guardianId, organizationId, userId]
+          : [guardianId, organizationId];
+
         studentsResult = await db.query(
           `
-          SELECT s.student_id, s.first_name, s.last_name, s.image_url,
+          WITH linked_students AS (
+            SELECT gs.student_id
+            FROM guardian_students gs
+            WHERE gs.guardian_id = $1
+            UNION
+            SELECT g.student_id
+            FROM guardians g
+            WHERE g.guardian_id = $1 AND g.organization_id = $2
+          )
+          SELECT DISTINCT s.student_id, s.first_name, s.last_name, s.image_url,
                  c.class_name, c.class_id, 'Parent/Guardian' AS relationship
-          FROM guardians g
-          JOIN students s ON g.student_id = s.student_id
+          FROM linked_students ls
+          JOIN students s ON ls.student_id = s.student_id
           LEFT JOIN classes c ON s.class_id = c.class_id
-          WHERE g.first_name = $1 AND g.last_name = $2
-            AND (g.phone = $3 OR $3 IS NULL)
-            AND g.organization_id = $4
+          WHERE s.organization_id = $2
+          ${teacherFilter}
           ORDER BY s.first_name ASC
           `,
-          [guardian.first_name, guardian.last_name, guardian.phone, organizationId]
+          studentParams
         );
+      } else {
+        const guardianResult = await db.query(
+          `SELECT *, 'legacy'::text AS source FROM guardians WHERE guardian_id = $1 AND organization_id = $2`,
+          [guardianId, organizationId]
+        );
+
+        if (!guardianResult.rows.length) {
+          req.flash('error', 'Guardian not found');
+          return res.redirect('/common/guardians');
+        }
+
+        guardian = guardianResult.rows[0];
+        account = { login_email: guardian.email || null, login_phone: guardian.phone || null };
+
+        if (userRole === 'Teacher' && userId) {
+          studentsResult = await db.query(
+            `
+            SELECT s.student_id, s.first_name, s.last_name, s.image_url,
+                   c.class_name, c.class_id, 'Parent/Guardian' AS relationship
+            FROM guardians g
+            JOIN students s ON g.student_id = s.student_id
+            LEFT JOIN classes c ON s.class_id = c.class_id
+            WHERE g.first_name = $1 AND g.last_name = $2
+              AND (g.phone = $3 OR $3 IS NULL)
+              AND g.organization_id = $4
+              AND s.class_id IN (
+                SELECT uc.class_id FROM user_classes uc WHERE uc.user_id = $5
+                UNION
+                SELECT DISTINCT sub.class_id
+                FROM user_subjects us
+                JOIN subjects sub ON us.subject_id = sub.subject_id
+                WHERE us.user_id = $5 AND sub.organization_id = $4
+              )
+            ORDER BY s.first_name ASC
+            `,
+            [guardian.first_name, guardian.last_name, guardian.phone, organizationId, userId]
+          );
+        } else {
+          studentsResult = await db.query(
+            `
+            SELECT s.student_id, s.first_name, s.last_name, s.image_url,
+                   c.class_name, c.class_id, 'Parent/Guardian' AS relationship
+            FROM guardians g
+            JOIN students s ON g.student_id = s.student_id
+            LEFT JOIN classes c ON s.class_id = c.class_id
+            WHERE g.first_name = $1 AND g.last_name = $2
+              AND (g.phone = $3 OR $3 IS NULL)
+              AND g.organization_id = $4
+            ORDER BY s.first_name ASC
+            `,
+            [guardian.first_name, guardian.last_name, guardian.phone, organizationId]
+          );
+        }
       }
 
       // Get current term
@@ -10336,7 +10519,7 @@ const commonController = {
         guardian: guardian,
         students: studentsResult.rows,
         currentTermId: currentTermId,
-        account: { login_email: null, login_phone: guardian.phone },
+        account,
         canEdit,
         hasGuardianPortalFeature: hasGuardianPortal,
         messages: req.flash(),
@@ -10352,7 +10535,8 @@ const commonController = {
     try {
       const organizationId = req.session.organizationId;
       const guardianId = req.params.guardianId;
-      const { firstName, lastName, phone, address, hometown } = req.body;
+      const guardianSource = req.query.source === 'profile' ? 'profile' : 'legacy';
+      const { firstName, lastName, email, phone, address, hometown } = req.body;
 
       let imageUrl = null;
       if (req.file) {
@@ -10360,41 +10544,71 @@ const commonController = {
         imageUrl = await uploadToS3(req.file, s3Key);
       }
 
-      // Update all guardian records with matching name and phone
-      const updateQuery = imageUrl
-        ? `UPDATE guardians 
-           SET first_name = $1, last_name = $2, phone = $3, 
-               address = $4, hometown = $5, image_url = $6
-           WHERE guardian_id = $7 AND organization_id = $8`
-        : `UPDATE guardians 
-           SET first_name = $1, last_name = $2, phone = $3, 
-               address = $4, hometown = $5
-           WHERE guardian_id = $6 AND organization_id = $7`;
+      if (guardianSource === 'profile') {
+        const updateProfileQuery = imageUrl
+          ? `UPDATE guardian_profiles
+             SET first_name = $1, last_name = $2, email = $3, phone = $4,
+                 address = $5, hometown = $6, image_url = $7, updated_at = NOW()
+             WHERE guardian_id = $8 AND organization_id = $9`
+          : `UPDATE guardian_profiles
+             SET first_name = $1, last_name = $2, email = $3, phone = $4,
+                 address = $5, hometown = $6, updated_at = NOW()
+             WHERE guardian_id = $7 AND organization_id = $8`;
 
-      const params = imageUrl
-        ? [firstName, lastName, phone, address, hometown, imageUrl, guardianId, organizationId]
-        : [firstName, lastName, phone, address, hometown, guardianId, organizationId];
+        const profileParams = imageUrl
+          ? [firstName, lastName, email || null, phone || null, address, hometown, imageUrl, guardianId, organizationId]
+          : [firstName, lastName, email || null, phone || null, address, hometown, guardianId, organizationId];
 
-      await db.query(updateQuery, params);
+        await db.query(updateProfileQuery, profileParams);
+        await db.query(
+          `UPDATE guardian_accounts
+           SET login_email = $1, login_phone = $2
+           WHERE guardian_id = $3 AND organization_id = $4`,
+          [email || null, phone || null, guardianId, organizationId]
+        );
+      } else {
+        const updateQuery = imageUrl
+          ? `UPDATE guardians
+             SET first_name = $1, last_name = $2, email = $3, phone = $4,
+                 address = $5, hometown = $6, image_url = $7
+             WHERE guardian_id = $8 AND organization_id = $9`
+          : `UPDATE guardians
+             SET first_name = $1, last_name = $2, email = $3, phone = $4,
+                 address = $5, hometown = $6
+             WHERE guardian_id = $7 AND organization_id = $8`;
+
+        const params = imageUrl
+          ? [firstName, lastName, email || null, phone, address, hometown, imageUrl, guardianId, organizationId]
+          : [firstName, lastName, email || null, phone, address, hometown, guardianId, organizationId];
+
+        await db.query(updateQuery, params);
+      }
 
       req.flash('success', 'Guardian information updated successfully');
-      return res.redirect(`/common/guardianDetails?guardianId=${guardianId}`);
+      return res.redirect(`/common/guardianDetails?guardianId=${guardianId}&source=${guardianSource}`);
     } catch (error) {
             req.flash('error', 'Error updating guardian information');
-      return res.redirect(`/common/guardianDetails?guardianId=${req.params.guardianId}`);
+      const guardianSource = req.query.source === 'profile' ? 'profile' : 'legacy';
+      return res.redirect(`/common/guardianDetails?guardianId=${req.params.guardianId}&source=${guardianSource}`);
     }
   },
 
   guardianRemoveStudent: async (req, res, db) => {
     try {
       const organizationId = req.session.organizationId;
-      const { guardianId, studentId } = req.body;
+      const { guardianId, studentId, source } = req.body;
 
-      // Delete the specific guardian record for this student
-      await db.query(
-        `DELETE FROM guardians WHERE guardian_id = $1 AND student_id = $2 AND organization_id = $3`,
-        [guardianId, studentId, organizationId]
-      );
+      if (source === 'profile') {
+        await db.query(
+          `DELETE FROM guardian_students WHERE guardian_id = $1 AND student_id = $2`,
+          [guardianId, studentId]
+        );
+      } else {
+        await db.query(
+          `DELETE FROM guardians WHERE guardian_id = $1 AND student_id = $2 AND organization_id = $3`,
+          [guardianId, studentId, organizationId]
+        );
+      }
 
       req.flash('success', 'Student removed from guardian');
       return res.json({ success: true });
@@ -10803,6 +11017,7 @@ const commonController = {
     try {
       const organizationId = req.session.organizationId;
       const guardianId = req.body.guardianId;
+      const guardianSource = req.body.source === 'profile' ? 'profile' : 'legacy';
 
       const guardianPortalEnabled = await hasGuardianPortalFeature(db, organizationId);
       if (!guardianPortalEnabled) {
@@ -10812,17 +11027,33 @@ const commonController = {
         });
       }
 
-      // Get guardian info from old guardians table
-      const guardianResult = await db.query(
-        `SELECT * FROM guardians WHERE guardian_id = $1 AND organization_id = $2`,
-        [guardianId, organizationId]
-      );
+      let guardian;
+      let guardianProfileId = null;
 
-      if (!guardianResult.rows.length) {
-        return res.status(404).json({ success: false, error: 'Guardian not found' });
+      if (guardianSource === 'profile') {
+        const guardianResult = await db.query(
+          `SELECT * FROM guardian_profiles WHERE guardian_id = $1 AND organization_id = $2 LIMIT 1`,
+          [guardianId, organizationId]
+        );
+
+        if (!guardianResult.rows.length) {
+          return res.status(404).json({ success: false, error: 'Guardian not found' });
+        }
+
+        guardian = guardianResult.rows[0];
+        guardianProfileId = guardian.guardian_id;
+      } else {
+        const guardianResult = await db.query(
+          `SELECT * FROM guardians WHERE guardian_id = $1 AND organization_id = $2`,
+          [guardianId, organizationId]
+        );
+
+        if (!guardianResult.rows.length) {
+          return res.status(404).json({ success: false, error: 'Guardian not found' });
+        }
+
+        guardian = guardianResult.rows[0];
       }
-
-      const guardian = guardianResult.rows[0];
 
       // Check if guardian has email or phone
       if (!guardian.email && !guardian.phone) {
@@ -10842,14 +11073,15 @@ const commonController = {
         });
       }
 
-      // Check if guardian already has a guardian_profile and account
-      const profileCheck = await db.query(
-        `SELECT guardian_id FROM guardian_profiles 
-         WHERE first_name = $1 AND last_name = $2 AND phone = $3 AND organization_id = $4`,
-        [guardian.first_name, guardian.last_name, guardian.phone, organizationId]
-      );
+      if (!guardianProfileId) {
+        const profileCheck = await db.query(
+          `SELECT guardian_id FROM guardian_profiles 
+           WHERE first_name = $1 AND last_name = $2 AND phone = $3 AND organization_id = $4`,
+          [guardian.first_name, guardian.last_name, guardian.phone, organizationId]
+        );
 
-      let guardianProfileId = profileCheck.rows.length > 0 ? profileCheck.rows[0].guardian_id : null;
+        guardianProfileId = profileCheck.rows.length > 0 ? profileCheck.rows[0].guardian_id : null;
+      }
 
       // If no profile exists, create one
       if (!guardianProfileId) {
@@ -10861,27 +11093,27 @@ const commonController = {
         );
         guardianProfileId = profileInsert.rows[0].guardian_id;
 
-                // Link all students with matching guardian from OLD guardians table
-        // Use the guardianId parameter which refers to the old guardians table
-        const studentsResult = await db.query(
-          `SELECT DISTINCT g.student_id, s.first_name, s.last_name
-           FROM guardians g
-           JOIN students s ON g.student_id = s.student_id
-           WHERE g.first_name = $1 
-           AND g.last_name = $2 
-           AND (g.phone = $3 OR $3 IS NULL)
-           AND g.organization_id = $4`,
-          [guardian.first_name, guardian.last_name, guardian.phone, organizationId]
-        );
-
-                for (const student of studentsResult.rows) {
-          await db.query(
-            `INSERT INTO guardian_students (guardian_id, student_id, relationship)
-             VALUES ($1, $2, 'Parent/Guardian')
-             ON CONFLICT DO NOTHING`,
-            [guardianProfileId, student.student_id]
+        if (guardianSource !== 'profile') {
+          const studentsResult = await db.query(
+            `SELECT DISTINCT g.student_id, s.first_name, s.last_name
+             FROM guardians g
+             JOIN students s ON g.student_id = s.student_id
+             WHERE g.first_name = $1 
+             AND g.last_name = $2 
+             AND (g.phone = $3 OR $3 IS NULL)
+             AND g.organization_id = $4`,
+            [guardian.first_name, guardian.last_name, guardian.phone, organizationId]
           );
-                  }
+
+          for (const student of studentsResult.rows) {
+            await db.query(
+              `INSERT INTO guardian_students (guardian_id, student_id, relationship)
+               VALUES ($1, $2, 'Parent/Guardian')
+               ON CONFLICT DO NOTHING`,
+              [guardianProfileId, student.student_id]
+            );
+          }
+        }
 
               }
 

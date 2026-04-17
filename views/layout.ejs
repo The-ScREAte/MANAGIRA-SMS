@@ -48,21 +48,25 @@
             <div class="spinner"></div>
         </div>
 
-        <% if (session.accountType === 'Admin' || session.accountType === 'Mini Admin') { %>
-            <% if (typeof showOrgHeader !== 'undefined' && showOrgHeader) { %>
-                <%- include('partials/header', { orgHeaderName: typeof orgHeaderName !== 'undefined' ? orgHeaderName : null, orgHeaderLogo: typeof orgHeaderLogo !== 'undefined' ? orgHeaderLogo : null }) %>
+        <% if (!(typeof hideGlobalHeader !== 'undefined' && hideGlobalHeader)) { %>
+            <% if (session.accountType === 'Admin' || session.accountType === 'Mini Admin') { %>
+                <% if (typeof showOrgHeader !== 'undefined' && showOrgHeader) { %>
+                    <%- include('partials/header', { orgHeaderName: typeof orgHeaderName !== 'undefined' ? orgHeaderName : null, orgHeaderLogo: typeof orgHeaderLogo !== 'undefined' ? orgHeaderLogo : null }) %>
+                <% } else { %>
+                    <%- include('partials/adminHeader') %>
+                <% } %>
             <% } else { %>
-                <%- include('partials/adminHeader') %>
+                <%- include('partials/header') %>
             <% } %>
-        <% } else { %>
-            <%- include('partials/header') %>
         <% } %>
 
 
         <main>
             <%- body %>
         </main>
-        <%- include('partials/footer') %>
+        <% if (!(typeof hideGlobalFooter !== 'undefined' && hideGlobalFooter)) { %>
+            <%- include('partials/footer') %>
+        <% } %>
     </div>
 
     <script>

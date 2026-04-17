@@ -17,6 +17,7 @@
   .status-resolved { background: #d1fae5; color: #059669; }
   .status-closed { background: #f3f4f6; color: #6b7280; }
   .reply-count { font-size: 0.78rem; color: #94a3b8; white-space: nowrap; }
+  .unread-badge { background: #0f5a66; color: #fff; border-radius: 999px; padding: 4px 10px; font-size: 0.72rem; font-weight: 700; white-space: nowrap; }
 
   .empty-state { text-align: center; padding: 40px 20px; border: 2px dashed #cbd5e1; border-radius: 12px; }
   .empty-state-icon { font-size: 40px; margin-bottom: 10px; display: block; }
@@ -79,6 +80,9 @@
         </div>
         <div class="report-right">
           <span class="status-badge status-<%= report.status %>"><%= report.status.replace('_', ' ') %></span>
+          <% if (Number(report.unread_count) > 0) { %>
+            <span class="unread-badge"><%= report.unread_count %> unread</span>
+          <% } %>
           <span class="reply-count"><%= report.reply_count %> <%= report.reply_count === '1' ? 'reply' : 'replies' %></span>
         </div>
       </a>

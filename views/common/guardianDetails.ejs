@@ -732,7 +732,7 @@
     <!-- Edit Form with smooth animation -->
     <% if (canEdit) { %>
     <div id="editWrapper" class="gd-edit-wrapper">
-      <form id="editForm" action="/common/guardianEdit/<%= guardian.guardian_id %>" method="POST" enctype="multipart/form-data" class="gd-edit-form">
+      <form id="editForm" action="/common/guardianEdit/<%= guardian.guardian_id %>?source=<%= guardian.source || 'legacy' %>" method="POST" enctype="multipart/form-data" class="gd-edit-form">
         <h3>Edit Guardian Information</h3>
         <div class="gd-field">
           <label>First Name</label>
@@ -948,7 +948,7 @@
       const response = await fetch('/common/guardianRemoveStudent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ guardianId: <%= guardian.guardian_id %>, studentId: studentId })
+        body: JSON.stringify({ guardianId: <%= guardian.guardian_id %>, studentId: studentId, source: '<%= guardian.source || 'legacy' %>' })
       });
       const data = await response.json();
       if (data.success) { alert('Student removed successfully'); window.location.reload(); }
@@ -962,7 +962,7 @@
       const response = await fetch('/common/guardianRequestPasswordReset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ guardianId: <%= guardian.guardian_id %> })
+        body: JSON.stringify({ guardianId: <%= guardian.guardian_id %>, source: '<%= guardian.source || 'legacy' %>' })
       });
       const data = await response.json();
       if (data.success) { alert(data.message || 'Password setup email sent successfully!'); }

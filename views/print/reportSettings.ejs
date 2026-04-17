@@ -71,10 +71,11 @@
     th, td { padding: 10px 8px; border: 1px solid #e0e0e0; text-align: left; }
     th { background: #f4f7fa; color: var(--primary); }
 
-    .sig-canvas-wrapper { border: 1px dashed var(--border); border-radius: 10px; background: #fff; padding: 10px; }
-    .sig-canvas { width: 100%; height: 200px; border-radius: 8px; background: #fafafa; }
+    .sig-canvas-wrapper { border: 1px dashed var(--border); border-radius: 10px; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); padding: 10px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.85); }
+    .sig-canvas { width: 100%; height: 200px; border-radius: 8px; background: #fafafa; touch-action: none; cursor: crosshair; display: block; }
     .sig-canvas-actions { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
     .sig-status { margin-top: 8px; font-size: 0.9rem; color: var(--muted); }
+    .sig-helper-text { margin-top: 10px; font-size: 0.88rem; color: var(--muted); line-height: 1.45; }
 
     .remark-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 8px 12px; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 6px; background: #fff; }
     .remark-text { flex: 1; overflow-wrap: break-word; word-wrap: break-word; word-break: break-word; hyphens: auto; max-width: calc(100% - 40px); line-height: 1.5; }
@@ -355,6 +356,7 @@
           
           <div id="signatureFormContainer" style="display:none;">
             <div class="sig-canvas-wrapper"><canvas id="signatureCanvas" class="sig-canvas"></canvas></div>
+            <div class="sig-helper-text">Draw slowly for the cleanest signature. The pad smooths your stroke automatically and saves a tightly trimmed PNG.</div>
             <div class="sig-canvas-actions">
               <button type="button" class="btn btn-danger" onclick="clearCanvas()">Clear</button>
               <button type="button" class="btn" onclick="saveDigitalSignature()">Save Signature</button>
@@ -439,6 +441,7 @@
             
             <div id="transcriptSignatureFormContainer" style="display:none;">
               <div class="sig-canvas-wrapper"><canvas id="transcriptSignatureCanvas" class="sig-canvas"></canvas></div>
+              <div class="sig-helper-text">Draw slowly for the cleanest signature. The pad smooths your stroke automatically and saves a tightly trimmed PNG.</div>
               <div class="sig-canvas-actions">
                 <button type="button" class="btn btn-danger" onclick="clearTranscriptCanvas()">Clear</button>
                 <button type="button" class="btn" onclick="saveTranscriptSignature()">Save Transcript Signature</button>
@@ -735,9 +738,276 @@
     });
 
     // Canvas signature
-    let canvas, ctx, isDrawing = false, lastX = 0, lastY = 0, canvasInitialized = false;
     const signatureFormContainer = document.getElementById('signatureFormContainer');
     const toggleSigFormLink = document.getElementById('toggleSignatureForm');
+
+    function createSignaturePad(canvasId) {
+      let canvas = null;
+      let ctx = null;
+      let initialized = false;
+      let drawing = false;
+      let pointerId = null;
+      let currentStroke = [];
+      let strokes = [];
+      let hasInk = false;
+      let resizeRaf = null;
+
+      const baseStroke = 2.4;
+      const minStroke = 1.1;
+      const maxStroke = 3.8;
+
+      function getCanvas() {
+        if (!canvas) {
+          canvas = document.getElementById(canvasId);
+        }
+        return canvas;
+      }
+
+      function getContext() {
+        if (!ctx && getCanvas()) {
+          ctx = canvas.getContext('2d');
+        }
+        return ctx;
+      }
+
+      function setCanvasSize() {
+        const targetCanvas = getCanvas();
+        const targetCtx = getContext();
+        if (!targetCanvas || !targetCtx) return;
+
+        const rect = targetCanvas.getBoundingClientRect();
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        targetCanvas.width = Math.max(1, Math.round(rect.width * ratio));
+        targetCanvas.height = Math.max(1, Math.round(rect.height * ratio));
+        targetCtx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        targetCtx.clearRect(0, 0, rect.width, rect.height);
+        targetCtx.strokeStyle = '#0f172a';
+        targetCtx.lineCap = 'round';
+        targetCtx.lineJoin = 'round';
+      }
+
+      function distance(pointA, pointB) {
+        const dx = pointB.x - pointA.x;
+        const dy = pointB.y - pointA.y;
+        return Math.hypot(dx, dy);
+      }
+
+      function midpoint(pointA, pointB) {
+        return {
+          x: (pointA.x + pointB.x) / 2,
+          y: (pointA.y + pointB.y) / 2,
+        };
+      }
+
+      function computeLineWidth(previousPoint, currentPoint) {
+        if (!previousPoint) {
+          return baseStroke;
+        }
+
+        const speed = distance(previousPoint, currentPoint) / Math.max(currentPoint.time - previousPoint.time, 1);
+        const pressure = currentPoint.pressure && currentPoint.pressure > 0 ? currentPoint.pressure : 0.5;
+        const velocityFactor = Math.max(0.45, 1.55 - speed * 2.2);
+        const width = baseStroke * velocityFactor * (0.75 + pressure * 0.35);
+        return Math.max(minStroke, Math.min(maxStroke, width));
+      }
+
+      function drawDot(point) {
+        const targetCtx = getContext();
+        if (!targetCtx) return;
+
+        const radius = Math.max(minStroke, computeLineWidth(null, point)) / 2;
+        targetCtx.beginPath();
+        targetCtx.fillStyle = '#0f172a';
+        targetCtx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+        targetCtx.fill();
+      }
+
+      function drawStroke(stroke) {
+        const targetCtx = getContext();
+        if (!targetCtx || !stroke.length) return;
+
+        if (stroke.length === 1) {
+          drawDot(stroke[0]);
+          return;
+        }
+
+        for (let index = 1; index < stroke.length; index += 1) {
+          const previousPoint = stroke[index - 1];
+          const currentPoint = stroke[index];
+          const previousMidpoint = index === 1 ? previousPoint : midpoint(stroke[index - 2], previousPoint);
+          const currentMidpoint = midpoint(previousPoint, currentPoint);
+
+          targetCtx.beginPath();
+          targetCtx.lineWidth = computeLineWidth(previousPoint, currentPoint);
+          targetCtx.moveTo(previousMidpoint.x, previousMidpoint.y);
+          targetCtx.quadraticCurveTo(previousPoint.x, previousPoint.y, currentMidpoint.x, currentMidpoint.y);
+          targetCtx.stroke();
+        }
+      }
+
+      function redraw() {
+        const targetCanvas = getCanvas();
+        const targetCtx = getContext();
+        if (!targetCanvas || !targetCtx) return;
+
+        setCanvasSize();
+        strokes.forEach(drawStroke);
+      }
+
+      function getRelativePoint(event) {
+        const targetCanvas = getCanvas();
+        if (!targetCanvas) return null;
+
+        const rect = targetCanvas.getBoundingClientRect();
+        return {
+          x: event.clientX - rect.left,
+          y: event.clientY - rect.top,
+          time: performance.now(),
+          pressure: typeof event.pressure === 'number' ? event.pressure : 0.5,
+        };
+      }
+
+      function beginStroke(event) {
+        const targetCanvas = getCanvas();
+        if (!targetCanvas) return;
+
+        event.preventDefault();
+        const point = getRelativePoint(event);
+        if (!point) return;
+
+        drawing = true;
+        pointerId = event.pointerId;
+        currentStroke = [point];
+        hasInk = true;
+        targetCanvas.setPointerCapture?.(event.pointerId);
+        drawDot(point);
+      }
+
+      function extendStroke(event) {
+        if (!drawing || event.pointerId !== pointerId) return;
+
+        event.preventDefault();
+        const point = getRelativePoint(event);
+        if (!point) return;
+
+        const previousPoint = currentStroke[currentStroke.length - 1];
+        if (previousPoint && distance(previousPoint, point) < 0.35) {
+          return;
+        }
+
+        currentStroke.push(point);
+        drawStroke(currentStroke.slice(-3));
+      }
+
+      function endStroke(event) {
+        if (!drawing || event.pointerId !== pointerId) return;
+
+        event.preventDefault();
+        const targetCanvas = getCanvas();
+        drawing = false;
+        pointerId = null;
+
+        if (currentStroke.length) {
+          strokes.push([...currentStroke]);
+        }
+        currentStroke = [];
+
+        targetCanvas?.releasePointerCapture?.(event.pointerId);
+      }
+
+      function clear() {
+        strokes = [];
+        currentStroke = [];
+        hasInk = false;
+        const targetCanvas = getCanvas();
+        const targetCtx = getContext();
+        if (!targetCanvas || !targetCtx) return;
+        const rect = targetCanvas.getBoundingClientRect();
+        targetCtx.clearRect(0, 0, rect.width, rect.height);
+      }
+
+      function exportTrimmedBlob() {
+        const targetCanvas = getCanvas();
+        if (!targetCanvas || !hasInk) {
+          return Promise.resolve(null);
+        }
+
+        const sourceCtx = targetCanvas.getContext('2d');
+        const imageData = sourceCtx.getImageData(0, 0, targetCanvas.width, targetCanvas.height);
+        const { data, width, height } = imageData;
+
+        let top = height;
+        let left = width;
+        let right = 0;
+        let bottom = 0;
+
+        for (let y = 0; y < height; y += 1) {
+          for (let x = 0; x < width; x += 1) {
+            const alpha = data[(y * width + x) * 4 + 3];
+            if (alpha > 0) {
+              if (x < left) left = x;
+              if (x > right) right = x;
+              if (y < top) top = y;
+              if (y > bottom) bottom = y;
+            }
+          }
+        }
+
+        if (right <= left || bottom <= top) {
+          return Promise.resolve(null);
+        }
+
+        const padding = Math.ceil((window.devicePixelRatio || 1) * 12);
+        const cropLeft = Math.max(0, left - padding);
+        const cropTop = Math.max(0, top - padding);
+        const cropRight = Math.min(width, right + padding);
+        const cropBottom = Math.min(height, bottom + padding);
+        const cropWidth = cropRight - cropLeft;
+        const cropHeight = cropBottom - cropTop;
+
+        const exportCanvas = document.createElement('canvas');
+        exportCanvas.width = cropWidth;
+        exportCanvas.height = cropHeight;
+        exportCanvas
+          .getContext('2d')
+          .putImageData(sourceCtx.getImageData(cropLeft, cropTop, cropWidth, cropHeight), 0, 0);
+
+        return new Promise((resolve) => {
+          exportCanvas.toBlob((blob) => resolve(blob), 'image/png');
+        });
+      }
+
+      function init() {
+        if (initialized) return;
+        const targetCanvas = getCanvas();
+        if (!targetCanvas) return;
+
+        setCanvasSize();
+        targetCanvas.addEventListener('pointerdown', beginStroke);
+        targetCanvas.addEventListener('pointermove', extendStroke);
+        targetCanvas.addEventListener('pointerup', endStroke);
+        targetCanvas.addEventListener('pointerleave', endStroke);
+        targetCanvas.addEventListener('pointercancel', endStroke);
+
+        window.addEventListener('resize', () => {
+          if (resizeRaf) {
+            cancelAnimationFrame(resizeRaf);
+          }
+          resizeRaf = requestAnimationFrame(redraw);
+        });
+
+        initialized = true;
+      }
+
+      return {
+        init,
+        clear,
+        hasInk: () => hasInk,
+        exportTrimmedBlob,
+      };
+    }
+
+    const reportSignaturePad = createSignaturePad('signatureCanvas');
     
     // Populate signature class checkboxes with only unassigned classes
     function populateSignatureCheckboxes(excludeClasses = []) {
@@ -793,7 +1063,7 @@
         populateSignatureCheckboxes();
         signatureFormContainer.style.display = 'block';
         toggleSigFormLink.textContent = '− Hide Form';
-        if(!canvasInitialized) initCanvas();
+        reportSignaturePad.init();
       }
     });
     
@@ -862,39 +1132,19 @@
       });
     });
     
-    function initCanvas(){
-      if(canvasInitialized) return;
-      canvas = document.getElementById('signatureCanvas');
-      if(!canvas) return;
-      ctx = canvas.getContext('2d');
-      const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width * 2; canvas.height = rect.height * 2; ctx.scale(2,2);
-      ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-      const getPos = e => ({ x: e.offsetX, y: e.offsetY });
-      const getTouchPos = e => { const r = canvas.getBoundingClientRect(); const t = e.touches[0]; return { x: t.clientX - r.left, y: t.clientY - r.top }; };
-      const drawLine = (x1,y1,x2,y2) => { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.closePath(); };
-      canvas.addEventListener('mousedown', e => { isDrawing = true; const p = getPos(e); lastX = p.x; lastY = p.y; });
-      canvas.addEventListener('mousemove', e => { if(!isDrawing) return; const p = getPos(e); drawLine(lastX,lastY,p.x,p.y); lastX=p.x; lastY=p.y; });
-      canvas.addEventListener('mouseup', () => isDrawing=false);
-      canvas.addEventListener('mouseout', () => isDrawing=false);
-      canvas.addEventListener('touchstart', e => { e.preventDefault(); isDrawing=true; const p=getTouchPos(e); lastX=p.x; lastY=p.y; }, {passive:false});
-      canvas.addEventListener('touchmove', e => { e.preventDefault(); if(!isDrawing) return; const p=getTouchPos(e); drawLine(lastX,lastY,p.x,p.y); lastX=p.x; lastY=p.y; }, {passive:false});
-      canvas.addEventListener('touchend', () => isDrawing=false);
-      canvas.addEventListener('touchcancel', () => isDrawing=false);
-      canvasInitialized = true;
-    }
-    function clearCanvas(){ if(!canvas) return; ctx.clearRect(0,0,canvas.width,canvas.height); }
+    function clearCanvas(){ reportSignaturePad.clear(); }
     window.clearCanvas = clearCanvas;
 
     async function saveDigitalSignature(){
       const statusEl = document.getElementById('sigStatus');
       statusEl.textContent = 'Saving signature...';
-      if(!canvas){ statusEl.textContent = 'Canvas not ready.'; return; }
+      reportSignaturePad.init();
       const classChecks = Array.from(document.querySelectorAll('.draw-signature-class:checked')).map(c => c.value);
       const signerTitle = document.getElementById('signatureTitleInput')?.value.trim() || '';
       const signerName = document.getElementById('signatureNameInput')?.value.trim() || '';
       if(!classChecks.length){ statusEl.textContent = 'Select at least one class to apply.'; return; }
-      canvas.toBlob(async blob => {
+      if(!reportSignaturePad.hasInk()){ statusEl.textContent = 'Draw the signature first.'; return; }
+      const blob = await reportSignaturePad.exportTrimmedBlob();
         if(!blob){ statusEl.textContent = 'Could not capture signature.'; return; }
         const fd = new FormData();
         fd.append('signatureImage', blob, 'signature.png');
@@ -909,15 +1159,14 @@
           statusEl.textContent = 'Saved. Refreshing...';
           window.location.reload();
         } catch(err){ statusEl.textContent = err.message; }
-      });
     }
     window.saveDigitalSignature = saveDigitalSignature;
 
     <% if (hasTranscriptFeature) { %>
     // Transcript Signature Management
-    let transcriptCanvas, transcriptCtx, transcriptIsDrawing = false, transcriptLastX = 0, transcriptLastY = 0, transcriptCanvasInitialized = false;
     const transcriptSigFormContainer = document.getElementById('transcriptSignatureFormContainer');
     const toggleTranscriptSigFormLink = document.getElementById('toggleTranscriptSignatureForm');
+    const transcriptSignaturePad = createSignaturePad('transcriptSignatureCanvas');
 
     function populateTranscriptSignatureCheckboxes() {
       const transcriptSigCheckboxes = document.getElementById('transcriptSignatureClassCheckboxes');
@@ -970,7 +1219,7 @@
         populateTranscriptSignatureCheckboxes();
         transcriptSigFormContainer.style.display = 'block';
         toggleTranscriptSigFormLink.textContent = '\u2212 Hide Form';
-        if(!transcriptCanvasInitialized) initTranscriptCanvas();
+        transcriptSignaturePad.init();
       }
     });
 
@@ -1038,40 +1287,19 @@
       });
     });
 
-    function initTranscriptCanvas(){
-      if(transcriptCanvasInitialized) return;
-      transcriptCanvas = document.getElementById('transcriptSignatureCanvas');
-      if(!transcriptCanvas) return;
-      transcriptCtx = transcriptCanvas.getContext('2d');
-      const rect = transcriptCanvas.getBoundingClientRect();
-      transcriptCanvas.width = rect.width * 2; transcriptCanvas.height = rect.height * 2; transcriptCtx.scale(2,2);
-      transcriptCtx.strokeStyle = '#1e293b'; transcriptCtx.lineWidth = 2.5; transcriptCtx.lineCap = 'round'; transcriptCtx.lineJoin = 'round';
-      const getPos = e => ({ x: e.offsetX, y: e.offsetY });
-      const getTouchPos = e => { const r = transcriptCanvas.getBoundingClientRect(); const t = e.touches[0]; return { x: t.clientX - r.left, y: t.clientY - r.top }; };
-      const drawLine = (x1,y1,x2,y2) => { transcriptCtx.beginPath(); transcriptCtx.moveTo(x1, y1); transcriptCtx.lineTo(x2, y2); transcriptCtx.stroke(); transcriptCtx.closePath(); };
-      transcriptCanvas.addEventListener('mousedown', e => { transcriptIsDrawing = true; const p = getPos(e); transcriptLastX = p.x; transcriptLastY = p.y; });
-      transcriptCanvas.addEventListener('mousemove', e => { if(!transcriptIsDrawing) return; const p = getPos(e); drawLine(transcriptLastX,transcriptLastY,p.x,p.y); transcriptLastX=p.x; transcriptLastY=p.y; });
-      transcriptCanvas.addEventListener('mouseup', () => transcriptIsDrawing=false);
-      transcriptCanvas.addEventListener('mouseout', () => transcriptIsDrawing=false);
-      transcriptCanvas.addEventListener('touchstart', e => { e.preventDefault(); transcriptIsDrawing=true; const p=getTouchPos(e); transcriptLastX=p.x; transcriptLastY=p.y; }, {passive:false});
-      transcriptCanvas.addEventListener('touchmove', e => { e.preventDefault(); if(!transcriptIsDrawing) return; const p=getTouchPos(e); drawLine(transcriptLastX,transcriptLastY,p.x,p.y); transcriptLastX=p.x; transcriptLastY=p.y; }, {passive:false});
-      transcriptCanvas.addEventListener('touchend', () => transcriptIsDrawing=false);
-      transcriptCanvas.addEventListener('touchcancel', () => transcriptIsDrawing=false);
-      transcriptCanvasInitialized = true;
-    }
-    
-    function clearTranscriptCanvas(){ if(!transcriptCanvas) return; transcriptCtx.clearRect(0,0,transcriptCanvas.width,transcriptCanvas.height); }
+    function clearTranscriptCanvas(){ transcriptSignaturePad.clear(); }
     window.clearTranscriptCanvas = clearTranscriptCanvas;
 
     async function saveTranscriptSignature(){
       const statusEl = document.getElementById('transcriptSigStatus');
       statusEl.textContent = 'Saving transcript signature...';
-      if(!transcriptCanvas){ statusEl.textContent = 'Canvas not ready.'; return; }
+      transcriptSignaturePad.init();
       const classChecks = Array.from(document.querySelectorAll('.transcript-signature-class:checked')).map(c => c.value);
       const transcriptSignatureTitle = document.getElementById('transcriptSignatureTitleInput')?.value.trim() || '';
       const transcriptSignatureName = document.getElementById('transcriptSignatureNameInput')?.value.trim() || '';
       if(!classChecks.length){ statusEl.textContent = 'Select at least one class.'; return; }
-      transcriptCanvas.toBlob(async blob => {
+      if(!transcriptSignaturePad.hasInk()){ statusEl.textContent = 'Draw the transcript signature first.'; return; }
+      const blob = await transcriptSignaturePad.exportTrimmedBlob();
         if(!blob){ statusEl.textContent = 'Could not capture signature.'; return; }
         const fd = new FormData();
         fd.append('signatureImage', blob, 'transcript-signature.png');
@@ -1084,7 +1312,6 @@
           statusEl.textContent = 'Saved. Refreshing...';
           window.location.reload();
         } catch(err){ statusEl.textContent = err.message; }
-      });
     }
     window.saveTranscriptSignature = saveTranscriptSignature;
     <% } %>

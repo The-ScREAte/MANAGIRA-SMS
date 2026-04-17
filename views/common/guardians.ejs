@@ -60,7 +60,7 @@
                   <% } %>
                 </td>
                 <td style="padding: 14px 12px; text-align: center;">
-                  <a href="/common/guardianDetails?guardianId=<%= guardian.guardian_id %>" 
+                  <a href="/common/guardianDetails?guardianId=<%= guardian.guardian_id %>&source=<%= guardian.source || 'legacy' %>" 
                      class="secondary-button" 
                      style="padding: 10px 20px; font-size: 14px; display: inline-block;">
                     View Details

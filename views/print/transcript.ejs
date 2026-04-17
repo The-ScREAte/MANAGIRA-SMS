@@ -691,39 +691,69 @@
         <div class="t-academic">
           <h2>Academic Records</h2>
 
-          <% const groupedScores = {}; %>
-          <% scores.forEach(score => { %>
-            <% if (!groupedScores[score.year_label]) groupedScores[score.year_label] = {}; %>
-            <% if (!groupedScores[score.year_label][score.term_name]) groupedScores[score.year_label][score.term_name] = []; %>
-            <% groupedScores[score.year_label][score.term_name].push(score); %>
-          <% }); %>
+          <% 
+            const termSections = [];
+            scores.forEach((score) => {
+              const termKey = `${score.year_label}__${score.term_name}__${score.start_date || ''}__${score.end_date || ''}`;
+              let section = termSections.find((entry) => entry.key === termKey);
+              if (!section) {
+                section = {
+                  key: termKey,
+                  yearLabel: score.year_label,
+                  termName: score.term_name,
+                  startDate: score.start_date,
+                  endDate: score.end_date,
+                  rows: [],
+                };
+                termSections.push(section);
+              }
+              section.rows.push(score);
+            });
 
-          <% Object.keys(groupedScores).forEach(year => { %>
+            const formatTermDate = (value) => {
+              if (!value) return null;
+              const parsed = new Date(value);
+              return Number.isNaN(parsed.getTime())
+                ? null
+                : parsed.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+            };
+          %>
+
+          <% if (!termSections.length) { %>
+            <p style="margin:0;color:#64748b;line-height:1.6;">No ended semester records are available yet for this student. Transcript records appear after a semester has ended or is marked closed.</p>
+          <% } %>
+
+          <% termSections.forEach(section => { %>
             <div class="t-year-section">
-              <h3>Academic Year: <%= year %></h3>
-              <% Object.keys(groupedScores[year]).forEach(term => { %>
-                <div class="t-term-section">
-                  <h4><%= term %></h4>
-                  <table class="t-table">
-                    <thead>
+              <h3><%= section.termName %></h3>
+              <p style="margin:0 0 10px;color:#64748b;font-size:13px;line-height:1.5;">
+                <strong style="color:#0f172a;"><%= section.yearLabel %></strong>
+                <% const startLabel = formatTermDate(section.startDate); %>
+                <% const endLabel = formatTermDate(section.endDate); %>
+                <% if (startLabel || endLabel) { %>
+                  <span>&nbsp;|&nbsp;<%= [startLabel, endLabel].filter(Boolean).join(' - ') %></span>
+                <% } %>
+              </p>
+              <div class="t-term-section">
+                <table class="t-table">
+                  <thead>
+                    <tr>
+                      <th>Subject</th>
+                      <th>Percentage (%)</th>
+                      <th>Grade</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% section.rows.forEach(score => { %>
                       <tr>
-                        <th>Subject</th>
-                        <th>Percentage (%)</th>
-                        <th>Grade</th>
+                        <td><%= score.subject_name %></td>
+                        <td><%= score.total_percentage %></td>
+                        <td><%= score.grade %></td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      <% groupedScores[year][term].forEach(score => { %>
-                        <tr>
-                          <td><%= score.subject_name %></td>
-                          <td><%= score.total_percentage %></td>
-                          <td><%= score.grade %></td>
-                        </tr>
-                      <% }); %>
-                    </tbody>
-                  </table>
-                </div>
-              <% }); %>
+                    <% }); %>
+                  </tbody>
+                </table>
+              </div>
             </div>
           <% }); %>
         </div>
