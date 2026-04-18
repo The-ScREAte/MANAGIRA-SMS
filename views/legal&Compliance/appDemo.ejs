@@ -76,7 +76,7 @@
       title: 'Report Card',
       tagline: 'Printable results',
       description: 'Generate polished report cards that present grades, remarks, and summary information in a modern digital format. Schools can share results through mail, email, or the parent portal instead of relying only on printed copies.',
-      image: '/Demo%20Images/Report%20card.png',
+      image: '/Demo%20Images/ReportCard.png',
       mediaType: 'image',
       accent: '#4338ca'
     },
@@ -199,7 +199,10 @@
       <p>
         Managira is built to help schools manage student records, classroom activity, assessment, report generation, and official documents within one professional system. It gives school leaders, staff, families, and the wider school community a more connected way to work.
       </p>
-      <a href="https://managira.com/account/service-plan" class="app-demo-primary app-demo-platform-info__cta">Start with Managira today and transform your school like the elite schools around the world.</a>
+      <a href="https://managira.com/account/service-plan" class="app-demo-primary app-demo-platform-info__cta">
+        <span>View Plans</span>
+        <span aria-hidden="true">↗</span>
+      </a>
     </section>
   </div>
 </section>
@@ -212,7 +215,10 @@
         <p class="app-demo-modal__eyebrow">App Demo</p>
         <span id="app-demo-modal-count" class="app-demo-modal__count"></span>
       </div>
-      <button type="button" class="app-demo-icon-btn" data-demo-close aria-label="Close app demo">&times;</button>
+      <div class="app-demo-modal__topbar-actions">
+        <button type="button" class="app-demo-icon-btn" data-demo-expand aria-label="Expand app demo" title="Expand preview">&#x26F6;</button>
+        <button type="button" class="app-demo-icon-btn" data-demo-close aria-label="Close app demo">&times;</button>
+      </div>
     </div>
 
     <div class="app-demo-modal__header">
@@ -595,6 +601,10 @@
     margin-top: 20px;
     width: fit-content;
     max-width: 100%;
+    gap: 10px;
+    padding: 0 18px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
   }
 
   .app-demo-grid {
@@ -722,6 +732,12 @@
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.86));
   }
 
+  .app-demo-modal__topbar-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
   .app-demo-modal__header {
     align-items: end;
     border-bottom: 1px solid rgba(148, 163, 184, 0.18);
@@ -739,13 +755,14 @@
 
   .app-demo-modal__toolbar {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: space-between;
     align-items: center;
     gap: 8px;
     padding: 8px 14px 10px;
     border-top: 1px solid rgba(148, 163, 184, 0.18);
     background: linear-gradient(180deg, rgba(248, 250, 252, 0.92), rgba(255, 255, 255, 0.96));
+    overflow-x: auto;
   }
 
   .app-demo-zoom-controls,
@@ -757,6 +774,7 @@
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.86);
     border: 1px solid rgba(148, 163, 184, 0.22);
+    flex: 0 0 auto;
   }
 
   .app-demo-icon-btn {
@@ -782,6 +800,18 @@
       radial-gradient(circle at 84% 22%, rgba(59, 130, 246, 0.12), transparent 24%),
       linear-gradient(180deg, #edf4fb 0%, #dfe7ef 100%);
     padding: 12px;
+  }
+
+  .app-demo-modal__panel--viewer-expanded .app-demo-modal__header {
+    display: none;
+  }
+
+  .app-demo-modal__panel--viewer-expanded .app-demo-modal__viewer {
+    padding: 18px 22px 22px;
+  }
+
+  .app-demo-modal__panel--viewer-expanded .app-demo-modal__document iframe {
+    min-height: calc(min(96vh, 980px) - 148px);
   }
 
   .app-demo-modal__viewer::before,
@@ -819,7 +849,7 @@
 
   .app-demo-modal__canvas img {
     display: block;
-    width: min(100%, calc(1024px * var(--app-demo-zoom, 1)));
+    width: calc(var(--app-demo-base-width, 1024px) * var(--app-demo-zoom, 1));
     max-width: none;
     margin: 0 auto;
     border-radius: 16px;
@@ -828,7 +858,7 @@
   }
 
   .app-demo-modal__document {
-    width: min(100%, calc(1024px * var(--app-demo-zoom, 1)));
+    width: calc(var(--app-demo-base-width, 1024px) * var(--app-demo-zoom, 1));
     margin: 0 auto;
   }
 
@@ -965,9 +995,9 @@
 
     .app-demo-zoom-controls,
     .app-demo-nav-controls {
-      width: 100%;
+      width: auto;
       justify-content: center;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
     }
 
     .app-demo-nav-btn {
@@ -989,7 +1019,10 @@
     }
 
     .app-demo-modal__canvas img,
-    .app-demo-modal__document,
+    .app-demo-modal__document {
+      width: calc(var(--app-demo-base-width, 1000px) * var(--app-demo-zoom, 1));
+    }
+
     .app-demo-modal__document iframe {
       width: 100%;
     }
@@ -1026,12 +1059,55 @@
     }
 
     .app-demo-modal__toolbar {
-      padding: 12px;
+      padding: 10px;
     }
 
     .app-demo-icon-btn {
-      width: 34px;
-      height: 34px;
+      width: 30px;
+      height: 30px;
+      font-size: 0.92rem;
+    }
+
+    .app-demo-modal__topbar-actions {
+      gap: 6px;
+    }
+
+    .app-demo-zoom-controls,
+    .app-demo-nav-controls {
+      gap: 4px;
+      padding: 3px;
+    }
+
+    .app-demo-zoom-controls {
+      width: auto;
+      margin-right: auto;
+    }
+
+    .app-demo-nav-controls {
+      width: auto;
+      margin-left: auto;
+    }
+
+    #app-demo-zoom-label {
+      min-width: 42px;
+      text-align: center;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #475569;
+    }
+
+    .app-demo-nav-btn {
+      min-height: 34px;
+      padding: 0 12px;
+      font-size: 0.82rem;
+    }
+
+    .app-demo-modal__panel--viewer-expanded .app-demo-modal__viewer {
+      padding: 10px 10px 14px;
+    }
+
+    .app-demo-modal__panel--viewer-expanded .app-demo-modal__document iframe {
+      min-height: calc(94vh - 120px);
     }
 
     .app-demo-card h3 {
@@ -1058,18 +1134,46 @@
     const pdfNode = document.getElementById('app-demo-modal-pdf');
     const pdfLinkNode = document.getElementById('app-demo-modal-pdf-link');
     const zoomLabel = document.getElementById('app-demo-zoom-label');
+    const panel = modal.querySelector('.app-demo-modal__panel');
     const canvas = document.getElementById('app-demo-canvas');
     const viewer = document.getElementById('app-demo-viewer');
     const openButtons = document.querySelectorAll('[data-demo-index], [data-open-demo]');
     const closeButtons = document.querySelectorAll('[data-demo-close]');
     const nextButton = document.querySelector('[data-demo-next]');
     const prevButton = document.querySelector('[data-demo-prev]');
+    const expandButton = document.querySelector('[data-demo-expand]');
     const zoomButtons = document.querySelectorAll('[data-demo-zoom]');
     const zoomLevels = [1, 1.2, 1.4, 1.7, 2];
 
     let activeIndex = 0;
     let zoomIndex = 0;
     let lastTrigger = null;
+    let isExpanded = false;
+
+    function syncBaseWidth() {
+      if (!viewer || !canvas) {
+        return;
+      }
+
+      const viewerPaddingX = window.innerWidth <= 520 ? 20 : (window.innerWidth <= 780 ? 28 : (isExpanded ? 44 : 24));
+      const maxBaseWidth = isExpanded ? 1360 : 1024;
+      const availableWidth = Math.max(320, viewer.clientWidth - viewerPaddingX);
+      const baseWidth = Math.min(maxBaseWidth, availableWidth);
+      canvas.style.setProperty('--app-demo-base-width', baseWidth + 'px');
+    }
+
+    function setExpanded(nextExpanded) {
+      isExpanded = Boolean(nextExpanded);
+      if (panel) {
+        panel.classList.toggle('app-demo-modal__panel--viewer-expanded', isExpanded);
+      }
+      syncBaseWidth();
+      if (expandButton) {
+        expandButton.setAttribute('aria-label', isExpanded ? 'Collapse viewer' : 'Expand viewer');
+        expandButton.setAttribute('title', isExpanded ? 'Collapse preview' : 'Expand preview');
+        expandButton.textContent = isExpanded ? '−' : '+';
+      }
+    }
 
     function setZoom(nextZoomIndex) {
       zoomIndex = Math.max(0, Math.min(zoomLevels.length - 1, nextZoomIndex));
@@ -1107,6 +1211,7 @@
       }
 
       setZoom(0);
+      syncBaseWidth();
       viewer.scrollTop = 0;
       viewer.scrollLeft = 0;
     }
@@ -1116,6 +1221,7 @@
       modal.hidden = false;
       modal.setAttribute('aria-hidden', 'false');
       document.body.classList.add('app-demo-modal-open');
+      setExpanded(false);
       renderModal(index);
       const closeButton = modal.querySelector('[data-demo-close]');
       if (closeButton) {
@@ -1131,6 +1237,7 @@
       pdfNode.src = '';
       documentNode.hidden = true;
       imageNode.hidden = false;
+      setExpanded(false);
       if (lastTrigger && typeof lastTrigger.focus === 'function') {
         lastTrigger.focus();
       }
@@ -1165,6 +1272,12 @@
       });
     }
 
+    if (expandButton) {
+      expandButton.addEventListener('click', function () {
+        setExpanded(!isExpanded);
+      });
+    }
+
     zoomButtons.forEach((button) => {
       button.addEventListener('click', function () {
         const direction = button.getAttribute('data-demo-zoom');
@@ -1190,6 +1303,12 @@
       if (event.key === 'ArrowLeft') {
         event.preventDefault();
         move(-1);
+      }
+    });
+
+    window.addEventListener('resize', function () {
+      if (!modal.hidden) {
+        syncBaseWidth();
       }
     });
   })();
