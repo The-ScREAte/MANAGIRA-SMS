@@ -205,14 +205,18 @@ function normalizeCampaignInput(payload = {}) {
   }
 
   const nextRunAt = isActive
-    ? computeNextRunAt({
-        frequency,
-        sendTime,
-        dayOfWeek,
-        dayOfMonth,
-        startDate,
-        endDate,
-      })
+    ? computeNextRunAt(
+        {
+          frequency,
+          sendTime,
+          dayOfWeek,
+          dayOfMonth,
+          startDate,
+          endDate,
+        },
+        new Date(),
+        { allowImmediateCatchUp: true }
+      )
     : null;
 
   return {
@@ -231,9 +235,10 @@ function normalizeCampaignInput(payload = {}) {
   };
 }
 
-function computeNextRunAt(schedule, fromDate = new Date()) {
+function computeNextRunAt(schedule, fromDate = new Date(), options = {}) {
   const frequency = normalizeFrequency(schedule.frequency);
   const sendTime = normalizeTime(schedule.sendTime);
+  const allowImmediateCatchUp = Boolean(options.allowImmediateCatchUp);
   const [hours, minutes] = sendTime.split(":").map((value) => Number.parseInt(value, 10));
   const startDate = new Date(`${normalizeDate(schedule.startDate, "Start date")}T00:00:00`);
   const endDate = schedule.endDate ? new Date(`${normalizeDate(schedule.endDate, "End date")}T23:59:59`) : null;
@@ -247,6 +252,22 @@ function computeNextRunAt(schedule, fromDate = new Date()) {
     }
 
     return scheduledAt >= fromDate ? scheduledAt : new Date(fromDate);
+  }
+
+  if (allowImmediateCatchUp) {
+    const scheduledToday = new Date(fromDate);
+    scheduledToday.setHours(hours, minutes, 0, 0);
+
+    if (
+      scheduledToday >= startDate &&
+      (!endDate || scheduledToday <= endDate) &&
+      matchesScheduleDay(scheduledToday, frequency, schedule) &&
+      scheduledToday < fromDate
+    ) {
+      const immediateRun = new Date(fromDate);
+      immediateRun.setSeconds(0, 0);
+      return immediateRun;
+    }
   }
 
   const cursor = new Date(Math.max(startDate.getTime(), fromDate.getTime()));

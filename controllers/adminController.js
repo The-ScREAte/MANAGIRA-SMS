@@ -155,7 +155,9 @@ async function createOrUpdateAdminEmailCampaign({ payload, campaignId, actorUser
     endDate: normalized.endDate,
   };
 
-  const nextRunAt = normalized.isActive ? computeNextRunAt(schedule) : null;
+  const nextRunAt = normalized.isActive
+    ? computeNextRunAt(schedule, new Date(), { allowImmediateCatchUp: true })
+    : null;
   const params = [
     normalized.subject,
     normalized.content,
@@ -2847,14 +2849,18 @@ const adminController = {
 
       const nextIsActive = !campaign.is_active;
       const nextRunAt = nextIsActive
-        ? computeNextRunAt({
-            frequency: campaign.frequency,
-            sendTime: campaign.send_time,
-            dayOfWeek: campaign.day_of_week,
-            dayOfMonth: campaign.day_of_month,
-            startDate: campaign.start_date,
-            endDate: campaign.end_date,
-          })
+        ? computeNextRunAt(
+            {
+              frequency: campaign.frequency,
+              sendTime: campaign.send_time,
+              dayOfWeek: campaign.day_of_week,
+              dayOfMonth: campaign.day_of_month,
+              startDate: campaign.start_date,
+              endDate: campaign.end_date,
+            },
+            new Date(),
+            { allowImmediateCatchUp: true }
+          )
         : null;
 
       await db.query(
