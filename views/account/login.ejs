@@ -418,6 +418,26 @@
   </div>
 
   <script>
+    const REGISTER_DRAFT_KEY = 'managira:register:draft:v1';
+
+    function clearCompletedRegistrationDraft() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('clearRegisterDraft') !== '1') return;
+
+      try {
+        localStorage.removeItem(REGISTER_DRAFT_KEY);
+      } catch (_) {
+      }
+
+      params.delete('clearRegisterDraft');
+      const query = params.toString();
+      const nextUrl = query
+        ? `${window.location.pathname}?${query}${window.location.hash || ''}`
+        : `${window.location.pathname}${window.location.hash || ''}`;
+
+      window.history.replaceState({}, document.title, nextUrl);
+    }
+
     function togglePasswordVisibility(inputId, button) {
       const input = document.getElementById(inputId);
       const icon = button.querySelector('i');
@@ -428,6 +448,8 @@
       icon.classList.add(isVisible ? 'fa-eye' : 'fa-eye-slash');
       button.setAttribute('aria-label', isVisible ? 'Show password' : 'Hide password');
     }
+
+    clearCompletedRegistrationDraft();
   </script>
 </body>
 </html>

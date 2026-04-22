@@ -1887,7 +1887,7 @@ const accountController = {
       req.flash("success", message);
 
       req.session.save(() => {
-        res.redirect("/account/login");
+        res.redirect("/account/login?clearRegisterDraft=1");
       });
     } catch (error) {
             if (error.response) {
@@ -2366,7 +2366,7 @@ const accountController = {
 
       req.flash("success", "Registration and payment successful!");
 
-      res.redirect("/account/login");
+      res.redirect("/account/login?clearRegisterDraft=1");
     } catch (error) {
       await client.query("ROLLBACK");
 
