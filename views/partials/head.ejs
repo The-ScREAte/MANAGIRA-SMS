@@ -129,38 +129,46 @@
   <link rel="stylesheet" href="/css/chatbot.css" />
   <link rel="stylesheet" href="/css/guardian.css" />
 
-  <!-- Loading indicator styles (fallback for non-SPA pages) -->
+  <!-- Loading indicator styles (SPA navigation progress + center spinner) -->
   <style>
-    .page-loading-overlay {
+    /* Top progress bar used by spa-router.js (#spa-progress) */
+    #spa-progress {
       position: fixed;
       top: 0;
       left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(255, 255, 255, 0.7);
+      height: 3px;
+      width: 0%;
+      background: linear-gradient(90deg, #01535b, #2dd4bf);
+      box-shadow: 0 0 8px rgba(1, 83, 91, 0.5);
+      z-index: 10000;
+      opacity: 0;
+      transition: width 180ms ease-out, opacity 180ms ease;
+      pointer-events: none;
+    }
+    #spa-progress.active { opacity: 1; }
+
+    /* Center spinner overlay shown for slow navigations (>250ms) */
+    .page-loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.55);
       display: none;
       justify-content: center;
       align-items: center;
       z-index: 9998;
-      backdrop-filter: blur(2px);
+      backdrop-filter: blur(1px);
     }
-
-    .page-loading-overlay.active {
-      display: flex;
-    }
+    .page-loading-overlay.active { display: flex; }
 
     .spinner {
-      width: 40px;
-      height: 40px;
+      width: 44px;
+      height: 44px;
       border: 4px solid #e2e8f0;
       border-top-color: #01535b;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 
   <!-- Include Quill CSS and JavaScript (rich text editor) -->
@@ -211,31 +219,12 @@
 
   <!-- JavaScript Files -->
   <script>
-    // Turbo navigation event handlers
-    document.addEventListener('turbo:before-fetch-request', (event) => {
-      // Show loading indicator when navigation starts
-      const overlay = document.querySelector('.page-loading-overlay');
-      if (overlay) overlay.classList.add('active');
-    });
-
-    document.addEventListener('turbo:before-render', (event) => {
-      // Hide loading indicator before new content renders
-      const overlay = document.querySelector('.page-loading-overlay');
-      if (overlay) overlay.classList.remove('active');
-    });
-
+    // Legacy Turbo-compatible init hook. Fires on every SPA page load via
+    // the `turbo:load` / `spa:pageLoaded` custom event dispatched by spa-router.js.
     document.addEventListener('turbo:load', () => {
-      // Re-initialize any JavaScript that needs to run on each page load
-      // This ensures scripts work after Turbo navigation
-      if (typeof initializePage === 'function') {
-        initializePage();
+      if (typeof window.initializePage === 'function') {
+        try { window.initializePage(); } catch (_) { /* swallow */ }
       }
-    });
-
-    document.addEventListener('turbo:frame-missing', (event) => {
-      // Handle missing frames gracefully
-      event.preventDefault();
-      event.detail.visit(event.detail.response.url);
     });
 
     function optimizePageImages(root = document) {

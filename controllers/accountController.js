@@ -106,6 +106,7 @@ const {
 } = require("../utils/attendanceCalendar");
 const { hasGuardianPortalFeature } = require("../utils/guardianPortalAccess");
 const { invalidateOrganizationAccessCache } = require("../utils/accessCache");
+const { logOrganizationActivity } = require("../utils/activityLog");
 
 function extractS3KeyFromUrl(url) {
   const value = String(url || "").trim();
@@ -3235,6 +3236,21 @@ const accountController = {
                     : "/common/orgDashboard?organizationId=" +
                       req.session.organizationId;
 
+                logOrganizationActivity({
+                  organizationId: req.session.organizationId,
+                  userId: user.user_id,
+                  userName: `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.email,
+                  userRole: user.account_type,
+                  actionType: "Login",
+                  moduleName: "Authentication",
+                  pagePath: "/account/login",
+                  recordType: "Session",
+                  recordLabel: `${organization.organization_name} login`,
+                  description: `${user.first_name || user.email} signed in.`,
+                  changedFields: [],
+                  ipAddress: req.ip,
+                }).catch(() => {});
+
                 return res.redirect(req.session.returnTo || redirectUrl);
               });
             });
@@ -3351,6 +3367,21 @@ const accountController = {
 
                 `Successfully signed in ${organization.organization_name}!`
               );
+
+              logOrganizationActivity({
+                organizationId: organization.organization_id,
+                userId: organization.organization_id,
+                userName: `${organization.first_name || ""} ${organization.last_name || ""}`.trim() || organization.email,
+                userRole: "Manager",
+                actionType: "Login",
+                moduleName: "Authentication",
+                pagePath: "/account/login",
+                recordType: "Session",
+                recordLabel: `${organization.organization_name} login`,
+                description: `${organization.organization_name} manager signed in.`,
+                changedFields: [],
+                ipAddress: req.ip,
+              }).catch(() => {});
 
               return res.redirect(req.session.returnTo || redirectUrl);
             });
@@ -3479,6 +3510,23 @@ const accountController = {
         req.session.firstName = ga.first_name;
         req.session.lastName = ga.last_name;
 
+        logOrganizationActivity({
+          organizationId: ga.organization_id,
+          userId: ga.guardian_id,
+          userName: `${ga.first_name || ""} ${ga.last_name || ""}`.trim() || ga.login_email || ga.login_phone,
+          userRole: "Guardian",
+          actionType: "Login",
+          moduleName: "Authentication",
+          pagePath: "/account/guardian-login",
+          recordType: "Session",
+          recordLabel: `${ga.organization_name} guardian login`,
+          description: `${ga.first_name || "Guardian"} signed in to the guardian portal.`,
+          changedFields: [],
+          ipAddress: req.ip,
+        }).catch((error) => {
+          console.error("[ActivityLog] Failed to log guardian login:", error.message || error);
+        });
+
         req.session.save(() => {
           const redirectUrl =
             process.env.NODE_ENV === "production"
@@ -3494,7 +3542,36 @@ const accountController = {
     }
   },
 
-  logoutGet: (req, res) => {
+  logoutGet: async (req, res) => {
+    const organizationId = req.session?.organizationId;
+    const userId = req.session?.user?.user_id || req.session?.userId || null;
+    const userName = `${req.session?.firstName || ""} ${req.session?.lastName || ""}`.trim() || req.session?.organizationName || req.session?.user?.email || "Unknown User";
+    const userRole = req.session?.userRole || req.session?.accountType || null;
+
+    if (
+      organizationId &&
+      String(req.session?.accountType || "").toLowerCase() !== "admin"
+    ) {
+      await logOrganizationActivity({
+        organizationId,
+        userId: String(req.session?.userRole || "").toLowerCase() === "guardian"
+          ? req.session?.guardianId || userId
+          : userId,
+        userName,
+        userRole,
+        actionType: "Logout",
+        moduleName: "Authentication",
+        pagePath: "/account/logout",
+        recordType: "Session",
+        recordLabel: `${userName} session`,
+        description: `${userName} signed out.`,
+        changedFields: [],
+        ipAddress: req.ip,
+      }).catch((error) => {
+        console.error("[ActivityLog] Failed to log logout:", error.message || error);
+      });
+    }
+
     req.session.destroy((err) => {
       if (err) {
                 req.flash("error", "Failed to log out. Please try again.");

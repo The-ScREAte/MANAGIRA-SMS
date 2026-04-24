@@ -41,7 +41,7 @@
         }
     </style>
 </head>
-<body>
+<body class="<%= (typeof compactUi !== 'undefined' && compactUi) ? 'managira-compact' : '' %> <%= (typeof compactTables !== 'undefined' && compactTables) ? 'managira-compact-tables' : '' %>">
     <div id="app-scale-root">
         <!-- Loading overlay for smooth transitions -->
         <div class="page-loading-overlay">
@@ -64,6 +64,91 @@
         <main>
             <%- body %>
         </main>
+
+        <%# Compact UI styles — injected AFTER view body so these rules win against any view-level inline <style> blocks with matching specificity. %>
+        <style>
+            /* ---------- Managira Compact Headings ---------- */
+            body.managira-compact main h1 { font-size: 1.25rem; line-height: 1.3; }
+            body.managira-compact main h2 { font-size: 1.05rem; line-height: 1.3; }
+            body.managira-compact main h3 { font-size: 0.95rem; line-height: 1.3; }
+            body.managira-compact main h4 { font-size: 0.875rem; line-height: 1.3; }
+            body.managira-compact main h5 { font-size: 0.8rem;   line-height: 1.3; }
+            body.managira-compact main h6 { font-size: 0.75rem;  line-height: 1.3; }
+
+            /* Shared "page title" patterns used across the app */
+            body.managira-compact main .page-title,
+            body.managira-compact main .page-header h1,
+            body.managira-compact main .section-header h1,
+            body.managira-compact main .dashboard-title,
+            body.managira-compact main .card-title,
+            body.managira-compact main .modal-title { font-size: 1.15rem; }
+
+            /* Leave the global app header/footer/branding alone */
+            body.managira-compact header h1,
+            body.managira-compact header h2,
+            body.managira-compact header h3,
+            body.managira-compact .managira-footer h1,
+            body.managira-compact .managira-footer h2,
+            body.managira-compact .managira-footer h3 { font-size: revert; }
+
+            /* ---------- Managira Compact Tables ---------- */
+            body.managira-compact-tables main table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 0.78rem;
+                color: #111827;
+                background: #ffffff;
+            }
+            body.managira-compact-tables main table th {
+                background: #f3f4f6;
+                color: #4b5563;
+                font-size: 0.68rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+                padding: 6px 10px;
+                text-align: left;
+                border-bottom: 1px solid #e5e7eb;
+                white-space: nowrap;
+            }
+            body.managira-compact-tables main table td {
+                padding: 5px 10px;
+                border-top: 1px solid #eef1f3;
+                font-size: 0.78rem;
+                vertical-align: middle;
+            }
+            body.managira-compact-tables main table tbody tr:nth-child(even) td {
+                background: #fbfcfc;
+            }
+            body.managira-compact-tables main table tbody tr:hover td {
+                background: #f1f5f7;
+            }
+            body.managira-compact-tables main table td img {
+                max-height: 26px;
+            }
+            body.managira-compact-tables main table td input,
+            body.managira-compact-tables main table td select,
+            body.managira-compact-tables main table td textarea {
+                font-size: 0.75rem;
+            }
+            body.managira-compact-tables main table td .btn,
+            body.managira-compact-tables main table td button {
+                font-size: 0.72rem;
+                padding: 3px 8px;
+            }
+
+            @media print {
+                body.managira-compact main h1,
+                body.managira-compact main h2,
+                body.managira-compact main h3,
+                body.managira-compact main h4,
+                body.managira-compact main h5,
+                body.managira-compact main h6 { font-size: revert; }
+                body.managira-compact-tables main table,
+                body.managira-compact-tables main table th,
+                body.managira-compact-tables main table td { font-size: revert; padding: revert; background: revert; }
+            }
+        </style>
         <% if (!(typeof hideGlobalFooter !== 'undefined' && hideGlobalFooter)) { %>
             <%- include('partials/footer') %>
         <% } %>

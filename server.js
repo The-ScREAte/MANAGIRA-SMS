@@ -35,6 +35,10 @@ const setThemeColor = require("./middleware/setThemeColor");
 const compression = require("compression");
 const { setCacheHeaders, preloadCache } = require("./middleware/cacheMiddleware");
 const { createRequestLatencyMonitor } = require("./middleware/requestLatencyMonitor");
+const {
+  createOrganizationActivityLogMiddleware,
+  ensureOrganizationActivityLogSchema,
+} = require("./utils/activityLog");
 
 // **Dynamic BASE_URL Logic**
 const BASE_URL =
@@ -44,6 +48,10 @@ const BASE_URL =
 // Force restart to reload jobs folder
 
 app.set("db", db);
+
+ensureOrganizationActivityLogSchema(db).catch((error) => {
+  console.error("[ActivityLog] Failed to initialize schema:", error.message || error);
+});
 
 const SUBDOMAIN_CACHE_TTL_MS = Number(process.env.SUBDOMAIN_CACHE_TTL_MS) || 2 * 60 * 1000;
 const SUBDOMAIN_NEGATIVE_CACHE_TTL_MS = Number(process.env.SUBDOMAIN_NEGATIVE_CACHE_TTL_MS) || 30 * 1000;
@@ -308,6 +316,38 @@ app.use((req, res, next) => {
   res.locals.BASE_URL = BASE_URL;
   res.locals.showFooterTopSection = false;
   res.locals.unresolvedCount = 0;
+
+  // Compact UI flags — reduced headings + compact tables on authenticated app pages.
+  // Excluded: legal pages, unauthenticated/public pages, organization dashboard,
+  // and printable report card / merit sheet / transcript pages.
+  const p = req.path || "";
+  const excludedExact = new Set([
+    "/",
+    "/stats/organization",
+    "/account/login",
+    "/account/register",
+    "/account/servicePlan",
+    "/account/payment",
+    "/account/forgetPassword",
+    "/account/guardianLogin",
+    "/hub/login",
+    "/hub/setupPassword",
+    "/print/printStudentReport",
+    "/print/meritSheetPage",
+  ]);
+  const excludedPrefix = [
+    "/legal/",
+    "/account/resetPassword",
+    "/account/hubInvitation",
+    "/account/acceptHubInvitation",
+    "/transcript/",
+  ];
+  const isExcluded =
+    excludedExact.has(p) ||
+    excludedPrefix.some((prefix) => p === prefix || p.startsWith(prefix));
+  res.locals.compactUi = !isExcluded;
+  res.locals.compactTables = !isExcluded;
+
   next();
 });
 
@@ -366,6 +406,7 @@ app.get("/favicon.ico", (req, res, next) => {
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(createOrganizationActivityLogMiddleware(db));
 
 // Only admin pages need unresolved help-thread notifications.
 app.use("/admin", fetchUnresolvedCount);

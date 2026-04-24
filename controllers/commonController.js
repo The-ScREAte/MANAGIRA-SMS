@@ -48,6 +48,11 @@ const {
 } = require("../utils/classScheduleService");
 const { hasGuardianPortalFeature } = require("../utils/guardianPortalAccess");
 const { triggerAbsenceAlertsForStudents, broadcastEventAnnouncement, notifyGuardiansOnClassChange, notifyTeacherOnReassignment, notifyTeachersOnAssessmentControl, resolveAssignmentNames, notifyEmployeeOnHoldChange, notifyGuardianAdmissionReceived, notifyGuardianOnStaffReply } = require("../utils/notificationDigestService");
+const {
+  ensureOrganizationActivityLogSchema,
+  getActivityLogFilterOptions,
+  getOrganizationActivityLogs,
+} = require("../utils/activityLog");
 
 // Configure AWS S3
 const s3 = new S3Client({
@@ -11225,9 +11230,54 @@ const commonController = {
     try {
       res.render("common/reportsHub", {
         title: "Reports",
+        messages: req.flash(),
       });
     } catch (error) {
-            res.status(500).send("Failed to load reports page");
+      res.status(500).send("Failed to load reports page");
+    }
+  },
+
+  // Activity Logs (dedicated page, linked from Reports Hub)
+  activityLogs: async (req, res, db) => {
+    try {
+      const organizationId = req.session.organizationId;
+      await ensureOrganizationActivityLogSchema(db);
+
+      const filters = {
+        startDate: String(req.query.startDate || "").trim(),
+        endDate: String(req.query.endDate || "").trim(),
+        user: String(req.query.user || "").trim(),
+        action: String(req.query.action || "").trim(),
+        module: String(req.query.module || "").trim(),
+        role: String(req.query.role || "").trim(),
+        search: String(req.query.search || "").trim(),
+      };
+      const page = Math.max(1, Number(req.query.page) || 1);
+      const logsBundle = await getOrganizationActivityLogs(db, {
+        organizationId,
+        page,
+        pageSize: 25,
+        filters,
+      });
+      const filterOptions = await getActivityLogFilterOptions(db, organizationId);
+
+      res.render("common/activityLogs", {
+        title: "Activity Logs",
+        logs: logsBundle.rows,
+        filters,
+        filterOptions,
+        pagination: {
+          page: logsBundle.page,
+          pageSize: logsBundle.pageSize,
+          total: logsBundle.total,
+          totalPages: logsBundle.totalPages,
+          hasPrevious: logsBundle.page > 1,
+          hasNext: logsBundle.page < logsBundle.totalPages,
+        },
+        messages: req.flash(),
+      });
+    } catch (error) {
+      res.status(500).send("Failed to load activity logs");
     }
   },
 

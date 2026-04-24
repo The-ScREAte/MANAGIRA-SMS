@@ -552,8 +552,13 @@ module.exports = (db) => {
   );
 
   // Reports Hub
-  router.get("/reports", checkFeatureAccess, isAuthenticated, (req, res) =>
+  router.get("/reports", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_REPORTS), (req, res) =>
     commonController.reportsHub(req, res, db)
+  );
+
+  // Activity Logs (full list page, linked from the Reports Hub)
+  router.get("/activityLogs", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_REPORTS), (req, res) =>
+    commonController.activityLogs(req, res, db)
   );
 
   return router;

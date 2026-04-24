@@ -1,0 +1,337 @@
+<%
+  const themeColor = (typeof session !== 'undefined' && session && session.themeColor) ? session.themeColor : 'teal';
+  const themeColors = {
+    teal: { primary: '#01535b', hover: '#014a51' },
+    blue: { primary: '#2563eb', hover: '#1d4ed8' },
+    green: { primary: '#2d5f4f', hover: '#245043' },
+    purple: { primary: '#7c3aed', hover: '#6d28d9' },
+    indigo: { primary: '#4f46e5', hover: '#4338ca' },
+    rose: { primary: '#8b2635', hover: '#7a212e' },
+    amber: { primary: '#d97706', hover: '#b45309' },
+    slate: { primary: '#334155', hover: '#1e293b' },
+    classic: { primary: '#01535b', hover: '#014a51' },
+    bold: { primary: '#0b1020', hover: '#ffb703' },
+    modern: { primary: '#2563eb', hover: '#1d4ed8' },
+    minimal: { primary: '#7c3aed', hover: '#6d28d9' },
+    gold: { primary: '#d4a017', hover: '#b8860b' },
+    red: { primary: '#e11d48', hover: '#be123c' },
+    brown: { primary: '#7c4a03', hover: '#5c3802' }
+  };
+  const currentTheme = themeColors[themeColor] || themeColors.teal;
+
+  const currentFilters = (typeof filters !== 'undefined' && filters) ? filters : {};
+  const options = (typeof filterOptions !== 'undefined' && filterOptions)
+    ? filterOptions
+    : { users: [], roles: [], actions: [], modules: [] };
+  const pager = (typeof pagination !== 'undefined' && pagination)
+    ? pagination
+    : { page: 1, totalPages: 1, total: 0, hasPrevious: false, hasNext: false };
+  const currentLogs = (typeof logs !== 'undefined' && Array.isArray(logs)) ? logs : [];
+  const activeCount = ['startDate','endDate','user','action','module','role','search']
+    .filter(k => currentFilters[k]).length;
+  const queryForPage = (pageNumber) => {
+    const params = new URLSearchParams();
+    Object.entries(currentFilters).forEach(([key, value]) => {
+      if (value) params.set(key, value);
+    });
+    params.set('page', String(pageNumber));
+    return `/common/activityLogs?${params.toString()}`;
+  };
+  const formatDate = (value) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+  };
+%>
+
+<style>
+  :root {
+    --border: #e5e7eb;
+    --muted: #6b7280;
+    --surface: #ffffff;
+    --primary: <%= currentTheme.primary %>;
+    --primary-hover: <%= currentTheme.hover %>;
+    --row-alt: #fbfcfc;
+  }
+
+  body { background: #f9fafb; }
+  main { padding: 0 !important; max-width: none !important; }
+
+  .logs-page { max-width: 1240px; margin: 12px auto 40px; width: 100%; padding: 0 20px; display: grid; gap: 12px; }
+
+  .logs-page-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .logs-page-head h1 { margin: 0; font-size: 22px; color: #111827; }
+  .logs-page-head p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+  .back-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 14px; border-radius: 8px;
+    border: 1px solid var(--border);
+    background: #fff; color: var(--primary) !important;
+    font-size: 0.82rem; font-weight: 600; text-decoration: none;
+  }
+  .back-link:hover { background: #f3f4f6; }
+
+  .filters-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .filters-row { display: flex; flex-wrap: nowrap; gap: 6px; align-items: end; }
+  .filter-field { display: flex; flex-direction: column; gap: 2px; min-width: 0; margin: 0; flex: 1 1 0; }
+  .filter-field label {
+    font-size: 0.6rem; font-weight: 600; color: #4b5563;
+    text-transform: uppercase; letter-spacing: 0.03em;
+    line-height: 1; margin: 0; height: 10px;
+    display: flex; align-items: flex-end;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .filter-field input, .filter-field select {
+    width: 100%; height: 28px; line-height: 1;
+    border: 1px solid var(--border); border-radius: 5px;
+    padding: 0 6px; font-size: 0.74rem;
+    background: #fff; color: #111827;
+    box-sizing: border-box; margin: 0;
+  }
+  .filter-field.date { flex: 0 0 115px; }
+  .filter-field.keyword { flex: 2 1 140px; }
+  .filter-actions { display: flex; gap: 4px; align-items: end; padding-top: 12px; }
+  .btn-sm, .btn-sm-secondary {
+    display: inline-flex; align-items: center; justify-content: center;
+    height: 28px; padding: 0 10px; border-radius: 5px;
+    font-size: 0.74rem; font-weight: 600; border: 1px solid transparent;
+    cursor: pointer; white-space: nowrap; text-decoration: none;
+  }
+  .btn-sm { background: var(--primary); color: #fff !important; }
+  .btn-sm:hover { background: var(--primary-hover); }
+  .btn-sm-secondary { background: #fff; color: #111827 !important; border-color: var(--border); }
+
+  .filters-toggle {
+    display: none;
+    align-items: center; justify-content: space-between;
+    gap: 8px; padding: 8px 12px;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: #fff; font: inherit; cursor: pointer; width: 100%;
+  }
+  .toggle-left { display: flex; align-items: center; gap: 8px; color: var(--primary); font-weight: 600; }
+  .active-filter-count {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+    background: var(--primary); color: #fff; font-size: 0.7rem; font-weight: 700;
+  }
+
+  .logs-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .logs-summary {
+    display: flex; justify-content: space-between; gap: 10px;
+    align-items: center; padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted); font-size: 0.78rem;
+  }
+  .logs-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .logs-list { list-style: none; margin: 0; padding: 0; min-width: 860px; }
+  .logs-head, .log-item {
+    display: grid;
+    grid-template-columns: 130px 78px minmax(130px,1fr) 110px minmax(120px,1fr) minmax(220px,2.2fr);
+    gap: 10px; padding: 3px 12px; align-items: center;
+  }
+  .logs-head {
+    position: sticky; top: 0; background: #f3f4f6;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.68rem; font-weight: 700; color: #4b5563;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 6px 12px;
+  }
+  .log-item { border-top: 1px solid #eef1f3; font-size: 0.76rem; }
+  .log-item:nth-child(even) { background: var(--row-alt); }
+  .log-item:hover { background: #f1f5f7; }
+  .log-cell { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .log-desc { white-space: normal; }
+  .log-stamp { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .log-action {
+    display: inline-block; padding: 2px 8px; border-radius: 999px;
+    background: #e0f2f1; color: #014a51;
+    font-size: 0.68rem; font-weight: 600;
+  }
+  .log-user { font-weight: 600; color: #111827; display: block; }
+  .log-role { color: var(--muted); font-size: 0.68rem; }
+  .log-module { font-weight: 500; }
+  .log-record { color: #374151; }
+
+  .empty-state { padding: 28px 16px; text-align: center; color: var(--muted); font-size: 0.85rem; }
+  .pagination {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 12px; border-top: 1px solid var(--border);
+    font-size: 0.78rem;
+  }
+  .pagination-links { display: flex; gap: 6px; }
+
+  @media (max-width: 900px) {
+    .filters-toggle { display: flex; }
+    .filters-row {
+      display: none; flex-wrap: wrap;
+      padding: 10px; margin-top: 8px;
+      border: 1px solid var(--border); border-radius: 10px;
+      background: #fff; gap: 8px;
+    }
+    .filters-row.open { display: flex; }
+    .filter-field { flex: 1 1 calc(50% - 8px); }
+    .filter-field.date { flex: 1 1 calc(50% - 8px); }
+    .filter-field.keyword { flex: 1 1 100%; }
+    .filter-actions { flex: 1 1 100%; padding-top: 0; }
+    .filter-actions .btn-sm, .filter-actions .btn-sm-secondary { flex: 1 1 auto; }
+  }
+  @media (max-width: 520px) {
+    .filter-field, .filter-field.date { flex: 1 1 100%; }
+  }
+</style>
+
+<div class="logs-page">
+  <div class="logs-page-head">
+    <div>
+      <h1>Activity Logs</h1>
+      <p>Meaningful actions across your organization. Filter to audit large activity volumes quickly.</p>
+    </div>
+    <a href="/common/reports#activity-logs" class="back-link" data-no-spa>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      Back to Reports
+    </a>
+  </div>
+
+  <form class="filters-panel" method="get" action="/common/activityLogs">
+    <button type="button" class="filters-toggle" id="filtersToggle" aria-expanded="false" aria-controls="filtersRow">
+      <span class="toggle-left">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M4 5h16l-6 8v5l-4 2v-7L4 5z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Filters</span>
+        <% if (activeCount > 0) { %><span class="active-filter-count"><%= activeCount %></span><% } %>
+      </span>
+      <span aria-hidden="true" style="color: var(--muted); font-size: 0.75rem;">Tap to <span id="filtersToggleAction">show</span></span>
+    </button>
+    <div class="filters-row" id="filtersRow">
+      <div class="filter-field date">
+        <label for="startDate">From</label>
+        <input id="startDate" type="date" name="startDate" value="<%= currentFilters.startDate || '' %>">
+      </div>
+      <div class="filter-field date">
+        <label for="endDate">To</label>
+        <input id="endDate" type="date" name="endDate" value="<%= currentFilters.endDate || '' %>">
+      </div>
+      <div class="filter-field select">
+        <label for="user">User</label>
+        <select id="user" name="user">
+          <option value="">All users</option>
+          <% (options.users || []).forEach((userName) => { %>
+            <option value="<%= userName %>" <%= currentFilters.user === userName ? 'selected' : '' %>><%= userName %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="filter-field select">
+        <label for="action">Action</label>
+        <select id="action" name="action">
+          <option value="">All actions</option>
+          <% (options.actions || []).forEach((actionName) => { %>
+            <option value="<%= actionName %>" <%= currentFilters.action === actionName ? 'selected' : '' %>><%= actionName %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="filter-field select">
+        <label for="module">Module</label>
+        <select id="module" name="module">
+          <option value="">All modules</option>
+          <% (options.modules || []).forEach((moduleName) => { %>
+            <option value="<%= moduleName %>" <%= currentFilters.module === moduleName ? 'selected' : '' %>><%= moduleName %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="filter-field select">
+        <label for="role">Role</label>
+        <select id="role" name="role">
+          <option value="">All roles</option>
+          <% (options.roles || []).forEach((roleName) => { %>
+            <option value="<%= roleName %>" <%= currentFilters.role === roleName ? 'selected' : '' %>><%= roleName %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="filter-field keyword">
+        <label for="search">Keyword</label>
+        <input id="search" type="search" name="search" placeholder="Search…" value="<%= currentFilters.search || '' %>">
+      </div>
+      <div class="filter-actions">
+        <button class="btn-sm" type="submit">Apply</button>
+        <a class="btn-sm-secondary" href="/common/activityLogs">Clear</a>
+      </div>
+    </div>
+  </form>
+
+  <div class="logs-panel">
+    <div class="logs-summary">
+      <span><strong><%= pager.total %></strong> log entries</span>
+      <span>Compact list view</span>
+    </div>
+
+    <% if (currentLogs.length === 0) { %>
+      <div class="empty-state">
+        No matching activity logs were found for the selected filters.
+      </div>
+    <% } else { %>
+      <div class="logs-scroll">
+        <ul class="logs-list">
+          <li class="logs-head" role="row">
+            <span>Date</span>
+            <span>Action</span>
+            <span>User</span>
+            <span>Module</span>
+            <span>Record</span>
+            <span>Description</span>
+          </li>
+          <% currentLogs.forEach((log) => { %>
+            <li class="log-item">
+              <span class="log-cell log-stamp"><%= formatDate(log.created_at) %></span>
+              <span class="log-cell"><span class="log-action"><%= log.action_type %></span></span>
+              <span class="log-cell">
+                <span class="log-user"><%= log.user_name %></span>
+                <span class="log-role"><%= log.user_role || '—' %></span>
+              </span>
+              <span class="log-cell log-module"><%= log.module_name %></span>
+              <span class="log-cell log-record">
+                <%= log.record_label || log.record_type || '—' %>
+              </span>
+              <span class="log-cell log-desc"><%= log.description %></span>
+            </li>
+          <% }) %>
+        </ul>
+      </div>
+
+      <div class="pagination">
+        <span>Page <strong><%= pager.page %></strong> of <strong><%= pager.totalPages %></strong></span>
+        <div class="pagination-links">
+          <% if (pager.hasPrevious) { %>
+            <a class="btn-sm-secondary" href="<%= queryForPage(pager.page - 1) %>">Previous</a>
+          <% } %>
+          <% if (pager.hasNext) { %>
+            <a class="btn-sm-secondary" href="<%= queryForPage(pager.page + 1) %>">Next</a>
+          <% } %>
+        </div>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const toggle = document.getElementById('filtersToggle');
+    const row = document.getElementById('filtersRow');
+    if (toggle && row) {
+      const hasActive = <%= activeCount %> > 0;
+      if (hasActive && window.matchMedia('(max-width: 900px)').matches) {
+        row.classList.add('open');
+        toggle.setAttribute('aria-expanded', 'true');
+      }
+      toggle.addEventListener('click', () => {
+        const open = row.classList.toggle('open');
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        const actionLabel = document.getElementById('filtersToggleAction');
+        if (actionLabel) actionLabel.textContent = open ? 'hide' : 'show';
+      });
+    }
+  });
+</script>

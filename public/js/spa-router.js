@@ -20,11 +20,14 @@
 
   // ─── Configuration ────────────────────────────────────────────────────
   const CONFIG = {
-    MAX_CACHE: 25,
-    PRELOAD_DELAY: 150,       // ms before hover-preload fires
-    TRANSITION_MS: 120,       // fade out/in duration
-    PRELOAD_VISIBLE: true,    // preload links visible in viewport
-    SCROLL_BEHAVIOR: 'instant'
+    MAX_CACHE: 60,             // bumped so previously-visited pages stay hot
+    PRELOAD_DELAY: 50,         // ms before hover-preload fires (was 200)
+    TRANSITION_MS: 120,        // fade out/in duration (skipped on cache hits)
+    PRELOAD_VISIBLE: false,    // disabled: caused preload stampede on dashboards
+    SCROLL_BEHAVIOR: 'instant',
+    SPINNER_DELAY_MS: 350,     // show center spinner only if nav takes longer than this
+    TOPBAR_DELAY_MS: 120,      // show top progress bar only if nav takes longer than this
+    MAX_CONCURRENT_PRELOADS: 3 // cap to avoid saturating the browser / server
   };
 
   // ─── Route Definitions by User Type ───────────────────────────────────
@@ -178,12 +181,18 @@
     '/admin/org/',
     '/admin/exit-org',
     'new=1',
-    '/common/addStudent',       // Complex form with file uploads
-    '/common/registerSchoolYear', // Complex form submissions
-    '/stats/organizationStats', // Chart.js initialization
-    '/print/reportSettings',    // Dynamic remark sections
-    '/print/printStudentReport', // Complex image loading
-    '/promotion/applyPromotion' // Cascading dropdowns
+    '/common/addStudent',        // Complex form with file uploads
+    '/common/registerSchoolYear',// Complex form submissions
+    '/stats/',                   // Chart.js initialization (all stats pages)
+    '/print/',                   // Server-rendered PDF/print templates
+    '/promotion/applyPromotion', // Cascading dropdowns
+    '/common/createEmployee',    // File uploads
+    '/common/modifyEmployee',    // File uploads
+    '/common/createTest',        // Rich editor
+    '/common/editTest',          // Rich editor
+    '/account/managePublicContent', // Quill editor + image uploads
+    '/account/personalization',  // Theme switching with full reload
+    '/common/reports'            // Dynamic filters + tables; safer to full-load
   ];
 
   // ─── SPARouter Class ──────────────────────────────────────────────────
@@ -198,6 +207,15 @@
       this.abortController = null;
       this.hoverTimer = null;
       this.visibilityObserver = null;
+
+      // Track in-flight preloads so we can cap concurrency and dedupe.
+      this._preloadsInFlight = new Set();
+      // Track in-flight navigation fetches keyed by path (request dedupe).
+      this._pendingNavigations = new Map();
+      // Spinner-delay timer (set by _showProgress, cleared by _hideProgress).
+      this._spinnerTimer = null;
+      // Whether the current swap may skip the fade (cache hits skip it).
+      this._skipFade = false;
 
       this._init();
     }
@@ -217,6 +235,10 @@
       // 3. Hover preloading with debounce
       document.addEventListener('mouseover', this._onLinkHover.bind(this));
       document.addEventListener('mouseout', this._onLinkHoverEnd.bind(this));
+
+      // 3b. Mousedown/pointerdown preload — fires ~100ms before click event,
+      //     which often gives the response enough head-start to feel instant.
+      document.addEventListener('mousedown', this._onLinkIntent.bind(this), true);
 
       // 4. Touch preloading for mobile
       document.addEventListener('touchstart', this._onTouchStart.bind(this), { passive: true });
@@ -243,14 +265,25 @@
       }
 
       // 8. Viewport-based preloading for visible links
+      //    Intentionally disabled by default — it caused a preload stampede on
+      //    dashboard pages where dozens of sidebar links were all visible. The
+      //    main navigation click would then get queued behind the preloads.
       if (CONFIG.PRELOAD_VISIBLE && 'IntersectionObserver' in window) {
         this._initVisibilityPreloading();
       }
 
-      // 9. Prefetch on likely navigation (if browser supports it)
-      this._addPrefetchHints();
+      // 9. <link rel="prefetch"> hints removed: the hover + priority preload
+      //    already warms the cache, and document prefetches compete for the
+      //    same HTTP connections as the user's actual click.
 
-      // 10. Restore hash target on initial load if present
+      // 10. Global cleanup registry so page scripts can dispose listeners/
+      //     timers before the next SPA swap. Page code can push functions:
+      //       window.__spaCleanup.push(() => clearInterval(myTimer));
+      if (!Array.isArray(window.__spaCleanup)) {
+        window.__spaCleanup = [];
+      }
+
+      // 11. Restore hash target on initial load if present
       if (window.location.hash) {
         requestAnimationFrame(() => {
           this._scrollToHash(window.location.hash.substring(1), false);
@@ -354,6 +387,22 @@
     }
 
     /**
+     * Fires on mousedown / pointerdown — ~100ms before the click event on
+     * average. Kicking off the fetch here means the response is often already
+     * bytes-in-flight (or fully cached) by the time navigate() runs.
+     */
+    _onLinkIntent(e) {
+      if (e.button !== 0) return;
+      const link = e.target.closest('a');
+      if (!link) return;
+
+      const href = link.getAttribute('href');
+      if (!href || !this._shouldHandle(href) || this._isExcluded(href)) return;
+
+      this._preload(href);
+    }
+
+    /**
      * Back/Forward button handler — KEY FIX
      * This fires AFTER the URL has already changed, so we just need to
      * load the content for the new URL immediately.
@@ -412,42 +461,54 @@
       // Don't navigate to current page
       if (normalizedPath === this.currentPath) return;
 
-      // Prevent overlapping navigations
+      // Dedupe: if the SAME navigation is already in flight, ignore the click
+      // (prevents wasted work when users double-click). Previously we aborted
+      // and retried, which threw away server work already in progress.
+      if (this._pendingNavigations.has(normalizedPath)) {
+        return this._pendingNavigations.get(normalizedPath);
+      }
+
+      // Overlapping nav to a DIFFERENT path — cancel the previous one.
       if (this.isNavigating) {
         this._abortFetch();
       }
 
       this.isNavigating = true;
 
-      // Show loading only for uncached pages
+      // Cached pages: skip the fade entirely so they feel instant.
       const isCached = this.cache.has(normalizedPath);
+      this._skipFade = isCached;
       if (!isCached) {
         this._showProgress();
       }
 
-      try {
-        await this._loadPage(normalizedPath, true);
-        // Push new state
-        window.history.pushState(
-          { path: normalizedPath, scroll: 0 },
-          '',
-          `${normalizedPath}${this.pendingHash ? `#${encodeURIComponent(this.pendingHash)}` : ''}`
-        );
+      const navPromise = (async () => {
+        try {
+          await this._loadPage(normalizedPath, true);
+          window.history.pushState(
+            { path: normalizedPath, scroll: 0 },
+            '',
+            `${normalizedPath}${this.pendingHash ? `#${encodeURIComponent(this.pendingHash)}` : ''}`
+          );
 
-        // Scroll to hash target when provided, else top
-        if (this.pendingHash) {
-          this._scrollToHash(this.pendingHash, false);
-          this.pendingHash = '';
-        } else {
-          window.scrollTo({ top: 0, behavior: CONFIG.SCROLL_BEHAVIOR });
+          if (this.pendingHash) {
+            this._scrollToHash(this.pendingHash, false);
+            this.pendingHash = '';
+          } else {
+            window.scrollTo({ top: 0, behavior: CONFIG.SCROLL_BEHAVIOR });
+          }
+        } catch (err) {
+          // Fallback to full navigation
+          window.location.href = path;
+        } finally {
+          this.isNavigating = false;
+          this._hideProgress();
+          this._pendingNavigations.delete(normalizedPath);
         }
-      } catch (err) {
-        // Fallback to full navigation
-        window.location.href = path;
-      } finally {
-        this.isNavigating = false;
-        this._hideProgress();
-      }
+      })();
+
+      this._pendingNavigations.set(normalizedPath, navPromise);
+      return navPromise;
     }
 
     async _loadPage(path, isForwardNav) {
@@ -503,6 +564,18 @@
         throw new Error('Missing <main> element');
       }
 
+      // 0. Run any cleanup callbacks registered by the outgoing page.
+      //    Page scripts can push disposers into window.__spaCleanup to dispose
+      //    intervals, event listeners, charts, editors, etc.
+      if (Array.isArray(window.__spaCleanup)) {
+        const cleanups = window.__spaCleanup.splice(0);
+        for (const fn of cleanups) {
+          if (typeof fn === 'function') {
+            try { fn(); } catch (_) { /* ignore cleanup errors */ }
+          }
+        }
+      }
+
       // Sync body data attributes/classes so page-scoped styles apply (e.g., public dashboard themes)
       this._syncBodyAttributes(newBody);
 
@@ -513,10 +586,15 @@
       // 2. Update page-specific styles
       this._updateStyles(doc);
 
-      // 3. Fade out current content
-      currentMain.style.transition = `opacity ${CONFIG.TRANSITION_MS}ms ease`;
-      currentMain.style.opacity = '0';
-      await this._wait(CONFIG.TRANSITION_MS);
+      const shouldFade = !this._skipFade;
+      this._skipFade = false;
+
+      // 3. Fade out current content (skipped for cache hits)
+      if (shouldFade) {
+        currentMain.style.transition = `opacity ${CONFIG.TRANSITION_MS}ms ease`;
+        currentMain.style.opacity = '0';
+        await this._wait(CONFIG.TRANSITION_MS);
+      }
 
       // 4. Swap content
       currentMain.innerHTML = newMain.innerHTML;
@@ -528,10 +606,13 @@
       this._reinitializeHandlers(currentMain);
 
       // 6. Fade in
-      // Use rAF to ensure the browser has painted the new content
-      requestAnimationFrame(() => {
+      if (shouldFade) {
+        requestAnimationFrame(() => {
+          currentMain.style.opacity = '1';
+        });
+      } else {
         currentMain.style.opacity = '1';
-      });
+      }
 
       // 7. Update meta tags
       this._updateMetaTags(doc);
@@ -549,6 +630,14 @@
       if (this.visibilityObserver) {
         this._observeLinks(currentMain);
       }
+
+      // 12. Warm the nav/sidebar links on the new page so follow-up clicks
+      //     are served from cache. Scheduled on idle so it never competes
+      //     with user interaction.
+      const schedule = (cb) => ('requestIdleCallback' in window)
+        ? requestIdleCallback(cb, { timeout: 3000 })
+        : setTimeout(cb, 400);
+      schedule(() => this._preloadPriorityPages());
     }
 
     // ── Image Handling ────────────────────────────────────────────────
@@ -911,6 +1000,10 @@
     _preload(path) {
       const normalized = this._normalizePath(path);
       if (this.cache.has(normalized)) return;
+      if (this._preloadsInFlight.has(normalized)) return;
+      if (this._preloadsInFlight.size >= CONFIG.MAX_CONCURRENT_PRELOADS) return;
+
+      this._preloadsInFlight.add(normalized);
 
       fetch(path, {
         headers: {
@@ -924,7 +1017,8 @@
           throw new Error('Preload failed');
         })
         .then(html => this._cacheSet(normalized, html))
-        .catch(() => { /* Silently fail preloads */ });
+        .catch(() => { /* Silently fail preloads */ })
+        .finally(() => { this._preloadsInFlight.delete(normalized); });
     }
 
     _preloadPriorityPages() {
@@ -934,6 +1028,65 @@
           this._preload(page);
         }
       });
+
+      // Also warm any SPA-able link currently rendered on screen (nav menus,
+      // sidebars, tabs). Scheduled on idle so it never competes with the user.
+      const schedule = (cb) => ('requestIdleCallback' in window)
+        ? requestIdleCallback(cb, { timeout: 4000 })
+        : setTimeout(cb, 600);
+
+      schedule(() => {
+        const seen = new Set();
+        document.querySelectorAll('header a[href], nav a[href], .sidebar a[href], aside a[href]').forEach(link => {
+          const href = link.getAttribute('href');
+          if (!href || seen.has(href)) return;
+          seen.add(href);
+          if (this._shouldHandle(href) && !this._isExcluded(href)) {
+            this._preload(href);
+          }
+        });
+      });
+
+      // And warm EVERY SPA route for this user type, one at a time on idle.
+      // This makes most clicks land on a cache hit and skip the spinner.
+      this._warmAllRoutes();
+    }
+
+    /**
+     * Background warm-up for every SPA route declared for this user type.
+     * Pulls routes one at a time on requestIdleCallback so we never compete
+     * with the user's click. Skips already-cached or excluded routes and
+     * respects MAX_CONCURRENT_PRELOADS.
+     */
+    _warmAllRoutes() {
+      if (this._warmupStarted) return;
+      this._warmupStarted = true;
+
+      const queue = (this.routes || [])
+        .filter(r => r && !this._isExcluded(r) && r !== this.currentPath);
+
+      const schedule = (cb) => ('requestIdleCallback' in window)
+        ? requestIdleCallback(cb, { timeout: 6000 })
+        : setTimeout(cb, 800);
+
+      const pump = () => {
+        if (queue.length === 0) {
+          this._warmupStarted = false; // allow re-warm on next swap if needed
+          return;
+        }
+        // Don't preload while the user is actively navigating.
+        if (this.isNavigating) {
+          schedule(pump);
+          return;
+        }
+        const next = queue.shift();
+        if (!this.cache.has(this._normalizePath(next))) {
+          this._preload(next);
+        }
+        schedule(pump);
+      };
+
+      schedule(pump);
     }
 
     _initVisibilityPreloading() {
@@ -963,16 +1116,9 @@
     }
 
     _addPrefetchHints() {
-      const pages = PRELOAD_PRIORITY[this.userType] || PRELOAD_PRIORITY.public;
-      pages.forEach(page => {
-        if (page !== this.currentPath && !document.querySelector(`link[rel="prefetch"][href="${page}"]`)) {
-          const link = document.createElement('link');
-          link.rel = 'prefetch';
-          link.href = page;
-          link.as = 'document';
-          document.head.appendChild(link);
-        }
-      });
+      // Disabled — previously injected <link rel="prefetch" as="document"> for
+      // each priority page, which competed with the user's actual click for
+      // HTTP connections. The hover + idle preloads already warm the cache.
     }
 
     // ── Cache Management ──────────────────────────────────────────────
@@ -993,28 +1139,50 @@
     // ── Progress Indicator ────────────────────────────────────────────
 
     _showProgress() {
-      let bar = document.getElementById('spa-progress');
-      if (!bar) {
-        bar = document.createElement('div');
-        bar.id = 'spa-progress';
-        document.body.appendChild(bar);
-      }
-      bar.style.width = '0%';
-      bar.classList.add('active');
-      // Animate to 70% quickly
-      requestAnimationFrame(() => {
-        bar.style.width = '70%';
-      });
+      // Both the top bar AND the center spinner are delay-gated, so fast
+      // responses (including preloaded ones that arrive between mousedown and
+      // click) don't flash any UI at all.
+      if (this._topbarTimer) clearTimeout(this._topbarTimer);
+      if (this._spinnerTimer) clearTimeout(this._spinnerTimer);
+
+      this._topbarTimer = setTimeout(() => {
+        let bar = document.getElementById('spa-progress');
+        if (!bar) {
+          bar = document.createElement('div');
+          bar.id = 'spa-progress';
+          document.body.appendChild(bar);
+        }
+        bar.style.width = '0%';
+        bar.classList.add('active');
+        requestAnimationFrame(() => { bar.style.width = '70%'; });
+      }, CONFIG.TOPBAR_DELAY_MS);
+
+      this._spinnerTimer = setTimeout(() => {
+        let overlay = document.querySelector('.page-loading-overlay');
+        if (!overlay) {
+          overlay = document.createElement('div');
+          overlay.className = 'page-loading-overlay';
+          overlay.innerHTML = '<div class="spinner" aria-label="Loading"></div>';
+          document.body.appendChild(overlay);
+        }
+        overlay.classList.add('active');
+      }, CONFIG.SPINNER_DELAY_MS);
     }
 
     _hideProgress() {
+      if (this._topbarTimer) { clearTimeout(this._topbarTimer); this._topbarTimer = null; }
+      if (this._spinnerTimer) { clearTimeout(this._spinnerTimer); this._spinnerTimer = null; }
+
+      const overlay = document.querySelector('.page-loading-overlay');
+      if (overlay) overlay.classList.remove('active');
+
       const bar = document.getElementById('spa-progress');
-      if (bar) {
+      if (bar && bar.classList.contains('active')) {
         bar.style.width = '100%';
         setTimeout(() => {
           bar.classList.remove('active');
           bar.style.width = '0%';
-        }, 200);
+        }, 180);
       }
     }
 
