@@ -107,6 +107,18 @@ const {
 const { hasGuardianPortalFeature } = require("../utils/guardianPortalAccess");
 const { invalidateOrganizationAccessCache } = require("../utils/accessCache");
 const { logOrganizationActivity } = require("../utils/activityLog");
+const cacheManager = require("../utils/cacheManager");
+
+// Invalidate the /admin dashboard organizations cache so newly-registered
+// organizations become visible immediately (mirrors adminController’s behavior
+// on edit/approve actions; registration previously never busted this cache).
+function invalidateAdminOrganizationsCache() {
+  try {
+    cacheManager.invalidate("admin", "organizations:list");
+  } catch (err) {
+    console.warn("[accountController] failed to invalidate admin organizations cache:", err && err.message);
+  }
+}
 
 function extractS3KeyFromUrl(url) {
   const value = String(url || "").trim();
@@ -1711,6 +1723,7 @@ const accountController = {
       );
 
       const organization_id = orgResult.rows[0].organization_id;
+      invalidateAdminOrganizationsCache();
 
       // ✅ Store payment record
 
@@ -2328,6 +2341,7 @@ const accountController = {
       );
 
       const organization_id = result.rows[0].organization_id;
+      invalidateAdminOrganizationsCache();
 
       let customerId = paymentIntent.customer;
 
@@ -7722,6 +7736,7 @@ const accountController = {
       );
 
       const organizationId = orgResult.rows[0].organization_id;
+      invalidateAdminOrganizationsCache();
             // Create admin user
             const userParams = [organizationId, admin_email, admin_first_name, admin_last_name, admin_phone || '', hashedPassword];
             await client.query(

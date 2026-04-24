@@ -74,6 +74,96 @@ a {
   gap: 24px;
   padding: 32px 20px;
   text-align: center;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: #000;
+}
+
+/* Cinematic layered background: deep teal radial glow + diagonal light stripes +
+   slow conic sheen. Pointer-events disabled, z-index below content. */
+.hero::before,
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+  z-index: 0;
+}
+.hero::before {
+  background:
+    radial-gradient(60% 50% at 20% 30%, rgba(46, 255, 251, 0.18) 0%, transparent 60%),
+    radial-gradient(55% 45% at 80% 70%, rgba(1, 83, 91, 0.55) 0%, transparent 65%),
+    radial-gradient(80% 70% at 50% 120%, rgba(46, 255, 251, 0.10) 0%, transparent 70%),
+    #000;
+  animation: hero-glow-drift 18s ease-in-out infinite alternate;
+  filter: blur(2px);
+}
+.hero::after {
+  background:
+    repeating-linear-gradient(
+      115deg,
+      rgba(255, 255, 255, 0.045) 0px,
+      rgba(255, 255, 255, 0.045) 1px,
+      transparent 1px,
+      transparent 14px
+    ),
+    repeating-linear-gradient(
+      115deg,
+      rgba(46, 255, 251, 0.07) 0px,
+      rgba(46, 255, 251, 0.07) 2px,
+      transparent 2px,
+      transparent 48px
+    );
+  mix-blend-mode: screen;
+  animation: hero-stripes-slide 14s linear infinite;
+  opacity: 0.9;
+}
+
+/* A slow sweeping sheen layer */
+.hero-sheen {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    transparent 0deg,
+    rgba(46, 255, 251, 0.10) 40deg,
+    transparent 100deg,
+    transparent 220deg,
+    rgba(1, 83, 91, 0.22) 260deg,
+    transparent 320deg,
+    transparent 360deg
+  );
+  animation: hero-sheen-rotate 30s linear infinite;
+  mix-blend-mode: screen;
+  opacity: 0.7;
+}
+
+@keyframes hero-stripes-slide {
+  0%   { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(-96px, -48px, 0); }
+}
+@keyframes hero-glow-drift {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(2%, -1.5%, 0) scale(1.04); }
+  100% { transform: translate3d(-1.5%, 2%, 0) scale(1.02); }
+}
+@keyframes hero-sheen-rotate {
+  to { transform: rotate(1turn); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero::before,
+  .hero::after,
+  .hero-sheen { animation: none; }
+}
+
+.hero-text,
+.hero-image {
+  position: relative;
+  z-index: 2;
 }
 
 .hero-text {
@@ -796,6 +886,7 @@ a {
 
     <!-- Hero Section -->
     <section class="hero">
+        <div class="hero-sheen" aria-hidden="true"></div>
         <div class="hero-text">
         <h1>Managira</h1>
         <h2>Manage Smarter, Not Harder</h2>

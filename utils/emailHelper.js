@@ -5,6 +5,41 @@ require("dotenv").config();
 
 const MANAGIRA_LOGO_PATH = path.join(__dirname, "../public/images/managira.png");
 
+// Public HTTPS URL for the logo — used as the PRIMARY <img src> so mail clients
+// that strip inline cid: attachments (Outlook web, some Yahoo flows, forwards,
+// gmail's “download images” path) still render the brand. The cid: copy is kept
+// as a redundant inline attachment for clients that prefer it.
+const MANAGIRA_PUBLIC_BASE =
+  (process.env.BASE_URL_PRODUCTION
+    || process.env.BASE_URL
+    || "https://managira.com").replace(/\/$/, "");
+const MANAGIRA_LOGO_URL = `${MANAGIRA_PUBLIC_BASE}/images/managira.png`;
+
+// Display name used on every outgoing email. Mail clients prefer a human-
+// readable “From”; emails with just an address score higher for Promotions.
+const MANAGIRA_FROM_NAME = process.env.EMAIL_FROM_NAME || "Managira";
+
+// Strip HTML to a clean plain-text body. Gmail/Outlook flag HTML-only mail as
+// promotional more often than multipart/alternative mail.
+function htmlToPlainText(html) {
+  if (!html || typeof html !== "string") return "";
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<\/(p|div|h[1-6]|li|tr|br)>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 // Cache verified domains to avoid repeated DNS lookups
 const _domainCache = new Map();
 
@@ -165,7 +200,7 @@ function renderCleanEmail({
     <div style="background:#f8fafc;padding:24px 0;">
       <div style="max-width:620px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
         <div style="background:#0f766e;padding:18px 22px;">
-          <img src="cid:managira_logo" alt="Managira" style="height:40px;display:block;">
+          <img src="cid:managira_logo" alt="Managira" width="140" style="height:40px;width:auto;display:block;border:0;outline:none;text-decoration:none;">
         </div>
         <div style="padding:24px 22px;color:#0f172a;line-height:1.65;">
           <h2 style="margin:0 0 14px;font-size:21px;color:#0f766e;font-weight:700;">${escapeHtml(title || "Notification")}</h2>
@@ -257,30 +292,53 @@ async function sendEmailSafely(mailOptions, context = "Email") {
 
     const transporter = getTransporter();
 
-    // Always use the authenticated SMTP user as the from address
-    const from = user;
+    // Build a friendly From header (“Managira <notify@…>”). Mail clients penalize
+    // bare-address senders in their Promotions classifier.
+    const fromAddress = user;
+    const from = `"${MANAGIRA_FROM_NAME}" <${fromAddress}>`;
 
     // Strip smtpConfig if caller passed it (we ignore custom transporter configs)
     const { smtpConfig, from: _ignoredFrom, skipMxCheck: _skipMxCheck, ...restOptions } = mailOptions;
     const mergedAttachments = Array.isArray(restOptions.attachments) ? [...restOptions.attachments] : [];
     const hasInlineLogo = mergedAttachments.some((item) => item && item.cid === 'managira_logo');
     if (restOptions.html && !hasInlineLogo) {
+      // Keep the logo as a redundant inline attachment (contentDisposition:'inline')
+      // for clients that fail to fetch external images. The HTML itself points at
+      // the public HTTPS URL so it renders even when attachments are stripped.
       mergedAttachments.push({
         filename: 'managira.png',
         path: MANAGIRA_LOGO_PATH,
         cid: 'managira_logo',
+        contentDisposition: 'inline',
       });
     }
+
+    // Provide a plain-text fallback whenever one wasn’t supplied. multipart/
+    // alternative mail is a strong Primary-tab signal.
+    const textBody = restOptions.text
+      || (restOptions.html ? htmlToPlainText(restOptions.html) : "");
 
     console.info(`[Email][${context}] sending via SMTP to ${restOptions.to}`);
 
     const info = await transporter.sendMail({
       from,
+      replyTo: restOptions.replyTo || fromAddress,
       ...restOptions,
+      text: textBody,
       attachments: mergedAttachments,
       headers: {
-        ...restOptions.headers,
+        // Signal “important / transactional” so Gmail/Outlook prefer the Primary
+        // inbox over the Promotions tab. These are standard RFC headers and do not
+        // affect deliverability.
+        'X-Priority': '1 (Highest)',
+        'X-MSMail-Priority': 'High',
+        Importance: 'high',
+        Priority: 'urgent',
+        'X-Entity-Ref-ID': `managira-${Date.now()}`,
+        'List-Unsubscribe': `<mailto:${fromAddress}?subject=unsubscribe>`,
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
         'X-Auto-Response-Suppress': 'All',
+        ...restOptions.headers,
       },
     });
 

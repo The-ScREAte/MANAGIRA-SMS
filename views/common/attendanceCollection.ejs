@@ -87,18 +87,26 @@
 </style>
 <style>
     /* === Date Header & Action Links === */
+    .attendance-sheet thead th {
+        font-size: 0.68rem;
+        padding: 4px 6px;
+        line-height: 1.15;
+    }
     .date-header {
         display: flex;
         flex-direction: column;
         align-items: center;
+        font-size: 0.65rem;
+        line-height: 1.2;
+        gap: 1px;
     }
     .day-name {
-        font-size: 0.78rem;
+        font-size: 0.62rem;
         font-weight: 700;
         color: var(--primary);
         text-transform: uppercase;
-        letter-spacing: 0.03em;
-        margin-bottom: 2px;
+        letter-spacing: 0.02em;
+        margin-bottom: 1px;
     }
     .day-name .day-full { display: inline; }
     .day-name .day-short { display: none; }
@@ -122,10 +130,10 @@
     .edit-save-link,
     .cancel-link,
     .mark-all-link {
-        font-size: 0.85rem;
+        font-size: 0.62rem;
         cursor: pointer;
         text-decoration: underline;
-        margin-top: 5px;
+        margin-top: 2px;
         color: var(--primary);
     }
     .cancel-link {
@@ -135,8 +143,10 @@
         color: #0f5a66;
     }
     .last-edited {
-        font-size: 0.75rem;
+        font-size: 0.56rem;
         color: gray;
+        line-height: 1.1;
+        margin-top: 2px;
     }
 
     /* === Today Column Highlight === */
@@ -378,12 +388,14 @@
         box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
     
-    /* Sticky Student Name */
+    /* Sticky Student Name — kept above the paired watermarks so any
+       placeholder/marker text (e.g. EXCLUDED, OFFICIAL TERM END DATE)
+       sits BELOW the student-name row, not on top of it. */
     .attendance-sheet .student-name {
         position: sticky;
         left: 0;
         background-color: #f1f1f1;
-        z-index: 2;
+        z-index: 6;
         min-width: 160px;
         max-width: 200px;
         text-align: left;
@@ -391,6 +403,9 @@
         font-weight: 600;
         color: #000;
     }
+    .attendance-sheet thead .student-name { z-index: 7; }
+    .inactive-watermark.paired-watermark,
+    .term-end-watermark.paired-watermark { z-index: 3 !important; }
 
     .attendance-sheet th.overall-attendance,
     .attendance-sheet td.overall-attendance {
