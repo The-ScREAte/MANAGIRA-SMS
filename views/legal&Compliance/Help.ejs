@@ -548,16 +548,18 @@
       // FAQ
       if (faqHits.length) {
         faqBlock.style.display = '';
-        faqOut.innerHTML = faqHits.map(({item}) => `
+        faqOut.innerHTML = faqHits.map(({item}) => {
+          const faqUrl = '/legal/faq?q=' + encodeURIComponent(item.question);
+          return `
           <div class="result-card">
             <div class="result-title">
               <span class="result-badge">FAQ</span>
-              <a href="/legal/faq#faq-${item.id}">${escapeHtml(item.question)}</a>
+              <a href="${faqUrl}">${escapeHtml(item.question)}</a>
             </div>
             <div class="result-snippet">${highlight(item.answer, tokens)}</div>
-            <a class="result-link" href="/legal/faq#faq-${item.id}">Read full answer →</a>
-          </div>
-        `).join('');
+            <a class="result-link" href="${faqUrl}">Read full answer →</a>
+          </div>`;
+        }).join('');
       } else {
         faqBlock.style.display = 'none';
       }
