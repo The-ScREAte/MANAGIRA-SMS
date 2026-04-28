@@ -4,9 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><%= title %></title>
+  <meta name="description" content="Managira Help Center — search across documentation, FAQs, and guides, or contact support directly.">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    
+
     body {
       font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
       background: #f8fafc;
@@ -15,31 +16,177 @@
     }
 
     main {
-      max-width: 680px;
+      max-width: 760px;
       margin: 0 auto;
+      padding: 40px 20px 60px;
     }
 
+    .help-hero {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .help-hero .eyebrow {
+      display: inline-block;
+      font-size: 0.72rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #b8860b;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
     h1 {
-      text-align: center;
       color: #01535b;
-      font-size: 2rem;
-      margin-bottom: 8px;
+      font-size: 2.1rem;
+      margin: 0 0 8px;
+      letter-spacing: -0.01em;
     }
-
     .subtitle {
-      text-align: center;
       color: #64748b;
-      font-size: 0.95rem;
-      margin-bottom: 40px;
+      font-size: 1rem;
+      margin: 0;
     }
 
+    /* Smart search */
+    .search-wrap {
+      position: relative;
+      margin: 28px 0 12px;
+    }
+    .search-wrap svg.search-ico {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #94a3b8;
+      pointer-events: none;
+    }
+    #helpSearch {
+      width: 100%;
+      padding: 16px 48px 16px 48px;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      font-size: 1rem;
+      font-family: inherit;
+      background: #fff;
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    #helpSearch:focus {
+      outline: none;
+      border-color: #01535b;
+      box-shadow: 0 4px 18px rgba(1,83,91,0.12);
+    }
+    #helpSearchClear {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: #f1f5f9;
+      border: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      cursor: pointer;
+      color: #64748b;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      line-height: 1;
+    }
+    #helpSearchClear:hover { background: #e2e8f0; color: #0f172a; }
+
+    .search-meta {
+      font-size: 0.82rem;
+      color: #64748b;
+      padding: 0 4px 8px;
+      min-height: 18px;
+    }
+
+    /* Results */
+    .results-block { margin-bottom: 28px; }
+    .results-block h2 {
+      font-size: 0.82rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #01535b;
+      margin: 0 0 12px;
+      font-weight: 700;
+    }
+    .result-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 16px 18px;
+      margin-bottom: 10px;
+      transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+    }
+    .result-card:hover {
+      border-color: #01535b;
+      box-shadow: 0 4px 14px rgba(1,83,91,0.08);
+    }
+    .result-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      color: #0f172a;
+      font-size: 0.98rem;
+      margin-bottom: 4px;
+    }
+    .result-title a { color: inherit; text-decoration: none; }
+    .result-title a:hover { color: #01535b; }
+    .result-badge {
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      background: #eef6f6;
+      color: #01535b;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-weight: 700;
+    }
+    .result-badge.doc { background: #fef6e0; color: #b8860b; }
+    .result-snippet {
+      font-size: 0.9rem;
+      color: #475569;
+      line-height: 1.55;
+    }
+    .result-snippet mark {
+      background: #fef3c7;
+      color: inherit;
+      padding: 0 2px;
+      border-radius: 2px;
+    }
+    .result-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      font-size: 0.84rem;
+      color: #01535b;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .result-link:hover { text-decoration: underline; }
+
+    .empty-state {
+      text-align: center;
+      padding: 28px 16px;
+      background: #fff;
+      border: 1px dashed #cbd5e1;
+      border-radius: 12px;
+      color: #64748b;
+      font-size: 0.92rem;
+    }
+    .empty-state strong { color: #0f172a; display: block; margin-bottom: 4px; }
+
+    /* Quick links + form */
     .help-links {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 16px;
-      margin-bottom: 28px;
+      gap: 14px;
+      margin: 24px 0;
     }
-
     .help-link {
       display: flex;
       flex-direction: column;
@@ -53,51 +200,45 @@
       color: #0f172a;
       transition: all 0.2s;
     }
-
     .help-link:hover {
       border-color: #01535b;
-      box-shadow: 0 4px 12px rgba(1, 83, 91, 0.1);
+      box-shadow: 0 4px 12px rgba(1, 83, 91, 0.08);
     }
-
     .help-link svg { color: #01535b; }
-    .help-link span { font-weight: 600; font-size: 0.95rem; }
+    .help-link span { font-weight: 600; font-size: 0.92rem; text-align: center; }
 
     .info-box {
-      background: white;
+      background: #fff;
       border: 1px solid #e2e8f0;
       border-radius: 12px;
       padding: 22px;
       margin-bottom: 28px;
       line-height: 1.7;
+      font-size: 0.93rem;
     }
-
-    .info-box p { margin-bottom: 12px; }
+    .info-box p { margin-bottom: 10px; }
     .info-box p:last-child { margin-bottom: 0; }
     .info-box a { color: #01535b; font-weight: 600; }
 
-    form {
-      background: white;
+    form.contact-form {
+      background: #fff;
       border: 1px solid #e2e8f0;
-      border-radius: 12px;
+      border-radius: 14px;
       padding: 28px;
-      margin-bottom: 40px;
     }
-
     .form-title {
       color: #01535b;
-      font-size: 1.1rem;
+      font-size: 1.05rem;
       font-weight: 700;
       margin-bottom: 20px;
     }
-
     label {
       display: block;
       font-weight: 600;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       margin-bottom: 6px;
       color: #334155;
     }
-
     input, textarea {
       width: 100%;
       padding: 11px 14px;
@@ -105,52 +246,41 @@
       border-radius: 8px;
       font-size: 0.95rem;
       font-family: inherit;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
       transition: border-color 0.2s;
     }
-
     input:focus, textarea:focus {
       outline: none;
       border-color: #01535b;
     }
-
-    textarea {
-      min-height: 120px;
-      resize: vertical;
-    }
-
-    button {
+    textarea { min-height: 110px; resize: vertical; }
+    button[type="submit"] {
       width: 100%;
       padding: 14px;
       background: #01535b;
       color: white;
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
       font-size: 1rem;
       font-weight: 700;
       cursor: pointer;
       transition: background 0.2s;
     }
-
-    button:hover { background: #014a51; }
+    button[type="submit"]:hover { background: #014048; }
 
     @media (max-width: 768px) {
-      main { padding: 100px 20px 40px; }
-      h1 { font-size: 1.75rem; padding-top: 20px; }
-      .help-links { gap: 14px; margin: 0 12px 28px; }
-      .info-box { margin: 0 12px 28px; }
-      form { margin: 0 12px 40px; }
+      main { padding: 100px 16px 40px; }
+      h1 { font-size: 1.7rem; padding-top: 20px; }
+      .help-links { grid-template-columns: 1fr 1fr; gap: 12px; }
     }
-
     @media (max-width: 480px) {
-      main { padding: 110px 16px 40px; }
-      h1 { font-size: 1.5rem; padding-top: 30px; }
-      .subtitle { font-size: 0.9rem; margin-bottom: 30px; }
-      .help-links { grid-template-columns: 1fr; gap: 12px; margin: 0 8px 28px; }
-      .help-link { padding: 18px; }
-      .info-box { padding: 18px; margin: 0 8px 28px; }
-      form { padding: 22px 18px; margin: 0 8px 40px; }
+      main { padding: 110px 14px 40px; }
+      h1 { font-size: 1.45rem; padding-top: 30px; }
+      .subtitle { font-size: 0.9rem; }
+      .help-links { grid-template-columns: 1fr; }
+      form.contact-form { padding: 22px 18px; }
       input, textarea { font-size: 16px; }
+      #helpSearch { font-size: 16px; }
     }
   </style>
 </head>
@@ -158,53 +288,297 @@
   <%- include('../partials/header') %>
 
   <main>
-    <h1>Get Help</h1>
-    <p class="subtitle">We're here to help you get the most out of Managira</p>
+    <div class="help-hero">
+      <span class="eyebrow">Help Center</span>
+      <h1>How can we help?</h1>
+      <p class="subtitle">Search across our documentation, guides, and FAQs — or send us a message.</p>
+    </div>
 
     <%- include('../partials/flash') %>
 
-    <div class="help-links">
-      <a href="/legal/faq" class="help-link">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-          <line x1="12" y1="17" x2="12.01" y2="17"></line>
-        </svg>
-        <span>FAQ</span>
-      </a>
-      <a href="https://www.youtube.com/@managira" target="_blank" class="help-link">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polygon points="5 3 19 12 5 21 5 3"></polygon>
-        </svg>
-        <span>Video Tutorials</span>
-      </a>
+    <!-- SMART SEARCH -->
+    <div class="search-wrap">
+      <svg class="search-ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <input type="search" id="helpSearch" placeholder="Search documentation, FAQs, guides…" autocomplete="off" />
+      <button type="button" id="helpSearchClear" aria-label="Clear search">×</button>
+    </div>
+    <div class="search-meta" id="searchMeta">Try: “register a school”, “report cards”, “bulk import”, “guardian portal”</div>
+
+    <div id="searchResults" style="display:none;">
+      <div class="results-block" id="docResultsBlock" style="display:none;">
+        <h2>Documentation &amp; Guides</h2>
+        <div id="docResults"></div>
+      </div>
+      <div class="results-block" id="faqResultsBlock" style="display:none;">
+        <h2>From the FAQ</h2>
+        <div id="faqResults"></div>
+      </div>
+      <div class="results-block" id="emptyResultsBlock" style="display:none;">
+        <div class="empty-state">
+          <strong>No matches found.</strong>
+          We couldn't find that yet. Try different keywords, or send us your question below — we'll get back to you.
+        </div>
+      </div>
     </div>
 
-    <div class="info-box">
-      <p>Before submitting a request, check our <a href="/legal/faq">FAQ page</a> for quick answers to common questions about registration, billing, student management, and more.</p>
-      <p>For urgent matters, you can also email us directly at <strong>info@managira.com</strong></p>
+    <!-- DEFAULT QUICK LINKS (hidden when searching) -->
+    <div id="defaultBlock">
+      <div class="help-links">
+        <a href="/legal/faq" class="help-link">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+          <span>FAQ</span>
+        </a>
+        <a href="/legal/user-documentation" class="help-link">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+          </svg>
+          <span>Documentation</span>
+        </a>
+        <a href="https://www.youtube.com/@managira" target="_blank" rel="noopener" class="help-link">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+          <span>Video Tutorials</span>
+        </a>
+        <a href="/legal/request-demo" class="help-link">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+          <span>Request a Demo</span>
+        </a>
+      </div>
+
+      <div class="info-box">
+        <p>Before submitting a request, try the search above — it looks across our full documentation, guides, and FAQ for instant answers.</p>
+        <p>For urgent matters, you can also email us directly at <strong>info@managira.com</strong></p>
+      </div>
     </div>
 
-    <form action="/legal/help" method="POST">
-      <p class="form-title">Submit a Support Request</p>
-      
+    <!-- CONTACT FORM -->
+    <form action="/legal/help" method="POST" class="contact-form">
+      <p class="form-title">Still need a hand? Send us a message</p>
+
       <label for="name">Full Name</label>
       <input type="text" id="name" name="name" required autocomplete="name" placeholder="Your full name">
-      
+
       <label for="organization">Organisation (optional)</label>
       <input type="text" id="organization" name="organization" autocomplete="organization" placeholder="Which school or organisation?">
-      
+
       <label for="phone">Phone Number</label>
-      <input type="tel" id="phone" name="phone" required autocomplete="tel" placeholder="+1 (555) 123-4567">
-      
+      <input type="tel" id="phone" name="phone" required autocomplete="tel" placeholder="+234 801 234 5678">
+
       <label for="email">Email Address</label>
       <input type="email" id="email" name="email" required autocomplete="email" placeholder="your@email.com">
-      
+
       <label for="message">How can we help?</label>
       <textarea id="message" name="message" required placeholder="Please describe your issue or question in detail..."></textarea>
-      
+
       <button type="submit">Submit Request</button>
     </form>
   </main>
+
+  <script>
+    // Smart search across documentation + FAQ
+    const KNOWLEDGE = <%- JSON.stringify(typeof helpKnowledge !== 'undefined' ? helpKnowledge : []) %>;
+    const DOCS = <%- JSON.stringify(typeof documentationResources !== 'undefined' ? documentationResources : []) %>;
+
+    // Lightweight tokenizer with synonym expansion + stemming
+    const SYNONYMS = {
+      'sign up': ['register', 'registration', 'signup', 'create account', 'enroll'],
+      'register': ['sign up', 'signup', 'create account'],
+      'login': ['sign in', 'log in', 'access account'],
+      'password': ['credentials', 'reset password', 'forgot password'],
+      'student': ['students', 'pupil', 'learner', 'kid', 'child'],
+      'parent': ['parents', 'guardian', 'guardians', 'family'],
+      'guardian': ['parent', 'family', 'guardian portal'],
+      'report': ['report card', 'reports', 'merit sheet', 'transcript', 'result'],
+      'grade': ['grades', 'marks', 'score', 'results', 'assessment'],
+      'attendance': ['present', 'absent', 'roll call', 'register'],
+      'fee': ['fees', 'payment', 'billing', 'subscription', 'invoice'],
+      'class': ['classes', 'classroom', 'grade level'],
+      'demo': ['demo', 'preview', 'walkthrough', 'tour'],
+      'doc': ['documentation', 'guide', 'manual', 'help', 'tutorial'],
+      'bulk': ['import', 'csv', 'spreadsheet', 'mass upload'],
+      'hub': ['hubs', 'district', 'government', 'multi school'],
+      'theme': ['color', 'branding', 'logo', 'personalization', 'personalisation'],
+    };
+
+    function expandTokens(query) {
+      const base = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
+      const expanded = new Set(base);
+      // Add full phrase
+      expanded.add(query.toLowerCase().trim());
+      // Synonym expansion (single tokens and phrases)
+      Object.keys(SYNONYMS).forEach(key => {
+        if (query.toLowerCase().includes(key)) {
+          SYNONYMS[key].forEach(s => expanded.add(s));
+        }
+      });
+      base.forEach(t => {
+        if (SYNONYMS[t]) SYNONYMS[t].forEach(s => expanded.add(s));
+        // crude stem: drop trailing s
+        if (t.length > 3 && t.endsWith('s')) expanded.add(t.slice(0, -1));
+      });
+      return Array.from(expanded);
+    }
+
+    function scoreItem(haystack, tokens) {
+      const text = haystack.toLowerCase();
+      let score = 0;
+      tokens.forEach(t => {
+        if (!t) return;
+        if (text.includes(t)) score += t.includes(' ') ? 6 : 3;
+      });
+      return score;
+    }
+
+    function highlight(text, tokens, max = 220) {
+      if (!text) return '';
+      let snippet = text;
+      // Find first match position to anchor snippet
+      let firstIdx = -1;
+      for (const t of tokens) {
+        if (!t) continue;
+        const idx = text.toLowerCase().indexOf(t);
+        if (idx !== -1 && (firstIdx === -1 || idx < firstIdx)) firstIdx = idx;
+      }
+      if (firstIdx > 80) {
+        const start = Math.max(0, firstIdx - 60);
+        snippet = (start > 0 ? '… ' : '') + text.slice(start, start + max);
+      } else {
+        snippet = text.slice(0, max);
+      }
+      if (text.length > snippet.length + (firstIdx > 80 ? 60 : 0)) snippet += '…';
+
+      // Highlight tokens
+      tokens
+        .filter(Boolean)
+        .sort((a,b) => b.length - a.length)
+        .forEach(t => {
+          if (t.length < 2) return;
+          const re = new RegExp('(' + t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+          snippet = snippet.replace(re, '<mark>$1</mark>');
+        });
+      return snippet;
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function search(q) {
+      const tokens = expandTokens(q);
+
+      const docHits = DOCS.map(d => {
+        const hay = [d.title, d.subtitle, (d.keywords||[]).join(' ')].join(' ');
+        return { item: d, score: scoreItem(hay, tokens) };
+      }).filter(r => r.score > 0).sort((a,b) => b.score - a.score).slice(0, 6);
+
+      const faqHits = KNOWLEDGE.map(f => {
+        const hay = [f.question, f.answer, (f.keywords||[]).join(' '), f.category].join(' ');
+        // Boost question matches
+        const qScore = scoreItem(f.question, tokens) * 2;
+        const aScore = scoreItem(hay, tokens);
+        return { item: f, score: qScore + aScore };
+      }).filter(r => r.score > 0).sort((a,b) => b.score - a.score).slice(0, 8);
+
+      return { docHits, faqHits, tokens };
+    }
+
+    function render(q) {
+      const meta = document.getElementById('searchMeta');
+      const wrap = document.getElementById('searchResults');
+      const def = document.getElementById('defaultBlock');
+      const docBlock = document.getElementById('docResultsBlock');
+      const faqBlock = document.getElementById('faqResultsBlock');
+      const emptyBlock = document.getElementById('emptyResultsBlock');
+      const docOut = document.getElementById('docResults');
+      const faqOut = document.getElementById('faqResults');
+      const clearBtn = document.getElementById('helpSearchClear');
+
+      const trimmed = q.trim();
+      if (trimmed.length === 0) {
+        wrap.style.display = 'none';
+        def.style.display = '';
+        meta.textContent = 'Try: “register a school”, “report cards”, “bulk import”, “guardian portal”';
+        clearBtn.style.display = 'none';
+        return;
+      }
+
+      clearBtn.style.display = 'flex';
+      def.style.display = 'none';
+      wrap.style.display = '';
+
+      const { docHits, faqHits, tokens } = search(trimmed);
+      const total = docHits.length + faqHits.length;
+      meta.textContent = total === 0
+        ? `No matches for “${trimmed}”.`
+        : `${total} result${total === 1 ? '' : 's'} for “${trimmed}”`;
+
+      // Documentation
+      if (docHits.length) {
+        docBlock.style.display = '';
+        docOut.innerHTML = docHits.map(({item}) => `
+          <div class="result-card">
+            <div class="result-title">
+              <span class="result-badge doc">Doc</span>
+              <a href="${escapeHtml(item.url)}" ${item.external ? 'target="_blank" rel="noopener"' : ''}>${escapeHtml(item.title)}</a>
+            </div>
+            <div class="result-snippet">${highlight(item.subtitle || '', tokens)}</div>
+            <a class="result-link" href="${escapeHtml(item.url)}" ${item.external ? 'target="_blank" rel="noopener"' : ''}>
+              Open ${item.external ? '↗' : '→'}
+            </a>
+          </div>
+        `).join('');
+      } else {
+        docBlock.style.display = 'none';
+      }
+
+      // FAQ
+      if (faqHits.length) {
+        faqBlock.style.display = '';
+        faqOut.innerHTML = faqHits.map(({item}) => {
+          const faqUrl = '/legal/faq?q=' + encodeURIComponent(item.question);
+          return `
+          <div class="result-card">
+            <div class="result-title">
+              <span class="result-badge">FAQ</span>
+              <a href="${faqUrl}">${escapeHtml(item.question)}</a>
+            </div>
+            <div class="result-snippet">${highlight(item.answer, tokens)}</div>
+            <a class="result-link" href="${faqUrl}">Read full answer →</a>
+          </div>`;
+        }).join('');
+      } else {
+        faqBlock.style.display = 'none';
+      }
+
+      emptyBlock.style.display = total === 0 ? '' : 'none';
+    }
+
+    const input = document.getElementById('helpSearch');
+    const clearBtn = document.getElementById('helpSearchClear');
+    let t = null;
+    input.addEventListener('input', (e) => {
+      clearTimeout(t);
+      t = setTimeout(() => render(e.target.value), 90);
+    });
+    clearBtn.addEventListener('click', () => {
+      input.value = '';
+      input.focus();
+      render('');
+    });
+  </script>
 </body>
 </html>
