@@ -1,67 +1,117 @@
 <footer class="managira-footer">
-  <!-- Blue section -->
+  <!-- TOP CTA + LINK COLUMNS SECTION -->
   <% if (showFooterTopSection) { %>
   <div class="footer-top-section">
-    <div class="footer-flex-container">
-      <!-- Logo -->
-      <div class="footer-col logo-col">
-        <% if (typeof hubInfo !== 'undefined' && hubInfo && hubInfo.hub_branding_enabled && hubInfo.logo_path) { %>
-          <!-- Show Hub Logo -->
-          <img
-            src="<%= hubInfo.logo_path %>"
-            alt="<%= hubInfo.hub_name %> Logo"
-            class="footer-logo"
-          />
-          <p style="font-size: 12px; color: white; margin-top: 4px;">Powered by <%= hubInfo.hub_name %></p>
-        <% } else { %>
-          <!-- Show Managira Logo -->
-          <img
-            src="/images/managira.png"
-            alt="Managira Logo"
-            class="footer-logo"
-          />
-        <% } %>
+    <div class="footer-inner">
+
+      <!-- CTA Row -->
+      <div class="footer-cta-row">
+        <h2 class="footer-cta-title">Experience Managira today.</h2>
+        <a href="/legal/app-demo" class="footer-cta-pill">
+          <span>Get a Demo</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </a>
       </div>
 
-      <!-- Contact Info -->
-      <div class="footer-col contacts-links">
-          <div class="contact-col">
-            <a href="/legal/help">Seek Help</a>
-            <a href="mailto:info@managira.com">info@managira.com</a>
+      <div class="footer-divider" role="presentation"></div>
+
+      <!-- Main Grid: Logo + Columns -->
+      <div class="footer-main-grid">
+
+        <!-- Brand / Logo column -->
+        <div class="footer-brand-col">
+          <% if (typeof hubInfo !== 'undefined' && hubInfo && hubInfo.hub_branding_enabled && hubInfo.logo_path) { %>
+            <img src="<%= hubInfo.logo_path %>" alt="<%= hubInfo.hub_name %> Logo" class="footer-brand-logo" />
+            <p class="footer-brand-sub">Powered by <%= hubInfo.hub_name %></p>
+          <% } else { %>
+            <img src="/images/managira.png" alt="Managira Logo" class="footer-brand-logo" />
+          <% } %>
+
+          <div class="footer-social">
+            <a href="https://www.youtube.com/@managira" target="_blank" rel="noopener" aria-label="YouTube">
+              <img src="/images/social/youtubeicon.png" alt="YouTube" />
+            </a>
+            <a href="https://www.linkedin.com/company/managira" target="_blank" rel="noopener" aria-label="LinkedIn">
+              <img src="/images/social/linkedinicon.png" alt="LinkedIn" />
+            </a>
+          </div>
+        </div>
+
+        <!-- Link Columns -->
+        <div class="footer-cols">
+
+          <!-- PLATFORM -->
+          <div class="footer-col-section">
+            <button type="button" class="footer-col-heading" aria-expanded="false">
+              Platform
+              <svg class="footer-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+            <ul class="footer-col-list">
+              <li><a href="/">Overview</a></li>
+              <li><a href="/legal/app-demo">App Demo</a></li>
+              <li><a href="/account/service-plan">Service Plans</a></li>
+              <li><a href="/account/register">Get Started</a></li>
+            </ul>
           </div>
 
-          <!-- Quick Links -->
-          <div class="links-col">
-            <a href="/legal/employment">Job Posting</a>
-            <a href="/legal/donations">Give to Managira</a>
-            <a href="/legal/about-us">About Us</a>
-            <!-- <a href="/legal/directory">Directory</a> -->
+          <!-- COMPANY -->
+          <div class="footer-col-section">
+            <button type="button" class="footer-col-heading" aria-expanded="false">
+              Company
+              <svg class="footer-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+            <ul class="footer-col-list">
+              <li><a href="/legal/about-us">About Us</a></li>
+              <li><a href="/legal/employment">Careers</a></li>
+              <li><a href="/legal/donations">Give to Managira</a></li>
+              <li><a href="mailto:info@managira.com">Contact</a></li>
+            </ul>
           </div>
-      </div>
 
-      <!-- Social -->
-      <div class="footer-col social-col">
-        <a href="https://www.youtube.com/@managira" target="_blank"
-          ><img src="/images/social/youtubeicon.png" alt="YouTube"
-        /></a>
-        <a
-          href="https://www.linkedin.com/company/managira"
-          target="_blank"
-          ><img src="/images/social/linkedinicon.png" alt="LinkedIn"
-        /></a>
+          <!-- RESOURCES -->
+          <div class="footer-col-section">
+            <button type="button" class="footer-col-heading" aria-expanded="false">
+              Resources
+              <svg class="footer-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+            <ul class="footer-col-list">
+              <li><a href="/legal/user-documentation">User Documentation</a></li>
+              <li><a href="/legal/faq">FAQ</a></li>
+              <li><a href="/legal/help">Seek Help</a></li>
+              <li><a href="/legal/app-demo">App Demo</a></li>
+            </ul>
+          </div>
+
+          <!-- SUPPORT & LEGAL -->
+          <div class="footer-col-section">
+            <button type="button" class="footer-col-heading" aria-expanded="false">
+              Support &amp; Legal
+              <svg class="footer-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+            <ul class="footer-col-list">
+              <li><a href="/legal/privacy-policy">Privacy Policy</a></li>
+              <li><a href="/legal/terms-of-service">Terms of Service</a></li>
+              <li><a href="/legal/help">Help Center</a></li>
+              <li><a href="mailto:info@managira.com">info@managira.com</a></li>
+            </ul>
+          </div>
+
+        </div>
       </div>
     </div>
   </div>
   <% } %>
 
-  <!-- Black section -->
+  <!-- BOTTOM BAR -->
   <div class="footer-bottom-section">
     <div class="footer-bottom-row">
-      <!-- Hub Logo Section for Hub Members (Left) -->
-      <% 
-        const hasValidHubLogo = session && session.isHubMember && 
-                               session.hubLogo && 
-                               !session.hubLogo.endsWith('/hub-logos') && 
+      <%
+        const hasValidHubLogo = session && session.isHubMember &&
+                               session.hubLogo &&
+                               !session.hubLogo.endsWith('/hub-logos') &&
                                !session.hubLogo.endsWith('/images/hub-logos') &&
                                session.accountType !== 'Hub';
       %>
@@ -71,51 +121,38 @@
           <p class="footer-hub-text">Managed by <%= session.hubName %></p>
         </div>
       <% } %>
-      
-      <div class="footer-policy-links">
-        <a href="/legal/privacy-policy">Privacy Policy</a> |
-        <!-- <a href="#">Website Feedback</a> | -->
 
-        <a href="/legal/terms-of-service">Terms of Service</a> |
-        
-        <a href="/legal/faq">FAQ</a> |
-
-        <a href="/legal/app-demo">App Demo</a> |
-
-        <a href="/legal/user-documentation">User Documentation</a>
-
-      </div>
-      
       <div class="footer-copy">
         <% if (typeof hubInfo !== 'undefined' && hubInfo && hubInfo.hub_footer_text) { %>
           <%= hubInfo.hub_footer_text %>
         <% } else if (session && session.isHubMember && session.hubFooterText) { %>
           <%= session.hubFooterText %>
         <% } else { %>
-          &copy; <%= new Date().getFullYear() %> ScREAte / Managira
+          &copy; <%= new Date().getFullYear() %> ScREAte / Managira. All rights reserved.
         <% } %>
+      </div>
+
+      <div class="footer-bottom-links">
+        <a href="/legal/privacy-policy">Privacy</a>
+        <span aria-hidden="true">·</span>
+        <a href="/legal/terms-of-service">Terms</a>
+        <span aria-hidden="true">·</span>
+        <a href="/legal/faq">FAQ</a>
       </div>
     </div>
   </div>
 </footer>
+
 <style>
-      :root {
-        --font-family: "<%= (typeof session !== 'undefined' && session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
-        --dynamic-bottom-inset: 0px;
-      }
-
-
-  #foot {
-    text-decoration: none;
+  :root {
+    --font-family: "<%= (typeof session !== 'undefined' && session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
+    --dynamic-bottom-inset: 0px;
   }
-  #foot:hover {
-    text-decoration: underline;
-  }
+
   .managira-footer {
     font-family: var(--font-family) !important;
     width: 100% !important;
     margin-top: auto !important;
-    /* Footer isolation: reset any page-level styling that may leak */
     text-align: left !important;
     background: none !important;
     border: none !important;
@@ -123,244 +160,306 @@
     padding: 0 !important;
   }
 
-  /* BLUE SECTION */
+  /* ===== TOP SECTION ===== */
   .footer-top-section {
-    background-color: #026972 !important;
-    color: white !important;
-    padding: 15px 20px !important;
+    background-color: #01535b !important;
+    color: #fff !important;
+    padding: 48px 24px 32px !important;
   }
 
-  .footer-flex-container {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    flex-wrap: wrap;
-    gap: 1px;
+  .footer-inner {
     max-width: 1200px;
     margin: 0 auto;
   }
 
-  .footer-col {
-    flex: 1 1 200px;
-    min-width: 200px;
-    margin-bottom: 0;
+  /* CTA Row */
+  .footer-cta-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-bottom: 28px;
   }
 
-  .logo-col {
-    text-align: center;
+  .footer-cta-title {
+    font-size: 28px;
+    font-weight: 600;
+    color: #fff;
+    margin: 0;
+    letter-spacing: -0.01em;
   }
 
-  .footer-logo {
-    height: 60px;
-    display: block;
-    margin: 0 auto 10px auto;
+  .footer-cta-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    background: #fff;
+    color: #01535b;
+    text-decoration: none;
+    padding: 12px 22px;
+    border-radius: 999px;
+    font-size: 15px;
+    font-weight: 500;
+    min-width: 260px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  }
+  .footer-cta-pill:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.18);
+  }
+  .footer-cta-pill svg { flex-shrink: 0; }
+
+  .footer-divider {
+    height: 1px;
+    background: rgba(255,255,255,0.18);
+    margin: 8px 0 32px;
   }
 
-  .contacts-links {
+  /* Main grid */
+  .footer-main-grid {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 40px;
+    align-items: start;
+  }
+
+  .footer-brand-col {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .footer-brand-logo {
+    height: 56px;
+    width: auto;
+    object-fit: contain;
+  }
+  .footer-brand-sub {
+    font-size: 12px;
+    color: rgba(255,255,255,0.75);
+    margin: 0;
+  }
+  .footer-social {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  .footer-social a { display: inline-flex; }
+  .footer-social img {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    opacity: 0.9;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+  }
+  .footer-social a:hover img { opacity: 1; transform: translateY(-1px); }
+
+  /* Columns */
+  .footer-cols {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 28px;
+  }
+
+  .footer-col-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    background: transparent;
+    border: 0;
+    padding: 0 0 14px 0;
+    margin: 0;
+    color: #f5d76e; /* warm gold accent like the reference */
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: default;
+    font-family: inherit;
+  }
+  .footer-chev {
+    display: none;
+    transition: transform 0.2s ease;
+    color: #fff;
+  }
+
+  .footer-col-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
     display: flex;
     flex-direction: column;
     gap: 10px;
   }
-
-  .contact-col, .links-col {
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    text-align: left;
-  }
-
-  .contact-col p,
-  .contact-col a {
-    font-size: 14px;
-    color: white;
-    line-height: 1.5;
+  .footer-col-list a {
+    color: #fff;
     text-decoration: none;
-    margin: 4px 0;
+    font-size: 14.5px;
+    line-height: 1.4;
+    transition: color 0.15s ease, opacity 0.15s ease;
+    opacity: 0.92;
   }
-
-  .links-col a {
-    display: block;
-    color: white;
-    font-size: 14px;
-    text-decoration: none;
-    margin: 4px 0;
-  }
-
-  .links-col a:hover,
-  .contact-col a:hover {
+  .footer-col-list a:hover {
+    opacity: 1;
     text-decoration: underline;
+    text-underline-offset: 3px;
   }
 
-  .social-col {
-    display: flex;
-    justify-content: center;
-    gap: 15px;
-    align-items: center;
-    margin-top: 10px;
-  }
-
-  .social-col img {
-    width: 65px;
-    height: 65px;
-  }
-
-  /* BLACK SECTION */
+  /* ===== BOTTOM BAR ===== */
   .footer-bottom-section {
     background-color: #000 !important;
-    color: white !important;
-    padding: 20px 15px calc(20px + var(--dynamic-bottom-inset, 0px)) !important;
-    margin-bottom: 0 !important;
+    color: rgba(255,255,255,0.75) !important;
+    padding: 16px 24px calc(16px + var(--dynamic-bottom-inset, 0px)) !important;
   }
-
   .footer-bottom-row {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    align-items: center;
     max-width: 1200px;
     margin: 0 auto;
-    font-size: 13px;
-    gap: 10px;
-    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 12.5px;
   }
-  
-  .footer-policy-links {
-    flex: 1;
-    text-align: center;
-  }
-
-  .footer-policy-links a {
-    color: white !important;
-    margin: 0 4px;
-    text-decoration: none;
-  }
-
-  .footer-policy-links a:hover {
-    text-decoration: underline;
-  }
-
   .footer-copy {
     flex: 1;
-    text-align: right;
+    text-align: center;
+    color: rgba(255,255,255,0.7);
   }
+  .footer-bottom-links {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .footer-bottom-links a {
+    color: rgba(255,255,255,0.85) !important;
+    text-decoration: none;
+  }
+  .footer-bottom-links a:hover { text-decoration: underline; }
+  .footer-bottom-links span { color: rgba(255,255,255,0.4); }
 
-  /* Hub Logo Section */
   .footer-hub-section {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    flex: 1;
-    text-align: left;
+    align-items: flex-start;
+    gap: 4px;
   }
-
   .footer-hub-logo {
-    height: 45px;
+    height: 36px;
     width: auto;
-    max-width: 120px;
+    max-width: 110px;
     object-fit: contain;
     opacity: 0.9;
   }
-
   .footer-hub-text {
-    color: rgba(255, 255, 255, 0.7);
+    color: rgba(255,255,255,0.6);
     font-size: 11px;
     margin: 0;
-    text-align: center;
-    font-weight: 500;
   }
 
-  /* ====== MOBILE FIX ====== */
+  /* ===== TABLET ===== */
+  @media (max-width: 1024px) {
+    .footer-main-grid {
+      grid-template-columns: 1fr;
+      gap: 32px;
+    }
+    .footer-brand-col { align-items: flex-start; }
+  }
+
+  /* ===== MOBILE ===== */
   @media (max-width: 768px) {
-    .footer-flex-container {
+    .footer-top-section { padding: 32px 18px 24px !important; }
+
+    .footer-cta-row {
       flex-direction: column;
-      justify-content: flex-start;
-      align-items: center;
-      text-align: center;
-      gap: 10px;
+      align-items: stretch;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .footer-cta-title { font-size: 22px; }
+    .footer-cta-pill { width: 100%; min-width: 0; padding: 14px 20px; }
+
+    .footer-divider { margin: 4px 0 20px; }
+
+    .footer-cols {
+      grid-template-columns: 1fr;
+      gap: 0;
     }
 
-    .footer-top-section {
-      padding: 24px 16px;
+    /* Accordion on mobile */
+    .footer-col-section {
+      border-bottom: 1px solid rgba(255,255,255,0.14);
+    }
+    .footer-col-section:first-child { border-top: 1px solid rgba(255,255,255,0.14); }
+
+    .footer-col-heading {
+      padding: 16px 2px;
+      cursor: pointer;
+    }
+    .footer-chev { display: inline-block; }
+    .footer-col-section.open .footer-chev { transform: rotate(180deg); }
+
+    .footer-col-list {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease, padding 0.3s ease;
+      padding: 0 2px;
+    }
+    .footer-col-section.open .footer-col-list {
+      max-height: 500px;
+      padding: 2px 2px 16px 2px;
     }
 
-    .footer-col {
-      width: 100%;
-      min-width: 0;
-      margin-bottom: 0;
-      flex: 0 0 auto;
-    }
-
-    /* Hide footer bottom section on mobile for public dashboard only */
-    body[data-page="publicDashboard"] .footer-bottom-section {
-      display: none;
-    }
-
-    .footer-logo {
-      height: 72px;
-      margin-bottom: 2px;
-    }
-    
-    .logo-col {
-      margin-bottom: 0;
-    }
-
-    .contact-col,
-    .links-col {
-      flex-direction: column;
-      justify-content: flex-start;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .contact-col a,
-    .links-col a {
-      margin: 2px 0;
-      line-height: 1.3;
-    }
+    .footer-brand-col { align-items: center; text-align: center; }
+    .footer-brand-logo { height: 64px; }
+    .footer-social { justify-content: center; }
 
     .footer-bottom-row {
       flex-direction: column;
-      text-align: center;
       gap: 10px;
-    }
-
-  .footer-copy {
       text-align: center;
     }
+    .footer-copy { text-align: center; }
 
-    .social-col {
-      margin-top: 0;
-      margin-bottom: 10px;
-    }
-
-    .social-col img {
-      width: 48px;
-      height: 48px;
-    }
-  }
-
-  @media (min-width: 769px) and (max-width: 1024px) {
-    .footer-flex-container {
-      justify-content: flex-start;
-      gap: 12px;
-    }
-
-    .footer-col {
-      flex: 0 0 auto;
-    }
-
-    .contact-col,
-    .links-col {
-      justify-content: flex-start;
-      gap: 8px;
-    }
-
-    .contact-col a,
-    .links-col a {
-      margin: 2px 0;
-      line-height: 1.35;
-    }
+    body[data-page="publicDashboard"] .footer-bottom-section { display: none; }
   }
 </style>
+
+<script>
+  (function () {
+    // Mobile accordion toggle for footer columns
+    function initFooterAccordion() {
+      var isMobile = window.matchMedia('(max-width: 768px)').matches;
+      var headings = document.querySelectorAll('.managira-footer .footer-col-heading');
+      headings.forEach(function (btn) {
+        if (btn.dataset.bound === '1') return;
+        btn.dataset.bound = '1';
+        btn.addEventListener('click', function () {
+          if (!window.matchMedia('(max-width: 768px)').matches) return;
+          var section = btn.closest('.footer-col-section');
+          if (!section) return;
+          var open = section.classList.toggle('open');
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+      });
+      // Reset on resize back to desktop
+      window.addEventListener('resize', function () {
+        if (!window.matchMedia('(max-width: 768px)').matches) {
+          document.querySelectorAll('.managira-footer .footer-col-section.open').forEach(function (s) {
+            s.classList.remove('open');
+            var b = s.querySelector('.footer-col-heading');
+            if (b) b.setAttribute('aria-expanded', 'false');
+          });
+        }
+      });
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initFooterAccordion);
+    } else {
+      initFooterAccordion();
+    }
+  })();
+</script>
