@@ -289,12 +289,10 @@
     document.addEventListener('click', function (e) {
       if (e.target.classList.contains('faq-question')) {
         const wasOpen = e.target.classList.contains('open');
-        // Close all other open questions
         document.querySelectorAll('.faq-question.open').forEach(function(q) {
           q.classList.remove('open');
           q.nextElementSibling.style.display = 'none';
         });
-        // Toggle clicked question
         if (!wasOpen) {
           e.target.classList.add('open');
           e.target.nextElementSibling.style.display = 'block';
@@ -302,22 +300,45 @@
       }
     });
 
-    document.getElementById('search-bar').addEventListener('input', function () {
-      const term = this.value.toLowerCase();
+    function runFaqSearch(term) {
+      term = (term || '').toLowerCase();
       const categories = document.querySelectorAll('.faq-category');
+      let firstMatch = null;
       categories.forEach(function(category) {
         const items = category.querySelectorAll('.faq-item');
         let hasVisible = false;
         items.forEach(function(item) {
           const question = item.querySelector('.faq-question').textContent.toLowerCase();
           const answer = item.querySelector('.faq-answer').textContent.toLowerCase();
-          const match = question.includes(term) || answer.includes(term);
+          const match = !term || question.includes(term) || answer.includes(term);
           item.style.display = match ? 'block' : 'none';
+          if (match && !firstMatch && term) firstMatch = item;
           if (match) hasVisible = true;
         });
         category.style.display = hasVisible ? 'block' : 'none';
       });
-    });
+      if (firstMatch) {
+        const q = firstMatch.querySelector('.faq-question');
+        if (q && !q.classList.contains('open')) {
+          q.classList.add('open');
+          q.nextElementSibling.style.display = 'block';
+        }
+        firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+
+    const searchBar = document.getElementById('search-bar');
+    searchBar.addEventListener('input', function () { runFaqSearch(this.value); });
+
+    // Pre-fill from ?q= when arriving from Help Center smart search
+    (function () {
+      const params = new URLSearchParams(window.location.search);
+      const q = params.get('q');
+      if (q) {
+        searchBar.value = q;
+        runFaqSearch(q);
+      }
+    })();
   </script>
 </body>
 </html>
