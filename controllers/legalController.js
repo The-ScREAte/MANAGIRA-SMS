@@ -118,11 +118,39 @@ const legalController = {
     },
 
     getHelp: (req, res) => {
+        let helpKnowledge = [];
+        try {
+            const managiraFAQ = require('../utils/managiraFAQ');
+            helpKnowledge = managiraFAQ.map(item => ({
+                id: item.id,
+                category: item.category,
+                question: item.question,
+                answer: item.answer,
+                keywords: item.keywords || []
+            }));
+        } catch (e) {
+            helpKnowledge = [];
+        }
+
+        const documentationResources = [
+            { title: 'Full User Documentation', subtitle: 'Complete platform guide (Google Doc)', url: 'https://docs.google.com/document/d/1bgFP5cCQyr-9jdaYZTsWO8ONAnAuNUKqKQ2if_4TBOM/edit?usp=drivesdk', external: true, keywords: ['documentation', 'guide', 'manual', 'how to', 'tutorial', 'instructions', 'reference'] },
+            { title: 'Walk Through Video', subtitle: 'Video tutorial playlist on YouTube', url: 'https://www.youtube.com/watch?v=y1J0KahfA-c&list=PLxNl6NDBQVL3A7mSgYcUKqTZ8WaB5IZOT&index=1&t=8s', external: true, keywords: ['video', 'walkthrough', 'tutorial', 'youtube', 'watch', 'demo video'] },
+            { title: 'Single School Sign Up Steps', subtitle: 'Step-by-step PDF for new schools', url: '/managira%20pdf/Single%20school%20Sign%20Up%20steps.pdf', external: true, keywords: ['sign up', 'register', 'new school', 'onboarding', 'pdf', 'create account', 'getting started'] },
+            { title: 'Managira Starter Pack', subtitle: 'Quick-start PDF resource', url: '/managira%20pdf/Managira%20Starter%20Pack.pdf', external: true, keywords: ['starter', 'quick start', 'pdf', 'beginner', 'first time'] },
+            { title: 'Features Driving Managira Brochure', subtitle: 'Feature overview brochure (PDF)', url: '/managira%20pdf/Features%20driving%20managira%20Brochure.pdf', external: true, keywords: ['features', 'brochure', 'overview', 'capabilities', 'pdf'] },
+            { title: 'User Documentation Hub', subtitle: 'All Managira guides in one page', url: '/legal/user-documentation', external: false, keywords: ['documentation hub', 'all guides', 'resources'] },
+            { title: 'FAQ', subtitle: 'Browse frequently asked questions', url: '/legal/faq', external: false, keywords: ['faq', 'questions', 'answers'] },
+            { title: 'Request a Demo', subtitle: 'Schedule a personalised live demo', url: '/legal/request-demo', external: false, keywords: ['demo', 'request', 'sales', 'live demo', 'schedule', 'book'] },
+            { title: 'Interactive App Demo', subtitle: 'Explore the visual product tour', url: '/legal/app-demo', external: false, keywords: ['app demo', 'product tour', 'preview', 'see app', 'try'] },
+        ];
+
         res.render('legal&Compliance/Help', {
-            title: 'Help',
+            title: 'Help Center - Managira',
             success: req.flash('success'),
             messages: req.flash(),
             error: req.flash('error'),
+            helpKnowledge,
+            documentationResources,
             showFooterTopSection: true
         });
     },
