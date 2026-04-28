@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <meta name="description" content="<%= typeof description !== 'undefined' ? description : 'Request a personalised live demo of Managira.' %>">
+  <% if (typeof keywords !== 'undefined') { %><meta name="keywords" content="<%= keywords %>"><% } %>
+  <% if (typeof canonicalUrl !== 'undefined') { %><link rel="canonical" href="<%= canonicalUrl %>"><% } %>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
+      background: #f8fafc;
+      color: #0f172a;
+      margin: 0;
+      line-height: 1.6;
+    }
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 40px 20px 60px;
+    }
+    .demo-hero {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .demo-hero .eyebrow {
+      display: inline-block;
+      font-size: 0.72rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #b8860b;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    .demo-hero h1 {
+      color: #01535b;
+      font-size: 2rem;
+      margin: 0 0 10px;
+      letter-spacing: -0.01em;
+    }
+    .demo-hero p {
+      color: #475569;
+      font-size: 1rem;
+      margin: 0;
+    }
+    .demo-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 28px;
+      box-shadow: 0 4px 18px rgba(15, 23, 42, 0.04);
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px 16px;
+    }
+    .form-grid .full { grid-column: 1 / -1; }
+    label {
+      display: block;
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: #334155;
+      margin-bottom: 6px;
+    }
+    label .req { color: #dc2626; }
+    input, select, textarea {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      background: #fff;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #01535b;
+      box-shadow: 0 0 0 3px rgba(1, 83, 91, 0.1);
+    }
+    textarea { min-height: 110px; resize: vertical; }
+    button[type="submit"] {
+      width: 100%;
+      margin-top: 18px;
+      padding: 14px;
+      background: #01535b;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.15s;
+    }
+    button[type="submit"]:hover { background: #014048; transform: translateY(-1px); }
+    .helper {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 0.88rem;
+      color: #64748b;
+    }
+    .helper a { color: #01535b; font-weight: 600; }
+    @media (max-width: 640px) {
+      main { padding: 110px 16px 60px; }
+      .demo-hero h1 { font-size: 1.55rem; }
+      .form-grid { grid-template-columns: 1fr; }
+      .demo-card { padding: 22px 18px; }
+      input, select, textarea { font-size: 16px; }
+    }
+  </style>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "ContactPage",
+    "name": "Request a Managira Demo",
+    "description": "Schedule a personalised demo of the Managira school management platform.",
+    "url": "<%= typeof canonicalUrl !== 'undefined' ? canonicalUrl : 'https://www.managira.com/legal/request-demo' %>"
+  }
+  </script>
+</head>
+<body>
+  <%- include('../partials/header') %>
+
+  <main>
+    <div class="demo-hero">
+      <span class="eyebrow">See Managira in action</span>
+      <h1>Request a Personalised Demo</h1>
+      <p>Tell us a little about your school and our team will reach out to schedule a live walkthrough.</p>
+    </div>
+
+    <%- include('../partials/flash') %>
+
+    <div class="demo-card">
+      <form action="/legal/request-demo" method="POST" novalidate>
+        <div class="form-grid">
+          <div>
+            <label for="name">Full Name <span class="req">*</span></label>
+            <input id="name" name="name" type="text" required autocomplete="name" placeholder="Your full name" maxlength="120">
+          </div>
+          <div>
+            <label for="role">Your Role</label>
+            <input id="role" name="role" type="text" autocomplete="organization-title" placeholder="e.g. Principal, Director" maxlength="80">
+          </div>
+
+          <div>
+            <label for="organization">Organisation / School <span class="req">*</span></label>
+            <input id="organization" name="organization" type="text" required autocomplete="organization" placeholder="School or organisation name" maxlength="160">
+          </div>
+          <div>
+            <label for="country">Country</label>
+            <input id="country" name="country" type="text" placeholder="e.g. Nigeria" maxlength="80">
+          </div>
+
+          <div>
+            <label for="email">Email Address <span class="req">*</span></label>
+            <input id="email" name="email" type="email" required autocomplete="email" placeholder="you@school.com" maxlength="160">
+          </div>
+          <div>
+            <label for="phone">Phone Number</label>
+            <input id="phone" name="phone" type="tel" autocomplete="tel" placeholder="+234 801 234 5678" maxlength="40">
+          </div>
+
+          <div>
+            <label for="student_count">Approx. Number of Students</label>
+            <select id="student_count" name="student_count">
+              <option value="">Select range</option>
+              <option>Under 100</option>
+              <option>100 – 500</option>
+              <option>500 – 1,000</option>
+              <option>1,000 – 5,000</option>
+              <option>5,000+</option>
+            </select>
+          </div>
+          <div>
+            <label for="preferred_date">Preferred Date</label>
+            <input id="preferred_date" name="preferred_date" type="date">
+          </div>
+
+          <div class="full">
+            <label for="preferred_time">Preferred Time</label>
+            <input id="preferred_time" name="preferred_time" type="text" placeholder="e.g. Weekday mornings, 10am WAT" maxlength="80">
+          </div>
+
+          <div class="full">
+            <label for="message">What would you like to see in the demo?</label>
+            <textarea id="message" name="message" placeholder="Tell us about your goals, challenges, or specific features you want to see (optional)" maxlength="2000"></textarea>
+          </div>
+        </div>
+
+        <button type="submit">Request My Demo</button>
+      </form>
+    </div>
+
+    <p class="helper">
+      Prefer to explore on your own first? Visit the <a href="/legal/app-demo">interactive App Demo</a> or read the <a href="/legal/user-documentation">User Documentation</a>.
+    </p>
+  </main>
+</body>
+</html>
