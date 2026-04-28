@@ -411,6 +411,104 @@ const legalController = {
         });
     },
 
+    requestDemoPage: (req, res) => {
+        res.render('legal&Compliance/requestDemo', {
+            title: 'Request a Demo - Managira',
+            description: 'Request a personalised live demo of Managira and see how it can transform your school operations.',
+            keywords: 'managira demo request, schedule demo, school management demo, book a demo',
+            canonicalUrl: 'https://www.managira.com/legal/request-demo',
+            success: req.flash('success'),
+            error: req.flash('error'),
+            messages: req.flash(),
+            showFooterTopSection: true
+        });
+    },
+
+    submitDemoRequest: async (req, res) => {
+        const {
+            name,
+            organization,
+            role,
+            email,
+            phone,
+            country,
+            student_count,
+            preferred_date,
+            preferred_time,
+            message,
+        } = req.body;
+
+        try {
+            if (!name || !email || !organization) {
+                req.flash('error', 'Name, Email, and Organisation are required to request a demo.');
+                return res.redirect('/legal/request-demo');
+            }
+
+            // Compose a structured message that mirrors what Help Center stores.
+            const composedMessage = [
+                `Demo Request from ${name}`,
+                organization ? `Organisation: ${organization}` : null,
+                role ? `Role: ${role}` : null,
+                country ? `Country: ${country}` : null,
+                student_count ? `Approx. students: ${student_count}` : null,
+                preferred_date ? `Preferred date: ${preferred_date}` : null,
+                preferred_time ? `Preferred time: ${preferred_time}` : null,
+                '',
+                'Message:',
+                message ? message.trim() : '(No additional message provided)',
+            ].filter(Boolean).join('\n');
+
+            const newThread = await db.query(
+                `INSERT INTO help_threads (name, organization, email, phone)
+                 VALUES ($1, $2, $3, $4) RETURNING id`,
+                [name, organization || null, email, phone || null]
+            );
+
+            const threadId = newThread.rows[0].id;
+
+            await db.query(
+                `INSERT INTO help_messages (thread_id, name, email, message, is_response)
+                 VALUES ($1, $2, $3, $4, false)`,
+                [threadId, name, email, composedMessage]
+            );
+
+            const html = renderCleanEmail({
+                title: `Demo Request Received (#${threadId})`,
+                greeting: `Dear <strong>${name}</strong>,`,
+                paragraphs: [
+                    'Thanks for requesting a Managira demo. Our team will reach out shortly to schedule a personalised walkthrough.',
+                    'In the meantime, you can explore our interactive App Demo and User Documentation from the Resources section.',
+                ],
+                details: [
+                    { label: 'Reference', value: `#${threadId}` },
+                    { label: 'Organisation', value: organization || '—' },
+                    { label: 'Preferred Date', value: preferred_date || 'Flexible' },
+                    { label: 'Preferred Time', value: preferred_time || 'Flexible' },
+                ],
+            });
+
+            sendEmailInBackground({
+                to: email,
+                subject: `Managira Demo Request Received - #${threadId}`,
+                html,
+                attachments: [
+                    {
+                        filename: 'managira.png',
+                        path: path.join(__dirname, '../public/images/managira.png'),
+                        cid: 'managira_logo'
+                    }
+                ]
+            }, 'Demo Request Confirmation Email');
+
+            req.flash('success', 'Thanks! Your demo request has been received. Our team will be in touch shortly.');
+            return res.redirect('/legal/request-demo');
+        } catch (error) {
+            console.error('[Demo Request] Failed to save:', error.message);
+            req.flash('error', 'We could not submit your demo request right now. Please try again.');
+            return res.redirect('/legal/request-demo');
+        }
+    },
+
     donationsPage: async (req, res) => {
         const donations = await db.query(`SELECT * FROM donations ORDER BY created_at DESC`);
         res.render('legal&Compliance/donations', { 

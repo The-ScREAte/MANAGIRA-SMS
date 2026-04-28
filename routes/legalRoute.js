@@ -45,6 +45,8 @@ router.post('/employment/:id/apply', (req, res, next) => {
 }, legalController.submitEmploymentApplication);
 router.get('/donations', legalController.donationsPage);
 router.get('/app-demo', legalController.appDemo);
+router.get('/request-demo', legalController.requestDemoPage);
+router.post('/request-demo', legalController.submitDemoRequest);
 router.get('/user-documentation', legalController.userDocumentation);
 // router.get('/directory', legalController.directory); // Temporarily disabled
 module.exports = router;
