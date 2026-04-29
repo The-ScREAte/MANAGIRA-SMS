@@ -4,6 +4,7 @@
  */
 
 const cacheManager = require('../utils/cacheManager');
+const { isPublicRoute, shouldLoadSpaRouter } = require('../utils/routeProfile');
 
 /**
  * Set cache control headers based on resource type
@@ -132,6 +133,11 @@ const invalidateCache = (cacheType, keyPattern) => {
  */
 const preloadCache = async (req, res, next) => {
   if (!req.session?.userId) {
+    return next();
+  }
+
+  const requestPath = req.path || '';
+  if (isPublicRoute(requestPath) || !shouldLoadSpaRouter(requestPath, req.session)) {
     return next();
   }
 
