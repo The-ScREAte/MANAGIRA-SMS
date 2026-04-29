@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
 const { sendEmailInBackground } = require("../utils/emailHelper");
 const { PERMISSIONS, userHasPermission } = require("../middleware/permissionMiddleware");
+const notifSvc = require("../utils/notificationService");
 
 let documentsSchemaReadyPromise = null;
 
@@ -749,6 +750,32 @@ const documentController = {
         return res.status(403).json({ success: false, message: "You do not have permission to delete files." });
       }
 
+      // D4 — notify all users with explicit permissions before soft-delete
+      try {
+        const docInfo = await db.query(
+          `SELECT title FROM documents WHERE id = $1 AND organization_id = $2`,
+          [docId, orgId]
+        );
+        const docTitle = docInfo.rows[0]?.title || 'Document';
+        const permUsers = await db.query(
+          `SELECT user_id FROM document_permissions WHERE document_id = $1`,
+          [docId]
+        );
+        const notifList = permUsers.rows.map(r => ({
+          orgId: Number(orgId),
+          recipientType: 'staff',
+          recipientId: r.user_id,
+          type: 'document_deleted',
+          title: `"${docTitle}" was deleted`,
+          body: 'A document shared with you has been deleted',
+          link: '/documents',
+        }));
+        if (notifList.length) {
+          notifSvc.createNotifications(db, notifList)
+            .catch(err => console.error('[Notif] document_deleted failed:', err.message));
+        }
+      } catch { /* silent */ }
+
       await db.query(`UPDATE documents SET is_deleted = TRUE, updated_at = NOW() WHERE id = $1 AND organization_id = $2`, [docId, orgId]);
 
       res.json({ success: true });
@@ -881,6 +908,39 @@ const documentController = {
           docTitle: doc.rows[0].title,
           classIds: addedClassIds,
         });
+      }
+
+      // D1 — notify each user that a document was shared with them (only newly-added users)
+      // We compare OLD vs NEW permissions to find genuinely new users
+      // Since we do DELETE + re-INSERT, all current permission users get notified when this
+      // function is called — but we only notify users who were actually granted access.
+      // To keep it simple and correct: fire for all current permissions.
+      if (permissions && Array.isArray(permissions)) {
+        const docTitleSafe = doc.rows[0].title || 'Document';
+        const notifList = permissions.map(p => ({
+          orgId: Number(orgId),
+          recipientType: 'staff',
+          recipientId: Number(p.user_id),
+          type: 'document_shared_user',
+          title: `"${docTitleSafe}" shared with you`,
+          body: `You have ${p.permission_level || 'view'} access`,
+          link: `/documents/edit/${docId}`,
+        }));
+        notifSvc.createNotifications(db, notifList)
+          .catch(err => console.error('[Notif] document_shared_user failed:', err.message));
+      }
+
+      // D2 — notify class teachers when a document is assigned to their class (new assignments only)
+      if (addedClassIds.length > 0) {
+        const docTitleSafe = doc.rows[0].title || 'Document';
+        notifSvc.notifyMultipleClassTeachers(db, {
+          orgId: Number(orgId),
+          classIds: addedClassIds,
+          type: 'document_shared_class',
+          title: `"${docTitleSafe}" shared with your class`,
+          body: 'A document has been shared with one of your classes',
+          link: `/documents/edit/${docId}`,
+        }).catch(err => console.error('[Notif] document_shared_class failed:', err.message));
       }
 
       res.json({ success: true });

@@ -2885,5 +2885,57 @@ main {
     window.enterClassScheduleEditMode = enterClassScheduleEditMode;
     window.cancelClassScheduleEdit = cancelClassScheduleEdit;
     window.printClassSchedule = printClassSchedule;
+
+    // Auto-open a specific report when the page is loaded via a notification link
+    // e.g. /common/classDashboard?classId=46&reportId=12
+    (function autoOpenReportFromUrl() {
+      var params = new URLSearchParams(window.location.search);
+      var targetReportId = params.get('reportId');
+      if (!targetReportId) return;
+
+      // First open the reports list panel, then once loaded open the specific report
+      var modal = document.getElementById('reportsListModal');
+      if (!modal) return;
+      modal.classList.add('active');
+      var container = document.getElementById('reports-list-content');
+      if (container) container.innerHTML = '<p style="color:#6b7280;font-size:13px;">Loading reports...</p>';
+
+      fetch('/common/classReports?classId=<%= classId %>')
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (!d.success || !d.reports || !d.reports.length) {
+            if (container) container.innerHTML = '<div class="rp-empty">No reports yet.</div>';
+            return;
+          }
+          var html = '';
+          d.reports.forEach(function(r) {
+            var statusCls = 'rp-status-' + (r.status || 'open');
+            var replyLabel = (r.reply_count == 1) ? '1 reply' : (r.reply_count || 0) + ' replies';
+            html += '<div class="rp-card" onclick="openReportDetail(' + r.report_id + ')">' +
+              '<div class="rp-left">' +
+                '<div class="rp-subject">' + esc(r.subject) + '</div>' +
+                '<div class="rp-meta">' +
+                  '<span>' + esc(r.student_name) + '</span>' +
+                  '<span class="rp-dot"></span>' +
+                  '<span>' + esc(r.guardian_name) + '</span>' +
+                  '<span class="rp-dot"></span>' +
+                  '<span>' + new Date(r.created_at).toLocaleDateString() + '</span>' +
+                '</div>' +
+              '</div>' +
+              '<div class="rp-right">' +
+                '<span class="rp-status ' + statusCls + '">' + (r.status || 'open').replace('_',' ') + '</span>' +
+                '<span class="rp-replies">\u{1F4AC} ' + replyLabel + '</span>' +
+              '</div>' +
+            '</div>';
+          });
+          if (container) container.innerHTML = html;
+
+          // Now open the specific report directly
+          openReportDetail(Number(targetReportId));
+        })
+        .catch(function() {
+          if (container) container.innerHTML = '<div class="rp-empty" style="color:#e74c3c;">Failed to load reports.</div>';
+        });
+    })();
   </script>
 </body>

@@ -10,6 +10,7 @@ const {
   notifyStaffOnGuardianReportCreated,
   notifyStaffOnGuardianReply,
 } = require("../utils/notificationDigestService");
+const notifSvc = require("../utils/notificationService");
 
 async function ensureGuardianReportReadSchema(db) {
   await db.query(
@@ -657,6 +658,12 @@ module.exports = {
 
       // Handle student image upload if a student was selected
       if (studentId && req.files && req.files['studentImage']) {
+        // Verify the student belongs to this guardian before updating
+        const hasStudentAccess = await guardianHasStudentAccess(db, guardianId, organizationId, studentId);
+        if (!hasStudentAccess) {
+          req.flash('error', 'You do not have access to that student');
+          return res.redirect('/guardian/settings');
+        }
         const studentImageFile = req.files['studentImage'][0];
         const s3Key = `images/studentimages/${organizationId}/${Date.now()}_${studentImageFile.originalname}`;
         const studentImageUrl = await uploadToS3(studentImageFile, s3Key);
@@ -791,6 +798,15 @@ module.exports = {
 
       const studentIdVal = studentId && studentId !== 'general' ? studentId : null;
 
+      // Verify the student belongs to this guardian before inserting
+      if (studentIdVal) {
+        const hasAccess = await guardianHasStudentAccess(db, guardianId, organizationId, studentIdVal);
+        if (!hasAccess) {
+          req.flash('error', 'You do not have access to that student');
+          return res.redirect('/guardian/report');
+        }
+      }
+
       const insertResult = await db.query(
         `INSERT INTO guardian_reports (guardian_id, student_id, organization_id, report_type, subject, message, status)
          VALUES ($1, $2, $3, $4, $5, $6, 'pending') RETURNING report_id`,
@@ -831,6 +847,16 @@ module.exports = {
       }).catch((notifyError) => {
         console.error("[Guardian Report] Staff notification failed:", notifyError.message);
       });
+
+      // A1 — in-app bell notification to each guardian_report_recipients staff member
+      notifSvc.notifyReportRecipients(db, {
+        orgId: Number(organizationId),
+        reportId,
+        type: 'guardian_report_new',
+        title: `New report: ${subject}`,
+        body: String(message || '').substring(0, 120),
+        link: `/common/guardianReports?reportId=${reportId}`,
+      }).catch(err => console.error('[Notif] guardian_report_new failed:', err.message));
 
       req.flash('success', 'Report submitted successfully! The school will review and respond soon.');
       return res.redirect('/guardian/report');
@@ -1229,6 +1255,17 @@ module.exports = {
     const { student_id, subject, message, priority, cc_recipients } = req.body;
 
     try {
+      // Verify the student belongs to this guardian
+      if (!student_id) {
+        req.flash('error', 'Please select a student');
+        return res.redirect('/guardian/reports');
+      }
+      const hasAccess = await guardianHasStudentAccess(db, guardianId, organizationId, student_id);
+      if (!hasAccess) {
+        req.flash('error', 'You do not have access to that student');
+        return res.redirect('/guardian/reports');
+      }
+
       // Create report
       const reportResult = await db.query(
         `INSERT INTO guardian_reports (guardian_id, student_id, organization_id, subject, message, priority)
@@ -1266,6 +1303,16 @@ module.exports = {
       }).catch((notifyError) => {
         console.error("[Guardian Report] Staff notification failed:", notifyError.message);
       });
+
+      // A1 — in-app bell notification to each guardian_report_recipients staff member
+      notifSvc.notifyReportRecipients(db, {
+        orgId: Number(organizationId),
+        reportId,
+        type: 'guardian_report_new',
+        title: `New report: ${subject}`,
+        body: String(message || '').substring(0, 120),
+        link: `/common/guardianReports?reportId=${reportId}`,
+      }).catch(err => console.error('[Notif] guardian_report_new failed:', err.message));
 
       req.flash('success', 'Report submitted successfully');
       res.redirect(`/guardian/reports/${reportId}`);
@@ -1416,6 +1463,16 @@ module.exports = {
         console.error("[Guardian Reply] Staff notification failed:", notifyError.message);
       });
 
+      // A2 — in-app bell notification to each report recipient staff member
+      notifSvc.notifyReportRecipients(db, {
+        orgId: Number(organizationId),
+        reportId: Number.parseInt(reportId, 10),
+        type: 'guardian_reply',
+        title: 'Guardian replied to a report',
+        body: String(message || '').substring(0, 120),
+        link: `/common/guardianReports?reportId=${reportId}`,
+      }).catch(err => console.error('[Notif] guardian_reply failed:', err.message));
+
       // Update report status to in_progress if it was open
       await db.query(
         `UPDATE guardian_reports 
@@ -1432,10 +1489,39 @@ module.exports = {
     }
   },
 
-  editPendingStudentGet: async (req, res, db) => {
+  reportDeletePost: async (req, res, db) => {
     const guardianId = req.session.guardianId;
     const organizationId = req.session.organizationId;
-    const pendingId = req.query.pendingId;
+    const reportId = req.params.id;
+
+    try {
+      // Verify ownership before deleting
+      const check = await db.query(
+        `SELECT report_id FROM guardian_reports
+         WHERE report_id = $1 AND guardian_id = $2 AND organization_id = $3`,
+        [reportId, guardianId, organizationId]
+      );
+
+      if (check.rows.length === 0) {
+        req.flash('error', 'Report not found');
+        return res.redirect('/guardian/reports');
+      }
+
+      // Hard delete: remove replies, recipients, reads, then the report itself
+      await db.query(`DELETE FROM guardian_report_replies WHERE report_id = $1`, [reportId]);
+      await db.query(`DELETE FROM guardian_report_recipients WHERE report_id = $1`, [reportId]);
+      await db.query(`DELETE FROM guardian_report_reads WHERE report_id = $1`, [reportId]);
+      await db.query(`DELETE FROM guardian_reports WHERE report_id = $1 AND guardian_id = $2 AND organization_id = $3`, [reportId, guardianId, organizationId]);
+
+      req.flash('success', 'Report deleted');
+      return res.redirect('/guardian/reports');
+    } catch (error) {
+      req.flash('error', 'Error deleting report');
+      return res.redirect('/guardian/reports');
+    }
+  },
+
+  editPendingStudentGet: async (req, res, db) => {
 
     try {
       // Verify the guardian has access to this pending student

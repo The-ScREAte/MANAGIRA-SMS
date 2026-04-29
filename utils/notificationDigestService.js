@@ -1389,11 +1389,12 @@ async function notifyStaffOnGuardianReportCreated(database, {
   let sent = 0;
 
   for (const email of recipients) {
+    const guardianDisplayName = escapeHtml(`${report.guardian_first_name || "Parent"} ${report.guardian_last_name || ""}`.trim());
     const html = renderCleanEmail({
-      title: `${organizationName} Parent Report Submitted`,
-      greeting: "Hello Team Member,",
+      title: `${organizationName}: New message from a parent/guardian`,
+      greeting: `Message from ${guardianDisplayName}:`,
       paragraphs: [
-        `A parent/guardian has submitted a new report ticket that requires attention.`,
+        `A parent/guardian has submitted a new report. Please review the details below and respond through the report workflow.`,
       ],
       details: [
         { label: "Report ID", value: `#${report.report_id}` },
@@ -1401,10 +1402,7 @@ async function notifyStaffOnGuardianReportCreated(database, {
           label: "Student",
           value: escapeHtml(`${report.student_first_name || "Student"} ${report.student_last_name || ""}`.trim()),
         },
-        {
-          label: "Guardian",
-          value: escapeHtml(`${report.guardian_first_name || "Parent"} ${report.guardian_last_name || ""}`.trim()),
-        },
+        { label: "Guardian", value: guardianDisplayName },
         { label: "Subject", value: escapeHtml(report.subject || "General report") },
         { label: "Message", value: escapeHtml(report.message || "") },
       ],
@@ -1494,10 +1492,10 @@ async function notifyStaffOnGuardianReply(database, {
   let sent = 0;
   for (const email of recipients) {
     const html = renderCleanEmail({
-      title: `${organizationName} Report Reply Received`,
-      greeting: "Hello Team Member,",
+      title: `${organizationName}: New reply from a parent/guardian`,
+      greeting: `Reply from a parent/guardian on report #${reportId}:`,
       paragraphs: [
-        `A parent/guardian has replied to report #${reportId}.`,
+        `A parent/guardian has sent a new reply. Please review the conversation and continue follow-up where needed.`,
       ],
       details: [
         { label: "Report ID", value: `#${reportId}` },
@@ -1605,7 +1603,7 @@ async function broadcastEventAnnouncement(database, params) {
 
   const greetingText = visibility === "org" ? "Hello Team,"
     : visibility === "public" ? "Dear Parent / Guardian,"
-    : "Dear Parent / Staff Member,";
+    : "Hello,";
 
   const html = renderCleanEmail({
     title: isEvent

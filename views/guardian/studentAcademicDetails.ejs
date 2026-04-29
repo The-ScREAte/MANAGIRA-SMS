@@ -499,6 +499,35 @@
       font-size: 11px;
     }
   }
+
+  /* Collapsible detail sections */
+  .section-details { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 16px; overflow: hidden; }
+  .section-summary { list-style: none; padding: 14px 18px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; user-select: none; }
+  .section-summary::-webkit-details-marker { display: none; }
+  .section-summary:hover { background: #f8fafc; }
+  .summary-label { font-weight: 700; font-size: 0.92rem; color: #1e293b; }
+  .summary-chevron { font-size: 1.3rem; color: #94a3b8; transition: transform 0.2s; line-height: 1; display: inline-block; }
+  details[open] > .section-summary > .summary-chevron { transform: rotate(90deg); }
+  .section-body { padding: 12px 18px 16px; border-top: 1px solid #f1f5f9; }
+
+  /* Teacher rows */
+  .teacher-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 0; border-bottom: 1px solid #f8fafc; }
+  .teacher-row:last-child { border-bottom: none; }
+  .teacher-name { font-weight: 600; color: #1e293b; font-size: 0.88rem; }
+  .teacher-main-badge { background: #d1fae5; color: #059669; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 700; }
+  .teacher-subjects { color: #64748b; font-size: 0.82rem; }
+
+  /* Schedule period grid */
+  .sched-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .sched-meta { font-size: 12px; color: #94a3b8; margin: 0 0 10px; }
+  .sched-table { border-collapse: collapse; min-width: 420px; width: 100%; font-size: 13px; }
+  .sched-day-th { background: #f8fafc; font-weight: 700; color: #475569; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; padding: 10px 12px; text-align: left; border: 1px solid #e2e8f0; white-space: nowrap; }
+  .sched-period-th { background: #f8fafc; padding: 8px 10px; text-align: center; border: 1px solid #e2e8f0; vertical-align: top; min-width: 80px; }
+  .sched-period-num { font-weight: 700; font-size: 11px; color: #475569; text-transform: uppercase; letter-spacing: .04em; }
+  .sched-period-time { font-size: 11px; color: #94a3b8; margin-top: 3px; line-height: 1.4; white-space: nowrap; }
+  .sched-day-td { background: #f8fafc; font-weight: 700; color: #1e293b; padding: 10px 12px; border: 1px solid #e2e8f0; white-space: nowrap; font-size: 13px; text-align: left; vertical-align: middle; }
+  .sched-cell { padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; color: #334155; vertical-align: middle; }
+  .sched-cell.sched-custom { color: #94a3b8; font-style: italic; font-size: 12px; }
 </style>
 
 <div class="academic-container">
@@ -540,35 +569,56 @@
   </div>
 
   <!-- Teacher Information -->
-  <div class="section-card">
-    <h2>👨‍🏫 Teacher Information</h2>
-    <% if (mainTeacher) { %>
-      <div style="margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0;">
-        <p style="margin: 4px 0; font-size: 14px;"><strong style="color: #0f5a66;">Main Class Teacher:</strong> <%= mainTeacher.first_name %> <%= mainTeacher.last_name %></p>
-        <p style="margin: 4px 0; font-size: 13px; color: #64748b;">📧 <%= mainTeacher.email || 'Not provided' %></p>
-      </div>
-    <% } else { %>
-      <p class="no-data">No main class teacher assigned yet.</p>
-    <% } %>
-
-    <% if (subjectTeachers && subjectTeachers.length > 0) { %>
-      <h3 style="margin: 16px 0 12px 0; font-size: 15px; color: #475569; font-weight: 600;">Subject Teachers</h3>
-      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
-        <% subjectTeachers.forEach(teacher => { %>
-          <div style="padding: 8px 12px; background: #f8fafc; border-radius: 6px; border-left: 3px solid #0f5a66; min-width: 0;">
-            <span style="font-weight: 600; color: #1e293b; font-size: 14px;"><%= teacher.subject_name %>:</span>
-            <span style="color: #64748b; font-size: 14px; margin-left: 8px;">
-              <% if (teacher.first_name) { %>
-                <%= teacher.first_name %> <%= teacher.last_name %>
-              <% } else { %>
-                Not assigned yet.
-              <% } %>
-            </span>
+  <details class="section-details">
+    <summary class="section-summary">
+      <span class="summary-label">👨‍🏫 Teaching Staff</span>
+      <span class="summary-chevron">›</span>
+    </summary>
+    <div class="section-body">
+      <%
+        var teacherMap = {};
+        var teacherOrder = [];
+        if (mainTeacher) {
+          var mtKey = String(mainTeacher.user_id || mainTeacher.first_name + mainTeacher.last_name);
+          teacherMap[mtKey] = { name: mainTeacher.first_name + ' ' + mainTeacher.last_name, email: mainTeacher.email || '', subjects: [], main: true };
+          teacherOrder.push(mtKey);
+        }
+        if (subjectTeachers && subjectTeachers.length > 0) {
+          subjectTeachers.forEach(function(t) {
+            if (!t.first_name) return;
+            var tKey = String(t.user_id || t.first_name + t.last_name);
+            if (!teacherMap[tKey]) {
+              teacherMap[tKey] = { name: t.first_name + ' ' + t.last_name, email: t.email || '', subjects: [], main: false };
+              teacherOrder.push(tKey);
+            }
+            if (t.subject_name) teacherMap[tKey].subjects.push(t.subject_name);
+          });
+        }
+        if (mainTeacher && subjectTeachers) {
+          var mtKey2 = String(mainTeacher.user_id || mainTeacher.first_name + mainTeacher.last_name);
+          subjectTeachers.forEach(function(t) {
+            var tKey = String(t.user_id || t.first_name + t.last_name);
+            if (tKey === mtKey2 && t.subject_name) {
+              var ex = teacherMap[mtKey2].subjects;
+              if (ex.indexOf(t.subject_name) === -1) ex.push(t.subject_name);
+            }
+          });
+        }
+        var teacherRows = teacherOrder.map(function(k) { return teacherMap[k]; });
+      %>
+      <% if (teacherRows.length > 0) { %>
+        <% teacherRows.forEach(function(t) { %>
+          <div class="teacher-row">
+            <span class="teacher-name"><%= t.name %></span>
+            <% if (t.main) { %><span class="teacher-main-badge">Class Teacher</span><% } %>
+            <% if (t.subjects.length > 0) { %><span class="teacher-subjects">— <%= t.subjects.join(' · ') %></span><% } %>
           </div>
-        <% }) %>
-      </div>
-    <% } %>
-  </div>
+        <% }); %>
+      <% } else { %>
+        <p style="color:#94a3b8;font-size:14px;margin:0;">No teachers assigned yet.</p>
+      <% } %>
+    </div>
+  </details>
 
   <!-- Attendance Summary -->
   <div class="section-card">
@@ -645,30 +695,64 @@
     <% } %>
   </div>
 
-  <div class="section-card">
-    <h2>🗓️ Class Schedule</h2>
-    <% if (classSchedule && classSchedule.groupedByDay && classSchedule.groupedByDay.some(day => day.items.length)) { %>
-      <p style="margin: 0 0 16px; color: #64748b;"><%= classSchedule.schoolYearLabel %> · <%= classSchedule.termName %></p>
-      <div class="schedule-grid">
-        <% classSchedule.groupedByDay.forEach(day => { %>
-          <% if (day.items.length) { %>
-            <section class="schedule-day-card">
-              <h4><%= day.dayLabel %></h4>
-              <ul class="schedule-day-list">
-                <% day.items.forEach(item => { %>
-                  <li>
-                    <span class="schedule-time"><%= item.startTime %> - <%= item.endTime %></span>
-                    <span class="schedule-subject"><%= item.subjectName || 'Subject pending' %></span>
-                  </li>
-                <% }) %>
-              </ul>
-            </section>
-          <% } %>
-        <% }) %>
-      </div>
-    <% } else { %>
-      <p class="schedule-empty">The timetable for this term has not been added yet.</p>
-    <% } %>
-  </div>
+  <details class="section-details">
+    <summary class="section-summary">
+      <span class="summary-label">🗓️ Class Schedule</span>
+      <span class="summary-chevron">›</span>
+    </summary>
+    <div class="section-body">
+      <% if (classSchedule && classSchedule.entries && classSchedule.entries.length > 0) { %>
+        <p class="sched-meta"><%= classSchedule.schoolYearLabel %> &middot; <%= classSchedule.termName %></p>
+        <%
+          var slotMap = {};
+          var slotOrder = [];
+          (classSchedule.entries || []).forEach(function(e) {
+            var k = e.startTime;
+            if (!slotMap[k]) {
+              slotMap[k] = { startTime: e.startTime, endTime: e.endTime };
+              slotOrder.push(k);
+            }
+          });
+          slotOrder.sort();
+          var slots = slotOrder.map(function(k) { return slotMap[k]; });
+          var activeDays = classSchedule.groupedByDay.filter(function(d) { return d.items.length > 0; });
+        %>
+        <div class="sched-wrap">
+          <table class="sched-table">
+            <thead>
+              <tr>
+                <th class="sched-day-th">Day</th>
+                <% slots.forEach(function(slot, si) { %>
+                  <th class="sched-period-th">
+                    <div class="sched-period-num">Period <%= si + 1 %></div>
+                    <div class="sched-period-time"><%= slot.startTime %><br><%= slot.endTime %></div>
+                  </th>
+                <% }); %>
+              </tr>
+            </thead>
+            <tbody>
+              <% activeDays.forEach(function(day) { %>
+                <tr>
+                  <th class="sched-day-td"><%= day.dayLabel %></th>
+                  <% slots.forEach(function(slot) {
+                    var entry = null;
+                    for (var i = 0; i < day.items.length; i++) {
+                      if (day.items[i].startTime === slot.startTime) { entry = day.items[i]; break; }
+                    }
+                    var cellLabel = entry ? (entry.customLabel || entry.subjectName || '') : '';
+                    var isCustom = !!(entry && entry.customLabel);
+                  %>
+                    <td class="sched-cell<% if(isCustom){ %> sched-custom<% } %>"><%= cellLabel %></td>
+                  <% }); %>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } else { %>
+        <p style="color:#94a3b8;font-size:14px;margin:0;">The timetable for this term has not been set up yet.</p>
+      <% } %>
+    </div>
+  </details>
 
 </div>

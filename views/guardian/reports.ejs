@@ -19,6 +19,33 @@
   .reply-count { font-size: 0.78rem; color: #94a3b8; white-space: nowrap; }
   .unread-badge { background: #0f5a66; color: #fff; border-radius: 999px; padding: 4px 10px; font-size: 0.72rem; font-weight: 700; white-space: nowrap; }
 
+  .report-row { position: relative; margin-bottom: 10px; }
+  .report-row .report-card { margin-bottom: 0; padding-right: 38px; }
+
+  .report-menu-wrap { position: absolute; top: 10px; right: 10px; z-index: 10; }
+  .report-menu-btn {
+    background: none; border: none; cursor: pointer;
+    width: 28px; height: 28px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    color: #94a3b8; font-size: 1.1rem; letter-spacing: 1px; line-height: 1;
+    transition: background 0.15s, color 0.15s;
+  }
+  .report-menu-btn:hover { background: #f1f5f9; color: #475569; }
+  .report-menu-dropdown {
+    display: none; position: absolute; top: 32px; right: 0;
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.10); min-width: 130px; overflow: hidden;
+    z-index: 20;
+  }
+  .report-menu-wrap.open .report-menu-dropdown { display: block; }
+  .report-menu-dropdown button {
+    width: 100%; background: none; border: none; text-align: left;
+    padding: 10px 14px; font-size: 0.82rem; cursor: pointer;
+    color: #e74c3c; display: flex; align-items: center; gap: 8px;
+  }
+  .report-menu-dropdown button:hover { background: #fff5f5; }
+  .delete-report-form { margin: 0; }
+
   .empty-state { text-align: center; padding: 40px 20px; border: 2px dashed #cbd5e1; border-radius: 12px; }
   .empty-state-icon { font-size: 40px; margin-bottom: 10px; display: block; }
   .empty-state h3 { color: #64748b; font-size: 1rem; margin: 0 0 6px; }
@@ -70,29 +97,38 @@
 
   <% if (reports && reports.length > 0) { %>
     <% reports.forEach(function(report) { %>
-      <a href="/guardian/reports/<%= report.report_id %>" class="report-card">
-        <div class="report-left">
-          <h3 class="report-subject"><%= report.subject %></h3>
-          <div class="report-meta">
-            <span><%= report.student_name %></span>
-            <span><%= new Date(report.created_at).toLocaleDateString() %></span>
+      <div class="report-row">
+        <a href="/guardian/reports/<%= report.report_id %>" class="report-card">
+          <div class="report-left">
+            <h3 class="report-subject"><%= report.subject %></h3>
+            <div class="report-meta">
+              <span><%= report.student_name %></span>
+              <span><%= new Date(report.created_at).toLocaleDateString() %></span>
+            </div>
+          </div>
+          <div class="report-right">
+            <span class="status-badge status-<%= report.status %>"><%= report.status.replace('_', ' ') %></span>
+            <% if (Number(report.unread_count) > 0) { %>
+              <span class="unread-badge"><%= report.unread_count %> unread</span>
+            <% } %>
+            <span class="reply-count"><%= report.reply_count %> <%= report.reply_count === '1' ? 'reply' : 'replies' %></span>
+          </div>
+        </a>
+        <div class="report-menu-wrap" id="menu-<%= report.report_id %>">
+          <button type="button" class="report-menu-btn" onclick="toggleReportMenu('<%= report.report_id %>')" title="Options">&#8942;</button>
+          <div class="report-menu-dropdown">
+            <form action="/guardian/reports/<%= report.report_id %>/delete" method="POST" class="delete-report-form" onsubmit="return confirm('Delete this report and all replies? This cannot be undone.')">
+              <button type="submit">&#128465; Delete</button>
+            </form>
           </div>
         </div>
-        <div class="report-right">
-          <span class="status-badge status-<%= report.status %>"><%= report.status.replace('_', ' ') %></span>
-          <% if (Number(report.unread_count) > 0) { %>
-            <span class="unread-badge"><%= report.unread_count %> unread</span>
-          <% } %>
-          <span class="reply-count"><%= report.reply_count %> <%= report.reply_count === '1' ? 'reply' : 'replies' %></span>
-        </div>
-      </a>
+      </div>
     <% }); %>
   <% } else { %>
     <div class="empty-state">
       <span class="empty-state-icon">📋</span>
       <h3>No reports yet.</h3>
       <p>Submit a report to communicate with school staff.</p>
-      <button class="btn-new-report" onclick="openModal()">+ New Report</button>
     </div>
   <% } %>
 </div>
@@ -148,6 +184,20 @@
   function openModal() { document.getElementById('reportModal').classList.add('active'); }
   function closeModal() { document.getElementById('reportModal').classList.remove('active'); }
   document.getElementById('reportModal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+
+  function toggleReportMenu(id) {
+    var wrap = document.getElementById('menu-' + id);
+    var isOpen = wrap.classList.contains('open');
+    // close all
+    document.querySelectorAll('.report-menu-wrap.open').forEach(function(el) { el.classList.remove('open'); });
+    if (!isOpen) wrap.classList.add('open');
+  }
+  // close menus on outside click
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.report-menu-wrap')) {
+      document.querySelectorAll('.report-menu-wrap.open').forEach(function(el) { el.classList.remove('open'); });
+    }
+  });
 
   document.getElementById('modalStudentId').addEventListener('change', function() {
     var sid = this.value, list = document.getElementById('modalStaffList');

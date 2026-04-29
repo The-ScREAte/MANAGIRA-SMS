@@ -1,3 +1,4 @@
+const notifSvc = require("../utils/notificationService");
 const enrollmentController = {
     // Enrollment page
     enrollmentGet: async (req, res, db) => {
@@ -139,6 +140,21 @@ const enrollmentController = {
         }
     
         await db.query('COMMIT');
+
+        // I1 — notify class teachers of new enrollment(s)
+        const enrolledClassIds = [...new Set(Object.keys(selectedStudents).map(Number).filter(Boolean))];
+        if (enrolledClassIds.length) {
+          const orgId = req.session.organizationId;
+          notifSvc.notifyMultipleClassTeachers(db, {
+            orgId: Number(orgId),
+            classIds: enrolledClassIds,
+            type: 'enrollment_added',
+            title: 'New student(s) enrolled in your class',
+            body: 'New students have been added to your class',
+            link: '/enrollment/manageEnrollment',
+          }).catch(err => console.error('[Notif] enrollment_added failed:', err.message));
+        }
+
         res.status(200).json({ success: true, message: 'Enrollment updated successfully.' });
       } catch (error) {
         await db.query('ROLLBACK');

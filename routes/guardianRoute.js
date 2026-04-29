@@ -67,6 +67,10 @@ module.exports = (db) => {
     guardianController.reportReplyPost(req, res, db)
   );
 
+  router.post("/reports/:id/delete", isGuardianAuthenticated, (req, res) =>
+    guardianController.reportDeletePost(req, res, db)
+  );
+
   // Pending student management routes
   router.get("/edit-pending-student", isGuardianAuthenticated, (req, res) =>
     guardianController.editPendingStudentGet(req, res, db)

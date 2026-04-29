@@ -20,6 +20,7 @@ const {
   globalErrorHandler,
 } = require("./middleware/errorMiddleware"); // Error handling middleware
 const fetchUnresolvedCount = require("./middleware/fetchUnresolvedCount");
+const fetchNotifCount = require("./middleware/fetchNotifCount");
 
 const upload = multer();
 const app = express();
@@ -453,6 +454,19 @@ app.use("/api/chatbot", chatbotRoute);
 app.use("/guardian", guardianRoute);
 app.use("/documents", documentRoute);
 app.use("/hub", require("./routes/hubRoute")); // Hub routes
+
+// Notification bell: count badge for all authenticated pages
+app.use("/common", fetchNotifCount);
+app.use("/guardian", fetchNotifCount);
+app.use("/enrollment", fetchNotifCount);
+app.use("/documents", fetchNotifCount);
+app.use("/hub", fetchNotifCount);
+app.use("/promotion", fetchNotifCount);
+app.use("/transcript", fetchNotifCount);
+
+// Notifications API (bell feed, mark-read)
+const notificationsRoute = require("./routes/notificationsRoute");
+app.use("/notifications", notificationsRoute);
 
 // Health check endpoint for keep-alive pings
 app.get("/health", (req, res) => {

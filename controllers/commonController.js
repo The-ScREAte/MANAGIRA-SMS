@@ -48,6 +48,7 @@ const {
 } = require("../utils/classScheduleService");
 const { hasGuardianPortalFeature } = require("../utils/guardianPortalAccess");
 const { triggerAbsenceAlertsForStudents, broadcastEventAnnouncement, notifyGuardiansOnClassChange, notifyTeacherOnReassignment, notifyTeachersOnAssessmentControl, resolveAssignmentNames, notifyEmployeeOnHoldChange, notifyGuardianAdmissionReceived, notifyGuardianOnStaffReply } = require("../utils/notificationDigestService");
+const notifSvc = require("../utils/notificationService");
 const {
   ensureOrganizationActivityLogSchema,
   getActivityLogFilterOptions,
@@ -767,7 +768,7 @@ const commonController = {
         const shouldShow =
           viewResult.rows.length === 0 ||
           new Date() - new Date(viewResult.rows[0].last_viewed) >
-            2 * 24 * 60 * 60 * 1000; // 2 days in milliseconds
+            14 * 24 * 60 * 60 * 1000; // 14 days in milliseconds
 
         if (shouldShow) {
           adminAnnouncements.push(announcement);
@@ -784,7 +785,9 @@ const commonController = {
             }
             if (insertUserId) {
               await db.query(
-                `INSERT INTO announcement_views (user_id, announcement_id) VALUES ($1, $2)`,
+                `INSERT INTO announcement_views (${
+                  isOrgAccount ? "organization_id" : "user_id"
+                }, announcement_id) VALUES ($1, $2)`,
                 [insertUserId, announcement.id]
               );
             }
@@ -1138,7 +1141,7 @@ const commonController = {
         const shouldShow =
           viewResult.rows.length === 0 ||
           new Date() - new Date(viewResult.rows[0].last_viewed) >
-            28 * 60 * 60 * 1000;
+            14 * 24 * 60 * 60 * 1000; // 14 days in milliseconds
 
         if (shouldShow) {
           adminAnnouncements.push(announcement);
@@ -2865,6 +2868,16 @@ const commonController = {
         }).catch(err => console.error("[Notify] Admission confirmation failed:", err.message));
       }
 
+      // F1 — notify all APPROVE_ADMISSIONS staff about new pending admission
+      notifSvc.notifyByPermission(db, {
+        orgId: Number(organizationId),
+        permission: 'APPROVE_ADMISSIONS',
+        type: 'admission_pending',
+        title: 'New Pending Admission',
+        body: `${body.firstName} ${body.lastName} submitted an application`,
+        link: '/common/admissionPending',
+      }).catch(err => console.error('[Notif] admission_pending failed:', err.message));
+
       // Send response for payment initiation
       console.log('[Public Register] ✅✅✅ SUCCESS! Returning response:', { success: true, amount, currency, pendingStudentId });
       res.json({ success: true, amount, currency, pendingStudentId });
@@ -3700,6 +3713,33 @@ const commonController = {
       }
 
       await client.query("COMMIT");
+
+      // F2 — notify guardian(s) in-app that admission was approved
+      // guardians.rows holds pending_guardians; if guardian portal profile exists, notify there
+      const studentFullName = `${student.first_name} ${student.last_name}`;
+      for (const g of guardians.rows) {
+        if (!g.email) continue;
+        // Resolve guardian_profiles id by email match
+        try {
+          const gp = await db.query(
+            `SELECT guardian_id FROM guardian_profiles
+             WHERE organization_id = $1 AND email = $2 LIMIT 1`,
+            [organizationId, g.email]
+          );
+          if (gp.rows.length) {
+            notifSvc.createNotification(db, {
+              orgId: Number(organizationId),
+              recipientType: 'guardian',
+              recipientId: gp.rows[0].guardian_id,
+              type: 'admission_approved',
+              title: 'Admission Approved',
+              body: `${studentFullName}'s admission has been approved`,
+              link: '/guardian/dashboard',
+            }).catch(() => {});
+          }
+        } catch { /* silent */ }
+      }
+
       req.flash("success", "Student approved and added to the system.");
       res.redirect("/common/admissionPending");
     } catch (err) {
@@ -3779,6 +3819,30 @@ const commonController = {
           ],
         };
         sendEmailInBackground(mailOptions, "Admission Rejected Email");
+
+        // F3 — notify guardian(s) in-app that admission was rejected
+        const rejectedName = `${pending.rows[0]?.first_name || ''} ${pending.rows[0]?.last_name || ''}`.trim();
+        for (const g of guardians.rows) {
+          if (!g.email) continue;
+          try {
+            const gp = await db.query(
+              `SELECT guardian_id FROM guardian_profiles
+               WHERE organization_id = $1 AND email = $2 LIMIT 1`,
+              [orgId, g.email]
+            );
+            if (gp.rows.length) {
+              notifSvc.createNotification(db, {
+                orgId: Number(orgId),
+                recipientType: 'guardian',
+                recipientId: gp.rows[0].guardian_id,
+                type: 'admission_rejected',
+                title: 'Admission Not Approved',
+                body: `${rejectedName}'s application was not approved`,
+                link: '/guardian/dashboard',
+              }).catch(() => {});
+            }
+          } catch { /* silent */ }
+        }
       }
 
       res.redirect("/common/admissionPending");
@@ -5786,12 +5850,23 @@ const commonController = {
       const onHold = result.rows[0].on_hold;
       const newStatus = onHold ? "on hold" : "resumed";
 
-      // Notify the employee
+      // Notify the employee (email)
       notifyEmployeeOnHoldChange(db, {
         organizationId: req.session.organizationId,
         userId,
         onHold,
       }).catch(err => console.error("[Notify] Hold/resume notification failed:", err.message));
+
+      // E1/E2 — in-app notification to the affected employee
+      notifSvc.createNotification(db, {
+        orgId: Number(req.session.organizationId),
+        recipientType: 'staff',
+        recipientId: Number(userId),
+        type: onHold ? 'employee_on_hold' : 'employee_resumed',
+        title: onHold ? 'Your account has been put on hold' : 'Your account hold has been removed',
+        body: onHold ? 'Contact your administrator for more information.' : 'Your access has been restored.',
+        link: '/common/orgDashboard',
+      }).catch(err => console.error('[Notif] hold change failed:', err.message));
 
       req.flash("success", `Employee has been ${newStatus}.`);
       res.redirect(`/common/modifyEmployee?userId=${userId}`);
@@ -7367,6 +7442,18 @@ const commonController = {
         });
       }
 
+      // B2 — notify class teachers that an assessment was modified
+      if (normalizedClassIds.length) {
+        notifSvc.notifyMultipleClassTeachers(db, {
+          orgId: Number(organizationId),
+          classIds: normalizedClassIds,
+          type: 'assessment_modified',
+          title: `Assessment modified: ${testName}`,
+          body: `Updated for term: ${termName}`,
+          link: '/common/assessment',
+        }).catch(err => console.error('[Notif] assessment_modified failed:', err.message));
+      }
+
       // Respond with the success message
       res.status(200).json({
         message: `Assessment updated successfully for Term: ${termName} with Classes: ${classNames.join(
@@ -7419,6 +7506,39 @@ const commonController = {
       // Notify teachers about the assessment control change
       notifyTeachersOnAssessmentControl(db, { organizationId, groupId, termId, action })
         .catch(err => console.error("[Notify] Assessment control notification failed:", err.message));
+
+      // B3/B4 — bell notification to class teachers when assessment locked/unlocked
+      if (action === 'lock' || action === 'unlock') {
+        try {
+          const classRows = await db.query(
+            `SELECT DISTINCT a.class_id
+             FROM assessments a
+             WHERE a.group_id = $1 AND a.organization_id = $2`,
+            [groupId, organizationId]
+          );
+          const affectedClassIds = classRows.rows.map(r => r.class_id).filter(Boolean);
+          if (affectedClassIds.length) {
+            // Get a test name for the title
+            const nameRow = await db.query(
+              `SELECT test_name FROM assessments WHERE group_id = $1 LIMIT 1`,
+              [groupId]
+            );
+            const testName = nameRow.rows[0]?.test_name || 'Assessment';
+            notifSvc.notifyMultipleClassTeachers(db, {
+              orgId: Number(organizationId),
+              classIds: affectedClassIds,
+              type: action === 'lock' ? 'assessment_locked' : 'assessment_unlocked',
+              title: action === 'lock'
+                ? `Assessment locked: ${testName}`
+                : `Assessment unlocked: ${testName}`,
+              body: action === 'lock'
+                ? 'Score entry has been locked for this assessment.'
+                : 'Score entry has been unlocked for this assessment.',
+              link: '/common/assessment',
+            }).catch(err => console.error('[Notif] assessment lock/unlock failed:', err.message));
+          }
+        } catch { /* silent */ }
+      }
 
       return res.status(200).json({ message: "Assessment control updated successfully." });
     } catch (error) {
@@ -7663,6 +7783,23 @@ const commonController = {
           editWindowStart: notification.editWindowStart,
           editWindowEnd: notification.editWindowEnd,
         });
+      }
+
+      // B1 — notify class teachers of the new assessment(s) via in-app bell
+      const classIdsArr = Array.from(addedClasses).map(Number).filter(Boolean);
+      if (classIdsArr.length) {
+        const testNames = [...new Set(tests.map(t => t.testName).filter(Boolean))];
+        const titleText = testNames.length === 1
+          ? `New assessment: ${testNames[0]}`
+          : `${testNames.length} new assessments added`;
+        notifSvc.notifyMultipleClassTeachers(db, {
+          orgId: Number(organizationId),
+          classIds: classIdsArr,
+          type: 'assessment_created',
+          title: titleText,
+          body: `Added for term: ${termName}`,
+          link: '/common/assessment',
+        }).catch(err => console.error('[Notif] assessment_created failed:', err.message));
       }
 
       // Respond with the success message
@@ -8833,6 +8970,18 @@ const commonController = {
       }
 
       await db.query("COMMIT");
+
+      // H1 — broadcast term_changed notification (only fires if a current term was set above; harmless to fire every save)
+      notifSvc.createNotification(db, {
+        orgId: Number(organizationId),
+        recipientType: 'broadcast',
+        recipientId: 0,
+        type: 'term_changed',
+        title: 'Current term updated',
+        body: 'The school year / term settings have been updated',
+        link: '/common/manageRecords',
+      }).catch(err => console.error('[Notif] term_changed failed:', err.message));
+
       req.flash("success", "School year and terms updated successfully.");
       res.redirect("/common/manageRecords");
     } catch (error) {
@@ -8907,6 +9056,17 @@ const commonController = {
             contentId,
           }).catch((err) => console.error('[Broadcast] Event notification failed:', err.message));
         }
+
+        // G1 — broadcast in-app notification for new event
+        notifSvc.createNotification(db, {
+          orgId: Number(req.session.organizationId),
+          recipientType: 'broadcast',
+          recipientId: 0,
+          type: 'event_created',
+          title: req.body.eventName || 'New Event',
+          body: req.body.eventDetails || '',
+          link: '/common/manageEventsAnnouncements',
+        }).catch(err => console.error('[Notif] event_created failed:', err.message));
       } else if (type === "announcement") {
         // Insert new announcement with the current school year and term
         const insertResult = await db.query(
@@ -8931,6 +9091,17 @@ const commonController = {
             contentId,
           }).catch((err) => console.error('[Broadcast] Announcement notification failed:', err.message));
         }
+
+        // G2 — broadcast in-app notification for new announcement
+        notifSvc.createNotification(db, {
+          orgId: Number(req.session.organizationId),
+          recipientType: 'broadcast',
+          recipientId: 0,
+          type: 'announcement_created',
+          title: (req.body.announcementMessage || 'New Announcement').substring(0, 80),
+          body: '',
+          link: '/common/manageEventsAnnouncements',
+        }).catch(err => console.error('[Notif] announcement_created failed:', err.message));
       }
 
       req.flash("success", notifyByEmail
@@ -10794,6 +10965,17 @@ const commonController = {
         emailSent = true; // Queued in background
       }
 
+      // A4 — in-app bell notification to the guardian portal
+      notifSvc.createNotification(db, {
+        orgId: Number(organizationId),
+        recipientType: 'guardian',
+        recipientId: Number(targetGuardianId),
+        type: 'staff_report',
+        title: 'New report from school',
+        body: `A ${reportTypeLabel.toLowerCase()} report was filed for ${studentName}`,
+        link: '/guardian/reports',
+      }).catch(err => console.error('[Notif] staff_report failed:', err.message));
+
       return res.json({ success: true, emailSent });
     } catch (error) {
       console.error('Staff report error:', error);
@@ -10894,6 +11076,19 @@ const commonController = {
           studentName,
           reportSubject: report.subject,
         }).catch(err => console.error("[Notify] Staff reply to guardian notification failed:", err.message));
+      }
+
+      // A3 — in-app bell notification to the guardian
+      if (report.guardian_id) {
+        notifSvc.createNotification(db, {
+          orgId: Number(organizationId),
+          recipientType: 'guardian',
+          recipientId: Number(report.guardian_id),
+          type: 'staff_reply',
+          title: 'New reply from staff',
+          body: studentName ? `Re: ${report.subject} (${studentName})` : `Re: ${report.subject}`,
+          link: `/guardian/reports/${report.report_id}`,
+        }).catch(err => console.error('[Notif] staff_reply failed:', err.message));
       }
 
       return res.json({ success: true });
