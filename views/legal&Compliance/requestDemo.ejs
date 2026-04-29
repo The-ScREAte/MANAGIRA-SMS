@@ -136,22 +136,14 @@
     <div class="demo-card">
       <form action="/legal/request-demo" method="POST" novalidate>
         <div class="form-grid">
-          <div>
+          <div class="full">
             <label for="name">Full Name <span class="req">*</span></label>
             <input id="name" name="name" type="text" required autocomplete="name" placeholder="Your full name" maxlength="120">
           </div>
-          <div>
-            <label for="role">Your Role</label>
-            <input id="role" name="role" type="text" autocomplete="organization-title" placeholder="e.g. Principal, Director" maxlength="80">
-          </div>
 
-          <div>
-            <label for="organization">Organisation / School <span class="req">*</span></label>
+          <div class="full">
+            <label for="organization">School Name <span class="req">*</span></label>
             <input id="organization" name="organization" type="text" required autocomplete="organization" placeholder="School or organisation name" maxlength="160">
-          </div>
-          <div>
-            <label for="country">Country</label>
-            <input id="country" name="country" type="text" placeholder="e.g. Nigeria" maxlength="80">
           </div>
 
           <div>
@@ -159,44 +151,14 @@
             <input id="email" name="email" type="email" required autocomplete="email" placeholder="you@school.com" maxlength="160">
           </div>
           <div>
-            <label for="phone">Phone Number</label>
-            <input id="phone" name="phone" type="tel" autocomplete="tel" placeholder="+234 801 234 5678" maxlength="40">
-          </div>
-
-          <div>
-            <label for="student_count">Approx. Number of Students</label>
-            <select id="student_count" name="student_count">
-              <option value="">Select range</option>
-              <option>Under 100</option>
-              <option>100 – 500</option>
-              <option>500 – 1,000</option>
-              <option>1,000 – 5,000</option>
-              <option>5,000+</option>
-            </select>
-          </div>
-          <div>
-            <label for="preferred_date">Preferred Date</label>
-            <input id="preferred_date" name="preferred_date" type="date">
-          </div>
-
-          <div class="full">
-            <label for="preferred_time">Preferred Time</label>
-            <input id="preferred_time" name="preferred_time" type="text" placeholder="e.g. Weekday mornings, 10am WAT" maxlength="80">
-          </div>
-
-          <div class="full">
-            <label for="message">What would you like to see in the demo?</label>
-            <textarea id="message" name="message" placeholder="Tell us about your goals, challenges, or specific features you want to see (optional)" maxlength="2000"></textarea>
+            <label for="phone">Phone Number <span class="req">*</span></label>
+            <input id="phone" name="phone" type="tel" required autocomplete="tel" placeholder="+234 801 234 5678" maxlength="40">
           </div>
         </div>
 
         <button type="submit">Request My Demo</button>
       </form>
     </div>
-
-    <p class="helper">
-      Prefer to explore on your own first? Visit the <a href="/legal/app-demo">interactive App Demo</a> or read the <a href="/legal/user-documentation">User Documentation</a>.
-    </p>
   </main>
 </body>
 </html>
