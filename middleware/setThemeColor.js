@@ -1,18 +1,10 @@
 const db = require('../config/db');
-const { isPublicRoute } = require('../utils/routeProfile');
 
 /**
  * Middleware to set the organization's theme color in the session
  * This is used to dynamically style buttons and UI elements
  */
 const setThemeColor = async (req, res, next) => {
-    const requestPath = req.path || '';
-
-    if (isPublicRoute(requestPath)) {
-        res.locals.themeColor = (req.session && req.session.themeColor) ? req.session.themeColor : 'teal';
-        return next();
-    }
-
     // Skip if no organization is logged in
     if (!req.session.organizationId) {
         res.locals.themeColor = 'teal'; // Default theme

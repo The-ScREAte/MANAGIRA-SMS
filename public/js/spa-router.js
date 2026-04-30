@@ -30,11 +30,26 @@
     MAX_CONCURRENT_PRELOADS: 3 // cap to avoid saturating the browser / server
   };
 
-  const SERVER_SPA_CONFIG = window.managiraSpaConfig || {};
-
   // ─── Route Definitions by User Type ───────────────────────────────────
-  const FALLBACK_ROUTES_BY_TYPE = {
+  const ROUTES_BY_TYPE = {
     public: [
+      '/',
+      '/account/login',
+      '/account/register',
+      '/account/forget-password',
+      '/account/service-plan',
+      '/hub/login',
+      '/account/guardian-login',
+      '/account/reset-password',
+      '/account/accept-hub-invitation',
+      '/account/accept-hub-invitation-existing',
+      '/legal/help',
+      '/legal/employment',
+      '/legal/donations',
+      '/legal/about-us',
+      '/legal/privacy-policy',
+      '/legal/terms-of-service',
+      '/legal/faq'
     ],
     organization: [
       '/',
@@ -42,13 +57,14 @@
       '/common/management',
       '/common/publicDashboard',
       '/common/admissions',
-      '/account/account',
+      '/common/reports',
       '/account/settings',
       '/account/update',
+      '/account/personalization',
+      '/account/managePublicContent',
       '/account/update-card',
       '/account/update-plan',
       '/account/cancel-subscription',
-      '/account/confirm-password',
       '/common/studentDetails',
       '/common/studentInfo',
       '/common/editStudent',
@@ -59,9 +75,12 @@
       '/common/addClassSubject',
       '/common/manageEmployees',
       '/common/employeeDetails',
+      '/common/createEmployee',
+      '/common/modifyEmployee',
       '/common/guardians',
       '/common/guardianDetails',
       '/common/assessment',
+      '/common/createTest',
       '/common/modifyAssessment',
       '/common/manageAssessment',
       '/common/manageRecords',
@@ -69,18 +88,35 @@
       '/common/closeSchoolYear',
       '/common/termDetails',
       '/common/closeGraduationYearGroup',
+      '/common/registerSchoolYear',
       '/common/createEventAnnouncement',
       '/common/manageEventsAnnouncements',
-      '/common/attendanceCollection',
+      '/common/set-password',
       '/enrollment/enroll',
       '/enrollment/manageEnrollment',
       '/enrollment/modifyEnrollment',
+      '/common/attendanceCollection',
+      '/print/transcript',
+      '/print/modifyStatusSettings',
+      '/print/meritSheetPage',
+      '/print/migration',
+      '/print/emailHistoryPage',
       '/promotion/apply',
       '/promotion/closeGraduationYearGroup',
+      '/legal/help',
+      '/legal/employment',
+      '/legal/donations',
+      '/legal/about-us',
+      '/legal/privacy-policy',
+      '/legal/terms-of-service',
+      '/legal/faq',
+      '/common/publicRegister',
+      '/account/confirm-password',
+      '/stats/organization',
       '/transcript/transcript',
-      '/document',
     ],
     guardian: [
+      '/',
       '/guardian/dashboard',
       '/guardian/academic-details',
       '/guardian/student',
@@ -88,14 +124,28 @@
       '/guardian/settings',
       '/guardian/report',
       '/guardian/reports',
-      '/guardian/edit-pending-student'
+      '/guardian/edit-pending-student',
+      '/legal/help',
+      '/legal/privacy-policy',
+      '/legal/terms-of-service',
+      '/legal/faq'
     ],
     hub: [
+      '/',
       '/hub/dashboard',
       '/hub/settings',
       '/hub/organizations',
+      '/hub/organizations/invite',
+      '/hub/organizations/search',
+      '/hub/organizations/edit',
+      '/hub/setup-password',
+      '/legal/help',
+      '/legal/privacy-policy',
+      '/legal/terms-of-service',
+      '/legal/faq'
     ],
     admin: [
+      '/',
       '/admin',
       '/admin/superDashboard',
       '/admin/superSettings',
@@ -109,11 +159,12 @@
       '/admin/scheduled-holds',
       '/admin/data-export',
       '/admin/hubs',
-      '/admin/editAdminUser'
+      '/admin/hubs/create',
+      '/admin/editAdminUser',
+      '/legal/help',
+      '/legal/faq'
     ]
   };
-
-  const ROUTES_BY_TYPE = SERVER_SPA_CONFIG.routesByType || FALLBACK_ROUTES_BY_TYPE;
 
   // Priority pages to preload per user type
   const PRELOAD_PRIORITY = {
@@ -125,26 +176,24 @@
   };
 
   // Routes that should NEVER be SPA-handled (complex forms, file uploads, etc.)
-  const EXCLUDED_EXACT = new Set(SERVER_SPA_CONFIG.excludedExact || [
+  const EXCLUDED_PATTERNS = [
     '/account/logout',
-    '/admin/exit-org',
-    '/common/addStudent',
-    '/common/registerSchoolYear',
-    '/promotion/applyPromotion',
-    '/common/createEmployee',
-    '/common/modifyEmployee',
-    '/common/createTest',
-    '/common/editTest',
-    '/account/managePublicContent',
-    '/account/personalization',
-    '/common/reports'
-  ]);
-  const EXCLUDED_PREFIXES = SERVER_SPA_CONFIG.excludedPrefixes || [
     '/admin/org/',
-    '/stats/',
-    '/print/'
+    '/admin/exit-org',
+    'new=1',
+    '/common/addStudent',        // Complex form with file uploads
+    '/common/registerSchoolYear',// Complex form submissions
+    '/stats/',                   // Chart.js initialization (all stats pages)
+    '/print/',                   // Server-rendered PDF/print templates
+    '/promotion/applyPromotion', // Cascading dropdowns
+    '/common/createEmployee',    // File uploads
+    '/common/modifyEmployee',    // File uploads
+    '/common/createTest',        // Rich editor
+    '/common/editTest',          // Rich editor
+    '/account/managePublicContent', // Quill editor + image uploads
+    '/account/personalization',  // Theme switching with full reload
+    '/common/reports'            // Dynamic filters + tables; safer to full-load
   ];
-  const EXCLUDED_QUERY_FRAGMENTS = ['new=1'];
 
   // ─── SPARouter Class ──────────────────────────────────────────────────
   class SPARouter {
@@ -1145,18 +1194,7 @@
     }
 
     _isExcluded(path) {
-      const normalizedPath = this._normalizePath(path);
-      const cleanPath = normalizedPath.split('?')[0];
-
-      if (EXCLUDED_EXACT.has(cleanPath)) {
-        return true;
-      }
-
-      if (EXCLUDED_PREFIXES.some(prefix => cleanPath.startsWith(prefix))) {
-        return true;
-      }
-
-      return EXCLUDED_QUERY_FRAGMENTS.some(fragment => normalizedPath.includes(fragment));
+      return EXCLUDED_PATTERNS.some(pattern => path.includes(pattern));
     }
 
     // ── Utilities ─────────────────────────────────────────────────────

@@ -56,40 +56,6 @@
         margin-bottom: 20px;
       }
 
-      .ticket-toolbar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 12px;
-        flex-wrap: wrap;
-        margin-bottom: 16px;
-      }
-
-      .bulk-actions {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        flex-wrap: wrap;
-      }
-
-      .bulk-hint {
-        font-size: 0.85rem;
-        color: var(--admin-text-secondary, #4b5563);
-      }
-
-      .row-check-cell,
-      .header-check-cell {
-        width: 52px;
-        text-align: center;
-      }
-
-      .row-selector,
-      .bulk-selector {
-        width: 16px;
-        height: 16px;
-        cursor: pointer;
-      }
-
       .ticket-table th,
       .ticket-table td {
         padding: 14px 16px;
@@ -139,31 +105,6 @@
       .status-open {
         color: var(--admin-danger, #dc2626);
         font-weight: 600;
-      }
-
-      .request-type-badge {
-        display: inline-flex;
-        align-items: center;
-        padding: 4px 9px;
-        border-radius: 999px;
-        font-size: 0.72rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        background: #eef2ff;
-        color: #4338ca;
-      }
-
-      .request-type-badge.demo {
-        background: #ecfeff;
-        color: #0f766e;
-      }
-
-      .organization-cell {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        flex-wrap: wrap;
       }
 
       .status-closed {
@@ -324,64 +265,6 @@
           event.preventDefault();
         }
       }
-
-      function getTicketNote(threadId) {
-        const textarea = document.getElementById(`response-${threadId}`);
-        return textarea ? textarea.value.trim() : '';
-      }
-
-      function handleTicketAction(event, threadId, actionType, confirmMessage) {
-        const note = getTicketNote(threadId);
-        if (!note) {
-          event.preventDefault();
-          alert(actionType === 'close'
-            ? 'Please enter a closing message in the message area before closing this ticket.'
-            : 'Please enter a message in the message area before deleting this ticket.');
-          return false;
-        }
-
-        return confirm(confirmMessage);
-      }
-
-      function toggleAllTickets(masterCheckbox) {
-        document.querySelectorAll('.row-selector').forEach((checkbox) => {
-          checkbox.checked = masterCheckbox.checked;
-        });
-      }
-
-      function syncTicketSelectionState() {
-        const all = Array.from(document.querySelectorAll('.row-selector'));
-        const checked = all.filter((checkbox) => checkbox.checked);
-        const master = document.getElementById('select-all-tickets');
-        if (master) {
-          master.checked = all.length > 0 && checked.length === all.length;
-          master.indeterminate = checked.length > 0 && checked.length < all.length;
-        }
-      }
-
-      function submitBulkTicketDelete() {
-        const selected = Array.from(document.querySelectorAll('.row-selector:checked'));
-        if (!selected.length) {
-          alert('Select at least one ticket to delete.');
-          return false;
-        }
-
-        if (!confirm(`Delete ${selected.length} selected ticket(s) and move them to Super Dashboard review?`)) {
-          return false;
-        }
-
-        const form = document.getElementById('bulk-delete-tickets-form');
-        form.innerHTML = '';
-        selected.forEach((checkbox) => {
-          const input = document.createElement('input');
-          input.type = 'hidden';
-          input.name = 'threadIds';
-          input.value = checkbox.value;
-          form.appendChild(input);
-        });
-        form.submit();
-        return true;
-      }
     </script>
 </head>
 <body>
@@ -395,19 +278,9 @@
     
     <%- include('../partials/flash') %>
 
-    <div class="ticket-toolbar">
-      <div class="bulk-hint">Select one or more tickets to delete them together.</div>
-      <div class="bulk-actions">
-        <button type="button" class="admin-btn admin-btn-delete" onclick="submitBulkTicketDelete()">🗑 Delete Selected</button>
-      </div>
-    </div>
-
-    <form id="bulk-delete-tickets-form" action="/admin/bulkTempDeleteMessage" method="POST"></form>
-
     <table class="ticket-table">
       <thead>
         <tr>
-          <th class="header-check-cell"><input id="select-all-tickets" class="bulk-selector" type="checkbox" onclick="toggleAllTickets(this)"></th>
           <th>Ticket #</th>
           <th>Status</th>
           <th>Name</th>
@@ -417,25 +290,15 @@
       <tbody>
         <% threads.sort((a, b) => a.thread_id - b.thread_id).forEach(thread => { %>
           <tr class="ticket-summary" onclick="toggleDetails('<%= thread.thread_id %>')">
-            <td class="row-check-cell" onclick="event.stopPropagation()">
-              <input class="row-selector" type="checkbox" value="<%= thread.thread_id %>" onchange="syncTicketSelectionState()">
-            </td>
             <td>#<%= thread.thread_id %> <span id="arrow-<%= thread.thread_id %>" class="arrow">▶</span></td>
             <td class="<%= thread.is_resolved ? 'status-closed' : 'status-open' %>">
               <%= thread.is_resolved ? '✓ Closed' : '● Open' %>
             </td>
             <td><%= thread.name %></td>
-            <td>
-              <div class="organization-cell">
-                <span><%= thread.organization || 'N/A' %></span>
-                <span class="request-type-badge <%= thread.request_type === 'demo' ? 'demo' : 'help' %>">
-                  <%= thread.request_type === 'demo' ? 'Demo' : 'Help' %>
-                </span>
-              </div>
-            </td>
+            <td><%= thread.organization || 'N/A' %></td>
           </tr>
           <tr>
-            <td colspan="5" style="padding: 0; border: none;">
+            <td colspan="4" style="padding: 0; border: none;">
               <div id="details-<%= thread.thread_id %>" class="ticket-details">
                 <div class="details-container">
                   <div class="info-container">
@@ -457,15 +320,15 @@
                   <div class="form-container">
                     <form action="/admin/respondMessage" method="POST">
                       <input type="hidden" name="threadId" value="<%= thread.thread_id %>">
-                      <textarea id="response-<%= thread.thread_id %>" name="response" placeholder="Write your response here..." required></textarea>
+                      <textarea name="response" placeholder="Write your response here..." required></textarea>
                       <div class="ticket-actions">
                         <button type="submit" class="admin-btn admin-btn-primary" onclick="confirmAction(event, 'Send this response?')">
                           ✉️ Respond
                         </button>
-                        <button type="submit" formaction="/admin/resolveMessage" class="admin-btn admin-btn-success" onclick="return handleTicketAction(event, '<%= thread.thread_id %>', 'close', 'Mark this ticket as closed?')">
+                        <button type="submit" formaction="/admin/resolveMessage" class="admin-btn admin-btn-success" onclick="confirmAction(event, 'Mark this ticket as closed?')">
                           ✓ Close Ticket
                         </button>
-                        <button type="submit" formaction="/admin/tempDeleteMessage" class="admin-btn admin-btn-delete" onclick="return handleTicketAction(event, '<%= thread.thread_id %>', 'delete', 'Delete this ticket and move it to Super Dashboard review?')">
+                        <button type="submit" formaction="/admin/tempDeleteMessage" class="admin-btn admin-btn-delete" onclick="confirmAction(event, 'Delete this ticket?')">
                           🗑 Delete
                         </button>
                       </div>

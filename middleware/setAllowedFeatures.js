@@ -1,36 +1,15 @@
 const db = require('../config/db');
 const cacheManager = require('../utils/cacheManager');
 const { resolvePlanForOrganization } = require('../utils/accessCache');
-const { isPublicRoute } = require('../utils/routeProfile');
 
 const ALLOWED_FEATURES_CACHE_TTL_SEC = Number(process.env.ALLOWED_FEATURES_CACHE_TTL_SEC || 90);
 
 const setAllowedFeatures = async (req, res, next) => {
     res.locals.allowedFeatures = []; // Always ensure it's an array
-
-    const requestPath = req.path || '';
-    if (isPublicRoute(requestPath)) {
-        return next();
-    }
+    req.session.allowedFeatures = [];
 
     if (!req.session.organizationId) {
         return next(); // Continue without breaking
-    }
-
-    const cachedFeatures = Array.isArray(req.session.allowedFeatures)
-        ? req.session.allowedFeatures
-        : null;
-    const cachedAt = Number(req.session.allowedFeaturesCachedAt || 0);
-    const cachedOrgId = String(req.session.allowedFeaturesOrgId || '');
-
-    if (
-        cachedFeatures
-        && cachedOrgId === String(req.session.organizationId)
-        && cachedAt > 0
-        && (Date.now() - cachedAt) < (ALLOWED_FEATURES_CACHE_TTL_SEC * 1000)
-    ) {
-        res.locals.allowedFeatures = cachedFeatures;
-        return next();
     }
 
     try {
@@ -64,9 +43,7 @@ const setAllowedFeatures = async (req, res, next) => {
         );
 
         res.locals.allowedFeatures = Array.isArray(features) ? features : [];
-        req.session.allowedFeatures = res.locals.allowedFeatures;
-        req.session.allowedFeaturesOrgId = req.session.organizationId;
-        req.session.allowedFeaturesCachedAt = Date.now();
+        req.session.allowedFeatures = res.locals.allowedFeatures; // ✅ Store in session to be consistent
 
     } catch (err) {
         console.error('❌ Error fetching features:', err);

@@ -25,7 +25,7 @@
             <details class="apply-panel">
               <summary class="apply-summary">Apply for this role <span class="apply-hint">(expand)</span></summary>
 
-              <form class="application-form" method="POST" action="/legal/employment/<%= job.id %>/apply" enctype="multipart/form-data" data-public-form-guard data-confirm-message="Submit this job application to Managira?">
+              <form class="application-form" method="POST" action="/legal/employment/<%= job.id %>/apply" enctype="multipart/form-data">
                 <div class="grid-two">
                   <div class="field-group">
                     <label for="first_name_<%= job.id %>">First Name</label>
@@ -89,21 +89,8 @@
 
                 <div class="field-group">
                   <label for="cover_letter_note_<%= job.id %>">Cover Letter Note (Optional)</label>
-                  <textarea id="cover_letter_note_<%= job.id %>" name="cover_letter_note" placeholder="Optional short note for hiring team" data-min-words="3" data-optional="true" data-min-words-label="Cover letter note"></textarea>
-                  <p class="field-note">If you include a note, use at least 3 words.</p>
+                  <textarea id="cover_letter_note_<%= job.id %>" name="cover_letter_note" placeholder="Optional short note for hiring team"></textarea>
                 </div>
-
-                <div class="public-form-honeypot" aria-hidden="true">
-                  <label for="employment_company_website_<%= job.id %>">Leave this field empty</label>
-                  <input id="employment_company_website_<%= job.id %>" name="company_website" type="text" tabindex="-1" autocomplete="off" />
-                </div>
-
-                <input type="hidden" name="form_started_at" value="<%= Date.now() %>" />
-
-                <label class="public-form-confirm" for="employment_human_confirmation_<%= job.id %>">
-                  <input id="employment_human_confirmation_<%= job.id %>" name="human_confirmation" type="checkbox" value="yes" required />
-                  <span>I confirm this is a genuine application and not an automated or misleading submission.</span>
-                </label>
 
                 <button type="submit" class="btn">Submit Application</button>
               </form>
@@ -118,9 +105,9 @@
 <style>
   .page-title {
     text-align: center;
-    font-size: 1.65rem;
+    font-size: 2.2rem;
     color: #0b1424;
-    margin: 34px 20px 20px;
+    margin: 44px 20px 24px;
     letter-spacing: 0.2px;
   }
 
@@ -174,20 +161,20 @@
 
   .job-posting h2 {
     margin: 0 0 10px;
-    font-size: 1rem;
+    font-size: 1.35rem;
     color: #10223f;
   }
 
   .expand-hint {
     display: inline-flex;
     margin-top: 8px;
-    font-size: 0.76rem;
+    font-size: 0.82rem;
     font-weight: 600;
     color: #334155;
   }
 
   .job-posting p {
-    font-size: 0.86rem;
+    font-size: 1rem;
     color: #334155;
     margin-bottom: 16px;
     line-height: 1.6;
@@ -204,7 +191,7 @@
     border-radius: 999px;
     background: #eaf4ff;
     color: #174ea6;
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     font-weight: 600;
   }
 
@@ -221,7 +208,6 @@
     padding: 12px 14px;
     font-weight: 700;
     color: #0f172a;
-    font-size: 0.84rem;
     border-bottom: 1px dashed transparent;
   }
 
@@ -241,7 +227,7 @@
     border: none;
     padding: 11px 18px;
     text-decoration: none;
-    font-size: 0.84rem;
+    font-size: 0.95rem;
     border-radius: 8px;
     transition: background-color 0.2s ease;
     cursor: pointer;
@@ -271,20 +257,18 @@
     margin-bottom: 6px;
     color: #1e293b;
     font-weight: 600;
-    font-size: 0.76rem;
+    font-size: 0.88rem;
   }
 
   .field-group input,
-  .field-group textarea,
-  .field-group select {
+  .field-group textarea {
     width: 100%;
     box-sizing: border-box;
     padding: 10px 11px;
     border: 1px solid #cbd5e1;
     border-radius: 8px;
     font-family: inherit;
-    font-size: 0.82rem;
-    background: #fff;
+    font-size: 0.92rem;
   }
 
   .field-group textarea {
@@ -292,39 +276,8 @@
     resize: vertical;
   }
 
-  .field-note {
-    margin-top: 6px;
-    font-size: 0.75rem;
-    color: #64748b;
-  }
-
-  .public-form-confirm {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    margin: 12px 0 14px;
-    color: #475569;
-    font-size: 0.78rem;
-    line-height: 1.5;
-  }
-
-  .public-form-confirm input {
-    width: auto;
-    margin-top: 3px;
-    flex: 0 0 auto;
-  }
-
-  .public-form-honeypot {
-    position: absolute;
-    left: -9999px;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-  }
-
   .field-group input:focus,
-  .field-group textarea:focus,
-  .field-group select:focus {
+  .field-group textarea:focus {
     outline: none;
     border-color: #2563eb;
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
@@ -347,16 +300,11 @@
   .no-jobs {
     text-align: center;
     color: #777;
-    font-size: 0.9rem;
+    font-size: 1.1rem;
     padding: 30px 10px;
   }
 
   @media (max-width: 700px) {
-    .page-title {
-      font-size: 1.35rem;
-      margin: 28px 16px 16px;
-    }
-
     .grid-two {
       grid-template-columns: 1fr;
     }
@@ -365,36 +313,9 @@
       flex-direction: column;
       align-items: flex-start;
     }
-
-    .job-summary {
-      padding: 18px 18px;
-    }
-
-    .job-details {
-      padding: 16px 18px 18px;
-    }
-
-    .job-posting h2 {
-      font-size: 0.92rem;
-    }
-
-    .job-posting p {
-      font-size: 0.82rem;
-    }
-
-    .apply-summary {
-      font-size: 0.8rem;
-    }
-
-    .field-group input,
-    .field-group textarea,
-    .field-group select {
-      font-size: 16px;
-    }
   }
 </style>
 
-<script src="/js/public-form-guard.js" defer></script>
 <script>
   (function () {
     const jobPanels = Array.from(document.querySelectorAll('.job-posting'));

@@ -1,5 +1,14 @@
-<script src="/js/authNavigator.js" defer></script>
-<style>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hub Login - Managira</title>
+  <link rel="icon" href="/favicon.ico" type="image/x-icon" sizes="any" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon_io/apple-touch-icon.png" />
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <script src="/js/authNavigator.js" defer></script>
+  <style>
     :root {
       --font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       --primary: #01535b;
@@ -20,17 +29,22 @@
       padding: 0;
     }
 
-    .auth-page {
+    body {
       font-family: var(--font-family);
       background: var(--bg-page);
-      padding: 32px 0 60px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      margin: 0;
     }
 
     .page-wrapper {
+      flex: 1;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 18px 20px;
+      padding: 20px 20px;
       width: 100%;
     }
 
@@ -44,7 +58,7 @@
       background: var(--bg-card);
       border-radius: 16px;
       box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
-      padding: 28px 24px;
+      padding: 32px 28px;
       border: 1px solid var(--border);
     }
 
@@ -54,7 +68,7 @@
     }
 
     .login-header h1 {
-      font-size: 1.5rem;
+      font-size: 1.75rem;
       font-weight: 700;
       color: var(--text-primary);
       margin-bottom: 8px;
@@ -62,7 +76,7 @@
 
     .login-header p {
       color: var(--text-secondary);
-      font-size: 0.88rem;
+      font-size: 0.95rem;
     }
 
     .form-group {
@@ -74,15 +88,15 @@
       font-weight: 600;
       color: var(--text-primary);
       margin-bottom: 8px;
-      font-size: 0.84rem;
+      font-size: 0.9rem;
     }
 
     .form-input {
       width: 100%;
-      padding: 13px 15px;
+      padding: 14px 16px;
       border: 2px solid var(--border);
       border-radius: 10px;
-      font-size: 0.95rem;
+      font-size: 1rem;
       font-family: inherit;
       transition: all 0.2s ease;
       background: var(--bg-card);
@@ -102,12 +116,12 @@
 
     .btn-primary {
       width: 100%;
-      padding: 13px 22px;
+      padding: 14px 24px;
       background: linear-gradient(135deg, var(--primary) 0%, #0a6d77 100%);
       color: white;
       border: none;
       border-radius: 10px;
-      font-size: 0.94rem;
+      font-size: 1rem;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s ease;
@@ -132,7 +146,7 @@
     }
 
     .login-links p {
-      font-size: 0.84rem;
+      font-size: 0.9rem;
       color: var(--text-secondary);
       margin-bottom: 0;
     }
@@ -150,62 +164,57 @@
     }
 
     @media (max-width: 768px) {
-      .auth-page {
-        padding: 24px 0 52px;
-      }
       .page-wrapper {
-        padding: 40px 16px 12px;
+        padding: 50px 16px 12px;
       }
       .login-container {
         margin-top: 0;
         padding-top: 0;
       }
       .login-card {
-        padding: 24px 20px;
+        padding: 28px 22px;
       }
       .login-header h1 {
-        font-size: 1.34rem;
+        font-size: 1.5rem;
       }
     }
 
     @media (max-width: 480px) {
-      .auth-page {
-        padding: 18px 0 44px;
-      }
       .page-wrapper {
-        padding: 28px 12px 8px;
+        padding: 40px 12px 8px;
       }
       .login-container {
         margin-top: 0;
         padding-top: 0;
       }
       .login-card {
-        padding: 22px 16px;
+        padding: 24px 18px;
         border-radius: 12px;
       }
       .login-header h1 {
-        font-size: 1.22rem;
+        font-size: 1.35rem;
       }
       .login-header p {
-        font-size: 0.8rem;
+        font-size: 0.85rem;
       }
       .form-label {
-        font-size: 0.8rem;
+        font-size: 0.85rem;
       }
       .form-input {
         padding: 12px 14px;
         font-size: 16px;
       }
       .btn-primary {
-        padding: 12px 18px;
-        font-size: 0.9rem;
+        padding: 12px 20px;
+        font-size: 0.95rem;
       }
       .login-links p {
-        font-size: 0.8rem;
+        font-size: 0.85rem;
       }
     }
   </style>
-<div class="auth-page">
+</head>
+<body>
   <div class="page-wrapper">
     <div class="login-container">
       <div class="login-card">
@@ -256,4 +265,5 @@
       </div>
     </div>
   </div>
-</div>
+</body>
+</html>

@@ -40,7 +40,6 @@ const {
   createOrganizationActivityLogMiddleware,
   ensureOrganizationActivityLogSchema,
 } = require("./utils/activityLog");
-const routeProfile = require("./utils/routeProfile");
 
 // **Dynamic BASE_URL Logic**
 const BASE_URL =
@@ -50,7 +49,6 @@ const BASE_URL =
 // Force restart to reload jobs folder
 
 app.set("db", db);
-app.locals.routeProfile = routeProfile;
 
 ensureOrganizationActivityLogSchema(db).catch((error) => {
   console.error("[ActivityLog] Failed to initialize schema:", error.message || error);

@@ -102,117 +102,32 @@
     <link rel="shortcut icon" href="/favicon.ico" />
     <link rel="manifest" href="/images/favicon_io/site.webmanifest" />
   <% } %>
-  <%
-    const routeFlags = routeProfile.getRouteFlags((typeof req !== 'undefined' && req && req.path) ? req.path : '', session);
-    const spaClientConfig = routeProfile.getClientSpaConfig();
-    const currentPath = routeFlags.path;
-    const isHomePage = routeFlags.isHomePage;
-    const isLegalPage = routeFlags.isLegalPage;
-    const isAccountPage = routeFlags.isAccountPage;
-    const isHubPage = routeFlags.isHubPage;
-    const isAdminPage = routeFlags.isAdminPage;
-    const isGuardianPage = routeFlags.isGuardianPage;
-    const isCommonPage = routeFlags.isCommonPage;
-    const isEnrollmentPage = routeFlags.isEnrollmentPage;
-    const isPrintPage = routeFlags.isPrintPage;
-    const isPromotionPage = routeFlags.isPromotionPage;
-    const isTranscriptPage = routeFlags.isTranscriptPage;
-    const isStatsPage = routeFlags.isStatsPage;
-    const isDocumentPage = routeFlags.isDocumentPage;
-    const isPublicAccountPage = routeFlags.isPublicAccountPage;
-    const isPublicHubPage = routeFlags.isPublicHubPage;
-    const isPublicPage = routeFlags.isPublicRoute;
-    const isAuthenticatedAccountPage = isAccountPage && !isPublicAccountPage;
-    const isAuthenticatedHubPage = isHubPage && !isPublicHubPage;
-    const isAuthenticatedAppPage = routeFlags.isAuthenticatedAppPage;
-
-    const needsTailwindCdn = currentPath === '/account/personalization';
-    const needsQuill = currentPath === '/account/managePublicContent'
-      || currentPath === '/common/createTest'
-      || currentPath.startsWith('/document/edit/');
-    const shouldLoadSpaRouter = routeFlags.shouldLoadSpaRouter;
-    const shouldLoadGuardianStyles = isGuardianPage;
-    const shouldLoadOrgDashboardStyles = isAuthenticatedAppPage && !isGuardianPage && !isAdminPage;
-    const shouldLoadOrgDashboardLegacyStyles = currentPath.startsWith('/common/orgDashboard');
-    const shouldLoadClassDashboardStyles = currentPath.startsWith('/common/classDashboard');
-    const shouldLoadAttendanceStyles = currentPath.startsWith('/common/attendanceCollection');
-    const shouldLoadAddStudentStyles = currentPath.startsWith('/common/addStudent');
-    const shouldLoadAssessmentStyles = currentPath.startsWith('/common/assessment') || currentPath.startsWith('/common/createTest') || currentPath.startsWith('/common/modifyAssessment') || currentPath.startsWith('/common/manageAssessment');
-    const shouldLoadDeleteStudentStyles = currentPath.startsWith('/common/deleteStudent');
-    const shouldLoadEditStudentStyles = currentPath.startsWith('/common/editStudent');
-    const shouldLoadManageClassStyles = currentPath.startsWith('/common/manageClassSubjectAndGradYr') || currentPath.startsWith('/common/addClassSubject');
-    const shouldLoadManageRecordsStyles = currentPath.startsWith('/common/manageRecords');
-    const shouldLoadRegisterSchoolYearStyles = currentPath.startsWith('/common/registerSchoolYear');
-    const shouldLoadStudentDetailsStyles = currentPath.startsWith('/common/studentDetails') || currentPath.startsWith('/guardian/student') || currentPath.startsWith('/guardian/studentDetails');
-    const shouldLoadManageStudentsStyles = currentPath.startsWith('/common/manageStudents') || currentPath.startsWith('/common/archivedStudents');
-    const shouldLoadChatbot = isAuthenticatedAppPage && !isPrintPage;
-    const shouldLoadIndexScript = isHomePage;
-    const shouldLoadClassDashboardScript = currentPath.startsWith('/common/classDashboard');
-    const shouldLoadManageRecordsScript = currentPath.startsWith('/common/manageRecords');
-    const shouldLoadCreateEmployeeScript = currentPath.startsWith('/common/createEmployee');
-    const shouldLoadManagementScript = currentPath.startsWith('/common/management');
-  %>
   <link
     rel="stylesheet"
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
   />
 
-  <!-- Tailwind (utility-first pages only) -->
-  <% if (needsTailwindCdn) { %>
+  <!-- Tailwind (for utility-first page styling) -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <% } %>
 
   <!-- Stylesheets -->
   <link rel="stylesheet" href="/css/style.css" />
   <link rel="stylesheet" href="/css/buttons.css" />
-  <% if (isHomePage) { %>
   <link rel="stylesheet" href="/css/index.css" />
-  <% } %>
-  <% if (shouldLoadOrgDashboardStyles) { %>
   <link rel="stylesheet" href="/css/orgDashboard.css" />
-  <% } %>
-  <% if (shouldLoadOrgDashboardLegacyStyles) { %>
   <link rel="stylesheet" href="/css/classDashboard.css" />
-  <% } %>
-  <% if (shouldLoadClassDashboardStyles) { %>
-  <link rel="stylesheet" href="/css/classDashboard.css" />
-  <% } %>
-  <% if (shouldLoadAttendanceStyles) { %>
   <link rel="stylesheet" href="/css/attendanceCollection.css" />
-  <% } %>
-  <% if (shouldLoadAddStudentStyles) { %>
   <link rel="stylesheet" href="/css/addStudent.css" />
-  <% } %>
-  <% if (shouldLoadAssessmentStyles) { %>
   <link rel="stylesheet" href="/css/assessment.css" />
-  <% } %>
-  <% if (shouldLoadDeleteStudentStyles) { %>
   <link rel="stylesheet" href="/css/deleteStudent.css" />
-  <% } %>
-  <% if (shouldLoadEditStudentStyles) { %>
   <link rel="stylesheet" href="/css/editStudent.css" />
-  <% } %>
-  <% if (shouldLoadManageClassStyles) { %>
   <link rel="stylesheet" href="/css/manageClassSubjectAndGradYr.css" />
-  <% } %>
-  <% if (shouldLoadManageRecordsStyles) { %>
   <link rel="stylesheet" href="/css/manageRecords.css" />
-  <% } %>
-  <% if (shouldLoadRegisterSchoolYearStyles) { %>
   <link rel="stylesheet" href="/css/registerSchoolYear.css" />
-  <% } %>
-  <% if (shouldLoadStudentDetailsStyles) { %>
   <link rel="stylesheet" href="/css/studentDetails.css" />
-  <% } %>
-  <% if (shouldLoadManageStudentsStyles) { %>
   <link rel="stylesheet" href="/css/manageStudents.css" />
-  <% } %>
-  <% if (shouldLoadChatbot) { %>
   <link rel="stylesheet" href="/css/chatbot.css" />
-  <% } %>
-  <% if (shouldLoadGuardianStyles) { %>
   <link rel="stylesheet" href="/css/guardian.css" />
-  <% } %>
 
   <!-- Loading indicator styles (SPA navigation progress + center spinner) -->
   <style>
@@ -257,10 +172,8 @@
   </style>
 
   <!-- Include Quill CSS and JavaScript (rich text editor) -->
-  <% if (needsQuill) { %>
   <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet" />
   <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
-  <% } %>
 
   <!-- Preconnect to Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -347,32 +260,26 @@
   </script>
   
   <!-- SPA Router User Type Detection -->
-  <% if (shouldLoadSpaRouter) { %>
   <script>
-    window.spaUserType = <%- JSON.stringify(routeFlags.userType) %>;
-    window.managiraSpaConfig = <%- JSON.stringify(spaClientConfig) %>;
+    // Detect user type for SPA router optimization
+    window.spaUserType = <%- 
+      session && session.firstName ? (
+        session.accountType === 'Admin' || session.accountType === 'Mini Admin' ? '"admin"' :
+        session.accountType === 'Hub' ? '"hub"' :
+        session.userRole === 'Guardian' ? '"guardian"' :
+        '"organization"'
+      ) : '"public"'
+    %>;
   </script>
-
+  
   <script src="/js/turbo-init.js"></script>
   <script src="/js/spa-router.js" defer></script>
-  <% } %>
+  <script src="/js/spa-user-info.js" defer></script>
   <script src="/js/script.js" defer></script>
-  <% if (shouldLoadIndexScript) { %>
   <script src="/js/index.js" defer></script>
-  <% } %>
-  <% if (shouldLoadClassDashboardScript) { %>
   <script src="/js/classDashboard.js" defer></script>
-  <% } %>
-  <% if (shouldLoadManageRecordsScript) { %>
   <script src="/js/manageRecords.js" defer></script>
-  <% } %>
-  <% if (shouldLoadCreateEmployeeScript) { %>
   <script src="/js/createEmployee.js" defer></script>
-  <% } %>
-  <% if (shouldLoadManagementScript) { %>
   <script src="/js/management.js" defer></script>
-  <% } %>
-  <% if (shouldLoadChatbot) { %>
   <script src="/js/chatbot.js" defer></script>
-  <% } %>
 </head>

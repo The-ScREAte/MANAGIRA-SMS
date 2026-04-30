@@ -140,6 +140,7 @@
     flex: 0 0 auto;
     width: auto;
     justify-content: flex-end;
+    height: 100%;
     flex-shrink: 0;
     flex-wrap: nowrap;
   }
@@ -195,6 +196,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    align-self: stretch;
+    height: 100%;
   }
 
   .mobile-welcome {
@@ -216,6 +219,7 @@
     margin: 0;
     display: flex;
     align-items: center;
+    height: 100%;
   }
 
   .search-autofill-trap {
@@ -560,7 +564,7 @@
   }
 
   .search-bar-container {
-    margin-left: 0;
+    margin-left: auto;
   }
 
   .search-results-dropdown {
@@ -614,7 +618,7 @@
   /* 🔹 Hamburger Menu */
   .hamburger-container {
     display: inline-block;
-    margin-left: 0;
+    margin-left: 20px;
   }
 
   /* 🔹 Main Header */
@@ -628,7 +632,7 @@
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
       width: 100vw;
       min-height: 68px;
-      padding: 6px 10px;
+      padding: 2px 5px;
       flex-direction: row;
       align-items: center;
       justify-content: space-between;
@@ -666,7 +670,8 @@
   header#top-header #tools {
     display: flex;
     align-items: center;
-    gap: 12px;
+    right: 45px;
+    position: relative;
     margin-left: auto;
   }
 
@@ -1648,7 +1653,7 @@
   background: none;
   border: none;
   cursor: pointer;
-  padding: 4px 6px;
+  padding: 6px;
   border-radius: 8px;
   color: var(--org-primary-color, #01535b);
   display: inline-flex;
@@ -1656,7 +1661,6 @@
   justify-content: center;
   transition: background 0.18s ease;
   line-height: 1;
-  vertical-align: middle;
 }
 .notif-bell-btn:hover { background: rgba(0,0,0,0.07); }
 .notif-bell-btn:focus-visible { outline: 2px solid var(--org-primary-color,#01535b); }
