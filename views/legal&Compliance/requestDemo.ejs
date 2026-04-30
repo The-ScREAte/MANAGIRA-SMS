@@ -19,7 +19,7 @@
     main {
       max-width: 720px;
       margin: 0 auto;
-      padding: 40px 20px 60px;
+      padding: 0;
     }
     .demo-hero {
       text-align: center;
@@ -102,6 +102,31 @@
       font-size: 0.88rem;
       color: #64748b;
     }
+    .public-form-confirm {
+      margin-top: 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 0.86rem;
+      color: #475569;
+    }
+    .public-form-confirm input {
+      width: auto;
+      margin-top: 3px;
+      flex: 0 0 auto;
+    }
+    .public-form-note {
+      margin-top: 12px;
+      font-size: 0.82rem;
+      color: #64748b;
+    }
+    .public-form-honeypot {
+      position: absolute;
+      left: -9999px;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+    }
     .helper a { color: #01535b; font-weight: 600; }
     @media (max-width: 640px) {
       main { padding: 110px 16px 60px; }
@@ -120,6 +145,7 @@
     "url": "<%= typeof canonicalUrl !== 'undefined' ? canonicalUrl : 'https://www.managira.com/legal/request-demo' %>"
   }
   </script>
+  <script src="/js/public-form-guard.js" defer></script>
 </head>
 <body>
 
@@ -133,7 +159,7 @@
     <%- include('../partials/flash') %>
 
     <div class="demo-card">
-      <form action="/legal/request-demo" method="POST" novalidate>
+      <form action="/legal/request-demo" method="POST" novalidate data-public-form-guard data-confirm-message="Submit this demo request to Managira?">
         <div class="form-grid">
           <div class="full">
             <label for="name">Full Name <span class="req">*</span></label>
@@ -153,7 +179,25 @@
             <label for="phone">Phone Number <span class="req">*</span></label>
             <input id="phone" name="phone" type="tel" required autocomplete="tel" placeholder="+234 801 234 5678" maxlength="40">
           </div>
+
+          <div class="full">
+            <label for="message">What would you like to see in the demo? <span class="req">*</span></label>
+            <textarea id="message" name="message" required placeholder="Briefly tell us what you want help with or what you want to see during the demo." data-min-words="3" data-min-words-label="Demo request message"></textarea>
+            <p class="public-form-note">Use at least 3 words so we can filter low-quality and fake requests.</p>
+          </div>
         </div>
+
+        <div class="public-form-honeypot" aria-hidden="true">
+          <label for="demo-company-website">Leave this field empty</label>
+          <input id="demo-company-website" name="company_website" type="text" tabindex="-1" autocomplete="off">
+        </div>
+
+        <input type="hidden" name="form_started_at" value="<%= Date.now() %>">
+
+        <label class="public-form-confirm" for="demo-human-confirmation">
+          <input id="demo-human-confirmation" name="human_confirmation" type="checkbox" value="yes" required>
+          <span>I confirm this is a genuine demo request and not an automated or misleading submission.</span>
+        </label>
 
         <button type="submit">Request My Demo</button>
       </form>

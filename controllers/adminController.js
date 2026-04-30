@@ -30,6 +30,7 @@ const {
   normalizeCampaignInput,
   computeNextRunAt,
 } = require("../utils/adminEmailCampaigns");
+const { ensureHelpThreadSchema } = require("../utils/helpThreadSchema");
 
 function computeTierMonthlyPrice(planBasePrice, tier) {
   const basePrice = Number(planBasePrice || 0);
@@ -1104,8 +1105,10 @@ const adminController = {
   // Display help messages page
   helpMessages: async (req, res) => {
     try {
+      await ensureHelpThreadSchema(db);
+
       const threads = await db.query(`
-                SELECT ht.id AS thread_id, ht.name, ht.organization, ht.email, ht.phone, 
+                SELECT ht.id AS thread_id, ht.name, ht.organization, ht.request_type, ht.email, ht.phone, 
                        ARRAY_AGG(hm.message ORDER BY hm.created_at ASC) AS messages,
                        ht.is_resolved, ht.is_deleted, ht.created_at, ht.last_updated
                 FROM help_threads ht
@@ -1128,11 +1131,17 @@ const adminController = {
 
   respondToMessage: async (req, res) => {
     const { threadId, response } = req.body;
+    const normalizedResponse = String(response || '').trim();
 
     try {
       const threadIdInt = parseInt(threadId, 10);
       if (isNaN(threadIdInt)) {
         req.flash("error", "Invalid thread ID.");
+        return res.redirect("/admin/helpMessages");
+      }
+
+      if (!normalizedResponse) {
+        req.flash("error", "Please enter a message before responding.");
         return res.redirect("/admin/helpMessages");
       }
 
@@ -1153,7 +1162,7 @@ const adminController = {
       await db.query(
         `INSERT INTO help_messages (thread_id, name, email, message, is_response) 
                  VALUES ($1, $2, $3, $4, true)`, // `is_response` is `true` for admin
-        [threadIdInt, "Admin", process.env.EMAIL_USER, response]
+        [threadIdInt, "Admin", process.env.EMAIL_USER, normalizedResponse]
       );
 
       const html = renderCleanEmail({
@@ -1164,7 +1173,7 @@ const adminController = {
         ],
         details: [
           { label: "Ticket Number", value: `#${threadIdInt}` },
-          { label: "Response", value: response },
+          { label: "Response", value: normalizedResponse },
         ],
         note: 'If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
       });
@@ -1194,12 +1203,18 @@ const adminController = {
 
   // Mark a message as resolved
   markAsResolved: async (req, res) => {
-    const { threadId } = req.body;
+    const { threadId, response } = req.body;
+    const normalizedResponse = String(response || '').trim();
 
     try {
       const threadIdInt = parseInt(threadId, 10);
       if (isNaN(threadIdInt)) {
         req.flash("error", "Invalid thread ID.");
+        return res.redirect("/admin/helpMessages");
+      }
+
+      if (!normalizedResponse) {
+        req.flash("error", "Please enter a closing message before closing the ticket.");
         return res.redirect("/admin/helpMessages");
       }
 
@@ -1216,6 +1231,12 @@ const adminController = {
 
       const thread = threadQuery.rows[0];
 
+      await db.query(
+        `INSERT INTO help_messages (thread_id, name, email, message, is_response)
+         VALUES ($1, $2, $3, $4, true)`,
+        [threadIdInt, "Admin", process.env.EMAIL_USER, normalizedResponse]
+      );
+
       // Mark the ticket as resolved
       await db.query(
         `UPDATE help_threads SET is_resolved = true WHERE id = $1`,
@@ -1227,7 +1248,7 @@ const adminController = {
         greeting: `Dear <strong>${he.encode(thread.name)}</strong>,`,
         paragraphs: [
           `We are pleased to inform you that your support ticket (#${threadIdInt}) has been resolved.`,
-          "If you have any further questions, please reach out to us.",
+          normalizedResponse,
         ],
         note: 'If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
       });
@@ -1382,7 +1403,8 @@ const adminController = {
   },
 
   tempDeleteMessage: async (req, res) => {
-    const { threadId } = req.body;
+    const { threadId, response } = req.body;
+    const normalizedResponse = String(response || '').trim();
 
     try {
       const threadIdInt = parseInt(threadId, 10);
@@ -1390,6 +1412,17 @@ const adminController = {
         req.flash("error", "Invalid thread ID.");
         return res.redirect("/admin/helpMessages");
       }
+
+      if (!normalizedResponse) {
+        req.flash("error", "Please enter a message before deleting the ticket.");
+        return res.redirect("/admin/helpMessages");
+      }
+
+      await db.query(
+        `INSERT INTO help_messages (thread_id, name, email, message, is_response)
+         VALUES ($1, $2, $3, $4, true)`,
+        [threadIdInt, "Admin", process.env.EMAIL_USER, normalizedResponse]
+      );
 
       // Temporarily delete the thread
       await db.query(
@@ -1405,6 +1438,59 @@ const adminController = {
     } catch (error) {
             req.flash("error", "Failed to delete thread.");
       res.redirect("/admin/helpMessages");
+    }
+  },
+
+  bulkTempDeleteMessage: async (req, res) => {
+    const rawThreadIds = Array.isArray(req.body.threadIds) ? req.body.threadIds : [req.body.threadIds];
+    const threadIds = rawThreadIds
+      .map((value) => Number.parseInt(value, 10))
+      .filter((value) => Number.isInteger(value));
+
+    try {
+      if (!threadIds.length) {
+        req.flash("error", "Select at least one ticket to delete.");
+        return res.redirect("/admin/helpMessages");
+      }
+
+      await db.query(
+        `UPDATE help_threads
+         SET is_deleted = true
+         WHERE id = ANY($1::int[])`,
+        [threadIds]
+      );
+
+      req.flash("success", `${threadIds.length} ticket(s) moved to review in the Super Admin Dashboard.`);
+      return res.redirect("/admin/helpMessages");
+    } catch (error) {
+      req.flash("error", "Failed to delete selected tickets.");
+      return res.redirect("/admin/helpMessages");
+    }
+  },
+
+  bulkPermanentDeleteMessage: async (req, res) => {
+    const rawThreadIds = Array.isArray(req.body.threadIds) ? req.body.threadIds : [req.body.threadIds];
+    const threadIds = rawThreadIds
+      .map((value) => Number.parseInt(value, 10))
+      .filter((value) => Number.isInteger(value));
+
+    try {
+      if (!threadIds.length) {
+        req.flash("error", "Select at least one ticket to permanently delete.");
+        return res.redirect("/admin/superDashboard");
+      }
+
+      await db.query(
+        `DELETE FROM help_threads
+         WHERE id = ANY($1::int[])`,
+        [threadIds]
+      );
+
+      req.flash("success", `${threadIds.length} ticket(s) permanently deleted.`);
+      return res.redirect("/admin/superDashboard");
+    } catch (error) {
+      req.flash("error", "Failed to delete selected tickets.");
+      return res.redirect("/admin/superDashboard");
     }
   },
 
@@ -1916,6 +2002,51 @@ const adminController = {
 
       req.flash("error", detailedMessage);
       res.redirect("/admin/superDashboard");
+    }
+  },
+
+  bulkPermanentlyDeleteOrganizations: async (req, res) => {
+    const rawOrgIds = Array.isArray(req.body.orgIds) ? req.body.orgIds : [req.body.orgIds];
+    const orgIds = rawOrgIds
+      .map((value) => Number.parseInt(value, 10))
+      .filter((value) => Number.isInteger(value));
+
+    try {
+      if (!orgIds.length) {
+        req.flash("error", "Select at least one organization to permanently delete.");
+        return res.redirect("/admin/superDashboard");
+      }
+
+      await db.query("BEGIN");
+
+      await db.query(
+        `DELETE FROM user_subjects
+         WHERE user_id IN (
+           SELECT user_id FROM users WHERE organization_id = ANY($1::int[])
+         )
+         OR subject_id IN (
+           SELECT subject_id FROM subjects WHERE organization_id = ANY($1::int[])
+         )`,
+        [orgIds]
+      );
+
+      await db.query(
+        `DELETE FROM organization_texts WHERE organization_id = ANY($1::int[])`,
+        [orgIds]
+      );
+
+      await db.query(
+        `DELETE FROM organizations WHERE organization_id = ANY($1::int[])`,
+        [orgIds]
+      );
+
+      await db.query("COMMIT");
+      req.flash("success", `${orgIds.length} organization(s) permanently deleted successfully.`);
+      return res.redirect("/admin/superDashboard");
+    } catch (error) {
+      try { await db.query("ROLLBACK"); } catch (_) {}
+      req.flash("error", "Failed to permanently delete selected organizations.");
+      return res.redirect("/admin/superDashboard");
     }
   },
 
@@ -3641,6 +3772,42 @@ adminController.permanentlyDeleteHub = async (req, res) => {
     try { await db.query('ROLLBACK'); } catch (rollbackError) {}
         req.flash('error', 'Failed to permanently delete hub.');
     res.redirect('/admin/superDashboard');
+  }
+};
+
+adminController.bulkPermanentlyDeleteHubs = async (req, res) => {
+  const rawHubIds = Array.isArray(req.body.hubIds) ? req.body.hubIds : [req.body.hubIds];
+  const hubIds = rawHubIds
+    .map((value) => Number.parseInt(value, 10))
+    .filter((value) => Number.isInteger(value));
+
+  try {
+    if (!hubIds.length) {
+      req.flash('error', 'Select at least one hub to permanently delete.');
+      return res.redirect('/admin/superDashboard');
+    }
+
+    await db.query('BEGIN');
+
+    await db.query(
+      `UPDATE organizations
+       SET hub_id = NULL,
+           is_hub_member = false,
+           joined_hub_at = NULL,
+           updated_at = NOW()
+       WHERE hub_id = ANY($1::int[])`,
+      [hubIds]
+    );
+
+    await db.query('DELETE FROM managira_hubs WHERE hub_id = ANY($1::int[])', [hubIds]);
+
+    await db.query('COMMIT');
+    req.flash('success', `${hubIds.length} hub(s) permanently deleted successfully.`);
+    return res.redirect('/admin/superDashboard');
+  } catch (error) {
+    try { await db.query('ROLLBACK'); } catch (_) {}
+    req.flash('error', 'Failed to permanently delete selected hubs.');
+    return res.redirect('/admin/superDashboard');
   }
 };
 

@@ -157,6 +157,7 @@ module.exports = (db) => {
     router.post('/editAdminUser/:userId', ensureAdmin, adminController.editAdminUserPost);
     router.post('/deleteAdminUser/:userId', ensureAdmin, adminController.deleteAdminUser);
     router.post('/permanentlyDelete', ensureAdmin, adminController.permanentlyDeleteOrganization);
+    router.post('/bulkPermanentlyDeleteOrganizations', ensureAdmin, adminController.bulkPermanentlyDeleteOrganizations);
     router.post('/restore', ensureAdmin, adminController.restoreOrganization);
     router.get('/scheduled-holds', ensureAdmin, adminController.scheduledHoldsPage);
 
@@ -233,8 +234,10 @@ module.exports = (db) => {
     router.post('/reopenThread', adminController.reopenThread);
     router.post('/deleteThread', adminController.deleteThread);
     router.post('/tempDeleteMessage', adminController.tempDeleteMessage);
+    router.post('/bulkTempDeleteMessage', adminController.bulkTempDeleteMessage);
     router.post('/restoreMessage', adminController.restoreMessage);
-    router.post('/permanentDeleteMessage', adminController.permanentDeleteMessage); 
+    router.post('/permanentDeleteMessage', adminController.permanentDeleteMessage);
+    router.post('/bulkPermanentDeleteMessage', adminController.bulkPermanentDeleteMessage);
 
     router.get('/servicePricing', ensureAdmin, adminController.servicePricingGet);
     router.post("/updateFeature", ensureAdmin, adminController.updateFeature);
@@ -276,6 +279,7 @@ module.exports = (db) => {
     router.post('/hubs/delete', ensureAdmin, adminController.hubDeletePost);
     router.post('/hubs/restore', ensureAdmin, adminController.restoreHub);
     router.post('/hubs/permanently-delete', ensureAdmin, adminController.permanentlyDeleteHub);
+    router.post('/hubs/bulk-permanently-delete', ensureAdmin, adminController.bulkPermanentlyDeleteHubs);
     router.get('/hubs/:hubId/organizations', ensureAdmin, adminController.hubOrganizationsGet);
 
     return router;

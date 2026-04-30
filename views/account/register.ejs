@@ -13,10 +13,12 @@
   <style>
     .password-input-wrapper {
       position: relative;
+      display: flex;
+      align-items: center;
     }
 
     .password-input-wrapper .form-input {
-      padding-right: 45px;
+      padding-right: 46px;
     }
 
     .password-toggle-btn {
@@ -24,8 +26,8 @@
       right: 12px;
       top: 50%;
       transform: translateY(-50%);
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
+      background: #ffffff;
+      border: 1px solid #d8e1ea;
       color: #475569;
       cursor: pointer;
       padding: 0;
@@ -36,16 +38,17 @@
       justify-content: center;
       z-index: 1;
       pointer-events: auto;
-      width: 30px;
-      height: 30px;
+      width: 26px;
+      height: 26px;
       border-radius: 999px;
       flex-shrink: 0;
+      box-shadow: none;
     }
 
     .password-toggle-btn:hover {
       color: #01535b;
-      border-color: #cbd5e1;
-      background: #ffffff;
+      border-color: #bfd0db;
+      background: #f8fbfc;
       transform: translateY(-50%);
     }
 
@@ -60,8 +63,8 @@
     }
 
     .password-toggle-btn .eye-icon {
-      width: 16px;
-      height: 16px;
+      width: 13px;
+      height: 13px;
       stroke: currentColor;
       stroke-width: 2;
       fill: none;
@@ -560,6 +563,11 @@
           <label class="form-label" for="confirmPassword">Confirm Password</label>
           <div class="password-input-wrapper">
             <input type="password" name="confirmPassword" id="confirmPassword" class="form-input" placeholder="Re-enter your password" required value="<%= formData?.confirmPassword || '' %>">
+            <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('confirmPassword', this)" aria-label="Show password">
+              <svg class="eye-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path>
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -684,17 +692,12 @@
       button.setAttribute('aria-label', isVisible ? 'Hide passwords' : 'Show passwords');
     }
 
-    function toggleMultiplePasswords(inputIds, button) {
-      const firstInput = document.getElementById(inputIds[0]);
-      if (!firstInput) return;
+    function togglePasswordVisibility(inputId, button) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
 
-      const isVisible = firstInput.type === 'text';
-
-      inputIds.forEach((id) => {
-        const input = document.getElementById(id);
-        if (input) input.type = isVisible ? 'password' : 'text';
-      });
-
+      const isVisible = input.type === 'text';
+      input.type = isVisible ? 'password' : 'text';
       updatePasswordToggleIcon(button, !isVisible);
     }
 
@@ -766,10 +769,9 @@
         });
       }
 
-      const toggleButton = document.querySelector('.password-toggle-btn');
-      if (toggleButton) {
-        updatePasswordToggleIcon(toggleButton, false);
-      }
+      document.querySelectorAll('.password-toggle-btn').forEach((button) => {
+        updatePasswordToggleIcon(button, false);
+      });
     });
   </script>
   </div>

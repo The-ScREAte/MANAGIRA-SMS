@@ -288,23 +288,23 @@
 
       .input-with-icon .form-input {
         padding-left: 12px;
-        padding-right: 40px;
+        padding-right: 44px;
         width: 100%;
         box-sizing: border-box;
       }
 
       .input-icon-btn {
         position: absolute;
-        right: 6px;
+        right: 8px;
         left: auto;
         top: 50%;
         transform: translateY(-50%);
-        background: transparent;
-        border: none;
+        background: #ffffff;
+        border: 1px solid #d8e1ea;
         padding: 0;
         margin: 0;
-        width: 28px;
-        height: 28px;
+        width: 24px;
+        height: 24px;
         min-width: 0;
         box-shadow: none;
         display: inline-flex;
@@ -313,21 +313,29 @@
         cursor: pointer;
         color: #6b7280;
         z-index: 2;
+        border-radius: 999px;
+        transition: color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
       }
 
       .input-icon-btn:hover {
-        color: #111827;
-        background: transparent;
+        color: #01535b;
+        border-color: #bfd0db;
+        background: #f8fbfc;
       }
 
       .input-icon-btn i {
-        font-size: 18px;
+        font-size: 13px;
         line-height: 1;
-        width: 18px;
-        height: 18px;
+        width: 13px;
+        height: 13px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
+      }
+
+      .input-icon-btn:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(1, 83, 91, 0.12);
       }
 
       .security-card .content-row {
@@ -365,7 +373,7 @@
       .security-card .input-with-icon .form-input {
         height: 44px;
         line-height: 1.2;
-        padding: 0 40px 0 12px;
+        padding: 0 44px 0 12px;
         appearance: none;
       }
 

@@ -1,13 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login - Managira</title>
-  <link rel="icon" href="/favicon.ico" type="image/x-icon" sizes="any" />
-  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon_io/apple-touch-icon.png" />
-  <link rel="shortcut icon" href="/favicon.ico" />
-  <style>
+<style>
     :root {
       --font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       --primary: #01535b;
@@ -28,22 +19,17 @@
       padding: 0;
     }
 
-    body {
+    .auth-page {
       font-family: var(--font-family);
       background: var(--bg-page);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      padding: 0;
-      margin: 0;
+      padding: 32px 0 60px;
     }
 
     .page-wrapper {
-      flex: 1;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 20px 20px;
+      padding: 18px 20px;
       width: 100%;
     }
 
@@ -57,7 +43,7 @@
       background: var(--bg-card);
       border-radius: 16px;
       box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
-      padding: 32px 28px;
+      padding: 28px 24px;
       border: 1px solid var(--border);
     }
 
@@ -67,7 +53,7 @@
     }
 
     .login-header h1 {
-      font-size: 1.75rem;
+      font-size: 1.55rem;
       font-weight: 700;
       color: var(--text-primary);
       margin-bottom: 8px;
@@ -75,7 +61,7 @@
 
     .login-header p {
       color: var(--text-secondary);
-      font-size: 0.95rem;
+      font-size: 0.9rem;
     }
 
     .form-group {
@@ -87,15 +73,15 @@
       font-weight: 600;
       color: var(--text-primary);
       margin-bottom: 8px;
-      font-size: 0.9rem;
+      font-size: 0.84rem;
     }
 
     .form-input {
       width: 100%;
-      padding: 14px 16px;
+      padding: 13px 15px;
       border: 2px solid var(--border);
       border-radius: 10px;
-      font-size: 1rem;
+      font-size: 0.95rem;
       font-family: inherit;
       transition: all 0.2s ease;
       background: var(--bg-card);
@@ -115,36 +101,42 @@
 
     .password-input-wrapper {
       position: relative;
+      display: flex;
+      align-items: center;
     }
 
     .password-input-wrapper .form-input {
-      padding-right: 45px;
+      padding-right: 46px;
     }
 
     .password-toggle-btn {
       position: absolute;
-      right: 16px;
+      right: 10px;
       top: 50%;
       transform: translateY(-50%);
-      background: transparent;
-      border: none;
+      background: #ffffff;
+      border: 1px solid #d8e1ea;
       color: var(--text-secondary);
       cursor: pointer;
-      padding: 4px;
-      transition: color 0.2s ease;
+      padding: 0;
+      transition: color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
       font-size: 0.95rem;
       display: flex;
       align-items: center;
       justify-content: center;
       z-index: 1;
       pointer-events: auto;
-      width: 24px;
-      height: 24px;
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
       flex-shrink: 0;
+      box-shadow: none;
     }
 
     .password-toggle-btn:hover {
       color: var(--primary);
+      border-color: #bfd0db;
+      background: #f8fbfc;
       transform: translateY(-50%);
     }
 
@@ -155,21 +147,22 @@
     .password-toggle-btn:focus {
       outline: none;
       transform: translateY(-50%);
+      box-shadow: 0 0 0 3px rgba(1, 83, 91, 0.12);
     }
 
     .password-toggle-btn i {
-      font-size: 0.9rem;
+      font-size: 0.8rem;
       transition: none;
     }
 
     .btn-primary {
       width: 100%;
-      padding: 14px 24px;
+      padding: 13px 22px;
       background: linear-gradient(135deg, var(--primary) 0%, #0a6d77 100%);
       color: white;
       border: none;
       border-radius: 10px;
-      font-size: 1rem;
+      font-size: 0.95rem;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s ease;
@@ -194,7 +187,7 @@
     }
 
     .login-links p {
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       color: var(--text-secondary);
       margin-bottom: 8px;
     }
@@ -216,7 +209,7 @@
       align-items: center;
       margin: 20px 0;
       color: var(--text-secondary);
-      font-size: 0.85rem;
+      font-size: 0.8rem;
     }
 
     .divider::before,
@@ -240,7 +233,7 @@
       font-weight: 600;
       color: var(--text-primary);
       margin-bottom: 12px;
-      font-size: 0.9rem;
+      font-size: 0.84rem;
     }
 
     .button-row {
@@ -255,13 +248,13 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-      padding: 12px 20px;
+      padding: 11px 18px;
       background: linear-gradient(135deg, #0f5a66 0%, #6fd3c4 100%);
       color: white;
       text-decoration: none;
       border-radius: 10px;
       font-weight: 600;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       transition: all 0.2s ease;
       box-shadow: 0 2px 8px rgba(15, 90, 102, 0.2);
       flex: 1;
@@ -274,8 +267,11 @@
     }
 
     @media (max-width: 768px) {
+      .auth-page {
+        padding: 24px 0 52px;
+      }
       .page-wrapper {
-        padding: 50px 16px 12px;
+        padding: 40px 16px 12px;
       }
       .login-container {
         margin-top: 0;
@@ -283,44 +279,47 @@
         padding: 0;
       }
       .login-card {
-        padding: 28px 22px;
+        padding: 24px 20px;
       }
       .login-header h1 {
-        font-size: 1.5rem;
+        font-size: 1.38rem;
       }
       .login-header p {
-        font-size: 0.88rem;
+        font-size: 0.84rem;
       }
     }
 
     @media (max-width: 480px) {
+      .auth-page {
+        padding: 18px 0 44px;
+      }
       .page-wrapper {
-        padding: 40px 12px 8px;
+        padding: 28px 12px 8px;
       }
       .login-container {
         margin-top: 0;
         padding-top: 0;
       }
       .login-card {
-        padding: 24px 18px;
+        padding: 22px 16px;
         border-radius: 12px;
       }
       .login-header h1 {
-        font-size: 1.35rem;
+        font-size: 1.24rem;
       }
       .login-header p {
-        font-size: 0.85rem;
+        font-size: 0.8rem;
       }
       .form-label {
-        font-size: 0.85rem;
+        font-size: 0.8rem;
       }
       .form-input {
         padding: 12px 14px;
         font-size: 16px; /* prevents iOS zoom */
       }
       .btn-primary {
-        padding: 12px 20px;
-        font-size: 0.95rem;
+        padding: 12px 18px;
+        font-size: 0.9rem;
       }
       .button-row {
         flex-direction: column;
@@ -329,15 +328,14 @@
         width: 100%;
       }
       .login-links p {
-        font-size: 0.85rem;
+        font-size: 0.8rem;
       }
       .divider {
         font-size: 0.8rem;
       }
     }
   </style>
-</head>
-<body>
+<div class="auth-page">
   <div class="page-wrapper">
     <div class="login-container">
       <div class="login-card">
@@ -416,6 +414,7 @@
       </div>
     </div>
   </div>
+  </div>
 
   <script>
     const REGISTER_DRAFT_KEY = 'managira:register:draft:v1';
@@ -451,5 +450,3 @@
 
     clearCompletedRegistrationDraft();
   </script>
-</body>
-</html>

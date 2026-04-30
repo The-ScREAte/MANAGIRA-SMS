@@ -133,6 +133,7 @@
     const shouldLoadSpaRouter = routeFlags.shouldLoadSpaRouter;
     const shouldLoadGuardianStyles = isGuardianPage;
     const shouldLoadOrgDashboardStyles = isAuthenticatedAppPage && !isGuardianPage && !isAdminPage;
+    const shouldLoadOrgDashboardLegacyStyles = currentPath.startsWith('/common/orgDashboard');
     const shouldLoadClassDashboardStyles = currentPath.startsWith('/common/classDashboard');
     const shouldLoadAttendanceStyles = currentPath.startsWith('/common/attendanceCollection');
     const shouldLoadAddStudentStyles = currentPath.startsWith('/common/addStudent');
@@ -169,6 +170,9 @@
   <% } %>
   <% if (shouldLoadOrgDashboardStyles) { %>
   <link rel="stylesheet" href="/css/orgDashboard.css" />
+  <% } %>
+  <% if (shouldLoadOrgDashboardLegacyStyles) { %>
+  <link rel="stylesheet" href="/css/classDashboard.css" />
   <% } %>
   <% if (shouldLoadClassDashboardStyles) { %>
   <link rel="stylesheet" href="/css/classDashboard.css" />

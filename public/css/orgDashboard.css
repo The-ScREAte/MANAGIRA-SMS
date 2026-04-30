@@ -179,10 +179,11 @@ li {
 .teachers-list {
   margin-top: 8px;
   margin-left: 28px;
-  padding-left: 16px;
+  padding: 10px 12px 10px 16px;
   border-left: 3px solid var(--org-primary-color, #01535b);
-  padding-top: 6px;
-  padding-bottom: 6px;
+  border-radius: 0 6px 6px 0;
+  background: color-mix(in srgb, var(--org-primary-color, #01535b) 12%, #f7fbfc);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
   overflow: hidden;
   max-height: 0;
   opacity: 0;
@@ -196,16 +197,24 @@ li {
 }
 
 .teacher-entry {
-  padding: 6px 8px;
+  padding: 8px 10px;
   font-size: 0.95em;
   color: #333;
-  background: #f5f5f5;
+  background: rgba(255, 255, 255, 0.92);
   margin-bottom: 4px;
-  border-radius: 4px;
+  border-radius: 8px;
+  border: 1px solid rgba(1, 83, 91, 0.08);
+  box-shadow: 0 6px 14px rgba(1, 83, 91, 0.08);
   transition: all 0.2s ease;
   transform: translateX(-10px);
   opacity: 0;
   animation: slideInTeacher 0.3s ease forwards;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .teacher-entry:nth-child(1) { animation-delay: 0.05s; }
@@ -215,8 +224,13 @@ li {
 .teacher-entry:nth-child(5) { animation-delay: 0.25s; }
 
 .teacher-entry:hover {
-  background: #e8e8e8;
+  background: #ffffff;
+  box-shadow: 0 10px 20px rgba(1, 83, 91, 0.12);
   transform: translateX(3px);
+}
+
+.teacher-entry:last-child {
+  margin-bottom: 0;
 }
 
 @keyframes slideInTeacher {

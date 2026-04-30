@@ -100,6 +100,25 @@
       color: var(--text-primary);
     }
 
+    .section-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-left: auto;
+    }
+
+    .table-check-cell {
+      width: 44px;
+      text-align: center;
+    }
+
+    .table-selector {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+
     .table-wrapper {
       overflow-x: auto;
     }
@@ -597,13 +616,18 @@
     <div class="section-card">
       <div class="section-header">
         <h2>🗑️ Deleted Applications</h2>
-        <span class="muted"><%= deletedAccounts ? deletedAccounts.length : 0 %> records</span>
+        <div class="section-actions">
+          <span class="muted"><%= deletedAccounts ? deletedAccounts.length : 0 %> records</span>
+          <button type="button" class="btn-secondary" onclick="submitBulkOrganizationDelete()">Delete Selected</button>
+        </div>
       </div>
       <% if (deletedAccounts && deletedAccounts.length > 0) { %>
+      <form id="bulk-delete-organizations-form" action="/admin/bulkPermanentlyDeleteOrganizations" method="POST"></form>
       <div class="table-wrapper">
         <table class="clean-table">
           <thead>
             <tr>
+              <th class="table-check-cell"><input id="select-all-organizations" class="table-selector" type="checkbox" onclick="toggleAllBySelector(this, '.deleted-organization-selector')" /></th>
               <th></th>
               <th>Organization</th>
               <th>Contact</th>
@@ -614,6 +638,9 @@
           <tbody>
             <% deletedAccounts.forEach(function(account) { %>
             <tr>
+              <td class="table-check-cell">
+                <input class="table-selector deleted-organization-selector" type="checkbox" value="<%= account.organization_id %>" onchange="syncSelectorState('select-all-organizations', '.deleted-organization-selector')" />
+              </td>
               <td>
                 <button class="expand-button" onclick="toggleDetails('org-<%= account.organization_id %>')">▾</button>
               </td>
@@ -623,7 +650,7 @@
               <td><%= account.organization_phone %></td>
             </tr>
             <tr id="details-org-<%= account.organization_id %>" class="details-row">
-              <td colspan="5">
+              <td colspan="6">
                 <div class="details-panel">
                   <div class="details-grid">
                     <div><strong>Address:</strong> <%= account.organization_address || 'N/A' %><% if (account.organization_country || account.organization_province) { %>, <%= [account.organization_province, account.organization_country].filter(Boolean).join(', ') %><% } %></div>
@@ -653,13 +680,18 @@
     <div class="section-card">
       <div class="section-header">
         <h2>🏢 Deleted Hubs</h2>
-        <span class="muted"><%= deletedHubs ? deletedHubs.length : 0 %> records</span>
+        <div class="section-actions">
+          <span class="muted"><%= deletedHubs ? deletedHubs.length : 0 %> records</span>
+          <button type="button" class="btn-secondary" onclick="submitBulkHubDelete()">Delete Selected</button>
+        </div>
       </div>
       <% if (deletedHubs && deletedHubs.length > 0) { %>
+      <form id="bulk-delete-hubs-form" action="/admin/hubs/bulk-permanently-delete" method="POST"></form>
       <div class="table-wrapper">
         <table class="clean-table">
           <thead>
             <tr>
+              <th class="table-check-cell"><input id="select-all-hubs" class="table-selector" type="checkbox" onclick="toggleAllBySelector(this, '.deleted-hub-selector')" /></th>
               <th></th>
               <th>Hub Name</th>
               <th>Nickname</th>
@@ -672,6 +704,9 @@
           <tbody>
             <% deletedHubs.forEach(function(hub) { %>
             <tr>
+              <td class="table-check-cell">
+                <input class="table-selector deleted-hub-selector" type="checkbox" value="<%= hub.hub_id %>" onchange="syncSelectorState('select-all-hubs', '.deleted-hub-selector')" />
+              </td>
               <td>
                 <button class="expand-button" onclick="toggleDetails('hub-<%= hub.hub_id %>')">▾</button>
               </td>
@@ -683,7 +718,7 @@
               <td><%= hub.on_hold ? 'On Hold' : 'Active' %></td>
             </tr>
             <tr id="details-hub-<%= hub.hub_id %>" class="details-row">
-              <td colspan="7">
+              <td colspan="8">
                 <div class="details-panel">
                   <div class="details-grid">
                     <div><strong>Phone:</strong> <%= hub.hub_phone || 'N/A' %></div>
@@ -736,13 +771,18 @@
     <div class="section-card">
       <div class="section-header">
         <h2>📨 Deleted Tickets</h2>
-        <span class="muted"><%= deletedTickets ? deletedTickets.length : 0 %> records</span>
+        <div class="section-actions">
+          <span class="muted"><%= deletedTickets ? deletedTickets.length : 0 %> records</span>
+          <button type="button" class="btn-secondary" onclick="submitBulkDeletedTicketDelete()">Delete Selected</button>
+        </div>
       </div>
       <% if (deletedTickets && deletedTickets.length > 0) { %>
+      <form id="bulk-permanent-delete-tickets-form" action="/admin/bulkPermanentDeleteMessage" method="POST"></form>
       <div class="table-wrapper">
         <table class="clean-table">
           <thead>
             <tr>
+              <th class="table-check-cell"><input id="select-all-deleted-tickets" class="table-selector" type="checkbox" onclick="toggleAllDeletedTickets(this)" /></th>
               <th></th>
               <th>Ticket</th>
               <th>Name</th>
@@ -754,6 +794,9 @@
           <tbody>
             <% deletedTickets.forEach(function(ticket) { %>
             <tr>
+              <td class="table-check-cell">
+                <input class="table-selector deleted-ticket-selector" type="checkbox" value="<%= ticket.thread_id %>" onchange="syncDeletedTicketSelectionState()" />
+              </td>
               <td>
                 <button class="expand-button" onclick="toggleDetails('ticket-<%= ticket.thread_id %>')">▾</button>
               </td>
@@ -764,7 +807,7 @@
               <td><%= ticket.last_updated ? new Date(ticket.last_updated).toLocaleString() : 'N/A' %></td>
             </tr>
             <tr id="details-ticket-<%= ticket.thread_id %>" class="details-row">
-              <td colspan="6">
+              <td colspan="7">
                 <div class="details-panel">
                   <div class="details-grid">
                     <div><strong>Phone:</strong> <%= ticket.phone || 'N/A' %></div>
@@ -811,6 +854,106 @@
 
     function confirmAction(message) {
       return confirm(`Are you sure you want to ${message}`);
+    }
+
+      function toggleAllBySelector(masterCheckbox, selector) {
+        document.querySelectorAll(selector).forEach((checkbox) => {
+          checkbox.checked = masterCheckbox.checked;
+        });
+      }
+
+      function syncSelectorState(masterId, selector) {
+        const all = Array.from(document.querySelectorAll(selector));
+        const checked = all.filter((checkbox) => checkbox.checked);
+        const master = document.getElementById(masterId);
+        if (master) {
+          master.checked = all.length > 0 && checked.length === all.length;
+          master.indeterminate = checked.length > 0 && checked.length < all.length;
+        }
+      }
+
+      function submitBulkSelection(selector, formId, inputName, confirmMessage, emptyMessage) {
+        const selected = Array.from(document.querySelectorAll(selector + ':checked'));
+        if (!selected.length) {
+          alert(emptyMessage);
+          return false;
+        }
+
+        if (!confirm(confirmMessage.replace('%count%', selected.length))) {
+          return false;
+        }
+
+        const form = document.getElementById(formId);
+        form.innerHTML = '';
+        selected.forEach((checkbox) => {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = inputName;
+          input.value = checkbox.value;
+          form.appendChild(input);
+        });
+        form.submit();
+        return true;
+      }
+
+      function submitBulkOrganizationDelete() {
+        return submitBulkSelection(
+          '.deleted-organization-selector',
+          'bulk-delete-organizations-form',
+          'orgIds',
+          'Permanently delete %count% selected organization(s)? This cannot be undone.',
+          'Select at least one deleted organization to permanently delete.'
+        );
+      }
+
+      function submitBulkHubDelete() {
+        return submitBulkSelection(
+          '.deleted-hub-selector',
+          'bulk-delete-hubs-form',
+          'hubIds',
+          'Permanently delete %count% selected hub(s)? This cannot be undone.',
+          'Select at least one deleted hub to permanently delete.'
+        );
+      }
+
+    function toggleAllDeletedTickets(masterCheckbox) {
+      document.querySelectorAll('.deleted-ticket-selector').forEach((checkbox) => {
+        checkbox.checked = masterCheckbox.checked;
+      });
+    }
+
+    function syncDeletedTicketSelectionState() {
+      const all = Array.from(document.querySelectorAll('.deleted-ticket-selector'));
+      const checked = all.filter((checkbox) => checkbox.checked);
+      const master = document.getElementById('select-all-deleted-tickets');
+      if (master) {
+        master.checked = all.length > 0 && checked.length === all.length;
+        master.indeterminate = checked.length > 0 && checked.length < all.length;
+      }
+    }
+
+    function submitBulkDeletedTicketDelete() {
+      const selected = Array.from(document.querySelectorAll('.deleted-ticket-selector:checked'));
+      if (!selected.length) {
+        alert('Select at least one deleted ticket to permanently delete.');
+        return false;
+      }
+
+      if (!confirm(`Permanently delete ${selected.length} selected ticket(s)? This cannot be undone.`)) {
+        return false;
+      }
+
+      const form = document.getElementById('bulk-permanent-delete-tickets-form');
+      form.innerHTML = '';
+      selected.forEach((checkbox) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'threadIds';
+        input.value = checkbox.value;
+        form.appendChild(input);
+      });
+      form.submit();
+      return true;
     }
 
     const usersModal = document.getElementById('users-modal');

@@ -4,6 +4,8 @@ const path = require('path');
 const { uploadToS3 } = require('../config/s3');
 const { sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require('../utils/emailHelper');
 const { ensureEmploymentSchema } = require('../utils/employmentSchema');
+const { validatePublicFormSubmission } = require('../utils/publicFormProtection');
+const { ensureHelpThreadSchema } = require('../utils/helpThreadSchema');
 
 const buildHelpSearchData = () => {
     let helpKnowledge = [];
@@ -166,19 +168,45 @@ const legalController = {
     },
 
     postHelp: async (req, res) => {
-        const { name, organization, phone, email, message } = req.body;
+        const {
+            name,
+            organization,
+            phone,
+            email,
+            message,
+            company_website,
+            form_started_at,
+            human_confirmation,
+        } = req.body;
     
         try {
-            if (!name || !email || !message) {
-                req.flash('error', 'Name, Email, and Message are required.');
+            await ensureHelpThreadSchema(db);
+
+            const validation = validatePublicFormSubmission({
+                honeypot: company_website,
+                startedAt: form_started_at,
+                confirmation: human_confirmation,
+                requiredFields: [
+                    { label: 'Name', value: name },
+                    { label: 'Email', value: email },
+                    { label: 'Message', value: message },
+                ],
+                textFields: [
+                    { label: 'Message', value: message, minWords: 3, required: true },
+                ],
+                spamSamples: [name, organization, email, phone],
+            });
+
+            if (!validation.ok) {
+                req.flash('error', validation.error);
                 return res.redirect('/legal/help');
             }
     
             // Create a new thread
             const newThread = await db.query(
-                `INSERT INTO help_threads (name, organization, email, phone) 
-                 VALUES ($1, $2, $3, $4) RETURNING id`,
-                [name, organization || null, email, phone || null]
+                `INSERT INTO help_threads (name, organization, email, phone, request_type) 
+                 VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+                [name, organization || null, email, phone || null, 'help']
             );
     
             const threadId = newThread.rows[0].id;
@@ -263,6 +291,9 @@ const legalController = {
             institution_experience_name,
             contact_via_text,
             contact_via_email,
+            company_website,
+            form_started_at,
+            human_confirmation,
         } = req.body;
         const resume = req.files?.resume?.[0];
         const coverLetterFile = req.files?.cover_letter_file?.[0];
@@ -273,6 +304,38 @@ const legalController = {
         }
 
         try {
+            await ensureHelpThreadSchema(db);
+
+            const validation = validatePublicFormSubmission({
+                honeypot: company_website,
+                startedAt: form_started_at,
+                confirmation: human_confirmation,
+                requiredFields: [
+                    { label: 'First name', value: first_name },
+                    { label: 'Last name', value: last_name },
+                    { label: 'Email', value: email },
+                    { label: 'Phone number', value: phone },
+                    { label: 'Location', value: location },
+                ],
+                textFields: [
+                    { label: 'Cover letter note', value: cover_letter_note, minWords: 3, required: false },
+                ],
+                spamSamples: [
+                    first_name,
+                    last_name,
+                    email,
+                    phone,
+                    location,
+                    whatsapp_number,
+                    institution_experience_name,
+                ],
+            });
+
+            if (!validation.ok) {
+                req.flash('error', validation.error);
+                return res.redirect('/legal/employment');
+            }
+
             const jobResult = await db.query(
                 `SELECT id, title, application_mode FROM employment WHERE id = $1`,
                 [employmentId]
@@ -474,11 +537,30 @@ const legalController = {
             preferred_date,
             preferred_time,
             message,
+            company_website,
+            form_started_at,
+            human_confirmation,
         } = req.body;
 
         try {
-            if (!name || !email || !organization) {
-                req.flash('error', 'Name, Email, and Organisation are required to request a demo.');
+            const validation = validatePublicFormSubmission({
+                honeypot: company_website,
+                startedAt: form_started_at,
+                confirmation: human_confirmation,
+                requiredFields: [
+                    { label: 'Name', value: name },
+                    { label: 'Email', value: email },
+                    { label: 'Organisation', value: organization },
+                    { label: 'Message', value: message },
+                ],
+                textFields: [
+                    { label: 'Message', value: message, minWords: 3, required: true },
+                ],
+                spamSamples: [name, organization, role, email, phone, country, student_count],
+            });
+
+            if (!validation.ok) {
+                req.flash('error', validation.error);
                 return res.redirect('/legal/request-demo');
             }
 
@@ -497,9 +579,9 @@ const legalController = {
             ].filter(Boolean).join('\n');
 
             const newThread = await db.query(
-                `INSERT INTO help_threads (name, organization, email, phone)
-                 VALUES ($1, $2, $3, $4) RETURNING id`,
-                [name, organization || null, email, phone || null]
+                `INSERT INTO help_threads (name, organization, email, phone, request_type)
+                 VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+                [name, organization || null, email, phone || null, 'demo']
             );
 
             const threadId = newThread.rows[0].id;

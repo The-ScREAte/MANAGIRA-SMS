@@ -98,7 +98,7 @@
       <label for="password">New Password (optional):</label>
       <div class="password-input-wrapper">
         <input type="password" id="password" name="password" />
-        <button type="button" class="password-toggle-btn" onclick="toggleMultiplePasswords(['password', 'confirmPassword'], this)" aria-label="Show passwords">
+        <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('password', this)" aria-label="Show password">
           <i class="fa-solid fa-eye fa-fw" aria-hidden="true"></i>
         </button>
       </div>
@@ -108,6 +108,9 @@
       <label for="confirmPassword">Confirm New Password:</label>
       <div class="password-input-wrapper">
         <input type="password" id="confirmPassword" name="confirmPassword" />
+        <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('confirmPassword', this)" aria-label="Show password">
+          <i class="fa-solid fa-eye fa-fw" aria-hidden="true"></i>
+        </button>
       </div>
     </div>
 
@@ -347,36 +350,42 @@
 <style>
   .password-input-wrapper {
     position: relative;
+    display: flex;
+    align-items: center;
   }
 
   .password-input-wrapper input {
-    padding-right: 45px;
+    padding-right: 46px;
   }
 
   .password-toggle-btn {
     position: absolute;
-    right: 16px;
+    right: 10px;
     top: 50%;
     transform: translateY(-50%);
-    background: transparent;
-    border: none;
+    background: #ffffff;
+    border: 1px solid #d8e1ea;
     color: #64748b;
     cursor: pointer;
-    padding: 4px;
-    transition: color 0.2s ease;
+    padding: 0;
+    transition: color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
     font-size: 0.95rem;
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1;
     pointer-events: auto;
-    width: 24px;
-    height: 24px;
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
     flex-shrink: 0;
+    box-shadow: none;
   }
 
   .password-toggle-btn:hover {
     color: #01535b;
+    border-color: #bfd0db;
+    background: #f8fbfc;
     transform: translateY(-50%);
   }
 
@@ -387,10 +396,11 @@
   .password-toggle-btn:focus {
     outline: none;
     transform: translateY(-50%);
+    box-shadow: 0 0 0 3px rgba(1, 83, 91, 0.12);
   }
 
   .password-toggle-btn i {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     transition: none;
   }
 
@@ -405,19 +415,17 @@
     <div style="background: linear-gradient(135deg, #ff6b00 0%, #ff8c00 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0;">
       <h2 style="margin: 0; font-size: 20px;">⚠️ Request Detachment from Hub</h2>
     </div>
-    <form action="/account/request-hub-detachment" method="POST">
-      <div style="padding: 30px;">
-        <div style="background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin-bottom: 20px; border-radius: 4px;">
-          <strong>⚠️ Important:</strong> This request will be reviewed by your hub administrator. If approved, you will become an independent organization.
-        </div>
-        
-        <div style="margin-bottom: 20px;">
-          <label style="display: block; margin-bottom: 8px; font-weight: 600;">
-            Reason for Detachment <span style="color: red;">*</span>
-          </label>
+      function togglePasswordVisibility(inputId, button) {
+        const icon = button.querySelector('i');
+        const input = document.getElementById(inputId);
+        const isVisible = input && input.type === 'text';
+        if (!input) return;
+
+        input.type = isVisible ? 'password' : 'text';
+
           <textarea 
             name="reason" 
-            id="detachmentReason" 
+        button.setAttribute('aria-label', isVisible ? 'Show password' : 'Hide password');
             rows="6" 
             required
             minlength="10"
