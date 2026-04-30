@@ -4,6 +4,7 @@ const path = require('path');
 const { uploadToS3 } = require('../config/s3');
 const { sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require('../utils/emailHelper');
 const { ensureEmploymentSchema } = require('../utils/employmentSchema');
+const { checkAntiSpam } = require('../utils/formAntiSpam');
 
 const sendWithSingleRetry = async (sendFn) => {
     const firstAttempt = await sendFn();
