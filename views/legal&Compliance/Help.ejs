@@ -269,6 +269,58 @@
       transition: background 0.2s;
     }
     button[type="submit"]:hover { background: #014048; }
+    button[type="submit"]:disabled { background: #94a3b8; cursor: not-allowed; }
+
+    /* Collapsible contact form */
+    .contact-collapse {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+      overflow: hidden;
+    }
+    .contact-collapse[open] { box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06); }
+    .contact-summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 18px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      user-select: none;
+    }
+    .contact-summary::-webkit-details-marker { display: none; }
+    .contact-summary-text { display: flex; flex-direction: column; gap: 2px; }
+    .contact-summary-text strong { color: #01535b; font-size: 1.02rem; font-weight: 700; }
+    .contact-summary-text small { color: #64748b; font-size: 0.82rem; }
+    .contact-chev { color: #01535b; transition: transform 0.2s ease; flex-shrink: 0; }
+    .contact-collapse[open] .contact-chev { transform: rotate(180deg); }
+    .contact-form { padding: 4px 22px 24px; }
+    .form-intro {
+      background: #f1f5f9;
+      border-left: 3px solid #01535b;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 0.88rem;
+      color: #475569;
+      margin-bottom: 18px;
+      line-height: 1.55;
+    }
+    .form-intro strong { color: #01535b; }
+    .msg-hint { font-size: 0.8rem; color: #94a3b8; margin: -8px 0 12px; min-height: 16px; }
+    .msg-hint.error { color: #dc2626; }
+    .confirm-row {
+      display: flex !important;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.88rem;
+      color: #475569 !important;
+      font-weight: 500 !important;
+      margin: 4px 0 14px !important;
+      cursor: pointer;
+    }
+    .confirm-row input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: #01535b; }
 
     @media (max-width: 768px) {
       main { padding: 100px 16px 40px; }
