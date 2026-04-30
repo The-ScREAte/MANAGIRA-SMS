@@ -1,6 +1,4 @@
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
-const multer = require("multer");
-const multerS3 = require("multer-s3");
 const path = require("path");
 const fs = require("fs");
 const bcrypt = require("bcryptjs");
@@ -54,17 +52,6 @@ const {
   getActivityLogFilterOptions,
   getOrganizationActivityLogs,
 } = require("../utils/activityLog");
-
-// Configure AWS S3
-const s3 = new S3Client({
-  region: process.env.AWS_REGION,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  },
-});
-
-const BUCKET_NAME = process.env.S3_BUCKET_NAME;
 
 async function getActivePaystackConfig(dbClient) {
   const settings = await getPaystackSettings(dbClient);
@@ -381,17 +368,6 @@ function parseTextToStudents(text) {
   }
   return fallbackStudents;
 }
-
-// Setup multer for file uploads
-const storage = multerS3({
-  s3: s3,
-  bucket: BUCKET_NAME,
-  key: function (req, file, cb) {
-    cb(null, Date.now().toString() + "-" + file.originalname);
-  },
-});
-
-const upload = multer({ storage: storage });
 
 // Middleware to check if user is authenticated
 function isAuthenticated(req, res, next) {
@@ -11862,7 +11838,6 @@ const sendGuardianStudentAddedEmail = async (guardianEmail, guardianFirstName, g
 };
 
 module.exports = {
-  upload,
   isAuthenticated,
   commonController,
   sendInviteEmail,
