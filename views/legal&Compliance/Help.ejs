@@ -656,6 +656,54 @@
       input.focus();
       render('');
     });
+
+    // ====== Help Contact Form: anti-spam (word minimum, honeypot, timing, confirm) ======
+    (function () {
+      const form = document.getElementById('helpContactForm');
+      if (!form) return;
+      const startedField = document.getElementById('form_started_at');
+      if (startedField) startedField.value = String(Date.now());
+
+      const msg = document.getElementById('message');
+      const hint = document.getElementById('msgHint');
+      const confirmBox = document.getElementById('confirmHuman');
+      const submitBtn = document.getElementById('helpSubmitBtn');
+
+      function wordCount(s) {
+        return (s || '').trim().split(/\s+/).filter(Boolean).length;
+      }
+      function updateHint() {
+        const wc = wordCount(msg.value);
+        if (wc === 0) { hint.textContent = ''; hint.classList.remove('error'); return; }
+        if (wc < 3) {
+          hint.textContent = `Please use at least 3 words (currently ${wc}).`;
+          hint.classList.add('error');
+        } else {
+          hint.textContent = `${wc} words.`;
+          hint.classList.remove('error');
+        }
+      }
+      msg.addEventListener('input', updateHint);
+
+      form.addEventListener('submit', function (e) {
+        const wc = wordCount(msg.value);
+        if (wc < 3) {
+          e.preventDefault();
+          updateHint();
+          msg.focus();
+          return;
+        }
+        if (!confirmBox.checked) {
+          e.preventDefault();
+          alert('Please confirm this is a genuine request before submitting.');
+          return;
+        }
+        const ok = confirm('Submit this request to the Managira team?');
+        if (!ok) { e.preventDefault(); return; }
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Sending…';
+      });
+    })();
   </script>
 </body>
 </html>
