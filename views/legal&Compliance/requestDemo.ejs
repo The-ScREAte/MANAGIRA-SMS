@@ -8,22 +8,32 @@
   <% if (typeof keywords !== 'undefined') { %><meta name="keywords" content="<%= keywords %>"><% } %>
   <% if (typeof canonicalUrl !== 'undefined') { %><link rel="canonical" href="<%= canonicalUrl %>"><% } %>
   <style>
+    :root {
+      --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
+      --primary: #01535b;
+      --primary-light: #e8f4f5;
+      --border: #e5e7eb;
+      --text: #1f2937;
+      --text-muted: #6b7280;
+      --bg: #f9fafb;
+    }
+
     * { box-sizing: border-box; }
     body {
-      font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
-      background: #f8fafc;
-      color: #0f172a;
+      font-family: var(--font-family);
+      background: var(--bg);
+      color: var(--text);
       margin: 0;
       line-height: 1.6;
     }
     main {
-      max-width: 720px;
+      max-width: 780px;
       margin: 0 auto;
-      padding: 40px 20px 60px;
+      padding: 0;
     }
     .demo-hero {
       text-align: center;
-      margin-bottom: 28px;
+      margin-bottom: 40px;
     }
     .demo-hero .eyebrow {
       display: inline-block;
@@ -35,22 +45,22 @@
       margin-bottom: 10px;
     }
     .demo-hero h1 {
-      color: #01535b;
-      font-size: 2rem;
+      color: var(--primary);
+      font-size: 2.2rem;
       margin: 0 0 10px;
       letter-spacing: -0.01em;
     }
     .demo-hero p {
-      color: #475569;
-      font-size: 1rem;
+      color: var(--text-muted);
+      font-size: 0.95rem;
       margin: 0;
     }
     .demo-card {
       background: #fff;
-      border: 1px solid #e2e8f0;
-      border-radius: 14px;
-      padding: 28px;
-      box-shadow: 0 4px 18px rgba(15, 23, 42, 0.04);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px 28px 24px;
+      margin-bottom: 20px;
     }
     .form-grid {
       display: grid;
@@ -69,7 +79,7 @@
     input, select, textarea {
       width: 100%;
       padding: 11px 14px;
-      border: 1px solid #cbd5e1;
+      border: 1px solid var(--border);
       border-radius: 8px;
       font-size: 0.95rem;
       font-family: inherit;
@@ -100,15 +110,23 @@
       text-align: center;
       margin-top: 20px;
       font-size: 0.88rem;
-      color: #64748b;
+      color: var(--text-muted);
     }
-    .helper a { color: #01535b; font-weight: 600; }
+    .helper a { color: var(--primary); font-weight: 600; }
     @media (max-width: 640px) {
-      main { padding: 110px 16px 60px; }
-      .demo-hero h1 { font-size: 1.55rem; }
+      main { padding: 100px 0 40px; }
+      .demo-hero { margin: 20px 12px 40px; }
+      .demo-hero h1 { font-size: 1.8rem; }
       .form-grid { grid-template-columns: 1fr; }
-      .demo-card { padding: 22px 18px; }
+      .demo-card { margin: 0 12px 20px; padding: 20px 18px; }
       input, select, textarea { font-size: 16px; }
+    }
+    @media (max-width: 480px) {
+      main { padding: 110px 0 32px; }
+      .demo-hero { margin: 30px 8px 40px; }
+      .demo-hero h1 { font-size: 1.35rem; }
+      .demo-hero p { font-size: 0.88rem; }
+      .demo-card { margin: 0 8px 20px; padding: 16px 14px; border-radius: 10px; }
     }
   </style>
   <script type="application/ld+json">
@@ -122,7 +140,6 @@
   </script>
 </head>
 <body>
-
   <main>
     <div class="demo-hero">
       <span class="eyebrow">See Managira in action</span>
