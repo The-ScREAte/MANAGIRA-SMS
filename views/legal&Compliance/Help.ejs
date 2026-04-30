@@ -269,6 +269,58 @@
       transition: background 0.2s;
     }
     button[type="submit"]:hover { background: #014048; }
+    button[type="submit"]:disabled { background: #94a3b8; cursor: not-allowed; }
+
+    /* Collapsible contact form */
+    .contact-collapse {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+      overflow: hidden;
+    }
+    .contact-collapse[open] { box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06); }
+    .contact-summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 18px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      user-select: none;
+    }
+    .contact-summary::-webkit-details-marker { display: none; }
+    .contact-summary-text { display: flex; flex-direction: column; gap: 2px; }
+    .contact-summary-text strong { color: #01535b; font-size: 1.02rem; font-weight: 700; }
+    .contact-summary-text small { color: #64748b; font-size: 0.82rem; }
+    .contact-chev { color: #01535b; transition: transform 0.2s ease; flex-shrink: 0; }
+    .contact-collapse[open] .contact-chev { transform: rotate(180deg); }
+    .contact-form { padding: 4px 22px 24px; }
+    .form-intro {
+      background: #f1f5f9;
+      border-left: 3px solid #01535b;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 0.88rem;
+      color: #475569;
+      margin-bottom: 18px;
+      line-height: 1.55;
+    }
+    .form-intro strong { color: #01535b; }
+    .msg-hint { font-size: 0.8rem; color: #94a3b8; margin: -8px 0 12px; min-height: 16px; }
+    .msg-hint.error { color: #dc2626; }
+    .confirm-row {
+      display: flex !important;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.88rem;
+      color: #475569 !important;
+      font-weight: 500 !important;
+      margin: 4px 0 14px !important;
+      cursor: pointer;
+    }
+    .confirm-row input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: #01535b; }
 
     @media (max-width: 768px) {
       main { padding: 100px 16px 40px; }
@@ -362,33 +414,55 @@
         </a>
       </div>
 
-      <div class="info-box">
-        <p>Before submitting a request, try the search above — it looks across our full documentation, guides, and FAQ for instant answers.</p>
-        <p>For urgent matters, you can also email us directly at <strong>info@managira.com</strong></p>
-      </div>
     </div>
 
-    <!-- CONTACT FORM -->
-    <form action="/legal/help" method="POST" class="contact-form">
-      <p class="form-title">Still need a hand? Send us a message</p>
+    <!-- CONTACT FORM (collapsed by default) -->
+    <details class="contact-collapse">
+      <summary class="contact-summary">
+        <span class="contact-summary-text">
+          <strong>Still need a hand? Send us a message</strong>
+          <small>Click to expand the contact form</small>
+        </span>
+        <svg class="contact-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
 
-      <label for="name">Full Name</label>
-      <input type="text" id="name" name="name" required autocomplete="name" placeholder="Your full name">
+      <form action="/legal/help" method="POST" class="contact-form" id="helpContactForm" novalidate>
+        <p class="form-intro">
+          Before submitting a request, try the search above — it looks across our full documentation, guides, and FAQ for instant answers.
+          <br><br>
+          For urgent matters, you can also email us directly at <strong>info@managira.com</strong>
+        </p>
 
-      <label for="organization">Organisation (optional)</label>
-      <input type="text" id="organization" name="organization" autocomplete="organization" placeholder="Which school or organisation?">
+        <label for="name">Full Name</label>
+        <input type="text" id="name" name="name" required autocomplete="name" placeholder="Your full name" maxlength="120">
 
-      <label for="phone">Phone Number</label>
-      <input type="tel" id="phone" name="phone" required autocomplete="tel" placeholder="+234 801 234 5678">
+        <label for="organization">Organisation (optional)</label>
+        <input type="text" id="organization" name="organization" autocomplete="organization" placeholder="Which school or organisation?" maxlength="160">
 
-      <label for="email">Email Address</label>
-      <input type="email" id="email" name="email" required autocomplete="email" placeholder="your@email.com">
+        <label for="phone">Phone Number</label>
+        <input type="tel" id="phone" name="phone" required autocomplete="tel" placeholder="+234 801 234 5678" maxlength="40">
 
-      <label for="message">How can we help?</label>
-      <textarea id="message" name="message" required placeholder="Please describe your issue or question in detail..."></textarea>
+        <label for="email">Email Address</label>
+        <input type="email" id="email" name="email" required autocomplete="email" placeholder="your@email.com" maxlength="160">
 
-      <button type="submit">Submit Request</button>
-    </form>
+        <label for="message">How can we help? <small style="color:#94a3b8;font-weight:500;">(at least 3 words)</small></label>
+        <textarea id="message" name="message" required placeholder="Please describe your issue or question in detail..." minlength="10"></textarea>
+        <p id="msgHint" class="msg-hint" aria-live="polite"></p>
+
+        <!-- Honeypot anti-bot field (hidden) -->
+        <div style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden;" aria-hidden="true">
+          <label>Leave this field blank<input type="text" name="company_website" tabindex="-1" autocomplete="off"></label>
+        </div>
+        <input type="hidden" name="form_started_at" id="form_started_at" value="">
+
+        <label class="confirm-row">
+          <input type="checkbox" id="confirmHuman" name="confirm_human" required>
+          <span>I confirm this is a genuine request, not spam.</span>
+        </label>
+
+        <button type="submit" id="helpSubmitBtn">Submit Request</button>
+      </form>
+    </details>
   </main>
 
   <script>
@@ -582,6 +656,54 @@
       input.focus();
       render('');
     });
+
+    // ====== Help Contact Form: anti-spam (word minimum, honeypot, timing, confirm) ======
+    (function () {
+      const form = document.getElementById('helpContactForm');
+      if (!form) return;
+      const startedField = document.getElementById('form_started_at');
+      if (startedField) startedField.value = String(Date.now());
+
+      const msg = document.getElementById('message');
+      const hint = document.getElementById('msgHint');
+      const confirmBox = document.getElementById('confirmHuman');
+      const submitBtn = document.getElementById('helpSubmitBtn');
+
+      function wordCount(s) {
+        return (s || '').trim().split(/\s+/).filter(Boolean).length;
+      }
+      function updateHint() {
+        const wc = wordCount(msg.value);
+        if (wc === 0) { hint.textContent = ''; hint.classList.remove('error'); return; }
+        if (wc < 3) {
+          hint.textContent = `Please use at least 3 words (currently ${wc}).`;
+          hint.classList.add('error');
+        } else {
+          hint.textContent = `${wc} words.`;
+          hint.classList.remove('error');
+        }
+      }
+      msg.addEventListener('input', updateHint);
+
+      form.addEventListener('submit', function (e) {
+        const wc = wordCount(msg.value);
+        if (wc < 3) {
+          e.preventDefault();
+          updateHint();
+          msg.focus();
+          return;
+        }
+        if (!confirmBox.checked) {
+          e.preventDefault();
+          alert('Please confirm this is a genuine request before submitting.');
+          return;
+        }
+        const ok = confirm('Submit this request to the Managira team?');
+        if (!ok) { e.preventDefault(); return; }
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Sending…';
+      });
+    })();
   </script>
 </body>
 </html>

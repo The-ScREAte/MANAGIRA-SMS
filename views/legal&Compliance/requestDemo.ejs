@@ -134,7 +134,7 @@
     <%- include('../partials/flash') %>
 
     <div class="demo-card">
-      <form action="/legal/request-demo" method="POST" novalidate>
+      <form action="/legal/request-demo" method="POST" id="demoRequestForm" novalidate>
         <div class="form-grid">
           <div class="full">
             <label for="name">Full Name <span class="req">*</span></label>
@@ -156,9 +156,44 @@
           </div>
         </div>
 
-        <button type="submit">Request My Demo</button>
+        <!-- Honeypot (hidden) -->
+        <div style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden;" aria-hidden="true">
+          <label>Leave this field blank<input type="text" name="company_website" tabindex="-1" autocomplete="off"></label>
+        </div>
+        <input type="hidden" name="form_started_at" id="form_started_at" value="">
+
+        <label style="display:flex;align-items:center;gap:8px;font-weight:500;color:#475569;margin-top:14px;cursor:pointer;">
+          <input type="checkbox" id="confirmHuman" name="confirm_human" required style="width:16px;height:16px;margin:0;accent-color:#01535b;">
+          <span>I confirm this is a genuine request, not spam.</span>
+        </label>
+
+        <button type="submit" id="demoSubmitBtn">Request My Demo</button>
       </form>
     </div>
   </main>
+
+  <script>
+    (function () {
+      const form = document.getElementById('demoRequestForm');
+      if (!form) return;
+      const startedField = document.getElementById('form_started_at');
+      if (startedField) startedField.value = String(Date.now());
+      const confirmBox = document.getElementById('confirmHuman');
+      const submitBtn = document.getElementById('demoSubmitBtn');
+      form.addEventListener('submit', function (e) {
+        if (!confirmBox.checked) {
+          e.preventDefault();
+          alert('Please confirm this is a genuine request before submitting.');
+          return;
+        }
+        if (!confirm('Send this demo request to the Managira team?')) {
+          e.preventDefault();
+          return;
+        }
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Sending…';
+      });
+    })();
+  </script>
 </body>
 </html>

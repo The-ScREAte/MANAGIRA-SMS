@@ -278,69 +278,127 @@
     
     <%- include('../partials/flash') %>
 
-    <table class="ticket-table">
-      <thead>
-        <tr>
-          <th>Ticket #</th>
-          <th>Status</th>
-          <th>Name</th>
-          <th>Organization</th>
-        </tr>
-      </thead>
-      <tbody>
-        <% threads.sort((a, b) => a.thread_id - b.thread_id).forEach(thread => { %>
-          <tr class="ticket-summary" onclick="toggleDetails('<%= thread.thread_id %>')">
-            <td>#<%= thread.thread_id %> <span id="arrow-<%= thread.thread_id %>" class="arrow">▶</span></td>
-            <td class="<%= thread.is_resolved ? 'status-closed' : 'status-open' %>">
-              <%= thread.is_resolved ? '✓ Closed' : '● Open' %>
-            </td>
-            <td><%= thread.name %></td>
-            <td><%= thread.organization || 'N/A' %></td>
-          </tr>
+    <form id="bulkForm" action="/admin/bulkDeleteMessages" method="POST" onsubmit="return confirmBulk(event)">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;">
+          <input type="checkbox" id="selectAll" onclick="toggleAll(this)"> Select all
+        </label>
+        <button type="submit" class="admin-btn admin-btn-delete" id="bulkDelBtn" disabled>🗑 Delete Selected</button>
+      </div>
+
+      <table class="ticket-table">
+        <thead>
           <tr>
-            <td colspan="4" style="padding: 0; border: none;">
-              <div id="details-<%= thread.thread_id %>" class="ticket-details">
-                <div class="details-container">
-                  <div class="info-container">
-                    <div><strong>Email:</strong> <%= thread.email %></div>
-                    <div><strong>Phone:</strong> <%= thread.phone || 'N/A' %></div>
-                    <div><strong>Status:</strong> <%= thread.is_resolved ? 'Closed' : 'Open' %></div>
-                    <div><strong>Last Updated:</strong> <%= new Date(thread.last_updated).toLocaleString() %></div>
-                  </div>
-                  <div class="messages-container">
-                    <h3>💬 Chat</h3>
-                    <div class="chat-container">
-                      <% thread.messages.forEach((message, index) => { %>
-                        <div class="<%= index % 2 === 0 ? 'chat-message user-message' : 'chat-message admin-message' %>">
-                          <p style="margin: 0;"><%= message %></p>
+            <th style="width:36px;"></th>
+            <th>Ticket #</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Name</th>
+            <th>Organization</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% threads.sort((a, b) => a.thread_id - b.thread_id).forEach(thread => {
+              const firstMsg = (thread.messages && thread.messages[0]) ? String(thread.messages[0]) : '';
+              const isDemo = /^\s*\[DEMO REQUEST\]/i.test(firstMsg) || /^\s*Demo Request from/i.test(firstMsg);
+              const typeLabel = isDemo ? 'Demo' : 'Help';
+              const typeColor = isDemo ? '#7c2d12' : '#1e3a8a';
+              const typeBg = isDemo ? '#fef3c7' : '#dbeafe';
+          %>
+            <tr class="ticket-summary">
+              <td onclick="event.stopPropagation()">
+                <input type="checkbox" name="threadIds" value="<%= thread.thread_id %>" class="row-check" onclick="updateBulkBtn()">
+              </td>
+              <td onclick="toggleDetails('<%= thread.thread_id %>')">#<%= thread.thread_id %> <span id="arrow-<%= thread.thread_id %>" class="arrow">▶</span></td>
+              <td onclick="toggleDetails('<%= thread.thread_id %>')">
+                <span style="display:inline-block;padding:3px 9px;border-radius:999px;background:<%= typeBg %>;color:<%= typeColor %>;font-size:0.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;">
+                  <%= typeLabel %>
+                </span>
+              </td>
+              <td onclick="toggleDetails('<%= thread.thread_id %>')" class="<%= thread.is_resolved ? 'status-closed' : 'status-open' %>">
+                <%= thread.is_resolved ? '✓ Closed' : '● Open' %>
+              </td>
+              <td onclick="toggleDetails('<%= thread.thread_id %>')"><%= thread.name %></td>
+              <td onclick="toggleDetails('<%= thread.thread_id %>')"><%= thread.organization || 'N/A' %></td>
+            </tr>
+            <tr>
+              <td colspan="6" style="padding: 0; border: none;">
+                <div id="details-<%= thread.thread_id %>" class="ticket-details">
+                  <div class="details-container">
+                    <div class="info-container">
+                      <div><strong>Type:</strong> <%= typeLabel %> Request</div>
+                      <div><strong>Email:</strong> <%= thread.email %></div>
+                      <div><strong>Phone:</strong> <%= thread.phone || 'N/A' %></div>
+                      <div><strong>Status:</strong> <%= thread.is_resolved ? 'Closed' : 'Open' %></div>
+                      <div><strong>Last Updated:</strong> <%= new Date(thread.last_updated).toLocaleString() %></div>
+                    </div>
+                    <div class="messages-container">
+                      <h3>💬 Chat</h3>
+                      <div class="chat-container">
+                        <% thread.messages.forEach((message, index) => { %>
+                          <div class="<%= index % 2 === 0 ? 'chat-message user-message' : 'chat-message admin-message' %>">
+                            <p style="margin: 0; white-space: pre-wrap;"><%= message %></p>
+                          </div>
+                        <% }) %>
+                      </div>
+                    </div>
+                    <div class="form-container">
+                      <%# Each row has its own form to keep response & close/delete independent %>
+                      <form action="/admin/respondMessage" method="POST" onsubmit="return validateRespond(this)">
+                        <input type="hidden" name="threadId" value="<%= thread.thread_id %>">
+                        <textarea name="response" placeholder="Write your response here (required only for Respond)..."></textarea>
+                        <div class="ticket-actions">
+                          <button type="submit" class="admin-btn admin-btn-primary">✉️ Respond</button>
+                          <button type="button" class="admin-btn admin-btn-success" onclick="submitNoMsg(this, '/admin/resolveMessage', '<%= thread.thread_id %>', 'Mark this ticket as closed?')">✓ Close Ticket</button>
+                          <button type="button" class="admin-btn admin-btn-delete" onclick="submitNoMsg(this, '/admin/tempDeleteMessage', '<%= thread.thread_id %>', 'Delete this ticket?')">🗑 Delete</button>
                         </div>
-                      <% }) %>
+                      </form>
                     </div>
                   </div>
-                  <div class="form-container">
-                    <form action="/admin/respondMessage" method="POST">
-                      <input type="hidden" name="threadId" value="<%= thread.thread_id %>">
-                      <textarea name="response" placeholder="Write your response here..." required></textarea>
-                      <div class="ticket-actions">
-                        <button type="submit" class="admin-btn admin-btn-primary" onclick="confirmAction(event, 'Send this response?')">
-                          ✉️ Respond
-                        </button>
-                        <button type="submit" formaction="/admin/resolveMessage" class="admin-btn admin-btn-success" onclick="confirmAction(event, 'Mark this ticket as closed?')">
-                          ✓ Close Ticket
-                        </button>
-                        <button type="submit" formaction="/admin/tempDeleteMessage" class="admin-btn admin-btn-delete" onclick="confirmAction(event, 'Delete this ticket?')">
-                          🗑 Delete
-                        </button>
-                      </div>
-                    </form>
-                  </div>
                 </div>
-              </div>
-            </td>
-          </tr>
-        <% }) %>
-      </tbody>
-    </table>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </form>
   </div>
+
+  <script>
+    function toggleAll(cb) {
+      document.querySelectorAll('.row-check').forEach(c => c.checked = cb.checked);
+      updateBulkBtn();
+    }
+    function updateBulkBtn() {
+      const any = document.querySelectorAll('.row-check:checked').length > 0;
+      document.getElementById('bulkDelBtn').disabled = !any;
+    }
+    function confirmBulk(e) {
+      const n = document.querySelectorAll('.row-check:checked').length;
+      if (n === 0) { e.preventDefault(); return false; }
+      if (!confirm(`Delete ${n} selected ticket${n === 1 ? '' : 's'}?`)) { e.preventDefault(); return false; }
+      return true;
+    }
+    function validateRespond(form) {
+      const t = form.querySelector('textarea[name="response"]');
+      if (!t.value.trim()) {
+        alert('Please write a response message before sending.');
+        t.focus();
+        return false;
+      }
+      return confirm('Send this response?');
+    }
+    function submitNoMsg(btn, action, threadId, msg) {
+      if (!confirm(msg)) return;
+      const f = document.createElement('form');
+      f.method = 'POST';
+      f.action = action;
+      const i = document.createElement('input');
+      i.type = 'hidden'; i.name = 'threadId'; i.value = threadId;
+      f.appendChild(i);
+      document.body.appendChild(f);
+      f.submit();
+    }
+  </script>
 </body>
 </html>

@@ -4,6 +4,7 @@ const path = require('path');
 const { uploadToS3 } = require('../config/s3');
 const { sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require('../utils/emailHelper');
 const { ensureEmploymentSchema } = require('../utils/employmentSchema');
+const { checkAntiSpam } = require('../utils/formAntiSpam');
 
 const sendWithSingleRetry = async (sendFn) => {
     const firstAttempt = await sendFn();
@@ -161,6 +162,12 @@ const legalController = {
         try {
             if (!name || !email || !message) {
                 req.flash('error', 'Name, Email, and Message are required.');
+                return res.redirect('/legal/help');
+            }
+
+            const spamCheck = checkAntiSpam(req.body, { requireConfirm: true, minWords: 3, messageField: 'message' });
+            if (!spamCheck.ok) {
+                req.flash('error', spamCheck.reason);
                 return res.redirect('/legal/help');
             }
     
@@ -472,9 +479,21 @@ const legalController = {
                 return res.redirect('/legal/request-demo');
             }
 
+            // Anti-spam: only enforce word minimum on optional message if it was filled in.
+            const spamCheck = checkAntiSpam(req.body, {
+                requireConfirm: true,
+                minWords: message && message.trim() ? 3 : 0,
+                messageField: 'message',
+            });
+            if (!spamCheck.ok) {
+                req.flash('error', spamCheck.reason);
+                return res.redirect('/legal/request-demo');
+            }
+
             // Compose a structured message that mirrors what Help Center stores.
+            // Prefix [DEMO REQUEST] so admins can distinguish demo vs help tickets at a glance.
             const composedMessage = [
-                `Demo Request from ${name}`,
+                `[DEMO REQUEST] from ${name}`,
                 organization ? `Organisation: ${organization}` : null,
                 role ? `Role: ${role}` : null,
                 country ? `Country: ${country}` : null,

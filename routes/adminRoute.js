@@ -233,6 +233,22 @@ module.exports = (db) => {
     router.post('/reopenThread', adminController.reopenThread);
     router.post('/deleteThread', adminController.deleteThread);
     router.post('/tempDeleteMessage', adminController.tempDeleteMessage);
+    router.post('/bulkDeleteMessages', async (req, res) => {
+        try {
+            let ids = req.body.threadIds;
+            if (!ids) { req.flash('error', 'No tickets selected.'); return res.redirect('/admin/helpMessages'); }
+            if (!Array.isArray(ids)) ids = [ids];
+            const intIds = ids.map(x => parseInt(x, 10)).filter(Number.isFinite);
+            if (!intIds.length) { req.flash('error', 'Invalid selection.'); return res.redirect('/admin/helpMessages'); }
+            const db = require('../config/db');
+            await db.query(`UPDATE help_threads SET is_deleted = true WHERE id = ANY($1::int[])`, [intIds]);
+            req.flash('success', `${intIds.length} ticket(s) moved to Super Admin review.`);
+            res.redirect('/admin/helpMessages');
+        } catch (err) {
+            req.flash('error', 'Bulk delete failed.');
+            res.redirect('/admin/helpMessages');
+        }
+    });
     router.post('/restoreMessage', adminController.restoreMessage);
     router.post('/permanentDeleteMessage', adminController.permanentDeleteMessage); 
 
