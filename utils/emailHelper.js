@@ -299,19 +299,14 @@ async function sendEmailSafely(mailOptions, context = "Email") {
 
     // Strip smtpConfig if caller passed it (we ignore custom transporter configs)
     const { smtpConfig, from: _ignoredFrom, skipMxCheck: _skipMxCheck, ...restOptions } = mailOptions;
-    const mergedAttachments = Array.isArray(restOptions.attachments) ? [...restOptions.attachments] : [];
-    const hasInlineLogo = mergedAttachments.some((item) => item && item.cid === 'managira_logo');
-    if (restOptions.html && !hasInlineLogo) {
-      // Keep the logo as a redundant inline attachment (contentDisposition:'inline')
-      // for clients that fail to fetch external images. The HTML itself points at
-      // the public HTTPS URL so it renders even when attachments are stripped.
-      mergedAttachments.push({
-        filename: 'managira.png',
-        path: MANAGIRA_LOGO_PATH,
-        cid: 'managira_logo',
-        contentDisposition: 'inline',
-      });
-    }
+
+    // Strip any caller-provided "managira_logo" inline attachment. The logo is
+    // now rendered via a public HTTPS <img src> in renderCleanEmail, so adding
+    // it as an inline attachment caused mail clients (Gmail/Outlook) to show
+    // the logo as a downloadable file alongside the message — which we do not
+    // want. Real file attachments (PDF reports, resumes, etc.) are kept.
+    const mergedAttachments = (Array.isArray(restOptions.attachments) ? restOptions.attachments : [])
+      .filter((item) => !(item && item.cid === 'managira_logo'));
 
     // Provide a plain-text fallback whenever one wasn’t supplied. multipart/
     // alternative mail is a strong Primary-tab signal.
