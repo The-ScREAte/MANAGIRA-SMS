@@ -370,7 +370,9 @@ main { padding: 0 !important; max-width: none !important; }
         New Doc/Sheet
       </button>
       <% } %>
-      <a href="<%= classId ? ('/common/classDashboard?classId=' + classId) : '/common/management' %>" class="btn btn-outline" data-no-spa>← Back</a>
+      <% if (!classId) { %>
+      <a href="/common/management" class="btn btn-outline" data-no-spa>← Back</a>
+      <% } %>
     </div>
   </div>
 
@@ -383,7 +385,7 @@ main { padding: 0 !important; max-width: none !important; }
   <% } else { %>
     <div class="docs-grid">
       <% documents.forEach(doc => { %>
-        <div class="doc-card" onclick="window.location='/documents/edit/<%= doc.id %>'">
+        <div class="doc-card" onclick="if(event.target.closest('.doc-card-actions'))return; window.open('/documents/edit/<%= doc.id %>','_blank','noopener');">
           <div class="doc-card-actions">
             <button type="button" class="doc-delete-btn" data-doc-id="<%= doc.id %>" data-doc-title="<%= doc.title %>" title="Delete">🗑</button>
           </div>

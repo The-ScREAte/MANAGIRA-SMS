@@ -442,6 +442,7 @@
     }
   }
 </style>
+<link rel="stylesheet" href="/css/workspace-shell.css" />
 
 <div class="hub-nav-overlay" id="hub-nav-overlay"></div>
 
@@ -462,13 +463,15 @@
       <ul class="nav-list">
         <li>
           <button class="nav-link active" data-section="create-student">
-            Create Student
+            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-3.866 3.134-7 7-7s7 3.134 7 7"/><path d="M19 8v6M16 11h6"/></svg></span>
+            <span>Create Student</span>
           </button>
         </li>
         <% if (Array.isArray(allowedFeatures) && (allowedFeatures.includes('School Website') || allowedFeatures.includes('SchoolWebsite'))) { %>
         <li>
           <button class="nav-link" data-section="pending">
-            Pending Admissions
+            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+            <span>Pending Admissions</span>
           </button>
         </li>
         <% } %>
@@ -479,7 +482,7 @@
     <main class="hub-main">
       <!-- Create Student Section -->
       <section class="hub-section active" id="create-student">
-        <div class="section-header">
+        <div class="section-header" data-eyebrow="Admissions Workspace">
           <h1>Create Student</h1>
           <p>Add new students to your organization.</p>
         </div>
@@ -520,7 +523,7 @@
       <!-- Pending Admissions Section -->
       <% if (Array.isArray(allowedFeatures) && (allowedFeatures.includes('School Website') || allowedFeatures.includes('SchoolWebsite'))) { %>
       <section class="hub-section" id="pending">
-        <div class="section-header">
+        <div class="section-header" data-eyebrow="Admissions Workspace">
           <h1>Pending Admissions</h1>
           <p>Review and approve student applications.</p>
         </div>

@@ -291,6 +291,12 @@ module.exports = (db) => {
     isAuthenticated,
     (req, res) => commonController.classDashboard(req, res, db)
   );
+  router.get(
+    "/classDashboard/:classId/:panel?/:itemId?",
+    checkFeatureAccess,
+    isAuthenticated,
+    (req, res) => commonController.classDashboard(req, res, db)
+  );
   router.get("/classSchedule", isAuthenticated, (req, res) =>
     commonController.getClassSchedule(req, res, db)
   );

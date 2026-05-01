@@ -442,6 +442,7 @@
     }
   }
 </style>
+<link rel="stylesheet" href="/css/workspace-shell.css" />
 
 <div class="hub-nav-overlay" id="hub-nav-overlay"></div>
 
@@ -462,24 +463,28 @@
       <ul class="nav-list">
         <li>
           <button class="nav-link active" data-section="term-management">
-            Term Reports
+            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
+            <span>Term Reports</span>
           </button>
         </li>
         <li>
           <button class="nav-link" data-section="data-migration">
-            Data Migration
+            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></span>
+            <span>Data Migration</span>
           </button>
         </li>
         <% if (Array.isArray(allowedFeatures) && allowedFeatures.includes('Organization Analytics & Insights')) { %>
         <li>
           <button class="nav-link" data-section="org-stats">
-            Organization Stats
+            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg></span>
+            <span>Organization Stats</span>
           </button>
         </li>
         <% } %>
         <li>
           <button class="nav-link" data-section="activity-logs">
-            Activity Logs
+            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg></span>
+            <span>Activity Logs</span>
           </button>
         </li>
       </ul>
@@ -489,7 +494,7 @@
     <main class="hub-main">
       <!-- Term Reports Section -->
       <section class="hub-section active" id="term-management">
-        <div class="section-header">
+        <div class="section-header" data-eyebrow="Reports Workspace">
           <h1>Term Reports</h1>
           <p>Generate and manage term-based academic reports.</p>
         </div>
@@ -552,7 +557,7 @@
 
       <!-- Data Migration Section -->
       <section class="hub-section" id="data-migration">
-        <div class="section-header">
+        <div class="section-header" data-eyebrow="Reports Workspace">
           <h1>Data Migration</h1>
           <p>Import legacy documents from your previous system into Managira.</p>
         </div>
@@ -604,7 +609,7 @@
       <!-- Organization Stats Section -->
       <% if (Array.isArray(allowedFeatures) && allowedFeatures.includes('Organization Analytics & Insights')) { %>
       <section class="hub-section" id="org-stats">
-        <div class="section-header">
+        <div class="section-header" data-eyebrow="Reports Workspace">
           <h1>Organization Statistics</h1>
           <p>View comprehensive analytics and insights about your school.</p>
         </div>
@@ -656,7 +661,7 @@
 
       <!-- Activity Logs Section -->
       <section class="hub-section" id="activity-logs">
-        <div class="section-header">
+        <div class="section-header" data-eyebrow="Reports Workspace">
           <h1>Activity Logs</h1>
           <p>Audit every meaningful action performed across your organization.</p>
         </div>

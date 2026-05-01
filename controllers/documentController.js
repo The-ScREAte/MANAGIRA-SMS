@@ -330,17 +330,22 @@ const documentController = {
           if (!classExists) {
             documentRows = [];
           } else {
+          // Inside a class workspace, only show docs assigned to the logged-in user
+          // (docs they created, were granted explicit permission to, or are class member of an assigned class).
           const docs = await db.query(`
             SELECT DISTINCT d.id, d.title, d.doc_type, d.created_at, d.updated_at,
               u.first_name || ' ' || u.last_name AS created_by_name,
               d.created_by
             FROM documents d
             JOIN users u ON d.created_by = u.user_id
-            JOIN document_class_assignments dca ON d.id = dca.document_id
+            JOIN document_class_assignments dca ON d.id = dca.document_id AND dca.class_id = $2
             JOIN classes c ON c.class_id = dca.class_id AND c.organization_id = $1
-            WHERE d.organization_id = $1 AND d.is_deleted = FALSE AND dca.class_id = $2
+            LEFT JOIN document_permissions dp ON dp.document_id = d.id AND dp.user_id = $3
+            LEFT JOIN class_employees ce ON ce.class_id = dca.class_id AND ce.user_id = $3
+            WHERE d.organization_id = $1 AND d.is_deleted = FALSE
+              AND (d.created_by = $3 OR dp.user_id IS NOT NULL OR ce.user_id IS NOT NULL)
             ORDER BY d.updated_at DESC
-          `, [orgId, classId]);
+          `, [orgId, classId, userId]);
           documentRows = docs.rows;
           }
         } else {
@@ -434,6 +439,8 @@ const documentController = {
         autoCreate: shouldAutoCreate,
         layout: "layout",
         showOrgHeader: true,
+        hideGlobalHeader: true,
+        hideGlobalFooter: true,
       });
     } catch (error) {
       console.error('[FILES][LIST][ERROR]', {
@@ -457,6 +464,8 @@ const documentController = {
           autoCreate: shouldAutoCreate,
           layout: "layout",
           showOrgHeader: true,
+          hideGlobalHeader: true,
+          hideGlobalFooter: true,
         });
       } catch (renderError) {
         console.error('[FILES][LIST][FALLBACK_RENDER_ERROR]', {

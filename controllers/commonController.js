@@ -4146,6 +4146,8 @@ const commonController = {
         termNameForPage,
         studentEnrolledInCurrent,
         messages: req.flash(),
+        hideGlobalHeader: true,
+        hideGlobalFooter: true,
       });
         } catch (err) {
       // ...removed error log for clean background operation...
@@ -4918,6 +4920,8 @@ const commonController = {
         schoolYear,
         userRole,
         attendanceCalendarSummary,
+        hideGlobalHeader: true,
+        hideGlobalFooter: true,
       });
     } catch (error) {
       // ...removed error log for clean background operation...
@@ -6393,6 +6397,8 @@ const commonController = {
         students,
         employees,
         messages: req.flash(),
+        hideGlobalHeader: true,
+        hideGlobalFooter: true,
       });
     } catch (err) {
             res.status(500).send("Error fetching assessment data.");
@@ -8050,7 +8056,7 @@ const commonController = {
   },
 
   classDashboard: async (req, res, db, csrfToken) => {
-    const classId = req.query.classId;
+    const classId = req.params.classId || req.query.classId;
     if (!classId) {
       res.redirect("/common/orgDashboard");
       return;
@@ -8235,6 +8241,32 @@ const commonController = {
         classReportsCount = Number(reportsCountResult.rows[0]?.total || 0);
       }
 
+      const routePanel = String(req.params.panel || '').trim().toLowerCase();
+      const routeItemId = req.params.itemId ? String(req.params.itemId).trim() : '';
+      const queryReportId = req.query.reportId ? String(req.query.reportId).trim() : '';
+      let initialWorkspaceRoute = {
+        panel: 'overview',
+        itemId: '',
+      };
+
+      if (routePanel === 'attendance') {
+        initialWorkspaceRoute = { panel: 'attendance', itemId: '' };
+      } else if (routePanel === 'reports') {
+        initialWorkspaceRoute = { panel: queryReportId ? 'report-detail' : 'reports', itemId: queryReportId };
+      } else if (routePanel === 'schedule') {
+        initialWorkspaceRoute = { panel: 'schedule', itemId: '' };
+      } else if (routePanel === 'students') {
+        initialWorkspaceRoute = { panel: 'students', itemId: '' };
+      } else if (routePanel === 'subjects') {
+        initialWorkspaceRoute = { panel: 'subjects', itemId: '' };
+      } else if (routePanel === 'student' && routeItemId) {
+        initialWorkspaceRoute = { panel: 'student', itemId: routeItemId };
+      } else if (routePanel === 'subject' && routeItemId) {
+        initialWorkspaceRoute = { panel: 'subject', itemId: routeItemId };
+      } else if (routePanel === 'docs') {
+        initialWorkspaceRoute = { panel: 'docs', itemId: '' };
+      }
+
       // Render the classDashboard view with the updated context
       res.render("common/classDashboard", {
         title: `Class Dashboard - ${className}`,
@@ -8256,6 +8288,8 @@ const commonController = {
         initialClassScheduleData,
         assignedFilesCount,
         classReportsCount,
+        initialWorkspaceRoute,
+        classWorkspaceBasePath: `/common/classDashboard/${classId}`,
       });
     } catch (err) {
             res.status(500).send("Error loading class dashboard");

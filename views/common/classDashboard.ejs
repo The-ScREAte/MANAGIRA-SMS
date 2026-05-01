@@ -11,6 +11,16 @@
     slate: { primary: '#334155', hover: '#1e293b' }
   };
   const currentTheme = themeColors[themeColor] || themeColors.teal;
+  const workspaceStudents = (students || []).map((student) => ({
+    id: student.student_id,
+    name: `${student.first_name} ${student.last_name}`,
+    firstName: student.first_name,
+    lastName: student.last_name,
+  }));
+  const workspaceSubjects = (subjects || []).map((subject) => ({
+    id: subject.subject_id,
+    name: subject.subject_name,
+  }));
 %>
 <style>
 :root {
@@ -31,9 +41,36 @@ body {
   flex-direction: column;
 }
 
+html, body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+html body main,
 main {
   flex: 1 0 auto;
-  width: 100%;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  zoom: 1 !important;
+  box-sizing: border-box;
+}
+
+/* Neutralize any centered parent containers from the shared layout for this page */
+.container,
+.container-md,
+.container-lg,
+.container-xl,
+.page-wrapper,
+.layout-shell,
+.app-body,
+.content,
+#app-scale-root {
+  max-width: none !important;
+  width: 100% !important;
+  margin: 0 !important;
 }
 
 .dashboard-shell {
@@ -148,7 +185,7 @@ main {
 }
 
 .side-nav {
-  padding: 4px 2px;
+  padding: 6px 8px 10px;
   text-align: left;
 }
 
@@ -157,34 +194,54 @@ main {
   padding: 0;
   margin: 0;
   display: grid;
-  gap: 4px;
-  justify-items: start;
+  gap: 2px;
+  justify-items: stretch;
 }
 
 .nav-section-label {
-  margin: 8px 2px 0;
+  margin: 8px 6px 2px;
   color: var(--muted);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
 }
 
 .nav-link {
+  position: relative;
+  width: 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  color: var(--text);
+  gap: 10px;
+  padding: 5px 10px 5px 12px;
+  border-radius: 8px;
+  color: #475569;
   text-decoration: none;
   border: 1px solid transparent;
   background: transparent;
   cursor: pointer;
   font: inherit;
-  font-weight: 600;
-  font-size: 14px;
+  font-weight: 500;
+  font-size: 13px;
   text-align: left;
-  transition: all 0.2s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
+.nav-link .nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+.nav-link .nav-icon svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+.nav-link .nav-link-label { flex: 1; }
 
 .files-link-inline {
   display: inline-flex;
@@ -207,15 +264,28 @@ main {
 }
 
 .nav-link:hover {
-  background: #f3f4f6;
-  border-color: #e5e7eb;
+  background: rgba(1, 83, 91, 0.06);
+  color: var(--primary);
 }
+.nav-link:hover .nav-icon { color: var(--primary); }
 
 .nav-link.active {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #fff;
+  background: rgba(1, 83, 91, 0.10);
+  border-color: transparent;
+  color: var(--primary);
+  font-weight: 600;
 }
+.nav-link.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--primary);
+}
+.nav-link.active .nav-icon { color: var(--primary); }
 
 .nav-toggle {
   display: none;
@@ -285,8 +355,8 @@ main {
 .section-card {
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 14px;
-  margin-top: 16px;
+  padding: 10px 12px;
+  margin-top: 10px;
   background: #fff;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
 }
@@ -510,16 +580,16 @@ main {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 14px;
+  padding: 7px 10px;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  margin-bottom: 8px;
+  border-radius: 8px;
+  margin-bottom: 6px;
   cursor: pointer;
   text-decoration: none;
   color: inherit;
   background: #fff;
   transition: border-color 0.2s, box-shadow 0.2s;
-  gap: 12px;
+  gap: 10px;
 }
 .rp-card:hover {
   border-color: var(--primary);
@@ -528,28 +598,28 @@ main {
 .rp-left { flex: 1; min-width: 0; }
 .rp-subject {
   font-weight: 600;
-  font-size: 14px;
+  font-size: 12.5px;
   color: var(--text);
-  margin: 0 0 4px;
+  margin: 0 0 2px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .rp-meta {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--muted);
   display: flex;
-  gap: 6px;
+  gap: 5px;
   flex-wrap: wrap;
   align-items: center;
 }
 .rp-meta span { display: inline-flex; align-items: center; gap: 3px; }
 .rp-meta .rp-dot { width: 3px; height: 3px; border-radius: 50%; background: #cbd5e1; flex-shrink: 0; }
-.rp-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.rp-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .rp-status {
-  padding: 3px 10px;
+  padding: 2px 8px;
   border-radius: 20px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   text-transform: capitalize;
   white-space: nowrap;
@@ -561,7 +631,7 @@ main {
 .rp-status-closed { background: #f3f4f6; color: #6b7280; }
 .rp-status-pending { background: #fef3c7; color: #b45309; }
 .rp-replies {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--muted);
   white-space: nowrap;
   display: inline-flex;
@@ -570,9 +640,9 @@ main {
 }
 .rp-empty {
   text-align: center;
-  padding: 32px 16px;
+  padding: 18px 12px;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12.5px;
 }
 .rp-panel-header {
   display: flex;
@@ -998,13 +1068,13 @@ main {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 12px 14px;
+  gap: 8px;
+  padding: 6px 10px;
   border: 1px solid #dbeafe;
   background: #f8fbff;
-  border-radius: 14px;
+  border-radius: 8px;
   color: #334155;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -1024,7 +1094,7 @@ main {
 
 .schedule-shell {
   display: grid;
-  gap: 18px;
+  gap: 10px;
   position: relative;
 }
 
@@ -1049,11 +1119,11 @@ main {
 .schedule-summary-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: 8px;
 }
 
 .schedule-summary-details {
-  margin-bottom: 16px;
+  margin-bottom: 8px;
 }
 
 .schedule-summary-toggle {
@@ -1105,14 +1175,14 @@ main {
 
 .schedule-summary-card {
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 10px;
   background: #fff;
-  padding: 14px 16px;
+  padding: 8px 10px;
 }
 
 .schedule-summary-card span {
   display: block;
-  font-size: 12px;
+  font-size: 10px;
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -1121,9 +1191,10 @@ main {
 
 .schedule-summary-card strong {
   display: block;
-  margin-top: 6px;
+  margin-top: 2px;
   color: var(--text);
-  font-size: 16px;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .schedule-empty,
@@ -1157,12 +1228,12 @@ main {
 }
 
 .schedule-table-wrap {
-  --schedule-day-column-width: 116px;
-  --schedule-slot-column-width: 122px;
-  --schedule-cell-min-height: 62px;
+  --schedule-day-column-width: 92px;
+  --schedule-slot-column-width: 96px;
+  --schedule-cell-min-height: 44px;
   overflow: auto;
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: 14px;
   background: #fff;
 }
 
@@ -1184,9 +1255,9 @@ main {
 .schedule-table th {
   background: #f8fafc;
   color: #475569;
-  font-size: 12px;
+  font-size: 10.5px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
 }
 
 .schedule-table tr:last-child td { border-bottom: none; }
@@ -1194,10 +1265,11 @@ main {
 .schedule-table .schedule-day-cell {
   width: var(--schedule-day-column-width);
   min-width: var(--schedule-day-column-width);
-  padding: 12px 8px;
+  padding: 8px 6px;
   background: #f8fafc;
-  font-weight: 800;
+  font-weight: 700;
   color: #0f172a;
+  font-size: 12px;
   position: sticky;
   left: 0;
   z-index: 2;
@@ -1209,35 +1281,35 @@ main {
 }
 
 .schedule-slot-header-inner {
-  padding: 9px 8px 10px;
+  padding: 6px 6px 7px;
   display: grid;
-  gap: 6px;
+  gap: 3px;
 }
 
 .schedule-slot-period-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
 }
 
 .schedule-slot-period {
-  font-size: 11px;
+  font-size: 10px;
   color: #64748b;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
 }
 
 .schedule-slot-time-grid {
   display: grid;
-  gap: 6px;
+  gap: 2px;
 }
 
 .schedule-slot-time-display {
-  font-size: 11px;
+  font-size: 10px;
   color: #0f172a;
   font-weight: 700;
-  line-height: 1.3;
+  line-height: 1.2;
 }
 
 .schedule-slot-remove {
@@ -1275,38 +1347,43 @@ main {
 .schedule-day-restore-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   flex-wrap: wrap;
+  margin-top: 4px;
 }
 
 .schedule-day-restore-label {
-  font-size: 13px;
+  font-size: 11px;
   color: var(--muted);
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .schedule-day-chip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 8px 12px;
+  padding: 4px 10px;
   border-radius: 999px;
   border: 1px solid #cbd5e1;
   background: #fff;
   color: #0f172a;
   font: inherit;
-  font-size: 13px;
+  font-size: 11.5px;
   font-weight: 600;
   cursor: pointer;
+  line-height: 1.2;
 }
 
 .schedule-cell-input,
 .schedule-cell-select {
   width: 100%;
-  padding: 10px 12px;
-  border-radius: 12px;
+  padding: 6px 8px;
+  border-radius: 8px;
   border: 1px solid #cbd5e1;
   font: inherit;
+  font-size: 12px;
   background: #fff;
   color: #0f172a;
   box-sizing: border-box;
@@ -1358,15 +1435,15 @@ main {
 .schedule-readonly-cell {
   min-width: var(--schedule-slot-column-width);
   min-height: var(--schedule-cell-min-height);
-  padding: 8px;
+  padding: 5px 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
   font-weight: 600;
   color: #0f172a;
-  font-size: 14px;
-  line-height: 1.3;
+  font-size: 11.5px;
+  line-height: 1.2;
 }
 
 .schedule-readonly-cell.is-assigned-teacher-subject {
@@ -1468,8 +1545,1159 @@ main {
 
 @media (max-width: 480px) {
   .schedule-summary-grid { grid-template-columns: 1fr 1fr; }
-  .schedule-day-restore-row { align-items: flex-start; }
-  .schedule-day-chip { width: 100%; justify-content: center; }
+  .schedule-day-restore-row { align-items: center; }
+  .schedule-day-chip { width: auto; justify-content: center; }
+}
+
+.workspace-shell {
+  width: 100%;
+  max-width: none !important;
+  margin: 0;
+  padding: 8px 12px 20px;
+  box-sizing: border-box;
+}
+
+.workspace-grid {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  width: 100%;
+}
+
+.workspace-main > *,
+.workspace-stage,
+.workspace-panels,
+.workspace-panel,
+.workspace-header-card,
+.workspace-tabbar-shell {
+  width: 100%;
+  max-width: none;
+}
+
+.workspace-sidebar {
+  position: sticky;
+  top: 12px;
+  max-height: calc(100vh - 24px);
+  overflow: auto;
+  border-radius: 14px;
+  padding-bottom: 12px;
+  scrollbar-width: none;
+}
+.workspace-sidebar::-webkit-scrollbar { width: 0; height: 0; }
+
+.workspace-main {
+  min-width: 0;
+  width: 100%;
+  max-width: none;
+  display: grid;
+  gap: 8px;
+  justify-self: stretch;
+}
+
+.workspace-main > .card,
+.workspace-main > .report-modal-overlay {
+  width: 100%;
+}
+
+.dashboard-main.workspace-main {
+  width: 100%;
+  max-width: none;
+}
+
+.workspace-header-card {
+  padding: 6px 12px;
+  display: grid;
+  gap: 4px;
+  border-radius: 10px;
+  position: sticky;
+  top: 8px;
+  z-index: 6;
+  background: #fff;
+}
+
+/* Match heights of sidebar header ("Class Tools") with workspace header so both sit on the same baseline */
+.workspace-sidebar .nav-header {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 2;
+  padding: 8px 12px 6px;
+  border-bottom: 1px solid var(--border);
+  border-radius: 14px 14px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.workspace-sidebar .nav-header h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+.workspace-sidebar .nav-header .card-subtext { display: none; }
+.workspace-sidebar .side-nav { padding: 4px 8px 8px; display: grid; gap: 1px; }
+
+/* Plain text-style link for "Class Room" (not a button) */
+.nav-text-link {
+  display: block;
+  padding: 6px 4px;
+  margin-bottom: 6px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+}
+.nav-text-link:hover { color: var(--primary); }
+.nav-text-link.is-active { color: var(--primary); }
+
+/* Collapsible section toggle in sidebar (Subjects) */
+.nav-section-collapsible { padding: 0 !important; }
+.nav-section-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+}
+.nav-section-toggle .nav-link-label { flex: 1; }
+.nav-section-toggle:hover {
+  background: rgba(1, 83, 91, 0.06);
+  color: var(--primary);
+}
+.nav-section-toggle:hover .nav-icon { color: var(--primary); }
+.nav-section-icon { transition: transform 0.18s ease; font-size: 14px; color: var(--muted); }
+.nav-section-toggle[aria-expanded="true"] .nav-section-icon { transform: rotate(90deg); color: var(--primary); }
+.nav-count-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgba(1, 83, 91, 0.10);
+  color: var(--primary);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.nav-section-children { padding: 0 !important; }
+.nav-section-children[hidden] { display: none !important; }
+.nav-sublist {
+  list-style: none;
+  padding: 2px 0 6px 28px;
+  margin: 0;
+  display: grid;
+  gap: 1px;
+  border-left: 1px solid var(--border);
+  margin-left: 18px;
+}
+.nav-sublink {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.nav-sublink:hover { background: rgba(1, 83, 91, 0.06); color: var(--primary); }
+.nav-sub-empty { padding: 6px 10px; color: var(--muted); font-size: 11px; }
+
+/* Overview counts row (Students, Subjects, Teachers, Reports) */
+.overview-counts-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.overview-count-chip {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow: hidden;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.overview-count-chip:hover {
+  transform: translateY(-1px);
+  border-color: rgba(1, 83, 91, 0.24);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.05);
+}
+.overview-count-chip .count-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: rgba(1, 83, 91, 0.10);
+  color: var(--primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.overview-count-chip .count-icon svg { width: 14px; height: 14px; }
+.overview-count-chip .count-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.overview-count-chip .count-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.overview-count-chip .count-num {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+/* Teachers chip row (open by default, compact) */
+.teacher-section { padding: 10px 12px; }
+.teachers-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.teachers-head .section-title { font-size: 13px; font-weight: 700; color: var(--text); margin: 0; }
+.teachers-head .section-subtext { font-size: 11px; color: var(--muted); }
+.teachers-chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.teacher-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 4px 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+}
+.teacher-chip.is-main {
+  border-color: rgba(1, 83, 91, 0.28);
+  background: rgba(1, 83, 91, 0.04);
+}
+.teacher-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), rgba(1,83,91,0.7));
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.teacher-info { display: flex; flex-direction: column; line-height: 1.1; }
+.teacher-info .teacher-name { font-size: 12px; font-weight: 600; color: var(--text); }
+.teacher-info .teacher-role {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.teacher-chip.is-main .teacher-info .teacher-role { color: var(--primary); }
+.teacher-radio { margin-left: 2px; cursor: pointer; transform: scale(0.85); }
+
+/* Mobile: collapse Teachers section by default */
+.teachers-mobile-toggle { display: none; }
+@media (max-width: 768px) {
+  .teacher-section { padding: 8px 10px; }
+  .teachers-mobile-toggle {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 4px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font: inherit;
+    color: var(--text);
+  }
+  .teachers-mobile-toggle .section-title { font-size: 13px; font-weight: 700; margin: 0; }
+  .teachers-mobile-toggle .teachers-mobile-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 11px;
+  }
+  .teachers-mobile-toggle .teachers-mobile-chevron {
+    transition: transform 0.18s ease;
+    color: var(--muted);
+  }
+  .teachers-mobile-toggle[aria-expanded="true"] .teachers-mobile-chevron { transform: rotate(90deg); color: var(--primary); }
+  .teachers-head { display: none; }
+  .teachers-chip-row { margin-top: 6px; }
+  .teacher-section[data-collapsed="true"] .teachers-chip-row { display: none; }
+}
+
+/* Two-column overview split for Students + Subjects */
+.overview-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+@media (max-width: 980px) { .overview-split { grid-template-columns: 1fr; } }
+
+.section-header-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.section-count-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgba(1, 83, 91, 0.10);
+  color: var(--primary);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* Students interactive rows */
+.students-overview-section { padding: 8px 12px; }
+.students-overview-section .section-title { font-size: 13px; font-weight: 700; color: var(--text); margin: 0; }
+.students-numbered-list { list-style: none; counter-reset: none; padding: 0; margin: 0; display: grid; gap: 0; }
+.students-numbered-list li {
+  display: block;
+  border-bottom: 1px solid var(--border);
+  background: transparent !important;
+}
+.students-numbered-list li:last-child { border-bottom: none; }
+.students-numbered-list li::before { content: none !important; }
+
+.student-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+  line-height: 1.2;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.student-row:hover { background: rgba(1, 83, 91, 0.04); }
+.student-row:hover .student-name { color: var(--primary); }
+.student-row:hover .student-arrow { color: var(--primary); transform: translateX(2px); }
+.student-index {
+  flex: 0 0 20px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: right;
+}
+.student-name {
+  flex: 1;
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 500;
+  transition: color 0.15s ease;
+}
+.student-arrow {
+  color: #cbd5e1;
+  font-size: 13px;
+  line-height: 1;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+/* Subjects cards (overview) */
+.subjects-overview-section { padding: 8px 12px; }
+.subjects-overview-section .section-title { font-size: 13px; font-weight: 700; color: var(--text); margin: 0; }
+.subjects-card-grid { display: grid; gap: 5px; }
+.subject-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+.subject-card:hover {
+  border-color: rgba(1, 83, 91, 0.28);
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.04);
+  transform: translateY(-1px);
+}
+.subject-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: rgba(1, 83, 91, 0.10);
+  color: var(--primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.subject-icon svg { width: 12px; height: 12px; }
+.subject-text { display: flex; flex-direction: column; gap: 0; min-width: 0; flex: 1; line-height: 1.2; }
+.subject-text strong { font-size: 12.5px; font-weight: 600; color: var(--text); }
+.subject-text span { font-size: 10.5px; color: var(--muted); }
+.subject-arrow { color: #cbd5e1; font-size: 14px; transition: color 0.15s ease, transform 0.15s ease; }
+.subject-card:hover .subject-arrow { color: var(--primary); transform: translateX(2px); }
+
+.workspace-header-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.workspace-header-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-height: 32px;
+}
+
+.workspace-header-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.workspace-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.workspace-header-copy .eyebrow {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.workspace-header-copy .page-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0;
+}
+
+.workspace-cohort {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.workspace-divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+.workspace-session-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(1, 83, 91, 0.18);
+  background: rgba(1, 83, 91, 0.08);
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.workspace-session-badge::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+}
+
+.workspace-meta-inline {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.workspace-meta-pair {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.workspace-meta-pair .meta-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0;
+}
+
+.workspace-meta-pair .meta-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+
+.workspace-tabbar-shell {
+  padding: 0;
+  overflow: visible;
+  position: sticky;
+  top: 56px;
+  z-index: 5;
+  background: #fff;
+  border-radius: 10px 10px 0 0;
+}
+
+.workspace-tabbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  overflow-x: auto;
+  padding: 0 8px;
+  min-height: 32px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, #fcfdfd 0%, #f7faf9 100%);
+  scrollbar-width: none;
+}
+.workspace-tabbar::-webkit-scrollbar { height: 0; }
+
+.workspace-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 26px;
+  margin-bottom: -1px;
+  padding: 0 2px 0 0;
+  border: 1px solid transparent;
+  border-bottom-color: transparent;
+  border-radius: 7px 7px 0 0;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+  font: inherit;
+}
+
+.workspace-tab:hover {
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--text);
+}
+
+.workspace-tab.is-active {
+  background: #ffffff;
+  color: var(--primary);
+  border-color: var(--border);
+  box-shadow: 0 -1px 0 rgba(255,255,255,0.9);
+}
+
+.workspace-tab-label {
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.workspace-tab-activate {
+  border: none;
+  background: transparent;
+  color: inherit;
+  padding: 0 8px;
+  min-height: 24px;
+  font: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+
+.workspace-tab-close {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 4px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.workspace-tab-close:hover {
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--text);
+}
+
+.workspace-tab:not(.is-active) .workspace-tab-close {
+  background: transparent;
+  color: #94a3b8;
+}
+
+.workspace-tab.is-active .workspace-tab-close {
+  background: transparent;
+  color: var(--primary);
+}
+
+.workspace-tab-add {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  margin: 0 0 4px 4px;
+  border-radius: 6px;
+  border: 1px dashed #cbd5e1;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.workspace-tab-add:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: rgba(1, 83, 91, 0.06);
+}
+
+.workspace-stage {
+  padding: 0;
+  min-height: calc(100vh - 238px);
+  overflow: hidden;
+}
+
+.workspace-panels {
+  position: relative;
+  min-height: inherit;
+  width: 100%;
+}
+
+.workspace-panel {
+  display: none;
+  padding: 12px 14px;
+  min-height: inherit;
+  animation: workspaceFadeIn 0.2s ease;
+}
+
+.workspace-panel.is-active {
+  display: block;
+}
+
+.workspace-panel[hidden] {
+  display: none !important;
+}
+
+.workspace-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.workspace-panel-head .card-title {
+  margin-bottom: 2px;
+  font-size: 15px;
+}
+.workspace-panel-head .card-subtext {
+  margin: 0;
+  font-size: 12px;
+}
+
+.workspace-empty-state {
+  display: grid;
+  place-items: center;
+  min-height: 420px;
+  padding: 32px;
+}
+
+.workspace-empty-state[hidden] {
+  display: none !important;
+}
+
+.workspace-empty-card {
+  max-width: 420px;
+  text-align: center;
+}
+
+.workspace-empty-card h2 {
+  margin: 0 0 10px;
+  color: var(--text);
+  font-size: 24px;
+}
+
+.workspace-empty-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.workspace-overview-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.workspace-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.workspace-quick-button {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  padding: 16px;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.workspace-quick-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(1, 83, 91, 0.28);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+}
+
+.workspace-quick-label {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.workspace-quick-value {
+  display: block;
+  margin-top: 8px;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.workspace-split-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.workspace-resource-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.workspace-resource-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.18s ease;
+}
+
+.workspace-resource-button:hover {
+  border-color: rgba(1, 83, 91, 0.24);
+  background: #f8fbff;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+}
+
+.workspace-resource-text strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.workspace-resource-text span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.workspace-resource-arrow {
+  color: var(--muted);
+  font-size: 18px;
+}
+
+.workspace-list-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.workspace-frame-panel {
+  padding: 0;
+}
+
+.workspace-frame-shell {
+  min-height: inherit;
+  background: #f8fafc;
+}
+
+.workspace-frame-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.workspace-frame-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.workspace-frame-subtext {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.workspace-frame {
+  width: 100%;
+  min-height: calc(100vh - 340px);
+  border: none;
+  background: #ffffff;
+}
+
+@keyframes workspaceFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 1180px) {
+  .workspace-quick-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .workspace-meta-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 960px) {
+  .workspace-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-sidebar {
+    position: fixed;
+    top: 72px;
+    left: 0;
+    width: 300px;
+    max-width: 86vw;
+    height: calc(100vh - 88px);
+    z-index: 999;
+  }
+
+  .workspace-stage {
+    min-height: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .workspace-header-row,
+  .workspace-panel-head,
+  .workspace-split-grid {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+
+  .workspace-quick-grid,
+  .workspace-meta-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .workspace-shell {
+    width: 100%;
+    margin: 0;
+    padding: 12px 12px 24px;
+  }
+
+  .workspace-header-card,
+  .workspace-panel {
+    padding: 16px;
+  }
+
+  .workspace-quick-grid,
+  .workspace-meta-grid,
+  .workspace-split-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-frame-header {
+    padding: 14px 16px;
+  }
+
+  .workspace-frame {
+    min-height: calc(100vh - 300px);
+  }
+}
+
+/* ===== Mobile compact density (class workspace) ===== */
+/* Class header info toggle (icon button) */
+.workspace-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.workspace-meta-toggle {
+  margin-left: auto;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.workspace-meta-toggle:hover {
+  color: var(--primary);
+  border-color: rgba(1, 83, 91, 0.28);
+  background: rgba(1, 83, 91, 0.04);
+}
+.workspace-meta-toggle[aria-expanded="true"] {
+  color: var(--primary);
+  border-color: rgba(1, 83, 91, 0.28);
+  background: rgba(1, 83, 91, 0.06);
+}
+.workspace-meta-toggle .workspace-meta-toggle-icon {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+/* Desktop: meta inline is visible regardless of toggle state. The icon
+   only serves as an affordance and toggles visibility on smaller screens. */
+
+@media (max-width: 768px) {
+  .workspace-shell {
+    padding: 4px 8px 12px;
+  }
+
+  .workspace-main { gap: 6px; }
+
+  /* Tighter, sticky nav toggle */
+  .nav-toggle {
+    padding: 4px 10px;
+    min-height: 30px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    gap: 6px;
+    margin: 8px 0 4px;
+    position: sticky;
+    top: 2px;
+    z-index: 901;
+    background: #fff;
+  }
+  .hamburger-icon { width: 13px; height: 1.5px; }
+  .hamburger-icon::before, .hamburger-icon::after { width: 13px; height: 1.5px; }
+
+  /* Compact sticky workspace header below the nav toggle */
+  .workspace-header-card {
+    position: sticky;
+    top: 38px;
+    z-index: 850;
+    padding: 6px 10px;
+    border-radius: 10px;
+    gap: 2px;
+  }
+  .workspace-header-line {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    min-height: 0;
+  }
+  .workspace-header-copy { display: contents; }
+  .eyebrow { flex-basis: 100%; font-size: 9px; margin: 0; line-height: 1.1; }
+  .workspace-title-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+  }
+  .page-title { font-size: 16px; line-height: 1.1; }
+  .workspace-cohort { font-size: 10.5px; }
+
+  /* Header meta collapsed by default; toggle reveals it */
+  .workspace-meta-toggle {
+    display: inline-flex;
+    width: 22px;
+    height: 22px;
+  }
+  .workspace-meta-toggle .workspace-meta-toggle-icon { width: 12px; height: 12px; }
+  .workspace-header-card[data-meta-collapsed="true"] .workspace-meta-inline { display: none; }
+  .workspace-header-card[data-meta-collapsed="false"] .workspace-meta-inline {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 12px;
+    flex-basis: 100%;
+    margin-top: 2px;
+    padding-top: 4px;
+    border-top: 1px solid var(--border);
+  }
+  .workspace-meta-pair { display: flex; flex-direction: column; gap: 0; }
+  .workspace-meta-pair .meta-label { font-size: 9px; }
+  .workspace-meta-pair .meta-value { font-size: 11.5px; }
+
+  /* Tab bar stacks beneath compact header */
+  .workspace-tabbar-shell { top: 78px; border-radius: 8px 8px 0 0; }
+  .workspace-tabbar { min-height: 28px; padding: 0 6px; }
+  .workspace-tab { min-height: 22px; }
+  .workspace-tab-activate { min-height: 22px; padding: 0 8px; }
+  .workspace-tab-label { font-size: 11px; }
+  .workspace-tab-add { width: 18px; height: 18px; margin: 0 0 3px 4px; font-size: 12px; }
+
+  /* Overview: compact icon + number chips (icon and number side-by-side) */
+  .workspace-overview-grid { display: grid; gap: 6px; }
+  .overview-counts-row {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+  }
+  #panel-overview .overview-count-chip {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 8px;
+    border-radius: 8px;
+  }
+  #panel-overview .overview-count-chip .count-icon {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+  }
+  #panel-overview .overview-count-chip .count-icon svg { width: 11px; height: 11px; }
+  #panel-overview .overview-count-chip .count-text {
+    flex-direction: row;
+    align-items: center;
+    gap: 0;
+  }
+  #panel-overview .overview-count-chip .count-label { display: none; }
+  #panel-overview .overview-count-chip .count-num { font-size: 14px; font-weight: 700; line-height: 1; }
+
+  /* Teachers visible but collapsed; tighter accordion row */
+  #panel-overview .subjects-overview-section { display: none !important; }
+  #panel-overview .overview-split { grid-template-columns: 1fr; gap: 0; }
+  #panel-overview .section-card { margin-top: 6px; }
+  #panel-overview .overview-counts-row + .section-card { margin-top: 6px; }
+  #panel-overview .teacher-section + .overview-split,
+  #panel-overview .teacher-section { margin-bottom: 0; }
+  #panel-overview .students-overview-section { margin-top: 6px; }
+  .teacher-section { padding: 4px 10px; }
+
+  /* Hide the cohort badge and any count pills next to the class title on mobile */
+  .workspace-header-card .workspace-cohort,
+  .workspace-header-card .section-count-pill,
+  .workspace-header-card .class-count-pill,
+  .workspace-header-card .class-number-badge { display: none !important; }
+
+  /* Hide the count pill next to the Students header on mobile */
+  .students-overview-section .section-count-pill { display: none !important; }
+  .teachers-mobile-toggle { padding: 6px 2px; min-height: 32px; }
+  .teachers-mobile-toggle .section-title { font-size: 12.5px; }
+  .teachers-mobile-toggle .teachers-mobile-meta { font-size: 11px; gap: 6px; }
+
+  /* Students compact rows */
+  .students-overview-section { padding: 4px 10px 6px; }
+  .students-overview-section .section-header-row { margin-bottom: 2px; }
+  .students-overview-section .section-title { font-size: 12.5px; }
+  .student-row { padding: 6px 4px; gap: 8px; }
+  .student-name { font-size: 12.5px; }
+  .student-index { font-size: 10.5px; }
+  .student-arrow { font-size: 12px; }
+
+  /* Compact density for child workspace pages */
+  .workspace-stage { min-height: calc(100vh - 180px); }
+  .workspace-panel { padding: 0; }
+  .workspace-panel-head { padding: 6px 10px; gap: 6px; }
+  .workspace-panel-head h2,
+  .workspace-frame-header h2 { font-size: 14px; }
+  .workspace-frame-header { padding: 6px 10px; }
+  .workspace-frame-subtext,
+  .card-subtext { font-size: 11px; }
+  .schedule-toolbar { gap: 6px; padding: 6px 8px; }
+  .schedule-toolbar .nav-link,
+  .toolbar-btn,
+  .btn { padding: 4px 10px; font-size: 12px; min-height: 30px; }
+  .rp-card { padding: 7px 10px; margin-bottom: 5px; border-radius: 8px; }
+  .rp-subject { font-size: 12.5px; }
+  .rp-meta { font-size: 11px; }
+}
+
+@media (max-width: 420px) {
+  .overview-counts-row { gap: 4px; }
+  #panel-overview .overview-count-chip { padding: 4px 2px; }
+  #panel-overview .overview-count-chip .count-num { font-size: 11.5px; }
 }
 </style>
 
@@ -1477,66 +2705,89 @@ main {
   <% const hasFilesFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Create Files') || allowedFeatures.includes('Files & Sheets') || allowedFeatures.includes('Docs/Sheets')); %>
   <% const hasAttendanceFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Attendance Tracking') || allowedFeatures.includes('Attendance tracking feature')); %>
   <% const hasAssessmentFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Assessment Tracking') || allowedFeatures.includes('Assessment tracking feature')); %>
-  <div class="dashboard-shell">
+  <div class="workspace-shell">
     <button class="nav-toggle" type="button">
       <span class="hamburger-icon" aria-hidden="true"></span>
       <span>Class Tools</span>
     </button>
 
-    <div class="dashboard-grid">
-      <aside class="card nav-card" id="class-tools-panel">
+    <div class="workspace-grid">
+      <aside class="card nav-card workspace-sidebar" id="class-tools-panel">
         <div class="nav-header">
           <div>
             <h3>Class Tools</h3>
+            <p class="card-subtext">Open sections as active workspace tabs.</p>
           </div>
           <button class="nav-close" type="button" aria-label="Close navigation">×</button>
         </div>
         <div class="side-nav">
           <ul class="nav-list">
+            <li>
+              <button class="nav-link" type="button" data-nav-key="overview" onclick="openWorkspaceTabByKey('overview')">
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5"/><path d="M5 9v11h14V9"/><path d="M10 20v-6h4v6"/></svg></span>
+                <span class="nav-link-label">Class Room</span>
+              </button>
+            </li>
+
             <li class="nav-section-label">Communication</li>
             <li>
-              <a class="nav-link" href="#" id="reports-nav-link" onclick="toggleReportsPanel(event)">
-                <span class="files-link-inline">📋 Reports
-                  <% if ((classReportsCount || 0) > 0) { %>
-                    <span class="files-badge" title="Reports"><%= classReportsCount %></span>
-                  <% } %>
-                </span>
-              </a>
+              <button class="nav-link" type="button" id="reports-nav-link" data-nav-key="reports" onclick="toggleReportsPanel(event)">
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h4"/></svg></span>
+                <span class="nav-link-label">Reports</span>
+                <% if ((classReportsCount || 0) > 0) { %>
+                  <span class="files-badge" title="Reports"><%= classReportsCount %></span>
+                <% } %>
+              </button>
             </li>
 
             <li class="nav-section-label">Tools</li>
             <li>
-              <a class="nav-link" href="#" id="class-schedule-nav-link" onclick="toggleClassScheduleModal(event)">Class Schedule</a>
+              <button class="nav-link" type="button" id="class-schedule-nav-link" data-nav-key="schedule" onclick="toggleClassScheduleModal(event)">
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 10h18"/><path d="M8 2v4"/><path d="M16 2v4"/></svg></span>
+                <span class="nav-link-label">Class Schedule</span>
+              </button>
             </li>
 
             <% if (hasAttendanceFeature && (userRole !== "Teacher" || isMainTeacher)) { %>
-              <li><a class="nav-link" href="/common/attendanceCollection?classId=<%= classId %>&termId=<%= currentTerm.term_id %>">Attendance</a></li>
+              <li>
+                <button class="nav-link" type="button" data-nav-key="attendance" onclick="openWorkspaceTabByKey('attendance')">
+                  <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="17" rx="2"/><path d="M9 2v4"/><path d="M15 2v4"/><path d="M9 14l2 2 4-4"/></svg></span>
+                  <span class="nav-link-label">Attendance</span>
+                </button>
+              </li>
             <% } %>
 
             <% if (hasAssessmentFeature) { %>
-              <li class="nav-section-label">Subjects</li>
-              <% if (subjects.length > 0) { %>
-                <% subjects.forEach(function(subject) { %>
-                  <li>
-                    <a class="nav-link" href="/common/assessment?classId=<%= classId %>&subjectId=<%= subject.subject_id %>">
-                      <%= subject.subject_name %>
-                    </a>
-                  </li>
-                <% }); %>
-              <% } else { %>
-                <li class="card-subtext" style="padding: 4px 2px;">No subjects assigned yet.</li>
-              <% } %>
+              <li class="nav-section-collapsible">
+                <button class="nav-link nav-section-toggle" type="button" id="subjects-section-toggle" aria-expanded="false" aria-controls="subjects-section-list" onclick="toggleSubjectsNavSection(event)">
+                  <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v17H6.5A2.5 2.5 0 0 0 4 22.5"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H19"/></svg></span>
+                  <span class="nav-link-label">Subjects</span>
+                  <span class="nav-count-pill"><%= subjects.length %></span>
+                  <span class="nav-section-icon" aria-hidden="true">›</span>
+                </button>
+              </li>
+              <li class="nav-section-children" id="subjects-section-list" hidden>
+                <ul class="nav-sublist">
+                  <% if (subjects.length > 0) { %>
+                    <% subjects.forEach(function(subject) { %>
+                      <li><button class="nav-sublink" type="button" onclick="openSubjectWorkspaceTab(<%= subject.subject_id %>)"><%= subject.subject_name %></button></li>
+                    <% }); %>
+                  <% } else { %>
+                    <li class="nav-sub-empty">No subjects assigned.</li>
+                  <% } %>
+                </ul>
+              </li>
             <% } %>
 
             <% if (hasFilesFeature) { %>
               <li>
-                <a class="nav-link" href="/documents?classId=<%= classId %>&create=1" title="Docs/Sheets" data-no-spa>
-                  <span class="files-link-inline">📁 Docs/Sheets
-                    <% if (userRole === 'Teacher' && (assignedFilesCount || 0) > 0) { %>
-                      <span class="files-badge" title="Assigned docs/sheets"><%= assignedFilesCount %></span>
-                    <% } %>
-                  </span>
-                </a>
+                <button class="nav-link" type="button" data-nav-key="docs" title="Docs/Sheets" onclick="openWorkspaceTabByKey('docs')">
+                  <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
+                  <span class="nav-link-label">Docs &amp; Sheets</span>
+                  <% if (userRole === 'Teacher' && (assignedFilesCount || 0) > 0) { %>
+                    <span class="files-badge" title="Assigned docs/sheets"><%= assignedFilesCount %></span>
+                  <% } %>
+                </button>
               </li>
             <% } %>
 
@@ -1546,125 +2797,240 @@ main {
 
       <div class="nav-overlay" id="class-tools-overlay"></div>
 
-      <main class="dashboard-main">
-        <div class="dashboard-header">
-          <h1 class="page-title" id="className"><%= className %></h1>
-          <% if (graduationYearGroup) { %>
-            <p class="card-subtext"><%= graduationYearGroup %></p>
-          <% } %>
-        </div>
+      <main class="dashboard-main workspace-main">
+        <section class="card workspace-header-card" data-meta-collapsed="true">
+          <div class="workspace-header-line">
+            <div class="workspace-header-copy">
+              <span class="eyebrow">Class Workspace</span>
+              <span class="workspace-title-row">
+                <span class="page-title" id="className"><%= className %></span>
+                <% if (graduationYearGroup) { %>
+                  <span class="workspace-cohort"><%= graduationYearGroup %></span>
+                <% } %>
+                <button type="button" class="workspace-meta-toggle" aria-expanded="false" aria-controls="workspace-meta-inline" aria-label="Show class details" title="Show class details" onclick="toggleWorkspaceMeta(this)">
+                  <svg class="workspace-meta-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                </button>
+              </span>
+            </div>
+            <div class="workspace-meta-inline" id="workspace-meta-inline">
+              <span class="workspace-meta-pair"><span class="meta-label">Year</span><span class="meta-value"><%= schoolYear.year_label %></span></span>
+              <span class="workspace-meta-pair"><span class="meta-label">Term</span><span class="meta-value"><%= currentTerm.term_name %></span></span>
+              <span class="workspace-meta-pair"><span class="meta-label">Start</span><span class="meta-value"><%= new Date(currentTerm.start_date).toISOString().split('T')[0] %></span></span>
+              <span class="workspace-meta-pair"><span class="meta-label">End</span><span class="meta-value"><%= new Date(currentTerm.end_date).toISOString().split('T')[0] %></span></span>
+            </div>
+          </div>
+        </section>
 
-        <div class="dashboard-content">
-          <div class="section-card class-info-section" id="class-info-section">
-            <button class="section-toggle class-info-toggle" type="button" id="class-info-toggle" aria-expanded="false" aria-controls="class-info-content">
-              <span class="section-title">School Year: <%= schoolYear.year_label %> · Term: <%= currentTerm.term_name %></span>
-              <span class="section-toggle-icon" aria-hidden="true">›</span>
-            </button>
-            <div class="section-collapse" id="class-info-content">
-              <div class="meta-grid">
-                <div class="meta-tile">
-                  <p class="meta-label">School Year</p>
-                  <p class="meta-value"><%= schoolYear.year_label %></p>
-                </div>
-                <div class="meta-tile">
-                  <p class="meta-label">Term</p>
-                  <p class="meta-value"><%= currentTerm.term_name %></p>
-                </div>
-                <div class="meta-tile">
-                  <p class="meta-label">Start Date</p>
-                  <p class="meta-value"><%= new Date(currentTerm.start_date).toISOString().split('T')[0] %></p>
-                </div>
-                <div class="meta-tile">
-                  <p class="meta-label">End Date</p>
-                  <p class="meta-value"><%= new Date(currentTerm.end_date).toISOString().split('T')[0] %></p>
-                </div>
-              </div>
+        <section class="card workspace-tabbar-shell">
+          <div class="workspace-tabbar" id="workspaceTabBar" role="tablist" aria-label="Open class workspace tabs"></div>
+        </section>
+
+        <section class="card workspace-stage">
+          <div class="workspace-empty-state" id="workspaceEmptyState" hidden>
+            <div class="workspace-empty-card">
+              <h2>No open workspace tabs</h2>
+              <p>Choose a class tool from the left sidebar to open a new work session. Tabs are created only when you open something.</p>
             </div>
           </div>
 
-          <div class="section-card teacher-section" id="teachers-section">
-            <button class="section-toggle" type="button" id="teachers-toggle" aria-expanded="false" aria-controls="teachers-content">
-              <span class="section-title">Teachers</span>
-              <span class="section-toggle-icon" aria-hidden="true">›</span>
-            </button>
-            <div class="section-collapse" id="teachers-content" hidden>
-              <p class="section-subtext">Main teacher can mark attendance.</p>
-              <div class="teacher-list">
-                <% employees.forEach(function(employee) { %>
-                  <div class="teacher-card">
-                    <% if (employee.main) { %>
-                      <span class="teacher-dot" title="Main teacher"></span>
-                    <% } else { %>
-                      <span style="width:10px; height:10px;"></span>
-                    <% } %>
-                    <span class="teacher-name"><%= employee.name %></span>
-                    <% if (req.session && req.session.userRole !== 'Teacher' && req.session.userRole !== 'Supervisor') { %>
-                      <input type="radio" name="main_employee" value="<%= employee.user_id %>" <% if (employee.main) { %> checked <% } %> onchange="setMainEmployee('<%= classId %>', '<%= employee.user_id %>')" style="margin-left:auto;">
-                    <% } %>
-                  </div>
-                <% }); %>
-              </div>
-            </div>
-          </div>
-
-          <div class="section-card students-section">
-            <div class="section-title">Students</div>
-            <ul class="student-list">
-              <% if (students.length > 0) { %>
-                <% students.forEach(function(student, index) { %>
-                  <li>
-                    <div class="student-row">
-                      <span class="student-index"><%= index + 1 %>.</span>
-                      <a class="student-link" href="/common/studentDetails?studentId=<%= student.student_id %>&termId=<%= currentTerm.term_id %>&classId=<%= classId %>">
-                        <%= student.first_name %> <%= student.last_name %>
-                      </a>
+          <div class="workspace-panels" id="workspacePanels">
+            <section class="workspace-panel" id="panel-overview" data-panel-key="overview">
+              <div class="workspace-overview-grid">
+                <div class="overview-counts-row">
+                  <div class="overview-count-chip">
+                    <span class="count-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+                    <div class="count-text">
+                      <span class="count-label">Students</span>
+                      <span class="count-num"><%= students.length %></span>
                     </div>
-                  </li>
-                <% }); %>
-              <% } else { %>
-                <li class="card-subtext">No students in this class yet.</li>
-              <% } %>
-            </ul>
-          </div>
-
-          <!-- Reports List Overlay -->
-          <div class="report-modal-overlay" id="reportsListModal">
-            <div class="report-modal-box">
-              <button class="report-modal-close" onclick="closeReportsListModal()">×</button>
-              <div class="rd-modal-body">
-                <h2 class="rd-title">📋 Parent Reports</h2>
-                <div id="reports-list-content">
-                  <p style="color:#6b7280;font-size:13px;">Loading reports...</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Report Detail Modal -->
-          <div class="report-modal-overlay" id="reportDetailModal">
-            <div class="report-modal-box">
-              <button class="report-modal-close" onclick="closeReportModal()">×</button>
-              <div id="reportDetailContent">
-                <p style="color:#6b7280;">Loading...</p>
-              </div>
-            </div>
-          </div>
-
-          <div class="schedule-modal-overlay" id="classScheduleModal">
-            <div class="schedule-modal-box">
-              <button class="schedule-modal-close" type="button" onclick="closeClassScheduleModal()">×</button>
-              <div class="schedule-modal-body">
-                <div class="schedule-header">
-                  <div>
-                    <h2 class="schedule-title">Class Schedule</h2>
                   </div>
-                  <div class="schedule-toolbar" id="classScheduleToolbar"></div>
+                  <div class="overview-count-chip">
+                    <span class="count-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v17H6.5A2.5 2.5 0 0 0 4 22.5"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H19"/></svg></span>
+                    <div class="count-text">
+                      <span class="count-label">Subjects</span>
+                      <span class="count-num"><%= subjects.length %></span>
+                    </div>
+                  </div>
+                  <div class="overview-count-chip">
+                    <span class="count-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6"/><path d="M2 10l10-5 10 5-10 5z"/><path d="M6 12v5a6 6 0 0 0 12 0v-5"/></svg></span>
+                    <div class="count-text">
+                      <span class="count-label">Teachers</span>
+                      <span class="count-num"><%= employees.length %></span>
+                    </div>
+                  </div>
+                  <div class="overview-count-chip">
+                    <span class="count-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h4"/></svg></span>
+                    <div class="count-text">
+                      <span class="count-label">Reports</span>
+                      <span class="count-num"><%= classReportsCount || 0 %></span>
+                    </div>
+                  </div>
                 </div>
-                <div id="classScheduleNotice" class="schedule-notice" role="status" aria-live="polite"></div>
-                <div id="classScheduleContent" class="schedule-shell">
-                  <p style="color:#6b7280;font-size:13px;">Loading class schedule...</p>
+
+                <div class="section-card teacher-section" id="teachers-section" data-collapsed="true">
+                  <button type="button" class="teachers-mobile-toggle" aria-expanded="false" aria-controls="teachers-chip-row" onclick="toggleTeachersMobile(this)">
+                    <span class="section-title">Teachers</span>
+                    <span class="teachers-mobile-meta">
+                      <span><%= employees.length %></span>
+                      <span class="teachers-mobile-chevron" aria-hidden="true">›</span>
+                    </span>
+                  </button>
+                  <div class="teachers-head">
+                    <h2 class="section-title">Teachers</h2>
+                    <span class="section-subtext">Main teacher can mark attendance and maintain the class workspace.</span>
+                  </div>
+                  <div class="teachers-chip-row" id="teachers-chip-row">
+                    <% employees.forEach(function(employee) { %>
+                      <% var initials = (employee.name || '?').trim().split(/\s+/).slice(0,2).map(function(p){return p[0];}).join('').toUpperCase(); %>
+                      <div class="teacher-chip <% if (employee.main) { %>is-main<% } %>">
+                        <span class="teacher-avatar"><%= initials %></span>
+                        <span class="teacher-info">
+                          <span class="teacher-name"><%= employee.name %></span>
+                          <% if (employee.main) { %><span class="teacher-role">Main Teacher</span><% } else { %><span class="teacher-role">Teacher</span><% } %>
+                        </span>
+                        <% if (req.session && req.session.userRole !== 'Teacher' && req.session.userRole !== 'Supervisor') { %>
+                          <input class="teacher-radio" type="radio" name="main_employee" value="<%= employee.user_id %>" <% if (employee.main) { %> checked <% } %> onchange="setMainEmployee('<%= classId %>', '<%= employee.user_id %>')" title="Set as main teacher">
+                        <% } %>
+                      </div>
+                    <% }); %>
+                  </div>
+                </div>
+
+                <div class="overview-split">
+                  <div class="section-card students-overview-section">
+                    <div class="section-header-row">
+                      <h2 class="section-title">Students</h2>
+                      <span class="section-count-pill"><%= students.length %></span>
+                    </div>
+                    <ul class="students-numbered-list">
+                      <% if (students.length > 0) { %>
+                        <% students.forEach(function(student, i) { %>
+                          <li>
+                            <button class="student-row" type="button" onclick="openStudentWorkspaceTab(<%= student.student_id %>)">
+                              <span class="student-index"><%= i + 1 %></span>
+                              <span class="student-name"><%= student.first_name %> <%= student.last_name %></span>
+                              <span class="student-arrow" aria-hidden="true">›</span>
+                            </button>
+                          </li>
+                        <% }); %>
+                      <% } else { %>
+                        <li class="card-subtext">No students in this class yet.</li>
+                      <% } %>
+                    </ul>
+                  </div>
+
+                  <% if (hasAssessmentFeature) { %>
+                  <div class="section-card subjects-overview-section">
+                    <div class="section-header-row">
+                      <h2 class="section-title">Subjects</h2>
+                      <span class="section-count-pill"><%= subjects.length %></span>
+                    </div>
+                    <div class="subjects-card-grid">
+                      <% if (subjects.length > 0) { %>
+                        <% subjects.forEach(function(subject) { %>
+                          <button class="subject-card" type="button" onclick="openSubjectWorkspaceTab(<%= subject.subject_id %>)">
+                            <span class="subject-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v17H6.5A2.5 2.5 0 0 0 4 22.5"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H19"/></svg></span>
+                            <span class="subject-text">
+                              <strong><%= subject.subject_name %></strong>
+                              <span>Open assessment workspace</span>
+                            </span>
+                            <span class="subject-arrow" aria-hidden="true">›</span>
+                          </button>
+                        <% }); %>
+                      <% } else { %>
+                        <p class="card-subtext">No subjects assigned yet.</p>
+                      <% } %>
+                    </div>
+                  </div>
+                  <% } %>
                 </div>
               </div>
+            </section>
+
+            <section class="workspace-panel" id="panel-reports" data-panel-key="reports">
+              <div class="workspace-panel-head">
+                <div>
+                  <h2 class="card-title">Parent Reports</h2>
+                  <p class="card-subtext">Open a report thread without leaving the class workspace.</p>
+                </div>
+                <button class="nav-link" type="button" onclick="loadClassReports()">Refresh</button>
+              </div>
+              <div id="reports-list-content">
+                <p style="color:#6b7280;font-size:13px;">Open the reports tab to load active report threads.</p>
+              </div>
+            </section>
+
+            <section class="workspace-panel" id="panel-schedule" data-panel-key="schedule">
+              <div class="workspace-panel-head">
+                <div>
+                  <h2 class="card-title">Class Schedule</h2>
+                  <p class="card-subtext">Create, edit, and print the timetable without leaving this workspace.</p>
+                </div>
+                <div class="schedule-toolbar" id="classScheduleToolbar"></div>
+              </div>
+              <div id="classScheduleNotice" class="schedule-notice" role="status" aria-live="polite"></div>
+              <div id="classScheduleContent" class="schedule-shell">
+                <p style="color:#6b7280;font-size:13px;">Open the schedule tab to load the timetable.</p>
+              </div>
+            </section>
+
+            <section class="workspace-panel" id="panel-students" data-panel-key="students">
+              <div class="workspace-panel-head">
+                <div>
+                  <h2 class="card-title">Students</h2>
+                  <p class="card-subtext">Select a student to open a dedicated work session.</p>
+                </div>
+              </div>
+              <div class="workspace-resource-grid">
+                <% if (students.length > 0) { %>
+                  <% students.forEach(function(student) { %>
+                    <button class="workspace-resource-button" type="button" onclick="openStudentWorkspaceTab(<%= student.student_id %>)">
+                      <span class="workspace-resource-text">
+                        <strong><%= student.first_name %> <%= student.last_name %></strong>
+                        <span>Open student record</span>
+                      </span>
+                      <span class="workspace-resource-arrow">›</span>
+                    </button>
+                  <% }); %>
+                <% } else { %>
+                  <p class="card-subtext">No students in this class yet.</p>
+                <% } %>
+              </div>
+            </section>
+
+            <section class="workspace-panel" id="panel-subjects" data-panel-key="subjects">
+              <div class="workspace-panel-head">
+                <div>
+                  <h2 class="card-title">Subjects</h2>
+                  <p class="card-subtext">Open a subject workspace to review assessments and records.</p>
+                </div>
+              </div>
+              <div class="workspace-resource-grid">
+                <% if (hasAssessmentFeature && subjects.length > 0) { %>
+                  <% subjects.forEach(function(subject) { %>
+                    <button class="workspace-resource-button" type="button" onclick="openSubjectWorkspaceTab(<%= subject.subject_id %>)">
+                      <span class="workspace-resource-text">
+                        <strong><%= subject.subject_name %></strong>
+                        <span>Open subject workspace</span>
+                      </span>
+                      <span class="workspace-resource-arrow">›</span>
+                    </button>
+                  <% }); %>
+                <% } else { %>
+                  <p class="card-subtext">No subjects assigned yet.</p>
+                <% } %>
+              </div>
+            </section>
+
+            <div id="workspaceDynamicPanels"></div>
+          </div>
+        </section>
+
+        <div class="report-modal-overlay" id="reportDetailModal">
+          <div class="report-modal-box">
+            <button class="report-modal-close" onclick="closeReportModal()">×</button>
+            <div id="reportDetailContent">
+              <p style="color:#6b7280;">Loading...</p>
             </div>
           </div>
         </div>
@@ -1675,6 +3041,8 @@ main {
   <script>
     var classScheduleContext;
     var classScheduleState;
+    var workspaceContext;
+    var workspaceState;
 
     (function () {
       classScheduleContext = {
@@ -1701,6 +3069,448 @@ main {
         isCreating: false,
         isEditing: false,
         pendingAction: '',
+      };
+
+      workspaceContext = {
+        classId: Number('<%= classId %>'),
+        termId: Number('<%= currentTerm.term_id %>'),
+        className: <%- JSON.stringify(className) %>,
+        basePath: <%- JSON.stringify(typeof classWorkspaceBasePath !== 'undefined' ? classWorkspaceBasePath : (`/common/classDashboard/${classId}`)) %>,
+        initialRoute: <%- JSON.stringify(typeof initialWorkspaceRoute !== 'undefined' ? initialWorkspaceRoute : { panel: 'overview', itemId: '' }) %>,
+        attendanceUrl: <%- JSON.stringify(`/common/attendanceCollection?classId=${classId}&termId=${currentTerm.term_id}`) %>,
+        docsUrl: <%- JSON.stringify(`/documents?classId=${classId}&create=1`) %>,
+        students: <%- JSON.stringify(workspaceStudents) %>,
+        subjects: <%- JSON.stringify(workspaceSubjects) %>,
+        canOpenAttendance: <%= hasAttendanceFeature && (userRole !== "Teacher" || isMainTeacher) ? 'true' : 'false' %>,
+        canOpenSubjects: <%= hasAssessmentFeature ? 'true' : 'false' %>,
+        canOpenDocs: <%= hasFilesFeature ? 'true' : 'false' %>,
+      };
+
+      workspaceState = {
+        tabs: [],
+        activeTabId: '',
+      };
+
+      function getWorkspacePanelsRoot() {
+        return document.getElementById('workspacePanels');
+      }
+
+      function getWorkspaceDynamicPanelsRoot() {
+        return document.getElementById('workspaceDynamicPanels');
+      }
+
+      function getWorkspaceTabBar() {
+        return document.getElementById('workspaceTabBar');
+      }
+
+      function getWorkspaceEmptyState() {
+        return document.getElementById('workspaceEmptyState');
+      }
+
+      function getWorkspaceTabById(tabId) {
+        return workspaceState.tabs.find(function(tab) {
+          return tab.id === tabId;
+        }) || null;
+      }
+
+      function getWorkspaceTabIndex(tabId) {
+        return workspaceState.tabs.findIndex(function(tab) {
+          return tab.id === tabId;
+        });
+      }
+
+      function getWorkspaceSidebarKey(tab) {
+        if (!tab) return '';
+        if (tab.sidebarKey) return tab.sidebarKey;
+        if (tab.id.indexOf('student:') === 0) return 'students';
+        if (tab.id.indexOf('subject:') === 0) return 'subjects';
+        return tab.id;
+      }
+
+      function syncWorkspaceSidebarState(activeTab) {
+        var activeSidebarKey = getWorkspaceSidebarKey(activeTab);
+        Array.prototype.forEach.call(document.querySelectorAll('[data-nav-key]'), function(node) {
+          node.classList.toggle('active', node.getAttribute('data-nav-key') === activeSidebarKey);
+        });
+      }
+
+      function updateWorkspaceChrome() {
+        var emptyState = getWorkspaceEmptyState();
+        var panelsRoot = getWorkspacePanelsRoot();
+        if (!emptyState || !panelsRoot) return;
+        var hasTabs = workspaceState.tabs.length > 0;
+        emptyState.hidden = hasTabs;
+        panelsRoot.hidden = !hasTabs;
+        if (!hasTabs) {
+          Array.prototype.forEach.call(document.querySelectorAll('.workspace-panel'), function(panel) {
+            panel.hidden = true;
+            panel.classList.remove('is-active');
+          });
+        }
+      }
+
+      function renderWorkspaceTabBar() {
+        var tabBar = getWorkspaceTabBar();
+        if (!tabBar) return;
+        var tabsMarkup = workspaceState.tabs.map(function(tab) {
+          var isActive = tab.id === workspaceState.activeTabId;
+          return '' +
+            '<div class="workspace-tab' + (isActive ? ' is-active' : '') + '" role="presentation">' +
+              '<button type="button" class="workspace-tab-activate" data-tab-id="' + esc(tab.id) + '" onclick="activateWorkspaceTab(this.getAttribute(\'data-tab-id\'))" role="tab" aria-selected="' + (isActive ? 'true' : 'false') + '">' +
+                '<span class="workspace-tab-label">' + esc(tab.title) + '</span>' +
+              '</button>' +
+              '<button type="button" class="workspace-tab-close" data-tab-id="' + esc(tab.id) + '" aria-label="Close ' + esc(tab.title) + '" onclick="closeWorkspaceTab(this.getAttribute(\'data-tab-id\'))">×</button>' +
+            '</div>';
+        }).join('');
+        tabBar.innerHTML = tabsMarkup + '<button type="button" class="workspace-tab-add" aria-label="Open another workspace tab" title="Open another workspace tab" onclick="openWorkspaceQuickAdd()">+</button>';
+      }
+
+      function showWorkspacePanel(panelId) {
+        Array.prototype.forEach.call(document.querySelectorAll('.workspace-panel'), function(panel) {
+          var isActive = panel.id === panelId;
+          panel.hidden = !isActive;
+          panel.classList.toggle('is-active', isActive);
+        });
+      }
+
+      function ensureWorkspaceFramePanel(tab) {
+        var root = getWorkspaceDynamicPanelsRoot();
+        if (!root || document.getElementById(tab.panelId)) return;
+        var panel = document.createElement('section');
+        panel.className = 'workspace-panel workspace-frame-panel';
+        panel.id = tab.panelId;
+        panel.setAttribute('data-panel-key', tab.id);
+        panel.innerHTML = '' +
+          '<div class="workspace-frame-shell">' +
+            '<div class="workspace-frame-header">' +
+              '<div>' +
+                '<h2 class="workspace-frame-title">' + esc(tab.title) + '</h2>' +
+                '<p class="workspace-frame-subtext">' + esc(tab.panelDescription || 'Focused work session') + '</p>' +
+              '</div>' +
+            '</div>' +
+            '<iframe class="workspace-frame" src="' + esc(tab.iframeSrc) + '" loading="lazy" title="' + esc(tab.title) + '"></iframe>' +
+          '</div>';
+        root.appendChild(panel);
+      }
+
+      function removeWorkspaceDynamicPanel(tab) {
+        if (!tab || tab.type !== 'iframe') return;
+        var panel = document.getElementById(tab.panelId);
+        if (panel && panel.parentNode) {
+          panel.parentNode.removeChild(panel);
+        }
+      }
+
+      function syncWorkspaceHistory(tab, options) {
+        if (!tab || (options && options.skipHistory)) return;
+        var targetPath = tab.routePath || workspaceContext.basePath;
+        var state = {
+          workspaceTabId: tab.id,
+          path: targetPath,
+        };
+        if (options && options.replaceHistory) {
+          window.history.replaceState(state, '', targetPath);
+          return;
+        }
+        window.history.pushState(state, '', targetPath);
+      }
+
+      function activateWorkspaceTab(tabId, options) {
+        var tab = getWorkspaceTabById(tabId);
+        if (!tab) return;
+        workspaceState.activeTabId = tab.id;
+        renderWorkspaceTabBar();
+        showWorkspacePanel(tab.panelId);
+        updateWorkspaceChrome();
+        syncWorkspaceSidebarState(tab);
+        if (typeof tab.onActivate === 'function') {
+          tab.onActivate(options || {});
+        }
+        syncWorkspaceHistory(tab, options || {});
+      }
+
+      function openWorkspaceTab(tab, options) {
+        if (!tab) return null;
+        var existing = getWorkspaceTabById(tab.id);
+        if (existing) {
+          activateWorkspaceTab(existing.id, options || {});
+          return existing;
+        }
+        if (tab.type === 'iframe') {
+          ensureWorkspaceFramePanel(tab);
+        }
+        workspaceState.tabs.push(tab);
+        updateWorkspaceChrome();
+        activateWorkspaceTab(tab.id, options || {});
+        return tab;
+      }
+
+      function closeWorkspaceTab(tabId) {
+        var tabIndex = getWorkspaceTabIndex(tabId);
+        if (tabIndex === -1) return;
+        var closingTab = workspaceState.tabs[tabIndex];
+        removeWorkspaceDynamicPanel(closingTab);
+        workspaceState.tabs.splice(tabIndex, 1);
+        if (!workspaceState.tabs.length) {
+          workspaceState.activeTabId = '';
+          renderWorkspaceTabBar();
+          updateWorkspaceChrome();
+          syncWorkspaceSidebarState(null);
+          window.history.replaceState({ workspaceTabId: '', path: workspaceContext.basePath }, '', workspaceContext.basePath);
+          return;
+        }
+        var nextTab = workspaceState.tabs[tabIndex] || workspaceState.tabs[tabIndex - 1] || workspaceState.tabs[0];
+        activateWorkspaceTab(nextTab.id, { replaceHistory: true });
+      }
+
+      function getWorkspaceOverviewTab() {
+        return {
+          id: 'overview',
+          title: 'Overview',
+          panelId: 'panel-overview',
+          routePath: workspaceContext.basePath,
+          sidebarKey: 'overview',
+        };
+      }
+
+      function getWorkspaceReportsTab() {
+        return {
+          id: 'reports',
+          title: 'Reports',
+          panelId: 'panel-reports',
+          routePath: workspaceContext.basePath + '/reports',
+          sidebarKey: 'reports',
+          onActivate: function() {
+            loadClassReports();
+          },
+        };
+      }
+
+      function getWorkspaceScheduleTab() {
+        return {
+          id: 'schedule',
+          title: 'Class Schedule',
+          panelId: 'panel-schedule',
+          routePath: workspaceContext.basePath + '/schedule',
+          sidebarKey: 'schedule',
+          onActivate: function() {
+            classScheduleState.isEditing = false;
+            classScheduleState.pendingAction = '';
+            if (classScheduleState.payload) {
+              syncDraftRowsFromPayload(classScheduleState.payload);
+              renderClassSchedule();
+              refreshClassScheduleInBackground();
+              return;
+            }
+            loadClassSchedule();
+          },
+        };
+      }
+
+      function getWorkspaceStudentsTab() {
+        return {
+          id: 'students',
+          title: 'Students',
+          panelId: 'panel-students',
+          routePath: workspaceContext.basePath + '/students',
+          sidebarKey: 'students',
+        };
+      }
+
+      function getWorkspaceSubjectsTab() {
+        return {
+          id: 'subjects',
+          title: 'Subjects',
+          panelId: 'panel-subjects',
+          routePath: workspaceContext.basePath + '/subjects',
+          sidebarKey: 'subjects',
+        };
+      }
+
+      function getWorkspaceAttendanceTab() {
+        if (!workspaceContext.canOpenAttendance) return getWorkspaceOverviewTab();
+        return {
+          id: 'attendance',
+          title: 'Attendance',
+          panelId: 'panel-frame-attendance',
+          routePath: workspaceContext.basePath + '/attendance',
+          sidebarKey: 'attendance',
+          type: 'iframe',
+          iframeSrc: workspaceContext.attendanceUrl,
+          panelDescription: 'Attendance workspace for the current class and term.',
+        };
+      }
+
+      function getWorkspaceDocsTab() {
+        if (!workspaceContext.canOpenDocs) return getWorkspaceOverviewTab();
+        return {
+          id: 'docs',
+          title: 'Docs/Sheets',
+          panelId: 'panel-frame-docs',
+          routePath: workspaceContext.basePath + '/docs',
+          sidebarKey: 'docs',
+          type: 'iframe',
+          iframeSrc: workspaceContext.docsUrl,
+          panelDescription: 'Class documents and sheets workspace.',
+        };
+      }
+
+      function buildStudentWorkspaceTab(studentId) {
+        var match = workspaceContext.students.find(function(student) {
+          return String(student.id) === String(studentId);
+        });
+        if (!match) return null;
+        return {
+          id: 'student:' + match.id,
+          title: match.name,
+          panelId: 'panel-frame-student-' + match.id,
+          routePath: workspaceContext.basePath + '/student/' + match.id,
+          sidebarKey: 'students',
+          type: 'iframe',
+          iframeSrc: '/common/studentDetails?studentId=' + encodeURIComponent(match.id) + '&termId=' + encodeURIComponent(workspaceContext.termId) + '&classId=' + encodeURIComponent(workspaceContext.classId),
+          panelDescription: 'Student workspace for ' + match.name + '.',
+        };
+      }
+
+      function buildSubjectWorkspaceTab(subjectId) {
+        var match = workspaceContext.subjects.find(function(subject) {
+          return String(subject.id) === String(subjectId);
+        });
+        if (!match) return null;
+        return {
+          id: 'subject:' + match.id,
+          title: match.name,
+          panelId: 'panel-frame-subject-' + match.id,
+          routePath: workspaceContext.basePath + '/subject/' + match.id,
+          sidebarKey: 'subjects',
+          type: 'iframe',
+          iframeSrc: '/common/assessment?classId=' + encodeURIComponent(workspaceContext.classId) + '&subjectId=' + encodeURIComponent(match.id),
+          panelDescription: 'Subject workspace for ' + match.name + '.',
+        };
+      }
+
+      function openWorkspaceTabByKey(tabKey, options) {
+        if (tabKey === 'overview') return openWorkspaceTab(getWorkspaceOverviewTab(), options || {});
+        if (tabKey === 'reports') return openWorkspaceTab(getWorkspaceReportsTab(), options || {});
+        if (tabKey === 'schedule') return openWorkspaceTab(getWorkspaceScheduleTab(), options || {});
+        if (tabKey === 'students') return openWorkspaceTab(getWorkspaceStudentsTab(), options || {});
+        if (tabKey === 'subjects') return openWorkspaceTab(getWorkspaceSubjectsTab(), options || {});
+        if (tabKey === 'attendance') return openWorkspaceTab(getWorkspaceAttendanceTab(), options || {});
+        if (tabKey === 'docs') return openWorkspaceTab(getWorkspaceDocsTab(), options || {});
+        return openWorkspaceTab(getWorkspaceOverviewTab(), options || {});
+      }
+
+      function openWorkspaceQuickAdd() {
+        if (!getWorkspaceTabById('overview')) {
+          openWorkspaceTabByKey('overview');
+          return;
+        }
+        if (workspaceContext.canOpenAttendance && !getWorkspaceTabById('attendance')) {
+          openWorkspaceTabByKey('attendance');
+          return;
+        }
+        if (workspaceContext.canOpenSubjects && !getWorkspaceTabById('subjects')) {
+          openWorkspaceTabByKey('subjects');
+          return;
+        }
+        if (!getWorkspaceTabById('students')) {
+          openWorkspaceTabByKey('students');
+          return;
+        }
+        if (workspaceContext.canOpenDocs && !getWorkspaceTabById('docs')) {
+          openWorkspaceTabByKey('docs');
+          return;
+        }
+        activateWorkspaceTab('overview');
+      }
+
+      function openStudentWorkspaceTab(studentId, options) {
+        var tab = buildStudentWorkspaceTab(studentId);
+        if (!tab) return openWorkspaceTabByKey('students', options || {});
+        return openWorkspaceTab(tab, options || {});
+      }
+
+      function openSubjectWorkspaceTab(subjectId, options) {
+        var tab = buildSubjectWorkspaceTab(subjectId);
+        if (!tab) return openWorkspaceTabByKey('subjects', options || {});
+        return openWorkspaceTab(tab, options || {});
+      }
+
+      function parseWorkspaceRoute(pathname, search) {
+        var normalizedPath = String(pathname || '').replace(/\/+$/, '');
+        var basePath = String(workspaceContext.basePath || '').replace(/\/+$/, '');
+        if (!normalizedPath || normalizedPath === basePath) {
+          return { panel: 'overview', itemId: '' };
+        }
+        if (normalizedPath.indexOf(basePath + '/') !== 0) {
+          return null;
+        }
+
+        var trailingPath = normalizedPath.slice(basePath.length + 1);
+        var segments = trailingPath.split('/').filter(Boolean);
+        if (!segments.length) {
+          return { panel: 'overview', itemId: '' };
+        }
+        if (segments[0] === 'student' && segments[1]) {
+          return { panel: 'student', itemId: segments[1] };
+        }
+        if (segments[0] === 'subject' && segments[1]) {
+          return { panel: 'subject', itemId: segments[1] };
+        }
+        if (segments[0] === 'reports') {
+          var params = new URLSearchParams(search || '');
+          var reportId = params.get('reportId') || '';
+          return reportId ? { panel: 'report-detail', itemId: reportId } : { panel: 'reports', itemId: '' };
+        }
+        return { panel: segments[0], itemId: segments[1] || '' };
+      }
+
+      function openWorkspaceRoute(route, options) {
+        var safeRoute = route || { panel: 'overview', itemId: '' };
+        var safeOptions = options || {};
+        if (safeRoute.panel === 'attendance') return openWorkspaceTabByKey('attendance', safeOptions);
+        if (safeRoute.panel === 'reports') return openWorkspaceTabByKey('reports', safeOptions);
+        if (safeRoute.panel === 'report-detail') {
+          openWorkspaceTabByKey('reports', safeOptions);
+          if (safeRoute.itemId) openReportDetail(Number(safeRoute.itemId));
+          return;
+        }
+        if (safeRoute.panel === 'schedule') return openWorkspaceTabByKey('schedule', safeOptions);
+        if (safeRoute.panel === 'students') return openWorkspaceTabByKey('students', safeOptions);
+        if (safeRoute.panel === 'subjects') return openWorkspaceTabByKey('subjects', safeOptions);
+        if (safeRoute.panel === 'student' && safeRoute.itemId) return openStudentWorkspaceTab(safeRoute.itemId, safeOptions);
+        if (safeRoute.panel === 'subject' && safeRoute.itemId) return openSubjectWorkspaceTab(safeRoute.itemId, safeOptions);
+        if (safeRoute.panel === 'docs') return openWorkspaceTabByKey('docs', safeOptions);
+        return openWorkspaceTabByKey('overview', safeOptions);
+      }
+
+      function handleWorkspacePopState() {
+        var route = parseWorkspaceRoute(window.location.pathname, window.location.search);
+        if (!route) return;
+        openWorkspaceRoute(route, { skipHistory: true });
+      }
+
+      window.openWorkspaceTabByKey = openWorkspaceTabByKey;
+      window.openStudentWorkspaceTab = openStudentWorkspaceTab;
+      window.openSubjectWorkspaceTab = openSubjectWorkspaceTab;
+      window.openWorkspaceQuickAdd = openWorkspaceQuickAdd;
+      window.activateWorkspaceTab = activateWorkspaceTab;
+      window.closeWorkspaceTab = closeWorkspaceTab;
+
+      window.toggleTeachersMobile = function (btn) {
+        var section = btn.closest('.teacher-section');
+        if (!section) return;
+        var collapsed = section.getAttribute('data-collapsed') === 'true';
+        section.setAttribute('data-collapsed', collapsed ? 'false' : 'true');
+        btn.setAttribute('aria-expanded', collapsed ? 'true' : 'false');
+      };
+
+      window.toggleWorkspaceMeta = function (btn) {
+        var card = btn.closest('.workspace-header-card');
+        if (!card) return;
+        var collapsed = card.getAttribute('data-meta-collapsed') === 'true';
+        card.setAttribute('data-meta-collapsed', collapsed ? 'false' : 'true');
+        btn.setAttribute('aria-expanded', collapsed ? 'true' : 'false');
       };
 
       window.setMainEmployee = function (classId, userId) {
@@ -1828,21 +3638,32 @@ main {
       }
 
       initClassDashboard();
+      openWorkspaceRoute(workspaceContext.initialRoute || { panel: 'overview', itemId: '' }, { replaceHistory: true });
+      if (!window.__classWorkspacePopstateBound) {
+        window.__classWorkspacePopstateBound = true;
+        window.addEventListener('popstate', handleWorkspacePopState);
+      }
     })();
+
+    // --- Sidebar Subjects collapsible ---
+    function toggleSubjectsNavSection(e) {
+      if (e) e.preventDefault();
+      var btn = document.getElementById('subjects-section-toggle');
+      var list = document.getElementById('subjects-section-list');
+      if (!btn || !list) return;
+      var isOpen = btn.getAttribute('aria-expanded') === 'true';
+      btn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+      if (isOpen) { list.setAttribute('hidden', ''); } else { list.removeAttribute('hidden'); }
+    }
 
     // --- Reports Panel ---
     function toggleReportsPanel(e) {
       if (e) e.preventDefault();
-      var modal = document.getElementById('reportsListModal');
-      modal.classList.add('active');
-      loadClassReports();
+      openWorkspaceTabByKey('reports');
     }
     function closeReportsListModal() {
-      document.getElementById('reportsListModal').classList.remove('active');
+      closeWorkspaceTab('reports');
     }
-    document.getElementById('reportsListModal').addEventListener('click', function(e) {
-      if (e.target === this) closeReportsListModal();
-    });
 
     function loadClassReports() {
       var container = document.getElementById('reports-list-content');
@@ -2022,33 +3843,17 @@ main {
 
     function toggleClassScheduleModal(e) {
       if (e) e.preventDefault();
-      var modal = document.getElementById('classScheduleModal');
-      if (!modal) return;
-      classScheduleState.isEditing = false;
-      classScheduleState.pendingAction = '';
-      modal.classList.add('active');
-      if (classScheduleState.payload) {
-        syncDraftRowsFromPayload(classScheduleState.payload);
-        renderClassSchedule();
-        refreshClassScheduleInBackground();
-        return;
-      }
-      loadClassSchedule();
+      openWorkspaceTabByKey('schedule');
     }
 
     function closeClassScheduleModal() {
-      var modal = document.getElementById('classScheduleModal');
       classScheduleState.isEditing = false;
       classScheduleState.pendingAction = '';
       if (classScheduleState.payload) {
         syncDraftRowsFromPayload(classScheduleState.payload);
       }
-      if (modal) modal.classList.remove('active');
+      closeWorkspaceTab('schedule');
     }
-
-    document.getElementById('classScheduleModal').addEventListener('click', function(e) {
-      if (e.target === this) closeClassScheduleModal();
-    });
 
     function setClassScheduleNotice(message, type) {
       var notice = document.getElementById('classScheduleNotice');
@@ -2886,56 +4691,5 @@ main {
     window.cancelClassScheduleEdit = cancelClassScheduleEdit;
     window.printClassSchedule = printClassSchedule;
 
-    // Auto-open a specific report when the page is loaded via a notification link
-    // e.g. /common/classDashboard?classId=46&reportId=12
-    (function autoOpenReportFromUrl() {
-      var params = new URLSearchParams(window.location.search);
-      var targetReportId = params.get('reportId');
-      if (!targetReportId) return;
-
-      // First open the reports list panel, then once loaded open the specific report
-      var modal = document.getElementById('reportsListModal');
-      if (!modal) return;
-      modal.classList.add('active');
-      var container = document.getElementById('reports-list-content');
-      if (container) container.innerHTML = '<p style="color:#6b7280;font-size:13px;">Loading reports...</p>';
-
-      fetch('/common/classReports?classId=<%= classId %>')
-        .then(function(r) { return r.json(); })
-        .then(function(d) {
-          if (!d.success || !d.reports || !d.reports.length) {
-            if (container) container.innerHTML = '<div class="rp-empty">No reports yet.</div>';
-            return;
-          }
-          var html = '';
-          d.reports.forEach(function(r) {
-            var statusCls = 'rp-status-' + (r.status || 'open');
-            var replyLabel = (r.reply_count == 1) ? '1 reply' : (r.reply_count || 0) + ' replies';
-            html += '<div class="rp-card" onclick="openReportDetail(' + r.report_id + ')">' +
-              '<div class="rp-left">' +
-                '<div class="rp-subject">' + esc(r.subject) + '</div>' +
-                '<div class="rp-meta">' +
-                  '<span>' + esc(r.student_name) + '</span>' +
-                  '<span class="rp-dot"></span>' +
-                  '<span>' + esc(r.guardian_name) + '</span>' +
-                  '<span class="rp-dot"></span>' +
-                  '<span>' + new Date(r.created_at).toLocaleDateString() + '</span>' +
-                '</div>' +
-              '</div>' +
-              '<div class="rp-right">' +
-                '<span class="rp-status ' + statusCls + '">' + (r.status || 'open').replace('_',' ') + '</span>' +
-                '<span class="rp-replies">\u{1F4AC} ' + replyLabel + '</span>' +
-              '</div>' +
-            '</div>';
-          });
-          if (container) container.innerHTML = html;
-
-          // Now open the specific report directly
-          openReportDetail(Number(targetReportId));
-        })
-        .catch(function() {
-          if (container) container.innerHTML = '<div class="rp-empty" style="color:#e74c3c;">Failed to load reports.</div>';
-        });
-    })();
   </script>
 </body>

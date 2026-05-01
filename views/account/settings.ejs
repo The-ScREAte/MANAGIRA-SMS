@@ -1250,20 +1250,33 @@
         }
       }
     </style>
+    <link rel="stylesheet" href="/css/workspace-shell.css" />
   </head>
   <body>
     <%- include('../partials/flash') %>
     <div class="settings-layout">
       <aside class="settings-nav">
         <div class="settings-nav-header">
-          <h3>Settings</h3>
+          <h3>Workspace</h3>
           <button class="settings-nav-close" type="button" aria-label="Close settings menu">x</button>
         </div>
         <ul class="nav-list">
-          <li><button class="nav-link active" data-target="customize">Customize School</button></li>
-          <li><button class="nav-link" data-target="profile">Profile</button></li>
-          <li><button class="nav-link" data-target="billing">Billing &amp; Plan</button></li>
-          <li><button class="nav-link" data-target="security">Security</button></li>
+          <li><button class="nav-link active" data-target="customize">
+            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 3l9 4-9 4-9-4 9-4z"/><path d="M3 12l9 4 9-4"/><path d="M3 17l9 4 9-4"/></svg></span>
+            <span>Customize School</span>
+          </button></li>
+          <li><button class="nav-link" data-target="profile">
+            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.418 3.582-8 8-8s8 3.582 8 8"/></svg></span>
+            <span>Profile</span>
+          </button></li>
+          <li><button class="nav-link" data-target="billing">
+            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg></span>
+            <span>Billing &amp; Plan</span>
+          </button></li>
+          <li><button class="nav-link" data-target="security">
+            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6l8-4z"/></svg></span>
+            <span>Security</span>
+          </button></li>
         </ul>
       </aside>
 
