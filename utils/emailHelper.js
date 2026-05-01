@@ -199,8 +199,9 @@ function renderCleanEmail({
   return `
     <div style="background:#f8fafc;padding:24px 0;">
       <div style="max-width:620px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
-        <div style="background:#0f766e;padding:18px 22px;">
-          <img src="${MANAGIRA_LOGO_URL}" alt="Managira" width="140" height="40" style="height:40px;width:auto;display:block;border:0;outline:none;text-decoration:none;">
+        <div style="background:#0f766e;padding:16px 22px;display:flex;align-items:center;gap:12px;">
+          <img src="${MANAGIRA_LOGO_URL}" alt="Managira" width="40" height="40" style="height:40px;width:40px;display:block;border:0;outline:none;text-decoration:none;border-radius:6px;background:#ffffff;padding:4px;">
+          <span style="color:#ffffff;font-size:18px;font-weight:700;letter-spacing:0.02em;font-family:'Segoe UI',Arial,sans-serif;">Managira</span>
         </div>
         <div style="padding:24px 22px;color:#0f172a;line-height:1.65;">
           <h2 style="margin:0 0 14px;font-size:21px;color:#0f766e;font-weight:700;">${escapeHtml(title || "Notification")}</h2>

@@ -2398,18 +2398,13 @@ const adminController = {
         paragraphs: [
           `Thank you for applying for the ${application.job_title} position at Managira.`,
           "We are pleased to inform you that your application has been approved for the next stage of the selection process.",
-          "As a next step, please schedule an interview at the earliest date and time that works for you using the link below.",
+          `As a next step, please schedule an interview at the earliest date and time that works for you using this link: <a href="https://calendly.com/managirasms/30min" target="_blank" rel="noopener" style="color:#01535b;font-weight:600;">https://calendly.com/managirasms/30min</a>`,
           "If you have any questions in the meantime, please feel free to reply to this email.",
         ],
         details: [
           { label: "Position", value: application.job_title },
           { label: "Application Status", value: "Approved for Next Stage" },
         ],
-        cta: {
-          url: "https://calendly.com/managirasms/30min",
-          text: "Schedule Your Interview",
-        },
-        note: "If the button above does not work, copy and paste this link into your browser: https://calendly.com/managirasms/30min",
         noReply: false,
       });
 
