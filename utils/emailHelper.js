@@ -315,24 +315,25 @@ async function sendEmailSafely(mailOptions, context = "Email") {
 
     console.info(`[Email][${context}] sending via SMTP to ${restOptions.to}`);
 
+    const messageIdDomain = (fromAddress.split('@')[1] || 'managira.com').trim();
+    const messageId = `<managira-${Date.now()}-${Math.random().toString(36).slice(2, 10)}@${messageIdDomain}>`;
+
     const info = await transporter.sendMail({
       from,
       replyTo: restOptions.replyTo || fromAddress,
       ...restOptions,
       text: textBody,
       attachments: mergedAttachments,
+      messageId,
       headers: {
-        // Signal “important / transactional” so Gmail/Outlook prefer the Primary
-        // inbox over the Promotions tab. These are standard RFC headers and do not
-        // affect deliverability.
-        'X-Priority': '1 (Highest)',
-        'X-MSMail-Priority': 'High',
-        Importance: 'high',
-        Priority: 'urgent',
+        // Standard transactional-mail headers. We deliberately do NOT set
+        // X-Priority / Importance / Priority — those are spam/Promotions
+        // signals on Gmail and Outlook even when the mail is legitimate.
         'X-Entity-Ref-ID': `managira-${Date.now()}`,
         'List-Unsubscribe': `<mailto:${fromAddress}?subject=unsubscribe>`,
         'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
         'X-Auto-Response-Suppress': 'All',
+        'Auto-Submitted': 'auto-generated',
         ...restOptions.headers,
       },
     });
