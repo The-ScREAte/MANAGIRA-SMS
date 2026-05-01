@@ -200,7 +200,7 @@ function renderCleanEmail({
     <div style="background:#f8fafc;padding:24px 0;">
       <div style="max-width:620px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
         <div style="background:#0f766e;padding:18px 22px;">
-          <img src="cid:managira_logo" alt="Managira" width="140" style="height:40px;width:auto;display:block;border:0;outline:none;text-decoration:none;">
+          <img src="${MANAGIRA_LOGO_URL}" alt="Managira" width="140" height="40" style="height:40px;width:auto;display:block;border:0;outline:none;text-decoration:none;">
         </div>
         <div style="padding:24px 22px;color:#0f172a;line-height:1.65;">
           <h2 style="margin:0 0 14px;font-size:21px;color:#0f766e;font-weight:700;">${escapeHtml(title || "Notification")}</h2>
@@ -299,19 +299,14 @@ async function sendEmailSafely(mailOptions, context = "Email") {
 
     // Strip smtpConfig if caller passed it (we ignore custom transporter configs)
     const { smtpConfig, from: _ignoredFrom, skipMxCheck: _skipMxCheck, ...restOptions } = mailOptions;
-    const mergedAttachments = Array.isArray(restOptions.attachments) ? [...restOptions.attachments] : [];
-    const hasInlineLogo = mergedAttachments.some((item) => item && item.cid === 'managira_logo');
-    if (restOptions.html && !hasInlineLogo) {
-      // Keep the logo as a redundant inline attachment (contentDisposition:'inline')
-      // for clients that fail to fetch external images. The HTML itself points at
-      // the public HTTPS URL so it renders even when attachments are stripped.
-      mergedAttachments.push({
-        filename: 'managira.png',
-        path: MANAGIRA_LOGO_PATH,
-        cid: 'managira_logo',
-        contentDisposition: 'inline',
-      });
-    }
+
+    // Strip any caller-provided "managira_logo" inline attachment. The logo is
+    // now rendered via a public HTTPS <img src> in renderCleanEmail, so adding
+    // it as an inline attachment caused mail clients (Gmail/Outlook) to show
+    // the logo as a downloadable file alongside the message — which we do not
+    // want. Real file attachments (PDF reports, resumes, etc.) are kept.
+    const mergedAttachments = (Array.isArray(restOptions.attachments) ? restOptions.attachments : [])
+      .filter((item) => !(item && item.cid === 'managira_logo'));
 
     // Provide a plain-text fallback whenever one wasn’t supplied. multipart/
     // alternative mail is a strong Primary-tab signal.
@@ -320,24 +315,25 @@ async function sendEmailSafely(mailOptions, context = "Email") {
 
     console.info(`[Email][${context}] sending via SMTP to ${restOptions.to}`);
 
+    const messageIdDomain = (fromAddress.split('@')[1] || 'managira.com').trim();
+    const messageId = `<managira-${Date.now()}-${Math.random().toString(36).slice(2, 10)}@${messageIdDomain}>`;
+
     const info = await transporter.sendMail({
       from,
       replyTo: restOptions.replyTo || fromAddress,
       ...restOptions,
       text: textBody,
       attachments: mergedAttachments,
+      messageId,
       headers: {
-        // Signal “important / transactional” so Gmail/Outlook prefer the Primary
-        // inbox over the Promotions tab. These are standard RFC headers and do not
-        // affect deliverability.
-        'X-Priority': '1 (Highest)',
-        'X-MSMail-Priority': 'High',
-        Importance: 'high',
-        Priority: 'urgent',
+        // Standard transactional-mail headers. We deliberately do NOT set
+        // X-Priority / Importance / Priority — those are spam/Promotions
+        // signals on Gmail and Outlook even when the mail is legitimate.
         'X-Entity-Ref-ID': `managira-${Date.now()}`,
         'List-Unsubscribe': `<mailto:${fromAddress}?subject=unsubscribe>`,
         'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
         'X-Auto-Response-Suppress': 'All',
+        'Auto-Submitted': 'auto-generated',
         ...restOptions.headers,
       },
     });
