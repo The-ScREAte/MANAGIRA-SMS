@@ -2418,13 +2418,6 @@ const adminController = {
           to: application.email,
           subject: `Your ${application.job_title} application has been approved`,
           html,
-          attachments: [
-            {
-              filename: "managira.png",
-              path: path.join(__dirname, "../public/images/managira.png"),
-              cid: "managira_logo",
-            },
-          ],
         },
         "Employment Approval Email"
       );
