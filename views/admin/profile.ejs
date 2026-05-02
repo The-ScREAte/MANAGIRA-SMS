@@ -1,0 +1,154 @@
+<style>
+  .profile-page {
+    max-width: 720px;
+    margin: 32px auto;
+    padding: 0 16px;
+  }
+  .profile-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    box-shadow: 0 6px 22px rgba(15, 23, 42, 0.06);
+    overflow: hidden;
+  }
+  .profile-card__header {
+    padding: 22px 26px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .profile-avatar-lg {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #01535b, #047a85);
+    color: #fff;
+    font-weight: 700;
+    font-size: 1.4rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 14px rgba(1, 83, 91, 0.3);
+  }
+  .profile-card__title { margin: 0; font-size: 1.3rem; color: #0f172a; }
+  .profile-card__role { margin: 2px 0 0; font-size: 0.88rem; color: #64748b; }
+  .profile-card__body { padding: 22px 26px; }
+
+  .flash-stack { margin: 0 0 14px; padding: 0; list-style: none; }
+  .flash-stack li {
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+  }
+  .flash-stack .flash-success { background: #dcfce7; color: #166534; }
+  .flash-stack .flash-error   { background: #fee2e2; color: #991b1b; }
+
+  .profile-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .profile-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #64748b;
+  }
+  .profile-form input {
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 0.95rem;
+    color: #0f172a;
+    font-family: inherit;
+  }
+  .profile-form input:disabled { background: #f3f4f6; color: #6b7280; }
+  .profile-form .full { grid-column: 1 / -1; }
+  .profile-form .actions {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-top: 6px;
+  }
+  .btn-save {
+    background: #01535b;
+    color: #fff;
+    border: 0;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+  }
+  .btn-save:hover { background: #014a51; }
+  .btn-back {
+    color: #475569;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+  .btn-back:hover { color: #0f172a; }
+  @media (max-width: 600px) {
+    .profile-form { grid-template-columns: 1fr; }
+  }
+</style>
+
+<%
+  const _initial = (profile && profile.first_name) ? profile.first_name.charAt(0).toUpperCase() : '?';
+%>
+
+<div class="profile-page">
+  <div class="profile-card">
+    <div class="profile-card__header">
+      <div class="profile-avatar-lg"><%= _initial %></div>
+      <div>
+        <h1 class="profile-card__title"><%= profile.first_name %> <%= profile.last_name %></h1>
+        <p class="profile-card__role"><%= profile.account_type %> · <%= profile.email %></p>
+      </div>
+    </div>
+
+    <div class="profile-card__body">
+      <% if (messages && (messages.success || messages.error)) { %>
+        <ul class="flash-stack">
+          <% if (messages.success) { (Array.isArray(messages.success) ? messages.success : [messages.success]).forEach(function(m){ %>
+            <li class="flash-success"><%= m %></li>
+          <% }); } %>
+          <% if (messages.error) { (Array.isArray(messages.error) ? messages.error : [messages.error]).forEach(function(m){ %>
+            <li class="flash-error"><%= m %></li>
+          <% }); } %>
+        </ul>
+      <% } %>
+
+      <form action="/admin/profile" method="POST" class="profile-form" autocomplete="off">
+        <label>
+          First name
+          <input type="text" name="firstName" value="<%= profile.first_name || '' %>" required maxlength="255" />
+        </label>
+        <label>
+          Last name
+          <input type="text" name="lastName" value="<%= profile.last_name || '' %>" required maxlength="255" />
+        </label>
+        <label class="full">
+          Phone number
+          <input type="tel" name="phoneNumber" value="<%= profile.phone_number || '' %>" maxlength="50" placeholder="e.g. +1 555 123 4567" pattern="[+()\-\s\d]{4,50}" />
+        </label>
+        <label class="full">
+          Email (read-only)
+          <input type="email" value="<%= profile.email || '' %>" disabled />
+        </label>
+        <div class="actions">
+          <a href="/admin" class="btn-back">← Back to dashboard</a>
+          <button type="submit" class="btn-save">💾 Save changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

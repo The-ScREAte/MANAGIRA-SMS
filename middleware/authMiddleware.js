@@ -105,6 +105,23 @@ const ensureAdmin = async (req, res, next) => {
     }
 };
 
+// Middleware that allows full Admins, Mini Admins, and the new Internal Worker role.
+// Use on admin routes that Internal Workers are explicitly allowed to access.
+const ensureAdminOrInternal = (req, res, next) => {
+    try {
+        const accountType = req.session.accountType;
+        if (accountType === 'Admin' || accountType === 'Mini Admin' || accountType === 'Internal Worker') {
+            return next();
+        }
+        req.flash('error', 'You do not have permission to access this page.');
+        return res.redirect('/account/login');
+    } catch (err) {
+        console.error('Error in ensureAdminOrInternal middleware:', err);
+        req.flash('error', 'An error occurred during authorization.');
+        return res.redirect('/account/login');
+    }
+};
+
 // Middleware to block guardians from accessing staff routes
 const blockGuardians = (req, res, next) => {
     try {
@@ -137,6 +154,7 @@ const fetchUserInfo = async (req, res, next) => {
                 if (
                     user.account_type !== 'Admin' &&
                     user.account_type !== 'Mini Admin' &&
+                    user.account_type !== 'Internal Worker' &&
                     user.organization_id
                 ) {
                     const orgResult = await db.query(
@@ -168,6 +186,7 @@ const fetchUserInfo = async (req, res, next) => {
 module.exports = {
     isAuthenticated,
     ensureAdmin,
+    ensureAdminOrInternal,
     fetchUserInfo,
     blockGuardians,
 };

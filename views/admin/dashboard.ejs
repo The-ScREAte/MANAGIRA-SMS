@@ -357,6 +357,214 @@
       color: var(--text-secondary);
     }
 
+    /* === Internal Worker / Contacts widget === */
+    .iw-announcement {
+      max-width: 1400px;
+      margin: 0 auto 24px;
+      padding: 18px 22px;
+      background: linear-gradient(135deg, rgba(1, 83, 91, 0.06), rgba(1, 83, 91, 0.02));
+      border: 1px solid rgba(1, 83, 91, 0.18);
+      border-left: 4px solid var(--primary);
+      border-radius: 12px;
+    }
+    .iw-announcement__eyebrow {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--primary);
+      margin-bottom: 6px;
+    }
+    .iw-announcement__title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    .iw-announcement__body {
+      color: var(--text-secondary);
+      font-size: 0.92rem;
+      line-height: 1.55;
+      white-space: pre-line;
+    }
+
+    .iw-quicklinks {
+      max-width: 1400px;
+      margin: 0 auto 24px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .iw-quicklink {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 16px 18px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      text-decoration: none;
+      color: var(--text-primary);
+      transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+    }
+    .iw-quicklink:hover {
+      transform: translateY(-2px);
+      border-color: var(--primary);
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    }
+    .iw-quicklink__icon { font-size: 1.4rem; }
+    .iw-quicklink__label { font-weight: 700; font-size: 0.98rem; }
+    .iw-quicklink__hint { font-size: 0.82rem; color: var(--text-secondary); }
+
+    .iw-card {
+      max-width: 1400px;
+      margin: 0 auto 24px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .iw-card__header {
+      padding: 16px 22px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .iw-card__title { font-size: 1.05rem; font-weight: 700; margin: 0; }
+    .iw-card__subtitle { font-size: 0.85rem; color: var(--text-secondary); margin: 2px 0 0; }
+    .iw-card__body { padding: 18px 22px; }
+
+    .iw-form {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      align-items: start;
+    }
+    .iw-form label {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+    .iw-form input,
+    .iw-form select,
+    .iw-form textarea {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 11px;
+      font-size: 0.9rem;
+      font-family: inherit;
+      color: var(--text-primary);
+      background: #fff;
+    }
+    .iw-form textarea { min-height: 84px; resize: vertical; }
+    .iw-form .iw-form__full { grid-column: 1 / -1; }
+    .iw-form__actions {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    .iw-form__submit {
+      background: var(--primary);
+      color: #fff;
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    .iw-form__submit:hover { background: var(--primary-hover); }
+
+    .iw-contact-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .iw-contact {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px 16px;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fafbfc;
+      align-items: start;
+    }
+    .iw-contact--followed { background: #f0fdf4; border-color: #bbf7d0; }
+    .iw-contact__name { font-weight: 700; }
+    .iw-contact__meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 14px;
+      margin-top: 4px;
+      font-size: 0.84rem;
+      color: var(--text-secondary);
+    }
+    .iw-contact__notes {
+      margin-top: 6px;
+      font-size: 0.88rem;
+      color: var(--text-primary);
+      white-space: pre-wrap;
+    }
+    .iw-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .iw-pill--appt { background: #e0f2fe; color: #075985; }
+    .iw-pill--noappt { background: #f1f5f9; color: #475569; }
+    .iw-pill--followed { background: #dcfce7; color: #166534; }
+    .iw-pill--pending { background: #fef3c7; color: #92400e; }
+    .iw-contact__actions {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: stretch;
+    }
+    .iw-contact__actions form { margin: 0; }
+    .iw-action-btn {
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text-primary);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .iw-action-btn:hover { background: #f3f4f6; }
+    .iw-action-btn--primary {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+    .iw-action-btn--primary:hover { background: var(--primary-hover); }
+    .iw-action-btn--danger { color: var(--danger); border-color: #fecaca; }
+    .iw-action-btn--danger:hover { background: #fef2f2; }
+
+    @media (max-width: 600px) {
+      .iw-contact { grid-template-columns: 1fr; }
+      .iw-contact__actions { flex-direction: row; flex-wrap: wrap; }
+    }
+
     .modal {
       display: none;
       position: fixed;
@@ -467,18 +675,46 @@
 </head>
 <body>
   <div class="dashboard-wrapper">
+    <% const _isInternal = (typeof isInternalWorker !== 'undefined') && isInternalWorker; %>
+    <% const _isFullAdmin = (typeof isFullAdmin !== 'undefined') && isFullAdmin; %>
+    <% const _contacts = (typeof contacts !== 'undefined' && Array.isArray(contacts)) ? contacts : []; %>
+    <% const _latestAnnouncement = (typeof latestAnnouncement !== 'undefined') ? latestAnnouncement : null; %>
+    <% const _displayName = (session && (session.firstName || session.lastName)) ? `${session.firstName || ''} ${session.lastName || ''}`.trim() : ''; %>
+
     <div class="dashboard-header">
       <div class="dashboard-title">
-        <h1>📋 Single Organization Management</h1>
-        <p>Simple overview and control of all organizations</p>
+        <% if (_isInternal) { %>
+          <h1>👋 Welcome<%= _displayName ? ', ' + _displayName : '' %></h1>
+          <p>Your hub for announcements, referrals, and quick links.</p>
+        <% } else { %>
+          <h1>📋 Single Organization Management</h1>
+          <p>Simple overview and control of all organizations</p>
+        <% } %>
       </div>
-      <div class="dashboard-actions">
-        <a href="/admin/hubs" class="btn-primary">🏢 Manage Hubs</a>
-      </div>
+      <% if (!_isInternal) { %>
+        <div class="dashboard-actions">
+          <a href="/admin/hubs" class="btn-primary">🏢 Manage Hubs</a>
+        </div>
+      <% } %>
     </div>
 
     <%- include('../partials/flash') %>
 
+    <% if (_latestAnnouncement) { %>
+      <div class="iw-announcement">
+        <div class="iw-announcement__eyebrow">📣 Announcement</div>
+        <div class="iw-announcement__title"><%= _latestAnnouncement.title %></div>
+        <div class="iw-announcement__body"><%= _latestAnnouncement.description %></div>
+      </div>
+    <% } else if (_isInternal) { %>
+      <div class="iw-announcement">
+        <div class="iw-announcement__eyebrow">📣 Announcement</div>
+        <div class="iw-announcement__title">No announcements right now</div>
+        <div class="iw-announcement__body">Check back later for the latest updates from the Managira team.</div>
+      </div>
+    <% } %>
+
+    <% if (!_isInternal) { %>
     <div class="stats-grid">
       <div class="stat-card">
         <div class="stat-label">Total Organizations</div>
@@ -493,6 +729,36 @@
         <div class="stat-value"><%= applications ? applications.filter(app => app.on_hold).length : 0 %></div>
       </div>
     </div>
+    <% } %>
+
+    <% if (_isInternal) { %>
+      <div class="iw-quicklinks">
+        <a class="iw-quicklink" href="https://forms.gle/uc9qatwCgWf1jMnv6" target="_blank" rel="noopener">
+          <span class="iw-quicklink__icon">📝</span>
+          <span class="iw-quicklink__label">Weekly Internal Report</span>
+          <span class="iw-quicklink__hint">Submit your weekly update</span>
+        </a>
+        <a class="iw-quicklink" href="https://calendly.com/managirasms/30min" target="_blank" rel="noopener">
+          <span class="iw-quicklink__icon">📅</span>
+          <span class="iw-quicklink__label">Calendar</span>
+          <span class="iw-quicklink__hint">Book a 30-minute meeting</span>
+        </a>
+        <a class="iw-quicklink" href="/legal/app-demo" target="_blank" rel="noopener">
+          <span class="iw-quicklink__icon">▶️</span>
+          <span class="iw-quicklink__label">App Demo (Preview)</span>
+          <span class="iw-quicklink__hint">Walk through the platform</span>
+        </a>
+      </div>
+    <% } %>
+
+    <%- include('partials/_contactsWidget', {
+      isInternal: _isInternal,
+      isFullAdmin: _isFullAdmin,
+      contacts: _contacts,
+      sessionUserId: (session && session.userId) ? session.userId : null
+    }) %>
+
+    <% if (!_isInternal) { %>
 
     <div class="orgs-container">
       <div class="orgs-header">
@@ -615,6 +881,7 @@
       <div class="empty-state">No organizations found.</div>
       <% } %>
     </div>
+    <% } %>
   </div>
 
   <div id="imageModal" class="modal" onclick="closeModal()">

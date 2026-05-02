@@ -3054,7 +3054,7 @@ const accountController = {
       const adminResult = await db.query(
         `SELECT * FROM users WHERE LOWER(email) = LOWER($1) 
 
-         AND (account_type = 'Admin' OR account_type = 'Mini Admin') 
+         AND (account_type = 'Admin' OR account_type = 'Mini Admin' OR account_type = 'Internal Worker') 
 
          AND organization_id IS NULL`,
 
@@ -3120,7 +3120,7 @@ const accountController = {
       const userResult = await db.query(
         `SELECT * FROM users WHERE LOWER(email) = LOWER($1) 
 
-           AND account_type NOT IN ('Admin', 'Mini Admin') 
+           AND account_type NOT IN ('Admin', 'Mini Admin', 'Internal Worker') 
 
            AND organization_id IS NOT NULL`,
 

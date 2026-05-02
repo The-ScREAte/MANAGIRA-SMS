@@ -273,9 +273,9 @@
   .app-demo-shell {
     position: relative;
     z-index: 1;
-    max-width: 1240px;
+    max-width: 1180px;
     margin: 0 auto;
-    padding: 72px 20px 88px;
+    padding: 48px 20px 64px;
   }
 
   .app-demo-orb {
@@ -305,9 +305,9 @@
   .app-demo-hero {
     display: grid;
     grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
-    gap: 28px;
+    gap: 24px;
     align-items: center;
-    margin-bottom: 48px;
+    margin-bottom: 32px;
   }
 
   .app-demo-hero__copy {
@@ -320,19 +320,25 @@
   .app-demo-modal__tagline {
     margin: 0;
     text-transform: uppercase;
-    letter-spacing: 0.18em;
-    font-size: 12px;
+    letter-spacing: 0.16em;
+    font-size: 11px;
     font-weight: 700;
     color: #0f766e;
   }
 
   .app-demo-hero h1 {
-    margin: 12px 0 16px;
-    max-width: 12ch;
-    font-size: clamp(2.6rem, 5vw, 4.8rem);
-    line-height: 0.94;
-    letter-spacing: -0.06em;
+    margin: 10px 0 12px;
+    max-width: 14ch;
+    font-size: clamp(1.8rem, 3.4vw, 2.8rem);
+    line-height: 1.05;
+    letter-spacing: -0.04em;
     text-align: left;
+  }
+
+  .app-demo-hero__copy > p {
+    font-size: 0.95rem;
+    line-height: 1.65;
+    color: #475569;
   }
 
   .app-demo-hero__logo-panel {
@@ -372,6 +378,13 @@
     opacity: 0.96;
     transform: scale(1.03);
     filter: blur(1.5px);
+    animation: app-demo-hero-bg-drift 14s ease-in-out infinite alternate;
+  }
+
+  @keyframes app-demo-hero-bg-drift {
+    0%   { transform: scale(1.03) translate3d(0, 0, 0); }
+    50%  { transform: scale(1.06) translate3d(-1.2%, 0.8%, 0); }
+    100% { transform: scale(1.03) translate3d(1.2%, -0.6%, 0); }
   }
 
   .app-demo-hero__logo-panel::after {
@@ -394,6 +407,50 @@
     width: min(100%, 360px);
     height: auto;
     object-fit: contain;
+    transform-origin: center center;
+    will-change: transform;
+    animation: app-demo-hero-spin 2.6s ease-in-out infinite;
+  }
+
+  @keyframes app-demo-hero-spin {
+    0% { transform: rotate(-3deg); }
+    50% { transform: rotate(3deg); }
+    100% { transform: rotate(-3deg); }
+  }
+
+  .app-demo-hero__logo-panel-copy {
+    animation: app-demo-hero-float 4.8s ease-in-out infinite;
+  }
+
+  .app-demo-hero__logo-panel-copy span {
+    display: inline-block;
+    animation: app-demo-hero-text-shift 6.4s ease-in-out infinite;
+  }
+
+  .app-demo-hero__logo-panel-copy strong {
+    display: inline-block;
+    animation: app-demo-hero-text-shift 6.4s ease-in-out infinite;
+    animation-delay: 0.4s;
+  }
+
+  @keyframes app-demo-hero-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+
+  @keyframes app-demo-hero-text-shift {
+    0%, 100% { transform: translateY(0); letter-spacing: inherit; }
+    50% { transform: translateY(-2px); letter-spacing: 0.02em; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .app-demo-hero__logo-panel::before,
+    .app-demo-hero__logo-panel-image,
+    .app-demo-hero__logo-panel-copy,
+    .app-demo-hero__logo-panel-copy span,
+    .app-demo-hero__logo-panel-copy strong {
+      animation: none;
+    }
   }
 
   .app-demo-hero__logo-panel-copy {
@@ -440,14 +497,14 @@
 
   .app-demo-highlights strong {
     display: block;
-    margin-bottom: 5px;
-    font-size: 1.15rem;
+    margin-bottom: 4px;
+    font-size: 0.98rem;
   }
 
   .app-demo-highlights span {
     color: #64748b;
-    font-size: 0.92rem;
-    line-height: 1.7;
+    font-size: 0.84rem;
+    line-height: 1.6;
   }
 
   .app-demo-actions {
@@ -534,8 +591,8 @@
   }
 
   .app-demo-card__file-preview strong {
-    font-size: 1.15rem;
-    letter-spacing: -0.03em;
+    font-size: 1rem;
+    letter-spacing: -0.02em;
     color: #0f172a;
   }
 
@@ -563,9 +620,9 @@
   }
 
   .app-demo-section-heading h2 {
-    margin: 10px 0 0;
-    font-size: clamp(1.7rem, 3vw, 2.6rem);
-    letter-spacing: -0.04em;
+    margin: 8px 0 0;
+    font-size: clamp(1.25rem, 2vw, 1.7rem);
+    letter-spacing: -0.02em;
   }
 
   .app-demo-note {
@@ -583,14 +640,15 @@
   }
 
   .app-demo-platform-info h2 {
-    margin: 10px 0 14px;
-    font-size: clamp(1.8rem, 3vw, 2.7rem);
-    letter-spacing: -0.04em;
+    margin: 8px 0 12px;
+    font-size: clamp(1.3rem, 2.2vw, 1.85rem);
+    letter-spacing: -0.02em;
   }
 
   .app-demo-platform-info p {
     margin: 0;
-    line-height: 1.8;
+    line-height: 1.65;
+    font-size: 0.93rem;
   }
 
   .app-demo-platform-info p + p {
@@ -689,8 +747,8 @@
     inset: 0;
     z-index: 1200;
     display: grid;
-    place-items: center;
-    padding: 18px;
+    place-items: stretch;
+    padding: 12px 80px;
   }
 
   .app-demo-modal[hidden] {
@@ -710,9 +768,10 @@
     z-index: 1;
     display: flex;
     flex-direction: column;
-    width: min(1280px, 100%);
-    max-height: min(96vh, 980px);
-    border-radius: 22px;
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 18px;
     overflow: hidden;
     background: rgba(248, 250, 252, 0.97);
     animation: app-demo-rise-in 220ms ease;
@@ -722,9 +781,11 @@
   .app-demo-modal__header {
     display: flex;
     justify-content: space-between;
-    gap: 16px;
-    padding: 12px 16px;
+    gap: 12px;
+    padding: 8px 18px;
   }
+
+  .app-demo-modal__header { padding: 10px 22px 12px; }
 
   .app-demo-modal__topbar {
     align-items: start;
@@ -755,14 +816,14 @@
 
   .app-demo-modal__toolbar {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
     gap: 8px;
     padding: 8px 14px 10px;
     border-top: 1px solid rgba(148, 163, 184, 0.18);
     background: linear-gradient(180deg, rgba(248, 250, 252, 0.92), rgba(255, 255, 255, 0.96));
-    overflow-x: auto;
+    overflow: hidden;
   }
 
   .app-demo-zoom-controls,
@@ -799,7 +860,7 @@
       radial-gradient(circle at 12% 18%, rgba(34, 211, 238, 0.12), transparent 22%),
       radial-gradient(circle at 84% 22%, rgba(59, 130, 246, 0.12), transparent 24%),
       linear-gradient(180deg, #edf4fb 0%, #dfe7ef 100%);
-    padding: 12px;
+    padding: 10px 6px 14px;
   }
 
   .app-demo-modal__panel--viewer-expanded .app-demo-modal__header {
@@ -843,16 +904,19 @@
   .app-demo-modal__canvas {
     position: relative;
     z-index: 1;
-    min-width: fit-content;
+    width: calc(var(--app-demo-base-width, 100%) * var(--app-demo-zoom, 1));
+    max-width: none;
+    margin: 0 auto;
     transform-origin: top center;
   }
 
   .app-demo-modal__canvas img {
     display: block;
-    width: calc(var(--app-demo-base-width, 1024px) * var(--app-demo-zoom, 1));
-    max-width: none;
+    width: 100%;
+    height: auto;
+    max-width: 100%;
     margin: 0 auto;
-    border-radius: 16px;
+    border-radius: 14px;
     box-shadow: 0 32px 90px rgba(15, 23, 42, 0.18);
     background: #ffffff;
   }
@@ -1143,10 +1207,13 @@
     const prevButton = document.querySelector('[data-demo-prev]');
     const expandButton = document.querySelector('[data-demo-expand]');
     const zoomButtons = document.querySelectorAll('[data-demo-zoom]');
-    const zoomLevels = [1, 1.2, 1.4, 1.7, 2];
+    const ZOOM_MIN = 30;
+    const ZOOM_MAX = 200;
+    const ZOOM_STEP = 5;
+    const ZOOM_DEFAULT = 75;
 
     let activeIndex = 0;
-    let zoomIndex = 0;
+    let zoomPercent = ZOOM_DEFAULT;
     let lastTrigger = null;
     let isExpanded = false;
 
@@ -1155,8 +1222,8 @@
         return;
       }
 
-      const viewerPaddingX = window.innerWidth <= 520 ? 20 : (window.innerWidth <= 780 ? 28 : (isExpanded ? 44 : 24));
-      const maxBaseWidth = isExpanded ? 1360 : 1024;
+      const viewerPaddingX = window.innerWidth <= 520 ? 20 : (window.innerWidth <= 780 ? 28 : (isExpanded ? 32 : 24));
+      const maxBaseWidth = isExpanded ? 1920 : 1680;
       const availableWidth = Math.max(320, viewer.clientWidth - viewerPaddingX);
       const baseWidth = Math.min(maxBaseWidth, availableWidth);
       canvas.style.setProperty('--app-demo-base-width', baseWidth + 'px');
@@ -1175,11 +1242,11 @@
       }
     }
 
-    function setZoom(nextZoomIndex) {
-      zoomIndex = Math.max(0, Math.min(zoomLevels.length - 1, nextZoomIndex));
-      const zoom = zoomLevels[zoomIndex];
+    function setZoom(nextZoomPercent) {
+      zoomPercent = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round(nextZoomPercent)));
+      const zoom = zoomPercent / 100;
       canvas.style.setProperty('--app-demo-zoom', String(zoom));
-      zoomLabel.textContent = Math.round(zoom * 100) + '%';
+      zoomLabel.textContent = zoomPercent + '%';
     }
 
     function renderModal(index) {
@@ -1210,7 +1277,7 @@
         imageNode.alt = page.title + ' full-page preview';
       }
 
-      setZoom(0);
+      setZoom(ZOOM_DEFAULT);
       syncBaseWidth();
       viewer.scrollTop = 0;
       viewer.scrollLeft = 0;
@@ -1281,7 +1348,7 @@
     zoomButtons.forEach((button) => {
       button.addEventListener('click', function () {
         const direction = button.getAttribute('data-demo-zoom');
-        setZoom(zoomIndex + (direction === 'in' ? 1 : -1));
+        setZoom(zoomPercent + (direction === 'in' ? ZOOM_STEP : -ZOOM_STEP));
       });
     });
 

@@ -2,7 +2,7 @@ module.exports = (db) => {
     const express = require('express');
     const router = express.Router();
     const adminController = require('../controllers/adminController');
-    const { isAuthenticated, fetchUserInfo, ensureAdmin } = require('../middleware/authMiddleware');
+    const { isAuthenticated, fetchUserInfo, ensureAdmin, ensureAdminOrInternal } = require('../middleware/authMiddleware');
     const multer = require('multer');
     const upload = multer({ dest: 'uploads/' });
 
@@ -88,7 +88,7 @@ module.exports = (db) => {
     // General routes
     router.get('/', async (req, res) => {
         try {
-            if (req.session.accountType === 'Admin' || req.session.accountType === 'Mini Admin') {
+            if (req.session.accountType === 'Admin' || req.session.accountType === 'Mini Admin' || req.session.accountType === 'Internal Worker') {
                 await adminController.adminDashboard(req, res);
             } else {
                 req.flash('error', 'Unauthorized access.');
@@ -100,6 +100,15 @@ module.exports = (db) => {
             res.redirect('/account/login');
         }
     });
+
+    // Internal contacts (referrals) routes - available to Admin, Mini Admin, and Internal Worker
+    router.post('/contacts', ensureAdminOrInternal, adminController.createInternalContact);
+    router.post('/contacts/:id/follow-up', ensureAdminOrInternal, adminController.toggleInternalContactFollowUp);
+    router.post('/contacts/:id/delete', ensureAdminOrInternal, adminController.deleteInternalContact);
+
+    // Self-service profile (any signed-in admin-side user)
+    router.get('/profile', ensureAdminOrInternal, adminController.getAdminProfile);
+    router.post('/profile', ensureAdminOrInternal, adminController.updateAdminProfile);
 
     router.post('/hold', adminController.holdOrganization);
     router.post('/resume', adminController.resumeOrganization);
@@ -155,6 +164,7 @@ module.exports = (db) => {
     router.post('/toggleAdminHoldStatus', ensureAdmin, adminController.toggleAdminHoldStatus);
     router.get('/editAdminUser/:userId', ensureAdmin, adminController.editAdminUserGet);
     router.post('/editAdminUser/:userId', ensureAdmin, adminController.editAdminUserPost);
+    router.post('/resendAdminInvite/:userId', ensureAdmin, adminController.resendAdminInvite);
     router.post('/deleteAdminUser/:userId', ensureAdmin, adminController.deleteAdminUser);
     router.post('/permanentlyDelete', ensureAdmin, adminController.permanentlyDeleteOrganization);
     router.post('/restore', ensureAdmin, adminController.restoreOrganization);
@@ -292,6 +302,9 @@ module.exports = (db) => {
     router.post('/hubs/delete', ensureAdmin, adminController.hubDeletePost);
     router.post('/hubs/restore', ensureAdmin, adminController.restoreHub);
     router.post('/hubs/permanently-delete', ensureAdmin, adminController.permanentlyDeleteHub);
+    router.post('/permanentlyDelete/bulk', ensureAdmin, adminController.bulkPermanentlyDeleteOrganizations);
+    router.post('/hubs/permanently-delete/bulk', ensureAdmin, adminController.bulkPermanentlyDeleteHubs);
+    router.post('/permanentDeleteMessage/bulk', ensureAdmin, adminController.bulkPermanentDeleteMessages);
     router.get('/hubs/:hubId/organizations', ensureAdmin, adminController.hubOrganizationsGet);
 
     return router;

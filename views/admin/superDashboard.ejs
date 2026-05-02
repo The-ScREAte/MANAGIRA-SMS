@@ -203,6 +203,33 @@
       color: #991b1b;
     }
 
+    .bulk-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 12px;
+      margin: 0 0 10px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+    }
+    .bulk-toolbar.is-hidden { display: none; }
+    .bulk-toolbar .bulk-count { font-size: 0.85rem; color: #991b1b; font-weight: 600; }
+    .bulk-toolbar .btn-bulk-delete {
+      background: #dc2626;
+      color: #ffffff;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .bulk-toolbar .btn-bulk-delete:hover { background: #b91c1c; }
+    .bulk-toolbar .btn-bulk-delete[disabled] { opacity: 0.6; cursor: not-allowed; }
+    .row-checkbox, .select-all-checkbox { width: 16px; height: 16px; cursor: pointer; }
+
     .muted {
       color: var(--text-secondary);
       font-size: 0.85rem;
@@ -260,7 +287,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 20px;
+      padding: 1.5vh 3vw;
     }
 
     .users-modal-backdrop {
@@ -272,8 +299,9 @@
 
     .users-modal-panel {
       position: relative;
-      width: min(1220px, 100%);
-      max-height: calc(100vh - 40px);
+      width: min(1400px, 94vw);
+      height: 96vh;
+      max-height: 97vh;
       overflow: hidden;
       border-radius: 18px;
       background: #ffffff;
@@ -387,6 +415,7 @@
     .users-modal-body {
       padding: 0 22px 22px;
       overflow: auto;
+      flex: 1 1 auto;
     }
 
     .users-table {
@@ -505,6 +534,7 @@
 
       .users-modal-panel {
         width: 100%;
+        height: calc(100vh - 20px);
         max-height: calc(100vh - 20px);
       }
 
@@ -581,6 +611,7 @@
                 <tr>
                   <th>User</th>
                   <th>Email</th>
+                  <th>Phone</th>
                   <th>Role</th>
                   <th>Schools</th>
                   <th>Status</th>
@@ -600,10 +631,16 @@
         <span class="muted"><%= deletedAccounts ? deletedAccounts.length : 0 %> records</span>
       </div>
       <% if (deletedAccounts && deletedAccounts.length > 0) { %>
+      <form id="bulk-orgs-form" action="/admin/permanentlyDelete/bulk" method="post" onsubmit="return confirmBulkSubmit(this, 'application')" style="margin:0;"></form>
+      <div class="bulk-toolbar is-hidden" data-bulk-toolbar="orgs">
+        <span class="bulk-count" data-bulk-count="orgs">0 selected</span>
+        <button type="submit" form="bulk-orgs-form" class="btn-bulk-delete" data-bulk-button="orgs" disabled>✕ Delete Selected Permanently</button>
+      </div>
       <div class="table-wrapper">
-        <table class="clean-table">
+        <table class="clean-table" data-bulk-table="orgs">
           <thead>
             <tr>
+              <th><input type="checkbox" class="select-all-checkbox" data-select-all="orgs" aria-label="Select all applications"></th>
               <th></th>
               <th>Organization</th>
               <th>Contact</th>
@@ -614,8 +651,9 @@
           <tbody>
             <% deletedAccounts.forEach(function(account) { %>
             <tr>
+              <td><input type="checkbox" class="row-checkbox" form="bulk-orgs-form" name="orgIds" value="<%= account.organization_id %>" data-bulk-row="orgs" aria-label="Select application"></td>
               <td>
-                <button class="expand-button" onclick="toggleDetails('org-<%= account.organization_id %>')">▾</button>
+                <button type="button" class="expand-button" onclick="toggleDetails('org-<%= account.organization_id %>')">▾</button>
               </td>
               <td><strong><%= account.organization_name %></strong></td>
               <td><%= account.first_name %> <%= account.last_name %></td>
@@ -623,7 +661,7 @@
               <td><%= account.organization_phone %></td>
             </tr>
             <tr id="details-org-<%= account.organization_id %>" class="details-row">
-              <td colspan="5">
+              <td colspan="6">
                 <div class="details-panel">
                   <div class="details-grid">
                     <div><strong>Address:</strong> <%= account.organization_address || 'N/A' %><% if (account.organization_country || account.organization_province) { %>, <%= [account.organization_province, account.organization_country].filter(Boolean).join(', ') %><% } %></div>
@@ -656,10 +694,16 @@
         <span class="muted"><%= deletedHubs ? deletedHubs.length : 0 %> records</span>
       </div>
       <% if (deletedHubs && deletedHubs.length > 0) { %>
+      <form id="bulk-hubs-form" action="/admin/hubs/permanently-delete/bulk" method="post" onsubmit="return confirmBulkSubmit(this, 'hub')" style="margin:0;"></form>
+      <div class="bulk-toolbar is-hidden" data-bulk-toolbar="hubs">
+        <span class="bulk-count" data-bulk-count="hubs">0 selected</span>
+        <button type="submit" form="bulk-hubs-form" class="btn-bulk-delete" data-bulk-button="hubs" disabled>✕ Delete Selected Permanently</button>
+      </div>
       <div class="table-wrapper">
-        <table class="clean-table">
+        <table class="clean-table" data-bulk-table="hubs">
           <thead>
             <tr>
+              <th><input type="checkbox" class="select-all-checkbox" data-select-all="hubs" aria-label="Select all hubs"></th>
               <th></th>
               <th>Hub Name</th>
               <th>Nickname</th>
@@ -672,8 +716,9 @@
           <tbody>
             <% deletedHubs.forEach(function(hub) { %>
             <tr>
+              <td><input type="checkbox" class="row-checkbox" form="bulk-hubs-form" name="hubIds" value="<%= hub.hub_id %>" data-bulk-row="hubs" aria-label="Select hub"></td>
               <td>
-                <button class="expand-button" onclick="toggleDetails('hub-<%= hub.hub_id %>')">▾</button>
+                <button type="button" class="expand-button" onclick="toggleDetails('hub-<%= hub.hub_id %>')">▾</button>
               </td>
               <td><strong><%= hub.hub_name %></strong></td>
               <td><%= hub.hub_nickname || 'N/A' %></td>
@@ -683,7 +728,7 @@
               <td><%= hub.on_hold ? 'On Hold' : 'Active' %></td>
             </tr>
             <tr id="details-hub-<%= hub.hub_id %>" class="details-row">
-              <td colspan="7">
+              <td colspan="8">
                 <div class="details-panel">
                   <div class="details-grid">
                     <div><strong>Phone:</strong> <%= hub.hub_phone || 'N/A' %></div>
@@ -739,10 +784,16 @@
         <span class="muted"><%= deletedTickets ? deletedTickets.length : 0 %> records</span>
       </div>
       <% if (deletedTickets && deletedTickets.length > 0) { %>
+      <form id="bulk-tickets-form" action="/admin/permanentDeleteMessage/bulk" method="post" onsubmit="return confirmBulkSubmit(this, 'ticket')" style="margin:0;"></form>
+      <div class="bulk-toolbar is-hidden" data-bulk-toolbar="tickets">
+        <span class="bulk-count" data-bulk-count="tickets">0 selected</span>
+        <button type="submit" form="bulk-tickets-form" class="btn-bulk-delete" data-bulk-button="tickets" disabled>✕ Delete Selected Permanently</button>
+      </div>
       <div class="table-wrapper">
-        <table class="clean-table">
+        <table class="clean-table" data-bulk-table="tickets">
           <thead>
             <tr>
+              <th><input type="checkbox" class="select-all-checkbox" data-select-all="tickets" aria-label="Select all tickets"></th>
               <th></th>
               <th>Ticket</th>
               <th>Name</th>
@@ -754,8 +805,9 @@
           <tbody>
             <% deletedTickets.forEach(function(ticket) { %>
             <tr>
+              <td><input type="checkbox" class="row-checkbox" form="bulk-tickets-form" name="threadIds" value="<%= ticket.thread_id %>" data-bulk-row="tickets" aria-label="Select ticket"></td>
               <td>
-                <button class="expand-button" onclick="toggleDetails('ticket-<%= ticket.thread_id %>')">▾</button>
+                <button type="button" class="expand-button" onclick="toggleDetails('ticket-<%= ticket.thread_id %>')">▾</button>
               </td>
               <td>#<%= ticket.thread_id %></td>
               <td><%= ticket.name %></td>
@@ -764,7 +816,7 @@
               <td><%= ticket.last_updated ? new Date(ticket.last_updated).toLocaleString() : 'N/A' %></td>
             </tr>
             <tr id="details-ticket-<%= ticket.thread_id %>" class="details-row">
-              <td colspan="6">
+              <td colspan="7">
                 <div class="details-panel">
                   <div class="details-grid">
                     <div><strong>Phone:</strong> <%= ticket.phone || 'N/A' %></div>
@@ -811,6 +863,41 @@
 
     function confirmAction(message) {
       return confirm(`Are you sure you want to ${message}`);
+    }
+
+    // Bulk select-all + delete handling
+    function updateBulkUI(key) {
+      const rows = document.querySelectorAll(`[data-bulk-row="${key}"]`);
+      const selected = Array.from(rows).filter(r => r.checked);
+      const toolbar = document.querySelector(`[data-bulk-toolbar="${key}"]`);
+      const countEl = document.querySelector(`[data-bulk-count="${key}"]`);
+      const btn = document.querySelector(`[data-bulk-button="${key}"]`);
+      const selectAll = document.querySelector(`[data-select-all="${key}"]`);
+      if (countEl) countEl.textContent = `${selected.length} selected`;
+      if (btn) btn.disabled = selected.length === 0;
+      if (toolbar) toolbar.classList.toggle('is-hidden', selected.length === 0);
+      if (selectAll) {
+        selectAll.checked = rows.length > 0 && selected.length === rows.length;
+        selectAll.indeterminate = selected.length > 0 && selected.length < rows.length;
+      }
+    }
+    document.querySelectorAll('[data-select-all]').forEach(cb => {
+      cb.addEventListener('change', function() {
+        const key = this.getAttribute('data-select-all');
+        document.querySelectorAll(`[data-bulk-row="${key}"]`).forEach(r => { r.checked = this.checked; });
+        updateBulkUI(key);
+      });
+    });
+    document.querySelectorAll('[data-bulk-row]').forEach(cb => {
+      cb.addEventListener('change', function() {
+        updateBulkUI(this.getAttribute('data-bulk-row'));
+      });
+    });
+    function confirmBulkSubmit(form, label) {
+      const key = form.id.replace(/^bulk-/, '').replace(/-form$/, '');
+      const count = document.querySelectorAll(`[data-bulk-row="${key}"]:checked`).length;
+      if (count === 0) return false;
+      return confirm(`Permanently delete ${count} ${label}${count === 1 ? '' : 's'}? This cannot be undone.`);
     }
 
     const usersModal = document.getElementById('users-modal');
@@ -939,6 +1026,7 @@
               </div>
             </td>
             <td>${escapeHtml(user.email)}</td>
+            <td>${user.phoneNumber ? escapeHtml(user.phoneNumber) : '<span class="muted">N/A</span>'}</td>
             <td>${escapeHtml(user.accountType || 'N/A')}</td>
             <td>${schoolMarkup}</td>
             <td>

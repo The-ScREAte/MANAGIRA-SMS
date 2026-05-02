@@ -43,6 +43,28 @@
     .delete-form {
         margin-top: 16px;
     }
+
+    .resend-form {
+        margin-top: 12px;
+    }
+    .resend-form .btn-secondary {
+        width: 100%;
+        background: #0f766e;
+        color: #fff;
+        border: 0;
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 15px;
+        cursor: pointer;
+    }
+    .resend-form .btn-secondary:hover { background: #0d5e57; }
+    .resend-note {
+        margin: 8px 2px 0;
+        font-size: 0.82rem;
+        color: #64748b;
+        line-height: 1.4;
+    }
 </style>
 
 <main>
@@ -69,6 +91,7 @@
                 <select id="accountType" name="accountType" required>
                     <option value="Admin" <%= admin.account_type === 'Admin' ? 'selected' : '' %>>Super Admin</option>
                     <option value="Mini Admin" <%= admin.account_type === 'Mini Admin' ? 'selected' : '' %>>Admin</option>
+                    <option value="Internal Worker" <%= admin.account_type === 'Internal Worker' ? 'selected' : '' %>>Internal Worker</option>
                 </select>
             </div>
             <div class="form-actions">
@@ -79,6 +102,12 @@
         <!-- Form for Deleting the Admin User -->
         <form action="/admin/deleteAdminUser/<%= admin.user_id %>" method="POST" class="delete-form">
             <button type="submit" class="btn btn-danger btn-block">Delete</button>
+        </form>
+
+        <!-- Resend password setup email -->
+        <form action="/admin/resendAdminInvite/<%= admin.user_id %>" method="POST" class="resend-form" onsubmit="return confirm('Send a new password setup email to this admin? The previous link will be invalidated.');">
+            <button type="submit" class="btn btn-secondary btn-block">📧 Resend password setup email</button>
+            <p class="resend-note">Use this if their original invite link expired or never arrived. A new 24-hour link will be generated and emailed.</p>
         </form>
     </div>
 </main>

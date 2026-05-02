@@ -1,0 +1,146 @@
+<%
+  const _isInternal = !!isInternal;
+  const _isFullAdmin = !!isFullAdmin;
+  const _contacts = Array.isArray(contacts) ? contacts : [];
+  const _sessionUserId = (typeof sessionUserId !== 'undefined') ? sessionUserId : null;
+
+  function _fmtDateTime(dt) {
+    if (!dt) return '';
+    try {
+      const d = new Date(dt);
+      if (Number.isNaN(d.getTime())) return '';
+      return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+    } catch (_) { return ''; }
+  }
+  function _creatorLabel(c) {
+    const f = (c.creator_first_name || '').trim();
+    const l = (c.creator_last_name || '').trim();
+    const name = `${f} ${l}`.trim();
+    if (!name) return 'Unknown';
+    const role = (c.creator_account_type || '').trim();
+    return role ? `${name} (${role})` : name;
+  }
+%>
+
+<div class="iw-card" id="contactsWidget">
+  <div class="iw-card__header">
+    <div>
+      <h2 class="iw-card__title">
+        <% if (_isInternal) { %>📇 Your Referrals & Contacts<% } else { %>📇 Team Referrals & Contacts<% } %>
+      </h2>
+      <p class="iw-card__subtitle">
+        <% if (_isInternal) { %>
+          Save people you spoke to. Note any appointments and mark them once you've followed up.
+        <% } else { %>
+          Contacts logged by all admin users (including Internal Workers).
+        <% } %>
+      </p>
+    </div>
+    <div class="iw-card__subtitle" style="font-weight:700;">
+      Total: <%= _contacts.length %>
+    </div>
+  </div>
+
+  <div class="iw-card__body">
+    <form action="/admin/contacts" method="POST" class="iw-form" id="iw-contact-form" autocomplete="off">
+      <label>
+        Contact name *
+        <input type="text" name="contact_name" required maxlength="200" placeholder="e.g. Jane Doe" />
+      </label>
+      <label>
+        Organization
+        <input type="text" name="organization_name" maxlength="200" placeholder="e.g. ABC School" />
+      </label>
+      <label>
+        Appointment set?
+        <select name="appointment_set" id="iw-appt-toggle">
+          <option value="no">No</option>
+          <option value="yes">Yes</option>
+        </select>
+      </label>
+      <label id="iw-appt-at-wrap" style="display:none;">
+        Appointment date & time
+        <input type="datetime-local" name="appointment_at" id="iw-appt-at" />
+      </label>
+      <label class="iw-form__full">
+        Notes
+        <textarea name="notes" maxlength="2000" placeholder="What did you discuss? Any next steps?"></textarea>
+      </label>
+      <div class="iw-form__actions">
+        <button type="submit" class="iw-form__submit">💾 Save Contact</button>
+      </div>
+    </form>
+
+    <hr style="border:0;border-top:1px solid var(--border);margin:18px 0;" />
+
+    <% if (_contacts.length === 0) { %>
+      <div class="empty-state" style="padding:24px 0;">
+        No contacts saved yet.
+      </div>
+    <% } else { %>
+      <ul class="iw-contact-list">
+        <% _contacts.forEach(function(c) { %>
+          <% const canManage = _isFullAdmin || (_sessionUserId && Number(_sessionUserId) === Number(c.created_by_user_id)); %>
+          <li class="iw-contact <%= c.followed_up ? 'iw-contact--followed' : '' %>">
+            <div>
+              <div class="iw-contact__name">
+                <%= c.contact_name %>
+                <% if (c.organization_name) { %>
+                  <span style="font-weight:500;color:var(--text-secondary);">— <%= c.organization_name %></span>
+                <% } %>
+              </div>
+              <div class="iw-contact__meta">
+                <% if (c.appointment_set) { %>
+                  <span class="iw-pill iw-pill--appt">📅 Appointment<% if (c.appointment_at) { %>: <%= _fmtDateTime(c.appointment_at) %><% } %></span>
+                <% } else { %>
+                  <span class="iw-pill iw-pill--noappt">No appointment</span>
+                <% } %>
+                <% if (c.followed_up) { %>
+                  <span class="iw-pill iw-pill--followed">✓ Followed up<% if (c.followed_up_at) { %> · <%= _fmtDateTime(c.followed_up_at) %><% } %></span>
+                <% } else { %>
+                  <span class="iw-pill iw-pill--pending">⏳ Pending follow-up</span>
+                <% } %>
+                <span>Added <%= _fmtDateTime(c.created_at) %></span>
+                <% if (!_isInternal) { %>
+                  <span>By <%= _creatorLabel(c) %></span>
+                <% } %>
+              </div>
+              <% if (c.notes) { %>
+                <div class="iw-contact__notes"><%= c.notes %></div>
+              <% } %>
+            </div>
+            <div class="iw-contact__actions">
+              <% if (canManage) { %>
+                <form action="/admin/contacts/<%= c.id %>/follow-up" method="POST">
+                  <button type="submit" class="iw-action-btn <%= c.followed_up ? '' : 'iw-action-btn--primary' %>">
+                    <%= c.followed_up ? 'Unmark followed up' : '✓ Mark followed up' %>
+                  </button>
+                </form>
+                <form action="/admin/contacts/<%= c.id %>/delete" method="POST" onsubmit="return confirm('Delete this contact?');">
+                  <button type="submit" class="iw-action-btn iw-action-btn--danger">Delete</button>
+                </form>
+              <% } %>
+            </div>
+          </li>
+        <% }); %>
+      </ul>
+    <% } %>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var toggle = document.getElementById('iw-appt-toggle');
+    var wrap = document.getElementById('iw-appt-at-wrap');
+    var input = document.getElementById('iw-appt-at');
+    if (!toggle || !wrap || !input) return;
+    function sync() {
+      var on = toggle.value === 'yes';
+      wrap.style.display = on ? '' : 'none';
+      if (!on) { input.value = ''; input.removeAttribute('required'); }
+      else { input.setAttribute('required', 'required'); }
+    }
+    toggle.addEventListener('change', sync);
+    sync();
+  })();
+</script>

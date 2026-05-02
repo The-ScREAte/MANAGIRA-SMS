@@ -1,5 +1,5 @@
 <header>
-  <% if (session.firstName && (session.accountType === 'Admin' || session.accountType === 'Mini Admin')) { %>
+  <% if (session.firstName && (session.accountType === 'Admin' || session.accountType === 'Mini Admin' || session.accountType === 'Internal Worker')) { %>
     <div class="admin-header-pro">
       <div class="admin-header-left">
         <img src="/images/managira.png" alt="Logo" class="admin-header-logo" />
@@ -7,6 +7,10 @@
       </div>
       <nav class="admin-header-nav">
         <ul class="admin-header-nav-list">
+          <li class="admin-header-welcome" aria-hidden="true">
+            <span class="admin-header-welcome__hi">Welcome,</span>
+            <span class="admin-header-welcome__name"><%= session.firstName %><% if (session.lastName) { %> <%= session.lastName %><% } %></span>
+          </li>
           <li class="notification-icon">
             <a href="/admin/helpMessages">
               <img src="/images/msgicon.png" alt="Messages" class="notification-image">
@@ -14,6 +18,19 @@
             <% if (unresolvedCount > 0) { %>
               <span class="notification-badge"><%= unresolvedCount %></span>
             <% } %>
+          </li>
+          <li class="admin-profile-container" id="admin-profile-container">
+            <button type="button" class="admin-profile-btn" id="admin-profile-btn" aria-haspopup="true" aria-expanded="false" aria-label="Profile menu">
+              <span class="admin-profile-avatar"><%= (session.firstName || '?').charAt(0).toUpperCase() %></span>
+            </button>
+            <div class="admin-profile-dropdown" id="admin-profile-dropdown" role="menu">
+              <div class="admin-profile-dropdown__header">
+                <div class="admin-profile-dropdown__name"><%= session.firstName %><% if (session.lastName) { %> <%= session.lastName %><% } %></div>
+                <div class="admin-profile-dropdown__role"><%= session.accountType %></div>
+              </div>
+              <a href="/admin/profile" class="admin-profile-dropdown__item" role="menuitem">⚙️ Profile Settings</a>
+              <a href="/account/logout" class="admin-profile-dropdown__item admin-profile-dropdown__item--danger" data-no-spa role="menuitem">↩ Logout</a>
+            </div>
           </li>
           <li class="admin-hamburger-container">
             <div class="admin-hamburger" id="admin-hamburger">
@@ -35,8 +52,13 @@
               <li><a href="/admin/employment" class="admin-header-link">Employment</a></li>
               <li><a href="/admin/donations" class="admin-header-link">Donations</a></li>
               <li><a href="/admin/announcements" class="admin-header-link">Announcements</a></li>
-              <li><a href="/legal/app-demo" class="admin-header-link" target="_blank" rel="noopener">App Demo (Preview)</a></li>
             <% } %>
+            <li><a href="/legal/app-demo" class="admin-header-link" target="_blank" rel="noopener">App Demo (Preview)</a></li>
+            <li><a href="https://forms.gle/uc9qatwCgWf1jMnv6" class="admin-header-link" target="_blank" rel="noopener" data-no-spa>Weekly Internal Report</a></li>
+            <li><a href="https://calendly.com/managirasms/30min" class="admin-header-link" target="_blank" rel="noopener" data-no-spa>Calendar</a></li>
+            <li><a href="/legal/help" class="admin-header-link" target="_blank" rel="noopener">Help Center</a></li>
+            <li><a href="/legal/user-documentation" class="admin-header-link" target="_blank" rel="noopener">Documentation</a></li>
+            <li><a href="/admin/profile" class="admin-header-link">Profile Settings</a></li>
             <li><a href="/account/logout" class="admin-header-link" data-no-spa>Logout</a></li>
           </ul>
         </div>
@@ -321,7 +343,129 @@
         margin-bottom: 0;
         margin-right: 0;
       }
+      .admin-header-welcome {
+        /* On small screens we briefly show, then auto-hide via JS */
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 4px;
+        max-width: 60vw;
+        transition: opacity 400ms ease, transform 400ms ease, max-width 400ms ease, margin 400ms ease;
+      }
+      .admin-header-welcome__hi { font-size: 0.65rem; }
+      .admin-header-welcome__name { font-size: 0.85rem; max-width: 50vw; }
+      .admin-header-welcome.is-hidden {
+        opacity: 0;
+        transform: translateX(-6px);
+        max-width: 0;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        pointer-events: none;
+      }
     }
+
+    /* Welcome label */
+    .admin-header-welcome {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      line-height: 1.1;
+      margin-right: 4px;
+      max-width: 220px;
+    }
+    .admin-header-welcome__hi {
+      font-size: 0.7rem;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 600;
+    }
+    .admin-header-welcome__name {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #0f172a;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 220px;
+    }
+
+    /* Profile button + dropdown */
+    .admin-profile-container {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .admin-profile-btn {
+      background: none;
+      border: 0;
+      padding: 0;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .admin-profile-avatar {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #01535b, #047a85);
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.95rem;
+      box-shadow: 0 2px 6px rgba(1, 83, 91, 0.25);
+      transition: transform 150ms ease, box-shadow 150ms ease;
+    }
+    .admin-profile-btn:hover .admin-profile-avatar,
+    .admin-profile-btn:focus-visible .admin-profile-avatar {
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(1, 83, 91, 0.35);
+    }
+    .admin-profile-dropdown {
+      display: none;
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      min-width: 220px;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+      overflow: hidden;
+      z-index: 1100;
+    }
+    .admin-profile-container.open .admin-profile-dropdown { display: block; }
+    .admin-profile-dropdown__header {
+      padding: 12px 14px;
+      background: #f8fafc;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .admin-profile-dropdown__name {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: #0f172a;
+    }
+    .admin-profile-dropdown__role {
+      font-size: 0.78rem;
+      color: #64748b;
+      margin-top: 2px;
+    }
+    .admin-profile-dropdown__item {
+      display: block;
+      padding: 10px 14px;
+      font-size: 0.9rem;
+      color: #1e293b;
+      text-decoration: none;
+      border-top: 1px solid #f1f5f9;
+    }
+    .admin-profile-dropdown__item:first-of-type { border-top: 0; }
+    .admin-profile-dropdown__item:hover { background: #f1f5f9; }
+    .admin-profile-dropdown__item--danger { color: #dc2626; }
+    .admin-profile-dropdown__item--danger:hover { background: #fef2f2; }
 </style>
 
 <script>
@@ -371,5 +515,71 @@
     }
 
     window.addEventListener("spa:pageLoaded", initAdminHamburger);
+  })();
+
+  // Profile dropdown toggle
+  (function () {
+    function initAdminProfile() {
+      var container = document.getElementById("admin-profile-container");
+      var btn = document.getElementById("admin-profile-btn");
+      if (!container || !btn) return;
+      if (btn.dataset.profileBound === "1") return;
+      btn.dataset.profileBound = "1";
+
+      function close() {
+        container.classList.remove("open");
+        btn.setAttribute("aria-expanded", "false");
+      }
+      function open() {
+        container.classList.add("open");
+        btn.setAttribute("aria-expanded", "true");
+      }
+
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        if (container.classList.contains("open")) close(); else open();
+      });
+
+      document.addEventListener("click", function (e) {
+        if (!container.contains(e.target)) close();
+      });
+
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") close();
+      });
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", initAdminProfile);
+    } else {
+      initAdminProfile();
+    }
+
+    window.addEventListener("spa:pageLoaded", initAdminProfile);
+  })();
+
+  // Auto-hide welcome label on small screens after 10 seconds
+  (function () {
+    var hideTimer = null;
+    function initWelcomeAutoHide() {
+      var welcome = document.querySelector(".admin-header-welcome");
+      if (!welcome) return;
+      if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+      welcome.classList.remove("is-hidden");
+      // Only auto-hide on small screens
+      if (window.matchMedia && window.matchMedia("(max-width: 700px)").matches) {
+        hideTimer = setTimeout(function () {
+          welcome.classList.add("is-hidden");
+        }, 10000);
+      }
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", initWelcomeAutoHide);
+    } else {
+      initWelcomeAutoHide();
+    }
+
+    window.addEventListener("spa:pageLoaded", initWelcomeAutoHide);
   })();
 </script>

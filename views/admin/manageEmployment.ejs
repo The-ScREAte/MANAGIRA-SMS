@@ -101,6 +101,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-wrap: wrap;
   }
 
   .applicants-search {
@@ -109,6 +110,87 @@
     padding: 8px 10px;
     font-size: 0.86rem;
     min-width: 220px;
+  }
+
+  .applicants-filter-row {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: end;
+    gap: 8px;
+    padding: 10px 0 12px;
+    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: 12px;
+    overflow-x: auto;
+  }
+
+  .applicants-filter-row label {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+    color: #475569;
+    flex: 1 1 0;
+    min-width: 110px;
+  }
+
+  .applicants-filter-row select,
+  .applicants-filter-row input {
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 0.78rem;
+    background: #ffffff;
+    color: #111827;
+    height: 30px;
+    box-sizing: border-box;
+    width: 100%;
+  }
+
+  .applicants-filter-row .reset-filters {
+    align-self: end;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    color: #0f172a;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    cursor: pointer;
+    height: 30px;
+    white-space: nowrap;
+    flex: 0 0 auto;
+  }
+
+  .applicants-filter-row .reset-filters:hover {
+    background: #e2e8f0;
+  }
+
+  .applicants-filters-toggle {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #0f172a;
+    cursor: pointer;
+    width: 100%;
+    justify-content: center;
+    margin-bottom: 10px;
+  }
+
+  .applicants-filters-toggle .chev {
+    transition: transform 180ms ease;
+  }
+
+  .applicants-filters-toggle[aria-expanded="true"] .chev {
+    transform: rotate(180deg);
   }
 
   .applicants-panel-body {
@@ -377,6 +459,24 @@
       min-width: 0;
       width: 100%;
     }
+
+    .applicants-filters-toggle {
+      display: inline-flex;
+    }
+
+    .applicants-filter-row {
+      flex-wrap: wrap;
+      overflow: visible;
+    }
+
+    .applicants-filter-row label {
+      flex: 1 1 calc(50% - 8px);
+      min-width: 0;
+    }
+
+    .applicants-filter-row[hidden] {
+      display: none;
+    }
   }
 
   @media (max-width: 480px) {
@@ -415,6 +515,51 @@
         <input type="search" id="applicantsSearch" class="applicants-search" placeholder="Search by name, email, role or status" />
         <button type="button" id="refreshApplicantsBtn" class="admin-btn admin-btn-sm">Refresh</button>
       </div>
+    </div>
+    <button type="button" id="applicantsFiltersToggle" class="applicants-filters-toggle" aria-expanded="false" aria-controls="applicantsFilters">
+      <span>Filters</span>
+      <span class="chev" aria-hidden="true">▾</span>
+    </button>
+    <div class="applicants-filter-row" id="applicantsFilters">
+      <label>
+        Status
+        <select id="filterStatus">
+          <option value="">All</option>
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+        </select>
+      </label>
+      <label>
+        Role
+        <select id="filterRole">
+          <option value="">All roles</option>
+        </select>
+      </label>
+      <label>
+        Country / Location
+        <select id="filterCountry">
+          <option value="">All countries</option>
+        </select>
+      </label>
+      <label>
+        Contact preference
+        <select id="filterContact">
+          <option value="">Any</option>
+          <option value="email">Email</option>
+          <option value="text">Text</option>
+          <option value="both">Email &amp; Text</option>
+        </select>
+      </label>
+      <label>
+        Applied from
+        <input type="date" id="filterFromDate" />
+      </label>
+      <label>
+        Applied to
+        <input type="date" id="filterToDate" />
+      </label>
+      <button type="button" class="reset-filters" id="resetFiltersBtn">Reset filters</button>
     </div>
     <div class="applicants-panel-body" id="applicantsPanelBody">
       <p class="applicants-loading">Click refresh to load latest applicants.</p>
@@ -624,6 +769,13 @@
     const applicantsSearch = document.getElementById('applicantsSearch');
     const refreshApplicantsBtn = document.getElementById('refreshApplicantsBtn');
     const applicantsCountBadge = document.getElementById('applicantsCountBadge');
+    const filterStatus = document.getElementById('filterStatus');
+    const filterRole = document.getElementById('filterRole');
+    const filterCountry = document.getElementById('filterCountry');
+    const filterContact = document.getElementById('filterContact');
+    const filterFromDate = document.getElementById('filterFromDate');
+    const filterToDate = document.getElementById('filterToDate');
+    const resetFiltersBtn = document.getElementById('resetFiltersBtn');
 
     let applicantsLoaded = false;
     let applicantsCache = [];
@@ -691,6 +843,7 @@
           <tr>
             <td>${escapeHtml(fullName)}</td>
             <td>${escapeHtml(jobTitle)}</td>
+            <td>${escapeHtml(item.location || '-')}</td>
             <td><span class="status-pill ${statusClass(status)}">${escapeHtml(status)}</span></td>
             <td><a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a></td>
             <td><a href="tel:${escapeHtml(phone)}">${escapeHtml(phone)}</a></td>
@@ -714,6 +867,7 @@
             <tr>
               <th>Applicant</th>
               <th>Role</th>
+              <th>Location</th>
               <th>Status</th>
               <th>Email</th>
               <th>Phone</th>
@@ -746,28 +900,79 @@
         if (applicantsCountBadge) {
           applicantsCountBadge.textContent = String(payload.total || applicantsCache.length);
         }
-        renderApplicantsTable(applicantsCache);
+        populateFilterOptions(applicantsCache);
+        applyFilters();
       } catch (error) {
         applicantsPanelBody.innerHTML = '<p class="applicants-error">Unable to load applicants right now. Please try again.</p>';
       }
     }
 
-    function filterApplicants() {
-      const term = (applicantsSearch && applicantsSearch.value ? applicantsSearch.value : '').trim().toLowerCase();
-      if (!term) {
-        renderApplicantsTable(applicantsCache);
-        return;
+    function deriveCountry(loc) {
+      if (!loc) return '';
+      // Heuristic: assume the last comma-separated segment is the country/region.
+      const parts = String(loc).split(',').map((s) => s.trim()).filter(Boolean);
+      return parts.length ? parts[parts.length - 1] : '';
+    }
+
+    function populateFilterOptions(list) {
+      if (filterRole) {
+        const roles = Array.from(new Set(list.map((i) => i.job_title).filter(Boolean))).sort();
+        const current = filterRole.value;
+        filterRole.innerHTML = '<option value="">All roles</option>' +
+          roles.map((r) => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
+        filterRole.value = roles.includes(current) ? current : '';
       }
+      if (filterCountry) {
+        const countries = Array.from(new Set(list.map((i) => deriveCountry(i.location)).filter(Boolean))).sort();
+        const current = filterCountry.value;
+        filterCountry.innerHTML = '<option value="">All countries</option>' +
+          countries.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+        filterCountry.value = countries.includes(current) ? current : '';
+      }
+    }
+
+    function applyFilters() {
+      const term = (applicantsSearch && applicantsSearch.value ? applicantsSearch.value : '').trim().toLowerCase();
+      const status = (filterStatus && filterStatus.value || '').toLowerCase();
+      const role = filterRole && filterRole.value || '';
+      const country = (filterCountry && filterCountry.value || '').toLowerCase();
+      const contactPref = filterContact && filterContact.value || '';
+      const fromDate = filterFromDate && filterFromDate.value ? new Date(filterFromDate.value) : null;
+      const toDate = filterToDate && filterToDate.value ? new Date(filterToDate.value) : null;
+      if (toDate) toDate.setHours(23, 59, 59, 999);
 
       const filtered = applicantsCache.filter((item) => {
-        const name = `${item.first_name || ''} ${item.last_name || ''}`.toLowerCase();
-        const email = String(item.email || '').toLowerCase();
-        const job = String(item.job_title || '').toLowerCase();
-        const status = String(item.status || '').toLowerCase();
-        return name.includes(term) || email.includes(term) || job.includes(term) || status.includes(term);
+        if (term) {
+          const haystack = `${item.first_name || ''} ${item.last_name || ''} ${item.email || ''} ${item.job_title || ''} ${item.status || ''} ${item.location || ''}`.toLowerCase();
+          if (!haystack.includes(term)) return false;
+        }
+        if (status && String(item.status || '').toLowerCase() !== status) return false;
+        if (role && item.job_title !== role) return false;
+        if (country) {
+          const itemCountry = deriveCountry(item.location).toLowerCase();
+          if (itemCountry !== country) return false;
+        }
+        if (contactPref) {
+          const e = Boolean(item.contact_via_email);
+          const t = Boolean(item.contact_via_text);
+          if (contactPref === 'email' && !e) return false;
+          if (contactPref === 'text' && !t) return false;
+          if (contactPref === 'both' && !(e && t)) return false;
+        }
+        if (fromDate || toDate) {
+          const created = item.created_at ? new Date(item.created_at) : null;
+          if (!created || Number.isNaN(created.getTime())) return false;
+          if (fromDate && created < fromDate) return false;
+          if (toDate && created > toDate) return false;
+        }
+        return true;
       });
 
       renderApplicantsTable(filtered);
+    }
+
+    function filterApplicants() {
+      applyFilters();
     }
 
     function submitPostAction(url, payload) {
@@ -851,6 +1056,47 @@
 
     if (applicantsSearch) {
       applicantsSearch.addEventListener('input', filterApplicants);
+    }
+
+    [filterStatus, filterRole, filterCountry, filterContact, filterFromDate, filterToDate].forEach((el) => {
+      if (el) el.addEventListener('change', applyFilters);
+    });
+
+    if (resetFiltersBtn) {
+      resetFiltersBtn.addEventListener('click', () => {
+        if (applicantsSearch) applicantsSearch.value = '';
+        if (filterStatus) filterStatus.value = '';
+        if (filterRole) filterRole.value = '';
+        if (filterCountry) filterCountry.value = '';
+        if (filterContact) filterContact.value = '';
+        if (filterFromDate) filterFromDate.value = '';
+        if (filterToDate) filterToDate.value = '';
+        applyFilters();
+      });
+    }
+
+    const applicantsFiltersToggle = document.getElementById('applicantsFiltersToggle');
+    const applicantsFiltersEl = document.getElementById('applicantsFilters');
+    function syncFiltersForViewport() {
+      if (!applicantsFiltersToggle || !applicantsFiltersEl) return;
+      const isMobile = window.matchMedia('(max-width: 768px)').matches;
+      if (isMobile) {
+        if (applicantsFiltersToggle.getAttribute('aria-expanded') !== 'true') {
+          applicantsFiltersEl.hidden = true;
+        }
+      } else {
+        applicantsFiltersEl.hidden = false;
+      }
+    }
+    if (applicantsFiltersToggle && applicantsFiltersEl) {
+      applicantsFiltersToggle.addEventListener('click', () => {
+        const expanded = applicantsFiltersToggle.getAttribute('aria-expanded') === 'true';
+        const next = !expanded;
+        applicantsFiltersToggle.setAttribute('aria-expanded', String(next));
+        applicantsFiltersEl.hidden = !next;
+      });
+      window.addEventListener('resize', syncFiltersForViewport);
+      syncFiltersForViewport();
     }
 
     function syncApplicationMode() {

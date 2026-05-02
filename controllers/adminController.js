@@ -25,6 +25,7 @@ const {
   invalidateAccessForPlan,
 } = require("../utils/accessCache");
 const { ensureEmploymentSchema } = require("../utils/employmentSchema");
+const { ensureInternalWorkerSchema } = require("../utils/internalSchema");
 const {
   ensureAdminEmailCampaignSchema,
   normalizeCampaignInput,
@@ -360,28 +361,87 @@ async function deleteUserWithDependencies({ userId, actorUserId }) {
 const adminController = {
   adminDashboard: async (req, res) => {
     try {
-      // Use cache for organizations list - refreshes in background
-      const applications = await cacheManager.getOrFetch(
-        'admin',
-        'organizations:list',
-        async () => {
-          const result = await db.query(`
-            SELECT organization_id, organization_name, on_hold, hold_by, 
-                   first_name, last_name, email, organization_address, organization_country, organization_province,
-                   organization_phone, proof_of_existence_1, proof_of_existence_2, subdomain
-            FROM organizations 
-            WHERE deleted = false
-              AND (hub_id IS NULL OR is_hub_member = false)
-            ORDER BY organization_name ASC
-          `);
-          return result.rows;
-        },
-        { ttl: 300 } // 5 minute cache
-      );
+      await ensureInternalWorkerSchema(db);
+
+      const accountType = req.session.accountType;
+      const isInternalWorker = accountType === 'Internal Worker';
+      const isFullAdmin = accountType === 'Admin';
+
+      // Internal workers don't see the org list at all.
+      let applications = [];
+      if (!isInternalWorker) {
+        applications = await cacheManager.getOrFetch(
+          'admin',
+          'organizations:list',
+          async () => {
+            const result = await db.query(`
+              SELECT organization_id, organization_name, on_hold, hold_by, 
+                     first_name, last_name, email, organization_address, organization_country, organization_province,
+                     organization_phone, proof_of_existence_1, proof_of_existence_2, subdomain
+              FROM organizations 
+              WHERE deleted = false
+                AND (hub_id IS NULL OR is_hub_member = false)
+              ORDER BY organization_name ASC
+            `);
+            return result.rows;
+          },
+          { ttl: 300 } // 5 minute cache
+        );
+      }
+
+      // Latest active announcement (small banner on the dashboard).
+      let latestAnnouncement = null;
+      try {
+        const annResult = await db.query(`
+          SELECT id, title, description, created_at
+          FROM admin_announcements
+          WHERE is_active = TRUE
+          ORDER BY created_at DESC
+          LIMIT 1
+        `);
+        latestAnnouncement = annResult.rows[0] || null;
+      } catch (_) {
+        latestAnnouncement = null;
+      }
+
+      // Contacts / referrals.
+      // - Internal Worker sees only their own.
+      // - Admin / Mini Admin sees all contacts with the creator's name.
+      let contacts = [];
+      if (isInternalWorker) {
+        const own = await db.query(
+          `SELECT id, contact_name, organization_name, appointment_set, appointment_at,
+                  notes, followed_up, followed_up_at, created_at, created_by_user_id
+           FROM internal_contacts
+           WHERE created_by_user_id = $1
+           ORDER BY created_at DESC
+           LIMIT 200`,
+          [req.session.userId]
+        );
+        contacts = own.rows;
+      } else {
+        const all = await db.query(
+          `SELECT ic.id, ic.contact_name, ic.organization_name, ic.appointment_set,
+                  ic.appointment_at, ic.notes, ic.followed_up, ic.followed_up_at,
+                  ic.created_at, ic.created_by_user_id,
+                  u.first_name AS creator_first_name,
+                  u.last_name  AS creator_last_name,
+                  u.account_type AS creator_account_type
+           FROM internal_contacts ic
+           LEFT JOIN users u ON u.user_id = ic.created_by_user_id
+           ORDER BY ic.created_at DESC
+           LIMIT 500`
+        );
+        contacts = all.rows;
+      }
 
       res.render("admin/dashboard", {
         title: "Admin Dashboard",
         applications,
+        contacts,
+        latestAnnouncement,
+        isInternalWorker,
+        isFullAdmin,
         messages: req.flash(),
         nodeEnv: process.env.NODE_ENV,
         baseDomain: "managira.com",
@@ -392,11 +452,232 @@ const adminController = {
       res.render("admin/dashboard", {
         title: "Admin Dashboard",
         applications: [],
+        contacts: [],
+        latestAnnouncement: null,
+        isInternalWorker: req.session.accountType === 'Internal Worker',
+        isFullAdmin: req.session.accountType === 'Admin',
         messages: req.flash(),
         nodeEnv: process.env.NODE_ENV,
         baseDomain: "managira.com",
         showFooterTopSection: true
       });
+    }
+  },
+
+  createInternalContact: async (req, res) => {
+    try {
+      await ensureInternalWorkerSchema(db);
+
+      const userId = req.session.userId;
+      if (!userId) {
+        req.flash("error", "You must be signed in to add a contact.");
+        return res.redirect("/admin");
+      }
+
+      const contactName = String(req.body.contact_name || "").trim();
+      const orgName = String(req.body.organization_name || "").trim();
+      const apptSetRaw = String(req.body.appointment_set || "").toLowerCase();
+      const appointmentSet = apptSetRaw === "yes" || apptSetRaw === "true" || apptSetRaw === "on" || apptSetRaw === "1";
+      const apptAtRaw = String(req.body.appointment_at || "").trim();
+      const notes = String(req.body.notes || "").trim();
+
+      if (!contactName) {
+        req.flash("error", "Contact name is required.");
+        return res.redirect("/admin");
+      }
+
+      let appointmentAt = null;
+      if (appointmentSet && apptAtRaw) {
+        const parsed = new Date(apptAtRaw);
+        if (!Number.isNaN(parsed.getTime())) {
+          appointmentAt = parsed;
+        }
+      }
+
+      await db.query(
+        `INSERT INTO internal_contacts
+          (created_by_user_id, contact_name, organization_name, appointment_set, appointment_at, notes)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          userId,
+          contactName,
+          orgName || null,
+          appointmentSet,
+          appointmentAt,
+          notes || null,
+        ]
+      );
+
+      req.flash("success", "Contact saved.");
+      return res.redirect("/admin");
+    } catch (error) {
+      req.flash("error", "Failed to save contact.");
+      return res.redirect("/admin");
+    }
+  },
+
+  toggleInternalContactFollowUp: async (req, res) => {
+    try {
+      await ensureInternalWorkerSchema(db);
+
+      const id = Number.parseInt(req.params.id, 10);
+      if (!Number.isInteger(id)) {
+        req.flash("error", "Invalid contact.");
+        return res.redirect("/admin");
+      }
+
+      const userId = req.session.userId;
+      const isPrivileged = req.session.accountType === 'Admin' || req.session.accountType === 'Mini Admin';
+
+      // Internal Worker may only update their own contacts; full admins may update any.
+      const ownership = await db.query(
+        `SELECT created_by_user_id, followed_up FROM internal_contacts WHERE id = $1`,
+        [id]
+      );
+      if (!ownership.rows.length) {
+        req.flash("error", "Contact not found.");
+        return res.redirect("/admin");
+      }
+      if (!isPrivileged && ownership.rows[0].created_by_user_id !== userId) {
+        req.flash("error", "You can only update your own contacts.");
+        return res.redirect("/admin");
+      }
+
+      const nextValue = !ownership.rows[0].followed_up;
+      await db.query(
+        `UPDATE internal_contacts
+         SET followed_up = $2,
+             followed_up_at = CASE WHEN $2 = TRUE THEN CURRENT_TIMESTAMP ELSE NULL END,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [id, nextValue]
+      );
+
+      req.flash("success", nextValue ? "Marked as followed up." : "Follow-up cleared.");
+      return res.redirect("/admin");
+    } catch (error) {
+      req.flash("error", "Failed to update contact.");
+      return res.redirect("/admin");
+    }
+  },
+
+  deleteInternalContact: async (req, res) => {
+    try {
+      await ensureInternalWorkerSchema(db);
+
+      const id = Number.parseInt(req.params.id, 10);
+      if (!Number.isInteger(id)) {
+        req.flash("error", "Invalid contact.");
+        return res.redirect("/admin");
+      }
+
+      const userId = req.session.userId;
+      const isPrivileged = req.session.accountType === 'Admin' || req.session.accountType === 'Mini Admin';
+
+      const ownership = await db.query(
+        `SELECT created_by_user_id FROM internal_contacts WHERE id = $1`,
+        [id]
+      );
+      if (!ownership.rows.length) {
+        req.flash("error", "Contact not found.");
+        return res.redirect("/admin");
+      }
+      if (!isPrivileged && ownership.rows[0].created_by_user_id !== userId) {
+        req.flash("error", "You can only delete your own contacts.");
+        return res.redirect("/admin");
+      }
+
+      await db.query(`DELETE FROM internal_contacts WHERE id = $1`, [id]);
+      req.flash("success", "Contact deleted.");
+      return res.redirect("/admin");
+    } catch (error) {
+      req.flash("error", "Failed to delete contact.");
+      return res.redirect("/admin");
+    }
+  },
+
+  getAdminProfile: async (req, res) => {
+    try {
+      await ensureInternalWorkerSchema(db);
+      const userId = req.session.userId;
+      if (!userId) {
+        req.flash("error", "You must be signed in.");
+        return res.redirect("/account/login");
+      }
+
+      const result = await db.query(
+        `SELECT user_id, first_name, last_name, email, account_type, phone_number
+         FROM users WHERE user_id = $1`,
+        [userId]
+      );
+      if (!result.rows.length) {
+        req.flash("error", "User not found.");
+        return res.redirect("/admin");
+      }
+
+      return res.render("admin/profile", {
+        title: "Profile Settings",
+        profile: result.rows[0],
+        messages: req.flash(),
+        showFooterTopSection: true,
+      });
+    } catch (error) {
+      req.flash("error", "Failed to load profile.");
+      return res.redirect("/admin");
+    }
+  },
+
+  updateAdminProfile: async (req, res) => {
+    try {
+      await ensureInternalWorkerSchema(db);
+      const userId = req.session.userId;
+      if (!userId) {
+        req.flash("error", "You must be signed in.");
+        return res.redirect("/account/login");
+      }
+
+      const firstName = String(req.body.firstName || "").trim();
+      const lastName = String(req.body.lastName || "").trim();
+      const phoneRaw = String(req.body.phoneNumber || "").trim();
+
+      if (!firstName || !lastName) {
+        req.flash("error", "First and last name are required.");
+        return res.redirect("/admin/profile");
+      }
+      if (firstName.length > 255 || lastName.length > 255) {
+        req.flash("error", "Name is too long.");
+        return res.redirect("/admin/profile");
+      }
+
+      // Light phone validation: digits, spaces, +, -, parentheses, max 50.
+      let phoneNumber = null;
+      if (phoneRaw) {
+        if (phoneRaw.length > 50 || !/^[+()\-\s\d]{4,50}$/.test(phoneRaw)) {
+          req.flash("error", "Please enter a valid phone number.");
+          return res.redirect("/admin/profile");
+        }
+        phoneNumber = phoneRaw;
+      }
+
+      await db.query(
+        `UPDATE users
+           SET first_name = $1,
+               last_name = $2,
+               phone_number = $3,
+               updated_at = NOW()
+         WHERE user_id = $4`,
+        [firstName, lastName, phoneNumber, userId]
+      );
+
+      // Reflect in the live session so the header updates immediately.
+      req.session.firstName = firstName;
+      req.session.lastName = lastName;
+
+      req.flash("success", "Profile updated successfully.");
+      return res.redirect("/admin/profile");
+    } catch (error) {
+      req.flash("error", "Failed to update profile.");
+      return res.redirect("/admin/profile");
     }
   },
 
@@ -701,6 +982,7 @@ const adminController = {
                 u.first_name,
                 u.last_name,
                 u.email,
+                u.phone_number,
                 u.account_type::text AS account_type,
                 u.on_hold,
                 u.organization_id,
@@ -735,6 +1017,7 @@ const adminController = {
         lastName: row.last_name,
         fullName: buildUserFullName(row),
         email: row.email,
+        phoneNumber: row.phone_number || '',
         accountType: row.account_type,
         onHold: !!row.on_hold,
         organizationId: row.organization_id,
@@ -874,11 +1157,13 @@ const adminController = {
 
   superAdminSettings: async (req, res) => {
     try {
-      // Fetch all admin users (Mini Admin and Admin)
+      await ensureInternalWorkerSchema(db);
+      // Fetch all admin-side users (Mini Admin, Admin, Internal Worker)
       const adminsResult = await db.query(
-        `SELECT user_id, first_name, last_name, email, account_type, on_hold
+        `SELECT user_id, first_name, last_name, email, account_type, on_hold, phone_number
                      FROM users
-                     WHERE account_type IN ('Admin', 'Mini Admin')`
+                     WHERE account_type IN ('Admin', 'Mini Admin', 'Internal Worker')
+                     ORDER BY account_type, last_name, first_name`
       );
 
       res.render("admin/superSettings", {
@@ -954,6 +1239,13 @@ const adminController = {
     const { firstName, lastName, email, accountType } = req.body;
 
     try {
+      await ensureInternalWorkerSchema(db);
+      const ALLOWED_ROLES = ['Admin', 'Mini Admin', 'Internal Worker'];
+      if (!ALLOWED_ROLES.includes(accountType)) {
+        req.flash('error', 'Invalid role selected.');
+        return res.redirect(`/admin/editAdminUser/${userId}`);
+      }
+
       const currentUserResult = await db.query(
         `SELECT email FROM users WHERE user_id = $1`,
         [userId]
@@ -1008,11 +1300,73 @@ const adminController = {
     }
   },
 
+  resendAdminInvite: async (req, res) => {
+    const { userId } = req.params;
+    try {
+      const result = await db.query(
+        `SELECT user_id, first_name, last_name, email
+         FROM users WHERE user_id = $1`,
+        [userId]
+      );
+      if (!result.rows.length) {
+        req.flash("error", "Admin user not found.");
+        return res.redirect("/admin/superSettings");
+      }
+      const user = result.rows[0];
+
+      // Generate a new token (24h)
+      const token = crypto.randomBytes(32).toString("hex");
+      const hashedToken = crypto
+        .createHash("sha256")
+        .update(token)
+        .digest("hex");
+      const tokenExpiration = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+      await db.query(
+        `UPDATE users
+           SET reset_password_token = $1,
+               reset_password_expires = $2,
+               updated_at = NOW()
+         WHERE user_id = $3`,
+        [hashedToken, tokenExpiration, userId]
+      );
+
+      const baseUrl = req.protocol + "://" + req.get("host");
+      const setPasswordUrl = `${baseUrl}/common/set-password?token=${token}`;
+
+      await sendAdminInviteEmail(
+        user.email,
+        user.first_name,
+        user.last_name,
+        setPasswordUrl
+      );
+
+      req.flash(
+        "success",
+        `A new password setup link has been emailed to ${user.email}. It expires in 24 hours.`
+      );
+      return res.redirect(`/admin/editAdminUser/${userId}`);
+    } catch (error) {
+      req.flash("error", "Failed to resend the password setup email.");
+      return res.redirect(`/admin/editAdminUser/${userId}`);
+    }
+  },
+
   createAdminUser: async (req, res) => {
     const { firstName, lastName, adminUsername, adminEmail, adminRole } =
       req.body;
 
     try {
+      // Make sure the Internal Worker enum value exists before insert
+      await ensureInternalWorkerSchema(db);
+
+      // Validate role to one of the allowed admin-side roles
+      const ALLOWED_ROLES = ['Admin', 'Mini Admin', 'Internal Worker'];
+      if (!ALLOWED_ROLES.includes(adminRole)) {
+        req.flash('error', 'Invalid role selected.');
+        return res.redirect('/admin/superSettings');
+      }
+
       // ✅ Check if the email exists in either users or organizations
       const emailCheckResult = await db.query(
         `
@@ -1982,10 +2336,12 @@ const adminController = {
       const applications = await db.query(`
         SELECT
           ea.id,
+          ea.employment_id,
           ea.first_name,
           ea.last_name,
           ea.email,
           ea.phone,
+          ea.location,
           ea.status,
           ea.created_at,
           ea.contact_via_email,
@@ -2466,6 +2822,7 @@ const adminController = {
         details.push({ label: "Reason", value: rejectionReason });
       }
 
+      const linkedinUrl = process.env.MANAGIRA_LINKEDIN_URL || 'https://www.linkedin.com/company/managira';
       const html = renderCleanEmail({
         title: "Employment Application Update",
         greeting: `Dear <strong>${he.encode(application.first_name)} ${he.encode(application.last_name)}</strong>,`,
@@ -2473,6 +2830,7 @@ const adminController = {
           `Thank you for your interest in the ${application.job_title} position at Managira.`,
           "After careful consideration, we regret to inform you that we will not be progressing with your application at this stage.",
           "We sincerely appreciate the time and effort you invested in your application. We encourage you to apply for future opportunities with Managira that align with your experience and skills.",
+          `Follow Managira on LinkedIn — <a href="${linkedinUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;font-weight:600;">linkedin.com/company/managira</a>. We often post more opportunities that you may be interested in.`,
         ],
         details,
         noReply: true,
@@ -2483,6 +2841,10 @@ const adminController = {
           to: application.email,
           subject: `Update on your ${application.job_title} application`,
           html,
+          headers: {
+            'X-Managira-Category': 'employment-decision',
+            'X-Managira-Transactional': 'true',
+          },
           attachments: [
             {
               filename: "managira.png",
@@ -3634,6 +3996,108 @@ adminController.permanentlyDeleteHub = async (req, res) => {
     try { await db.query('ROLLBACK'); } catch (rollbackError) {}
         req.flash('error', 'Failed to permanently delete hub.');
     res.redirect('/admin/superDashboard');
+  }
+};
+
+// Bulk permanent delete: organizations (deleted applications)
+adminController.bulkPermanentlyDeleteOrganizations = async (req, res) => {
+  try {
+    let ids = req.body.orgIds;
+    if (!ids) { req.flash('error', 'No applications selected.'); return res.redirect('/admin/superDashboard'); }
+    if (!Array.isArray(ids)) ids = [ids];
+    const intIds = ids.map(x => parseInt(x, 10)).filter(Number.isFinite);
+    if (!intIds.length) { req.flash('error', 'Invalid selection.'); return res.redirect('/admin/superDashboard'); }
+
+    let deleted = 0;
+    const failures = [];
+    for (const orgId of intIds) {
+      try {
+        await db.query('BEGIN');
+        await db.query(
+          `DELETE FROM user_subjects
+           WHERE user_id IN (SELECT user_id FROM users WHERE organization_id = $1)
+              OR subject_id IN (SELECT subject_id FROM subjects WHERE organization_id = $1)`,
+          [orgId]
+        );
+        await db.query(`DELETE FROM organization_texts WHERE organization_id = $1`, [orgId]);
+        const r = await db.query('DELETE FROM organizations WHERE organization_id = $1', [orgId]);
+        await db.query('COMMIT');
+        if (r.rowCount > 0) deleted += 1; else failures.push(orgId);
+      } catch (err) {
+        try { await db.query('ROLLBACK'); } catch (_) {}
+        failures.push(orgId);
+      }
+    }
+
+    if (deleted > 0) req.flash('success', `${deleted} application(s) permanently deleted.`);
+    if (failures.length) req.flash('error', `${failures.length} application(s) could not be deleted (likely linked to protected records).`);
+    return res.redirect('/admin/superDashboard');
+  } catch (error) {
+    req.flash('error', 'Bulk delete failed.');
+    return res.redirect('/admin/superDashboard');
+  }
+};
+
+// Bulk permanent delete: hubs
+adminController.bulkPermanentlyDeleteHubs = async (req, res) => {
+  try {
+    let ids = req.body.hubIds;
+    if (!ids) { req.flash('error', 'No hubs selected.'); return res.redirect('/admin/superDashboard'); }
+    if (!Array.isArray(ids)) ids = [ids];
+    const intIds = ids.map(x => parseInt(x, 10)).filter(Number.isFinite);
+    if (!intIds.length) { req.flash('error', 'Invalid selection.'); return res.redirect('/admin/superDashboard'); }
+
+    let deleted = 0;
+    const failures = [];
+    for (const hubId of intIds) {
+      try {
+        await db.query('BEGIN');
+        await db.query(
+          `UPDATE organizations
+             SET hub_id = NULL,
+                 is_hub_member = false,
+                 joined_hub_at = NULL,
+                 updated_at = NOW()
+           WHERE hub_id = $1`,
+          [hubId]
+        );
+        const r = await db.query('DELETE FROM managira_hubs WHERE hub_id = $1', [hubId]);
+        await db.query('COMMIT');
+        if (r.rowCount > 0) deleted += 1; else failures.push(hubId);
+      } catch (err) {
+        try { await db.query('ROLLBACK'); } catch (_) {}
+        failures.push(hubId);
+      }
+    }
+
+    if (deleted > 0) req.flash('success', `${deleted} hub(s) permanently deleted.`);
+    if (failures.length) req.flash('error', `${failures.length} hub(s) could not be deleted.`);
+    return res.redirect('/admin/superDashboard');
+  } catch (error) {
+    req.flash('error', 'Bulk delete failed.');
+    return res.redirect('/admin/superDashboard');
+  }
+};
+
+// Bulk permanent delete: tickets (help threads)
+adminController.bulkPermanentDeleteMessages = async (req, res) => {
+  try {
+    let ids = req.body.threadIds;
+    if (!ids) { req.flash('error', 'No tickets selected.'); return res.redirect('/admin/superDashboard'); }
+    if (!Array.isArray(ids)) ids = [ids];
+    const intIds = ids.map(x => parseInt(x, 10)).filter(Number.isFinite);
+    if (!intIds.length) { req.flash('error', 'Invalid selection.'); return res.redirect('/admin/superDashboard'); }
+
+    try {
+      const r = await db.query(`DELETE FROM help_threads WHERE id = ANY($1::int[])`, [intIds]);
+      req.flash('success', `${r.rowCount || 0} ticket(s) permanently deleted.`);
+    } catch (err) {
+      req.flash('error', 'Bulk delete failed.');
+    }
+    return res.redirect('/admin/superDashboard');
+  } catch (error) {
+    req.flash('error', 'Bulk delete failed.');
+    return res.redirect('/admin/superDashboard');
   }
 };
 
