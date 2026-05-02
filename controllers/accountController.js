@@ -108,7 +108,12 @@ const { hasGuardianPortalFeature } = require("../utils/guardianPortalAccess");
 const { invalidateOrganizationAccessCache } = require("../utils/accessCache");
 const { logOrganizationActivity } = require("../utils/activityLog");
 const cacheManager = require("../utils/cacheManager");
-
+const {
+  ensureEmailPreferencesSchema,
+  getStaffPreferencesForRole,
+  getUserPreferenceMap,
+  setUserPreferences,
+} = require("../utils/emailPreferences");
 // Invalidate the /admin dashboard organizations cache so newly-registered
 // organizations become visible immediately (mirrors adminController’s behavior
 // on edit/approve actions; registration previously never busted this cache).
@@ -3827,6 +3832,47 @@ const accountController = {
     }
   },
 
+  updateNotificationPreferencesPost: async (req, res, db) => {
+    if (!req.session.user || !req.session.organizationId) {
+      req.flash("error", "You must be logged in.");
+      return res.redirect("/account/login");
+    }
+
+    const userId = req.session.user.user_id;
+    const orgId = req.session.organizationId;
+
+    try {
+      await ensureEmailPreferencesSchema(db);
+
+      const userResult = await db.query(
+        `SELECT account_type FROM users WHERE user_id = $1 AND organization_id = $2`,
+        [userId, orgId]
+      );
+      const accountType = userResult.rows[0]?.account_type
+        || req.session.accountType
+        || null;
+
+      const allowed = getStaffPreferencesForRole(accountType).map(p => p.key);
+      if (!allowed.length) {
+        req.flash("error", "No notification preferences are available for your role.");
+        return res.redirect("/account/settings?section=notifications");
+      }
+
+      const submittedRaw = req.body.preferences;
+      const submitted = Array.isArray(submittedRaw)
+        ? submittedRaw
+        : (submittedRaw ? [submittedRaw] : []);
+
+      await setUserPreferences(db, userId, allowed, submitted);
+
+      req.flash("success", "Notification preferences saved.");
+      return res.redirect("/account/settings?section=notifications");
+    } catch (error) {
+      req.flash("error", "Failed to save notification preferences.");
+      return res.redirect("/account/settings?section=notifications");
+    }
+  },
+
   updateProfileNamePost: async (req, res, db) => {
     if (!req.session.user || !req.session.organizationId) {
       req.flash("error", "You must be logged in.");
@@ -5702,6 +5748,24 @@ const accountController = {
         }
       }
 
+      // ── Email notification preferences ─────────────────────────────
+      // Build the per-role list of toggleable email keys for this user, plus
+      // their currently saved choices. Defaults to all-enabled when no row
+      // exists in user_email_preferences.
+      let notificationPrefs = [];
+      let savedNotificationPrefs = {};
+      try {
+        await ensureEmailPreferencesSchema(db);
+        const accountType = (user && user.account_type) || null;
+        notificationPrefs = getStaffPreferencesForRole(accountType);
+        if (notificationPrefs.length && userId) {
+          savedNotificationPrefs = await getUserPreferenceMap(db, userId);
+        }
+      } catch (_) {
+        notificationPrefs = [];
+        savedNotificationPrefs = {};
+      }
+
       res.render("account/settings", {
         title: "Settings",
         org: orgRow,
@@ -5725,6 +5789,8 @@ const accountController = {
         weekdayOptions: WEEKDAY_OPTIONS,
         holidayCountries,
         publicDashboardTheme,
+        notificationPrefs,
+        savedNotificationPrefs,
         messages: req.flash(),
       });
     } catch (error) {

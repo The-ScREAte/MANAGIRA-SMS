@@ -3,6 +3,7 @@ const path = require("path");
 const fs = require("fs");
 const db = require("../config/db");
 const { sendEmailSafely, renderCleanEmail } = require("./emailHelper");
+const { isEmailEnabledForRecipient } = require("./emailPreferences");
 const { getOrganizationWebsiteInfo } = require("./schoolWebsiteAccess");
 
 // Background email processing function
@@ -125,6 +126,9 @@ async function processEmailBatch(batchId, organizationId, classId, termId, proto
         // Send to all recipient emails
         let allSent = true;
         for (const email of recipient_emails) {
+          // Honor each guardian's preference for report card emails.
+          const allowed = await isEmailEnabledForRecipient(db, email, 'report_card_email');
+          if (!allowed) continue;
           const sent = await sendEmailSafely({
             to: email,
             subject: `Report Card - ${student_name} | ${org.organization_name}`,

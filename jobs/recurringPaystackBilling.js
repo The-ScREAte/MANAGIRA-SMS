@@ -5,6 +5,7 @@ const db = require('../config/db');
 const axios = require('axios');
 const { getPaystackSettings } = require('../utils/paystackConfig');
 const { sendEmailSafely, renderCleanEmail } = require('../utils/emailHelper');
+const { isEmailEnabledForRecipient } = require('../utils/emailPreferences');
 require('dotenv').config();
 
 const FAILED_RETRY_COOLDOWN_DAYS = 4;
@@ -404,6 +405,15 @@ async function runRecurringBilling() {
         if (org.selected_student_tier_id && org.tier_max_students != null && !org.student_tier_exceeded_notified) {
           try {
             if (actualStudentCount > org.tier_max_students) {
+              // Honor org primary contact's preference for tier-exceeded notifications.
+              const tierEmailAllowed = await isEmailEnabledForRecipient(db, org.email, 'student_tier_exceeded');
+              if (!tierEmailAllowed) {
+                // Still mark as notified to avoid recomputing repeatedly.
+                await db.query(
+                  'UPDATE organizations SET student_tier_exceeded_notified = true WHERE organization_id = $1',
+                  [org.organization_id]
+                );
+              } else {
               // Send congratulations email
               const congratsHtml = renderCleanEmail({
                 title: 'Congratulations on Your Growth!',
@@ -427,6 +437,7 @@ async function runRecurringBilling() {
                 'UPDATE organizations SET student_tier_exceeded_notified = true WHERE organization_id = $1',
                 [org.organization_id]
               );
+              }
             }
           } catch (tierCheckErr) {
             // Non-critical — don't fail the billing cycle

@@ -5,6 +5,13 @@ const {
   renderCleanEmail,
   escapeHtml,
 } = require("./emailHelper");
+const {
+  isUserEmailEnabled,
+  isGuardianEmailEnabled,
+  isHubEmailEnabled,
+  isEmailEnabledForRecipient,
+  filterEmailsByPreference,
+} = require("./emailPreferences");
 
 const DEFAULT_POLICY = {
   timezone: "UTC",
@@ -504,7 +511,11 @@ async function sendParentAbsenceAlertsForOrganization(database, organizationId, 
     const emails = uniqueEmails(recipients);
     if (!emails.length) continue;
 
-    for (const email of emails) {
+    // Respect each guardian's per-recipient preference for absence alerts.
+    const enabledEmails = await filterEmailsByPreference(database, emails, 'parent_absence_alert');
+    if (!enabledEmails.length) continue;
+
+    for (const email of enabledEmails) {
       const eventKey = `${weekStartKey}:${studentId}`;
       const html = renderCleanEmail({
         title: `${organizationName} Attendance Alert`,
@@ -655,6 +666,10 @@ async function sendWeeklyParentDigestForOrganization(database, organizationId, o
 
     if (!children.length) continue;
 
+    // Respect this guardian's preference for the weekly parent digest.
+    const guardianEnabled = await isEmailEnabledForRecipient(database, guardian.email, 'weekly_parent_digest');
+    if (!guardianEnabled) continue;
+
     children.sort((a, b) => a.name.localeCompare(b.name));
 
     const html = renderCleanEmail({
@@ -792,6 +807,9 @@ async function sendWeeklyTeacherDigestForOrganization(database, organizationId, 
 
   let sent = 0;
   for (const teacher of teachersResult.rows) {
+    // Skip teachers who have opted out of weekly_teacher_digest.
+    if (!(await isUserEmailEnabled(database, teacher.user_id, 'weekly_teacher_digest'))) continue;
+
     const assignments = await getTeacherAssignments(database, organizationId, teacher.user_id);
     if (!assignments.length) continue;
 
@@ -1001,6 +1019,9 @@ async function sendWeeklyManagerDigestForOrganization(database, organizationId, 
 
   let sent = 0;
   for (const recipient of recipientsResult.rows) {
+    // Skip leaders who have opted out of the weekly leadership report.
+    if (!(await isUserEmailEnabled(database, recipient.user_id, 'weekly_manager_digest'))) continue;
+
     const fullName = `${recipient.first_name || ""} ${recipient.last_name || ""}`.trim() || recipient.account_type;
     const html = renderCleanEmail({
       title: `${organizationName} Weekly Leadership Report`,
@@ -1138,6 +1159,9 @@ async function sendWeeklyHubDigest(database, options = {}) {
   let sent = 0;
 
   for (const hub of hubsResult.rows) {
+    // Honor hub administrator's preference for the weekly hub overview.
+    if (!(await isHubEmailEnabled(database, hub.hub_id, 'weekly_hub_digest'))) continue;
+
     // Get all member orgs for this hub
     const orgsResult = await database.query(
       `SELECT organization_id, organization_name
@@ -1385,10 +1409,14 @@ async function notifyStaffOnGuardianReportCreated(database, {
   const recipients = uniqueEmails(recipientRows.map((row) => row.email));
   if (!recipients.length) return { sent: 0 };
 
+  // Filter out staff who opted out of guardian-report-created notifications.
+  const optedIn = await filterEmailsByPreference(database, recipients, 'guardian_report_created_staff');
+  if (!optedIn.length) return { sent: 0 };
+
   const { organizationName } = await getOrganizationSummary(database, organizationId);
   let sent = 0;
 
-  for (const email of recipients) {
+  for (const email of optedIn) {
     const guardianDisplayName = escapeHtml(`${report.guardian_first_name || "Parent"} ${report.guardian_last_name || ""}`.trim());
     const html = renderCleanEmail({
       title: `${organizationName}: New message from a parent/guardian`,
@@ -1487,10 +1515,14 @@ async function notifyStaffOnGuardianReply(database, {
   const recipients = uniqueEmails(recipientRows.map((row) => row.email));
   if (!recipients.length) return { sent: 0 };
 
+  // Filter out staff who opted out of guardian-report-reply notifications.
+  const optedIn = await filterEmailsByPreference(database, recipients, 'guardian_report_reply_staff');
+  if (!optedIn.length) return { sent: 0 };
+
   const { organizationName } = await getOrganizationSummary(database, organizationId);
 
   let sent = 0;
-  for (const email of recipients) {
+  for (const email of optedIn) {
     const html = renderCleanEmail({
       title: `${organizationName}: New reply from a parent/guardian`,
       greeting: `Reply from a parent/guardian on report #${reportId}:`,
@@ -1583,7 +1615,9 @@ async function broadcastEventAnnouncement(database, params) {
   }
 
   const allRecipients = uniqueEmails([...staffEmails, ...guardianEmails]);
-  if (!allRecipients.length) return { sent: 0, recipientCount: 0 };
+  // Filter out anyone who has disabled broadcasts.
+  const optedIn = await filterEmailsByPreference(database, allRecipients, 'broadcast_event_or_announcement');
+  if (!optedIn.length) return { sent: 0, recipientCount: 0 };
 
   // --- Build email ---
   const isEvent = contentType === "event";
@@ -1624,7 +1658,7 @@ async function broadcastEventAnnouncement(database, params) {
   const eventKey = `${contentType}:${contentId || Date.now()}`;
   let sent = 0;
 
-  for (const email of allRecipients) {
+  for (const email of optedIn) {
     const ok = await sendLoggedEmail(database, {
       organizationId,
       eventType: `broadcast_${contentType}`,
@@ -1640,7 +1674,7 @@ async function broadcastEventAnnouncement(database, params) {
     if (ok) sent += 1;
   }
 
-  return { sent, recipientCount: allRecipients.length };
+  return { sent, recipientCount: optedIn.length };
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1674,6 +1708,7 @@ async function notifyGuardiansOnClassChange(database, { organizationId, studentI
 
   for (const row of guardiansResult.rows) {
     if (!row.email) continue;
+    if (!(await isEmailEnabledForRecipient(database, row.email, 'student_class_change'))) continue;
     const html = renderCleanEmail({
       title: `${organizationName}: Class Change Notification`,
       greeting: `Dear ${row.first_name || "Parent/Guardian"},`,
@@ -1696,6 +1731,7 @@ async function notifyGuardiansOnClassChange(database, { organizationId, studentI
  */
 async function notifyTeacherOnReassignment(database, { organizationId, userId, teacherName, teacherEmail, oldClasses, newClasses, oldSubjects, newSubjects }) {
   if (!teacherEmail) return;
+  if (userId && !(await isUserEmailEnabled(database, userId, 'teacher_reassignment'))) return;
   const { organizationName } = await getOrganizationSummary(database, organizationId);
 
   const addedClasses = newClasses.filter(c => !oldClasses.includes(c));
@@ -1770,6 +1806,7 @@ async function notifyTeachersOnAssessmentControl(database, { organizationId, gro
   );
 
   for (const teacher of teachersResult.rows) {
+    if (!(await isEmailEnabledForRecipient(database, teacher.email, 'assessment_control_teacher'))) continue;
     const html = renderCleanEmail({
       title: `${organizationName}: Assessment ${msg.verb.charAt(0).toUpperCase() + msg.verb.slice(1)}`,
       greeting: `Hello ${escapeHtml(teacher.first_name || "Teacher")},`,
@@ -1824,6 +1861,7 @@ async function notifyEmployeeOnHoldChange(database, { organizationId, userId, on
   );
   const user = userResult.rows[0];
   if (!user || !user.email) return;
+  if (!(await isUserEmailEnabled(database, userId, 'account_hold_or_resume'))) return;
 
   const status = onHold ? "suspended" : "reactivated";
   const html = renderCleanEmail({
@@ -1853,6 +1891,7 @@ async function notifyEmployeeOnHoldChange(database, { organizationId, userId, on
  */
 async function notifyGuardianAdmissionReceived(database, { organizationId, guardianEmail, guardianFirstName, studentName }) {
   if (!guardianEmail) return;
+  if (!(await isEmailEnabledForRecipient(database, guardianEmail, 'admission_application_received'))) return;
   const { organizationName } = await getOrganizationSummary(database, organizationId);
 
   const html = renderCleanEmail({
@@ -1877,6 +1916,7 @@ async function notifyGuardianAdmissionReceived(database, { organizationId, guard
  */
 async function notifyGuardianOnStaffReply(database, { organizationId, reportId, guardianEmail, guardianFirstName, staffName, replyMessage, studentName, reportSubject }) {
   if (!guardianEmail) return;
+  if (!(await isEmailEnabledForRecipient(database, guardianEmail, 'staff_reply_to_guardian'))) return;
 
   // Skip email if there was a guardian reply within the last 20 minutes (active conversation)
   const recentActivity = await database.query(

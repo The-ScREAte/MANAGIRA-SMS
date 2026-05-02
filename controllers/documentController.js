@@ -1,5 +1,6 @@
 const bcrypt = require("bcryptjs");
 const { sendEmailInBackground } = require("../utils/emailHelper");
+const { isEmailEnabledForRecipient } = require("../utils/emailPreferences");
 const { PERMISSIONS, userHasPermission } = require("../middleware/permissionMiddleware");
 const notifSvc = require("../utils/notificationService");
 
@@ -272,7 +273,9 @@ const notifyTeachersOnNewClassAssignments = async ({ db, req, orgId, docId, docT
 
     const baseUrl = `${req.protocol}://${req.get('host')}`;
 
-    await Promise.all(recipientsResult.rows.map((row) => {
+    await Promise.all(recipientsResult.rows.map(async (row) => {
+      // Honor each teacher's per-recipient files_assigned_to_class preference.
+      if (!(await isEmailEnabledForRecipient(db, row.email, 'files_assigned_to_class'))) return;
       const openUrl = `${baseUrl}/documents?classId=${row.class_id}`;
       const safeTeacherName = row.first_name || 'Teacher';
       const safeClassName = row.class_name || 'your class';

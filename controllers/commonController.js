@@ -9,6 +9,7 @@ const { uploadToS3, deleteFromS3 } = require("../middleware/s3Upload");
 const axios = require("axios");
 const he = require("he");
 const { sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require("../utils/emailHelper");
+const { isEmailEnabledForRecipient } = require("../utils/emailPreferences");
 const { getPaystackSettings } = require("../utils/paystackConfig");
 const {
   PERMISSIONS,
@@ -615,6 +616,8 @@ async function notifyTeachersForAssessmentControl({
 
   await Promise.all(
     teacherResult.rows.map(async (teacher) => {
+      // Respect each teacher's per-recipient assessment_access_update preference.
+      if (!(await isEmailEnabledForRecipient(database, teacher.email, 'assessment_access_update'))) return;
       const fullName = [teacher.first_name, teacher.last_name].filter(Boolean).join(" ") || "Teacher";
       const html = renderCleanEmail({
         title: "Assessment Access Update",
@@ -10940,6 +10943,11 @@ const commonController = {
       const emailRecipient = guardianProfile?.email || guardian?.email || null;
       const guardianFirstName = guardianProfile?.first_name || guardian?.first_name || 'Parent/Guardian';
       if (sendEmailRequested && emailRecipient) {
+        // Honor guardian preference for staff-report emails.
+        const guardianAllows = await isEmailEnabledForRecipient(db, emailRecipient, 'staff_report_to_guardian');
+        if (!guardianAllows) {
+          // Skip email but the report still gets stored in-app.
+        } else {
         const { renderCleanEmail, sendEmailInBackground } = require("../utils/emailHelper");
         const path = require("path");
 
@@ -10973,6 +10981,7 @@ const commonController = {
           }]
         }, 'Staff Report Email');
         emailSent = true; // Queued in background
+        }
       }
 
       // A4 — in-app bell notification to the guardian portal
@@ -11838,6 +11847,9 @@ const sendGuardianWelcomeEmail = async (guardianEmail, guardianFirstName, guardi
 // Send notification when additional student is added to existing guardian
 const sendGuardianStudentAddedEmail = async (guardianEmail, guardianFirstName, guardianLastName, studentName, organizationName) => {
   try {
+    // Honor guardian preference for "additional child added" notifications.
+    const _db = require("../config/db");
+    if (!(await isEmailEnabledForRecipient(_db, guardianEmail, 'guardian_additional_student_added'))) return;
     const html = renderCleanEmail({
       title: "New Student Added to Your Account",
       greeting: `Hello <strong>${he.encode(guardianFirstName)} ${he.encode(guardianLastName)}</strong>,`,

@@ -11,6 +11,12 @@ const {
   notifyStaffOnGuardianReply,
 } = require("../utils/notificationDigestService");
 const notifSvc = require("../utils/notificationService");
+const {
+  ensureEmailPreferencesSchema,
+  getGuardianPreferences,
+  getGuardianPreferenceMap,
+  setGuardianPreferences,
+} = require("../utils/emailPreferences");
 
 async function ensureGuardianReportReadSchema(db) {
   await db.query(
@@ -614,10 +620,24 @@ module.exports = {
       // Get guardian's students
       const students = await getGuardianApprovedStudents(db, guardianId, organizationId);
 
+      // Email notification preferences for this guardian
+      let notificationPrefs = [];
+      let savedNotificationPrefs = {};
+      try {
+        await ensureEmailPreferencesSchema(db);
+        notificationPrefs = getGuardianPreferences();
+        savedNotificationPrefs = await getGuardianPreferenceMap(db, guardianId);
+      } catch (_) {
+        notificationPrefs = [];
+        savedNotificationPrefs = {};
+      }
+
       return res.render("guardian/settings", {
         title: "Settings",
         guardian: guardian,
         students: students.rows,
+        notificationPrefs,
+        savedNotificationPrefs,
         messages: req.flash(),
         req,
       });
@@ -716,6 +736,32 @@ module.exports = {
       return res.redirect('/guardian/settings');
     } catch (error) {
             req.flash('error', 'Error updating settings');
+      return res.redirect('/guardian/settings');
+    }
+  },
+
+  notificationsPost: async (req, res, db) => {
+    const guardianId = req.session.guardianId;
+    if (!guardianId) {
+      req.flash('error', 'You must be signed in.');
+      return res.redirect('/account/login');
+    }
+
+    try {
+      await ensureEmailPreferencesSchema(db);
+      const allowed = getGuardianPreferences().map(p => p.key);
+
+      const submittedRaw = req.body.preferences;
+      const submitted = Array.isArray(submittedRaw)
+        ? submittedRaw
+        : (submittedRaw ? [submittedRaw] : []);
+
+      await setGuardianPreferences(db, guardianId, allowed, submitted);
+
+      req.flash('success', 'Notification preferences saved.');
+      return res.redirect('/guardian/settings');
+    } catch (error) {
+      req.flash('error', 'Failed to save notification preferences.');
       return res.redirect('/guardian/settings');
     }
   },

@@ -27,6 +27,12 @@ const {
 const { ensureEmploymentSchema } = require("../utils/employmentSchema");
 const { ensureInternalWorkerSchema } = require("../utils/internalSchema");
 const {
+  ensureEmailPreferencesSchema,
+  getStaffPreferencesForRole,
+  getUserPreferenceMap,
+  setUserPreferences,
+} = require("../utils/emailPreferences");
+const {
   ensureAdminEmailCampaignSchema,
   normalizeCampaignInput,
   computeNextRunAt,
@@ -599,6 +605,7 @@ const adminController = {
   getAdminProfile: async (req, res) => {
     try {
       await ensureInternalWorkerSchema(db);
+      await ensureEmailPreferencesSchema(db);
       const userId = req.session.userId;
       if (!userId) {
         req.flash("error", "You must be signed in.");
@@ -606,7 +613,7 @@ const adminController = {
       }
 
       const result = await db.query(
-        `SELECT user_id, first_name, last_name, email, account_type, phone_number
+        `SELECT user_id, first_name, last_name, email, account_type, phone_number, organization_id
          FROM users WHERE user_id = $1`,
         [userId]
       );
@@ -615,9 +622,25 @@ const adminController = {
         return res.redirect("/admin");
       }
 
+      // Admin-side platform users (Admin / Mini Admin / Internal Worker without
+      // an organization) receive only operational/transactional emails, so the
+      // toggle catalog is empty for them. Org-side users may also reach this
+      // page if they were promoted, so we still respect role-based filtering.
+      const profile = result.rows[0];
+      const isPlatformAdmin = !profile.organization_id;
+      const notificationPrefs = isPlatformAdmin
+        ? []
+        : getStaffPreferencesForRole(profile.account_type);
+      const savedPrefs = notificationPrefs.length
+        ? await getUserPreferenceMap(db, userId)
+        : {};
+
       return res.render("admin/profile", {
         title: "Profile Settings",
-        profile: result.rows[0],
+        profile,
+        notificationPrefs,
+        savedPrefs,
+        isPlatformAdmin,
         messages: req.flash(),
         showFooterTopSection: true,
       });
@@ -677,6 +700,50 @@ const adminController = {
       return res.redirect("/admin/profile");
     } catch (error) {
       req.flash("error", "Failed to update profile.");
+      return res.redirect("/admin/profile");
+    }
+  },
+
+  updateAdminNotificationPrefs: async (req, res) => {
+    try {
+      await ensureEmailPreferencesSchema(db);
+      const userId = req.session.userId;
+      if (!userId) {
+        req.flash("error", "You must be signed in.");
+        return res.redirect("/account/login");
+      }
+
+      const userResult = await db.query(
+        `SELECT account_type, organization_id FROM users WHERE user_id = $1`,
+        [userId]
+      );
+      if (!userResult.rows.length) {
+        req.flash("error", "User not found.");
+        return res.redirect("/admin/profile");
+      }
+
+      const { account_type, organization_id } = userResult.rows[0];
+      const allowed = !organization_id
+        ? []
+        : getStaffPreferencesForRole(account_type).map(p => p.key);
+
+      if (!allowed.length) {
+        req.flash("error", "No notification preferences available for your account.");
+        return res.redirect("/admin/profile");
+      }
+
+      // Checkboxes only post values when checked.
+      const submittedRaw = req.body.preferences;
+      const submitted = Array.isArray(submittedRaw)
+        ? submittedRaw
+        : (submittedRaw ? [submittedRaw] : []);
+
+      await setUserPreferences(db, userId, allowed, submitted);
+
+      req.flash("success", "Notification preferences saved.");
+      return res.redirect("/admin/profile");
+    } catch (error) {
+      req.flash("error", "Failed to save notification preferences.");
       return res.redirect("/admin/profile");
     }
   },

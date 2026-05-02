@@ -252,4 +252,26 @@
         <button type="submit" class="btn-primary">Change Password</button>
       </form>
     </div>
+
+    <% if (typeof notificationPrefs !== 'undefined' && Array.isArray(notificationPrefs) && notificationPrefs.length) { %>
+    <div class="settings-card">
+      <h2>📬 Email Notifications</h2>
+      <p style="color:#64748b;margin:0 0 16px;">Choose which optional emails this hub account receives. Transactional emails (security, billing, hub-membership decisions) are always sent.</p>
+      <form action="/hub/settings/notifications" method="POST">
+        <% notificationPrefs.forEach(function(p){
+             var saved = (typeof savedNotificationPrefs !== 'undefined') ? savedNotificationPrefs : {};
+             var checked = (saved && Object.prototype.hasOwnProperty.call(saved, p.key)) ? !!saved[p.key] : true;
+        %>
+          <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid #e2e8f0;">
+            <input type="checkbox" name="preferences" value="<%= p.key %>" <%= checked ? 'checked' : '' %> style="margin-top:4px;">
+            <span>
+              <strong style="display:block;color:#0f172a;"><%= p.label %></strong>
+              <span style="color:#64748b;font-size:13px;"><%= p.description || '' %></span>
+            </span>
+          </label>
+        <% }); %>
+        <button type="submit" class="btn-primary" style="margin-top:16px;">Save preferences</button>
+      </form>
+    </div>
+    <% } %>
   </div>

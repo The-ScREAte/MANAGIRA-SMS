@@ -99,6 +99,29 @@
   @media (max-width: 600px) {
     .profile-form { grid-template-columns: 1fr; }
   }
+
+  /* Notifications */
+  .notif-card { margin-top: 18px; }
+  .notif-card .profile-card__header h2 { margin: 0; font-size: 1.1rem; color: #0f172a; }
+  .notif-list { display: flex; flex-direction: column; gap: 10px; margin: 0 0 16px; padding: 0; list-style: none; }
+  .notif-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 14px; border: 1px solid #e5e7eb; border-radius: 10px;
+    background: #f9fafb; transition: background .15s, border-color .15s;
+  }
+  .notif-item:hover { border-color: #01535b; background: #f0fdfa; }
+  .notif-item input[type="checkbox"] {
+    margin-top: 4px;
+    width: 18px; height: 18px;
+    accent-color: #01535b; flex-shrink: 0; cursor: pointer;
+  }
+  .notif-text { flex: 1; }
+  .notif-label { font-weight: 600; color: #0f172a; font-size: 0.93rem; display: block; }
+  .notif-desc { font-size: 0.83rem; color: #64748b; margin-top: 2px; line-height: 1.4; }
+  .notif-empty {
+    padding: 14px; border: 1px dashed #d1d5db; border-radius: 10px;
+    color: #64748b; font-size: 0.9rem; text-align: center; background: #fafafa;
+  }
 </style>
 
 <%
@@ -149,6 +172,45 @@
           <button type="submit" class="btn-save">💾 Save changes</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <%
+    const _prefs = (typeof notificationPrefs !== 'undefined' && Array.isArray(notificationPrefs)) ? notificationPrefs : [];
+    const _saved = (typeof savedPrefs !== 'undefined' && savedPrefs) ? savedPrefs : {};
+    const _isPlatform = (typeof isPlatformAdmin !== 'undefined') ? !!isPlatformAdmin : true;
+  %>
+  <div class="profile-card notif-card">
+    <div class="profile-card__header">
+      <div>
+        <h2>📬 Email notifications</h2>
+        <p class="profile-card__role" style="margin-top:4px;">Choose which non-essential emails you want to receive. Security, billing, and other transactional emails are always sent.</p>
+      </div>
+    </div>
+    <div class="profile-card__body">
+      <% if (_isPlatform || _prefs.length === 0) { %>
+        <div class="notif-empty">
+          No optional email preferences are available for platform admin accounts. All emails sent to platform staff are operational and required.
+        </div>
+      <% } else { %>
+        <form action="/admin/profile/notifications" method="POST" autocomplete="off">
+          <ul class="notif-list">
+            <% _prefs.forEach(function(p) {
+                 const checked = (p.key in _saved) ? !!_saved[p.key] : true; %>
+              <li class="notif-item">
+                <input type="checkbox" name="preferences" id="pref-<%= p.key %>" value="<%= p.key %>" <%= checked ? 'checked' : '' %> />
+                <label class="notif-text" for="pref-<%= p.key %>">
+                  <span class="notif-label"><%= p.label %></span>
+                  <% if (p.description) { %><span class="notif-desc"><%= p.description %></span><% } %>
+                </label>
+              </li>
+            <% }); %>
+          </ul>
+          <div style="display:flex;justify-content:flex-end;">
+            <button type="submit" class="btn-save">💾 Save preferences</button>
+          </div>
+        </form>
+      <% } %>
     </div>
   </div>
 </div>

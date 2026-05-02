@@ -21,6 +21,7 @@ router.get('/settings', hubController.hubSettingsGet);
 router.post('/settings/profile', hubController.hubSettingsProfilePost);
 router.post('/settings/password', hubController.hubSettingsPasswordPost);
 router.post('/settings/logo', upload.single('logo'), hubController.hubSettingsLogoPost);
+router.post('/settings/notifications', hubController.hubSettingsNotificationsPost);
 
 // Organization management routes
 router.get('/organizations/invite', hubController.organizationInviteGet);

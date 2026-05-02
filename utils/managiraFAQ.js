@@ -685,6 +685,50 @@ const managiraFAQ = [
     question: "How does promotion and graduation work in Managira?",
     answer: "Schools can review student performance and apply promotion rules based on their own criteria including score thresholds and attendance expectations. Promotions can be applied immediately or scheduled after term closure. Authorized users can review, reverse, or correct actions. When students graduate or leave, records can be archived while preserving the full academic history. See /legal/user-documentation for the complete promotion and graduation guide.",
     keywords: ["promotion", "graduation", "student progression", "promote students", "graduate students", "archive students", "next grade", "advancement", "how promotion works"]
+  },
+
+  // Email Notifications
+  {
+    id: 94,
+    category: "Email Notifications",
+    question: "What kinds of emails does Managira send?",
+    answer: "Managira sends several categories of emails: (1) Account & security — password reset, password set confirmations, account invitations. (2) Billing — payment receipts, new invoices, subscription cancellation, renewal-failed notices, scheduled-hold notices, student-tier-exceeded notices. (3) Onboarding — organization registration confirmation with Starter Pack, employee invites, guardian portal welcome. (4) Hub membership — invitations, joined notices, detachment requests, approvals, rejections, removals. (5) Admissions & enrollment — application received, approved, rejected, public registration payment confirmation. (6) Academic — assessment access updates, files assigned to a class, report cards, official transcripts, class change, teacher reassignment. (7) Communications — staff-to-guardian reports and replies, broadcasts of events and announcements. (8) Digests — weekly Saturday digests for parents, teachers, managers, and hubs. (9) Operations — support ticket created/responded/resolved/reopened, demo request received, employment application updates.",
+    keywords: ["emails", "email types", "notifications", "what emails", "managira sends", "email categories", "list emails", "email list"]
+  },
+  {
+    id: 95,
+    category: "Email Notifications",
+    question: "Which weekly digests does Managira send?",
+    answer: "Managira sends four weekly digests every Saturday: (1) Weekly Parent Digest to guardians — summarizes their children's progress for the week. (2) Weekly Teacher Digest to teachers — summarizes their assigned classes and subjects. (3) Weekly Leadership Report to managers and supervisors — covers at-risk students and school metrics. (4) Weekly Hub Overview to hub administrators — cross-organization summary across all member schools. There is no monthly digest.",
+    keywords: ["weekly digest", "digests", "saturday digest", "weekly report", "leadership report", "parent digest", "teacher digest", "hub digest", "monthly digest"]
+  },
+  {
+    id: 96,
+    category: "Email Notifications",
+    question: "Which emails go to guardians (parent portal users)?",
+    answer: "Guardians receive: welcome / password setup, additional-student-added notice, admission application received, public registration payment confirmation, admission approved or rejected, attendance alerts when a child is absent multiple times in a week, the weekly Saturday parent digest, class-change notices, staff reports about their child and replies, report cards (with PDF), official transcripts when shared, and broadcasts of events and announcements that are public-visible. All guardian-portal logins are protected by the guardian password setup/reset flow.",
+    keywords: ["guardian emails", "parent emails", "parent notifications", "what guardians receive", "parent portal emails", "guardian notifications"]
+  },
+  {
+    id: 97,
+    category: "Email Notifications",
+    question: "Which emails go to teachers, managers, and supervisors?",
+    answer: "Teachers receive: weekly teaching digest, assignment-changed notices, assessment lock/unlock and access updates, files assigned to their class, broadcasts of events and announcements, and copies of guardian reports for students they class-teach. Managers and supervisors receive: weekly leadership report, broadcasts of events and announcements, and copies of guardian reports and replies as fallback recipients. All staff also receive role-agnostic emails: invitation to set password, password-set confirmation, password reset, and on-hold or reactivation notices.",
+    keywords: ["teacher emails", "manager emails", "supervisor emails", "staff notifications", "what staff receive", "teacher notifications"]
+  },
+  {
+    id: 98,
+    category: "Email Notifications",
+    question: "Which Managira emails cannot be turned off?",
+    answer: "Transactional and legal-of-record emails are always sent and cannot be silenced. These include: password reset request and confirmation, all invitation and password-set emails (employee, guardian, hub), organization registration confirmation, all billing emails (payment receipt, invoice, subscription cancellation, renewal-failed, scheduled hold), all support ticket emails (created, responded, resolved, reopened), demo request received, employment application confirmations and decisions, transcript share, public registration payment confirmation, admission approval and rejection, and all hub-membership decision emails (invite, welcome, joined, detachment approved/rejected, removed). User-toggleable emails are limited to digests, broadcasts, and routine staff/guardian notifications.",
+    keywords: ["forced emails", "cannot disable", "always sent", "must-send emails", "transactional emails", "required emails", "mandatory emails"]
+  },
+  {
+    id: 99,
+    category: "Email Notifications",
+    question: "How do I choose which emails I receive?",
+    answer: "Each user can opt out of optional (non-transactional) emails from their own settings page. Organization users (Manager, Supervisor, Teacher, Cashier) open Account Settings and select the Notifications tab to toggle items like the weekly digest, broadcasts, guardian-report alerts, and assignment-change notices. Parents/guardians open the Parent Portal Settings page and use the Email Notifications section to toggle the weekly parent digest, attendance alerts, class-change notices, broadcasts, report-card delivery, and staff replies. Hub administrators manage their preferences from the hub admin settings. Choices save instantly, are per-user, and only affect optional emails — security, billing, and other transactional emails are always sent.",
+    keywords: ["opt out", "unsubscribe", "email preferences", "turn off emails", "notification settings", "stop receiving", "manage emails", "email opt-in", "notifications tab"]
   }
 ];
 

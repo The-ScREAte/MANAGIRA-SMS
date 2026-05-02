@@ -205,6 +205,9 @@ router.get("/settings", isAuthenticated, (req, res) =>
 router.post("/settings/profile", isAuthenticated, (req, res) =>
   accountController.updateProfileNamePost(req, res, db)
 );
+router.post("/settings/notifications", isAuthenticated, (req, res) =>
+  accountController.updateNotificationPreferencesPost(req, res, db)
+);
 router.post("/settings/profile-image", 
   isAuthenticated, 
   upload.single("profileImage"),

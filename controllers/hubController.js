@@ -3,6 +3,11 @@ const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const { uploadToS3, deleteFromS3 } = require("../config/s3");
 const { sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require("../utils/emailHelper");
+const {
+  getHubPreferences,
+  getHubPreferenceMap,
+  setHubPreferences,
+} = require("../utils/emailPreferences");
 
 // Helper function to send emails (fire-and-forget)
 function sendEmail({ to, subject, html }) {
@@ -1017,9 +1022,14 @@ const hubController = {
 
       const hub = result.rows[0];
 
+      const notificationPrefs = getHubPreferences();
+      const savedNotificationPrefs = await getHubPreferenceMap(db, hubId);
+
       res.render('hub/settings', {
         title: 'Hub Settings',
         hub,
+        notificationPrefs,
+        savedNotificationPrefs,
         messages: req.flash(),
         showFooterTopSection: true
       });
@@ -1027,6 +1037,23 @@ const hubController = {
             req.flash('error', 'Error loading settings.');
       res.redirect('/hub/dashboard');
     }
+  },
+
+  // Update hub email notification preferences
+  hubSettingsNotificationsPost: async (req, res) => {
+    try {
+      const hubId = req.session.hubId;
+      if (!hubId) return res.redirect('/hub/login');
+      const allowed = getHubPreferences().map(p => p.key);
+      const submitted = Array.isArray(req.body.preferences)
+        ? req.body.preferences
+        : (req.body.preferences ? [req.body.preferences] : []);
+      await setHubPreferences(db, hubId, allowed, submitted);
+      req.flash('success', 'Email preferences updated.');
+    } catch (err) {
+      req.flash('error', 'Could not update email preferences.');
+    }
+    res.redirect('/hub/settings');
   },
 
   // Update Hub Profile

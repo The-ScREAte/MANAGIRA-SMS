@@ -109,6 +109,7 @@ module.exports = (db) => {
     // Self-service profile (any signed-in admin-side user)
     router.get('/profile', ensureAdminOrInternal, adminController.getAdminProfile);
     router.post('/profile', ensureAdminOrInternal, adminController.updateAdminProfile);
+    router.post('/profile/notifications', ensureAdminOrInternal, adminController.updateAdminNotificationPrefs);
 
     router.post('/hold', adminController.holdOrganization);
     router.post('/resume', adminController.resumeOrganization);

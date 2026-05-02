@@ -34,6 +34,10 @@ module.exports = (db) => {
     (req, res) => guardianController.settingsPost(req, res, db)
   );
 
+  router.post("/settings/notifications", isGuardianAuthenticated, (req, res) =>
+    guardianController.notificationsPost(req, res, db)
+  );
+
   router.get("/report", isGuardianAuthenticated, (req, res) =>
     guardianController.reportGet(req, res, db)
   );

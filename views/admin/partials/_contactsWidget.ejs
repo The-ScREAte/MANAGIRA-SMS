@@ -23,12 +23,17 @@
 %>
 
 <div class="iw-card" id="contactsWidget">
-  <div class="iw-card__header">
+  <button type="button"
+          class="iw-card__header iw-card__header--toggle"
+          id="iw-contacts-toggle"
+          aria-expanded="false"
+          aria-controls="iw-contacts-body"
+          style="width:100%;background:transparent;border:0;text-align:left;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 18px;">
     <div>
-      <h2 class="iw-card__title">
+      <h2 class="iw-card__title" style="margin:0;">
         <% if (_isInternal) { %>📇 Your Referrals & Contacts<% } else { %>📇 Team Referrals & Contacts<% } %>
       </h2>
-      <p class="iw-card__subtitle">
+      <p class="iw-card__subtitle" style="margin:4px 0 0;">
         <% if (_isInternal) { %>
           Save people you spoke to. Note any appointments and mark them once you've followed up.
         <% } else { %>
@@ -36,12 +41,13 @@
         <% } %>
       </p>
     </div>
-    <div class="iw-card__subtitle" style="font-weight:700;">
-      Total: <%= _contacts.length %>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span class="iw-card__subtitle" style="font-weight:700;">Total: <%= _contacts.length %></span>
+      <span id="iw-contacts-chevron" aria-hidden="true" style="font-size:18px;line-height:1;transition:transform .2s ease;">▾</span>
     </div>
-  </div>
+  </button>
 
-  <div class="iw-card__body">
+  <div class="iw-card__body" id="iw-contacts-body" hidden>
     <form action="/admin/contacts" method="POST" class="iw-form" id="iw-contact-form" autocomplete="off">
       <label>
         Contact name *
@@ -78,7 +84,8 @@
         No contacts saved yet.
       </div>
     <% } else { %>
-      <ul class="iw-contact-list">
+      <div class="iw-contact-scroll" style="max-height:420px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px;">
+        <ul class="iw-contact-list" style="margin:0;">
         <% _contacts.forEach(function(c) { %>
           <% const canManage = _isFullAdmin || (_sessionUserId && Number(_sessionUserId) === Number(c.created_by_user_id)); %>
           <li class="iw-contact <%= c.followed_up ? 'iw-contact--followed' : '' %>">
@@ -124,6 +131,7 @@
           </li>
         <% }); %>
       </ul>
+      </div>
     <% } %>
   </div>
 </div>
@@ -133,14 +141,37 @@
     var toggle = document.getElementById('iw-appt-toggle');
     var wrap = document.getElementById('iw-appt-at-wrap');
     var input = document.getElementById('iw-appt-at');
-    if (!toggle || !wrap || !input) return;
-    function sync() {
-      var on = toggle.value === 'yes';
-      wrap.style.display = on ? '' : 'none';
-      if (!on) { input.value = ''; input.removeAttribute('required'); }
-      else { input.setAttribute('required', 'required'); }
+    if (toggle && wrap && input) {
+      function syncAppt() {
+        var on = toggle.value === 'yes';
+        wrap.style.display = on ? '' : 'none';
+        if (!on) { input.value = ''; input.removeAttribute('required'); }
+        else { input.setAttribute('required', 'required'); }
+      }
+      toggle.addEventListener('change', syncAppt);
+      syncAppt();
     }
-    toggle.addEventListener('change', sync);
-    sync();
+
+    // Collapsible widget
+    var btn = document.getElementById('iw-contacts-toggle');
+    var body = document.getElementById('iw-contacts-body');
+    var chev = document.getElementById('iw-contacts-chevron');
+    if (btn && body) {
+      var STORAGE_KEY = 'iwContactsExpanded';
+      var initiallyOpen = false;
+      try { initiallyOpen = localStorage.getItem(STORAGE_KEY) === '1'; } catch (_) {}
+      function setOpen(open) {
+        if (open) { body.removeAttribute('hidden'); }
+        else { body.setAttribute('hidden', ''); }
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (chev) chev.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
+        try { localStorage.setItem(STORAGE_KEY, open ? '1' : '0'); } catch (_) {}
+      }
+      setOpen(initiallyOpen);
+      btn.addEventListener('click', function () {
+        var isOpen = btn.getAttribute('aria-expanded') === 'true';
+        setOpen(!isOpen);
+      });
+    }
   })();
 </script>
