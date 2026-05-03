@@ -346,7 +346,13 @@
                       <%# Each row has its own form to keep response & close/delete independent %>
                       <form action="/admin/respondMessage" method="POST" onsubmit="return validateRespond(this)">
                         <input type="hidden" name="threadId" value="<%= thread.thread_id %>">
-                        <textarea name="response" placeholder="Write your response here (required only for Respond)..."></textarea>
+                        <% if (isDemo) { %>
+                          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+                            <span style="font-size:0.78rem;color:#64748b;">Demo request detected — you can use a quick template.</span>
+                            <button type="button" class="admin-btn admin-btn-primary demo-template-btn" style="padding:4px 10px;font-size:0.78rem;" data-thread-id="<%= thread.thread_id %>" data-name="<%= thread.name || '' %>">📋 Use demo template</button>
+                          </div>
+                        <% } %>
+                        <textarea name="response" id="response-<%= thread.thread_id %>" placeholder="Write your response here (required only for Respond)..."></textarea>
                         <div class="ticket-actions">
                           <button type="submit" class="admin-btn admin-btn-primary">✉️ Respond</button>
                           <button type="button" class="admin-btn admin-btn-success" onclick="submitNoMsg(this, '/admin/resolveMessage', '<%= thread.thread_id %>', 'Mark this ticket as closed?')">✓ Close Ticket</button>
@@ -388,6 +394,21 @@
       }
       return confirm('Send this response?');
     }
+    function applyDemoTemplate(btn, threadId, name) {
+      const ta = document.getElementById('response-' + threadId);
+      if (!ta) return;
+      const firstName = (name || '').toString().trim().split(/\s+/)[0] || 'there';
+      const tpl = `Hi ${firstName},\n\nThank you for reaching out and for your interest in Managira. We are delighted to hear from you and would be pleased to introduce you to Managira, our all-in-one school management system designed to support more efficient, organized, and productive school administration.\n\nPlease use the link below to choose a time that works best for you. During the session, we will walk you through the platform, highlight the features most relevant to your needs, and answer any questions you may have.\n\nhttps://calendly.com/managirasms/30min\n\nIf none of the available times are convenient, please reply with a few options that suit your schedule, and we will do our best to accommodate you.\n\nWe look forward to speaking with you and showing you how Managira can support your institution.\n\nBest regards,\nThe Managira Team`;
+      if (ta.value.trim() && !confirm('Replace the current draft with the demo template?')) return;
+      ta.value = tpl;
+      ta.focus();
+    }
+    document.addEventListener('click', function (e) {
+      const btn = e.target.closest('.demo-template-btn');
+      if (!btn) return;
+      e.preventDefault();
+      applyDemoTemplate(btn, btn.dataset.threadId, btn.dataset.name || '');
+    });
     function submitNoMsg(btn, action, threadId, msg) {
       if (!confirm(msg)) return;
       const f = document.createElement('form');
