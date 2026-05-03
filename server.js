@@ -281,12 +281,13 @@ if (process.env.NODE_ENV === "production") {
       store: new pgSession({ pool: db, tableName: "user_sessions" }),
       secret: process.env.SESSION_SECRET || "YourSecret",
       resave: false,
+      rolling: true, // refresh cookie expiry on every response so active users don't time out
       saveUninitialized: false,
       cookie: {
         secure: false,
         domain: ".managira.com",
         sameSite: "lax",
-        maxAge: 18000000,
+        maxAge: 12 * 60 * 60 * 1000, // 12 hours
       },
     })
   );
@@ -297,10 +298,12 @@ if (process.env.NODE_ENV === "production") {
       store: new pgSession({ pool: db, tableName: "user_sessions" }),
       secret: process.env.SESSION_SECRET || "YourSecret",
       resave: false,
+      rolling: true, // refresh cookie expiry on every response so active users don't time out
       saveUninitialized: false,
       cookie: {
         secure: false,
-        maxAge: 18000000,
+        sameSite: "lax",
+        maxAge: 12 * 60 * 60 * 1000, // 12 hours
       },
     })
   );

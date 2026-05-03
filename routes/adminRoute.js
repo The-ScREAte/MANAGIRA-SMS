@@ -107,7 +107,15 @@ module.exports = (db) => {
     router.post('/contacts/:id/delete', ensureAdminOrInternal, adminController.deleteInternalContact);
 
     // Self-service profile (any signed-in admin-side user)
-    router.get('/profile', ensureAdminOrInternal, adminController.getAdminProfile);
+    router.get('/profile', (req, res, next) => {
+        console.log('[GET /admin/profile] session=', {
+            sid: req.sessionID,
+            userId: req.session && req.session.userId,
+            accountType: req.session && req.session.accountType,
+            userRole: req.session && req.session.userRole,
+        });
+        next();
+    }, ensureAdminOrInternal, adminController.getAdminProfile);
     router.post('/profile', ensureAdminOrInternal, adminController.updateAdminProfile);
     router.post('/profile/notifications', ensureAdminOrInternal, adminController.updateAdminNotificationPrefs);
 

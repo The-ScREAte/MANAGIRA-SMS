@@ -1,5 +1,13 @@
 <header>
-  <% if (session.firstName && (session.accountType === 'Admin' || session.accountType === 'Mini Admin' || session.accountType === 'Internal Worker')) { %>
+  <%
+    const _ahAccountType = (session && session.accountType) ? String(session.accountType).trim().toLowerCase() : '';
+    const _ahUserRole    = (session && session.userRole)    ? String(session.userRole).trim().toLowerCase()    : '';
+    const _ahIsAdminLike = _ahAccountType === 'admin' || _ahAccountType === 'mini admin' || _ahAccountType === 'internal worker'
+      || _ahUserRole === 'admin' || _ahUserRole === 'mini admin' || _ahUserRole === 'internal worker';
+    const _ahIsInternal  = _ahAccountType === 'internal worker' || _ahUserRole === 'internal worker';
+    const _ahIsFullAdmin = _ahAccountType === 'admin' || _ahUserRole === 'admin';
+  %>
+  <% if (session.firstName && _ahIsAdminLike) { %>
     <div class="admin-header-pro">
       <div class="admin-header-left">
         <img src="/images/managira.png" alt="Logo" class="admin-header-logo" />
@@ -11,6 +19,7 @@
             <span class="admin-header-welcome__hi">Welcome,</span>
             <span class="admin-header-welcome__name"><%= session.firstName %><% if (session.lastName) { %> <%= session.lastName %><% } %></span>
           </li>
+          <% if (!_ahIsInternal) { %>
           <li class="notification-icon">
             <a href="/admin/helpMessages">
               <img src="/images/msgicon.png" alt="Messages" class="notification-image">
@@ -19,6 +28,7 @@
               <span class="notification-badge"><%= unresolvedCount %></span>
             <% } %>
           </li>
+          <% } %>
           <li class="admin-profile-container" id="admin-profile-container">
             <button type="button" class="admin-profile-btn" id="admin-profile-btn" aria-haspopup="true" aria-expanded="false" aria-label="Profile menu">
               <span class="admin-profile-avatar"><%= (session.firstName || '?').charAt(0).toUpperCase() %></span>
@@ -28,7 +38,7 @@
                 <div class="admin-profile-dropdown__name"><%= session.firstName %><% if (session.lastName) { %> <%= session.lastName %><% } %></div>
                 <div class="admin-profile-dropdown__role"><%= session.accountType %></div>
               </div>
-              <a href="/admin/profile" class="admin-profile-dropdown__item" role="menuitem">⚙️ Profile Settings</a>
+              <a href="/admin/profile" class="admin-profile-dropdown__item" role="menuitem" data-no-spa>⚙️ Profile Settings</a>
               <a href="/account/logout" class="admin-profile-dropdown__item admin-profile-dropdown__item--danger" data-no-spa role="menuitem">↩ Logout</a>
             </div>
           </li>
@@ -42,8 +52,13 @@
         </ul>
         <div class="admin-hamburger-overlay" id="admin-hamburger-overlay">
           <ul class="admin-hamburger-menu" id="admin-hamburger-menu">
+            <% if (_ahIsInternal) { %>
+              <li><a href="/admin" class="admin-header-link" data-no-spa>Dashboard</a></li>
+              <li><a href="/admin/profile" class="admin-header-link" data-no-spa>Profile Settings</a></li>
+              <li><a href="/account/logout" class="admin-header-link" data-no-spa>Logout</a></li>
+            <% } else { %>
             <li><a href="/admin" class="admin-header-link">Dashboard</a></li>
-            <% if (session.accountType === 'Admin') { %>
+            <% if (_ahIsFullAdmin) { %>
               <li><a href="/admin/superDashboard" class="admin-header-link">Super Admin</a></li>
               <li><a href="/admin/scheduled-holds" class="admin-header-link">Subscription Cancellation</a></li>
               <li><a href="/admin/create-promo" class="admin-header-link">DISCOUNTS</a></li>
@@ -60,6 +75,7 @@
             <li><a href="/legal/user-documentation" class="admin-header-link" target="_blank" rel="noopener">Documentation</a></li>
             <li><a href="/admin/profile" class="admin-header-link">Profile Settings</a></li>
             <li><a href="/account/logout" class="admin-header-link" data-no-spa>Logout</a></li>
+            <% } %>
           </ul>
         </div>
       </nav>

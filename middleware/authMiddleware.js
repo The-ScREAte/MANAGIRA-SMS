@@ -30,12 +30,23 @@ const isAuthenticated = async (req, res, next) => {
         }
         // 1. Check session existence
         if (!req.session.userId && !req.session.organizationId) {
-            console.error('Auth failed - Missing session IDs:', req.sessionID);
-            
+            console.error('[isAuthenticated] Missing session IDs', {
+                sid: req.sessionID,
+                path: req.originalUrl,
+                method: req.method,
+                hasCookieHeader: Boolean(req.headers && req.headers.cookie),
+                cookieHeader: req.headers && req.headers.cookie ? String(req.headers.cookie).slice(0, 200) : null,
+                sessionKeys: req.session ? Object.keys(req.session) : null,
+                accountType: req.session && req.session.accountType,
+                userRole: req.session && req.session.userRole,
+                xhr: req.xhr,
+                accept: req.headers && req.headers.accept,
+            });
+
             if (!req.session.returnTo) {
                 req.session.returnTo = req.originalUrl;
             }
-            
+
             safeFlash(req, 'error', 'Session expired. Please log in again.');
             return res.redirect('/account/login');
         }
@@ -109,10 +120,18 @@ const ensureAdmin = async (req, res, next) => {
 // Use on admin routes that Internal Workers are explicitly allowed to access.
 const ensureAdminOrInternal = (req, res, next) => {
     try {
-        const accountType = req.session.accountType;
-        if (accountType === 'Admin' || accountType === 'Mini Admin' || accountType === 'Internal Worker') {
+        const accountType = String(req.session && req.session.accountType || '').trim().toLowerCase();
+        const userRole    = String(req.session && req.session.userRole    || '').trim().toLowerCase();
+        const ALLOWED = new Set(['admin', 'mini admin', 'internal worker']);
+        if (ALLOWED.has(accountType) || ALLOWED.has(userRole)) {
             return next();
         }
+        console.warn('[ensureAdminOrInternal] denied', {
+            path: req.originalUrl,
+            userId: req.session && req.session.userId,
+            accountType: req.session && req.session.accountType,
+            userRole: req.session && req.session.userRole,
+        });
         req.flash('error', 'You do not have permission to access this page.');
         return res.redirect('/account/login');
     } catch (err) {

@@ -49,8 +49,15 @@
         </div>
 
         <% if (!(typeof hideGlobalHeader !== 'undefined' && hideGlobalHeader)) { %>
-            <% if (session.accountType === 'Admin' || session.accountType === 'Mini Admin') { %>
-                <% if (typeof showOrgHeader !== 'undefined' && showOrgHeader) { %>
+            <%
+              const _normAccountType = (session && session.accountType) ? String(session.accountType).trim().toLowerCase() : '';
+              const _normUserRole    = (session && session.userRole)    ? String(session.userRole).trim().toLowerCase()    : '';
+              const _isPlatformAdmin = _normAccountType === 'admin' || _normAccountType === 'mini admin' || _normAccountType === 'internal worker'
+                || _normUserRole === 'admin' || _normUserRole === 'mini admin' || _normUserRole === 'internal worker';
+              const _isInternalWorker = _normAccountType === 'internal worker' || _normUserRole === 'internal worker';
+            %>
+            <% if (_isPlatformAdmin) { %>
+                <% if (!_isInternalWorker && typeof showOrgHeader !== 'undefined' && showOrgHeader) { %>
                     <%- include('partials/header', { orgHeaderName: typeof orgHeaderName !== 'undefined' ? orgHeaderName : null, orgHeaderLogo: typeof orgHeaderLogo !== 'undefined' ? orgHeaderLogo : null }) %>
                 <% } else { %>
                     <%- include('partials/adminHeader') %>

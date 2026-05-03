@@ -180,6 +180,7 @@
     '/account/logout',
     '/admin/org/',
     '/admin/exit-org',
+    '/admin/profile',
     'new=1',
     '/common/addStudent',        // Complex form with file uploads
     '/common/registerSchoolYear',// Complex form submissions
