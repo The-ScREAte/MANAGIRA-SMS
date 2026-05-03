@@ -818,6 +818,15 @@
           <label class="field-label" for="announcement-description">Announcement message</label>
           <textarea id="announcement-description" class="automation-textarea" name="description" placeholder="Write the notice you want admins, schools, or users to see." required></textarea>
         </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:6px 2px;">
+          <input id="announcement-show-for-admins" type="checkbox" name="show_for_admins" style="width:16px;height:16px;" />
+          <label for="announcement-show-for-admins" style="font-size:0.9rem;color:var(--text-primary,#0f172a);cursor:pointer;">
+            Show for admins
+            <span style="display:block;font-size:0.78rem;color:var(--text-secondary,#64748b);font-weight:400;">
+              Also display this announcement on the admin dashboard. Each admin can dismiss it once they’ve read it.
+            </span>
+          </label>
+        </div>
         <button type="submit" class="admin-btn automation-primary">Create announcement</button>
       </form>
 
@@ -843,6 +852,9 @@
                       <span class="collapsible-card-summary"><%= announcement.description.length > 110 ? `${announcement.description.slice(0, 110)}...` : announcement.description %></span>
                     </span>
                     <span class="collapsible-card-right">
+                      <% if (announcement.show_for_admins) { %>
+                        <span class="tag-pill" style="background:#eef2ff;color:#3730a3;">Admins</span>
+                      <% } %>
                       <span class="tag-pill <%= announcement.is_active ? 'active' : 'inactive' %>"><%= announcement.is_active ? 'Active' : 'Inactive' %></span>
                       <span class="collapsible-card-indicator">Expand</span>
                     </span>
@@ -885,6 +897,9 @@
                       <span class="collapsible-card-summary"><%= announcement.description.length > 110 ? `${announcement.description.slice(0, 110)}...` : announcement.description %></span>
                     </span>
                     <span class="collapsible-card-right">
+                      <% if (announcement.show_for_admins) { %>
+                        <span class="tag-pill" style="background:#eef2ff;color:#3730a3;">Admins</span>
+                      <% } %>
                       <span class="tag-pill <%= announcement.is_active ? 'active' : 'inactive' %>"><%= announcement.is_active ? 'Active' : 'Inactive' %></span>
                       <span class="collapsible-card-indicator">Expand</span>
                     </span>

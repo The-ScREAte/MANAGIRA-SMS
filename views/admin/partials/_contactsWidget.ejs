@@ -22,32 +22,26 @@
   }
 %>
 
-<div class="iw-card" id="contactsWidget">
+<!-- Add-contact form (collapsed by default) -->
+<div class="iw-card" id="contactsFormWidget" style="margin-bottom:14px;">
   <button type="button"
           class="iw-card__header iw-card__header--toggle"
-          id="iw-contacts-toggle"
+          id="iw-contact-form-toggle"
           aria-expanded="false"
-          aria-controls="iw-contacts-body"
+          aria-controls="iw-contact-form-body"
           style="width:100%;background:transparent;border:0;text-align:left;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 18px;">
     <div>
-      <h2 class="iw-card__title" style="margin:0;">
-        <% if (_isInternal) { %>📇 Your Referrals & Contacts<% } else { %>📇 Team Referrals & Contacts<% } %>
-      </h2>
+      <h2 class="iw-card__title" style="margin:0;">➕ Add a contact</h2>
       <p class="iw-card__subtitle" style="margin:4px 0 0;">
-        <% if (_isInternal) { %>
-          Save people you spoke to. Note any appointments and mark them once you've followed up.
-        <% } else { %>
-          Contacts logged by all admin users (including Internal Workers).
-        <% } %>
+        Save someone you spoke to. Note any appointments and follow-up details.
       </p>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
-      <span class="iw-card__subtitle" style="font-weight:700;">Total: <%= _contacts.length %></span>
-      <span id="iw-contacts-chevron" aria-hidden="true" style="font-size:18px;line-height:1;transition:transform .2s ease;">▾</span>
+      <span id="iw-contact-form-chevron" aria-hidden="true" style="font-size:18px;line-height:1;transition:transform .2s ease;">▾</span>
     </div>
   </button>
 
-  <div class="iw-card__body" id="iw-contacts-body" hidden>
+  <div class="iw-card__body" id="iw-contact-form-body" hidden>
     <form action="/admin/contacts" method="POST" class="iw-form" id="iw-contact-form" autocomplete="off">
       <label>
         Contact name *
@@ -70,21 +64,40 @@
       </label>
       <label class="iw-form__full">
         Notes
-        <textarea name="notes" maxlength="2000" placeholder="What did you discuss? Any next steps?"></textarea>
+        <textarea name="notes" maxlength="2000" placeholder="Add phone number and email here. What did you discuss? Any next steps?"></textarea>
       </label>
       <div class="iw-form__actions">
         <button type="submit" class="iw-form__submit">💾 Save Contact</button>
       </div>
     </form>
+  </div>
+</div>
 
-    <hr style="border:0;border-top:1px solid var(--border);margin:18px 0;" />
+<!-- Contacts list (always visible) -->
+<div class="iw-card" id="contactsListWidget">
+  <div class="iw-card__header" style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+    <div>
+      <h2 class="iw-card__title" style="margin:0;">
+        <% if (_isInternal) { %>📇 Your Referrals & Contacts<% } else { %>📇 Team Referrals & Contacts<% } %>
+      </h2>
+      <p class="iw-card__subtitle" style="margin:4px 0 0;">
+        <% if (_isInternal) { %>
+          Only the contacts you have logged are shown here.
+        <% } else { %>
+          Contacts logged by all admin-side users (Admins, Mini Admins, and Internal Workers).
+        <% } %>
+      </p>
+    </div>
+    <span class="iw-card__subtitle" style="font-weight:700;">Total: <%= _contacts.length %></span>
+  </div>
 
+  <div class="iw-card__body">
     <% if (_contacts.length === 0) { %>
       <div class="empty-state" style="padding:24px 0;">
         No contacts saved yet.
       </div>
     <% } else { %>
-      <div class="iw-contact-scroll" style="max-height:420px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px;">
+      <div class="iw-contact-scroll" style="max-height:480px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px;">
         <ul class="iw-contact-list" style="margin:0;">
         <% _contacts.forEach(function(c) { %>
           <% const canManage = _isFullAdmin || (_sessionUserId && Number(_sessionUserId) === Number(c.created_by_user_id)); %>
@@ -109,7 +122,7 @@
                 <% } %>
                 <span>Added <%= _fmtDateTime(c.created_at) %></span>
                 <% if (!_isInternal) { %>
-                  <span>By <%= _creatorLabel(c) %></span>
+                  <span>By <strong><%= _creatorLabel(c) %></strong></span>
                 <% } %>
               </div>
               <% if (c.notes) { %>
@@ -152,12 +165,12 @@
       syncAppt();
     }
 
-    // Collapsible widget
-    var btn = document.getElementById('iw-contacts-toggle');
-    var body = document.getElementById('iw-contacts-body');
-    var chev = document.getElementById('iw-contacts-chevron');
+    // Collapsible add-contact form (collapsed by default; remembers user choice)
+    var btn = document.getElementById('iw-contact-form-toggle');
+    var body = document.getElementById('iw-contact-form-body');
+    var chev = document.getElementById('iw-contact-form-chevron');
     if (btn && body) {
-      var STORAGE_KEY = 'iwContactsExpanded';
+      var STORAGE_KEY = 'iwContactFormExpanded';
       var initiallyOpen = false;
       try { initiallyOpen = localStorage.getItem(STORAGE_KEY) === '1'; } catch (_) {}
       function setOpen(open) {

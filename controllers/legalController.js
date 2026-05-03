@@ -112,9 +112,26 @@ const legalController = {
     },
     
     faq: (req, res) => {
-        res.render('legal&Compliance/FAQ', { 
+        let faqEntries = [];
+        let faqCategories = [];
+        try {
+            const managiraFAQ = require('../utils/managiraFAQ');
+            faqEntries = Array.isArray(managiraFAQ) ? managiraFAQ : [];
+            const seen = new Set();
+            for (const item of faqEntries) {
+                if (item && item.category && !seen.has(item.category)) {
+                    seen.add(item.category);
+                    faqCategories.push(item.category);
+                }
+            }
+        } catch (err) {
+            console.error('FAQ knowledge load failed:', err);
+        }
+        res.render('legal&Compliance/FAQ', {
             title: 'FAQ',
-            showFooterTopSection: true
+            showFooterTopSection: true,
+            faqEntries,
+            faqCategories
         });
     },
 

@@ -37,6 +37,7 @@ const {
   normalizeCampaignInput,
   computeNextRunAt,
 } = require("../utils/adminEmailCampaigns");
+const { ensureAdminAnnouncementSchema } = require("../utils/adminAnnouncementSchema");
 
 function computeTierMonthlyPrice(planBasePrice, tier) {
   const basePrice = Number(planBasePrice || 0);
@@ -395,19 +396,30 @@ const adminController = {
         );
       }
 
-      // Latest active announcement (small banner on the dashboard).
+      // Active announcements flagged for the admin dashboard, excluding any
+      // the current user has already marked as seen.
       let latestAnnouncement = null;
+      let adminAnnouncements = [];
       try {
-        const annResult = await db.query(`
-          SELECT id, title, description, created_at
-          FROM admin_announcements
-          WHERE is_active = TRUE
-          ORDER BY created_at DESC
-          LIMIT 1
-        `);
-        latestAnnouncement = annResult.rows[0] || null;
+        await ensureAdminAnnouncementSchema(db);
+        const annResult = await db.query(
+          `
+          SELECT a.id, a.title, a.description, a.created_at
+          FROM admin_announcements a
+          LEFT JOIN announcement_views v
+            ON v.announcement_id = a.id AND v.user_id = $1
+          WHERE a.is_active = TRUE
+            AND a.show_for_admins = TRUE
+            AND v.view_id IS NULL
+          ORDER BY a.created_at DESC
+          `,
+          [req.session.userId]
+        );
+        adminAnnouncements = annResult.rows;
+        latestAnnouncement = adminAnnouncements[0] || null;
       } catch (_) {
         latestAnnouncement = null;
+        adminAnnouncements = [];
       }
 
       // Contacts / referrals.
@@ -446,6 +458,7 @@ const adminController = {
         applications,
         contacts,
         latestAnnouncement,
+        adminAnnouncements,
         isInternalWorker,
         isFullAdmin,
         messages: req.flash(),
@@ -460,6 +473,7 @@ const adminController = {
         applications: [],
         contacts: [],
         latestAnnouncement: null,
+        adminAnnouncements: [],
         isInternalWorker: req.session.accountType === 'Internal Worker',
         isFullAdmin: req.session.accountType === 'Admin',
         messages: req.flash(),
@@ -3113,6 +3127,7 @@ const adminController = {
   getAdminAnnouncements: async (req, res) => {
     try {
       await ensureAdminEmailCampaignSchema(db);
+      await ensureAdminAnnouncementSchema(db);
       const [announcementResult, campaigns] = await Promise.all([
         db.query(`SELECT * FROM admin_announcements ORDER BY created_at DESC`),
         fetchAdminEmailCampaigns(),
@@ -3132,15 +3147,20 @@ const adminController = {
 
   createAdminAnnouncement: async (req, res) => {
     const { title, description } = req.body;
+    const showForAdmins = req.body.show_for_admins === 'on'
+      || req.body.show_for_admins === 'true'
+      || req.body.show_for_admins === '1';
     if (!title || !description) {
       req.flash("error", "Both title and description are required.");
       return res.redirect("/admin/announcements");
     }
 
     try {
+      await ensureAdminAnnouncementSchema(db);
       await db.query(
-        `INSERT INTO admin_announcements (title, description, is_active) VALUES ($1, $2, TRUE)`,
-        [title, description]
+        `INSERT INTO admin_announcements (title, description, is_active, show_for_admins)
+         VALUES ($1, $2, TRUE, $3)`,
+        [title, description, showForAdmins]
       );
       req.flash("success", "Announcement created.");
     } catch (error) {
@@ -3148,6 +3168,30 @@ const adminController = {
     }
 
     res.redirect("/admin/announcements");
+  },
+
+  // Mark an admin-targeted announcement as seen for the current admin-side user.
+  // Idempotent — repeated calls don't create duplicate rows.
+  markAdminAnnouncementSeen: async (req, res) => {
+    const userId = req.session && req.session.userId;
+    const announcementId = parseInt(req.params.id, 10);
+    if (!userId || !Number.isFinite(announcementId)) {
+      return res.status(400).json({ success: false, message: "Invalid request." });
+    }
+    try {
+      await ensureAdminAnnouncementSchema(db);
+      await db.query(
+        `INSERT INTO announcement_views (user_id, announcement_id, last_viewed)
+         VALUES ($1, $2, CURRENT_TIMESTAMP)
+         ON CONFLICT (user_id, announcement_id)
+         DO UPDATE SET last_viewed = CURRENT_TIMESTAMP`,
+        [userId, announcementId]
+      );
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('[markAdminAnnouncementSeen] error:', error && error.message);
+      return res.status(500).json({ success: false, message: "Could not mark announcement as seen." });
+    }
   },
 
   toggleAdminAnnouncement: async (req, res) => {

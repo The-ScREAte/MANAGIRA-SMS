@@ -1,4 +1,6 @@
-const managiraFAQ = require('../utils/managiraFAQ');
+// Chatbot knowledge base. Kept separate from utils/managiraFAQ.js (which
+// powers the public FAQ page) so chatbot content can evolve independently.
+const managiraFAQ = require('../utils/managiraChatbotKnowledge');
 
 // Synonym map for smarter matching
 const SYNONYMS = {

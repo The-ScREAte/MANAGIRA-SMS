@@ -62,6 +62,18 @@ const checkFeatureAccess = async (req, res, next) => {
   const routePath = req.originalUrl.split('?')[0];
   const isPublicDashboard = routePath === '/common/publicDashboard';
 
+  // Admin-side roles (Admin, Mini Admin, Internal Worker) are platform users
+  // with no organizationId. They should never be evaluated by org feature
+  // gates, and must NEVER have their session destroyed by this middleware
+  // just because they happen to land on a /common/* route (e.g. via SPA
+  // preloads). Short-circuit them through.
+  const _adminAccount = String(req.session?.accountType || '').trim().toLowerCase();
+  const _adminRole = String(req.session?.userRole || '').trim().toLowerCase();
+  const _adminSet = new Set(['admin', 'mini admin', 'internal worker']);
+  if (_adminSet.has(_adminAccount) || _adminSet.has(_adminRole)) {
+    return next();
+  }
+
   const normalizedRouteCandidates = (() => {
     const prefixes = ['/common', '/print', '/account', '/transcript', '/stats', '/documents'];
     const candidates = new Set([routePath]);
