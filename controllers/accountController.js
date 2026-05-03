@@ -7861,7 +7861,7 @@ const accountController = {
 
       sendEmailInBackground({
         to: admin_email,
-        subject: `Welcome to ${invitation.hub_name} Hub - Managira SMS`,
+        subject: `Your ${invitation.hub_name} Hub account is ready`,
         html: welcomeEmailHtml,
       }, 'HubWelcomeEmail');
 
@@ -8180,7 +8180,7 @@ const accountController = {
 
       sendEmailInBackground({
         to: organization.email,
-        subject: `Welcome to ${invitation.hub_name} Hub`,
+        subject: `Your ${invitation.hub_name} Hub access is ready`,
         html: orgEmailHtml,
         attachments: [{
           filename: 'managira.png',

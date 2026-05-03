@@ -3,6 +3,20 @@ const dns = require("dns");
 const path = require("path");
 require("dotenv").config();
 
+// Lazy db reference so this module can still be required even if config/db
+// hasn't initialized (e.g. CLI scripts).
+let _db = null;
+function _getDb() {
+  if (_db) return _db;
+  try { _db = require("../config/db"); } catch (_) { _db = null; }
+  return _db;
+}
+const {
+  isEmailSuppressed,
+  suppressEmail,
+  isHardAddressFailure,
+} = require("./emailSuppression");
+
 const MANAGIRA_LOGO_PATH = path.join(__dirname, "../public/images/managira.png");
 
 // Public HTTPS URL for the logo — used as the PRIMARY <img src> so mail clients
@@ -277,7 +291,22 @@ async function sendEmailSafely(mailOptions, context = "Email") {
     const recipient = String(mailOptions.to || "").trim().toLowerCase();
     if (!recipient || !/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/.test(recipient)) {
       console.warn(`[Email][${context}] Invalid recipient address "${mailOptions.to}" — skipping.`);
+      // Permanently suppress malformed addresses so callers stop retrying.
+      const db = _getDb();
+      if (db) suppressEmail(db, recipient || mailOptions.to, "invalid_format", "Malformed address").catch(() => {});
       return false;
+    }
+
+    // Skip recipients that have previously failed permanently.
+    const db = _getDb();
+    if (db) {
+      try {
+        const blocked = await isEmailSuppressed(db, recipient);
+        if (blocked) {
+          console.warn(`[Email][${context}] Recipient "${recipient}" is on the suppression list — skipping.`);
+          return false;
+        }
+      } catch (_) { /* fall through and try to send */ }
     }
 
     const skipMxCheck = Boolean(mailOptions.skipMxCheck);
@@ -287,6 +316,7 @@ async function sendEmailSafely(mailOptions, context = "Email") {
       const domainOk = await hasMxRecords(recipient);
       if (!domainOk) {
         console.warn(`[Email][${context}] Domain has no MX records for "${recipient}" — skipping.`);
+        if (db) suppressEmail(db, recipient, "no_mx_records", "Domain has no MX records").catch(() => {});
         return false;
       }
     }
@@ -351,6 +381,19 @@ async function sendEmailSafely(mailOptions, context = "Email") {
       const smtp = resolveSmtpConfig();
       console.error(`[Email][${context}] SMTP connection failed — SMTP_HOST=${smtp.host} SMTP_PORT=${smtp.port}`);
     }
+    // If this looks like a permanent recipient problem, add to the suppression
+    // list so we never burn another SMTP attempt on it.
+    if (isHardAddressFailure(error)) {
+      const db = _getDb();
+      if (db) {
+        suppressEmail(
+          db,
+          String(mailOptions.to || "").trim().toLowerCase(),
+          "smtp_hard_bounce",
+          error.response || error.message
+        ).catch(() => {});
+      }
+    }
     return false;
   }
 }
@@ -372,4 +415,12 @@ module.exports = {
   sendEmailInBackground,
   renderCleanEmail,
   escapeHtml,
+  isEmailSuppressed: (email) => {
+    const db = _getDb();
+    return db ? isEmailSuppressed(db, email) : Promise.resolve(false);
+  },
+  suppressEmail: (email, reason, lastError) => {
+    const db = _getDb();
+    return db ? suppressEmail(db, email, reason, lastError) : Promise.resolve();
+  },
 };

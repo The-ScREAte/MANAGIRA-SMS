@@ -437,8 +437,8 @@ class ManagiraChatbot {
     const welcomeDiv = document.createElement('div');
     welcomeDiv.className = 'welcome-message';
     welcomeDiv.innerHTML = `
-      <h4>👋 Welcome to Managira!</h4>
-      <p>I'm here to help answer your questions about our school management platform. Ask me anything about student enrollment, billing, reports, or other Managira features.</p>
+      <h4>👋 Hi! I’m the Managira assistant.</h4>
+      <p>Ask me anything about the platform, or pick a question below to get started.</p>
     `;
     
     this.messagesContainer.appendChild(welcomeDiv);

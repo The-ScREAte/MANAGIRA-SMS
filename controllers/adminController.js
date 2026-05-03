@@ -2830,6 +2830,7 @@ const adminController = {
       }
 
       const calendlyUrl = "https://calendly.com/managirasms/30min";
+      const linkedinUrl = process.env.MANAGIRA_LINKEDIN_URL || 'https://www.linkedin.com/company/managira';
       const html = renderCleanEmail({
         title: "Employment Application Approved",
         greeting: `Dear <strong>${he.encode(application.first_name)} ${he.encode(application.last_name)}</strong>,`,
@@ -2839,6 +2840,7 @@ const adminController = {
           `As a next step, please schedule an interview at a time that works for you using the link below:`,
           `<a href="${calendlyUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;word-break:break-all;">${calendlyUrl}</a>`,
           "If you have any questions in the meantime, please feel free to reply to this email.",
+          `For ongoing updates about Managira and our team, you are welcome to follow us on LinkedIn at <a href="${linkedinUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;">linkedin.com/company/managira</a>.`,
         ],
         details: [
           { label: "Position", value: he.encode(application.job_title) },
@@ -2911,10 +2913,11 @@ const adminController = {
         title: "Employment Application Update",
         greeting: `Dear <strong>${he.encode(application.first_name)} ${he.encode(application.last_name)}</strong>,`,
         paragraphs: [
-          `Thank you for your interest in the ${application.job_title} position at Managira.`,
-          "After careful consideration, we regret to inform you that we will not be progressing with your application at this stage.",
-          "We sincerely appreciate the time and effort you invested in your application. We encourage you to apply for future opportunities with Managira that align with your experience and skills.",
-          `Follow Managira on LinkedIn — <a href="${linkedinUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;font-weight:600;">linkedin.com/company/managira</a>. We often post more opportunities that you may be interested in.`,
+          `Thank you for your interest in the ${he.encode(application.job_title)} position at Managira and for the time you took to apply.`,
+          "We received a high volume of applications for this role, and after careful consideration we are sorry to share that we will not be moving forward with your application at this stage. This decision is in no way a reflection of your abilities, and we genuinely appreciate the effort you put into your submission.",
+          "Please be assured that Managira is continuously hiring as we grow. New openings are posted on our LinkedIn page as soon as they become available, and we would be glad to consider you for future roles that match your experience.",
+          `You can follow Managira on LinkedIn here: <a href="${linkedinUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;">linkedin.com/company/managira</a>.`,
+          "We wish you the very best in your job search and thank you again for considering Managira.",
         ],
         details,
         noReply: true,
@@ -3666,7 +3669,7 @@ async function sendAdminInviteEmail(email, firstName, lastName, link) {
   const mailOptions = {
     from: process.env.NOTIFY_EMAIL_USER,
     to: email,
-    subject: "You are invited to Managira - Set Your Password",
+    subject: "Action required: set your Managira account password",
     html,
     attachments: [
       {
@@ -3848,7 +3851,7 @@ adminController.hubCreatePost = async (req, res) => {
 
     sendEmailInBackground({
       to: hubEmail,
-      subject: 'Welcome to Managira Hub - Set Up Your Password',
+      subject: 'Action required: set your Managira Hub password',
       html: emailHtml,
     }, 'Hub Setup Email');
 

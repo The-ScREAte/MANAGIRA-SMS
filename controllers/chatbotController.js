@@ -328,7 +328,7 @@ class ChatbotController {
   static getPopularQuestions(req, res) {
     try {
       const popularQuestions = managiraFAQ
-        .filter(faq => [1, 3, 7, 72, 76, 80, 82, 84].includes(faq.id))
+        .filter(faq => [1, 3, 5, 10].includes(faq.id))
         .map(faq => ({
           id: faq.id,
           question: faq.question,

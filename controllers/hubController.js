@@ -1291,7 +1291,7 @@ const hubController = {
 
       const emailSent = await sendEmail({
         to: contact_person_email,
-        subject: `Invitation to Join ${hub.hub_name} Hub on Managira SMS`,
+        subject: `Action required: respond to your ${hub.hub_name} Hub invitation`,
         html: emailHtml
       });
 
@@ -1365,7 +1365,7 @@ const hubController = {
 
       await sendEmail({
         to: invitation.contact_person_email,
-        subject: `Reminder: Invitation to Join ${hub.hub_name} Hub on Managira SMS`,
+        subject: `Reminder: respond to your ${hub.hub_name} Hub invitation`,
         html: emailHtml
       });
 
@@ -1962,7 +1962,7 @@ const hubController = {
 
       await sendEmail({
         to: org.email,
-        subject: `Invitation to join ${hub.hub_name} Hub - Managira SMS`,
+        subject: `Action required: respond to your ${hub.hub_name} Hub invitation`,
         html: emailHtml
       });
 

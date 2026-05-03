@@ -427,7 +427,7 @@ async function runRecurringBilling() {
               await sendEmailSafely(
                 {
                   to: org.email,
-                  subject: 'Managira: Congratulations on Your School Growth!',
+                  subject: `Action needed: student count update for ${org.organization_name || 'your school'}`,
                   html: congratsHtml,
                 },
                 'StudentTierExceeded'

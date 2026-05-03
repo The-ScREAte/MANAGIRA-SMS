@@ -56,27 +56,27 @@
 
     .login-card {
       background: var(--bg-card);
-      border-radius: 16px;
+      border-radius: 14px;
       box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
-      padding: 32px 28px;
+      padding: 28px 26px;
       border: 1px solid var(--border);
     }
 
     .login-header {
       text-align: center;
-      margin-bottom: 28px;
+      margin-bottom: 20px;
     }
 
     .login-header h1 {
-      font-size: 1.75rem;
+      font-size: 1.5rem;
       font-weight: 700;
       color: var(--text-primary);
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
 
     .login-header p {
       color: var(--text-secondary);
-      font-size: 0.95rem;
+      font-size: 0.9rem;
     }
 
     .form-group {
@@ -140,8 +140,8 @@
 
     .login-links {
       text-align: center;
-      margin-top: 20px;
-      padding-top: 20px;
+      margin-top: 16px;
+      padding-top: 16px;
       border-top: 1px solid var(--border);
     }
 
@@ -219,8 +219,8 @@
     <div class="login-container">
       <div class="login-card">
         <div class="login-header">
-          <h1>Hub Login</h1>
-          <p>Access your Managira Hub Dashboard</p>
+          <h1>Hub sign in</h1>
+          <p>Access your Managira hub dashboard.</p>
         </div>
 
         <%- include('../partials/flash') %>
@@ -255,12 +255,8 @@
         </form>
 
         <div class="login-links">
-          <p>
-            Need to register a Hub account? <a href="/legal/help">Contact us via Seek Help</a>
-          </p>
-          <p>
-            <a href="/account/login">← Back to Organization Login</a>
-          </p>
+          <p>Need a hub account? <a href="/legal/help">Contact support</a></p>
+          <p><a href="/account/login">← Back to organization login</a></p>
         </div>
       </div>
     </div>

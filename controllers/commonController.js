@@ -11828,7 +11828,7 @@ const sendGuardianWelcomeEmail = async (guardianEmail, guardianFirstName, guardi
     const mailOptions = {
       from: process.env.ADMIN_NOTIFY_EMAIL_USER,
       to: guardianEmail,
-      subject: `Welcome to ${organizationName} Parent Portal - Set Your Password`,
+      subject: `Action required: set your ${organizationName} parent portal password`,
       html,
       attachments: [
         {
