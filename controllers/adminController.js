@@ -3074,7 +3074,187 @@ const adminController = {
     return res.redirect("/admin/employment");
   },
 
-  getDonationsAdmin: async (req, res) => {
+  // ===== Multi-stage interview workflow =====
+  sendSecondInterviewInvite: async (req, res) => {
+    await ensureEmploymentSchema(db);
+    const applicationId = Number.parseInt(req.params.id, 10);
+    const customMessage = (req.body.custom_message || "").trim();
+    const useTemplate = req.body.use_template === "true" || req.body.use_template === "on" || req.body.use_template === true;
+
+    if (!Number.isInteger(applicationId)) {
+      req.flash("error", "Invalid application selected.");
+      return res.redirect("/admin/employment");
+    }
+
+    try {
+      const r = await db.query(
+        `SELECT ea.id, ea.first_name, ea.last_name, ea.email, ea.status, ea.interview_stage, e.title AS job_title
+         FROM employment_applications ea JOIN employment e ON e.id = ea.employment_id WHERE ea.id = $1`,
+        [applicationId]
+      );
+      if (!r.rows.length) { req.flash("error", "Application not found."); return res.redirect("/admin/employment"); }
+      const app = r.rows[0];
+      if (app.status !== 'approved' || app.interview_stage !== 'first') {
+        req.flash("error", "Applicant must have completed the first interview stage.");
+        return res.redirect("/admin/employment");
+      }
+
+      const calendlyUrl = "https://calendly.com/managirasms/30min";
+      const proposalEmail = "managirasms@gmail.com";
+      const templateMessage = `Congratulations on moving forward to the second interview! As preparation, please prepare a short written proposal describing how you would help improve and grow Managira in your local area over the next 6 months. Outline the strategy, the activities you would lead, and the measurable results you expect to achieve. Email your proposal to <a href="mailto:${proposalEmail}" style="color:#0f766e;">${proposalEmail}</a> before your second interview. When booking, please add a note in the Calendly comment section that this is your second interview.`;
+
+      const messageHtml = useTemplate
+        ? templateMessage
+        : (customMessage ? he.encode(customMessage).replace(/\n/g, '<br>') : templateMessage);
+
+      const html = renderCleanEmail({
+        title: "Invitation to Your Second Interview",
+        greeting: `Dear <strong>${he.encode(app.first_name)} ${he.encode(app.last_name)}</strong>,`,
+        paragraphs: [
+          `Congratulations! We are pleased to invite you to the second interview stage for the ${he.encode(app.job_title)} position at Managira.`,
+          messageHtml,
+          `Please schedule your second interview using the link below and remember to mention <strong>"Second Interview"</strong> in the Calendly comment section:`,
+          `<a href="${calendlyUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;word-break:break-all;">${calendlyUrl}</a>`,
+        ],
+        details: [
+          { label: "Position", value: he.encode(app.job_title) },
+          { label: "Stage", value: "Second Interview" },
+        ],
+        cta: { url: calendlyUrl, text: "Book Second Interview" },
+        noReply: false,
+      });
+
+      sendEmailInBackground(
+        { to: app.email, subject: `Second interview invitation — ${app.job_title}`, html },
+        "Second Interview Invite Email"
+      );
+
+      await db.query(
+        `UPDATE employment_applications SET interview_stage = 'second', second_interview_message = $2, stage_updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+        [applicationId, useTemplate ? templateMessage : (customMessage || templateMessage)]
+      );
+
+      req.flash("success", "Second interview invitation sent.");
+    } catch (e) {
+      req.flash("error", "Failed to send second interview invitation.");
+    }
+    return res.redirect("/admin/employment");
+  },
+
+  sendFinalInterviewInvite: async (req, res) => {
+    await ensureEmploymentSchema(db);
+    const applicationId = Number.parseInt(req.params.id, 10);
+    const customMessage = (req.body.custom_message || "").trim();
+
+    if (!Number.isInteger(applicationId)) {
+      req.flash("error", "Invalid application selected."); return res.redirect("/admin/employment");
+    }
+    try {
+      const r = await db.query(
+        `SELECT ea.id, ea.first_name, ea.last_name, ea.email, ea.status, ea.interview_stage, e.title AS job_title
+         FROM employment_applications ea JOIN employment e ON e.id = ea.employment_id WHERE ea.id = $1`,
+        [applicationId]
+      );
+      if (!r.rows.length) { req.flash("error", "Application not found."); return res.redirect("/admin/employment"); }
+      const app = r.rows[0];
+      if (app.status !== 'approved' || app.interview_stage !== 'second') {
+        req.flash("error", "Applicant must have completed the second interview stage.");
+        return res.redirect("/admin/employment");
+      }
+
+      const calendlyUrl = "https://calendly.com/managirasms/30min";
+      const defaultMsg = `This is the final stage — a conversation with the wider Managira team. Please come prepared to discuss your proposal and how you envision working with us long term.`;
+      const messageHtml = customMessage ? he.encode(customMessage).replace(/\n/g, '<br>') : defaultMsg;
+
+      const html = renderCleanEmail({
+        title: "Final Interview with the Managira Team",
+        greeting: `Dear <strong>${he.encode(app.first_name)} ${he.encode(app.last_name)}</strong>,`,
+        paragraphs: [
+          `Congratulations on reaching the final stage of our hiring process for the ${he.encode(app.job_title)} position!`,
+          messageHtml,
+          `Please book your final interview using the link below and add <strong>"Final Interview"</strong> in the Calendly comment section:`,
+          `<a href="${calendlyUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;word-break:break-all;">${calendlyUrl}</a>`,
+        ],
+        details: [
+          { label: "Position", value: he.encode(app.job_title) },
+          { label: "Stage", value: "Final Interview with Team" },
+        ],
+        cta: { url: calendlyUrl, text: "Book Final Interview" },
+        noReply: false,
+      });
+
+      sendEmailInBackground(
+        { to: app.email, subject: `Final interview invitation — ${app.job_title}`, html },
+        "Final Interview Invite Email"
+      );
+
+      await db.query(
+        `UPDATE employment_applications SET interview_stage = 'final', final_interview_message = $2, stage_updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+        [applicationId, customMessage || defaultMsg]
+      );
+
+      req.flash("success", "Final interview invitation sent.");
+    } catch (e) {
+      req.flash("error", "Failed to send final interview invitation.");
+    }
+    return res.redirect("/admin/employment");
+  },
+
+  rejectAtInterviewStage: async (req, res) => {
+    await ensureEmploymentSchema(db);
+    const applicationId = Number.parseInt(req.params.id, 10);
+    const rejectionReason = (req.body.rejection_reason || "").trim();
+    if (!Number.isInteger(applicationId)) { req.flash("error","Invalid application selected."); return res.redirect("/admin/employment"); }
+
+    try {
+      const r = await db.query(
+        `SELECT ea.id, ea.first_name, ea.last_name, ea.email, ea.status, ea.interview_stage, e.title AS job_title
+         FROM employment_applications ea JOIN employment e ON e.id = ea.employment_id WHERE ea.id = $1`,
+        [applicationId]
+      );
+      if (!r.rows.length) { req.flash("error","Application not found."); return res.redirect("/admin/employment"); }
+      const app = r.rows[0];
+      const stageLabel = app.interview_stage === 'second' ? 'second interview' : (app.interview_stage === 'final' ? 'final interview' : 'interview');
+
+      const linkedinUrl = process.env.MANAGIRA_LINKEDIN_URL || 'https://www.linkedin.com/company/managira';
+      const details = [
+        { label: "Position", value: app.job_title },
+        { label: "Application Status", value: `Not Moving Forward After ${stageLabel.charAt(0).toUpperCase() + stageLabel.slice(1)}` },
+      ];
+      if (rejectionReason) details.push({ label: "Reason", value: rejectionReason });
+
+      const html = renderCleanEmail({
+        title: "Update on Your Application",
+        greeting: `Dear <strong>${he.encode(app.first_name)} ${he.encode(app.last_name)}</strong>,`,
+        paragraphs: [
+          `Thank you for taking the time to interview with us for the ${he.encode(app.job_title)} position at Managira and for engaging with us through the ${stageLabel} stage.`,
+          "We truly appreciated learning more about you. After careful consideration, we regret to inform you that we will not be moving forward with your application at this time. This decision was difficult given the strength of the candidates we have spoken with.",
+          "We would love to keep in touch — Managira continues to grow, and new openings are posted regularly on our LinkedIn page.",
+          `Follow Managira on LinkedIn here: <a href="${linkedinUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;">linkedin.com/company/managira</a>.`,
+          "We wish you every success in the next steps of your career.",
+        ],
+        details,
+        noReply: true,
+      });
+
+      sendEmailInBackground(
+        { to: app.email, subject: `Update on your ${app.job_title} application`, html },
+        "Employment Stage Rejection Email"
+      );
+
+      await db.query(
+        `UPDATE employment_applications SET status='rejected', rejection_reason=$2, reviewed_at=CURRENT_TIMESTAMP, stage_updated_at=CURRENT_TIMESTAMP WHERE id=$1`,
+        [applicationId, rejectionReason || null]
+      );
+
+      req.flash("success", "Applicant notified of decision.");
+    } catch (e) {
+      req.flash("error", "Failed to send rejection.");
+    }
+    return res.redirect("/admin/employment");
+  },
+
+
     const donations = await db.query(
       `SELECT * FROM donations ORDER BY created_at DESC`
     );
