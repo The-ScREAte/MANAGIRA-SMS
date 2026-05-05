@@ -2818,8 +2818,10 @@ const adminController = {
       const updateResult = await db.query(
         `UPDATE employment_applications
          SET status = 'approved',
+             interview_stage = 'first',
              rejection_reason = NULL,
-             reviewed_at = CURRENT_TIMESTAMP
+             reviewed_at = CURRENT_TIMESTAMP,
+             stage_updated_at = CURRENT_TIMESTAMP
          WHERE id = $1
          RETURNING id`,
         [applicationId]
