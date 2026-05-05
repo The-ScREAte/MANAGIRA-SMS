@@ -2424,6 +2424,7 @@ const adminController = {
           ea.phone,
           ea.location,
           ea.status,
+          ea.interview_stage,
           ea.created_at,
           ea.contact_via_email,
           ea.contact_via_text,
