@@ -1455,7 +1455,16 @@
     .app-demo-gallery-chevron { width: 32px; height: 32px; font-size: 19px; }
     .app-demo-gallery-chevron--prev { left: 6px; }
     .app-demo-gallery-chevron--next { right: 6px; }
-    .app-demo-gallery-caption { right: 8px; bottom: 12px; max-width: 60%; padding: 6px 10px; }
+    /* Move caption to top so it doesn't cover the image content */
+    .app-demo-gallery-caption {
+      top: 8px;
+      bottom: auto;
+      left: 8px;
+      right: 8px;
+      max-width: none;
+      padding: 6px 10px;
+      background: rgba(15, 23, 42, 0.72);
+    }
     .app-demo-gallery-caption strong { font-size: 11px; }
     .app-demo-gallery-caption span { font-size: 10px; }
     .app-demo-gallery-dots { left: 10px; bottom: 14px; }
