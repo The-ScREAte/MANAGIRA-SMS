@@ -95,6 +95,41 @@
       image: '/Demo%20Images/Transcript.pdf',
       mediaType: 'pdf',
       accent: '#334155'
+    },
+    {
+      title: 'Report Digest',
+      tagline: 'Automated email reports',
+      description: 'Schools, hubs, parents, and teachers receive scheduled summary emails that surface attendance, performance, and operational highlights without anyone running a report manually. Swipe through the four digests to see what each audience receives.',
+      image: '/Demo%20Images/weekly%20school%20Performance.png',
+      mediaType: 'gallery',
+      accent: '#0ea5e9',
+      images: [
+        {
+          src: '/Demo%20Images/weekly%20school%20Performance.png',
+          label: 'Weekly school performance',
+          caption: 'Sent every Monday to school leadership with attendance, term averages, and at-risk classes.'
+        },
+        {
+          src: '/Demo%20Images/weekly%20teachers%20Summary.png',
+          label: 'Weekly teacher summary',
+          caption: 'Each teacher gets their own sections, follow-up list, and grading backlog in one email.'
+        },
+        {
+          src: '/Demo%20Images/Weekly%20Parent%20Update.png',
+          label: 'Weekly parent update',
+          caption: 'Parents see every child\u2019s class, term average, attendance, and what is coming up next week.'
+        },
+        {
+          src: '/Demo%20Images/Monthly%20school%20Overview.png',
+          label: 'Monthly school overview',
+          caption: 'Sent on the 1st of the month with enrollment, attendance, billing, and department-level breakdowns.'
+        },
+        {
+          src: '/Demo%20Images/weekly%20Hub%20Overview.png',
+          label: 'Weekly hub overview',
+          caption: 'Hub directors see every member school side-by-side with totals and status flags.'
+        }
+      ]
     }
   ];
   const featuredDemo = demoPages[0];
@@ -175,6 +210,9 @@
                 </div>
               <% } else { %>
                 <img src="<%= page.image %>" alt="<%= page.title %> preview" loading="lazy" decoding="async" />
+                <% if (page.mediaType === 'gallery' && Array.isArray(page.images)) { %>
+                  <span class="app-demo-card__count-badge"><%= page.images.length %> screens · swipe</span>
+                <% } %>
               <% } %>
             </div>
             <div class="app-demo-card__body">
@@ -233,12 +271,21 @@
       <div class="app-demo-modal__canvas" id="app-demo-canvas">
         <img id="app-demo-modal-image" src="" alt="" />
         <div id="app-demo-modal-document" class="app-demo-modal__document" hidden>
-          <iframe id="app-demo-modal-pdf" title="Demo document preview" loading="lazy"></iframe>
+          <div id="app-demo-pdf-pages" class="app-demo-pdf-pages"></div>
           <p class="app-demo-modal__document-note">
-            If the PDF preview does not load in your browser,
+            Trouble loading?
             <a id="app-demo-modal-pdf-link" href="#" target="_blank" rel="noopener">open the file directly</a>.
           </p>
         </div>
+      </div>
+      <div class="app-demo-gallery-overlay" id="app-demo-gallery-overlay" hidden>
+        <button type="button" class="app-demo-gallery-chevron app-demo-gallery-chevron--prev" data-demo-gallery="prev" aria-label="Previous report">&#8249;</button>
+        <button type="button" class="app-demo-gallery-chevron app-demo-gallery-chevron--next" data-demo-gallery="next" aria-label="Next report">&#8250;</button>
+        <div class="app-demo-gallery-caption">
+          <strong id="app-demo-gallery-label"></strong>
+          <span id="app-demo-gallery-text"></span>
+        </div>
+        <div class="app-demo-gallery-dots" id="app-demo-gallery-dots" role="tablist" aria-label="Report screens"></div>
       </div>
     </div>
 
@@ -557,8 +604,7 @@
   .app-demo-primary:hover,
   .app-demo-secondary:hover,
   .app-demo-nav-btn:hover,
-  .app-demo-icon-btn:hover,
-  .app-demo-card:hover {
+  .app-demo-icon-btn:hover {
     transform: translateY(-2px);
   }
   .app-demo-card__file-preview {
@@ -568,11 +614,10 @@
     gap: 10px;
     min-height: 100%;
     padding: 26px 22px;
-    background:
-      radial-gradient(circle at top, rgba(15, 118, 110, 0.18), transparent 40%),
-      linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+    aspect-ratio: 16 / 10;
+    background: linear-gradient(180deg, #f8fafc 0%, #eef2f6 100%);
     border: 1px solid rgba(15, 23, 42, 0.06);
-    border-radius: 14px;
+    border-radius: 10px;
   }
 
   .app-demo-file-badge {
@@ -668,78 +713,116 @@
   .app-demo-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 16px;
+    gap: 20px;
   }
 
   .app-demo-card {
     position: relative;
     overflow: hidden;
     padding: 0;
-    border-radius: 22px;
-    border: 1px solid rgba(148, 163, 184, 0.22);
-    background: rgba(255, 255, 255, 0.82);
+    border-radius: 16px;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    background: #ffffff;
     cursor: pointer;
     text-align: left;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 14px rgba(15, 23, 42, 0.04);
+    transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+                box-shadow 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+                border-color 240ms ease;
+  }
+
+  .app-demo-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--card-accent, #0f766e);
+    opacity: 0;
+    transition: opacity 240ms ease;
+    z-index: 2;
+  }
+
+  .app-demo-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(15, 23, 42, 0.12);
+    box-shadow: 0 2px 4px rgba(15, 23, 42, 0.05),
+                0 18px 40px rgba(15, 23, 42, 0.10);
+  }
+
+  .app-demo-card:hover::before {
+    opacity: 1;
+  }
+
+  .app-demo-card:focus-visible {
+    outline: 2px solid var(--card-accent, #0f766e);
+    outline-offset: 2px;
   }
 
   .app-demo-card__glow {
-    position: absolute;
-    inset: -40% auto auto -10%;
-    width: 180px;
-    height: 180px;
-    border-radius: 999px;
-    background: radial-gradient(circle, color-mix(in srgb, var(--card-accent) 28%, white 72%), transparent 68%);
-    opacity: 0.8;
-    pointer-events: none;
+    display: none;
   }
 
   .app-demo-card__media {
     position: relative;
-    padding: 10px 10px 0;
+    padding: 12px 12px 0;
+    overflow: hidden;
   }
 
   .app-demo-card__media img {
     display: block;
     width: 100%;
-    aspect-ratio: 16 / 9;
+    aspect-ratio: 16 / 10;
     object-fit: cover;
-    object-position: top;
-    border-radius: 14px;
-    background: #e2e8f0;
+    object-position: top center;
+    border-radius: 10px;
+    background: #f1f5f9;
     border: 1px solid rgba(15, 23, 42, 0.06);
+    transition: transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
   }
 
-  .app-demo-card__media {
-    min-height: 152px;
+  .app-demo-card:hover .app-demo-card__media img {
+    transform: scale(1.025);
   }
 
   .app-demo-card__body {
     position: relative;
-    padding: 13px 13px 15px;
+    padding: 14px 16px 18px;
   }
 
   .app-demo-card__meta {
     display: flex;
     justify-content: space-between;
     gap: 10px;
-    margin-bottom: 8px;
-    font-size: 12px;
+    margin-bottom: 6px;
+    font-size: 10.5px;
     text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: #0f766e;
+    letter-spacing: 0.14em;
+    font-weight: 700;
+    color: var(--card-accent, #0f766e);
+  }
+
+  .app-demo-card__meta span:first-child {
+    color: #94a3b8;
+    letter-spacing: 0.08em;
   }
 
   .app-demo-card h3 {
-    margin: 0 0 5px;
-    font-size: 1.05rem;
-    letter-spacing: -0.03em;
+    margin: 0 0 6px;
+    font-size: 1rem;
+    line-height: 1.3;
+    letter-spacing: -0.02em;
+    color: #0f172a;
+    font-weight: 700;
   }
 
   .app-demo-card p,
   .app-demo-modal__description {
     margin: 0;
-    line-height: 1.58;
-    font-size: 0.88rem;
+    line-height: 1.55;
+    font-size: 0.84rem;
+    color: #64748b;
   }
 
   .app-demo-modal {
@@ -783,6 +866,7 @@
     justify-content: space-between;
     gap: 12px;
     padding: 8px 18px;
+    flex-shrink: 0;
   }
 
   .app-demo-modal__header { padding: 10px 22px 12px; }
@@ -817,6 +901,7 @@
   .app-demo-modal__toolbar {
     display: flex;
     flex-wrap: wrap;
+    flex-shrink: 0;
     justify-content: space-between;
     align-items: center;
     gap: 8px;
@@ -830,19 +915,27 @@
   .app-demo-nav-controls {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px;
+    gap: 4px;
+    padding: 3px;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.86);
     border: 1px solid rgba(148, 163, 184, 0.22);
     flex: 0 0 auto;
+    font-size: 12px;
+  }
+
+  .app-demo-nav-btn {
+    min-height: 28px;
+    padding: 0 10px;
+    font-size: 12px;
   }
 
   .app-demo-icon-btn {
     display: inline-grid;
     place-items: center;
-    width: 36px;
-    height: 36px;
+    width: 28px;
+    height: 28px;
+    font-size: 13px;
     border: 1px solid rgba(148, 163, 184, 0.28);
     border-radius: 999px;
     background: #ffffff;
@@ -855,13 +948,25 @@
     position: relative;
     isolation: isolate;
     flex: 1 1 auto;
-    overflow: auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
     background:
       radial-gradient(circle at 12% 18%, rgba(34, 211, 238, 0.12), transparent 22%),
       radial-gradient(circle at 84% 22%, rgba(59, 130, 246, 0.12), transparent 24%),
       linear-gradient(180deg, #edf4fb 0%, #dfe7ef 100%);
     padding: 10px 6px 14px;
+    scrollbar-width: thin;
   }
+
+  .app-demo-modal__panel--zoomed .app-demo-modal__viewer {
+    overflow-x: auto;
+  }
+
+  .app-demo-modal__viewer::-webkit-scrollbar { width: 8px; height: 8px; }
+  .app-demo-modal__viewer::-webkit-scrollbar-thumb { background: rgba(15,23,42,0.25); border-radius: 999px; }
+  .app-demo-modal__viewer::-webkit-scrollbar-thumb:hover { background: rgba(15,23,42,0.4); }
+  .app-demo-modal__viewer::-webkit-scrollbar-track { background: transparent; }
 
   .app-demo-modal__panel--viewer-expanded .app-demo-modal__header {
     display: none;
@@ -924,6 +1029,30 @@
   .app-demo-modal__document {
     width: calc(var(--app-demo-base-width, 1024px) * var(--app-demo-zoom, 1));
     margin: 0 auto;
+  }
+
+  .app-demo-pdf-pages {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .app-demo-pdf-pages canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-width: 100%;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 18px 48px rgba(15, 23, 42, 0.16);
+  }
+
+  .app-demo-pdf-loading {
+    margin: 24px 0;
+    text-align: center;
+    color: #475569;
+    font-size: 13px;
   }
 
   .app-demo-modal__document iframe {
@@ -1182,6 +1311,155 @@
       font-size: 0.84rem;
     }
   }
+
+  .app-demo-card__media {
+    position: relative;
+  }
+
+  .app-demo-card__count-badge {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background: rgba(15, 23, 42, 0.78);
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 4px 9px;
+    border-radius: 999px;
+    backdrop-filter: blur(4px);
+  }
+
+  .app-demo-gallery-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 4;
+  }
+
+  .app-demo-gallery-overlay > * {
+    pointer-events: auto;
+  }
+
+  .app-demo-gallery-caption {
+    position: absolute;
+    right: 18px;
+    bottom: 18px;
+    max-width: min(46%, 320px);
+    background: rgba(15, 23, 42, 0.78);
+    color: #f8fafc;
+    padding: 8px 12px;
+    border-radius: 10px;
+    text-align: left;
+    backdrop-filter: blur(6px);
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.25);
+  }
+
+  .app-demo-gallery-caption strong {
+    display: block;
+    font-size: 12px;
+    color: #ffffff;
+    margin-bottom: 2px;
+    letter-spacing: 0.02em;
+  }
+
+  .app-demo-gallery-caption span {
+    display: block;
+    font-size: 11px;
+    color: rgba(248, 250, 252, 0.85);
+    line-height: 1.4;
+  }
+
+  .app-demo-gallery-dots {
+    position: absolute;
+    left: 18px;
+    bottom: 22px;
+    display: flex;
+    gap: 6px;
+  }
+
+  .app-demo-gallery-dots button {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(15, 23, 42, 0.35);
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.2s ease, transform 0.2s ease;
+  }
+
+  .app-demo-gallery-dots button[aria-selected="true"] {
+    background: #0ea5e9;
+    transform: scale(1.3);
+  }
+
+  .app-demo-gallery-chevron {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(15, 23, 42, 0.55);
+    color: #ffffff;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, transform 0.2s ease;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.25);
+  }
+
+  .app-demo-gallery-chevron:hover {
+    background: rgba(15, 23, 42, 0.85);
+    transform: translateY(-50%) scale(1.06);
+  }
+
+  .app-demo-gallery-chevron--prev { left: 14px; }
+  .app-demo-gallery-chevron--next { right: 14px; }
+
+  /* Gallery mode: image is fit-to-viewer at default zoom; scrollbars appear only when zoomed past the viewer */
+  .app-demo-modal__panel--gallery .app-demo-modal__viewer {
+    overflow: auto;
+    padding: 12px 12px 14px;
+  }
+
+  .app-demo-modal__panel--gallery .app-demo-modal__canvas {
+    width: 100% !important;
+    min-width: 100%;
+    min-height: calc(100% - 4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .app-demo-modal__panel--gallery.app-demo-modal__panel--zoomed .app-demo-modal__canvas {
+    min-width: calc(100% * var(--app-demo-zoom, 1));
+    min-height: calc((100% - 4px) * var(--app-demo-zoom, 1));
+  }
+
+  .app-demo-modal__panel--gallery .app-demo-modal__canvas img {
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    transition: max-width 180ms ease, max-height 180ms ease;
+  }
+
+  @media (max-width: 640px) {
+    .app-demo-gallery-chevron { width: 32px; height: 32px; font-size: 19px; }
+    .app-demo-gallery-chevron--prev { left: 6px; }
+    .app-demo-gallery-chevron--next { right: 6px; }
+    .app-demo-gallery-caption { right: 8px; bottom: 12px; max-width: 60%; padding: 6px 10px; }
+    .app-demo-gallery-caption strong { font-size: 11px; }
+    .app-demo-gallery-caption span { font-size: 10px; }
+    .app-demo-gallery-dots { left: 10px; bottom: 14px; }
+  }
 </style>
 
 <script>
@@ -1195,7 +1473,7 @@
     const countNode = document.getElementById('app-demo-modal-count');
     const imageNode = document.getElementById('app-demo-modal-image');
     const documentNode = document.getElementById('app-demo-modal-document');
-    const pdfNode = document.getElementById('app-demo-modal-pdf');
+    const pdfPagesNode = document.getElementById('app-demo-pdf-pages');
     const pdfLinkNode = document.getElementById('app-demo-modal-pdf-link');
     const zoomLabel = document.getElementById('app-demo-zoom-label');
     const panel = modal.querySelector('.app-demo-modal__panel');
@@ -1212,10 +1490,21 @@
     const ZOOM_STEP = 5;
     const ZOOM_DEFAULT = 75;
 
+    const galleryOverlay = document.getElementById('app-demo-gallery-overlay');
+    const galleryDots = document.getElementById('app-demo-gallery-dots');
+    const galleryLabel = document.getElementById('app-demo-gallery-label');
+    const galleryText = document.getElementById('app-demo-gallery-text');
+    const galleryButtons = document.querySelectorAll('[data-demo-gallery]');
+
     let activeIndex = 0;
+    let galleryIndex = 0;
+    let currentGallery = null;
     let zoomPercent = ZOOM_DEFAULT;
     let lastTrigger = null;
     let isExpanded = false;
+    let touchStartX = null;
+    let pdfDocument = null;
+    let pdfRenderToken = 0;
 
     function syncBaseWidth() {
       if (!viewer || !canvas) {
@@ -1247,6 +1536,105 @@
       const zoom = zoomPercent / 100;
       canvas.style.setProperty('--app-demo-zoom', String(zoom));
       zoomLabel.textContent = zoomPercent + '%';
+      if (panel) {
+        panel.classList.toggle('app-demo-modal__panel--zoomed', zoomPercent > 100);
+      }
+      if (pdfDocument) {
+        renderPdfPages();
+      }
+    }
+
+    async function ensurePdfJs() {
+      if (window.pdfjsLib) return window.pdfjsLib;
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+      if (window.pdfjsLib) {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      }
+      return window.pdfjsLib;
+    }
+
+    async function renderPdfPages() {
+      if (!pdfDocument || !pdfPagesNode) return;
+      const token = ++pdfRenderToken;
+      const containerWidth = Math.max(280, pdfPagesNode.clientWidth || 800);
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const zoomFactor = zoomPercent / 100;
+      pdfPagesNode.innerHTML = '';
+      for (let i = 1; i <= pdfDocument.numPages; i++) {
+        if (token !== pdfRenderToken) return;
+        const page = await pdfDocument.getPage(i);
+        const baseViewport = page.getViewport({ scale: 1 });
+        const fitScale = (containerWidth / baseViewport.width) * zoomFactor;
+        const viewport = page.getViewport({ scale: fitScale * dpr });
+        const cv = document.createElement('canvas');
+        cv.width = viewport.width;
+        cv.height = viewport.height;
+        cv.style.width = (viewport.width / dpr) + 'px';
+        cv.style.height = (viewport.height / dpr) + 'px';
+        pdfPagesNode.appendChild(cv);
+        const ctx = cv.getContext('2d');
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        if (token !== pdfRenderToken) return;
+      }
+    }
+
+    async function loadPdf(url) {
+      pdfDocument = null;
+      pdfRenderToken++;
+      pdfPagesNode.innerHTML = '<p class="app-demo-pdf-loading">Loading document…</p>';
+      try {
+        const pdfjsLib = await ensurePdfJs();
+        if (!pdfjsLib) throw new Error('PDF.js failed to load');
+        const task = pdfjsLib.getDocument(url);
+        pdfDocument = await task.promise;
+        await renderPdfPages();
+      } catch (err) {
+        pdfPagesNode.innerHTML = '<p class="app-demo-pdf-loading">Could not load the document. <a href="' + url + '" target="_blank" rel="noopener">Open it directly</a>.</p>';
+      }
+    }
+
+    function renderGallerySlide() {
+      if (!currentGallery) return;
+      const slide = currentGallery[galleryIndex];
+      if (!slide) return;
+      imageNode.src = slide.src;
+      imageNode.alt = slide.label || 'Demo screen ' + (galleryIndex + 1);
+      if (galleryLabel) galleryLabel.textContent = slide.label || '';
+      if (galleryText) galleryText.textContent = slide.caption || '';
+      if (galleryDots) {
+        Array.from(galleryDots.children).forEach((dot, i) => {
+          dot.setAttribute('aria-selected', i === galleryIndex ? 'true' : 'false');
+        });
+      }
+    }
+
+    function buildGalleryDots(count) {
+      if (!galleryDots) return;
+      galleryDots.innerHTML = '';
+      for (let i = 0; i < count; i++) {
+        const dot = document.createElement('button');
+        dot.type = 'button';
+        dot.setAttribute('role', 'tab');
+        dot.setAttribute('aria-label', 'Go to screen ' + (i + 1));
+        dot.addEventListener('click', () => {
+          galleryIndex = i;
+          renderGallerySlide();
+        });
+        galleryDots.appendChild(dot);
+      }
+    }
+
+    function moveGallery(step) {
+      if (!currentGallery) return;
+      galleryIndex = (galleryIndex + step + currentGallery.length) % currentGallery.length;
+      renderGallerySlide();
     }
 
     function renderModal(index) {
@@ -1261,23 +1649,43 @@
       descriptionNode.textContent = page.description;
       countNode.textContent = 'Screen ' + (index + 1) + ' of ' + pages.length;
 
+      // reset gallery state
+      currentGallery = null;
+      galleryIndex = 0;
+      if (galleryOverlay) galleryOverlay.hidden = true;
+      if (panel) panel.classList.remove('app-demo-modal__panel--gallery');
+
       if (page.mediaType === 'pdf') {
         imageNode.hidden = true;
         imageNode.src = '';
         imageNode.alt = '';
         documentNode.hidden = false;
-        pdfNode.src = page.image + '#view=FitH';
         pdfLinkNode.href = page.image;
+        loadPdf(page.image);
+      } else if (page.mediaType === 'gallery' && Array.isArray(page.images) && page.images.length) {
+        documentNode.hidden = true;
+        pdfDocument = null;
+        pdfRenderToken++;
+        if (pdfPagesNode) pdfPagesNode.innerHTML = '';
+        pdfLinkNode.href = '#';
+        imageNode.hidden = false;
+        currentGallery = page.images;
+        buildGalleryDots(currentGallery.length);
+        renderGallerySlide();
+        if (galleryOverlay) galleryOverlay.hidden = false;
+        if (panel) panel.classList.add('app-demo-modal__panel--gallery');
       } else {
         documentNode.hidden = true;
-        pdfNode.src = '';
+        pdfDocument = null;
+        pdfRenderToken++;
+        if (pdfPagesNode) pdfPagesNode.innerHTML = '';
         pdfLinkNode.href = '#';
         imageNode.hidden = false;
         imageNode.src = page.image;
         imageNode.alt = page.title + ' full-page preview';
       }
 
-      setZoom(ZOOM_DEFAULT);
+      setZoom(currentGallery ? 100 : ZOOM_DEFAULT);
       syncBaseWidth();
       viewer.scrollTop = 0;
       viewer.scrollLeft = 0;
@@ -1301,7 +1709,9 @@
       modal.setAttribute('aria-hidden', 'true');
       document.body.classList.remove('app-demo-modal-open');
       imageNode.src = '';
-      pdfNode.src = '';
+      pdfDocument = null;
+      pdfRenderToken++;
+      if (pdfPagesNode) pdfPagesNode.innerHTML = '';
       documentNode.hidden = true;
       imageNode.hidden = false;
       setExpanded(false);
@@ -1364,14 +1774,37 @@
 
       if (event.key === 'ArrowRight') {
         event.preventDefault();
-        move(1);
+        if (currentGallery) moveGallery(1); else move(1);
       }
 
       if (event.key === 'ArrowLeft') {
         event.preventDefault();
-        move(-1);
+        if (currentGallery) moveGallery(-1); else move(-1);
       }
     });
+
+    galleryButtons.forEach((button) => {
+      button.addEventListener('click', function () {
+        moveGallery(button.getAttribute('data-demo-gallery') === 'next' ? 1 : -1);
+      });
+    });
+
+    if (canvas) {
+      canvas.addEventListener('touchstart', function (e) {
+        if (!currentGallery || !e.touches || !e.touches[0]) return;
+        touchStartX = e.touches[0].clientX;
+      }, { passive: true });
+      canvas.addEventListener('touchend', function (e) {
+        if (!currentGallery || touchStartX === null) return;
+        const endX = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0].clientX : null;
+        if (endX === null) { touchStartX = null; return; }
+        const dx = endX - touchStartX;
+        touchStartX = null;
+        if (Math.abs(dx) > 40) {
+          moveGallery(dx < 0 ? 1 : -1);
+        }
+      });
+    }
 
     window.addEventListener('resize', function () {
       if (!modal.hidden) {
