@@ -150,6 +150,43 @@ async function ensureEmploymentSchema(db) {
     `);
 
     await db.query(`
+      ALTER TABLE employment_applications
+      ADD COLUMN IF NOT EXISTS interview_stage TEXT NOT NULL DEFAULT 'none'
+    `);
+
+    await db.query(`
+      ALTER TABLE employment_applications
+      ADD COLUMN IF NOT EXISTS second_interview_message TEXT
+    `);
+
+    await db.query(`
+      ALTER TABLE employment_applications
+      ADD COLUMN IF NOT EXISTS final_interview_message TEXT
+    `);
+
+    await db.query(`
+      ALTER TABLE employment_applications
+      ADD COLUMN IF NOT EXISTS stage_updated_at TIMESTAMP
+    `);
+
+    await db.query(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conname = 'employment_applications_interview_stage_check'
+        ) THEN
+          ALTER TABLE employment_applications
+            DROP CONSTRAINT employment_applications_interview_stage_check;
+        END IF;
+
+        ALTER TABLE employment_applications
+          ADD CONSTRAINT employment_applications_interview_stage_check
+          CHECK (interview_stage IN ('none','first','second','final','completed'));
+      END $$
+    `);
+
+    await db.query(`
       CREATE INDEX IF NOT EXISTS idx_employment_applications_employment_id
       ON employment_applications(employment_id)
     `);
