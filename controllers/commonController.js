@@ -701,11 +701,14 @@ const commonController = {
         );
       }
 
-      // Fetch both global and org-specific admin announcements
+      // Fetch both global and org-specific admin announcements.
+      // Exclude entries flagged show_for_admins = TRUE — those are
+      // intended only for the admin dashboard / internal staff.
       const adminAnnouncementResult = await db.query(
         `
           SELECT * FROM admin_announcements
           WHERE is_active = true
+            AND COALESCE(show_for_admins, false) = false
             AND (organization_id IS NULL OR organization_id = $1)
             AND (expiry_date IS NULL OR expiry_date > NOW())
           ORDER BY id DESC
@@ -1090,13 +1093,16 @@ const commonController = {
       );
       const announcements = announcementsResult.rows;
 
-      // ✅ Fetch BOTH global and org-specific admin announcements
+      // ✅ Fetch BOTH global and org-specific admin announcements.
+      // Skip entries flagged show_for_admins = TRUE so org users
+      // (manager / teacher / supervisor) never see admin-only notices.
       const adminAnnouncementResult = await db.query(
         `
           SELECT * FROM admin_announcements
-          WHERE is_active = true AND (
-            organization_id IS NULL OR organization_id = $1
-          ) AND (expiry_date IS NULL OR expiry_date > NOW())
+          WHERE is_active = true
+            AND COALESCE(show_for_admins, false) = false
+            AND (organization_id IS NULL OR organization_id = $1)
+            AND (expiry_date IS NULL OR expiry_date > NOW())
           ORDER BY id DESC
         `,
         [organizationId]
