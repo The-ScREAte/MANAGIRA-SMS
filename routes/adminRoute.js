@@ -151,6 +151,8 @@ module.exports = (db) => {
 
     router.get('/employment', isAuthenticated, ensureAdmin, adminController.getEmploymentAdmin);
     router.get('/employment/applications/overview', isAuthenticated, ensureAdmin, adminController.getEmploymentApplicationsAjax);
+    router.get('/employment/applications/:id/analyze', isAuthenticated, ensureAdmin, adminController.analyzeEmploymentApplication);
+    router.post('/employment/applications/analyze-all', isAuthenticated, ensureAdmin, adminController.analyzeAllEmploymentApplications);
     router.post('/employment', isAuthenticated, ensureAdmin, adminController.postEmployment);
     router.post('/employment/update/:id', isAuthenticated, ensureAdmin, adminController.updateEmployment);
     router.post('/employment/toggle-status/:id', isAuthenticated, ensureAdmin, adminController.toggleEmploymentStatus);

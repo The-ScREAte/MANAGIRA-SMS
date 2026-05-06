@@ -170,6 +170,21 @@ async function ensureEmploymentSchema(db) {
     `);
 
     await db.query(`
+      ALTER TABLE employment_applications
+      ADD COLUMN IF NOT EXISTS qualification_score INTEGER
+    `);
+
+    await db.query(`
+      ALTER TABLE employment_applications
+      ADD COLUMN IF NOT EXISTS qualification_summary JSONB
+    `);
+
+    await db.query(`
+      ALTER TABLE employment_applications
+      ADD COLUMN IF NOT EXISTS qualification_analyzed_at TIMESTAMP
+    `);
+
+    await db.query(`
       DO $$
       BEGIN
         IF EXISTS (

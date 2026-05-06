@@ -2428,6 +2428,14 @@ const adminController = {
           ea.created_at,
           ea.contact_via_email,
           ea.contact_via_text,
+          ea.resume_url,
+          ea.resume_filename,
+          ea.cover_letter,
+          ea.cover_letter_url,
+          ea.cover_letter_filename,
+          ea.qualification_score,
+          ea.qualification_summary,
+          ea.qualification_analyzed_at,
           e.title AS job_title
         FROM employment_applications ea
         JOIN employment e ON e.id = ea.employment_id
@@ -2449,6 +2457,134 @@ const adminController = {
       return res.status(500).json({
         success: false,
         message: "Unable to load applicants right now.",
+      });
+    }
+  },
+
+  analyzeEmploymentApplication: async (req, res) => {
+    await ensureEmploymentSchema(db);
+
+    const { id } = req.params;
+    const force = String(req.query.force || "").toLowerCase() === "true";
+
+    try {
+      const result = await db.query(
+        `SELECT ea.id, ea.cover_letter, ea.resume_url,
+                ea.qualification_score, ea.qualification_summary,
+                ea.qualification_analyzed_at,
+                e.title AS job_title, e.description AS job_description
+         FROM employment_applications ea
+         JOIN employment e ON e.id = ea.employment_id
+         WHERE ea.id = $1`,
+        [id]
+      );
+
+      if (!result.rows.length) {
+        return res.status(404).json({ success: false, message: "Application not found." });
+      }
+
+      const app = result.rows[0];
+
+      // Return cached analysis if present and not forced
+      if (!force && app.qualification_analyzed_at && app.qualification_summary) {
+        return res.json({
+          success: true,
+          cached: true,
+          score: app.qualification_score,
+          analyzed_at: app.qualification_analyzed_at,
+          ...app.qualification_summary,
+        });
+      }
+
+      const { analyzeQualification, fetchResumeText } = require("../utils/qualificationAnalyzer");
+      const resumeText = await fetchResumeText(app.resume_url);
+      const summary = analyzeQualification({
+        jobDescription: app.job_description,
+        coverLetter: app.cover_letter,
+        resumeText,
+      });
+
+      await db.query(
+        `UPDATE employment_applications
+         SET qualification_score = $2,
+             qualification_summary = $3,
+             qualification_analyzed_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [id, summary.score, JSON.stringify(summary)]
+      );
+
+      return res.json({
+        success: true,
+        cached: false,
+        score: summary.score,
+        analyzed_at: new Date().toISOString(),
+        ...summary,
+      });
+    } catch (error) {
+      console.error("analyzeEmploymentApplication error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Unable to analyze this application right now.",
+      });
+    }
+  },
+
+  analyzeAllEmploymentApplications: async (req, res) => {
+    await ensureEmploymentSchema(db);
+    const force = String(req.query.force || "").toLowerCase() === "true";
+
+    try {
+      const filter = force ? "" : "AND ea.qualification_analyzed_at IS NULL";
+      const rows = await db.query(
+        `SELECT ea.id, ea.cover_letter, ea.resume_url,
+                e.description AS job_description
+         FROM employment_applications ea
+         JOIN employment e ON e.id = ea.employment_id
+         WHERE 1=1 ${filter}
+         ORDER BY ea.created_at DESC`
+      );
+
+      const { analyzeQualification, fetchResumeText } = require("../utils/qualificationAnalyzer");
+
+      let analyzed = 0;
+      let failed = 0;
+
+      // Run sequentially to avoid hammering S3 / pdf-parse with parallelism.
+      for (const app of rows.rows) {
+        try {
+          const resumeText = await fetchResumeText(app.resume_url);
+          const summary = analyzeQualification({
+            jobDescription: app.job_description,
+            coverLetter: app.cover_letter,
+            resumeText,
+          });
+          await db.query(
+            `UPDATE employment_applications
+             SET qualification_score = $2,
+                 qualification_summary = $3,
+                 qualification_analyzed_at = CURRENT_TIMESTAMP
+             WHERE id = $1`,
+            [app.id, summary.score, JSON.stringify(summary)]
+          );
+          analyzed++;
+        } catch (err) {
+          console.error("Bulk analyze failed for application", app.id, err.message);
+          failed++;
+        }
+      }
+
+      return res.json({
+        success: true,
+        total: rows.rows.length,
+        analyzed,
+        failed,
+        skipped_existing: !force,
+      });
+    } catch (error) {
+      console.error("analyzeAllEmploymentApplications error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Unable to run bulk analysis right now.",
       });
     }
   },

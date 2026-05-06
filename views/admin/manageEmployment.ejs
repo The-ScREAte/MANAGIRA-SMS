@@ -109,16 +109,52 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    flex: 1 1 auto;
+    justify-content: flex-end;
+    min-width: 0;
   }
 
   .applicants-search {
     border: 1px solid #d1d5db;
     border-radius: 8px;
-    padding: 8px 10px;
-    font-size: 0.86rem;
-    min-width: 220px;
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    min-width: 0;
+    flex: 1 1 320px;
+    max-width: 460px;
   }
+
+  .applicants-tool-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1;
+    border-radius: 50%;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #0f172a;
+    cursor: pointer;
+    transition: background 140ms ease, border-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+    flex: 0 0 auto;
+  }
+  .applicants-tool-btn:hover { background: #f1f5f9; border-color: #94a3b8; }
+  .applicants-tool-btn:active { transform: translateY(1px); }
+  .applicants-tool-btn.primary {
+    background: #faf5ff;
+    border-color: #a855f7;
+    color: #6b21a8;
+  }
+  .applicants-tool-btn.primary:hover { background: #f3e8ff; box-shadow: 0 0 0 3px rgba(168,85,247,.15); }
+  .applicants-tool-btn[disabled] { opacity: 0.6; cursor: not-allowed; }
+  .applicants-tool-btn .ico { font-size: 1rem; line-height: 1; }
+  .applicants-tool-btn .label { display: none; }
 
   .applicants-filter-row {
     display: flex;
@@ -342,6 +378,90 @@
     background: #eef2ff;
     border-color: #6366f1;
     color: #3730a3;
+  }
+
+  .overview-action-btn.view {
+    background: #f8fafc;
+    border-color: #94a3b8;
+    color: #1e293b;
+  }
+  a.overview-action-btn.view {
+    text-decoration: none;
+    text-align: center;
+    display: inline-block;
+  }
+  .overview-action-btn.analyze {
+    background: #faf5ff;
+    border-color: #a855f7;
+    color: #6b21a8;
+  }
+
+  .docs-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 110px;
+  }
+
+  .fit-cell {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    min-width: 130px;
+    flex-wrap: nowrap;
+  }
+  .icon-btn {
+    width: 28px;
+    height: 28px;
+    padding: 0 !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+    line-height: 1;
+  }
+  .fit-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    border: 1px solid transparent;
+  }
+  .fit-chip.qualified { background: #dcfce7; color: #166534; border-color: #86efac; }
+  .fit-chip.review    { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+  .fit-chip.not-qualified { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+  .fit-chip.unknown   { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
+  .fit-meta { font-size: 0.7rem; color: #64748b; }
+
+  .fit-modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .fit-modal {
+    background: #fff; border-radius: 12px; max-width: 640px; width: 100%;
+    max-height: 80vh; overflow: auto; padding: 22px;
+    box-shadow: 0 20px 50px rgba(0,0,0,.25);
+  }
+  .fit-modal h3 { margin: 0 0 6px; }
+  .fit-modal .fit-section { margin-top: 14px; }
+  .fit-modal .fit-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .fit-modal .fit-tag {
+    padding: 3px 8px; border-radius: 999px; font-size: 0.78rem; font-weight: 600;
+    background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0;
+  }
+  .fit-modal .fit-tag.match { background: #ecfdf5; color: #065f46; border-color: #6ee7b7; }
+  .fit-modal .fit-tag.miss  { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+  .fit-modal-close {
+    margin-top: 18px; padding: 8px 14px; border: 1px solid #cbd5e1;
+    border-radius: 8px; background: #f8fafc; cursor: pointer; font-weight: 600;
   }
 
   .overview-action-btn.stage-reject {
@@ -735,7 +855,12 @@
       </div>
       <div class="applicants-tools">
         <input type="search" id="applicantsSearch" class="applicants-search" placeholder="Search by name, email, role or status" />
-        <button type="button" id="refreshApplicantsBtn" class="admin-btn admin-btn-sm">Refresh</button>
+        <button type="button" id="analyzeAllBtn" class="applicants-tool-btn primary" title="Auto-check fit for all applicants" aria-label="Auto-check fit for all applicants">
+          <span class="ico">⚡</span><span class="label">Auto-check fit</span>
+        </button>
+        <button type="button" id="refreshApplicantsBtn" class="applicants-tool-btn" title="Refresh applicant list" aria-label="Refresh applicant list">
+          <span class="ico">↻</span><span class="label">Refresh</span>
+        </button>
       </div>
     </div>
     <button type="button" id="applicantsFiltersToggle" class="applicants-filters-toggle" aria-expanded="false" aria-controls="applicantsFilters">
@@ -1140,6 +1265,45 @@
         .replace(/'/g, '&#039;');
     }
 
+    function buildFitReason(score, rec, summary) {
+      if (score === null || score === undefined) {
+        return 'Not analyzed yet. Click ↻ to auto-check fit against the job description.';
+      }
+      const matched = (summary && Array.isArray(summary.matched)) ? summary.matched : [];
+      const missing = (summary && Array.isArray(summary.missing)) ? summary.missing : [];
+      const b = (summary && summary.breakdown) || null;
+      const exp = summary && summary.experience;
+      const edu = summary && summary.education;
+      const mot = summary && summary.motivation;
+
+      const header = rec === 'qualified'
+        ? `Strong fit (${score}%).`
+        : (rec === 'review'
+            ? `Partial match (${score}%) — worth reviewing.`
+            : `Low fit (${score}%).`);
+
+      const parts = [header];
+      if (b) {
+        parts.push(`Skills ${b.keyword}% · Experience ${b.experience}% · Education ${b.education}% · Soft skills ${b.softSkills}% · Motivation ${b.motivation}%.`);
+      }
+      if (exp && exp.requiredYears) {
+        parts.push(`Requires ${exp.requiredYears}+ yrs; applicant claims ${exp.applicantYears || 0}.`);
+      }
+      if (edu && edu.requiredLabel && (edu.applicantRank < edu.requiredRank)) {
+        parts.push(`Job asks for ${edu.requiredLabel}; not detected on resume.`);
+      }
+      if (mot && mot.signals && !mot.signals.length) {
+        parts.push('Cover letter shows little motivation/desire wording.');
+      }
+      if (missing.length) {
+        parts.push(`Missing: ${missing.slice(0, 5).join(', ')}${missing.length > 5 ? '…' : ''}.`);
+      }
+      if (matched.length) {
+        parts.push(`Matched: ${matched.slice(0, 4).join(', ')}${matched.length > 4 ? '…' : ''}.`);
+      }
+      return parts.join(' ');
+    }
+
     function renderApplicantsTable(data) {
       if (!Array.isArray(data) || data.length === 0) {
         applicantsPanelBody.innerHTML = '<p class="applicants-empty">No applicants found.</p>';
@@ -1195,6 +1359,43 @@
           ? `<span class="stage-chip ${escapeHtml(effectiveStage)}">${stageLabelMap[effectiveStage]}</span>`
           : '';
 
+        const resumeUrl = item.resume_url || '';
+        const coverLetterUrl = item.cover_letter_url || '';
+        const docsCell = `
+          <div class="docs-cell">
+            ${resumeUrl
+              ? `<a class="overview-action-btn view" href="${escapeHtml(resumeUrl)}" target="_blank" rel="noopener noreferrer">View Resume</a>`
+              : '<span class="fit-meta">No resume</span>'}
+            ${coverLetterUrl
+              ? `<a class="overview-action-btn view" href="${escapeHtml(coverLetterUrl)}" target="_blank" rel="noopener noreferrer">View Cover Letter</a>`
+              : ((item.cover_letter || '').trim()
+                  ? `<button type="button" class="overview-action-btn view" data-action="view-cover-text" data-id="${escapeHtml(item.id)}">View Cover Note</button>`
+                  : '<span class="fit-meta">No cover letter</span>')}
+          </div>
+        `;
+
+        const score = (typeof item.qualification_score === 'number') ? item.qualification_score : null;
+        const summary = item.qualification_summary || null;
+        const rec = (summary && summary.recommendation) || (
+          score === null ? 'unknown' :
+          (score >= 65 ? 'qualified' : (score >= 35 ? 'review' : 'not-qualified'))
+        );
+        const reasonText = buildFitReason(score, rec, summary);
+        const tooltip = escapeHtml(reasonText);
+        const fitCell = `
+          <div class="fit-cell">
+            <span class="fit-chip ${escapeHtml(rec)}" title="${tooltip}">
+              ${score === null ? '—' : score + '%'}
+            </span>
+            <button type="button" class="overview-action-btn analyze icon-btn" data-action="analyze" data-id="${escapeHtml(item.id)}" title="${score === null ? 'Check fit' : 'Re-check fit'}" aria-label="${score === null ? 'Check fit' : 'Re-check fit'}">
+              ↻
+            </button>
+            <button type="button" class="overview-action-btn view icon-btn" data-action="view-fit" data-id="${escapeHtml(item.id)}" title="View fit details" aria-label="View fit details" ${score === null ? 'disabled' : ''}>
+              ⓘ
+            </button>
+          </div>
+        `;
+
         return `
           <tr>
             <td>${escapeHtml(fullName)}</td>
@@ -1204,6 +1405,8 @@
               <span class="status-pill ${statusClass(status)}">${escapeHtml(status)}</span>
               ${stageChip ? '<br>' + stageChip : ''}
             </td>
+            <td>${docsCell}</td>
+            <td>${fitCell}</td>
             <td><a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a></td>
             <td><a href="tel:${escapeHtml(phone)}">${escapeHtml(phone)}</a></td>
             <td>${escapeHtml(contactPreference(item))}</td>
@@ -1230,6 +1433,8 @@
                 <th>Role</th>
                 <th>Location</th>
                 <th>Status</th>
+                <th>Documents</th>
+                <th>Fit</th>
                 <th>Email</th>
                 <th>Phone</th>
                 <th>Preference</th>
@@ -1559,7 +1764,7 @@
       if (action === 'second-interview') {
         const row = button.closest('tr');
         const applicantName = row ? (row.cells[0] && row.cells[0].textContent.trim()) : '';
-        const applicantEmail = row ? (row.cells[4] && row.cells[4].textContent.trim()) : '';
+        const applicantEmail = row ? (row.cells[6] && row.cells[6].textContent.trim()) : '';
         const jobTitle = row ? (row.cells[1] && row.cells[1].textContent.trim()) : '';
         if (!window.confirm(`Are you sure ${applicantName || 'this applicant'} has completed their first interview?\n\nSending the second interview email will move them to the next stage.`)) return;
         openEmailEditor({
@@ -1580,7 +1785,7 @@
       if (action === 'final-interview') {
         const row = button.closest('tr');
         const applicantName = row ? (row.cells[0] && row.cells[0].textContent.trim()) : '';
-        const applicantEmail = row ? (row.cells[4] && row.cells[4].textContent.trim()) : '';
+        const applicantEmail = row ? (row.cells[6] && row.cells[6].textContent.trim()) : '';
         const jobTitle = row ? (row.cells[1] && row.cells[1].textContent.trim()) : '';
         if (!window.confirm(`Are you sure ${applicantName || 'this applicant'} has completed their second interview?\n\nSending the final interview email will move them to the final stage.`)) return;
         openEmailEditor({
@@ -1614,7 +1819,188 @@
       if (action === 'delete') {
         if (!window.confirm('Delete this application permanently?')) return;
         submitPostAction(`/admin/employment/applications/${applicationId}/delete`);
+        return;
       }
+
+      if (action === 'view-doc') {
+        const url = button.getAttribute('data-url');
+        if (!url) return;
+        const win = window.open(url, 'managira_doc_viewer', 'noopener,noreferrer,width=1100,height=820,resizable=yes,scrollbars=yes');
+        if (!win) window.open(url, '_blank', 'noopener,noreferrer');
+        return;
+      }
+
+      if (action === 'view-cover-text') {
+        showCoverLetterText(applicationId);
+        return;
+      }
+
+      if (action === 'view-fit') {
+        const item = (applicantsCache || []).find((a) => String(a.id) === String(applicationId));
+        if (!item) return;
+        const summary = item.qualification_summary || {};
+        renderFitResult({
+          success: true,
+          score: item.qualification_score,
+          recommendation: summary.recommendation,
+          matched: summary.matched || [],
+          missing: summary.missing || [],
+          breakdown: summary.breakdown,
+          experience: summary.experience,
+          education: summary.education,
+          softSkills: summary.softSkills,
+          motivation: summary.motivation,
+          cached: true,
+        });
+        return;
+      }
+
+      if (action === 'analyze') {
+        runQualificationAnalysis(button, applicationId);
+        return;
+      }
+    }
+
+    function showCoverLetterText(applicationId) {
+      const item = (applicantsCache || []).find((a) => String(a.id) === String(applicationId));
+      const text = (item && item.cover_letter) || '';
+      openFitModal(`
+        <h3>Cover Letter Note</h3>
+        <pre style="white-space: pre-wrap; font-family: inherit; margin: 10px 0 0; color:#1f2937;">${escapeHtml(text || 'No cover letter text on file.')}</pre>
+      `);
+    }
+
+    async function runQualificationAnalysis(button, applicationId) {
+      const original = button.textContent;
+      button.disabled = true;
+      button.textContent = 'Analyzing…';
+      try {
+        const res = await fetch(`/admin/employment/applications/${applicationId}/analyze?force=true`, {
+          headers: { Accept: 'application/json' },
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || 'Analysis failed.');
+        renderFitResult(data);
+        // Refresh table to show updated chip
+        loadApplicants();
+      } catch (err) {
+        openFitModal(`<h3>Could not analyze</h3><p>${escapeHtml(err.message || 'Unknown error')}</p>`);
+      } finally {
+        button.disabled = false;
+        button.textContent = original;
+      }
+    }
+
+    function renderFitResult(data) {
+      const matched = (data.matched || []).map((k) => `<span class="fit-tag match">${escapeHtml(k)}</span>`).join('');
+      const missing = (data.missing || []).map((k) => `<span class="fit-tag miss">${escapeHtml(k)}</span>`).join('');
+      const recLabel = ({
+        qualified: 'Qualified',
+        review: 'Worth a review',
+        'not-qualified': 'Low fit',
+      })[data.recommendation] || 'Review';
+
+      const b = data.breakdown || {};
+      const bar = (label, val) => `
+        <div style="display:flex;align-items:center;gap:8px;margin:4px 0;">
+          <span style="flex:0 0 110px;font-size:.78rem;color:#475569;">${label}</span>
+          <div style="flex:1;height:8px;background:#e2e8f0;border-radius:999px;overflow:hidden;">
+            <div style="height:100%;width:${Math.max(0, Math.min(100, val || 0))}%;background:${val >= 65 ? '#10b981' : (val >= 40 ? '#f59e0b' : '#ef4444')};"></div>
+          </div>
+          <span style="flex:0 0 36px;text-align:right;font-size:.78rem;font-weight:700;color:#0f172a;">${val || 0}%</span>
+        </div>`;
+
+      const exp = data.experience || {};
+      const edu = data.education || {};
+      const mot = data.motivation || {};
+      const soft = (data.softSkills && data.softSkills.matched) || [];
+
+      const insights = [];
+      if (exp.requiredYears) {
+        insights.push(`Job asks for <strong>${exp.requiredYears}+ years</strong>; applicant indicates <strong>${exp.applicantYears || 0}</strong>.`);
+      } else if (exp.applicantYears) {
+        insights.push(`Applicant indicates <strong>${exp.applicantYears} years</strong> of experience.`);
+      }
+      if (edu.requiredLabel) {
+        const ok = edu.applicantRank >= edu.requiredRank;
+        insights.push(`Education required: <strong>${escapeHtml(edu.requiredLabel)}</strong> — ${ok ? 'met' : 'not detected'}.`);
+      } else if ((edu.applicantTerms || []).length) {
+        insights.push(`Credentials detected: ${edu.applicantTerms.slice(0, 4).map(escapeHtml).join(', ')}.`);
+      }
+      if (mot.mentionsCompany) insights.push('Cover letter mentions the company by name.');
+      if ((mot.signals || []).length) {
+        insights.push(`Motivation signals: ${mot.signals.slice(0, 3).map((s) => escapeHtml(s)).join(', ')}.`);
+      } else if (mot.coverLetterLength < 80) {
+        insights.push('Cover letter is very short or missing.');
+      }
+
+      openFitModal(`
+        <h3>Fit analysis</h3>
+        <p style="margin:0;color:#475569;font-size:.9rem;">
+          Overall: <strong>${data.score}%</strong> · <strong>${escapeHtml(recLabel)}</strong>
+          ${data.cached ? '<span class="fit-meta"> (cached)</span>' : ''}
+        </p>
+        <p style="margin:6px 0 0;color:#64748b;font-size:.78rem;">
+          Heuristic across skills, experience, education, soft skills, and cover-letter motivation. Always review manually.
+        </p>
+
+        <div class="fit-section">
+          <strong>Score breakdown</strong>
+          <div style="margin-top:8px;">
+            ${bar('Skills/keywords', b.keyword)}
+            ${bar('Experience',      b.experience)}
+            ${bar('Education',       b.education)}
+            ${bar('Soft skills',     b.softSkills)}
+            ${bar('Motivation',      b.motivation)}
+          </div>
+        </div>
+
+        ${insights.length ? `
+          <div class="fit-section">
+            <strong>Insights</strong>
+            <ul style="margin:6px 0 0;padding-left:18px;color:#1f2937;font-size:.85rem;line-height:1.5;">
+              ${insights.map((i) => `<li>${i}</li>`).join('')}
+            </ul>
+          </div>` : ''}
+
+        ${soft.length ? `
+          <div class="fit-section">
+            <strong>Soft skills detected (${soft.length})</strong>
+            <div class="fit-tags" style="margin-top:6px;">${soft.map((s) => `<span class="fit-tag match">${escapeHtml(s)}</span>`).join('')}</div>
+          </div>` : ''}
+
+        <div class="fit-section">
+          <strong>Matched keywords (${(data.matched || []).length})</strong>
+          <div class="fit-tags" style="margin-top:6px;">${matched || '<span class="fit-meta">None</span>'}</div>
+        </div>
+        <div class="fit-section">
+          <strong>Missing keywords (${(data.missing || []).length})</strong>
+          <div class="fit-tags" style="margin-top:6px;">${missing || '<span class="fit-meta">None</span>'}</div>
+        </div>
+      `);
+    }
+
+    function openFitModal(innerHtml) {
+      closeFitModal();
+      const backdrop = document.createElement('div');
+      backdrop.className = 'fit-modal-backdrop';
+      backdrop.id = 'fitModalBackdrop';
+      backdrop.innerHTML = `
+        <div class="fit-modal" role="dialog" aria-modal="true">
+          ${innerHtml}
+          <button type="button" class="fit-modal-close" data-action="fit-close">Close</button>
+        </div>
+      `;
+      backdrop.addEventListener('click', (e) => {
+        if (e.target === backdrop) closeFitModal();
+      });
+      backdrop.querySelector('[data-action="fit-close"]').addEventListener('click', closeFitModal);
+      document.body.appendChild(backdrop);
+    }
+
+    function closeFitModal() {
+      const el = document.getElementById('fitModalBackdrop');
+      if (el) el.remove();
     }
 
     if (applicantsToggleBtn && applicantsPanel) {
@@ -1631,6 +2017,42 @@
 
     if (refreshApplicantsBtn) {
       refreshApplicantsBtn.addEventListener('click', loadApplicants);
+    }
+
+    const analyzeAllBtn = document.getElementById('analyzeAllBtn');
+    if (analyzeAllBtn) {
+      analyzeAllBtn.addEventListener('click', async () => {
+        const force = window.confirm(
+          'Auto-check fit for all applicants now?\n\n' +
+          'OK = Re-analyze EVERY applicant (slower)\n' +
+          'Cancel = Only analyze ones that have not been checked yet'
+        );
+        const original = analyzeAllBtn.innerHTML;
+        analyzeAllBtn.disabled = true;
+        analyzeAllBtn.innerHTML = '<span class="ico">⏳</span><span class="label">Analyzing…</span>';
+        try {
+          const res = await fetch(`/admin/employment/applications/analyze-all${force ? '?force=true' : ''}`, {
+            method: 'POST',
+            headers: { Accept: 'application/json' },
+          });
+          const data = await res.json();
+          if (!data.success) throw new Error(data.message || 'Bulk analysis failed.');
+          openFitModal(`
+            <h3>Bulk fit check complete</h3>
+            <p style="margin:6px 0 0;color:#475569;">
+              Processed <strong>${data.total}</strong> applicants \u2014
+              analyzed <strong>${data.analyzed}</strong>,
+              failed <strong>${data.failed}</strong>${data.skipped_existing ? ' (skipped already-analyzed)' : ''}.
+            </p>
+          `);
+          loadApplicants();
+        } catch (err) {
+          openFitModal(`<h3>Bulk analysis failed</h3><p>${escapeHtml(err.message || 'Unknown error')}</p>`);
+        } finally {
+          analyzeAllBtn.disabled = false;
+          analyzeAllBtn.innerHTML = original;
+        }
+      });
     }
 
     if (applicantsPanelBody) {
