@@ -285,6 +285,7 @@
         </label>
         <button type="submit" class="admin-btn admin-btn-delete" id="bulkDelBtn" disabled>🗑 Delete Selected</button>
       </div>
+    </form>
 
       <table class="ticket-table">
         <thead>
@@ -307,7 +308,7 @@
           %>
             <tr class="ticket-summary">
               <td onclick="event.stopPropagation()">
-                <input type="checkbox" name="threadIds" value="<%= thread.thread_id %>" class="row-check" onclick="updateBulkBtn()">
+                <input type="checkbox" name="threadIds" value="<%= thread.thread_id %>" class="row-check" form="bulkForm" onclick="updateBulkBtn()">
               </td>
               <td onclick="toggleDetails('<%= thread.thread_id %>')">#<%= thread.thread_id %> <span id="arrow-<%= thread.thread_id %>" class="arrow">▶</span></td>
               <td onclick="toggleDetails('<%= thread.thread_id %>')">
@@ -367,7 +368,6 @@
           <% }) %>
         </tbody>
       </table>
-    </form>
   </div>
 
   <script>

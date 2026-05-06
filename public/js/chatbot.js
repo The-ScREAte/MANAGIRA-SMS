@@ -301,15 +301,55 @@ class ManagiraChatbot {
     }
   }
 
+  formatBotContent(text) {
+    if (text == null) return '';
+    const escape = (s) => String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+    let html = escape(text);
+    // Auto-link URLs
+    html = html.replace(/\b(https?:\/\/[^\s<]+)/g, (url) => {
+      const clean = url.replace(/[.,);:!?]+$/, '');
+      const trail = url.slice(clean.length);
+      return `<a href="${clean}" target="_blank" rel="noopener noreferrer">${clean}</a>${trail}`;
+    });
+    // Auto-link emails
+    html = html.replace(/\b([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})\b/g,
+      '<a href="mailto:$1">$1</a>');
+    // Bold **text**
+    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    return html;
+  }
+
+  formatTime(date) {
+    try {
+      return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    } catch (_) {
+      return '';
+    }
+  }
+
   addMessage(content, type) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message message-${type}`;
-    
+
     const bubbleDiv = document.createElement('div');
     bubbleDiv.className = 'message-bubble';
-    bubbleDiv.textContent = content;
-    
+    if (type === 'bot') {
+      bubbleDiv.innerHTML = this.formatBotContent(content);
+    } else {
+      bubbleDiv.textContent = content;
+    }
+
+    const meta = document.createElement('div');
+    meta.className = 'message-meta';
+    meta.textContent = (type === 'bot' ? 'Managira • ' : '') + this.formatTime(new Date());
+
     messageDiv.appendChild(bubbleDiv);
+    messageDiv.appendChild(meta);
     this.messagesContainer.appendChild(messageDiv);
     this.scrollToBottom();
   }
@@ -317,39 +357,42 @@ class ManagiraChatbot {
   showFAQResults(results, contact) {
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message message-bot';
-    
+
     const bubbleDiv = document.createElement('div');
     bubbleDiv.className = 'message-bubble';
-    bubbleDiv.innerHTML = 'Here\'s what I found:';
-    
+    bubbleDiv.textContent = "Here's what I found — tap any item to see the full answer:";
+
     const resultsDiv = document.createElement('div');
     resultsDiv.className = 'faq-results';
-    
+
+    const escapeHtml = (s) => String(s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
     results.forEach(faq => {
       const faqDiv = document.createElement('div');
       faqDiv.className = 'faq-item';
       faqDiv.innerHTML = `
-        <div class="faq-question">${faq.question}</div>
-        <div class="faq-category">${faq.category}</div>
+        <div class="faq-question">${escapeHtml(faq.question)}</div>
+        <div class="faq-category">${escapeHtml(faq.category || '')}</div>
       `;
-      
+
       faqDiv.addEventListener('click', () => {
         this.showFAQAnswer(faq);
       });
-      
+
       resultsDiv.appendChild(faqDiv);
     });
-    
+
     messageDiv.appendChild(bubbleDiv);
     messageDiv.appendChild(resultsDiv);
-    
+
     if (contact) {
       const contactDiv = document.createElement('div');
       contactDiv.className = 'contact-info';
       contactDiv.textContent = contact;
       messageDiv.appendChild(contactDiv);
     }
-    
+
     this.messagesContainer.appendChild(messageDiv);
     this.scrollToBottom();
   }

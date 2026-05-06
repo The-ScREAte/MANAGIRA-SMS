@@ -10,6 +10,7 @@
   .employment-container {
     max-width: 1000px;
     margin: 0 auto;
+    padding-bottom: 64px;
   }
 
   .page-header {
@@ -62,12 +63,17 @@
   }
 
   .applicants-panel {
-    margin: 0 auto 24px;
-    width: min(1000px, 100%);
+    /* Break out of the 1000px parent container so the list feels spacious */
+    position: relative;
+    width: 96vw;
+    max-width: 1600px;
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0 0 28px;
     background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 14px;
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    box-shadow: 0 24px 50px -24px rgba(15, 23, 42, 0.25), 0 10px 20px -10px rgba(15, 23, 42, 0.08);
     overflow: hidden;
   }
 
@@ -76,25 +82,27 @@
   }
 
   .applicants-panel-header {
-    padding: 16px 18px;
-    border-bottom: 1px solid #e5e7eb;
+    padding: 18px 22px;
+    border-bottom: 1px solid #e2e8f0;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
-    background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+    gap: 12px;
+    background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
   }
 
   .applicants-panel-title {
     margin: 0;
-    font-size: 1rem;
+    font-size: 1.1rem;
+    font-weight: 700;
     color: #0f172a;
+    letter-spacing: -0.01em;
   }
 
   .applicants-panel-subtitle {
-    margin: 3px 0 0;
-    font-size: 0.82rem;
-    color: #6b7280;
+    margin: 4px 0 0;
+    font-size: 0.85rem;
+    color: #64748b;
   }
 
   .applicants-tools {
@@ -114,13 +122,13 @@
 
   .applicants-filter-row {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: end;
-    gap: 8px;
-    padding: 10px 0 12px;
+    gap: 10px;
+    padding: 14px 22px 16px;
     border-bottom: 1px solid #e5e7eb;
-    margin-bottom: 12px;
-    overflow-x: auto;
+    margin-bottom: 0;
+    background: #fafbfc;
   }
 
   .applicants-filter-row label {
@@ -194,8 +202,12 @@
   }
 
   .applicants-panel-body {
-    max-height: 420px;
+    max-height: min(78vh, 820px);
     overflow: auto;
+  }
+
+  .applicants-table-wrap {
+    overflow-x: auto;
   }
 
   .applicants-table {
@@ -207,20 +219,24 @@
   .applicants-table th,
   .applicants-table td {
     border-bottom: 1px solid #f1f5f9;
-    padding: 10px 12px;
+    padding: 12px 14px;
     text-align: left;
     vertical-align: top;
   }
 
+  .applicants-table tbody tr:hover { background: #f8fafc; }
+
   .applicants-table th {
     background: #f8fafc;
-    color: #334155;
-    font-size: 0.78rem;
+    color: #475569;
+    font-size: 0.74rem;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
     position: sticky;
     top: 0;
     z-index: 1;
+    border-bottom: 1px solid #e2e8f0;
   }
 
   .status-pill {
@@ -258,20 +274,38 @@
 
   .overview-actions {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: stretch;
     gap: 6px;
+    min-width: 170px;
+  }
+  .overview-actions .overview-action-btn { width: 100%; text-align: center; }
+
+  @keyframes stagePulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.0); }
+    50%      { box-shadow: 0 0 0 4px rgba(6, 182, 212, 0.18); }
+  }
+  .overview-action-btn.second,
+  .overview-action-btn.final {
+    animation: stagePulse 2.4s ease-in-out infinite;
+  }
+  .overview-action-btn.final { animation-name: stagePulseIndigo; }
+  @keyframes stagePulseIndigo {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.0); }
+    50%      { box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.18); }
   }
 
   .overview-action-btn {
     border: 1px solid #d1d5db;
     background: #ffffff;
     color: #0f172a;
-    border-radius: 6px;
-    font-size: 0.75rem;
+    border-radius: 8px;
+    font-size: 0.74rem;
     font-weight: 700;
-    padding: 6px 8px;
+    padding: 6px 10px;
     cursor: pointer;
     line-height: 1.1;
+    transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
   }
 
   .overview-action-btn.approve {
@@ -298,10 +332,50 @@
     color: #9a3412;
   }
 
+  .overview-action-btn.second {
+    background: #ecfeff;
+    border-color: #06b6d4;
+    color: #155e75;
+  }
+
+  .overview-action-btn.final {
+    background: #eef2ff;
+    border-color: #6366f1;
+    color: #3730a3;
+  }
+
+  .overview-action-btn.stage-reject {
+    background: #fef2f2;
+    border-color: #ef4444;
+    color: #7f1d1d;
+  }
+
+  .overview-action-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px -4px rgba(15, 23, 42, 0.18);
+  }
+
   .overview-action-btn:disabled {
     opacity: 0.55;
     cursor: not-allowed;
   }
+
+  .stage-chip {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: #f1f5f9;
+    color: #334155;
+    border: 1px solid #e2e8f0;
+  }
+  .stage-chip.first  { background: #ecfdf5; color: #065f46; border-color: #a7f3d0; }
+  .stage-chip.second { background: #ecfeff; color: #155e75; border-color: #a5f3fc; }
+  .stage-chip.final  { background: #eef2ff; color: #3730a3; border-color: #c7d2fe; }
 
   .job-form {
     max-width: 600px;
@@ -488,17 +562,165 @@
       padding: 16px;
     }
   }
+
+  /* ===== Email Editor Modal (Step 2 / Step 3) ===== */
+  .email-editor-overlay {
+    position: fixed; inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(3px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999;
+    padding: 20px;
+  }
+  .email-editor-overlay[hidden] { display: none; }
+  .email-editor {
+    width: min(720px, 100%);
+    max-height: 92vh;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 30px 60px -20px rgba(15, 23, 42, 0.5);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    animation: emailEditorIn 220ms ease-out;
+  }
+  @keyframes emailEditorIn {
+    from { opacity: 0; transform: translateY(12px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .email-editor-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 12px;
+    padding: 18px 22px;
+    border-bottom: 1px solid #e2e8f0;
+    background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+  }
+  .email-editor-step {
+    margin: 0 0 4px;
+    font-size: 0.72rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.08em; color: #0f766e;
+  }
+  .email-editor-title { margin: 0; font-size: 1.15rem; color: #0f172a; font-weight: 700; }
+  .email-editor-sub   { margin: 4px 0 0; font-size: 0.85rem; color: #64748b; }
+  .email-editor-close {
+    background: transparent; border: 0; font-size: 1.6rem; line-height: 1;
+    color: #64748b; cursor: pointer; padding: 4px 8px; border-radius: 8px;
+  }
+  .email-editor-close:hover { background: #f1f5f9; color: #0f172a; }
+  .email-editor-body { padding: 18px 22px; overflow-y: auto; }
+  .email-editor-toggle-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    margin-bottom: 14px;
+  }
+  .email-editor-radio {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 12px; border: 1px solid #e2e8f0; border-radius: 10px;
+    background: #f8fafc; cursor: pointer; font-size: 0.85rem; color: #334155;
+    transition: border-color 140ms ease, background 140ms ease;
+  }
+  .email-editor-radio:hover { border-color: #94a3b8; background: #ffffff; }
+  .email-editor-radio input { margin-top: 3px; }
+  .email-editor-radio small { color: #64748b; font-size: 0.78rem; }
+  .email-editor-radio code { background: #f1f5f9; padding: 1px 6px; border-radius: 4px; font-size: 0.78rem; }
+  .email-editor-label {
+    display: block; font-size: 0.78rem; font-weight: 700;
+    color: #334155; text-transform: uppercase; letter-spacing: 0.05em;
+    margin: 8px 0 6px;
+  }
+  .email-editor-textarea {
+    width: 100%; box-sizing: border-box;
+    border: 1px solid #cbd5e1; border-radius: 10px;
+    padding: 12px; font-size: 0.9rem; line-height: 1.5;
+    font-family: inherit; resize: vertical;
+    background: #ffffff; color: #0f172a;
+  }
+  .email-editor-textarea:focus { outline: 0; border-color: #0f766e; box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.18); }
+  .email-editor-meta {
+    margin-top: 12px; padding: 12px; border: 1px dashed #cbd5e1; border-radius: 10px;
+    background: #f8fafc; font-size: 0.85rem; color: #334155;
+  }
+  .email-editor-meta p { margin: 4px 0; }
+  .email-editor-meta a { color: #0f766e; }
+  .email-editor-note { color: #64748b; font-size: 0.78rem; }
+  .email-editor-footer {
+    display: flex; justify-content: flex-end; gap: 10px;
+    padding: 14px 22px;
+    border-top: 1px solid #e2e8f0;
+    background: #f8fafc;
+  }
+  .email-editor-btn {
+    border: 0; border-radius: 10px; font-weight: 700; font-size: 0.9rem;
+    padding: 10px 16px; cursor: pointer;
+    transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+  }
+  .email-editor-btn.ghost { background: #ffffff; border: 1px solid #cbd5e1; color: #0f172a; }
+  .email-editor-btn.ghost:hover { background: #f1f5f9; }
+  .email-editor-btn.primary { background: #0f766e; color: #ffffff; }
+  .email-editor-btn.primary:hover { background: #115e59; transform: translateY(-1px); box-shadow: 0 8px 20px -8px rgba(15, 118, 110, 0.6); }
+  .email-editor-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; }
+  @media (max-width: 560px) {
+    .email-editor-toggle-row { grid-template-columns: 1fr; }
+  }
+
+  /* ===== Applicants Tabs ===== */
+  .applicants-tabs {
+    display: flex; gap: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 6px 12px 0;
+    border-bottom: 1px solid #e2e8f0;
+    background: #ffffff;
+    scrollbar-width: thin;
+  }
+  .applicants-tabs::-webkit-scrollbar { height: 4px; }
+  .applicants-tabs::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  .applicants-tab {
+    position: relative;
+    background: transparent !important;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    margin: 0;
+    padding: 6px 9px 8px;
+    font-size: 0.75rem; font-weight: 600;
+    color: #64748b; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 5px;
+    white-space: nowrap;
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 0;
+    line-height: 1.2;
+    transition: color 140ms ease, border-color 140ms ease;
+  }
+  .applicants-tab:hover { color: #0f172a; }
+  .applicants-tab.is-active {
+    color: #0f766e;
+    border-bottom-color: #0f766e;
+  }
+  .applicants-tab .tab-count {
+    display: inline-block; min-width: 16px; padding: 0 5px;
+    font-size: 0.65rem; font-weight: 700; line-height: 1.5;
+    border-radius: 999px;
+    background: #f1f5f9; color: #475569;
+  }
+  .applicants-tab.is-active .tab-count {
+    background: #0f766e; color: #ffffff;
+  }
+  .applicants-tab[data-tab="rejected"].is-active        { color: #b91c1c; border-bottom-color: #b91c1c; }
+  .applicants-tab[data-tab="rejected"].is-active .tab-count { background: #b91c1c; }
+  @media (max-width: 600px) {
+    .applicants-tabs { padding: 10px 12px 0; gap: 2px; }
+    .applicants-tab { padding: 8px 10px 10px; font-size: 0.8rem; }
+  }
 </style>
 
 <div class="employment-container">
   <div class="page-header">
     <h1>Employment Management</h1>
-    <% const totalApplications = (applications || []).length; %>
+    <% const newApplicants = (applications || []).filter((a) => (a.status || '').toLowerCase() === 'pending').length; %>
     <div class="page-header-actions">
       <button type="button" id="applicantsToggleBtn" class="applicants-toggle-btn" aria-expanded="false" aria-controls="applicantsPanel">
         <span aria-hidden="true">&#128101;</span>
         <span>Applicants Overview</span>
-        <span class="applicants-count" id="applicantsCountBadge"><%= totalApplications %></span>
+        <span class="applicants-count" id="applicantsCountBadge"><%= newApplicants %></span>
       </button>
     </div>
   </div>
@@ -520,6 +742,17 @@
       <span>Filters</span>
       <span class="chev" aria-hidden="true">▾</span>
     </button>
+
+    <!-- Stage Tabs -->
+    <div class="applicants-tabs" id="applicantsTabs" role="tablist" aria-label="Filter applicants by stage">
+      <button type="button" class="applicants-tab is-active" data-tab="new"      role="tab" aria-selected="true">New <span class="tab-count" data-count-for="new">0</span></button>
+      <button type="button" class="applicants-tab"           data-tab="first"    role="tab">1st Interview <span class="tab-count" data-count-for="first">0</span></button>
+      <button type="button" class="applicants-tab"           data-tab="second"   role="tab">2nd Interview <span class="tab-count" data-count-for="second">0</span></button>
+      <button type="button" class="applicants-tab"           data-tab="final"    role="tab">Final Interview <span class="tab-count" data-count-for="final">0</span></button>
+      <button type="button" class="applicants-tab"           data-tab="rejected" role="tab">Rejected <span class="tab-count" data-count-for="rejected">0</span></button>
+      <button type="button" class="applicants-tab"           data-tab="all"      role="tab">All <span class="tab-count" data-count-for="all">0</span></button>
+    </div>
+
     <div class="applicants-filter-row" id="applicantsFilters">
       <label>
         Status
@@ -566,29 +799,88 @@
     </div>
   </section>
 
-  <form method="POST" action="/admin/employment" class="job-form">
-    <input type="text" name="title" placeholder="Job Title" required />
-    <textarea name="description" placeholder="Job Description" required></textarea>
+  <!-- Email Editor Modal: used for Step 2 (Send 2nd Interview) and Step 3 (Send Last Interview) -->
+  <div id="emailEditorOverlay" class="email-editor-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="emailEditorTitle">
+    <div class="email-editor">
+      <div class="email-editor-header">
+        <div>
+          <p class="email-editor-step" id="emailEditorStep">Step 2 of 3</p>
+          <h3 class="email-editor-title" id="emailEditorTitle">Send 2nd Interview Invitation</h3>
+          <p class="email-editor-sub" id="emailEditorSub">Recipient: —</p>
+        </div>
+        <button type="button" class="email-editor-close" id="emailEditorClose" aria-label="Close">×</button>
+      </div>
 
-    <label for="application_mode" style="display: block; margin-bottom: 8px; font-weight: 600; color: #1f2937;">Application Type</label>
-    <select id="application_mode" name="application_mode" style="width: 100%; margin-bottom: 16px; padding: 12px; font-size: 0.9rem; border-radius: 8px; border: 1px solid #d1d5db;">
-      <option value="external" selected>External Link</option>
-      <option value="in_app">In-App Application Form</option>
-    </select>
+      <div class="email-editor-body">
+        <div class="email-editor-toggle-row">
+          <label class="email-editor-radio">
+            <input type="radio" name="emailEditorMode" value="template" checked>
+            <span><strong>Use standard template</strong><br><small>Asks for a 6-month growth proposal to <code>managirasms@gmail.com</code> + Calendly booking.</small></span>
+          </label>
+          <label class="email-editor-radio">
+            <input type="radio" name="emailEditorMode" value="custom">
+            <span><strong>Custom message</strong><br><small>Write your own body. Calendly link &amp; CTA are still appended automatically.</small></span>
+          </label>
+        </div>
 
-    <div id="externalLinkWrapper">
-      <input id="external_link" type="url" name="external_link" placeholder="External Link (e.g., LinkedIn Job Posting)" required />
+        <label for="emailEditorTextarea" class="email-editor-label">Email body (you can edit before sending)</label>
+        <textarea id="emailEditorTextarea" rows="10" class="email-editor-textarea"></textarea>
+
+        <div class="email-editor-meta">
+          <p><strong>Subject:</strong> <span id="emailEditorSubject">—</span></p>
+          <p><strong>CTA button:</strong> <a id="emailEditorCta" href="https://calendly.com/managirasms/30min" target="_blank" rel="noopener">Book on Calendly</a></p>
+          <p class="email-editor-note">The body is wrapped in the Managira-branded email shell. Line breaks and basic HTML are preserved.</p>
+        </div>
+      </div>
+
+      <div class="email-editor-footer">
+        <button type="button" class="email-editor-btn ghost" id="emailEditorCancel">Cancel</button>
+        <button type="button" class="email-editor-btn primary" id="emailEditorSend">Send email</button>
+      </div>
     </div>
+  </div>
 
-    <p style="margin: -6px 0 16px; color: #6b7280; font-size: 0.85rem;">
-      In-app mode uses the built-in application form with resume upload, contact info, and cover letter.
-    </p>
+  <details class="job-card admin-job">
+    <summary class="job-summary">
+      <div class="job-header-row">
+        <h3>Post a New Job Opening</h3>
+        <span class="expand-hint">Click to expand</span>
+      </div>
+    </summary>
+    <div class="job-body">
+      <form method="POST" action="/admin/employment" class="job-form">
+        <input type="text" name="title" placeholder="Job Title" required />
+        <textarea name="description" placeholder="Job Description" required></textarea>
 
-    <button type="submit" class="admin-btn admin-btn-primary admin-btn-lg" style="width: 100%;">
-      Post Job Opening
-    </button>
-  </form>
+        <label for="application_mode" style="display: block; margin-bottom: 8px; font-weight: 600; color: #1f2937;">Application Type</label>
+        <select id="application_mode" name="application_mode" style="width: 100%; margin-bottom: 16px; padding: 12px; font-size: 0.9rem; border-radius: 8px; border: 1px solid #d1d5db;">
+          <option value="external" selected>External Link</option>
+          <option value="in_app">In-App Application Form</option>
+        </select>
 
+        <div id="externalLinkWrapper">
+          <input id="external_link" type="url" name="external_link" placeholder="External Link (e.g., LinkedIn Job Posting)" required />
+        </div>
+
+        <p style="margin: -6px 0 16px; color: #6b7280; font-size: 0.85rem;">
+          In-app mode uses the built-in application form with resume upload, contact info, and cover letter.
+        </p>
+
+        <button type="submit" class="admin-btn admin-btn-primary admin-btn-lg" style="width: 100%;">
+          Post Job Opening
+        </button>
+      </form>
+    </div>
+  </details>
+
+  <details class="job-card admin-job" style="margin-top: 16px;">
+    <summary class="job-summary">
+      <div class="job-header-row">
+        <h3>Existing Job Postings (<%= (jobs || []).length %>)</h3>
+        <span class="expand-hint">Click to expand</span>
+      </div>
+    </summary>
+    <div class="job-body">
   <div class="job-wrapper">
     <% if (jobs.length === 0) { %>
       <div class="empty-state">
@@ -789,6 +1081,8 @@
       <% }) %>
     <% } %>
   </div>
+    </div>
+  </details>
 </div>
 
 <script>
@@ -858,6 +1152,7 @@
         const phone = item.phone || '-';
         const jobTitle = item.job_title || '-';
         const status = (item.status || 'pending').toLowerCase();
+        const stage = (item.interview_stage || 'none').toLowerCase();
 
         const approveDisabled = status !== 'pending';
         const rejectDisabled = status !== 'pending';
@@ -872,12 +1167,43 @@
           ? `<button type="button" class="overview-action-btn reverse" data-action="reverse" data-id="${escapeHtml(item.id)}" data-status="${escapeHtml(status)}">Reverse</button>`
           : '';
 
+        // Stage-aware buttons (only for approved applicants).
+        // Treat legacy approved applicants without a stage as 'first' so the
+        // second-interview action is always reachable.
+        let stageButtons = '';
+        const effectiveStage = (status === 'approved' && (!stage || stage === 'none')) ? 'first' : stage;
+        if (status === 'approved') {
+          if (effectiveStage === 'first') {
+            stageButtons = `
+              <button type="button" class="overview-action-btn second" data-action="second-interview" data-id="${escapeHtml(item.id)}">Send 2nd Interview</button>
+              <button type="button" class="overview-action-btn stage-reject" data-action="stage-reject" data-id="${escapeHtml(item.id)}" data-stage="first">Reject After 1st</button>
+            `;
+          } else if (effectiveStage === 'second') {
+            stageButtons = `
+              <button type="button" class="overview-action-btn final" data-action="final-interview" data-id="${escapeHtml(item.id)}">Send Last Interview</button>
+              <button type="button" class="overview-action-btn stage-reject" data-action="stage-reject" data-id="${escapeHtml(item.id)}" data-stage="second">Reject After 2nd</button>
+            `;
+          } else if (effectiveStage === 'final') {
+            stageButtons = `
+              <button type="button" class="overview-action-btn stage-reject" data-action="stage-reject" data-id="${escapeHtml(item.id)}" data-stage="final">Reject After Final</button>
+            `;
+          }
+        }
+
+        const stageLabelMap = { first: '1st Interview', second: '2nd Interview', final: 'Final Interview' };
+        const stageChip = (status === 'approved' && stageLabelMap[effectiveStage])
+          ? `<span class="stage-chip ${escapeHtml(effectiveStage)}">${stageLabelMap[effectiveStage]}</span>`
+          : '';
+
         return `
           <tr>
             <td>${escapeHtml(fullName)}</td>
             <td>${escapeHtml(jobTitle)}</td>
             <td>${escapeHtml(item.location || '-')}</td>
-            <td><span class="status-pill ${statusClass(status)}">${escapeHtml(status)}</span></td>
+            <td>
+              <span class="status-pill ${statusClass(status)}">${escapeHtml(status)}</span>
+              ${stageChip ? '<br>' + stageChip : ''}
+            </td>
             <td><a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a></td>
             <td><a href="tel:${escapeHtml(phone)}">${escapeHtml(phone)}</a></td>
             <td>${escapeHtml(contactPreference(item))}</td>
@@ -886,6 +1212,7 @@
               <div class="overview-actions">
                 <button type="button" class="overview-action-btn approve" data-action="approve" data-id="${escapeHtml(item.id)}" data-status="${escapeHtml(status)}" ${approveDisabled ? 'disabled' : ''}>${escapeHtml(approveLabel)}</button>
                 <button type="button" class="overview-action-btn reject" data-action="reject" data-id="${escapeHtml(item.id)}" data-status="${escapeHtml(status)}" ${rejectDisabled ? 'disabled' : ''}>${escapeHtml(rejectLabel)}</button>
+                ${stageButtons}
                 ${reverseAction}
                 <button type="button" class="overview-action-btn delete" data-action="delete" data-id="${escapeHtml(item.id)}" data-status="${escapeHtml(status)}">Delete</button>
               </div>
@@ -895,22 +1222,24 @@
       }).join('');
 
       applicantsPanelBody.innerHTML = `
-        <table class="applicants-table">
-          <thead>
-            <tr>
-              <th>Applicant</th>
-              <th>Role</th>
-              <th>Location</th>
-              <th>Status</th>
-              <th>Email</th>
-              <th>Phone</th>
-              <th>Preference</th>
-              <th>Applied</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
+        <div class="applicants-table-wrap">
+          <table class="applicants-table">
+            <thead>
+              <tr>
+                <th>Applicant</th>
+                <th>Role</th>
+                <th>Location</th>
+                <th>Status</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Preference</th>
+                <th>Applied</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
       `;
     }
 
@@ -930,9 +1259,7 @@
 
         applicantsCache = Array.isArray(payload.applications) ? payload.applications : [];
         applicantsLoaded = true;
-        if (applicantsCountBadge) {
-          applicantsCountBadge.textContent = String(payload.total || applicantsCache.length);
-        }
+        updateTabCounts();
         populateFilterOptions(applicantsCache);
         applyFilters();
       } catch (error) {
@@ -975,6 +1302,7 @@
       if (toDate) toDate.setHours(23, 59, 59, 999);
 
       const filtered = applicantsCache.filter((item) => {
+        if (!matchesTab(item, currentApplicantsTab)) return false;
         if (term) {
           const haystack = `${item.first_name || ''} ${item.last_name || ''} ${item.email || ''} ${item.job_title || ''} ${item.status || ''} ${item.location || ''}`.toLowerCase();
           if (!haystack.includes(term)) return false;
@@ -1004,26 +1332,193 @@
       renderApplicantsTable(filtered);
     }
 
+    // ===== Tab helpers =====
+    let currentApplicantsTab = 'new';
+    function matchesTab(item, tab) {
+      const status = (item.status || '').toLowerCase();
+      const stage  = (item.interview_stage || 'none').toLowerCase();
+      switch (tab) {
+        case 'new':      return status === 'pending';
+        case 'first':    return status === 'approved' && (stage === 'first' || stage === 'none');
+        case 'second':   return status === 'approved' && stage === 'second';
+        case 'final':    return status === 'approved' && stage === 'final';
+        case 'rejected': return status === 'rejected';
+        case 'all':
+        default:         return true;
+      }
+    }
+    function updateTabCounts() {
+      const buckets = { new: 0, first: 0, second: 0, final: 0, rejected: 0, all: applicantsCache.length };
+      applicantsCache.forEach((item) => {
+        ['new', 'first', 'second', 'final', 'rejected'].forEach((t) => {
+          if (matchesTab(item, t)) buckets[t]++;
+        });
+      });
+      Object.keys(buckets).forEach((t) => {
+        const el = document.querySelector(`.tab-count[data-count-for="${t}"]`);
+        if (el) el.textContent = String(buckets[t]);
+      });
+      // The Applicants Overview button badge reflects only "new" (no interview yet)
+      if (applicantsCountBadge) applicantsCountBadge.textContent = String(buckets.new);
+    }
+
     function filterApplicants() {
       applyFilters();
     }
 
     function submitPostAction(url, payload) {
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = url;
-
+      // Silent AJAX: keep the panel open. Server still redirects to /admin/employment;
+      // fetch follows it but we discard the HTML. Flash messages get consumed by the
+      // redirected GET so they don't leak into the next real page load.
+      const formData = new FormData();
       const fields = payload || {};
-      Object.keys(fields).forEach((key) => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = key;
-        input.value = fields[key];
-        form.appendChild(input);
-      });
+      Object.keys(fields).forEach((key) => formData.append(key, fields[key]));
 
-      document.body.appendChild(form);
-      form.submit();
+      return fetch(url, {
+        method: 'POST',
+        body: formData,
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      })
+        .then((response) => {
+          if (!response.ok && response.status >= 400) {
+            throw new Error(`Request failed (${response.status})`);
+          }
+          showApplicantsToast('Action completed.', 'success');
+          return loadApplicants();
+        })
+        .catch((err) => {
+          showApplicantsToast(err.message || 'Action failed. Please try again.', 'error');
+        });
+    }
+
+    function showApplicantsToast(message, kind) {
+      let toast = document.getElementById('applicantsToast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'applicantsToast';
+        toast.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:10000;padding:12px 18px;border-radius:10px;font-size:0.9rem;font-weight:600;color:#fff;box-shadow:0 12px 28px -12px rgba(15,23,42,0.4);transition:opacity 200ms ease, transform 200ms ease;opacity:0;transform:translateY(8px);';
+        document.body.appendChild(toast);
+      }
+      toast.style.background = kind === 'error' ? '#b91c1c' : '#0f766e';
+      toast.textContent = message;
+      requestAnimationFrame(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+      });
+      clearTimeout(showApplicantsToast._t);
+      showApplicantsToast._t = setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(8px)';
+      }, 2600);
+    }
+
+    // ===== Email Editor Modal =====
+    const emailEditorOverlay = document.getElementById('emailEditorOverlay');
+    const emailEditorStepEl  = document.getElementById('emailEditorStep');
+    const emailEditorTitleEl = document.getElementById('emailEditorTitle');
+    const emailEditorSubEl   = document.getElementById('emailEditorSub');
+    const emailEditorSubject = document.getElementById('emailEditorSubject');
+    const emailEditorTextarea = document.getElementById('emailEditorTextarea');
+    const emailEditorClose   = document.getElementById('emailEditorClose');
+    const emailEditorCancel  = document.getElementById('emailEditorCancel');
+    const emailEditorSend    = document.getElementById('emailEditorSend');
+
+    let emailEditorContext = null;
+    let emailEditorTemplateText = '';
+
+    function emailEditorMode() {
+      const checked = document.querySelector('input[name="emailEditorMode"]:checked');
+      return checked ? checked.value : 'template';
+    }
+    function emailEditorBody() { return emailEditorTextarea ? emailEditorTextarea.value : ''; }
+
+    function defaultSecondInterviewTemplate(name) {
+      const greet = (name || 'there').split(' ')[0];
+      return (
+        `Dear ${greet},\n\n` +
+        `Congratulations on moving forward to the second interview!\n\n` +
+        `As preparation, please prepare a short written proposal describing how you would help improve and grow Managira in your local area over the next 6 months. Outline the strategy, the activities you would lead, and the measurable results you expect to achieve.\n\n` +
+        `Email your proposal to managirasms@gmail.com before your second interview.\n\n` +
+        `When booking, please add a note in the Calendly comment section that this is your second interview.\n\n` +
+        `Thank you,\nThe Managira Team`
+      );
+    }
+    function defaultFinalInterviewTemplate(name) {
+      const greet = (name || 'there').split(' ')[0];
+      return (
+        `Dear ${greet},\n\n` +
+        `Thank you for the strong showing in your second interview. We would like to invite you to a final interview with the wider Managira team.\n\n` +
+        `Please book a slot using the Calendly link below and mention "Final Interview" in the Calendly comment section.\n\n` +
+        `We look forward to meeting you again.\n\n` +
+        `Warm regards,\nThe Managira Team`
+      );
+    }
+
+    function syncEmailEditorMode() {
+      const mode = emailEditorMode();
+      if (mode === 'template') {
+        emailEditorTextarea.value = emailEditorTemplateText;
+        emailEditorTextarea.readOnly = true;
+        emailEditorTextarea.style.background = '#f8fafc';
+      } else {
+        emailEditorTextarea.readOnly = false;
+        emailEditorTextarea.style.background = '#ffffff';
+        if (!emailEditorTextarea.value || emailEditorTextarea.value === emailEditorTemplateText) {
+          // keep current text as starting point so editor sees the template
+        }
+      }
+    }
+
+    function openEmailEditor(ctx) {
+      emailEditorContext = ctx;
+      emailEditorTemplateText = ctx.template || '';
+      emailEditorStepEl.textContent  = ctx.step || '';
+      emailEditorTitleEl.textContent = ctx.title || 'Send Email';
+      emailEditorSubEl.textContent   = `Recipient: ${ctx.recipient || '—'}`;
+      emailEditorSubject.textContent = ctx.subject || '—';
+      // default to template mode
+      const tplRadio = document.querySelector('input[name="emailEditorMode"][value="template"]');
+      if (tplRadio) tplRadio.checked = true;
+      emailEditorTextarea.value = emailEditorTemplateText;
+      syncEmailEditorMode();
+      emailEditorOverlay.hidden = false;
+      document.body.style.overflow = 'hidden';
+      setTimeout(() => emailEditorTextarea.focus(), 50);
+    }
+
+    function closeEmailEditor() {
+      emailEditorOverlay.hidden = true;
+      document.body.style.overflow = '';
+      emailEditorContext = null;
+    }
+
+    document.querySelectorAll('input[name="emailEditorMode"]').forEach((r) => {
+      r.addEventListener('change', syncEmailEditorMode);
+    });
+    if (emailEditorClose)  emailEditorClose.addEventListener('click', closeEmailEditor);
+    if (emailEditorCancel) emailEditorCancel.addEventListener('click', closeEmailEditor);
+    if (emailEditorOverlay) {
+      emailEditorOverlay.addEventListener('click', (e) => {
+        if (e.target === emailEditorOverlay) closeEmailEditor();
+      });
+    }
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && emailEditorOverlay && !emailEditorOverlay.hidden) closeEmailEditor();
+    });
+    if (emailEditorSend) {
+      emailEditorSend.addEventListener('click', () => {
+        if (!emailEditorContext) return;
+        const fields = emailEditorContext.extraFields ? emailEditorContext.extraFields() : {};
+        emailEditorSend.disabled = true;
+        emailEditorSend.textContent = 'Sending…';
+        const result = submitPostAction(emailEditorContext.submitUrl, fields);
+        Promise.resolve(result).finally(() => {
+          emailEditorSend.disabled = false;
+          emailEditorSend.textContent = 'Send email';
+          closeEmailEditor();
+        });
+      });
     }
 
     function onApplicantsActionClick(event) {
@@ -1061,6 +1556,61 @@
         return;
       }
 
+      if (action === 'second-interview') {
+        const row = button.closest('tr');
+        const applicantName = row ? (row.cells[0] && row.cells[0].textContent.trim()) : '';
+        const applicantEmail = row ? (row.cells[4] && row.cells[4].textContent.trim()) : '';
+        const jobTitle = row ? (row.cells[1] && row.cells[1].textContent.trim()) : '';
+        if (!window.confirm(`Are you sure ${applicantName || 'this applicant'} has completed their first interview?\n\nSending the second interview email will move them to the next stage.`)) return;
+        openEmailEditor({
+          step: 'Step 2 of 3',
+          title: 'Send 2nd Interview Invitation',
+          recipient: `${applicantName} <${applicantEmail}> — ${jobTitle}`,
+          subject: `Second interview invitation — ${jobTitle}`,
+          template: defaultSecondInterviewTemplate(applicantName),
+          submitUrl: `/admin/employment/applications/${applicationId}/second-interview`,
+          extraFields: () => ({
+            use_template: emailEditorMode() === 'template' ? 'true' : 'false',
+            custom_message: emailEditorMode() === 'custom' ? emailEditorBody() : '',
+          }),
+        });
+        return;
+      }
+
+      if (action === 'final-interview') {
+        const row = button.closest('tr');
+        const applicantName = row ? (row.cells[0] && row.cells[0].textContent.trim()) : '';
+        const applicantEmail = row ? (row.cells[4] && row.cells[4].textContent.trim()) : '';
+        const jobTitle = row ? (row.cells[1] && row.cells[1].textContent.trim()) : '';
+        if (!window.confirm(`Are you sure ${applicantName || 'this applicant'} has completed their second interview?\n\nSending the final interview email will move them to the final stage.`)) return;
+        openEmailEditor({
+          step: 'Step 3 of 3',
+          title: 'Send Last Interview With Team',
+          recipient: `${applicantName} <${applicantEmail}> — ${jobTitle}`,
+          subject: `Final interview with the Managira team — ${jobTitle}`,
+          template: defaultFinalInterviewTemplate(applicantName),
+          submitUrl: `/admin/employment/applications/${applicationId}/final-interview`,
+          extraFields: () => ({
+            custom_message: emailEditorBody(),
+          }),
+        });
+        return;
+      }
+
+      if (action === 'stage-reject') {
+        const stageLabel = button.getAttribute('data-stage') || 'this stage';
+        const rejectionReason = window.prompt(
+          `Optional rejection reason to include in the email (after ${stageLabel} interview):`,
+          ''
+        );
+        if (rejectionReason === null) return;
+        if (!window.confirm('Send stage rejection email to this applicant?')) return;
+        submitPostAction(`/admin/employment/applications/${applicationId}/stage-reject`, {
+          rejection_reason: rejectionReason,
+        });
+        return;
+      }
+
       if (action === 'delete') {
         if (!window.confirm('Delete this application permanently?')) return;
         submitPostAction(`/admin/employment/applications/${applicationId}/delete`);
@@ -1094,6 +1644,24 @@
     [filterStatus, filterRole, filterCountry, filterContact, filterFromDate, filterToDate].forEach((el) => {
       if (el) el.addEventListener('change', applyFilters);
     });
+
+    // Tab clicks
+    const applicantsTabsEl = document.getElementById('applicantsTabs');
+    if (applicantsTabsEl) {
+      applicantsTabsEl.addEventListener('click', (e) => {
+        const btn = e.target.closest('.applicants-tab');
+        if (!btn) return;
+        const tab = btn.getAttribute('data-tab');
+        if (!tab || tab === currentApplicantsTab) return;
+        currentApplicantsTab = tab;
+        applicantsTabsEl.querySelectorAll('.applicants-tab').forEach((b) => {
+          const active = b === btn;
+          b.classList.toggle('is-active', active);
+          b.setAttribute('aria-selected', String(active));
+        });
+        applyFilters();
+      });
+    }
 
     if (resetFiltersBtn) {
       resetFiltersBtn.addEventListener('click', () => {

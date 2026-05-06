@@ -150,7 +150,7 @@
     <%- include('../partials/flash') %>
 
     <div class="demo-card">
-      <form action="/legal/request-demo" method="POST" id="demoRequestForm" novalidate>
+      <form action="/legal/request-demo" method="POST" id="demoRequestForm">
         <div class="form-grid">
           <div class="full">
             <label for="name">Full Name <span class="req">*</span></label>
@@ -169,6 +169,12 @@
           <div>
             <label for="phone">Phone Number <span class="req">*</span></label>
             <input id="phone" name="phone" type="tel" required autocomplete="tel" placeholder="+234 801 234 5678" maxlength="40">
+          </div>
+
+          <div class="full">
+            <label for="message">What would you like to know? <span class="req">*</span></label>
+            <textarea id="message" name="message" rows="5" required minlength="20" maxlength="1500" placeholder="Tell us what you'd like to see in the demo — features, integrations, pricing questions, or anything specific to your school."></textarea>
+            <small style="display:block;margin-top:4px;color:#64748b;font-size:0.8rem;">Minimum 20 characters. This helps us tailor the walkthrough to your needs.</small>
           </div>
         </div>
 
@@ -197,6 +203,12 @@
       const confirmBox = document.getElementById('confirmHuman');
       const submitBtn = document.getElementById('demoSubmitBtn');
       form.addEventListener('submit', function (e) {
+        // Native validation first — stops empty required fields from submitting.
+        if (!form.checkValidity()) {
+          e.preventDefault();
+          form.reportValidity();
+          return;
+        }
         if (!confirmBox.checked) {
           e.preventDefault();
           alert('Please confirm this is a genuine request before submitting.');

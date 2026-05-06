@@ -267,6 +267,11 @@
       </div>
     </div>
 
+    <div class="app-demo-gallery-caption-inline" id="app-demo-gallery-caption-inline">
+      <strong id="app-demo-gallery-label-inline"></strong>
+      <span id="app-demo-gallery-text-inline"></span>
+    </div>
+
     <div class="app-demo-modal__viewer" id="app-demo-viewer">
       <div class="app-demo-modal__canvas" id="app-demo-canvas">
         <img id="app-demo-modal-image" src="" alt="" />
@@ -285,8 +290,11 @@
           <strong id="app-demo-gallery-label"></strong>
           <span id="app-demo-gallery-text"></span>
         </div>
-        <div class="app-demo-gallery-dots" id="app-demo-gallery-dots" role="tablist" aria-label="Report screens"></div>
       </div>
+    </div>
+
+    <div class="app-demo-gallery-dots-bar" id="app-demo-gallery-dots-bar" hidden>
+      <div class="app-demo-gallery-dots" id="app-demo-gallery-dots" role="tablist" aria-label="Report screens"></div>
     </div>
 
     <div class="app-demo-modal__toolbar">
@@ -832,6 +840,19 @@
     display: grid;
     place-items: stretch;
     padding: 12px 80px;
+    /* Disable browser pinch / double-tap zoom inside the modal — use the +/- controls */
+    touch-action: pan-x pan-y;
+    -ms-touch-action: pan-x pan-y;
+  }
+
+  .app-demo-modal,
+  .app-demo-modal * {
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+  .app-demo-modal__viewer,
+  .app-demo-modal__viewer * {
+    touch-action: pan-x pan-y;
   }
 
   .app-demo-modal[hidden] {
@@ -1130,6 +1151,10 @@
       padding: 12px;
     }
 
+    .app-demo-modal {
+      padding: 12px 24px;
+    }
+
   }
 
   @media (max-width: 780px) {
@@ -1199,12 +1224,14 @@
     }
 
     .app-demo-modal {
-      padding: 10px;
+      padding: 0;
     }
 
     .app-demo-modal__panel {
-      max-height: 94vh;
-      border-radius: 18px;
+      width: 100%;
+      height: 100%;
+      max-height: 100%;
+      border-radius: 0;
     }
 
     .app-demo-modal__viewer {
@@ -1370,10 +1397,18 @@
     line-height: 1.4;
   }
 
+  .app-demo-gallery-dots-bar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 8px 12px;
+    border-top: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(255, 255, 255, 0.6);
+    flex-shrink: 0;
+  }
+  .app-demo-gallery-dots-bar[hidden] { display: none; }
+
   .app-demo-gallery-dots {
-    position: absolute;
-    left: 18px;
-    bottom: 22px;
     display: flex;
     gap: 6px;
   }
@@ -1445,29 +1480,53 @@
   .app-demo-modal__panel--gallery .app-demo-modal__canvas img {
     width: auto;
     height: auto;
-    max-width: 100%;
-    max-height: 100%;
+    max-width: calc(100% * var(--app-demo-zoom, 1));
+    max-height: calc(100% * var(--app-demo-zoom, 1));
     object-fit: contain;
     transition: max-width 180ms ease, max-height 180ms ease;
   }
 
+  /* Inline caption shown above the viewer on small screens (overlay caption hidden) */
+  .app-demo-gallery-caption-inline {
+    display: none;
+    margin: 0 0 10px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: #f8fafc;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.18);
+  }
+  .app-demo-gallery-caption-inline strong {
+    display: block;
+    font-size: 12px;
+    color: #ffffff;
+    margin-bottom: 2px;
+    letter-spacing: 0.02em;
+  }
+  .app-demo-gallery-caption-inline span {
+    display: block;
+    font-size: 11.5px;
+    color: rgba(248, 250, 252, 0.88);
+    line-height: 1.45;
+  }
+
   @media (max-width: 640px) {
-    .app-demo-gallery-chevron { width: 32px; height: 32px; font-size: 19px; }
-    .app-demo-gallery-chevron--prev { left: 6px; }
-    .app-demo-gallery-chevron--next { right: 6px; }
-    /* Move caption to top so it doesn't cover the image content */
-    .app-demo-gallery-caption {
-      top: 8px;
-      bottom: auto;
-      left: 8px;
-      right: 8px;
-      max-width: none;
-      padding: 6px 10px;
-      background: rgba(15, 23, 42, 0.72);
-    }
-    .app-demo-gallery-caption strong { font-size: 11px; }
-    .app-demo-gallery-caption span { font-size: 10px; }
-    .app-demo-gallery-dots { left: 10px; bottom: 14px; }
+    .app-demo-gallery-chevron { width: 30px; height: 30px; font-size: 18px; }
+    .app-demo-gallery-chevron--prev { left: 4px; }
+    .app-demo-gallery-chevron--next { right: 4px; }
+    /* Hide absolute overlay caption on small screens; show inline caption above viewer instead */
+    .app-demo-modal__panel--gallery .app-demo-gallery-caption { display: none; }
+    .app-demo-modal__panel--gallery .app-demo-gallery-caption-inline { display: block; margin: 0 12px 10px; }
+    /* Tighter modal layout for phones */
+    .app-demo-modal__panel { border-radius: 14px; }
+    .app-demo-modal__topbar { padding: 8px 12px; }
+    .app-demo-modal__header { padding: 6px 12px 8px; }
+    .app-demo-modal__header h2 { font-size: 18px; line-height: 1.25; }
+    .app-demo-modal__description { font-size: 12.5px; line-height: 1.45; }
+    .app-demo-modal__panel--gallery .app-demo-modal__viewer { padding: 8px; }
+    .app-demo-modal__toolbar { padding: 8px 10px; gap: 8px; flex-wrap: wrap; }
+    .app-demo-zoom-controls, .app-demo-nav-controls { gap: 6px; }
+    .app-demo-nav-btn { padding: 6px 12px; font-size: 13px; }
   }
 </style>
 
@@ -1497,7 +1556,13 @@
     const ZOOM_MIN = 30;
     const ZOOM_MAX = 200;
     const ZOOM_STEP = 5;
-    const ZOOM_DEFAULT = 75;
+    const ZOOM_DEFAULT_DESKTOP = 75;
+    const ZOOM_DEFAULT_SMALL = 85;
+    const SMALL_SCREEN_BREAKPOINT = 780;
+    function getDefaultZoom() {
+      return window.innerWidth <= SMALL_SCREEN_BREAKPOINT ? ZOOM_DEFAULT_SMALL : ZOOM_DEFAULT_DESKTOP;
+    }
+    const ZOOM_DEFAULT = getDefaultZoom();
 
     const galleryOverlay = document.getElementById('app-demo-gallery-overlay');
     const galleryDots = document.getElementById('app-demo-gallery-dots');
@@ -1508,7 +1573,7 @@
     let activeIndex = 0;
     let galleryIndex = 0;
     let currentGallery = null;
-    let zoomPercent = ZOOM_DEFAULT;
+    let zoomPercent = getDefaultZoom();
     let lastTrigger = null;
     let isExpanded = false;
     let touchStartX = null;
@@ -1617,6 +1682,10 @@
       imageNode.alt = slide.label || 'Demo screen ' + (galleryIndex + 1);
       if (galleryLabel) galleryLabel.textContent = slide.label || '';
       if (galleryText) galleryText.textContent = slide.caption || '';
+      const inlineLabel = document.getElementById('app-demo-gallery-label-inline');
+      const inlineText = document.getElementById('app-demo-gallery-text-inline');
+      if (inlineLabel) inlineLabel.textContent = slide.label || '';
+      if (inlineText) inlineText.textContent = slide.caption || '';
       if (galleryDots) {
         Array.from(galleryDots.children).forEach((dot, i) => {
           dot.setAttribute('aria-selected', i === galleryIndex ? 'true' : 'false');
@@ -1662,6 +1731,8 @@
       currentGallery = null;
       galleryIndex = 0;
       if (galleryOverlay) galleryOverlay.hidden = true;
+      const dotsBar = document.getElementById('app-demo-gallery-dots-bar');
+      if (dotsBar) dotsBar.hidden = true;
       if (panel) panel.classList.remove('app-demo-modal__panel--gallery');
 
       if (page.mediaType === 'pdf') {
@@ -1682,6 +1753,8 @@
         buildGalleryDots(currentGallery.length);
         renderGallerySlide();
         if (galleryOverlay) galleryOverlay.hidden = false;
+        const dotsBarShow = document.getElementById('app-demo-gallery-dots-bar');
+        if (dotsBarShow) dotsBarShow.hidden = false;
         if (panel) panel.classList.add('app-demo-modal__panel--gallery');
       } else {
         documentNode.hidden = true;
@@ -1694,7 +1767,8 @@
         imageNode.alt = page.title + ' full-page preview';
       }
 
-      setZoom(currentGallery ? 100 : ZOOM_DEFAULT);
+      // Keep current zoom across slide changes (sticky); only refresh CSS var + label.
+      setZoom(zoomPercent);
       syncBaseWidth();
       viewer.scrollTop = 0;
       viewer.scrollLeft = 0;
@@ -1706,11 +1780,31 @@
       modal.setAttribute('aria-hidden', 'false');
       document.body.classList.add('app-demo-modal-open');
       setExpanded(false);
+      // Reset zoom to the screen-appropriate default each time the modal opens.
+      zoomPercent = getDefaultZoom();
       renderModal(index);
       const closeButton = modal.querySelector('[data-demo-close]');
       if (closeButton) {
         closeButton.focus();
       }
+    }
+
+    // Suppress browser double-tap zoom and pinch gestures inside the modal.
+    // The explicit +/- buttons remain the only zoom controls.
+    if (modal) {
+      modal.addEventListener('dblclick', function (e) { e.preventDefault(); }, { passive: false });
+      modal.addEventListener('gesturestart', function (e) { e.preventDefault(); }, { passive: false });
+      modal.addEventListener('gesturechange', function (e) { e.preventDefault(); }, { passive: false });
+      modal.addEventListener('gestureend', function (e) { e.preventDefault(); }, { passive: false });
+      // Prevent the second tap of a double-tap from firing zoom on iOS Safari.
+      let lastTouchEnd = 0;
+      modal.addEventListener('touchend', function (e) {
+        const now = Date.now();
+        if (now - lastTouchEnd <= 350) {
+          e.preventDefault();
+        }
+        lastTouchEnd = now;
+      }, { passive: false });
     }
 
     function closeModal() {

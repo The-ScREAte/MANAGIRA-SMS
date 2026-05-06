@@ -496,10 +496,16 @@ const legalController = {
                 return res.redirect('/legal/request-demo');
             }
 
-            // Anti-spam: only enforce word minimum on optional message if it was filled in.
+            const trimmedMessage = (message || '').trim();
+            if (trimmedMessage.length < 20) {
+                req.flash('error', 'Please tell us what you would like to know — at least 20 characters so we can tailor the demo.');
+                return res.redirect('/legal/request-demo');
+            }
+
+            // Anti-spam: require the note and a minimum of 5 words.
             const spamCheck = checkAntiSpam(req.body, {
                 requireConfirm: true,
-                minWords: message && message.trim() ? 3 : 0,
+                minWords: 5,
                 messageField: 'message',
             });
             if (!spamCheck.ok) {

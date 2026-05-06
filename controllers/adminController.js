@@ -3033,7 +3033,9 @@ const adminController = {
         `UPDATE employment_applications
          SET status = 'pending',
              rejection_reason = NULL,
-             reviewed_at = CURRENT_TIMESTAMP
+             interview_stage = 'none',
+             reviewed_at = CURRENT_TIMESTAMP,
+             stage_updated_at = CURRENT_TIMESTAMP
          WHERE id = $1`,
         [applicationId]
       );
@@ -3094,8 +3096,12 @@ const adminController = {
       );
       if (!r.rows.length) { req.flash("error", "Application not found."); return res.redirect("/admin/employment"); }
       const app = r.rows[0];
-      if (app.status !== 'approved' || app.interview_stage !== 'first') {
-        req.flash("error", "Applicant must have completed the first interview stage.");
+      if (app.status !== 'approved') {
+        req.flash("error", "Applicant must be approved before sending a second interview invite.");
+        return res.redirect("/admin/employment");
+      }
+      if (app.interview_stage === 'second' || app.interview_stage === 'final') {
+        req.flash("error", "This applicant has already been moved past the first interview stage.");
         return res.redirect("/admin/employment");
       }
 
@@ -3157,8 +3163,12 @@ const adminController = {
       );
       if (!r.rows.length) { req.flash("error", "Application not found."); return res.redirect("/admin/employment"); }
       const app = r.rows[0];
-      if (app.status !== 'approved' || app.interview_stage !== 'second') {
-        req.flash("error", "Applicant must have completed the second interview stage.");
+      if (app.status !== 'approved') {
+        req.flash("error", "Applicant must be approved before sending a final interview invite.");
+        return res.redirect("/admin/employment");
+      }
+      if (app.interview_stage === 'final') {
+        req.flash("error", "This applicant has already been sent the final interview invite.");
         return res.redirect("/admin/employment");
       }
 
@@ -3254,7 +3264,7 @@ const adminController = {
     return res.redirect("/admin/employment");
   },
 
-
+  getDonationsAdmin: async (req, res) => {
     const donations = await db.query(
       `SELECT * FROM donations ORDER BY created_at DESC`
     );
