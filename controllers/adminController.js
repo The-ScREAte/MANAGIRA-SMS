@@ -474,7 +474,7 @@ const adminController = {
       // - Admin / Mini Admin sees all contacts with the creator's name.
       let contacts = [];
       const canManageAllContacts = isAdminSideManager(accountType);
-      const canAssignContacts = canManageAllContacts;
+      const canAssignContacts = accountType === 'Admin';
       if (isInternalWorker) {
         const own = await db.query(
           `SELECT ic.id, ic.contact_name, ic.organization_name, ic.appointment_set, ic.appointment_at,
@@ -489,7 +489,8 @@ const adminController = {
            FROM internal_contacts ic
            LEFT JOIN users creator ON creator.user_id = ic.created_by_user_id
            LEFT JOIN users assignee ON assignee.user_id = ic.assigned_to_user_id
-           WHERE ic.created_by_user_id = $1 OR ic.assigned_to_user_id = $1
+           WHERE ic.deleted_at IS NULL
+             AND (ic.created_by_user_id = $1 OR ic.assigned_to_user_id = $1)
            ORDER BY created_at DESC
            LIMIT 200`,
           [req.session.userId]
@@ -510,6 +511,7 @@ const adminController = {
            FROM internal_contacts ic
            LEFT JOIN users creator ON creator.user_id = ic.created_by_user_id
            LEFT JOIN users assignee ON assignee.user_id = ic.assigned_to_user_id
+           WHERE ic.deleted_at IS NULL
            ORDER BY ic.created_at DESC
            LIMIT 500`
         );
@@ -542,7 +544,7 @@ const adminController = {
         isInternalWorker: req.session.accountType === 'Internal Worker',
         isFullAdmin: req.session.accountType === 'Admin',
         canManageAllContacts: isAdminSideManager(req.session.accountType),
-        canAssignContacts: isAdminSideManager(req.session.accountType),
+        canAssignContacts: req.session.accountType === 'Admin',
         messages: req.flash(),
         nodeEnv: process.env.NODE_ENV,
         baseDomain: "managira.com",
@@ -618,7 +620,7 @@ const adminController = {
 
       // Internal Worker may only update their own contacts; full admins may update any.
       const ownership = await db.query(
-        `SELECT created_by_user_id, assigned_to_user_id, followed_up FROM internal_contacts WHERE id = $1`,
+        `SELECT created_by_user_id, assigned_to_user_id, followed_up FROM internal_contacts WHERE id = $1 AND deleted_at IS NULL`,
         [id]
       );
       if (!ownership.rows.length) {
@@ -662,7 +664,7 @@ const adminController = {
       const isPrivileged = isAdminSideManager(req.session.accountType);
 
       const ownership = await db.query(
-        `SELECT created_by_user_id, assigned_to_user_id, joined FROM internal_contacts WHERE id = $1`,
+        `SELECT created_by_user_id, assigned_to_user_id, joined FROM internal_contacts WHERE id = $1 AND deleted_at IS NULL`,
         [id]
       );
       if (!ownership.rows.length) {
@@ -706,7 +708,7 @@ const adminController = {
       const isPrivileged = isAdminSideManager(req.session.accountType);
 
       const ownership = await db.query(
-        `SELECT created_by_user_id FROM internal_contacts WHERE id = $1`,
+        `SELECT created_by_user_id FROM internal_contacts WHERE id = $1 AND deleted_at IS NULL`,
         [id]
       );
       if (!ownership.rows.length) {
@@ -718,8 +720,14 @@ const adminController = {
         return res.redirect("/admin");
       }
 
-      await db.query(`DELETE FROM internal_contacts WHERE id = $1`, [id]);
-      req.flash("success", "Contact deleted.");
+      await db.query(
+        `UPDATE internal_contacts
+         SET deleted_at = CURRENT_TIMESTAMP,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [id]
+      );
+      req.flash("success", "Contact moved to Super Admin trash.");
       return res.redirect("/admin");
     } catch (error) {
       req.flash("error", "Failed to delete contact.");
@@ -751,7 +759,7 @@ const adminController = {
       }
 
       const ownership = await db.query(
-        `SELECT created_by_user_id, assigned_to_user_id, notes FROM internal_contacts WHERE id = $1`,
+        `SELECT created_by_user_id, assigned_to_user_id, notes FROM internal_contacts WHERE id = $1 AND deleted_at IS NULL`,
         [id]
       );
       if (!ownership.rows.length) {
@@ -806,7 +814,7 @@ const adminController = {
     try {
       await ensureInternalWorkerSchema(db);
 
-      if (!isAdminSideManager(req.session.accountType)) {
+      if (req.session.accountType !== 'Admin') {
         return res.status(403).json({ success: false, message: 'Only admins can assign contacts.' });
       }
 
@@ -821,7 +829,7 @@ const adminController = {
     try {
       await ensureInternalWorkerSchema(db);
 
-      if (!isAdminSideManager(req.session.accountType)) {
+      if (req.session.accountType !== 'Admin') {
         const message = 'Only admins can assign contacts.';
         if (isAjaxRequest(req)) {
           return res.status(403).json({ success: false, message });
@@ -855,7 +863,7 @@ const adminController = {
       }
 
       const contactResult = await db.query(
-        `SELECT id, created_by_user_id FROM internal_contacts WHERE id = $1`,
+        `SELECT id, created_by_user_id FROM internal_contacts WHERE id = $1 AND deleted_at IS NULL`,
         [id]
       );
       if (!contactResult.rows.length) {
@@ -889,8 +897,8 @@ const adminController = {
 
       await db.query(
         `UPDATE internal_contacts
-         SET assigned_to_user_id = $2,
-             assigned_at = CASE WHEN $2 IS NULL THEN NULL ELSE CURRENT_TIMESTAMP END,
+         SET assigned_to_user_id = $2::int,
+             assigned_at = CASE WHEN $2::int IS NULL THEN NULL ELSE CURRENT_TIMESTAMP END,
              updated_at = CURRENT_TIMESTAMP
          WHERE id = $1`,
         [id, assigneeUserId]
@@ -920,6 +928,58 @@ const adminController = {
       }
       req.flash('error', 'Failed to save assignee.');
       return res.redirect('/admin');
+    }
+  },
+
+  restoreInternalContact: async (req, res) => {
+    try {
+      await ensureInternalWorkerSchema(db);
+      const id = Number.parseInt(req.body.contactId || req.params.id, 10);
+      if (!Number.isInteger(id)) {
+        req.flash('error', 'Invalid contact.');
+        return res.redirect('/admin/superDashboard');
+      }
+      const result = await db.query(
+        `UPDATE internal_contacts
+         SET deleted_at = NULL,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1 AND deleted_at IS NOT NULL`,
+        [id]
+      );
+      if (!result.rowCount) {
+        req.flash('error', 'Contact not found in trash.');
+      } else {
+        req.flash('success', 'Contact restored.');
+      }
+      return res.redirect('/admin/superDashboard');
+    } catch (error) {
+      req.flash('error', 'Failed to restore contact.');
+      return res.redirect('/admin/superDashboard');
+    }
+  },
+
+  permanentlyDeleteInternalContact: async (req, res) => {
+    try {
+      await ensureInternalWorkerSchema(db);
+      const id = Number.parseInt(req.body.contactId || req.params.id, 10);
+      if (!Number.isInteger(id)) {
+        req.flash('error', 'Invalid contact.');
+        return res.redirect('/admin/superDashboard');
+      }
+      const result = await db.query(
+        `DELETE FROM internal_contacts
+         WHERE id = $1 AND deleted_at IS NOT NULL`,
+        [id]
+      );
+      if (!result.rowCount) {
+        req.flash('error', 'Contact not found in trash.');
+      } else {
+        req.flash('success', 'Contact permanently deleted.');
+      }
+      return res.redirect('/admin/superDashboard');
+    } catch (error) {
+      req.flash('error', 'Failed to permanently delete contact.');
+      return res.redirect('/admin/superDashboard');
     }
   },
 
@@ -1300,11 +1360,38 @@ const adminController = {
                 ORDER BY ht.id ASC
             `);
 
+      // Fetch soft-deleted internal contacts (referrals)
+      let deletedContacts = { rows: [] };
+      try {
+        await ensureInternalWorkerSchema(db);
+        deletedContacts = await db.query(`
+          SELECT ic.id, ic.contact_name, ic.organization_name,
+                 ic.appointment_set, ic.appointment_at, ic.notes,
+                 ic.followed_up, ic.followed_up_at, ic.joined, ic.joined_at,
+                 ic.created_at, ic.deleted_at,
+                 creator.first_name AS creator_first_name,
+                 creator.last_name  AS creator_last_name,
+                 creator.account_type AS creator_account_type,
+                 assignee.first_name AS assignee_first_name,
+                 assignee.last_name  AS assignee_last_name,
+                 assignee.account_type AS assignee_account_type
+          FROM internal_contacts ic
+          LEFT JOIN users creator ON creator.user_id = ic.created_by_user_id
+          LEFT JOIN users assignee ON assignee.user_id = ic.assigned_to_user_id
+          WHERE ic.deleted_at IS NOT NULL
+          ORDER BY ic.deleted_at DESC
+          LIMIT 500
+        `);
+      } catch (_) {
+        deletedContacts = { rows: [] };
+      }
+
       res.render("admin/superDashboard", {
         title: "Super Admin Dashboard",
         deletedAccounts: deletedAccounts.rows, // Pass deleted accounts
         deletedHubs: deletedHubs.rows,
         deletedTickets: deletedThreads.rows, // Pass deleted threads
+        deletedContacts: deletedContacts.rows,
         messages: req.flash(), // Pass flash messages
         showFooterTopSection: true
       });
@@ -1315,6 +1402,7 @@ const adminController = {
         deletedAccounts: [], // Default to an empty array if the query fails
         deletedHubs: [],
         deletedTickets: [], // Default to an empty array if the query fails
+        deletedContacts: [],
         messages: req.flash(),
         showFooterTopSection: true
       });

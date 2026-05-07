@@ -852,6 +852,78 @@
       <div class="empty-state">No deleted tickets available.</div>
       <% } %>
     </div>
+
+    <div class="section-card">
+      <div class="section-header">
+        <h2>📇 Deleted Referrals</h2>
+        <span class="muted"><%= deletedContacts ? deletedContacts.length : 0 %> records</span>
+      </div>
+      <% if (deletedContacts && deletedContacts.length > 0) { %>
+      <div class="table-wrapper">
+        <table class="clean-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Contact</th>
+              <th>Organization</th>
+              <th>Created by</th>
+              <th>Assigned to</th>
+              <th>Deleted</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% deletedContacts.forEach(function(c) {
+              var creatorName = [c.creator_first_name, c.creator_last_name].filter(Boolean).join(' ').trim() || '—';
+              var assigneeName = [c.assignee_first_name, c.assignee_last_name].filter(Boolean).join(' ').trim() || 'Unassigned';
+            %>
+            <tr>
+              <td>
+                <button type="button" class="expand-button" onclick="toggleDetails('contact-<%= c.id %>')">▾</button>
+              </td>
+              <td><strong><%= c.contact_name %></strong></td>
+              <td><%= c.organization_name || '—' %></td>
+              <td><%= creatorName %></td>
+              <td><%= assigneeName %></td>
+              <td><%= c.deleted_at ? new Date(c.deleted_at).toLocaleString() : '—' %></td>
+            </tr>
+            <tr id="details-contact-<%= c.id %>" class="details-row">
+              <td colspan="6">
+                <div class="details-panel">
+                  <div class="details-grid">
+                    <div><strong>Created:</strong> <%= c.created_at ? new Date(c.created_at).toLocaleString() : '—' %></div>
+                    <div><strong>Appointment:</strong> <%= c.appointment_set ? (c.appointment_at ? new Date(c.appointment_at).toLocaleString() : 'Yes') : 'No' %></div>
+                    <div><strong>Followed up:</strong> <%= c.followed_up ? (c.followed_up_at ? new Date(c.followed_up_at).toLocaleString() : 'Yes') : 'No' %></div>
+                    <div><strong>Joined:</strong> <%= c.joined ? (c.joined_at ? new Date(c.joined_at).toLocaleString() : 'Yes') : 'No' %></div>
+                  </div>
+                  <% if (c.notes) { %>
+                  <div class="details-grid" style="grid-template-columns: 1fr;">
+                    <div>
+                      <strong>Notes:</strong>
+                      <pre style="white-space: pre-wrap; margin: 6px 0 0 0;"><%= c.notes %></pre>
+                    </div>
+                  </div>
+                  <% } %>
+                  <div class="details-actions">
+                    <form action="/admin/contacts/restore" method="post" onsubmit="return confirmAction('restore this referral?')">
+                      <input type="hidden" name="contactId" value="<%= c.id %>" />
+                      <button type="submit" class="btn-action btn-restore">✓ Restore</button>
+                    </form>
+                    <form action="/admin/contacts/permanent-delete" method="post" onsubmit="return confirmAction('permanently delete this referral? This cannot be undone.')">
+                      <input type="hidden" name="contactId" value="<%= c.id %>" />
+                      <button type="submit" class="btn-action btn-delete">✕ Delete Permanently</button>
+                    </form>
+                  </div>
+                </div>
+              </td>
+            </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+      <% } else { %>
+      <div class="empty-state">No deleted referrals available.</div>
+      <% } %>
+    </div>
   </div>
 
   <script>

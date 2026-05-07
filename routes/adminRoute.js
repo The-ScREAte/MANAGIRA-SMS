@@ -141,6 +141,10 @@ module.exports = (db) => {
     router.post('/superDashboard/users/:userId/status', ensureAdmin, adminController.superDashboardUserStatusAjax);
     router.post('/superDashboard/users/:userId/delete', ensureAdmin, adminController.superDashboardDeleteUserAjax);
 
+    // Soft-deleted internal contacts (referrals) — Super Admin only
+    router.post('/contacts/restore', ensureAdmin, adminController.restoreInternalContact);
+    router.post('/contacts/permanent-delete', ensureAdmin, adminController.permanentlyDeleteInternalContact);
+
     router.get('/superSettings', ensureAdmin, async (req, res) => {
         try {
             await adminController.superAdminSettings(req, res);

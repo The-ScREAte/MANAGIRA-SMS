@@ -879,15 +879,61 @@
 
     @media (max-width: 600px) {
       .iw-contact__summary { gap: 8px; padding: 10px; }
-      .iw-contact__name { flex-basis: 100%; }
-      .iw-contact__summary-pills { width: 100%; margin-left: 0; }
-      .iw-contact__summary-author { width: 100%; max-width: none; }
+      .iw-contact__name {
+        flex-basis: 100%;
+        font-size: 0.88rem;
+        white-space: normal;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        line-height: 1.25;
+        word-break: break-word;
+      }
+      .iw-contact__org { font-size: 0.85rem; }
+      .iw-contact__summary-pills {
+        width: 100%;
+        margin-left: 0;
+        gap: 4px;
+        flex-wrap: wrap;
+      }
+      .iw-contact__summary-pills .iw-pill {
+        font-size: 0.6rem;
+        padding: 1px 6px;
+        letter-spacing: 0.03em;
+      }
+      .iw-contact__summary-author { width: 100%; max-width: none; font-size: 0.78rem; }
       .iw-contact__body { padding: 10px; }
-      .iw-contact__actions { flex-direction: column; align-items: stretch; gap: 6px; }
+      .iw-contact__actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        align-items: stretch;
+      }
+      .iw-contact__actions form { display: contents; }
       .iw-contact__actions > .iw-action-btn,
       .iw-contact__actions form > .iw-action-btn,
       .iw-delete-wrap,
-      .iw-assign-wrap { width: 100%; flex: 1 1 100%; min-width: 0; margin-left: 0; justify-content: flex-end; }
+      .iw-assign-wrap {
+        width: 100%;
+        min-width: 0;
+        margin: 0;
+        flex: initial;
+      }
+      .iw-contact__actions > .iw-action-btn,
+      .iw-contact__actions form > .iw-action-btn,
+      .iw-assign-wrap > .iw-action-btn,
+      .iw-delete-wrap > .iw-action-btn {
+        width: 100%;
+        min-width: 0;
+        padding: 10px 12px;
+        font-size: 0.92rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .iw-delete-wrap { justify-content: stretch; }
       .iw-delete-menu,
       .iw-assign-panel { min-width: 0; }
       .iw-delete-confirm { width: 100%; }

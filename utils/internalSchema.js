@@ -82,6 +82,15 @@ async function ensureInternalWorkerSchema(db) {
         ON internal_contacts(assigned_to_user_id)
     `);
 
+    await db.query(`
+      ALTER TABLE internal_contacts
+        ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP
+    `);
+    await db.query(`
+      CREATE INDEX IF NOT EXISTS idx_internal_contacts_deleted_at
+        ON internal_contacts(deleted_at)
+    `);
+
     schemaReady = true;
   })();
 
