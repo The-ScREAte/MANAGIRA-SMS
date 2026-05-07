@@ -4978,6 +4978,94 @@ adminController.hubOrganizationsGet = async (req, res) => {
   }
 };
 
+// ===== Org Chart (admin-side team) =====
+adminController.getOrgChart = async (req, res) => {
+  try {
+    await ensureInternalWorkerSchema(db);
+    const { rows: members } = await db.query(
+      `SELECT user_id, first_name, last_name, email, account_type,
+              supervisor_user_id, org_role_title, org_role_description,
+              profile_image_url, on_hold
+         FROM users
+        WHERE account_type IN ('Admin', 'Mini Admin', 'Internal Worker')
+        ORDER BY CASE account_type
+                   WHEN 'Admin' THEN 1
+                   WHEN 'Mini Admin' THEN 2
+                   WHEN 'Internal Worker' THEN 3
+                   ELSE 4 END,
+                 last_name, first_name`
+    );
+
+    res.render('admin/orgChart', {
+      title: 'Team Org Chart',
+      members,
+      currentUserId: req.session.userId,
+      currentAccountType: req.session.accountType,
+      messages: req.flash(),
+      showFooterTopSection: true,
+    });
+  } catch (err) {
+    console.error('[getOrgChart]', err);
+    req.flash('error', 'Failed to load org chart.');
+    res.redirect('/admin');
+  }
+};
+
+adminController.updateOrgChartMember = async (req, res) => {
+  try {
+    await ensureInternalWorkerSchema(db);
+    const memberId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(memberId)) {
+      req.flash('error', 'Invalid member id.');
+      return res.redirect('/admin/org-chart');
+    }
+
+    const supervisorRaw = req.body.supervisorUserId;
+    let supervisorUserId = null;
+    if (supervisorRaw !== undefined && supervisorRaw !== '' && supervisorRaw !== null) {
+      const parsed = parseInt(supervisorRaw, 10);
+      if (Number.isFinite(parsed) && parsed !== memberId) supervisorUserId = parsed;
+    }
+
+    const roleTitle = String(req.body.roleTitle || '').trim().slice(0, 120) || null;
+    const roleDescription = String(req.body.roleDescription || '').trim().slice(0, 600) || null;
+
+    let imageUrl = null;
+    if (req.file) {
+      try {
+        imageUrl = await uploadToS3(req.file);
+      } catch (e) {
+        console.error('[orgChart upload]', e);
+      }
+    }
+
+    const sets = [
+      'supervisor_user_id = $1',
+      'org_role_title = $2',
+      'org_role_description = $3',
+    ];
+    const params = [supervisorUserId, roleTitle, roleDescription];
+    if (imageUrl) {
+      sets.push(`profile_image_url = $${params.length + 1}`);
+      params.push(imageUrl);
+    }
+    params.push(memberId);
+
+    await db.query(
+      `UPDATE users SET ${sets.join(', ')} WHERE user_id = $${params.length}
+        AND account_type IN ('Admin', 'Mini Admin', 'Internal Worker')`,
+      params
+    );
+
+    req.flash('success', 'Team member updated.');
+    res.redirect('/admin/org-chart');
+  } catch (err) {
+    console.error('[updateOrgChartMember]', err);
+    req.flash('error', 'Failed to update team member.');
+    res.redirect('/admin/org-chart');
+  }
+};
+
 module.exports = {
   ...adminController,
   sendAdminInviteEmail,
