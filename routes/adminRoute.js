@@ -110,6 +110,16 @@ module.exports = (db) => {
     router.post('/contacts/:id/note', ensureAdminOrInternal, adminController.appendInternalContactNote);
     router.post('/contacts/:id/delete', ensureAdminOrInternal, adminController.deleteInternalContact);
 
+    // Org Chart — Admin/Mini Admin only (Internal Workers excluded for now)
+    const ensureAdminOnly = (req, res, next) => {
+        const t = req.session && req.session.accountType;
+        if (t === 'Admin' || t === 'Mini Admin') return next();
+        req.flash('error', 'Unauthorized.');
+        return res.redirect('/admin');
+    };
+    router.get('/org-chart', ensureAdminOnly, adminController.getOrgChart);
+    router.post('/org-chart/:id', ensureAdminOnly, upload.single('profileImage'), adminController.updateOrgChartMember);
+
     // Self-service profile (any signed-in admin-side user)
     router.get('/profile', (req, res, next) => {
         console.log('[GET /admin/profile] session=', {

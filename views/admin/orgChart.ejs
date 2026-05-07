@@ -1,0 +1,198 @@
+<style>
+  .oc-wrap { max-width: 1200px; margin: 24px auto 64px; padding: 0 16px; }
+  .oc-head { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+  .oc-head h1 { margin: 0; font-size: 1.5rem; color: #0f172a; }
+  .oc-head p { margin: 0; color: #64748b; font-size: 0.9rem; }
+  .oc-flash { margin-bottom: 14px; padding: 10px 14px; border-radius: 8px; font-size: 0.9rem; }
+  .oc-flash.success { background: #dcfce7; color: #166534; }
+  .oc-flash.error   { background: #fee2e2; color: #991b1b; }
+
+  .oc-section { margin-top: 28px; }
+  .oc-section h2 {
+    font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase;
+    color: #475569; margin: 0 0 12px; font-weight: 700;
+  }
+  .oc-grid {
+    display: grid; gap: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  }
+  .oc-card {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 14px;
+    padding: 16px; display: flex; flex-direction: column; gap: 10px;
+    transition: box-shadow .15s, transform .15s;
+  }
+  .oc-card:hover { box-shadow: 0 8px 24px rgba(15,23,42,.07); transform: translateY(-1px); }
+  .oc-card__top { display: flex; gap: 12px; align-items: center; }
+  .oc-avatar {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: linear-gradient(135deg, #01535b, #047a85);
+    color: #fff; font-weight: 700; font-size: 1.2rem;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex: 0 0 56px; overflow: hidden; box-shadow: 0 4px 12px rgba(1,83,91,.25);
+  }
+  .oc-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .oc-name { margin: 0; font-size: 1rem; color: #0f172a; font-weight: 700; line-height: 1.2; }
+  .oc-email { margin: 2px 0 0; font-size: 0.78rem; color: #64748b; word-break: break-all; }
+  .oc-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .oc-badge {
+    font-size: 0.7rem; font-weight: 600; padding: 3px 8px; border-radius: 999px;
+    background: #ecfeff; color: #0e7490; border: 1px solid #a5f3fc;
+  }
+  .oc-badge.role-admin     { background: #ecfdf5; color: #065f46; border-color: #a7f3d0; }
+  .oc-badge.role-mini      { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+  .oc-badge.role-internal  { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+  .oc-badge.custom         { background: #f3f4f6; color: #334155; border-color: #e5e7eb; }
+  .oc-supv {
+    font-size: 0.78rem; color: #475569; padding-top: 8px;
+    border-top: 1px dashed #e5e7eb;
+  }
+  .oc-supv strong { color: #0f172a; }
+  .oc-desc { font-size: 0.83rem; color: #475569; line-height: 1.45; }
+
+  .oc-edit-btn {
+    align-self: flex-start; background: #fff; border: 1px solid #cbd5e1;
+    color: #0f172a; padding: 6px 12px; border-radius: 8px; font-size: 0.82rem;
+    cursor: pointer; font-weight: 600;
+  }
+  .oc-edit-btn:hover { background: #f8fafc; border-color: #01535b; color: #01535b; }
+
+  .oc-form { display: none; flex-direction: column; gap: 10px; padding-top: 8px; border-top: 1px solid #e5e7eb; }
+  .oc-card.editing .oc-form { display: flex; }
+  .oc-card.editing .oc-edit-btn { display: none; }
+  .oc-form label {
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
+    color: #64748b; font-weight: 700; display: flex; flex-direction: column; gap: 4px;
+  }
+  .oc-form input[type="text"], .oc-form select, .oc-form textarea {
+    border: 1px solid #d1d5db; border-radius: 8px; padding: 9px 11px;
+    font-size: 16px; font-family: inherit; color: #0f172a; width: 100%;
+  }
+  .oc-form textarea { min-height: 70px; resize: vertical; }
+  .oc-form input[type="file"] { font-size: 0.82rem; }
+  .oc-form-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .oc-btn-save {
+    background: #01535b; color: #fff; border: none; padding: 8px 14px;
+    border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.85rem;
+  }
+  .oc-btn-cancel {
+    background: #fff; color: #475569; border: 1px solid #cbd5e1; padding: 8px 14px;
+    border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.85rem;
+  }
+
+  @media (max-width: 480px) {
+    .oc-grid { grid-template-columns: 1fr; }
+    .oc-avatar { width: 48px; height: 48px; flex-basis: 48px; font-size: 1rem; }
+  }
+</style>
+
+<div class="oc-wrap">
+  <div class="oc-head">
+    <div>
+      <h1>Team Org Chart</h1>
+      <p>Manage roles, supervisors, and profile photos for the Managira team.</p>
+    </div>
+  </div>
+
+  <% if (messages && messages.success && messages.success.length) { %>
+    <div class="oc-flash success"><%= messages.success.join(' ') %></div>
+  <% } %>
+  <% if (messages && messages.error && messages.error.length) { %>
+    <div class="oc-flash error"><%= messages.error.join(' ') %></div>
+  <% } %>
+
+  <%
+    function initials(m){
+      const a = (m.first_name||'').trim().charAt(0);
+      const b = (m.last_name||'').trim().charAt(0);
+      return ((a+b) || (m.email||'?').charAt(0)).toUpperCase();
+    }
+    function roleClass(t){
+      if (t === 'Admin') return 'role-admin';
+      if (t === 'Mini Admin') return 'role-mini';
+      return 'role-internal';
+    }
+    const byId = new Map(members.map(m => [m.user_id, m]));
+    const groups = { 'Admin': [], 'Mini Admin': [], 'Internal Worker': [] };
+    members.forEach(m => { if (groups[m.account_type]) groups[m.account_type].push(m); });
+  %>
+
+  <% Object.keys(groups).forEach(function(group){ %>
+    <% if (groups[group].length) { %>
+      <div class="oc-section">
+        <h2><%= group %>s · <%= groups[group].length %></h2>
+        <div class="oc-grid">
+          <% groups[group].forEach(function(m){
+               const sup = m.supervisor_user_id ? byId.get(m.supervisor_user_id) : null;
+               const fullName = ((m.first_name||'') + ' ' + (m.last_name||'')).trim() || m.email;
+          %>
+            <div class="oc-card" id="oc-card-<%= m.user_id %>">
+              <div class="oc-card__top">
+                <div class="oc-avatar">
+                  <% if (m.profile_image_url) { %>
+                    <img src="<%= m.profile_image_url %>" alt="<%= fullName %>" loading="lazy">
+                  <% } else { %><%= initials(m) %><% } %>
+                </div>
+                <div style="min-width:0; flex:1;">
+                  <p class="oc-name"><%= fullName %></p>
+                  <p class="oc-email"><%= m.email %></p>
+                  <div class="oc-badges">
+                    <span class="oc-badge <%= roleClass(m.account_type) %>"><%= m.account_type %></span>
+                    <% if (m.org_role_title) { %>
+                      <span class="oc-badge custom"><%= m.org_role_title %></span>
+                    <% } %>
+                  </div>
+                </div>
+              </div>
+
+              <% if (m.org_role_description) { %>
+                <div class="oc-desc"><%= m.org_role_description %></div>
+              <% } %>
+
+              <div class="oc-supv">
+                Supervisor:
+                <% if (sup) { %>
+                  <strong><%= ((sup.first_name||'')+' '+(sup.last_name||'')).trim() || sup.email %></strong>
+                  · <span style="color:#64748b;"><%= sup.account_type %></span>
+                <% } else { %>
+                  <span style="color:#94a3b8;">Unassigned</span>
+                <% } %>
+              </div>
+
+              <button type="button" class="oc-edit-btn" onclick="document.getElementById('oc-card-<%= m.user_id %>').classList.add('editing')">Edit</button>
+
+              <form class="oc-form" action="/admin/org-chart/<%= m.user_id %>" method="POST" enctype="multipart/form-data">
+                <label>Custom role title
+                  <input type="text" name="roleTitle" maxlength="120" value="<%= m.org_role_title || '' %>" placeholder="e.g. Head of Operations">
+                </label>
+                <label>Description
+                  <textarea name="roleDescription" maxlength="600" placeholder="What this person is responsible for..."><%= m.org_role_description || '' %></textarea>
+                </label>
+                <label>Supervisor
+                  <select name="supervisorUserId">
+                    <option value="">— Unassigned —</option>
+                    <% members.forEach(function(o){ if (o.user_id !== m.user_id) { %>
+                      <option value="<%= o.user_id %>" <%= m.supervisor_user_id === o.user_id ? 'selected' : '' %>>
+                        <%= ((o.first_name||'')+' '+(o.last_name||'')).trim() || o.email %> (<%= o.account_type %>)
+                      </option>
+                    <% } }); %>
+                  </select>
+                </label>
+                <label>Profile picture (optional)
+                  <input type="file" name="profileImage" accept="image/*">
+                </label>
+                <div class="oc-form-actions">
+                  <button type="button" class="oc-btn-cancel" onclick="document.getElementById('oc-card-<%= m.user_id %>').classList.remove('editing')">Cancel</button>
+                  <button type="submit" class="oc-btn-save">Save</button>
+                </div>
+              </form>
+            </div>
+          <% }); %>
+        </div>
+      </div>
+    <% } %>
+  <% }); %>
+
+  <% if (!members.length) { %>
+    <p style="color:#64748b;">No admin-side users found yet.</p>
+  <% } %>
+</div>
