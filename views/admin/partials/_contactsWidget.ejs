@@ -1,8 +1,13 @@
 <%
   const _isInternal = !!isInternal;
   const _isFullAdmin = !!isFullAdmin;
+  const _canManageAllContacts = !!canManageAllContacts;
+  const _canAssignContacts = !!canAssignContacts;
   const _contacts = Array.isArray(contacts) ? contacts : [];
   const _sessionUserId = (typeof sessionUserId !== 'undefined') ? sessionUserId : null;
+
+  const _activeContacts = _contacts.filter((c) => !c.joined);
+  const _joinedContacts = _contacts.filter((c) => c.joined);
 
   function _fmtDateTime(dt) {
     if (!dt) return '';
@@ -12,12 +17,28 @@
       return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
     } catch (_) { return ''; }
   }
+  function _shortRole(role) {
+    switch ((role || '').trim()) {
+      case 'Internal Worker': return 'IW';
+      case 'Admin': return 'AD';
+      case 'Mini Admin': return 'MAD';
+      default: return (role || '').trim();
+    }
+  }
   function _creatorLabel(c) {
     const f = (c.creator_first_name || '').trim();
     const l = (c.creator_last_name || '').trim();
     const name = `${f} ${l}`.trim();
     if (!name) return 'Unknown';
-    const role = (c.creator_account_type || '').trim();
+    const role = _shortRole(c.creator_account_type);
+    return role ? `${name} (${role})` : name;
+  }
+  function _assigneeLabel(c) {
+    const f = (c.assignee_first_name || '').trim();
+    const l = (c.assignee_last_name || '').trim();
+    const name = `${f} ${l}`.trim();
+    if (!name) return '';
+    const role = _shortRole(c.assignee_account_type);
     return role ? `${name} (${role})` : name;
   }
 %>
@@ -97,53 +118,181 @@
         No contacts saved yet.
       </div>
     <% } else { %>
-      <div class="iw-contact-scroll" style="max-height:480px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px;">
-        <ul class="iw-contact-list" style="margin:0;">
-        <% _contacts.forEach(function(c) { %>
-          <% const canManage = _isFullAdmin || (_sessionUserId && Number(_sessionUserId) === Number(c.created_by_user_id)); %>
-          <li class="iw-contact <%= c.followed_up ? 'iw-contact--followed' : '' %>">
-            <div>
-              <div class="iw-contact__name">
-                <%= c.contact_name %>
-                <% if (c.organization_name) { %>
-                  <span style="font-weight:500;color:var(--text-secondary);">— <%= c.organization_name %></span>
-                <% } %>
+      <div class="iw-tabs" role="tablist" aria-label="Contacts tabs">
+        <button type="button" class="iw-tab is-active" role="tab" aria-selected="true"
+                aria-controls="iw-tab-active" id="iw-tab-btn-active" data-iw-tab="active">
+          Active
+          <span class="iw-tab__count"><%= _activeContacts.length %></span>
+        </button>
+        <button type="button" class="iw-tab" role="tab" aria-selected="false"
+                aria-controls="iw-tab-joined" id="iw-tab-btn-joined" data-iw-tab="joined">
+          Joined
+          <span class="iw-tab__count iw-tab__count--joined"><%= _joinedContacts.length %></span>
+        </button>
+      </div>
+
+      <%
+        // Render a single contact row. Defined as a closure so we can call it
+        // for both panels without duplicating markup.
+        function _renderContact(c) {
+      %>
+        <% const isCreator = _sessionUserId && Number(_sessionUserId) === Number(c.created_by_user_id); %>
+        <% const isAssignee = _sessionUserId && c.assigned_to_user_id && Number(_sessionUserId) === Number(c.assigned_to_user_id); %>
+        <% const canManage = _canManageAllContacts || isCreator || isAssignee; %>
+        <% const canDelete = _canManageAllContacts || isCreator; %>
+        <% const assigneeLabel = _assigneeLabel(c); %>
+        <li class="iw-contact <%= c.followed_up ? 'iw-contact--followed' : '' %> <%= c.joined ? 'iw-contact--joined' : '' %>">
+          <details class="iw-contact__details">
+            <summary class="iw-contact__summary">
+              <span class="iw-contact__chevron" aria-hidden="true">▸</span>
+              <div class="iw-contact__summary-main">
+                <div class="iw-contact__name">
+                  <%= c.contact_name %>
+                  <% if (c.organization_name) { %>
+                    <span class="iw-contact__org">— <%= c.organization_name %></span>
+                  <% } %>
+                </div>
+                <div class="iw-contact__summary-author">
+                  By <strong><%= _creatorLabel(c) %></strong>
+                  <% if (assigneeLabel) { %>
+                    <span class="iw-contact__summary-assignee">Assigned to <strong><%= assigneeLabel %></strong></span>
+                  <% } %>
+                </div>
+                <div class="iw-contact__summary-pills">
+                  <% if (c.joined) { %>
+                    <span class="iw-pill iw-pill--joined">🎉 Joined</span>
+                  <% } %>
+                  <% if (c.appointment_set) { %>
+                    <span class="iw-pill iw-pill--appt">📅<% if (c.appointment_at) { %> <%= _fmtDateTime(c.appointment_at) %><% } else { %> Appointment<% } %></span>
+                  <% } else { %>
+                    <span class="iw-pill iw-pill--noappt">No appointment</span>
+                  <% } %>
+                  <% if (c.followed_up) { %>
+                    <span class="iw-pill iw-pill--followed">✓ Followed up</span>
+                  <% } else { %>
+                    <span class="iw-pill iw-pill--pending">⏳ Pending</span>
+                  <% } %>
+                </div>
               </div>
+            </summary>
+
+            <div class="iw-contact__body">
               <div class="iw-contact__meta">
-                <% if (c.appointment_set) { %>
-                  <span class="iw-pill iw-pill--appt">📅 Appointment<% if (c.appointment_at) { %>: <%= _fmtDateTime(c.appointment_at) %><% } %></span>
-                <% } else { %>
-                  <span class="iw-pill iw-pill--noappt">No appointment</span>
+                <% if (c.appointment_set && c.appointment_at) { %>
+                  <span>📅 Appointment: <strong><%= _fmtDateTime(c.appointment_at) %></strong></span>
                 <% } %>
-                <% if (c.followed_up) { %>
-                  <span class="iw-pill iw-pill--followed">✓ Followed up<% if (c.followed_up_at) { %> · <%= _fmtDateTime(c.followed_up_at) %><% } %></span>
-                <% } else { %>
-                  <span class="iw-pill iw-pill--pending">⏳ Pending follow-up</span>
+                <% if (c.followed_up && c.followed_up_at) { %>
+                  <span>✓ Followed up: <strong><%= _fmtDateTime(c.followed_up_at) %></strong></span>
+                <% } %>
+                <% if (c.joined && c.joined_at) { %>
+                  <span>🎉 Joined Managira: <strong><%= _fmtDateTime(c.joined_at) %></strong></span>
+                <% } %>
+                <% if (assigneeLabel) { %>
+                  <span>👥 Assigned to: <strong><%= assigneeLabel %></strong><% if (c.assigned_at) { %> · <%= _fmtDateTime(c.assigned_at) %><% } %></span>
                 <% } %>
                 <span>Added <%= _fmtDateTime(c.created_at) %></span>
-                <% if (!_isInternal) { %>
-                  <span>By <strong><%= _creatorLabel(c) %></strong></span>
-                <% } %>
               </div>
+
               <% if (c.notes) { %>
                 <div class="iw-contact__notes"><%= c.notes %></div>
               <% } %>
-            </div>
-            <div class="iw-contact__actions">
+
               <% if (canManage) { %>
-                <form action="/admin/contacts/<%= c.id %>/follow-up" method="POST">
-                  <button type="submit" class="iw-action-btn <%= c.followed_up ? '' : 'iw-action-btn--primary' %>">
-                    <%= c.followed_up ? 'Unmark followed up' : '✓ Mark followed up' %>
-                  </button>
+                <form id="iw-note-form-<%= c.id %>" action="/admin/contacts/<%= c.id %>/note" method="POST" class="iw-contact__note-form">
+                  <textarea name="note" maxlength="2000" rows="2" required
+                            placeholder="Add a quick note (e.g. called again, left voicemail, asked for brochure)…"></textarea>
                 </form>
-                <form action="/admin/contacts/<%= c.id %>/delete" method="POST" onsubmit="return confirm('Delete this contact?');">
-                  <button type="submit" class="iw-action-btn iw-action-btn--danger">Delete</button>
-                </form>
+
+                <div class="iw-contact__actions" data-iw-actions>
+                  <button type="submit" form="iw-note-form-<%= c.id %>"
+                          class="iw-action-btn iw-action-btn--primary">＋ Add note</button>
+
+                  <form action="/admin/contacts/<%= c.id %>/follow-up" method="POST">
+                    <button type="submit" class="iw-action-btn <%= c.followed_up ? '' : 'iw-action-btn--primary' %>">
+                      <%= c.followed_up ? '↩ Mark not followed' : '✓ Mark followed' %>
+                    </button>
+                  </form>
+
+                  <form action="/admin/contacts/<%= c.id %>/joined" method="POST">
+                    <button type="submit" class="iw-action-btn <%= c.joined ? '' : 'iw-action-btn--success' %>">
+                      <%= c.joined ? '↩ Mark not joined' : '🎉 Joined' %>
+                    </button>
+                  </form>
+
+                  <% if (_canAssignContacts) { %>
+                    <div class="iw-assign-wrap" data-iw-assign-wrap data-contact-id="<%= c.id %>">
+                      <button type="button" class="iw-action-btn" data-iw-assignee-toggle>
+                        👥 <%= assigneeLabel ? 'Change assignee' : 'Add assignee' %>
+                      </button>
+                      <div class="iw-assign-panel" data-iw-assign-panel hidden>
+                        <div class="iw-assign-panel__title">Assign this contact</div>
+                        <label class="iw-assign-panel__label">
+                          Choose a team member
+                          <select data-iw-assignee-select>
+                            <option value="">Loading team members...</option>
+                          </select>
+                        </label>
+                        <div class="iw-assign-panel__actions">
+                          <button type="button" class="iw-action-btn" data-iw-assignee-cancel>Cancel</button>
+                          <button type="button" class="iw-action-btn iw-action-btn--primary"
+                                  data-iw-assignee-save
+                                  data-current-assignee-id="<%= c.assigned_to_user_id || '' %>">
+                            Save assignee
+                          </button>
+                        </div>
+                        <div class="iw-assign-panel__status" data-iw-assignee-status></div>
+                      </div>
+                    </div>
+                  <% } %>
+
+                  <% if (canDelete) { %>
+                    <div class="iw-delete-wrap" data-iw-delete-wrap>
+                      <button type="button" class="iw-action-btn iw-action-btn--icon" data-iw-delete-toggle
+                              aria-label="More actions" aria-expanded="false" title="More actions">
+                        ⋮
+                      </button>
+                      <div class="iw-delete-menu" data-iw-delete-menu hidden>
+                        <button type="button" class="iw-delete-menu__item" data-iw-delete-arm>
+                          🗑 Delete contact
+                        </button>
+                        <form action="/admin/contacts/<%= c.id %>/delete" method="POST"
+                              class="iw-delete-confirm" data-iw-delete-confirm hidden>
+                          <span class="iw-delete-confirm__text">Delete this contact?</span>
+                          <button type="button" class="iw-action-btn" data-iw-delete-cancel>Cancel</button>
+                          <button type="submit" class="iw-action-btn iw-action-btn--danger">Yes, delete</button>
+                        </form>
+                      </div>
+                    </div>
+                  <% } %>
+                </div>
               <% } %>
             </div>
-          </li>
-        <% }); %>
-      </ul>
+          </details>
+        </li>
+      <% } %>
+
+      <div class="iw-tab-panel" id="iw-tab-active" role="tabpanel" aria-labelledby="iw-tab-btn-active">
+        <% if (_activeContacts.length === 0) { %>
+          <div class="empty-state" style="padding:18px 0;">No active contacts.</div>
+        <% } else { %>
+          <div class="iw-contact-scroll" style="max-height:560px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px;">
+            <ul class="iw-contact-list" style="margin:0;">
+              <% _activeContacts.forEach(function(c) { _renderContact(c); }); %>
+            </ul>
+          </div>
+        <% } %>
+      </div>
+
+      <div class="iw-tab-panel" id="iw-tab-joined" role="tabpanel" aria-labelledby="iw-tab-btn-joined" hidden>
+        <% if (_joinedContacts.length === 0) { %>
+          <div class="empty-state" style="padding:18px 0;">No contact or referral joined Managira yet.</div>
+        <% } else { %>
+          <div class="iw-contact-scroll" style="max-height:560px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px;">
+            <ul class="iw-contact-list" style="margin:0;">
+              <% _joinedContacts.forEach(function(c) { _renderContact(c); }); %>
+            </ul>
+          </div>
+        <% } %>
       </div>
     <% } %>
   </div>
@@ -184,6 +333,245 @@
       btn.addEventListener('click', function () {
         var isOpen = btn.getAttribute('aria-expanded') === 'true';
         setOpen(!isOpen);
+      });
+    }
+
+    // ---- Floating popups (delete menu + assignee picker) ----
+    var openPopup = null; // { panel, anchor, onClose }
+
+    function positionFloatingPanel(anchor, panel) {
+      if (!anchor || !panel || panel.hasAttribute('hidden')) return;
+      panel.style.left = '0px';
+      panel.style.top = '0px';
+      var gap = 8;
+      var edgeGap = 12;
+      var anchorRect = anchor.getBoundingClientRect();
+      var panelRect = panel.getBoundingClientRect();
+      var left = anchorRect.right - panelRect.width;
+      var top = anchorRect.bottom + gap;
+      if (left < edgeGap) left = edgeGap;
+      if (left + panelRect.width > window.innerWidth - edgeGap) {
+        left = Math.max(edgeGap, window.innerWidth - panelRect.width - edgeGap);
+      }
+      if (top + panelRect.height > window.innerHeight - edgeGap) {
+        var aboveTop = anchorRect.top - panelRect.height - gap;
+        top = aboveTop >= edgeGap ? aboveTop : Math.max(edgeGap, window.innerHeight - panelRect.height - edgeGap);
+      }
+      panel.style.left = Math.round(left) + 'px';
+      panel.style.top = Math.round(top) + 'px';
+    }
+
+    function closeOpenPopup() {
+      if (!openPopup) return;
+      var current = openPopup;
+      openPopup = null;
+      try { current.onClose(); } catch (_) {}
+    }
+
+    function showPopup(anchor, panel, onClose) {
+      closeOpenPopup();
+      panel.removeAttribute('hidden');
+      positionFloatingPanel(anchor, panel);
+      openPopup = { panel: panel, anchor: anchor, onClose: onClose };
+      requestAnimationFrame(function () { positionFloatingPanel(anchor, panel); });
+    }
+
+    document.addEventListener('click', function (event) {
+      if (!openPopup) return;
+      if (openPopup.panel.contains(event.target)) return;
+      if (openPopup.anchor && openPopup.anchor.contains(event.target)) return;
+      closeOpenPopup();
+    });
+
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') closeOpenPopup();
+    });
+
+    window.addEventListener('resize', function () {
+      if (openPopup) positionFloatingPanel(openPopup.anchor, openPopup.panel);
+    });
+    window.addEventListener('scroll', function () {
+      if (openPopup) positionFloatingPanel(openPopup.anchor, openPopup.panel);
+    }, true);
+
+    // Overflow delete menu: dots reveals menu, then delete reveals confirm.
+    document.querySelectorAll('[data-iw-delete-wrap]').forEach(function (wrap) {
+      var toggle  = wrap.querySelector('[data-iw-delete-toggle]');
+      var menu    = wrap.querySelector('[data-iw-delete-menu]');
+      var arm     = wrap.querySelector('[data-iw-delete-arm]');
+      var confirm = wrap.querySelector('[data-iw-delete-confirm]');
+      var cancel  = wrap.querySelector('[data-iw-delete-cancel]');
+      if (!toggle || !menu || !confirm) return;
+
+      function resetMenu() {
+        menu.setAttribute('hidden', '');
+        confirm.setAttribute('hidden', '');
+        if (arm) arm.removeAttribute('hidden');
+        toggle.setAttribute('aria-expanded', 'false');
+      }
+
+      toggle.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (openPopup && openPopup.panel === menu) { closeOpenPopup(); return; }
+        showPopup(toggle, menu, resetMenu);
+        toggle.setAttribute('aria-expanded', 'true');
+      });
+
+      if (arm) {
+        arm.addEventListener('click', function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+          arm.setAttribute('hidden', '');
+          confirm.removeAttribute('hidden');
+          positionFloatingPanel(toggle, menu);
+        });
+      }
+
+      if (cancel) {
+        cancel.addEventListener('click', function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+          confirm.setAttribute('hidden', '');
+          if (arm) arm.removeAttribute('hidden');
+          positionFloatingPanel(toggle, menu);
+        });
+      }
+    });
+
+    var assigneeOptionsPromise = null;
+    function loadAssigneeOptions() {
+      if (!assigneeOptionsPromise) {
+        assigneeOptionsPromise = fetch('/admin/contacts/assignees/options', {
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          credentials: 'same-origin'
+        }).then(function (response) {
+          return response.json().then(function (data) {
+            if (!response.ok || !data.success) {
+              throw new Error((data && data.message) || 'Failed to load assignees.');
+            }
+            return data.users || [];
+          });
+        });
+      }
+      return assigneeOptionsPromise;
+    }
+
+    document.querySelectorAll('[data-iw-assign-wrap]').forEach(function (wrap) {
+      var toggle = wrap.querySelector('[data-iw-assignee-toggle]');
+      var panel = wrap.querySelector('[data-iw-assign-panel]');
+      var select = wrap.querySelector('[data-iw-assignee-select]');
+      var save = wrap.querySelector('[data-iw-assignee-save]');
+      var cancel = wrap.querySelector('[data-iw-assignee-cancel]');
+      var status = wrap.querySelector('[data-iw-assignee-status]');
+      var contactId = wrap.getAttribute('data-contact-id');
+      if (!toggle || !panel || !select || !save || !contactId) return;
+
+      function setStatus(message, isError) {
+        if (!status) return;
+        status.textContent = message || '';
+        status.dataset.state = isError ? 'error' : 'ok';
+      }
+
+      function resetPanel() {
+        panel.setAttribute('hidden', '');
+        setStatus('');
+      }
+
+      toggle.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (openPopup && openPopup.panel === panel) { closeOpenPopup(); return; }
+        showPopup(toggle, panel, resetPanel);
+        setStatus('Loading...', false);
+        loadAssigneeOptions().then(function (users) {
+          var currentValue = save.getAttribute('data-current-assignee-id') || '';
+          select.innerHTML = '<option value="">Unassigned</option>';
+          users.forEach(function (user) {
+            var option = document.createElement('option');
+            option.value = String(user.user_id);
+            option.textContent = user.label + (user.on_hold ? ' - On hold' : '');
+            select.appendChild(option);
+          });
+          select.value = currentValue;
+          setStatus('', false);
+          positionFloatingPanel(toggle, panel);
+        }).catch(function (error) {
+          setStatus(error.message || 'Failed to load assignees.', true);
+        });
+      });
+
+      if (cancel) {
+        cancel.addEventListener('click', function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+          closeOpenPopup();
+        });
+      }
+
+      save.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        setStatus('Saving...', false);
+        save.disabled = true;
+        fetch('/admin/contacts/' + encodeURIComponent(contactId) + '/assignee', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: new URLSearchParams({ assignee_user_id: select.value || '' }).toString()
+        }).then(function (response) {
+          return response.json().then(function (data) {
+            if (!response.ok || !data.success) {
+              throw new Error((data && data.message) || 'Failed to save assignee.');
+            }
+            save.setAttribute('data-current-assignee-id', data.assignee ? String(data.assignee.user_id) : '');
+            setStatus(data.message || 'Assignee saved.', false);
+            window.location.reload();
+          });
+        }).catch(function (error) {
+          setStatus(error.message || 'Failed to save assignee.', true);
+        }).finally(function () {
+          save.disabled = false;
+        });
+      });
+    });
+
+    // Rotate the contact-row chevron when expanded.
+    document.querySelectorAll('.iw-contact__details').forEach(function (d) {
+      d.addEventListener('toggle', function () {
+        var ch = d.querySelector('.iw-contact__chevron');
+        if (ch) ch.style.transform = d.open ? 'rotate(90deg)' : 'rotate(0deg)';
+      });
+    });
+
+    // Active / Joined tab switching.
+    var tabBtns = document.querySelectorAll('[data-iw-tab]');
+    var TAB_KEY = 'iwContactsActiveTab';
+    function setTab(name) {
+      tabBtns.forEach(function (b) {
+        var on = b.getAttribute('data-iw-tab') === name;
+        b.classList.toggle('is-active', on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      var panels = document.querySelectorAll('.iw-tab-panel');
+      panels.forEach(function (p) {
+        if (p.id === 'iw-tab-' + name) p.removeAttribute('hidden');
+        else p.setAttribute('hidden', '');
+      });
+      try { localStorage.setItem(TAB_KEY, name); } catch (_) {}
+    }
+    if (tabBtns.length) {
+      var initial = 'active';
+      try {
+        var saved = localStorage.getItem(TAB_KEY);
+        if (saved === 'active' || saved === 'joined') initial = saved;
+      } catch (_) {}
+      setTab(initial);
+      tabBtns.forEach(function (b) {
+        b.addEventListener('click', function () { setTab(b.getAttribute('data-iw-tab')); });
       });
     }
   })();

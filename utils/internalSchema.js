@@ -58,6 +58,30 @@ async function ensureInternalWorkerSchema(db) {
         ADD COLUMN IF NOT EXISTS phone_number VARCHAR(50)
     `);
 
+    // Track whether a contact's organization has joined Managira.
+    await db.query(`
+      ALTER TABLE internal_contacts
+        ADD COLUMN IF NOT EXISTS joined BOOLEAN NOT NULL DEFAULT FALSE
+    `);
+    await db.query(`
+      ALTER TABLE internal_contacts
+        ADD COLUMN IF NOT EXISTS joined_at TIMESTAMP
+    `);
+
+    await db.query(`
+      ALTER TABLE internal_contacts
+        ADD COLUMN IF NOT EXISTS assigned_to_user_id INTEGER REFERENCES users(user_id) ON DELETE SET NULL
+    `);
+    await db.query(`
+      ALTER TABLE internal_contacts
+        ADD COLUMN IF NOT EXISTS assigned_at TIMESTAMP
+    `);
+
+    await db.query(`
+      CREATE INDEX IF NOT EXISTS idx_internal_contacts_assigned_to
+        ON internal_contacts(assigned_to_user_id)
+    `);
+
     schemaReady = true;
   })();
 

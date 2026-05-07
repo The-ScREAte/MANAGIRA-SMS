@@ -61,6 +61,53 @@ function isAjaxRequest(req) {
   return req.xhr || req.get("X-Requested-With") === "XMLHttpRequest";
 }
 
+function isAdminSideManager(accountType) {
+  return accountType === 'Admin' || accountType === 'Mini Admin';
+}
+
+function formatAdminSideRoleShort(accountType) {
+  switch ((accountType || '').trim()) {
+    case 'Internal Worker':
+      return 'IW';
+    case 'Admin':
+      return 'AD';
+    case 'Mini Admin':
+      return 'MAD';
+    default:
+      return (accountType || '').trim();
+  }
+}
+
+async function fetchAdminSideUsers() {
+  const result = await db.query(
+    `SELECT user_id, first_name, last_name, email, account_type, on_hold
+     FROM users
+     WHERE account_type IN ('Admin', 'Mini Admin', 'Internal Worker')
+     ORDER BY
+       CASE account_type
+         WHEN 'Admin' THEN 0
+         WHEN 'Mini Admin' THEN 1
+         ELSE 2
+       END,
+       last_name ASC,
+       first_name ASC`
+  );
+
+  return result.rows.map((user) => {
+    const first = (user.first_name || '').trim();
+    const last = (user.last_name || '').trim();
+    const fullName = `${first} ${last}`.trim() || user.email || `User ${user.user_id}`;
+    const shortRole = formatAdminSideRoleShort(user.account_type);
+    return {
+      user_id: user.user_id,
+      account_type: user.account_type,
+      email: user.email,
+      on_hold: !!user.on_hold,
+      label: shortRole ? `${fullName} (${shortRole})` : fullName,
+    };
+  });
+}
+
 async function fetchAdminEmailCampaigns() {
   await ensureAdminEmailCampaignSchema(db);
 
@@ -426,12 +473,23 @@ const adminController = {
       // - Internal Worker sees only their own.
       // - Admin / Mini Admin sees all contacts with the creator's name.
       let contacts = [];
+      const canManageAllContacts = isAdminSideManager(accountType);
+      const canAssignContacts = canManageAllContacts;
       if (isInternalWorker) {
         const own = await db.query(
-          `SELECT id, contact_name, organization_name, appointment_set, appointment_at,
-                  notes, followed_up, followed_up_at, created_at, created_by_user_id
-           FROM internal_contacts
-           WHERE created_by_user_id = $1
+          `SELECT ic.id, ic.contact_name, ic.organization_name, ic.appointment_set, ic.appointment_at,
+                  ic.notes, ic.followed_up, ic.followed_up_at, ic.joined, ic.joined_at,
+                  ic.created_at, ic.created_by_user_id, ic.assigned_to_user_id, ic.assigned_at,
+                  creator.first_name AS creator_first_name,
+                  creator.last_name AS creator_last_name,
+                  creator.account_type AS creator_account_type,
+                  assignee.first_name AS assignee_first_name,
+                  assignee.last_name AS assignee_last_name,
+                  assignee.account_type AS assignee_account_type
+           FROM internal_contacts ic
+           LEFT JOIN users creator ON creator.user_id = ic.created_by_user_id
+           LEFT JOIN users assignee ON assignee.user_id = ic.assigned_to_user_id
+           WHERE ic.created_by_user_id = $1 OR ic.assigned_to_user_id = $1
            ORDER BY created_at DESC
            LIMIT 200`,
           [req.session.userId]
@@ -441,12 +499,17 @@ const adminController = {
         const all = await db.query(
           `SELECT ic.id, ic.contact_name, ic.organization_name, ic.appointment_set,
                   ic.appointment_at, ic.notes, ic.followed_up, ic.followed_up_at,
+                  ic.joined, ic.joined_at, ic.assigned_to_user_id, ic.assigned_at,
                   ic.created_at, ic.created_by_user_id,
-                  u.first_name AS creator_first_name,
-                  u.last_name  AS creator_last_name,
-                  u.account_type AS creator_account_type
+                  creator.first_name AS creator_first_name,
+                  creator.last_name  AS creator_last_name,
+                  creator.account_type AS creator_account_type,
+                  assignee.first_name AS assignee_first_name,
+                  assignee.last_name AS assignee_last_name,
+                  assignee.account_type AS assignee_account_type
            FROM internal_contacts ic
-           LEFT JOIN users u ON u.user_id = ic.created_by_user_id
+           LEFT JOIN users creator ON creator.user_id = ic.created_by_user_id
+           LEFT JOIN users assignee ON assignee.user_id = ic.assigned_to_user_id
            ORDER BY ic.created_at DESC
            LIMIT 500`
         );
@@ -461,6 +524,8 @@ const adminController = {
         adminAnnouncements,
         isInternalWorker,
         isFullAdmin,
+        canManageAllContacts,
+        canAssignContacts,
         messages: req.flash(),
         nodeEnv: process.env.NODE_ENV,
         baseDomain: "managira.com",
@@ -476,6 +541,8 @@ const adminController = {
         adminAnnouncements: [],
         isInternalWorker: req.session.accountType === 'Internal Worker',
         isFullAdmin: req.session.accountType === 'Admin',
+        canManageAllContacts: isAdminSideManager(req.session.accountType),
+        canAssignContacts: isAdminSideManager(req.session.accountType),
         messages: req.flash(),
         nodeEnv: process.env.NODE_ENV,
         baseDomain: "managira.com",
@@ -547,19 +614,19 @@ const adminController = {
       }
 
       const userId = req.session.userId;
-      const isPrivileged = req.session.accountType === 'Admin' || req.session.accountType === 'Mini Admin';
+      const isPrivileged = isAdminSideManager(req.session.accountType);
 
       // Internal Worker may only update their own contacts; full admins may update any.
       const ownership = await db.query(
-        `SELECT created_by_user_id, followed_up FROM internal_contacts WHERE id = $1`,
+        `SELECT created_by_user_id, assigned_to_user_id, followed_up FROM internal_contacts WHERE id = $1`,
         [id]
       );
       if (!ownership.rows.length) {
         req.flash("error", "Contact not found.");
         return res.redirect("/admin");
       }
-      if (!isPrivileged && ownership.rows[0].created_by_user_id !== userId) {
-        req.flash("error", "You can only update your own contacts.");
+      if (!isPrivileged && ownership.rows[0].created_by_user_id !== userId && ownership.rows[0].assigned_to_user_id !== userId) {
+        req.flash("error", "You can only update your own or assigned contacts.");
         return res.redirect("/admin");
       }
 
@@ -581,6 +648,50 @@ const adminController = {
     }
   },
 
+  toggleInternalContactJoined: async (req, res) => {
+    try {
+      await ensureInternalWorkerSchema(db);
+
+      const id = Number.parseInt(req.params.id, 10);
+      if (!Number.isInteger(id)) {
+        req.flash("error", "Invalid contact.");
+        return res.redirect("/admin");
+      }
+
+      const userId = req.session.userId;
+      const isPrivileged = isAdminSideManager(req.session.accountType);
+
+      const ownership = await db.query(
+        `SELECT created_by_user_id, assigned_to_user_id, joined FROM internal_contacts WHERE id = $1`,
+        [id]
+      );
+      if (!ownership.rows.length) {
+        req.flash("error", "Contact not found.");
+        return res.redirect("/admin");
+      }
+      if (!isPrivileged && ownership.rows[0].created_by_user_id !== userId && ownership.rows[0].assigned_to_user_id !== userId) {
+        req.flash("error", "You can only update your own or assigned contacts.");
+        return res.redirect("/admin");
+      }
+
+      const nextValue = !ownership.rows[0].joined;
+      await db.query(
+        `UPDATE internal_contacts
+         SET joined = $2,
+             joined_at = CASE WHEN $2 = TRUE THEN CURRENT_TIMESTAMP ELSE NULL END,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [id, nextValue]
+      );
+
+      req.flash("success", nextValue ? "Marked as joined Managira." : "Joined status cleared.");
+      return res.redirect("/admin");
+    } catch (error) {
+      req.flash("error", "Failed to update contact.");
+      return res.redirect("/admin");
+    }
+  },
+
   deleteInternalContact: async (req, res) => {
     try {
       await ensureInternalWorkerSchema(db);
@@ -592,7 +703,7 @@ const adminController = {
       }
 
       const userId = req.session.userId;
-      const isPrivileged = req.session.accountType === 'Admin' || req.session.accountType === 'Mini Admin';
+      const isPrivileged = isAdminSideManager(req.session.accountType);
 
       const ownership = await db.query(
         `SELECT created_by_user_id FROM internal_contacts WHERE id = $1`,
@@ -613,6 +724,202 @@ const adminController = {
     } catch (error) {
       req.flash("error", "Failed to delete contact.");
       return res.redirect("/admin");
+    }
+  },
+
+  appendInternalContactNote: async (req, res) => {
+    try {
+      await ensureInternalWorkerSchema(db);
+
+      const id = Number.parseInt(req.params.id, 10);
+      if (!Number.isInteger(id)) {
+        req.flash("error", "Invalid contact.");
+        return res.redirect("/admin");
+      }
+
+      const userId = req.session.userId;
+      const isPrivileged = isAdminSideManager(req.session.accountType);
+
+      const newNote = String(req.body.note || "").trim();
+      if (!newNote) {
+        req.flash("error", "Note cannot be empty.");
+        return res.redirect("/admin");
+      }
+      if (newNote.length > 2000) {
+        req.flash("error", "Note is too long (max 2000 characters).");
+        return res.redirect("/admin");
+      }
+
+      const ownership = await db.query(
+        `SELECT created_by_user_id, assigned_to_user_id, notes FROM internal_contacts WHERE id = $1`,
+        [id]
+      );
+      if (!ownership.rows.length) {
+        req.flash("error", "Contact not found.");
+        return res.redirect("/admin");
+      }
+      if (!isPrivileged && ownership.rows[0].created_by_user_id !== userId && ownership.rows[0].assigned_to_user_id !== userId) {
+        req.flash("error", "You can only update your own or assigned contacts.");
+        return res.redirect("/admin");
+      }
+
+      // Prefix the new note with a timestamp + author name so the
+      // running history is readable.
+      let authorLabel = "Unknown";
+      try {
+        const u = await db.query(
+          `SELECT first_name, last_name, account_type FROM users WHERE user_id = $1`,
+          [userId]
+        );
+        if (u.rows.length) {
+          const f = (u.rows[0].first_name || "").trim();
+          const l = (u.rows[0].last_name || "").trim();
+          const name = `${f} ${l}`.trim() || "Unknown";
+          authorLabel = u.rows[0].account_type ? `${name} (${u.rows[0].account_type})` : name;
+        }
+      } catch (_) {}
+
+      const stamp = new Date().toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+      const header = `— ${stamp} · ${authorLabel}`;
+      const existing = (ownership.rows[0].notes || "").trim();
+      const merged = existing
+        ? `${existing}\n\n${header}\n${newNote}`
+        : `${header}\n${newNote}`;
+
+      await db.query(
+        `UPDATE internal_contacts
+         SET notes = $2,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [id, merged]
+      );
+
+      req.flash("success", "Note added.");
+      return res.redirect("/admin");
+    } catch (error) {
+      req.flash("error", "Failed to add note.");
+      return res.redirect("/admin");
+    }
+  },
+
+  getInternalContactAssigneeOptions: async (req, res) => {
+    try {
+      await ensureInternalWorkerSchema(db);
+
+      if (!isAdminSideManager(req.session.accountType)) {
+        return res.status(403).json({ success: false, message: 'Only admins can assign contacts.' });
+      }
+
+      const users = await fetchAdminSideUsers();
+      return res.json({ success: true, users });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: 'Failed to load assignees.' });
+    }
+  },
+
+  assignInternalContact: async (req, res) => {
+    try {
+      await ensureInternalWorkerSchema(db);
+
+      if (!isAdminSideManager(req.session.accountType)) {
+        const message = 'Only admins can assign contacts.';
+        if (isAjaxRequest(req)) {
+          return res.status(403).json({ success: false, message });
+        }
+        req.flash('error', message);
+        return res.redirect('/admin');
+      }
+
+      const id = Number.parseInt(req.params.id, 10);
+      if (!Number.isInteger(id)) {
+        const message = 'Invalid contact.';
+        if (isAjaxRequest(req)) {
+          return res.status(400).json({ success: false, message });
+        }
+        req.flash('error', message);
+        return res.redirect('/admin');
+      }
+
+      const rawAssignee = req.body.assignee_user_id;
+      const assigneeUserId = rawAssignee === '' || rawAssignee === null || rawAssignee === undefined
+        ? null
+        : Number.parseInt(rawAssignee, 10);
+
+      if (rawAssignee !== '' && rawAssignee !== null && rawAssignee !== undefined && !Number.isInteger(assigneeUserId)) {
+        const message = 'Invalid assignee.';
+        if (isAjaxRequest(req)) {
+          return res.status(400).json({ success: false, message });
+        }
+        req.flash('error', message);
+        return res.redirect('/admin');
+      }
+
+      const contactResult = await db.query(
+        `SELECT id, created_by_user_id FROM internal_contacts WHERE id = $1`,
+        [id]
+      );
+      if (!contactResult.rows.length) {
+        const message = 'Contact not found.';
+        if (isAjaxRequest(req)) {
+          return res.status(404).json({ success: false, message });
+        }
+        req.flash('error', message);
+        return res.redirect('/admin');
+      }
+
+      let assigneeRow = null;
+      if (assigneeUserId !== null) {
+        const assigneeResult = await db.query(
+          `SELECT user_id, first_name, last_name, email, account_type
+           FROM users
+           WHERE user_id = $1
+             AND account_type IN ('Admin', 'Mini Admin', 'Internal Worker')`,
+          [assigneeUserId]
+        );
+        if (!assigneeResult.rows.length) {
+          const message = 'Assignee not found.';
+          if (isAjaxRequest(req)) {
+            return res.status(404).json({ success: false, message });
+          }
+          req.flash('error', message);
+          return res.redirect('/admin');
+        }
+        assigneeRow = assigneeResult.rows[0];
+      }
+
+      await db.query(
+        `UPDATE internal_contacts
+         SET assigned_to_user_id = $2,
+             assigned_at = CASE WHEN $2 IS NULL THEN NULL ELSE CURRENT_TIMESTAMP END,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [id, assigneeUserId]
+      );
+
+      const label = assigneeRow
+        ? `${`${assigneeRow.first_name || ''} ${assigneeRow.last_name || ''}`.trim() || assigneeRow.email || `User ${assigneeRow.user_id}`}${formatAdminSideRoleShort(assigneeRow.account_type) ? ` (${formatAdminSideRoleShort(assigneeRow.account_type)})` : ''}`
+        : null;
+
+      if (isAjaxRequest(req)) {
+        return res.json({
+          success: true,
+          message: assigneeRow ? 'Assignee saved.' : 'Assignee cleared.',
+          assignee: assigneeRow ? {
+            user_id: assigneeRow.user_id,
+            label,
+            account_type: assigneeRow.account_type,
+          } : null,
+        });
+      }
+
+      req.flash('success', assigneeRow ? 'Assignee saved.' : 'Assignee cleared.');
+      return res.redirect('/admin');
+    } catch (error) {
+      if (isAjaxRequest(req)) {
+        return res.status(500).json({ success: false, message: 'Failed to save assignee.' });
+      }
+      req.flash('error', 'Failed to save assignee.');
+      return res.redirect('/admin');
     }
   },
 

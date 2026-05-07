@@ -103,7 +103,11 @@ module.exports = (db) => {
 
     // Internal contacts (referrals) routes - available to Admin, Mini Admin, and Internal Worker
     router.post('/contacts', ensureAdminOrInternal, adminController.createInternalContact);
+    router.get('/contacts/assignees/options', ensureAdminOrInternal, adminController.getInternalContactAssigneeOptions);
     router.post('/contacts/:id/follow-up', ensureAdminOrInternal, adminController.toggleInternalContactFollowUp);
+    router.post('/contacts/:id/joined', ensureAdminOrInternal, adminController.toggleInternalContactJoined);
+    router.post('/contacts/:id/assignee', ensureAdminOrInternal, adminController.assignInternalContact);
+    router.post('/contacts/:id/note', ensureAdminOrInternal, adminController.appendInternalContactNote);
     router.post('/contacts/:id/delete', ensureAdminOrInternal, adminController.deleteInternalContact);
 
     // Self-service profile (any signed-in admin-side user)
