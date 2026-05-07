@@ -19,18 +19,21 @@
     gap: 16px;
   }
   .profile-avatar-lg {
-    width: 56px;
-    height: 56px;
+    width: 72px;
+    height: 72px;
     border-radius: 50%;
     background: linear-gradient(135deg, #01535b, #047a85);
     color: #fff;
     font-weight: 700;
-    font-size: 1.4rem;
+    font-size: 1.5rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     box-shadow: 0 4px 14px rgba(1, 83, 91, 0.3);
+    overflow: hidden;
+    flex-shrink: 0;
   }
+  .profile-avatar-lg img { width: 100%; height: 100%; object-fit: cover; }
   .profile-card__title { margin: 0; font-size: 1.3rem; color: #0f172a; }
   .profile-card__role { margin: 2px 0 0; font-size: 0.88rem; color: #64748b; }
   .profile-card__body { padding: 22px 26px; }
@@ -60,7 +63,8 @@
     text-transform: uppercase;
     color: #64748b;
   }
-  .profile-form input {
+  .profile-form input,
+  .profile-form textarea {
     border: 1px solid #d1d5db;
     border-radius: 8px;
     padding: 10px 12px;
@@ -68,6 +72,8 @@
     color: #0f172a;
     font-family: inherit;
   }
+  .profile-form textarea { min-height: 110px; resize: vertical; line-height: 1.45; }
+  .profile-form input[type="file"] { padding: 8px; background: #f9fafb; }
   .profile-form input:disabled { background: #f3f4f6; color: #6b7280; }
   .profile-form .full { grid-column: 1 / -1; }
   .profile-form .actions {
@@ -126,15 +132,21 @@
 
 <%
   const _initial = (profile && profile.first_name) ? profile.first_name.charAt(0).toUpperCase() : '?';
+  const _avatarUrl = profile && profile.profile_image_url ? profile.profile_image_url : '';
+  const _bio = profile && profile.org_role_description ? profile.org_role_description : '';
 %>
 
 <div class="profile-page">
   <div class="profile-card">
     <div class="profile-card__header">
-      <div class="profile-avatar-lg"><%= _initial %></div>
+      <div class="profile-avatar-lg">
+        <% if (_avatarUrl) { %>
+          <img src="<%= _avatarUrl %>" alt="<%= profile.first_name %> <%= profile.last_name %>">
+        <% } else { %><%= _initial %><% } %>
+      </div>
       <div>
         <h1 class="profile-card__title"><%= profile.first_name %> <%= profile.last_name %></h1>
-        <p class="profile-card__role"><%= profile.account_type %> · <%= profile.email %></p>
+        <p class="profile-card__role"><%= profile.email %></p>
       </div>
     </div>
 
@@ -150,7 +162,7 @@
         </ul>
       <% } %>
 
-      <form action="/admin/profile" method="POST" class="profile-form" autocomplete="off">
+      <form action="/admin/profile" method="POST" class="profile-form" autocomplete="off" enctype="multipart/form-data">
         <label>
           First name
           <input type="text" name="firstName" value="<%= profile.first_name || '' %>" required maxlength="255" />
@@ -166,6 +178,14 @@
         <label class="full">
           Email (read-only)
           <input type="email" value="<%= profile.email || '' %>" disabled />
+        </label>
+        <label class="full">
+          Profile picture
+          <input type="file" name="profileImage" accept="image/*" />
+        </label>
+        <label class="full">
+          Bio (shown on the team org chart)
+          <textarea name="bio" maxlength="600" placeholder="A short description about yourself, your role, and what you do…"><%= _bio %></textarea>
         </label>
         <div class="actions">
           <a href="/admin" class="btn-back">← Back to dashboard</a>

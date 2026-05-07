@@ -994,7 +994,8 @@ const adminController = {
       }
 
       const result = await db.query(
-        `SELECT user_id, first_name, last_name, email, account_type, phone_number, organization_id
+        `SELECT user_id, first_name, last_name, email, account_type, phone_number, organization_id,
+                profile_image_url, org_role_description
          FROM users WHERE user_id = $1`,
         [userId]
       );
@@ -1043,6 +1044,7 @@ const adminController = {
       const firstName = String(req.body.firstName || "").trim();
       const lastName = String(req.body.lastName || "").trim();
       const phoneRaw = String(req.body.phoneNumber || "").trim();
+      const bio = String(req.body.bio || "").trim().slice(0, 600) || null;
 
       if (!firstName || !lastName) {
         req.flash("error", "First and last name are required.");
@@ -1063,14 +1065,36 @@ const adminController = {
         phoneNumber = phoneRaw;
       }
 
+      // Optional profile picture upload
+      let imageUrl = null;
+      if (req.file) {
+        try {
+          const result = await uploadToS3(req.file);
+          imageUrl = result && (result.Location || result);
+        } catch (e) {
+          console.error('[updateAdminProfile upload]', e);
+          req.flash('error', 'Profile picture could not be uploaded.');
+          return res.redirect('/admin/profile');
+        }
+      }
+
+      const sets = [
+        'first_name = $1',
+        'last_name = $2',
+        'phone_number = $3',
+        'org_role_description = $4',
+        'updated_at = NOW()'
+      ];
+      const params = [firstName, lastName, phoneNumber, bio];
+      if (imageUrl) {
+        sets.splice(4, 0, `profile_image_url = $${params.length + 1}`);
+        params.push(imageUrl);
+      }
+      params.push(userId);
+
       await db.query(
-        `UPDATE users
-           SET first_name = $1,
-               last_name = $2,
-               phone_number = $3,
-               updated_at = NOW()
-         WHERE user_id = $4`,
-        [firstName, lastName, phoneNumber, userId]
+        `UPDATE users SET ${sets.join(', ')} WHERE user_id = $${params.length}`,
+        params
       );
 
       // Reflect in the live session so the header updates immediately.

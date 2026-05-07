@@ -130,7 +130,7 @@ module.exports = (db) => {
         });
         next();
     }, ensureAdminOrInternal, adminController.getAdminProfile);
-    router.post('/profile', ensureAdminOrInternal, adminController.updateAdminProfile);
+    router.post('/profile', ensureAdminOrInternal, upload.single('profileImage'), adminController.updateAdminProfile);
     router.post('/profile/notifications', ensureAdminOrInternal, adminController.updateAdminNotificationPrefs);
 
     router.post('/hold', adminController.holdOrganization);
