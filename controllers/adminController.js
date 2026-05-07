@@ -5033,7 +5033,8 @@ adminController.updateOrgChartMember = async (req, res) => {
     let imageUrl = null;
     if (req.file) {
       try {
-        imageUrl = await uploadToS3(req.file);
+        const result = await uploadToS3(req.file);
+        imageUrl = result && (result.Location || result);
       } catch (e) {
         console.error('[orgChart upload]', e);
       }
