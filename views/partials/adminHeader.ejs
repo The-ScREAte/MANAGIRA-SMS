@@ -31,7 +31,13 @@
           <% } %>
           <li class="admin-profile-container" id="admin-profile-container">
             <button type="button" class="admin-profile-btn" id="admin-profile-btn" aria-haspopup="true" aria-expanded="false" aria-label="Profile menu">
-              <span class="admin-profile-avatar"><%= (session.firstName || '?').charAt(0).toUpperCase() %></span>
+              <span class="admin-profile-avatar">
+                <% if (session.profileImageUrl) { %>
+                  <img src="<%= session.profileImageUrl %>" alt="Profile picture" />
+                <% } else { %>
+                  <%= (session.firstName || '?').charAt(0).toUpperCase() %>
+                <% } %>
+              </span>
             </button>
             <div class="admin-profile-dropdown" id="admin-profile-dropdown" role="menu">
               <div class="admin-profile-dropdown__header">
@@ -439,6 +445,13 @@
       font-size: 0.95rem;
       box-shadow: 0 2px 6px rgba(1, 83, 91, 0.25);
       transition: transform 150ms ease, box-shadow 150ms ease;
+      overflow: hidden;
+    }
+    .admin-profile-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
     }
     .admin-profile-btn:hover .admin-profile-avatar,
     .admin-profile-btn:focus-visible .admin-profile-avatar {

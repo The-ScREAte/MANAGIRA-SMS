@@ -185,6 +185,20 @@
               <option value="Internal Worker">Internal Worker</option>
             </select>
           </div>
+          <div class="form-group">
+            <label for="supervisorUserId">Reports to (supervisor):</label>
+            <select id="supervisorUserId" name="supervisorUserId">
+              <option value="">— No supervisor (top-level) —</option>
+              <% (admins || []).forEach(function(s){ %>
+                <option value="<%= s.user_id %>">
+                  <%= (s.first_name || '') %> <%= (s.last_name || '') %> · <%= s.account_type %>
+                </option>
+              <% }); %>
+            </select>
+            <small style="display:block; margin-top:4px; color:#64748b; font-size:0.8rem;">
+              The new user will appear directly under this person on the Team Org Chart.
+            </small>
+          </div>
           <button type="submit" class="admin-btn admin-btn-primary admin-btn-lg" style="width: 100%; margin-top: 8px;">
             + Create Admin User
           </button>

@@ -168,6 +168,7 @@ const fetchUserInfo = async (req, res, next) => {
                 req.session.firstName = user.first_name;
                 req.session.lastName = user.last_name;
                 req.session.accountType = user.account_type;
+                req.session.profileImageUrl = user.profile_image_url || null;
 
                 // Fetch organization details for non-admin users
                 if (

@@ -1100,6 +1100,7 @@ const adminController = {
       // Reflect in the live session so the header updates immediately.
       req.session.firstName = firstName;
       req.session.lastName = lastName;
+      if (imageUrl) req.session.profileImageUrl = imageUrl;
 
       req.flash("success", "Profile updated successfully.");
       return res.redirect("/admin/profile");
@@ -1660,15 +1661,21 @@ const adminController = {
       await ensureInternalWorkerSchema(db);
       // Fetch all admin-side users (Mini Admin, Admin, Internal Worker)
       const adminsResult = await db.query(
-        `SELECT user_id, first_name, last_name, email, account_type, on_hold, phone_number
+        `SELECT user_id, first_name, last_name, email, account_type, on_hold, phone_number,
+                supervisor_user_id
                      FROM users
                      WHERE account_type IN ('Admin', 'Mini Admin', 'Internal Worker')
                      ORDER BY account_type, last_name, first_name`
       );
 
+      // Build a quick id->user map for rendering supervisor names in the table
+      const adminsById = {};
+      adminsResult.rows.forEach((u) => { adminsById[u.user_id] = u; });
+
       res.render("admin/superSettings", {
         title: "Super Admin Settings",
         admins: adminsResult.rows,
+        adminsById,
         messages: req.flash(),
         showFooterTopSection: true
       });
@@ -1677,6 +1684,7 @@ const adminController = {
       res.render("admin/superSettings", {
         title: "Super Admin Settings",
         admins: [],
+        adminsById: {},
         messages: req.flash(),
         showFooterTopSection: true
       });
@@ -1853,7 +1861,7 @@ const adminController = {
   },
 
   createAdminUser: async (req, res) => {
-    const { firstName, lastName, adminUsername, adminEmail, adminRole } =
+    const { firstName, lastName, adminUsername, adminEmail, adminRole, supervisorUserId } =
       req.body;
 
     try {
@@ -1865,6 +1873,21 @@ const adminController = {
       if (!ALLOWED_ROLES.includes(adminRole)) {
         req.flash('error', 'Invalid role selected.');
         return res.redirect('/admin/superSettings');
+      }
+
+      // Optional supervisor: must be an existing admin-side user
+      let supervisorId = null;
+      if (supervisorUserId !== undefined && supervisorUserId !== '' && supervisorUserId !== null) {
+        const parsed = parseInt(supervisorUserId, 10);
+        if (Number.isFinite(parsed)) {
+          const sup = await db.query(
+            `SELECT user_id FROM users
+              WHERE user_id = $1
+                AND account_type IN ('Admin','Mini Admin','Internal Worker')`,
+            [parsed]
+          );
+          if (sup.rows.length) supervisorId = parsed;
+        }
       }
 
       // ✅ Check if the email exists in either users or organizations
@@ -1895,14 +1918,15 @@ const adminController = {
 
       // ✅ Insert the admin user without a password
       await db.query(
-        `INSERT INTO users (first_name, last_name, email, account_type, username, created_at, updated_at, reset_password_token, reset_password_expires)
-                 VALUES ($1, $2, $3, $4, $5, NOW(), NOW(), $6, $7)`,
+        `INSERT INTO users (first_name, last_name, email, account_type, username, supervisor_user_id, created_at, updated_at, reset_password_token, reset_password_expires)
+                 VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW(), $7, $8)`,
         [
           firstName,
           lastName,
           adminEmail,
           adminRole,
           adminUsername,
+          supervisorId,
           hashedToken,
           tokenExpiration,
         ]
@@ -5008,7 +5032,7 @@ adminController.getOrgChart = async (req, res) => {
     await ensureInternalWorkerSchema(db);
     const { rows: members } = await db.query(
       `SELECT user_id, first_name, last_name, email, account_type,
-              supervisor_user_id, org_role_title, org_role_description,
+              supervisor_user_id, org_chart_position, org_role_title, org_role_description,
               profile_image_url, on_hold
          FROM users
         WHERE account_type IN ('Admin', 'Mini Admin', 'Internal Worker')
@@ -5051,6 +5075,13 @@ adminController.updateOrgChartMember = async (req, res) => {
       if (Number.isFinite(parsed) && parsed !== memberId) supervisorUserId = parsed;
     }
 
+    const rowPositionRaw = req.body.rowPosition;
+    let requestedRowPosition = null;
+    if (rowPositionRaw !== undefined && rowPositionRaw !== '' && rowPositionRaw !== null) {
+      const parsed = parseInt(rowPositionRaw, 10);
+      if (Number.isFinite(parsed) && parsed > 0) requestedRowPosition = parsed;
+    }
+
     const roleTitle = String(req.body.roleTitle || '').trim().slice(0, 120) || null;
     const roleDescription = String(req.body.roleDescription || '').trim().slice(0, 600) || null;
 
@@ -5064,12 +5095,58 @@ adminController.updateOrgChartMember = async (req, res) => {
       }
     }
 
+    await db.query('BEGIN');
+
+    const memberResult = await db.query(
+      `SELECT user_id, supervisor_user_id
+         FROM users
+        WHERE user_id = $1
+          AND account_type IN ('Admin', 'Mini Admin', 'Internal Worker')
+        FOR UPDATE`,
+      [memberId]
+    );
+
+    if (!memberResult.rows.length) {
+      await db.query('ROLLBACK');
+      req.flash('error', 'Team member not found.');
+      return res.redirect('/admin/org-chart');
+    }
+
+    const currentSupervisorUserId = memberResult.rows[0].supervisor_user_id || null;
+
+    const siblingResult = await db.query(
+      `SELECT user_id
+         FROM users
+        WHERE account_type IN ('Admin', 'Mini Admin', 'Internal Worker')
+          AND user_id <> $1
+          AND (
+            ($2::int IS NULL AND supervisor_user_id IS NULL)
+            OR supervisor_user_id = $2
+          )
+        ORDER BY COALESCE(org_chart_position, 2147483647),
+                 CASE account_type
+                   WHEN 'Admin' THEN 1
+                   WHEN 'Mini Admin' THEN 2
+                   WHEN 'Internal Worker' THEN 3
+                   ELSE 4 END,
+                 last_name, first_name, user_id`,
+      [memberId, supervisorUserId]
+    );
+
+    const siblingIds = siblingResult.rows.map((row) => row.user_id);
+    const targetRowPosition = Math.min(
+      Math.max(requestedRowPosition || (siblingIds.length + 1), 1),
+      siblingIds.length + 1
+    );
+    siblingIds.splice(targetRowPosition - 1, 0, memberId);
+
     const sets = [
       'supervisor_user_id = $1',
-      'org_role_title = $2',
-      'org_role_description = $3',
+      'org_chart_position = $2',
+      'org_role_title = $3',
+      'org_role_description = $4',
     ];
-    const params = [supervisorUserId, roleTitle, roleDescription];
+    const params = [supervisorUserId, targetRowPosition, roleTitle, roleDescription];
     if (imageUrl) {
       sets.push(`profile_image_url = $${params.length + 1}`);
       params.push(imageUrl);
@@ -5082,9 +5159,47 @@ adminController.updateOrgChartMember = async (req, res) => {
       params
     );
 
+    for (let index = 0; index < siblingIds.length; index += 1) {
+      await db.query(
+        `UPDATE users SET org_chart_position = $1 WHERE user_id = $2`,
+        [index + 1, siblingIds[index]]
+      );
+    }
+
+    if (currentSupervisorUserId !== supervisorUserId) {
+      const previousSiblingResult = await db.query(
+        `SELECT user_id
+           FROM users
+          WHERE account_type IN ('Admin', 'Mini Admin', 'Internal Worker')
+            AND user_id <> $1
+            AND (
+              ($2::int IS NULL AND supervisor_user_id IS NULL)
+              OR supervisor_user_id = $2
+            )
+          ORDER BY COALESCE(org_chart_position, 2147483647),
+                   CASE account_type
+                     WHEN 'Admin' THEN 1
+                     WHEN 'Mini Admin' THEN 2
+                     WHEN 'Internal Worker' THEN 3
+                     ELSE 4 END,
+                   last_name, first_name, user_id`,
+        [memberId, currentSupervisorUserId]
+      );
+
+      for (let index = 0; index < previousSiblingResult.rows.length; index += 1) {
+        await db.query(
+          `UPDATE users SET org_chart_position = $1 WHERE user_id = $2`,
+          [index + 1, previousSiblingResult.rows[index].user_id]
+        );
+      }
+    }
+
+    await db.query('COMMIT');
+
     req.flash('success', 'Team member updated.');
     res.redirect('/admin/org-chart');
   } catch (err) {
+    try { await db.query('ROLLBACK'); } catch (rollbackErr) {}
     console.error('[updateOrgChartMember]', err);
     req.flash('error', 'Failed to update team member.');
     res.redirect('/admin/org-chart');
