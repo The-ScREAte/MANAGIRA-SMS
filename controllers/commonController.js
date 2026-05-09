@@ -11391,6 +11391,7 @@ const commonController = {
       const emailMessage = isNewAccount 
         ? `You have been invited to access the Parent Portal at ${he.encode(organizationName)}. Click the button below to set your password and access your children's progress.`
         : `A password reset has been requested for your Parent Portal account at ${he.encode(organizationName)}. Click the button below to set a new password.`;
+      const linkedinUrl = process.env.MANAGIRA_LINKEDIN_URL || 'https://www.linkedin.com/company/managira';
 
       const html = renderCleanEmail({
         title: emailHeading,
@@ -11399,6 +11400,9 @@ const commonController = {
           emailMessage,
           ...(isNewAccount
             ? [`You can log in using your email <strong>${he.encode(contactEmail)}</strong> or phone number <strong>${he.encode(contactPhone)}</strong> with your new password.`]
+            : []),
+          ...(isNewAccount
+            ? [`For general updates and other activities from Managira, you are also welcome to follow us on LinkedIn here: <a href="${linkedinUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;">linkedin.com/company/managira</a>.`]
             : []),
           ...(!isNewAccount ? ["If you did not request this reset, please ignore this email."] : []),
         ],
@@ -11733,6 +11737,7 @@ async function sendInviteEmail(
   classNames = [],
   subjectNames = []
 ) {
+  const linkedinUrl = process.env.MANAGIRA_LINKEDIN_URL || 'https://www.linkedin.com/company/managira';
   const assignmentDetails = [];
   if (classNames.length) {
     assignmentDetails.push({ label: "Assigned Classes", value: classNames.map(n => he.encode(n)).join(", ") });
@@ -11747,6 +11752,7 @@ async function sendInviteEmail(
     paragraphs: [
       `${he.encode(organizationName)} is inviting you to join their institution. Accept this invitation to set your password.`,
       ...(assignmentDetails.length ? ["Here are your initial assignments:"] : []),
+      `For broader updates and other activities from Managira, you can follow us on LinkedIn here: <a href="${linkedinUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;">linkedin.com/company/managira</a>.`,
     ],
     details: assignmentDetails.length ? assignmentDetails : undefined,
     cta: {
@@ -11801,6 +11807,7 @@ async function sendPasswordSetSuccessEmail(email, firstName, lastName) {
 // Send welcome email to new guardian with password setup
 const sendGuardianWelcomeEmail = async (guardianEmail, guardianFirstName, guardianLastName, studentName, organizationName, organizationId, guardianId) => {
   try {
+    const linkedinUrl = process.env.MANAGIRA_LINKEDIN_URL || 'https://www.linkedin.com/company/managira';
     // Generate token for password setup
     const token = crypto.randomBytes(32).toString("hex");
     const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
@@ -11823,6 +11830,7 @@ const sendGuardianWelcomeEmail = async (guardianEmail, guardianFirstName, guardi
       paragraphs: [
         `Great news! <strong>${he.encode(studentName)}</strong> has been registered at ${he.encode(organizationName)}, and you've been added as their guardian.`,
         "To monitor your child's academic progress, grades, and connect with teachers, please set up your Parent Portal password.",
+        `For general updates and other activities from Managira, you are also welcome to follow us on LinkedIn here: <a href="${linkedinUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;">linkedin.com/company/managira</a>.`,
       ],
       details: [
         { label: "Login Email", value: he.encode(guardianEmail) },

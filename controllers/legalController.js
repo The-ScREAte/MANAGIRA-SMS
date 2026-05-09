@@ -21,13 +21,14 @@ const sendEmploymentApplicantConfirmationEmail = async ({
     selectedJob,
     applicationId,
 }) => {
+    const linkedinUrl = process.env.MANAGIRA_LINKEDIN_URL || 'https://www.linkedin.com/company/managira';
     const applicantConfirmationHtml = renderCleanEmail({
         title: 'Employment Application Received',
         greeting: `Dear <strong>${applicantFullName}</strong>,`,
         paragraphs: [
             `Thank you for applying for the <strong>${selectedJob.title}</strong> role at Managira.`,
             'Your application has been received successfully, and our team will review it.',
-            'Follow us on LinkedIn for more information and updates.',
+            `We post other activities and updates on LinkedIn as well. Follow Managira here: <a href="${linkedinUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;">linkedin.com/company/managira</a>.`,
         ],
         details: [
             { label: 'Application ID', value: applicationId ? `#${applicationId}` : 'Submitted' },

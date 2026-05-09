@@ -4429,11 +4429,13 @@ async function sendEmailNotification(to, subject, text) {
 }
 
 async function sendAdminInviteEmail(email, firstName, lastName, link) {
+  const linkedinUrl = process.env.MANAGIRA_LINKEDIN_URL || 'https://www.linkedin.com/company/managira';
   const html = renderCleanEmail({
     title: "You're Invited to Join as Admin",
     greeting: `Hello <strong>${he.encode(firstName)} ${he.encode(lastName)}</strong>,`,
     paragraphs: [
       "Managira is inviting you to join as an admin. Use the button below to set your password.",
+      `For company updates and other activities from Managira, you can also follow us on LinkedIn here: <a href="${linkedinUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;">linkedin.com/company/managira</a>.`,
     ],
     cta: { text: "Accept Invite & Set Password", url: he.encode(link) },
     note: 'This link will expire in 24 hours. For help, visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
