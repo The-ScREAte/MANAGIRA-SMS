@@ -14,44 +14,6 @@ select {
 /* Define the font-family variable */
 :root {
   --font-family: "Inter", sans-serif;
-  --app-scale: 0.9;
-}
-
-@media screen {
-  html {
-    overflow-x: hidden;
-  }
-
-  body {
-    overflow-x: hidden;
-  }
-
-  @supports (zoom: 1) {
-    html {
-      zoom: var(--app-scale);
-    }
-  }
-
-  @supports not (zoom: 1) {
-    #app-scale-root {
-      transform: scale(var(--app-scale));
-      transform-origin: top left;
-      width: calc(100% / var(--app-scale));
-      min-height: calc(100vh / var(--app-scale));
-    }
-  }
-}
-
-@media print {
-  html {
-    zoom: 1 !important;
-  }
-
-  #app-scale-root {
-    transform: none !important;
-    width: 100% !important;
-    min-height: auto !important;
-  }
 }
 
 /* Ensuring html and body take full height and use flexbox */

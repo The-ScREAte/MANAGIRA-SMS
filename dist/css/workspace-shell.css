@@ -1,0 +1,450 @@
+/* ============================================================
+   Managira shared workspace shell
+   Used by: managementTools, admissionsHub, reportsHub, account/settings
+   Provides class-dashboard-style sidebar + fluid workspace.
+   Selectors are written to be high-specificity overrides for the
+   pages that already define .hub-* / .management-* / .settings-*
+   layouts, so this file can be included AFTER their inline styles.
+   ============================================================ */
+
+body { background: #f8fafc; }
+
+main { padding: 0 !important; max-width: none !important; }
+
+/* Layout wrappers */
+.hub-wrapper, .management-wrapper, .settings-wrapper {
+  width: 100%;
+  min-height: calc(100vh - 68px);
+}
+
+.hub-layout, .management-layout, .settings-layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 14px;
+  max-width: none;
+  margin: 0;
+  padding: 12px 16px 24px;
+  align-items: start;
+}
+
+/* Sidebar */
+.hub-nav, .management-nav, .settings-nav {
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 14px;
+  padding: 0 !important;
+  background: #fff;
+  height: fit-content;
+  position: sticky;
+  top: 12px;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+}
+
+.hub-nav-header, .management-nav-header, .settings-nav-header {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 !important;
+  width: auto;
+  padding: 10px 14px 10px !important;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  background: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.hub-nav h3, .management-nav h3, .settings-nav h3 {
+  margin: 0 !important;
+  font-size: 13px !important;
+  color: var(--text, #0f172a) !important;
+  font-weight: 700 !important;
+  text-transform: none !important;
+  letter-spacing: 0.02em !important;
+  text-align: left !important;
+}
+
+.hub-nav .nav-list, .management-nav .nav-list, .settings-nav .nav-list {
+  list-style: none;
+  padding: 8px 8px 10px !important;
+  margin: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.hub-nav .nav-list li,
+.management-nav .nav-list li,
+.settings-nav .nav-list li { margin: 0; }
+
+.hub-nav .nav-link,
+.management-nav .nav-link,
+.settings-nav .nav-link {
+  position: relative;
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px 7px 12px !important;
+  border-radius: 8px !important;
+  color: #475569 !important;
+  text-decoration: none;
+  border: 1px solid transparent !important;
+  width: 100%;
+  background: transparent !important;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  font-weight: 500 !important;
+  font-size: 13px !important;
+  line-height: 1.2;
+  transition: background 0.15s ease, color 0.15s ease;
+  flex-direction: row !important;
+  justify-content: flex-start !important;
+}
+
+.hub-nav .nav-link .nav-link-icon,
+.management-nav .nav-link .nav-link-icon,
+.settings-nav .nav-link .nav-link-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: #94a3b8;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+.hub-nav .nav-link .nav-link-icon svg,
+.management-nav .nav-link .nav-link-icon svg,
+.settings-nav .nav-link .nav-link-icon svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  display: block;
+}
+
+.hub-nav .nav-link > span:not(.nav-link-icon),
+.management-nav .nav-link > span:not(.nav-link-icon),
+.settings-nav .nav-link > span:not(.nav-link-icon) {
+  flex: 1;
+  text-align: left;
+}
+
+.hub-nav .nav-link:hover,
+.management-nav .nav-link:hover,
+.settings-nav .nav-link:hover {
+  background: rgba(1, 83, 91, 0.06) !important;
+  color: var(--primary, #01535b) !important;
+}
+.hub-nav .nav-link:hover .nav-link-icon,
+.management-nav .nav-link:hover .nav-link-icon,
+.settings-nav .nav-link:hover .nav-link-icon { color: var(--primary, #01535b); }
+
+.hub-nav .nav-link.active,
+.management-nav .nav-link.active,
+.settings-nav .nav-link.active {
+  background: rgba(1, 83, 91, 0.10) !important;
+  color: var(--primary, #01535b) !important;
+  font-weight: 600 !important;
+  border-color: transparent !important;
+}
+
+.hub-nav .nav-link.active::before,
+.management-nav .nav-link.active::before,
+.settings-nav .nav-link.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--primary, #01535b);
+}
+
+.hub-nav .nav-link.active .nav-link-icon,
+.management-nav .nav-link.active .nav-link-icon,
+.settings-nav .nav-link.active .nav-link-icon { color: var(--primary, #01535b); }
+
+/* Workspace card */
+.hub-main, .management-main, .settings-main {
+  padding: 0;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid var(--border, #e5e7eb);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+}
+
+/* Settings page has no .section-header wrapper, content sits directly in .settings-main */
+.settings-main { padding: 24px 28px !important; }
+@media (max-width: 768px) {
+  .settings-main { padding: 16px !important; }
+}
+
+/* Section header: left-aligned with eyebrow */
+.hub-main .section-header,
+.management-main .section-header,
+.settings-main .section-header {
+  padding: 16px 22px !important;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%) !important;
+  text-align: left !important;
+  display: block;
+}
+
+.hub-main .section-header *,
+.management-main .section-header *,
+.settings-main .section-header * {
+  text-align: left !important;
+}
+
+.hub-main .section-header::before,
+.management-main .section-header::before,
+.settings-main .section-header::before {
+  content: "Workspace";
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted, #6b7280);
+  margin-bottom: 4px;
+}
+
+.management-main .section-header::before { content: "Management Workspace"; }
+.hub-main .section-header[data-eyebrow]::before { content: attr(data-eyebrow); }
+.management-main .section-header[data-eyebrow]::before { content: attr(data-eyebrow); }
+.settings-main .section-header[data-eyebrow]::before { content: attr(data-eyebrow); }
+
+/* Settings page uses h1 directly in section, no .section-header wrapper */
+.settings-main .settings-section > h1 {
+  position: relative;
+  text-align: left !important;
+}
+.settings-main .settings-section > h1::before {
+  content: "Account Settings";
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted, #6b7280);
+  margin-bottom: 4px;
+}
+
+.settings-main .settings-section > h1 {
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  margin: 0 0 6px 0 !important;
+  color: var(--text, #111827) !important;
+}
+.settings-main .settings-section > p.lead {
+  font-size: 14px !important;
+  color: var(--muted, #6b7280) !important;
+  line-height: 1.5 !important;
+  margin: 0 0 18px 0 !important;
+}
+
+.hub-main .section-header h1,
+.management-main .section-header h1,
+.settings-main .section-header h1 {
+  margin: 0 0 4px 0 !important;
+  font-size: 22px !important;
+  color: var(--text, #111827) !important;
+  font-weight: 700 !important;
+  line-height: 1.25 !important;
+}
+
+.hub-main .section-header p,
+.management-main .section-header p,
+.settings-main .section-header p {
+  margin: 0 !important;
+  color: var(--muted, #6b7280) !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+}
+
+.hub-main .section-content,
+.management-main .section-content,
+.settings-main .section-content {
+  padding: 18px 22px 22px !important;
+}
+
+/* Section / card */
+.hub-section, .management-section, .settings-section { display: none; }
+.hub-section.active, .management-section.active, .settings-section.active { display: block; }
+
+.section-card {
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+  padding: 16px 18px !important;
+  background: #fff;
+  margin-bottom: 14px !important;
+}
+
+.section-card h2 {
+  margin: 0 0 6px 0 !important;
+  font-size: 16px !important;
+  color: var(--text, #111827) !important;
+  font-weight: 700 !important;
+  text-align: left !important;
+}
+
+.section-card > p {
+  margin: 0 0 14px 0 !important;
+  color: var(--muted, #6b7280) !important;
+  font-size: 14px !important;
+  line-height: 1.55 !important;
+  display: block !important;
+  -webkit-line-clamp: unset !important;
+  line-clamp: unset !important;
+  overflow: visible !important;
+  text-align: left !important;
+}
+
+/* Action button */
+.hub-main .action-btn,
+.management-main .action-btn,
+.settings-main .action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px !important;
+  background: var(--primary, #01535b) !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.hub-main .action-btn:hover,
+.management-main .action-btn:hover,
+.settings-main .action-btn:hover {
+  background: var(--primary-hover, #014a51) !important;
+  color: #fff !important;
+  transform: none !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
+.hub-main .action-btn svg,
+.management-main .action-btn svg,
+.settings-main .action-btn svg {
+  width: 16px !important;
+  height: 16px !important;
+}
+
+/* Features grid */
+.hub-main .features-grid,
+.management-main .features-grid,
+.settings-main .features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+  margin-bottom: 14px !important;
+}
+
+.hub-main .features-grid .feature-item:nth-child(n + 3),
+.management-main .features-grid .feature-item:nth-child(n + 3),
+.settings-main .features-grid .feature-item:nth-child(n + 3) { display: flex !important; }
+
+.hub-main .feature-item,
+.management-main .feature-item,
+.settings-main .feature-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px !important;
+  padding: 14px 14px !important;
+  background: #f8fafc !important;
+  border-radius: 10px !important;
+  border: 1px solid var(--border, #e5e7eb) !important;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  box-shadow: none !important;
+}
+
+.hub-main .feature-item:hover,
+.management-main .feature-item:hover,
+.settings-main .feature-item:hover {
+  border-color: var(--primary, #01535b) !important;
+  background: #fff !important;
+}
+
+.hub-main .feature-icon,
+.management-main .feature-icon,
+.settings-main .feature-icon {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 8px !important;
+  background: rgba(1, 83, 91, 0.08) !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.hub-main .feature-icon svg,
+.management-main .feature-icon svg,
+.settings-main .feature-icon svg {
+  width: 18px !important;
+  height: 18px !important;
+  color: var(--primary, #01535b) !important;
+  stroke: var(--primary, #01535b) !important;
+}
+
+.hub-main .feature-content h4,
+.management-main .feature-content h4,
+.settings-main .feature-content h4 {
+  margin: 0 0 4px 0 !important;
+  font-size: 14px !important;
+  color: var(--text, #111827) !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+  text-align: left !important;
+}
+
+.hub-main .feature-content p,
+.management-main .feature-content p,
+.settings-main .feature-content p {
+  margin: 0 !important;
+  font-size: 13px !important;
+  color: var(--muted, #6b7280) !important;
+  line-height: 1.5 !important;
+  text-align: left !important;
+}
+
+/* Mobile */
+@media (max-width: 900px) {
+  .hub-layout, .management-layout, .settings-layout {
+    grid-template-columns: 1fr;
+    gap: 0;
+    padding: 10px;
+  }
+
+  .hub-main .section-header,
+  .management-main .section-header,
+  .settings-main .section-header { padding: 10px 14px !important; }
+  .hub-main .section-content,
+  .management-main .section-content,
+  .settings-main .section-content { padding: 12px 14px 16px !important; }
+  .hub-main .section-header h1,
+  .management-main .section-header h1,
+  .settings-main .section-header h1 { font-size: 14px !important; }
+  .hub-main .section-header p,
+  .management-main .section-header p,
+  .settings-main .section-header p { font-size: 11.5px !important; }
+}
+
+@media (max-width: 600px) {
+  .hub-main .features-grid,
+  .management-main .features-grid,
+  .settings-main .features-grid { grid-template-columns: 1fr !important; }
+  .hub-main .action-btn,
+  .management-main .action-btn,
+  .settings-main .action-btn { width: 100%; justify-content: center; }
+}

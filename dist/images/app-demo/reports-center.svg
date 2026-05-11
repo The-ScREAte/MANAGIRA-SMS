@@ -1,0 +1,47 @@
+<svg width="1440" height="2500" viewBox="0 0 1440 2500" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1440" height="2500" fill="#EEF2FF"/>
+  <rect x="34" y="28" width="1372" height="2444" rx="42" fill="#FFFFFF"/>
+  <rect x="34" y="28" width="250" height="2444" rx="42" fill="#312E81"/>
+  <rect x="314" y="70" width="1058" height="88" rx="24" fill="#EEF2FF" stroke="#C7D2FE"/>
+  <rect x="80" y="96" width="126" height="42" rx="12" fill="#4F46E5"/>
+  <rect x="80" y="206" width="160" height="50" rx="16" fill="#4338CA"/>
+  <rect x="80" y="284" width="160" height="50" rx="16" fill="#312E81"/>
+  <rect x="80" y="362" width="160" height="50" rx="16" fill="#312E81"/>
+  <text x="318" y="234" fill="#0F172A" font-size="42" font-family="Inter, Arial, sans-serif" font-weight="700">Reports Center</text>
+  <text x="318" y="276" fill="#64748B" font-size="22" font-family="Inter, Arial, sans-serif">Prepare report cards, print outputs, export files, and monitor distribution status.</text>
+  <rect x="318" y="324" width="322" height="176" rx="30" fill="#EEF2FF"/>
+  <rect x="660" y="324" width="322" height="176" rx="30" fill="#E0E7FF"/>
+  <rect x="1002" y="324" width="370" height="176" rx="30" fill="#312E81"/>
+  <text x="352" y="390" fill="#4338CA" font-size="20" font-family="Inter, Arial, sans-serif">Generated today</text>
+  <text x="352" y="452" fill="#312E81" font-size="54" font-family="Inter, Arial, sans-serif" font-weight="700">186</text>
+  <text x="694" y="390" fill="#4338CA" font-size="20" font-family="Inter, Arial, sans-serif">Queued for print</text>
+  <text x="694" y="452" fill="#312E81" font-size="54" font-family="Inter, Arial, sans-serif" font-weight="700">72</text>
+  <text x="1036" y="390" fill="#C7D2FE" font-size="20" font-family="Inter, Arial, sans-serif">Sent to guardians</text>
+  <text x="1036" y="452" fill="#FFFFFF" font-size="54" font-family="Inter, Arial, sans-serif" font-weight="700">94%</text>
+  <rect x="318" y="534" width="1054" height="720" rx="32" fill="#FFFFFF" stroke="#C7D2FE"/>
+  <text x="358" y="598" fill="#0F172A" font-size="28" font-family="Inter, Arial, sans-serif" font-weight="700">Report Templates</text>
+  <rect x="358" y="650" width="300" height="520" rx="28" fill="#EEF2FF"/>
+  <rect x="694" y="650" width="300" height="520" rx="28" fill="#FFFFFF" stroke="#C7D2FE"/>
+  <rect x="1030" y="650" width="302" height="520" rx="28" fill="#312E81"/>
+  <rect x="390" y="698" width="236" height="320" rx="18" fill="#FFFFFF"/>
+  <rect x="726" y="698" width="236" height="320" rx="18" fill="#EEF2FF"/>
+  <rect x="1062" y="698" width="236" height="320" rx="18" fill="#4338CA"/>
+  <rect x="398" y="1080" width="220" height="42" rx="16" fill="#4F46E5"/>
+  <rect x="734" y="1080" width="220" height="42" rx="16" fill="#FFFFFF" stroke="#C7D2FE"/>
+  <rect x="1070" y="1080" width="220" height="42" rx="16" fill="#FFFFFF"/>
+  <rect x="318" y="1288" width="1054" height="1040" rx="32" fill="#EEF2FF" stroke="#C7D2FE"/>
+  <text x="358" y="1352" fill="#312E81" font-size="28" font-family="Inter, Arial, sans-serif" font-weight="700">Report Queue</text>
+  <rect x="358" y="1402" width="974" height="84" rx="22" fill="#FFFFFF"/>
+  <rect x="358" y="1506" width="974" height="110" rx="24" fill="#FFFFFF"/>
+  <rect x="358" y="1638" width="974" height="110" rx="24" fill="#FFFFFF"/>
+  <rect x="358" y="1770" width="974" height="110" rx="24" fill="#FFFFFF"/>
+  <rect x="358" y="1902" width="974" height="110" rx="24" fill="#FFFFFF"/>
+  <rect x="358" y="2034" width="974" height="110" rx="24" fill="#FFFFFF"/>
+  <rect x="1088" y="1542" width="190" height="34" rx="17" fill="#C7D2FE"/>
+  <rect x="1088" y="1674" width="190" height="34" rx="17" fill="#A5B4FC"/>
+  <rect x="1088" y="1806" width="190" height="34" rx="17" fill="#C7D2FE"/>
+  <rect x="1088" y="1938" width="190" height="34" rx="17" fill="#818CF8"/>
+  <rect x="1088" y="2070" width="190" height="34" rx="17" fill="#A5B4FC"/>
+  <rect x="358" y="2178" width="452" height="110" rx="28" fill="#FFFFFF" stroke="#C7D2FE"/>
+  <rect x="880" y="2178" width="452" height="110" rx="28" fill="#312E81"/>
+</svg>

@@ -1,0 +1,73 @@
+<svg width="1440" height="2500" viewBox="0 0 1440 2500" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1440" height="2500" fill="#ECF4F3"/>
+  <rect x="36" y="30" width="1368" height="2440" rx="42" fill="#FFFFFF"/>
+  <rect x="36" y="30" width="270" height="2440" rx="42" fill="#0F172A"/>
+  <rect x="336" y="74" width="1024" height="86" rx="24" fill="#F8FAFC" stroke="#D9E3EC"/>
+  <circle cx="388" cy="117" r="11" fill="#0F766E"/>
+  <circle cx="428" cy="117" r="11" fill="#CBD5E1"/>
+  <circle cx="468" cy="117" r="11" fill="#CBD5E1"/>
+  <rect x="520" y="92" width="320" height="48" rx="18" fill="#E2E8F0"/>
+  <rect x="988" y="88" width="156" height="56" rx="20" fill="#CCFBF1"/>
+  <rect x="1160" y="88" width="156" height="56" rx="20" fill="#0F766E"/>
+  <rect x="82" y="96" width="126" height="42" rx="12" fill="#134E4A"/>
+  <rect x="82" y="208" width="178" height="52" rx="16" fill="#134E4A"/>
+  <rect x="82" y="290" width="178" height="52" rx="16" fill="#111827"/>
+  <rect x="82" y="372" width="178" height="52" rx="16" fill="#111827"/>
+  <rect x="82" y="454" width="178" height="52" rx="16" fill="#111827"/>
+  <rect x="82" y="536" width="178" height="52" rx="16" fill="#111827"/>
+  <rect x="82" y="618" width="178" height="52" rx="16" fill="#111827"/>
+  <text x="340" y="230" fill="#0F172A" font-size="42" font-family="Inter, Arial, sans-serif" font-weight="700">Dashboard Overview</text>
+  <text x="340" y="272" fill="#64748B" font-size="22" font-family="Inter, Arial, sans-serif">Monitor operations, finance status, attendance, and recent activity.</text>
+  <rect x="340" y="322" width="238" height="162" rx="28" fill="#F8FAFC" stroke="#D9E3EC"/>
+  <rect x="592" y="322" width="238" height="162" rx="28" fill="#ECFEFF"/>
+  <rect x="844" y="322" width="238" height="162" rx="28" fill="#FFF7ED"/>
+  <rect x="1096" y="322" width="238" height="162" rx="28" fill="#EEF2FF"/>
+  <text x="372" y="380" fill="#64748B" font-size="20" font-family="Inter, Arial, sans-serif">Students Active</text>
+  <text x="372" y="446" fill="#0F172A" font-size="54" font-family="Inter, Arial, sans-serif" font-weight="700">1,284</text>
+  <text x="624" y="380" fill="#0F766E" font-size="20" font-family="Inter, Arial, sans-serif">Attendance Today</text>
+  <text x="624" y="446" fill="#134E4A" font-size="54" font-family="Inter, Arial, sans-serif" font-weight="700">94%</text>
+  <text x="876" y="380" fill="#C2410C" font-size="20" font-family="Inter, Arial, sans-serif">Fees Collected</text>
+  <text x="876" y="446" fill="#9A3412" font-size="54" font-family="Inter, Arial, sans-serif" font-weight="700">N8.4M</text>
+  <text x="1128" y="380" fill="#4338CA" font-size="20" font-family="Inter, Arial, sans-serif">Reports Ready</text>
+  <text x="1128" y="446" fill="#3730A3" font-size="54" font-family="Inter, Arial, sans-serif" font-weight="700">327</text>
+  <rect x="340" y="524" width="650" height="420" rx="32" fill="#F8FAFC" stroke="#D9E3EC"/>
+  <text x="380" y="588" fill="#0F172A" font-size="28" font-family="Inter, Arial, sans-serif" font-weight="700">Performance Trend</text>
+  <text x="380" y="624" fill="#64748B" font-size="18" font-family="Inter, Arial, sans-serif">Enrollment, fee collection, and attendance over the term</text>
+  <path d="M404 846C480 784 548 770 620 724C700 672 776 686 842 626C888 584 914 570 952 562" stroke="#0F766E" stroke-width="12" stroke-linecap="round"/>
+  <path d="M404 874C470 860 548 820 620 790C694 758 770 756 842 724C896 698 924 674 952 662" stroke="#FB923C" stroke-width="12" stroke-linecap="round"/>
+  <rect x="1020" y="524" width="340" height="420" rx="32" fill="#0F172A"/>
+  <text x="1060" y="590" fill="#F8FAFC" font-size="28" font-family="Inter, Arial, sans-serif" font-weight="700">Live Activity</text>
+  <rect x="1060" y="634" width="260" height="82" rx="22" fill="#111827"/>
+  <rect x="1060" y="734" width="260" height="82" rx="22" fill="#111827"/>
+  <rect x="1060" y="834" width="260" height="82" rx="22" fill="#111827"/>
+  <circle cx="1098" cy="674" r="16" fill="#14B8A6"/>
+  <circle cx="1098" cy="774" r="16" fill="#60A5FA"/>
+  <circle cx="1098" cy="874" r="16" fill="#FB923C"/>
+  <text x="1130" y="668" fill="#F8FAFC" font-size="18" font-family="Inter, Arial, sans-serif">Three new admissions completed</text>
+  <text x="1130" y="768" fill="#F8FAFC" font-size="18" font-family="Inter, Arial, sans-serif">Attendance flagged for Grade 6 Gold</text>
+  <text x="1130" y="868" fill="#F8FAFC" font-size="18" font-family="Inter, Arial, sans-serif">Finance report exported successfully</text>
+  <rect x="340" y="978" width="1020" height="300" rx="32" fill="#FFFFFF" stroke="#D9E3EC"/>
+  <text x="380" y="1040" fill="#0F172A" font-size="28" font-family="Inter, Arial, sans-serif" font-weight="700">Announcements and Tasks</text>
+  <rect x="380" y="1082" width="940" height="72" rx="20" fill="#F8FAFC"/>
+  <rect x="380" y="1172" width="940" height="72" rx="20" fill="#F8FAFC"/>
+  <rect x="380" y="1262" width="940" height="72" rx="20" fill="#F8FAFC"/>
+  <rect x="340" y="1316" width="486" height="500" rx="32" fill="#ECFEFF"/>
+  <rect x="874" y="1316" width="486" height="500" rx="32" fill="#FFF7ED"/>
+  <text x="380" y="1384" fill="#134E4A" font-size="28" font-family="Inter, Arial, sans-serif" font-weight="700">Department Health</text>
+  <text x="914" y="1384" fill="#9A3412" font-size="28" font-family="Inter, Arial, sans-serif" font-weight="700">Finance Snapshot</text>
+  <rect x="380" y="1428" width="406" height="34" rx="17" fill="#A7F3D0"/>
+  <rect x="380" y="1488" width="342" height="34" rx="17" fill="#5EEAD4"/>
+  <rect x="380" y="1548" width="286" height="34" rx="17" fill="#2DD4BF"/>
+  <rect x="380" y="1608" width="228" height="34" rx="17" fill="#14B8A6"/>
+  <rect x="914" y="1438" width="392" height="220" rx="28" fill="#FFFFFF" stroke="#FED7AA"/>
+  <circle cx="1110" cy="1548" r="82" fill="#FDBA74"/>
+  <circle cx="1110" cy="1548" r="52" fill="#FFF7ED"/>
+  <rect x="340" y="1860" width="1020" height="530" rx="32" fill="#0F172A"/>
+  <text x="380" y="1928" fill="#F8FAFC" font-size="28" font-family="Inter, Arial, sans-serif" font-weight="700">Quick Actions</text>
+  <rect x="380" y="1978" width="280" height="150" rx="26" fill="#134E4A"/>
+  <rect x="710" y="1978" width="280" height="150" rx="26" fill="#1D4ED8"/>
+  <rect x="1040" y="1978" width="280" height="150" rx="26" fill="#C2410C"/>
+  <rect x="380" y="2160" width="280" height="150" rx="26" fill="#4F46E5"/>
+  <rect x="710" y="2160" width="280" height="150" rx="26" fill="#0E7490"/>
+  <rect x="1040" y="2160" width="280" height="150" rx="26" fill="#475569"/>
+</svg>

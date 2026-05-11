@@ -72,6 +72,16 @@ function createHarness(options = {}) {
         };
       }
 
+      if (sql.includes('ALTER TABLE organizations') || sql.includes('ALTER TABLE payments') || sql.includes('ALTER TABLE stored_cards')) {
+        return { rows: [] };
+      }
+
+      if (sql.includes('CREATE INDEX IF NOT EXISTS idx_organizations_billing_provider')
+        || sql.includes('CREATE INDEX IF NOT EXISTS idx_payments_provider')
+        || sql.includes('CREATE INDEX IF NOT EXISTS idx_stored_cards_provider')) {
+        return { rows: [] };
+      }
+
       if (sql.includes("SELECT value FROM app_settings WHERE key = 'billing_interval'")) {
         return { rows: [{ value: 'monthly' }] };
       }

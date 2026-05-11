@@ -1,0 +1,55 @@
+<svg width="1440" height="2500" viewBox="0 0 1440 2500" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1440" height="2500" fill="#FFF8F1"/>
+  <rect x="34" y="28" width="1372" height="2444" rx="42" fill="#FFFFFF"/>
+  <rect x="34" y="28" width="250" height="2444" rx="42" fill="#7C2D12"/>
+  <rect x="314" y="70" width="1058" height="88" rx="24" fill="#FFF7ED" stroke="#FED7AA"/>
+  <rect x="80" y="96" width="126" height="42" rx="12" fill="#C2410C"/>
+  <rect x="80" y="206" width="160" height="50" rx="16" fill="#9A3412"/>
+  <rect x="80" y="284" width="160" height="50" rx="16" fill="#7C2D12"/>
+  <rect x="80" y="362" width="160" height="50" rx="16" fill="#7C2D12"/>
+  <text x="318" y="234" fill="#0F172A" font-size="42" font-family="Inter, Arial, sans-serif" font-weight="700">Fees and Finance</text>
+  <text x="318" y="276" fill="#78716C" font-size="22" font-family="Inter, Arial, sans-serif">Track billing, balances, reconciliation, and collection channels from one view.</text>
+  <rect x="318" y="324" width="260" height="170" rx="30" fill="#FFEDD5"/>
+  <rect x="598" y="324" width="260" height="170" rx="30" fill="#FEF3C7"/>
+  <rect x="878" y="324" width="260" height="170" rx="30" fill="#FFEDD5"/>
+  <rect x="1158" y="324" width="214" height="170" rx="30" fill="#0F172A"/>
+  <text x="350" y="388" fill="#9A3412" font-size="20" font-family="Inter, Arial, sans-serif">Collected</text>
+  <text x="350" y="450" fill="#7C2D12" font-size="50" font-family="Inter, Arial, sans-serif" font-weight="700">N12.6M</text>
+  <text x="630" y="388" fill="#B45309" font-size="20" font-family="Inter, Arial, sans-serif">Pending</text>
+  <text x="630" y="450" fill="#92400E" font-size="50" font-family="Inter, Arial, sans-serif" font-weight="700">N2.1M</text>
+  <text x="910" y="388" fill="#9A3412" font-size="20" font-family="Inter, Arial, sans-serif">Invoices</text>
+  <text x="910" y="450" fill="#7C2D12" font-size="50" font-family="Inter, Arial, sans-serif" font-weight="700">398</text>
+  <text x="1190" y="388" fill="#FDBA74" font-size="20" font-family="Inter, Arial, sans-serif">Overdue</text>
+  <text x="1190" y="450" fill="#F8FAFC" font-size="50" font-family="Inter, Arial, sans-serif" font-weight="700">42</text>
+  <rect x="318" y="526" width="724" height="620" rx="32" fill="#FFFFFF" stroke="#FED7AA"/>
+  <text x="358" y="590" fill="#0F172A" font-size="28" font-family="Inter, Arial, sans-serif" font-weight="700">Collection Performance</text>
+  <rect x="388" y="966" width="78" height="120" rx="18" fill="#FDBA74"/>
+  <rect x="492" y="906" width="78" height="180" rx="18" fill="#FB923C"/>
+  <rect x="596" y="830" width="78" height="256" rx="18" fill="#EA580C"/>
+  <rect x="700" y="764" width="78" height="322" rx="18" fill="#C2410C"/>
+  <rect x="804" y="706" width="78" height="380" rx="18" fill="#9A3412"/>
+  <rect x="908" y="866" width="78" height="220" rx="18" fill="#F59E0B"/>
+  <rect x="1070" y="526" width="302" height="620" rx="32" fill="#0F172A"/>
+  <text x="1110" y="590" fill="#F8FAFC" font-size="28" font-family="Inter, Arial, sans-serif" font-weight="700">Channel Mix</text>
+  <circle cx="1220" cy="816" r="132" fill="#FDBA74"/>
+  <circle cx="1220" cy="816" r="82" fill="#0F172A"/>
+  <path d="M1220 684A132 132 0 0 1 1334 752L1220 816V684Z" fill="#F59E0B"/>
+  <path d="M1334 752A132 132 0 0 1 1246 946L1220 816L1334 752Z" fill="#EA580C"/>
+  <rect x="318" y="1178" width="1054" height="1150" rx="32" fill="#FFF7ED" stroke="#FED7AA"/>
+  <text x="358" y="1242" fill="#7C2D12" font-size="28" font-family="Inter, Arial, sans-serif" font-weight="700">Finance Ledger</text>
+  <rect x="358" y="1290" width="974" height="76" rx="20" fill="#FFFFFF"/>
+  <rect x="358" y="1388" width="974" height="102" rx="24" fill="#FFFFFF"/>
+  <rect x="358" y="1510" width="974" height="102" rx="24" fill="#FFFFFF"/>
+  <rect x="358" y="1632" width="974" height="102" rx="24" fill="#FFFFFF"/>
+  <rect x="358" y="1754" width="974" height="102" rx="24" fill="#FFFFFF"/>
+  <rect x="358" y="1876" width="974" height="102" rx="24" fill="#FFFFFF"/>
+  <rect x="358" y="1998" width="974" height="102" rx="24" fill="#FFFFFF"/>
+  <rect x="1074" y="1418" width="196" height="34" rx="17" fill="#DCFCE7"/>
+  <rect x="1074" y="1540" width="196" height="34" rx="17" fill="#FEF3C7"/>
+  <rect x="1074" y="1662" width="196" height="34" rx="17" fill="#FECACA"/>
+  <rect x="1074" y="1784" width="196" height="34" rx="17" fill="#DCFCE7"/>
+  <rect x="1074" y="1906" width="196" height="34" rx="17" fill="#DCFCE7"/>
+  <rect x="1074" y="2028" width="196" height="34" rx="17" fill="#FEF3C7"/>
+  <rect x="358" y="2148" width="458" height="132" rx="28" fill="#FFFFFF" stroke="#FED7AA"/>
+  <rect x="874" y="2148" width="458" height="132" rx="28" fill="#0F172A"/>
+</svg>

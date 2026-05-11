@@ -142,6 +142,16 @@ function escapeHtml(value = "") {
     .replace(/'/g, "&#39;");
 }
 
+function sanitizeEnvelope(envelope) {
+  if (!envelope || typeof envelope !== "object" || Array.isArray(envelope)) {
+    return undefined;
+  }
+
+  const sanitized = { ...envelope };
+  delete sanitized.size;
+  return sanitized;
+}
+
 function renderCleanEmail({
   title,
   greeting,
@@ -338,6 +348,7 @@ async function sendEmailSafely(mailOptions, context = "Email") {
     // want. Real file attachments (PDF reports, resumes, etc.) are kept.
     const mergedAttachments = (Array.isArray(restOptions.attachments) ? restOptions.attachments : [])
       .filter((item) => !(item && item.cid === 'managira_logo'));
+    const envelope = sanitizeEnvelope(restOptions.envelope);
 
     // Provide a plain-text fallback whenever one wasn’t supplied. multipart/
     // alternative mail is a strong Primary-tab signal.
@@ -355,6 +366,7 @@ async function sendEmailSafely(mailOptions, context = "Email") {
       ...restOptions,
       text: textBody,
       attachments: mergedAttachments,
+      envelope,
       messageId,
       headers: {
         // Standard transactional-mail headers. We deliberately do NOT set

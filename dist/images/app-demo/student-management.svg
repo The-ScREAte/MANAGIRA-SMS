@@ -1,0 +1,74 @@
+<svg width="1440" height="2500" viewBox="0 0 1440 2500" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1440" height="2500" fill="#EEF3FF"/>
+  <rect x="32" y="28" width="1376" height="2444" rx="42" fill="#FFFFFF"/>
+  <rect x="32" y="28" width="256" height="2444" rx="42" fill="#172554"/>
+  <rect x="316" y="68" width="1056" height="88" rx="24" fill="#F8FAFC" stroke="#D9E3EC"/>
+  <rect x="78" y="98" width="132" height="40" rx="12" fill="#1D4ED8"/>
+  <rect x="78" y="210" width="164" height="50" rx="16" fill="#1E3A8A"/>
+  <rect x="78" y="288" width="164" height="50" rx="16" fill="#1E293B"/>
+  <rect x="78" y="366" width="164" height="50" rx="16" fill="#1E293B"/>
+  <rect x="78" y="444" width="164" height="50" rx="16" fill="#1E293B"/>
+  <text x="320" y="232" fill="#0F172A" font-size="42" font-family="Inter, Arial, sans-serif" font-weight="700">Student Management</text>
+  <text x="320" y="274" fill="#64748B" font-size="22" font-family="Inter, Arial, sans-serif">Centralize registration, guardians, status, history, and academic profile details.</text>
+  <rect x="320" y="324" width="660" height="168" rx="32" fill="#EFF6FF"/>
+  <rect x="1006" y="324" width="366" height="168" rx="32" fill="#DBEAFE"/>
+  <circle cx="410" cy="410" r="48" fill="#93C5FD"/>
+  <rect x="482" y="364" width="398" height="24" rx="12" fill="#60A5FA"/>
+  <rect x="482" y="404" width="284" height="18" rx="9" fill="#BFDBFE"/>
+  <rect x="482" y="436" width="218" height="18" rx="9" fill="#BFDBFE"/>
+  <text x="1044" y="392" fill="#1E3A8A" font-size="22" font-family="Inter, Arial, sans-serif">Enrolled this term</text>
+  <text x="1044" y="454" fill="#172554" font-size="56" font-family="Inter, Arial, sans-serif" font-weight="700">416</text>
+  <rect x="320" y="526" width="1052" height="820" rx="32" fill="#FFFFFF" stroke="#D9E3EC"/>
+  <text x="360" y="592" fill="#0F172A" font-size="28" font-family="Inter, Arial, sans-serif" font-weight="700">Student Directory</text>
+  <rect x="360" y="628" width="420" height="48" rx="18" fill="#F1F5F9"/>
+  <rect x="1180" y="628" width="152" height="48" rx="18" fill="#1D4ED8"/>
+  <rect x="360" y="714" width="972" height="84" rx="22" fill="#F8FAFC"/>
+  <rect x="360" y="818" width="972" height="84" rx="22" fill="#F8FAFC"/>
+  <rect x="360" y="922" width="972" height="84" rx="22" fill="#F8FAFC"/>
+  <rect x="360" y="1026" width="972" height="84" rx="22" fill="#F8FAFC"/>
+  <rect x="360" y="1130" width="972" height="84" rx="22" fill="#F8FAFC"/>
+  <circle cx="414" cy="756" r="26" fill="#93C5FD"/>
+  <circle cx="414" cy="860" r="26" fill="#BFDBFE"/>
+  <circle cx="414" cy="964" r="26" fill="#93C5FD"/>
+  <circle cx="414" cy="1068" r="26" fill="#BFDBFE"/>
+  <circle cx="414" cy="1172" r="26" fill="#93C5FD"/>
+  <rect x="462" y="736" width="216" height="18" rx="9" fill="#0F172A"/>
+  <rect x="462" y="768" width="146" height="14" rx="7" fill="#94A3B8"/>
+  <rect x="462" y="840" width="216" height="18" rx="9" fill="#0F172A"/>
+  <rect x="462" y="872" width="146" height="14" rx="7" fill="#94A3B8"/>
+  <rect x="462" y="944" width="216" height="18" rx="9" fill="#0F172A"/>
+  <rect x="462" y="976" width="146" height="14" rx="7" fill="#94A3B8"/>
+  <rect x="462" y="1048" width="216" height="18" rx="9" fill="#0F172A"/>
+  <rect x="462" y="1080" width="146" height="14" rx="7" fill="#94A3B8"/>
+  <rect x="462" y="1152" width="216" height="18" rx="9" fill="#0F172A"/>
+  <rect x="462" y="1184" width="146" height="14" rx="7" fill="#94A3B8"/>
+  <rect x="786" y="736" width="156" height="32" rx="16" fill="#DBEAFE"/>
+  <rect x="786" y="840" width="156" height="32" rx="16" fill="#DBEAFE"/>
+  <rect x="786" y="944" width="156" height="32" rx="16" fill="#DBEAFE"/>
+  <rect x="786" y="1048" width="156" height="32" rx="16" fill="#DBEAFE"/>
+  <rect x="786" y="1152" width="156" height="32" rx="16" fill="#DBEAFE"/>
+  <rect x="970" y="736" width="120" height="32" rx="16" fill="#DCFCE7"/>
+  <rect x="970" y="840" width="120" height="32" rx="16" fill="#FDE68A"/>
+  <rect x="970" y="944" width="120" height="32" rx="16" fill="#DCFCE7"/>
+  <rect x="970" y="1048" width="120" height="32" rx="16" fill="#FECACA"/>
+  <rect x="970" y="1152" width="120" height="32" rx="16" fill="#DCFCE7"/>
+  <rect x="1128" y="728" width="164" height="48" rx="18" fill="#1D4ED8"/>
+  <rect x="1128" y="832" width="164" height="48" rx="18" fill="#FFFFFF" stroke="#BFDBFE"/>
+  <rect x="1128" y="936" width="164" height="48" rx="18" fill="#FFFFFF" stroke="#BFDBFE"/>
+  <rect x="1128" y="1040" width="164" height="48" rx="18" fill="#FFFFFF" stroke="#BFDBFE"/>
+  <rect x="1128" y="1144" width="164" height="48" rx="18" fill="#FFFFFF" stroke="#BFDBFE"/>
+  <rect x="320" y="1380" width="504" height="926" rx="32" fill="#172554"/>
+  <rect x="852" y="1380" width="520" height="926" rx="32" fill="#F8FAFC" stroke="#D9E3EC"/>
+  <text x="360" y="1448" fill="#F8FAFC" font-size="28" font-family="Inter, Arial, sans-serif" font-weight="700">Profile Preview</text>
+  <circle cx="572" cy="1578" r="86" fill="#60A5FA"/>
+  <rect x="430" y="1706" width="284" height="22" rx="11" fill="#FFFFFF"/>
+  <rect x="470" y="1746" width="204" height="16" rx="8" fill="#BFDBFE"/>
+  <rect x="382" y="1810" width="380" height="90" rx="24" fill="#1E3A8A"/>
+  <rect x="382" y="1922" width="380" height="90" rx="24" fill="#1E3A8A"/>
+  <rect x="382" y="2034" width="380" height="90" rx="24" fill="#1E3A8A"/>
+  <text x="892" y="1448" fill="#0F172A" font-size="28" font-family="Inter, Arial, sans-serif" font-weight="700">Guardian and History</text>
+  <rect x="892" y="1496" width="440" height="112" rx="26" fill="#FFFFFF" stroke="#D9E3EC"/>
+  <rect x="892" y="1632" width="440" height="112" rx="26" fill="#FFFFFF" stroke="#D9E3EC"/>
+  <rect x="892" y="1768" width="440" height="112" rx="26" fill="#FFFFFF" stroke="#D9E3EC"/>
+  <rect x="892" y="1916" width="440" height="350" rx="26" fill="#EFF6FF"/>
+</svg>
