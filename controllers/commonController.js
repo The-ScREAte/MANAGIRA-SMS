@@ -2348,27 +2348,30 @@ const commonController = {
       let students = [];
 
       // Import required libraries
-      const XLSX = require('xlsx');
+      const ExcelJS = require('exceljs');
       const mammoth = require('mammoth');
       const pdfParse = require('pdf-parse');
       const Tesseract = require('tesseract.js');
 
       try {
         if (fileExtension === '.xlsx' || fileExtension === '.xls') {
-          // Parse Excel file using alias-aware header mapper
-          let workbook;
-          if (file.buffer) workbook = XLSX.read(file.buffer, { type: 'buffer' });
-          else if (file.path) workbook = XLSX.readFile(file.path);
-          else throw new Error('File data not accessible');
+          // Parse Excel file using exceljs
+          let workbook = new ExcelJS.Workbook();
+          if (file.buffer) {
+            await workbook.xlsx.load(file.buffer);
+          } else if (file.path) {
+            await workbook.xlsx.readFile(file.path);
+          } else {
+            throw new Error('File data not accessible');
+          }
 
-          const sheetName = workbook.SheetNames[0];
-          const sheet = workbook.Sheets[sheetName];
-          const rowsAsArrays = XLSX.utils.sheet_to_json(sheet, {
-            header: 1,
-            defval: '',
-            blankrows: false,
-            raw: false,
-            dateNF: 'yyyy-mm-dd'
+          const worksheet = workbook.worksheets[0];
+          if (!worksheet) throw new Error('No worksheet found in Excel file');
+
+          // Read all rows as arrays
+          const rowsAsArrays = [];
+          worksheet.eachRow({ includeEmpty: false }, (row) => {
+            rowsAsArrays.push(row.values.slice(1)); // Remove first empty element
           });
           const headers = (rowsAsArrays[0] || []).map((v) => String(v || '').trim());
           const rows = rowsAsArrays.slice(1).filter((r) => Array.isArray(r) && r.some((c) => String(c || '').trim()));

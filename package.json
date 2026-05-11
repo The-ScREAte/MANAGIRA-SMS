@@ -25,10 +25,10 @@
     "date-holidays": "^3.26.8",
     "dotenv": "^16.4.7",
     "ejs": "^3.1.9",
+    "exceljs": "^4.4.0",
     "express": "^4.22.0",
     "express-async-handler": "^1.2.0",
     "express-ejs-layouts": "^2.5.1",
-    "express-fileupload": "^1.5.1",
     "express-session": "^1.18.1",
     "express-validator": "^7.3.0",
     "he": "^1.2.0",
@@ -49,13 +49,12 @@
     "pg": "^8.13.1",
     "puppeteer": "^24.37.2",
     "redis": "^4.7.0",
-    "resend": "^6.9.4",
+    "resend": "^6.12.3",
     "stripe": "^17.5.0",
     "tesseract.js": "^7.0.0",
     "uuid": "^11.1.1",
     "vite": "^7.3.2",
-    "winston": "^3.14.1",
-    "xlsx": "^0.18.5"
+    "winston": "^3.14.1"
   },
   "overrides": {
     "qs": "^6.14.2"
