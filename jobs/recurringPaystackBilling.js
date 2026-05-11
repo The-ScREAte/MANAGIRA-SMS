@@ -4,6 +4,8 @@
 const db = require('../config/db');
 const axios = require('axios');
 const { getPaystackSettings } = require('../utils/paystackConfig');
+const { getStripeClient, getStripeChargeCurrency } = require('../utils/stripeConfig');
+const { ensurePaymentProviderSchema } = require('../utils/paymentProviderSchema');
 const { sendEmailSafely, renderCleanEmail } = require('../utils/emailHelper');
 const { isEmailEnabledForRecipient } = require('../utils/emailPreferences');
 require('dotenv').config();
@@ -93,7 +95,7 @@ async function sendRenewalFailureNotification({ email, organizationName, amount,
     greeting: `Hello <strong>${organizationName || 'Managira User'}</strong>,`,
     paragraphs: [
       `We could not process your automatic renewal charge of GHS ${Number(amount || 0).toFixed(2)}.`,
-      reason ? `Paystack response: ${reason}` : 'Your card may have insufficient funds or the authorization is no longer valid.',
+      reason ? `Payment gateway response: ${reason}` : 'Your card may have insufficient funds or the authorization is no longer valid.',
       'Please update your card details in billing settings to resume successful renewals.',
     ],
   });
@@ -147,8 +149,16 @@ async function recordRenewalFailure({
 }
 
 async function runRecurringBilling() {
+  await ensurePaymentProviderSchema(db);
   const paystackSettings = await getPaystackSettings(db);
   const activePaystackSecretKey = paystackSettings.activeSecretKey || process.env.PAYSTACK_SECRET_KEY;
+  const stripeChargeCurrency = getStripeChargeCurrency();
+  let stripe = null;
+  try {
+    stripe = await getStripeClient(db);
+  } catch (_) {
+    stripe = null;
+  }
   const paymentFailureColumns = await getPaymentsFailureColumns();
   const retryStatusClause = paymentFailureColumns.hasFailedAttempts && paymentFailureColumns.hasLastFailedPayment
     ? `(p.status = 'active' OR (p.status = 'failed' AND COALESCE(p.failed_attempts, 0) < ${MAX_FAILED_RETRY_ATTEMPTS} AND (p.last_failed_payment IS NULL OR p.last_failed_payment <= NOW() - interval '${FAILED_RETRY_COOLDOWN_DAYS} days')))`
@@ -167,7 +177,9 @@ async function runRecurringBilling() {
   // ONLY exclude if they are currently in an ACTIVE trial (trial_active_until > NOW()).
   
   const orgsDue = await db.query(`
-    SELECT o.organization_id, o.email, o.organization_name, o.plan_id, c.authorization_code, p.next_payment_end_date, o.trial_active_until,
+      SELECT o.organization_id, o.email, o.organization_name, o.plan_id, c.authorization_code, p.next_payment_end_date, o.trial_active_until,
+        COALESCE(o.billing_provider, 'paystack') AS billing_provider,
+        o.stripe_customer_id,
            COALESCE(p.billing_period_key, 'monthly') AS billing_period_key,
            o.pending_plan_id, o.pending_plan_effective_date,
            o.selected_student_tier_id,
@@ -184,7 +196,7 @@ async function runRecurringBilling() {
            END as trial_status
     FROM organizations o
     JOIN payments p ON o.organization_id = p.organization_id
-    JOIN stored_cards c ON c.organization_id = o.organization_id AND c.is_primary = true AND c.is_active = true
+    JOIN stored_cards c ON c.organization_id = o.organization_id AND c.is_primary = true AND c.is_active = true AND c.provider = COALESCE(o.billing_provider, 'paystack')
     LEFT JOIN plan_student_tiers pst ON pst.id = o.selected_student_tier_id
     WHERE ${retryStatusClause}
       AND o.on_hold = false
@@ -323,20 +335,47 @@ async function runRecurringBilling() {
     const chargeAmount = periodDiscount > 0 ? rawTotal * (1 - periodDiscount / 100) : rawTotal;
     const amount = Math.round(chargeAmount * 100); // pesewas
 
-    // 3. Charge via Paystack
+    // 3. Charge via the active provider using the saved primary card
     try {
-      const chargeRes = await axios.post(
-        'https://api.paystack.co/transaction/charge_authorization',
-        {
-          email: org.email,
-          amount,
-          authorization_code: org.authorization_code,
-          currency: 'GHS',
-        },
-        {
-          headers: { Authorization: `Bearer ${activePaystackSecretKey}` }
-        }
-      );
+      const chargeRes = org.billing_provider === 'stripe'
+        ? await (async () => {
+            if (!stripe || !org.stripe_customer_id) {
+              throw new Error('Stripe is not configured for recurring charges.');
+            }
+
+            const paymentIntent = await stripe.paymentIntents.create({
+              amount,
+              currency: stripeChargeCurrency,
+              customer: org.stripe_customer_id,
+              payment_method: org.authorization_code,
+              confirm: true,
+              off_session: true,
+              metadata: {
+                flow: 'recurring_renewal',
+                organization_id: String(org.organization_id),
+                billing_period_key: org.billing_period_key || 'monthly',
+              },
+            });
+
+            return {
+              data: {
+                status: paymentIntent.status === 'succeeded',
+                message: paymentIntent.last_payment_error?.message || null,
+              },
+            };
+          })()
+        : await axios.post(
+            'https://api.paystack.co/transaction/charge_authorization',
+            {
+              email: org.email,
+              amount,
+              authorization_code: org.authorization_code,
+              currency: 'GHS',
+            },
+            {
+              headers: { Authorization: `Bearer ${activePaystackSecretKey}` }
+            }
+          );
       
       if (chargeRes.data.status) {
         // 4. Update payment record — use billing period months or fall back to global interval

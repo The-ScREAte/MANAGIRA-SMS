@@ -38,40 +38,52 @@
         width: calc(100% - 48px);
         margin: 40px auto;
         padding: 0 24px;
-        display: flex;
-        flex-direction: column;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 24px;
         align-items: stretch;
       }
       
-      /* Full-page sections */
-      .column-1 {
-        width: 100%;
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 20px;
-        align-items: start;
-      }
-      
-      .column-2 {
-        width: 100%;
-      }
-      
-      .column-3 {
-        width: 100%;
-      }
-      .column-4 {
-        width: 100%;
-      }
+      .column-1,
+      .column-2,
+      .column-3,
+      .column-4,
       .secondary-sections-grid {
-        width: calc(100% - 48px);
-        margin: 0 auto 40px;
-        padding: 0 24px;
-        box-sizing: border-box;
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 24px;
-        align-items: start;
+        display: contents;
+      }
+
+      .gateway-strategy-card {
+        border: 1px solid #b8d7dd;
+        background: linear-gradient(135deg, #ffffff 0%, #f4fbfc 100%);
+      }
+
+      .gateway-strategy-note {
+        margin: 10px 0 16px;
+        color: #475569;
+        font-size: 14px;
+      }
+
+      .collapsed-card-copy {
+        margin: 8px 0 0;
+        color: #64748b;
+        font-size: 13px;
+        line-height: 1.5;
+        max-width: 34ch;
+      }
+
+      .stripe-test-card-note {
+        margin-top: 16px;
+        padding: 14px;
+        border-radius: 12px;
+        background: #f8fafc;
+        border: 1px solid #dbe3ea;
+        color: #475569;
+        font-size: 13px;
+        line-height: 1.65;
+      }
+
+      .stripe-test-card-note strong {
+        color: #0f172a;
       }
       
       .form-container {
@@ -292,13 +304,18 @@
       .feature-pricing-card.is-collapsed,
       .manage-plans-section.is-collapsed,
       .student-tiers-section.is-collapsed {
+        min-height: 148px;
         padding-top: 20px;
         padding-bottom: 18px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
       }
       .settings-card.is-collapsed .settings-card-header,
       .feature-pricing-card.is-collapsed .feature-pricing-header,
       .manage-plans-section.is-collapsed .top-section-header,
       .student-tiers-section.is-collapsed .top-section-header {
+        min-height: 100%;
         padding-bottom: 0;
         border-bottom: none;
       }
@@ -316,6 +333,11 @@
         color: #01535b;
         font-size: 1.4rem;
         font-weight: 600;
+      }
+      .settings-card-heading-group {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
       }
       .settings-card-body {
         padding-top: 18px;
@@ -820,6 +842,7 @@
         background: #fdebea;
       }
       @media (max-width: 1100px) {
+        .container,
         .manage-plans-grid,
         .student-tier-grid {
           grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -831,11 +854,7 @@
           padding: 0 12px;
           width: calc(100% - 24px);
           gap: 16px;
-        }
-        .secondary-sections-grid {
-          width: calc(100% - 24px);
-          padding: 0 12px;
-          gap: 16px;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
         }
         .form-container,
         .plan-container {
@@ -858,11 +877,7 @@
           padding: 0 12px;
           width: calc(100% - 24px);
           gap: 14px;
-        }
-        .secondary-sections-grid {
-          width: calc(100% - 24px);
-          padding: 0 12px;
-          gap: 14px;
+          grid-template-columns: 1fr;
         }
         .form-container,
         .plan-container {
@@ -983,11 +998,12 @@
 
     
     <div class="container">
-      <!-- Column 1: Three stacked containers -->
-      <div class="column-1">
         <div class="form-container settings-card is-collapsed" data-settings-card>
           <div class="settings-card-header">
-            <h2 class="settings-card-heading">Free Trial Settings</h2>
+            <div class="settings-card-heading-group">
+              <h2 class="settings-card-heading">Free Trial Settings</h2>
+              <p class="collapsed-card-copy">Control whether new schools get a trial and how long it lasts.</p>
+            </div>
             <button type="button" class="top-section-toggle" data-settings-toggle aria-expanded="false">Expand</button>
           </div>
           <div class="settings-card-body">
@@ -1015,7 +1031,10 @@
 
         <div class="form-container settings-card is-collapsed" data-settings-card>
           <div class="settings-card-header">
-            <h2 class="settings-card-heading">Billing Interval</h2>
+            <div class="settings-card-heading-group">
+              <h2 class="settings-card-heading">Billing Interval</h2>
+              <p class="collapsed-card-copy">Set the default renewal cadence used across subscription billing.</p>
+            </div>
             <button type="button" class="top-section-toggle" data-settings-toggle aria-expanded="false">Expand</button>
           </div>
           <div class="settings-card-body">
@@ -1035,9 +1054,45 @@
           </div>
         </div>
 
+        <div class="form-container settings-card gateway-strategy-card is-collapsed" data-settings-card>
+          <div class="settings-card-header">
+            <div class="settings-card-heading-group">
+              <h2 class="settings-card-heading">Gateway Strategy</h2>
+              <p class="collapsed-card-copy">Choose Paystack only, Stripe only, or smart mode for both gateways.</p>
+            </div>
+            <button type="button" class="top-section-toggle" data-settings-toggle aria-expanded="false">Expand</button>
+          </div>
+          <div class="settings-card-body">
+            <p class="mode-status">
+              Active Strategy:
+              <% if (paymentProvider === 'smart') { %>
+                <span class="mode-pill mode-pill-live">BOTH / SMART</span>
+              <% } else if (paymentProvider === 'stripe') { %>
+                <span class="mode-pill mode-pill-live">STRIPE</span>
+              <% } else { %>
+                <span class="mode-pill mode-pill-test">PAYSTACK</span>
+              <% } %>
+            </p>
+            <p class="gateway-strategy-note">Choose one gateway only, or use smart mode to let checkout offer both Stripe and Paystack while saving the selected gateway on each organization.</p>
+            <form action="/admin/updatePaymentProviderSettings" method="POST" id="payment-provider-settings-form">
+              <label for="payment_provider">Provider:</label>
+              <select name="payment_provider" id="payment_provider" required>
+                <option value="smart" <% if (paymentProvider === 'smart') { %>selected<% } %>>Both / Smart</option>
+                <option value="paystack" <% if (paymentProvider === 'paystack') { %>selected<% } %>>Paystack only</option>
+                <option value="stripe" <% if (paymentProvider === 'stripe') { %>selected<% } %>>Stripe</option>
+              </select>
+
+              <button type="submit">Save Gateway Strategy</button>
+            </form>
+          </div>
+        </div>
+
         <div class="form-container settings-card is-collapsed" data-settings-card>
           <div class="settings-card-header">
-            <h2 class="settings-card-heading">Paystack Mode & Keys</h2>
+            <div class="settings-card-heading-group">
+              <h2 class="settings-card-heading">Paystack Mode & Keys</h2>
+              <p class="collapsed-card-copy">Switch Paystack between test and live billing environments.</p>
+            </div>
             <button type="button" class="top-section-toggle" data-settings-toggle aria-expanded="false">Expand</button>
           </div>
           <div class="settings-card-body">
@@ -1063,7 +1118,55 @@
 
         <div class="form-container settings-card is-collapsed" data-settings-card>
           <div class="settings-card-header">
-            <h2 class="settings-card-heading">🔄 Recalculate Plan Totals</h2>
+            <div class="settings-card-heading-group">
+              <h2 class="settings-card-heading">Stripe Mode & Keys</h2>
+              <p class="collapsed-card-copy">Switch Stripe between test and live mode and review key status.</p>
+            </div>
+            <button type="button" class="top-section-toggle" data-settings-toggle aria-expanded="false">Expand</button>
+          </div>
+          <div class="settings-card-body">
+            <p class="mode-status">
+              Active Mode:
+              <% if (stripeMode === 'live') { %>
+                <span class="mode-pill mode-pill-live">LIVE</span>
+              <% } else { %>
+                <span class="mode-pill mode-pill-test">TEST</span>
+              <% } %>
+            </p>
+            <form action="/admin/updateStripeSettings" method="POST" id="stripe-settings-form">
+              <label for="stripe_mode">Mode:</label>
+              <select name="stripe_mode" id="stripe_mode" required>
+                <option value="test" <% if (stripeMode !== 'live') { %>selected<% } %>>Test</option>
+                <option value="live" <% if (stripeMode === 'live') { %>selected<% } %>>Live</option>
+              </select>
+
+              <button type="submit">Save Stripe Settings</button>
+            </form>
+
+            <div style="margin-top: 16px; color: #64748b; font-size: 13px; line-height: 1.6;">
+              <div>Test publishable key: <%= stripeKeysMasked?.testPublicKey || 'Not set' %></div>
+              <div>Test secret key: <%= stripeKeysMasked?.testSecretKey || 'Not set' %></div>
+              <div>Live publishable key: <%= stripeKeysMasked?.livePublicKey || 'Not set' %></div>
+              <div>Live secret key: <%= stripeKeysMasked?.liveSecretKey || 'Not set' %></div>
+            </div>
+
+            <div class="stripe-test-card-note">
+              <div><strong>Stripe test cards</strong></div>
+              <div>Visa success: 4242 4242 4242 4242</div>
+              <div>Visa authentication: 4000 0025 0000 3155</div>
+              <div>Card declined: 4000 0000 0000 9995</div>
+              <div>Use any future expiry date, any 3-digit CVC, and any ZIP/postal code.</div>
+              <div>Apple Pay and wallet methods require a supported browser/device and Stripe domain verification before they can appear in checkout.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-container settings-card is-collapsed" data-settings-card>
+          <div class="settings-card-header">
+            <div class="settings-card-heading-group">
+              <h2 class="settings-card-heading">🔄 Recalculate Plan Totals</h2>
+              <p class="collapsed-card-copy">Refresh plan totals after feature pricing changes or bulk updates.</p>
+            </div>
             <button type="button" class="top-section-toggle" data-settings-toggle aria-expanded="false">Expand</button>
           </div>
           <div class="settings-card-body">
@@ -1080,7 +1183,10 @@
 
         <div class="form-container settings-card is-collapsed" data-settings-card>
           <div class="settings-card-header">
-            <h2 class="settings-card-heading">💰 Billing Period Discounts</h2>
+            <div class="settings-card-heading-group">
+              <h2 class="settings-card-heading">💰 Billing Period Discounts</h2>
+              <p class="collapsed-card-copy">Set discounts for longer billing periods like yearly or multi-year plans.</p>
+            </div>
             <button type="button" class="top-section-toggle" data-settings-toggle aria-expanded="false">Expand</button>
           </div>
           <div class="settings-card-body">
@@ -1141,14 +1247,6 @@
             <p class="bp-status-msg" style="margin-top:8px;font-size:13px;color:#059669;display:none;"></p>
           </div>
         </div>
-      </div>
-
-    </div>
-
-    <div class="secondary-sections-grid">
-
-      <!-- Column 2: Feature Pricing -->
-      <div class="column-2">
         <div class="form-container feature-pricing-card is-collapsed" data-feature-pricing>
           <div class="feature-pricing-header">
             <div>
@@ -1189,10 +1287,6 @@
             </ul>
           </div>
         </div>
-      </div>
-
-      <!-- Column 3: Manage Plans -->
-      <div class="column-3">
         <div class="form-container manage-plans-section is-collapsed" data-manage-section>
           <div class="top-section-header">
             <div>
@@ -1274,10 +1368,6 @@
             </div>
           </div>
         </div>
-      </div>
-
-      <!-- Column 4: Student Count Tiers -->
-      <div class="column-4">
         <div class="form-container student-tiers-section is-collapsed" data-student-tiers-section>
           <div class="top-section-header">
             <div>
@@ -1381,7 +1471,6 @@
             </div>
           </div>
         </div>
-      </div>
     </div>
 
     <script>

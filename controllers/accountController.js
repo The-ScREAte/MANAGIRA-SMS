@@ -91,6 +91,18 @@ const {
 } = require("../utils/freeTrial");
 const { getPaystackSettings } = require("../utils/paystackConfig");
 const {
+  getPaymentProvider,
+  providerSupportsPaystack,
+  providerSupportsStripe,
+} = require("../utils/paymentProviderConfig");
+const {
+  getStripeSettings,
+  getActiveStripePublicKey,
+  getStripeChargeCurrency,
+  getStripeClient,
+} = require("../utils/stripeConfig");
+const { ensurePaymentProviderSchema } = require("../utils/paymentProviderSchema");
+const {
   WEEKDAY_OPTIONS,
   parseBoolean,
   normalizeWeekendDaysInput,
@@ -147,6 +159,234 @@ async function getActivePaystackSecretKey() {
 async function getActivePaystackPublicKey() {
   const settings = await getPaystackSettings(db);
   return settings.activePublicKey || process.env.PAYSTACK_PUBLIC_KEY || "";
+}
+
+async function getActivePaymentProvider() {
+  await ensurePaymentProviderSchema(db);
+  return getPaymentProvider(db);
+}
+
+function computeNextPaymentEndDate({
+  trialActiveUntil,
+  chargedAmountMinor,
+  billingPeriodMonths,
+  billingInterval,
+}) {
+  if (trialActiveUntil && chargedAmountMinor <= 100) {
+    return new Date(trialActiveUntil);
+  }
+
+  if (trialActiveUntil) {
+    return new Date(trialActiveUntil);
+  }
+
+  const nextDate = new Date();
+  if (billingPeriodMonths > 1) {
+    nextDate.setMonth(nextDate.getMonth() + billingPeriodMonths);
+    return nextDate;
+  }
+
+  switch (billingInterval) {
+    case "5_minutes":
+      nextDate.setMinutes(nextDate.getMinutes() + 5);
+      break;
+    case "daily":
+      nextDate.setDate(nextDate.getDate() + 1);
+      break;
+    case "weekly":
+      nextDate.setDate(nextDate.getDate() + 7);
+      break;
+    case "monthly":
+      nextDate.setMonth(nextDate.getMonth() + 1);
+      break;
+    case "yearly":
+      nextDate.setFullYear(nextDate.getFullYear() + 1);
+      break;
+    case "2_years":
+      nextDate.setFullYear(nextDate.getFullYear() + 2);
+      break;
+    case "3_years":
+      nextDate.setFullYear(nextDate.getFullYear() + 3);
+      break;
+    default:
+      nextDate.setMonth(nextDate.getMonth() + 1);
+      break;
+  }
+
+  return nextDate;
+}
+
+async function buildRegistrationChargeContext(registrationDetails, promoCode, trialStartDate) {
+  let discountAmount = 0;
+  let applyDiscountOnce = false;
+
+  const promoCodeStr = typeof promoCode === "string" ? promoCode.trim() : "";
+  if (promoCodeStr) {
+    const promoResult = await db.query(
+      `SELECT discount_percentage, applies_once FROM promo_codes
+       WHERE UPPER(code) = UPPER($1) AND is_active = TRUE AND expiration_date > NOW()`,
+      [promoCodeStr]
+    );
+
+    if (promoResult.rows.length === 0) {
+      const error = new Error("Invalid or expired promo code.");
+      error.code = "INVALID_PROMO_CODE";
+      throw error;
+    }
+
+    discountAmount = Number(promoResult.rows[0].discount_percentage || 0);
+    applyDiscountOnce = Boolean(promoResult.rows[0].applies_once);
+  }
+
+  let finalAmount = Number(registrationDetails.totalCost) || 0;
+  if (discountAmount > 0) {
+    finalAmount -= finalAmount * (discountAmount / 100);
+  }
+
+  let amountDue = Math.round(finalAmount * 100);
+  let billingInterval = "monthly";
+  let freeTrialDays = null;
+  let freeTrialEnabled = false;
+
+  try {
+    const intervalResult = await db.query(
+      "SELECT value FROM app_settings WHERE key = 'billing_interval'"
+    );
+    if (intervalResult.rows.length > 0) {
+      billingInterval = intervalResult.rows[0].value;
+    }
+
+    const enabledResult = await db.query(
+      "SELECT value FROM app_settings WHERE key = 'free_trial_enabled'"
+    );
+    if (enabledResult.rows.length > 0) {
+      freeTrialEnabled = enabledResult.rows[0].value;
+    }
+
+    const daysResult = await db.query(
+      "SELECT value FROM app_settings WHERE key = 'free_trial_days'"
+    );
+    if (daysResult.rows.length > 0) {
+      freeTrialDays = daysResult.rows[0].value;
+    }
+  } catch (_) {
+  }
+
+  const isTrialCheckout = freeTrialEnabled === "true" && !!freeTrialDays;
+  let trialStartAt = null;
+  let trialActiveUntil = null;
+
+  if (isTrialCheckout) {
+    amountDue = 0;
+
+    const minDate = startOfDayLocal(new Date());
+    const maxDate = startOfDayLocal(new Date());
+    maxDate.setMonth(maxDate.getMonth() + 3);
+
+    trialStartAt = parseDateInput(trialStartDate);
+    if (!trialStartAt || trialStartAt < minDate || trialStartAt > maxDate) {
+      const error = new Error(
+        "Please choose a valid trial start date between today and the next 3 months."
+      );
+      error.code = "INVALID_TRIAL_START_DATE";
+      throw error;
+    }
+
+    trialActiveUntil = new Date(trialStartAt);
+    if (freeTrialDays === "5_minutes") {
+      trialActiveUntil.setMinutes(trialActiveUntil.getMinutes() + 5);
+    } else {
+      const days = parseInt(freeTrialDays, 10);
+      if (days > 0) {
+        trialActiveUntil.setDate(trialActiveUntil.getDate() + days);
+      }
+    }
+  }
+
+  return {
+    promoCode: promoCodeStr,
+    discountAmount,
+    applyDiscountOnce,
+    finalAmount,
+    amountDue,
+    billingInterval,
+    isTrialCheckout,
+    freeTrialDays,
+    trialStartAt,
+    trialActiveUntil,
+    billingPeriodKey: registrationDetails.billingPeriodKey || "monthly",
+    billingPeriodMonths: Number(registrationDetails.billingPeriodMonths) || 1,
+  };
+}
+
+async function saveStoredCardMethod(dbClient, orgId, card, options = {}) {
+  const provider = options.provider || "paystack";
+  const authorizationCode = options.authorizationCode || card.authorization_code || card.id;
+
+  await dbClient.query(
+    `INSERT INTO stored_cards (
+      organization_id,
+      authorization_code,
+      provider,
+      last4,
+      exp_month,
+      exp_year,
+      card_type,
+      bank,
+      bin,
+      channel,
+      signature,
+      reusable,
+      country_code,
+      is_primary,
+      is_active
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, false, true)
+    ON CONFLICT (authorization_code) DO UPDATE SET
+      organization_id = EXCLUDED.organization_id,
+      provider = EXCLUDED.provider,
+      last4 = EXCLUDED.last4,
+      exp_month = EXCLUDED.exp_month,
+      exp_year = EXCLUDED.exp_year,
+      card_type = EXCLUDED.card_type,
+      bank = EXCLUDED.bank,
+      bin = EXCLUDED.bin,
+      channel = EXCLUDED.channel,
+      signature = EXCLUDED.signature,
+      reusable = EXCLUDED.reusable,
+      country_code = EXCLUDED.country_code,
+      is_active = true,
+      updated_at = NOW()`,
+    [
+      orgId,
+      authorizationCode,
+      provider,
+      card.last4 || null,
+      card.exp_month || card.expMonth || null,
+      card.exp_year || card.expYear || null,
+      card.card_type || card.brand || "Card",
+      card.bank || provider,
+      card.bin || null,
+      card.channel || "card",
+      card.signature || null,
+      card.reusable !== undefined ? card.reusable : true,
+      card.country_code || null,
+    ]
+  );
+
+  const countResult = await dbClient.query(
+    `SELECT COUNT(*) AS count FROM stored_cards
+     WHERE organization_id = $1 AND provider = $2 AND is_active = true`,
+    [orgId, provider]
+  );
+
+  if (countResult.rows[0].count === "1") {
+    await dbClient.query(
+      `UPDATE stored_cards
+       SET is_primary = true
+       WHERE organization_id = $1 AND authorization_code = $2`,
+      [orgId, authorizationCode]
+    );
+  }
 }
 
 async function ensureProfileImageColumns(db) {
@@ -419,49 +659,20 @@ async function notifyAdminOfRegistration(
 }
 
 async function saveCardAuthorization(db, orgId, authorization) {
-  await db.query(
-    `INSERT INTO stored_cards (
-      organization_id,
-      authorization_code,
-      last4,
-      exp_month,
-      exp_year,
-      card_type,
-      bank,
-      is_primary
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, false)
-    ON CONFLICT (organization_id, authorization_code) DO NOTHING`,
-    [
-      orgId,
-      authorization.authorization_code,
-      authorization.last4,
-      authorization.exp_month,
-      authorization.exp_year,
-      authorization.card_type,
-      authorization.bank || "Unknown",
-    ]
-  );
-
-  const cardCountResult = await db.query(
-    "SELECT COUNT(*) as count FROM stored_cards WHERE organization_id = $1",
-    [orgId]
-  );
-
-  if (cardCountResult.rows[0].count === "1") {
-    await db.query(
-      "UPDATE stored_cards SET is_primary = true WHERE organization_id = $1 AND authorization_code = $2",
-      [orgId, authorization.authorization_code]
-    );
-  }
+  await saveStoredCardMethod(db, orgId, authorization, {
+    provider: "paystack",
+    authorizationCode: authorization.authorization_code,
+  });
 }
 
-async function getStoredCardPaymentMethods(db, orgId) {
+async function getStoredCardPaymentMethods(db, orgId, provider = null) {
   const result = await db.query(
     `SELECT authorization_code, card_type, last4, exp_month, exp_year, is_primary
      FROM stored_cards
      WHERE organization_id = $1 AND is_active = true
+       AND ($2::text IS NULL OR provider = $2)
      ORDER BY is_primary DESC, updated_at DESC, created_at DESC`,
-    [orgId]
+    [orgId, provider]
   );
 
   return result.rows.map((row) => ({
@@ -531,6 +742,207 @@ async function buildChargeResponse(db, orgId, chargeResult) {
       "Failed to add card. Please check your card details.",
   };
 }
+
+async function completeStripeRegistrationPayment(
+  paymentIntent,
+  registrationDetails,
+  paymentContext
+) {
+  console.log("[Stripe][complete] start", {
+    paymentIntentId: paymentIntent.id,
+    sourceType: paymentIntent.type || "payment_intent",
+    status: paymentIntent.status,
+    amount_received: paymentIntent.amount_received,
+    customer: paymentIntent.customer,
+    org: registrationDetails.orgName,
+    email: registrationDetails.email,
+    planId: registrationDetails.planId,
+  });
+  await ensurePaymentProviderSchema(db);
+
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    console.log("[Stripe][complete] transaction begin");
+
+    const orgResult = await client.query(
+      `INSERT INTO organizations (
+        organization_name,
+        nickname,
+        organization_address,
+        organization_country,
+        organization_province,
+        organization_phone,
+        email,
+        password,
+        first_name,
+        last_name,
+        proof_of_existence_1,
+        proof_of_existence_2,
+        plan_id,
+        stripe_customer_id,
+        billing_provider,
+        trial_start_at,
+        trial_active_until,
+        selected_student_tier_id,
+        approx_student_count
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
+      ) RETURNING organization_id`,
+      [
+        registrationDetails.orgName,
+        registrationDetails.orgNickName,
+        registrationDetails.orgAddress,
+        registrationDetails.orgCountry,
+        registrationDetails.orgProvince,
+        registrationDetails.orgPhone,
+        registrationDetails.email,
+        registrationDetails.passwordHash,
+        registrationDetails.firstName,
+        registrationDetails.lastName,
+        registrationDetails.proof1Url,
+        registrationDetails.proof2Url,
+        registrationDetails.planId,
+        paymentIntent.customer || null,
+        "stripe",
+        paymentContext.trialStartAt || null,
+        paymentContext.trialActiveUntil || null,
+        registrationDetails.selectedTierId || null,
+        registrationDetails.approxStudentCount || null,
+      ]
+    );
+
+    const organizationId = orgResult.rows[0].organization_id;
+    console.log("[Stripe][complete] organization inserted", { organizationId });
+    invalidateAdminOrganizationsCache();
+
+    const nextPaymentEndDate = computeNextPaymentEndDate({
+      trialActiveUntil: paymentContext.trialActiveUntil,
+      chargedAmountMinor: paymentIntent.amount_received || paymentIntent.amount,
+      billingPeriodMonths: paymentContext.billingPeriodMonths,
+      billingInterval: paymentContext.billingInterval,
+    });
+
+    await client.query(
+      `INSERT INTO payments (
+        organization_id,
+        paystack_subscription_code,
+        paystack_reference,
+        stripe_payment_intent_id,
+        amount_paid,
+        status,
+        discount_applied,
+        applies_once,
+        is_trial,
+        trial_starts_at,
+        trial_ends_at,
+        next_payment_end_date,
+        billing_period_key,
+        payment_provider
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+      )`,
+      [
+        organizationId,
+        null,
+        null,
+        paymentIntent.type === "setup_intent" ? null : paymentIntent.id,
+        (paymentIntent.amount_received || paymentIntent.amount) / 100,
+        "active",
+        paymentContext.discountAmount > 0 ? `${paymentContext.discountAmount}%` : null,
+        paymentContext.applyDiscountOnce,
+        Boolean(paymentContext.trialActiveUntil),
+        paymentContext.trialStartAt || null,
+        paymentContext.trialActiveUntil || null,
+        nextPaymentEndDate,
+        paymentContext.billingPeriodKey,
+        "stripe",
+      ]
+    );
+    console.log("[Stripe][complete] payments row inserted", {
+      organizationId,
+      stripe_payment_intent_id: paymentIntent.type === "setup_intent" ? null : paymentIntent.id,
+      next_payment_end_date: nextPaymentEndDate,
+    });
+
+    const stripe = await getStripeClient(db);
+    const paymentMethodId = typeof paymentIntent.payment_method === "string"
+      ? paymentIntent.payment_method
+      : paymentIntent.payment_method?.id;
+    let paymentMethod = null;
+
+    if (paymentMethodId) {
+      paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
+      if (paymentIntent.customer) {
+        await stripe.customers.update(paymentIntent.customer, {
+          invoice_settings: {
+            default_payment_method: paymentMethodId,
+          },
+        });
+      }
+
+      await saveStoredCardMethod(client, organizationId, {
+        id: paymentMethodId,
+        brand: paymentMethod.card?.brand,
+        last4: paymentMethod.card?.last4,
+        expMonth: paymentMethod.card?.exp_month,
+        expYear: paymentMethod.card?.exp_year,
+        country_code: paymentMethod.card?.country,
+      }, {
+        provider: "stripe",
+        authorizationCode: paymentMethodId,
+      });
+      console.log("[Stripe][complete] stored_cards row saved", {
+        organizationId,
+        paymentMethodId,
+        brand: paymentMethod.card?.brand,
+        last4: paymentMethod.card?.last4,
+      });
+    } else {
+      console.warn("[Stripe][complete] no payment method on intent; skipping stored_cards");
+    }
+
+    await client.query("COMMIT");
+    console.log("[Stripe][complete] transaction committed", { organizationId });
+
+    try {
+      await sendRegistrationSuccessEmail(
+        registrationDetails.email,
+        registrationDetails.firstName,
+        registrationDetails.lastName
+      );
+    } catch (_) {
+    }
+
+    if ((paymentIntent.amount_received || paymentIntent.amount || 0) > 0) {
+      try {
+        await sendReceiptEmail(
+          registrationDetails.email,
+          {
+            amount: paymentIntent.amount_received || paymentIntent.amount,
+            paymentReference: paymentIntent.id,
+          },
+          registrationDetails.orgName
+        );
+      } catch (_) {
+      }
+    }
+
+    console.log("[Stripe][complete] done", { organizationId });
+    return {
+      organizationId,
+      discountAmount: paymentContext.discountAmount,
+      finalAmount: paymentContext.finalAmount,
+    };
+  } catch (error) {
+    console.error("[Stripe][complete] failed; rolling back:", error);
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 const accountController = {
   // Utility: List Paystack banks for UI dropdowns
 
@@ -1127,6 +1539,8 @@ const accountController = {
     }
 
     try {
+      await ensurePaymentProviderSchema(db);
+      const paymentProvider = await getActivePaymentProvider();
       let currencyProfile = {
         userCurrency: "USD",
         locale: "en-US",
@@ -1215,8 +1629,11 @@ const accountController = {
         localizedPlan.ghsAmount && localizedPlan.ghsAmount > 0
           ? localizedPlan.ghsAmount
           : planPrice;
+      const stripeChargeCurrency = getStripeChargeCurrency().toUpperCase();
+      const stripeChargeBase = isTrialCheckout ? 0 : planPrice;
 
       let amountDue = Math.round(ghsChargeBase * 100);
+      let stripeAmountDue = Math.round(stripeChargeBase * 100);
 
       let isTrialActive = false;
 
@@ -1229,7 +1646,8 @@ const accountController = {
       let trialStartDateValue = trialStartDateMin;
 
       if (isTrialCheckout) {
-        amountDue = 100; // 1 cedi in pesewas for validation
+        amountDue = 0;
+        stripeAmountDue = 0;
 
         const sessionTrialDate = parseDateInput(registrationDetails.trialStartDate || "");
         if (
@@ -1348,16 +1766,25 @@ const accountController = {
 
       req.session.paymentReference = paymentReference;
 
+      const stripeSettings = await getStripeSettings(db);
+
       res.render("account/payment", {
         title: "Complete Payment",
 
         registrationDetails,
 
         paymentDetails: { amount: amountDue },
+        stripePaymentDetails: { amount: stripeAmountDue, currency: stripeChargeCurrency },
 
         paymentReference: paymentReference,
 
         publishableKey: await getActivePaystackPublicKey(),
+        stripePublishableKey:
+          providerSupportsStripe(paymentProvider) ? await getActiveStripePublicKey(db) : "",
+        stripeMode: stripeSettings.mode,
+        paymentProvider,
+        supportsPaystack: providerSupportsPaystack(paymentProvider),
+        supportsStripe: providerSupportsStripe(paymentProvider),
 
         orgEmail: registrationDetails.email || "",
         orgPhone: registrationDetails.orgPhone || "",
@@ -1395,6 +1822,7 @@ const accountController = {
         ghsChargeDisplay,
         verificationChargeUsdDisplay,
         verificationChargeLocalDisplay,
+        stripeChargeCurrency,
         billingPeriodKey,
         billingPeriodLabel,
         billingPeriodMonths,
@@ -1412,7 +1840,7 @@ const accountController = {
   paymentPost: async (req, res) => {
     const { registrationDetails } = req.session;
 
-    const { paymentReference, promoCode, trialStartDate } = req.body;
+    const { paymentReference, promoCode, trialStartDate, selectedGateway } = req.body;
 
     if (!paymentReference) {
       req.flash("error", "Payment reference is missing. Please try again.");
@@ -1431,6 +1859,17 @@ const accountController = {
     }
 
     try {
+      await ensurePaymentProviderSchema(db);
+      const configuredProvider = await getActivePaymentProvider();
+      const gateway = configuredProvider === "smart"
+        ? (selectedGateway === "stripe" ? "stripe" : "paystack")
+        : configuredProvider;
+
+      if (gateway !== "paystack") {
+        req.flash("error", "Paystack is not selected for this checkout.");
+        return res.redirect("/account/payment");
+      }
+
       // Verify payment with Paystack
 
       const verificationResponse = await axios.get(
@@ -1684,9 +2123,9 @@ const accountController = {
       await client.query("BEGIN");
 
       const orgResult = await client.query(
-        `INSERT INTO organizations (organization_name, nickname, organization_address, organization_country, organization_province, organization_phone, email, password, first_name, last_name, proof_of_existence_1, proof_of_existence_2, plan_id, paystack_customer_code, trial_start_at, trial_active_until, selected_student_tier_id, approx_student_count)
+        `INSERT INTO organizations (organization_name, nickname, organization_address, organization_country, organization_province, organization_phone, email, password, first_name, last_name, proof_of_existence_1, proof_of_existence_2, plan_id, paystack_customer_code, billing_provider, trial_start_at, trial_active_until, selected_student_tier_id, approx_student_count)
 
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING organization_id`,
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19) RETURNING organization_id`,
 
         [
           orgName,
@@ -1716,6 +2155,8 @@ const accountController = {
           planId,
 
           customerCode,
+
+          "paystack",
 
           trialStartAt,
 
@@ -1919,6 +2360,190 @@ const accountController = {
     }
   },
 
+  createStripePaymentIntentPost: async (req, res) => {
+    const registrationDetails = req.session.registrationDetails;
+
+    if (!registrationDetails) {
+      return res.status(400).json({
+        success: false,
+        message: "Registration session expired. Please register again.",
+      });
+    }
+
+    try {
+      console.log("[Stripe][intent] start", {
+        email: registrationDetails.email,
+        org: registrationDetails.orgName,
+        planId: registrationDetails.planId,
+        promoCode: req.body?.promoCode || null,
+        trialStartDate: req.body?.trialStartDate || null,
+      });
+      await ensurePaymentProviderSchema(db);
+      const paymentProvider = await getActivePaymentProvider();
+      const selectedGateway = req.body?.selectedGateway;
+      console.log("[Stripe][intent] provider", { paymentProvider, selectedGateway });
+      if (!providerSupportsStripe(paymentProvider)) {
+        return res.status(400).json({
+          success: false,
+          message: "Stripe is not the active payment provider.",
+        });
+      }
+
+      if (paymentProvider === "smart" && selectedGateway && selectedGateway !== "stripe") {
+        return res.status(400).json({
+          success: false,
+          message: "Stripe was not selected for this checkout.",
+        });
+      }
+
+      const paymentContext = await buildRegistrationChargeContext(
+        registrationDetails,
+        req.body?.promoCode,
+        req.body?.trialStartDate
+      );
+      const stripeChargeCurrency = getStripeChargeCurrency();
+      console.log("[Stripe][intent] charge context", {
+        amountDue: paymentContext.amountDue,
+        finalAmount: paymentContext.finalAmount,
+        discountAmount: paymentContext.discountAmount,
+        billingPeriodKey: paymentContext.billingPeriodKey,
+        billingPeriodMonths: paymentContext.billingPeriodMonths,
+        isTrial: paymentContext.isTrialCheckout,
+        currency: stripeChargeCurrency,
+      });
+
+      const stripe = await getStripeClient(db);
+      let customerId = req.session.stripePendingCustomerId;
+      if (customerId) {
+        try {
+          const existing = await stripe.customers.retrieve(customerId);
+          if (!existing || existing.deleted) {
+            customerId = null;
+          }
+        } catch (lookupErr) {
+          if (lookupErr && lookupErr.code === "resource_missing") {
+            customerId = null;
+          } else {
+            throw lookupErr;
+          }
+        }
+        if (!customerId) {
+          console.log("[Stripe][intent] cached customer invalid; creating new one");
+          req.session.stripePendingCustomerId = null;
+        } else {
+          console.log("[Stripe][intent] reusing customer", { customerId });
+        }
+      }
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: registrationDetails.email,
+          name: registrationDetails.orgName,
+          phone: registrationDetails.orgPhone || undefined,
+          metadata: {
+            organization_name: registrationDetails.orgName || "",
+            plan_id: String(registrationDetails.planId || ""),
+          },
+        });
+        customerId = customer.id;
+        req.session.stripePendingCustomerId = customerId;
+        console.log("[Stripe][intent] created customer", { customerId });
+      }
+
+      let stripeIntent = null;
+      let stripeIntentType = "payment";
+      if (paymentContext.isTrialCheckout) {
+        stripeIntentType = "setup";
+        stripeIntent = await stripe.setupIntents.create({
+          customer: customerId,
+          payment_method_types: ["card"],
+          usage: "off_session",
+          metadata: {
+            flow: "organization_registration_trial_setup",
+            organization_name: registrationDetails.orgName || "",
+            plan_id: String(registrationDetails.planId || ""),
+            billing_period_key: paymentContext.billingPeriodKey || "monthly",
+            charge_currency: stripeChargeCurrency,
+          },
+        });
+        console.log("[Stripe][intent] created setup intent", {
+          id: stripeIntent.id,
+          status: stripeIntent.status,
+          customer: stripeIntent.customer,
+        });
+      } else {
+        stripeIntent = await stripe.paymentIntents.create({
+          amount: paymentContext.amountDue,
+          currency: stripeChargeCurrency,
+          customer: customerId,
+          receipt_email: registrationDetails.email,
+          payment_method_types: ["card"],
+          setup_future_usage: "off_session",
+          metadata: {
+            flow: "organization_registration",
+            organization_name: registrationDetails.orgName || "",
+            plan_id: String(registrationDetails.planId || ""),
+            billing_period_key: paymentContext.billingPeriodKey || "monthly",
+            charge_currency: stripeChargeCurrency,
+          },
+        });
+        console.log("[Stripe][intent] created", {
+          id: stripeIntent.id,
+          status: stripeIntent.status,
+          amount: stripeIntent.amount,
+          currency: stripeIntent.currency,
+          customer: stripeIntent.customer,
+        });
+      }
+
+      req.session.paymentIntentId = stripeIntent.id;
+      req.session.stripeIntentType = stripeIntentType;
+      req.session.stripePaymentContext = {
+        promoCode: paymentContext.promoCode,
+        discountAmount: paymentContext.discountAmount,
+        applyDiscountOnce: paymentContext.applyDiscountOnce,
+        finalAmount: paymentContext.finalAmount,
+        amountDue: paymentContext.amountDue,
+        chargeCurrency: stripeChargeCurrency,
+        billingInterval: paymentContext.billingInterval,
+        isTrialCheckout: paymentContext.isTrialCheckout,
+        billingPeriodKey: paymentContext.billingPeriodKey,
+        billingPeriodMonths: paymentContext.billingPeriodMonths,
+        trialStartAt: paymentContext.trialStartAt
+          ? paymentContext.trialStartAt.toISOString()
+          : null,
+        trialActiveUntil: paymentContext.trialActiveUntil
+          ? paymentContext.trialActiveUntil.toISOString()
+          : null,
+        stripeIntentType,
+      };
+
+      return req.session.save(() => {
+        res.json({
+          success: true,
+          clientSecret: stripeIntent.client_secret,
+          paymentIntentId: stripeIntent.id,
+          amountDue: paymentContext.amountDue,
+          currency: stripeChargeCurrency,
+          intentType: stripeIntentType,
+        });
+      });
+    } catch (error) {
+      console.error("[Stripe][intent] failed:", error);
+      const statusCode =
+        error.code === "INVALID_PROMO_CODE" || error.code === "INVALID_TRIAL_START_DATE"
+          ? 400
+          : 500;
+
+      return res.status(statusCode).json({
+        success: false,
+        message:
+          error.code === "INVALID_PROMO_CODE" || error.code === "INVALID_TRIAL_START_DATE"
+            ? error.message
+            : error?.raw?.message || error.message || "Unable to initialize Stripe payment. Please try again.",
+      });
+    }
+  },
+
   validatePromoGet: async (req, res) => {
     const { code } = req.query;
 
@@ -2074,15 +2699,33 @@ const accountController = {
     const sig = req.headers["stripe-signature"];
 
     let event;
+    let stripe;
 
     try {
-      event = stripe.webhooks.constructEvent(
-        req.body,
+      stripe = await getStripeClient(db);
+      const webhookSecrets = [
+        process.env.STRIPE_WEBHOOK_SECRET,
+        process.env.STRIPE_CONNECT_WEBHOOK_SECRET,
+      ].filter(Boolean);
 
-        sig,
+      if (webhookSecrets.length === 0) {
+        throw new Error("Stripe webhook secret is not configured");
+      }
 
-        process.env.STRIPE_WEBHOOK_SECRET
-      );
+      let lastError;
+
+      for (const webhookSecret of webhookSecrets) {
+        try {
+          event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+          break;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
+      if (!event) {
+        throw lastError || new Error("Unable to verify Stripe webhook signature");
+      }
     } catch (err) {
             return res.status(400).send(`Webhook Error: ${err.message}`);
     }
@@ -2292,95 +2935,20 @@ const accountController = {
 
     trialActiveUntil = null
   ) => {
-    const client = await db.connect();
-
-    await client.query("BEGIN");
-
     try {
-      const hashedPassword =
-        registrationDetails.passwordHash ||
-        (registrationDetails.password
-          ? await bcryptjs.hash(registrationDetails.password, 10)
-          : null);
-
-      // **Insert Organization with Plan ID and Trial Information**
-
-      const result = await client.query(
-        `INSERT INTO organizations 
-
-                 (organization_name, nickname, organization_address, organization_country, organization_province, organization_phone, email, password, 
-
-                  first_name, last_name, proof_of_existence_1, proof_of_existence_2, plan_id, trial_active_until) 
-
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING organization_id`,
-
-        [
-          registrationDetails.orgName,
-
-          registrationDetails.orgNickName,
-
-          registrationDetails.orgAddress,
-
-          registrationDetails.orgCountry || null,
-
-          registrationDetails.orgProvince || null,
-
-          registrationDetails.orgPhone,
-
-          registrationDetails.email,
-
-          hashedPassword,
-
-          registrationDetails.firstName,
-
-          registrationDetails.lastName,
-
-          registrationDetails.proof1Url,
-
-          registrationDetails.proof2Url,
-
-          registrationDetails.planId, // ✅ Store the plan ID
-
-          trialActiveUntil, // ✅ Store trial end date
-        ]
-      );
-
-      const organization_id = result.rows[0].organization_id;
-      invalidateAdminOrganizationsCache();
-
-      let customerId = paymentIntent.customer;
-
-      // **Create Stripe Customer if not already created**
-
-      if (!customerId) {
-        const customer = await stripe.customers.create({
-          email: registrationDetails.email,
-
-          name: registrationDetails.orgName,
-        });
-
-        customerId = customer.id;
-      }
-
-      // **Update Organization with Stripe Customer ID**
-
-      await client.query(
-        "UPDATE organizations SET stripe_customer_id = $1 WHERE organization_id = $2",
-
-        [customerId, organization_id]
-      );
-
-      await client.query("COMMIT");
-
-      // **Send Registration Success Email**
-
-      await sendRegistrationSuccessEmail(
-        registrationDetails.email,
-
-        registrationDetails.firstName,
-
-        registrationDetails.lastName
-      );
+      await completeStripeRegistrationPayment(paymentIntent, registrationDetails, {
+        promoCode: "",
+        discountAmount: 0,
+        applyDiscountOnce: false,
+        finalAmount: Number(registrationDetails.totalCost) || 0,
+        amountDue: paymentIntent.amount_received || paymentIntent.amount,
+        billingInterval: "monthly",
+        isTrialCheckout: Boolean(trialActiveUntil),
+        billingPeriodKey: registrationDetails.billingPeriodKey || "monthly",
+        billingPeriodMonths: Number(registrationDetails.billingPeriodMonths) || 1,
+        trialStartAt: null,
+        trialActiveUntil,
+      });
 
       req.session.registrationDetails = null;
 
@@ -2388,53 +2956,136 @@ const accountController = {
 
       res.redirect("/account/login?clearRegisterDraft=1");
     } catch (error) {
-      await client.query("ROLLBACK");
-
-            req.flash("error", "An error occurred. Please try again.");
+      req.flash("error", "An error occurred. Please try again.");
 
       res.redirect("/account/payment");
     }
   },
 
   paymentConfirmPost: async (req, res) => {
-    const { registrationDetails, paymentIntentId } = req.session;
+    console.log("[Stripe][confirm] entered", {
+      paymentIntentId: req.body?.paymentIntentId || null,
+      hasSession: Boolean(req.session.registrationDetails),
+    });
+    const paymentProvider = await getActivePaymentProvider();
 
-    if (!registrationDetails || !paymentIntentId) {
+    if (!providerSupportsStripe(paymentProvider)) {
+      console.warn("[Stripe][confirm] aborted: provider not stripe", { paymentProvider });
+      req.flash("error", "Stripe is not the active payment provider.");
+      return res.redirect("/account/payment");
+    }
+
+    const registrationDetails = req.session.registrationDetails;
+    const paymentIntentId = req.body?.paymentIntentId || req.session.paymentIntentId;
+    const rawPaymentContext = req.session.stripePaymentContext;
+    const stripeIntentType =
+      req.session.stripeIntentType || rawPaymentContext?.stripeIntentType || "payment";
+
+    if (!registrationDetails || !paymentIntentId || !rawPaymentContext) {
+      console.warn("[Stripe][confirm] missing session data", {
+        hasRegistration: Boolean(registrationDetails),
+        paymentIntentId,
+        hasContext: Boolean(rawPaymentContext),
+      });
       req.flash("error", "No payment session found. Please try again.");
 
       return res.redirect("/account/payment");
     }
 
     try {
-      // Confirm the payment using the existing intent
+      const stripe = await getStripeClient(db);
+      let paymentIntent = null;
+      if (stripeIntentType === "setup") {
+        const setupIntent = await stripe.setupIntents.retrieve(paymentIntentId);
+        console.log("[Stripe][confirm] retrieved setup intent", {
+          id: setupIntent.id,
+          status: setupIntent.status,
+          customer: setupIntent.customer,
+          payment_method: setupIntent.payment_method,
+        });
 
-      const paymentIntent = await stripe.paymentIntents.confirm(
-        paymentIntentId
-      );
+        if (setupIntent.status !== "succeeded") {
+          req.flash(
+            "error",
+            `Payment confirmation failed: ${
+              setupIntent.last_setup_error?.message || "Unknown error"
+            }`
+          );
 
-      if (paymentIntent.status !== "succeeded") {
-        req.flash(
-          "error",
+          return res.redirect("/account/payment");
+        }
 
-          `Payment confirmation failed: ${
-            paymentIntent.last_payment_error?.message || "Unknown error"
-          }`
-        );
+        paymentIntent = {
+          id: setupIntent.id,
+          type: "setup_intent",
+          status: setupIntent.status,
+          amount_received: 0,
+          amount: 0,
+          customer: setupIntent.customer,
+          payment_method: setupIntent.payment_method,
+        };
+      } else {
+        paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+        console.log("[Stripe][confirm] retrieved intent", {
+          id: paymentIntent.id,
+          status: paymentIntent.status,
+          amount_received: paymentIntent.amount_received,
+          customer: paymentIntent.customer,
+          payment_method: paymentIntent.payment_method,
+        });
 
-        return res.redirect("/account/payment");
+        if (paymentIntent.status !== "succeeded") {
+          req.flash(
+            "error",
+
+            `Payment confirmation failed: ${
+              paymentIntent.last_payment_error?.message || "Unknown error"
+            }`
+          );
+
+          return res.redirect("/account/payment");
+        }
       }
 
-      // If successful, process the payment (continue with similar steps from paymentPost)
+      const paymentContext = {
+        ...rawPaymentContext,
+        trialStartAt: rawPaymentContext.trialStartAt
+          ? new Date(rawPaymentContext.trialStartAt)
+          : null,
+        trialActiveUntil: rawPaymentContext.trialActiveUntil
+          ? new Date(rawPaymentContext.trialActiveUntil)
+          : null,
+      };
 
-      await accountController.processSuccessfulPayment(
+      const result = await completeStripeRegistrationPayment(
         paymentIntent,
-
         registrationDetails,
-
-        res
+        paymentContext
       );
+      console.log("[Stripe][confirm] registration complete", result);
+
+      req.session.registrationDetails = null;
+      req.session.paymentIntentId = null;
+      req.session.stripeIntentType = null;
+      req.session.stripePendingCustomerId = null;
+      req.session.stripePaymentContext = null;
+      req.session.paymentReference = null;
+
+      let message = "";
+      if (result.discountAmount > 0) {
+        message += `Discount applied successfully. You will be charged ₵${result.finalAmount} per month. `;
+      }
+      message += stripeIntentType === "setup"
+        ? "Registration successful! Your free trial is now active and your card has been saved for future payments. You may now log in to your account."
+        : "Registration and payment successful! Your subscription is now active and your card has been saved for future payments. You may now log in to your account.";
+      req.flash("success", message);
+
+      return req.session.save(() => {
+        res.redirect("/account/login?clearRegisterDraft=1");
+      });
     } catch (error) {
-            req.flash("error", "An error occurred while confirming the payment.");
+      console.error("[paymentConfirmPost] failed:", error);
+      req.flash("error", "An error occurred while confirming the payment.");
 
       return res.redirect("/account/payment");
     }
@@ -2442,6 +3093,7 @@ const accountController = {
 
   updateCardGet: async (req, res) => {
     try {
+      await ensurePaymentProviderSchema(db);
       if (!req.session.passwordVerified) {
         return res.redirect(
           "/account/confirm-password?redirect=/account/update-card"
@@ -2453,7 +3105,7 @@ const accountController = {
       // Fetch Paystack customer and Flutterwave data
 
       const orgResult = await db.query(
-        `SELECT paystack_customer_code, email, organization_phone, organization_name, first_name, last_name, is_hub_member, hub_id
+        `SELECT paystack_customer_code, stripe_customer_id, billing_provider, email, organization_phone, organization_name, first_name, last_name, is_hub_member, hub_id
          FROM organizations
          WHERE organization_id = $1`,
         [orgId]
@@ -2461,6 +3113,8 @@ const accountController = {
 
       const orgRow = orgResult.rows[0] || {};
       let paystackCustomerCode = orgRow.paystack_customer_code;
+      const stripeCustomerId = orgRow.stripe_customer_id;
+      const paymentProvider = orgRow.billing_provider || "paystack";
       const isHubMember = Boolean(orgRow.is_hub_member && orgRow.hub_id);
 
       let hubContractEndDate = null;
@@ -2519,11 +3173,31 @@ const accountController = {
       let storedCardMethods = [];
 
       try {
-        storedCardMethods = await getStoredCardPaymentMethods(db, orgId);
+        storedCardMethods = await getStoredCardPaymentMethods(db, orgId, paymentProvider);
       } catch (err) {
               }
 
-      if (!isHubMember && paystackCustomerCode) {
+      if (!isHubMember && paymentProvider === "stripe" && stripeCustomerId) {
+        try {
+          const stripe = await getStripeClient(db);
+          const paymentMethodResult = await stripe.paymentMethods.list({
+            customer: stripeCustomerId,
+            type: "card",
+          });
+
+          paymentMethods = (paymentMethodResult.data || []).map((method) => ({
+            id: method.id,
+            brand: method.card?.brand || "card",
+            last4: method.card?.last4,
+            expMonth: method.card?.exp_month,
+            expYear: method.card?.exp_year,
+            isPrimary: storedCardMethods.some(
+              (storedCard) => storedCard.id === method.id && storedCard.isPrimary
+            ),
+          }));
+        } catch (_) {
+        }
+      } else if (!isHubMember && paystackCustomerCode) {
         try {
           const customerResponse = await axios.get(
             `https://api.paystack.co/customer/${paystackCustomerCode}`,
@@ -2567,6 +3241,44 @@ const accountController = {
 
       defaultPaymentMethod = pickDefaultCard(paymentMethods, storedCardMethods);
 
+      let billingHistory = [];
+      try {
+        const billingHistoryResult = await db.query(
+          `SELECT amount_paid, status, payment_provider, created_at, next_payment_end_date,
+                  is_trial, billing_period_key, stripe_payment_intent_id, paystack_reference
+           FROM payments
+           WHERE organization_id = $1
+           ORDER BY created_at DESC
+           LIMIT 12`,
+          [orgId]
+        );
+        billingHistory = billingHistoryResult.rows;
+      } catch (_) {
+      }
+
+      let stripeInvoices = [];
+      if (!isHubMember && paymentProvider === "stripe" && stripeCustomerId) {
+        try {
+          const stripe = await getStripeClient(db);
+          const invoiceResult = await stripe.invoices.list({
+            customer: stripeCustomerId,
+            limit: 12,
+          });
+          stripeInvoices = (invoiceResult.data || []).map((invoice) => ({
+            id: invoice.id,
+            number: invoice.number,
+            status: invoice.status,
+            currency: (invoice.currency || "usd").toUpperCase(),
+            amountPaid: Number(invoice.amount_paid || 0) / 100,
+            amountDue: Number(invoice.amount_due || 0) / 100,
+            hostedInvoiceUrl: invoice.hosted_invoice_url || null,
+            invoicePdf: invoice.invoice_pdf || null,
+            createdAt: invoice.created ? new Date(invoice.created * 1000) : null,
+          }));
+        } catch (_) {
+        }
+      }
+
       // ✅ Fetch all Paystack subaccounts
 
       const paystackSubaccountsResult = await db.query(
@@ -2597,6 +3309,9 @@ const accountController = {
         defaultPaymentMethod,
 
         paymentMethods,
+        paymentProvider,
+        billingHistory,
+        stripeInvoices,
 
         paystackSubaccounts,
         isHubMember,
@@ -2711,6 +3426,11 @@ const accountController = {
       const { authorizationCode } = req.body;
 
       const orgId = req.session.organizationId;
+      const orgResult = await db.query(
+        "SELECT billing_provider, stripe_customer_id FROM organizations WHERE organization_id = $1",
+        [orgId]
+      );
+      const orgRow = orgResult.rows[0] || {};
 
       if (!orgId || !authorizationCode) {
         return res
@@ -2737,6 +3457,15 @@ const accountController = {
         });
       }
 
+      if (orgRow.billing_provider === "stripe" && orgRow.stripe_customer_id) {
+        const stripe = await getStripeClient(db);
+        await stripe.customers.update(orgRow.stripe_customer_id, {
+          invoice_settings: {
+            default_payment_method: authorizationCode,
+          },
+        });
+      }
+
       res.json({ success: true, message: 'Primary card updated.' });
     } catch (error) {
             return res.status(500).json({
@@ -2755,6 +3484,15 @@ const accountController = {
 
       const orgId = req.session.organizationId;
 
+      const orgResult = await db.query(
+        `SELECT paystack_customer_code, stripe_customer_id, billing_provider
+         FROM organizations
+         WHERE organization_id = $1`,
+        [orgId]
+      );
+      const orgRow = orgResult.rows[0] || {};
+      const paymentProvider = orgRow.billing_provider || "paystack";
+
       if (!orgId || !authorizationCode) {
         return res.status(400).json({
           success: false,
@@ -2763,15 +3501,78 @@ const accountController = {
         });
       }
 
+      if (paymentProvider === "stripe") {
+        const removableCardsResult = await db.query(
+          `SELECT authorization_code, is_primary
+           FROM stored_cards
+           WHERE organization_id = $1 AND provider = 'stripe' AND is_active = true
+           ORDER BY is_primary DESC, updated_at DESC, created_at DESC`,
+          [orgId]
+        );
+
+        if ((removableCardsResult.rows || []).length <= 1) {
+          return res.status(400).json({
+            success: false,
+            message: "You must keep at least one saved card on file.",
+          });
+        }
+
+        const targetCard = removableCardsResult.rows.find(
+          (card) => card.authorization_code === authorizationCode
+        );
+        if (!targetCard) {
+          return res.status(404).json({
+            success: false,
+            message: "Card not found for this organization.",
+          });
+        }
+
+        const stripe = await getStripeClient(db);
+        await stripe.paymentMethods.detach(authorizationCode);
+
+        await db.query(
+          `UPDATE stored_cards
+           SET is_active = false, is_primary = false, updated_at = NOW()
+           WHERE organization_id = $1 AND authorization_code = $2`,
+          [orgId, authorizationCode]
+        );
+
+        const nextCardResult = await db.query(
+          `SELECT authorization_code
+           FROM stored_cards
+           WHERE organization_id = $1 AND provider = 'stripe' AND is_active = true
+           ORDER BY is_primary DESC, updated_at DESC, created_at DESC
+           LIMIT 1`,
+          [orgId]
+        );
+
+        const nextCardCode = nextCardResult.rows[0]?.authorization_code || null;
+        if (nextCardCode) {
+          await db.query(
+            `UPDATE stored_cards
+             SET is_primary = CASE WHEN authorization_code = $2 THEN true ELSE false END
+             WHERE organization_id = $1 AND provider = 'stripe' AND is_active = true`,
+            [orgId, nextCardCode]
+          );
+        }
+
+        if (orgRow.stripe_customer_id) {
+          await stripe.customers.update(orgRow.stripe_customer_id, {
+            invoice_settings: {
+              default_payment_method: nextCardCode,
+            },
+          });
+        }
+
+        return res.json({
+          success: true,
+          message: "Card removed successfully.",
+        });
+      }
+
       // Step 1: Retrieve Paystack customer code
 
-      const result = await db.query(
-        "SELECT paystack_customer_code FROM organizations WHERE organization_id = $1",
-
-        [orgId]
-      );
-
-      const paystackCustomerCode = result.rows[0]?.paystack_customer_code;
+      const paystackCustomerCode = orgRow.paystack_customer_code;
 
       if (!paystackCustomerCode) {
         return res.status(404).json({

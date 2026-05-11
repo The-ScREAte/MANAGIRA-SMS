@@ -21,6 +21,17 @@ const {
   normalizeMode,
 } = require("../utils/paystackConfig");
 const {
+  getPaymentProvider,
+  normalizePaymentProvider,
+  upsertPaymentProvider,
+} = require("../utils/paymentProviderConfig");
+const {
+  getStripeSettings,
+  normalizeMode: normalizeStripeMode,
+  upsertStripeSettings,
+} = require("../utils/stripeConfig");
+const { ensurePaymentProviderSchema } = require("../utils/paymentProviderSchema");
+const {
   invalidateOrganizationAccessCache,
   invalidateAccessForPlan,
 } = require("../utils/accessCache");
@@ -2288,8 +2299,11 @@ const adminController = {
 
   servicePricingGet: async (req, res) => {
     try {
+      await ensurePaymentProviderSchema(db);
       const currencyProfile = await getCurrencyProfileForRequest(req);
       const paystackSettings = await getPaystackSettings(db);
+      const stripeSettings = await getStripeSettings(db);
+      const paymentProvider = await getPaymentProvider(db);
       const featuresResult = await db.query(
         "SELECT * FROM features ORDER BY feature_name ASC"
       );
@@ -2407,7 +2421,10 @@ const adminController = {
         billingInterval,
         billingPeriods,
         studentTiersByPlan,
+        paymentProvider,
         paystackMode: paystackSettings.mode,
+        stripeMode: stripeSettings.mode,
+        stripeKeysMasked: stripeSettings.masked,
         showFooterTopSection: true
       });
     } catch (error) {
@@ -2485,6 +2502,7 @@ const adminController = {
 
   updatePaystackSettings: async (req, res) => {
     try {
+      await ensurePaymentProviderSchema(db);
       const { paystack_mode } = req.body;
 
       const existing = await getPaystackSettings(db);
@@ -2510,6 +2528,48 @@ const adminController = {
       req.flash("success", `Paystack mode set to ${mode.toUpperCase()} and keys saved.`);
     } catch (error) {
       req.flash("error", "Failed to update Paystack settings.");
+    }
+
+    return res.redirect("/admin/servicePricing");
+  },
+
+  updatePaymentProviderSettings: async (req, res) => {
+    try {
+      await ensurePaymentProviderSchema(db);
+      const { payment_provider } = req.body;
+      const provider = normalizePaymentProvider(payment_provider);
+
+      await upsertPaymentProvider(provider, db);
+      const label = provider === "smart" ? "Both / Smart" : provider === "stripe" ? "Stripe" : "Paystack";
+      req.flash("success", `Gateway strategy set to ${label}.`);
+    } catch (error) {
+      req.flash("error", "Failed to update default payment provider.");
+    }
+
+    return res.redirect("/admin/servicePricing");
+  },
+
+  updateStripeSettings: async (req, res) => {
+    try {
+      await ensurePaymentProviderSchema(db);
+      const { stripe_mode } = req.body;
+      const settings = await getStripeSettings(db);
+      const mode = normalizeStripeMode(stripe_mode);
+
+      if (mode === "live" && (!settings.liveSecretKey || !settings.livePublicKey)) {
+        req.flash("error", "Live Stripe mode requires both live secret and live publishable keys.");
+        return res.redirect("/admin/servicePricing");
+      }
+
+      if (mode === "test" && (!settings.testSecretKey || !settings.testPublicKey)) {
+        req.flash("error", "Test Stripe mode requires both test secret and test publishable keys.");
+        return res.redirect("/admin/servicePricing");
+      }
+
+      await upsertStripeSettings({ stripe_mode: mode }, db);
+      req.flash("success", `Stripe mode set to ${mode.toUpperCase()}.`);
+    } catch (error) {
+      req.flash("error", "Failed to update Stripe settings.");
     }
 
     return res.redirect("/admin/servicePricing");

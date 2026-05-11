@@ -312,7 +312,9 @@ module.exports = (db) => {
     router.post('/updateBillingInterval', ensureAdmin, adminController.updateBillingInterval);
     router.post('/updateBillingPeriod', ensureAdmin, adminController.updateBillingPeriod);
     router.get('/getBillingPeriods', ensureAdmin, adminController.getBillingPeriods);
+    router.post('/updatePaymentProviderSettings', ensureAdmin, adminController.updatePaymentProviderSettings);
     router.post('/updatePaystackSettings', ensureAdmin, adminController.updatePaystackSettings);
+    router.post('/updateStripeSettings', ensureAdmin, adminController.updateStripeSettings);
 
     // Student count tier routes
     router.post('/addStudentTier', ensureAdmin, adminController.addStudentTier);

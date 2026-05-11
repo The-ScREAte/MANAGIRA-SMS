@@ -23,6 +23,7 @@ router.post(
 // Payment Routes
 router.get("/payment", (req, res) => accountController.paymentGet(req, res));
 router.post("/payment", (req, res) => accountController.paymentPost(req, res, db));
+router.post("/payment/stripe-intent", (req, res) => accountController.createStripePaymentIntentPost(req, res, db));
 router.post("/payment/confirm", (req, res) => accountController.paymentConfirmPost(req, res, db));
 
 // Service Plan Route

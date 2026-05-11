@@ -50,6 +50,258 @@
         margin-bottom: 14px;
       }
 
+      .payment-side-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .payment-single-column {
+        display: block;
+      }
+
+      .side-card-title {
+        margin: 0 0 10px;
+        color: var(--text-primary);
+        font-size: 1rem;
+        font-weight: 700;
+      }
+
+      .stripe-card-shell {
+        margin-top: 14px;
+        padding: 18px;
+        border: 1px solid #d7e2ea;
+        border-radius: 16px;
+        background: linear-gradient(180deg, #ffffff 0%, #f7fafc 100%);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+      }
+
+      .express-shell {
+        display: none;
+        margin-top: 14px;
+        padding: 14px;
+        border: 1px solid #dbe7ee;
+        border-radius: 14px;
+        background: linear-gradient(180deg, #ffffff 0%, #f4f9fb 100%);
+      }
+
+      .express-shell.is-visible {
+        display: block;
+      }
+
+      .express-shell-header {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-bottom: 10px;
+      }
+
+      .express-shell-title {
+        margin: 0;
+        color: var(--text-primary);
+        font-size: 0.96rem;
+        font-weight: 700;
+      }
+
+      .express-shell-copy {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: 0.82rem;
+        line-height: 1.45;
+      }
+
+      .wallet-divider {
+        margin: 0 0 12px;
+        font-size: 0.82rem;
+        color: #64748b;
+        text-align: center;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+      }
+
+      .payment-method-block {
+        position: relative;
+        overflow: hidden;
+      }
+
+      .payment-method-block::before {
+        content: "";
+        position: absolute;
+        inset: 0 0 auto 0;
+        height: 4px;
+        background: linear-gradient(90deg, #0f766e 0%, #1693a5 100%);
+      }
+
+      .payment-method-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+
+      .payment-method-copy {
+        min-width: 0;
+      }
+
+      .payment-method-note {
+        font-size: 0.95rem;
+        color: #334155;
+        margin: 6px 0 0;
+        text-align: left;
+        line-height: 1.5;
+      }
+
+      .payment-method-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        white-space: nowrap;
+        padding: 7px 12px;
+        border-radius: 999px;
+        border: 1px solid #cfe3e7;
+        background: #ecf8f8;
+        color: #0f5e66;
+        font-size: 0.76rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .card-entry-shell {
+        margin-top: 0;
+        padding: 14px;
+        border: 1px solid #dbe3ea;
+        border-radius: 14px;
+        background: #ffffff;
+      }
+
+      .card-entry-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+
+      .card-entry-title {
+        margin: 0;
+        color: var(--text-primary);
+        font-size: 0.95rem;
+        font-weight: 700;
+      }
+
+      .card-entry-subtitle {
+        margin: 4px 0 0;
+        color: #64748b;
+        font-size: 0.82rem;
+      }
+
+      .card-entry-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: #f8fafc;
+        border: 1px solid #dbe3ea;
+        color: #475569;
+        font-size: 0.76rem;
+        font-weight: 700;
+      }
+
+      #stripe-card-element {
+        padding: 14px 12px;
+        border: 1px solid #dbe3ea;
+        border-radius: 12px;
+        background: #ffffff;
+        min-height: 22px;
+      }
+
+      .stripe-card-error {
+        display: none;
+        margin-top: 12px;
+        color: #b91c1c;
+        font-size: 0.92rem;
+      }
+
+      .gateway-choice-group {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin: 12px 0 14px;
+      }
+
+      .gateway-choice-btn {
+        border: 1px solid var(--border);
+        background: #fff;
+        color: var(--text-primary);
+        border-radius: 999px;
+        padding: 10px 14px;
+        font-size: 0.95rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .gateway-choice-btn.is-active {
+        background: var(--primary);
+        color: #fff;
+        border-color: var(--primary);
+      }
+
+      .gateway-smart-note {
+        margin: 8px 0 0;
+        color: var(--text-secondary);
+        font-size: 0.92rem;
+      }
+
+      .stripe-help-note {
+        margin-top: 14px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid #dbe7ee;
+        background: #ffffff;
+        color: var(--text-secondary);
+        font-size: 0.86rem;
+        line-height: 1.55;
+      }
+
+      .stripe-help-note strong {
+        color: var(--text-primary);
+      }
+
+      .stripe-help-note-title {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 6px;
+        color: var(--text-primary);
+        font-size: 0.84rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .stripe-help-note-lines {
+        display: grid;
+        gap: 2px;
+      }
+
+      .gateway-flow-note {
+        margin-top: 12px;
+        padding: 12px 14px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: #ffffff;
+        color: var(--text-secondary);
+        font-size: 0.92rem;
+        line-height: 1.6;
+      }
+
+      .gateway-flow-note strong {
+        color: var(--text-primary);
+      }
+
       h2 {
         margin: 0 0 12px;
         font-size: 1.55rem;
@@ -147,6 +399,24 @@
         background-color: #ffffff;
       }
 
+      .promo-inline {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .promo-inline .btn-primary {
+        width: auto;
+        min-width: 120px;
+        margin-top: 0;
+        padding-inline: 20px;
+      }
+
+      .promo-inline #promoCode {
+        margin-bottom: 0;
+      }
+
       #promo-section[hidden] {
         display: none;
       }
@@ -202,7 +472,7 @@
         font-size: 14px;
         font-weight: bold;
         color: red;
-        text-align: center;
+        background: linear-gradient(180deg, #ffffff 0%, #f9fbfd 100%);
         display: none;
       }
 
@@ -293,13 +563,6 @@
         border: 1px solid #f5c6cb;
       }
 
-      .payment-method-note {
-        font-size: 0.95rem;
-        color: #334155;
-        margin: 6px 0 10px;
-        text-align: left;
-      }
-
       .trial-date-label {
         display: block;
         font-size: 0.92rem;
@@ -317,7 +580,7 @@
       .trial-date-toggle-btn {
         width: 100%;
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         justify-content: space-between;
         border: 1px dashed var(--border);
         background: #ffffff;
@@ -336,15 +599,28 @@
 
       .trial-date-toggle-left {
         display: inline-flex;
+        flex-direction: row;
+        align-items: flex-start;
+        gap: 8px;
+        min-width: 0;
+        flex: 1 1 auto;
+      }
+
+      .trial-date-toggle-label {
+        display: inline-flex;
         align-items: center;
         gap: 8px;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
+        min-width: 0;
+        white-space: nowrap;
       }
 
       .trial-date-current {
         font-size: 0.83rem;
         color: #0f5132;
         font-weight: 700;
+        line-height: 1.35;
+        white-space: nowrap;
       }
 
       .trial-date-toggle-btn[aria-expanded="true"] .promo-toggle-icon {
@@ -394,6 +670,20 @@
           font-size: 0.96rem;
         }
 
+        .payment-method-head,
+        .card-entry-head {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .trial-date-toggle-btn {
+          gap: 10px;
+        }
+
+        .promo-inline {
+          grid-template-columns: minmax(0, 1fr) 120px;
+        }
+
         .btn-primary {
           font-size: 0.98rem;
         }
@@ -405,6 +695,40 @@
       }
 
       @media (max-width: 420px) {
+        .stripe-card-shell,
+        .express-shell,
+        .card-entry-shell {
+          padding: 12px;
+          border-radius: 12px;
+        }
+
+        .promo-inline {
+          grid-template-columns: minmax(0, 1fr) auto;
+          gap: 8px;
+        }
+
+        .promo-inline .btn-primary {
+          width: auto;
+          min-width: 92px;
+          padding-inline: 16px;
+          font-size: 0.94rem;
+          white-space: nowrap;
+        }
+
+        .promo-inline #promoCode {
+          min-width: 0;
+          font-size: 0.95rem;
+          padding: 11px 10px;
+        }
+
+        .trial-date-toggle-btn {
+          padding: 10px 11px;
+        }
+
+        .trial-date-current {
+          font-size: 0.8rem;
+        }
+
         .redirect-overlay-spinner {
           width: 40px;
           height: 40px;
@@ -420,13 +744,15 @@
       }
   </style>
 <%- include('../partials/flash') %>
-<script src="https://js.paystack.co/v1/inline.js"></script>
+<script src="https://js.stripe.com/v3/"></script>
 <div class="payment-container">
   <% const rawPlanName = (registrationDetails && registrationDetails.plan) ? decodeURIComponent(registrationDetails.plan) : ""; %>
   <% const planNameDisplay = rawPlanName ? rawPlanName.charAt(0).toUpperCase() + rawPlanName.slice(1) : "Selected plan"; %>
   <form id="payment-form" action="/account/payment" method="POST">
     <input type="hidden" name="paymentReference" id="paymentReference" />
+    <input type="hidden" name="paymentIntentId" id="paymentIntentId" />
     <input type="hidden" name="promoCode" id="hiddenPromoCode" />
+    <input type="hidden" name="selectedGateway" id="selectedGateway" value="" />
 
     <% if (registrationDetails && registrationDetails.plan) { %>
       <div class="payment-header">
@@ -446,7 +772,7 @@
           <p class="summary-row"><strong>Email:</strong> <%= registrationDetails.email || 'N/A' %></p>
           <p class="summary-row"><strong>Plan:</strong> <%= planNameDisplay %></p>
           <% if (!isTrialCheckout) { %>
-            <p class="summary-row"><strong>Amount Due:</strong> GHS <span id="amount-due"><%= (paymentDetails.amount / 100).toFixed(2) %></span></p>
+            <p class="summary-row" id="amount-due-row"><strong>Amount Due:</strong> <span id="amount-due-currency"><%= stripeChargeCurrency || 'USD' %></span> <span id="amount-due"><%= stripePaymentDetails ? (stripePaymentDetails.amount / 100).toFixed(2) : (paymentDetails.amount / 100).toFixed(2) %></span></p>
           <% } %>
           <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
             <p class="summary-row"><strong>Local Estimate (<%= currencyProfile.userCurrency %>):</strong> <%= localizedPriceDisplay || 'N/A' %></p>
@@ -456,24 +782,21 @@
           <% } else { %>
             <p class="summary-row"><strong>Renewal Price:</strong> <%= postTrialPriceDisplay || ("USD 0.00") %></p>
           <% } %>
-          <% if (isTrialCheckout) { %>
-            <p class="summary-row"><strong>Verification Charge:</strong>
-              <span class="amount-display"><%= verificationChargeUsdDisplay || 'USD 0.00' %><% if (verificationChargeLocalDisplay) { %> / <%= verificationChargeLocalDisplay %><% } %></span>
-              <span id="amount-due" style="display:none;"><%= (paymentDetails.amount / 100).toFixed(2) %></span>
-            </p>
-          <% } %>
-          <p class="summary-subtext">Only <%= verificationChargeUsdDisplay || 'USD 0.00' %> will be charged today to verify your card.<br>Your bank may process this charge in your local currency.</p>
         </div>
       </div>
 
+      <div class="<%= isTrialCheckout ? 'payment-side-grid' : 'payment-single-column' %>">
       <div class="card-block">
+        <h3 class="side-card-title">Promo Code</h3>
         <button type="button" id="promo-toggle" class="promo-toggle-btn" aria-expanded="false" aria-controls="promo-section">
           <span>Have a promo code?</span>
           <span class="promo-toggle-icon">▾</span>
         </button>
         <div id="promo-section" hidden>
-          <input type="text" id="promoCode" name="promoCode" placeholder="Enter Promo Code" />
-          <button type="button" id="applyPromoCode" class="btn-primary">Apply</button>
+          <div class="promo-inline">
+            <input type="text" id="promoCode" name="promoCode" placeholder="Enter promo code" />
+            <button type="button" id="applyPromoCode" class="btn-primary">Apply</button>
+          </div>
           <p id="promo-message" style="color: green; display: none">Promo code applied successfully!</p>
           <p id="promo-error" style="color: red; display: none"></p>
         </div>
@@ -481,18 +804,15 @@
 
       <% if (isTrialCheckout) { %>
         <div class="card-block">
-          <h3 class="section-title">Trial Start Date</h3>
-          <p class="trial-date-hint">Default start date is today. Change it only if you prefer a future date.</p>
+          <h3 class="side-card-title">Trial Start Date</h3>
           <button type="button" id="trial-date-toggle" class="trial-date-toggle-btn" aria-expanded="false" aria-controls="trial-date-section">
             <span class="trial-date-toggle-left">
-              <span>Change trial start date (optional)</span>
-              <span id="trial-date-current" class="trial-date-current"></span>
+              <span id="trial-date-current" class="trial-date-toggle-label"></span>
             </span>
             <span class="promo-toggle-icon">▾</span>
           </button>
           <div id="trial-date-section" hidden>
             <label for="trialStartDate" class="trial-date-label">When does your semester start?</label>
-            <p class="trial-date-hint">Select a date from today up to 3 months ahead. Your trial countdown starts from this date.</p>
             <input
               type="date"
               id="trialStartDate"
@@ -506,15 +826,55 @@
           </div>
         </div>
       <% } %>
+      </div>
 
-      <div class="card-block">
-        <h3 class="section-title">Payment Method</h3>
-        <p class="payment-method-note">Secure payment via Paystack (Visa &amp; MasterCard).</p>
+      <div class="card-block payment-method-block">
+        <div class="payment-method-head">
+          <div class="payment-method-copy">
+            <h3 class="section-title">Payment Method</h3>
+            <p class="payment-method-note">Pay securely with Stripe using your card, or a supported wallet when it is available on your device and browser.</p>
+          </div>
+          <span class="payment-method-badge">Stripe Secure</span>
+        </div>
+
+        <div class="stripe-card-shell" id="stripe-card-shell">
+          <div class="card-entry-shell">
+            <div class="card-entry-head">
+              <div>
+                <p class="card-entry-title">Card details</p>
+                <p class="card-entry-subtitle">Your card will be encrypted and saved for future billing on this plan.</p>
+              </div>
+              <span class="card-entry-badge">Visa / MasterCard</span>
+            </div>
+            <div id="stripe-card-element"></div>
+            <div class="express-shell" id="express-shell">
+              <div class="express-shell-header">
+                <p class="express-shell-title">Express Checkout</p>
+                <p class="express-shell-copy">Show Apple Pay or Google Pay when your browser, device, and Stripe domain setup support them.</p>
+              </div>
+              <div class="wallet-divider">Or use a supported wallet</div>
+              <div id="express-checkout-element"></div>
+            </div>
+          </div>
+          <p id="stripe-card-error" class="stripe-card-error"></p>
+          <% if (stripeMode === 'test') { %>
+          <div class="stripe-help-note" id="stripe-help-note">
+            <div class="stripe-help-note-title">Test mode</div>
+            <div class="stripe-help-note-lines">
+              <div>Use <strong>4242 4242 4242 4242</strong> for a successful test payment.</div>
+              <div>Use any future expiry date, any 3-digit CVC, and any ZIP or postal code.</div>
+              <div>Apple Pay and Google Pay only appear on supported devices, browsers, and verified domains.</div>
+            </div>
+          </div>
+          <% } %>
+        </div>
+
+        <div class="gateway-flow-note" id="gateway-flow-note" aria-live="polite"></div>
 
         <% if (isTrialCheckout) { %>
           <button type="button" id="pay-button" class="btn-primary">Begin Free Trial</button>
         <% } else { %>
-          <button type="button" id="pay-button" class="btn-primary">Pay <%= paystackChargeCurrency || 'GHS' %> <span id="final-amount"><%= (paymentDetails.amount / 100).toFixed(2) %></span></button>
+          <button type="button" id="pay-button" class="btn-primary">Continue to Payment</button>
         <% } %>
       </div>
 
@@ -536,15 +896,231 @@
 </div>
 <script>
       document.addEventListener("DOMContentLoaded", function () {
-        const basePaymentAmount = parseInt('<%= paymentDetails.amount %>', 10);
-        let finalPaymentAmount = basePaymentAmount;
+        const baseStripeAmount = parseInt('<%= stripePaymentDetails ? stripePaymentDetails.amount : paymentDetails.amount %>', 10);
+        let finalStripeAmount = baseStripeAmount;
         let appliedPromoCode = '';
         let isSubmittingAfterPayment = false;
-        const gatewayCurrency = '<%= paystackChargeCurrency || "GHS" %>';
-        const defaultPayButtonHtml = '<% if (isTrialCheckout) { %>Begin Free Trial<% } else { %>Pay <%= paystackChargeCurrency || "GHS" %> <span id="final-amount"><%= (paymentDetails.amount / 100).toFixed(2) %></span><% } %>';
+        const stripePublishableKey = <%- JSON.stringify(stripePublishableKey || '') %>;
+        const stripeMode = <%- JSON.stringify(stripeMode || 'test') %>;
+        const stripeChargeCurrency = <%- JSON.stringify(stripeChargeCurrency || 'USD') %>;
+        const isTrialCheckout = <%- JSON.stringify(Boolean(isTrialCheckout)) %>;
         const redirectOverlay = document.getElementById("redirect-overlay");
         const redirectStatusText = document.getElementById("redirect-overlay-status");
         const redirectSecondaryStatusText = document.getElementById("redirect-overlay-status-secondary");
+        const stripeCardError = document.getElementById("stripe-card-error");
+        const stripeCardShell = document.getElementById("stripe-card-shell");
+        const stripeHelpNote = document.getElementById("stripe-help-note");
+        const expressShell = document.getElementById("express-shell");
+        const gatewayFlowNote = document.getElementById("gateway-flow-note");
+        const selectedGatewayInput = document.getElementById("selectedGateway");
+        const payButtonEl = document.getElementById("pay-button");
+        let stripe = null;
+        let stripeCardElement = null;
+        let expressCheckoutElement = null;
+        let stripeElements = null;
+        let isStripeCardComplete = false;
+        let isPayButtonBusy = false;
+        const currentGateway = 'stripe';
+        if (selectedGatewayInput) {
+          selectedGatewayInput.value = 'stripe';
+        }
+
+        function setPaymentMessage(text, color) {
+          const paymentMessage = document.getElementById("payment-message");
+          if (!paymentMessage) return;
+          paymentMessage.textContent = text || '';
+          paymentMessage.style.color = color || 'red';
+          paymentMessage.style.display = text ? 'block' : 'none';
+        }
+
+        function formatMoney(amountMinor, currencyCode) {
+          return `${currencyCode} ${(Math.max(0, Number(amountMinor) || 0) / 100).toFixed(2)}`;
+        }
+
+        function getCurrentGatewayAmountText() {
+          return formatMoney(finalStripeAmount, stripeChargeCurrency);
+        }
+
+        function updatePayButtonLabel() {
+          if (!payButtonEl) return;
+          if (isPayButtonBusy) {
+            payButtonEl.textContent = 'Processing...';
+            return;
+          }
+          if (isTrialCheckout) {
+            payButtonEl.textContent = 'Begin Free Trial';
+            return;
+          }
+          payButtonEl.textContent = `Pay ${getCurrentGatewayAmountText()} with Stripe`;
+        }
+
+        function updatePayButtonState() {
+          if (!payButtonEl) return;
+          payButtonEl.disabled = isPayButtonBusy || !stripe || !stripeCardElement || !isStripeCardComplete;
+          updatePayButtonLabel();
+        }
+
+        function requireCompletedStripeCardDetails() {
+          if (isStripeCardComplete) return true;
+          if (stripeCardError) {
+            stripeCardError.textContent = 'Enter complete card details before continuing.';
+            stripeCardError.style.display = 'block';
+          }
+          setPaymentMessage('Complete your Stripe card details before continuing.', 'red');
+          if (stripeCardElement && typeof stripeCardElement.focus === 'function') {
+            stripeCardElement.focus();
+          }
+          return false;
+        }
+
+        function updateAmountDueRow() {
+          const currencyEl = document.getElementById('amount-due-currency');
+          const amountEl = document.getElementById('amount-due');
+          if (!currencyEl || !amountEl) return;
+          currencyEl.textContent = stripeChargeCurrency;
+          amountEl.textContent = (Math.max(0, finalStripeAmount) / 100).toFixed(2);
+        }
+
+        function updateGatewayFlowNote() {
+          if (!gatewayFlowNote) return;
+          gatewayFlowNote.innerHTML = '';
+          gatewayFlowNote.style.display = gatewayFlowNote.innerHTML ? 'block' : 'none';
+          if (stripeHelpNote) {
+            stripeHelpNote.style.display = stripeMode === 'test' ? 'block' : 'none';
+          }
+        }
+
+        function updateExpressCheckoutAmount() {
+          if (!stripeElements || isTrialCheckout) return;
+          stripeElements.update({
+            amount: Math.max(0, finalStripeAmount)
+          });
+        }
+
+        if (stripePublishableKey && window.Stripe) {
+          stripe = window.Stripe(stripePublishableKey);
+          stripeElements = !isTrialCheckout
+            ? stripe.elements({
+                mode: 'payment',
+                amount: Math.max(0, finalStripeAmount),
+                currency: String(stripeChargeCurrency || 'USD').toLowerCase(),
+                paymentMethodTypes: ['card'],
+              })
+            : stripe.elements();
+
+          if (!isTrialCheckout && expressShell) {
+            expressCheckoutElement = stripeElements.create('expressCheckout', {
+              emailRequired: true,
+              paymentMethods: {
+                applePay: 'always',
+                googlePay: 'always',
+              },
+              layout: {
+                maxColumns: 2,
+                maxRows: 2,
+                overflowMenu: 'auto'
+              },
+              buttonHeight: 44,
+            });
+
+            expressCheckoutElement.on('ready', function(event) {
+              if (event && event.availablePaymentMethods) {
+                expressShell.classList.add('is-visible');
+              }
+            });
+
+            expressCheckoutElement.on('confirm', async function(event) {
+              try {
+                setPaymentMessage('', 'red');
+
+                const submitResult = await stripeElements.submit();
+                if (submitResult.error) {
+                  throw submitResult.error;
+                }
+
+                const intentResponse = await fetch('/account/payment/stripe-intent', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    promoCode: appliedPromoCode,
+                    trialStartDate: trialStartDateInput ? trialStartDateInput.value : '',
+                    selectedGateway: 'stripe'
+                  })
+                });
+
+                const intentData = await intentResponse.json();
+                if (!intentResponse.ok || !intentData.success) {
+                  throw new Error(intentData.message || 'Unable to initialize Stripe payment.');
+                }
+
+                const confirmation = await stripe.confirmPayment({
+                  elements: stripeElements,
+                  clientSecret: intentData.clientSecret,
+                  redirect: 'if_required'
+                });
+
+                if (confirmation.error) {
+                  throw confirmation.error;
+                }
+
+                const completedIntent = confirmation.paymentIntent;
+                if (!completedIntent || completedIntent.status !== 'succeeded') {
+                  throw new Error('Stripe payment was not completed.');
+                }
+
+                document.getElementById('paymentIntentId').value = completedIntent.id;
+                document.getElementById('hiddenPromoCode').value = appliedPromoCode;
+
+                showRedirectOverlay();
+                startRedirectProgressMessages();
+                document.getElementById('payment-form').action = '/account/payment/confirm';
+                setTimeout(function() {
+                  document.getElementById('payment-form').submit();
+                }, 800);
+              } catch (expressError) {
+                console.error('Express checkout error:', expressError);
+                setPaymentMessage(expressError.message || 'Unable to complete express checkout.', 'red');
+              }
+            });
+
+            expressCheckoutElement.mount('#express-checkout-element');
+          }
+
+          stripeCardElement = stripeElements.create('card', {
+            hidePostalCode: true,
+            style: {
+              base: {
+                color: '#0f172a',
+                fontSize: '16px',
+                '::placeholder': {
+                  color: '#94a3b8'
+                }
+              }
+            }
+          });
+
+          stripeCardElement.mount('#stripe-card-element');
+          stripeCardElement.on('change', function(event) {
+            isStripeCardComplete = Boolean(event.complete);
+            if (stripeCardError) {
+              stripeCardError.textContent = event.error ? event.error.message : '';
+              stripeCardError.style.display = event.error ? 'block' : 'none';
+            }
+            if (event.complete && !event.error) {
+              setPaymentMessage('', 'red');
+            }
+            updatePayButtonState();
+          });
+          updatePayButtonState();
+        } else {
+          if (stripeCardError) {
+            stripeCardError.textContent = 'Stripe is not configured. Please contact support.';
+            stripeCardError.style.display = 'block';
+          }
+          updatePayButtonState();
+        }
         const redirectProgressMessages = [
           "Just a few seconds left, hang tight...",
           "Now almost there...",
@@ -645,22 +1221,16 @@
         if (!dateValue) return "";
         const parts = dateValue.split("-");
         if (parts.length !== 3) return dateValue;
-        const year = Number(parts[0]);
-        const month = Number(parts[1]);
-        const day = Number(parts[2]);
-        const d = new Date(year, month - 1, day);
-        if (Number.isNaN(d.getTime())) return dateValue;
-        return d.toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        });
+        const year = parts[0].slice(-2);
+        const month = parts[1].padStart(2, "0");
+        const day = parts[2].padStart(2, "0");
+        return `${month}/${day}/${year}`;
       }
 
       function updateTrialDateCurrentLabel() {
         if (!trialDateCurrentEl || !trialStartDateInput) return;
         const prettyDate = formatTrialDateLabel(trialStartDateInput.value);
-        trialDateCurrentEl.textContent = prettyDate ? `(Current: ${prettyDate})` : "";
+        trialDateCurrentEl.textContent = prettyDate ? `Change : (Now: ${prettyDate})` : "Change";
       }
 
       function setTrialDateExpanded(expanded) {
@@ -689,7 +1259,6 @@
         const promoCode = document.getElementById("promoCode").value.trim();
         const promoMessage = document.getElementById("promo-message");
         const promoError = document.getElementById("promo-error");
-        const finalAmountElement = document.getElementById("final-amount");
 
         if (!promoCode) {
           setPromoExpanded(true);
@@ -713,12 +1282,11 @@
 
             appliedPromoCode = promoCode;
 
-            const originalAmount = basePaymentAmount / 100;
-            const discountAmount = (originalAmount * (data.discount / 100)).toFixed(2);
-            const finalAmount = (originalAmount - discountAmount).toFixed(2);
-
-            finalAmountElement.textContent = finalAmount;
-            finalPaymentAmount = Math.round(finalAmount * 100);
+            finalStripeAmount = Math.round(baseStripeAmount * (1 - (data.discount / 100)));
+            updateExpressCheckoutAmount();
+            updatePayButtonLabel();
+            updateGatewayFlowNote();
+            updateAmountDueRow();
           } else {
             setPromoExpanded(true);
             promoMessage.style.display = "none";
@@ -735,24 +1303,23 @@
         });
       }
 
-      // Paystack payment functionality
-      const payButtonEl = document.getElementById("pay-button");
+      // Stripe payment functionality
       if (payButtonEl) {
-        payButtonEl.addEventListener("click", function() {
+        payButtonEl.addEventListener("click", async function() {
+        setPaymentMessage('', 'red');
         if (trialStartDateInput) {
           const selectedDate = trialStartDateInput.value;
           const minDate = trialStartDateInput.min;
           const maxDate = trialStartDateInput.max;
           if (!selectedDate || selectedDate < minDate || selectedDate > maxDate) {
-            const paymentMessage = document.getElementById("payment-message");
-            if (paymentMessage) {
-              paymentMessage.textContent = "Please select a valid trial start date (today to 3 months ahead).";
-              paymentMessage.style.color = "red";
-              paymentMessage.style.display = "block";
-            }
+            setPaymentMessage("Please select a valid trial start date (today to 3 months ahead).", "red");
             trialStartDateInput.focus();
             return;
           }
+        }
+
+        if (!requireCompletedStripeCardDetails()) {
+          return;
         }
 
         if (!confirmPayment()) {
@@ -760,89 +1327,94 @@
         }
 
         // Show loading state
-        const payButton = this;
-        payButton.disabled = true;
-        payButton.textContent = "Processing...";
+        isPayButtonBusy = true;
+        updatePayButtonState();
 
         try {
-          const handler = PaystackPop.setup({
-            key: '<%= publishableKey %>',
-            email: '<%= registrationDetails.email %>',
-            amount: finalPaymentAmount,
-            currency: gatewayCurrency,
-            ref: '<%= paymentReference %>',
-            channels: ['card'], // Only allow card payments
-            metadata: {
-              custom_fields: [
-                {
-                  display_name: "Organization Name",
-                  variable_name: "organization_name",
-                  value: '<%= registrationDetails.orgName %>'
-                },
-                {
-                  display_name: "Plan",
-                  variable_name: "plan",
-                  value: '<%= registrationDetails.plan %>'
-                }
-              ]
-            },
-            callback: function(response) {
-              if (isSubmittingAfterPayment) {
-                return;
-              }
-              isSubmittingAfterPayment = true;
+          if (!stripe || !stripeCardElement) {
+            throw new Error('Stripe is not available right now.');
+          }
 
-              // Payment was successful
-              document.getElementById("paymentReference").value = response.reference;
-              document.getElementById("hiddenPromoCode").value = appliedPromoCode;
-              
-              const paymentMessage = document.getElementById("payment-message");
-              if (paymentMessage) {
-                paymentMessage.textContent = "Payment successful! Setting up your school. Don't leave this page.";
-                paymentMessage.style.color = "green";
-                paymentMessage.style.display = "block";
-              }
-
-              showRedirectOverlay();
-              startRedirectProgressMessages();
-              
-              setTimeout(function() {
-                document.getElementById("payment-form").submit();
-              }, 13000);
+          const intentResponse = await fetch('/account/payment/stripe-intent', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
             },
-            onClose: function() {
-              // Payment was cancelled
-              payButton.disabled = false;
-              payButton.innerHTML = defaultPayButtonHtml;
-              isSubmittingAfterPayment = false;
-              hideRedirectOverlay();
-              
-              const paymentMessage = document.getElementById("payment-message");
-              if (paymentMessage) {
-                paymentMessage.textContent = "Payment was cancelled. Please try again.";
-                paymentMessage.style.color = "red";
-                paymentMessage.style.display = "block";
-              }
-            }
+            body: JSON.stringify({
+              promoCode: appliedPromoCode,
+              trialStartDate: trialStartDateInput ? trialStartDateInput.value : '',
+              selectedGateway: 'stripe'
+            })
           });
 
-          handler.openIframe();
+          const intentData = await intentResponse.json();
+          if (!intentResponse.ok || !intentData.success) {
+            throw new Error(intentData.message || 'Unable to initialize Stripe payment.');
+          }
+
+          const isSetupIntent = intentData.intentType === 'setup';
+          const confirmation = isSetupIntent
+            ? await stripe.confirmCardSetup(intentData.clientSecret, {
+                payment_method: {
+                  card: stripeCardElement,
+                  billing_details: {
+                    email: '<%= registrationDetails.email %>',
+                    name: '<%= registrationDetails.firstName %> <%= registrationDetails.lastName %>'
+                  }
+                }
+              })
+            : await stripe.confirmCardPayment(intentData.clientSecret, {
+                payment_method: {
+                  card: stripeCardElement,
+                  billing_details: {
+                    email: '<%= registrationDetails.email %>',
+                    name: '<%= registrationDetails.firstName %> <%= registrationDetails.lastName %>'
+                  }
+                }
+              });
+
+          if (confirmation.error) {
+            throw new Error(confirmation.error.message || 'Unable to confirm Stripe payment.');
+          }
+
+          const completedIntent = isSetupIntent ? confirmation.setupIntent : confirmation.paymentIntent;
+          if (!completedIntent || completedIntent.status !== 'succeeded') {
+            throw new Error(isSetupIntent ? 'Stripe card setup was not completed.' : 'Stripe payment was not completed.');
+          }
+
+          isSubmittingAfterPayment = true;
+          document.getElementById('paymentIntentId').value = completedIntent.id;
+          document.getElementById('hiddenPromoCode').value = appliedPromoCode;
+
+          setPaymentMessage(
+            isSetupIntent
+              ? "Card saved successfully! Setting up your school. Don't leave this page."
+              : "Payment successful! Setting up your school. Don't leave this page.",
+            "green"
+          );
+
+          showRedirectOverlay();
+          startRedirectProgressMessages();
+          document.getElementById('payment-form').action = '/account/payment/confirm';
+
+          setTimeout(function() {
+            document.getElementById("payment-form").submit();
+          }, 1600);
         } catch (error) {
-          console.error("Error opening Paystack:", error);
-          payButton.disabled = false;
-          payButton.innerHTML = defaultPayButtonHtml;
+          console.error("Payment gateway error:", error);
+          isPayButtonBusy = false;
+          updatePayButtonState();
           isSubmittingAfterPayment = false;
           hideRedirectOverlay();
-          
-          const paymentMessage = document.getElementById("payment-message");
-          if (paymentMessage) {
-            paymentMessage.textContent = "Error loading payment gateway. Please refresh and try again.";
-            paymentMessage.style.color = "red";
-            paymentMessage.style.display = "block";
-          }
+
+          setPaymentMessage(error.message || "Error loading payment gateway. Please refresh and try again.", "red");
         }
         });
       }
+
+      updatePayButtonState();
+      updateGatewayFlowNote();
+      updateAmountDueRow();
     });
   </script>
 

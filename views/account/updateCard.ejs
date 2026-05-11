@@ -466,12 +466,12 @@
       <% if (!isHubMember) { %>
       <!-- Display current payment methods -->
       <% if (paymentMethods.length > 0) { %>
-      <h2>Saved Cards</h2>
+      <h2>Saved <%= paymentProvider === 'stripe' ? 'Stripe' : 'Paystack' %> Cards</h2>
     <ul id="saved-cards">
       <% paymentMethods.forEach((card, index) => { %>
       <li>
         <strong><%= card.brand %></strong> ending in <%= card.last4 %> (Exp: <%=
-        card.expMonth %>/<%= card.expYear %>) <% if (index === 0) { %>
+        card.expMonth %>/<%= card.expYear %>) <% if (card.isPrimary || index === 0) { %>
         <span style="color: green">(Primary)</span>
         <% } else { %>
         <button class="set-primary" data-id="<%= card.id %>">
@@ -487,12 +487,70 @@
     <p>No payment method saved.</p>
     <% } %>
 
-    <!-- Form to add a new card via Paystack -->
-    <h2>Add a New Card</h2>
-    <div id="add-card-section">
-      <p>To add a new card, you need to make a test payment which will save your card details securely.</p>
-      <button type="button" id="add-card-button" class="btn-primary">Add New Card (As Backup)</button>
-    </div>
+    <% if (paymentProvider === 'paystack') { %>
+      <h2>Add a New Card</h2>
+      <div id="add-card-section">
+        <p>To add a new card, you need to make a test payment which will save your card details securely.</p>
+        <button type="button" id="add-card-button" class="btn-primary">Add New Card (As Backup)</button>
+      </div>
+    <% } else { %>
+      <h2>Card Updates</h2>
+      <div id="add-card-section">
+        <p>Your saved Stripe cards are shown above. Primary card selection and removal are supported on this page.</p>
+      </div>
+    <% } %>
+
+    <% if (billingHistory && billingHistory.length > 0) { %>
+      <h2>Billing History</h2>
+      <ul id="saved-cards">
+        <% billingHistory.forEach((item) => { %>
+          <li>
+            <div>
+              <strong><%= (item.payment_provider || 'unknown').toUpperCase() %></strong>
+              on <%= item.created_at ? new Date(item.created_at).toLocaleDateString() : 'N/A' %>
+              <br />
+              Status: <%= item.status || 'unknown' %>
+              <% if (item.is_trial) { %> | Trial <% } %>
+              <% if (item.billing_period_key) { %> | <%= item.billing_period_key %> <% } %>
+              <br />
+              Amount: <%= typeof item.amount_paid === 'number' ? item.amount_paid.toFixed(2) : item.amount_paid %>
+              <% if (item.next_payment_end_date) { %>
+                | Next billing date: <%= new Date(item.next_payment_end_date).toLocaleDateString() %>
+              <% } %>
+            </div>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+
+    <% if (paymentProvider === 'stripe' && stripeInvoices && stripeInvoices.length > 0) { %>
+      <h2>Stripe Invoices</h2>
+      <ul id="saved-cards">
+        <% stripeInvoices.forEach((invoice) => { %>
+          <li>
+            <div>
+              <strong><%= invoice.number || invoice.id %></strong>
+              <% if (invoice.createdAt) { %>
+                on <%= new Date(invoice.createdAt).toLocaleDateString() %>
+              <% } %>
+              <br />
+              Status: <%= invoice.status || 'unknown' %> | Paid: <%= invoice.currency %> <%= Number(invoice.amountPaid || 0).toFixed(2) %>
+              <% if (Number(invoice.amountDue || 0) > 0) { %>
+                | Due: <%= invoice.currency %> <%= Number(invoice.amountDue || 0).toFixed(2) %>
+              <% } %>
+            </div>
+            <div>
+              <% if (invoice.hostedInvoiceUrl) { %>
+                <a class="set-primary" href="<%= invoice.hostedInvoiceUrl %>" target="_blank" rel="noopener noreferrer" style="text-decoration:none; display:inline-block; text-align:center;">Open</a>
+              <% } %>
+              <% if (invoice.invoicePdf) { %>
+                <a class="set-primary" href="<%= invoice.invoicePdf %>" target="_blank" rel="noopener noreferrer" style="text-decoration:none; display:inline-block; text-align:center; margin-left:8px;">PDF</a>
+              <% } %>
+            </div>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
     <% } %>
 
 <hr>
@@ -1185,9 +1243,19 @@
         const authorizationCode = event.target.getAttribute("data-id");
 
         try {
-          // For Paystack, we'll just update the order in our display
-          // The first card in the list is considered primary
-          alert("Primary card functionality will be implemented based on your business logic.");
+          const response = await fetch("/account/cards/set-primary", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ authorizationCode }),
+          });
+
+          const data = await response.json();
+          if (data.success) {
+            window.location.reload();
+            return;
+          }
+
+          alert(data.message || "Unable to update the primary card.");
         } catch (error) {
           console.error("❌ [FRONTEND] Network error:", error);
           alert("An error occurred while setting the primary card. Please try again.");
