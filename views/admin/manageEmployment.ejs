@@ -299,6 +299,11 @@
     color: #991b1b;
   }
 
+  .status-pill.hired {
+    background: #dcfce7;
+    color: #166534;
+  }
+
   .applicants-empty,
   .applicants-error,
   .applicants-loading {
@@ -824,6 +829,8 @@
   .applicants-tab.is-active .tab-count {
     background: #0f766e; color: #ffffff;
   }
+  .applicants-tab[data-tab="hired"].is-active          { color: #166534; border-bottom-color: #166534; }
+  .applicants-tab[data-tab="hired"].is-active .tab-count { background: #166534; }
   .applicants-tab[data-tab="rejected"].is-active        { color: #b91c1c; border-bottom-color: #b91c1c; }
   .applicants-tab[data-tab="rejected"].is-active .tab-count { background: #b91c1c; }
   @media (max-width: 600px) {
@@ -874,6 +881,7 @@
       <button type="button" class="applicants-tab"           data-tab="first"    role="tab">1st Interview <span class="tab-count" data-count-for="first">0</span></button>
       <button type="button" class="applicants-tab"           data-tab="second"   role="tab">2nd Interview <span class="tab-count" data-count-for="second">0</span></button>
       <button type="button" class="applicants-tab"           data-tab="final"    role="tab">Final Interview <span class="tab-count" data-count-for="final">0</span></button>
+      <button type="button" class="applicants-tab"           data-tab="hired"    role="tab">Hired <span class="tab-count" data-count-for="hired">0</span></button>
       <button type="button" class="applicants-tab"           data-tab="rejected" role="tab">Rejected <span class="tab-count" data-count-for="rejected">0</span></button>
       <button type="button" class="applicants-tab"           data-tab="all"      role="tab">All <span class="tab-count" data-count-for="all">0</span></button>
     </div>
@@ -885,6 +893,7 @@
           <option value="">All</option>
           <option value="pending">Pending</option>
           <option value="approved">Approved</option>
+          <option value="hired">Hired</option>
           <option value="rejected">Rejected</option>
         </select>
       </label>
@@ -1243,6 +1252,7 @@
 
     function statusClass(status) {
       if (status === 'approved') return 'approved';
+      if (status === 'hired') return 'hired';
       if (status === 'rejected') return 'rejected';
       return 'pending';
     }
@@ -1322,10 +1332,10 @@
         const rejectDisabled = status !== 'pending';
         const approveLabel = status === 'approved'
           ? 'Approved'
-          : (status === 'rejected' ? 'Approve Disabled' : 'Approve + Email');
+          : (status === 'rejected' || status === 'hired' ? 'Approve Disabled' : 'Approve + Email');
         const rejectLabel = status === 'rejected'
           ? 'Rejected'
-          : (status === 'approved' ? 'Reject Disabled' : 'Reject + Email');
+          : (status === 'approved' || status === 'hired' ? 'Reject Disabled' : 'Reject + Email');
 
         const reverseAction = status === 'rejected'
           ? `<button type="button" class="overview-action-btn reverse" data-action="reverse" data-id="${escapeHtml(item.id)}" data-status="${escapeHtml(status)}">Reverse</button>`
@@ -1339,16 +1349,19 @@
         if (status === 'approved') {
           if (effectiveStage === 'first') {
             stageButtons = `
+                <button type="button" class="overview-action-btn approve" data-action="hire" data-id="${escapeHtml(item.id)}">Hired</button>
               <button type="button" class="overview-action-btn second" data-action="second-interview" data-id="${escapeHtml(item.id)}">Send 2nd Interview</button>
               <button type="button" class="overview-action-btn stage-reject" data-action="stage-reject" data-id="${escapeHtml(item.id)}" data-stage="first">Reject After 1st</button>
             `;
           } else if (effectiveStage === 'second') {
             stageButtons = `
+                <button type="button" class="overview-action-btn approve" data-action="hire" data-id="${escapeHtml(item.id)}">Hired</button>
               <button type="button" class="overview-action-btn final" data-action="final-interview" data-id="${escapeHtml(item.id)}">Send Last Interview</button>
               <button type="button" class="overview-action-btn stage-reject" data-action="stage-reject" data-id="${escapeHtml(item.id)}" data-stage="second">Reject After 2nd</button>
             `;
           } else if (effectiveStage === 'final') {
             stageButtons = `
+              <button type="button" class="overview-action-btn approve" data-action="hire" data-id="${escapeHtml(item.id)}">Hired</button>
               <button type="button" class="overview-action-btn stage-reject" data-action="stage-reject" data-id="${escapeHtml(item.id)}" data-stage="final">Reject After Final</button>
             `;
           }
@@ -1547,15 +1560,16 @@
         case 'first':    return status === 'approved' && (stage === 'first' || stage === 'none');
         case 'second':   return status === 'approved' && stage === 'second';
         case 'final':    return status === 'approved' && stage === 'final';
+        case 'hired':    return status === 'hired';
         case 'rejected': return status === 'rejected';
         case 'all':
         default:         return true;
       }
     }
     function updateTabCounts() {
-      const buckets = { new: 0, first: 0, second: 0, final: 0, rejected: 0, all: applicantsCache.length };
+      const buckets = { new: 0, first: 0, second: 0, final: 0, hired: 0, rejected: 0, all: applicantsCache.length };
       applicantsCache.forEach((item) => {
-        ['new', 'first', 'second', 'final', 'rejected'].forEach((t) => {
+        ['new', 'first', 'second', 'final', 'hired', 'rejected'].forEach((t) => {
           if (matchesTab(item, t)) buckets[t]++;
         });
       });
@@ -1585,11 +1599,16 @@
         credentials: 'same-origin',
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
       })
-        .then((response) => {
-          if (!response.ok && response.status >= 400) {
-            throw new Error(`Request failed (${response.status})`);
+        .then(async (response) => {
+          const contentType = response.headers.get('content-type') || '';
+          const isJson = contentType.includes('application/json');
+          const payload = isJson ? await response.json() : null;
+
+          if (!response.ok || (payload && payload.success === false)) {
+            throw new Error((payload && payload.message) || `Request failed (${response.status})`);
           }
-          showApplicantsToast('Action completed.', 'success');
+
+          showApplicantsToast((payload && payload.message) || 'Action completed.', 'success');
           return loadApplicants();
         })
         .catch((err) => {
@@ -1799,6 +1818,14 @@
             custom_message: emailEditorBody(),
           }),
         });
+        return;
+      }
+
+      if (action === 'hire') {
+        const row = button.closest('tr');
+        const applicantName = row ? (row.cells[0] && row.cells[0].textContent.trim()) : '';
+        if (!window.confirm(`Mark ${applicantName || 'this applicant'} as hired?`)) return;
+        submitPostAction(`/admin/employment/applications/${applicationId}/hire`);
         return;
       }
 

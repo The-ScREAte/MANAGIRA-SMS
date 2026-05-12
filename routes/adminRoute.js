@@ -181,6 +181,7 @@ module.exports = (db) => {
     router.post('/employment/applications/:id/delete', isAuthenticated, ensureAdmin, adminController.deleteEmploymentApplication);
     router.post('/employment/applications/:id/second-interview', isAuthenticated, ensureAdmin, adminController.sendSecondInterviewInvite);
     router.post('/employment/applications/:id/final-interview', isAuthenticated, ensureAdmin, adminController.sendFinalInterviewInvite);
+    router.post('/employment/applications/:id/hire', isAuthenticated, ensureAdmin, adminController.hireApplicant);
     router.post('/employment/applications/:id/stage-reject', isAuthenticated, ensureAdmin, adminController.rejectAtInterviewStage);
     
     router.get('/donations', isAuthenticated, ensureAdmin, adminController.getDonationsAdmin);

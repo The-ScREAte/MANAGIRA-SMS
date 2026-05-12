@@ -3903,6 +3903,67 @@ const adminController = {
     return res.redirect("/admin/employment");
   },
 
+  hireApplicant: async (req, res) => {
+    await ensureEmploymentSchema(db);
+    const applicationId = Number.parseInt(req.params.id, 10);
+    const isAjaxRequest = req.get("X-Requested-With") === "XMLHttpRequest";
+    if (!Number.isInteger(applicationId)) {
+      if (isAjaxRequest) {
+        return res.status(400).json({ success: false, message: "Invalid application selected." });
+      }
+      req.flash("error", "Invalid application selected.");
+      return res.redirect("/admin/employment");
+    }
+
+    try {
+      const r = await db.query(
+        `SELECT ea.id, ea.first_name, ea.last_name, ea.email, ea.status, ea.interview_stage, e.title AS job_title
+         FROM employment_applications ea JOIN employment e ON e.id = ea.employment_id WHERE ea.id = $1`,
+        [applicationId]
+      );
+      if (!r.rows.length) {
+        if (isAjaxRequest) {
+          return res.status(404).json({ success: false, message: "Application not found." });
+        }
+        req.flash("error", "Application not found.");
+        return res.redirect("/admin/employment");
+      }
+      const app = r.rows[0];
+      const allowedStages = new Set(["none", "first", "second", "final"]);
+      const normalizedStage = String(app.interview_stage || "none").toLowerCase();
+      if (app.status !== "approved" || !allowedStages.has(normalizedStage)) {
+        const message = "Only approved applicants at the 1st, 2nd, or final interview stage can be marked as hired.";
+        if (isAjaxRequest) {
+          return res.status(400).json({ success: false, message });
+        }
+        req.flash("error", message);
+        return res.redirect("/admin/employment");
+      }
+
+      await db.query(
+        `UPDATE employment_applications
+         SET status = 'hired',
+             interview_stage = 'completed',
+             reviewed_at = CURRENT_TIMESTAMP,
+             stage_updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [applicationId]
+      );
+
+      const message = `${app.first_name} ${app.last_name} has been marked as hired.`;
+      if (isAjaxRequest) {
+        return res.json({ success: true, message });
+      }
+      req.flash("success", message);
+    } catch (e) {
+      if (isAjaxRequest) {
+        return res.status(500).json({ success: false, message: "Failed to mark applicant as hired." });
+      }
+      req.flash("error", "Failed to mark applicant as hired.");
+    }
+    return res.redirect("/admin/employment");
+  },
+
   getDonationsAdmin: async (req, res) => {
     const donations = await db.query(
       `SELECT * FROM donations ORDER BY created_at DESC`
