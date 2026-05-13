@@ -1069,7 +1069,23 @@
 
       body { color: var(--ink-900); }
 
-      .student-management-system { padding-top: 8px; }
+      .student-management-system { padding-top: 0; padding-bottom: 24px; }
+      .page-header-wrapper { margin-top: 0 !important; }
+      /* Equalize all form inputs */
+      .form-input,
+      select.form-input,
+      input.form-input {
+        height: 40px;
+        padding: 9px 12px;
+        font-size: 0.9rem;
+        line-height: 1.2;
+        box-sizing: border-box;
+      }
+      textarea.form-input { height: auto; min-height: 80px; }
+      input[type="file"].form-input { height: auto; padding: 9px 12px; }
+      .form-field-group { margin-bottom: 10px; }
+      .form-field-row { gap: 14px; margin-bottom: 10px; align-items: end; }
+      .form-label { margin-bottom: 4px; }
 
       /* ── Page header — Command bar ─────────────────────────────── */
       .page-header-wrapper {
