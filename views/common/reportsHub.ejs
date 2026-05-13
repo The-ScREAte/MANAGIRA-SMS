@@ -32,8 +32,10 @@
     --bg: #f9fafb;
     --primary: <%= currentTheme.primary %>;
     --primary-hover: <%= currentTheme.hover %>;
+        --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
     --org-primary-color: <%= currentTheme.primary %>;
     --org-primary-hover: <%= currentTheme.hover %>;
+        --org-primary-hover-fill: color-mix(in srgb, var(--org-primary-color) 88%, white);
   }
 
   body {
@@ -132,7 +134,7 @@
   }
 
   .nav-link.active:hover {
-    background: var(--primary-hover);
+    background: var(--primary-hover-fill, var(--primary-hover));
   }
 
   .nav-link svg {
@@ -251,7 +253,7 @@
   }
 
   .action-btn:hover {
-    background: var(--primary-hover);
+    background: var(--primary-hover-fill, var(--primary-hover));
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     color: #fff;

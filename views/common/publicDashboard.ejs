@@ -124,6 +124,12 @@
   --font-family:"<%= selectedPublicFont %>",<%= publicFallbackFamily %>;
   --org-primary-color: <%= pdOrgTheme.primary %>;
   --org-primary-hover: <%= pdOrgTheme.hover %>;
+  --org-primary-soft: color-mix(in srgb, var(--org-primary-color) 10%, white);
+  --org-primary-soft-strong: color-mix(in srgb, var(--org-primary-color) 16%, white);
+  --org-primary-soft-border: color-mix(in srgb, var(--org-primary-color) 28%, white);
+  --org-primary-soft-shadow: color-mix(in srgb, var(--org-primary-color) 18%, transparent);
+  --org-primary-soft-shadow-strong: color-mix(in srgb, var(--org-primary-color) 24%, transparent);
+  --org-primary-hover-fill: color-mix(in srgb, var(--org-primary-color) 88%, white);
 
   --title-xl:36px;
   --title-lg:26px;
@@ -662,7 +668,7 @@ body[data-pd-theme="classic"] .gallery-card-image-section img {
 
 /* Caption = ONE LINE ONLY with ellipsis */
 body[data-pd-theme="classic"] .gallery-card .caption {
-  background: rgba(1, 83, 91, 0.88) !important;
+  background: var(--org-primary-hover-fill) !important;
   color: #fff !important;
   padding: 10px 12px !important;
   font-size: 0.92rem !important;

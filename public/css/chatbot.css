@@ -15,7 +15,7 @@
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  box-shadow: 0 4px 20px rgba(1, 83, 91, 0.4) !important;
+  box-shadow: 0 4px 20px var(--org-primary-soft-shadow, rgba(1, 83, 91, 0.24)) !important;
   transition: all 0.3s ease !important;
   z-index: 1000 !important;
   padding: 0 !important;
@@ -31,7 +31,7 @@
 
 .chatbot-toggle:hover {
   transform: scale(1.1);
-  box-shadow: 0 6px 30px rgba(1, 83, 91, 0.6);
+  box-shadow: 0 6px 24px var(--org-primary-soft-shadow-strong, rgba(1, 83, 91, 0.3));
 }
 
 /* Hide chatbot on public dashboard - all screens */

@@ -188,6 +188,7 @@
         --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
         --primary: var(--org-primary-color, #0f5a66);
         --primary-hover: var(--org-primary-hover, #0d4f59);
+        --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
         --bg: #f6f8fb;
         --card: #ffffff;
         --border: #e2e8f0;
@@ -231,7 +232,7 @@
     }
 
     .archived-graduation-year-group-container .link-to-next-back a:hover {
-        background-color: var(--primary-hover);
+        background-color: var(--primary-hover-fill, var(--primary-hover));
         transform: translateY(-1px);
         box-shadow: 0 6px 16px rgba(15, 90, 102, 0.3);
     }
@@ -450,7 +451,7 @@
     }
 
     .archived-graduation-year-group-container button[type="submit"]:hover {
-        background: var(--primary-hover);
+        background: var(--primary-hover-fill, var(--primary-hover));
         transform: translateY(-1px);
         box-shadow: 0 6px 16px rgba(15, 90, 102, 0.3);
     }

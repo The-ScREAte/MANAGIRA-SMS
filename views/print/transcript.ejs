@@ -9,6 +9,7 @@
         --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
         --primary: var(--org-primary-color, #01535b);
         --primary-hover: var(--org-primary-hover, #013a40);
+        --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
       }
 
       .ctrl-btn {
@@ -31,7 +32,7 @@
       }
 
       .ctrl-btn-print:hover {
-        background: var(--primary-hover);
+        background: var(--primary-hover-fill, var(--primary-hover));
         transform: translateY(-1px);
       }
 
@@ -465,7 +466,7 @@
       }
 
       .sig-upload-btn:hover {
-        background: var(--primary-hover);
+        background: var(--primary-hover-fill, var(--primary-hover));
       }
 
       /* Draw panel */
@@ -516,7 +517,7 @@
         transition: all 0.2s;
       }
 
-      .sig-save-btn:hover { background: var(--primary-hover); }
+      .sig-save-btn:hover { background: var(--primary-hover-fill, var(--primary-hover)); }
 
       .sig-status {
         font-size: 13px;

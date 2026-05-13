@@ -83,8 +83,34 @@
   <div class="welcome-page-wrapper">
     <!-- Show the welcome message if no school year or term is set -->
     <div id="welcomeMessage" class="org-welcome-card">
-      <h1>Welcome to Managira! 🎉</h1>
-      <h3>Your trusted partner for managing it all effortlessly. 😊</h3>
+      <div class="welcome-orbit welcome-orbit-left" aria-hidden="true"></div>
+      <div class="welcome-orbit welcome-orbit-right" aria-hidden="true"></div>
+      <h1 class="welcome-title">
+        <span>Welcome to Managira!</span>
+        <span class="welcome-icon-badge welcome-icon-badge--primary" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3l7 4v5c0 4.2-2.6 8.1-7 9-4.4-.9-7-4.8-7-9V7l7-4z"></path>
+            <path d="M9.5 12l1.7 1.7L14.8 10"></path>
+          </svg>
+        </span>
+      </h1>
+      <h3 class="welcome-subtitle">
+        <span class="welcome-icon-badge welcome-icon-badge--secondary" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="5" width="16" height="14" rx="3"></rect>
+            <path d="M8 10h8"></path>
+            <path d="M8 14h5"></path>
+          </svg>
+        </span>
+        <span>Your trusted partner for managing it all effortlessly.</span>
+        <span class="welcome-icon-badge welcome-icon-badge--accent" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h14"></path>
+            <path d="M12 5v14"></path>
+            <circle cx="12" cy="12" r="8"></circle>
+          </svg>
+        </span>
+      </h3>
       <p>
         Head over to <a class="text-link" href="/account/settings">Settings</a> to update your
         credentials, upload your organization's logo, and personalize everything to suit your
@@ -474,7 +500,7 @@
 
     .org-nav-button:hover {
       background-color: rgba(1, 83, 91, 0.08);
-      border-color: var(--org-primary-hover, #014a51);
+      border-color: var(--org-primary-hover-fill, var(--org-primary-hover, #014a51));
       color: var(--org-primary-hover, #014a51);
     }
 

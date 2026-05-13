@@ -29,6 +29,7 @@
   --bg: #f9fafb;
   --primary: <%= currentTheme.primary %>;
   --primary-hover: <%= currentTheme.hover %>;
+        --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
   --text: #111827;
   --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
 }
@@ -949,7 +950,7 @@ main {
   gap: 6px;
 }
 .rd-reply-form button:hover {
-  background: var(--primary-hover);
+  background: var(--primary-hover-fill, var(--primary-hover));
   transform: translateY(-1px);
 }
 .rd-reply-form button:active { transform: translateY(0); }

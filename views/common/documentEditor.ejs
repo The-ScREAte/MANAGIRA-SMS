@@ -33,6 +33,7 @@
       --bg: #f9fafb;
       --primary: <%= currentTheme.primary %>;
       --primary-hover: <%= currentTheme.hover %>;
+        --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
       --text: #111827;
     }
 
@@ -130,7 +131,7 @@
     }
 
     .btn-primary { background: var(--primary); color: #fff; }
-    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-primary:hover { background: var(--primary-hover-fill, var(--primary-hover)); }
     .btn-outline { background: #fff; color: var(--text); border: 1px solid var(--border); }
     .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
 

@@ -9,6 +9,7 @@
         --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
         --primary: var(--org-primary-color, #0f5a66);
         --primary-hover: var(--org-primary-hover, #0d4f59);
+        --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
       }
       *, *::before, *::after { box-sizing: border-box; }
       body { font-family: var(--font-family); background: #f4f6f9; margin: 0; color: #1a2e35; }
@@ -18,7 +19,7 @@
       .top-bar-actions { display: flex; gap: 10px; flex-wrap: wrap; }
       .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 8px; font-size: 0.88rem; font-weight: 600; cursor: pointer; text-decoration: none; border: none; transition: background 0.17s, transform 0.14s; white-space: nowrap; }
       .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 3px 10px rgba(15,90,102,0.22); }
-      .btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
+      .btn-primary:hover { background: var(--primary-hover-fill, var(--primary-hover)); transform: translateY(-1px); }
       .btn-outline { background: #fff; color: var(--primary); border: 2px solid var(--primary); }
       .btn-outline:hover { background: #eef4f7; transform: translateY(-1px); }
       .card { background: #fff; border-radius: 14px; border: 1px solid #e2e8ef; box-shadow: 0 6px 22px rgba(15,45,50,0.09); overflow: hidden; }
@@ -39,7 +40,7 @@
       .edit-pill-yes { background: #e6f9f1; color: #1a7a4a; }
       .edit-pill-no  { background: #fdecea; color: #c0392b; }
       .collapse-btn { display: inline-flex; align-items: center; gap: 7px; padding: 6px 13px; background: var(--primary); color: #fff; border: none; border-radius: 7px; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: background 0.17s; }
-      .collapse-btn:hover { background: var(--primary-hover); }
+      .collapse-btn:hover { background: var(--primary-hover-fill, var(--primary-hover)); }
       .collapse-arrow { font-size: 11px; transition: transform 0.2s; }
       .collapse-body { margin-top: 8px; background: #f4f8fa; border-radius: 8px; border: 1px solid #dde4ec; padding: 10px 14px; }
       .collapse-body ul { margin: 2px 0 0 14px; padding: 0; font-size: 0.83rem; color: #3a5060; }

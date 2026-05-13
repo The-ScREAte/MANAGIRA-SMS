@@ -14,6 +14,7 @@
       --text: #0f172a;
       --primary: var(--org-primary-color, #0f5a66);
       --primary-hover: var(--org-primary-hover, #0d4f59);
+        --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
     }
 
     * { box-sizing: border-box; }
@@ -49,7 +50,7 @@
     .form-row-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; align-items: start; }
 
     .btn { background: var(--primary); color: #fff; border: none; border-radius: 10px; padding: 10px 16px; font-weight: 700; cursor: pointer; box-shadow: 0 6px 14px rgba(15,90,102,0.16); transition: all 0.2s ease; }
-    .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
+    .btn:hover { background: var(--primary-hover-fill, var(--primary-hover)); transform: translateY(-1px); }
     .btn-danger { background: #e74c3c; box-shadow: 0 6px 14px rgba(231,76,60,0.2); }
     .btn-danger:hover { background: #c0392b; }
 

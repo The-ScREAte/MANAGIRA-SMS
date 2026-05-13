@@ -54,6 +54,7 @@
     --surface: #ffffff;
     --primary: <%= currentTheme.primary %>;
     --primary-hover: <%= currentTheme.hover %>;
+        --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
     --row-alt: #fbfcfc;
   }
 
@@ -101,7 +102,7 @@
     cursor: pointer; white-space: nowrap; text-decoration: none;
   }
   .btn-sm { background: var(--primary); color: #fff !important; }
-  .btn-sm:hover { background: var(--primary-hover); }
+  .btn-sm:hover { background: var(--primary-hover-fill, var(--primary-hover)); }
   .btn-sm-secondary { background: #fff; color: #111827 !important; border-color: var(--border); }
 
   .filters-toggle {

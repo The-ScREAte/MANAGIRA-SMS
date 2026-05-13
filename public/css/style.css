@@ -127,9 +127,10 @@ nav ul li a {
 }
 
 #loginbutton:hover {
-  background-color: #004b5e;
-  color: white;
-  box-shadow: 0 2px 8px rgba(47, 64, 60, 0.2);
+  background-color: var(--org-primary-soft-strong, #dbeff1);
+  color: var(--org-primary-color);
+  border-color: var(--org-primary-soft-border, var(--org-primary-color));
+  box-shadow: 0 2px 8px var(--org-primary-soft-shadow, rgba(47, 64, 60, 0.18));
 }
 
 /* h2 {
@@ -293,8 +294,8 @@ form textarea {
 }
 
 .nav-item a:hover {
-  background-color: #4a9ba3;
-  color: #ffffff;
+  background-color: var(--org-primary-soft-strong, #dbeff1);
+  color: var(--org-primary-color);
 }
 
 .nav-menu.show {
@@ -334,8 +335,8 @@ form textarea {
 }
 
 .submenu-toggle:hover {
-  background-color: var(--org-primary-color);
-  color: #ffffff;
+  background-color: var(--org-primary-soft-strong, #dbeff1);
+  color: var(--org-primary-color);
 }
 
 /* Specific styling for 'Management Tools', 'Settings', and 'Logout' links */
@@ -357,8 +358,8 @@ form textarea {
 }
 
 .nav-item a.logout:hover {
-  background-color: var(--org-primary-color);
-  color: #ffffff;
+  background-color: var(--org-primary-soft-strong, #dbeff1);
+  color: var(--org-primary-color);
 }
 
 /* Arrow styling and animation */
@@ -402,8 +403,8 @@ form textarea {
 }
 
 .management-links a:hover {
-  background-color: var(--org-primary-color);
-  color: #ffffff; /* White text on org color background when hovering */
+  background-color: var(--org-primary-soft, #e6f4f5);
+  color: var(--org-primary-color);
 }
 
 /* Index page specific styles */
@@ -441,7 +442,7 @@ form textarea {
 }
 
 .buttons .button-link button:hover {
-  background-color: #59a5ab;
+  background-color: var(--org-primary-hover-fill, #59a5ab);
 }
 
 .image-container {

@@ -4,6 +4,7 @@
         --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
         --primary: var(--org-primary-color, #007bff);
         --primary-hover: var(--org-primary-hover, #0056b3);
+        --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
         --org-primary-light: color-mix(in srgb, var(--org-primary-color, #007bff) 15%, white);
       }
 
@@ -303,7 +304,7 @@
 }
 
 .remark-dropdown::-webkit-scrollbar-thumb:hover {
-    background: var(--primary-hover);
+    background: var(--primary-hover-fill, var(--primary-hover));
 }
 
 /* Ensure dropdown options are well spaced */
@@ -940,7 +941,7 @@
           }
           
           .actions-no-print a:hover {
-            background-color: var(--primary-hover);
+            background-color: var(--primary-hover-fill, var(--primary-hover));
             text-decoration: none;
             cursor: pointer;
             transform: translateY(-1px);

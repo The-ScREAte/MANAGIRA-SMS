@@ -31,8 +31,10 @@
     --bg: #f8fafc;
     --primary: <%= currentTheme.primary %>;
     --primary-hover: <%= currentTheme.hover %>;
+        --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
     --org-primary-color: <%= currentTheme.primary %>;
     --org-primary-hover: <%= currentTheme.hover %>;
+        --org-primary-hover-fill: color-mix(in srgb, var(--org-primary-color) 88%, white);
   }
 
   body {
@@ -241,7 +243,7 @@
   }
 
   .action-btn:hover {
-    background: var(--primary-hover);
+    background: var(--primary-hover-fill, var(--primary-hover));
     color: #fff;
   }
 

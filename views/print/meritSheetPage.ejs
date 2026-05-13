@@ -9,6 +9,7 @@
         --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
         --primary: var(--org-primary-color, #0f5a66);
         --primary-hover: var(--org-primary-hover, #0d4f59);
+        --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
         --muted: #475569;
         --bg: #f6f8fb;
         --card: #ffffff;
@@ -152,7 +153,7 @@
         }
 
         .btn:hover {
-          background-color: var(--primary-hover);
+          background-color: var(--primary-hover-fill, var(--primary-hover));
         }
 
       .no-data {

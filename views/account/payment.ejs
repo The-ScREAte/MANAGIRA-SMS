@@ -2,6 +2,7 @@
       :root {
         --primary: #01535b;
         --primary-hover: #014147;
+        --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
         --text-primary: #0f172a;
         --text-secondary: #475569;
         --border: #dbe3ea;
@@ -370,7 +371,7 @@
       }
 
       .btn-primary:hover {
-        background: linear-gradient(135deg, var(--primary-hover), #0a5a63);
+        background: var(--primary-hover-fill, var(--primary-hover));
         transform: translateY(-1px);
       }
 

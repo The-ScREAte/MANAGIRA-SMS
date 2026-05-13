@@ -9,6 +9,7 @@
     :root {
       --primary: #01535b;
       --primary-hover: #014a51;
+        --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
       --text-primary: #111827;
       --text-secondary: #6b7280;
       --border: #e5e7eb;
@@ -90,7 +91,7 @@
     }
 
     .btn-primary { background: var(--primary); color: white; }
-    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-primary:hover { background: var(--primary-hover-fill, var(--primary-hover)); }
     .btn-secondary { background: #f3f4f6; color: var(--text-primary); }
     .btn-secondary:hover { background: #e5e7eb; }
 

@@ -9,6 +9,7 @@
         --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
         --primary: var(--org-primary-color, #01535b);
         --primary-hover: var(--org-primary-hover, #014a51);
+        --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
         --border: #e5e7eb;
         --bg: #f8fafc;
         --text: #0f172a;
@@ -139,7 +140,7 @@ body {
 }
 
 .center-link button:hover {
-  background-color: var(--primary-hover);
+  background-color: var(--primary-hover-fill, var(--primary-hover));
 }
 
 /* Table Container */

@@ -10,6 +10,7 @@
       --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
       --primary: #01535b;
       --primary-hover: #014a51;
+        --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
       --text-primary: #111827;
       --text-secondary: #6b7280;
       --border: #e5e7eb;
@@ -83,7 +84,7 @@
     }
 
     .btn-primary:hover {
-      background: var(--primary-hover);
+      background: var(--primary-hover-fill, var(--primary-hover));
     }
 
     .btn-secondary {
@@ -482,7 +483,7 @@
       font-size: 0.9rem;
       cursor: pointer;
     }
-    .iw-form__submit:hover { background: var(--primary-hover); }
+    .iw-form__submit:hover { background: var(--primary-hover-fill, var(--primary-hover)); }
 
     .iw-contact-list {
       list-style: none;
@@ -869,7 +870,7 @@
       color: #fff;
       border-color: var(--primary);
     }
-    .iw-action-btn--primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+    .iw-action-btn--primary:hover { background: var(--primary-hover-fill, var(--primary-hover)); border-color: var(--primary-hover-fill, var(--primary-hover)); }
     .iw-action-btn--danger {
       color: var(--danger);
       border-color: #fecaca;
@@ -1149,7 +1150,7 @@
       font-family: inherit;
       transition: background 150ms ease, transform 100ms ease;
     }
-    .iw-ann-card__seen:hover { background: var(--primary-hover); }
+    .iw-ann-card__seen:hover { background: var(--primary-hover-fill, var(--primary-hover)); }
     .iw-ann-card__seen:active { transform: translateY(1px); }
     .iw-ann-card__seen[disabled] { opacity: 0.6; cursor: progress; }
 
@@ -1236,7 +1237,7 @@
       background: var(--primary);
       color: #fff;
     }
-    .ann-seen-popup__btn--primary:hover { background: var(--primary-hover); }
+    .ann-seen-popup__btn--primary:hover { background: var(--primary-hover-fill, var(--primary-hover)); }
     @media (max-width: 480px) {
       .ann-seen-popup__panel { padding: 18px; }
       .ann-seen-popup__actions { justify-content: stretch; }

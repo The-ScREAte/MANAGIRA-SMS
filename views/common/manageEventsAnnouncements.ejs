@@ -37,6 +37,7 @@
       --font:          "<%= fontFamily %>", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       --primary:       <%= ct.primary %>;
       --primary-hover: <%= ct.hover %>;
+        --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
       --primary-light: <%= ct.light %>;
       --border:        #e5e7eb;
       --bg:            #f8fafc;
@@ -274,7 +275,7 @@
     }
     .btn:active { transform: translateY(1px); }
     .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.15); }
-    .btn-primary:hover { background: var(--primary-hover); box-shadow: 0 3px 8px rgba(0,0,0,.15); }
+    .btn-primary:hover { background: var(--primary-hover-fill, var(--primary-hover)); box-shadow: 0 3px 8px rgba(0,0,0,.15); }
     .btn-danger { background: var(--danger); color: #fff; }
     .btn-danger:hover { background: var(--danger-h); }
     .btn-sm { padding: 6px 14px; font-size: .83rem; }

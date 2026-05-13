@@ -698,6 +698,25 @@ function pickDefaultCard(paymentMethods = [], storedCardMethods = []) {
   return paymentMethods[0] || null;
 }
 
+async function listStripeInvoices(stripe, stripeCustomerId, limit = 12) {
+  const invoiceResult = await stripe.invoices.list({
+    customer: stripeCustomerId,
+    limit,
+  });
+
+  return (invoiceResult.data || []).map((invoice) => ({
+    id: invoice.id,
+    number: invoice.number,
+    status: invoice.status,
+    currency: (invoice.currency || "usd").toUpperCase(),
+    amountPaid: Number(invoice.amount_paid || 0) / 100,
+    amountDue: Number(invoice.amount_due || 0) / 100,
+    hostedInvoiceUrl: invoice.hosted_invoice_url || null,
+    invoicePdf: invoice.invoice_pdf || null,
+    createdAt: invoice.created ? new Date(invoice.created * 1000) : null,
+  }));
+}
+
 async function buildChargeResponse(db, orgId, chargeResult) {
   if (chargeResult?.status && chargeResult?.data?.authorization) {
     const authorization = chargeResult.data.authorization;
@@ -6298,7 +6317,7 @@ const accountController = {
 
       const orgResult = orgId
         ? await db.query(
-            `SELECT organization_name, logo, logo_path, image_url, font_style, nickname, role, email, paystack_customer_code, first_name, last_name, organization_phone, is_hub_member, hub_id
+            `SELECT organization_name, logo, logo_path, image_url, font_style, nickname, role, email, paystack_customer_code, stripe_customer_id, billing_provider, first_name, last_name, organization_phone, is_hub_member, hub_id
              FROM organizations 
              WHERE organization_id = $1`,
             [orgId]
@@ -6390,10 +6409,13 @@ const accountController = {
       const orgRow = orgResult.rows[0] || {};
       const isHubMember = Boolean(orgRow.is_hub_member && orgRow.hub_id);
       let paystackCustomerCode = orgRow.paystack_customer_code || '';
+      const stripeCustomerId = orgRow.stripe_customer_id || null;
+      const paymentProvider = orgRow.billing_provider || 'paystack';
       let paymentMethods = [];
       let defaultPaymentMethod = null;
       let paystackSubaccounts = [];
       let storedCardMethods = [];
+      let stripeInvoices = [];
 
       if (orgId) {
         try {
@@ -6408,12 +6430,43 @@ const accountController = {
                   }
 
         try {
-          storedCardMethods = await getStoredCardPaymentMethods(db, orgId);
+          storedCardMethods = await getStoredCardPaymentMethods(db, orgId, paymentProvider);
         } catch (err) {
                   }
       }
 
-      if (orgId && (await getActivePaystackSecretKey()) && orgRow.email && !isHubMember) {
+      if (orgId && !isHubMember && paymentProvider === 'stripe' && stripeCustomerId) {
+        try {
+          const stripe = await getStripeClient(db);
+          const paymentMethodResult = await stripe.paymentMethods.list({
+            customer: stripeCustomerId,
+            type: 'card',
+          });
+
+          paymentMethods = (paymentMethodResult.data || []).map((method) => ({
+            id: method.id,
+            brand: method.card?.brand || 'card',
+            last4: method.card?.last4,
+            expMonth: method.card?.exp_month,
+            expYear: method.card?.exp_year,
+            isPrimary: storedCardMethods.some(
+              (storedCard) => storedCard.id === method.id && storedCard.isPrimary
+            ),
+          }));
+
+          stripeInvoices = await listStripeInvoices(stripe, stripeCustomerId, 12);
+        } catch (_) {
+        }
+      }
+
+      if (
+        paymentProvider !== 'stripe' &&
+        !paymentMethods.length &&
+        orgId &&
+        (await getActivePaystackSecretKey()) &&
+        orgRow.email &&
+        !isHubMember
+      ) {
         if (!paystackCustomerCode) {
           try {
             const customerData = {
@@ -6594,7 +6647,9 @@ const accountController = {
         plans: plansResult.rows,
         billingPeriods,
         paymentMethods,
+        paymentProvider,
         defaultPaymentMethod,
+        stripeInvoices,
         paystackSubaccounts,
         paystackCustomerCode,
         isHubMember,

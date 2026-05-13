@@ -34,10 +34,14 @@
         --border: #e5e7eb;
         --muted: #6b7280;
         --bg: #f9fafb;
+        --settings-header-offset: calc(var(--header-height, 64px) + 24px);
+        --settings-header-offset-mobile: calc(var(--header-height, 64px) + 12px);
         --primary: <%= currentTheme.primary %>;
         --primary-hover: <%= currentTheme.hover %>;
+        --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
         --org-primary-color: <%= currentTheme.primary %>;
         --org-primary-hover: <%= currentTheme.hover %>;
+        --org-primary-hover-fill: color-mix(in srgb, var(--org-primary-color) 88%, white);
         --font-family: "<%= settingsFontStyle %>", <%= settingsFallback %>;
       }
 
@@ -53,6 +57,7 @@
         max-width: 1200px;
         margin: 0 auto 40px;
         padding: 0 20px;
+        scroll-margin-top: var(--settings-header-offset);
         align-items: start;
       }
 
@@ -64,7 +69,7 @@
         height: fit-content;
         align-self: start;
         position: sticky;
-        top: 80px;
+        top: var(--settings-header-offset);
         box-shadow: 0 1px 3px rgba(0,0,0,0.05);
       }
 
@@ -131,7 +136,8 @@
       }
 
       .settings-main{
-        padding: 40px 0 0 0;
+        padding: 24px 0 0 0;
+        scroll-margin-top: var(--settings-header-offset);
       }
 
       .settings-main h1 {
@@ -147,6 +153,7 @@
 
       .settings-section {
         display: none;
+        scroll-margin-top: var(--settings-header-offset);
       }
 
       #customize {
@@ -200,6 +207,66 @@
 
       .card small {
         color: var(--muted);
+      }
+
+      .billing-invoice-list {
+        list-style: none;
+        margin: 12px 0 0;
+        padding: 0;
+        display: grid;
+        gap: 10px;
+      }
+
+      .billing-invoice-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: #fff;
+      }
+
+      .billing-invoice-meta {
+        display: grid;
+        gap: 4px;
+      }
+
+      .billing-invoice-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #0f172a;
+      }
+
+      .billing-invoice-copy {
+        font-size: 0.84rem;
+        color: #64748b;
+        line-height: 1.5;
+      }
+
+      .billing-invoice-actions {
+        display: inline-flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+
+      .billing-pill {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 3px 9px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        background: color-mix(in srgb, var(--primary) 10%, white);
+        color: var(--primary);
+      }
+
+      .billing-empty {
+        margin-top: 10px;
+        font-size: 0.88rem;
+        color: #64748b;
       }
 
       .card .content-row {
@@ -1163,6 +1230,7 @@
         .settings-layout {
           display: block;
           margin: 8px auto 0;
+          padding-top: 8px;
         }
 
         .settings-main {
@@ -1179,10 +1247,10 @@
 
         .settings-nav {
           position: fixed;
-          top: 62px;
+          top: var(--settings-header-offset-mobile);
           left: 0;
           bottom: 0;
-          height: calc(100dvh - 72px);
+          height: calc(100dvh - var(--settings-header-offset-mobile));
           max-height: none;
           width: 300px;
           max-width: 85vw;
@@ -1209,7 +1277,7 @@
         .settings-nav-toggle {
           display: flex;
           position: sticky;
-          top: 8px;
+          top: var(--settings-header-offset-mobile);
           z-index: 900;
           margin-top: 12px;
         }
@@ -1891,6 +1959,46 @@
               <button class="btn-danger btn-link" id="open-cancel-modal" type="button">Cancel Subscription</button>
             </div>
           </div>
+
+          <% if (paymentProvider === 'stripe') { %>
+          <div class="card">
+            <h4>Invoices</h4>
+            <small>Latest Stripe invoices and payment receipts for this subscription.</small>
+            <% if (stripeInvoices && stripeInvoices.length) { %>
+            <ul class="billing-invoice-list">
+              <% stripeInvoices.forEach((invoice) => { %>
+              <li class="billing-invoice-item">
+                <div class="billing-invoice-meta">
+                  <div class="billing-invoice-title"><%= invoice.number || invoice.id %></div>
+                  <div class="billing-invoice-copy">
+                    <span class="billing-pill"><%= (invoice.status || 'unknown').replace(/_/g, ' ') %></span>
+                    <% if (invoice.createdAt) { %>
+                    <span>Issued <%= new Date(invoice.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %></span>
+                    <% } %>
+                  </div>
+                  <div class="billing-invoice-copy">
+                    Paid: <strong><%= invoice.currency %> <%= Number(invoice.amountPaid || 0).toFixed(2) %></strong>
+                    <% if (Number(invoice.amountDue || 0) > 0) { %>
+                    | Due: <strong><%= invoice.currency %> <%= Number(invoice.amountDue || 0).toFixed(2) %></strong>
+                    <% } %>
+                  </div>
+                </div>
+                <div class="billing-invoice-actions">
+                  <% if (invoice.hostedInvoiceUrl) { %>
+                  <a class="btn-link btn-inline" href="<%= invoice.hostedInvoiceUrl %>" target="_blank" rel="noopener noreferrer">Open</a>
+                  <% } %>
+                  <% if (invoice.invoicePdf) { %>
+                  <a class="btn-link btn-inline" href="<%= invoice.invoicePdf %>" target="_blank" rel="noopener noreferrer">PDF</a>
+                  <% } %>
+                </div>
+              </li>
+              <% }) %>
+            </ul>
+            <% } else { %>
+            <p class="billing-empty">No Stripe invoices found yet. New subscription invoices will appear here automatically.</p>
+            <% } %>
+          </div>
+          <% } %>
           <% } %>
         </section>
 
@@ -2423,13 +2531,34 @@
 
         initSettingsCardCollapsibles();
 
-        function showSection(targetId) {
+        function getSettingsScrollOffset() {
+          const header = document.getElementById("top-header");
+          const headerHeight = header ? header.getBoundingClientRect().height : 64;
+          return headerHeight + 20;
+        }
+
+        function scrollSectionIntoView(targetId) {
+          const targetSection = document.getElementById(targetId);
+          if (!targetSection) return;
+
+          const absoluteTop = window.scrollY + targetSection.getBoundingClientRect().top;
+          const top = Math.max(0, absoluteTop - getSettingsScrollOffset());
+          window.scrollTo({ top, behavior: "smooth" });
+        }
+
+        function showSection(targetId, options = {}) {
+          const shouldScroll = options.scroll !== false;
+
           sections.forEach((sec) => {
             sec.style.display = sec.id === targetId ? "block" : "none";
           });
           navLinks.forEach((btn) => {
             btn.classList.toggle("active", btn.dataset.target === targetId);
           });
+
+          if (shouldScroll) {
+            requestAnimationFrame(() => scrollSectionIntoView(targetId));
+          }
         }
 
         function openNav() {
@@ -3576,7 +3705,7 @@
 
         const finalParams = new URLSearchParams(window.location.search);
         const initialSection = finalParams.get("section") || "customize";
-        showSection(initialSection);
+        showSection(initialSection, { scroll: false });
       });
     </script>
   </body>
