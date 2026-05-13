@@ -23,9 +23,13 @@ module.exports = (db) => {
         }
         
         try {
-            // Verify the organization exists
+            // Verify the organization exists (also fetch nickname + hub for subdomain redirect)
             const orgCheck = await db.query(
-                'SELECT organization_id, organization_name FROM organizations WHERE organization_id = $1 AND deleted = false',
+                `SELECT o.organization_id, o.organization_name, o.nickname, o.is_hub_member, o.hub_id,
+                        mh.hub_nickname
+                   FROM organizations o
+                   LEFT JOIN managira_hubs mh ON o.hub_id = mh.hub_id
+                  WHERE o.organization_id = $1 AND o.deleted = false`,
                 [orgIdNum]
             );
             
@@ -33,6 +37,8 @@ module.exports = (db) => {
                 req.flash('error', 'Organization not found.');
                 return res.redirect('/admin');
             }
+
+            const org = orgCheck.rows[0];
             
             // Store the original admin session data before switching
             req.session.originalAdminUserId = req.session.userId;
@@ -50,7 +56,20 @@ module.exports = (db) => {
                     req.flash('error', 'Failed to switch to organization.');
                     return res.redirect('/admin');
                 }
-                // Redirect to the orgDashboard logic (will redirect to correct schoolYear/term)
+
+                // In production, redirect to the org's subdomain so that
+                // req.schoolDetails is populated by the subdomain middleware.
+                // Without this, routes that rely on req.schoolDetails (like
+                // orgDashboardRestricted) fail on the root managira.com host.
+                // The session cookie is scoped to .managira.com so it carries.
+                if (process.env.NODE_ENV === 'production' && org.nickname) {
+                    const host = org.is_hub_member && org.hub_nickname
+                        ? `${org.nickname}.${org.hub_nickname}.managira.com`
+                        : `${org.nickname}.managira.com`;
+                    return res.redirect(`https://${host}/common/orgDashboard`);
+                }
+
+                // Dev / fallback: relative redirect
                 return res.redirect('/common/orgDashboard');
             });
         } catch (error) {
