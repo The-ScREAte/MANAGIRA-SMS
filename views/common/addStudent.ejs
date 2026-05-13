@@ -1706,26 +1706,52 @@
 
       /* ── Responsive ─────────────────────────────────────────────── */
       @media (max-width: 768px) {
+        .student-management-system { padding: 0 12px 24px; }
         .page-header-wrapper {
           flex-direction: column;
           align-items: stretch;
           padding: 12px;
+          gap: 10px;
+          border-radius: 14px;
+          margin: 8px auto 14px;
         }
         .page-header-title { text-align: left; }
+        .page-header-wrapper h1 { font-size: 1rem; text-align: left; }
+        .page-header-subtitle { font-size: 0.74rem; }
         .page-header-actions {
+          width: 100%;
           justify-content: flex-start;
           flex-wrap: wrap;
+          gap: 6px;
         }
         .page-header-actions .action-divider { display: none; }
+        .bulk-import-btn,
+        .clear-import-btn,
+        .add-form-btn,
+        .save-form-btn {
+          flex: 1 1 calc(50% - 6px);
+          min-width: 0;
+          height: 38px;
+          padding: 0 10px;
+        }
         .student-form,
-        .student-form-card { width: 340px; }
-        .student-form { flex: 0 0 340px; }
-        .workflow-meta { padding: 0 8px; }
+        .student-form-card { width: 100%; max-width: 100%; }
+        .student-form { flex: 0 0 100%; }
+        .workflow-meta { padding: 0 4px; }
       }
       @media (max-width: 480px) {
-        .student-form,
-        .student-form-card { width: 100%; }
-        .student-form { flex: 0 0 100%; }
+        .student-management-system { padding: 0 10px 24px; }
+        .page-header-wrapper { padding: 10px; }
+        .page-header-wrapper h1 { font-size: 0.95rem; }
+        .bulk-import-btn,
+        .clear-import-btn,
+        .add-form-btn,
+        .save-form-btn {
+          flex: 1 1 calc(50% - 6px);
+          font-size: 0.74rem;
+          height: 36px;
+        }
+        .action-btn-label { font-size: 0.74rem; }
         .student-form-card-body { padding: 14px; }
         .form-header { padding: 12px 14px; }
         .form-field-row { grid-template-columns: 1fr; }
