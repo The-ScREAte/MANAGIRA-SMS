@@ -19,7 +19,7 @@
       .student-management-system {
         max-width: 1240px;
         margin: 0 auto;
-        padding: 28px 24px 40px;
+        padding: 12px 24px 40px;
       }
 
       .student-management-system h1 {
@@ -452,7 +452,7 @@
 
       @media (max-width: 768px) {
         .student-management-system {
-          padding: 32px 16px 48px;
+          padding: 12px 16px 40px;
         }
 
         .student-management-system h1 {
@@ -514,7 +514,7 @@
 
       @media (max-width: 480px) {
         .student-management-system {
-          padding: 24px 12px 36px;
+          padding: 8px 12px 32px;
         }
 
         .student-management-system h1 {
@@ -689,8 +689,8 @@
         flex-wrap: nowrap;
         width: 100%;
         max-width: 1080px;
-        margin: 0 auto 18px;
-        padding: 12px 14px;
+        margin: 0 auto 12px;
+        padding: 8px 12px;
         background: rgba(255, 255, 255, 0.92);
         backdrop-filter: saturate(180%) blur(10px);
         -webkit-backdrop-filter: saturate(180%) blur(10px);
@@ -786,22 +786,25 @@
       }
 
       .save-form-btn {
-        background: var(--org-primary-color, #01535b);
-        color: white;
-        box-shadow: 0 4px 12px rgba(1, 83, 91, 0.22);
+        background: #f8fafc !important;
+        color: #334155 !important;
+        border: 1px solid #cbd5e0 !important;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05) !important;
       }
 
       .save-form-btn:hover {
-        background: color-mix(in srgb, var(--org-primary-color, #01535b) 82%, black);
+        background: #f1f5f9 !important;
+        border-color: #94a3b8 !important;
+        color: #334155 !important;
         transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(1, 83, 91, 0.32);
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.1) !important;
       }
 
       .form-field-row {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 7px;
-        margin-bottom: 6px;
+        gap: 12px;
+        margin-bottom: 8px;
       }
 
       .form-field-row .form-field-group {
@@ -1058,12 +1061,12 @@
 
       body { color: var(--ink-900); }
 
-      .student-management-system { padding-top: 18px; }
+      .student-management-system { padding-top: 8px; }
 
       /* ── Page header — Command bar ─────────────────────────────── */
       .page-header-wrapper {
-        padding: 14px 18px;
-        gap: 16px;
+        padding: 8px 12px;
+        gap: 12px;
         background: rgba(255,255,255,0.94);
         border-color: var(--line);
         box-shadow: var(--shadow-sm);
@@ -1321,7 +1324,10 @@
         color: var(--ink-900);
         background-color: #fff;
         transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        box-sizing: border-box;
       }
+      input.form-input,
+      select.form-input { height: 44px; line-height: 1.2; }
       .form-input::placeholder { color: var(--ink-300); }
       .form-input:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--line-strong)); }
       .form-input:focus {
@@ -1509,9 +1515,9 @@
       .guardian-mode-btn {
         appearance: none;
         background: #fff;
-        border: 1px solid var(--line-strong);
+        border: 1.5px solid var(--line-strong);
         border-radius: 10px;
-        padding: 9px 14px;
+        padding: 10px 14px;
         font-size: 0.82rem;
         font-weight: 600;
         color: var(--ink-900);
@@ -1520,49 +1526,63 @@
         display: flex;
         flex-direction: row;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
         flex: 1 1 0;
         min-width: 0;
         transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
         box-shadow: var(--shadow-sm);
-        white-space: nowrap;
       }
       .guardian-mode-btn:hover {
         border-color: var(--brand);
         background: var(--brand-softer);
         box-shadow: var(--shadow-md);
       }
+      .guardian-mode-btn.active {
+        border-color: var(--brand);
+        background: var(--brand-softer);
+        box-shadow: 0 0 0 3px var(--brand-ring);
+      }
       .guardian-mode-btn .gmb-icon {
-        width: 28px;
-        height: 28px;
+        width: 32px;
+        height: 32px;
         border-radius: 8px;
         background: var(--surface-sunken);
         display: flex;
         align-items: center;
         justify-content: center;
         flex: 0 0 auto;
-        font-size: 0.9rem;
+        color: var(--brand);
+        transition: background 0.15s ease, color 0.15s ease;
+      }
+      .guardian-mode-btn .gmb-icon svg {
+        width: 15px;
+        height: 15px;
+        display: block;
+        stroke: currentColor;
       }
       .guardian-mode-btn:hover .gmb-icon {
         background: var(--brand-soft);
+        color: var(--brand-strong);
+      }
+      .guardian-mode-btn.active .gmb-icon {
+        background: var(--brand-soft);
+        color: var(--brand-strong);
       }
       .guardian-mode-btn .gmb-text {
         display: flex;
         flex-direction: column;
-        gap: 1px;
+        gap: 2px;
         min-width: 0;
       }
       .guardian-mode-btn .gmb-title {
         font-size: 0.8rem;
         font-weight: 700;
         color: var(--ink-900);
-        white-space: nowrap;
       }
       .guardian-mode-btn .gmb-sub {
         font-size: 0.7rem;
         color: var(--ink-400);
         font-weight: 500;
-        white-space: nowrap;
       }
 
       .guardian-row {
@@ -1914,16 +1934,28 @@
                   <p>Does this guardian already have a child in this school?</p>
                   <div class="guardian-mode-pills">
                     <button type="button" class="guardian-mode-btn" onclick="setGuardianMode(this, 'existing')">
-                      <span class="gmb-icon" aria-hidden="true">🔍</span>
+                      <span class="gmb-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="11" cy="11" r="8"></circle>
+                          <path d="m21 21-4.35-4.35"></path>
+                        </svg>
+                      </span>
                       <span class="gmb-text">
                         <span class="gmb-title">Search existing</span>
-                        <span class="gmb-sub">Link an existing record</span>
+                        <span class="gmb-sub">Link an existing guardian</span>
                       </span>
                     </button>
                     <button type="button" class="guardian-mode-btn" onclick="setGuardianMode(this, 'new')">
-                      <span class="gmb-icon" aria-hidden="true">➕</span>
+                      <span class="gmb-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                          <circle cx="9" cy="7" r="4"></circle>
+                          <path d="M19 8v6"></path>
+                          <path d="M22 11h-6"></path>
+                        </svg>
+                      </span>
                       <span class="gmb-text">
-                        <span class="gmb-title">Add new</span>
+                        <span class="gmb-title">New guardian</span>
                         <span class="gmb-sub">Create a new profile</span>
                       </span>
                     </button>
