@@ -746,6 +746,7 @@
 <%- include('../partials/flash') %>
 <script src="https://js.stripe.com/v3/"></script>
 <div class="payment-container">
+  <% const resolvedStripeConfigError = typeof stripeConfigError !== 'undefined' ? stripeConfigError : ''; %>
   <% const rawPlanName = (registrationDetails && registrationDetails.plan) ? decodeURIComponent(registrationDetails.plan) : ""; %>
   <% const planNameDisplay = rawPlanName ? rawPlanName.charAt(0).toUpperCase() + rawPlanName.slice(1) : "Selected plan"; %>
   <form id="payment-form" action="/account/payment" method="POST">
@@ -838,6 +839,15 @@
         </div>
 
         <div class="stripe-card-shell" id="stripe-card-shell">
+          <% if (resolvedStripeConfigError) { %>
+          <div class="stripe-help-note" style="display: block; border-color: rgba(220, 38, 38, 0.25); background: rgba(254, 242, 242, 0.9); color: #991b1b;">
+            <div class="stripe-help-note-title">Stripe configuration error</div>
+            <div class="stripe-help-note-lines">
+              <div><%= resolvedStripeConfigError %></div>
+              <div>Update the Stripe mode or keys in admin settings or environment variables, then refresh this page.</div>
+            </div>
+          </div>
+          <% } %>
           <div class="card-entry-shell">
             <div class="card-entry-head">
               <div>
@@ -900,6 +910,7 @@
         let finalStripeAmount = baseStripeAmount;
         let appliedPromoCode = '';
         let isSubmittingAfterPayment = false;
+        const stripeConfigError = <%- JSON.stringify(resolvedStripeConfigError || '') %>;
         const stripePublishableKey = <%- JSON.stringify(stripePublishableKey || '') %>;
         const stripeMode = <%- JSON.stringify(stripeMode || 'test') %>;
         const stripeChargeCurrency = <%- JSON.stringify(stripeChargeCurrency || 'USD') %>;
@@ -956,7 +967,7 @@
 
         function updatePayButtonState() {
           if (!payButtonEl) return;
-          payButtonEl.disabled = isPayButtonBusy || !stripe || !stripeCardElement || !isStripeCardComplete;
+          payButtonEl.disabled = Boolean(stripeConfigError) || isPayButtonBusy || !stripe || !stripeCardElement || !isStripeCardComplete;
           updatePayButtonLabel();
         }
 
@@ -983,7 +994,9 @@
 
         function updateGatewayFlowNote() {
           if (!gatewayFlowNote) return;
-          gatewayFlowNote.innerHTML = '';
+          gatewayFlowNote.innerHTML = stripeConfigError
+            ? `<span style="color:#991b1b;">${stripeConfigError}</span>`
+            : '';
           gatewayFlowNote.style.display = gatewayFlowNote.innerHTML ? 'block' : 'none';
           if (stripeHelpNote) {
             stripeHelpNote.style.display = stripeMode === 'test' ? 'block' : 'none';
@@ -1120,6 +1133,10 @@
             stripeCardError.style.display = 'block';
           }
           updatePayButtonState();
+        }
+
+        if (stripeConfigError) {
+          setPaymentMessage(stripeConfigError, 'red');
         }
         const redirectProgressMessages = [
           "Just a few seconds left, hang tight...",

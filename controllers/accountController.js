@@ -97,6 +97,7 @@ const {
 } = require("../utils/paymentProviderConfig");
 const {
   getStripeSettings,
+  getStripeConfigurationIssue,
   getActiveStripePublicKey,
   getStripeChargeCurrency,
   getStripeClient,
@@ -1767,6 +1768,9 @@ const accountController = {
       req.session.paymentReference = paymentReference;
 
       const stripeSettings = await getStripeSettings(db);
+      const stripeConfigError = providerSupportsStripe(paymentProvider)
+        ? getStripeConfigurationIssue(stripeSettings)
+        : "";
 
       res.render("account/payment", {
         title: "Complete Payment",
@@ -1780,7 +1784,10 @@ const accountController = {
 
         publishableKey: await getActivePaystackPublicKey(),
         stripePublishableKey:
-          providerSupportsStripe(paymentProvider) ? await getActiveStripePublicKey(db) : "",
+          providerSupportsStripe(paymentProvider) && !stripeConfigError
+            ? stripeSettings.activePublicKey || ""
+            : "",
+        stripeConfigError,
         stripeMode: stripeSettings.mode,
         paymentProvider,
         supportsPaystack: providerSupportsPaystack(paymentProvider),
@@ -2411,6 +2418,15 @@ const accountController = {
         isTrial: paymentContext.isTrialCheckout,
         currency: stripeChargeCurrency,
       });
+
+      const stripeSettings = await getStripeSettings(db);
+      const stripeConfigError = getStripeConfigurationIssue(stripeSettings);
+      if (stripeConfigError) {
+        return res.status(500).json({
+          success: false,
+          message: `${stripeConfigError} Update your Stripe mode or keys, then refresh this page and try again.`,
+        });
+      }
 
       const stripe = await getStripeClient(db);
       let customerId = req.session.stripePendingCustomerId;

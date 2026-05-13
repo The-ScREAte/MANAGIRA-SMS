@@ -27,6 +27,34 @@ function getStripeChargeCurrency() {
   return normalizeStripeChargeCurrency(process.env.STRIPE_CHARGE_CURRENCY);
 }
 
+function getStripeConfigurationIssue(settings = {}) {
+  const mode = normalizeMode(settings.mode);
+  const activeSecretKey = String(settings.activeSecretKey || "").trim();
+  const activePublicKey = String(settings.activePublicKey || "").trim();
+
+  if (!activeSecretKey) {
+    return `Stripe ${mode} secret key is not configured.`;
+  }
+
+  if (!activePublicKey) {
+    return `Stripe ${mode} publishable key is not configured.`;
+  }
+
+  const validLiveSecretPrefixes = ["sk_live_", "rk_live_"];
+  const expectedSecretPrefix = mode === "live" ? validLiveSecretPrefixes : ["sk_test_"];
+  const expectedPublicPrefix = mode === "live" ? "pk_live_" : "pk_test_";
+
+  if (!expectedSecretPrefix.some((prefix) => activeSecretKey.startsWith(prefix))) {
+    return `Stripe is set to ${mode} mode, but the active secret key does not match that mode.`;
+  }
+
+  if (!activePublicKey.startsWith(expectedPublicPrefix)) {
+    return `Stripe is set to ${mode} mode, but the active publishable key does not match that mode.`;
+  }
+
+  return "";
+}
+
 async function getStripeSettings(dbClient = defaultDb) {
   const result = await dbClient.query(
     `SELECT value FROM app_settings WHERE key = $1 LIMIT 1`,
@@ -92,6 +120,7 @@ module.exports = {
   DEFAULT_STRIPE_CHARGE_CURRENCY,
   normalizeMode,
   normalizeStripeChargeCurrency,
+  getStripeConfigurationIssue,
   getStripeSettings,
   upsertStripeSettings,
   getActiveStripeSecretKey,
