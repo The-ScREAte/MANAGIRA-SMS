@@ -785,19 +785,27 @@
         box-shadow: 0 6px 16px rgba(15, 23, 42, 0.1);
       }
 
-      .save-form-btn {
-        background: #f8fafc !important;
-        color: #334155 !important;
-        border: 1px solid #cbd5e0 !important;
-        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05) !important;
+      /* Save uses identical look as Add Form / Import — overrides global submit primary */
+      button.save-form-btn,
+      button[type="submit"].save-form-btn {
+        background: #ffffff !important;
+        color: var(--ink-900, #0b1f24) !important;
+        border: 1px solid var(--line-strong, #cfd6da) !important;
+        box-shadow: var(--shadow-sm, 0 1px 2px rgba(11,31,36,0.06)) !important;
+        font-weight: 600 !important;
       }
 
-      .save-form-btn:hover {
-        background: #f1f5f9 !important;
-        border-color: #94a3b8 !important;
-        color: #334155 !important;
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.1) !important;
+      button.save-form-btn:hover,
+      button[type="submit"].save-form-btn:hover {
+        background: var(--brand-softer, #f5f8f9) !important;
+        border-color: color-mix(in srgb, var(--brand, #01535b) 35%, var(--line-strong, #cfd6da)) !important;
+        color: var(--brand-strong, #013f49) !important;
+        transform: none !important;
+        box-shadow: var(--shadow-sm, 0 1px 2px rgba(11,31,36,0.06)) !important;
+      }
+
+      button.save-form-btn .action-btn-icon {
+        color: var(--brand, #01535b) !important;
       }
 
       .form-field-row {
