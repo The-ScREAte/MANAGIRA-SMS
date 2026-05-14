@@ -2557,6 +2557,7 @@
         }
 
         navLinks.forEach((btn) => {
+          if (!btn.dataset.target) return; // external link (e.g. Finance) — let browser navigate
           btn.addEventListener("click", () => {
             showSection(btn.dataset.target);
             closeNav();
