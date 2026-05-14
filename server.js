@@ -423,6 +423,7 @@ app.use((req, res, next) => {
 
 // Routes
 const accountRoute = require("./routes/accountRoute");
+const financeRoute = require("./routes/financeRoute");
 const adminRoute = require("./routes/adminRoute")(db);
 const commonRoute = require("./routes/commonRoute")(db);
 const printRoute = require("./routes/printRoute")(db);
@@ -444,6 +445,7 @@ if (process.env.NODE_ENV === "production") {
 }
 
 // Use routes
+app.use("/account/settings", financeRoute);
 app.use("/account", accountRoute);
 app.use("/admin", adminRoute);
 app.use("/common", commonRoute);
