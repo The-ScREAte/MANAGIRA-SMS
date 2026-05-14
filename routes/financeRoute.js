@@ -14,5 +14,6 @@ router.post("/finance/bills/:id/cancel", isAuthenticated, c.billCancelPost);
 router.post("/finance/bills/:id/delete", isAuthenticated, c.billDeletePost);
 
 router.post("/finance/payments", isAuthenticated, c.paymentRecordPost);
+router.get("/finance/_assignments.json", isAuthenticated, c.assignmentsJsonGet);
 
 module.exports = router;

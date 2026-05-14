@@ -363,4 +363,25 @@ module.exports = {
     }
     res.redirect("/account/settings/finance?section=payments");
   },
+  assignmentsJsonGet: async (req, res) => {
+    if (!isFinanceAdmin(req)) return res.status(403).json([]);
+    const orgId = req.session.organizationId;
+    try {
+      await ensureFinanceSchema();
+      const r = await db.query(
+        `SELECT a.assignment_id, a.amount, a.amount_paid, a.late_fee_applied,
+                b.title, s.first_name, s.last_name
+           FROM finance_bill_assignments a
+           JOIN finance_bills b ON b.bill_id = a.bill_id
+           JOIN students s ON s.student_id = a.student_id
+          WHERE a.organization_id = $1 AND a.status NOT IN ('paid','cancelled')
+          ORDER BY a.created_at DESC LIMIT 500`,
+        [orgId]
+      );
+      res.json(r.rows.map(x => {
+        const bal = (Number(x.amount) + Number(x.late_fee_applied||0) - Number(x.amount_paid||0)).toFixed(2);
+        return { assignment_id: x.assignment_id, label: `${x.first_name} ${x.last_name} — ${x.title} ($${bal} due)` };
+      }));
+    } catch (e) { res.status(500).json([]); }
+  },
 };
