@@ -426,6 +426,61 @@ main { padding: 0 !important; max-width: none !important; }
     padding: 10px;
   }
 
+  /* Management: nav floats over content, never takes a grid row */
+  .management-layout {
+    position: relative !important;
+    gap: 12px !important;
+    padding-top: 12px !important;
+  }
+
+  .management-nav {
+    display: none !important;
+    position: absolute !important;
+    top: 52px !important;
+    left: 0 !important;
+    right: auto !important;
+    width: 260px !important;
+    max-width: calc(100vw - 20px) !important;
+    z-index: 950 !important;
+    border-radius: 12px !important;
+    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.16) !important;
+  }
+
+  .management-nav.open {
+    display: block !important;
+    animation: mgNavIn 0.18s ease both;
+  }
+
+  /* Admissions hub: nav floats over content, never takes a grid row */
+  .hub-layout {
+    position: relative !important;
+    gap: 12px !important;
+    padding-top: 12px !important;
+  }
+
+  .hub-nav {
+    display: none !important;
+    position: absolute !important;
+    top: 52px !important;
+    left: 0 !important;
+    right: auto !important;
+    width: 260px !important;
+    max-width: calc(100vw - 20px) !important;
+    z-index: 950 !important;
+    border-radius: 12px !important;
+    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.16) !important;
+  }
+
+  .hub-nav.open {
+    display: block !important;
+    animation: mgNavIn 0.18s ease both;
+  }
+
+  @keyframes mgNavIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
   .hub-main .section-header,
   .management-main .section-header,
   .settings-main .section-header { padding: 10px 14px !important; }
@@ -447,4 +502,33 @@ main { padding: 0 !important; max-width: none !important; }
   .hub-main .action-btn,
   .management-main .action-btn,
   .settings-main .action-btn { width: 100%; justify-content: center; }
+}
+
+/* Settings nav: display:none when closed so it never pushes content */
+@media (max-width: 960px) {
+  .settings-layout {
+    position: relative !important;
+  }
+
+  .settings-nav {
+    display: none !important;
+    position: absolute !important;
+    top: 52px !important;
+    left: 0 !important;
+    width: 260px !important;
+    max-width: calc(100vw - 20px) !important;
+    max-height: min(70vh, calc(100vh - 120px)) !important;
+    border-radius: 12px !important;
+    z-index: 1001 !important;
+    padding: 0 !important;
+    overflow-y: auto !important;
+    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.16) !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .settings-nav.open {
+    display: block !important;
+    animation: mgNavIn 0.18s ease both;
+  }
 }
