@@ -1,0 +1,739 @@
+<%
+  const sec = (typeof section !== 'undefined' && section) ? section : 'overview';
+  const fmt = (n) => '$' + (Number(n||0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const t = overview.totals || {};
+  const billedTotal = Number(t.total_billed || 0);
+  const collectedTotal = Number(t.total_collected || 0);
+  const outstandingTotal = Number(t.outstanding || 0);
+  const overpaymentsTotal = Number(overview.overpayments || 0);
+%>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  /* ==== Managira Finance — luxury fintech ==== */
+  :root {
+    --fin-bg: #0A0F1E;
+    --fin-bg-2: #111827;
+    --fin-card: #1A2235;
+    --fin-card-2: #141C2E;
+    --fin-teal: #00D4AA;
+    --fin-teal-soft: rgba(0,212,170,.12);
+    --fin-gold: #F5C842;
+    --fin-red: #FF4D6D;
+    --fin-purple: #7B61FF;
+    --fin-text: #F0F4FF;
+    --fin-muted: #8892A4;
+    --fin-border: #1E2D45;
+    --fin-success: #00E096;
+    --fin-warn: #FFB547;
+  }
+
+  body { background: var(--fin-bg) !important; }
+  .fin-shell { color: var(--fin-text); font-family: 'DM Sans', system-ui, sans-serif; min-height: calc(100vh - 80px); padding: 24px clamp(12px, 3vw, 32px) 80px; }
+  .fin-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+  .fin-display { font-family: 'Space Grotesk', 'DM Sans', sans-serif; letter-spacing: -0.02em; }
+
+  .fin-grid { display: grid; grid-template-columns: 240px 1fr; gap: 22px; max-width: 1500px; margin: 0 auto; }
+
+  .fin-side {
+    background: linear-gradient(180deg, var(--fin-card) 0%, var(--fin-card-2) 100%);
+    border: 1px solid var(--fin-border);
+    border-radius: 18px; padding: 18px 12px;
+    position: sticky; top: 90px; height: fit-content;
+    box-shadow: 0 24px 60px -30px rgba(0,0,0,.7);
+  }
+  .fin-side-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: .72rem; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--fin-muted); padding: 4px 12px 14px;
+  }
+  .fin-nav { display: flex; flex-direction: column; gap: 4px; }
+  .fin-nav a {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 14px; border-radius: 10px;
+    color: var(--fin-muted); text-decoration: none;
+    font-size: .9rem; font-weight: 500;
+    border-left: 3px solid transparent;
+    transition: all .18s ease;
+  }
+  .fin-nav a .ico { width: 20px; text-align: center; }
+  .fin-nav a:hover { background: rgba(255,255,255,.03); color: var(--fin-text); }
+  .fin-nav a.active {
+    background: linear-gradient(90deg, var(--fin-teal-soft), transparent);
+    color: var(--fin-text); border-left-color: var(--fin-teal);
+    box-shadow: inset 0 0 0 1px rgba(0,212,170,.18);
+  }
+
+  .fin-main { min-width: 0; }
+  .fin-page-head { margin-bottom: 22px; }
+  .fin-page-head h1 { font-family: 'Space Grotesk', sans-serif; font-size: 1.85rem; margin: 0 0 4px; font-weight: 700; letter-spacing: -.025em; }
+  .fin-page-head h1 .accent { background: linear-gradient(135deg, var(--fin-teal), #5af0d0); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .fin-page-head p { margin: 0; color: var(--fin-muted); font-size: .92rem; }
+
+  .fin-flash { padding: 12px 16px; border-radius: 12px; margin-bottom: 16px; font-size: .9rem; border: 1px solid; }
+  .fin-flash.success { background: rgba(0,224,150,.08); border-color: rgba(0,224,150,.3); color: #5ff1b4; }
+  .fin-flash.error { background: rgba(255,77,109,.08); border-color: rgba(255,77,109,.3); color: #ff8aa1; }
+
+  /* Cards */
+  .fin-card {
+    background: linear-gradient(180deg, var(--fin-card) 0%, var(--fin-card-2) 100%);
+    border: 1px solid var(--fin-border);
+    border-radius: 18px; padding: 22px;
+    box-shadow: 0 18px 50px -30px rgba(0,0,0,.7);
+  }
+
+  /* Stat cards */
+  .fin-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+  .stat {
+    position: relative; overflow: hidden;
+    background: linear-gradient(160deg, var(--fin-card) 0%, var(--fin-card-2) 100%);
+    border: 1px solid var(--fin-border); border-radius: 18px; padding: 20px;
+  }
+  .stat::before {
+    content:''; position: absolute; inset: 0;
+    background: radial-gradient(80% 60% at 100% 0%, rgba(0,212,170,.10), transparent 60%);
+    pointer-events: none;
+  }
+  .stat .label { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--fin-muted); margin-bottom: 10px; font-weight: 600; }
+  .stat .value { font-family: 'JetBrains Mono', monospace; font-size: 1.55rem; font-weight: 700; color: var(--fin-text); letter-spacing: -.02em; }
+  .stat .sub { margin-top: 6px; font-size: .78rem; color: var(--fin-muted); }
+  .stat.gold .value { color: var(--fin-gold); }
+  .stat.red .value { color: var(--fin-red); }
+  .stat.green .value { color: var(--fin-success); }
+
+  /* Action row */
+  .fin-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
+  .fin-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 11px 18px; border-radius: 12px;
+    font-size: .87rem; font-weight: 600; cursor: pointer;
+    border: 1px solid var(--fin-border); background: var(--fin-card); color: var(--fin-text);
+    transition: all .15s ease; text-decoration: none;
+  }
+  .fin-btn:hover { transform: translateY(-1px); border-color: var(--fin-teal); color: var(--fin-teal); }
+  .fin-btn.primary {
+    background: linear-gradient(135deg, var(--fin-teal), #00b894);
+    border-color: transparent; color: #002218;
+    box-shadow: 0 8px 24px -8px rgba(0,212,170,.6);
+  }
+  .fin-btn.primary:hover { color: #002218; filter: brightness(1.05); }
+  .fin-btn.danger { color: var(--fin-red); border-color: rgba(255,77,109,.3); }
+  .fin-btn.danger:hover { background: rgba(255,77,109,.1); }
+
+  /* Two-col layout for overview */
+  .fin-two { display: grid; grid-template-columns: 1.6fr 1fr; gap: 20px; }
+
+  /* Activity */
+  .activity { display: flex; flex-direction: column; gap: 10px; max-height: 460px; overflow-y: auto; }
+  .activity-item {
+    display: flex; gap: 12px; padding: 12px; border-radius: 12px;
+    background: rgba(255,255,255,.02); border: 1px solid var(--fin-border);
+    align-items: flex-start;
+  }
+  .activity-item .who { font-weight: 600; color: var(--fin-text); font-size: .88rem; }
+  .activity-item .meta { color: var(--fin-muted); font-size: .76rem; margin-top: 2px; }
+  .activity-item .amt { font-family: 'JetBrains Mono', monospace; color: var(--fin-success); font-weight: 600; margin-left: auto; font-size: .9rem; }
+  .activity-empty { text-align: center; padding: 40px 20px; color: var(--fin-muted); font-size: .9rem; }
+
+  /* Tables */
+  .fin-table-wrap { overflow-x: auto; border-radius: 14px; border: 1px solid var(--fin-border); }
+  .fin-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  .fin-table thead { background: rgba(255,255,255,.02); }
+  .fin-table th { text-align: left; padding: 14px 16px; font-weight: 600; color: var(--fin-muted); font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; border-bottom: 1px solid var(--fin-border); }
+  .fin-table td { padding: 14px 16px; color: var(--fin-text); border-bottom: 1px solid var(--fin-border); vertical-align: middle; }
+  .fin-table tr:last-child td { border-bottom: 0; }
+  .fin-table tr:hover td { background: rgba(0,212,170,.03); }
+  .fin-table .num { font-family: 'JetBrains Mono', monospace; }
+
+  /* Status badges */
+  .badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: .7rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+  .badge.paid { background: rgba(0,224,150,.14); color: var(--fin-success); }
+  .badge.pending { background: rgba(255,181,71,.14); color: var(--fin-warn); }
+  .badge.overdue { background: rgba(255,77,109,.14); color: var(--fin-red); animation: pulse 2.4s infinite; }
+  .badge.partial { background: rgba(123,97,255,.14); color: var(--fin-purple); }
+  .badge.draft, .badge.cancelled { background: rgba(136,146,164,.14); color: var(--fin-muted); }
+  .badge.active { background: rgba(0,212,170,.14); color: var(--fin-teal); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
+
+  /* Forms */
+  .fin-form { display: grid; gap: 14px; }
+  .fin-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .fin-field label { display: block; font-size: .78rem; color: var(--fin-muted); margin-bottom: 6px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; }
+  .fin-field input, .fin-field select, .fin-field textarea {
+    width: 100%; padding: 12px 14px; background: var(--fin-bg-2); border: 1px solid var(--fin-border);
+    border-radius: 10px; color: var(--fin-text); font-size: .92rem; font-family: inherit;
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  .fin-field input:focus, .fin-field select:focus, .fin-field textarea:focus {
+    outline: none; border-color: var(--fin-teal); box-shadow: 0 0 0 3px rgba(0,212,170,.15);
+  }
+  .fin-field textarea { min-height: 80px; resize: vertical; }
+  .fin-checks { display: flex; gap: 16px; flex-wrap: wrap; }
+  .fin-check { display: inline-flex; align-items: center; gap: 8px; color: var(--fin-text); font-size: .88rem; }
+  .fin-check input { width: auto; }
+
+  .section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 12px; }
+  .section-head h2 { font-family: 'Space Grotesk', sans-serif; font-size: 1.25rem; margin: 0; font-weight: 700; }
+
+  /* Avatar */
+  .avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--fin-teal), var(--fin-purple)); display: inline-flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: .8rem; flex-shrink: 0; overflow: hidden; }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+  /* Modal */
+  .fin-modal { position: fixed; inset: 0; background: rgba(5,8,18,.7); backdrop-filter: blur(6px); z-index: 9999; display: none; align-items: center; justify-content: center; padding: 20px; }
+  .fin-modal.open { display: flex; }
+  .fin-modal-content { background: var(--fin-card); border: 1px solid var(--fin-border); border-radius: 18px; padding: 28px; max-width: 720px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 30px 80px -20px #000; }
+  .fin-modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .fin-modal-head h3 { font-family: 'Space Grotesk', sans-serif; font-size: 1.2rem; margin: 0; }
+  .fin-modal-close { background: transparent; border: 0; color: var(--fin-muted); font-size: 1.5rem; cursor: pointer; line-height: 1; }
+  .fin-modal-close:hover { color: var(--fin-red); }
+
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--fin-muted); }
+  .empty-state .ico { font-size: 2.6rem; margin-bottom: 10px; opacity: .6; }
+  .empty-state h3 { color: var(--fin-text); margin: 8px 0; font-family: 'Space Grotesk', sans-serif; }
+
+  /* Mobile */
+  @media (max-width: 960px) {
+    .fin-grid { grid-template-columns: 1fr; }
+    .fin-side { position: static; }
+    .fin-nav { flex-direction: row; overflow-x: auto; gap: 6px; padding-bottom: 4px; }
+    .fin-nav a { flex-shrink: 0; padding: 9px 13px; font-size: .82rem; border-left: 0; border-bottom: 3px solid transparent; }
+    .fin-nav a.active { border-left: 0; border-bottom-color: var(--fin-teal); }
+    .fin-side-title { display: none; }
+    .fin-stats { grid-template-columns: repeat(2, 1fr); }
+    .fin-two { grid-template-columns: 1fr; }
+    .fin-row { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 480px) {
+    .fin-stats { grid-template-columns: 1fr; }
+    .stat .value { font-size: 1.3rem; }
+    .fin-page-head h1 { font-size: 1.45rem; }
+  }
+</style>
+
+<div class="fin-shell">
+  <div class="fin-grid">
+
+    <aside class="fin-side">
+      <div class="fin-side-title">Finance</div>
+      <nav class="fin-nav">
+        <a href="?section=overview"      class="<%= sec==='overview' ? 'active':'' %>"><span class="ico">💳</span><span>Overview</span></a>
+        <a href="?section=bills"         class="<%= sec==='bills' ? 'active':'' %>"><span class="ico">📋</span><span>Bill Management</span></a>
+        <a href="?section=students"      class="<%= sec==='students' ? 'active':'' %>"><span class="ico">👨‍👩‍👧</span><span>Student Billing</span></a>
+        <a href="?section=subscriptions" class="<%= sec==='subscriptions' ? 'active':'' %>"><span class="ico">📅</span><span>Subscriptions</span></a>
+        <a href="?section=payments"      class="<%= sec==='payments' ? 'active':'' %>"><span class="ico">💰</span><span>Payment Tracking</span></a>
+        <a href="?section=templates"     class="<%= sec==='templates' ? 'active':'' %>"><span class="ico">🏫</span><span>Fee Templates</span></a>
+        <a href="?section=reports"       class="<%= sec==='reports' ? 'active':'' %>"><span class="ico">📊</span><span>Reports</span></a>
+        <a href="?section=settings"      class="<%= sec==='settings' ? 'active':'' %>"><span class="ico">⚙️</span><span>Payment Settings</span></a>
+      </nav>
+    </aside>
+
+    <div class="fin-main">
+      <div class="fin-page-head">
+        <h1>Finance <span class="accent">& Billing</span></h1>
+        <p>Premium financial command center for your school — bills, payments, subscriptions and reports.</p>
+      </div>
+
+      <% if (messages && messages.success && messages.success.length) { %>
+        <div class="fin-flash success"><%= messages.success[0] %></div>
+      <% } %>
+      <% if (messages && messages.error && messages.error.length) { %>
+        <div class="fin-flash error"><%= messages.error[0] %></div>
+      <% } %>
+
+      <% if (sec === 'overview') { %>
+        <div class="fin-stats">
+          <div class="stat">
+            <div class="label">Total Billed</div>
+            <div class="value"><%= fmt(billedTotal) %></div>
+            <div class="sub">All assignments to date</div>
+          </div>
+          <div class="stat green">
+            <div class="label">Total Collected</div>
+            <div class="value"><%= fmt(collectedTotal) %></div>
+            <div class="sub">Paid in full or partial</div>
+          </div>
+          <div class="stat red">
+            <div class="label">Outstanding</div>
+            <div class="value"><%= fmt(outstandingTotal) %></div>
+            <div class="sub"><%= t.overdue_count || 0 %> overdue</div>
+          </div>
+          <div class="stat gold">
+            <div class="label">Overpayments</div>
+            <div class="value"><%= fmt(overpaymentsTotal) %></div>
+            <div class="sub">Available credits</div>
+          </div>
+        </div>
+
+        <div class="fin-actions">
+          <a href="?section=bills" class="fin-btn primary">+ Create New Bill</a>
+          <a href="?section=payments" class="fin-btn">💰 Record Payment</a>
+          <a href="?section=templates" class="fin-btn">🏫 Fee Templates</a>
+          <a href="?section=reports" class="fin-btn">📤 Reports</a>
+        </div>
+
+        <div class="fin-two">
+          <div class="fin-card">
+            <div class="section-head"><h2>Quick Snapshot</h2></div>
+            <div class="fin-table-wrap">
+              <table class="fin-table">
+                <thead><tr><th>Bill</th><th>Status</th><th class="num">Amount</th><th class="num">Paid</th></tr></thead>
+                <tbody>
+                  <% (bills.slice(0,8)).forEach(b => { %>
+                    <tr>
+                      <td><%= b.title %></td>
+                      <td><span class="badge <%= b.status %>"><%= b.status %></span></td>
+                      <td class="num"><%= fmt(b.total_amount) %></td>
+                      <td class="num"><%= fmt(b.total_paid) %></td>
+                    </tr>
+                  <% }) %>
+                  <% if (!bills.length) { %>
+                    <tr><td colspan="4" style="text-align:center; color:var(--fin-muted); padding:30px;">No bills yet — create your first bill.</td></tr>
+                  <% } %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="fin-card">
+            <div class="section-head"><h2>Recent Activity</h2></div>
+            <div class="activity">
+              <% if (overview.recent && overview.recent.length) { overview.recent.forEach(r => { %>
+                <div class="activity-item">
+                  <div class="avatar"><%= ((r.first_name||'?').charAt(0) + (r.last_name||'').charAt(0)).toUpperCase() %></div>
+                  <div style="min-width:0;flex:1;">
+                    <div class="who"><%= (r.first_name||'') + ' ' + (r.last_name||'') %></div>
+                    <div class="meta"><%= r.bill_title || 'Payment' %> · <%= r.method %> · <%= new Date(r.received_at).toLocaleString() %></div>
+                  </div>
+                  <div class="amt">+<%= fmt(r.amount) %></div>
+                </div>
+              <% }) } else { %>
+                <div class="activity-empty">No payments recorded yet.<br><br>Record one to see live activity here.</div>
+              <% } %>
+            </div>
+          </div>
+        </div>
+      <% } %>
+
+      <% if (sec === 'bills') { %>
+        <div class="fin-card" style="margin-bottom:20px;">
+          <div class="section-head">
+            <h2>Create New Bill</h2>
+            <span style="color:var(--fin-muted); font-size:.8rem;">Assign to entire school, classes, or specific students</span>
+          </div>
+          <form class="fin-form" method="POST" action="/account/settings/finance/bills">
+            <div class="fin-row">
+              <div class="fin-field">
+                <label>Bill Title *</label>
+                <input name="title" required placeholder="e.g. Tuition Fee — Term 1 2025">
+              </div>
+              <div class="fin-field">
+                <label>Amount (USD) *</label>
+                <input name="amount" type="number" step="0.01" min="0" required placeholder="500.00">
+              </div>
+            </div>
+            <div class="fin-field">
+              <label>Description</label>
+              <textarea name="description" placeholder="Optional details…"></textarea>
+            </div>
+            <div class="fin-row">
+              <div class="fin-field">
+                <label>Bill Type *</label>
+                <select name="bill_type" id="billTypeSel">
+                  <option value="one_time">One-Time Payment</option>
+                  <option value="recurring">Recurring</option>
+                  <option value="installment">Installment Plan</option>
+                </select>
+              </div>
+              <div class="fin-field">
+                <label>Recurrence (if recurring)</label>
+                <select name="recurrence">
+                  <option value="">—</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="term">Per Term</option>
+                  <option value="year">Per Year</option>
+                </select>
+              </div>
+            </div>
+            <div class="fin-row">
+              <div class="fin-field">
+                <label>Late Fee Amount</label>
+                <input name="late_fee_amount" type="number" step="0.01" min="0" placeholder="0.00">
+              </div>
+              <div class="fin-field">
+                <label>After (days overdue)</label>
+                <input name="late_fee_after_days" type="number" min="0" value="7">
+              </div>
+            </div>
+            <div class="fin-field">
+              <label>Applicable To *</label>
+              <select name="applies_to" id="appliesTo">
+                <option value="school">Entire School</option>
+                <option value="classes">Specific Classes</option>
+                <option value="students">Individual Students</option>
+              </select>
+            </div>
+            <div class="fin-field" id="classPicker" style="display:none;">
+              <label>Classes</label>
+              <select name="target_class_ids" multiple size="6">
+                <% refs.classes.forEach(c => { %>
+                  <option value="<%= c.class_id %>"><%= c.class_name %></option>
+                <% }) %>
+              </select>
+            </div>
+            <div class="fin-field" id="studentPicker" style="display:none;">
+              <label>Students</label>
+              <select name="target_student_ids" multiple size="8">
+                <% refs.students.forEach(s => { %>
+                  <option value="<%= s.student_id %>"><%= s.first_name %> <%= s.last_name %></option>
+                <% }) %>
+              </select>
+            </div>
+            <div class="fin-row">
+              <div class="fin-field">
+                <label>School Year</label>
+                <select name="school_year_id">
+                  <option value="">—</option>
+                  <% refs.years.forEach(y => { %><option value="<%= y.school_year_id %>"><%= y.name %></option><% }) %>
+                </select>
+              </div>
+              <div class="fin-field">
+                <label>Term</label>
+                <select name="term_id">
+                  <option value="">—</option>
+                  <% refs.terms.forEach(t => { %><option value="<%= t.term_id %>"><%= t.name %></option><% }) %>
+                </select>
+              </div>
+            </div>
+            <div class="fin-field">
+              <label>Due Date *</label>
+              <input name="due_date" type="date" required>
+            </div>
+            <div class="fin-field">
+              <label>Payment Methods Accepted</label>
+              <div class="fin-checks">
+                <label class="fin-check"><input type="checkbox" name="accepts_card" checked> Card (Stripe)</label>
+                <label class="fin-check"><input type="checkbox" name="accepts_cash" checked> Cash</label>
+                <label class="fin-check"><input type="checkbox" name="accepts_transfer" checked> Bank Transfer</label>
+              </div>
+            </div>
+            <div class="fin-field">
+              <label>Notify Parents</label>
+              <div class="fin-checks">
+                <label class="fin-check"><input type="checkbox" name="notify_email" checked> Email</label>
+                <label class="fin-check"><input type="checkbox" name="notify_sms"> SMS</label>
+              </div>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:6px;">
+              <button type="submit" name="status" value="active" class="fin-btn primary">Create &amp; Send</button>
+              <button type="submit" name="status" value="draft" class="fin-btn">Save as Draft</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="fin-card">
+          <div class="section-head"><h2>All Bills</h2></div>
+          <% if (!bills.length) { %>
+            <div class="empty-state"><div class="ico">📋</div><h3>No bills created yet</h3><p>Use the form above to create your first bill.</p></div>
+          <% } else { %>
+            <div class="fin-table-wrap">
+              <table class="fin-table">
+                <thead><tr>
+                  <th>Bill</th><th>Type</th><th>Assigned</th><th>Due</th><th>Status</th>
+                  <th class="num">Amount</th><th class="num">Paid</th><th></th>
+                </tr></thead>
+                <tbody>
+                  <% bills.forEach(b => { %>
+                    <tr>
+                      <td><strong><%= b.title %></strong><% if (b.description) { %><div style="color:var(--fin-muted); font-size:.78rem; margin-top:2px;"><%= b.description %></div><% } %></td>
+                      <td><span style="color:var(--fin-muted); text-transform:capitalize;"><%= (b.bill_type||'').replace('_',' ') %></span></td>
+                      <td class="num"><%= b.assigned_count %></td>
+                      <td><%= b.due_date ? new Date(b.due_date).toLocaleDateString() : '—' %></td>
+                      <td><span class="badge <%= b.status %>"><%= b.status %></span></td>
+                      <td class="num"><%= fmt(b.total_amount) %></td>
+                      <td class="num" style="color:var(--fin-success);"><%= fmt(b.total_paid) %></td>
+                      <td>
+                        <form method="POST" action="/account/settings/finance/bills/<%= b.bill_id %>/delete" onsubmit="return confirm('Delete this bill and all assignments?');" style="display:inline;">
+                          <button class="fin-btn danger" style="padding:6px 10px; font-size:.78rem;">Delete</button>
+                        </form>
+                      </td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+          <% } %>
+        </div>
+      <% } %>
+
+      <% if (sec === 'students') { %>
+        <div class="fin-card">
+          <div class="section-head"><h2>Student Billing Profiles</h2><span style="color:var(--fin-muted); font-size:.8rem;"><%= studentBilling.length %> students</span></div>
+          <% if (!studentBilling.length) { %>
+            <div class="empty-state"><div class="ico">👨‍👩‍👧</div><h3>No students yet</h3></div>
+          <% } else { %>
+            <div class="fin-table-wrap">
+              <table class="fin-table">
+                <thead><tr><th>Student</th><th>Class</th><th class="num">Billed</th><th class="num">Paid</th><th class="num">Outstanding</th><th>Status</th></tr></thead>
+                <tbody>
+                  <% studentBilling.forEach(s => {
+                    const out = Number(s.outstanding||0);
+                    const billed = Number(s.total_billed||0);
+                    let st = 'pending';
+                    if (billed === 0) st = 'draft';
+                    else if (out === 0) st = 'paid';
+                    else if (Number(s.total_paid||0) > 0) st = 'partial';
+                  %>
+                    <tr>
+                      <td>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                          <div class="avatar">
+                            <% if (s.image_url) { %><img src="<%= s.image_url %>" alt=""><% } else { %><%= ((s.first_name||'?').charAt(0)+(s.last_name||'').charAt(0)).toUpperCase() %><% } %>
+                          </div>
+                          <div><strong><%= s.first_name %> <%= s.last_name %></strong></div>
+                        </div>
+                      </td>
+                      <td style="color:var(--fin-muted);"><%= s.class_name || '—' %></td>
+                      <td class="num"><%= fmt(s.total_billed) %></td>
+                      <td class="num" style="color:var(--fin-success);"><%= fmt(s.total_paid) %></td>
+                      <td class="num" style="color: <%= out>0 ? 'var(--fin-red)' : 'var(--fin-muted)' %>;"><%= fmt(out) %></td>
+                      <td><span class="badge <%= st %>"><%= st %></span></td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+          <% } %>
+        </div>
+      <% } %>
+
+      <% if (sec === 'payments') { %>
+        <div class="fin-card" style="margin-bottom:20px;">
+          <div class="section-head"><h2>Record Manual Payment</h2><span style="color:var(--fin-muted); font-size:.8rem;">Cash / Cheque / Bank Transfer</span></div>
+          <%
+            // Build assignment options
+            const allAssignments = [];
+          %>
+          <form class="fin-form" method="POST" action="/account/settings/finance/payments">
+            <div class="fin-field">
+              <label>Bill Assignment *</label>
+              <select name="assignment_id" required id="assignSel">
+                <option value="">— Select bill ↔ student —</option>
+                <% bills.forEach(b => { %>
+                  <% /* Render assignment per bill in subquery — simple: list bill+balance */ %>
+                <% }) %>
+              </select>
+              <div style="font-size:.75rem; color:var(--fin-muted); margin-top:6px;">Loading assignments…</div>
+            </div>
+            <div class="fin-row">
+              <div class="fin-field">
+                <label>Amount Received *</label>
+                <input name="amount" type="number" step="0.01" min="0" required>
+              </div>
+              <div class="fin-field">
+                <label>Payment Method *</label>
+                <select name="method">
+                  <option value="cash">Cash</option>
+                  <option value="cheque">Cheque</option>
+                  <option value="bank_transfer">Bank Transfer</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
+            <div class="fin-row">
+              <div class="fin-field">
+                <label>Reference No.</label>
+                <input name="reference" placeholder="CHQ-20045 etc.">
+              </div>
+              <div class="fin-field">
+                <label>Notes</label>
+                <input name="notes">
+              </div>
+            </div>
+            <button type="submit" class="fin-btn primary">✅ Confirm &amp; Mark Paid</button>
+          </form>
+          <div style="margin-top:12px; padding:12px 14px; background:rgba(0,212,170,.05); border:1px dashed var(--fin-border); border-radius:10px; font-size:.82rem; color:var(--fin-muted);">
+            💡 To record an online (Stripe) payment, connect Stripe in <a href="?section=settings" style="color:var(--fin-teal);">Payment Settings</a> — payments will appear here automatically.
+          </div>
+        </div>
+
+        <div class="fin-card">
+          <div class="section-head"><h2>Payment History</h2></div>
+          <% if (!overview.recent.length) { %>
+            <div class="empty-state"><div class="ico">💰</div><h3>No payments recorded yet</h3></div>
+          <% } else { %>
+            <div class="fin-table-wrap">
+              <table class="fin-table">
+                <thead><tr><th>Date</th><th>Student</th><th>Bill</th><th>Method</th><th class="num">Amount</th></tr></thead>
+                <tbody>
+                  <% overview.recent.forEach(r => { %>
+                    <tr>
+                      <td><%= new Date(r.received_at).toLocaleString() %></td>
+                      <td><%= (r.first_name||'') + ' ' + (r.last_name||'') %></td>
+                      <td><%= r.bill_title || '—' %></td>
+                      <td><span class="badge active"><%= r.method %></span></td>
+                      <td class="num" style="color:var(--fin-success);"><%= fmt(r.amount) %></td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+          <% } %>
+        </div>
+      <% } %>
+
+      <% if (sec === 'templates') { %>
+        <div class="fin-card" style="margin-bottom:20px;">
+          <div class="section-head"><h2>Create Fee Template</h2></div>
+          <form class="fin-form" method="POST" action="/account/settings/finance/templates">
+            <div class="fin-row">
+              <div class="fin-field"><label>Name *</label><input name="name" required placeholder="e.g. Tuition Fee (Monthly)"></div>
+              <div class="fin-field"><label>Amount *</label><input name="amount" type="number" step="0.01" min="0" required></div>
+            </div>
+            <div class="fin-field"><label>Description</label><textarea name="description"></textarea></div>
+            <div class="fin-row">
+              <div class="fin-field">
+                <label>Bill Type</label>
+                <select name="bill_type">
+                  <option value="one_time">One-Time</option>
+                  <option value="recurring">Recurring</option>
+                  <option value="installment">Installment</option>
+                </select>
+              </div>
+              <div class="fin-field">
+                <label>Recurrence</label>
+                <select name="recurrence">
+                  <option value="">—</option>
+                  <option>monthly</option><option>term</option><option>year</option><option>weekly</option>
+                </select>
+              </div>
+            </div>
+            <button type="submit" class="fin-btn primary">+ Create Template</button>
+          </form>
+        </div>
+
+        <div class="fin-card">
+          <div class="section-head"><h2>Template Library</h2></div>
+          <% if (!templates.length) { %>
+            <div class="empty-state"><div class="ico">🏫</div><h3>No templates yet</h3></div>
+          <% } else { %>
+            <div class="fin-table-wrap">
+              <table class="fin-table">
+                <thead><tr><th>Name</th><th>Type</th><th class="num">Amount</th><th></th></tr></thead>
+                <tbody>
+                  <% templates.forEach(t => { %>
+                    <tr>
+                      <td><strong><%= t.name %></strong><% if (t.description) { %><div style="color:var(--fin-muted); font-size:.78rem;"><%= t.description %></div><% } %></td>
+                      <td><span style="color:var(--fin-muted); text-transform:capitalize;"><%= (t.bill_type||'').replace('_',' ') %><%= t.recurrence ? ' · '+t.recurrence : '' %></span></td>
+                      <td class="num"><%= fmt(t.amount) %></td>
+                      <td>
+                        <form method="POST" action="/account/settings/finance/templates/<%= t.template_id %>/delete" onsubmit="return confirm('Delete template?')" style="display:inline;">
+                          <button class="fin-btn danger" style="padding:6px 10px; font-size:.78rem;">Delete</button>
+                        </form>
+                      </td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+          <% } %>
+        </div>
+      <% } %>
+
+      <% if (sec === 'subscriptions') { %>
+        <div class="fin-card">
+          <div class="section-head"><h2>Subscriptions &amp; Recurring</h2></div>
+          <% const recurring = bills.filter(b => b.bill_type === 'recurring'); %>
+          <% if (!recurring.length) { %>
+            <div class="empty-state"><div class="ico">📅</div><h3>No recurring plans yet</h3><p>Create a bill with type "Recurring" to start a subscription.</p></div>
+          <% } else { %>
+            <div style="display:grid; gap:14px;">
+              <% recurring.forEach(b => { %>
+                <div style="padding:18px; background:var(--fin-card-2); border:1px solid var(--fin-border); border-radius:14px;">
+                  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+                    <div>
+                      <div style="font-family:'Space Grotesk',sans-serif; font-size:1.05rem; font-weight:700;">📋 <%= b.title %></div>
+                      <div style="color:var(--fin-muted); font-size:.85rem; margin-top:4px;"><span class="fin-mono"><%= fmt(b.amount) %></span> · <%= b.recurrence || 'recurring' %> · <%= b.assigned_count %> enrolled</div>
+                    </div>
+                    <span class="badge <%= b.status %>"><%= b.status %></span>
+                  </div>
+                </div>
+              <% }) %>
+            </div>
+          <% } %>
+        </div>
+      <% } %>
+
+      <% if (sec === 'reports') { %>
+        <div class="fin-card">
+          <div class="section-head"><h2>Reports &amp; Analytics</h2></div>
+          <div class="fin-stats">
+            <div class="stat"><div class="label">Collection Rate</div><div class="value"><%= billedTotal > 0 ? ((collectedTotal/billedTotal)*100).toFixed(1) : '0.0' %>%</div></div>
+            <div class="stat green"><div class="label">Paid Bills</div><div class="value"><%= bills.filter(b=>Number(b.total_paid)>=Number(b.total_amount) && Number(b.total_amount)>0).length %></div></div>
+            <div class="stat red"><div class="label">Overdue</div><div class="value"><%= t.overdue_count || 0 %></div></div>
+            <div class="stat gold"><div class="label">Total Bills</div><div class="value"><%= bills.length %></div></div>
+          </div>
+          <div style="margin-top:18px; padding:18px; background:rgba(0,212,170,.04); border:1px dashed var(--fin-border); border-radius:14px; color:var(--fin-muted); font-size:.88rem;">
+            📊 Detailed CSV/PDF exports, term breakdowns, and visual charts (donut, bar, line, heatmap) are scaffolded and ready to be wired to a charting library next iteration.
+          </div>
+        </div>
+      <% } %>
+
+      <% if (sec === 'settings') { %>
+        <div class="fin-card">
+          <div class="section-head"><h2>Payment Settings</h2></div>
+          <div style="padding:20px; background:var(--fin-card-2); border:1px solid var(--fin-border); border-radius:14px;">
+            <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px;">
+              <div style="width:46px; height:46px; border-radius:12px; background:rgba(123,97,255,.15); display:flex; align-items:center; justify-content:center; font-size:1.4rem;">⚡</div>
+              <div>
+                <div style="font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:1.05rem;">Stripe Integration</div>
+                <div style="color:var(--fin-muted); font-size:.84rem;">Connect your school's Stripe account to accept online payments.</div>
+              </div>
+            </div>
+            <div style="padding:14px; background:rgba(255,181,71,.06); border:1px solid rgba(255,181,71,.2); border-radius:10px; color:var(--fin-warn); font-size:.86rem;">
+              ⚠️ Stripe is not connected. Use the existing Stripe / Paystack settings under Account → Billing to configure payouts. Live online payment automation will route through that connection.
+            </div>
+          </div>
+        </div>
+      <% } %>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  // Toggle class/student pickers based on applies_to
+  (function () {
+    var sel = document.getElementById('appliesTo');
+    var cp = document.getElementById('classPicker');
+    var sp = document.getElementById('studentPicker');
+    function refresh() {
+      if (!sel) return;
+      var v = sel.value;
+      if (cp) cp.style.display = v === 'classes' ? '' : 'none';
+      if (sp) sp.style.display = v === 'students' ? '' : 'none';
+    }
+    if (sel) { sel.addEventListener('change', refresh); refresh(); }
+  })();
+
+  // Lazy-load assignment options for payment form
+  (function () {
+    var sel = document.getElementById('assignSel');
+    if (!sel) return;
+    fetch('/account/settings/finance/_assignments.json').then(r => r.ok ? r.json() : []).then(rows => {
+      if (!rows || !rows.length) {
+        if (sel.nextElementSibling) sel.nextElementSibling.textContent = 'No outstanding assignments — create a bill first.';
+        return;
+      }
+      rows.forEach(a => {
+        var o = document.createElement('option');
+        o.value = a.assignment_id;
+        o.textContent = a.label;
+        sel.appendChild(o);
+      });
+      if (sel.nextElementSibling) sel.nextElementSibling.remove();
+    }).catch(()=>{});
+  })();
+</script>
