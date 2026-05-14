@@ -68,14 +68,21 @@ main { padding: 0 !important; max-width: none !important; }
 .hub-nav .nav-list, .management-nav .nav-list, .settings-nav .nav-list {
   list-style: none;
   padding: 8px 8px 10px !important;
-  margin: 0;
+  margin: 0 !important;
   display: grid;
   gap: 1px;
+  justify-content: start !important;
+  justify-items: stretch !important;
+  align-content: start !important;
+  text-align: left !important;
 }
 
 .hub-nav .nav-list li,
 .management-nav .nav-list li,
-.settings-nav .nav-list li { margin: 0; }
+.settings-nav .nav-list li {
+  margin: 0;
+  justify-self: stretch !important;
+}
 
 .hub-nav .nav-link,
 .management-nav .nav-link,
@@ -90,6 +97,7 @@ main { padding: 0 !important; max-width: none !important; }
   text-decoration: none;
   border: 1px solid transparent !important;
   width: 100%;
+  margin-left: 0 !important;
   background: transparent !important;
   cursor: pointer;
   font: inherit;
@@ -418,6 +426,11 @@ main { padding: 0 !important; max-width: none !important; }
   text-align: left !important;
 }
 
+@keyframes mgNavIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* Mobile */
 @media (max-width: 900px) {
   .hub-layout, .management-layout, .settings-layout {
@@ -441,6 +454,7 @@ main { padding: 0 !important; max-width: none !important; }
     right: auto !important;
     width: 260px !important;
     max-width: calc(100vw - 20px) !important;
+    margin-left: 0 !important;
     z-index: 950 !important;
     border-radius: 12px !important;
     box-shadow: 0 8px 28px rgba(15, 23, 42, 0.16) !important;
@@ -466,6 +480,7 @@ main { padding: 0 !important; max-width: none !important; }
     right: auto !important;
     width: 260px !important;
     max-width: calc(100vw - 20px) !important;
+    margin-left: 0 !important;
     z-index: 950 !important;
     border-radius: 12px !important;
     box-shadow: 0 8px 28px rgba(15, 23, 42, 0.16) !important;
@@ -476,9 +491,78 @@ main { padding: 0 !important; max-width: none !important; }
     animation: mgNavIn 0.18s ease both;
   }
 
-  @keyframes mgNavIn {
-    from { opacity: 0; transform: translateY(-6px); }
-    to   { opacity: 1; transform: translateY(0); }
+  /* Reports hub: nav floats over content, never takes a grid row */
+  .hub-layout {
+    position: relative !important;
+    gap: 12px !important;
+    padding-top: 12px !important;
+  }
+
+  .hub-nav {
+    display: none !important;
+    position: absolute !important;
+    top: 52px !important;
+    left: 0 !important;
+    right: auto !important;
+    width: 260px !important;
+    max-width: calc(100vw - 20px) !important;
+    margin-left: 0 !important;
+    z-index: 950 !important;
+    border-radius: 12px !important;
+    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.16) !important;
+  }
+
+  .hub-nav.open {
+    display: block !important;
+    animation: mgNavIn 0.18s ease both;
+  }
+
+  /* Settings: overlay nav on mobile – header stays in flow, list floats */
+  .settings-layout {
+    position: relative !important;
+    gap: 12px !important;
+    padding-top: 12px !important;
+  }
+
+  .settings-nav {
+    position: relative !important;
+    display: block !important;
+    width: 100% !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+  }
+
+  .settings-nav-header {
+    cursor: pointer !important;
+  }
+
+  .settings-nav .nav-list {
+    display: none !important;
+    position: absolute !important;
+    top: 100% !important;
+    left: 0 !important;
+    width: 260px !important;
+    max-width: calc(100vw - 20px) !important;
+    z-index: 950 !important;
+    background: #fff !important;
+    border: 1px solid var(--border, #e5e7eb) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.16) !important;
+    margin-top: 4px !important;
+  }
+
+  .settings-nav.open .nav-list {
+    display: grid !important;
+    animation: mgNavIn 0.18s ease both;
+  }
+
+  .settings-nav-header-caret {
+    display: inline-block !important;
+  }
+
+  .settings-nav.open .settings-nav-header-caret {
+    transform: rotate(-135deg) !important;
+    margin-top: 4px !important;
   }
 
   .hub-main .section-header,
@@ -502,33 +586,4 @@ main { padding: 0 !important; max-width: none !important; }
   .hub-main .action-btn,
   .management-main .action-btn,
   .settings-main .action-btn { width: 100%; justify-content: center; }
-}
-
-/* Settings nav: display:none when closed so it never pushes content */
-@media (max-width: 960px) {
-  .settings-layout {
-    position: relative !important;
-  }
-
-  .settings-nav {
-    display: none !important;
-    position: absolute !important;
-    top: 52px !important;
-    left: 0 !important;
-    width: 260px !important;
-    max-width: calc(100vw - 20px) !important;
-    max-height: min(70vh, calc(100vh - 120px)) !important;
-    border-radius: 12px !important;
-    z-index: 1001 !important;
-    padding: 0 !important;
-    overflow-y: auto !important;
-    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.16) !important;
-    transform: none !important;
-    transition: none !important;
-  }
-
-  .settings-nav.open {
-    display: block !important;
-    animation: mgNavIn 0.18s ease both;
-  }
 }

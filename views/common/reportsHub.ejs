@@ -371,12 +371,19 @@
     .hub-nav-toggle {
       display: flex;
     }
-
     .hub-nav-close { display: none; }
 
-    .section-header { padding: 10px 14px; }
-    .section-content { padding: 12px 14px 16px; }
-    .section-header h1 { font-size: 14px; }
+    .section-header {
+      padding: 10px 14px;
+    }
+
+    .section-content {
+      padding: 12px 14px 16px;
+    }
+
+    .section-header h1 {
+      font-size: 14px;
+    }
   }
 
   @media (max-width: 600px) {
@@ -712,24 +719,33 @@
       navToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
     };
 
+    // Only initialize if elements exist
     if (!navToggle || !nav || !overlay) return;
 
     syncToggleLabel(document.querySelector('.nav-link.active'));
 
+    // Section navigation
     navLinks.forEach(link => {
       link.addEventListener('click', function() {
         const sectionId = this.getAttribute('data-section');
+        
         navLinks.forEach(l => l.classList.remove('active'));
         this.classList.add('active');
         syncToggleLabel(this);
+        
         sections.forEach(s => s.classList.remove('active'));
         const targetSection = document.getElementById(sectionId);
         if (targetSection) targetSection.classList.add('active');
-        if (window.innerWidth <= 900) setNavOpen(false);
+
+        if (window.innerWidth <= 900) {
+          setNavOpen(false);
+        }
+
         history.replaceState(null, null, '#' + sectionId);
       });
     });
 
+    // Mobile navigation toggle
     navToggle.addEventListener('click', function(e) {
       e.stopPropagation();
       setNavOpen(!nav.classList.contains('open'));
@@ -751,14 +767,17 @@
       setNavOpen(false);
     });
 
-    window.addEventListener('resize', function() {
-      if (window.innerWidth > 900) setNavOpen(false);
-    });
-
+    // Handle initial hash
     if (window.location.hash) {
       const sectionId = window.location.hash.substring(1);
       const targetLink = document.querySelector(`.nav-link[data-section="${sectionId}"]`);
-      if (targetLink) targetLink.click();
+      if (targetLink) {
+        targetLink.click();
+      }
     }
+
+    window.addEventListener('resize', function() {
+      if (window.innerWidth > 900) setNavOpen(false);
+    });
   });
 </script>

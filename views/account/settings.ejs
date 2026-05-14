@@ -523,94 +523,16 @@
         min-height: 80px;
       }
 
-      .settings-nav-toggle {
+      .settings-nav-header-caret {
         display: none;
-        align-items: center;
-        justify-content: flex-start;
-        gap: 8px;
-        padding: 8px 12px;
-        border-radius: 8px;
-        border: 1px solid var(--border);
-        background: #fff;
-        color: var(--primary);
-        cursor: pointer;
-        font: inherit;
-        font-weight: 600;
-        font-size: 13px;
-        margin: 0 0 12px 0;
-        width: 100%;
-        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
-      }
-
-      .settings-nav-toggle-label,
-      .settings-nav-toggle-text {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-      }
-
-      .settings-nav-toggle-current {
-        color: #64748b;
-        font-weight: 500;
-      }
-
-      .settings-nav-toggle-caret {
         width: 10px;
         height: 10px;
-        border-right: 2px solid currentColor;
-        border-bottom: 2px solid currentColor;
+        border-right: 2px solid var(--primary, #01535b);
+        border-bottom: 2px solid var(--primary, #01535b);
         transform: rotate(45deg);
         transition: transform 0.2s ease;
         margin-top: -2px;
-      }
-
-      .settings-nav-toggle[aria-expanded="true"] .settings-nav-toggle-caret {
-        transform: rotate(-135deg);
-        margin-top: 4px;
-      }
-
-      .settings-nav-toggle .hub-hamburger-icon {
-        position: relative;
-        width: 18px;
-        height: 2px;
-        background: var(--primary);
-        display: inline-block;
-      }
-
-      .settings-nav-toggle .hub-hamburger-icon::before,
-      .settings-nav-toggle .hub-hamburger-icon::after {
-        content: "";
-        position: absolute;
-        left: 0;
-        width: 18px;
-        height: 2px;
-        background: var(--primary);
-      }
-
-      .settings-nav-toggle .hub-hamburger-icon::before {
-        top: -6px;
-      }
-
-      .settings-nav-toggle .hub-hamburger-icon::after {
-        top: 6px;
-      }
-
-      .settings-nav-label {
-        display: inline;
-      }
-
-      .settings-nav-close {
-        display: none;
-        background: transparent;
-        border: none;
-        font-size: 24px;
-        cursor: pointer;
-        padding: 6px 8px;
-        margin-left: auto;
-        line-height: 1;
-        width: auto;
-        margin-top: 0;
-        align-self: center;
+        flex-shrink: 0;
       }
 
       .settings-nav-overlay {
@@ -1252,60 +1174,27 @@
         letter-spacing: 0.03em;
       }
 
+      @keyframes mgNavIn {
+        from { opacity: 0; transform: translateY(-6px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+
       @media (max-width: 960px) {
         body {
           padding-bottom: env(safe-area-inset-bottom, 0px) !important;
         }
 
-        .settings-layout {
-          display: block;
-          margin: 8px auto 0;
-          padding-top: 8px;
-          position: relative;
-        }
-
-        .settings-main {
-          padding-top: 16px;
-        }
-
-        .settings-layout > main.settings-main {
-          padding-top: 16px !important;
-        }
-
-        .settings-main .settings-section {
-          padding-top: 8px;
-        }
-
-        .settings-nav {
-          display: none;
-          position: absolute;
-          top: 52px;
-          left: 0;
-          width: 260px;
-          max-width: calc(100vw - 20px);
-          max-height: min(70vh, calc(100vh - 120px));
-          border-radius: 12px;
-          z-index: 1001;
-          padding: 0;
-          overflow-y: auto;
-          box-shadow: 0 8px 28px rgba(15, 23, 42, 0.16);
-        }
-
-        .settings-nav.open {
-          display: block;
-          animation: mgNavIn 0.18s ease both;
-        }
-
         .settings-nav-header {
-          margin-top: 0;
+          cursor: pointer;
         }
 
-        .settings-nav-close {
-          display: inline-flex;
+        .settings-nav-header-caret {
+          display: inline-block;
         }
 
-        .settings-nav-toggle {
-          display: flex;
+        .settings-nav.open .settings-nav-header-caret {
+          transform: rotate(-135deg);
+          margin-top: 4px;
         }
 
         #plan-modal {
@@ -1345,18 +1234,9 @@
   <body>
     <%- include('../partials/flash') %>
     <div class="settings-layout">
-      <!-- Mobile Toggle Button -->
-      <button class="settings-nav-toggle" type="button" aria-expanded="false" aria-controls="settings-nav">
-        <span class="settings-nav-toggle-label">
-          <span class="hub-hamburger-icon" aria-hidden="true"></span>
-          <span>Menu</span>
-        </span>
-      </button>
-
-      <aside class="settings-nav">
+      <aside class="settings-nav" id="settings-nav-panel">
         <div class="settings-nav-header">
-          <h3>Workspace</h3>
-          <button class="settings-nav-close" type="button" aria-label="Close settings menu">x</button>
+          <h3>Settings</h3>
         </div>
         <ul class="nav-list">
           <li><button class="nav-link active" data-target="customize">
@@ -2470,31 +2350,10 @@
       document.addEventListener("DOMContentLoaded", () => {
         const navLinks = Array.from(document.querySelectorAll(".nav-link"));
         const sections = Array.from(document.querySelectorAll(".settings-section"));
-        const navToggle = document.querySelector(".settings-nav-toggle");
+        const navHeader = document.querySelector(".settings-nav-header");
         const navPanel = document.querySelector(".settings-nav");
-        const navClose = document.querySelector(".settings-nav-close");
         const navOverlay = document.querySelector(".settings-nav-overlay");
-        const navCurrent = document.getElementById("settings-nav-current");
-
-        const syncNavLabel = activeLink => {
-          if (!navCurrent || !activeLink) return;
-          const label = activeLink.querySelector('span:last-child');
-          navCurrent.textContent = label ? label.textContent.trim() : activeLink.textContent.trim();
-        };
-
-        function openNav() {
-          navPanel.classList.add("open");
-          navOverlay.classList.add("show");
-          if (navToggle) navToggle.setAttribute('aria-expanded', 'true');
-        }
-
-        function closeNav() {
-          navPanel.classList.remove("open");
-          navOverlay.classList.remove("show");
-          if (navToggle) navToggle.setAttribute('aria-expanded', 'false');
-        }
-
-        syncNavLabel(document.querySelector('.nav-link.active'));
+        const logoInput = document.getElementById("logo");
         const logoSubmit = document.getElementById("logo-submit");
         const fontSelect = document.getElementById("font-select");
         const fontPreview = document.getElementById("font-preview");
@@ -2602,23 +2461,22 @@
             btn.classList.toggle("active", btn.dataset.target === targetId);
           });
 
-          // Sync toggle label with active section
-          const activeLink = navLinks.find(b => b.dataset.target === targetId);
-          syncNavLabel(activeLink);
-
           if (shouldScroll) {
             requestAnimationFrame(() => scrollSectionIntoView(targetId));
           }
         }
 
+        function setNavOpen(isOpen) {
+          if (!navPanel) return;
+          navPanel.classList.toggle("open", isOpen);
+        }
+
         function openNav() {
-          navPanel.classList.add("open");
-          navOverlay.classList.add("show");
+          setNavOpen(!navPanel.classList.contains("open"));
         }
 
         function closeNav() {
-          navPanel.classList.remove("open");
-          navOverlay.classList.remove("show");
+          setNavOpen(false);
         }
 
         function openModal(modal) {
@@ -2683,29 +2541,26 @@
           });
         });
 
-        if (navToggle) {
-          navToggle.addEventListener("click", function(e) {
-            e.stopPropagation();
-            navPanel.classList.contains('open') ? closeNav() : openNav();
-          });
+        if (navHeader) {
+          navHeader.addEventListener("click", openNav);
         }
 
-        if (navClose) {
-          navClose.addEventListener("click", closeNav);
-        }
+        document.addEventListener("click", (event) => {
+          if (window.innerWidth > 960 || !navPanel || !navPanel.classList.contains("open")) {
+            return;
+          }
 
-        if (navOverlay) {
-          navOverlay.addEventListener("click", closeNav);
-        }
+          if (navPanel.contains(event.target)) {
+            return;
+          }
 
-        document.addEventListener('click', function(e) {
-          if (!navPanel || !navPanel.classList.contains('open')) return;
-          if (navPanel.contains(e.target) || (navToggle && navToggle.contains(e.target))) return;
           closeNav();
         });
 
-        window.addEventListener('resize', function() {
-          if (window.innerWidth > 960) closeNav();
+        window.addEventListener("resize", () => {
+          if (window.innerWidth > 960) {
+            closeNav();
+          }
         });
 
         if (paymentModalOpen) {
