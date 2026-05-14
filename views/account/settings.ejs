@@ -828,6 +828,20 @@
         box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
       }
 
+      .stripe-card-element {
+        padding: 12px 14px;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        background: #fff;
+        min-height: 44px;
+      }
+
+      .card-helper-copy {
+        margin: 0 0 12px;
+        color: #64748b;
+        font-size: 13px;
+      }
+
       .card-modal .form-row {
         display: grid;
         grid-template-columns: 1fr 1fr 1fr;
@@ -2151,11 +2165,13 @@
             <% paystackSubaccounts.forEach((account) => { %>
               <li class="card-item <%= account.is_primary ? 'active' : '' %>">
                 <div class="card-meta">
-                  <strong><%= account.account_type === 'mobile_money' ? 'Mobile Money' : 'Bank' %></strong>
+                  <strong><%= account.account_type === 'stripe_card' ? 'Stripe Card' : account.account_type === 'mobile_money' ? 'Mobile Money' : 'Bank' %></strong>
                   <span class="text-muted-sm"><%= account.business_name %></span>
                   <span class="text-muted-sm">
                     <% if (account.account_type === 'bank') { %>
                       <%= account.bank_name || account.bank_code || 'Bank' %>
+                    <% } else if (account.account_type === 'stripe_card') { %>
+                      **** <%= account.account_number %> &mdash; Stripe
                     <% } else { %>
                       <%= account.momo_provider || 'MoMo' %> - <%= account.momo_number %>
                     <% } %>
@@ -2184,7 +2200,7 @@
               <select id="sa-type" name="account_type" class="form-select" required>
                 <option value="">-- Choose Option --</option>
                 <option value="bank">Bank Account</option>
-                <option value="mobile_money">Mobile Money (MoMo)</option>
+                <option value="stripe_card">Stripe Card</option>
               </select>
             </div>
             <div class="field-group">
@@ -2194,54 +2210,48 @@
 
             <div id="sa-bank-fields" class="form-split">
               <div class="field-group">
+                <label class="form-label" for="sa-account-holder">Account Holder Name</label>
+                <input id="sa-account-holder" name="account_holder_name" class="form-input" type="text" />
+              </div>
+              <div class="field-group">
+                <label class="form-label" for="sa-bank-name-input">Bank Name</label>
+                <input id="sa-bank-name-input" name="bank_name" class="form-input" type="text" />
+              </div>
+              <div class="field-group">
                 <label class="form-label" for="sa-account-number">Account Number</label>
                 <input id="sa-account-number" name="account_number" class="form-input" type="text" />
               </div>
               <div class="field-group">
-                <label class="form-label" for="sa-bank-code">Bank Code</label>
-                <select id="sa-bank-code" name="bank_code" class="form-select">
-                  <option value="">-- Select Bank --</option>
-                  <option value="057">Zenith Bank</option>
-                  <option value="058">Guaranty Trust Bank (GTBank)</option>
-                  <option value="033">United Bank for Africa (UBA)</option>
-                  <option value="214">First City Monument Bank (FCMB)</option>
-                  <option value="011">First Bank of Nigeria</option>
-                  <option value="050">Ecobank Nigeria</option>
-                  <option value="070">Fidelity Bank</option>
-                  <option value="007">Access Bank</option>
-                  <option value="221">Stanbic IBTC Bank</option>
-                  <option value="068">Standard Chartered Bank</option>
-                  <option value="232">Sterling Bank</option>
-                  <option value="035">Wema Bank</option>
-                  <option value="032">Union Bank of Nigeria</option>
-                  <option value="076">Polaris Bank</option>
-                  <option value="082">Keystone Bank</option>
-                  <option value="030">Heritage Bank</option>
-                  <option value="215">Unity Bank</option>
-                  <option value="101">Providus Bank</option>
-                  <option value="301">Jaiz Bank</option>
+                <label class="form-label" for="sa-routing-number">Routing / Sort Code</label>
+                <input id="sa-routing-number" name="routing_number" class="form-input" type="text" placeholder="Optional for some countries" />
+              </div>
+              <div class="field-group">
+                <label class="form-label" for="sa-bank-country">Country</label>
+                <select id="sa-bank-country" name="bank_country" class="form-select">
+                  <option value="US">United States</option>
+                  <option value="GB">United Kingdom</option>
+                  <option value="CA">Canada</option>
+                  <option value="AU">Australia</option>
+                  <option value="DE">Germany</option>
+                  <option value="FR">France</option>
+                  <option value="GH">Ghana</option>
+                  <option value="NG">Nigeria</option>
+                  <option value="KE">Kenya</option>
+                  <option value="ZA">South Africa</option>
                 </select>
               </div>
-              <input type="hidden" id="sa-bank-name" name="bank_name" />
+              <div class="field-group">
+                <label class="form-label" for="sa-bank-currency">Currency Code</label>
+                <input id="sa-bank-currency" name="bank_currency" class="form-input" type="text" placeholder="e.g. usd, gbp, ghs" />
+              </div>
+              <div id="sa-bank-errors" class="form-error" role="alert" style="color:#c0392b;font-size:0.85em;margin-top:4px;"></div>
             </div>
 
-            <div id="sa-momo-fields" class="form-split">
+            <div id="sa-stripe-card-fields" style="display:none;">
               <div class="field-group">
-                <label class="form-label" for="sa-momo-number">Mobile Money Number</label>
-                <input id="sa-momo-number" name="momo_number" class="form-input" type="text" />
-              </div>
-              <div class="field-group">
-                <label class="form-label" for="sa-momo-provider">Mobile Money Provider</label>
-                <select id="sa-momo-provider" name="momo_provider" class="form-select">
-                  <option value="">-- Select Provider --</option>
-                  <option value="MTN">MTN Mobile Money</option>
-                  <option value="VDF">Vodafone Cash</option>
-                  <option value="ATL">AirtelTigo Money</option>
-                </select>
-              </div>
-              <div class="field-group">
-                <label class="form-label" for="sa-account-holder">Account Holder Name</label>
-                <input id="sa-account-holder" name="account_holder_name" class="form-input" type="text" />
+                <label class="form-label">Card Details</label>
+                <div id="sa-stripe-card-element" style="padding:10px 12px;border:1px solid #ccc;border-radius:4px;background:#fff;"></div>
+                <div id="sa-stripe-card-errors" class="form-error" role="alert" style="color:#c0392b;font-size:0.85em;margin-top:4px;"></div>
               </div>
             </div>
 
@@ -2342,9 +2352,16 @@
       </div>
     </div>
     <div class="settings-nav-overlay"></div>
+    <% const resolvedStripePublishableKey = typeof stripePublishableKey !== 'undefined' ? stripePublishableKey : ''; %>
+    <% if (resolvedStripePublishableKey) { %>
+    <script src="https://js.stripe.com/v3/"></script>
+    <% } %>
     <script>
       const orgEmail = <%- JSON.stringify(org?.email || "") %>;
       const orgPhone = <%- JSON.stringify(org?.organization_phone || "") %>;
+      const orgName = <%- JSON.stringify(org?.organization_name || "") %>;
+      const paymentProvider = <%- JSON.stringify(paymentProvider || "paystack") %>;
+      const stripePublishableKey = <%- JSON.stringify(resolvedStripePublishableKey) %>;
       let passwordVerified = <%= passwordVerified ? "true" : "false" %>;
 
       document.addEventListener("DOMContentLoaded", () => {
@@ -2386,15 +2403,16 @@
         const schoolAccountDelete = document.getElementById("sa-delete");
         const schoolAccountType = document.getElementById("sa-type");
         const schoolAccountBankFields = document.getElementById("sa-bank-fields");
-        const schoolAccountMomoFields = document.getElementById("sa-momo-fields");
-        const schoolAccountBankCode = document.getElementById("sa-bank-code");
-        const schoolAccountBankName = document.getElementById("sa-bank-name");
+        const schoolAccountStripeCardFields = document.getElementById("sa-stripe-card-fields");
+        let saStripeElements = null; // holds { stripe, elements, cardElement }
         const schoolAccountId = document.getElementById("sa-id");
         const schoolAccountBusinessName = document.getElementById("sa-business-name");
         const schoolAccountNumber = document.getElementById("sa-account-number");
-        const schoolAccountMomoNumber = document.getElementById("sa-momo-number");
-        const schoolAccountMomoProvider = document.getElementById("sa-momo-provider");
         const schoolAccountHolder = document.getElementById("sa-account-holder");
+        const schoolAccountBankNameInput = document.getElementById("sa-bank-name-input");
+        const schoolAccountRoutingNumber = document.getElementById("sa-routing-number");
+        const schoolAccountBankCountry = document.getElementById("sa-bank-country");
+        const schoolAccountBankCurrency = document.getElementById("sa-bank-currency");
         const calendarSchoolYearSelect = document.getElementById("calendar-school-year-select");
         const calendarTermSelect = document.getElementById("calendar-term-select");
 
@@ -2861,11 +2879,11 @@
         if (addCardFromSettings) {
           addCardFromSettings.addEventListener("click", () => {
             closeModal(paymentModal);
-            requestPassword(null, () => showCardForm());
+            requestPassword(null, () => showStripeCardForm());
           });
         }
 
-        function showCardForm() {
+        function showStripeCardForm() {
           const modal = document.createElement("div");
           modal.className = "card-modal-overlay";
           modal.innerHTML = `
@@ -2875,369 +2893,162 @@
                 <button type="button" class="close-modal">&times;</button>
               </div>
               <div class="card-modal-body">
-                <p class="status-text" id="card-status" role="status" aria-live="polite"></p>
-
-                <div class="card-step active" data-step="card">
-                  <form id="card-form">
-                    <div class="form-group">
-                      <label for="card-number">Card Number</label>
-                      <input type="text" id="card-number" maxlength="19" placeholder="1234 5678 9012 3456" required>
-                    </div>
-                    <div class="form-row">
-                      <div class="form-group">
-                        <label for="expiry-month">Expiry Month</label>
-                        <select id="expiry-month" required>
-                          <option value="">MM</option>
-                          ${Array.from({length: 12}, (_, i) => `<option value="${String(i+1).padStart(2, "0")}">${String(i+1).padStart(2, "0")}</option>`).join("")}
-                        </select>
-                      </div>
-                      <div class="form-group">
-                        <label for="expiry-year">Expiry Year</label>
-                        <select id="expiry-year" required>
-                          <option value="">YYYY</option>
-                          ${Array.from({length: 15}, (_, i) => {
-                            const year = new Date().getFullYear() + i;
-                            return `<option value="${year}">${year}</option>`;
-                          }).join("")}
-                        </select>
-                      </div>
-                      <div class="form-group">
-                        <label for="cvv">CVV</label>
-                        <input type="text" id="cvv" maxlength="4" placeholder="123" required>
-                      </div>
-                    </div>
-                    <button type="submit" class="btn btn-primary" id="tokenize-btn">Continue</button>
-                  </form>
-                </div>
-
-                <div class="card-step" data-step="channel">
-                  <div class="channel-options">
-                    <label class="channel-option channel-email">
-                      <input type="radio" name="otp-channel" value="email" checked>
-                      <span class="channel-label">Email</span>
-                      <span class="channel-value" id="channel-email-value"></span>
-                    </label>
-                    <label class="channel-option channel-phone">
-                      <input type="radio" name="otp-channel" value="phone">
-                      <span class="channel-label">Phone</span>
-                      <span class="channel-value" id="channel-phone-value"></span>
-                    </label>
+                <p class="status-text" id="stripe-card-status" role="status" aria-live="polite"></p>
+                <p class="card-helper-copy">This saves a card to your organization's Stripe customer for future billing. No charge is made while adding the card.</p>
+                <form id="stripe-card-form">
+                  <div class="form-group">
+                    <label for="stripe-card-element">Card Details</label>
+                    <div id="stripe-card-element" class="stripe-card-element"></div>
                   </div>
-                  <button type="button" class="btn btn-primary" id="channel-continue">Continue</button>
-                </div>
-
-                <div class="card-step" data-step="pin">
-                  <form id="pin-form">
-                    <div class="form-group">
-                      <label for="card-pin">Card PIN</label>
-                      <input type="password" id="card-pin" maxlength="4" placeholder="1234" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary" id="pin-submit">Submit PIN</button>
-                  </form>
-                </div>
-
-                <div class="card-step" data-step="otp">
-                  <form id="otp-form">
-                    <div class="form-group">
-                      <label for="card-otp">OTP Code</label>
-                      <input type="text" id="card-otp" maxlength="8" placeholder="123456" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary" id="otp-submit">Verify OTP</button>
-                  </form>
-                </div>
+                  <button type="submit" class="btn btn-primary" id="stripe-card-submit">Save Card</button>
+                </form>
               </div>
             </div>
           `;
 
           document.body.appendChild(modal);
 
-          const statusText = modal.querySelector("#card-status");
-          const steps = modal.querySelectorAll(".card-step");
-          const channelEmailValue = modal.querySelector("#channel-email-value");
-          const channelPhoneValue = modal.querySelector("#channel-phone-value");
-          const phoneOption = modal.querySelector(".channel-phone");
-
-          let currentReference = null;
-          let otpChannelSelected = false;
-          let channelMode = "choice";
-
-          channelEmailValue.textContent = orgEmail || "Email on file";
-          if (orgPhone) {
-            channelPhoneValue.textContent = orgPhone;
-          } else if (phoneOption) {
-            phoneOption.style.display = "none";
-          }
+          const statusText = modal.querySelector("#stripe-card-status");
+          const submitBtn = modal.querySelector("#stripe-card-submit");
+          let stripeCard = null;
 
           function setStatus(message, tone) {
-            if (!statusText) return;
             statusText.textContent = message || "";
             statusText.classList.remove("error", "success");
             if (tone === "error") statusText.classList.add("error");
             if (tone === "success") statusText.classList.add("success");
           }
 
-          function setStep(stepName) {
-            steps.forEach((step) => {
-              step.classList.toggle("active", step.dataset.step === stepName);
-            });
-          }
-
-          function showChannelStep(mode) {
-            channelMode = mode || "choice";
-            const emailOption = modal.querySelector(".channel-email");
-            if (channelMode === "phone") {
-              if (!orgPhone) {
-                setStatus("Phone number is not available for this account.", "error");
-                return;
-              }
-              if (emailOption) emailOption.style.display = "none";
-              if (phoneOption) {
-                phoneOption.style.display = "flex";
-                phoneOption.querySelector("input").checked = true;
-              }
-            } else {
-              if (emailOption) emailOption.style.display = "flex";
-              if (phoneOption) {
-                phoneOption.style.display = orgPhone ? "flex" : "none";
-                if (!orgPhone) {
-                  const emailInput = modal.querySelector('input[name="otp-channel"][value="email"]');
-                  if (emailInput) emailInput.checked = true;
-                }
-              }
+          function closeStripeModal() {
+            if (stripeCard) {
+              stripeCard.unmount();
+              stripeCard.destroy();
+              stripeCard = null;
             }
-            setStep("channel");
-          }
-
-          async function handleChargeResult(result) {
-            if (result.success) {
-              const authCode = result.card?.authorization_code;
-              if (authCode) {
-                try {
-                  await setPrimaryCardRequest(authCode);
-                } catch (error) {
-                  // ignore primary update errors
-                }
-              }
-              setStatus("Card added successfully.", "success");
-              setTimeout(() => {
-                document.body.removeChild(modal);
-                window.location.reload();
-              }, 600);
-              return;
-            }
-
-            if (!result.nextStep) {
-              setStatus(result.message || "Failed to add card.", "error");
-              return;
-            }
-
-            currentReference = result.reference || currentReference;
-            setStatus(result.message || "Additional verification required.");
-
-            if (result.nextStep === "pin") {
-              setStep("pin");
-              return;
-            }
-
-            if (result.nextStep === "phone") {
-              otpChannelSelected = true;
-              showChannelStep("phone");
-              return;
-            }
-
-            if (result.nextStep === "otp") {
-              if (otpChannelSelected || !orgPhone) {
-                setStep("otp");
-              } else {
-                showChannelStep("choice");
-              }
-              return;
-            }
-
-            if (result.nextStep === "birthday") {
-              setStatus("This card needs birthday verification. Please try another card.", "error");
-            }
-          }
-
-          modal.querySelector(".close-modal").addEventListener("click", () => {
-            document.body.removeChild(modal);
-          });
-
-          modal.addEventListener("click", (e) => {
-            if (e.target === modal) {
+            if (modal.parentNode) {
               document.body.removeChild(modal);
             }
-          });
+          }
 
-          const cardNumberInput = modal.querySelector("#card-number");
-          cardNumberInput.addEventListener("input", (e) => {
-            let value = e.target.value.replace(/\s/g, "");
-            let formattedValue = value.replace(/(.{4})/g, "$1 ").trim();
-            if (formattedValue.length > 19) {
-              formattedValue = formattedValue.substring(0, 19);
-            }
-            e.target.value = formattedValue;
-          });
-
-          modal.querySelector("#card-form").addEventListener("submit", async (e) => {
-            e.preventDefault();
-
-            const cardNumber = cardNumberInput.value.replace(/\s/g, "");
-            const expiryMonth = modal.querySelector("#expiry-month").value;
-            const expiryYear = modal.querySelector("#expiry-year").value;
-            const cvv = modal.querySelector("#cvv").value;
-
-            if (!cardNumber || !expiryMonth || !expiryYear || !cvv) {
-              setStatus("Please fill in all card details.", "error");
-              return;
-            }
-
-            const tokenizeBtn = modal.querySelector("#tokenize-btn");
-            tokenizeBtn.disabled = true;
-            tokenizeBtn.textContent = "Processing...";
-
-            try {
-              const response = await fetch("/account/api/tokenize-card", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  cardNumber,
-                  expiryMonth,
-                  expiryYear,
-                  cvv,
-                }),
-              });
-
-              const result = await response.json();
-              tokenizeBtn.disabled = false;
-              tokenizeBtn.textContent = "Continue";
-              await handleChargeResult(result);
-            } catch (error) {
-              tokenizeBtn.disabled = false;
-              tokenizeBtn.textContent = "Continue";
-              setStatus("Error adding card. Please try again.", "error");
-            }
-          });
-
-          modal.querySelector("#channel-continue").addEventListener("click", async () => {
-            if (!currentReference) {
-              setStatus("Missing transaction reference. Please try again.", "error");
-              return;
-            }
-
-            const selected = modal.querySelector('input[name="otp-channel"]:checked')?.value;
-            const continueBtn = modal.querySelector("#channel-continue");
-
-            if (channelMode === "phone" || selected === "phone") {
-              if (!orgPhone) {
-                setStatus("Phone number is not available for this account.", "error");
-                return;
+          if (!stripePublishableKey || typeof Stripe !== "function") {
+            setStatus("Stripe is not available right now. Check your Stripe public key and try again.", "error");
+            submitBtn.disabled = true;
+          } else {
+            const stripe = Stripe(stripePublishableKey);
+            const stripeElements = stripe.elements();
+            stripeCard = stripeElements.create("card", {
+              hidePostalCode: true,
+            });
+            stripeCard.mount(modal.querySelector("#stripe-card-element"));
+            stripeCard.on("change", (event) => {
+              if (event.error) {
+                setStatus(event.error.message, "error");
+              } else if (!event.empty) {
+                setStatus("");
               }
-              otpChannelSelected = true;
-              continueBtn.disabled = true;
-              continueBtn.textContent = "Sending...";
+            });
+
+            modal.querySelector("#stripe-card-form").addEventListener("submit", async (e) => {
+              e.preventDefault();
+
+              submitBtn.disabled = true;
+              submitBtn.textContent = "Saving...";
+              setStatus("Preparing secure card setup...");
+
               try {
-                const response = await fetch("/account/api/tokenize-card/phone", {
+                const intentResponse = await fetch("/account/cards/stripe/setup-intent", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                });
+                const intentData = await intentResponse.json();
+
+                if (!intentResponse.ok || !intentData.success || !intentData.clientSecret) {
+                  throw new Error(intentData.message || "Unable to initialize Stripe card setup.");
+                }
+
+                const confirmation = await stripe.confirmCardSetup(intentData.clientSecret, {
+                  payment_method: {
+                    card: stripeCard,
+                    billing_details: {
+                      email: orgEmail || undefined,
+                      name: orgName || undefined,
+                      phone: orgPhone || undefined,
+                    },
+                  },
+                });
+
+                if (confirmation.error) {
+                  throw new Error(confirmation.error.message || "Unable to save this card.");
+                }
+
+                const setupIntent = confirmation.setupIntent;
+                if (!setupIntent || setupIntent.status !== "succeeded") {
+                  throw new Error("Stripe card setup was not completed.");
+                }
+
+                const finalizeResponse = await fetch("/account/cards/stripe/complete", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
-                    reference: currentReference,
-                    phone: orgPhone,
+                    setupIntentId: setupIntent.id,
                   }),
                 });
-                const result = await response.json();
-                continueBtn.disabled = false;
-                continueBtn.textContent = "Continue";
-                await handleChargeResult(result);
+                const finalizeData = await finalizeResponse.json();
+
+                if (!finalizeResponse.ok || !finalizeData.success) {
+                  throw new Error(finalizeData.message || "Unable to save the card to billing.");
+                }
+
+                setStatus("Card saved successfully.", "success");
+                setTimeout(() => {
+                  closeStripeModal();
+                  window.location.reload();
+                }, 700);
               } catch (error) {
-                continueBtn.disabled = false;
-                continueBtn.textContent = "Continue";
-                setStatus("Error sending phone number. Please try again.", "error");
+                setStatus(error.message || "Error adding card. Please try again.", "error");
+                submitBtn.disabled = false;
+                submitBtn.textContent = "Save Card";
               }
-            } else {
-              otpChannelSelected = true;
-              setStatus(`OTP sent to ${orgEmail}. Enter the code below.`);
-              setStep("otp");
-            }
-          });
+            });
+          }
 
-          modal.querySelector("#pin-form").addEventListener("submit", async (e) => {
-            e.preventDefault();
-            const pin = modal.querySelector("#card-pin").value.trim();
-
-            if (!currentReference || !pin) {
-              setStatus("Enter a valid PIN.", "error");
-              return;
-            }
-
-            const pinSubmit = modal.querySelector("#pin-submit");
-            pinSubmit.disabled = true;
-            pinSubmit.textContent = "Submitting...";
-
-            try {
-              const response = await fetch("/account/api/tokenize-card/pin", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  reference: currentReference,
-                  pin,
-                }),
-              });
-              const result = await response.json();
-              pinSubmit.disabled = false;
-              pinSubmit.textContent = "Submit PIN";
-              await handleChargeResult(result);
-            } catch (error) {
-              pinSubmit.disabled = false;
-              pinSubmit.textContent = "Submit PIN";
-              setStatus("Error submitting PIN. Please try again.", "error");
-            }
-          });
-
-          modal.querySelector("#otp-form").addEventListener("submit", async (e) => {
-            e.preventDefault();
-            const otp = modal.querySelector("#card-otp").value.trim();
-
-            if (!currentReference || !otp) {
-              setStatus("Enter the OTP code.", "error");
-              return;
-            }
-
-            const otpSubmit = modal.querySelector("#otp-submit");
-            otpSubmit.disabled = true;
-            otpSubmit.textContent = "Verifying...";
-
-            try {
-              const response = await fetch("/account/api/tokenize-card/otp", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  reference: currentReference,
-                  otp,
-                }),
-              });
-              const result = await response.json();
-              otpSubmit.disabled = false;
-              otpSubmit.textContent = "Verify OTP";
-              await handleChargeResult(result);
-            } catch (error) {
-              otpSubmit.disabled = false;
-              otpSubmit.textContent = "Verify OTP";
-              setStatus("Error submitting OTP. Please try again.", "error");
+          modal.querySelector(".close-modal").addEventListener("click", closeStripeModal);
+          modal.addEventListener("click", (e) => {
+            if (e.target === modal) {
+              closeStripeModal();
             }
           });
         }
 
         function toggleSchoolAccountFields() {
-          if (!schoolAccountType || !schoolAccountBankFields || !schoolAccountMomoFields) {
+          if (!schoolAccountType || !schoolAccountBankFields) {
             return;
           }
           const type = schoolAccountType.value;
           const isBank = type === "bank";
-          const isMomo = type === "mobile_money";
+          const isStripeCard = type === "stripe_card";
 
           schoolAccountBankFields.style.display = isBank ? "grid" : "none";
-          schoolAccountMomoFields.style.display = isMomo ? "grid" : "none";
+          if (schoolAccountStripeCardFields) {
+            schoolAccountStripeCardFields.style.display = isStripeCard ? "block" : "none";
+          }
+
+          // Mount/destroy Stripe card element based on visibility
+          if (isStripeCard && stripePublishableKey) {
+            if (!saStripeElements) {
+              const saStripe = Stripe(stripePublishableKey);
+              const saElements = saStripe.elements();
+              const saCard = saElements.create("card", { style: { base: { fontSize: "14px" } } });
+              const mountTarget = document.getElementById("sa-stripe-card-element");
+              if (mountTarget) saCard.mount(mountTarget);
+              saStripeElements = { stripe: saStripe, elements: saElements, card: saCard };
+            }
+          } else {
+            if (saStripeElements) {
+              saStripeElements.card.unmount();
+              saStripeElements = null;
+            }
+          }
 
           if (schoolAccountNumber) {
             if (isBank) {
@@ -3246,42 +3057,20 @@
               schoolAccountNumber.removeAttribute("required");
             }
           }
-          if (schoolAccountBankCode) {
-            if (isBank) {
-              schoolAccountBankCode.setAttribute("required", "required");
-            } else {
-              schoolAccountBankCode.removeAttribute("required");
-            }
-          }
-          if (schoolAccountMomoNumber) {
-            if (isMomo) {
-              schoolAccountMomoNumber.setAttribute("required", "required");
-            } else {
-              schoolAccountMomoNumber.removeAttribute("required");
-            }
-          }
-          if (schoolAccountMomoProvider) {
-            if (isMomo) {
-              schoolAccountMomoProvider.setAttribute("required", "required");
-            } else {
-              schoolAccountMomoProvider.removeAttribute("required");
-            }
-          }
           if (schoolAccountHolder) {
-            if (isMomo) {
+            if (isBank) {
               schoolAccountHolder.setAttribute("required", "required");
             } else {
               schoolAccountHolder.removeAttribute("required");
             }
           }
-        }
-
-        function updateSchoolBankName() {
-          if (!schoolAccountBankCode || !schoolAccountBankName) {
-            return;
+          if (schoolAccountBankNameInput) {
+            if (isBank) {
+              schoolAccountBankNameInput.setAttribute("required", "required");
+            } else {
+              schoolAccountBankNameInput.removeAttribute("required");
+            }
           }
-          const selectedOption = schoolAccountBankCode.options[schoolAccountBankCode.selectedIndex];
-          schoolAccountBankName.value = selectedOption && selectedOption.value ? selectedOption.text : "";
         }
 
         function resetSchoolAccountForm() {
@@ -3294,17 +3083,12 @@
           if (schoolAccountDelete) {
             schoolAccountDelete.style.display = "none";
           }
-          updateSchoolBankName();
           toggleSchoolAccountFields();
         }
 
         if (schoolAccountType) {
           schoolAccountType.addEventListener("change", toggleSchoolAccountFields);
           toggleSchoolAccountFields();
-        }
-
-        if (schoolAccountBankCode) {
-          schoolAccountBankCode.addEventListener("change", updateSchoolBankName);
         }
 
         if (schoolAccountReset) {
@@ -3330,16 +3114,13 @@
 
                 if (account.account_type === "bank") {
                   if (schoolAccountNumber) schoolAccountNumber.value = account.account_number || "";
-                  if (schoolAccountBankCode) schoolAccountBankCode.value = account.bank_code || "";
-                  if (schoolAccountBankName) schoolAccountBankName.value = account.bank_name || "";
-                } else {
-                  if (schoolAccountMomoNumber) schoolAccountMomoNumber.value = account.momo_number || "";
-                  if (schoolAccountMomoProvider) schoolAccountMomoProvider.value = account.momo_provider || "";
                   if (schoolAccountHolder) schoolAccountHolder.value = account.account_holder_name || "";
+                  if (schoolAccountBankNameInput) schoolAccountBankNameInput.value = account.bank_name || "";
+                  // routing_number, country, currency not stored — leave as defaults
                 }
+                // stripe_card accounts: card details come from Stripe; no local fields to fill
 
                 toggleSchoolAccountFields();
-                updateSchoolBankName();
                 if (schoolAccountDelete) {
                   schoolAccountDelete.style.display = "inline-flex";
                 }
@@ -3399,11 +3180,100 @@
           schoolAccountForm.addEventListener("submit", async (event) => {
             event.preventDefault();
             requestPassword(null, async () => {
-              updateSchoolBankName();
-
               const formData = new FormData(schoolAccountForm);
               const payload = Object.fromEntries(formData.entries());
               const isEditing = payload.id && payload.id !== "";
+
+              // ─── Bank account via Stripe ────────────────────────────────────
+              if (payload.account_type === "bank") {
+                if (!stripePublishableKey) {
+                  alert("Stripe is not available. Cannot process bank account.");
+                  return;
+                }
+                const bankErrEl = document.getElementById("sa-bank-errors");
+                const saStripeForBank = (saStripeElements && saStripeElements.stripe) || Stripe(stripePublishableKey);
+
+                try {
+                  const bankTokenResult = await saStripeForBank.createToken("bank_account", {
+                    country: payload.bank_country || "US",
+                    currency: (payload.bank_currency || "usd").toLowerCase().trim(),
+                    routing_number: payload.routing_number || undefined,
+                    account_number: payload.account_number,
+                    account_holder_name: payload.account_holder_name || payload.business_name,
+                    account_holder_type: "company",
+                  });
+                  if (bankTokenResult.error) throw new Error(bankTokenResult.error.message);
+
+                  const saveRes = await fetch("/account/paystack/stripe-bank-account", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      bankToken: bankTokenResult.token.id,
+                      business_name: payload.business_name,
+                      bank_name: payload.bank_name,
+                      bank_country: payload.bank_country || "US",
+                    }),
+                  });
+                  const saveData = await saveRes.json();
+                  if (!saveRes.ok || !saveData.success) throw new Error(saveData.message || "Failed to save bank account.");
+
+                  window.location.reload();
+                } catch (err) {
+                  if (bankErrEl) bankErrEl.textContent = err.message || "Error saving bank account.";
+                  else alert(err.message || "Error saving bank account.");
+                }
+                return;
+              }
+
+              // ─── Stripe Card flow ───────────────────────────────────────────
+              if (payload.account_type === "stripe_card") {
+                if (!stripePublishableKey || !saStripeElements) {
+                  alert("Stripe is not available. Please select Stripe Card type again.");
+                  return;
+                }
+                const { stripe, card } = saStripeElements;
+                const errEl = document.getElementById("sa-stripe-card-errors");
+
+                try {
+                  // Step 1: get SetupIntent client secret
+                  const intentRes = await fetch("/account/cards/stripe/setup-intent", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                  });
+                  const intentData = await intentRes.json();
+                  if (!intentRes.ok || !intentData.success) {
+                    throw new Error(intentData.message || "Unable to start card setup.");
+                  }
+
+                  // Step 2: confirm card with Stripe.js (no charge)
+                  const { setupIntent, error: stripeErr } = await stripe.confirmCardSetup(
+                    intentData.clientSecret,
+                    { payment_method: { card } }
+                  );
+                  if (stripeErr) throw new Error(stripeErr.message);
+                  if (setupIntent.status !== "succeeded") throw new Error("Card setup did not complete.");
+
+                  // Step 3: save to paystack_subaccounts as stripe_card
+                  const saveRes = await fetch("/account/paystack/stripe-card", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      setupIntentId: setupIntent.id,
+                      business_name: payload.business_name,
+                    }),
+                  });
+                  const saveData = await saveRes.json();
+                  if (!saveRes.ok || !saveData.success) throw new Error(saveData.message || "Failed to save card.");
+
+                  window.location.reload();
+                } catch (err) {
+                  if (errEl) errEl.textContent = err.message || "Error saving Stripe card.";
+                  else alert(err.message || "Error saving Stripe card.");
+                }
+                return;
+              }
+
+              // ─── Bank account (regular Paystack) flow ──────────────────────
               const url = isEditing ? "/account/paystack" : "/account/add-paystack-subaccount";
               const method = isEditing ? "PUT" : "POST";
 

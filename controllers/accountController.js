@@ -102,7 +102,7 @@ const {
   getStripeChargeCurrency,
   getStripeClient,
 } = require("../utils/stripeConfig");
-const { ensurePaymentProviderSchema } = require("../utils/paymentProviderSchema");
+const { ensurePaymentProviderSchema, ensureStripeSubaccountSchema } = require("../utils/paymentProviderSchema");
 const {
   WEEKDAY_OPTIONS,
   parseBoolean,
@@ -374,13 +374,17 @@ async function saveStoredCardMethod(dbClient, orgId, card, options = {}) {
     ]
   );
 
-  const countResult = await dbClient.query(
-    `SELECT COUNT(*) AS count FROM stored_cards
-     WHERE organization_id = $1 AND provider = $2 AND is_active = true`,
-    [orgId, provider]
+  // Only promote this card to primary if there is no other active primary card already.
+  // This prevents a newly added card from displacing an existing primary.
+  const existingPrimaryResult = await dbClient.query(
+    `SELECT authorization_code FROM stored_cards
+     WHERE organization_id = $1 AND provider = $2 AND is_active = true AND is_primary = true
+       AND authorization_code <> $3
+     LIMIT 1`,
+    [orgId, provider, authorizationCode]
   );
 
-  if (countResult.rows[0].count === "1") {
+  if (!existingPrimaryResult.rows.length) {
     await dbClient.query(
       `UPDATE stored_cards
        SET is_primary = true
@@ -3362,6 +3366,252 @@ const accountController = {
     }
   },
 
+  createStripeCardSetupIntentPost: async (req, res) => {
+    try {
+      const orgId = req.session.organizationId;
+
+      if (!orgId) {
+        return res.status(401).json({
+          success: false,
+          message: "Authentication required.",
+        });
+      }
+
+      const orgResult = await db.query(
+        `SELECT organization_name, email, organization_phone, stripe_customer_id, billing_provider, is_hub_member
+         FROM organizations
+         WHERE organization_id = $1`,
+        [orgId]
+      );
+
+      const orgRow = orgResult.rows[0];
+
+      if (!orgRow) {
+        return res.status(404).json({
+          success: false,
+          message: "Organization not found.",
+        });
+      }
+
+      if (orgRow.is_hub_member) {
+        return res.status(400).json({
+          success: false,
+          message: "Hub-managed billing accounts cannot add cards here.",
+        });
+      }
+
+      const activeProvider = await getActivePaymentProvider();
+      const effectiveProvider = orgRow.billing_provider || activeProvider || 'paystack';
+      if (effectiveProvider !== "stripe" && activeProvider !== "stripe") {
+        return res.status(400).json({
+          success: false,
+          message: "Stripe is not the active billing provider for this organization.",
+        });
+      }
+
+      const stripeSettings = await getStripeSettings(db);
+      const stripeConfigError = getStripeConfigurationIssue(stripeSettings);
+      if (stripeConfigError) {
+        return res.status(500).json({
+          success: false,
+          message: stripeConfigError,
+        });
+      }
+
+      const stripe = await getStripeClient(db);
+      let customerId = orgRow.stripe_customer_id || null;
+
+      if (customerId) {
+        try {
+          const existingCustomer = await stripe.customers.retrieve(customerId);
+          if (!existingCustomer || existingCustomer.deleted) {
+            customerId = null;
+          }
+        } catch (lookupErr) {
+          if (lookupErr && lookupErr.code === "resource_missing") {
+            customerId = null;
+          } else {
+            throw lookupErr;
+          }
+        }
+      }
+
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: orgRow.email || undefined,
+          name: orgRow.organization_name || undefined,
+          phone: orgRow.organization_phone || undefined,
+          metadata: {
+            organization_id: String(orgId),
+            organization_name: orgRow.organization_name || "",
+            flow: "settings_add_card",
+          },
+        });
+
+        customerId = customer.id;
+
+        await db.query(
+          `UPDATE organizations
+           SET stripe_customer_id = $2, updated_at = NOW()
+           WHERE organization_id = $1`,
+          [orgId, customerId]
+        );
+      }
+
+      const setupIntent = await stripe.setupIntents.create({
+        customer: customerId,
+        payment_method_types: ["card"],
+        usage: "off_session",
+        metadata: {
+          flow: "settings_add_card",
+          organization_id: String(orgId),
+        },
+      });
+
+      return res.json({
+        success: true,
+        clientSecret: setupIntent.client_secret,
+        setupIntentId: setupIntent.id,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: "Unable to prepare Stripe card setup.",
+        error: error.message,
+      });
+    }
+  },
+
+  completeStripeCardSetupPost: async (req, res) => {
+    try {
+      const orgId = req.session.organizationId;
+      const setupIntentId = String(req.body?.setupIntentId || "").trim();
+
+      if (!orgId || !setupIntentId) {
+        return res.status(400).json({
+          success: false,
+          message: "Missing required parameters.",
+        });
+      }
+
+      const orgResult = await db.query(
+        `SELECT stripe_customer_id, billing_provider, is_hub_member
+         FROM organizations
+         WHERE organization_id = $1`,
+        [orgId]
+      );
+
+      const orgRow = orgResult.rows[0];
+
+      if (!orgRow) {
+        return res.status(404).json({
+          success: false,
+          message: "Organization not found.",
+        });
+      }
+
+      if (orgRow.is_hub_member) {
+        return res.status(400).json({
+          success: false,
+          message: "Hub-managed billing accounts cannot add cards here.",
+        });
+      }
+
+      const activeProvider = await getActivePaymentProvider();
+      const effectiveProvider = orgRow.billing_provider || activeProvider || 'paystack';
+      if (effectiveProvider !== "stripe" && activeProvider !== "stripe") {
+        return res.status(400).json({
+          success: false,
+          message: "Stripe is not the active billing provider for this organization.",
+        });
+      }
+
+      const stripe = await getStripeClient(db);
+      const setupIntent = await stripe.setupIntents.retrieve(setupIntentId);
+
+      if (setupIntent.status !== "succeeded") {
+        return res.status(400).json({
+          success: false,
+          message:
+            setupIntent.last_setup_error?.message || "Stripe card setup is not complete yet.",
+        });
+      }
+
+      if (!setupIntent.customer || String(setupIntent.customer) !== String(orgRow.stripe_customer_id)) {
+        return res.status(400).json({
+          success: false,
+          message: "This Stripe setup attempt does not belong to this organization.",
+        });
+      }
+
+      const paymentMethodId =
+        typeof setupIntent.payment_method === "string"
+          ? setupIntent.payment_method
+          : setupIntent.payment_method?.id;
+
+      if (!paymentMethodId) {
+        return res.status(400).json({
+          success: false,
+          message: "Stripe did not return a saved card.",
+        });
+      }
+
+      const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
+
+      await saveStoredCardMethod(
+        db,
+        orgId,
+        {
+          id: paymentMethodId,
+          brand: paymentMethod.card?.brand,
+          last4: paymentMethod.card?.last4,
+          expMonth: paymentMethod.card?.exp_month,
+          expYear: paymentMethod.card?.exp_year,
+          country_code: paymentMethod.card?.country,
+        },
+        {
+          provider: "stripe",
+          authorizationCode: paymentMethodId,
+        }
+      );
+
+      const storedCardResult = await db.query(
+        `SELECT is_primary
+         FROM stored_cards
+         WHERE organization_id = $1 AND authorization_code = $2 AND provider = 'stripe' AND is_active = true
+         LIMIT 1`,
+        [orgId, paymentMethodId]
+      );
+
+      if (storedCardResult.rows[0]?.is_primary) {
+        await stripe.customers.update(orgRow.stripe_customer_id, {
+          invoice_settings: {
+            default_payment_method: paymentMethodId,
+          },
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: "Card saved successfully.",
+        card: {
+          id: paymentMethodId,
+          brand: paymentMethod.card?.brand || "card",
+          last4: paymentMethod.card?.last4,
+          expMonth: paymentMethod.card?.exp_month,
+          expYear: paymentMethod.card?.exp_year,
+          isPrimary: Boolean(storedCardResult.rows[0]?.is_primary),
+        },
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: "Unable to save Stripe card.",
+        error: error.message,
+      });
+    }
+  },
+
   addCardPost: async (req, res) => {
     try {
       // For Paystack, cards are automatically saved during payment transactions
@@ -3526,7 +3776,10 @@ const accountController = {
         [orgId]
       );
       const orgRow = orgResult.rows[0] || {};
-      const paymentProvider = orgRow.billing_provider || "paystack";
+      const activeSystemProvider = await getActivePaymentProvider();
+      const paymentProvider = orgRow.billing_provider || activeSystemProvider || "paystack";
+      // Also treat as stripe when no billing_provider is set but org already has a stripe customer
+      const isStripeOrg = paymentProvider === "stripe" || (!orgRow.billing_provider && orgRow.stripe_customer_id);
 
       if (!orgId || !authorizationCode) {
         return res.status(400).json({
@@ -3536,7 +3789,7 @@ const accountController = {
         });
       }
 
-      if (paymentProvider === "stripe") {
+      if (isStripeOrg) {
         const removableCardsResult = await db.query(
           `SELECT authorization_code, is_primary
            FROM stored_cards
@@ -6410,7 +6663,8 @@ const accountController = {
       const isHubMember = Boolean(orgRow.is_hub_member && orgRow.hub_id);
       let paystackCustomerCode = orgRow.paystack_customer_code || '';
       const stripeCustomerId = orgRow.stripe_customer_id || null;
-      const paymentProvider = orgRow.billing_provider || 'paystack';
+      const activeSystemProvider = await getActivePaymentProvider();
+      const paymentProvider = orgRow.billing_provider || activeSystemProvider || 'paystack';
       let paymentMethods = [];
       let defaultPaymentMethod = null;
       let paystackSubaccounts = [];
@@ -6430,12 +6684,12 @@ const accountController = {
                   }
 
         try {
-          storedCardMethods = await getStoredCardPaymentMethods(db, orgId, paymentProvider);
+          storedCardMethods = await getStoredCardPaymentMethods(db, orgId, null);
         } catch (err) {
                   }
       }
 
-      if (orgId && !isHubMember && paymentProvider === 'stripe' && stripeCustomerId) {
+      if (orgId && !isHubMember && stripeCustomerId) {
         try {
           const stripe = await getStripeClient(db);
           const paymentMethodResult = await stripe.paymentMethods.list({
@@ -6649,6 +6903,7 @@ const accountController = {
         paymentMethods,
         paymentProvider,
         defaultPaymentMethod,
+        stripePublishableKey: await getActiveStripePublicKey(),
         stripeInvoices,
         paystackSubaccounts,
         paystackCustomerCode,
@@ -8521,6 +8776,186 @@ const accountController = {
       res.json({ success: true });
     } catch (err) {
             res.status(500).json({ success: false, message: "Update failed." });
+    }
+  },
+
+  /**
+   * POST /account/paystack/stripe-card
+   * Saves a Stripe PaymentMethod (from a completed SetupIntent) as a
+   * paystack_subaccounts row with account_type = 'stripe_card'.
+   * The subaccount_code column stores the pm_xxx PaymentMethod ID.
+   * account_number stores last4, bank_name stores the card brand.
+   */
+  saveStripeCardAsSubaccountPost: async (req, res) => {
+    try {
+      await ensureStripeSubaccountSchema(db);
+      const orgId = req.session.organizationId;
+      const setupIntentId = String(req.body?.setupIntentId || "").trim();
+      const business_name = String(req.body?.business_name || "").trim();
+
+      if (!orgId || !setupIntentId || !business_name) {
+        return res.status(400).json({ success: false, message: "Missing required parameters." });
+      }
+
+      const orgResult = await db.query(
+        `SELECT stripe_customer_id FROM organizations WHERE organization_id = $1`,
+        [orgId]
+      );
+      const orgRow = orgResult.rows[0];
+      if (!orgRow) {
+        return res.status(404).json({ success: false, message: "Organization not found." });
+      }
+
+      const stripe = await getStripeClient(db);
+      const setupIntent = await stripe.setupIntents.retrieve(setupIntentId);
+
+      if (setupIntent.status !== "succeeded") {
+        return res.status(400).json({
+          success: false,
+          message: setupIntent.last_setup_error?.message || "Stripe card setup is not complete.",
+        });
+      }
+
+      if (!setupIntent.customer || String(setupIntent.customer) !== String(orgRow.stripe_customer_id)) {
+        return res.status(400).json({
+          success: false,
+          message: "This setup attempt does not belong to this organization.",
+        });
+      }
+
+      const paymentMethodId =
+        typeof setupIntent.payment_method === "string"
+          ? setupIntent.payment_method
+          : setupIntent.payment_method?.id;
+
+      if (!paymentMethodId) {
+        return res.status(400).json({ success: false, message: "Stripe did not return a saved card." });
+      }
+
+      const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
+      const brand = pm.card?.brand || "card";
+      const last4 = pm.card?.last4 || "";
+
+      // Check for duplicates
+      const dupCheck = await db.query(
+        `SELECT id FROM paystack_subaccounts
+         WHERE organization_id = $1 AND subaccount_code = $2`,
+        [orgId, paymentMethodId]
+      );
+      if (dupCheck.rows.length > 0) {
+        return res.json({ success: true, message: "Card already saved." });
+      }
+
+      // Determine whether this is the first account overall (make it primary)
+      const countResult = await db.query(
+        `SELECT COUNT(*) AS count FROM paystack_subaccounts
+         WHERE organization_id = $1 AND is_primary = true`,
+        [orgId]
+      );
+      const isPrimary = Number(countResult.rows[0].count) === 0;
+
+      await db.query(
+        `INSERT INTO paystack_subaccounts
+           (organization_id, account_type, business_name, account_number, bank_name, subaccount_code, is_primary)
+         VALUES ($1, 'stripe_card', $2, $3, $4, $5, $6)`,
+        [orgId, business_name, last4, brand, paymentMethodId, isPrimary]
+      );
+
+      return res.json({ success: true, message: "Stripe card saved as transaction account." });
+    } catch (err) {
+      return res.status(500).json({ success: false, message: err.message || "Save failed." });
+    }
+  },
+
+  /**
+   * POST /account/paystack/stripe-bank-account
+   * Tokenizes a bank account via Stripe (bank_account token from Stripe.js),
+   * attaches it to the org's Stripe customer as a source, and saves to
+   * paystack_subaccounts with account_type = 'bank', subaccount_code = ba_xxx.
+   */
+  saveStripeBankAccountAsSubaccountPost: async (req, res) => {
+    try {
+      await ensureStripeSubaccountSchema(db);
+      const orgId = req.session.organizationId;
+      const bankToken = String(req.body?.bankToken || "").trim();
+      const business_name = String(req.body?.business_name || "").trim();
+      const bank_name_input = String(req.body?.bank_name || "").trim();
+      const bank_country = String(req.body?.bank_country || "US").trim().toUpperCase();
+
+      if (!orgId || !bankToken || !business_name) {
+        return res.status(400).json({ success: false, message: "Missing required parameters." });
+      }
+
+      const orgResult = await db.query(
+        `SELECT stripe_customer_id, organization_name, email, organization_phone
+         FROM organizations WHERE organization_id = $1`,
+        [orgId]
+      );
+      const orgRow = orgResult.rows[0];
+      if (!orgRow) {
+        return res.status(404).json({ success: false, message: "Organization not found." });
+      }
+
+      const stripe = await getStripeClient(db);
+
+      // Ensure Stripe customer exists
+      let customerId = orgRow.stripe_customer_id || null;
+      if (customerId) {
+        try {
+          const existing = await stripe.customers.retrieve(customerId);
+          if (!existing || existing.deleted) customerId = null;
+        } catch (e) {
+          if (e.code === "resource_missing") customerId = null;
+          else throw e;
+        }
+      }
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: orgRow.email || undefined,
+          name: orgRow.organization_name || undefined,
+          phone: orgRow.organization_phone || undefined,
+          metadata: { organization_id: String(orgId) },
+        });
+        customerId = customer.id;
+        await db.query(
+          `UPDATE organizations SET stripe_customer_id = $2, updated_at = NOW() WHERE organization_id = $1`,
+          [orgId, customerId]
+        );
+      }
+
+      // Attach bank account token to Stripe customer
+      const bankSource = await stripe.customers.createSource(customerId, { source: bankToken });
+
+      const last4 = bankSource.last4 || "";
+      const resolvedBankName = bank_name_input || bankSource.bank_name || "Bank";
+      const sourceId = bankSource.id; // ba_xxx
+
+      // Dedup check
+      const dupCheck = await db.query(
+        `SELECT id FROM paystack_subaccounts WHERE organization_id = $1 AND subaccount_code = $2`,
+        [orgId, sourceId]
+      );
+      if (dupCheck.rows.length > 0) {
+        return res.json({ success: true, message: "Bank account already saved." });
+      }
+
+      // Make primary if no primary exists yet
+      const countResult = await db.query(
+        `SELECT COUNT(*) AS count FROM paystack_subaccounts WHERE organization_id = $1 AND is_primary = true`,
+        [orgId]
+      );
+      const isPrimary = Number(countResult.rows[0].count) === 0;
+
+      await db.query(
+        `INSERT INTO paystack_subaccounts
+           (organization_id, account_type, business_name, account_number, bank_code, bank_name, subaccount_code, is_primary)
+         VALUES ($1, 'bank', $2, $3, $4, $5, $6, $7)`,
+        [orgId, business_name, last4, bank_country, resolvedBankName, sourceId, isPrimary]
+      );
+
+      return res.json({ success: true, message: "Bank account saved via Stripe." });
+    } catch (err) {
+      return res.status(500).json({ success: false, message: err.message || "Save failed." });
     }
   },
 

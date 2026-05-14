@@ -255,6 +255,12 @@ router.get("/update-card", checkFeatureAccess, isAuthenticated, requirePermissio
 router.post("/add-card", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.addCardPost(req, res, db)
 );
+router.post("/cards/stripe/setup-intent", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
+  accountController.createStripeCardSetupIntentPost(req, res, db)
+);
+router.post("/cards/stripe/complete", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
+  accountController.completeStripeCardSetupPost(req, res, db)
+);
 router.post("/api/tokenize-card", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.tokenizeCard(req, res)
 );
@@ -289,6 +295,16 @@ router.delete("/paystack/:id", isAuthenticated, requirePermission(PERMISSIONS.MA
 );
 router.post("/paystack/set-primary", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.setPaystackSubaccountPrimary(req, res)
+);
+
+// Save a Stripe card as a Self Enrollment Transaction Account
+router.post("/paystack/stripe-card", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
+  accountController.saveStripeCardAsSubaccountPost(req, res)
+);
+
+// Save a Stripe bank account as a Self Enrollment Transaction Account
+router.post("/paystack/stripe-bank-account", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
+  accountController.saveStripeBankAccountAsSubaccountPost(req, res)
 );
 
 // Utility API: Paystack banks
