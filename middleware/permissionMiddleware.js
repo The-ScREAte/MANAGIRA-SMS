@@ -22,6 +22,7 @@ const PERMISSIONS = {
   GENERATE_TRANSCRIPTS: "generate_transcripts",
   MANAGE_BILLING: "manage_billing",
   MANAGE_SETTINGS: "manage_settings",
+  MANAGE_PAYGIRA: "manage_paygira",
 };
 
 const PERMISSION_OPTIONS = [
@@ -41,6 +42,7 @@ const PERMISSION_OPTIONS = [
   { key: PERMISSIONS.GENERATE_TRANSCRIPTS, label: "Generate Transcripts" },
   { key: PERMISSIONS.MANAGE_BILLING, label: "Manage Billing" },
   { key: PERMISSIONS.MANAGE_SETTINGS, label: "Manage Organization Settings" },
+  { key: PERMISSIONS.MANAGE_PAYGIRA, label: "PayGira (Finance & Billing)" },
 ];
 
 const MANAGER_DEFAULT_OPTIONAL_PERMISSIONS = PERMISSION_OPTIONS

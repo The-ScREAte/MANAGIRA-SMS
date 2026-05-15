@@ -5,6 +5,7 @@
 const fs = require("fs");
 const path = require("path");
 const db = require("../config/db");
+const { userHasPermission } = require("../middleware/permissionMiddleware");
 
 let _schemaReady = false;
 async function ensureFinanceSchema() {
@@ -19,11 +20,21 @@ async function ensureFinanceSchema() {
   _schemaReady = true;
 }
 
-function isFinanceAdmin(req) {
+async function isFinanceAdmin(req) {
   const t = String(req.session?.userRole || req.session?.accountType || req.session?.user?.account_type || "").trim().toLowerCase();
-  // Organization = school owner (always has access); Admin/Mini Admin/Super Admin also have access.
-  // All other roles (teacher, class teacher, etc.) must be explicitly granted via staff permissions.
-  return ["organization", "admin", "mini admin", "super admin"].includes(t);
+  // Org owner + platform admins always have access.
+  if (["organization", "admin", "mini admin", "super admin"].includes(t)) return true;
+  // Manager, Supervisor, Teacher — allowed if explicitly granted the PayGira permission.
+  if (["manager", "supervisor", "teacher"].includes(t)) {
+    return userHasPermission(db, {
+      userId: req.session.user?.user_id || req.session.userId || null,
+      userRole: req.session.userRole || null,
+      organizationId: req.session.organizationId || null,
+      accountType: req.session.accountType || req.session.user?.account_type || null,
+      userEmail: req.session.user?.email || null,
+    }, "manage_paygira");
+  }
+  return false;
 }
 
 function money(n) {
@@ -141,7 +152,7 @@ module.exports = {
 
   // Page entry
   financePageGet: async (req, res) => {
-    if (!isFinanceAdmin(req)) {
+    if (!(await isFinanceAdmin(req))) {
       req.flash && req.flash("error", "Access denied.");
       return res.redirect("/account/settings");
     }
@@ -180,7 +191,7 @@ module.exports = {
 
   // Templates
   templateCreatePost: async (req, res) => {
-    if (!isFinanceAdmin(req)) return res.redirect("/account/settings");
+    if (!(await isFinanceAdmin(req))) return res.redirect("/account/settings");
     const orgId = req.session.organizationId;
     try {
       await ensureFinanceSchema();
@@ -199,7 +210,7 @@ module.exports = {
   },
 
   templateDeletePost: async (req, res) => {
-    if (!isFinanceAdmin(req)) return res.redirect("/account/settings");
+    if (!(await isFinanceAdmin(req))) return res.redirect("/account/settings");
     const orgId = req.session.organizationId;
     try {
       await db.query(`DELETE FROM finance_fee_templates WHERE template_id = $1 AND organization_id = $2`,
@@ -211,7 +222,7 @@ module.exports = {
 
   // Bills
   billCreatePost: async (req, res) => {
-    if (!isFinanceAdmin(req)) return res.redirect("/account/settings");
+    if (!(await isFinanceAdmin(req))) return res.redirect("/account/settings");
     const orgId = req.session.organizationId;
     try {
       await ensureFinanceSchema();
@@ -290,7 +301,7 @@ module.exports = {
   },
 
   billCancelPost: async (req, res) => {
-    if (!isFinanceAdmin(req)) return res.redirect("/account/settings");
+    if (!(await isFinanceAdmin(req))) return res.redirect("/account/settings");
     const orgId = req.session.organizationId;
     try {
       await db.query(`UPDATE finance_bills SET status='cancelled', updated_at=now() WHERE bill_id=$1 AND organization_id=$2`,
@@ -303,7 +314,7 @@ module.exports = {
   },
 
   billDeletePost: async (req, res) => {
-    if (!isFinanceAdmin(req)) return res.redirect("/account/settings");
+    if (!(await isFinanceAdmin(req))) return res.redirect("/account/settings");
     const orgId = req.session.organizationId;
     try {
       await db.query(`DELETE FROM finance_bills WHERE bill_id=$1 AND organization_id=$2`, [req.params.id, orgId]);
@@ -314,7 +325,7 @@ module.exports = {
 
   // Manual payment
   paymentRecordPost: async (req, res) => {
-    if (!isFinanceAdmin(req)) return res.redirect("/account/settings");
+    if (!(await isFinanceAdmin(req))) return res.redirect("/account/settings");
     const orgId = req.session.organizationId;
     const { assignment_id, amount, method, reference, notes } = req.body;
     try {
@@ -366,7 +377,7 @@ module.exports = {
     res.redirect("/account/settings/finance?section=payments");
   },
   assignmentsJsonGet: async (req, res) => {
-    if (!isFinanceAdmin(req)) return res.status(403).json([]);
+    if (!(await isFinanceAdmin(req))) return res.status(403).json([]);
     const orgId = req.session.organizationId;
     try {
       await ensureFinanceSchema();
@@ -389,7 +400,7 @@ module.exports = {
 
   // Edit bill
   billEditPost: async (req, res) => {
-    if (!isFinanceAdmin(req)) return res.redirect("/account/settings");
+    if (!(await isFinanceAdmin(req))) return res.redirect("/account/settings");
     const orgId = req.session.organizationId;
     const { title, description, amount, due_date, late_fee_amount, late_fee_after_days } = req.body;
     try {
@@ -415,7 +426,7 @@ module.exports = {
 
   // Overdue sweep — marks all past-due pending assignments as overdue and applies late fees
   overdueSweepPost: async (req, res) => {
-    if (!isFinanceAdmin(req)) return res.redirect("/account/settings");
+    if (!(await isFinanceAdmin(req))) return res.redirect("/account/settings");
     const orgId = req.session.organizationId;
     try {
       await ensureFinanceSchema();
@@ -456,7 +467,7 @@ module.exports = {
 
   // CSV export — bills with paid/outstanding summary
   exportCsvGet: async (req, res) => {
-    if (!isFinanceAdmin(req)) return res.status(403).send("Access denied.");
+    if (!(await isFinanceAdmin(req))) return res.status(403).send("Access denied.");
     const orgId = req.session.organizationId;
     const type = req.query.type || "bills";
     try {
@@ -511,7 +522,7 @@ module.exports = {
 
   // Student detail JSON — full billing breakdown for drawer
   studentDetailGet: async (req, res) => {
-    if (!isFinanceAdmin(req)) return res.status(403).json({ error: "Access denied." });
+    if (!(await isFinanceAdmin(req))) return res.status(403).json({ error: "Access denied." });
     const orgId = req.session.organizationId;
     const studentId = parseInt(req.params.id, 10);
     if (!studentId) return res.status(400).json({ error: "Invalid student ID." });
@@ -560,7 +571,7 @@ module.exports = {
 
   // Send reminder — logs it; triggers email if mailer configured
   sendReminderPost: async (req, res) => {
-    if (!isFinanceAdmin(req)) return res.redirect("/account/settings");
+    if (!(await isFinanceAdmin(req))) return res.redirect("/account/settings");
     const orgId = req.session.organizationId;
     try {
       // Log the reminder action (can be wired to email provider later)
