@@ -2361,6 +2361,7 @@
     <script src="https://js.stripe.com/v3/"></script>
     <% } %>
     <script>
+    (function () {
       const orgEmail = <%- JSON.stringify(org?.email || "") %>;
       const orgPhone = <%- JSON.stringify(org?.organization_phone || "") %>;
       const orgName = <%- JSON.stringify(org?.organization_name || "") %>;
@@ -3500,6 +3501,7 @@
         const initialSection = finalParams.get("section") || "customize";
         showSection(initialSection, { scroll: false });
       });
+    })();
     </script>
   </body>
 </html>

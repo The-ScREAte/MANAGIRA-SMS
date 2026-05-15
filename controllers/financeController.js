@@ -21,7 +21,9 @@ async function ensureFinanceSchema() {
 
 function isFinanceAdmin(req) {
   const t = String(req.session?.userRole || req.session?.accountType || req.session?.user?.account_type || "").trim().toLowerCase();
-  return ["admin", "mini admin", "super admin"].includes(t);
+  // Organization = school owner (always has access); Admin/Mini Admin/Super Admin also have access.
+  // All other roles (teacher, class teacher, etc.) must be explicitly granted via staff permissions.
+  return ["organization", "admin", "mini admin", "super admin"].includes(t);
 }
 
 function money(n) {
