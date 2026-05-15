@@ -193,7 +193,8 @@
     '/common/editTest',          // Rich editor
     '/account/managePublicContent', // Quill editor + image uploads
     '/account/personalization',  // Theme switching with full reload
-    '/common/reports'            // Dynamic filters + tables; safer to full-load
+    '/common/reports',           // Dynamic filters + tables; safer to full-load
+    '/account/settings/finance'  // PayGira — standalone dark-theme page; must full-load
   ];
 
   // ─── SPARouter Class ──────────────────────────────────────────────────
