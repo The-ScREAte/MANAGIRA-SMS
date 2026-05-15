@@ -1,0 +1,382 @@
+<%
+  function money(v){ return Number(v||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function balance(a){ return Math.max(Number(a.amount||0) + Number(a.late_fee_applied||0) - Number(a.amount_paid||0), 0); }
+  function statusClass(s){ return ({paid:'paid',partial:'partial',overdue:'overdue',pending:'pending'})[s||'pending']; }
+%>
+
+<style>
+  :root {
+    --pg-bg:        #080d1a;
+    --pg-surface:   #0e1426;
+    --pg-surface-2: #131b33;
+    --pg-border:    rgba(255,255,255,.08);
+    --pg-text:      #e9eef8;
+    --pg-muted:     #8a93a8;
+    --pg-teal:      #00D4AA;
+    --pg-gold:      #F5C842;
+    --pg-red:       #FF4D6D;
+    --pg-purple:    #7B61FF;
+  }
+
+  .pg-wrap {
+    background:var(--pg-bg);
+    color:var(--pg-text);
+    min-height:calc(100vh - 80px);
+    font-family:'Space Grotesk','DM Sans',system-ui,sans-serif;
+    padding:32px 20px 64px;
+  }
+  .pg-container { max-width:1200px; margin:0 auto; }
+
+  .pg-head {
+    display:flex; justify-content:space-between; align-items:flex-start;
+    gap:16px; flex-wrap:wrap; margin-bottom:28px;
+  }
+  .pg-head h1 {
+    margin:0; font-size:2.1rem; font-weight:800; letter-spacing:-.02em;
+    font-family:'Space Grotesk',sans-serif;
+  }
+  .pg-head h1 .accent { color:var(--pg-teal); font-style:italic; }
+  .pg-head p { margin:6px 0 0; color:var(--pg-muted); font-size:.92rem; }
+
+  .paygira-secure-badge {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:8px 14px; border-radius:999px;
+    background:linear-gradient(135deg, rgba(0,212,170,.18), rgba(0,212,170,.08));
+    border:1px solid rgba(0,212,170,.45);
+    color:var(--pg-teal);
+    font-size:.72rem; font-weight:700; letter-spacing:.08em;
+    text-transform:uppercase;
+    font-family:'Space Grotesk',sans-serif;
+    box-shadow:0 4px 18px rgba(0,212,170,.18);
+    white-space:nowrap;
+  }
+
+  .pg-stats { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:14px; margin-bottom:28px; }
+  .pg-stat {
+    background:linear-gradient(180deg, var(--pg-surface), var(--pg-surface-2));
+    border:1px solid var(--pg-border); border-radius:16px; padding:18px 20px;
+  }
+  .pg-stat .label { font-size:.72rem; color:var(--pg-muted); text-transform:uppercase; letter-spacing:.08em; font-weight:600; }
+  .pg-stat .value { font-size:1.7rem; font-weight:800; margin-top:6px; font-family:'JetBrains Mono',monospace; }
+  .pg-stat .sub   { font-size:.75rem; color:var(--pg-muted); margin-top:4px; }
+  .pg-stat.teal .value { color:var(--pg-teal); }
+  .pg-stat.gold .value { color:var(--pg-gold); }
+  .pg-stat.red  .value { color:var(--pg-red); }
+
+  .pg-section-title {
+    font-size:.92rem; font-weight:700; letter-spacing:.04em;
+    text-transform:uppercase; color:var(--pg-muted);
+    margin:32px 0 14px;
+  }
+
+  .pg-child-card {
+    background:linear-gradient(180deg, var(--pg-surface), var(--pg-surface-2));
+    border:1px solid var(--pg-border);
+    border-radius:18px;
+    overflow:hidden;
+    margin-bottom:22px;
+  }
+  .pg-child-head {
+    display:flex; align-items:center; gap:14px;
+    padding:18px 22px; border-bottom:1px solid var(--pg-border);
+    background:rgba(123,97,255,.05);
+  }
+  .pg-child-avatar {
+    width:48px; height:48px; border-radius:50%; object-fit:cover;
+    border:2px solid var(--pg-teal);
+    background:var(--pg-surface-2);
+  }
+  .pg-child-name { font-weight:700; font-size:1.05rem; }
+  .pg-child-meta { color:var(--pg-muted); font-size:.8rem; }
+
+  .pg-bill-row {
+    display:grid; grid-template-columns: 1.5fr 1fr 1fr 1fr auto;
+    gap:14px; align-items:center;
+    padding:14px 22px; border-bottom:1px solid var(--pg-border);
+    cursor:pointer; transition:background .15s;
+  }
+  .pg-bill-row:hover { background:rgba(0,212,170,.04); }
+  .pg-bill-row:last-child { border-bottom:none; }
+  .pg-bill-title { font-weight:600; }
+  .pg-bill-sub { color:var(--pg-muted); font-size:.78rem; margin-top:2px; }
+  .pg-amount { font-family:'JetBrains Mono',monospace; font-weight:600; }
+  .pg-balance { font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--pg-gold); }
+
+  .pg-status {
+    display:inline-block; padding:3px 10px; border-radius:999px;
+    font-size:.66rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  }
+  .pg-status.paid    { background:rgba(0,212,170,.15);  color:var(--pg-teal);   border:1px solid rgba(0,212,170,.3); }
+  .pg-status.partial { background:rgba(245,200,66,.15); color:var(--pg-gold);   border:1px solid rgba(245,200,66,.3); }
+  .pg-status.overdue { background:rgba(255,77,109,.15); color:var(--pg-red);    border:1px solid rgba(255,77,109,.3); }
+  .pg-status.pending { background:rgba(138,147,168,.15);color:var(--pg-muted);  border:1px solid rgba(138,147,168,.3); }
+
+  .pg-btn {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:8px 14px; border-radius:10px;
+    font-size:.78rem; font-weight:700; cursor:pointer;
+    border:none; transition:all .15s;
+    text-decoration:none;
+  }
+  .pg-btn.primary { background:linear-gradient(135deg, var(--pg-teal), #00b693); color:#062018; }
+  .pg-btn.primary:hover { transform:translateY(-1px); box-shadow:0 6px 16px rgba(0,212,170,.3); }
+  .pg-btn.ghost { background:transparent; color:var(--pg-text); border:1px solid var(--pg-border); }
+  .pg-btn.ghost:hover { background:rgba(255,255,255,.05); }
+  .pg-btn:disabled { opacity:.4; cursor:not-allowed; }
+
+  .pg-flash { padding:12px 18px; border-radius:12px; margin-bottom:18px; font-weight:600; font-size:.9rem; }
+  .pg-flash.success { background:rgba(0,212,170,.12); color:var(--pg-teal); border:1px solid rgba(0,212,170,.3); }
+  .pg-flash.error   { background:rgba(255,77,109,.12); color:var(--pg-red);  border:1px solid rgba(255,77,109,.3); }
+
+  .pg-empty { text-align:center; padding:48px 20px; color:var(--pg-muted); }
+  .pg-empty .icon { font-size:3rem; margin-bottom:10px; }
+
+  /* Modal */
+  .pg-modal-bg {
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,.78);
+    z-index:1000; align-items:center; justify-content:center; padding:12px; overflow-y:auto;
+  }
+  .pg-modal-bg.open { display:flex; }
+  .pg-modal {
+    background:var(--pg-surface); border:1px solid var(--pg-border); border-radius:16px;
+    padding:20px; max-width:520px; width:100%; color:var(--pg-text);
+    max-height:calc(100vh - 24px); overflow-y:auto;
+  }
+  .pg-modal h3 { margin:0 0 18px; font-size:1.2rem; }
+  .pg-form-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px 12px; }
+  .pg-form-grid .span2 { grid-column:1 / -1; }
+  .pg-field { margin-bottom:0; }
+  .pg-field label { display:block; font-size:.78rem; color:var(--pg-muted); margin-bottom:6px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; }
+  .pg-field input, .pg-field select {
+    width:100%; padding:9px 12px; border-radius:9px;
+    background:var(--pg-bg); border:1px solid var(--pg-border); color:var(--pg-text);
+    font-family:inherit; font-size:.88rem;
+  }
+  .pg-field input:disabled { background:rgba(255,255,255,.04); color:var(--pg-text); }
+  .pg-field input:focus, .pg-field select:focus { outline:none; border-color:var(--pg-teal); }
+  .pg-modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:18px; }
+
+  .pg-history {
+    background:var(--pg-surface); border:1px solid var(--pg-border); border-radius:14px;
+    overflow:hidden;
+  }
+  .pg-history-row {
+    display:grid; grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap:14px; padding:12px 18px;
+    border-bottom:1px solid var(--pg-border); font-size:.85rem;
+  }
+  .pg-history-row.head { background:rgba(255,255,255,.03); color:var(--pg-muted); font-size:.72rem; text-transform:uppercase; letter-spacing:.06em; font-weight:700; }
+  .pg-history-row:last-child { border-bottom:none; }
+
+  @media (max-width:760px) {
+    .pg-wrap { padding:14px 10px 40px; }
+    .pg-bill-row { grid-template-columns: 1fr 1fr; padding:12px 14px; }
+    .pg-bill-row > :nth-child(n+3) { grid-column: span 1; }
+    .pg-head h1 { font-size:1.4rem; }
+    .pg-stats { grid-template-columns:repeat(2,1fr); }
+    .pg-history-row { grid-template-columns:1fr 1fr; font-size:.78rem; padding:10px 12px; }
+    .pg-form-grid { grid-template-columns:1fr; }
+    .pg-child-head { padding:14px; }
+  }
+</style>
+
+<div class="pg-wrap">
+  <div class="pg-container">
+
+    <div class="pg-head">
+      <div>
+        <h1>Pay<span class="accent">Gira</span></h1>
+        <p>Welcome <%= guardian.first_name || 'Parent' %> — pay your child's school bills securely from one place.</p>
+      </div>
+      <span class="paygira-secure-badge" title="Bank-grade encrypted payments">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" fill="currentColor"/>
+          <path d="M9 12l2 2 4-4" stroke="#080d1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Secure
+      </span>
+    </div>
+
+    <% if (messages && messages.success && messages.success.length) { %>
+      <div class="pg-flash success"><%= messages.success[0] %></div>
+    <% } %>
+    <% if (messages && messages.error && messages.error.length) { %>
+      <div class="pg-flash error"><%= messages.error[0] %></div>
+    <% } %>
+
+    <div class="pg-stats">
+      <div class="pg-stat"><div class="label">Total Billed</div><div class="value">$<%= money(totals.billed) %></div><div class="sub">Across all your children</div></div>
+      <div class="pg-stat teal"><div class="label">Total Paid</div><div class="value">$<%= money(totals.paid) %></div><div class="sub">Thank you</div></div>
+      <div class="pg-stat gold"><div class="label">Outstanding</div><div class="value">$<%= money(totals.outstanding) %></div><div class="sub">Pay now to stay current</div></div>
+      <div class="pg-stat"><div class="label">Saved Cards</div><div class="value"><%= cards.length %></div><div class="sub"><a href="/guardian/settings#cards" style="color:var(--pg-teal);text-decoration:none;">Manage in Settings →</a></div></div>
+    </div>
+
+    <% if (!children.length) { %>
+      <div class="pg-child-card">
+        <div class="pg-empty">
+          <div class="icon">👨‍👩‍👧</div>
+          <p>No linked students found. Contact your school to link your children.</p>
+        </div>
+      </div>
+    <% } else { %>
+      <% children.forEach(child => {
+           const kidAssignments = assignments.filter(a => a.student_id === child.student_id);
+      %>
+        <div class="pg-child-card">
+          <div class="pg-child-head">
+            <img class="pg-child-avatar"
+                 src="<%= child.image_url && child.image_url !== 'profilePlaceholder.png' ? child.image_url : '/images/profilePlaceholder.png' %>"
+                 alt="<%= child.first_name %>">
+            <div>
+              <div class="pg-child-name"><%= child.first_name %> <%= child.last_name %></div>
+              <div class="pg-child-meta"><%= child.class_name || 'Unassigned class' %> · <%= kidAssignments.length %> bill<%= kidAssignments.length !== 1 ? 's' : '' %></div>
+            </div>
+          </div>
+
+          <% if (!kidAssignments.length) { %>
+            <div class="pg-empty" style="padding:28px;">
+              <div style="font-size:1.4rem;">✅</div>
+              <div>No outstanding bills for this child.</div>
+            </div>
+          <% } else { kidAssignments.forEach(a => {
+            const bal = balance(a);
+          %>
+            <div class="pg-bill-row"
+                 <% if (balance(a) > 0) { %>onclick="openPgPay('<%= a.assignment_id %>','<%- (a.bill_title || '').replace(/'/g,"&#39;") %>','<%= balance(a).toFixed(2) %>','<%= child.first_name %> <%= child.last_name %>')"<% } %>>
+              <div>
+                <div class="pg-bill-title"><%= a.bill_title %></div>
+                <div class="pg-bill-sub">
+                  Due <%= a.due_date ? new Date(a.due_date).toLocaleDateString() : '—' %>
+                  <% if (a.bill_description) { %> · <%= a.bill_description %><% } %>
+                </div>
+              </div>
+              <div>
+                <div class="pg-bill-sub">Billed</div>
+                <div class="pg-amount">$<%= money(a.amount) %></div>
+              </div>
+              <div>
+                <div class="pg-bill-sub">Paid</div>
+                <div class="pg-amount" style="color:var(--pg-teal);">$<%= money(a.amount_paid) %></div>
+              </div>
+              <div>
+                <div class="pg-bill-sub">Balance</div>
+                <div class="pg-balance">$<%= money(bal) %></div>
+                <span class="pg-status <%= statusClass(a.status) %>" style="margin-top:4px;"><%= a.status %></span>
+              </div>
+              <div onclick="event.stopPropagation()">
+                <% if (bal > 0) { %>
+                  <button type="button" class="pg-btn primary"
+                          onclick="openPgPay('<%= a.assignment_id %>','<%- (a.bill_title || '').replace(/'/g,"&#39;") %>','<%= bal.toFixed(2) %>','<%= child.first_name %> <%= child.last_name %>')">
+                    💳 Pay Now
+                  </button>
+                <% } else { %>
+                  <span class="pg-status paid">Paid</span>
+                <% } %>
+                <a href="/guardian/paygira/invoice/<%= a.assignment_id %>" target="_blank" class="pg-btn ghost" style="margin-left:6px;padding:7px 10px;font-size:.72rem;" title="View invoice">🧾</a>
+              </div>
+            </div>
+          <% }); } %>
+        </div>
+      <% }); %>
+    <% } %>
+
+    <div class="pg-section-title">Recent Payments</div>
+    <div class="pg-history">
+      <div class="pg-history-row head">
+        <div>Date</div><div>Student</div><div>Bill</div><div>Amount</div>
+      </div>
+      <% if (!payments.length) { %>
+        <div class="pg-history-row"><div style="grid-column:1/-1;text-align:center;color:var(--pg-muted);padding:18px;">No payments yet.</div></div>
+      <% } else { payments.forEach(p => { %>
+        <div class="pg-history-row">
+          <div><%= new Date(p.received_at).toLocaleDateString() %></div>
+          <div><%= p.first_name %> <%= p.last_name %></div>
+          <div><%= p.bill_title %> · <span style="color:var(--pg-muted);"><%= p.method %></span></div>
+          <div class="pg-amount" style="color:var(--pg-teal);display:flex;align-items:center;justify-content:space-between;gap:6px;">
+            $<%= money(p.amount) %>
+            <% if (p.payment_id) { %><a href="/guardian/paygira/receipt/<%= p.payment_id %>" target="_blank" title="Receipt" style="color:var(--pg-muted);text-decoration:none;">🧾</a><% } %>
+          </div>
+        </div>
+      <% }); } %>
+    </div>
+
+  </div>
+</div>
+
+<!-- Pay Modal -->
+<div class="pg-modal-bg" id="pgPayModal">
+  <div class="pg-modal">
+    <h3 style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+      Pay Bill
+      <span class="paygira-secure-badge" style="padding:4px 10px;font-size:.62rem;">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+        Secure
+      </span>
+    </h3>
+    <form action="/guardian/paygira/pay" method="POST">
+      <input type="hidden" name="assignment_id" id="pgPayAssignment">
+      <div class="pg-form-grid">
+      <div class="pg-field span2">
+        <label>Bill</label>
+        <input type="text" id="pgPayBillName" disabled>
+      </div>
+      <div class="pg-field span2">
+        <label>Student</label>
+        <input type="text" id="pgPayStudent" disabled>
+      </div>
+      <div class="pg-field">
+        <label>Amount (USD)</label>
+        <input type="number" step="0.01" min="0.01" name="amount" id="pgPayAmount" required>
+      </div>
+      <div class="pg-field">
+        <label>Pay With</label>
+        <select name="card_id">
+          <option value="">— One-time —</option>
+          <% cards.forEach(c => { %>
+            <option value="<%= c.card_id %>" <%= c.is_default ? 'selected' : '' %>>
+              <%= c.brand %> •••• <%= c.last4 %> <%= c.is_default ? '(Default)' : '' %>
+            </option>
+          <% }); %>
+        </select>
+      </div>
+      <div class="pg-field span2">
+        <label>Method</label>
+        <select name="method" id="pgMethod">
+          <% if (typeof allowedMethods !== 'undefined' && allowedMethods.stripeOn) { %>
+            <option value="card">💳 Card (Visa / Mastercard / Apple Pay)</option>
+          <% } %>
+          <% if (typeof allowedMethods !== 'undefined' && allowedMethods.bankOn) { %>
+            <option value="bank_transfer">🏦 Bank transfer<% if (allowedMethods.bank && allowedMethods.bank.name) { %> — <%= allowedMethods.bank.name %><% } %></option>
+          <% } %>
+          <% if (typeof allowedMethods !== 'undefined' && allowedMethods.momoOn) { %>
+            <option value="mobile_money">📱 Mobile money<% if (allowedMethods.momoProvider) { %> — <%= allowedMethods.momoProvider.toUpperCase() %><% } %></option>
+          <% } %>
+          <option value="other">Other</option>
+        </select>
+        <small id="pgMethodHint" style="display:block;color:var(--pg-muted,#8a93a8);font-size:.72rem;margin-top:6px;">Only the payment methods your school has enabled appear here.</small>
+      </div>
+      </div>
+      <div class="pg-modal-actions">
+        <button type="button" class="pg-btn ghost" onclick="closePgPay()">Cancel</button>
+        <button type="submit" class="pg-btn primary">🔒 Pay Securely</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function openPgPay(assignmentId, billTitle, balance, studentName) {
+    document.getElementById('pgPayAssignment').value = assignmentId;
+    document.getElementById('pgPayBillName').value = billTitle;
+    document.getElementById('pgPayStudent').value = studentName;
+    document.getElementById('pgPayAmount').value = balance;
+    document.getElementById('pgPayAmount').max = balance;
+    document.getElementById('pgPayModal').classList.add('open');
+  }
+  function closePgPay() {
+    document.getElementById('pgPayModal').classList.remove('open');
+  }
+  document.getElementById('pgPayModal').addEventListener('click', function(e){
+    if (e.target === this) closePgPay();
+  });
+</script>

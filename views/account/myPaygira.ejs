@@ -1,0 +1,457 @@
+<%
+  function bal(a){ return Math.max(Number(a.amount||0) + Number(a.late_fee_applied||0) - Number(a.amount_paid||0), 0); }
+  function statusClass(s){ return ({paid:'paid',partial:'partial',overdue:'overdue',pending:'pending'})[s||'pending']; }
+  function recurStepDays(r){ return ({daily:1,weekly:7,monthly:30,term:90,year:365})[String(r||'').toLowerCase()] || 0; }
+  function fmtDate(d){ try{ return d ? new Date(d).toLocaleDateString() : '—'; }catch(e){ return '—'; } }
+  // group assignments by bill
+  const _byBill = {};
+  (assignments || []).forEach(a => {
+    if (!_byBill[a.bill_id]) _byBill[a.bill_id] = [];
+    _byBill[a.bill_id].push(a);
+  });
+%>
+<style>
+  :root{
+    --fin-bg:#080d1a; --fin-surface:#0e1426; --fin-surface-2:#131b33;
+    --fin-border:rgba(255,255,255,.08); --fin-text:#e9eef8; --fin-muted:#8a93a8;
+    --fin-teal:#00D4AA; --fin-gold:#F5C842; --fin-red:#FF4D6D; --fin-purple:#7B61FF;
+  }
+  .mp-wrap{ background:var(--fin-bg); color:var(--fin-text); min-height:<%= isEmbedded ? '100vh' : 'calc(100vh - 80px)' %>; font-family:'Space Grotesk','DM Sans',system-ui,sans-serif; padding:<%= isEmbedded ? '10px 12px 14px' : '32px 20px 64px' %>; }
+  .mp-container{ max-width:<%= isEmbedded ? 'none' : '1280px' %>; width:100%; margin:0 auto; }
+  .mp-head{ display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:<%= isEmbedded ? '14px' : '22px' %>; }
+  .mp-head h1{ margin:0; font-size:<%= isEmbedded ? '1.35rem' : '1.9rem' %>; font-weight:800; letter-spacing:-.02em; }
+  .mp-head h1 .accent{ color:var(--fin-teal); font-style:italic; }
+  .mp-head p{ margin:2px 0 0; color:var(--fin-muted); font-size:<%= isEmbedded ? '.78rem' : '.9rem' %>; }
+  .paygira-secure-badge{ display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:999px;
+    background:linear-gradient(135deg, rgba(0,212,170,.18), rgba(0,212,170,.08)); border:1px solid rgba(0,212,170,.45);
+    color:var(--fin-teal); font-size:.66rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+
+  .mp-stats{ display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:10px; margin-bottom:18px; }
+  .mp-stat{ background:linear-gradient(180deg, var(--fin-surface), var(--fin-surface-2)); border:1px solid var(--fin-border); border-radius:14px; padding:12px 14px; }
+  .mp-stat .label{ font-size:.66rem; color:var(--fin-muted); text-transform:uppercase; letter-spacing:.08em; font-weight:700; }
+  .mp-stat .value{ font-size:1.15rem; font-weight:800; margin-top:4px; font-family:'JetBrains Mono',monospace; }
+  .mp-stat.teal .value{ color:var(--fin-teal); }
+  .mp-stat.gold .value{ color:var(--fin-gold); }
+  .mp-stat.red .value{ color:var(--fin-red); }
+
+  .mp-section-title{ font-size:.76rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--fin-muted); margin:18px 0 10px; display:flex; align-items:center; gap:10px; }
+  .mp-section-title .ln{ flex:1; height:1px; background:var(--fin-border); }
+
+  /* Bill cards grid */
+  .mp-bill-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(280px,1fr)); gap:12px; }
+  .mp-bill-card{ background:linear-gradient(180deg, var(--fin-surface), var(--fin-surface-2));
+    border:1px solid var(--fin-border); border-radius:14px; padding:14px; cursor:pointer;
+    transition:all .15s; display:flex; flex-direction:column; gap:8px; position:relative; }
+  .mp-bill-card:hover{ transform:translateY(-2px); border-color:rgba(0,212,170,.45); box-shadow:0 8px 22px rgba(0,212,170,.10); }
+  .mp-bill-card .bc-title{ font-weight:700; font-size:.98rem; line-height:1.2; padding-right:60px; }
+  .mp-bill-card .bc-meta{ color:var(--fin-muted); font-size:.72rem; display:flex; flex-wrap:wrap; gap:6px 10px; }
+  .mp-bill-card .bc-amts{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:6px; padding-top:8px; border-top:1px dashed var(--fin-border); }
+  .mp-bill-card .bc-amts > div{ font-size:.66rem; color:var(--fin-muted); text-transform:uppercase; letter-spacing:.05em; }
+  .mp-bill-card .bc-amts strong{ display:block; font-family:'JetBrains Mono',monospace; font-size:.85rem; font-weight:700; color:var(--fin-text); margin-top:2px; }
+  .mp-bill-card .bc-amts .out strong{ color:var(--fin-gold); }
+  .mp-bill-card .bc-amts .col strong{ color:var(--fin-teal); }
+  .mp-bill-card .bc-tag{ position:absolute; top:12px; right:12px; font-size:.58rem; padding:3px 8px; border-radius:999px; text-transform:uppercase; letter-spacing:.06em; font-weight:700;
+    background:rgba(123,97,255,.15); color:var(--fin-purple); border:1px solid rgba(123,97,255,.3); }
+  .mp-bill-card.recurring .bc-tag{ background:rgba(245,200,66,.15); color:var(--fin-gold); border:1px solid rgba(245,200,66,.3); }
+  .mp-bill-card .bc-open{ font-size:.7rem; color:var(--fin-teal); font-weight:700; margin-top:2px; }
+
+  .mp-empty{ text-align:center; padding:36px 18px; color:var(--fin-muted); border:1px dashed var(--fin-border); border-radius:14px; }
+
+  .mp-flash{ padding:10px 14px; border-radius:10px; margin-bottom:12px; font-weight:600; font-size:.85rem; }
+  .mp-flash.success{ background:rgba(0,212,170,.12); color:var(--fin-teal); border:1px solid rgba(0,212,170,.3); }
+  .mp-flash.error{ background:rgba(255,77,109,.12); color:var(--fin-red); border:1px solid rgba(255,77,109,.3); }
+
+  /* Drawer */
+  .mp-drawer-bg{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.72); z-index:1200; }
+  .mp-drawer-bg.open{ display:block; }
+  .mp-drawer{ position:fixed; top:0; right:0; height:100vh; width:min(720px,100vw); background:var(--fin-surface);
+    border-left:1px solid var(--fin-border); z-index:1201; transform:translateX(100%); transition:transform .25s; display:flex; flex-direction:column; color:var(--fin-text); }
+  .mp-drawer.open{ transform:translateX(0); }
+  .mp-drawer-head{ padding:14px 18px; border-bottom:1px solid var(--fin-border); display:flex; justify-content:space-between; align-items:flex-start; gap:10px; background:var(--fin-surface-2); flex-shrink:0; }
+  .mp-drawer-head h2{ margin:0; font-size:1.05rem; font-weight:800; color:var(--fin-text); line-height:1.2; word-break:break-word; }
+  .mp-drawer-head .sub{ font-size:.72rem; color:var(--fin-muted); margin-top:3px; }
+  .mp-drawer-body{ flex:1; overflow-y:auto; padding:14px 18px; color:var(--fin-text); }
+  .mp-close-btn{ background:rgba(255,255,255,.05); border:1px solid var(--fin-border); color:var(--fin-text); border-radius:8px; padding:6px 12px; cursor:pointer; font-size:.78rem; font-weight:600; white-space:nowrap; flex-shrink:0; }
+  .mp-close-btn:hover{ background:rgba(255,255,255,.1); }
+
+  .mp-occ-toggle{ display:inline-flex; background:var(--fin-bg); border:1px solid var(--fin-border); border-radius:999px; padding:3px; gap:2px; margin-bottom:12px; }
+  .mp-occ-toggle button{ background:transparent; border:none; color:var(--fin-muted); padding:5px 12px; border-radius:999px; cursor:pointer; font-size:.72rem; font-weight:700; }
+  .mp-occ-toggle button.active{ background:var(--fin-teal); color:#062018; }
+
+  .mp-occ-list{ display:grid; gap:6px; margin-bottom:14px; }
+  .mp-occ-row{ display:grid; grid-template-columns:auto 1fr auto auto; align-items:center; gap:10px; padding:8px 12px; background:var(--fin-bg); border:1px solid var(--fin-border); border-radius:10px; font-size:.8rem; color:var(--fin-text); }
+  .mp-occ-row.past{ border-color:rgba(255,77,109,.25); }
+  .mp-occ-row.future{ opacity:.85; }
+  .mp-occ-row .dot{ width:8px; height:8px; border-radius:50%; background:var(--fin-muted); }
+  .mp-occ-row.past .dot{ background:var(--fin-red); }
+  .mp-occ-row.due .dot{ background:var(--fin-gold); }
+  .mp-occ-row.future .dot{ background:var(--fin-purple); }
+  .mp-occ-row .when{ font-weight:600; color:var(--fin-text); }
+  .mp-occ-row .lbl{ font-size:.66rem; text-transform:uppercase; letter-spacing:.06em; color:var(--fin-muted); }
+
+  .mp-student-list{ display:grid; gap:8px; }
+  .mp-student-row{ display:grid; grid-template-columns: minmax(0,1.4fr) minmax(0,1fr) auto; align-items:center; gap:12px; padding:10px 12px; background:var(--fin-bg); border:1px solid var(--fin-border); border-radius:12px; color:var(--fin-text); }
+  .mp-student-row .who{ display:flex; align-items:center; gap:10px; min-width:0; }
+  .mp-student-row .who img{ width:32px; height:32px; border-radius:50%; object-fit:cover; border:1px solid var(--fin-border); flex-shrink:0; }
+  .mp-student-row .who .nm{ font-weight:700; font-size:.9rem; color:var(--fin-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mp-student-row .who .cls{ font-size:.7rem; color:var(--fin-muted); }
+  .mp-student-row .amts{ display:flex; flex-wrap:wrap; gap:4px 12px; font-family:'JetBrains Mono',monospace; font-size:.76rem; color:var(--fin-text); }
+  .mp-student-row .amts > div{ color:var(--fin-text); }
+  .mp-student-row .amts .out{ color:var(--fin-gold); font-weight:700; }
+  .mp-student-row .amts .pd{ color:var(--fin-teal); }
+  .mp-student-row .acts{ display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+
+  .mp-status{ display:inline-block; padding:2px 8px; border-radius:999px; font-size:.6rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; }
+  .mp-status.paid{ background:rgba(0,212,170,.15); color:var(--fin-teal); border:1px solid rgba(0,212,170,.3); }
+  .mp-status.partial{ background:rgba(245,200,66,.15); color:var(--fin-gold); border:1px solid rgba(245,200,66,.3); }
+  .mp-status.overdue{ background:rgba(255,77,109,.15); color:var(--fin-red); border:1px solid rgba(255,77,109,.3); }
+  .mp-status.pending{ background:rgba(138,147,168,.18); color:#c5cbd9; border:1px solid rgba(138,147,168,.35); }
+
+  .mp-btn{ display:inline-flex; align-items:center; gap:6px; padding:6px 11px; border-radius:8px; font-size:.74rem; font-weight:700; cursor:pointer; border:none; text-decoration:none; }
+  .mp-btn.primary{ background:linear-gradient(135deg, var(--fin-teal), #00b693); color:#062018; }
+  .mp-btn.primary:hover{ transform:translateY(-1px); }
+  .mp-btn.ghost{ background:rgba(255,255,255,.04); color:var(--fin-text); border:1px solid var(--fin-border); }
+  .mp-btn.ghost:hover{ background:rgba(255,255,255,.08); }
+  .mp-btn.tiny{ padding:4px 8px; font-size:.66rem; }
+
+  /* Collect modal */
+  .mp-modal-bg{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.78); z-index:1400; align-items:center; justify-content:center; padding:12px; overflow-y:auto; }
+  .mp-modal-bg.open{ display:flex; }
+  .mp-modal{ background:var(--fin-surface); border:1px solid var(--fin-border); border-radius:14px; padding:18px; max-width:480px; width:100%; max-height:calc(100vh - 24px); overflow-y:auto; color:var(--fin-text); }
+  .mp-modal h3{ margin:0 0 12px; font-size:1rem; display:flex; align-items:center; justify-content:space-between; gap:8px; color:var(--fin-text); }
+  .mp-form-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:8px 10px; }
+  .mp-form-grid .span2{ grid-column:1 / -1; }
+  .mp-field label{ display:block; font-size:.62rem; color:var(--fin-muted); margin-bottom:3px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; }
+  .mp-field input, .mp-field select, .mp-field textarea{
+    width:100%; padding:8px 11px; border-radius:8px; background:var(--fin-bg);
+    border:1px solid var(--fin-border); color:var(--fin-text); font-family:inherit; font-size:.85rem;
+  }
+  .mp-field textarea{ resize:vertical; min-height:50px; }
+  .mp-field input:focus, .mp-field select:focus, .mp-field textarea:focus{ outline:none; border-color:var(--fin-teal); }
+  .mp-modal-actions{ display:flex; gap:8px; justify-content:flex-end; margin-top:12px; position:sticky; bottom:0; padding-top:10px; background:linear-gradient(to top, var(--fin-surface) 60%, transparent); }
+
+  @media (max-width:640px){
+    .mp-wrap{ padding:8px; }
+    .mp-head h1{ font-size:1.1rem; }
+    .mp-stats{ grid-template-columns:repeat(2,1fr); }
+    .mp-bill-grid{ grid-template-columns:1fr; }
+    .mp-form-grid{ grid-template-columns:1fr; }
+    .mp-student-row{ grid-template-columns:1fr; }
+    .mp-student-row .acts{ justify-content:flex-start; }
+    .mp-drawer{ width:100vw; }
+    .mp-drawer-head{ padding:12px; }
+    .mp-drawer-body{ padding:12px; }
+    .mp-occ-row{ grid-template-columns:auto 1fr auto; }
+    .mp-occ-row .mp-status{ display:none; }
+  }
+</style>
+
+<div class="mp-wrap">
+  <div class="mp-container">
+
+    <div class="mp-head">
+      <div>
+        <h1>Pay<span class="accent">Gira</span> — My Collections</h1>
+        <p>Tap a bill to view assigned students and record collections.</p>
+      </div>
+      <span class="paygira-secure-badge">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+        Secure
+      </span>
+    </div>
+
+    <% if (messages && messages.success && messages.success.length) { %>
+      <div class="mp-flash success"><%= messages.success[0] %></div>
+    <% } %>
+    <% if (messages && messages.error && messages.error.length) { %>
+      <div class="mp-flash error"><%= messages.error[0] %></div>
+    <% } %>
+
+    <div class="mp-stats">
+      <div class="mp-stat"><div class="label">Bills</div><div class="value"><%= stats.bills %></div></div>
+      <div class="mp-stat"><div class="label">Students</div><div class="value"><%= stats.students %></div></div>
+      <div class="mp-stat teal"><div class="label">Collected</div><div class="value">$<%= money(stats.collected) %></div></div>
+      <div class="mp-stat gold"><div class="label">Outstanding</div><div class="value">$<%= money(stats.outstanding) %></div></div>
+    </div>
+
+    <% if (!bills.length) { %>
+      <div class="mp-empty">
+        <div style="font-size:2rem;margin-bottom:6px;">📋</div>
+        <div>No bills are assigned to you yet. An admin can make you a collector when creating a bill.</div>
+      </div>
+    <% } else { %>
+      <div class="mp-section-title"><span>Assigned Bills</span><span class="ln"></span><span><%= bills.length %></span></div>
+      <div class="mp-bill-grid">
+        <% bills.forEach(b => {
+             const kids = _byBill[b.bill_id] || [];
+             const isRecurring = String(b.bill_type) === 'recurring';
+        %>
+          <div class="mp-bill-card <%= isRecurring ? 'recurring' : '' %>"
+               data-bill-id="<%= b.bill_id %>"
+               onclick="mpOpenBill(<%= b.bill_id %>)">
+            <span class="bc-tag"><%= isRecurring ? (b.recurrence || 'recurring') : (b.bill_type || 'one-time') %></span>
+            <div class="bc-title"><%= b.title %></div>
+            <div class="bc-meta">
+              <span>📅 Due <%= fmtDate(b.due_date) %></span>
+              <span>👥 <%= b.assigned_count %> student<%= Number(b.assigned_count) === 1 ? '' : 's' %></span>
+            </div>
+            <div class="bc-amts">
+              <div>Billed<strong>$<%= money(b.total_amount) %></strong></div>
+              <div class="col">Collected<strong>$<%= money(b.total_paid) %></strong></div>
+              <div class="out">Outstanding<strong>$<%= money(b.total_outstanding) %></strong></div>
+            </div>
+            <div class="bc-open">Tap to open →</div>
+          </div>
+        <% }); %>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<!-- Bill detail drawer -->
+<div class="mp-drawer-bg" id="mpDrawerBg" onclick="mpCloseBill(event)"></div>
+<aside class="mp-drawer" id="mpDrawer" aria-hidden="true">
+  <div class="mp-drawer-head">
+    <div>
+      <h2 id="mpDrawerTitle">Bill</h2>
+      <div class="sub" id="mpDrawerSub"></div>
+    </div>
+    <button class="mp-close-btn" type="button" onclick="mpCloseBill()">Close ✕</button>
+  </div>
+  <div class="mp-drawer-body" id="mpDrawerBody"><!-- filled by JS --></div>
+</aside>
+
+<!-- JSON payload (parsed by JS) -->
+<script id="mpBillsData" type="application/json"><%-
+  JSON.stringify((bills || []).map(b => ({
+    bill_id: b.bill_id,
+    title: b.title,
+    bill_type: b.bill_type,
+    recurrence: b.recurrence,
+    due_date: b.due_date,
+    description: b.description,
+    accepts_card: b.accepts_card,
+    accepts_cash: b.accepts_cash,
+    accepts_transfer: b.accepts_transfer,
+    total_amount: b.total_amount,
+    total_paid: b.total_paid,
+    total_outstanding: b.total_outstanding,
+    students: (_byBill[b.bill_id] || []).map(a => ({
+      assignment_id: a.assignment_id,
+      first_name: a.first_name,
+      last_name: a.last_name,
+      image_url: a.image_url,
+      class_name: a.class_name,
+      amount: a.amount,
+      amount_paid: a.amount_paid,
+      late_fee_applied: a.late_fee_applied,
+      status: a.status
+    }))
+  })))
+%></script>
+
+<!-- Collect modal -->
+<div class="mp-modal-bg" id="mpCollectModal" onclick="if(event.target===this) mpCloseCollect()">
+  <div class="mp-modal">
+    <h3>
+      Record Collection
+      <span class="paygira-secure-badge" style="padding:3px 9px;font-size:.58rem;">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+        Secure
+      </span>
+    </h3>
+    <form action="/account/settings/my-paygira/collect<%= isEmbedded ? '?embed=workspace' : '' %>" method="POST">
+      <input type="hidden" name="embedMode" value="<%= isEmbedded ? 'workspace' : '' %>">
+      <input type="hidden" name="assignment_id" id="mpAssignmentId">
+      <div class="mp-form-grid">
+        <div class="mp-field span2"><label>Bill</label><input type="text" id="mpBillName" disabled style="color:var(--fin-text);background:rgba(255,255,255,.04);"></div>
+        <div class="mp-field span2"><label>Student</label><input type="text" id="mpStudentName" disabled style="color:var(--fin-text);background:rgba(255,255,255,.04);"></div>
+        <div class="mp-field"><label>Amount (USD) *</label><input type="number" step="0.01" min="0.01" name="amount" id="mpAmount" required></div>
+        <div class="mp-field"><label>Method</label>
+          <select name="method" id="mpMethod">
+            <option value="cash">💵 Cash</option>
+            <% if (typeof allowedMethods !== 'undefined' && allowedMethods.stripeOn) { %>
+              <option value="card">💳 Card</option>
+            <% } %>
+            <% if (typeof allowedMethods !== 'undefined' && allowedMethods.bankOn) { %>
+              <option value="bank_transfer">🏦 Bank<% if (allowedMethods.bank && allowedMethods.bank.name) { %> — <%= allowedMethods.bank.name %><% } %></option>
+            <% } %>
+            <% if (typeof allowedMethods !== 'undefined' && allowedMethods.momoOn) { %>
+              <option value="mobile_money">📱 Mobile money</option>
+            <% } %>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="mp-field"><label>Reference</label><input type="text" name="reference" id="mpReference" placeholder="Receipt #, txn ref"></div>
+        <div class="mp-field"><label>Occurrence (optional)</label><input type="text" id="mpOccDisplay" disabled placeholder="—" style="color:var(--fin-text);background:rgba(255,255,255,.04);"></div>
+        <div class="mp-field span2"><label>Notes</label><textarea name="notes" id="mpNotes" rows="1"></textarea></div>
+      </div>
+      <div class="mp-modal-actions">
+        <button type="button" class="mp-btn ghost" onclick="mpCloseCollect()">Cancel</button>
+        <button type="submit" class="mp-btn primary">🔒 Record Payment</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function(){
+    var DATA = [];
+    try { DATA = JSON.parse(document.getElementById('mpBillsData').textContent || '[]'); } catch(e){ DATA = []; }
+    var byId = {};
+    DATA.forEach(function(b){ byId[b.bill_id] = b; });
+
+    function money(v){ return Number(v||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); }
+    function bal(a){ return Math.max(Number(a.amount||0) + Number(a.late_fee_applied||0) - Number(a.amount_paid||0), 0); }
+    function statusClass(s){ return ({paid:'paid',partial:'partial',overdue:'overdue',pending:'pending'})[s||'pending']; }
+    function recurStepDays(r){ return ({daily:1,weekly:7,monthly:30,term:90,year:365})[String(r||'').toLowerCase()] || 0; }
+    function fmt(d){ try{ return d ? new Date(d).toLocaleDateString() : '—'; }catch(e){ return '—'; } }
+
+    function buildOccurrences(bill){
+      var step = recurStepDays(bill.recurrence);
+      if (!step || bill.bill_type !== 'recurring') return [];
+      var anchor = bill.due_date ? new Date(bill.due_date) : new Date();
+      if (isNaN(anchor.getTime())) anchor = new Date();
+      var today = new Date(); today.setHours(0,0,0,0);
+      // Generate 6 past + 6 future + current
+      var rows = [];
+      for (var i=-6; i<=6; i++){
+        var d = new Date(anchor); d.setDate(anchor.getDate() + i*step);
+        var diff = Math.round((d - today) / 86400000);
+        var kind = diff < 0 ? 'past' : (diff === 0 ? 'due' : 'future');
+        rows.push({ date:d, kind:kind, label:fmt(d) });
+      }
+      return rows;
+    }
+
+    function studentRowHTML(bill, s){
+      var b = bal(s);
+      var img = (s.image_url && s.image_url !== 'profilePlaceholder.png') ? s.image_url : '/images/profilePlaceholder.png';
+      var canCollect = b > 0;
+      var nameSafe = (s.first_name + ' ' + s.last_name).replace(/"/g,'&quot;');
+      var billSafe = String(bill.title || '').replace(/"/g,'&quot;');
+      return '<div class="mp-student-row">' +
+        '<div class="who">' +
+          '<img src="' + img + '" alt="">' +
+          '<div><div class="nm">' + s.first_name + ' ' + s.last_name + '</div>' +
+          '<div class="cls">' + (s.class_name || '—') + '</div></div>' +
+        '</div>' +
+        '<div class="amts">' +
+          '<div>Billed $' + money(s.amount) + '</div>' +
+          '<div class="pd">Paid $' + money(s.amount_paid) + '</div>' +
+          '<div class="out">Bal $' + money(b) + '</div>' +
+        '</div>' +
+        '<div class="acts">' +
+          '<span class="mp-status ' + statusClass(s.status) + '">' + s.status + '</span>' +
+          (canCollect
+            ? '<button class="mp-btn primary tiny" type="button" onclick="mpOpenCollect(' + s.assignment_id + ', &quot;' + billSafe + '&quot;, &quot;' + nameSafe + '&quot;, ' + b.toFixed(2) + ', window.__mpSelectedOcc || \'\')">💵 Collect</button>'
+            : '') +
+          (Number(s.amount_paid) > 0
+            ? '<a class="mp-btn ghost tiny" href="/account/settings/my-paygira/invoice/' + s.assignment_id + '" target="_blank" title="Invoice">🧾</a>'
+            : '') +
+        '</div>' +
+      '</div>';
+    }
+
+    function renderDrawer(billId){
+      var bill = byId[billId];
+      if (!bill) return;
+      window.__mpCurrentBill = bill;
+      window.__mpSelectedOcc = '';
+      document.getElementById('mpDrawerTitle').textContent = bill.title;
+      document.getElementById('mpDrawerSub').textContent =
+        (bill.bill_type === 'recurring' ? (bill.recurrence || 'recurring') + ' • ' : '') +
+        'Due ' + fmt(bill.due_date) + ' • ' + (bill.students || []).length + ' student(s)';
+
+      var html = '';
+      // Occurrences for recurring
+      if (bill.bill_type === 'recurring') {
+        var occs = buildOccurrences(bill);
+        if (occs.length){
+          html += '<div class="mp-occ-toggle" id="mpOccToggle">' +
+                    '<button type="button" data-filter="past" class="">Past</button>' +
+                    '<button type="button" data-filter="all" class="active">All</button>' +
+                    '<button type="button" data-filter="future" class="">Future</button>' +
+                  '</div>';
+          html += '<div class="mp-occ-list" id="mpOccList">' +
+            occs.map(function(o, idx){
+              return '<div class="mp-occ-row ' + o.kind + '" data-kind="' + o.kind + '" data-date="' + o.date.toISOString().slice(0,10) + '">' +
+                '<span class="dot"></span>' +
+                '<div><div class="when">' + o.label + '</div><div class="lbl">' + (o.kind === 'past' ? 'Past — settle now' : (o.kind === 'due' ? 'Due today' : 'Upcoming')) + '</div></div>' +
+                '<span class="mp-status ' + (o.kind === 'past' ? 'overdue' : (o.kind === 'due' ? 'partial' : 'pending')) + '">' + o.kind + '</span>' +
+                '<button type="button" class="mp-btn ghost tiny" data-occ="' + o.date.toISOString().slice(0,10) + '" data-occ-label="' + o.label + '">Select</button>' +
+              '</div>';
+            }).join('') +
+          '</div>';
+        }
+      }
+
+      html += '<div class="mp-section-title"><span>Students</span><span class="ln"></span></div>';
+      html += '<div class="mp-student-list">' +
+        (bill.students || []).map(function(s){ return studentRowHTML(bill, s); }).join('') +
+      '</div>';
+
+      var body = document.getElementById('mpDrawerBody');
+      body.innerHTML = html;
+
+      // Wire occurrence toggle
+      var toggle = document.getElementById('mpOccToggle');
+      if (toggle){
+        toggle.addEventListener('click', function(e){
+          var btn = e.target.closest('button[data-filter]');
+          if (!btn) return;
+          Array.prototype.forEach.call(toggle.querySelectorAll('button'), function(b){ b.classList.remove('active'); });
+          btn.classList.add('active');
+          var f = btn.getAttribute('data-filter');
+          var rows = body.querySelectorAll('.mp-occ-row');
+          rows.forEach(function(r){
+            var k = r.getAttribute('data-kind');
+            r.style.display = (f === 'all' || f === k || (f === 'past' && (k === 'past' || k === 'due'))) ? '' : 'none';
+          });
+        });
+        body.querySelectorAll('.mp-occ-row button[data-occ]').forEach(function(b){
+          b.addEventListener('click', function(){
+            var date = b.getAttribute('data-occ');
+            var label = b.getAttribute('data-occ-label');
+            window.__mpSelectedOcc = label;
+            body.querySelectorAll('.mp-occ-row').forEach(function(r){ r.style.outline=''; });
+            b.closest('.mp-occ-row').style.outline = '1px solid var(--fin-teal)';
+          });
+        });
+      }
+    }
+
+    window.mpOpenBill = function(id){
+      renderDrawer(id);
+      document.getElementById('mpDrawerBg').classList.add('open');
+      document.getElementById('mpDrawer').classList.add('open');
+      document.getElementById('mpDrawer').setAttribute('aria-hidden','false');
+    };
+    window.mpCloseBill = function(e){
+      if (e && e.target && e.target.id && e.target.id !== 'mpDrawerBg' && e.type === 'click') {
+        // closed via button — no-op guard
+      }
+      document.getElementById('mpDrawerBg').classList.remove('open');
+      document.getElementById('mpDrawer').classList.remove('open');
+      document.getElementById('mpDrawer').setAttribute('aria-hidden','true');
+    };
+
+    window.mpOpenCollect = function(id, bill, student, balance, occLabel){
+      document.getElementById('mpAssignmentId').value = id;
+      document.getElementById('mpBillName').value = bill;
+      document.getElementById('mpStudentName').value = student;
+      document.getElementById('mpAmount').value = balance;
+      document.getElementById('mpAmount').max = balance;
+      document.getElementById('mpOccDisplay').value = occLabel || '';
+      // Prefill notes with occurrence tag if present
+      var notes = document.getElementById('mpNotes');
+      notes.value = occLabel ? ('Occurrence: ' + occLabel) : '';
+      var ref = document.getElementById('mpReference');
+      if (occLabel && !ref.value) ref.value = 'OCC-' + occLabel.replace(/[^0-9A-Za-z]+/g,'-');
+      document.getElementById('mpCollectModal').classList.add('open');
+    };
+    window.mpCloseCollect = function(){
+      document.getElementById('mpCollectModal').classList.remove('open');
+    };
+  })();
+</script>

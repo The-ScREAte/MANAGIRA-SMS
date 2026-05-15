@@ -5588,16 +5588,20 @@ const accountController = {
 
   getSubjectsByClass: async (req, res) => {
     const { classId } = req.query;
+    const organizationId = req.session.organizationId;
 
     if (!classId) {
       return res.status(400).json({ message: "Class ID is required" });
     }
+    if (!organizationId) {
+      return res.status(401).json({ message: "Unauthorized." });
+    }
 
     try {
+      // Tenant boundary: only list subjects of the caller's organization.
       const result = await db.query(
-        "SELECT subject_id, subject_name FROM subjects WHERE class_id = $1",
-
-        [classId]
+        "SELECT subject_id, subject_name FROM subjects WHERE class_id = $1 AND organization_id = $2",
+        [classId, organizationId]
       );
 
       res.json(result.rows);

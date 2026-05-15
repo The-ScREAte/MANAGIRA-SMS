@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Receipt — #<%= payment.payment_id %></title>
+<style>
+  * { box-sizing:border-box; }
+  body { font-family:'Space Grotesk','DM Sans',Arial,sans-serif; margin:0; background:#f5f6fa; color:#1a1f2e; }
+  .doc { max-width:560px; margin:24px auto; background:#fff; border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,.06); padding:30px 34px; }
+  .head { text-align:center; padding-bottom:18px; border-bottom:2px dashed #00D4AA; }
+  .head .org h1 { margin:0 0 4px; font-size:1.15rem; font-weight:800; }
+  .head .org .meta { font-size:.74rem; color:#5a6378; line-height:1.4; }
+  .head .label { margin-top:14px; font-size:.7rem; color:#5a6378; text-transform:uppercase; letter-spacing:.12em; font-weight:700; }
+  .head .amount { font-size:2.1rem; font-weight:800; color:#00845f; margin-top:4px; font-family:'JetBrains Mono',Consolas,monospace; }
+  .head .num { font-family:'JetBrains Mono',Consolas,monospace; font-size:.78rem; color:#5a6378; margin-top:4px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px 14px; margin:20px 0; font-size:.85rem; }
+  .grid .k { color:#5a6378; font-size:.7rem; text-transform:uppercase; letter-spacing:.06em; font-weight:700; }
+  .grid .v { font-weight:600; margin-top:2px; }
+  .row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed #e6e9f0; font-size:.88rem; }
+  .row:last-child { border-bottom:none; }
+  .row .v { font-family:'JetBrains Mono',Consolas,monospace; }
+  .badge { display:inline-flex; align-items:center; gap:5px; background:rgba(0,212,170,.12); color:#00845f; padding:4px 10px; border-radius:999px; font-size:.66rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+  .actions { display:flex; gap:10px; justify-content:center; margin-top:22px; }
+  .btn { padding:9px 16px; border-radius:8px; font-size:.82rem; font-weight:700; cursor:pointer; text-decoration:none; border:none; }
+  .btn.primary { background:#00D4AA; color:#062018; }
+  .btn.ghost { background:transparent; color:#1a1f2e; border:1px solid #d4d9e3; }
+  .foot { margin-top:20px; padding-top:12px; border-top:1px solid #e6e9f0; font-size:.72rem; color:#5a6378; text-align:center; }
+  @media print {
+    body { background:#fff; }
+    .doc { box-shadow:none; margin:0; padding:14px; }
+    .actions { display:none; }
+  }
+</style>
+</head>
+<body>
+<div class="doc">
+  <div class="head">
+    <div class="org">
+      <h1><%= payment.organization_name || 'School' %></h1>
+      <div class="meta"><%= payment.org_address || '' %> · <%= payment.org_phone || '' %></div>
+      <span class="badge" style="margin-top:8px;">🔒 PayGira Secure</span>
+    </div>
+    <div class="label">Payment Receipt</div>
+    <div class="amount">$<%= money(payment.amount) %></div>
+    <div class="num">#RCP-<%= String(payment.payment_id).padStart(6,'0') %></div>
+  </div>
+
+  <div class="grid">
+    <div><div class="k">Student</div><div class="v"><%= payment.first_name %> <%= payment.last_name %></div></div>
+    <div><div class="k">Class</div><div class="v"><%= payment.class_name || '—' %></div></div>
+    <div><div class="k">Bill</div><div class="v"><%= payment.bill_title || '—' %></div></div>
+    <div><div class="k">Method</div><div class="v"><%= payment.method %></div></div>
+    <div><div class="k">Date</div><div class="v"><%= new Date(payment.received_at).toLocaleString() %></div></div>
+    <div><div class="k">Reference</div><div class="v" style="font-family:'JetBrains Mono',Consolas,monospace;font-size:.78rem;"><%= payment.reference || '—' %></div></div>
+  </div>
+
+  <% if (payment.assignment_amount != null) {
+       var total = Number(payment.assignment_amount || 0) + Number(payment.assignment_late_fee || 0);
+       var paid  = Number(payment.assignment_paid || 0);
+       var bal   = Math.max(total - paid, 0);
+  %>
+    <div class="row"><div>Total billed</div><div class="v">$<%= money(total) %></div></div>
+    <div class="row"><div>Paid to date</div><div class="v" style="color:#00845f;">$<%= money(paid) %></div></div>
+    <div class="row" style="font-weight:800;"><div>Outstanding</div><div class="v">$<%= money(bal) %></div></div>
+  <% } %>
+
+  <% if (payment.notes) { %>
+    <p style="margin:14px 0 0;color:#5a6378;font-size:.82rem;"><strong style="color:#1a1f2e;">Notes:</strong> <%= payment.notes %></p>
+  <% } %>
+
+  <% if (payment.recv_first) { %>
+    <p style="margin:14px 0 0;color:#5a6378;font-size:.78rem;">Received by <strong style="color:#1a1f2e;"><%= payment.recv_first %> <%= payment.recv_last %></strong></p>
+  <% } %>
+
+  <div class="actions">
+    <button class="btn ghost" onclick="window.print()">🖨️ Print</button>
+    <button class="btn primary" onclick="window.close()">Done</button>
+  </div>
+
+  <div class="foot">Thank you. Keep this receipt for your records · <%= new Date().toLocaleString() %></div>
+</div>
+</body>
+</html>

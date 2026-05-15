@@ -30,4 +30,17 @@ router.get("/finance/students/:id/detail.json", isAuthenticated, c.studentDetail
 // CSV export
 router.get("/finance/export/csv", isAuthenticated, c.exportCsvGet);
 
+// PSP / Payment-Settings save (stripe, momo, bank, general)
+router.post("/finance/psp/:provider", isAuthenticated, c.pspSavePost);
+
+// ====== My PayGira (Teacher / Class teacher / Supervisor collector view) ======
+router.get("/my-paygira", isAuthenticated, c.staffMyPaygiraGet);
+router.post("/my-paygira/collect", isAuthenticated, c.staffMyPaygiraCollectPost);
+
+// Invoices & receipts (staff side — assignee or admin)
+router.get("/my-paygira/invoice/:assignmentId", isAuthenticated, c.invoiceGet);
+router.get("/my-paygira/receipt/:paymentId", isAuthenticated, c.receiptGet);
+router.get("/finance/invoice/:assignmentId", isAuthenticated, c.invoiceGet);
+router.get("/finance/receipt/:paymentId", isAuthenticated, c.receiptGet);
+
 module.exports = router;

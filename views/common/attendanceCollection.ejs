@@ -23,32 +23,114 @@
         }
  
         .attendance-page {
-            max-width: 1200px;
+            max-width: <%= isEmbedded ? 'none' : '1200px' %>;
             margin: 0 auto;
-            padding: 16px 16px 40px;
+            padding: <%= isEmbedded ? '0 0 18px' : '16px 16px 40px' %>;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .attendance-toolbar {
+            display: block;
+            margin-bottom: <%= isEmbedded ? '6px' : '0' %>;
+        }
+
+        .attendance-header-top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .attendance-header-copy {
+            min-width: 0;
+            flex: 1 1 auto;
         }
 
         .attendance-header {
-            margin: 8px 0 14px;
-            padding: 14px 16px;
+            margin: <%= isEmbedded ? '0' : '8px 0 14px' %>;
+            padding: <%= isEmbedded ? '10px 12px' : '14px 16px' %>;
             border: 1px solid var(--border);
             border-radius: 12px;
             background: #fff;
             box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+            text-align: <%= isEmbedded ? 'left' : 'left' %>;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .attendance-header h1 {
             margin: 0;
             color: #0f172a;
-            font-size: 1.3rem;
+            font-size: <%= isEmbedded ? '1.08rem' : '1.3rem' %>;
             font-weight: 700;
             text-align: left;
         }
 
-        .attendance-meta {
-            margin-top: 6px;
+        .attendance-summary-line {
+            margin: 4px 0 0;
             color: #475569;
-            font-size: 0.95rem;
+            font-size: <%= isEmbedded ? '0.8rem' : '0.9rem' %>;
+            line-height: 1.45;
+        }
+
+        .attendance-meta {
+            margin-top: <%= isEmbedded ? '4px' : '6px' %>;
+            color: #475569;
+            font-size: <%= isEmbedded ? '0.82rem' : '0.95rem' %>;
+        }
+
+        .attendance-meta-inline {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+            gap: 5px 8px;
+            margin-top: 5px;
+        }
+
+        .attendance-meta-inline.compact {
+            gap: 4px 8px;
+            margin-top: 4px;
+            color: #475569;
+            font-size: 0.78rem;
+            font-weight: 500;
+        }
+
+        .attendance-meta-inline.compact .attendance-meta-text {
+            white-space: nowrap;
+        }
+
+        .attendance-meta-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 9px;
+            border-radius: 999px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            color: #334155;
+            font-size: <%= isEmbedded ? '0.75rem' : '0.82rem' %>;
+            font-weight: 600;
+        }
+
+        .attendance-calendar-meta {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+            gap: 5px 8px;
+            margin-top: 6px;
+        }
+
+        .attendance-calendar-note {
+            margin-top: 6px;
+            color: #334155;
+            font-size: <%= isEmbedded ? '0.74rem' : '0.88rem' %>;
+        }
+
+        .attendance-calendar-note.compact {
+            margin-top: 4px;
+            font-size: 0.76rem;
+            color: #475569;
         }
 
         .calendar-rules-toggle {
@@ -181,16 +263,24 @@
         background: var(--primary);
         color: white;
         border: none;
-        padding: 6px 10px;
-        border-radius: 4px; /* Reduced from 6px */
+        padding: <%= isEmbedded ? '7px 12px' : '6px 10px' %>;
+        border-radius: 999px;
         cursor: pointer;
-        font-size: 0.8rem; /* Reduced from 0.9rem */
-        font-weight: 500;
-        margin: 8px auto;
+        font-size: <%= isEmbedded ? '0.78rem' : '0.8rem' %>;
+        font-weight: 600;
+        margin: <%= isEmbedded ? '0' : '8px auto' %>;
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        gap: 8px;
         transition: background-color 0.3s ease;
+        box-shadow: 0 6px 14px rgba(1, 83, 91, 0.16);
+        flex-shrink: 0;
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        white-space: nowrap;
+        align-self: flex-start;
     }
 
     .filter-toggle-btn:hover {
@@ -200,7 +290,6 @@
     .filter-toggle-btn::after {
         content: " ▼";
         font-size: 0.8rem;
-        margin-left: 8px;
         transition: transform 0.3s ease;
     }
 
@@ -212,6 +301,8 @@
         max-height: 500px;
         overflow: hidden;
         transition: max-height 0.3s ease;
+        margin-top: <%= isEmbedded ? '8px' : '0' %>;
+        width: 100%;
     }
 
     .filter-controls-content.collapsed {
@@ -219,27 +310,27 @@
     }
 
     .filter-controls {
-        margin: 20px auto;
-        padding: 10px 15px;
+        margin: <%= isEmbedded ? '0' : '20px auto' %>;
+        padding: <%= isEmbedded ? '10px 12px' : '10px 15px' %>;
         background-color: #f8f8f8;
         border: 1px solid #ddd;
-        border-radius: 8px;
+        border-radius: 12px;
         display: flex;
         flex-wrap: wrap;
-        gap: 12px 20px;
+        gap: <%= isEmbedded ? '10px 12px' : '12px 20px' %>;
         align-items: center;
         justify-content: flex-start;
         max-width: 100%;
-        font-size: 0.9rem;
+        font-size: <%= isEmbedded ? '0.84rem' : '0.9rem' %>;
     }
 
     .filter-inner-container {
         display: flex;
-        flex-wrap: nowrap;
-        gap: 10px;
+        flex-wrap: <%= isEmbedded ? 'wrap' : 'nowrap' %>;
+        gap: <%= isEmbedded ? '8px' : '10px' %>;
         align-items: end;
         width: 100%;
-        margin-bottom: 8px;
+        margin-bottom: <%= isEmbedded ? '0' : '8px' %>;
         overflow-x: auto;
     }
     
@@ -249,30 +340,30 @@
         gap: 4px;
         font-weight: 500;
         color: #333;
-        font-size: 0.88rem;
-        min-width: 150px;
-        flex: 1 1 0;
+        font-size: <%= isEmbedded ? '0.8rem' : '0.88rem' %>;
+        min-width: <%= isEmbedded ? '160px' : '150px' %>;
+        flex: <%= isEmbedded ? '1 1 180px' : '1 1 0' %>;
     }
     
     .filter-controls select {
         padding: 6px 8px;
-        font-size: 0.88rem;
-        border-radius: 4px;
+        font-size: <%= isEmbedded ? '0.8rem' : '0.88rem' %>;
+        border-radius: 8px;
         border: 1px solid #ccc;
         width: 100%;
     }
     
     .filter-controls button {
-        padding: 7px 10px;
-        font-size: 0.82rem;
+        padding: <%= isEmbedded ? '8px 12px' : '7px 10px' %>;
+        font-size: <%= isEmbedded ? '0.78rem' : '0.82rem' %>;
         background-color: var(--org-primary-color);
         color: #fff;
         border: none;
-        border-radius: 4px;
+        border-radius: 8px;
         cursor: pointer;
         align-self: end;
         width: auto;
-        min-width: 110px;
+        min-width: <%= isEmbedded ? '96px' : '110px' %>;
         white-space: nowrap;
     }
     
@@ -283,20 +374,23 @@
     
     /* === Attendance Table === */
     .attendance-sheet-container {
-        padding: 16px 0;
-        margin: 30px auto;
-        background: #fff;
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+        padding: <%= isEmbedded ? '0' : '16px 0' %>;
+        margin: <%= isEmbedded ? '6px 0 0' : '30px auto' %>;
+        background: <%= isEmbedded ? 'transparent' : '#fff' %>;
+        border: <%= isEmbedded ? 'none' : '1px solid var(--border)' %>;
+        border-radius: <%= isEmbedded ? '0' : '12px' %>;
+        box-shadow: <%= isEmbedded ? 'none' : '0 4px 14px rgba(15, 23, 42, 0.04)' %>;
         max-width: 100%;
         overflow-x: auto;
         box-sizing: border-box;
+        width: 100%;
     }
     .attendance-sheet {
         border-collapse: collapse;
         width: 100%;
         min-width: max-content;
+        background: #fff;
+        margin: 0;
     }
     .attendance-sheet th,
     .attendance-sheet td {
@@ -760,6 +854,15 @@
                     font-size: 1.15rem;
                 }
 
+                .attendance-header-top {
+                    flex-direction: column;
+                    align-items: stretch;
+                }
+
+                .attendance-header-top .filter-toggle-btn {
+                    align-self: flex-start;
+                }
+
                 .attendance-meta {
                     font-size: 0.85rem;
                 }
@@ -805,22 +908,43 @@
 </style>
 </head>
 <body>
-        <div class="attendance-page">
+        <div class="attendance-page <%= isEmbedded ? 'attendance-page-embedded' : '' %>">
+            <div class="attendance-toolbar">
             <div class="attendance-header">
-                <h1>Attendance for <%= className %></h1>
-                <div class="attendance-meta">School Year: <%= schoolYear.year_label %> · Term: <%= termName %></div>
+                <div class="attendance-header-top">
+                    <div class="attendance-header-copy">
+                        <h1><%= isEmbedded ? 'Attendance' : `Attendance for ${className}` %></h1>
+                        <% if (isEmbedded) { %>
+                            <% if (attendanceCalendarSummary && attendanceCalendarSummary.enabled) { %>
+                                <p class="attendance-summary-line">
+                                    Calendar rules active · Country: <%= attendanceCalendarSummary.countryCode %> · Weekends: <%= (attendanceCalendarSummary.weekendLabels || []).length ? attendanceCalendarSummary.weekendLabels.join(', ') : 'None' %> · Public holidays: <%= attendanceCalendarSummary.includePublicHolidays ? 'Excluded' : 'Included' %><% if (attendanceCalendarSummary.excludedDisplayDateCount > 0) { %> · <%= attendanceCalendarSummary.excludedDisplayDateCount %> excluded date(s) shown as inactive<% } %>
+                                </p>
+                            <% } %>
+                        <% } else { %>
+                            <div class="attendance-meta">School Year: <%= schoolYear.year_label %> · Term: <%= termName %></div>
+                        <% } %>
+                    </div>
+
+                    <!-- Collapsible Filter Controls -->
+                    <button class="filter-toggle-btn" onclick="toggleFilters()"><span aria-hidden="true">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 4 21 4 14 12 14 19 10 21 10 12 3 4"></polygon></svg>
+                    </span><span>Filters</span></button>
+                </div>
                 <% if (attendanceCalendarSummary && attendanceCalendarSummary.enabled) { %>
                     <button type="button" id="calendarRulesToggle" class="calendar-rules-toggle" onclick="toggleCalendarRules()">Calendar Rules</button>
                     <div id="calendarRulesContent" class="calendar-rules-content collapsed-mobile">
-                        <div class="attendance-meta" style="margin-top:4px;">
-                            Calendar rules active · Country: <%= attendanceCalendarSummary.countryCode %> ·
-                            Weekends: <%= (attendanceCalendarSummary.weekendLabels || []).length ? attendanceCalendarSummary.weekendLabels.join(', ') : 'None' %> ·
-                            Public holidays: <%= attendanceCalendarSummary.includePublicHolidays ? 'Excluded' : 'Included' %>
-                        </div>
-                        <% if (attendanceCalendarSummary.excludedDisplayDateCount > 0) { %>
-                            <div class="attendance-meta" style="margin-top:2px; color:#334155;">
-                                <%= attendanceCalendarSummary.excludedDisplayDateCount %> excluded date(s) are shown as inactive (Weekend/Holiday/Excluded).
+                        <% if (isEmbedded) { %>
+                        <% } else { %>
+                            <div class="attendance-meta" style="margin-top:4px;">
+                                Calendar rules active · Country: <%= attendanceCalendarSummary.countryCode %> ·
+                                Weekends: <%= (attendanceCalendarSummary.weekendLabels || []).length ? attendanceCalendarSummary.weekendLabels.join(', ') : 'None' %> ·
+                                Public holidays: <%= attendanceCalendarSummary.includePublicHolidays ? 'Excluded' : 'Included' %>
                             </div>
+                            <% if (attendanceCalendarSummary.excludedDisplayDateCount > 0) { %>
+                                <div class="attendance-meta" style="margin-top:2px; color:#334155;">
+                                    <%= attendanceCalendarSummary.excludedDisplayDateCount %> excluded date(s) are shown as inactive (Weekend/Holiday/Excluded).
+                                </div>
+                            <% } %>
                         <% } %>
                     </div>
                 <% } else { %>
@@ -830,10 +954,6 @@
                     </div>
                 <% } %>
             </div>
-
-
-<!-- Collapsible Filter Controls -->
-<button class="filter-toggle-btn" onclick="toggleFilters()">Filter & Sort</button>
 <div class="filter-controls-content collapsed" id="filterControlsContent">
     <div class="filter-controls">
         <div class="filter-inner-container">
@@ -874,6 +994,7 @@
         </div>
     </div>
 </div>
+            </div>
 
     
 

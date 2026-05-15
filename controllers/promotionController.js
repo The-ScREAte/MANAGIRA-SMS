@@ -303,7 +303,7 @@ module.exports = {
       `, [target_term_id, organizationId]);
   
       if (termCheck.rows.length > 0) {
-        await db.query(`DELETE FROM terms WHERE term_id = $1`, [target_term_id]);
+        await db.query(`DELETE FROM terms WHERE term_id = $1 AND organization_id = $2`, [target_term_id, organizationId]);
       }
   
       // 7️⃣ Delete school year if it was auto-created by promotion
@@ -313,7 +313,7 @@ module.exports = {
       `, [target_school_year_id, organizationId]);
   
       if (yearCheck.rows.length > 0) {
-        await db.query(`DELETE FROM school_years WHERE id = $1`, [target_school_year_id]);
+        await db.query(`DELETE FROM school_years WHERE id = $1 AND organization_id = $2`, [target_school_year_id, organizationId]);
       }
   
       // 8️⃣ Mark promotion as reversed

@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { isGuardianAuthenticated } = require("../middleware/guardianAuthMiddleware");
 const guardianController = require("../controllers/guardianController");
+const financeController = require("../controllers/financeController");
 const { upload } = require("../middleware/s3Upload");
 
 module.exports = (db) => {
@@ -88,6 +89,31 @@ module.exports = (db) => {
 
   router.post("/withdraw-pending-student", isGuardianAuthenticated, (req, res) =>
     guardianController.withdrawPendingStudent(req, res, db)
+  );
+
+  // ===== PayGira (parent-facing payments) =====
+  router.get("/paygira", isGuardianAuthenticated, (req, res) =>
+    financeController.guardianPaygiraGet(req, res, db)
+  );
+  router.post("/paygira/pay", isGuardianAuthenticated, (req, res) =>
+    financeController.guardianPaygiraPayPost(req, res, db)
+  );
+  router.get("/paygira/invoice/:assignmentId", isGuardianAuthenticated, (req, res) =>
+    financeController.invoiceGet(req, res, db)
+  );
+  router.get("/paygira/receipt/:paymentId", isGuardianAuthenticated, (req, res) =>
+    financeController.receiptGet(req, res, db)
+  );
+
+  // ===== Saved Cards & Billing (PayGira wallet) =====
+  router.post("/cards", isGuardianAuthenticated, (req, res) =>
+    financeController.guardianCardAddPost(req, res, db)
+  );
+  router.post("/cards/:id/delete", isGuardianAuthenticated, (req, res) =>
+    financeController.guardianCardDeletePost(req, res, db)
+  );
+  router.post("/cards/:id/default", isGuardianAuthenticated, (req, res) =>
+    financeController.guardianCardDefaultPost(req, res, db)
   );
 
   return router;

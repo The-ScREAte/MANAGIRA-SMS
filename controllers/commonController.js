@@ -3141,6 +3141,29 @@ const commonController = {
 
       if (paymentStatus === "success") {
         console.log('[Payment Callback] ✅ Payment successful, updating database...');
+
+        // Tenant boundary: bind the verified Paystack reference to the
+        // supplied pendingStudentId via the payment record's organization.
+        // This prevents a forged callback (valid reference + foreign
+        // pending id) from mutating another org's pending student state.
+        const ownershipCheck = await db.query(
+          `SELECT 1
+             FROM public_registration_payments prp
+             JOIN pending_students ps
+               ON ps.organization_id = prp.organization_id
+            WHERE prp.paystack_reference = $1
+              AND ps.pending_id = $2
+            LIMIT 1`,
+          [reference, pendingStudentId]
+        );
+
+        if (ownershipCheck.rows.length === 0) {
+          console.log('[Payment Callback] ❌ Reference does not belong to the supplied pending student.');
+          req.flash('error', 'Payment verification failed.');
+          const fallbackOrg = req.query.organizationId || req.session.organizationId || '';
+          return res.redirect(`/common/publicDashboard?organizationId=${fallbackOrg}`);
+        }
+
         // ✅ Mark payment as verified
         await db.query(
           `UPDATE pending_students SET stripe_payment_verified = true, payment_pending = false WHERE pending_id = $1`,
@@ -3221,15 +3244,30 @@ const commonController = {
         return res.redirect(redirectUrl);
       } else {
         console.log('[Payment Callback] ❌ Payment failed, deleting pending record...');
-        
-        // Fetch organizationId before deleting
-        const orgIdResult = await db.query(
-          `SELECT organization_id FROM pending_students WHERE pending_id = $1`,
-          [pendingStudentId]
+
+        // Tenant boundary: only delete the pending student if the verified
+        // Paystack reference actually belongs to that pending student's org.
+        const failureOwnership = await db.query(
+          `SELECT ps.organization_id
+             FROM public_registration_payments prp
+             JOIN pending_students ps
+               ON ps.organization_id = prp.organization_id
+            WHERE prp.paystack_reference = $1
+              AND ps.pending_id = $2
+            LIMIT 1`,
+          [reference, pendingStudentId]
         );
-        const failedOrgId = orgIdResult.rows[0]?.organization_id;
-        
-        // Payment failed — delete pending record
+
+        if (failureOwnership.rows.length === 0) {
+          console.log('[Payment Callback] ❌ Failure callback rejected: reference does not own the supplied pending student.');
+          req.flash('error', 'Payment verification failed.');
+          const fallbackOrg = req.query.organizationId || req.session.organizationId || '';
+          return res.redirect(`/common/publicDashboard?organizationId=${fallbackOrg}`);
+        }
+
+        const failedOrgId = failureOwnership.rows[0].organization_id;
+
+        // Payment failed — delete pending record (already org-bound above)
         await db.query(`DELETE FROM pending_students WHERE pending_id = $1`, [
           pendingStudentId,
         ]);
@@ -3878,12 +3916,14 @@ const commonController = {
   },
 
   getSubjectsForClass: async (req, res, db) => {
-    const { classId, organizationId } = req.query;
+    const { classId } = req.query;
+    const organizationId = req.session.organizationId;
 
-    if (!classId || !organizationId) {
-      return res
-        .status(400)
-        .json({ error: "Class ID and Organization ID are required." });
+    if (!classId) {
+      return res.status(400).json({ error: "Class ID is required." });
+    }
+    if (!organizationId) {
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
     try {
@@ -4334,6 +4374,7 @@ const commonController = {
   editStudentPost: async (req, res, db) => {
     try {
       const { studentId } = req.params;
+      const sessionOrganizationId = req.session.organizationId;
       const {
         firstName,
         lastName,
@@ -4345,13 +4386,66 @@ const commonController = {
         gender,
       } = req.body;
 
+      if (!sessionOrganizationId) {
+        req.flash("error", "Unauthorized.");
+        return res.redirect("/account/login");
+      }
+
+      // Tenant boundary: the student being edited must belong to the
+      // caller's organization. Without this, a hostile or buggy client
+      // could overwrite or cascade-delete (student_subjects/guardians)
+      // rows in a foreign organization.
+      const ownership = await db.query(
+        `SELECT 1 FROM students WHERE student_id = $1 AND organization_id = $2`,
+        [studentId, sessionOrganizationId]
+      );
+      if (!ownership.rows.length) {
+        req.flash("error", "Student does not belong to your organization.");
+        return res.redirect("/common/orgDashboard");
+      }
+
+      // Tenant boundary on referenced ids supplied by the client.
+      let safeClassId = null;
+      if (classId) {
+        const classCheck = await db.query(
+          `SELECT class_id FROM classes WHERE class_id = $1 AND organization_id = $2`,
+          [classId, sessionOrganizationId]
+        );
+        if (!classCheck.rows.length) {
+          req.flash("error", "Selected class does not belong to your organization.");
+          return res.redirect("/common/editStudent?studentId=" + studentId);
+        }
+        safeClassId = classCheck.rows[0].class_id;
+      }
+
+      let safeGraduationYearGroupId = null;
+      if (graduationYearGroupId) {
+        const gygCheck = await db.query(
+          `SELECT id FROM graduation_year_groups WHERE id = $1 AND organization_id = $2`,
+          [graduationYearGroupId, sessionOrganizationId]
+        );
+        if (gygCheck.rows.length) {
+          safeGraduationYearGroupId = gygCheck.rows[0].id;
+        }
+      }
+
       // subjects[] comes as an array; guardians[n][field] comes as an object keyed by index
       const subjectsRaw = req.body.subjects || req.body['subjects[]'];
-      const subjects = Array.isArray(subjectsRaw)
+      const subjectsInput = Array.isArray(subjectsRaw)
         ? subjectsRaw
         : subjectsRaw
         ? [subjectsRaw]
         : [];
+      const normalizedSubjectIds = [...new Set(
+        subjectsInput.map(v => Number(v)).filter(v => Number.isInteger(v) && v > 0)
+      )];
+      const ownedSubjectsRes = normalizedSubjectIds.length
+        ? await db.query(
+            `SELECT subject_id FROM subjects WHERE subject_id = ANY($1::int[]) AND organization_id = $2`,
+            [normalizedSubjectIds, sessionOrganizationId]
+          )
+        : { rows: [] };
+      const subjects = ownedSubjectsRes.rows.map(r => r.subject_id);
 
       const guardiansRaw = req.body.guardians;
       const guardians = Array.isArray(guardiansRaw)
@@ -4362,8 +4456,7 @@ const commonController = {
 
       let imageUrl = null;
       if (req.file) {
-        const organizationId = req.session.organizationId;
-        const s3Key = `images/studentimages/${organizationId}/${req.file.originalname}`;
+        const s3Key = `images/studentimages/${sessionOrganizationId}/${req.file.originalname}`;
         imageUrl = await uploadToS3(req.file, s3Key);
       }
 
@@ -4374,7 +4467,7 @@ const commonController = {
         `SELECT s.class_id, c.class_name AS old_class_name
          FROM students s LEFT JOIN classes c ON c.class_id = s.class_id
          WHERE s.student_id = $1 AND s.organization_id = $2`,
-        [studentId, req.session.organizationId]
+        [studentId, sessionOrganizationId]
       );
       const oldClassId = oldStudentResult.rows[0]?.class_id;
       const oldClassName = oldStudentResult.rows[0]?.old_class_name;
@@ -4400,31 +4493,31 @@ const commonController = {
         dateOfBirth,
         height,
         hometown,
-        classId,
-        graduationYearGroupId || null,
+        safeClassId,
+        safeGraduationYearGroupId,
         gender,
         imageUrl,
         studentId,
-        req.session.organizationId,
+        sessionOrganizationId,
       ]);
 
-      // Update subjects
-      await db.query(`DELETE FROM student_subjects WHERE student_id = $1;`, [
-        studentId,
-      ]);
-      if (Array.isArray(subjects)) {
-        for (const subjectId of subjects) {
-          await db.query(
-            `INSERT INTO student_subjects (student_id, subject_id, organization_id) VALUES ($1, $2, $3);`,
-            [studentId, subjectId, req.session.organizationId]
-          );
-        }
+      // Update subjects (org-scoped delete prevents cross-org cascade)
+      await db.query(
+        `DELETE FROM student_subjects WHERE student_id = $1 AND organization_id = $2;`,
+        [studentId, sessionOrganizationId]
+      );
+      for (const subjectId of subjects) {
+        await db.query(
+          `INSERT INTO student_subjects (student_id, subject_id, organization_id) VALUES ($1, $2, $3);`,
+          [studentId, subjectId, sessionOrganizationId]
+        );
       }
 
-      // Update guardians
-      await db.query(`DELETE FROM guardians WHERE student_id = $1;`, [
-        studentId,
-      ]);
+      // Update guardians (legacy table) - org-scoped delete
+      await db.query(
+        `DELETE FROM guardians WHERE student_id = $1 AND organization_id = $2;`,
+        [studentId, sessionOrganizationId]
+      );
       if (Array.isArray(guardians)) {
         for (const guardian of guardians) {
           await db.query(
@@ -4440,7 +4533,7 @@ const commonController = {
               guardian.email, // Add the email field correctly
               guardian.hometown,
               studentId,
-              req.session.organizationId,
+              sessionOrganizationId,
             ]
           );
         }
@@ -4449,14 +4542,15 @@ const commonController = {
       await db.query("COMMIT"); // Commit the transaction
 
       // Notify guardians if class changed
-      if (classId && String(classId) !== String(oldClassId)) {
+      if (safeClassId && String(safeClassId) !== String(oldClassId)) {
         const newClassResult = await db.query(
-          `SELECT class_name FROM classes WHERE class_id = $1`, [classId]
+          `SELECT class_name FROM classes WHERE class_id = $1 AND organization_id = $2`,
+          [safeClassId, sessionOrganizationId]
         );
         const newClassName = newClassResult.rows[0]?.class_name;
         if (oldClassName && newClassName) {
           notifyGuardiansOnClassChange(db, {
-            organizationId: req.session.organizationId,
+            organizationId: sessionOrganizationId,
             studentId,
             studentName: `${firstName} ${lastName}`,
             oldClassName,
@@ -4590,10 +4684,15 @@ const commonController = {
 
   deleteStudent: async (req, res, db) => {
     const { studentId } = req.params;
+    const sessionOrganizationId = req.session.organizationId;
 
     if (!studentId) {
       req.flash("error", "Student ID is required.");
       return res.redirect(`/common/editStudent?studentId=${studentId}`);
+    }
+    if (!sessionOrganizationId) {
+      req.flash("error", "Unauthorized.");
+      return res.redirect("/auth/login");
     }
 
     const client = await db.connect();
@@ -4601,10 +4700,12 @@ const commonController = {
     try {
       await client.query("BEGIN"); // Start a transaction
 
-      // Fetch the student's image URL and class ID
+      // Fetch the student's image URL and class ID -- scoped to the
+      // session organization so a request for another org's student id
+      // cannot cascade-delete its related rows.
       const studentResult = await client.query(
-        "SELECT image_url, class_id FROM students WHERE student_id = $1",
-        [studentId]
+        "SELECT image_url, class_id FROM students WHERE student_id = $1 AND organization_id = $2",
+        [studentId, sessionOrganizationId]
       );
 
       if (studentResult.rows.length > 0) {
@@ -4637,7 +4738,7 @@ const commonController = {
         // Finally, delete the student
         await client.query(
           "DELETE FROM students WHERE student_id = $1 AND organization_id = $2",
-          [studentId, req.session.organizationId]
+          [studentId, sessionOrganizationId]
         );
 
         await client.query("COMMIT"); // Commit the transaction
@@ -4660,9 +4761,13 @@ const commonController = {
 
   getAttendanceForClass: async (req, res, db) => {
     const { classId, termId } = req.query;
+    const organizationId = req.session.organizationId;
 
     if (!termId) {
       return res.status(400).send("Term ID is required");
+    }
+    if (!organizationId) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
     }
 
     try {
@@ -4679,9 +4784,9 @@ const commonController = {
                  updated_at,
                  date::text AS date
           FROM attendance_records
-          WHERE class_id = $1 AND term_id = $2
+          WHERE class_id = $1 AND term_id = $2 AND organization_id = $3
         `,
-        [classId, termId]
+        [classId, termId, organizationId]
       );
       res.json({ success: true, attendance: result.rows });
     } catch (error) {
@@ -4691,6 +4796,7 @@ const commonController = {
 
   attendanceCollection: async (req, res, db) => {
     const { classId, termId } = req.query;
+    const isEmbedded = String(req.query.embed || '').toLowerCase() === 'workspace';
 
     if (!classId || !termId) {
       return res.status(400).send("Class ID and Term ID are required.");
@@ -4932,8 +5038,10 @@ const commonController = {
         schoolYear,
         userRole,
         attendanceCalendarSummary,
+        isEmbedded,
         hideGlobalHeader: true,
         hideGlobalFooter: true,
+        hideGlobalChatbot: isEmbedded,
       });
     } catch (error) {
       // ...removed error log for clean background operation...
@@ -4948,10 +5056,36 @@ const commonController = {
       return res.status(400).send("Term ID is required");
     }
 
-    try {
-      await ensureAttendanceCalendarSchema(db);
+    const organizationId = req.session.organizationId;
+    if (!organizationId) {
+      return res.status(401).json({ success: false, message: "Unauthorized." });
+    }
 
-      const organizationId = req.session.organizationId;
+    try {
+      // Tenant boundary: class and term must belong to the caller's org.
+      const ctxCheck = await db.query(
+        `SELECT (SELECT 1 FROM classes WHERE class_id = $1 AND organization_id = $3) AS class_ok,
+                (SELECT 1 FROM terms   WHERE term_id  = $2 AND organization_id = $3) AS term_ok`,
+        [classId, termId, organizationId]
+      );
+      if (!ctxCheck.rows[0] || !ctxCheck.rows[0].class_ok || !ctxCheck.rows[0].term_ok) {
+        return res.status(403).json({ success: false, message: "Class or term does not belong to your organization." });
+      }
+
+      // Tenant boundary: keep only student ids that belong to this class and org.
+      const requestedStudentIds = Object.keys(attendance || {})
+        .map(v => Number(v))
+        .filter(v => Number.isInteger(v) && v > 0);
+      const ownedStudentsRes = requestedStudentIds.length
+        ? await db.query(
+            `SELECT student_id FROM students
+             WHERE student_id = ANY($1::int[]) AND class_id = $2 AND organization_id = $3`,
+            [requestedStudentIds, classId, organizationId]
+          )
+        : { rows: [] };
+      const ownedStudentIds = new Set(ownedStudentsRes.rows.map(r => Number(r.student_id)));
+
+      await ensureAttendanceCalendarSchema(db);
       const attendanceCalendarProfile = await getAttendanceCalendarProfile(db, organizationId, termId);
 
       if (attendanceCalendarProfile) {
@@ -4988,18 +5122,24 @@ const commonController = {
       for (const studentId in attendance) {
         const status = attendance[studentId];
         const parsedStudentId = Number.parseInt(studentId, 10);
-        if (Number.isInteger(parsedStudentId)) {
-          touchedStudentIds.push(parsedStudentId);
+        if (!Number.isInteger(parsedStudentId) || !ownedStudentIds.has(parsedStudentId)) {
+          continue; // skip foreign or unknown student ids
         }
+        touchedStudentIds.push(parsedStudentId);
 
+        // Tenant-safe UPSERT: the ON CONFLICT key (student_id, date, term_id)
+        // is enforced as unique at the DB level, but because student/term ids
+        // are now constrained above to this org, the conflict target cannot
+        // legitimately collide with another org's row.
         await db.query(
           `
                     INSERT INTO attendance_records (student_id, date, status, class_id, term_id, marked_by, organization_id)
                     VALUES ($1, $2, $3, $4, $5, $6, $7)
                     ON CONFLICT (student_id, date, term_id)
-                    DO UPDATE SET status = EXCLUDED.status, marked_by = EXCLUDED.marked_by, updated_at = NOW()`,
+                    DO UPDATE SET status = EXCLUDED.status, marked_by = EXCLUDED.marked_by, updated_at = NOW()
+                    WHERE attendance_records.organization_id = EXCLUDED.organization_id`,
           [
-            studentId,
+            parsedStudentId,
             date,
             status,
             classId,
@@ -5237,27 +5377,44 @@ const commonController = {
       const normalizedSubjectIds = [...new Set(
         subjects.map((v) => Number(v)).filter((v) => Number.isInteger(v) && v > 0)
       )];
+      // Tenant boundary: only assign classes/subjects that belong to this org.
+      const ownedClassesCE = normalizedClassIds.length
+        ? await client.query(
+            `SELECT class_id FROM classes WHERE class_id = ANY($1::int[]) AND organization_id = $2`,
+            [normalizedClassIds, req.session.organizationId]
+          )
+        : { rows: [] };
+      const safeClassIds = ownedClassesCE.rows.map(r => Number(r.class_id));
+      const ownedSubjectsCE = normalizedSubjectIds.length
+        ? await client.query(
+            `SELECT subject_id FROM subjects WHERE subject_id = ANY($1::int[]) AND organization_id = $2`,
+            [normalizedSubjectIds, req.session.organizationId]
+          )
+        : { rows: [] };
+      const safeSubjectIds = ownedSubjectsCE.rows.map(r => Number(r.subject_id));
       console.info(`[CreateEmployee:POST][${postId}] step6_classes_subjects`, {
         normalizedClassIds,
         normalizedSubjectIds,
+        safeClassIds,
+        safeSubjectIds,
         elapsed: elapsed(),
       });
 
-      if (normalizedClassIds.length > 0) {
+      if (safeClassIds.length > 0) {
         await client.query(
           `INSERT INTO user_classes (user_id, class_id, main)
            SELECT $1, unnest($2::int[]), FALSE`,
-          [userId, normalizedClassIds]
+          [userId, safeClassIds]
         );
         console.info(`[CreateEmployee:POST][${postId}] step6_classes_inserted`, { elapsed: elapsed() });
       }
 
-      if (normalizedSubjectIds.length > 0) {
+      if (safeSubjectIds.length > 0) {
         await client.query(
           `INSERT INTO user_subjects (user_id, subject_id)
            SELECT $1, unnest($2::int[])
            ON CONFLICT (user_id, subject_id) DO NOTHING`,
-          [userId, normalizedSubjectIds]
+          [userId, safeSubjectIds]
         );
         console.info(`[CreateEmployee:POST][${postId}] step6_subjects_inserted`, { elapsed: elapsed() });
       }
@@ -6116,29 +6273,44 @@ const commonController = {
       console.info(`[ModifyEmployee:POST][${modId}] user_updated`, { elapsed: elapsed() });
 
       await client.query("DELETE FROM user_classes WHERE user_id = $1", [userId]);
-      if (normalizedClassIds.length > 0) {
+      // Tenant boundary: only reassign classes that belong to this org.
+      const ownedClassesME = normalizedClassIds.length
+        ? await client.query(
+            `SELECT class_id FROM classes WHERE class_id = ANY($1::int[]) AND organization_id = $2`,
+            [normalizedClassIds, organizationId]
+          )
+        : { rows: [] };
+      const safeClassIdsMod = ownedClassesME.rows.map(r => Number(r.class_id));
+      if (safeClassIdsMod.length > 0) {
         await client.query(
           `INSERT INTO user_classes (user_id, class_id, main)
            SELECT $1, unnest($2::int[]), FALSE`,
-          [userId, normalizedClassIds]
+          [userId, safeClassIdsMod]
         );
       }
       console.info(`[ModifyEmployee:POST][${modId}] classes_updated`, {
-        count: normalizedClassIds.length,
+        count: safeClassIdsMod.length,
         elapsed: elapsed(),
       });
 
       await client.query("DELETE FROM user_subjects WHERE user_id = $1", [userId]);
-      if (normalizedSubjectIds.length > 0) {
+      const ownedSubjectsME = normalizedSubjectIds.length
+        ? await client.query(
+            `SELECT subject_id FROM subjects WHERE subject_id = ANY($1::int[]) AND organization_id = $2`,
+            [normalizedSubjectIds, organizationId]
+          )
+        : { rows: [] };
+      const safeSubjectIdsMod = ownedSubjectsME.rows.map(r => Number(r.subject_id));
+      if (safeSubjectIdsMod.length > 0) {
         await client.query(
           `INSERT INTO user_subjects (user_id, subject_id)
            SELECT $1, unnest($2::int[])
            ON CONFLICT (user_id, subject_id) DO NOTHING`,
-          [userId, normalizedSubjectIds]
+          [userId, safeSubjectIdsMod]
         );
       }
       console.info(`[ModifyEmployee:POST][${modId}] subjects_updated`, {
-        count: normalizedSubjectIds.length,
+        count: safeSubjectIdsMod.length,
         elapsed: elapsed(),
       });
 
@@ -6209,6 +6381,7 @@ const commonController = {
 
   assessment: async function (req, res, db) {
     const { classId, subjectId } = req.query;
+    const isEmbedded = String(req.query.embed || '').toLowerCase() === 'workspace';
 
     if (!classId || !subjectId) {
       return res
@@ -6408,9 +6581,11 @@ const commonController = {
         hasEditableAssessments: assessments.some((assessmentRow) => assessmentRow.can_edit_scores),
         students,
         employees,
+        isEmbedded,
         messages: req.flash(),
         hideGlobalHeader: true,
         hideGlobalFooter: true,
+        hideGlobalChatbot: isEmbedded,
       });
     } catch (err) {
             res.status(500).send("Error fetching assessment data.");
@@ -6503,6 +6678,21 @@ const commonController = {
         )
       );
 
+      // Tenant boundary: only keep student ids that belong to (classId, org).
+      // Without this, a foreign student_id could be inserted into this org's
+      // assessment_results table.
+      const requestedStudentIds = Object.keys(scores || {})
+        .map(v => Number(v))
+        .filter(v => Number.isInteger(v) && v > 0);
+      const ownedStudentsRes = requestedStudentIds.length
+        ? await db.query(
+            `SELECT student_id FROM students
+             WHERE student_id = ANY($1::int[]) AND class_id = $2 AND organization_id = $3`,
+            [requestedStudentIds, classId, organizationId]
+          )
+        : { rows: [] };
+      const ownedStudentIds = new Set(ownedStudentsRes.rows.map(r => Number(r.student_id)));
+
       const assessmentControlResult = await db.query(
         `
           SELECT assessment_id, title, weight, max_score, category,
@@ -6552,6 +6742,10 @@ const commonController = {
 
       // Insert or update scores for each student
       for (let studentId in scores) {
+        const parsedStudentId = Number(studentId);
+        if (!Number.isInteger(parsedStudentId) || !ownedStudentIds.has(parsedStudentId)) {
+          continue; // skip foreign or unknown students
+        }
         let totalScore = 0;
         let maxTotalScore = 0; // Maximum possible score
         const categoryScoresMap = {}; // To store total scores for each category
@@ -6769,28 +6963,22 @@ const commonController = {
   },
 
   manageAssessment: async (req, res, db) => {
-    let { organizationId, termId } = req.query;
+    const sessionOrganizationId = parseInt(req.session.organizationId, 10);
+    const requestedOrganizationId = req.query.organizationId
+      ? parseInt(req.query.organizationId, 10)
+      : sessionOrganizationId;
+    const organizationId = sessionOrganizationId;
+    const rawTermId = req.query.termId || req.session.termId || req.session.currentTermId;
+    const termId = parseInt(rawTermId, 10);
 
-    if (!organizationId) {
-      organizationId = req.session.organizationId;
-    }
-
-    if (!termId) {
-      termId = req.session.termId;
-    }
-
-    // Validate incoming organizationId and termId
-    if (!organizationId || !termId) {
+    if (!organizationId || Number.isNaN(organizationId) || !termId || Number.isNaN(termId)) {
       req.flash("error", "Organization ID and Term ID are required.");
       return res.status(400).send("Organization ID and Term ID are required.");
     }
 
-    organizationId = parseInt(organizationId, 10);
-    termId = parseInt(termId, 10);
-
-    if (isNaN(organizationId) || isNaN(termId)) {
-      req.flash("error", "Invalid Organization ID or Term ID.");
-      return res.status(400).send("Invalid Organization ID or Term ID.");
+    if (requestedOrganizationId && !Number.isNaN(requestedOrganizationId) && requestedOrganizationId !== organizationId) {
+      req.flash("error", "You cannot access another organization's assessments.");
+      return res.status(403).send("Forbidden");
     }
 
     try {
@@ -6802,6 +6990,22 @@ const commonController = {
       } catch (ddlErr) {
         console.warn('[manageAssessment] DDL warm-up failed (non-fatal):', ddlErr.message);
       }
+
+      const termOwnershipResult = await db.query(
+        `
+          SELECT term_id
+          FROM terms
+          WHERE term_id = $1 AND organization_id = $2
+          LIMIT 1
+        `,
+        [termId, organizationId]
+      );
+
+      if (!termOwnershipResult.rows.length) {
+        req.flash("error", "Invalid term for this organization.");
+        return res.status(404).send("Term not found.");
+      }
+
       // Fetch assessments with their associated classes and subjects, grouped by group_id
       const assessmentsQuery = `
                 SELECT a.group_id, a.title, a.weight, a.max_score, a.category, a.term_id, 
@@ -6973,7 +7177,6 @@ const commonController = {
 
   modifyAssessmentPost: async (req, res, db) => {
     const {
-      organizationId,
       termId,
       groupId,
       testName,
@@ -6988,6 +7191,10 @@ const commonController = {
       editWindowEnd,
       notifyTeachers,
     } = req.body;
+
+    // Tenant boundary: the organization is always the caller's session org.
+    // Any organizationId supplied in the request body is ignored.
+    const organizationId = req.session.organizationId;
 
     // Validate required fields
     if (
@@ -7543,9 +7750,13 @@ const commonController = {
   // Controller to delete an assessment group
   deleteAssessmentPost: async (req, res, db) => {
     const { groupId } = req.body;
+    const organizationId = req.session.organizationId;
 
     if (!groupId) {
       return res.status(400).json({ error: "Group ID is required." });
+    }
+    if (!organizationId) {
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
     const client = await db.connect();
@@ -7553,11 +7764,13 @@ const commonController = {
     try {
       await client.query("BEGIN"); // Start a transaction
 
-      // Delete all assessments associated with the given group ID
+      // Delete all assessments associated with the given group ID --
+      // restricted to the caller's organization to prevent cross-org
+      // deletions when group ids are guessable.
       await client.query(
         `DELETE FROM assessments
-             WHERE group_id = $1`,
-        [groupId]
+             WHERE group_id = $1 AND organization_id = $2`,
+        [groupId, organizationId]
       );
 
       await client.query("COMMIT"); // Commit the transaction
@@ -7649,7 +7862,10 @@ const commonController = {
   },
 
   createTestPost: async (req, res, db) => {
-    const { organizationId, termId: formTermId, tests } = req.body;
+    const { termId: formTermId, tests } = req.body;
+    // Tenant boundary: organization is always the caller's session org;
+    // any organizationId supplied in the request body is ignored.
+    const organizationId = req.session.organizationId;
 
     if (!organizationId || !formTermId) {
       return res
@@ -8271,6 +8487,8 @@ const commonController = {
         initialWorkspaceRoute = { panel: 'students', itemId: '' };
       } else if (routePanel === 'subjects') {
         initialWorkspaceRoute = { panel: 'subjects', itemId: '' };
+      } else if (routePanel === 'paygira') {
+        initialWorkspaceRoute = { panel: 'paygira', itemId: '' };
       } else if (routePanel === 'student' && routeItemId) {
         initialWorkspaceRoute = { panel: 'student', itemId: routeItemId };
       } else if (routePanel === 'subject' && routeItemId) {
@@ -8469,15 +8687,32 @@ const commonController = {
 
   setMainEmployee: async (req, res, db) => {
     const { class_id, main_employee } = req.body;
+    const organizationId = req.session.organizationId;
+    if (!organizationId) {
+      return res.status(401).json({ success: false, message: "Unauthorized." });
+    }
     try {
+      // Tenant boundary: class and target user must belong to caller's org.
+      const ownership = await db.query(
+        `SELECT (SELECT 1 FROM classes WHERE class_id = $1 AND organization_id = $3) AS class_ok,
+                (SELECT 1 FROM users   WHERE user_id  = $2 AND organization_id = $3) AS user_ok`,
+        [class_id, main_employee, organizationId]
+      );
+      if (!ownership.rows[0] || !ownership.rows[0].class_ok || !ownership.rows[0].user_ok) {
+        return res.status(403).json({ success: false, message: "Class or employee does not belong to your organization." });
+      }
       await db.query("BEGIN");
       await db.query(
-        "UPDATE user_classes SET main = FALSE WHERE class_id = $1",
-        [class_id]
+        `UPDATE user_classes uc SET main = FALSE
+          WHERE uc.class_id = $1
+            AND EXISTS (SELECT 1 FROM users u WHERE u.user_id = uc.user_id AND u.organization_id = $2)`,
+        [class_id, organizationId]
       );
       await db.query(
-        "UPDATE user_classes SET main = TRUE WHERE class_id = $1 AND user_id = $2",
-        [class_id, main_employee]
+        `UPDATE user_classes uc SET main = TRUE
+          WHERE uc.class_id = $1 AND uc.user_id = $2
+            AND EXISTS (SELECT 1 FROM users u WHERE u.user_id = uc.user_id AND u.organization_id = $3)`,
+        [class_id, main_employee, organizationId]
       );
       await db.query("COMMIT");
       res.json({ success: true, message: "Main employee set successfully." });
@@ -9793,7 +10028,24 @@ const commonController = {
 
   deleteClass: async (req, res, db) => {
     const { classId } = req.query;
+    const sessionOrganizationId = req.session.organizationId;
+    if (!sessionOrganizationId) {
+      req.flash("error", "Unauthorized.");
+      return res.redirect("/account/login");
+    }
     try {
+      // Tenant boundary: ensure the class belongs to caller's org BEFORE
+      // walking its subjects — otherwise a foreign classId would let us
+      // delete subjects (and user_subjects rows) from another tenant.
+      const classOwn = await db.query(
+        `SELECT 1 FROM classes WHERE class_id = $1 AND organization_id = $2`,
+        [classId, sessionOrganizationId]
+      );
+      if (!classOwn.rows.length) {
+        req.flash("error", "Class does not belong to your organization.");
+        return res.redirect("/common/classDashboard");
+      }
+
       // Warn the user about the consequences of deleting the class
       req.flash(
         "warning",
@@ -9801,27 +10053,35 @@ const commonController = {
       );
 
       // Check if the class has associated subjects and delete them first
+      // (org-scoped subselect)
       const subjects = await db.query(
-        "SELECT subject_id FROM subjects WHERE class_id = $1",
-        [classId]
+        "SELECT subject_id FROM subjects WHERE class_id = $1 AND organization_id = $2",
+        [classId, sessionOrganizationId]
       );
 
       for (let subject of subjects.rows) {
-        // Delete associated records from user_subjects for each subject
-        await db.query("DELETE FROM user_subjects WHERE subject_id = $1", [
-          subject.subject_id,
-        ]);
+        // Delete associated records from user_subjects for each subject.
+        // Constrain via EXISTS on users so we never wipe another org's
+        // user_subjects rows that happen to share subject_id (they cannot
+        // legitimately, but defense-in-depth).
+        await db.query(
+          `DELETE FROM user_subjects us
+           WHERE us.subject_id = $1
+             AND EXISTS (SELECT 1 FROM users u WHERE u.user_id = us.user_id AND u.organization_id = $2)`,
+          [subject.subject_id, sessionOrganizationId]
+        );
 
-        // Delete the subject itself
-        await db.query("DELETE FROM subjects WHERE subject_id = $1", [
-          subject.subject_id,
-        ]);
+        // Delete the subject itself (org-scoped)
+        await db.query(
+          "DELETE FROM subjects WHERE subject_id = $1 AND organization_id = $2",
+          [subject.subject_id, sessionOrganizationId]
+        );
       }
 
       // Now, delete the class after its subjects and dependencies have been removed
       await db.query(
         "DELETE FROM classes WHERE class_id = $1 AND organization_id = $2",
-        [classId, req.session.organizationId]
+        [classId, sessionOrganizationId]
       );
 
       req.flash(
@@ -10379,15 +10639,34 @@ const commonController = {
 
   deleteSchoolYear: async (req, res, db) => {
     const { yearId } = req.body;
+    const organizationId = req.session.organizationId;
+    if (!organizationId) {
+      req.flash("error", "Unauthorized.");
+      return res.redirect("/account/login");
+    }
     try {
-      await db.query(
-        "DELETE FROM term_classes WHERE term_id IN (SELECT term_id FROM terms WHERE school_year_id = $1)",
-        [yearId]
+      // Tenant boundary: only proceed when the year actually belongs to caller.
+      const yearOwn = await db.query(
+        `SELECT 1 FROM school_years WHERE id = $1 AND organization_id = $2`,
+        [yearId, organizationId]
       );
-      await db.query("DELETE FROM terms WHERE school_year_id = $1", [yearId]);
+      if (!yearOwn.rows.length) {
+        req.flash("error", "School year does not belong to your organization.");
+        return res.redirect("/common/manageRecords");
+      }
+
+      await db.query(
+        `DELETE FROM term_classes
+          WHERE term_id IN (SELECT term_id FROM terms WHERE school_year_id = $1 AND organization_id = $2)`,
+        [yearId, organizationId]
+      );
+      await db.query(
+        "DELETE FROM terms WHERE school_year_id = $1 AND organization_id = $2",
+        [yearId, organizationId]
+      );
       await db.query(
         "DELETE FROM school_years WHERE id = $1 AND organization_id = $2",
-        [yearId, req.session.organizationId]
+        [yearId, organizationId]
       );
 
       req.flash("success", "School year deleted successfully.");
@@ -10401,12 +10680,33 @@ const commonController = {
   deleteSchoolYearPost: async (req, res, db) => {
     try {
       const { yearId } = req.body;
+      const organizationId = req.session.organizationId;
+      if (!organizationId) {
+        req.flash("error", "Unauthorized.");
+        return res.redirect("/account/login");
+      }
 
-      // Delete all terms associated with the school year
-      await db.query("DELETE FROM terms WHERE school_year_id = $1", [yearId]);
+      // Tenant boundary: confirm ownership before any deletes.
+      const yearOwn = await db.query(
+        `SELECT 1 FROM school_years WHERE id = $1 AND organization_id = $2`,
+        [yearId, organizationId]
+      );
+      if (!yearOwn.rows.length) {
+        req.flash("error", "School year does not belong to your organization.");
+        return res.redirect("/common/manageRecords");
+      }
 
-      // Delete the school year
-      await db.query("DELETE FROM school_years WHERE id = $1", [yearId]);
+      // Delete all terms associated with the school year (org-scoped)
+      await db.query(
+        "DELETE FROM terms WHERE school_year_id = $1 AND organization_id = $2",
+        [yearId, organizationId]
+      );
+
+      // Delete the school year (org-scoped)
+      await db.query(
+        "DELETE FROM school_years WHERE id = $1 AND organization_id = $2",
+        [yearId, organizationId]
+      );
 
       req.flash("success", "School year deleted successfully.");
       res.redirect("/common/manageRecords");
@@ -10796,10 +11096,26 @@ const commonController = {
       const organizationId = req.session.organizationId;
       const { guardianId, studentId, source } = req.body;
 
+      if (!organizationId) {
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+      }
+
       if (source === 'profile') {
+        // Verify the guardian profile and the student both belong to the
+        // caller's organization before unlinking the relationship.
         await db.query(
-          `DELETE FROM guardian_students WHERE guardian_id = $1 AND student_id = $2`,
-          [guardianId, studentId]
+          `DELETE FROM guardian_students
+           WHERE guardian_id = $1
+             AND student_id = $2
+             AND EXISTS (
+               SELECT 1 FROM guardian_profiles gp
+               WHERE gp.guardian_id = $1 AND gp.organization_id = $3
+             )
+             AND EXISTS (
+               SELECT 1 FROM students s
+               WHERE s.student_id = $2 AND s.organization_id = $3
+             )`,
+          [guardianId, studentId, organizationId]
         );
       } else {
         await db.query(
@@ -11542,15 +11858,26 @@ const commonController = {
   },
 
   // Public guardian search (no authentication required)
+  // Hardened: requires an exact phone or email match to prevent
+  // unauthenticated enumeration of guardian PII by name fragments.
   searchGuardiansPublic: async (req, res, db) => {
     try {
       const organizationId = req.query.organizationId;
       const q = (req.query.q || "").trim();
 
       if (!organizationId) return res.status(400).json({ guardians: [] });
-      if (q.length < 2) return res.json({ guardians: [] });
+      // Require a reasonably specific identifier (full phone/email),
+      // not a 2-character name fragment.
+      if (q.length < 5) return res.json({ guardians: [] });
 
-      const like = `%${q}%`;
+      // Only accept lookups that look like a phone number or an email.
+      const looksLikeEmail = /@/.test(q) && /\./.test(q);
+      const looksLikePhone = /^\+?[0-9\s\-()]{5,}$/.test(q);
+      if (!looksLikeEmail && !looksLikePhone) {
+        return res.json({ guardians: [] });
+      }
+
+      const normalizedPhone = looksLikePhone ? q.replace(/[\s\-()]/g, "") : null;
 
       const result = await db.query(
         `
@@ -11558,14 +11885,13 @@ const commonController = {
         FROM guardian_profiles
         WHERE organization_id = $1
           AND (
-            CONCAT_WS(' ', first_name, last_name) ILIKE $2
-            OR phone ILIKE $2
-            OR email ILIKE $2
+            ($2::text IS NOT NULL AND LOWER(email) = LOWER($2::text))
+            OR ($3::text IS NOT NULL AND REGEXP_REPLACE(COALESCE(phone, ''), '[^0-9+]', '', 'g') = $3::text)
           )
         ORDER BY updated_at DESC, guardian_id DESC
-        LIMIT 8
+        LIMIT 5
         `,
-        [organizationId, like]
+        [organizationId, looksLikeEmail ? q : null, normalizedPhone]
       );
 
       return res.json({ guardians: result.rows });
