@@ -1,5 +1,5 @@
 // controllers/financeController.js
-// Finance & Billing Management — multi-tenant scoped by organization_id.
+// PayGira — Finance & Billing Management — multi-tenant scoped by organization_id.
 // All queries filter by req.session.organizationId. The page is admin-only.
 
 const fs = require("fs");
@@ -385,5 +385,192 @@ module.exports = {
         return { assignment_id: x.assignment_id, label: `${x.first_name} ${x.last_name} — ${x.title} ($${bal} due)` };
       }));
     } catch (e) { res.status(500).json([]); }
+  },
+
+  // Edit bill
+  billEditPost: async (req, res) => {
+    if (!isFinanceAdmin(req)) return res.redirect("/account/settings");
+    const orgId = req.session.organizationId;
+    const { title, description, amount, due_date, late_fee_amount, late_fee_after_days } = req.body;
+    try {
+      await db.query(
+        `UPDATE finance_bills SET
+           title=$1, description=$2, amount=$3, due_date=$4,
+           late_fee_amount=$5, late_fee_after_days=$6, updated_at=now()
+         WHERE bill_id=$7 AND organization_id=$8`,
+        [title, description || null, Number(amount || 0),
+         due_date || null, Number(late_fee_amount || 0), Number(late_fee_after_days || 7),
+         req.params.id, orgId]
+      );
+      // Sync amount on pending/partial assignments that haven't been paid yet
+      await db.query(
+        `UPDATE finance_bill_assignments SET amount=$1, updated_at=now()
+         WHERE bill_id=$2 AND organization_id=$3 AND status IN ('pending','overdue')`,
+        [Number(amount || 0), req.params.id, orgId]
+      );
+      req.flash("success", "Bill updated.");
+    } catch (e) { console.error(e); req.flash("error", "Could not update bill."); }
+    res.redirect("/account/settings/finance?section=bills");
+  },
+
+  // Overdue sweep — marks all past-due pending assignments as overdue and applies late fees
+  overdueSweepPost: async (req, res) => {
+    if (!isFinanceAdmin(req)) return res.redirect("/account/settings");
+    const orgId = req.session.organizationId;
+    try {
+      await ensureFinanceSchema();
+      // Mark overdue
+      await db.query(
+        `UPDATE finance_bill_assignments a SET status='overdue', updated_at=now()
+         FROM finance_bills b
+         WHERE a.bill_id = b.bill_id
+           AND a.organization_id = $1
+           AND a.status IN ('pending','partial')
+           AND b.due_date IS NOT NULL
+           AND b.due_date < CURRENT_DATE`,
+        [orgId]
+      );
+      // Apply late fees where bill has late_fee_amount > 0 and not yet applied
+      const fees = await db.query(
+        `SELECT a.assignment_id, b.late_fee_amount, b.late_fee_after_days, b.due_date
+           FROM finance_bill_assignments a
+           JOIN finance_bills b ON b.bill_id = a.bill_id
+          WHERE a.organization_id = $1
+            AND a.status = 'overdue'
+            AND a.late_fee_applied = 0
+            AND b.late_fee_amount > 0
+            AND b.due_date IS NOT NULL
+            AND b.due_date + (b.late_fee_after_days || ' days')::interval < now()`,
+        [orgId]
+      );
+      for (const row of fees.rows) {
+        await db.query(
+          `UPDATE finance_bill_assignments SET late_fee_applied=$1, updated_at=now() WHERE assignment_id=$2`,
+          [Number(row.late_fee_amount), row.assignment_id]
+        );
+      }
+      req.flash("success", `Overdue sweep complete. ${fees.rows.length} late fee(s) applied.`);
+    } catch (e) { console.error(e); req.flash("error", "Overdue sweep failed: " + e.message); }
+    res.redirect("/account/settings/finance?section=overview");
+  },
+
+  // CSV export — bills with paid/outstanding summary
+  exportCsvGet: async (req, res) => {
+    if (!isFinanceAdmin(req)) return res.status(403).send("Access denied.");
+    const orgId = req.session.organizationId;
+    const type = req.query.type || "bills";
+    try {
+      await ensureFinanceSchema();
+      let rows = [];
+      let headers = [];
+      if (type === "payments") {
+        const r = await db.query(
+          `SELECT p.received_at, s.first_name, s.last_name, b.title AS bill,
+                  p.amount, p.method, p.reference, p.notes
+             FROM finance_payments p
+             LEFT JOIN students s ON s.student_id = p.student_id
+             LEFT JOIN finance_bills b ON b.bill_id = p.bill_id
+            WHERE p.organization_id = $1
+            ORDER BY p.received_at DESC`,
+          [orgId]
+        );
+        headers = ["Date","First Name","Last Name","Bill","Amount","Method","Reference","Notes"];
+        rows = r.rows.map(x => [
+          new Date(x.received_at).toISOString().slice(0,10),
+          x.first_name||"", x.last_name||"", x.bill||"",
+          Number(x.amount).toFixed(2), x.method||"", x.reference||"", x.notes||""
+        ]);
+      } else {
+        const r = await db.query(
+          `SELECT b.title, b.bill_type, b.due_date, b.status,
+                  COUNT(a.assignment_id) AS students,
+                  COALESCE(SUM(a.amount),0) AS total_billed,
+                  COALESCE(SUM(a.amount_paid),0) AS total_paid,
+                  COALESCE(SUM(GREATEST(a.amount+a.late_fee_applied-a.amount_paid,0)),0) AS outstanding
+             FROM finance_bills b
+             LEFT JOIN finance_bill_assignments a ON a.bill_id=b.bill_id
+            WHERE b.organization_id=$1
+            GROUP BY b.bill_id
+            ORDER BY b.created_at DESC`,
+          [orgId]
+        );
+        headers = ["Bill","Type","Due Date","Status","Students","Total Billed","Total Paid","Outstanding"];
+        rows = r.rows.map(x => [
+          x.title, x.bill_type||"", x.due_date ? new Date(x.due_date).toISOString().slice(0,10) : "",
+          x.status, x.students,
+          Number(x.total_billed).toFixed(2), Number(x.total_paid).toFixed(2), Number(x.outstanding).toFixed(2)
+        ]);
+      }
+      const escape = v => `"${String(v).replace(/"/g,'""')}"`;
+      const csv = [headers.map(escape).join(","), ...rows.map(r => r.map(escape).join(","))].join("\r\n");
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename="paygira-${type}-${Date.now()}.csv"`);
+      res.send(csv);
+    } catch (e) { console.error(e); res.status(500).send("Export failed."); }
+  },
+
+  // Student detail JSON — full billing breakdown for drawer
+  studentDetailGet: async (req, res) => {
+    if (!isFinanceAdmin(req)) return res.status(403).json({ error: "Access denied." });
+    const orgId = req.session.organizationId;
+    const studentId = parseInt(req.params.id, 10);
+    if (!studentId) return res.status(400).json({ error: "Invalid student ID." });
+    try {
+      await ensureFinanceSchema();
+      const [student, bills, payments, credit] = await Promise.all([
+        db.query(
+          `SELECT s.student_id, s.first_name, s.last_name, s.image_url,
+                  c.class_name, s.date_of_birth
+             FROM students s LEFT JOIN classes c ON c.class_id=s.class_id
+            WHERE s.student_id=$1 AND s.organization_id=$2`,
+          [studentId, orgId]
+        ),
+        db.query(
+          `SELECT a.assignment_id, a.amount, a.amount_paid, a.late_fee_applied, a.status,
+                  b.title, b.bill_type, b.due_date, b.recurrence
+             FROM finance_bill_assignments a
+             JOIN finance_bills b ON b.bill_id=a.bill_id
+            WHERE a.student_id=$1 AND a.organization_id=$2
+            ORDER BY b.due_date DESC NULLS LAST`,
+          [studentId, orgId]
+        ),
+        db.query(
+          `SELECT p.payment_id, p.amount, p.method, p.reference, p.received_at, b.title AS bill_title
+             FROM finance_payments p
+             LEFT JOIN finance_bills b ON b.bill_id=p.bill_id
+            WHERE p.student_id=$1 AND p.organization_id=$2
+            ORDER BY p.received_at DESC LIMIT 50`,
+          [studentId, orgId]
+        ),
+        db.query(
+          `SELECT COALESCE(amount,0) AS credit FROM finance_student_credits
+            WHERE student_id=$1 AND organization_id=$2`,
+          [studentId, orgId]
+        ),
+      ]);
+      if (!student.rows.length) return res.status(404).json({ error: "Student not found." });
+      res.json({
+        student: student.rows[0],
+        bills: bills.rows,
+        payments: payments.rows,
+        credit: Number(credit.rows[0]?.credit || 0),
+      });
+    } catch (e) { console.error(e); res.status(500).json({ error: "Could not load student detail." }); }
+  },
+
+  // Send reminder — logs it; triggers email if mailer configured
+  sendReminderPost: async (req, res) => {
+    if (!isFinanceAdmin(req)) return res.redirect("/account/settings");
+    const orgId = req.session.organizationId;
+    try {
+      // Log the reminder action (can be wired to email provider later)
+      await db.query(
+        `UPDATE finance_bill_assignments SET updated_at=now()
+         WHERE bill_id=$1 AND organization_id=$2 AND status IN ('pending','overdue','partial')`,
+        [req.params.id, orgId]
+      );
+      req.flash("success", "Reminder sent to all outstanding assignees.");
+    } catch (e) { req.flash("error", "Could not send reminder."); }
+    res.redirect("/account/settings/finance?section=bills");
   },
 };

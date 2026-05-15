@@ -230,7 +230,7 @@
 
     <div class="fin-main">
       <div class="fin-page-head">
-        <h1>Finance <span class="accent">& Billing</span></h1>
+        <h1>Pay<span class="accent">Gira</span></h1>
         <p>Premium financial command center for your school — bills, payments, subscriptions and reports.</p>
       </div>
 
@@ -267,9 +267,13 @@
 
         <div class="fin-actions">
           <a href="?section=bills" class="fin-btn primary">+ Create New Bill</a>
+          <form method="POST" action="/account/settings/finance/sweep-overdue" style="display:inline;">
+            <button type="submit" class="fin-btn" onclick="return confirm('Mark all past-due bills as overdue and apply late fees?');">⚡ Sweep Overdue</button>
+          </form>
           <a href="?section=payments" class="fin-btn">💰 Record Payment</a>
+          <a href="/account/settings/finance/export/csv?type=bills" class="fin-btn">📤 Export Bills CSV</a>
           <a href="?section=templates" class="fin-btn">🏫 Fee Templates</a>
-          <a href="?section=reports" class="fin-btn">📤 Reports</a>
+          <a href="?section=reports" class="fin-btn">📊 Reports</a>
         </div>
 
         <div class="fin-two">
@@ -454,7 +458,11 @@
                       <td><span class="badge <%= b.status %>"><%= b.status %></span></td>
                       <td class="num"><%= fmt(b.total_amount) %></td>
                       <td class="num" style="color:var(--fin-success);"><%= fmt(b.total_paid) %></td>
-                      <td>
+                      <td style="white-space:nowrap;">
+                        <button class="fin-btn" style="padding:6px 10px; font-size:.78rem;" onclick="openEditBill(<%= JSON.stringify({id:b.bill_id,title:b.title,description:b.description||'',amount:b.amount,due_date:b.due_date?new Date(b.due_date).toISOString().slice(0,10):'',late_fee_amount:b.late_fee_amount||0,late_fee_after_days:b.late_fee_after_days||7}) %>)">✏️ Edit</button>
+                        <form method="POST" action="/account/settings/finance/bills/<%= b.bill_id %>/reminder" style="display:inline;">
+                          <button class="fin-btn" style="padding:6px 10px; font-size:.78rem;">📨 Remind</button>
+                        </form>
                         <form method="POST" action="/account/settings/finance/bills/<%= b.bill_id %>/delete" onsubmit="return confirm('Delete this bill and all assignments?');" style="display:inline;">
                           <button class="fin-btn danger" style="padding:6px 10px; font-size:.78rem;">Delete</button>
                         </form>
@@ -486,7 +494,7 @@
                     else if (out === 0) st = 'paid';
                     else if (Number(s.total_paid||0) > 0) st = 'partial';
                   %>
-                    <tr>
+                    <tr style="cursor:pointer;" onclick="openStudentDrawer(<%= s.student_id %>)" title="View billing detail">
                       <td>
                         <div style="display:flex; align-items:center; gap:10px;">
                           <div class="avatar">
@@ -668,15 +676,64 @@
 
       <% if (sec === 'reports') { %>
         <div class="fin-card">
-          <div class="section-head"><h2>Reports &amp; Analytics</h2></div>
+          <div class="section-head">
+            <h2>Reports &amp; Analytics</h2>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <a href="/account/settings/finance/export/csv?type=bills" class="fin-btn" style="padding:8px 14px;font-size:.82rem;">&#x2b07; Bills CSV</a>
+              <a href="/account/settings/finance/export/csv?type=payments" class="fin-btn" style="padding:8px 14px;font-size:.82rem;">&#x2b07; Payments CSV</a>
+            </div>
+          </div>
           <div class="fin-stats">
             <div class="stat"><div class="label">Collection Rate</div><div class="value"><%= billedTotal > 0 ? ((collectedTotal/billedTotal)*100).toFixed(1) : '0.0' %>%</div></div>
             <div class="stat green"><div class="label">Paid Bills</div><div class="value"><%= bills.filter(b=>Number(b.total_paid)>=Number(b.total_amount) && Number(b.total_amount)>0).length %></div></div>
             <div class="stat red"><div class="label">Overdue</div><div class="value"><%= t.overdue_count || 0 %></div></div>
             <div class="stat gold"><div class="label">Total Bills</div><div class="value"><%= bills.length %></div></div>
           </div>
-          <div style="margin-top:18px; padding:18px; background:rgba(0,212,170,.04); border:1px dashed var(--fin-border); border-radius:14px; color:var(--fin-muted); font-size:.88rem;">
-            📊 Detailed CSV/PDF exports, term breakdowns, and visual charts (donut, bar, line, heatmap) are scaffolded and ready to be wired to a charting library next iteration.
+
+          <%
+            // Build collection donut data
+            const chartPaid = billedTotal > 0 ? Math.round((collectedTotal/billedTotal)*100) : 0;
+            const chartOut  = 100 - chartPaid;
+            // SVG donut: r=15.9 circumference ~100
+            const dashPaid = chartPaid;
+            const dashOut  = 100 - dashPaid;
+          %>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px;align-items:start;">
+            <!-- Donut chart -->
+            <div style="background:var(--fin-card-2);border:1px solid var(--fin-border);border-radius:14px;padding:20px;text-align:center;">
+              <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;margin-bottom:14px;">Collection vs Outstanding</div>
+              <svg viewBox="0 0 36 36" style="width:160px;height:160px;transform:rotate(-90deg);">
+                <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--fin-border)" stroke-width="3"/>
+                <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--fin-success)" stroke-width="3"
+                  stroke-dasharray="<%= dashPaid %> <%= dashOut %>" stroke-linecap="round"/>
+                <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--fin-red)" stroke-width="3"
+                  stroke-dasharray="<%= dashOut %> <%= dashPaid %>" stroke-dashoffset="<%= -dashPaid %>" stroke-linecap="round"/>
+              </svg>
+              <div style="display:flex;justify-content:center;gap:18px;margin-top:10px;font-size:.82rem;">
+                <span style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:50%;background:var(--fin-success);display:inline-block;"></span>Collected <%= chartPaid %>%</span>
+                <span style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:50%;background:var(--fin-red);display:inline-block;"></span>Outstanding <%= chartOut %>%</span>
+              </div>
+            </div>
+            <!-- Bill status breakdown -->
+            <div style="background:var(--fin-card-2);border:1px solid var(--fin-border);border-radius:14px;padding:20px;">
+              <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;margin-bottom:14px;">Bill Status Breakdown</div>
+              <%
+                const stMap = {paid:0,pending:0,overdue:0,partial:0,draft:0,cancelled:0};
+                bills.forEach(b => { if(stMap[b.status]!==undefined) stMap[b.status]++; else stMap[b.status]=(stMap[b.status]||0)+1; });
+                const totalBills = bills.length || 1;
+              %>
+              <% [['paid','var(--fin-success)'],['pending','var(--fin-warn)'],['overdue','var(--fin-red)'],['partial','var(--fin-purple)'],['draft','var(--fin-muted)']].forEach(([s,col]) => { const n = stMap[s]||0; const pct = Math.round((n/totalBills)*100); %>
+              <div style="margin-bottom:10px;">
+                <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:4px;">
+                  <span style="text-transform:capitalize;color:var(--fin-text);"><%= s %></span>
+                  <span style="font-family:'JetBrains Mono',monospace;color:<%= col %>;"><%= n %> (<%= pct %>%)</span>
+                </div>
+                <div style="height:6px;background:var(--fin-border);border-radius:99px;overflow:hidden;">
+                  <div style="height:100%;width:<%= pct %>%;background:<%= col %>;border-radius:99px;transition:width .4s;"></div>
+                </div>
+              </div>
+              <% }) %>
+            </div>
           </div>
         </div>
       <% } %>
@@ -704,36 +761,175 @@
 </div>
 
 <script>
-  // Toggle class/student pickers based on applies_to
   (function () {
+    // === Toggle class/student pickers ===
     var sel = document.getElementById('appliesTo');
-    var cp = document.getElementById('classPicker');
-    var sp = document.getElementById('studentPicker');
-    function refresh() {
+    var cp  = document.getElementById('classPicker');
+    var sp  = document.getElementById('studentPicker');
+    function refreshPicker() {
       if (!sel) return;
       var v = sel.value;
-      if (cp) cp.style.display = v === 'classes' ? '' : 'none';
+      if (cp) cp.style.display = v === 'classes'  ? '' : 'none';
       if (sp) sp.style.display = v === 'students' ? '' : 'none';
     }
-    if (sel) { sel.addEventListener('change', refresh); refresh(); }
-  })();
+    if (sel) { sel.addEventListener('change', refreshPicker); refreshPicker(); }
 
-  // Lazy-load assignment options for payment form
-  (function () {
-    var sel = document.getElementById('assignSel');
-    if (!sel) return;
-    fetch('/account/settings/finance/_assignments.json').then(r => r.ok ? r.json() : []).then(rows => {
-      if (!rows || !rows.length) {
-        if (sel.nextElementSibling) sel.nextElementSibling.textContent = 'No outstanding assignments — create a bill first.';
-        return;
-      }
-      rows.forEach(a => {
-        var o = document.createElement('option');
-        o.value = a.assignment_id;
-        o.textContent = a.label;
-        sel.appendChild(o);
-      });
-      if (sel.nextElementSibling) sel.nextElementSibling.remove();
-    }).catch(()=>{});
+    // === Lazy-load assignment options for payment form ===
+    var assignSel = document.getElementById('assignSel');
+    if (assignSel) {
+      fetch('/account/settings/finance/_assignments.json')
+        .then(r => r.ok ? r.json() : [])
+        .then(rows => {
+          var hint = assignSel.nextElementSibling;
+          if (!rows || !rows.length) {
+            if (hint) hint.textContent = 'No outstanding assignments — create a bill first.';
+            return;
+          }
+          rows.forEach(a => {
+            var o = document.createElement('option');
+            o.value = a.assignment_id;
+            o.textContent = a.label;
+            assignSel.appendChild(o);
+          });
+          if (hint) hint.remove();
+        }).catch(() => {});
+    }
+
+    // === Edit Bill Modal ===
+    window.openEditBill = function (bill) {
+      var m = document.getElementById('editBillModal');
+      if (!m) return;
+      document.getElementById('ebl-id').value          = bill.id;
+      document.getElementById('ebl-title').value       = bill.title;
+      document.getElementById('ebl-description').value = bill.description || '';
+      document.getElementById('ebl-amount').value      = bill.amount;
+      document.getElementById('ebl-due_date').value    = bill.due_date || '';
+      document.getElementById('ebl-late_fee').value    = bill.late_fee_amount || 0;
+      document.getElementById('ebl-late_days').value   = bill.late_fee_after_days || 7;
+      document.getElementById('editBillForm').action   = '/account/settings/finance/bills/' + bill.id + '/edit';
+      m.classList.add('open');
+    };
+    var editCloseBtn = document.getElementById('editBillClose');
+    if (editCloseBtn) editCloseBtn.addEventListener('click', function () {
+      document.getElementById('editBillModal').classList.remove('open');
+    });
+    var editModal = document.getElementById('editBillModal');
+    if (editModal) editModal.addEventListener('click', function (e) {
+      if (e.target === editModal) editModal.classList.remove('open');
+    });
+
+    // === Student Detail Drawer ===
+    window.openStudentDrawer = function (studentId) {
+      var drawer = document.getElementById('studentDrawer');
+      var body   = document.getElementById('studentDrawerBody');
+      if (!drawer || !body) return;
+      body.innerHTML = '<div style="text-align:center;padding:60px 20px;color:var(--fin-muted);">Loading…</div>';
+      drawer.classList.add('open');
+      fetch('/account/settings/finance/students/' + studentId + '/detail.json')
+        .then(r => r.ok ? r.json() : Promise.reject(r))
+        .then(data => { body.innerHTML = buildDrawerHtml(data); })
+        .catch(() => { body.innerHTML = '<div style="color:var(--fin-red);padding:20px;">Could not load student detail.</div>'; });
+    };
+
+    function fmt(n) { return '$' + Number(n||0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+
+    function buildDrawerHtml(d) {
+      var s = d.student;
+      var bills = d.bills || [];
+      var payments = d.payments || [];
+      var credit = d.credit || 0;
+      var totalBilled  = bills.reduce((a,b) => a + Number(b.amount||0), 0);
+      var totalPaid    = bills.reduce((a,b) => a + Number(b.amount_paid||0), 0);
+      var outstanding  = bills.reduce((a,b) => a + Math.max(Number(b.amount||0) + Number(b.late_fee_applied||0) - Number(b.amount_paid||0), 0), 0);
+      var initials     = ((s.first_name||'?')[0] + (s.last_name||'')[0]).toUpperCase();
+      var avatarHtml   = s.image_url
+        ? '<img src="' + s.image_url + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">'
+        : initials;
+
+      var billRows = bills.map(function(b) {
+        var bal = Math.max(Number(b.amount||0) + Number(b.late_fee_applied||0) - Number(b.amount_paid||0), 0);
+        var due = b.due_date ? new Date(b.due_date).toLocaleDateString() : '—';
+        return '<tr><td>' + (b.title||'') + '</td><td>' + due + '</td>'
+          + '<td class="num">' + fmt(b.amount) + '</td>'
+          + '<td class="num" style="color:var(--fin-success);">' + fmt(b.amount_paid) + '</td>'
+          + '<td class="num" style="color:' + (bal>0?'var(--fin-red)':'var(--fin-muted)') + ';">' + fmt(bal) + '</td>'
+          + '<td><span class="badge ' + b.status + '">' + b.status + '</span></td></tr>';
+      }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--fin-muted);padding:20px;">No bills assigned.</td></tr>';
+
+      var payRows = payments.map(function(p) {
+        return '<tr><td>' + new Date(p.received_at).toLocaleString() + '</td>'
+          + '<td>' + (p.bill_title||'—') + '</td>'
+          + '<td><span class="badge active">' + (p.method||'') + '</span></td>'
+          + '<td class="num" style="color:var(--fin-success);">' + fmt(p.amount) + '</td>'
+          + '<td style="color:var(--fin-muted);font-size:.78rem;">' + (p.reference||'') + '</td></tr>';
+      }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--fin-muted);padding:20px;">No payments recorded.</td></tr>';
+
+      return '<div style="display:flex;align-items:center;gap:14px;margin-bottom:22px;">'
+        + '<div class="avatar" style="width:54px;height:54px;font-size:1.1rem;">' + avatarHtml + '</div>'
+        + '<div><div style="font-family:\'Space Grotesk\',sans-serif;font-size:1.3rem;font-weight:700;">' + s.first_name + ' ' + s.last_name + '</div>'
+        + '<div style="color:var(--fin-muted);font-size:.88rem;">' + (s.class_name||'No class') + '</div></div></div>'
+        + '<div class="fin-stats" style="margin-bottom:20px;">'
+        + '<div class="stat"><div class="label">Total Billed</div><div class="value fin-mono">' + fmt(totalBilled) + '</div></div>'
+        + '<div class="stat green"><div class="label">Total Paid</div><div class="value fin-mono">' + fmt(totalPaid) + '</div></div>'
+        + '<div class="stat red"><div class="label">Outstanding</div><div class="value fin-mono">' + fmt(outstanding) + '</div></div>'
+        + '<div class="stat gold"><div class="label">Credits</div><div class="value fin-mono">' + fmt(credit) + '</div></div>'
+        + '</div>'
+        + '<div style="font-family:\'Space Grotesk\',sans-serif;font-weight:700;font-size:1rem;margin-bottom:10px;">Bills</div>'
+        + '<div class="fin-table-wrap" style="margin-bottom:22px;"><table class="fin-table"><thead><tr><th>Bill</th><th>Due</th><th class="num">Amount</th><th class="num">Paid</th><th class="num">Balance</th><th>Status</th></tr></thead><tbody>' + billRows + '</tbody></table></div>'
+        + '<div style="font-family:\'Space Grotesk\',sans-serif;font-weight:700;font-size:1rem;margin-bottom:10px;">Payment History</div>'
+        + '<div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Date</th><th>Bill</th><th>Method</th><th class="num">Amount</th><th>Ref</th></tr></thead><tbody>' + payRows + '</tbody></table></div>';
+    }
+
+    var drawerClose = document.getElementById('studentDrawerClose');
+    if (drawerClose) drawerClose.addEventListener('click', function () {
+      document.getElementById('studentDrawer').classList.remove('open');
+    });
+    var drawer = document.getElementById('studentDrawer');
+    if (drawer) drawer.addEventListener('click', function (e) {
+      if (e.target === drawer) drawer.classList.remove('open');
+    });
   })();
 </script>
+
+<!-- Edit Bill Modal -->
+<div class="fin-modal" id="editBillModal">
+  <div class="fin-modal-content">
+    <div class="fin-modal-head">
+      <h3>✏️ Edit Bill</h3>
+      <button class="fin-modal-close" id="editBillClose">&times;</button>
+    </div>
+    <form class="fin-form" method="POST" id="editBillForm" action="#">
+      <input type="hidden" id="ebl-id" name="_bill_id">
+      <div class="fin-row">
+        <div class="fin-field"><label>Bill Title *</label><input id="ebl-title" name="title" required></div>
+        <div class="fin-field"><label>Amount *</label><input id="ebl-amount" name="amount" type="number" step="0.01" min="0" required></div>
+      </div>
+      <div class="fin-field"><label>Description</label><textarea id="ebl-description" name="description"></textarea></div>
+      <div class="fin-row">
+        <div class="fin-field"><label>Due Date</label><input id="ebl-due_date" name="due_date" type="date"></div>
+        <div class="fin-field"><label>Late Fee Amount</label><input id="ebl-late_fee" name="late_fee_amount" type="number" step="0.01" min="0"></div>
+      </div>
+      <div class="fin-field"><label>Late Fee After (days)</label><input id="ebl-late_days" name="late_fee_after_days" type="number" min="0"></div>
+      <div style="display:flex;gap:10px;margin-top:6px;">
+        <button type="submit" class="fin-btn primary">Save Changes</button>
+        <button type="button" class="fin-btn" id="editBillClose2" onclick="document.getElementById('editBillModal').classList.remove('open')">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Student Detail Drawer -->
+<div id="studentDrawer" style="position:fixed;inset:0;z-index:9998;display:none;align-items:stretch;">
+  <div style="flex:1;background:rgba(5,8,18,.7);backdrop-filter:blur(6px);" id="studentDrawerOverlay"></div>
+  <div id="studentDrawerPanel" style="width:min(720px,100%);background:var(--fin-card);border-left:1px solid var(--fin-border);overflow-y:auto;padding:28px;box-shadow:-30px 0 60px -20px #000;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <div style="font-family:'Space Grotesk',sans-serif;font-size:1.1rem;font-weight:700;color:var(--fin-teal);">Student Billing Detail</div>
+      <button id="studentDrawerClose" style="background:transparent;border:0;color:var(--fin-muted);font-size:1.6rem;cursor:pointer;line-height:1;">&times;</button>
+    </div>
+    <div id="studentDrawerBody"></div>
+  </div>
+</div>
+<style>
+  #studentDrawer { display:none; }
+  #studentDrawer.open { display:flex; }
+</style>

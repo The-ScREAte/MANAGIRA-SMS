@@ -1,0 +1,252 @@
+<%
+  const themeColor = (typeof session !== 'undefined' && session && session.themeColor) ? session.themeColor : 'teal';
+  const themeColors = {
+    teal:    { primary: '#01535b', hover: '#014a51', light: '#e6f4f5' },
+    blue:    { primary: '#2563eb', hover: '#1d4ed8', light: '#eff6ff' },
+    green:   { primary: '#2d5f4f', hover: '#245043', light: '#f0fdf4' },
+    purple:  { primary: '#7c3aed', hover: '#6d28d9', light: '#f5f3ff' },
+    indigo:  { primary: '#4f46e5', hover: '#4338ca', light: '#eef2ff' },
+    rose:    { primary: '#8b2635', hover: '#7a212e', light: '#fff1f2' },
+    amber:   { primary: '#d97706', hover: '#b45309', light: '#fffbeb' },
+    slate:   { primary: '#334155', hover: '#1e293b', light: '#f1f5f9' },
+    classic: { primary: '#01535b', hover: '#014a51', light: '#e6f4f5' },
+    bold:    { primary: '#0b1020', hover: '#1a1a2e', light: '#fefce8' },
+    modern:  { primary: '#2563eb', hover: '#1d4ed8', light: '#eff6ff' },
+    minimal: { primary: '#7c3aed', hover: '#6d28d9', light: '#f5f3ff' },
+    gold:    { primary: '#d4a017', hover: '#b8860b', light: '#fefce8' },
+    red:     { primary: '#e11d48', hover: '#be123c', light: '#fff1f2' },
+    brown:   { primary: '#7c4a03', hover: '#5c3802', light: '#fdf6ef' }
+  };
+  const ct = themeColors[themeColor] || themeColors.teal;
+  const fontFamily = (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter');
+  const hasWebsite = Array.isArray(allowedFeatures) && (
+    allowedFeatures.includes('School Website') ||
+    allowedFeatures.includes('SchoolWebsite') ||
+    allowedFeatures.includes('Public Dashboard') ||
+    allowedFeatures.includes('School Public Dashboard')
+  );
+%>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= title || 'Create Event & Announcement' %></title>
+  <style>
+    :root {
+      --font: "<%= fontFamily %>", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --primary:       <%= ct.primary %>;
+      --primary-hover: <%= ct.hover %>;
+      --primary-light: <%= ct.light %>;
+      --border:  #e5e7eb;
+      --bg:      #f8fafc;
+      --card:    #ffffff;
+      --text:    #0f172a;
+      --muted:   #6b7280;
+      --danger:  #dc2626;
+      --radius:  12px;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: var(--font); background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.6; }
+
+    .cea-wrap { max-width: 640px; margin: 0 auto; padding: 32px 16px 80px; }
+
+    /* Back link */
+    .back-link {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 9px 18px; background: #fff; color: var(--primary);
+      border: 2px solid var(--primary); text-decoration: none;
+      border-radius: 8px; font-weight: 600; font-size: .88rem;
+      transition: all .2s; margin-bottom: 28px;
+    }
+    .back-link:hover { background: var(--primary); color: #fff; }
+
+    /* Flash messages */
+    .flash { padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: .9rem; font-weight: 500; }
+    .flash-success { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+    .flash-error   { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+
+    /* Card */
+    .card {
+      background: var(--card); border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 4px rgba(0,0,0,.07);
+      overflow: hidden;
+    }
+    .card-header {
+      background: var(--primary);
+      background: linear-gradient(135deg, var(--primary) 0%, color-mix(in sRGB, var(--primary) 70%, #000) 100%);
+      color: #fff; padding: 28px 32px;
+    }
+    .card-header h1 { font-size: 1.4rem; font-weight: 700; margin: 0 0 4px; }
+    .card-header p  { opacity: .85; font-size: .88rem; margin: 0; }
+
+    /* Type tabs */
+    .type-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); }
+    .type-tab {
+      flex: 1; padding: 14px; text-align: center; font-weight: 600; font-size: .9rem;
+      cursor: pointer; border: none; background: #fff; color: var(--muted);
+      border-bottom: 3px solid transparent; transition: all .15s;
+    }
+    .type-tab.active { color: var(--primary); border-bottom-color: var(--primary); background: var(--primary-light); }
+    .type-tab:hover:not(.active) { background: #f8fafc; color: var(--text); }
+
+    /* Form content */
+    .card-body { padding: 28px 32px; }
+
+    .form-section { display: none; }
+    .form-section.visible { display: block; }
+
+    .form-group { margin-bottom: 20px; }
+    .form-label { display: block; font-weight: 600; font-size: .88rem; margin-bottom: 6px; color: var(--text); }
+    .form-control {
+      width: 100%; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: 8px;
+      font-family: var(--font); font-size: .95rem; color: var(--text); background: #fff;
+      transition: border-color .2s; outline: none;
+    }
+    .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in sRGB, var(--primary) 20%, transparent); }
+    textarea.form-control { min-height: 110px; resize: vertical; }
+
+    .notify-row { display: flex; align-items: flex-start; gap: 10px; }
+    .notify-row input[type="checkbox"] { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--primary); flex-shrink: 0; cursor: pointer; }
+    .notify-label { font-size: .88rem; font-weight: 600; cursor: pointer; }
+    .notify-hint  { font-size: .78rem; color: var(--muted); margin: 3px 0 0; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 11px 24px; border-radius: 8px; font-family: var(--font); font-weight: 600;
+      font-size: .95rem; cursor: pointer; border: none; transition: all .2s; text-decoration: none;
+    }
+    .btn-primary  { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-full { width: 100%; }
+  </style>
+</head>
+<body>
+  <div class="cea-wrap">
+
+    <a class="back-link" href="/common/manageEventsAnnouncements">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+        <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
+      </svg>
+      Back to Events &amp; Announcements
+    </a>
+
+    <% if (messages && messages.success && messages.success.length > 0) { %>
+      <div class="flash flash-success"><%= messages.success[0] %></div>
+    <% } %>
+    <% if (messages && messages.error && messages.error.length > 0) { %>
+      <div class="flash flash-error"><%= messages.error[0] %></div>
+    <% } %>
+
+    <div class="card">
+      <div class="card-header">
+        <h1>Create Event or Announcement</h1>
+        <p>Add a new school event or broadcast an announcement to your community.</p>
+      </div>
+
+      <!-- Type selector tabs -->
+      <div class="type-tabs">
+        <button type="button" class="type-tab active" id="tab-event-btn" onclick="switchType('event')">
+          📅 &nbsp;Event
+        </button>
+        <button type="button" class="type-tab" id="tab-ann-btn" onclick="switchType('announcement')">
+          📢 &nbsp;Announcement
+        </button>
+      </div>
+
+      <div class="card-body">
+
+        <!-- ── EVENT FORM ── -->
+        <form id="form-event" class="form-section visible" action="/common/createEventAnnouncement" method="POST">
+          <input type="hidden" name="type" value="event" />
+
+          <div class="form-group">
+            <label class="form-label" for="eventName">Event Name</label>
+            <input class="form-control" id="eventName" name="eventName"
+              placeholder="e.g. Annual Sports Day" required minlength="3" maxlength="100" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="eventDate">Event Date</label>
+            <input class="form-control" id="eventDate" type="date" name="eventDate" required />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="eventDetails">Event Details</label>
+            <textarea class="form-control" id="eventDetails" name="eventDetails"
+              placeholder="Describe the event…" required minlength="10"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="eventVisibility">Visibility</label>
+            <select class="form-control" id="eventVisibility" name="visibility" required>
+              <option value="org" <%= !hasWebsite ? 'selected' : '' %>>Internal Only</option>
+              <% if (hasWebsite) { %>
+              <option value="public">External Only</option>
+              <option value="both" selected>Both</option>
+              <% } %>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <div class="notify-row">
+              <input type="checkbox" id="eventNotify" name="notifyByEmail" value="true" />
+              <div>
+                <label class="notify-label" for="eventNotify">Notify everyone by email</label>
+                <p class="notify-hint">Sends an email to all staff and parents.</p>
+              </div>
+            </div>
+          </div>
+
+          <button class="btn btn-primary btn-full" type="submit">Save Event</button>
+        </form>
+
+        <!-- ── ANNOUNCEMENT FORM ── -->
+        <form id="form-announcement" class="form-section" action="/common/createEventAnnouncement" method="POST">
+          <input type="hidden" name="type" value="announcement" />
+
+          <div class="form-group">
+            <label class="form-label" for="announcementMessage">Announcement Message</label>
+            <textarea class="form-control" id="announcementMessage" name="announcementMessage"
+              placeholder="Write your announcement here…" required minlength="5" style="min-height:130px;"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="annVisibility">Visibility</label>
+            <select class="form-control" id="annVisibility" name="visibility" required>
+              <option value="org" <%= !hasWebsite ? 'selected' : '' %>>Internal Only</option>
+              <% if (hasWebsite) { %>
+              <option value="public">External Only</option>
+              <option value="both" selected>Both</option>
+              <% } %>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <div class="notify-row">
+              <input type="checkbox" id="annNotify" name="notifyByEmail" value="true" />
+              <div>
+                <label class="notify-label" for="annNotify">Notify everyone by email</label>
+                <p class="notify-hint">Sends an email to all staff and parents.</p>
+              </div>
+            </div>
+          </div>
+
+          <button class="btn btn-primary btn-full" type="submit">Publish Announcement</button>
+        </form>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function switchType(type) {
+      document.getElementById('form-event').classList.toggle('visible', type === 'event');
+      document.getElementById('form-announcement').classList.toggle('visible', type === 'announcement');
+      document.getElementById('tab-event-btn').classList.toggle('active', type === 'event');
+      document.getElementById('tab-ann-btn').classList.toggle('active', type === 'announcement');
+    }
+  </script>
+</body>
+</html>
