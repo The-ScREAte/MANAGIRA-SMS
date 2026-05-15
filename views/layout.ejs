@@ -39,6 +39,14 @@
             flex-shrink: 0;
             zoom: 0.9;
         }
+
+        /* ── Mobile: disable zoom so browsers don't miscalculate
+           the scrollable width and trigger the horizontal-scroll
+           / auto-zoom-out behaviour on narrow viewports. */
+        @media (max-width: 960px) {
+            main          { zoom: 1; }
+            .managira-footer { zoom: 1; }
+        }
     </style>
 </head>
 <body class="<%= (typeof compactUi !== 'undefined' && compactUi) ? 'managira-compact' : '' %> <%= (typeof compactTables !== 'undefined' && compactTables) ? 'managira-compact-tables' : '' %>">
@@ -52,18 +60,41 @@
             <%
               const _normAccountType = (session && session.accountType) ? String(session.accountType).trim().toLowerCase() : '';
               const _normUserRole    = (session && session.userRole)    ? String(session.userRole).trim().toLowerCase()    : '';
+              const _currentPath     = (typeof currentPath !== 'undefined' && currentPath) ? String(currentPath) : '';
               const _isPlatformAdmin = _normAccountType === 'admin' || _normAccountType === 'mini admin' || _normAccountType === 'internal worker'
                 || _normUserRole === 'admin' || _normUserRole === 'mini admin' || _normUserRole === 'internal worker';
+              const _isFullAdmin = _normAccountType === 'admin' || _normUserRole === 'admin';
               const _isInternalWorker = _normAccountType === 'internal worker' || _normUserRole === 'internal worker';
+                            const _isAdminOrgSwitch = !!(session && session.superAdminOrgSwitch && session.organizationId && _isFullAdmin);
+                            const _isAdminAreaRoute = _currentPath.startsWith('/admin');
+                            const _useOrgHeader = ((_isAdminOrgSwitch && !_isAdminAreaRoute) || (!_isInternalWorker && typeof showOrgHeader !== 'undefined' && showOrgHeader));
+              const _showBackToAdmin = _isAdminOrgSwitch
+                                && !_isAdminAreaRoute
+                && _currentPath !== '/account/login'
+                && _currentPath !== '/'
+                && !_currentPath.startsWith('/legal/')
+                && !_currentPath.startsWith('/stats/');
             %>
             <% if (_isPlatformAdmin) { %>
-                <% if (!_isInternalWorker && typeof showOrgHeader !== 'undefined' && showOrgHeader) { %>
-                    <%- include('partials/header', { orgHeaderName: typeof orgHeaderName !== 'undefined' ? orgHeaderName : null, orgHeaderLogo: typeof orgHeaderLogo !== 'undefined' ? orgHeaderLogo : null }) %>
+                <% if (_useOrgHeader) { %>
+                    <%- include('partials/header', {
+                        orgHeaderName: typeof orgHeaderName !== 'undefined' ? orgHeaderName : null,
+                        orgHeaderLogo: typeof orgHeaderLogo !== 'undefined' ? orgHeaderLogo : null,
+                        orgHeaderNickname: typeof orgHeaderNickname !== 'undefined' ? orgHeaderNickname : null,
+                        orgHeaderNicknameDisplay: typeof orgHeaderNicknameDisplay !== 'undefined' ? orgHeaderNicknameDisplay : null
+                    }) %>
                 <% } else { %>
                     <%- include('partials/adminHeader') %>
                 <% } %>
             <% } else { %>
                 <%- include('partials/header') %>
+            <% } %>
+
+            <% if (_showBackToAdmin) { %>
+                <a href="/admin/exit-org" class="back-to-admin-chip" aria-label="Back to Admin" data-no-spa>
+                    <span aria-hidden="true">&larr;</span>
+                    <span>Back to Admin</span>
+                </a>
             <% } %>
         <% } %>
 
@@ -74,6 +105,48 @@
 
         <%# Compact UI styles — injected AFTER view body so these rules win against any view-level inline <style> blocks with matching specificity. %>
         <style>
+            .back-to-admin-chip {
+                position: fixed;
+                top: 12px;
+                left: 12px;
+                z-index: 12050;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 6px 12px;
+                border-radius: 999px;
+                background: rgba(0, 0, 0, 0.75);
+                color: #ffffff;
+                text-decoration: none;
+                font-size: 12px;
+                font-weight: 400;
+                line-height: 1.2;
+                letter-spacing: 0.01em;
+                border: 1px solid rgba(255, 255, 255, 0.18);
+                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: blur(8px);
+            }
+
+            .back-to-admin-chip:hover {
+                background: rgba(0, 0, 0, 0.84);
+                color: #ffffff;
+                cursor: pointer;
+            }
+
+            .back-to-admin-chip:focus-visible {
+                outline: 2px solid rgba(255, 255, 255, 0.85);
+                outline-offset: 2px;
+            }
+
+            @media (max-width: 768px) {
+                .back-to-admin-chip {
+                    top: 10px;
+                    left: 10px;
+                    padding: 5px 10px;
+                    font-size: 12px;
+                }
+            }
+
             /* ---------- Managira Compact Headings ---------- */
             body.managira-compact main h1 { font-size: 1.25rem; line-height: 1.3; }
             body.managira-compact main h2 { font-size: 1.05rem; line-height: 1.3; }

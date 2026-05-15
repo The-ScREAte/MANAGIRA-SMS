@@ -3,6 +3,11 @@
   function statusClass(s){ return ({paid:'paid',partial:'partial',overdue:'overdue',pending:'pending'})[s||'pending']; }
   function recurStepDays(r){ return ({daily:1,weekly:7,monthly:30,term:90,year:365})[String(r||'').toLowerCase()] || 0; }
   function fmtDate(d){ try{ return d ? new Date(d).toLocaleDateString() : '—'; }catch(e){ return '—'; } }
+  const currencyCode = (financeCurrency && financeCurrency.code) ? financeCurrency.code : 'USD';
+  const currencyLocale = (financeCurrency && financeCurrency.locale) ? financeCurrency.locale : 'en-US';
+  const moneyFmt = typeof formatMoney === 'function'
+    ? formatMoney
+    : function(v){ return Number(v||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); };
   // group assignments by bill
   const _byBill = {};
   (assignments || []).forEach(a => {
@@ -16,7 +21,7 @@
     --fin-border:rgba(255,255,255,.08); --fin-text:#e9eef8; --fin-muted:#8a93a8;
     --fin-teal:#00D4AA; --fin-gold:#F5C842; --fin-red:#FF4D6D; --fin-purple:#7B61FF;
   }
-  .mp-wrap{ background:var(--fin-bg); color:var(--fin-text); min-height:<%= isEmbedded ? '100vh' : 'calc(100vh - 80px)' %>; font-family:'Space Grotesk','DM Sans',system-ui,sans-serif; padding:<%= isEmbedded ? '10px 12px 14px' : '32px 20px 64px' %>; }
+  .mp-wrap{ background:var(--fin-bg); color:var(--fin-text); min-height:<%= isEmbedded ? '100vh' : 'calc(100vh - 80px)' %>; font-family:'Space Grotesk','DM Sans',system-ui,sans-serif; padding:<%= isEmbedded ? '10px 12px 14px' : 'clamp(18px, 3vw, 32px) clamp(12px, 2.5vw, 20px) 64px' %>; }
   .mp-container{ max-width:<%= isEmbedded ? 'none' : '1280px' %>; width:100%; margin:0 auto; }
   .mp-head{ display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:<%= isEmbedded ? '14px' : '22px' %>; }
   .mp-head h1{ margin:0; font-size:<%= isEmbedded ? '1.35rem' : '1.9rem' %>; font-weight:800; letter-spacing:-.02em; }
@@ -130,19 +135,50 @@
   .mp-field input:focus, .mp-field select:focus, .mp-field textarea:focus{ outline:none; border-color:var(--fin-teal); }
   .mp-modal-actions{ display:flex; gap:8px; justify-content:flex-end; margin-top:12px; position:sticky; bottom:0; padding-top:10px; background:linear-gradient(to top, var(--fin-surface) 60%, transparent); }
 
+  @media (max-width:960px){
+    .mp-head{ align-items:flex-start; }
+    .mp-head h1{ font-size:1.45rem; }
+    .mp-head p{ max-width:44ch; }
+    .mp-stats{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    .mp-bill-grid{ grid-template-columns:repeat(auto-fit, minmax(240px,1fr)); }
+    .mp-bill-card .bc-amts{ grid-template-columns:repeat(3, minmax(0, 1fr)); }
+    .mp-student-row{ grid-template-columns:1fr; align-items:flex-start; }
+    .mp-student-row .acts{ justify-content:flex-start; }
+    .mp-modal-actions{ flex-wrap:wrap; }
+  }
+
   @media (max-width:640px){
     .mp-wrap{ padding:8px; }
+    .mp-head{ gap:10px; }
     .mp-head h1{ font-size:1.1rem; }
-    .mp-stats{ grid-template-columns:repeat(2,1fr); }
+    .mp-head p{ font-size:.82rem; }
+    .paygira-secure-badge{ font-size:.6rem; padding:6px 10px; }
+    .mp-stats{ grid-template-columns:1fr; }
     .mp-bill-grid{ grid-template-columns:1fr; }
+    .mp-bill-card{ padding:12px; }
+    .mp-bill-card .bc-title{ padding-right:0; }
+    .mp-bill-card .bc-tag{ position:static; align-self:flex-start; margin-bottom:2px; }
+    .mp-bill-card .bc-amts{ grid-template-columns:1fr; gap:6px; }
     .mp-form-grid{ grid-template-columns:1fr; }
     .mp-student-row{ grid-template-columns:1fr; }
+    .mp-student-row .amts{ flex-direction:column; gap:4px; align-items:flex-start; }
     .mp-student-row .acts{ justify-content:flex-start; }
     .mp-drawer{ width:100vw; }
     .mp-drawer-head{ padding:12px; }
     .mp-drawer-body{ padding:12px; }
     .mp-occ-row{ grid-template-columns:auto 1fr auto; }
     .mp-occ-row .mp-status{ display:none; }
+    .mp-modal-actions{ flex-direction:column-reverse; align-items:stretch; }
+    .mp-modal-actions .mp-btn{ width:100%; justify-content:center; }
+  }
+
+  @media (max-width:420px){
+    .mp-wrap{ padding:8px 6px 20px; }
+    .mp-stat{ padding:11px 12px; }
+    .mp-stat .value{ font-size:1rem; }
+    .mp-drawer-head{ flex-wrap:wrap; }
+    .mp-close-btn{ width:100%; justify-content:center; }
+    .mp-occ-row{ grid-template-columns:1fr; gap:6px; }
   }
 </style>
 
@@ -170,8 +206,8 @@
     <div class="mp-stats">
       <div class="mp-stat"><div class="label">Bills</div><div class="value"><%= stats.bills %></div></div>
       <div class="mp-stat"><div class="label">Students</div><div class="value"><%= stats.students %></div></div>
-      <div class="mp-stat teal"><div class="label">Collected</div><div class="value">$<%= money(stats.collected) %></div></div>
-      <div class="mp-stat gold"><div class="label">Outstanding</div><div class="value">$<%= money(stats.outstanding) %></div></div>
+      <div class="mp-stat teal"><div class="label">Collected</div><div class="value"><%= moneyFmt(stats.collected) %></div></div>
+      <div class="mp-stat gold"><div class="label">Outstanding</div><div class="value"><%= moneyFmt(stats.outstanding) %></div></div>
     </div>
 
     <% if (!bills.length) { %>
@@ -196,9 +232,9 @@
               <span>👥 <%= b.assigned_count %> student<%= Number(b.assigned_count) === 1 ? '' : 's' %></span>
             </div>
             <div class="bc-amts">
-              <div>Billed<strong>$<%= money(b.total_amount) %></strong></div>
-              <div class="col">Collected<strong>$<%= money(b.total_paid) %></strong></div>
-              <div class="out">Outstanding<strong>$<%= money(b.total_outstanding) %></strong></div>
+              <div>Billed<strong><%= moneyFmt(b.total_amount) %></strong></div>
+              <div class="col">Collected<strong><%= moneyFmt(b.total_paid) %></strong></div>
+              <div class="out">Outstanding<strong><%= moneyFmt(b.total_outstanding) %></strong></div>
             </div>
             <div class="bc-open">Tap to open →</div>
           </div>
@@ -266,7 +302,7 @@
       <div class="mp-form-grid">
         <div class="mp-field span2"><label>Bill</label><input type="text" id="mpBillName" disabled style="color:var(--fin-text);background:rgba(255,255,255,.04);"></div>
         <div class="mp-field span2"><label>Student</label><input type="text" id="mpStudentName" disabled style="color:var(--fin-text);background:rgba(255,255,255,.04);"></div>
-        <div class="mp-field"><label>Amount (USD) *</label><input type="number" step="0.01" min="0.01" name="amount" id="mpAmount" required></div>
+        <div class="mp-field"><label>Amount (<%= currencyCode %>) *</label><input type="number" step="0.01" min="0.01" name="amount" id="mpAmount" required></div>
         <div class="mp-field"><label>Method</label>
           <select name="method" id="mpMethod">
             <option value="cash">💵 Cash</option>
@@ -296,12 +332,25 @@
 
 <script>
   (function(){
+    var financeCurrencyCode = <%- JSON.stringify(currencyCode) %>;
+    var financeCurrencyLocale = <%- JSON.stringify(currencyLocale) %>;
     var DATA = [];
     try { DATA = JSON.parse(document.getElementById('mpBillsData').textContent || '[]'); } catch(e){ DATA = []; }
     var byId = {};
     DATA.forEach(function(b){ byId[b.bill_id] = b; });
 
-    function money(v){ return Number(v||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); }
+    function money(v){
+      try {
+        return new Intl.NumberFormat(financeCurrencyLocale, {
+          style:'currency',
+          currency: financeCurrencyCode,
+          minimumFractionDigits:2,
+          maximumFractionDigits:2
+        }).format(Number(v||0));
+      } catch (_) {
+        return financeCurrencyCode + ' ' + Number(v||0).toFixed(2);
+      }
+    }
     function bal(a){ return Math.max(Number(a.amount||0) + Number(a.late_fee_applied||0) - Number(a.amount_paid||0), 0); }
     function statusClass(s){ return ({paid:'paid',partial:'partial',overdue:'overdue',pending:'pending'})[s||'pending']; }
     function recurStepDays(r){ return ({daily:1,weekly:7,monthly:30,term:90,year:365})[String(r||'').toLowerCase()] || 0; }
@@ -337,9 +386,9 @@
           '<div class="cls">' + (s.class_name || '—') + '</div></div>' +
         '</div>' +
         '<div class="amts">' +
-          '<div>Billed $' + money(s.amount) + '</div>' +
-          '<div class="pd">Paid $' + money(s.amount_paid) + '</div>' +
-          '<div class="out">Bal $' + money(b) + '</div>' +
+          '<div>Billed ' + money(s.amount) + '</div>' +
+          '<div class="pd">Paid ' + money(s.amount_paid) + '</div>' +
+          '<div class="out">Bal ' + money(b) + '</div>' +
         '</div>' +
         '<div class="acts">' +
           '<span class="mp-status ' + statusClass(s.status) + '">' + s.status + '</span>' +

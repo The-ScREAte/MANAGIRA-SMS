@@ -45,6 +45,12 @@
 </style>
 </head>
 <body>
+<%
+  const moneyFmt = typeof formatMoney === 'function'
+    ? formatMoney
+    : function(v){ return Number(v||0).toFixed(2); };
+  const usdEq = typeof formatUsdEquivalent === 'function' ? formatUsdEquivalent : function(){ return null; };
+%>
 <div class="doc">
   <div class="head">
     <div class="org">
@@ -60,7 +66,10 @@
     </div>
     <div class="doc-title">
       <div class="label">Invoice</div>
-      <h2>$<%= money(Number(assignment.amount) + Number(assignment.late_fee_applied || 0)) %></h2>
+      <h2><%= moneyFmt(Number(assignment.amount) + Number(assignment.late_fee_applied || 0)) %></h2>
+      <% if (usdEq(Number(assignment.amount) + Number(assignment.late_fee_applied || 0))) { %>
+        <div style="margin-top:4px;font-size:.78rem;color:#5a6378;">Approx. <%= usdEq(Number(assignment.amount) + Number(assignment.late_fee_applied || 0)) %></div>
+      <% } %>
       <div class="num">#INV-<%= String(assignment.assignment_id).padStart(6,'0') %></div>
       <div style="margin-top:6px;">
         <span class="status <%= assignment.status || 'pending' %>"><%= assignment.status || 'pending' %></span>
@@ -93,9 +102,9 @@
       <th>Description</th><th class="amt">Amount</th>
     </tr></thead>
     <tbody>
-      <tr><td><%= assignment.bill_title %></td><td class="amt">$<%= money(assignment.amount) %></td></tr>
+      <tr><td><%= assignment.bill_title %></td><td class="amt"><%= moneyFmt(assignment.amount) %></td></tr>
       <% if (Number(assignment.late_fee_applied) > 0) { %>
-        <tr><td>Late fee</td><td class="amt">$<%= money(assignment.late_fee_applied) %></td></tr>
+        <tr><td>Late fee</td><td class="amt"><%= moneyFmt(assignment.late_fee_applied) %></td></tr>
       <% } %>
     </tbody>
   </table>
@@ -110,7 +119,7 @@
             <td><%= new Date(p.received_at).toLocaleString() %></td>
             <td><%= p.method %></td>
             <td style="color:#5a6378;font-size:.8rem;"><%= p.reference || '—' %></td>
-            <td class="amt">$<%= money(p.amount) %></td>
+            <td class="amt"><%= moneyFmt(p.amount) %></td>
           </tr>
         <% }); %>
       </tbody>
@@ -118,12 +127,12 @@
   <% } %>
 
   <div class="totals">
-    <div class="row"><div>Subtotal</div><div class="v">$<%= money(assignment.amount) %></div></div>
+    <div class="row"><div>Subtotal</div><div class="v"><%= moneyFmt(assignment.amount) %></div></div>
     <% if (Number(assignment.late_fee_applied) > 0) { %>
-      <div class="row"><div>Late fee</div><div class="v">$<%= money(assignment.late_fee_applied) %></div></div>
+      <div class="row"><div>Late fee</div><div class="v"><%= moneyFmt(assignment.late_fee_applied) %></div></div>
     <% } %>
-    <div class="row"><div>Paid</div><div class="v" style="color:#00845f;">−$<%= money(assignment.amount_paid) %></div></div>
-    <div class="row grand"><div>Balance Due</div><div class="v">$<%= money(balance) %></div></div>
+    <div class="row"><div>Paid</div><div class="v" style="color:#00845f;">−<%= moneyFmt(assignment.amount_paid) %></div></div>
+    <div class="row grand"><div>Balance Due</div><div class="v"><%= moneyFmt(balance) %></div></div>
   </div>
 
   <div class="actions">

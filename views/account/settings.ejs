@@ -1490,11 +1490,13 @@
           </div>
 
           <div class="card">
-            <h4>Organization Nickname</h4>
-            <small>This will change the subdomain name of your website.</small>
+            <h4>Organisation Nickname</h4>
+            <small>The display name for your school. Your web address is locked and won't change.</small>
             <p class="text-muted-sm">
-              This should be all lowercase. Keep it as simple as possible so your followers can easily remember it, like your school initials. For example: "mys", which will later be "mys.managira.com".
-              Example: tgss.managira.com.
+              Type the nickname the way you'd like it shown
+              (e.g. <em>HJS School</em>). Your web address
+              (<strong><%= (org && org.nickname) ? org.nickname : '' %>.managira.com</strong>)
+              was set at registration and is permanent.
             </p>
             <form action="/account/personalization/nickname" method="POST">
               <input type="hidden" name="redirectTo" value="/account/settings" />
@@ -1502,15 +1504,27 @@
                 <input
                   type="text"
                   name="orgNickName"
-                  value="<%= org?.nickname || '' %>"
-                  pattern="^[a-z]{3,15}$"
-                  title="Only lowercase letters (3-15 characters)."
+                  value="<%= (org && org.nickname_display && String(org.nickname_display).trim()) ? org.nickname_display : (org && org.nickname) ? org.nickname : '' %>"
+                  minlength="3"
+                  maxlength="60"
+                  title="Display name (3-60 characters). Your subdomain stays the same."
                   required
+                  autocomplete="off"
                   class="form-input"
                 />
-                <button class="btn-link" type="submit">Change Organization Nickname</button>
+                <button class="btn-link" type="submit">Save Display Name</button>
               </div>
             </form>
+            <div class="content-row" style="margin-top: 10px; align-items: center; gap: 8px;">
+              <label class="text-muted-sm" style="min-width: 110px;">Web address</label>
+              <input
+                type="text"
+                value="<%= (org && org.nickname) ? org.nickname : '' %>.managira.com"
+                readonly
+                class="form-input"
+                style="background:#f1f5f9; cursor:not-allowed; color:#475569;"
+              />
+            </div>
           </div>
 
           <div class="card">

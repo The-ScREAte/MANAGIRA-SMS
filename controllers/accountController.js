@@ -61,7 +61,7 @@ const bcrypt = require("bcryptjs");
 const bcryptjs = require("bcryptjs");
 
 const db = require("../config/db");
-
+const { deriveOrgNickname, normalizeDisplayName } = require("../utils/orgNicknameSlug");
 const crypto = require("crypto");
 
 const path = require("path");
@@ -90,6 +90,7 @@ const {
   hasEmailLockedTrial,
 } = require("../utils/freeTrial");
 const { getPaystackSettings } = require("../utils/paystackConfig");
+const { isPaystackEnabled } = require("../utils/paystackEnabled");
 const {
   getPaymentProvider,
   providerSupportsPaystack,
@@ -672,11 +673,11 @@ async function saveCardAuthorization(db, orgId, authorization) {
 
 async function getStoredCardPaymentMethods(db, orgId, provider = null) {
   const result = await db.query(
-    `SELECT authorization_code, card_type, last4, exp_month, exp_year, is_primary
+    `SELECT authorization_code, card_type, last4, exp_month, exp_year, is_primary, fallback_order
      FROM stored_cards
      WHERE organization_id = $1 AND is_active = true
        AND ($2::text IS NULL OR provider = $2)
-     ORDER BY is_primary DESC, updated_at DESC, created_at DESC`,
+     ORDER BY is_primary DESC, fallback_order ASC NULLS LAST, updated_at DESC, created_at DESC`,
     [orgId, provider]
   );
 
@@ -687,6 +688,7 @@ async function getStoredCardPaymentMethods(db, orgId, provider = null) {
     expMonth: row.exp_month,
     expYear: row.exp_year,
     isPrimary: Boolean(row.is_primary),
+    fallbackOrder: row.fallback_order === null ? null : Number(row.fallback_order),
   }));
 }
 
@@ -793,6 +795,7 @@ async function completeStripeRegistrationPayment(
       `INSERT INTO organizations (
         organization_name,
         nickname,
+        nickname_display,
         organization_address,
         organization_country,
         organization_province,
@@ -811,11 +814,12 @@ async function completeStripeRegistrationPayment(
         selected_student_tier_id,
         approx_student_count
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20
       ) RETURNING organization_id`,
       [
         registrationDetails.orgName,
         registrationDetails.orgNickName,
+        registrationDetails.orgNickNameDisplay || registrationDetails.orgNickName,
         registrationDetails.orgAddress,
         registrationDetails.orgCountry,
         registrationDetails.orgProvince,
@@ -1284,8 +1288,6 @@ const accountController = {
 
         orgName,
 
-        orgNickName,
-
         orgAddress,
 
         orgCountry,
@@ -1294,6 +1296,10 @@ const accountController = {
 
         orgPhone,
       } = req.body;
+
+      // `orgNickName` is mutated below (raw display text -> derived slug),
+      // so destructure with `let` semantics via a separate binding.
+      let orgNickName = req.body.orgNickName;
 
       const { trialRequested = false, plan, planId, totalCost, billingPeriodKey, billingPeriodLabel, billingPeriodMonths, billingPeriodDiscount, monthlyPrice, selectedTierId, approxStudentCount } = planSelection;
 
@@ -1361,15 +1367,31 @@ const accountController = {
         return stickyError("Passwords do not match.");
       }
 
-      // Nickname validation: 3-15 lowercase letters only
+      // Nickname: accept free-text Display Name (e.g. "HJS School") and
+      // derive the URL-safe subdomain slug (e.g. "hjs-school"). The slug is
+      // what we persist in the existing `nickname` column (used for routing);
+      // the verbatim value is stored separately in `nickname_display`.
 
-      const nicknamePattern = /^[a-z]{3,15}$/;
+      const derivedNickname = deriveOrgNickname(orgNickName);
 
-      if (!nicknamePattern.test(orgNickName)) {
+      if (!derivedNickname.ok) {
+        return stickyError(derivedNickname.error);
+      }
+
+      // Check that the derived subdomain slug is not already taken.
+      const slugCheck = await db.query(
+        "SELECT 1 FROM organizations WHERE nickname = $1 LIMIT 1",
+        [derivedNickname.slug]
+      );
+      if (slugCheck.rows.length > 0) {
         return stickyError(
-          "Organization nickname must be 3-15 lowercase letters (no spaces or special characters)."
+          `The subdomain "${derivedNickname.slug}.managira.com" is already taken. Try a different nickname.`
         );
       }
+
+      // Replace the raw input with the normalised values for downstream use.
+      orgNickName = derivedNickname.slug;
+      const orgNickNameDisplay = derivedNickname.display;
 
       // Check if email already exists
 
@@ -1458,6 +1480,8 @@ const accountController = {
         orgName,
 
         orgNickName,
+
+        orgNickNameDisplay,
 
         orgAddress,
 
@@ -2153,14 +2177,16 @@ const accountController = {
       await client.query("BEGIN");
 
       const orgResult = await client.query(
-        `INSERT INTO organizations (organization_name, nickname, organization_address, organization_country, organization_province, organization_phone, email, password, first_name, last_name, proof_of_existence_1, proof_of_existence_2, plan_id, paystack_customer_code, billing_provider, trial_start_at, trial_active_until, selected_student_tier_id, approx_student_count)
+        `INSERT INTO organizations (organization_name, nickname, nickname_display, organization_address, organization_country, organization_province, organization_phone, email, password, first_name, last_name, proof_of_existence_1, proof_of_existence_2, plan_id, paystack_customer_code, billing_provider, trial_start_at, trial_active_until, selected_student_tier_id, approx_student_count)
 
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19) RETURNING organization_id`,
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) RETURNING organization_id`,
 
         [
           orgName,
 
           orgNickName,
+
+          orgNickNameDisplay,
 
           orgAddress,
 
@@ -3153,7 +3179,13 @@ const accountController = {
       const orgRow = orgResult.rows[0] || {};
       let paystackCustomerCode = orgRow.paystack_customer_code;
       const stripeCustomerId = orgRow.stripe_customer_id;
-      const paymentProvider = orgRow.billing_provider || "paystack";
+      // PAYSTACK_DISABLED: when the kill switch is off, force Stripe regardless
+      // of what the org row currently says. This keeps existing Paystack-only
+      // organizations functional (they'll be prompted to add a Stripe card).
+      const paystackEnabledFlag = isPaystackEnabled();
+      const paymentProvider = paystackEnabledFlag
+        ? (orgRow.billing_provider || "paystack")
+        : "stripe";
       const isHubMember = Boolean(orgRow.is_hub_member && orgRow.hub_id);
 
       let hubContractEndDate = null;
@@ -3173,7 +3205,10 @@ const accountController = {
         }
       }
 
-      if (!paystackCustomerCode && !isHubMember) {
+      if (!paystackCustomerCode && !isHubMember && paystackEnabledFlag) {
+        // PAYSTACK_DISABLED: only auto-create a Paystack customer when the kill
+        // switch is on. Otherwise skip this entirely; the Stripe flow will
+        // create/reuse a stripe_customer_id when the user adds a card.
         try {
           const customerData = {
             email: orgRow.email,
@@ -3339,7 +3374,7 @@ const accountController = {
 
         needsPassword: false,
 
-        publishableKey: await getActivePaystackPublicKey(),
+        publishableKey: paystackEnabledFlag ? await getActivePaystackPublicKey() : await getActiveStripePublicKey(db),
 
         orgEmail: orgRow.email || "",
         orgPhone: orgRow.organization_phone || "",
@@ -3349,6 +3384,7 @@ const accountController = {
 
         paymentMethods,
         paymentProvider,
+        paystackEnabled: paystackEnabledFlag,
         billingHistory,
         stripeInvoices,
 
@@ -3760,6 +3796,55 @@ const accountController = {
 
         error: error.message,
       });
+    }
+  },
+
+  // Set/clear the fallback-chain position for a saved card. Cards are tried by
+  // the Managira recurring-billing job in order: primary first, then by
+  // fallback_order ASC NULLS LAST. Pass fallbackOrder=null (or empty string) to
+  // remove a card from the chain.
+  setCardFallbackOrderPost: async (req, res) => {
+    try {
+      const orgId = req.session.organizationId;
+      const { authorizationCode } = req.body || {};
+      let fallbackOrderRaw = req.body && req.body.fallbackOrder;
+      if (fallbackOrderRaw === undefined) fallbackOrderRaw = req.body && req.body.fallback_order;
+
+      if (!orgId || !authorizationCode) {
+        return res.status(400).json({ success: false, message: "Missing required parameters." });
+      }
+
+      let fallbackOrder = null;
+      if (fallbackOrderRaw !== null && fallbackOrderRaw !== undefined && String(fallbackOrderRaw).trim() !== "") {
+        const parsed = parseInt(fallbackOrderRaw, 10);
+        if (!Number.isFinite(parsed) || parsed < 0 || parsed > 999) {
+          return res.status(400).json({ success: false, message: "fallbackOrder must be an integer between 0 and 999." });
+        }
+        fallbackOrder = parsed;
+      }
+
+      const result = await db.query(
+        `UPDATE stored_cards
+            SET fallback_order = $1
+          WHERE organization_id = $2
+            AND authorization_code = $3
+            AND is_active = true
+        RETURNING authorization_code, fallback_order`,
+        [fallbackOrder, orgId, authorizationCode]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ success: false, message: "Card not found for this organization." });
+      }
+
+      return res.json({
+        success: true,
+        message: "Fallback order updated.",
+        card: result.rows[0],
+      });
+    } catch (error) {
+      console.error("[setCardFallbackOrderPost]", error);
+      return res.status(500).json({ success: false, message: "Internal server error." });
     }
   },
 
@@ -4323,13 +4408,14 @@ const accountController = {
 
               req.session.orgNickName = organization.nickname;
 
+              req.session.orgNickNameDisplay = (organization.nickname_display && String(organization.nickname_display).trim()) || organization.nickname;
+
+
               // Add hub information if organization is part of a hub
               if (organization.is_hub_member && organization.hub_id) {
-                                req.session.isHubMember = true;
                 req.session.hubName = organization.hub_name;
                 req.session.hubLogo = organization.hub_logo;
-              } else {
-                              }
+              }
 
               req.session.save((err) => {
                 if (err) {
@@ -4448,9 +4534,10 @@ const accountController = {
 
             req.session.orgNickName = organization.nickname;
 
+            req.session.orgNickNameDisplay = (organization.nickname_display && String(organization.nickname_display).trim()) || organization.nickname;
+
             // Add hub information if organization is part of a hub
             if (organization.is_hub_member && organization.hub_id) {
-              req.session.isHubMember = true;
               req.session.hubName = organization.hub_name;
               req.session.hubLogo = organization.hub_logo;
             }
@@ -4539,7 +4626,7 @@ const accountController = {
       const guardianAcc = await db.query(
         `
         SELECT ga.*, gp.first_name, gp.last_name,
-               o.organization_id, o.organization_name, o.nickname, o.logo, o.font_style, o.theme_color, o.deleted, o.on_hold
+               o.organization_id, o.organization_name, o.nickname, o.nickname_display, o.logo, o.font_style, o.theme_color, o.deleted, o.on_hold
         FROM guardian_accounts ga
         JOIN guardian_profiles gp ON gp.guardian_id = ga.guardian_id
         JOIN organizations o ON o.organization_id = ga.organization_id
@@ -4611,6 +4698,7 @@ const accountController = {
         req.session.organizationId = ga.organization_id;
         req.session.organizationName = ga.organization_name;
         req.session.orgNickName = ga.nickname;
+        req.session.orgNickNameDisplay = (ga.nickname_display && String(ga.nickname_display).trim()) || ga.nickname;
         req.session.logo = ga.logo;
         req.session.fontStyle = ga.font_style;
         req.session.themeColor = ga.theme_color || 'teal';
@@ -5280,6 +5368,10 @@ const accountController = {
 
       const orgDetails = result.rows[0];
 
+      if (req.session && orgDetails) {
+        req.session.orgNickNameDisplay = (orgDetails.nickname_display && String(orgDetails.nickname_display).trim()) || orgDetails.nickname;
+      }
+
       const heroImageResult = await db.query(
         "SELECT * FROM organization_images WHERE organization_id = $1 AND allocation = $2",
 
@@ -5472,117 +5564,64 @@ const accountController = {
   },
 
   updateNicknamePost: async (req, res) => {
+    // After registration the subdomain (organizations.nickname) is LOCKED.
+    // This endpoint only updates the human-readable display label stored in
+    // organizations.nickname_display. We deliberately do NOT touch the slug,
+    // do NOT clear sessions, and do NOT post a URL-change announcement.
     const { orgNickName } = req.body;
-
     const orgId = req.session?.organizationId;
+    const redirectTo = req.body.redirectTo || "/account/personalization";
 
-    // Validate nickname
+    const display = normalizeDisplayName(orgNickName);
 
-    const nicknamePattern = /^[a-z]+$/;
-
-    if (!nicknamePattern.test(orgNickName)) {
-      if (req.session)
+    if (!display || display.length < 3) {
+      if (req.session) {
         req.flash(
           "error",
-
-          "Invalid nickname. Only lowercase letters allowed, No Space and special characters."
+          "Please enter a display name with at least 3 characters."
         );
+      }
+      return res.redirect(redirectTo);
+    }
 
-      return res.redirect(req.body.redirectTo || "/account/personalization");
+    if (display.length > 60) {
+      if (req.session) {
+        req.flash(
+          "error",
+          "Display name must be 60 characters or fewer."
+        );
+      }
+      return res.redirect(redirectTo);
+    }
+
+    if (!orgId) {
+      if (req.session) {
+        req.flash("error", "You must be signed in to update your nickname.");
+      }
+      return res.redirect("/account/login");
     }
 
     try {
-      // Check for duplicate nickname
-
-      const existing = await db.query(
-        "SELECT organization_id FROM organizations WHERE nickname = $1 AND organization_id != $2",
-
-        [orgNickName, orgId]
+      await db.query(
+        "UPDATE organizations SET nickname_display = $1 WHERE organization_id = $2",
+        [display, orgId]
       );
 
-      if (existing.rows.length > 0) {
-        if (req.session)
-          req.flash(
-            "error",
-
-            "That nickname is already taken by another organization."
-          );
-
-        return res.redirect(req.body.redirectTo || "/account/personalization");
+      if (req.session) {
+        req.session.orgNickNameDisplay = display;
+        req.flash("success", "Display name updated successfully.");
+        req.session.save(() => {});
       }
-
-      // Update nickname
-
-      await db.query(
-        "UPDATE organizations SET nickname = $1 WHERE organization_id = $2",
-
-        [orgNickName, orgId]
-      );
-
-      // ✅ Clear sessions for everyone in this org
-
-      const sessionDeleteQuery = `
-
-        DELETE FROM user_sessions WHERE sess::jsonb->'organizationId' = to_jsonb($1::int)
-
-      `;
-
-      await db.query(sessionDeleteQuery, [orgId]);
-
-      // ✅ Remove any existing nickname change announcement for this org
-
-      await db.query(
-        "DELETE FROM admin_announcements WHERE organization_id = $1",
-
-        [orgId]
-      );
-
-      // ✅ Insert a new one-time announcement (5 days expiry)
-
-      const announcementTitle = "Organization URL Changed(One Time Notice)";
-
-      const announcementDescription = `
-
-        Your school's URL has been changed to: ${orgNickName}.
-
-        To access the public website, please use: ${orgNickName}.managira.com
-
-        You can also share this new link with others.
-
-      `;
-
-      const expiryDate = new Date();
-
-      expiryDate.setDate(expiryDate.getDate() + 5);
-
-      await db.query(
-        `INSERT INTO admin_announcements
-
-          (organization_id, title, description, is_active, expiry_date)
-
-         VALUES ($1, $2, $3, true, $4)`,
-
-        [orgId, announcementTitle, announcementDescription, expiryDate]
-      );
-
-      // ✅ Destroy the current session and redirect to login on main domain
-
-      req.session.regenerate((err) => {
-        if (err) {
-                    // fallback: redirect to login on main domain
-
-          return res.redirect("https://managira.com/account/login");
-        }
-
-        res.clearCookie("connect.sid", { path: "/" });
-
-        res.redirect("https://managira.com/account/login");
-      });
+      return res.redirect(redirectTo);
     } catch (error) {
-            if (req.session)
-        req.flash("error", "Failed to update nickname. Please try again.");
-
-      res.redirect(req.body.redirectTo || "/account/personalization");
+      console.error("[updateNicknamePost] failed:", error.message || error);
+      if (req.session) {
+        req.flash(
+          "error",
+          "Failed to update display name. Please try again."
+        );
+      }
+      return res.redirect(redirectTo);
     }
   },
 
@@ -6574,12 +6613,16 @@ const accountController = {
 
       const orgResult = orgId
         ? await db.query(
-            `SELECT organization_name, logo, logo_path, image_url, font_style, nickname, role, email, paystack_customer_code, stripe_customer_id, billing_provider, first_name, last_name, organization_phone, is_hub_member, hub_id
+            `SELECT organization_name, logo, logo_path, image_url, font_style, nickname, nickname_display, role, email, paystack_customer_code, stripe_customer_id, billing_provider, first_name, last_name, organization_phone, is_hub_member, hub_id
              FROM organizations 
              WHERE organization_id = $1`,
             [orgId]
           )
         : { rows: [] };
+
+      if (req.session && orgResult.rows.length > 0) {
+        req.session.orgNickNameDisplay = (orgResult.rows[0].nickname_display && String(orgResult.rows[0].nickname_display).trim()) || orgResult.rows[0].nickname;
+      }
 
       const planDetailsResult = orgId
         ? await db.query(
@@ -7614,7 +7657,7 @@ const accountController = {
       if (proratedAmount > 0) {
         // Get the stored card to charge
         const cardResult = await db.query(
-          `SELECT authorization_code FROM stored_cards
+          `SELECT authorization_code, provider FROM stored_cards
            WHERE organization_id = $1 AND is_primary = true AND is_active = true
            LIMIT 1`,
           [orgId]
@@ -7626,32 +7669,67 @@ const accountController = {
         }
 
         const authorizationCode = cardResult.rows[0].authorization_code;
-        const chargeAmountPesewas = Math.round(proratedAmount * 100);
+        const cardProvider = cardResult.rows[0].provider || 'paystack';
+        // PAYSTACK_DISABLED: charge Stripe when the kill switch is off, even if
+        // the stored card was originally Paystack (it just won't be usable).
+        const useStripe = !isPaystackEnabled() || cardProvider === 'stripe';
 
         try {
-          const paystackKey = await getActivePaystackSecretKey();
-          const chargeRes = await axios.post(
-            'https://api.paystack.co/transaction/charge_authorization',
-            {
-              email: orgEmail,
-              amount: chargeAmountPesewas,
-              authorization_code: authorizationCode,
-              currency: 'GHS',
+          if (useStripe) {
+            const stripeChargeCurrency = getStripeChargeCurrency();
+            const chargeAmountStripeMinor = Math.round(proratedAmount * 100);
+            const orgStripeRow = await db.query(
+              'SELECT stripe_customer_id FROM organizations WHERE organization_id = $1',
+              [orgId]
+            );
+            const stripeCustomerId = orgStripeRow.rows[0]?.stripe_customer_id;
+            if (!stripeCustomerId || cardProvider !== 'stripe') {
+              req.flash("error", "Payment failed: please add a Stripe card before upgrading your plan.");
+              return res.redirect(redirectTo || "/account/update-plan");
+            }
+            const stripeClient = await getStripeClient(db);
+            const intent = await stripeClient.paymentIntents.create({
+              amount: chargeAmountStripeMinor,
+              currency: stripeChargeCurrency,
+              customer: stripeCustomerId,
+              payment_method: authorizationCode,
+              confirm: true,
+              off_session: true,
               metadata: {
                 reason: 'Plan upgrade proration',
-                from_plan: currentPlanId,
-                to_plan: newPlanId,
-                prorated_days: remainingDays,
+                from_plan: String(currentPlanId),
+                to_plan: String(newPlanId),
+                prorated_days: String(remainingDays),
               },
-            },
-            {
-              headers: { Authorization: `Bearer ${paystackKey}` },
+            });
+            if (intent.status !== 'succeeded') {
+              req.flash("error", "Payment failed: " + (intent.last_payment_error?.message || "Unable to charge your card for the upgrade."));
+              return res.redirect(redirectTo || "/account/update-plan");
             }
-          );
+          } else {
+            const chargeAmountPesewas = Math.round(proratedAmount * 100);
+            const paystackKey = await getActivePaystackSecretKey();
+            const chargeRes = await axios.post(
+              'https://api.paystack.co/transaction/charge_authorization',
+              {
+                email: orgEmail,
+                amount: chargeAmountPesewas,
+                authorization_code: authorizationCode,
+                currency: 'GHS',
+                metadata: {
+                  reason: 'Plan upgrade proration',
+                  from_plan: currentPlanId,
+                  to_plan: newPlanId,
+                  prorated_days: remainingDays,
+                },
+              },
+              { headers: { Authorization: `Bearer ${paystackKey}` } }
+            );
 
-          if (!chargeRes.data.status) {
-            req.flash("error", "Payment failed: " + (chargeRes.data.message || "Unable to charge your card for the upgrade."));
-            return res.redirect(redirectTo || "/account/update-plan");
+            if (!chargeRes.data.status) {
+              req.flash("error", "Payment failed: " + (chargeRes.data.message || "Unable to charge your card for the upgrade."));
+              return res.redirect(redirectTo || "/account/update-plan");
+            }
           }
         } catch (chargeErr) {
           const errMsg = chargeErr?.response?.data?.message || chargeErr.message || 'Payment processing failed.';
@@ -9062,10 +9140,21 @@ const accountController = {
         return res.redirect('/account/login');
       }
 
-      // Check if nickname is available
+      // Check if nickname is available — derive the slug from the free-text
+      // nickname the user typed in the invitation acceptance form.
+      const derivedHubMemberNickname = deriveOrgNickname(organization_nickname);
+      if (!derivedHubMemberNickname.ok) {
+        await client.query('ROLLBACK');
+        client.release();
+        req.flash('error', derivedHubMemberNickname.error);
+        return res.redirect(`/account/accept-hub-invitation/${token}`);
+      }
+      const hubMemberSlug = derivedHubMemberNickname.slug;
+      const hubMemberDisplay = derivedHubMemberNickname.display;
+
       const nicknameCheck = await client.query(
         'SELECT organization_id FROM organizations WHERE nickname = $1',
-        [organization_nickname.toLowerCase()]
+        [hubMemberSlug]
       );
 
       if (nicknameCheck.rows.length > 0) {
@@ -9093,7 +9182,8 @@ const accountController = {
             // Create organization with proper password and fields
             const orgParams = [
         invitation.organization_name,
-        organization_nickname.toLowerCase(),
+        hubMemberSlug,
+        hubMemberDisplay,
         admin_email,
         admin_first_name,
         admin_last_name,
@@ -9104,10 +9194,10 @@ const accountController = {
       ];
             const orgResult = await client.query(
         `INSERT INTO organizations 
-         (organization_name, nickname, email, first_name, last_name, 
+         (organization_name, nickname, nickname_display, email, first_name, last_name, 
           organization_phone, organization_address, hub_id, is_hub_member, joined_hub_at, plan_id, created_at, 
           approved, password, proof_of_existence_1, proof_of_existence_2)
-         VALUES ($1, $2, $3, $4, $5, $6, '', $7, true, CURRENT_TIMESTAMP, $8, CURRENT_TIMESTAMP, true, $9, '', '')
+         VALUES ($1, $2, $3, $4, $5, $6, $7, '', $8, true, CURRENT_TIMESTAMP, $9, CURRENT_TIMESTAMP, true, $10, '', '')
          RETURNING organization_id`,
         orgParams
       );
@@ -9152,7 +9242,7 @@ const accountController = {
         actionText: 'Go to Dashboard',
         details: [
           `Organization: ${invitation.organization_name}`,
-          `Subdomain: ${organization_nickname}.${invitation.hub_nickname}.managira.com`,
+          `Subdomain: ${hubMemberSlug}.${invitation.hub_nickname}.managira.com`,
           `Admin Email: ${admin_email}`,
           `Hub: ${invitation.hub_name}`,
         ],
@@ -9183,7 +9273,7 @@ const accountController = {
         intro: `${invitation.organization_name} has accepted your invitation and joined your hub.`,
         details: [
           `Name: ${invitation.organization_name}`,
-          `Subdomain: ${organization_nickname}.${invitation.hub_nickname}.managira.com`,
+          `Subdomain: ${hubMemberSlug}.${invitation.hub_nickname}.managira.com`,
           `Admin: ${admin_first_name} ${admin_last_name}`,
           `Email: ${admin_email}`,
           `Joined: ${new Date().toLocaleDateString()}`,

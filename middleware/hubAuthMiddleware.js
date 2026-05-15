@@ -58,6 +58,9 @@ const fetchHubInfo = async (req, res, next) => {
         // Set session variables for header to use
         req.session.organizationName = hub.hub_name;
         req.session.orgNickName = hub.hub_nickname;
+        // Hubs use their nickname as the label too — keep them in sync so the
+        // header shows the same value display-side.
+        req.session.orgNickNameDisplay = hub.hub_name || hub.hub_nickname;
         req.session.logo = hub.logo_path && hub.logo_path.trim() !== '' ? hub.logo_path : null;
       }
     }

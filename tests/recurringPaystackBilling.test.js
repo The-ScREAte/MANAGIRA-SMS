@@ -2,6 +2,11 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 
+// These tests exercise the Paystack runtime code path. The app-wide kill
+// switch (utils/paystackEnabled.js) defaults to OFF, so enable Paystack here
+// for the duration of this test file.
+process.env.PAYSTACK_ENABLED = 'true';
+
 const recurringModulePath = path.resolve(__dirname, '../jobs/recurringPaystackBilling.js');
 const dbModulePath = path.resolve(__dirname, '../config/db.js');
 const paystackConfigModulePath = path.resolve(__dirname, '../utils/paystackConfig.js');
@@ -53,6 +58,7 @@ function createHarness(options = {}) {
   const charges = [];
   const orgsDueRows = options.orgsDueRows || [];
   const allOrgsRows = options.allOrgsRows || [];
+  const orgChargeCardsRows = options.orgChargeCardsRows || [];
   const planTotalCost = options.planTotalCost ?? 100;
   const studentCount = options.studentCount ?? 0;
   const billingPeriod = options.billingPeriod || { months: 1, discount_percentage: 0 };
@@ -88,6 +94,28 @@ function createHarness(options = {}) {
 
       if (sql.includes('FROM organizations o') && sql.includes('JOIN payments p')) {
         return { rows: orgsDueRows };
+      }
+
+      if (sql.includes('FROM stored_cards') && sql.includes('fallback_order')) {
+        if (orgChargeCardsRows.length) {
+          return { rows: orgChargeCardsRows };
+        }
+
+        const fallbackRows = orgsDueRows
+          .filter((row) => row.authorization_code)
+          .map((row, index) => ({
+            id: index + 1,
+            authorization_code: row.authorization_code,
+            provider: row.billing_provider || 'paystack',
+            card_type: 'visa',
+            last4: String(index).padStart(4, '0'),
+            exp_month: '12',
+            exp_year: '30',
+            is_primary: index === 0,
+            fallback_order: index === 0 ? 0 : index,
+          }));
+
+        return { rows: fallbackRows };
       }
 
       if (sql.includes('LEFT JOIN payments p ON o.organization_id = p.organization_id')) {
@@ -380,4 +408,89 @@ test('recurring billing sends the growth notification when live student count ex
   );
   assert.ok(notifiedUpdate);
   assert.deepEqual(notifiedUpdate.params, [31]);
+});
+
+test('recurring billing tries fallback cards in order until one succeeds', async () => {
+  const originalAdminEmail = process.env.ADMIN_EMAIL;
+  process.env.ADMIN_EMAIL = 'admin@example.com';
+
+  const harness = createHarness({
+    studentCount: 120,
+    planTotalCost: 100,
+    tiers: [],
+    orgsDueRows: [
+      {
+        organization_id: 44,
+        email: 'fallback@example.com',
+        organization_name: 'Fallback School',
+        plan_id: 2,
+        next_payment_end_date: new Date('2026-04-01T00:00:00Z'),
+        trial_active_until: null,
+        billing_provider: 'paystack',
+        billing_period_key: 'monthly',
+        pending_plan_id: null,
+        pending_plan_effective_date: null,
+        selected_student_tier_id: null,
+        approx_student_count: 120,
+        tier_price_usd: null,
+        tier_adjustment_percentage: null,
+        tier_max_students: null,
+        tier_label: null,
+        student_tier_exceeded_notified: false,
+      },
+    ],
+    orgChargeCardsRows: [
+      {
+        id: 1,
+        authorization_code: 'AUTH_FAIL_FIRST',
+        provider: 'paystack',
+        card_type: 'visa',
+        last4: '1111',
+        exp_month: '12',
+        exp_year: '30',
+        is_primary: true,
+        fallback_order: 0,
+      },
+      {
+        id: 2,
+        authorization_code: 'AUTH_SUCCESS_SECOND',
+        provider: 'paystack',
+        card_type: 'mastercard',
+        last4: '2222',
+        exp_month: '11',
+        exp_year: '31',
+        is_primary: false,
+        fallback_order: 1,
+      },
+    ],
+  });
+
+  harness.axios.post = async (url, payload) => {
+    harness.charges.push({ url, payload });
+    if (payload.authorization_code === 'AUTH_FAIL_FIRST') {
+      return { data: { status: false, message: 'Primary declined' } };
+    }
+    return { data: { status: true } };
+  };
+
+  const loader = withMockedModules(harness);
+
+  try {
+    await loader.runRecurringBilling();
+  } finally {
+    loader.restore();
+    process.env.ADMIN_EMAIL = originalAdminEmail;
+  }
+
+  assert.equal(harness.charges.length, 2);
+  assert.equal(harness.charges[0].payload.authorization_code, 'AUTH_FAIL_FIRST');
+  assert.equal(harness.charges[1].payload.authorization_code, 'AUTH_SUCCESS_SECOND');
+
+  const paymentSuccessUpdate = harness.queries.find((entry) => entry.sql.includes("failed_attempts = 0"));
+  assert.ok(paymentSuccessUpdate);
+  assert.deepEqual(paymentSuccessUpdate.params, [100, 44]);
+
+  const holdUpdate = harness.queries.find((entry) => entry.sql.includes('SET on_hold = true'));
+  assert.equal(holdUpdate, undefined);
+  assert.equal(harness.emails.length, 0);
 });

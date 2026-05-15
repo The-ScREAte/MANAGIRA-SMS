@@ -785,6 +785,7 @@ const commonController = {
       let orgHeaderName = null;
       let orgHeaderLogo = null;
       let orgHeaderNickname = null;
+      let orgHeaderNicknameDisplay = null;
       let nextTermSuggestion = null;
 
       if (currentTerm && currentTerm.end_date) {
@@ -814,13 +815,14 @@ const commonController = {
 
       if (req.session.superAdminOrgSwitch) {
         const orgResult = await db.query(
-          "SELECT organization_name, logo, nickname FROM organizations WHERE organization_id = $1",
+          "SELECT organization_name, logo, nickname, nickname_display FROM organizations WHERE organization_id = $1",
           [organizationId]
         );
         if (orgResult.rows.length > 0) {
           orgHeaderName = orgResult.rows[0].organization_name;
           orgHeaderLogo = orgResult.rows[0].logo;
           orgHeaderNickname = orgResult.rows[0].nickname;
+          orgHeaderNicknameDisplay = (orgResult.rows[0].nickname_display && String(orgResult.rows[0].nickname_display).trim()) || orgResult.rows[0].nickname;
         }
       }
       res.render("common/orgDashboard", {
@@ -841,6 +843,7 @@ const commonController = {
         orgHeaderName,
         orgHeaderLogo,
         orgHeaderNickname,
+        orgHeaderNicknameDisplay: typeof orgHeaderNicknameDisplay !== 'undefined' ? orgHeaderNicknameDisplay : null,
         todayAttendanceStatus: null,
         nextTermSuggestion,
       });
@@ -1160,6 +1163,7 @@ const commonController = {
       let orgHeaderName = null;
       let orgHeaderLogo = null;
       let orgHeaderNickname = null;
+      let orgHeaderNicknameDisplay = null;
       let nextTermSuggestion = null;
 
       if (currentTerm && currentTerm.end_date) {
@@ -1189,13 +1193,14 @@ const commonController = {
 
       if (req.session.superAdminOrgSwitch) {
         const orgResult = await db.query(
-          "SELECT organization_name, logo, nickname FROM organizations WHERE organization_id = $1",
+          "SELECT organization_name, logo, nickname, nickname_display FROM organizations WHERE organization_id = $1",
           [organizationId]
         );
         if (orgResult.rows.length > 0) {
           orgHeaderName = orgResult.rows[0].organization_name;
           orgHeaderLogo = orgResult.rows[0].logo;
           orgHeaderNickname = orgResult.rows[0].nickname;
+          orgHeaderNicknameDisplay = (orgResult.rows[0].nickname_display && String(orgResult.rows[0].nickname_display).trim()) || orgResult.rows[0].nickname;
         }
       }
       res.render("common/orgDashboard", {
@@ -1213,6 +1218,7 @@ const commonController = {
         orgHeaderName,
         orgHeaderLogo,
         orgHeaderNickname,
+        orgHeaderNicknameDisplay: typeof orgHeaderNicknameDisplay !== 'undefined' ? orgHeaderNicknameDisplay : null,
         todayAttendanceStatus,
         nextTermSuggestion,
         // Include any additional data as needed

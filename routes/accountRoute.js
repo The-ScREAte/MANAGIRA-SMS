@@ -267,6 +267,9 @@ router.post("/api/tokenize-card", isAuthenticated, requirePermission(PERMISSIONS
 router.post("/cards/set-primary", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.setPrimaryCardPost(req, res)
 );
+router.post("/cards/set-fallback-order", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
+  accountController.setCardFallbackOrderPost(req, res)
+);
 router.post("/api/tokenize-card/pin", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.tokenizeCardSubmitPin(req, res)
 );

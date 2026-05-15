@@ -4,7 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Update Payment Method</title>
+    <% const paystackUiEnabled = (typeof paystackEnabled !== 'undefined') ? Boolean(paystackEnabled) : false; %>
+    <% if (paystackUiEnabled) { %>
     <script src="https://js.paystack.co/v1/inline.js"></script>
+    <% } %>
     <style>
       :root {
         --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
@@ -60,6 +63,61 @@
 
       #saved-cards li.primary {
         border-left: 5px solid #28a745;
+      }
+
+      .card-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        align-items: flex-start;
+        text-align: left;
+      }
+
+      .card-meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .card-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 8px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        background: #e7f6ef;
+        color: #1f7a3d;
+      }
+
+      .card-badge.secondary {
+        background: #eef4ff;
+        color: #2347a5;
+      }
+
+      .card-actions-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        justify-content: flex-end;
+      }
+
+      .fallback-order-box {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.88rem;
+        color: #31424a;
+      }
+
+      .fallback-order-input {
+        width: 78px;
+        padding: 7px 9px;
+        border: 1px solid #cdd6da;
+        border-radius: 6px;
+        font-size: 0.92rem;
       }
 
       .set-primary,
@@ -125,6 +183,14 @@
           align-items: flex-start;
           font-size: 15px;
           padding: 12px 8px;
+        }
+        .card-actions-row {
+          width: 100%;
+          justify-content: stretch;
+        }
+        .fallback-order-box {
+          width: 100%;
+          justify-content: space-between;
         }
         .set-primary, .remove-card {
           width: 100%;
@@ -469,17 +535,40 @@
       <h2>Saved <%= paymentProvider === 'stripe' ? 'Stripe' : 'Paystack' %> Cards</h2>
     <ul id="saved-cards">
       <% paymentMethods.forEach((card, index) => { %>
-      <li>
-        <strong><%= card.brand %></strong> ending in <%= card.last4 %> (Exp: <%=
-        card.expMonth %>/<%= card.expYear %>) <% if (card.isPrimary || index === 0) { %>
-        <span style="color: green">(Primary)</span>
-        <% } else { %>
-        <button class="set-primary" data-id="<%= card.id %>">
-          Set as Primary
-        </button>
-        <% if (paymentMethods.length > 1) { %>
-        <button class="remove-card" data-id="<%= card.id %>">Remove</button>
-        <% } %> <% } %>
+      <li class="<%= (card.isPrimary || index === 0) ? 'primary' : '' %>">
+        <div class="card-copy">
+          <strong><%= card.brand %></strong>
+          <span>ending in <%= card.last4 %> (Exp: <%= card.expMonth %>/<%= card.expYear %>)</span>
+          <div class="card-meta-row">
+            <% if (card.isPrimary || index === 0) { %>
+              <span class="card-badge">Primary</span>
+            <% } %>
+            <% if (card.fallbackOrder !== null && card.fallbackOrder !== undefined && !(card.isPrimary || index === 0)) { %>
+              <span class="card-badge secondary">Fallback #<%= card.fallbackOrder %></span>
+            <% } %>
+          </div>
+        </div>
+        <div class="card-actions-row">
+          <label class="fallback-order-box">
+            <span>Fallback order</span>
+            <input
+              class="fallback-order-input"
+              type="number"
+              min="0"
+              max="999"
+              data-id="<%= card.id %>"
+              value="<%= card.fallbackOrder ?? '' %>"
+            />
+          </label>
+          <% if (!(card.isPrimary || index === 0)) { %>
+          <button class="set-primary" data-id="<%= card.id %>">
+            Set as Primary
+          </button>
+          <% } %>
+          <% if (paymentMethods.length > 1 && !(card.isPrimary || index === 0)) { %>
+          <button class="remove-card" data-id="<%= card.id %>">Remove</button>
+          <% } %>
+        </div>
       </li>
       <% }) %>
     </ul>
@@ -557,7 +646,11 @@
     <div class="notice">
       <h2>Notice:</h2>
       <p>
-        Below, you can set up MoMo or bank options for users to pay their self enrollment fee. They can choose any payment method you set up.
+        <% if (paystackUiEnabled) { %>
+          Below, you can set up MoMo or bank options for users to pay their self enrollment fee. They can choose any payment method you set up.
+        <% } else { %>
+          Below, you can set up a card, bank account, or Apple Pay (via Stripe) for users to pay their self enrollment fee. They can choose any payment method you set up.
+        <% } %>
       </p>
     </div>
 
@@ -570,7 +663,9 @@
         <select name="account_type" id="ps-type" required onchange="togglePaystackFields()">
           <option value="">-- Choose Option --</option>
           <option value="bank">Bank Account</option>
-          <option value="mobile_money">Mobile Money (MoMo)</option>
+          <% if (paystackUiEnabled) { %>
+            <option value="mobile_money">Mobile Money (MoMo)</option>
+          <% } %>
         </select>
       </label>
       
@@ -1232,6 +1327,13 @@
           button.addEventListener("click", handleSetPrimary);
         });
 
+        document.querySelectorAll(".fallback-order-input").forEach((input) => {
+          input.removeEventListener("change", handleFallbackOrderChange);
+          input.addEventListener("change", handleFallbackOrderChange);
+          input.removeEventListener("blur", handleFallbackOrderChange);
+          input.addEventListener("blur", handleFallbackOrderChange);
+        });
+
         document.querySelectorAll(".remove-card").forEach((button) => {
           button.removeEventListener("click", handleRemoveCard);
           button.addEventListener("click", handleRemoveCard);
@@ -1259,6 +1361,31 @@
         } catch (error) {
           console.error("❌ [FRONTEND] Network error:", error);
           alert("An error occurred while setting the primary card. Please try again.");
+        }
+      }
+
+      async function handleFallbackOrderChange(event) {
+        const input = event.target;
+        const authorizationCode = input.getAttribute("data-id");
+        const fallbackOrder = input.value.trim();
+
+        try {
+          const response = await fetch("/account/cards/set-fallback-order", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ authorizationCode, fallbackOrder }),
+          });
+
+          const data = await response.json();
+          if (data.success) {
+            window.location.reload();
+            return;
+          }
+
+          alert(data.message || "Unable to update the fallback order.");
+        } catch (error) {
+          console.error("❌ [FRONTEND] Fallback-order update failed:", error);
+          alert("An error occurred while updating fallback order. Please try again.");
         }
       }
 

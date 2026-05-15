@@ -1,5 +1,8 @@
 <%
-  function money(v){ return Number(v||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  const currencyCode = (financeCurrency && financeCurrency.code) ? financeCurrency.code : 'USD';
+  const money = typeof formatMoney === 'function'
+    ? formatMoney
+    : function(v){ return Number(v||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); };
   function balance(a){ return Math.max(Number(a.amount||0) + Number(a.late_fee_applied||0) - Number(a.amount_paid||0), 0); }
   function statusClass(s){ return ({paid:'paid',partial:'partial',overdue:'overdue',pending:'pending'})[s||'pending']; }
 %>
@@ -23,7 +26,7 @@
     color:var(--pg-text);
     min-height:calc(100vh - 80px);
     font-family:'Space Grotesk','DM Sans',system-ui,sans-serif;
-    padding:32px 20px 64px;
+    padding:clamp(18px, 3vw, 32px) clamp(12px, 2.5vw, 20px) 64px;
   }
   .pg-container { max-width:1200px; margin:0 auto; }
 
@@ -89,6 +92,8 @@
   .pg-child-name { font-weight:700; font-size:1.05rem; }
   .pg-child-meta { color:var(--pg-muted); font-size:.8rem; }
 
+  .pg-child-copy { min-width:0; }
+
   .pg-bill-row {
     display:grid; grid-template-columns: 1.5fr 1fr 1fr 1fr auto;
     gap:14px; align-items:center;
@@ -101,6 +106,14 @@
   .pg-bill-sub { color:var(--pg-muted); font-size:.78rem; margin-top:2px; }
   .pg-amount { font-family:'JetBrains Mono',monospace; font-weight:600; }
   .pg-balance { font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--pg-gold); }
+  .pg-bill-col { min-width:0; }
+  .pg-bill-actions {
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    gap:6px;
+    flex-wrap:wrap;
+  }
 
   .pg-status {
     display:inline-block; padding:3px 10px; border-radius:999px;
@@ -168,15 +181,124 @@
   .pg-history-row.head { background:rgba(255,255,255,.03); color:var(--pg-muted); font-size:.72rem; text-transform:uppercase; letter-spacing:.06em; font-weight:700; }
   .pg-history-row:last-child { border-bottom:none; }
 
+  @media (max-width:1080px) {
+    .pg-stats { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    .pg-bill-row {
+      grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(92px, 1fr));
+      align-items:start;
+    }
+    .pg-bill-actions {
+      grid-column:1 / -1;
+      justify-content:flex-start;
+      padding-top:4px;
+    }
+  }
+
   @media (max-width:760px) {
     .pg-wrap { padding:14px 10px 40px; }
-    .pg-bill-row { grid-template-columns: 1fr 1fr; padding:12px 14px; }
-    .pg-bill-row > :nth-child(n+3) { grid-column: span 1; }
+    .pg-head { align-items:flex-start; margin-bottom:20px; }
     .pg-head h1 { font-size:1.4rem; }
-    .pg-stats { grid-template-columns:repeat(2,1fr); }
-    .pg-history-row { grid-template-columns:1fr 1fr; font-size:.78rem; padding:10px 12px; }
+    .pg-head p { font-size:.84rem; max-width:40ch; }
+    .paygira-secure-badge { font-size:.64rem; padding:7px 11px; }
+    .pg-stats { grid-template-columns:1fr; }
+    .pg-stat { padding:16px; }
+    .pg-stat .value { font-size:1.35rem; }
+    .pg-child-head {
+      padding:14px;
+      align-items:flex-start;
+      flex-wrap:wrap;
+    }
+    .pg-bill-row {
+      grid-template-columns:1fr;
+      gap:10px;
+      padding:14px;
+    }
+    .pg-bill-col {
+      display:grid;
+      grid-template-columns:minmax(78px, auto) 1fr;
+      gap:10px;
+      align-items:baseline;
+    }
+    .pg-bill-col::before {
+      content:attr(data-label);
+      color:var(--pg-muted);
+      font-size:.68rem;
+      letter-spacing:.05em;
+      text-transform:uppercase;
+      font-weight:700;
+    }
+    .pg-bill-col .pg-bill-sub {
+      display:none;
+    }
+    .pg-bill-actions {
+      grid-column:auto;
+      padding-top:2px;
+    }
+    .pg-btn { justify-content:center; }
+    .pg-history {
+      padding:10px;
+      display:grid;
+      gap:10px;
+      background:transparent;
+      border:none;
+    }
+    .pg-history-row.head { display:none; }
+    .pg-history-row {
+      grid-template-columns:1fr 1fr;
+      gap:10px 12px;
+      font-size:.78rem;
+      padding:12px;
+      border:1px solid var(--pg-border);
+      border-radius:14px;
+      background:var(--pg-surface);
+    }
+    .pg-history-row > div::before {
+      content:attr(data-label);
+      display:block;
+      margin-bottom:4px;
+      color:var(--pg-muted);
+      font-size:.66rem;
+      letter-spacing:.06em;
+      text-transform:uppercase;
+      font-weight:700;
+    }
     .pg-form-grid { grid-template-columns:1fr; }
-    .pg-child-head { padding:14px; }
+    .pg-modal { padding:16px; }
+    .pg-modal h3 {
+      font-size:1rem;
+      flex-wrap:wrap;
+    }
+    .pg-modal-actions {
+      flex-direction:column-reverse;
+      align-items:stretch;
+    }
+    .pg-modal-actions .pg-btn {
+      width:100%;
+      justify-content:center;
+    }
+  }
+
+  @media (max-width:520px) {
+    .pg-child-avatar {
+      width:42px;
+      height:42px;
+    }
+    .pg-child-name { font-size:.98rem; }
+    .pg-child-meta { font-size:.76rem; }
+    .pg-history-row { grid-template-columns:1fr; }
+    .pg-bill-col {
+      grid-template-columns:1fr;
+      gap:3px;
+    }
+    .pg-bill-actions {
+      flex-direction:column;
+      align-items:stretch;
+    }
+    .pg-bill-actions .pg-btn {
+      width:100%;
+      margin-left:0 !important;
+      justify-content:center;
+    }
   }
 </style>
 
@@ -205,9 +327,9 @@
     <% } %>
 
     <div class="pg-stats">
-      <div class="pg-stat"><div class="label">Total Billed</div><div class="value">$<%= money(totals.billed) %></div><div class="sub">Across all your children</div></div>
-      <div class="pg-stat teal"><div class="label">Total Paid</div><div class="value">$<%= money(totals.paid) %></div><div class="sub">Thank you</div></div>
-      <div class="pg-stat gold"><div class="label">Outstanding</div><div class="value">$<%= money(totals.outstanding) %></div><div class="sub">Pay now to stay current</div></div>
+      <div class="pg-stat"><div class="label">Total Billed</div><div class="value"><%= money(totals.billed) %></div><div class="sub">Across all your children</div></div>
+      <div class="pg-stat teal"><div class="label">Total Paid</div><div class="value"><%= money(totals.paid) %></div><div class="sub">Thank you</div></div>
+      <div class="pg-stat gold"><div class="label">Outstanding</div><div class="value"><%= money(totals.outstanding) %></div><div class="sub">Pay now to stay current</div></div>
       <div class="pg-stat"><div class="label">Saved Cards</div><div class="value"><%= cards.length %></div><div class="sub"><a href="/guardian/settings#cards" style="color:var(--pg-teal);text-decoration:none;">Manage in Settings →</a></div></div>
     </div>
 
@@ -227,7 +349,7 @@
             <img class="pg-child-avatar"
                  src="<%= child.image_url && child.image_url !== 'profilePlaceholder.png' ? child.image_url : '/images/profilePlaceholder.png' %>"
                  alt="<%= child.first_name %>">
-            <div>
+            <div class="pg-child-copy">
               <div class="pg-child-name"><%= child.first_name %> <%= child.last_name %></div>
               <div class="pg-child-meta"><%= child.class_name || 'Unassigned class' %> · <%= kidAssignments.length %> bill<%= kidAssignments.length !== 1 ? 's' : '' %></div>
             </div>
@@ -250,20 +372,22 @@
                   <% if (a.bill_description) { %> · <%= a.bill_description %><% } %>
                 </div>
               </div>
-              <div>
+              <div class="pg-bill-col" data-label="Billed">
                 <div class="pg-bill-sub">Billed</div>
-                <div class="pg-amount">$<%= money(a.amount) %></div>
+                <div class="pg-amount"><%= money(a.amount) %></div>
               </div>
-              <div>
+              <div class="pg-bill-col" data-label="Paid">
                 <div class="pg-bill-sub">Paid</div>
-                <div class="pg-amount" style="color:var(--pg-teal);">$<%= money(a.amount_paid) %></div>
+                <div class="pg-amount" style="color:var(--pg-teal);"><%= money(a.amount_paid) %></div>
               </div>
-              <div>
+              <div class="pg-bill-col" data-label="Balance">
                 <div class="pg-bill-sub">Balance</div>
-                <div class="pg-balance">$<%= money(bal) %></div>
-                <span class="pg-status <%= statusClass(a.status) %>" style="margin-top:4px;"><%= a.status %></span>
+                <div>
+                  <div class="pg-balance"><%= money(bal) %></div>
+                  <span class="pg-status <%= statusClass(a.status) %>" style="margin-top:4px;"><%= a.status %></span>
+                </div>
               </div>
-              <div onclick="event.stopPropagation()">
+              <div class="pg-bill-actions" onclick="event.stopPropagation()">
                 <% if (bal > 0) { %>
                   <button type="button" class="pg-btn primary"
                           onclick="openPgPay('<%= a.assignment_id %>','<%- (a.bill_title || '').replace(/'/g,"&#39;") %>','<%= bal.toFixed(2) %>','<%= child.first_name %> <%= child.last_name %>')">
@@ -289,11 +413,11 @@
         <div class="pg-history-row"><div style="grid-column:1/-1;text-align:center;color:var(--pg-muted);padding:18px;">No payments yet.</div></div>
       <% } else { payments.forEach(p => { %>
         <div class="pg-history-row">
-          <div><%= new Date(p.received_at).toLocaleDateString() %></div>
-          <div><%= p.first_name %> <%= p.last_name %></div>
-          <div><%= p.bill_title %> · <span style="color:var(--pg-muted);"><%= p.method %></span></div>
-          <div class="pg-amount" style="color:var(--pg-teal);display:flex;align-items:center;justify-content:space-between;gap:6px;">
-            $<%= money(p.amount) %>
+          <div data-label="Date"><%= new Date(p.received_at).toLocaleDateString() %></div>
+          <div data-label="Student"><%= p.first_name %> <%= p.last_name %></div>
+          <div data-label="Bill"><%= p.bill_title %> · <span style="color:var(--pg-muted);"><%= p.method %></span></div>
+          <div data-label="Amount" class="pg-amount" style="color:var(--pg-teal);display:flex;align-items:center;justify-content:space-between;gap:6px;">
+            <%= money(p.amount) %>
             <% if (p.payment_id) { %><a href="/guardian/paygira/receipt/<%= p.payment_id %>" target="_blank" title="Receipt" style="color:var(--pg-muted);text-decoration:none;">🧾</a><% } %>
           </div>
         </div>
@@ -325,7 +449,7 @@
         <input type="text" id="pgPayStudent" disabled>
       </div>
       <div class="pg-field">
-        <label>Amount (USD)</label>
+        <label>Amount (<%= currencyCode %>)</label>
         <input type="number" step="0.01" min="0.01" name="amount" id="pgPayAmount" required>
       </div>
       <div class="pg-field">

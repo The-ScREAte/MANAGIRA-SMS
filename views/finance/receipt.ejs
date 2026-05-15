@@ -33,6 +33,12 @@
 </style>
 </head>
 <body>
+<%
+  const moneyFmt = typeof formatMoney === 'function'
+    ? formatMoney
+    : function(v){ return Number(v||0).toFixed(2); };
+  const usdEq = typeof formatUsdEquivalent === 'function' ? formatUsdEquivalent : function(){ return null; };
+%>
 <div class="doc">
   <div class="head">
     <div class="org">
@@ -41,7 +47,10 @@
       <span class="badge" style="margin-top:8px;">🔒 PayGira Secure</span>
     </div>
     <div class="label">Payment Receipt</div>
-    <div class="amount">$<%= money(payment.amount) %></div>
+    <div class="amount"><%= moneyFmt(payment.amount) %></div>
+    <% if (usdEq(payment.amount)) { %>
+      <div style="margin-top:4px;font-size:.76rem;color:#5a6378;">Approx. <%= usdEq(payment.amount) %></div>
+    <% } %>
     <div class="num">#RCP-<%= String(payment.payment_id).padStart(6,'0') %></div>
   </div>
 
@@ -59,9 +68,9 @@
        var paid  = Number(payment.assignment_paid || 0);
        var bal   = Math.max(total - paid, 0);
   %>
-    <div class="row"><div>Total billed</div><div class="v">$<%= money(total) %></div></div>
-    <div class="row"><div>Paid to date</div><div class="v" style="color:#00845f;">$<%= money(paid) %></div></div>
-    <div class="row" style="font-weight:800;"><div>Outstanding</div><div class="v">$<%= money(bal) %></div></div>
+    <div class="row"><div>Total billed</div><div class="v"><%= moneyFmt(total) %></div></div>
+    <div class="row"><div>Paid to date</div><div class="v" style="color:#00845f;"><%= moneyFmt(paid) %></div></div>
+    <div class="row" style="font-weight:800;"><div>Outstanding</div><div class="v"><%= moneyFmt(bal) %></div></div>
   <% } %>
 
   <% if (payment.notes) { %>
