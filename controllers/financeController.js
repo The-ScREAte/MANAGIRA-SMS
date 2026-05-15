@@ -20,6 +20,15 @@ async function ensureFinanceSchema() {
   _schemaReady = true;
 }
 
+let _assigneeColReady = false;
+async function ensureAssigneeColumn() {
+  if (_assigneeColReady) return;
+  try {
+    await db.query(`ALTER TABLE finance_bills ADD COLUMN IF NOT EXISTS assignee_id INT REFERENCES users(user_id) ON DELETE SET NULL`);
+  } catch (_) { /* already exists */ }
+  _assigneeColReady = true;
+}
+
 async function isFinanceAdmin(req) {
   const t = String(req.session?.userRole || req.session?.accountType || req.session?.user?.account_type || "").trim().toLowerCase();
   // Org owner + platform admins always have access.
@@ -81,8 +90,12 @@ async function loadBills(orgId) {
     `SELECT b.*,
             (SELECT COUNT(*) FROM finance_bill_assignments a WHERE a.bill_id = b.bill_id) AS assigned_count,
             (SELECT COALESCE(SUM(a.amount),0) FROM finance_bill_assignments a WHERE a.bill_id = b.bill_id)      AS total_amount,
-            (SELECT COALESCE(SUM(a.amount_paid),0) FROM finance_bill_assignments a WHERE a.bill_id = b.bill_id) AS total_paid
+            (SELECT COALESCE(SUM(a.amount_paid),0) FROM finance_bill_assignments a WHERE a.bill_id = b.bill_id) AS total_paid,
+            u.first_name AS assignee_first_name,
+            u.last_name  AS assignee_last_name,
+            u.account_type AS assignee_role
        FROM finance_bills b
+       LEFT JOIN users u ON u.user_id = b.assignee_id
       WHERE b.organization_id = $1
       ORDER BY b.created_at DESC LIMIT 200`,
     [orgId]
@@ -134,7 +147,16 @@ async function loadClassesAndStudents(orgId) {
     `SELECT term_id, term_name AS name, school_year_id FROM terms WHERE organization_id = $1 ORDER BY term_id DESC`,
     [orgId]
   ).catch(() => ({ rows: [] }));
-  return { classes: classes.rows, students: students.rows, years: years.rows, terms: terms.rows };
+  const employees = await db.query(
+    `SELECT user_id, first_name, last_name, account_type
+       FROM users
+      WHERE organization_id = $1
+        AND account_type IN ('Manager','Supervisor','Teacher')
+        AND (on_hold IS NULL OR on_hold = false)
+      ORDER BY last_name, first_name`,
+    [orgId]
+  ).catch(() => ({ rows: [] }));
+  return { classes: classes.rows, students: students.rows, years: years.rows, terms: terms.rows, employees: employees.rows };
 }
 
 function recalcAssignmentStatus(amount, late, paid, dueDate) {
@@ -161,6 +183,7 @@ module.exports = {
 
     try {
       await ensureFinanceSchema();
+      await ensureAssigneeColumn();
       const section = String(req.query.section || "overview").toLowerCase();
 
       const [overview, bills, studentBilling, templates, refs] = await Promise.all([
@@ -232,16 +255,18 @@ module.exports = {
         applies_to, school_year_id, term_id, due_date,
         accepts_card, accepts_cash, accepts_transfer,
         notify_email, notify_sms,
-        target_class_ids, target_student_ids, status
+        target_class_ids, target_student_ids, status,
+        assignee_id: rawAssigneeId
       } = req.body;
+      const assignee_id = parseInt(rawAssigneeId, 10) || null;
 
       const amt = Number(amount || 0);
       const insert = await db.query(
         `INSERT INTO finance_bills
          (organization_id, title, description, amount, bill_type, recurrence,
           late_fee_amount, late_fee_after_days, applies_to, school_year_id, term_id, due_date,
-          accepts_card, accepts_cash, accepts_transfer, notify_email, notify_sms, status, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+          accepts_card, accepts_cash, accepts_transfer, notify_email, notify_sms, status, created_by, assignee_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
          RETURNING bill_id`,
         [orgId, title, description || null, amt, bill_type || 'one_time', recurrence || null,
           Number(late_fee_amount || 0), Number(late_fee_after_days || 7),
@@ -251,7 +276,7 @@ module.exports = {
           !!accepts_card, !!accepts_cash, !!accepts_transfer,
           !!notify_email, !!notify_sms,
           status === 'draft' ? 'draft' : 'active',
-          req.session.user?.user_id || null]
+          req.session.user?.user_id || null, assignee_id]
       );
       const billId = insert.rows[0].bill_id;
 
@@ -402,16 +427,18 @@ module.exports = {
   billEditPost: async (req, res) => {
     if (!(await isFinanceAdmin(req))) return res.redirect("/account/settings");
     const orgId = req.session.organizationId;
-    const { title, description, amount, due_date, late_fee_amount, late_fee_after_days } = req.body;
+    const { title, description, amount, due_date, late_fee_amount, late_fee_after_days, assignee_id: rawAid } = req.body;
+    const edit_assignee_id = parseInt(rawAid, 10) || null;
     try {
       await db.query(
         `UPDATE finance_bills SET
            title=$1, description=$2, amount=$3, due_date=$4,
-           late_fee_amount=$5, late_fee_after_days=$6, updated_at=now()
-         WHERE bill_id=$7 AND organization_id=$8`,
+           late_fee_amount=$5, late_fee_after_days=$6,
+           assignee_id=$7, updated_at=now()
+         WHERE bill_id=$8 AND organization_id=$9`,
         [title, description || null, Number(amount || 0),
          due_date || null, Number(late_fee_amount || 0), Number(late_fee_after_days || 7),
-         req.params.id, orgId]
+         edit_assignee_id, req.params.id, orgId]
       );
       // Sync amount on pending/partial assignments that haven't been paid yet
       await db.query(
