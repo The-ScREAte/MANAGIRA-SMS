@@ -363,7 +363,15 @@ async function userHasPermission(database, { userId, userRole, organizationId, a
     }
 
     const assignedPermissions = new Set(managerPermissions);
-    return assignedPermissions.has(permissionKey);
+    if (assignedPermissions.has(permissionKey)) return true;
+
+    // A standard manager permission may be missing from the DB if it was added
+    // to the system after this manager's permissions were last saved. The UI
+    // always shows all standard manager permissions as checked, so grant them
+    // here too rather than requiring a manual re-save to pick up new permissions.
+    if (MANAGER_DEFAULT_OPTIONAL_PERMISSIONS.includes(permissionKey)) return true;
+
+    return false;
   }
 
   const userPermissions = await getUserPermissions(database, userId, organizationId);

@@ -80,6 +80,27 @@ async function ensureAssigneeColumn() {
   try {
     await db.query(`ALTER TABLE finance_bills ADD COLUMN IF NOT EXISTS assignee_id INT REFERENCES users(user_id) ON DELETE SET NULL`);
     await db.query(`ALTER TABLE finance_bills ADD COLUMN IF NOT EXISTS payment_destination VARCHAR(20) DEFAULT 'stripe'`);
+    // Junction table for multiple collectors per bill
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS finance_bill_collectors (
+        id              SERIAL PRIMARY KEY,
+        bill_id         INT NOT NULL REFERENCES finance_bills(bill_id) ON DELETE CASCADE,
+        user_id         INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+        organization_id INT NOT NULL,
+        created_at      TIMESTAMP DEFAULT NOW(),
+        UNIQUE(bill_id, user_id)
+      )
+    `);
+    // Backfill existing single assignees into the junction table
+    await db.query(`
+      INSERT INTO finance_bill_collectors (bill_id, user_id, organization_id)
+      SELECT bill_id, assignee_id, organization_id
+      FROM finance_bills
+      WHERE assignee_id IS NOT NULL
+      ON CONFLICT (bill_id, user_id) DO NOTHING
+    `);
+    // Add occurrence_date to finance_payments if not already present
+    await db.query(`ALTER TABLE finance_payments ADD COLUMN IF NOT EXISTS occurrence_date DATE`);
   } catch (_) { /* already exists */ }
   _assigneeColReady = true;
 }
@@ -1675,10 +1696,19 @@ module.exports = {
         accepts_card, accepts_cash, accepts_transfer,
         notify_email, notify_sms,
         target_class_ids, target_student_ids, status,
+        assignee_ids: rawAssigneeIds,
         assignee_id: rawAssigneeId,
         payment_destination
       } = req.body;
-      const assignee_id = parseInt(rawAssigneeId, 10) || null;
+      // Support both a single assignee_id and a multi-select assignee_ids[]
+      const assigneeList = (() => {
+        const raw = rawAssigneeIds || rawAssigneeId;
+        return [...new Set(
+          (Array.isArray(raw) ? raw : raw ? [raw] : [])
+            .map(x => parseInt(x, 10)).filter(Boolean)
+        )];
+      })();
+      const assignee_id = assigneeList[0] || null; // primary (legacy column)
       const destination = ['stripe','cash','bank','momo'].includes(String(payment_destination))
         ? payment_destination : 'stripe';
 
@@ -1701,6 +1731,16 @@ module.exports = {
           req.session.user?.user_id || null, assignee_id, destination]
       );
       const billId = insert.rows[0].bill_id;
+
+      // Sync collectors junction table
+      if (assigneeList.length > 0) {
+        await db.query(
+          `INSERT INTO finance_bill_collectors (bill_id, user_id, organization_id)
+           SELECT $1, unnest($2::int[]), $3
+           ON CONFLICT (bill_id, user_id) DO NOTHING`,
+          [billId, assigneeList, orgId]
+        );
+      }
 
       // Resolve student set
       let studentRows = [];
@@ -1908,6 +1948,7 @@ module.exports = {
     const {
       title, description, amount, due_date,
       late_fee_amount, late_fee_after_days,
+      assignee_ids: rawAids,
       assignee_id: rawAid,
       bill_type, recurrence,
       school_year_id, term_id,
@@ -1916,7 +1957,14 @@ module.exports = {
       notify_email, notify_sms,
       status,
     } = req.body;
-    const edit_assignee_id = parseInt(rawAid, 10) || null;
+    const assigneeList = (() => {
+      const raw = rawAids || rawAid;
+      return [...new Set(
+        (Array.isArray(raw) ? raw : raw ? [raw] : [])
+          .map(x => parseInt(x, 10)).filter(Boolean)
+      )];
+    })();
+    const edit_assignee_id = assigneeList[0] || null;
     const newAmount = Number(amount || 0);
     const validDest = ['stripe','cash','bank','momo'].includes(String(payment_destination)) ? payment_destination : null;
     const validType = ['one_time','recurring','installment'].includes(String(bill_type)) ? bill_type : null;
@@ -1987,6 +2035,17 @@ module.exports = {
          WHERE bill_id=$2 AND organization_id=$3 AND status IN ('pending','overdue')`,
         [newAmount, billId, orgId]
       );
+
+      // Sync collectors junction table
+      if (assigneeList.length > 0) {
+        await db.query(`DELETE FROM finance_bill_collectors WHERE bill_id=$1`, [billId]);
+        await db.query(
+          `INSERT INTO finance_bill_collectors (bill_id, user_id, organization_id)
+           SELECT $1, unnest($2::int[]), $3
+           ON CONFLICT (bill_id, user_id) DO NOTHING`,
+          [billId, assigneeList, orgId]
+        );
+      }
 
       // Cancel-propagate if status changed to cancelled
       if (next.status === 'cancelled' && before.status !== 'cancelled') {
@@ -2224,7 +2283,7 @@ module.exports = {
       await ensureFinanceSchema();
       await ensureAssigneeColumn();
 
-      // All bills assigned to me as collector/overseer
+      // All bills assigned to me as collector/overseer (via junction table OR legacy assignee_id)
       const billsR = await db.query(
         `SELECT b.*,
                 (SELECT COUNT(*) FROM finance_bill_assignments a WHERE a.bill_id=b.bill_id)               AS assigned_count,
@@ -2233,7 +2292,9 @@ module.exports = {
                 (SELECT COALESCE(SUM(GREATEST(a.amount + a.late_fee_applied - a.amount_paid, 0)),0)
                    FROM finance_bill_assignments a WHERE a.bill_id=b.bill_id)                            AS total_outstanding
            FROM finance_bills b
-          WHERE b.organization_id = $1 AND b.assignee_id = $2
+          WHERE b.organization_id = $1
+            AND (b.assignee_id = $2
+                 OR EXISTS (SELECT 1 FROM finance_bill_collectors c WHERE c.bill_id = b.bill_id AND c.user_id = $2))
           ORDER BY b.due_date NULLS LAST, b.created_at DESC`,
         [orgId, userId]
       );
@@ -2246,7 +2307,9 @@ module.exports = {
            JOIN finance_bills b ON b.bill_id = a.bill_id
            JOIN students s ON s.student_id = a.student_id
            LEFT JOIN classes c ON c.class_id = s.class_id
-          WHERE a.organization_id = $1 AND b.assignee_id = $2
+          WHERE a.organization_id = $1
+            AND (b.assignee_id = $2
+                 OR EXISTS (SELECT 1 FROM finance_bill_collectors c WHERE c.bill_id = b.bill_id AND c.user_id = $2))
           ORDER BY a.status DESC, b.due_date NULLS LAST, s.last_name`,
         [orgId, userId]
       );
@@ -2298,7 +2361,7 @@ module.exports = {
     const isEmbedded = String((req.query && req.query.embed) || req.body.embedMode || '').toLowerCase() === 'workspace';
     const paygiraRedirectPath = isEmbedded ? "/account/settings/my-paygira?embed=workspace" : "/account/settings/my-paygira";
     try {
-      // Verify the assignment belongs to a bill where this user is the assignee
+      // Verify the assignment belongs to a bill where this user is a collector
       const a = await db.query(
         `SELECT a.*, b.due_date, b.assignee_id,
                 b.accepts_card, b.accepts_cash, b.accepts_transfer, b.payment_destination
@@ -2307,11 +2370,21 @@ module.exports = {
           WHERE a.assignment_id=$1 AND a.organization_id=$2`,
         [assignment_id, orgId]
       );
-      if (!a.rows.length || a.rows[0].assignee_id !== userId) {
+      if (!a.rows.length) {
         req.flash && req.flash("error", "Not authorized to collect for this bill.");
         return res.redirect(paygiraRedirectPath);
       }
       const row = a.rows[0];
+      // Check: user is primary assignee OR in the collectors junction table
+      const isCollector = row.assignee_id === userId ||
+        (await db.query(
+          `SELECT 1 FROM finance_bill_collectors WHERE bill_id=$1 AND user_id=$2`,
+          [row.bill_id, userId]
+        )).rows.length > 0;
+      if (!isCollector) {
+        req.flash && req.flash("error", "Not authorized to collect for this bill.");
+        return res.redirect(paygiraRedirectPath);
+      }
       const amt = Number(amount || 0);
       if (amt <= 0) {
         req.flash && req.flash("error", "Enter a valid amount.");
@@ -2334,12 +2407,21 @@ module.exports = {
         return res.redirect(paygiraRedirectPath);
       }
 
-      await db.query(
+      // Parse occurrence_date from the submitted form value (hidden field)
+      const rawOccDate = req.body.occurrence_date || null;
+      let occDateVal = null;
+      if (rawOccDate) {
+        const d = new Date(rawOccDate);
+        occDateVal = isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+      }
+
+      const payInsert = await db.query(
         `INSERT INTO finance_payments
-          (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, received_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+          (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, received_by, occurrence_date)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         RETURNING payment_id`,
         [orgId, row.assignment_id, row.bill_id, row.student_id, amt,
-          requested, reference || null, notes || null, userId]
+          requested, reference || null, notes || null, userId, occDateVal]
       );
 
       const newPaid = Number(row.amount_paid) + amt;
@@ -2365,6 +2447,55 @@ module.exports = {
       req.flash && req.flash("success", credit > 0
         ? `Collected ${display.formatMoney(amt)}. ${display.formatMoney(credit)} added as student credit.`
         : `Collected ${display.formatMoney(amt)} from this student.`);
+
+      // ── Email guardian/parent ──────────────────────────────────────────────
+      try {
+        const billRow = (await db.query(`SELECT title FROM finance_bills WHERE bill_id=$1`, [row.bill_id])).rows[0];
+        const orgRow  = (await db.query(`SELECT organization_name, logo_url FROM organizations WHERE organization_id=$1`, [orgId])).rows[0];
+        const studentRow = (await db.query(`SELECT first_name, last_name FROM students WHERE student_id=$1`, [row.student_id])).rows[0];
+        // Find guardian email(s) linked to this student
+        const guardians = (await db.query(
+          `SELECT gp.email, gp.first_name FROM guardian_profiles gp
+             JOIN guardian_students gs ON gs.guardian_id = gp.guardian_id
+            WHERE gs.student_id=$1 AND gp.organization_id=$2 AND gp.email IS NOT NULL AND gp.email <> ''`,
+          [row.student_id, orgId]
+        )).rows;
+        if (guardians.length > 0 && billRow && studentRow) {
+          const orgName    = orgRow?.organization_name || 'Your School';
+          const studentName = `${studentRow.first_name} ${studentRow.last_name}`;
+          const billName   = billRow.title;
+          const amtFmt     = display.formatMoney(amt);
+          const occText    = occDateVal ? ` for ${new Date(occDateVal + 'T00:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}` : '';
+          const statusText = newStatus === 'paid' ? 'fully paid' : `partially paid (${display.formatMoney(appliedToAssignment)} of ${display.formatMoney(total)})`;
+          for (const g of guardians) {
+            const html = renderCleanEmail({
+              title: `Payment Recorded — ${billName}`,
+              greeting: `Hello ${g.first_name},`,
+              paragraphs: [
+                `A payment of <strong>${amtFmt}</strong> has been recorded for <strong>${studentName}</strong> on the bill <strong>${billName}</strong>${occText}.`,
+                `This bill is now <strong>${statusText}</strong>.`,
+              ],
+              details: [
+                { label: 'Student',   value: studentName },
+                { label: 'Bill',      value: billName },
+                ...(occDateVal ? [{ label: 'For date', value: new Date(occDateVal + 'T00:00:00').toLocaleDateString() }] : []),
+                { label: 'Amount paid', value: amtFmt },
+                { label: 'Method',    value: requested },
+                { label: 'Status',    value: newStatus },
+              ],
+              note: `This is an automated notification from ${orgName}. You can log in to the guardian portal to view your ward's full payment history.`,
+            });
+            await sendEmailSafely({
+              from: process.env.ADMIN_NOTIFY_EMAIL_USER,
+              to: g.email,
+              subject: `[${orgName}] Payment Recorded — ${billName}`,
+              html,
+            }, 'PayGira guardian notification');
+          }
+        }
+      } catch (emailErr) {
+        console.warn('[staffMyPaygiraCollectPost] guardian email failed:', emailErr.message);
+      }
       // Audit log
       try {
         const sRow = (await db.query(`SELECT first_name, last_name FROM students WHERE student_id=$1 AND organization_id=$2`, [row.student_id, orgId])).rows[0];
@@ -2389,6 +2520,66 @@ module.exports = {
       req.flash && req.flash("error", "Could not record collection: " + e.message);
     }
     res.redirect(paygiraRedirectPath);
+  },
+
+  // ===================================================================
+  //  AJAX: per-occurrence day summary
+  //  GET /account/settings/my-paygira/occurrence-summary?bill_id=X&date=YYYY-MM-DD
+  // ===================================================================
+  occurrenceSummaryGet: async (req, res) => {
+    const orgId = req.session.organizationId;
+    const userId = req.session.user?.user_id || req.session.userId || null;
+    if (!orgId || !userId) return res.status(401).json({ error: 'Unauthorized' });
+    const billId = parseInt(req.query.bill_id, 10);
+    const dateStr = String(req.query.date || '').trim(); // YYYY-MM-DD
+    if (!billId || !dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      return res.status(400).json({ error: 'bill_id and date (YYYY-MM-DD) required' });
+    }
+    try {
+      await ensureAssigneeColumn();
+      // Verify user is a collector on this bill
+      const billCheck = await db.query(
+        `SELECT bill_id, amount, recurrence, bill_type FROM finance_bills
+          WHERE bill_id=$1 AND organization_id=$2
+            AND (assignee_id=$3 OR EXISTS (SELECT 1 FROM finance_bill_collectors c WHERE c.bill_id=$1 AND c.user_id=$3))`,
+        [billId, orgId, userId]
+      );
+      if (!billCheck.rows.length) return res.status(403).json({ error: 'Not authorized' });
+      const bill = billCheck.rows[0];
+
+      // Per-student: amount due per occurrence = bill.amount (each period is one amount)
+      const assignments = await db.query(
+        `SELECT a.assignment_id, a.student_id, a.amount, a.late_fee_applied,
+                COALESCE(SUM(p.amount) FILTER (WHERE p.occurrence_date=$2::date), 0) AS paid_this_day,
+                COALESCE(SUM(p.amount), 0) AS paid_total
+           FROM finance_bill_assignments a
+           LEFT JOIN finance_payments p ON p.assignment_id = a.assignment_id AND p.organization_id=$1
+          WHERE a.bill_id=$3 AND a.organization_id=$1
+          GROUP BY a.assignment_id`,
+        [orgId, dateStr, billId]
+      );
+      const rows = assignments.rows;
+      const totalStudents   = rows.length;
+      // For a recurring bill each occurrence is one period amount; per-occurrence expected = bill.amount per student
+      const perOccAmount    = Number(bill.amount || 0);
+      const totalExpected   = perOccAmount * totalStudents;
+      const totalPaidDay    = rows.reduce((s, r) => s + Number(r.paid_this_day || 0), 0);
+      const totalOutstanding = Math.max(totalExpected - totalPaidDay, 0);
+      const paidCount       = rows.filter(r => Number(r.paid_this_day) >= perOccAmount).length;
+
+      res.json({
+        students:        totalStudents,
+        per_student:     perOccAmount,
+        total_expected:  totalExpected,
+        paid_today:      totalPaidDay,
+        outstanding:     totalOutstanding,
+        paid_count:      paidCount,
+        unpaid_count:    totalStudents - paidCount,
+      });
+    } catch (e) {
+      console.error('[occurrenceSummaryGet]', e);
+      res.status(500).json({ error: e.message });
+    }
   },
 
   // ===================================================================

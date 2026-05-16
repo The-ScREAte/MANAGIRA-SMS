@@ -72,39 +72,79 @@
   .mp-drawer{ position:fixed; top:0; right:0; height:100vh; width:min(720px,100vw); background:var(--fin-surface);
     border-left:1px solid var(--fin-border); z-index:1201; transform:translateX(100%); transition:transform .25s; display:flex; flex-direction:column; color:var(--fin-text); }
   .mp-drawer.open{ transform:translateX(0); }
-  .mp-drawer-head{ padding:14px 18px; border-bottom:1px solid var(--fin-border); display:flex; justify-content:space-between; align-items:flex-start; gap:10px; background:var(--fin-surface-2); flex-shrink:0; }
-  .mp-drawer-head h2{ margin:0; font-size:1.05rem; font-weight:800; color:var(--fin-text); line-height:1.2; word-break:break-word; }
-  .mp-drawer-head .sub{ font-size:.72rem; color:var(--fin-muted); margin-top:3px; }
-  .mp-drawer-body{ flex:1; overflow-y:auto; padding:14px 18px; color:var(--fin-text); }
-  .mp-close-btn{ background:rgba(255,255,255,.05); border:1px solid var(--fin-border); color:var(--fin-text); border-radius:8px; padding:6px 12px; cursor:pointer; font-size:.78rem; font-weight:600; white-space:nowrap; flex-shrink:0; }
-  .mp-close-btn:hover{ background:rgba(255,255,255,.1); }
+  .mp-drawer-head{ padding:16px 18px; border-bottom:1px solid var(--fin-border); display:flex; justify-content:space-between; align-items:center; gap:12px; background:var(--fin-surface-2); flex-shrink:0; }
+  .mp-drawer-head-info{ min-width:0; flex:1; }
+  .mp-drawer-head h2{ margin:0; font-size:1.05rem; font-weight:800; color:var(--fin-text); line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mp-drawer-head .sub{ font-size:.72rem; color:var(--fin-muted); margin-top:4px; display:flex; flex-wrap:wrap; gap:5px; }
+  .mp-drawer-head .sub-chip{ display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:999px; font-size:.62rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; background:rgba(255,255,255,.06); border:1px solid var(--fin-border); color:var(--fin-muted); }
+  .mp-drawer-head .sub-chip.recur{ background:rgba(245,200,66,.12); border-color:rgba(245,200,66,.3); color:var(--fin-gold); }
+  .mp-drawer-head .sub-chip.students{ background:rgba(0,212,170,.1); border-color:rgba(0,212,170,.25); color:var(--fin-teal); }
+  .mp-drawer-body{ flex:1; overflow-y:auto; padding:0; color:var(--fin-text); }
+  .mp-close-btn{ width:30px; height:30px; border-radius:50%; background:rgba(255,255,255,.05); border:1px solid var(--fin-border); color:var(--fin-muted); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:1rem; line-height:1; flex-shrink:0; transition:all .15s; }
+  .mp-close-btn:hover{ background:rgba(255,77,109,.18); border-color:var(--fin-red); color:var(--fin-red); }
 
-  .mp-occ-toggle{ display:inline-flex; background:var(--fin-bg); border:1px solid var(--fin-border); border-radius:999px; padding:3px; gap:2px; margin-bottom:12px; }
-  .mp-occ-toggle button{ background:transparent; border:none; color:var(--fin-muted); padding:5px 12px; border-radius:999px; cursor:pointer; font-size:.72rem; font-weight:700; }
+  /* Sticky occurrence header */
+  .mp-occ-sticky{ position:sticky; top:0; z-index:10; background:var(--fin-surface); border-bottom:1px solid var(--fin-border); padding:10px 18px 8px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .mp-occ-toggle{ display:inline-flex; background:var(--fin-bg); border:1px solid var(--fin-border); border-radius:999px; padding:3px; gap:2px; }
+  .mp-occ-toggle button{ background:transparent; border:none; color:var(--fin-muted); padding:4px 12px; border-radius:999px; cursor:pointer; font-size:.7rem; font-weight:700; transition:all .15s; }
   .mp-occ-toggle button.active{ background:var(--fin-teal); color:#062018; }
+  .mp-occ-count{ font-size:.66rem; color:var(--fin-muted); font-weight:600; white-space:nowrap; }
 
-  .mp-occ-list{ display:grid; gap:6px; margin-bottom:14px; }
-  .mp-occ-row{ display:grid; grid-template-columns:auto 1fr auto auto; align-items:center; gap:10px; padding:8px 12px; background:var(--fin-bg); border:1px solid var(--fin-border); border-radius:10px; font-size:.8rem; color:var(--fin-text); }
-  .mp-occ-row.past{ border-color:rgba(255,77,109,.25); }
-  .mp-occ-row.future{ opacity:.85; }
-  .mp-occ-row .dot{ width:8px; height:8px; border-radius:50%; background:var(--fin-muted); }
+  .mp-drawer-inner{ padding:14px 18px; }
+  .mp-occ-list{ display:grid; gap:5px; margin-bottom:14px; }
+  .mp-occ-row{ display:flex; align-items:center; gap:10px; padding:8px 12px; background:var(--fin-bg); border:1px solid var(--fin-border); border-radius:10px; font-size:.8rem; color:var(--fin-text); cursor:pointer; transition:all .15s; user-select:none; }
+  .mp-occ-row:hover{ border-color:rgba(0,212,170,.35); background:rgba(0,212,170,.04); }
+  .mp-occ-row.selected{ border-color:var(--fin-teal); background:rgba(0,212,170,.08); box-shadow:0 0 0 1px rgba(0,212,170,.2); }
+  .mp-occ-row.past{ border-color:rgba(255,77,109,.18); }
+  .mp-occ-row.past:hover{ border-color:rgba(255,77,109,.45); }
+  .mp-occ-row.past.selected{ border-color:var(--fin-red); background:rgba(255,77,109,.08); box-shadow:0 0 0 1px rgba(255,77,109,.2); }
+  .mp-radio-dot{ width:16px; height:16px; border-radius:50%; border:2px solid var(--fin-border); flex-shrink:0; display:flex; align-items:center; justify-content:center; transition:all .15s; }
+  .mp-occ-row.selected .mp-radio-dot{ border-color:var(--fin-teal); background:var(--fin-teal); }
+  .mp-occ-row.past.selected .mp-radio-dot{ border-color:var(--fin-red); background:var(--fin-red); }
+  .mp-radio-dot::after{ content:''; width:6px; height:6px; border-radius:50%; background:#062018; opacity:0; transition:opacity .1s; }
+  .mp-occ-row.selected .mp-radio-dot::after{ opacity:1; }
+  .mp-occ-row .dot{ width:7px; height:7px; border-radius:50%; background:var(--fin-muted); flex-shrink:0; }
   .mp-occ-row.past .dot{ background:var(--fin-red); }
   .mp-occ-row.due .dot{ background:var(--fin-gold); }
   .mp-occ-row.future .dot{ background:var(--fin-purple); }
-  .mp-occ-row .when{ font-weight:600; color:var(--fin-text); }
-  .mp-occ-row .lbl{ font-size:.66rem; text-transform:uppercase; letter-spacing:.06em; color:var(--fin-muted); }
+  .mp-occ-row .occ-info{ flex:1; min-width:0; }
+  .mp-occ-row .when{ font-weight:600; color:var(--fin-text); font-size:.82rem; }
+  .mp-occ-row .lbl{ font-size:.65rem; color:var(--fin-muted); margin-top:1px; }
+
+  /* Calendar inline in sticky bar */
+  .mp-occ-sticky-right{ display:flex; align-items:center; gap:6px; flex-shrink:0; }
+  .mp-occ-sticky-right label{ font-size:.7rem; color:var(--fin-muted); white-space:nowrap; }
+  .mp-occ-sticky-right input[type=date]{ background:var(--fin-bg); border:1px solid var(--fin-border); border-radius:8px; color:var(--fin-text); padding:5px 9px; font-size:.74rem; font-family:inherit; cursor:pointer; }
+  .mp-occ-sticky-right input[type=date]:focus{ outline:none; border-color:var(--fin-teal); }
+
+  /* Occurrence popup — absolute to .mp-drawer, not inside overflow:auto container */
+  .mp-occ-popup{ position:absolute; left:0; right:0; z-index:50; background:var(--fin-surface-2); border-bottom:1px solid var(--fin-border); box-shadow:0 10px 36px rgba(0,0,0,.65); max-height:300px; overflow-y:auto; display:none; overscroll-behavior:contain; padding:8px; }
+  .mp-occ-popup.open{ display:block; }
+
+  /* Day summary */
+  .mp-day-summary{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:14px; padding:12px 14px; background:linear-gradient(135deg,rgba(0,212,170,.09),rgba(0,212,170,.03)); border:1px solid rgba(0,212,170,.22); border-radius:12px; }
+  .mp-day-summary .ds-item .ds-lbl{ font-size:.58rem; color:var(--fin-muted); text-transform:uppercase; letter-spacing:.06em; font-weight:700; }
+  .mp-day-summary .ds-item .ds-val{ font-size:.9rem; font-weight:800; font-family:'JetBrains Mono',monospace; margin-top:2px; }
+  .mp-day-summary .ds-item.teal .ds-val{ color:var(--fin-teal); }
+  .mp-day-summary .ds-item.gold .ds-val{ color:var(--fin-gold); }
+  .mp-day-summary .ds-item.red .ds-val{ color:var(--fin-red); }
+
+  /* Collect gating */
+  .mp-collect-notice{ font-size:.72rem; color:var(--fin-gold); background:rgba(245,200,66,.08); border:1px solid rgba(245,200,66,.2); border-radius:8px; padding:7px 12px; margin-bottom:12px; display:flex; align-items:center; gap:6px; }
+  .mp-collect-notice svg{ flex-shrink:0; }
 
   .mp-student-list{ display:grid; gap:8px; }
-  .mp-student-row{ display:grid; grid-template-columns: minmax(0,1.4fr) minmax(0,1fr) auto; align-items:center; gap:12px; padding:10px 12px; background:var(--fin-bg); border:1px solid var(--fin-border); border-radius:12px; color:var(--fin-text); }
-  .mp-student-row .who{ display:flex; align-items:center; gap:10px; min-width:0; }
+  .mp-student-row{ display:flex; flex-direction:column; gap:6px; padding:10px 12px; background:var(--fin-bg); border:1px solid var(--fin-border); border-radius:12px; color:var(--fin-text); }
+  .mp-stu-top{ display:flex; align-items:center; gap:10px; }
+  .mp-stu-top .who{ display:flex; align-items:center; gap:10px; flex:1; min-width:0; }
   .mp-student-row .who img{ width:32px; height:32px; border-radius:50%; object-fit:cover; border:1px solid var(--fin-border); flex-shrink:0; }
   .mp-student-row .who .nm{ font-weight:700; font-size:.9rem; color:var(--fin-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .mp-student-row .who .cls{ font-size:.7rem; color:var(--fin-muted); }
-  .mp-student-row .amts{ display:flex; flex-wrap:wrap; gap:4px 12px; font-family:'JetBrains Mono',monospace; font-size:.76rem; color:var(--fin-text); }
+  .mp-student-row .amts{ display:flex; flex-wrap:wrap; gap:4px 12px; font-family:'JetBrains Mono',monospace; font-size:.76rem; padding-left:42px; }
   .mp-student-row .amts > div{ color:var(--fin-text); }
   .mp-student-row .amts .out{ color:var(--fin-gold); font-weight:700; }
   .mp-student-row .amts .pd{ color:var(--fin-teal); }
-  .mp-student-row .acts{ display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+  .mp-stu-top .acts{ display:flex; gap:6px; align-items:center; flex-shrink:0; }
 
   .mp-status{ display:inline-block; padding:2px 8px; border-radius:999px; font-size:.6rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; }
   .mp-status.paid{ background:rgba(0,212,170,.15); color:var(--fin-teal); border:1px solid rgba(0,212,170,.3); }
@@ -141,9 +181,8 @@
     .mp-head p{ max-width:44ch; }
     .mp-stats{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
     .mp-bill-grid{ grid-template-columns:repeat(auto-fit, minmax(240px,1fr)); }
-    .mp-bill-card .bc-amts{ grid-template-columns:repeat(3, minmax(0, 1fr)); }
-    .mp-student-row{ grid-template-columns:1fr; align-items:flex-start; }
-    .mp-student-row .acts{ justify-content:flex-start; }
+    .mp-bill-card .bc-amts{ grid-template-columns:repeat(3,minmax(0,1fr)); font-size:.72rem; }
+    .mp-stu-top .acts{ flex-wrap:wrap; }
     .mp-modal-actions{ flex-wrap:wrap; }
   }
 
@@ -158,27 +197,25 @@
     .mp-bill-card{ padding:12px; }
     .mp-bill-card .bc-title{ padding-right:0; }
     .mp-bill-card .bc-tag{ position:static; align-self:flex-start; margin-bottom:2px; }
-    .mp-bill-card .bc-amts{ grid-template-columns:1fr; gap:6px; }
+    .mp-bill-card .bc-amts{ grid-template-columns:repeat(3,minmax(0,1fr)); font-size:.65rem; }
     .mp-form-grid{ grid-template-columns:1fr; }
-    .mp-student-row{ grid-template-columns:1fr; }
     .mp-student-row .amts{ flex-direction:column; gap:4px; align-items:flex-start; }
-    .mp-student-row .acts{ justify-content:flex-start; }
+    .mp-stu-top .acts{ flex-wrap:wrap; }
+    .mp-day-summary{ grid-template-columns:repeat(2,1fr); }
+    .mp-occ-sticky{ flex-wrap:wrap; gap:6px; }
     .mp-drawer{ width:100vw; }
     .mp-drawer-head{ padding:12px; }
     .mp-drawer-body{ padding:12px; }
-    .mp-occ-row{ grid-template-columns:auto 1fr auto; }
     .mp-occ-row .mp-status{ display:none; }
-    .mp-modal-actions{ flex-direction:column-reverse; align-items:stretch; }
-    .mp-modal-actions .mp-btn{ width:100%; justify-content:center; }
   }
 
   @media (max-width:420px){
     .mp-wrap{ padding:8px 6px 20px; }
     .mp-stat{ padding:11px 12px; }
     .mp-stat .value{ font-size:1rem; }
-    .mp-drawer-head{ flex-wrap:wrap; }
-    .mp-close-btn{ width:100%; justify-content:center; }
-    .mp-occ-row{ grid-template-columns:1fr; gap:6px; }
+    .mp-drawer-head{ flex-wrap:nowrap; }
+    .mp-close-btn{ width:30px !important; flex-shrink:0; }
+    .mp-occ-row .mp-status{ display:none; }
   }
 </style>
 
@@ -247,12 +284,13 @@
 <div class="mp-drawer-bg" id="mpDrawerBg" onclick="mpCloseBill(event)"></div>
 <aside class="mp-drawer" id="mpDrawer" aria-hidden="true">
   <div class="mp-drawer-head">
-    <div>
+    <div class="mp-drawer-head-info">
       <h2 id="mpDrawerTitle">Bill</h2>
       <div class="sub" id="mpDrawerSub"></div>
     </div>
-    <button class="mp-close-btn" type="button" onclick="mpCloseBill()">Close ✕</button>
+    <button class="mp-close-btn" type="button" onclick="mpCloseBill()" aria-label="Close">✕</button>
   </div>
+  <div class="mp-occ-popup" id="mpOccPopup"></div>
   <div class="mp-drawer-body" id="mpDrawerBody"><!-- filled by JS --></div>
 </aside>
 
@@ -319,6 +357,7 @@
         </div>
         <div class="mp-field"><label>Reference</label><input type="text" name="reference" id="mpReference" placeholder="Receipt #, txn ref"></div>
         <div class="mp-field"><label>Occurrence (optional)</label><input type="text" id="mpOccDisplay" disabled placeholder="—" style="color:var(--fin-text);background:rgba(255,255,255,.04);"></div>
+        <div class="mp-field" style="display:none;"><input type="hidden" name="occurrence_date" id="mpOccurrenceDate"></div>
         <div class="mp-field span2"><label>Notes</label><textarea name="notes" id="mpNotes" rows="1"></textarea></div>
       </div>
       <div class="mp-modal-actions">
@@ -354,22 +393,106 @@
     function statusClass(s){ return ({paid:'paid',partial:'partial',overdue:'overdue',pending:'pending'})[s||'pending']; }
     function recurStepDays(r){ return ({daily:1,weekly:7,monthly:30,term:90,year:365})[String(r||'').toLowerCase()] || 0; }
     function fmt(d){ try{ return d ? new Date(d).toLocaleDateString() : '—'; }catch(e){ return '—'; } }
+    function isoDate(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+
+    // Smart human-readable label for an occurrence
+    function smartOccLabel(diff, recurrence, date){
+      var r = String(recurrence||'').toLowerCase();
+      if (diff === 0) return 'Today — end of day';
+      if (diff === -1) return r === 'daily' ? 'Yesterday — end of day' : 'Yesterday';
+      if (diff === 1) return r === 'daily' ? 'Tomorrow — end of day' : 'Tomorrow';
+      if (diff < 0){
+        var abs = Math.abs(diff);
+        if (r === 'daily') return abs + ' days ago';
+        if (r === 'weekly'){ var wk = Math.round(abs/7); return wk === 1 ? 'Last week' : wk + ' weeks ago'; }
+        if (r === 'monthly'){ var mo = Math.round(abs/30); return mo === 1 ? 'Last month' : mo + ' months ago'; }
+        return abs + ' days ago';
+      } else {
+        if (r === 'daily') return 'In ' + diff + ' days';
+        if (r === 'weekly'){ var wk = Math.round(diff/7); return wk === 1 ? 'Next week' : 'In ' + wk + ' weeks'; }
+        if (r === 'monthly'){ var mo = Math.round(diff/30); return mo === 1 ? 'Next month' : 'In ' + mo + ' months'; }
+        return 'In ' + diff + ' days';
+      }
+    }
 
     function buildOccurrences(bill){
       var step = recurStepDays(bill.recurrence);
       if (!step || bill.bill_type !== 'recurring') return [];
       var anchor = bill.due_date ? new Date(bill.due_date) : new Date();
       if (isNaN(anchor.getTime())) anchor = new Date();
+      anchor.setHours(0,0,0,0);
       var today = new Date(); today.setHours(0,0,0,0);
-      // Generate 6 past + 6 future + current
+      // range: 14 past occurrences + 14 future (capped sensibly per recurrence)
+      var back = bill.recurrence === 'monthly' ? 4 : (bill.recurrence === 'weekly' ? 8 : 14);
+      var fwd  = bill.recurrence === 'monthly' ? 6 : (bill.recurrence === 'weekly' ? 12 : 14);
       var rows = [];
-      for (var i=-6; i<=6; i++){
-        var d = new Date(anchor); d.setDate(anchor.getDate() + i*step);
+      for (var i = -back; i <= fwd; i++){
+        var d = new Date(anchor); d.setDate(anchor.getDate() + i * step);
         var diff = Math.round((d - today) / 86400000);
         var kind = diff < 0 ? 'past' : (diff === 0 ? 'due' : 'future');
-        rows.push({ date:d, kind:kind, label:fmt(d) });
+        rows.push({ date:d, kind:kind, label:fmt(d), smart: smartOccLabel(diff, bill.recurrence, d) });
       }
       return rows;
+    }
+
+    function renderDaySummaryAjax(bill, dateIso){
+      var summaryEl = document.getElementById('mpDaySummary');
+      if (!summaryEl) return;
+      summaryEl.style.display = '';
+      summaryEl.innerHTML = '<div class="mp-day-summary" style="opacity:.4"><div class="ds-item"><div class="ds-lbl">Loading…</div></div></div>';
+      fetch('/account/settings/my-paygira/occurrence-summary?bill_id=' + bill.bill_id + '&date=' + encodeURIComponent(dateIso))
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          if (!summaryEl) return;
+          var fmtVal = function(n){ return money(n).replace(/\B(?=(\d{3})+(?!\d))/g,','); };
+          summaryEl.innerHTML =
+            '<div class="mp-day-summary">' +
+              '<div class="ds-item"><div class="ds-lbl">Due today</div><div class="ds-val">' + d.students + '</div></div>' +
+              '<div class="ds-item teal"><div class="ds-lbl">Paid today</div><div class="ds-val">' + money(d.paid_today) + '</div></div>' +
+              '<div class="ds-item red"><div class="ds-lbl">Still owed</div><div class="ds-val">' + money(d.outstanding) + '</div></div>' +
+              '<div class="ds-item gold"><div class="ds-lbl">Expected</div><div class="ds-val">' + money(d.total_expected) + '</div></div>' +
+            '</div>';
+        })
+        .catch(function(){ summaryEl.style.display = 'none'; });
+    }
+
+    // Refresh collect buttons whenever selection changes
+    function refreshCollectButtons(){
+      var body = document.getElementById('mpDrawerBody');
+      if (!body) return;
+      var bill = window.__mpCurrentBill;
+      var isRecurring = bill && bill.bill_type === 'recurring';
+      var selected = window.__mpSelectedOcc;
+      var selectedDateIso = window.__mpSelectedOccDate || '';
+      var notice = body.querySelector('.mp-collect-notice');
+      if (notice) notice.style.display = (isRecurring && !selected) ? '' : 'none';
+      // Day summary (AJAX)
+      var summaryEl = body.querySelector('#mpDaySummary');
+      if (summaryEl) {
+        if (selected && bill && isRecurring && selectedDateIso) renderDaySummaryAjax(bill, selectedDateIso);
+        else summaryEl.style.display = 'none';
+      }
+      body.querySelectorAll('.mp-collect-btn-wrap').forEach(function(wrap){
+        var btn = wrap.querySelector('button.mp-btn.primary');
+        if (!btn) return;
+        if (isRecurring && !selected){
+          btn.disabled = true;
+          btn.style.opacity = '0.45';
+          btn.style.cursor = 'not-allowed';
+          btn.title = 'Select a date first';
+        } else {
+          btn.disabled = false;
+          btn.style.opacity = '';
+          btn.style.cursor = '';
+          btn.title = '';
+          var aid   = wrap.getAttribute('data-aid');
+          var bname = wrap.getAttribute('data-bname');
+          var sname = wrap.getAttribute('data-sname');
+          var bal_  = wrap.getAttribute('data-bal');
+          var capturedDateIso = selectedDateIso;
+          btn.onclick = function(){ mpOpenCollect(Number(aid), bname, sname, Number(bal_), window.__mpSelectedOcc || '', capturedDateIso); };
+        }
+      });
     }
 
     function studentRowHTML(bill, s){
@@ -378,25 +501,30 @@
       var canCollect = b > 0;
       var nameSafe = (s.first_name + ' ' + s.last_name).replace(/"/g,'&quot;');
       var billSafe = String(bill.title || '').replace(/"/g,'&quot;');
+      var collectBtn = canCollect
+        ? '<div class="mp-collect-btn-wrap" data-aid="' + s.assignment_id + '" data-bname="' + billSafe + '" data-sname="' + nameSafe + '" data-bal="' + b.toFixed(2) + '">' +
+            '<button class="mp-btn primary tiny" type="button">💵 Collect</button>' +
+          '</div>'
+        : '';
+      var invoiceBtn = Number(s.amount_paid) > 0
+        ? '<a class="mp-btn ghost tiny" href="/account/settings/my-paygira/invoice/' + s.assignment_id + '" target="_blank" title="Invoice">🧾</a>'
+        : '';
       return '<div class="mp-student-row">' +
-        '<div class="who">' +
-          '<img src="' + img + '" alt="">' +
-          '<div><div class="nm">' + s.first_name + ' ' + s.last_name + '</div>' +
-          '<div class="cls">' + (s.class_name || '—') + '</div></div>' +
+        '<div class="mp-stu-top">' +
+          '<div class="who">' +
+            '<img src="' + img + '" alt="">' +
+            '<div><div class="nm">' + s.first_name + ' ' + s.last_name + '</div>' +
+            '<div class="cls">' + (s.class_name || '—') + '</div></div>' +
+          '</div>' +
+          '<div class="acts">' +
+            '<span class="mp-status ' + statusClass(s.status) + '">' + s.status + '</span>' +
+            collectBtn + invoiceBtn +
+          '</div>' +
         '</div>' +
         '<div class="amts">' +
           '<div>Billed ' + money(s.amount) + '</div>' +
           '<div class="pd">Paid ' + money(s.amount_paid) + '</div>' +
           '<div class="out">Bal ' + money(b) + '</div>' +
-        '</div>' +
-        '<div class="acts">' +
-          '<span class="mp-status ' + statusClass(s.status) + '">' + s.status + '</span>' +
-          (canCollect
-            ? '<button class="mp-btn primary tiny" type="button" onclick="mpOpenCollect(' + s.assignment_id + ', &quot;' + billSafe + '&quot;, &quot;' + nameSafe + '&quot;, ' + b.toFixed(2) + ', window.__mpSelectedOcc || \'\')">💵 Collect</button>'
-            : '') +
-          (Number(s.amount_paid) > 0
-            ? '<a class="mp-btn ghost tiny" href="/account/settings/my-paygira/invoice/' + s.assignment_id + '" target="_blank" title="Invoice">🧾</a>'
-            : '') +
         '</div>' +
       '</div>';
     }
@@ -406,67 +534,163 @@
       if (!bill) return;
       window.__mpCurrentBill = bill;
       window.__mpSelectedOcc = '';
+      window.__mpSelectedOccDate = '';
+      var isRecurring = bill.bill_type === 'recurring';
+
+      // Header chips
       document.getElementById('mpDrawerTitle').textContent = bill.title;
-      document.getElementById('mpDrawerSub').textContent =
-        (bill.bill_type === 'recurring' ? (bill.recurrence || 'recurring') + ' • ' : '') +
-        'Due ' + fmt(bill.due_date) + ' • ' + (bill.students || []).length + ' student(s)';
+      var subEl = document.getElementById('mpDrawerSub');
+      var chips = '';
+      if (isRecurring) chips += '<span class="sub-chip recur">🔁 ' + (bill.recurrence || 'recurring') + '</span>';
+      else             chips += '<span class="sub-chip">one-time</span>';
+      chips += '<span class="sub-chip">📅 Due ' + fmt(bill.due_date) + '</span>';
+      chips += '<span class="sub-chip students">👥 ' + (bill.students||[]).length + ' student(s)</span>';
+      subEl.innerHTML = chips;
 
       var html = '';
-      // Occurrences for recurring
-      if (bill.bill_type === 'recurring') {
+      var occRowsHtml = ''; // built below, injected into #mpOccPopup (outside overflow container)
+
+      // Sticky occurrence section for recurring bills
+      if (isRecurring) {
         var occs = buildOccurrences(bill);
-        if (occs.length){
-          html += '<div class="mp-occ-toggle" id="mpOccToggle">' +
-                    '<button type="button" data-filter="past" class="">Past</button>' +
-                    '<button type="button" data-filter="all" class="active">All</button>' +
-                    '<button type="button" data-filter="future" class="">Future</button>' +
+        if (occs.length) {
+          var allCount = occs.length;
+          var pastCount = occs.filter(function(o){ return o.kind==='past'||o.kind==='due'; }).length;
+          var futureCount = occs.filter(function(o){ return o.kind==='future'; }).length;
+          // Build rows HTML for popup (popup lives outside drawer-body to avoid overflow clip)
+          occRowsHtml = occs.map(function(o){
+            var dateStr = isoDate(o.date);
+            var statusLbl = o.kind==='past' ? '<span class="mp-status overdue">past</span>' : (o.kind==='due' ? '<span class="mp-status partial">due today</span>' : '');
+            return '<div class="mp-occ-row ' + o.kind + '" data-kind="' + o.kind + '" data-date="' + dateStr + '" data-label="' + o.label + '">' +
+              '<div class="mp-radio-dot"></div>' +
+              '<span class="dot"></span>' +
+              '<div class="occ-info"><div class="when">' + o.label + '</div><div class="lbl">' + o.smart + '</div></div>' +
+              statusLbl +
+            '</div>';
+          }).join('');
+
+          html += '<div class="mp-occ-sticky">' +
+                    '<div class="mp-occ-toggle" id="mpOccToggle">' +
+                      '<button type="button" data-filter="past">Past (' + pastCount + ')</button>' +
+                      '<button type="button" data-filter="all">All (' + allCount + ')</button>' +
+                      '<button type="button" data-filter="future">Future (' + futureCount + ')</button>' +
+                    '</div>' +
+                    '<div class="mp-occ-sticky-right">' +
+                      '<label for="mpOccCalendar">📅</label>' +
+                      '<input type="date" id="mpOccCalendar" title="Pick any date">' +
+                    '</div>' +
                   '</div>';
-          html += '<div class="mp-occ-list" id="mpOccList">' +
-            occs.map(function(o, idx){
-              return '<div class="mp-occ-row ' + o.kind + '" data-kind="' + o.kind + '" data-date="' + o.date.toISOString().slice(0,10) + '">' +
-                '<span class="dot"></span>' +
-                '<div><div class="when">' + o.label + '</div><div class="lbl">' + (o.kind === 'past' ? 'Past — settle now' : (o.kind === 'due' ? 'Due today' : 'Upcoming')) + '</div></div>' +
-                '<span class="mp-status ' + (o.kind === 'past' ? 'overdue' : (o.kind === 'due' ? 'partial' : 'pending')) + '">' + o.kind + '</span>' +
-                '<button type="button" class="mp-btn ghost tiny" data-occ="' + o.date.toISOString().slice(0,10) + '" data-occ-label="' + o.label + '">Select</button>' +
-              '</div>';
-            }).join('') +
-          '</div>';
         }
       }
 
-      html += '<div class="mp-section-title"><span>Students</span><span class="ln"></span></div>';
+      // Date-gating notice + day summary (only for recurring)
+      var noticeDisplay = isRecurring ? '' : 'display:none';
+      html += '<div class="mp-drawer-inner">';
+      html += '<div id="mpDaySummary" style="display:none;"></div>';
+      html += '<div class="mp-collect-notice" style="' + noticeDisplay + '">' +
+                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r=".5" fill="currentColor"/></svg>' +
+                'Select a date above before collecting' +
+              '</div>';
+      html += '<div class="mp-section-title"><span>Students</span><span class="ln"></span><span>' + (bill.students||[]).length + '</span></div>';
       html += '<div class="mp-student-list">' +
         (bill.students || []).map(function(s){ return studentRowHTML(bill, s); }).join('') +
       '</div>';
+      html += '</div>'; // end mp-drawer-inner
 
       var body = document.getElementById('mpDrawerBody');
       body.innerHTML = html;
 
-      // Wire occurrence toggle
+      // Inject rows into popup (outside drawer body — avoids overflow:auto clipping)
+      var occPopup = document.getElementById('mpOccPopup');
+      if (occPopup){
+        occPopup.innerHTML = occRowsHtml
+          ? '<div class="mp-occ-list" id="mpOccList">' + occRowsHtml + '</div>'
+          : '';
+        occPopup.classList.remove('open');
+      }
+
+      // Wire collect buttons after render
+      refreshCollectButtons();
+
+      // --- Occurrence popup helpers ---
+      function closeOccPopup(){
+        var pp = document.getElementById('mpOccPopup');
+        var tg = document.getElementById('mpOccToggle');
+        if (pp) pp.classList.remove('open');
+        if (tg) tg.querySelectorAll('button').forEach(function(b){ b.classList.remove('active'); });
+      }
+      function selectOcc(row){
+        var occList = document.getElementById('mpOccList');
+        if (occList) occList.querySelectorAll('.mp-occ-row').forEach(function(r){ r.classList.remove('selected'); });
+        row.classList.add('selected');
+        window.__mpSelectedOcc     = row.getAttribute('data-label');
+        window.__mpSelectedOccDate = row.getAttribute('data-date');   // YYYY-MM-DD
+        var cal = document.getElementById('mpOccCalendar');
+        if (cal) cal.value = row.getAttribute('data-date');
+        closeOccPopup();
+        refreshCollectButtons();
+      }
+
+      // Row clicks delegated on popup element
+      if (occPopup){
+        occPopup.addEventListener('click', function(e){
+          var row = e.target.closest('.mp-occ-row'); if (row) selectOcc(row);
+        });
+      }
+
+      // Calendar in sticky bar — pick a date, sets selection, no popup needed
+      var cal = document.getElementById('mpOccCalendar');
+      if (cal){
+        cal.addEventListener('change', function(){
+          var val = cal.value; if (!val) return;
+          var occList = document.getElementById('mpOccList');
+          var match = occList ? occList.querySelector('.mp-occ-row[data-date="' + val + '"]') : null;
+          if (match){
+            match.style.display = '';
+            if (occList) occList.querySelectorAll('.mp-occ-row').forEach(function(r){ r.classList.remove('selected'); });
+            match.classList.add('selected');
+            window.__mpSelectedOcc     = match.getAttribute('data-label');
+            window.__mpSelectedOccDate = val;   // YYYY-MM-DD from calendar
+          } else {
+            if (occList) occList.querySelectorAll('.mp-occ-row').forEach(function(r){ r.classList.remove('selected'); });
+            window.__mpSelectedOcc     = new Date(val + 'T00:00:00').toLocaleDateString();
+            window.__mpSelectedOccDate = val;
+          }
+          refreshCollectButtons();
+        });
+      }
+
+      // Filter toggle: click opens popup below sticky bar; click same tab again closes it
       var toggle = document.getElementById('mpOccToggle');
       if (toggle){
         toggle.addEventListener('click', function(e){
-          var btn = e.target.closest('button[data-filter]');
-          if (!btn) return;
-          Array.prototype.forEach.call(toggle.querySelectorAll('button'), function(b){ b.classList.remove('active'); });
-          btn.classList.add('active');
+          var btn = e.target.closest('button[data-filter]'); if (!btn) return;
           var f = btn.getAttribute('data-filter');
-          var rows = body.querySelectorAll('.mp-occ-row');
-          rows.forEach(function(r){
+          var wasActive = btn.classList.contains('active');
+          toggle.querySelectorAll('button').forEach(function(b){ b.classList.remove('active'); });
+          var pp = document.getElementById('mpOccPopup');
+          if (wasActive){ if (pp) pp.classList.remove('open'); return; }
+          btn.classList.add('active');
+          // Filter rows
+          var occList = document.getElementById('mpOccList');
+          if (occList) occList.querySelectorAll('.mp-occ-row').forEach(function(r){
             var k = r.getAttribute('data-kind');
-            r.style.display = (f === 'all' || f === k || (f === 'past' && (k === 'past' || k === 'due'))) ? '' : 'none';
+            r.style.display = (f==='all'||f===k||(f==='past'&&(k==='past'||k==='due'))) ? '' : 'none';
           });
-        });
-        body.querySelectorAll('.mp-occ-row button[data-occ]').forEach(function(b){
-          b.addEventListener('click', function(){
-            var date = b.getAttribute('data-occ');
-            var label = b.getAttribute('data-occ-label');
-            window.__mpSelectedOcc = label;
-            body.querySelectorAll('.mp-occ-row').forEach(function(r){ r.style.outline=''; });
-            b.closest('.mp-occ-row').style.outline = '1px solid var(--fin-teal)';
-          });
+          // Position popup right below the sticky bar then open
+          if (pp){
+            var dh = document.querySelector('.mp-drawer-head');
+            var st = body.querySelector('.mp-occ-sticky');
+            if (dh && st) pp.style.top = (dh.offsetHeight + st.offsetHeight) + 'px';
+            pp.classList.add('open');
+          }
         });
       }
+
+      // Click anywhere in drawer body (outside sticky bar) closes popup
+      body.addEventListener('click', function(e){
+        if (!e.target.closest('.mp-occ-sticky')) closeOccPopup();
+      });
     }
 
     window.mpOpenBill = function(id){
@@ -476,22 +700,36 @@
       document.getElementById('mpDrawer').setAttribute('aria-hidden','false');
     };
     window.mpCloseBill = function(e){
-      if (e && e.target && e.target.id && e.target.id !== 'mpDrawerBg' && e.type === 'click') {
-        // closed via button — no-op guard
-      }
+      if (e && e.target && e.target.id !== 'mpDrawerBg') return;
       document.getElementById('mpDrawerBg').classList.remove('open');
       document.getElementById('mpDrawer').classList.remove('open');
       document.getElementById('mpDrawer').setAttribute('aria-hidden','true');
+      window.__mpSelectedOcc = '';
+      var pp = document.getElementById('mpOccPopup');
+      if (pp) pp.classList.remove('open');
     };
+    // Allow the close button (which has no target check) to always close
+    document.addEventListener('DOMContentLoaded', function(){
+      var closeBtn = document.querySelector('.mp-close-btn');
+      if (closeBtn) closeBtn.onclick = function(){
+        document.getElementById('mpDrawerBg').classList.remove('open');
+        document.getElementById('mpDrawer').classList.remove('open');
+        document.getElementById('mpDrawer').setAttribute('aria-hidden','true');
+        window.__mpSelectedOcc = '';
+        var pp = document.getElementById('mpOccPopup');
+        if (pp) pp.classList.remove('open');
+      };
+    });
 
-    window.mpOpenCollect = function(id, bill, student, balance, occLabel){
+    window.mpOpenCollect = function(id, bill, student, balance, occLabel, occDateIso){
       document.getElementById('mpAssignmentId').value = id;
       document.getElementById('mpBillName').value = bill;
       document.getElementById('mpStudentName').value = student;
       document.getElementById('mpAmount').value = balance;
       document.getElementById('mpAmount').max = balance;
       document.getElementById('mpOccDisplay').value = occLabel || '';
-      // Prefill notes with occurrence tag if present
+      var occDateField = document.getElementById('mpOccurrenceDate');
+      if (occDateField) occDateField.value = occDateIso || '';
       var notes = document.getElementById('mpNotes');
       notes.value = occLabel ? ('Occurrence: ' + occLabel) : '';
       var ref = document.getElementById('mpReference');

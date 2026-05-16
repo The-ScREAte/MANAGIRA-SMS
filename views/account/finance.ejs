@@ -1428,13 +1428,13 @@
               <input name="due_date" type="date" required>
             </div>
             <div class="fin-field">
-              <label>Assignee — Collector / Overseer</label>
-              <select name="assignee_id">
-                <option value="">— Unassigned (no specific collector) —</option>
+              <label>Collectors / Overseers <span style="color:var(--fin-muted);font-weight:400;font-size:.75em;">(hold Ctrl / ⌘ to pick multiple)</span></label>
+              <select name="assignee_ids[]" multiple size="4" style="min-height:90px;">
                 <% (refs.employees || []).forEach(function(e) { %>
                   <option value="<%= e.user_id %>"><%= e.first_name %> <%= e.last_name %> · <%= e.account_type %></option>
                 <% }) %>
               </select>
+              <small style="color:var(--fin-muted);font-size:.72rem;">Leave empty for no specific collector.</small>
             </div>
             <div class="fin-field">
               <label>Collection Destination *</label>
@@ -1600,7 +1600,7 @@
                           </div>
                           <div class="fin-student-copy">
                             <strong class="fin-student-name"><%= s.first_name %> <%= s.last_name %></strong>
-                            <div class="fin-student-meta">ID #<%= s.student_id %> · Click to open full billing profile</div>
+                            <div class="fin-student-meta">ID #<%= s.student_id %></div>
                           </div>
                         </div>
                       </td>
@@ -2732,7 +2732,16 @@ Regards,
       setVal('ebl-due_date', bill.due_date || '');
       setVal('ebl-late_fee', bill.late_fee_amount || 0);
       setVal('ebl-late_days', bill.late_fee_after_days || 7);
-      setVal('ebl-assignee', bill.assignee_id || '');
+      // Multi-select assignee — pre-select current assignee_id (additional collectors loaded separately when junction table is read)
+      var assigneeSel = document.getElementById('ebl-assignee');
+      if (assigneeSel) {
+        Array.prototype.forEach.call(assigneeSel.options, function(opt){ opt.selected = false; });
+        var aid = String(bill.assignee_id || '');
+        if (aid) {
+          var match = assigneeSel.querySelector('option[value="' + aid + '"]');
+          if (match) match.selected = true;
+        }
+      }
       setVal('ebl-bill_type', bill.bill_type || 'one_time');
       setVal('ebl-recurrence', bill.recurrence || '');
       setVal('ebl-applies_to', bill.applies_to || 'school');
@@ -3432,13 +3441,13 @@ Regards,
       </div>
 
       <div class="fin-field">
-        <label>Assignee — Collector / Overseer</label>
-        <select id="ebl-assignee" name="assignee_id">
-          <option value="">— Unassigned —</option>
+        <label>Collectors / Overseers <span style="color:var(--fin-muted);font-weight:400;font-size:.75em;">(hold Ctrl / ⌘ for multiple)</span></label>
+        <select id="ebl-assignee" name="assignee_ids[]" multiple size="4" style="min-height:90px;">
           <% (refs.employees || []).forEach(function(e) { %>
             <option value="<%= e.user_id %>"><%= e.first_name %> <%= e.last_name %> (<%= e.account_type %>)</option>
           <% }) %>
         </select>
+        <small style="color:var(--fin-muted);font-size:.72rem;">Leave empty for unassigned.</small>
       </div>
 
       <div class="fin-field">
