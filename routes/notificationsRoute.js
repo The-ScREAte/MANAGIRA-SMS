@@ -40,7 +40,7 @@ router.get('/count', requireAuth, async (req, res) => {
 // ── GET /notifications/feed ───────────────────────────────────────────────────
 router.get('/feed', requireAuth, async (req, res) => {
   try {
-    const items = await ns.getFeed(db, { ...req._notifCtx, limit: 20 });
+    const items = await ns.getFeed(db, { ...req._notifCtx, limit: 30 });
     res.json({ success: true, notifications: items });
   } catch (err) {
     res.json({ success: true, notifications: [] });
@@ -73,6 +73,38 @@ router.post('/mark-read', requireAuth, express.json(), async (req, res) => {
 router.post('/mark-all-read', requireAuth, async (req, res) => {
   try {
     await ns.markAllRead(db, req._notifCtx);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false });
+  }
+});
+
+// ── POST /notifications/dismiss ───────────────────────────────────────────────
+router.post('/dismiss', requireAuth, express.json(), async (req, res) => {
+  try {
+    const notifId = Number.parseInt(req.body.notifId, 10);
+    if (!Number.isInteger(notifId) || notifId <= 0) {
+      return res.status(400).json({ success: false, error: 'Invalid notifId' });
+    }
+    // Verify the notification belongs to this org
+    const check = await db.query(
+      `SELECT id FROM notifications WHERE id = $1 AND organization_id = $2 LIMIT 1`,
+      [notifId, req._notifCtx.orgId]
+    );
+    if (check.rows.length === 0) {
+      return res.status(403).json({ success: false, error: 'Not found' });
+    }
+    await ns.dismissNotification(db, { notifId, dismisserId: req._notifCtx.recipientId });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false });
+  }
+});
+
+// ── POST /notifications/dismiss-all ──────────────────────────────────────────
+router.post('/dismiss-all', requireAuth, async (req, res) => {
+  try {
+    await ns.dismissAll(db, req._notifCtx);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false });

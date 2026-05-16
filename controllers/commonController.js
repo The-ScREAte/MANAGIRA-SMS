@@ -2867,7 +2867,7 @@ const commonController = {
         orgId: Number(organizationId),
         permission: 'APPROVE_ADMISSIONS',
         type: 'admission_pending',
-        title: 'New Pending Admission',
+        title: 'New admission pending',
         body: `${body.firstName} ${body.lastName} submitted an application`,
         link: '/common/admissionPending',
       }).catch(err => console.error('[Notif] admission_pending failed:', err.message));
@@ -3764,9 +3764,9 @@ const commonController = {
               recipientType: 'guardian',
               recipientId: gp.rows[0].guardian_id,
               type: 'admission_approved',
-              title: 'Admission Approved',
-              body: `${studentFullName}'s admission has been approved`,
-              link: '/guardian/dashboard',
+              title: 'Admission approved',
+              body: `${studentFullName} has been admitted`,
+              link: null,
             }).catch(() => {});
           }
         } catch { /* silent */ }
@@ -3868,9 +3868,9 @@ const commonController = {
                 recipientType: 'guardian',
                 recipientId: gp.rows[0].guardian_id,
                 type: 'admission_rejected',
-                title: 'Admission Not Approved',
+                title: 'Admission not approved',
                 body: `${rejectedName}'s application was not approved`,
-                link: '/guardian/dashboard',
+                link: null,
               }).catch(() => {});
             }
           } catch { /* silent */ }
@@ -6018,9 +6018,9 @@ const commonController = {
         recipientType: 'staff',
         recipientId: Number(userId),
         type: onHold ? 'employee_on_hold' : 'employee_resumed',
-        title: onHold ? 'Your account has been put on hold' : 'Your account hold has been removed',
-        body: onHold ? 'Contact your administrator for more information.' : 'Your access has been restored.',
-        link: '/common/orgDashboard',
+        title: onHold ? 'Account put on hold' : 'Account hold removed',
+        body: onHold ? 'Contact your administrator.' : 'Your access has been restored.',
+        link: null,
       }).catch(err => console.error('[Notif] hold change failed:', err.message));
 
       req.flash("success", `Employee has been ${newStatus}.`);
@@ -7651,13 +7651,13 @@ const commonController = {
 
       // B2 — notify class teachers that an assessment was modified
       if (normalizedClassIds.length) {
-        notifSvc.notifyMultipleClassTeachers(db, {
+        notifSvc.notifyPerClassTeachers(db, {
           orgId: Number(organizationId),
           classIds: normalizedClassIds,
           type: 'assessment_modified',
-          title: `Assessment modified: ${testName}`,
-          body: `Updated for term: ${termName}`,
-          link: '/common/assessment',
+          title: `✏️ ${testName}`,
+          body: `Updated · ${termName}`,
+          linkTemplate: '/common/classDashboard/{classId}/subject',
         }).catch(err => console.error('[Notif] assessment_modified failed:', err.message));
       }
 
@@ -7731,17 +7731,17 @@ const commonController = {
               [groupId]
             );
             const testName = nameRow.rows[0]?.test_name || 'Assessment';
-            notifSvc.notifyMultipleClassTeachers(db, {
+            notifSvc.notifyPerClassTeachers(db, {
               orgId: Number(organizationId),
               classIds: affectedClassIds,
               type: action === 'lock' ? 'assessment_locked' : 'assessment_unlocked',
               title: action === 'lock'
-                ? `Assessment locked: ${testName}`
-                : `Assessment unlocked: ${testName}`,
+                ? `🔒 ${testName}`
+                : `🔓 ${testName}`,
               body: action === 'lock'
-                ? 'Score entry has been locked for this assessment.'
-                : 'Score entry has been unlocked for this assessment.',
-              link: '/common/assessment',
+                ? 'Score entry closed.'
+                : 'Score entry open.',
+              linkTemplate: '/common/classDashboard/{classId}/subject',
             }).catch(err => console.error('[Notif] assessment lock/unlock failed:', err.message));
           }
         } catch { /* silent */ }
@@ -8006,15 +8006,15 @@ const commonController = {
       if (classIdsArr.length) {
         const testNames = [...new Set(tests.map(t => t.testName).filter(Boolean))];
         const titleText = testNames.length === 1
-          ? `New assessment: ${testNames[0]}`
-          : `${testNames.length} new assessments added`;
-        notifSvc.notifyMultipleClassTeachers(db, {
+          ? `➕ ${testNames[0]}`
+          : `➕ ${testNames.length} assessments added`;
+        notifSvc.notifyPerClassTeachers(db, {
           orgId: Number(organizationId),
           classIds: classIdsArr,
           type: 'assessment_created',
           title: titleText,
-          body: `Added for term: ${termName}`,
-          link: '/common/assessment',
+          body: `Added · ${termName}`,
+          linkTemplate: '/common/classDashboard/{classId}/subject',
         }).catch(err => console.error('[Notif] assessment_created failed:', err.message));
       }
 
@@ -9240,9 +9240,9 @@ const commonController = {
         recipientType: 'broadcast',
         recipientId: 0,
         type: 'term_changed',
-        title: 'Current term updated',
-        body: 'The school year / term settings have been updated',
-        link: '/common/manageRecords',
+        title: 'Term settings updated',
+        body: 'School year / term has changed.',
+        link: null,
       }).catch(err => console.error('[Notif] term_changed failed:', err.message));
 
       req.flash("success", "School year and terms updated successfully.");
@@ -9328,7 +9328,7 @@ const commonController = {
           type: 'event_created',
           title: req.body.eventName || 'New Event',
           body: req.body.eventDetails || '',
-          link: '/common/manageEventsAnnouncements',
+          link: '/common/orgDashboard',
         }).catch(err => console.error('[Notif] event_created failed:', err.message));
       } else if (type === "announcement") {
         // Insert new announcement with the current school year and term
@@ -9363,7 +9363,7 @@ const commonController = {
           type: 'announcement_created',
           title: (req.body.announcementMessage || 'New Announcement').substring(0, 80),
           body: '',
-          link: '/common/manageEventsAnnouncements',
+          link: '/common/orgDashboard',
         }).catch(err => console.error('[Notif] announcement_created failed:', err.message));
       }
 

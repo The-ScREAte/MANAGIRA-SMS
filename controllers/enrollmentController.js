@@ -192,13 +192,13 @@ const enrollmentController = {
         const enrolledClassIds = [...new Set(Object.keys(selectedStudents || {}).map(Number).filter(Boolean).filter(id => ownedClassIds.has(id)))];
         if (enrolledClassIds.length) {
           const orgId = req.session.organizationId;
-          notifSvc.notifyMultipleClassTeachers(db, {
+          notifSvc.notifyPerClassTeachers(db, {
             orgId: Number(orgId),
             classIds: enrolledClassIds,
             type: 'enrollment_added',
-            title: 'New student(s) enrolled in your class',
-            body: 'New students have been added to your class',
-            link: '/enrollment/manageEnrollment',
+            title: 'Students enrolled in your class',
+            body: 'New students have been added.',
+            linkTemplate: '/common/classDashboard?classId={classId}',
           }).catch(err => console.error('[Notif] enrollment_added failed:', err.message));
         }
 

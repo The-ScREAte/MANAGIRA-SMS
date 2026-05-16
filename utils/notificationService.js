@@ -55,6 +55,17 @@ async function ensureSchema(db) {
       UNIQUE (notification_id, reader_id)
     )
   `);
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS notification_dismissals (
+      id               SERIAL PRIMARY KEY,
+      notification_id  INTEGER   NOT NULL REFERENCES notifications(id) ON DELETE CASCADE,
+      dismisser_id     INTEGER   NOT NULL,
+      dismissed_at     TIMESTAMP NOT NULL DEFAULT NOW(),
+      UNIQUE (notification_id, dismisser_id)
+    )
+  `);
+  await db.query(`CREATE INDEX IF NOT EXISTS idx_notif_dismissals_dismisser
+    ON notification_dismissals (dismisser_id, notification_id)`);
   // Indexes (safe to run multiple times)
   await db.query(`CREATE INDEX IF NOT EXISTS idx_notif_org_recip
     ON notifications (organization_id, recipient_type, recipient_id, created_at DESC)`);
@@ -155,6 +166,10 @@ async function getUnreadCount(db, { recipientType, recipientId, orgId }) {
            AND NOT EXISTS (
              SELECT 1 FROM notification_reads nr
              WHERE nr.notification_id = n.id AND nr.reader_id = $2
+           )
+           AND NOT EXISTS (
+             SELECT 1 FROM notification_dismissals nd
+             WHERE nd.notification_id = n.id AND nd.dismisser_id = $2
            )`,
         [orgId, recipientId]
       );
@@ -170,6 +185,10 @@ async function getUnreadCount(db, { recipientType, recipientId, orgId }) {
            AND NOT EXISTS (
              SELECT 1 FROM notification_reads nr
              WHERE nr.notification_id = n.id AND nr.reader_id = $2
+           )
+           AND NOT EXISTS (
+             SELECT 1 FROM notification_dismissals nd
+             WHERE nd.notification_id = n.id AND nd.dismisser_id = $2
            )`,
         [orgId, recipientId]
       );
@@ -202,6 +221,10 @@ async function getFeed(db, { recipientType, recipientId, orgId, limit = 20 }) {
              (n.recipient_type = 'staff'     AND n.recipient_id = $2)
              OR n.recipient_type = 'broadcast'
            )
+           AND NOT EXISTS (
+             SELECT 1 FROM notification_dismissals nd
+             WHERE nd.notification_id = n.id AND nd.dismisser_id = $2
+           )
          ORDER BY n.created_at DESC
          LIMIT $3`,
         [orgId, recipientId, safeLimit]
@@ -218,6 +241,10 @@ async function getFeed(db, { recipientType, recipientId, orgId, limit = 20 }) {
          WHERE n.organization_id = $1
            AND n.recipient_type = 'guardian'
            AND n.recipient_id = $2
+           AND NOT EXISTS (
+             SELECT 1 FROM notification_dismissals nd
+             WHERE nd.notification_id = n.id AND nd.dismisser_id = $2
+           )
          ORDER BY n.created_at DESC
          LIMIT $3`,
         [orgId, recipientId, safeLimit]
@@ -228,6 +255,60 @@ async function getFeed(db, { recipientType, recipientId, orgId, limit = 20 }) {
   } catch (err) {
     console.error('[NotificationService] getFeed failed:', err.message);
     return [];
+  }
+}
+
+/**
+ * Dismiss (hide) a single notification for this user only.
+ * Does not delete the row — other users still see it.
+ */
+async function dismissNotification(db, { notifId, dismisserId }) {
+  try {
+    await ensureSchema(db);
+    await db.query(
+      `INSERT INTO notification_dismissals (notification_id, dismisser_id)
+       VALUES ($1, $2)
+       ON CONFLICT (notification_id, dismisser_id) DO NOTHING`,
+      [notifId, dismisserId]
+    );
+  } catch (err) {
+    console.error('[NotificationService] dismissNotification failed:', err.message);
+  }
+}
+
+/**
+ * Dismiss ALL visible notifications for a user.
+ */
+async function dismissAll(db, { recipientType, recipientId, orgId }) {
+  try {
+    await ensureSchema(db);
+    if (recipientType === 'staff') {
+      await db.query(
+        `INSERT INTO notification_dismissals (notification_id, dismisser_id)
+         SELECT n.id, $2
+         FROM notifications n
+         WHERE n.organization_id = $1
+           AND (
+             (n.recipient_type = 'staff' AND n.recipient_id = $2)
+             OR n.recipient_type = 'broadcast'
+           )
+         ON CONFLICT (notification_id, dismisser_id) DO NOTHING`,
+        [orgId, recipientId]
+      );
+    } else if (recipientType === 'guardian') {
+      await db.query(
+        `INSERT INTO notification_dismissals (notification_id, dismisser_id)
+         SELECT n.id, $2
+         FROM notifications n
+         WHERE n.organization_id = $1
+           AND n.recipient_type = 'guardian'
+           AND n.recipient_id = $2
+         ON CONFLICT (notification_id, dismisser_id) DO NOTHING`,
+        [orgId, recipientId]
+      );
+    }
+  } catch (err) {
+    console.error('[NotificationService] dismissAll failed:', err.message);
   }
 }
 
@@ -310,7 +391,7 @@ async function notifyClassTeachers(db, { orgId, classId, type, title, body, link
 }
 
 /**
- * Notify teachers of multiple classes at once.
+ * Notify teachers of multiple classes at once (same link for all).
  */
 async function notifyMultipleClassTeachers(db, { orgId, classIds, type, title, body, link, refId }) {
   try {
@@ -329,6 +410,34 @@ async function notifyMultipleClassTeachers(db, { orgId, classIds, type, title, b
     await createNotifications(db, list);
   } catch (err) {
     console.error('[NotificationService] notifyMultipleClassTeachers failed:', err.message);
+  }
+}
+
+/**
+ * Notify teachers per-class with a class-specific link.
+ * linkTemplate: string with {classId} placeholder, e.g. '/common/classDashboard/{classId}/docs'
+ * Each teacher gets one notification per class they belong to in classIds.
+ */
+async function notifyPerClassTeachers(db, { orgId, classIds, type, title, body, linkTemplate, refId }) {
+  try {
+    if (!classIds || classIds.length === 0) return;
+    for (const classId of classIds) {
+      const result = await db.query(
+        `SELECT DISTINCT user_id FROM class_employees WHERE class_id = $1`,
+        [classId]
+      );
+      if (!result.rows.length) continue;
+      const link = linkTemplate ? linkTemplate.replace('{classId}', classId) : null;
+      const list = result.rows.map((r) => ({
+        orgId,
+        recipientType: 'staff',
+        recipientId: r.user_id,
+        type, title, body, link, refId,
+      }));
+      await createNotifications(db, list);
+    }
+  } catch (err) {
+    console.error('[NotificationService] notifyPerClassTeachers failed:', err.message);
   }
 }
 
@@ -424,7 +533,7 @@ async function notifyReportRecipients(db, { orgId, reportId, type, title, body, 
         [reportId]
       );
       if (classRow.rows.length && classRow.rows[0].class_id) {
-        resolvedLink = `/common/classDashboard?classId=${classRow.rows[0].class_id}&reportId=${reportId}`;
+        resolvedLink = `/common/classDashboard/${classRow.rows[0].class_id}/reports`;
       }
     } catch { /* use original link as fallback */ }
 
@@ -448,8 +557,11 @@ module.exports = {
   getFeed,
   markRead,
   markAllRead,
+  dismissNotification,
+  dismissAll,
   notifyClassTeachers,
   notifyMultipleClassTeachers,
+  notifyPerClassTeachers,
   notifyByPermission,
   notifyReportRecipients,
 };

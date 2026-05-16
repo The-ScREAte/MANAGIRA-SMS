@@ -1286,7 +1286,24 @@
         <div class="notif-panel" id="notif-panel" role="dialog" aria-label="Notifications panel">
           <div class="notif-panel-header">
             <span class="notif-panel-title">Notifications</span>
-            <button class="notif-mark-all-btn" id="notif-mark-all-btn" type="button">Mark all read</button>
+            <div class="notif-header-actions">
+              <!-- Mark all read: double-checkmark icon -->
+              <button class="notif-mark-all-btn" id="notif-mark-all-btn" type="button" title="Mark all read" aria-label="Mark all read">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="2 12 7 17 22 7"/>
+                </svg>
+              </button>
+              <!-- Clear all: trash icon -->
+              <button class="notif-clear-all-btn" id="notif-clear-all-btn" type="button" title="Clear all" aria-label="Clear all notifications">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                  <path d="M10 11v6"/>
+                  <path d="M14 11v6"/>
+                  <path d="M9 6V4h6v2"/>
+                </svg>
+              </button>
+            </div>
           </div>
           <div class="notif-list" id="notif-list">
             <div class="notif-loading">Loading…</div>
@@ -2030,22 +2047,30 @@
   font-weight: 700;
   color: #111827;
 }
-.notif-mark-all-btn {
+.notif-header-actions { display: flex; align-items: center; gap: 2px; }
+.notif-mark-all-btn,
+.notif-clear-all-btn {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 0.78rem;
-  color: var(--org-primary-color, #01535b);
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 4px;
-  transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  padding: 0;
+  transition: background 0.15s, color 0.15s;
 }
-.notif-mark-all-btn:hover { background: #f0faf9; }
+.notif-mark-all-btn { color: var(--org-primary-color, #01535b); }
+.notif-mark-all-btn:hover { background: #e6f7f6; }
+.notif-clear-all-btn { color: #9ca3af; }
+.notif-clear-all-btn:hover { background: #fef2f2; color: #dc2626; }
 
 /* List */
 .notif-list {
   overflow-y: auto;
+  overflow-x: hidden;
   max-height: 380px;
   padding: 4px 0;
 }
@@ -2074,6 +2099,29 @@
 .notif-item--unread { background: #f0faf9; }
 .notif-item--unread:hover { background: #e6f7f6; }
 
+/* Per-item dismiss button */
+.notif-dismiss-btn {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: #d1d5db;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+  margin-left: auto;
+  padding: 0;
+}
+.notif-item:hover .notif-dismiss-btn { opacity: 1; }
+.notif-dismiss-btn:hover { background: #fee2e2; color: #dc2626; }
+
 /* Type icon dot */
 .notif-icon {
   width: 34px;
@@ -2099,8 +2147,9 @@
 }
 .notif-item--read .notif-unread-dot { display: none; }
 
-.notif-content { flex: 1; min-width: 0; }
+.notif-content { flex: 1; min-width: 0; overflow: hidden; }
 .notif-title {
+  display: block;
   font-size: 0.82rem;
   font-weight: 600;
   color: #111827;
@@ -2109,6 +2158,7 @@
   text-overflow: ellipsis;
 }
 .notif-body {
+  display: block;
   font-size: 0.76rem;
   color: #6b7280;
   margin-top: 1px;
@@ -2194,7 +2244,8 @@
   const badge    = document.getElementById('notif-badge');
   const panel    = document.getElementById('notif-panel');
   const list     = document.getElementById('notif-list');
-  const markAllBtn = document.getElementById('notif-mark-all-btn');
+  const markAllBtn   = document.getElementById('notif-mark-all-btn');
+  const clearAllBtn  = document.getElementById('notif-clear-all-btn');
 
   function updateBadge(count) {
     if (!badge) return;
@@ -2216,9 +2267,10 @@
       const m = getMeta(n.type);
       const isRead = n.is_read === true || n.is_read === 't' || n.is_read === 'true';
       const cls = isRead ? 'notif-item notif-item--read' : 'notif-item notif-item--unread';
-      const href = n.link || '#';
+      const href = n.link || '';
+      const hrefAttr = href ? `href="${escapeHtml(href)}"` : 'role="button"';
       return `
-        <a class="${cls}" href="${escapeHtml(href)}" data-notif-id="${n.id}" data-link="${escapeHtml(href)}">
+        <a class="${cls}" ${hrefAttr} data-notif-id="${n.id}" data-link="${escapeHtml(href)}"${href ? '' : ' style="cursor:default;"'}>
           <span class="notif-icon" style="background:${m.bg};">${iconSvg(n.type)}</span>
           <span class="notif-content">
             <span class="notif-title">${escapeHtml(n.title)}</span>
@@ -2226,6 +2278,7 @@
             <span class="notif-time">${timeAgo(n.created_at)}</span>
           </span>
           ${!isRead ? '<span class="notif-unread-dot" aria-hidden="true"></span>' : ''}
+          <button class="notif-dismiss-btn" data-dismiss-id="${n.id}" title="Dismiss" aria-label="Dismiss notification" type="button">&times;</button>
         </a>`;
     }).join('');
   }
@@ -2279,8 +2332,34 @@
     if (e.key === 'Escape' && panelOpen) closePanel();
   });
 
-  // Click a notification item → mark read + navigate
+  // Click a notification item → mark read + navigate (but not the dismiss button)
   list.addEventListener('click', async (e) => {
+    // Handle dismiss button click
+    const dismissBtn = e.target.closest('.notif-dismiss-btn');
+    if (dismissBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const id = dismissBtn.dataset.dismissId;
+      const item = dismissBtn.closest('.notif-item');
+      if (item) {
+        item.style.transition = 'opacity 0.2s';
+        item.style.opacity = '0';
+        setTimeout(() => {
+          item.remove();
+          if (!list.querySelector('.notif-item')) {
+            list.innerHTML = '<div class="notif-empty">No notifications yet</div>';
+          }
+        }, 200);
+      }
+      fetch('/notifications/dismiss', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notifId: Number(id) }),
+      }).then(() => refreshCount()).catch(() => {});
+      return;
+    }
+
     const item = e.target.closest('.notif-item[data-notif-id]');
     if (!item) return;
     e.preventDefault();
@@ -2330,6 +2409,25 @@
       });
     } catch { /* silent */ }
   });
+
+  // Clear all — dismiss every visible notification for this user
+  if (clearAllBtn) {
+    clearAllBtn.addEventListener('click', async () => {
+      try {
+        // Animate out all items
+        const items = list.querySelectorAll('.notif-item');
+        items.forEach(el => { el.style.transition = 'opacity 0.2s'; el.style.opacity = '0'; });
+        setTimeout(() => {
+          list.innerHTML = '<div class="notif-empty">No notifications yet</div>';
+        }, 220);
+        await fetch('/notifications/dismiss-all', {
+          method: 'POST',
+          credentials: 'same-origin',
+        });
+        updateBadge(0);
+      } catch { /* silent */ }
+    });
+  }
 
   // Poll for new notifications every 60 s while page is active
   setInterval(refreshCount, 60000);

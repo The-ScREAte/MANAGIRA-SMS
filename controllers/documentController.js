@@ -811,9 +811,9 @@ const documentController = {
           recipientType: 'staff',
           recipientId: r.user_id,
           type: 'document_deleted',
-          title: `"${docTitle}" was deleted`,
-          body: 'A document shared with you has been deleted',
-          link: '/documents',
+          title: `Doc deleted`,
+          body: `"${docTitle}" was removed`,
+          link: null,
         }));
         if (notifList.length) {
           notifSvc.createNotifications(db, notifList)
@@ -967,8 +967,8 @@ const documentController = {
           recipientType: 'staff',
           recipientId: Number(p.user_id),
           type: 'document_shared_user',
-          title: `"${docTitleSafe}" shared with you`,
-          body: `You have ${p.permission_level || 'view'} access`,
+          title: `Doc shared with you`,
+          body: `"${docTitleSafe}" — ${p.permission_level || 'view'} access`,
           link: `/documents/edit/${docId}`,
         }));
         notifSvc.createNotifications(db, notifList)
@@ -978,13 +978,13 @@ const documentController = {
       // D2 — notify class teachers when a document is assigned to their class (new assignments only)
       if (addedClassIds.length > 0) {
         const docTitleSafe = doc.rows[0].title || 'Document';
-        notifSvc.notifyMultipleClassTeachers(db, {
+        notifSvc.notifyPerClassTeachers(db, {
           orgId: Number(orgId),
           classIds: addedClassIds,
           type: 'document_shared_class',
-          title: `"${docTitleSafe}" shared with your class`,
-          body: 'A document has been shared with one of your classes',
-          link: `/documents/edit/${docId}`,
+          title: `Doc shared with your class`,
+          body: `"${docTitleSafe}"`,
+          linkTemplate: '/common/classDashboard/{classId}/docs',
         }).catch(err => console.error('[Notif] document_shared_class failed:', err.message));
       }
 

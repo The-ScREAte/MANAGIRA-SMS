@@ -937,7 +937,7 @@ module.exports = {
         type: 'guardian_report_new',
         title: `New report: ${subject}`,
         body: String(message || '').substring(0, 120),
-        link: `/common/guardianReports?reportId=${reportId}`,
+        link: `/common/reports`,
       }).catch(err => console.error('[Notif] guardian_report_new failed:', err.message));
 
       req.flash('success', 'Report submitted successfully! The school will review and respond soon.');
@@ -1393,7 +1393,7 @@ module.exports = {
         type: 'guardian_report_new',
         title: `New report: ${subject}`,
         body: String(message || '').substring(0, 120),
-        link: `/common/guardianReports?reportId=${reportId}`,
+        link: `/common/reports`,
       }).catch(err => console.error('[Notif] guardian_report_new failed:', err.message));
 
       req.flash('success', 'Report submitted successfully');
@@ -1552,7 +1552,7 @@ module.exports = {
         type: 'guardian_reply',
         title: 'Guardian replied to a report',
         body: String(message || '').substring(0, 120),
-        link: `/common/guardianReports?reportId=${reportId}`,
+        link: `/common/reports`,
       }).catch(err => console.error('[Notif] guardian_reply failed:', err.message));
 
       // Update report status to in_progress if it was open
