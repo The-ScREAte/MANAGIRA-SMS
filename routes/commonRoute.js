@@ -494,8 +494,16 @@ module.exports = (db) => {
   router.post("/createEventAnnouncement", isAuthenticated, requirePermission(PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS), (req, res) =>
     commonController.createEventAnnouncementPost(req, res, db)
   );
-  router.get("/manageSchoolYear", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS), (req, res) =>
-    commonController.manageSchoolYearGet(req, res, db)
+  // Legacy alias: /common/manageSchoolYear was historically a separate page,
+  // but the canonical entry point is now /common/registerSchoolYear. There is
+  // no manageSchoolYearGet controller method, which used to 500 every time
+  // the SPA preloader warmed this path. Redirect instead so the URL still
+  // works for old bookmarks and the SPA preload doesn't error.
+  router.get(
+    "/manageSchoolYear",
+    isAuthenticated,
+    requirePermission(PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS),
+    (req, res) => res.redirect("/common/registerSchoolYear")
   );
   router.get(
     "/manageEventsAnnouncements",

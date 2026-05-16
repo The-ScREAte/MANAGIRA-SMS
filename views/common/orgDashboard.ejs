@@ -139,7 +139,18 @@
             <h2>Enrolled Classes</h2>
             <ul>
               <% if (classes && classes.length > 0) { %>
-                <% classes.forEach(function(cls, clsIndex) { %>
+                <%
+                  // Sort classes alphabetically by name with natural ordering
+                  // so "Class 2" comes before "Class 10" instead of "Class 10" before "Class 2".
+                  const sortedClasses = [...classes].sort(function(a, b) {
+                    return String(a.class_name || '').localeCompare(
+                      String(b.class_name || ''),
+                      undefined,
+                      { numeric: true, sensitivity: 'base' }
+                    );
+                  });
+                %>
+                <% sortedClasses.forEach(function(cls, clsIndex) { %>
                   <li class="class-item">
                     <div class="class-header">
                       <a href="/common/classDashboard?classId=<%= cls.class_id %>"><%= cls.class_name %></a>

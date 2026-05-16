@@ -1607,14 +1607,14 @@ main {
 }
 
 .workspace-header-card {
-  padding: 6px 12px;
-  display: grid;
-  gap: 4px;
+  padding: 10px 14px;
   border-radius: 10px;
+  background: #fff;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
   position: sticky;
   top: 8px;
   z-index: 6;
-  background: #fff;
 }
 
 /* Match heights of sidebar header ("Class Tools") with workspace header so both sit on the same baseline */
@@ -1820,39 +1820,38 @@ main {
 .teacher-chip.is-main .teacher-info .teacher-role { color: var(--primary); }
 .teacher-radio { margin-left: 2px; cursor: pointer; transform: scale(0.85); }
 
-/* Mobile: collapse Teachers section by default */
-.teachers-mobile-toggle { display: none; }
+/* Collapsible Teachers section */
+.teachers-mobile-toggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text);
+}
+.teachers-mobile-toggle .section-title { font-size: 13px; font-weight: 700; margin: 0; }
+.teachers-mobile-toggle .teachers-mobile-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.teachers-mobile-toggle .teachers-mobile-chevron {
+  transition: transform 0.18s ease;
+  color: var(--muted);
+}
+.teachers-mobile-toggle[aria-expanded="true"] .teachers-mobile-chevron { transform: rotate(90deg); color: var(--primary); }
+.teachers-head { display: none; }
+.teachers-chip-row { margin-top: 6px; }
+.teacher-section[data-collapsed="true"] .teachers-chip-row { display: none; }
 @media (max-width: 768px) {
   .teacher-section { padding: 8px 10px; }
-  .teachers-mobile-toggle {
-    display: flex;
-    width: 100%;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 6px 4px;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    font: inherit;
-    color: var(--text);
-  }
-  .teachers-mobile-toggle .section-title { font-size: 13px; font-weight: 700; margin: 0; }
-  .teachers-mobile-toggle .teachers-mobile-meta {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--muted);
-    font-size: 11px;
-  }
-  .teachers-mobile-toggle .teachers-mobile-chevron {
-    transition: transform 0.18s ease;
-    color: var(--muted);
-  }
-  .teachers-mobile-toggle[aria-expanded="true"] .teachers-mobile-chevron { transform: rotate(90deg); color: var(--primary); }
-  .teachers-head { display: none; }
-  .teachers-chip-row { margin-top: 6px; }
-  .teacher-section[data-collapsed="true"] .teachers-chip-row { display: none; }
 }
 
 /* Two-column overview split for Students + Subjects */
@@ -1982,39 +1981,40 @@ main {
 .workspace-header-line {
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  min-height: 32px;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 0;
+  flex-wrap: nowrap;
 }
 
 .workspace-header-copy {
-  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
-}
-
-.workspace-title-row {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .workspace-header-copy .eyebrow {
   font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--muted);
+  line-height: 1;
+}
+
+.workspace-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .workspace-header-copy .page-title {
   margin: 0;
-  font-size: 15px;
+  font-size: 20px;
   font-weight: 700;
   color: var(--text);
-  letter-spacing: 0;
+  line-height: 1.1;
 }
 
 .workspace-cohort {
@@ -2057,15 +2057,20 @@ main {
 .workspace-meta-inline {
   display: flex;
   align-items: center;
-  gap: 18px;
+  justify-content: flex-end;
+  gap: 8px;
   flex-wrap: wrap;
   margin-left: auto;
 }
 
 .workspace-meta-pair {
   display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
   white-space: nowrap;
 }
 
@@ -2080,9 +2085,13 @@ main {
 
 .workspace-meta-pair .meta-value {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text);
   margin: 0;
+}
+
+.workspace-meta-toggle {
+  display: none;
 }
 
 .workspace-tabbar-shell {
@@ -2251,6 +2260,10 @@ main {
   font-size: 12px;
 }
 
+.schedule-mobile-toggle {
+  display: none;
+}
+
 .workspace-empty-state {
   display: grid;
   place-items: center;
@@ -2414,8 +2427,10 @@ main {
 
 .workspace-frame {
   width: 100%;
-  min-height: calc(100vh - 340px);
+  height: calc(100vh - 200px);
+  min-height: 300px;
   border: none;
+  display: block;
   background: #ffffff;
 }
 
@@ -2594,57 +2609,69 @@ main {
   .hamburger-icon { width: 13px; height: 1.5px; }
   .hamburger-icon::before, .hamburger-icon::after { width: 13px; height: 1.5px; }
 
-  /* Compact sticky workspace header below the nav toggle */
+  /* Keep the header below the mobile nav toggle while using the compact layout. */
   .workspace-header-card {
-    position: sticky;
     top: 38px;
-    z-index: 850;
-    padding: 6px 10px;
-    border-radius: 10px;
-    gap: 2px;
+    padding: 8px 10px;
   }
   .workspace-header-line {
     flex-direction: row;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 4px 8px;
-    min-height: 0;
+    justify-content: flex-start;
+    gap: 0;
   }
-  .workspace-header-copy { display: contents; }
-  .eyebrow { flex-basis: 100%; font-size: 9px; margin: 0; line-height: 1.1; }
+
+  .workspace-header-copy {
+    width: 100%;
+  }
+
+  .workspace-header-copy .eyebrow,
+  .workspace-cohort {
+    display: none !important;
+  }
+
   .workspace-title-row {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 6px;
-    flex: 1;
-    min-width: 0;
-    margin: 0;
+    justify-content: space-between;
+    width: 100%;
+    gap: 8px;
   }
-  .page-title { font-size: 16px; line-height: 1.1; }
-  .workspace-cohort { font-size: 10.5px; }
 
-  /* Header meta collapsed by default; toggle reveals it */
+  .workspace-header-copy .page-title {
+    font-size: 16px;
+    line-height: 1.1;
+  }
+
   .workspace-meta-toggle {
     display: inline-flex;
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
   }
-  .workspace-meta-toggle .workspace-meta-toggle-icon { width: 12px; height: 12px; }
-  .workspace-header-card[data-meta-collapsed="true"] .workspace-meta-inline { display: none; }
-  .workspace-header-card[data-meta-collapsed="false"] .workspace-meta-inline {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 4px 12px;
-    flex-basis: 100%;
-    margin-top: 2px;
-    padding-top: 4px;
-    border-top: 1px solid var(--border);
-  }
-  .workspace-meta-pair { display: flex; flex-direction: column; gap: 0; }
-  .workspace-meta-pair .meta-label { font-size: 9px; }
-  .workspace-meta-pair .meta-value { font-size: 11.5px; }
 
+  .workspace-meta-toggle .workspace-meta-toggle-icon {
+    width: 13px;
+    height: 13px;
+  }
+
+  .workspace-meta-inline {
+    display: none;
+    justify-content: flex-start;
+    width: 100%;
+    gap: 6px;
+    padding-top: 6px;
+  }
+
+  .workspace-header-card[data-meta-collapsed="false"] .workspace-meta-inline {
+    display: flex;
+  }
+
+  .workspace-meta-pair {
+    padding: 5px 8px;
+  }
   /* Tab bar stacks beneath compact header */
   .workspace-tabbar-shell { top: 78px; border-radius: 8px 8px 0 0; }
   .workspace-tabbar { min-height: 28px; padding: 0 6px; }
@@ -2721,6 +2748,40 @@ main {
   .workspace-frame-header { padding: 6px 10px; }
   .workspace-frame-subtext,
   .card-subtext { font-size: 11px; }
+  .schedule-mobile-toggle {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 0;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font: inherit;
+    color: var(--text);
+  }
+  .schedule-mobile-toggle .section-title { font-size: 12.5px; font-weight: 700; margin: 0; }
+  .schedule-mobile-toggle .schedule-mobile-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--muted);
+    font-size: 11px;
+  }
+  .schedule-mobile-toggle .schedule-mobile-chevron {
+    transition: transform 0.18s ease;
+    color: var(--muted);
+  }
+  #panel-schedule[data-mobile-collapsed="false"] .schedule-mobile-toggle .schedule-mobile-chevron {
+    transform: rotate(90deg);
+    color: var(--primary);
+  }
+  #panel-schedule .schedule-panel-heading { display: none; }
+  #panel-schedule[data-mobile-collapsed="true"] .schedule-toolbar,
+  #panel-schedule[data-mobile-collapsed="true"] .schedule-panel-body {
+    display: none;
+  }
   .schedule-toolbar { gap: 6px; padding: 6px 8px; }
   .schedule-toolbar .nav-link,
   .toolbar-btn,
@@ -3002,17 +3063,25 @@ main {
               </div>
             </section>
 
-            <section class="workspace-panel" id="panel-schedule" data-panel-key="schedule">
+            <section class="workspace-panel" id="panel-schedule" data-panel-key="schedule" data-mobile-collapsed="true">
               <div class="workspace-panel-head">
-                <div>
+                <button type="button" class="schedule-mobile-toggle" aria-expanded="false" aria-controls="schedule-panel-body" onclick="toggleScheduleMobile(this)">
+                  <span class="section-title">Class Schedule</span>
+                  <span class="schedule-mobile-meta">
+                    <span>Open</span>
+                    <span class="schedule-mobile-chevron" aria-hidden="true">›</span>
+                  </span>
+                </button>
+                <div class="schedule-panel-heading">
                   <h2 class="card-title">Class Schedule</h2>
-                  <p class="card-subtext">Create, edit, and print the timetable without leaving this workspace.</p>
                 </div>
                 <div class="schedule-toolbar" id="classScheduleToolbar"></div>
               </div>
-              <div id="classScheduleNotice" class="schedule-notice" role="status" aria-live="polite"></div>
-              <div id="classScheduleContent" class="schedule-shell">
-                <p style="color:#6b7280;font-size:13px;">Open the schedule tab to load the timetable.</p>
+              <div class="schedule-panel-body" id="schedule-panel-body">
+                <div id="classScheduleNotice" class="schedule-notice" role="status" aria-live="polite"></div>
+                <div id="classScheduleContent" class="schedule-shell">
+                  <p style="color:#6b7280;font-size:13px;">Open the schedule tab to load the timetable.</p>
+                </div>
               </div>
             </section>
 
@@ -3120,7 +3189,7 @@ main {
         basePath: <%- JSON.stringify(typeof classWorkspaceBasePath !== 'undefined' ? classWorkspaceBasePath : (`/common/classDashboard/${classId}`)) %>,
         initialRoute: <%- JSON.stringify(typeof initialWorkspaceRoute !== 'undefined' ? initialWorkspaceRoute : { panel: 'overview', itemId: '' }) %>,
         attendanceUrl: <%- JSON.stringify(`/common/attendanceCollection?classId=${classId}&termId=${currentTerm.term_id}&embed=workspace`) %>,
-        docsUrl: <%- JSON.stringify(`/documents?classId=${classId}&create=1`) %>,
+        docsUrl: <%- JSON.stringify(`/documents?classId=${classId}`) %>,
         paygiraUrl: <%- JSON.stringify(`/account/settings/my-paygira?embed=workspace`) %>,
         students: <%- JSON.stringify(workspaceStudents) %>,
         subjects: <%- JSON.stringify(workspaceSubjects) %>,
@@ -3603,6 +3672,14 @@ main {
         if (!section) return;
         var collapsed = section.getAttribute('data-collapsed') === 'true';
         section.setAttribute('data-collapsed', collapsed ? 'false' : 'true');
+        btn.setAttribute('aria-expanded', collapsed ? 'true' : 'false');
+      };
+
+      window.toggleScheduleMobile = function (btn) {
+        var section = btn.closest('#panel-schedule');
+        if (!section) return;
+        var collapsed = section.getAttribute('data-mobile-collapsed') === 'true';
+        section.setAttribute('data-mobile-collapsed', collapsed ? 'false' : 'true');
         btn.setAttribute('aria-expanded', collapsed ? 'true' : 'false');
       };
 
@@ -4794,3 +4871,4 @@ main {
 
   </script>
 </body>
+

@@ -18,6 +18,10 @@ class ManagiraChatbot {
     if (document.body.getAttribute('data-page') === 'publicDashboard') {
       return;
     }
+    // Don't initialize chatbot inside iframes (e.g. embedded workspace panels)
+    if (window.self !== window.top) {
+      return;
+    }
     this.createChatbotHTML();
     this.bindEvents();
     this.loadPopularQuestions();

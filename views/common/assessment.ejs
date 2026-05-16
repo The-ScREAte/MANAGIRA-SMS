@@ -35,6 +35,13 @@ body {
   flex-direction: column;
 }
 
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
 .assessment-header {
   margin: <%= isEmbedded ? '0 0 10px' : '10px 0 16px' %>;
   padding: <%= isEmbedded ? '10px 12px' : '14px' %>;
@@ -47,22 +54,133 @@ body {
 }
 
 .assessment-header.compact {
-  display: grid;
-  gap: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 12px;
+  min-height: 42px;
 }
 
 .assessment-compact-title {
   margin: 0;
   color: var(--text);
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 700;
+  line-height: 1.1;
+  text-align: left;
+  white-space: nowrap;
 }
 
-.assessment-compact-summary {
-  margin: 0;
+.assessment-compact-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Teachers popover */
+.teachers-popover-wrap {
+  position: relative;
+}
+
+.teachers-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #f8fafc;
   color: #475569;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.teachers-btn:hover {
+  background: #f1f5f9;
+}
+
+.teachers-popover {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 180px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15,23,42,0.12);
+  padding: 10px 14px;
+  z-index: 100;
+}
+
+.teachers-popover.open {
+  display: block;
+}
+
+.teachers-popover-title {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+}
+
+.teachers-popover-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.teachers-popover-list li {
+  padding: 3px 0;
   font-size: 0.82rem;
-  line-height: 1.45;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.teachers-popover-list .main-dot {
+  color: var(--primary);
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+/* Save button in header */
+.header-save-btn {
+  padding: 5px 14px;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 7px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+
+.header-save-btn:hover {
+  background: var(--primary-hover-fill, var(--primary-hover));
+}
+
+.header-save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.assessment-status {
+  display: block;
+  margin-top: 4px;
+  color: #e2e8f0;
+}
+
+.assessment-status.is-editable {
+  color: #22c55e;
+  font-weight: 700;
 }
 
 .meta-toggle {
@@ -246,6 +364,45 @@ table td:nth-child(2) {
   box-sizing: border-box;
 }
 
+<% if (isEmbedded) { %>
+body {
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+main {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  padding: 0 !important;
+}
+
+#save-scores-form {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.table-container {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+  margin: 0 !important;
+}
+
+.center-link {
+  flex-shrink: 0;
+  margin: 0 !important;
+  padding: 8px 12px 12px;
+}
+<% } %>
+
 input[type="number"] {
   width: 100%;
   max-width: 100px;
@@ -337,12 +494,17 @@ input[type="number"]:focus {
     padding: 12px 10px 28px;
   }
 
+  .assessment-header.compact {
+    gap: 8px;
+    padding: 7px 10px;
+  }
+
   .assessment-compact-title {
-    font-size: 1rem;
+    font-size: 0.95rem;
   }
 
   .assessment-compact-summary {
-    font-size: 0.76rem;
+    font-size: 0.7rem;
   }
 
   .top-nav-link {
@@ -407,15 +569,25 @@ input[type="number"]:focus {
       <% if (isEmbedded) { %>
       <div class="assessment-header compact">
         <h1 class="assessment-compact-title"><%= subjectName %></h1>
-        <p class="assessment-compact-summary">
-          <%= className %>
+        <div class="assessment-compact-actions">
           <% if (employees.length > 0) { %>
-            •
-            <% employees.forEach(function(employee, index) { %>
-              <% if (employee.main) { %>• <% } %><%= employee.first_name %> <%= employee.last_name %><% if (index < employees.length - 1) { %> / <% } %>
-            <% }); %>
+          <div class="teachers-popover-wrap">
+            <button type="button" class="teachers-btn" id="teachers-btn" aria-expanded="false">Teachers</button>
+            <div class="teachers-popover" id="teachers-popover" role="tooltip">
+              <p class="teachers-popover-title">Assigned Teachers</p>
+              <ul class="teachers-popover-list">
+                <% employees.forEach(function(employee) { %>
+                <li>
+                  <% if (employee.main) { %><span class="main-dot">•</span><% } %>
+                  <%= employee.first_name %> <%= employee.last_name %>
+                </li>
+                <% }); %>
+              </ul>
+            </div>
+          </div>
           <% } %>
-        </p>
+          <button type="button" class="header-save-btn" id="header-save-scores-button" <%= hasEditableAssessments ? '' : 'disabled' %>>Save All Scores</button>
+        </div>
       </div>
       <% } else { %>
       <div class="assessment-header" id="assessment-meta-card">
@@ -456,7 +628,7 @@ input[type="number"]:focus {
                 <th>
                   <%= assessment.title %> (<%= assessment.weight %>%)<br />
                   <%= assessment.category %><br />
-                  <small style="display:block; margin-top:4px; color:#e2e8f0;">Status: <%= assessment.can_edit_scores ? 'Editable' : assessment.access_reason %></small>
+                  <small class="assessment-status <%= assessment.can_edit_scores ? 'is-editable' : '' %>">Status: <%= assessment.can_edit_scores ? 'Editable' : assessment.access_reason %></small>
                   <hr />
                   Score Out Of: <%= assessment.max_score %>
                 </th>
@@ -519,11 +691,6 @@ input[type="number"]:focus {
             </tbody>
           </table>
         </div>
-        <div class="center-link">
-          <button type="button" id="save-all-scores-button" <%= hasEditableAssessments ? '' : 'disabled' %>>
-            Save All Scores
-          </button>
-        </div>
         <% if (!hasEditableAssessments) { %>
           <p style="margin: 0 0 10px 0; color: #b91c1c; font-weight: 600; text-align:center;">
             Score editing is disabled. Assessment is locked, inactive, or outside its edit window.
@@ -556,8 +723,25 @@ input[type="number"]:focus {
         });
       }
 
+      // Teachers popover
+      const teachersBtn = document.getElementById("teachers-btn");
+      const teachersPopover = document.getElementById("teachers-popover");
+      if (teachersBtn && teachersPopover) {
+        teachersBtn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          const isOpen = teachersPopover.classList.toggle("open");
+          teachersBtn.setAttribute("aria-expanded", isOpen ? "true" : "false");
+        });
+        document.addEventListener("click", function () {
+          teachersPopover.classList.remove("open");
+          teachersBtn.setAttribute("aria-expanded", "false");
+        });
+      }
+
       // Handle saving scores functionality
-      const saveButton = document.getElementById("save-all-scores-button");
+      // Support both header button (embedded) and legacy form button
+      const saveButton = document.getElementById("header-save-scores-button") ||
+                         document.getElementById("save-all-scores-button");
       if (!saveButton) return;
 
       saveButton.addEventListener("click", async function () {

@@ -178,6 +178,36 @@ main { padding: 0 !important; max-width: none !important; }
   gap: 2px;
 }
 
+.doc-visibility-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  margin-bottom: 5px;
+  width: fit-content;
+}
+
+.doc-visibility-badge.class {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.doc-visibility-badge.personal {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.doc-visibility-badge.other_class {
+  background: #faf5ff;
+  color: #7e22ce;
+  border: 1px solid #e9d5ff;
+}
+
 .doc-card-actions {
   position: absolute;
   top: 12px;
@@ -371,9 +401,6 @@ main { padding: 0 !important; max-width: none !important; }
         New Doc/Sheet
       </button>
       <% } %>
-      <% if (!classId) { %>
-      <a href="/common/management" class="btn btn-outline" data-no-spa>← Back</a>
-      <% } %>
     </div>
   </div>
 
@@ -386,13 +413,20 @@ main { padding: 0 !important; max-width: none !important; }
   <% } else { %>
     <div class="docs-grid">
       <% documents.forEach(doc => { %>
-        <div class="doc-card" onclick="if(event.target.closest('.doc-card-actions'))return; window.open('/documents/edit/<%= doc.id %>','_blank','noopener');">
+        <div class="doc-card" onclick="if(event.target.closest('.doc-card-actions'))return; window.open('/documents/edit/<%= doc.id %>?returnUrl='+encodeURIComponent(window.location.href),'_blank','noopener');">
           <div class="doc-card-actions">
             <button type="button" class="doc-delete-btn" data-doc-id="<%= doc.id %>" data-doc-title="<%= doc.title %>" title="Delete">🗑</button>
           </div>
           <div class="doc-card-icon <%= doc.doc_type %>">
             <%= doc.doc_type === 'spreadsheet' ? '📊' : '📝' %>
           </div>
+          <% if (classId && doc.visibility_type) { %>
+            <span class="doc-visibility-badge <%= doc.visibility_type %>">
+              <% if (doc.visibility_type === 'class') { %>This class<% } %>
+              <% if (doc.visibility_type === 'personal') { %>Personal<% } %>
+              <% if (doc.visibility_type === 'other_class') { %>For you &middot; <%= doc.other_class_name || 'Other class' %><% } %>
+            </span>
+          <% } %>
           <h3><%= doc.title %></h3>
           <div class="doc-card-meta">
             <div>By <%= doc.created_by_name %></div>

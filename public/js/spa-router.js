@@ -86,7 +86,6 @@
       '/common/modifyAssessment',
       '/common/manageAssessment',
       '/common/manageRecords',
-      '/common/manageSchoolYear',
       '/common/closeSchoolYear',
       '/common/termDetails',
       '/common/closeGraduationYearGroup',
@@ -115,7 +114,6 @@
       '/common/publicRegister',
       '/account/confirm-password',
       '/stats/organization',
-      '/transcript/transcript',
     ],
     guardian: [
       '/',

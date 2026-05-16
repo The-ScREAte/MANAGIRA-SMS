@@ -1,6 +1,7 @@
 const db = require('../config/db');
 const cacheManager = require('../utils/cacheManager');
 const { resolvePlanForOrganization } = require('../utils/accessCache');
+const { hydrateOrganizationSession } = require('../utils/sessionContext');
 
 const FEATURE_ROUTE_CACHE_TTL_SEC = Number(process.env.FEATURE_ROUTE_CACHE_TTL_SEC || 300);
 const PLAN_FEATURE_CACHE_TTL_SEC = Number(process.env.PLAN_FEATURE_CACHE_TTL_SEC || 90);
@@ -62,6 +63,16 @@ const checkFeatureAccess = async (req, res, next) => {
   const routePath = req.originalUrl.split('?')[0];
   const isPublicDashboard = routePath === '/common/publicDashboard';
 
+  // Best-effort: re-hydrate the organization context from the logged-in user
+  // before evaluating any feature guard. This prevents page refreshes from
+  // destroying the session when req.session.organizationId is momentarily
+  // missing but req.session.userId / req.user is still valid.
+  try {
+    await hydrateOrganizationSession(req);
+  } catch (_e) {
+    // Hydration is best-effort; fall through to the normal checks below.
+  }
+
   // Admin-side roles (Admin, Mini Admin, Internal Worker) are platform users
   // with no organizationId. They should never be evaluated by org feature
   // gates, and must NEVER have their session destroyed by this middleware
@@ -104,10 +115,24 @@ const checkFeatureAccess = async (req, res, next) => {
   // ...removed warn for clean background operation...
     if (isPublicDashboard) {
       return res.status(400).send("Missing organization ID.");
-    } else {
-      req.flash('error', 'Your organization session is no longer valid. Please sign in again.');
-      return destroySessionAndRedirect(req, res, '/');
     }
+
+    // SPA preloads / XHR-style background fetches must NEVER tear down the
+    // user's session — they should just be a no-op response. This is the
+    // root cause of the "missing org id" flash on refresh: a background
+    // preload races ahead of the session restore and then destroys the
+    // session before the real page request can run.
+    const isXhrLike =
+      req.xhr ||
+      req.headers['x-requested-with'] === 'XMLHttpRequest' ||
+      req.headers['sec-fetch-dest'] === 'empty' ||
+      req.headers['sec-fetch-mode'] === 'cors';
+    if (isXhrLike) {
+      return res.status(204).end();
+    }
+
+    req.flash('error', 'Your organization session is no longer valid. Please sign in again.');
+    return destroySessionAndRedirect(req, res, '/');
   }
 
   try {

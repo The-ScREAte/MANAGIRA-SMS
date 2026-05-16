@@ -790,8 +790,41 @@
   .arrears-recipient-item .flag.missing_guardian { background:rgba(255,77,109,.12); color:#ff9caf; }
   .arrears-note { color:var(--fin-muted); font-size:.78rem; }
   .arrears-report-table td:last-child, .arrears-report-table th:last-child { text-align:right; }
+
+  /* Collapsible filter panels (default collapsed on all screens) */
+  .arrears-collapse { display:flex; flex-direction:column; gap:14px; }
+  .arrears-collapse-toggle {
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    width:100%; padding:10px 14px; border-radius:12px;
+    border:1px solid var(--fin-border); background:rgba(255,255,255,.04);
+    color:var(--fin-text); font-weight:600; font-size:.88rem; cursor:pointer;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .arrears-collapse-toggle:hover { border-color:var(--fin-border-hi); background:rgba(0,212,170,.06); }
+  .arrears-collapse-toggle .label { display:inline-flex; align-items:center; gap:8px; min-width:0; }
+  .arrears-collapse-toggle .badge {
+    font-size:.68rem; letter-spacing:.06em; text-transform:uppercase;
+    padding:3px 8px; border-radius:999px; background:rgba(0,212,170,.12); color:var(--fin-teal);
+    font-weight:700;
+  }
+  .arrears-collapse-toggle .chev { transition:transform .2s ease; color:var(--fin-muted); font-size:.85rem; }
+  .arrears-collapse.open > .arrears-collapse-toggle .chev { transform:rotate(180deg); }
+  .arrears-collapse-body { display:none; flex-direction:column; gap:14px; }
+  .arrears-collapse.open > .arrears-collapse-body { display:flex; }
+
   @media (max-width:1100px) { .arrears-top, .arrears-filter-grid, .arrears-detail-summary { grid-template-columns:1fr 1fr; } }
-  @media (max-width:700px) { .arrears-top, .arrears-filter-grid, .arrears-detail-summary { grid-template-columns:1fr; } .arrears-recipient-item { flex-direction:column; } }
+  @media (max-width:700px) {
+    .arrears-top, .arrears-filter-grid, .arrears-detail-summary { grid-template-columns:1fr; }
+    .arrears-recipient-item { flex-direction:column; }
+    .arrears-toolbar { flex-direction:column; align-items:stretch; }
+    .arrears-toolbar-left, .arrears-toolbar-right { width:100%; justify-content:flex-start; }
+    .arrears-filter-actions { width:100%; flex-direction:column; }
+    .arrears-filter-actions .fin-btn { width:100%; }
+    .arrears-sticky-bar { position:static !important; bottom:auto !important; }
+    .arrears-multiselect-menu { max-height:60vh; overflow:auto; }
+    .arrears-report-table { font-size:.82rem; }
+    .arrears-status { min-width:auto; font-size:.66rem; padding:4px 8px; }
+  }
 
   /* ── Student drawer ───────────────────────────────────────────── */
   #studentDrawer { display:none; }
@@ -997,14 +1030,14 @@
       </div>
       <div class="fin-side-title">Navigate</div>
       <nav class="fin-nav">
-        <a href="?section=overview"      class="<%= sec==='overview' ? 'active':'' %>"><span class="ico">💳</span><span>Overview</span></a>
-        <a href="?section=bills"         class="<%= sec==='bills' ? 'active':'' %>"><span class="ico">📋</span><span>Bill Management</span></a>
-        <a href="?section=students"      class="<%= sec==='students' ? 'active':'' %>"><span class="ico">🏢</span><span>Org-Wide Bills</span></a>
-        <a href="?section=subscriptions" class="<%= sec==='subscriptions' ? 'active':'' %>"><span class="ico">📅</span><span>Subscriptions</span></a>
-        <a href="?section=payments"      class="<%= sec==='payments' ? 'active':'' %>"><span class="ico">💰</span><span>Payment Tracking</span></a>
-        <a href="?section=templates"     class="<%= sec==='templates' ? 'active':'' %>"><span class="ico">🏫</span><span>Fee Templates</span></a>
-        <a href="/account/settings/finance/arrears" class="<%= sec==='arrears' ? 'active':'' %>"><span class="ico">🧾</span><span>Fee Recovery</span></a>
-        <a href="?section=settings"      class="<%= sec==='settings' ? 'active':'' %>"><span class="ico">⚙️</span><span>Payment Settings</span></a>
+        <a href="/account/settings/finance?section=overview"      class="<%= sec==='overview' ? 'active':'' %>"><span class="ico">💳</span><span>Overview</span></a>
+        <a href="/account/settings/finance?section=bills"         class="<%= sec==='bills' ? 'active':'' %>"><span class="ico">📋</span><span>Bill Management</span></a>
+        <a href="/account/settings/finance?section=students"      class="<%= sec==='students' ? 'active':'' %>"><span class="ico">🏢</span><span>Org-Wide Bills</span></a>
+        <a href="/account/settings/finance?section=subscriptions" class="<%= sec==='subscriptions' ? 'active':'' %>"><span class="ico">📅</span><span>Subscriptions</span></a>
+        <a href="/account/settings/finance?section=payments"      class="<%= sec==='payments' ? 'active':'' %>"><span class="ico">💰</span><span>Payment Tracking</span></a>
+        <a href="/account/settings/finance?section=templates"     class="<%= sec==='templates' ? 'active':'' %>"><span class="ico">🏫</span><span>Fee Templates</span></a>
+        <a href="/account/settings/finance/arrears"               class="<%= sec==='arrears' ? 'active':'' %>"><span class="ico">🧾</span><span>Fee Recovery</span></a>
+        <a href="/account/settings/finance?section=settings"      class="<%= sec==='settings' ? 'active':'' %>"><span class="ico">⚙️</span><span>Payment Settings</span></a>
       </nav>
     </aside>
 
@@ -2012,6 +2045,12 @@
                 <h2>Arrears &amp; Defaulters Management</h2>
                 <span class="fin-section-count">Exact route, org-only recovery workspace</span>
               </div>
+              <div class="arrears-collapse" data-arrears-collapse>
+                <button type="button" class="arrears-collapse-toggle" data-arrears-collapse-toggle aria-expanded="false">
+                  <span class="label">🔎 Filters <span class="badge">Tap to open</span></span>
+                  <span class="chev">▾</span>
+                </button>
+                <div class="arrears-collapse-body">
               <form method="GET" action="/account/settings/finance/arrears" id="arrearsFilterForm" class="fin-form" style="gap:14px;">
                 <div class="arrears-filter-grid">
                   <div class="fin-field">
@@ -2168,6 +2207,8 @@
                   </div>
                 </div>
               </form>
+                </div>
+              </div>
             </div>
 
             <div class="fin-card arrears-filter-card">
@@ -2175,6 +2216,12 @@
                 <h2>Saved Filter Presets</h2>
                 <span class="fin-section-count"><%= (arrearsPresets || []).length %> saved</span>
               </div>
+              <div class="arrears-collapse" data-arrears-collapse>
+                <button type="button" class="arrears-collapse-toggle" data-arrears-collapse-toggle aria-expanded="false">
+                  <span class="label">📂 Presets &amp; Readiness <span class="badge">Tap to open</span></span>
+                  <span class="chev">▾</span>
+                </button>
+                <div class="arrears-collapse-body">
               <form method="POST" action="/account/settings/finance/arrears/presets" class="fin-form" id="arrearsPresetForm">
                 <div class="fin-field">
                   <label>Preset Name</label>
@@ -2201,6 +2248,8 @@
                   <div class="arrears-detail-stat"><div class="label">Ready</div><div class="value"><%= recipientReview.recipients.filter(r => r.status === 'ready').length %></div></div>
                   <div class="arrears-detail-stat"><div class="label">Missing Guardian</div><div class="value"><%= recipientReview.missingGuardian %></div></div>
                   <div class="arrears-detail-stat"><div class="label">Missing Email</div><div class="value"><%= recipientReview.missingEmail %></div></div>
+                </div>
+              </div>
                 </div>
               </div>
             </div>
@@ -3017,7 +3066,24 @@ Regards,
   function setModalOpen(id, open) {
     var modal = document.getElementById(id);
     if (modal) modal.classList[open ? 'add' : 'remove']('open');
+    /* Lock body scroll while any arrears modal is open to prevent
+       the "ghost scroll / stuck UI" feeling on small screens. */
+    var anyOpen = !!document.querySelector('#arrearsReportModal.open, #arrearsEmailModal.open, #arrearsNoteModal.open');
+    document.body.style.overflow = anyOpen ? 'hidden' : '';
   }
+  /* Click outside arrears modal panel closes it */
+  ['arrearsReportModal','arrearsEmailModal','arrearsNoteModal'].forEach(function(id) {
+    var m = document.getElementById(id);
+    if (!m) return;
+    m.addEventListener('click', function(e) { if (e.target === m) setModalOpen(id, false); });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    ['arrearsReportModal','arrearsEmailModal','arrearsNoteModal'].forEach(function(id) {
+      var m = document.getElementById(id);
+      if (m && m.classList.contains('open')) setModalOpen(id, false);
+    });
+  });
   window.openArrearsReportModal = function () {
     injectArrearsFilterPayload(document.getElementById('arrearsReportForm'));
     syncArrearsSelection();
@@ -3106,6 +3172,19 @@ Regards,
   });
   syncArrearsSelection();
   syncArrearsManualRecipients();
+
+  /* Collapsible arrears panels — default closed on every screen */
+  document.querySelectorAll('[data-arrears-collapse]').forEach(function(panel) {
+    var toggle = panel.querySelector('[data-arrears-collapse-toggle]');
+    if (!toggle) return;
+    toggle.addEventListener('click', function () {
+      var willOpen = !panel.classList.contains('open');
+      panel.classList.toggle('open', willOpen);
+      toggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+      var badge = toggle.querySelector('.badge');
+      if (badge) badge.textContent = willOpen ? 'Open' : 'Tap to open';
+    });
+  });
 
   var overviewYearSelect = document.getElementById('finOverviewYear');
   var overviewTermSelect = document.getElementById('finOverviewTerm');

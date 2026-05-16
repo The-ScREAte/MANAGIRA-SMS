@@ -327,92 +327,109 @@ const documentController = {
 
       let documentRows = [];
 
-      if (canCreate) {
-        if (classId) {
-          const classExists = await classBelongsToOrg(db, classId, orgId);
-          if (!classExists) {
-            documentRows = [];
-          } else {
-          // Inside a class workspace, only show docs assigned to the logged-in user
-          // (docs they created, were granted explicit permission to, or are class member of an assigned class).
-          const docs = await db.query(`
-            SELECT DISTINCT d.id, d.title, d.doc_type, d.created_at, d.updated_at,
-              u.first_name || ' ' || u.last_name AS created_by_name,
-              d.created_by
-            FROM documents d
-            JOIN users u ON d.created_by = u.user_id
-            JOIN document_class_assignments dca ON d.id = dca.document_id AND dca.class_id = $2
-            JOIN classes c ON c.class_id = dca.class_id AND c.organization_id = $1
-            LEFT JOIN document_permissions dp ON dp.document_id = d.id AND dp.user_id = $3
-            LEFT JOIN class_employees ce ON ce.class_id = dca.class_id AND ce.user_id = $3
-            WHERE d.organization_id = $1 AND d.is_deleted = FALSE
-              AND (d.created_by = $3 OR dp.user_id IS NOT NULL OR ce.user_id IS NOT NULL)
-            ORDER BY d.updated_at DESC
-          `, [orgId, classId, userId]);
-          documentRows = docs.rows;
-          }
-        } else {
-          const docs = await db.query(`
-            SELECT d.id, d.title, d.doc_type, d.created_at, d.updated_at,
-              u.first_name || ' ' || u.last_name AS created_by_name,
-              d.created_by
-            FROM documents d
-            JOIN users u ON d.created_by = u.user_id
-            WHERE d.organization_id = $1 AND d.is_deleted = FALSE
-            ORDER BY d.updated_at DESC
-          `, [orgId]);
-          documentRows = docs.rows;
-        }
-      } else {
-        if (classId) {
-          const classExists = await classBelongsToOrg(db, classId, orgId);
-          if (!classExists) {
-            documentRows = [];
-          } else {
-          const classMembership = await db.query(`
-            SELECT 1
-            FROM class_employees ce
-            JOIN classes c ON c.class_id = ce.class_id
-            WHERE ce.class_id = $1 AND ce.user_id = $2 AND c.organization_id = $3
-            LIMIT 1
-          `, [classId, userId, orgId]);
+      console.log('[DOCS][LIST] session dump', { orgId, userId, userRole, classId, canCreate });
 
-          if (classMembership.rows.length > 0) {
-            const docs = await db.query(`
+      if (classId) {
+        // Unified class workspace query — same rules regardless of canCreate:
+        // Case 1: doc assigned to THIS class → visible to all class members
+        // Case 2: doc created by user OR user has explicit permission, NOT assigned to this class → personal / other-class
+        const classExists = await classBelongsToOrg(db, classId, orgId);
+        if (!classExists) {
+          documentRows = [];
+        } else {
+          // $4 = canCreate: admins/managers bypass the class_employees membership check
+          // so they see all docs assigned to this class, not just ones where they're a member
+          const docs = await db.query(`
+            SELECT id, title, doc_type, created_at, updated_at, created_by_name, created_by,
+                   visibility_type, other_class_name
+            FROM (
+              -- Case 1: doc assigned to this class
+              -- visible if user is a class_employee OR has manage-records permission ($4)
               SELECT DISTINCT d.id, d.title, d.doc_type, d.created_at, d.updated_at,
                 u.first_name || ' ' || u.last_name AS created_by_name,
-                d.created_by
+                d.created_by,
+                'class'::text AS visibility_type,
+                NULL::text AS other_class_name
               FROM documents d
               JOIN users u ON d.created_by = u.user_id
-              JOIN document_class_assignments dca ON d.id = dca.document_id AND dca.class_id = $1
-              JOIN classes c ON c.class_id = dca.class_id AND c.organization_id = $3
-              JOIN class_employees ce ON ce.class_id = dca.class_id AND ce.user_id = $2
-              LEFT JOIN document_permissions dp ON dp.document_id = d.id AND dp.user_id = $2
-              WHERE d.organization_id = $3 AND d.is_deleted = FALSE
-                AND (d.created_by = $2 OR dp.user_id IS NOT NULL OR dca.class_id IS NOT NULL)
-              ORDER BY d.updated_at DESC
-            `, [classId, userId, orgId]);
-            documentRows = docs.rows;
-          } else {
-            documentRows = [];
-          }
-          }
-        } else {
-          const docs = await db.query(`
-            SELECT DISTINCT d.id, d.title, d.doc_type, d.created_at, d.updated_at,
-              u.first_name || ' ' || u.last_name AS created_by_name,
-              d.created_by
-            FROM documents d
-            JOIN users u ON d.created_by = u.user_id
-            LEFT JOIN document_permissions dp ON d.id = dp.document_id AND dp.user_id = $1
-            LEFT JOIN document_class_assignments dca ON d.id = dca.document_id
-            LEFT JOIN class_employees ce ON ce.class_id = dca.class_id AND ce.user_id = $1
-            WHERE d.organization_id = $2 AND d.is_deleted = FALSE
-              AND (d.created_by = $1 OR dp.user_id IS NOT NULL OR ce.user_id IS NOT NULL)
-            ORDER BY d.updated_at DESC
-          `, [userId, orgId]);
+              JOIN document_class_assignments dca ON d.id = dca.document_id AND dca.class_id = $2
+              WHERE d.organization_id = $1 AND d.is_deleted = FALSE
+                AND (
+                  $4 = TRUE
+                  OR EXISTS (
+                    SELECT 1 FROM class_employees ce
+                    WHERE ce.class_id = $2 AND ce.user_id = $3
+                  )
+                )
+
+              UNION
+
+              -- Case 2: user created it or has explicit permission, not assigned to this class
+              SELECT DISTINCT d.id, d.title, d.doc_type, d.created_at, d.updated_at,
+                u.first_name || ' ' || u.last_name AS created_by_name,
+                d.created_by,
+                CASE
+                  WHEN EXISTS (
+                    SELECT 1 FROM document_class_assignments dca2
+                    JOIN classes c2 ON c2.class_id = dca2.class_id
+                    WHERE dca2.document_id = d.id AND c2.organization_id = $1
+                  ) THEN 'other_class'::text
+                  ELSE 'personal'::text
+                END AS visibility_type,
+                (
+                  SELECT c3.class_name
+                  FROM document_class_assignments dca3
+                  JOIN classes c3 ON c3.class_id = dca3.class_id
+                  WHERE dca3.document_id = d.id AND c3.organization_id = $1
+                  LIMIT 1
+                ) AS other_class_name
+              FROM documents d
+              JOIN users u ON d.created_by = u.user_id
+              LEFT JOIN document_permissions dp ON dp.document_id = d.id AND dp.user_id = $3
+              WHERE d.organization_id = $1 AND d.is_deleted = FALSE
+                AND (d.created_by = $3 OR dp.user_id IS NOT NULL)
+                AND NOT EXISTS (
+                  SELECT 1 FROM document_class_assignments dca4
+                  WHERE dca4.document_id = d.id AND dca4.class_id = $2
+                )
+            ) sub
+            ORDER BY updated_at DESC
+          `, [orgId, classId, userId, canCreate]);
+          console.log('[DOCS][LIST] query returned', docs.rows.length, 'rows for classId', classId, 'userId', userId, 'canCreate', canCreate);
           documentRows = docs.rows;
         }
+      } else if (canCreate) {
+        // No classId — admin/manager sees all org docs
+        const docs = await db.query(`
+          SELECT d.id, d.title, d.doc_type, d.created_at, d.updated_at,
+            u.first_name || ' ' || u.last_name AS created_by_name,
+            d.created_by,
+            NULL::text AS visibility_type,
+            NULL::text AS other_class_name
+          FROM documents d
+          JOIN users u ON d.created_by = u.user_id
+          WHERE d.organization_id = $1 AND d.is_deleted = FALSE
+          ORDER BY d.updated_at DESC
+        `, [orgId]);
+        documentRows = docs.rows;
+      } else {
+        // No classId, no manage-records — user sees only their own / permitted docs
+        const docs = await db.query(`
+          SELECT DISTINCT d.id, d.title, d.doc_type, d.created_at, d.updated_at,
+            u.first_name || ' ' || u.last_name AS created_by_name,
+            d.created_by,
+            NULL::text AS visibility_type,
+            NULL::text AS other_class_name
+          FROM documents d
+          JOIN users u ON d.created_by = u.user_id
+          LEFT JOIN document_permissions dp ON d.id = dp.document_id AND dp.user_id = $1
+          LEFT JOIN document_class_assignments dca ON d.id = dca.document_id
+          LEFT JOIN class_employees ce ON ce.class_id = dca.class_id AND ce.user_id = $1
+          WHERE d.organization_id = $2 AND d.is_deleted = FALSE
+            AND (d.created_by = $1 OR dp.user_id IS NOT NULL OR ce.user_id IS NOT NULL)
+          ORDER BY d.updated_at DESC
+        `, [userId, orgId]);
+        documentRows = docs.rows;
       }
 
       // Get classes for assignment dropdowns
@@ -629,6 +646,21 @@ const documentController = {
         ORDER BY u.first_name
       `, [orgId]);
 
+      // Resolve safe return URL (must be relative path within the app)
+      let returnUrl = '/documents';
+      if (req.query.returnUrl) {
+        const raw = decodeURIComponent(req.query.returnUrl);
+        // Accept only relative paths or same-origin absolute URLs
+        try {
+          const parsed = new URL(raw, 'http://localhost');
+          if (parsed.hostname === 'localhost' || parsed.hostname === '') {
+            returnUrl = parsed.pathname + parsed.search + parsed.hash;
+          }
+        } catch (_) {
+          if (raw.startsWith('/')) returnUrl = raw;
+        }
+      }
+
       res.render("common/documentEditor", {
         title: doc.title,
         document: doc,
@@ -638,6 +670,7 @@ const documentController = {
         classes: classes.rows,
         employees: employees.rows,
         userId,
+        returnUrl,
         layout: false,
       });
     } catch (error) {

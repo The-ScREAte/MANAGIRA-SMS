@@ -1,5 +1,6 @@
 const multer = require('multer');
 const db = require('../config/db');
+const { hydrateOrganizationSession } = require('../utils/sessionContext');
 
 const storage = multer.memoryStorage(); // Store files in memory to send to S3
 
@@ -26,6 +27,8 @@ function destroySessionAndRedirect(req, res, redirectTo) {
 // Middleware to check if the user is authenticated
 async function isAuthenticated(req, res, next) {
     try {
+        await hydrateOrganizationSession(req);
+
         if (!req.session || (!req.session.organizationId && !req.session.userId)) {
             return res.redirect('/account/login');
         }

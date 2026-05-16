@@ -41,6 +41,7 @@ const {
   ensureOrganizationActivityLogSchema,
 } = require("./utils/activityLog");
 const { ensureNicknameDisplaySchema } = require("./utils/nicknameDisplaySchema");
+const { hydrateOrganizationSession } = require("./utils/sessionContext");
 
 // **Dynamic BASE_URL Logic**
 const BASE_URL =
@@ -364,6 +365,15 @@ app.use((req, res, next) => {
 // Passport middleware
 app.use(passport.initialize());
 app.use(passport.session());
+
+app.use(async (req, res, next) => {
+  try {
+    await hydrateOrganizationSession(req);
+  } catch (error) {
+    console.error("[sessionContext] Failed to hydrate organization session:", error.message || error);
+  }
+  next();
+});
 
 // Set current term middleware
 app.use(async (req, res, next) => {

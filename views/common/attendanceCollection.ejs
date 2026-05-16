@@ -37,7 +37,7 @@
 
         .attendance-header-top {
             display: flex;
-            align-items: flex-start;
+            align-items: center;
             justify-content: space-between;
             gap: 12px;
         }
@@ -45,6 +45,31 @@
         .attendance-header-copy {
             min-width: 0;
             flex: 1 1 auto;
+        }
+
+        /* Single-row layout when embedded */
+        .attendance-header-top.embedded-row {
+            align-items: center;
+        }
+
+        .attendance-header-title {
+            flex-shrink: 0;
+            margin: 0;
+            color: #0f172a;
+            font-size: 1.08rem;
+            font-weight: 700;
+        }
+
+        .attendance-header-pills-center {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        .attendance-header-actions {
+            flex-shrink: 0;
         }
 
         .attendance-header {
@@ -135,19 +160,86 @@
 
         .calendar-rules-toggle {
             display: none;
-            margin-top: 8px;
-            background: #eef2ff;
-            color: #1e3a8a;
-            border: 1px solid #c7d2fe;
-            border-radius: 8px;
-            padding: 6px 10px;
-            font-size: 0.82rem;
-            font-weight: 600;
-            cursor: pointer;
         }
 
-        .calendar-rules-content {
+        /* Calendar info pills */
+        .cal-pills-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 5px;
+            margin-top: 6px;
+        }
+
+        .cal-pill-wrap {
+            position: relative;
+        }
+
+        .cal-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 9px;
+            border-radius: 999px;
+            border: 1px solid #c7d2fe;
+            background: #eef2ff;
+            color: #1e3a8a;
+            font-size: 0.72rem;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.15s;
+            line-height: 1.4;
+        }
+
+        .cal-pill:hover {
+            background: #e0e7ff;
+        }
+
+        .cal-pill.cal-pill-muted {
+            border-color: #e2e8f0;
+            background: #f1f5f9;
+            color: #475569;
+        }
+
+        .cal-pill.cal-pill-muted:hover {
+            background: #e9eff5;
+        }
+
+        .cal-pill-popover {
+            display: none;
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            min-width: 160px;
+            max-width: 240px;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-shadow: 0 8px 24px rgba(15,23,42,0.13);
+            padding: 10px 13px;
+            z-index: 200;
+        }
+
+        .cal-pill-popover.open {
             display: block;
+        }
+
+        .cal-popover-label {
+            margin: 0 0 3px;
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #94a3b8;
+        }
+
+        .cal-popover-value {
+            margin: 0;
+            font-size: 0.82rem;
+            color: #0f172a;
+            font-weight: 500;
+            line-height: 1.4;
         }
 
         .attendance-summary-toggle {
@@ -199,9 +291,9 @@
         font-size: 0.54rem;
         font-weight: 700;
         text-transform: uppercase;
-        color: #92400e;
-        background: #fef3c7;
-        border: 1px solid #f59e0b;
+        color: #64748b;
+        background: #f1f5f9;
+        border: 1px solid #cbd5e1;
         border-radius: 999px;
         padding: 0 5px;
         letter-spacing: 0.03em;
@@ -403,7 +495,7 @@
         color: #333;
     }
     .attendance-sheet th.date-col-excluded {
-        background: #fff8e1;
+        background: #fff;
     }
     .attendance-sheet td.inactive-day-cell {
         position: relative;
@@ -437,7 +529,7 @@
         transform: translate(-50%, -50%) rotate(-34deg);
         font-size: 0.45rem;
         font-weight: 700;
-        color: rgba(30, 64, 175, 0.5);
+        color: rgba(148, 163, 184, 0.62);
         letter-spacing: 0.08em;
         text-transform: uppercase;
         pointer-events: none;
@@ -455,7 +547,7 @@
     }
 
     .attendance-sheet th.term-end-col {
-        background: #eef2ff;
+        background: #fff;
     }
 
     .attendance-sheet td.term-end-cell {
@@ -854,33 +946,29 @@
                     font-size: 1.15rem;
                 }
 
-                .attendance-header-top {
+                .attendance-header-top:not(.embedded-row) {
                     flex-direction: column;
                     align-items: stretch;
                 }
 
-                .attendance-header-top .filter-toggle-btn {
+                .attendance-header-top:not(.embedded-row) .filter-toggle-btn {
                     align-self: flex-start;
+                }
+
+                .attendance-header-top.embedded-row {
+                    flex-wrap: wrap;
+                    gap: 8px;
+                }
+
+                .attendance-header-pills-center {
+                    order: 3;
+                    flex: 0 1 auto;
+                    justify-content: flex-start;
+                    width: 100%;
                 }
 
                 .attendance-meta {
                     font-size: 0.85rem;
-                }
-
-                .calendar-rules-toggle {
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 6px;
-                }
-
-                .calendar-rules-content {
-                    max-height: 260px;
-                    overflow: hidden;
-                    transition: max-height 0.25s ease;
-                }
-
-                .calendar-rules-content.collapsed-mobile {
-                    max-height: 0;
                 }
 
                 .attendance-summary-toggle {
@@ -911,42 +999,73 @@
         <div class="attendance-page <%= isEmbedded ? 'attendance-page-embedded' : '' %>">
             <div class="attendance-toolbar">
             <div class="attendance-header">
-                <div class="attendance-header-top">
-                    <div class="attendance-header-copy">
-                        <h1><%= isEmbedded ? 'Attendance' : `Attendance for ${className}` %></h1>
-                        <% if (isEmbedded) { %>
-                            <% if (attendanceCalendarSummary && attendanceCalendarSummary.enabled) { %>
-                                <p class="attendance-summary-line">
-                                    Calendar rules active · Country: <%= attendanceCalendarSummary.countryCode %> · Weekends: <%= (attendanceCalendarSummary.weekendLabels || []).length ? attendanceCalendarSummary.weekendLabels.join(', ') : 'None' %> · Public holidays: <%= attendanceCalendarSummary.includePublicHolidays ? 'Excluded' : 'Included' %><% if (attendanceCalendarSummary.excludedDisplayDateCount > 0) { %> · <%= attendanceCalendarSummary.excludedDisplayDateCount %> excluded date(s) shown as inactive<% } %>
-                                </p>
-                            <% } %>
-                        <% } else { %>
-                            <div class="attendance-meta">School Year: <%= schoolYear.year_label %> · Term: <%= termName %></div>
+                <% if (isEmbedded) { %>
+                <div class="attendance-header-top embedded-row">
+                    <h1 class="attendance-header-title">Attendance</h1>
+                    <% if (attendanceCalendarSummary && attendanceCalendarSummary.enabled) { %>
+                    <div class="attendance-header-pills-center">
+                        <div class="cal-pill-wrap">
+                            <button type="button" class="cal-pill" data-pill="country">
+                                Country: <%= attendanceCalendarSummary.countryCode %>
+                            </button>
+                            <div class="cal-pill-popover" id="popover-country">
+                                <p class="cal-popover-label">Country</p>
+                                <p class="cal-popover-value"><%= attendanceCalendarSummary.countryCode %></p>
+                            </div>
+                        </div>
+                        <div class="cal-pill-wrap">
+                            <button type="button" class="cal-pill" data-pill="weekends">
+                                Weekends
+                            </button>
+                            <div class="cal-pill-popover" id="popover-weekends">
+                                <p class="cal-popover-label">Weekend Days</p>
+                                <p class="cal-popover-value"><%= (attendanceCalendarSummary.weekendLabels || []).length ? attendanceCalendarSummary.weekendLabels.join(', ') : 'None' %></p>
+                            </div>
+                        </div>
+                        <div class="cal-pill-wrap">
+                            <button type="button" class="cal-pill" data-pill="holidays">
+                                Public Holidays
+                            </button>
+                            <div class="cal-pill-popover" id="popover-holidays">
+                                <p class="cal-popover-label">Public Holidays</p>
+                                <p class="cal-popover-value"><%= attendanceCalendarSummary.includePublicHolidays ? 'Excluded from attendance' : 'Included in attendance' %></p>
+                            </div>
+                        </div>
+                        <% if (attendanceCalendarSummary.excludedDisplayDateCount > 0) { %>
+                        <div class="cal-pill-wrap">
+                            <button type="button" class="cal-pill cal-pill-muted" data-pill="excluded">
+                                <%= attendanceCalendarSummary.excludedDisplayDateCount %> inactive date(s)
+                            </button>
+                            <div class="cal-pill-popover" id="popover-excluded">
+                                <p class="cal-popover-label">Inactive Dates</p>
+                                <p class="cal-popover-value"><%= attendanceCalendarSummary.excludedDisplayDateCount %> date(s) shown as inactive &mdash; weekends, public holidays, or manually excluded.</p>
+                            </div>
+                        </div>
                         <% } %>
                     </div>
-
+                    <% } else { %>
+                    <div class="attendance-header-pills-center"></div>
+                    <% } %>
+                    <div class="attendance-header-actions">
+                        <button class="filter-toggle-btn" onclick="toggleFilters()"><span aria-hidden="true">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 4 21 4 14 12 14 19 10 21 10 12 3 4"></polygon></svg>
+                        </span><span>Filters</span></button>
+                    </div>
+                </div>
+                <% } else { %>
+                <div class="attendance-header-top">
+                    <div class="attendance-header-copy">
+                        <h1><%= `Attendance for ${className}` %></h1>
+                        <div class="attendance-meta">School Year: <%= schoolYear.year_label %> &middot; Term: <%= termName %></div>
+                    </div>
                     <!-- Collapsible Filter Controls -->
                     <button class="filter-toggle-btn" onclick="toggleFilters()"><span aria-hidden="true">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 4 21 4 14 12 14 19 10 21 10 12 3 4"></polygon></svg>
                     </span><span>Filters</span></button>
                 </div>
+                <% } %>
                 <% if (attendanceCalendarSummary && attendanceCalendarSummary.enabled) { %>
-                    <button type="button" id="calendarRulesToggle" class="calendar-rules-toggle" onclick="toggleCalendarRules()">Calendar Rules</button>
-                    <div id="calendarRulesContent" class="calendar-rules-content collapsed-mobile">
-                        <% if (isEmbedded) { %>
-                        <% } else { %>
-                            <div class="attendance-meta" style="margin-top:4px;">
-                                Calendar rules active · Country: <%= attendanceCalendarSummary.countryCode %> ·
-                                Weekends: <%= (attendanceCalendarSummary.weekendLabels || []).length ? attendanceCalendarSummary.weekendLabels.join(', ') : 'None' %> ·
-                                Public holidays: <%= attendanceCalendarSummary.includePublicHolidays ? 'Excluded' : 'Included' %>
-                            </div>
-                            <% if (attendanceCalendarSummary.excludedDisplayDateCount > 0) { %>
-                                <div class="attendance-meta" style="margin-top:2px; color:#334155;">
-                                    <%= attendanceCalendarSummary.excludedDisplayDateCount %> excluded date(s) are shown as inactive (Weekend/Holiday/Excluded).
-                                </div>
-                            <% } %>
-                        <% } %>
-                    </div>
+                    <%# Calendar Rules button removed — pills in header handle this now %>
                 <% } else { %>
                     <div class="attendance-meta" style="margin-top:6px; background:#fff8e1; border:1px solid #f59e0b; border-radius:6px; padding:6px 14px; color:#92400e; display:inline-block;">
                         ⚠️ No attendance calendar is configured for this term — all dates including weekends are shown.
@@ -1131,10 +1250,32 @@
         }
 
         function toggleCalendarRules() {
-            const content = document.getElementById('calendarRulesContent');
-            if (!content) return;
-            content.classList.toggle('collapsed-mobile');
+            // legacy — no-op, pills replaced this
         }
+
+        // Calendar info pill popovers
+        (function () {
+            const pillWraps = document.querySelectorAll('.cal-pill-wrap');
+            pillWraps.forEach(function (wrap) {
+                const btn = wrap.querySelector('.cal-pill');
+                const popover = wrap.querySelector('.cal-pill-popover');
+                if (!btn || !popover) return;
+                btn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    const isOpen = popover.classList.contains('open');
+                    // close all others
+                    document.querySelectorAll('.cal-pill-popover.open').forEach(function (p) {
+                        p.classList.remove('open');
+                    });
+                    if (!isOpen) popover.classList.add('open');
+                });
+            });
+            document.addEventListener('click', function () {
+                document.querySelectorAll('.cal-pill-popover.open').forEach(function (p) {
+                    p.classList.remove('open');
+                });
+            });
+        })();
 
         function toggleAttendanceSummary() {
             const content = document.getElementById('attendanceSummaryWrapper');
@@ -1217,9 +1358,6 @@
             const calendarRulesContent = document.getElementById('calendarRulesContent');
             const attendanceSummaryWrapper = document.getElementById('attendanceSummaryWrapper');
 
-            if (calendarRulesContent && window.matchMedia('(min-width: 769px)').matches) {
-                calendarRulesContent.classList.remove('collapsed-mobile');
-            }
             if (attendanceSummaryWrapper && window.matchMedia('(min-width: 769px)').matches) {
                 attendanceSummaryWrapper.classList.remove('collapsed-mobile');
             }

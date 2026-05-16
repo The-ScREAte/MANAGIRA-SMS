@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { hydrateOrganizationSession } = require('../utils/sessionContext');
 
 function safeFlash(req, type, message) {
     if (req && req.session && typeof req.flash === 'function') {
@@ -22,6 +23,8 @@ const isAuthenticated = async (req, res, next) => {
         if (!req.session) {
             return res.redirect('/account/login');
         }
+
+        await hydrateOrganizationSession(req);
 
         // Debug log removed for production
         // Allow super admin org switch session
