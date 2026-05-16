@@ -40,6 +40,7 @@ const {
   createOrganizationActivityLogMiddleware,
   ensureOrganizationActivityLogSchema,
 } = require("./utils/activityLog");
+const { ensureNicknameDisplaySchema } = require("./utils/nicknameDisplaySchema");
 
 // **Dynamic BASE_URL Logic**
 const BASE_URL =
@@ -52,6 +53,10 @@ app.set("db", db);
 
 ensureOrganizationActivityLogSchema(db).catch((error) => {
   console.error("[ActivityLog] Failed to initialize schema:", error.message || error);
+});
+
+ensureNicknameDisplaySchema(db).catch((error) => {
+  console.error("[NicknameDisplay] Failed to initialize schema:", error.message || error);
 });
 
 const SUBDOMAIN_CACHE_TTL_MS = Number(process.env.SUBDOMAIN_CACHE_TTL_MS) || 2 * 60 * 1000;
@@ -318,6 +323,7 @@ app.use((req, res, next) => {
   res.locals.session = req.session;
   res.locals.getFlash = (type) => req.flash(type);
   res.locals.BASE_URL = BASE_URL;
+  res.locals.currentPath = req.path || "";
   res.locals.showFooterTopSection = false;
   res.locals.unresolvedCount = 0;
 

@@ -25,6 +25,8 @@ const statsController = {
   // 🆚 Compare Classes Statistics
   compareClassesStats: async (req, res) => {
     const { selectedClasses } = req.body;
+    const organizationId = req.session.organizationId;
+    if (!organizationId) return res.status(401).json({ error: "Unauthorized" });
     if (!selectedClasses?.length) return res.status(400).json({ error: "No classes selected." });
 
     try {
@@ -36,12 +38,15 @@ const statsController = {
           COUNT(CASE WHEN ar.total_percentage >= 50 THEN 1 END) AS pass_count,
           COUNT(CASE WHEN ar.total_percentage < 50 THEN 1 END) AS fail_count
         FROM classes c
-        LEFT JOIN students s ON c.class_id = s.class_id
-        LEFT JOIN assessment_results ar ON s.student_id = ar.student_id
+        LEFT JOIN students s
+          ON c.class_id = s.class_id AND s.organization_id = $2
+        LEFT JOIN assessment_results ar
+          ON s.student_id = ar.student_id AND ar.organization_id = $2
         WHERE c.class_id = ANY($1::int[])
+          AND c.organization_id = $2
         GROUP BY c.class_name
         ORDER BY c.class_name
-      `, [selectedClasses])).rows;
+      `, [selectedClasses, organizationId])).rows;
 
       res.json(classStats);
     } catch (err) {

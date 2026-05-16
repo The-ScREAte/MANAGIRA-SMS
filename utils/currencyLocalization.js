@@ -226,6 +226,9 @@ function formatCurrencyAmount(value, currencyCode, localeOverride) {
 
 module.exports = {
   getCurrencyProfileForRequest,
+  getLocaleForCurrency,
+  getUsdRate,
+  normalizeCurrencyCode,
   localizeUsdAmount,
   formatCurrencyAmount,
 };

@@ -85,11 +85,53 @@ const enrollmentController = {
       const { schoolYearId, termId, selectedClasses, selectedStudents } = req.body;
       const organizationId = req.session.organizationId;
     
+      if (!organizationId) {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+      }
       if (!schoolYearId || !termId || !selectedClasses || selectedClasses.length === 0) {
         return res.status(400).json({ success: false, message: 'School year, term, and classes are required for enrollment.' });
       }
     
       try {
+        // Tenant boundary: only accept class ids and student ids that
+        // belong to the caller's organization. Foreign ids are dropped
+        // silently so a hostile or buggy client cannot link a foreign
+        // class or student into this org's enrollment.
+        const normalizedClassIds = (Array.isArray(selectedClasses) ? selectedClasses : [selectedClasses])
+          .map(v => Number(v))
+          .filter(v => Number.isInteger(v) && v > 0);
+        const ownedClassesRes = normalizedClassIds.length
+          ? await db.query(
+              `SELECT class_id FROM classes WHERE class_id = ANY($1::int[]) AND organization_id = $2`,
+              [normalizedClassIds, organizationId]
+            )
+          : { rows: [] };
+        const ownedClassIds = new Set(ownedClassesRes.rows.map(r => Number(r.class_id)));
+
+        const requestedStudentIds = [];
+        Object.values(selectedStudents || {}).forEach(arr => {
+          (Array.isArray(arr) ? arr : []).forEach(v => {
+            const n = Number(v);
+            if (Number.isInteger(n) && n > 0) requestedStudentIds.push(n);
+          });
+        });
+        const ownedStudentsRes = requestedStudentIds.length
+          ? await db.query(
+              `SELECT student_id FROM students WHERE student_id = ANY($1::int[]) AND organization_id = $2`,
+              [requestedStudentIds, organizationId]
+            )
+          : { rows: [] };
+        const ownedStudentIds = new Set(ownedStudentsRes.rows.map(r => Number(r.student_id)));
+
+        // Verify school_year + term belong to this org
+        const termCheck = await db.query(
+          `SELECT 1 FROM terms WHERE term_id = $1 AND school_year_id = $2 AND organization_id = $3`,
+          [termId, schoolYearId, organizationId]
+        );
+        if (!termCheck.rows.length) {
+          return res.status(403).json({ success: false, message: 'Term or school year does not belong to your organization.' });
+        }
+
         await db.query('BEGIN');
     
         // Check for existing enrollment
@@ -110,8 +152,9 @@ const enrollmentController = {
           enrollmentId = newEnrollmentRes.rows[0].enrollment_id;
         }
     
-        // Insert any new classes (avoid duplicates)
-        for (const classId of selectedClasses) {
+        // Insert any new classes (avoid duplicates) -- only org-owned
+        for (const classId of normalizedClassIds) {
+          if (!ownedClassIds.has(Number(classId))) continue;
           await db.query(`
             INSERT INTO enrolled_classes (enrollment_id, class_id)
             SELECT $1, $2
@@ -123,18 +166,22 @@ const enrollmentController = {
     
         // Insert students (ensure each student only exists once across all classes for that enrollment)
         for (const classId in selectedStudents) {
+          const classIdNum = Number(classId);
+          if (!ownedClassIds.has(classIdNum)) continue; // skip foreign classes
           const students = selectedStudents[classId];
           for (const studentId of students) {
+            const studentIdNum = Number(studentId);
+            if (!ownedStudentIds.has(studentIdNum)) continue; // skip foreign students
             const existingStudentCheck = await db.query(`
               SELECT 1 FROM enrolled_students
               WHERE enrollment_id = $1 AND student_id = $2
-            `, [enrollmentId, studentId]);
+            `, [enrollmentId, studentIdNum]);
     
             if (existingStudentCheck.rows.length === 0) {
               await db.query(`
                 INSERT INTO enrolled_students (enrollment_id, student_id, class_id)
                 VALUES ($1, $2, $3)
-              `, [enrollmentId, studentId, classId]);
+              `, [enrollmentId, studentIdNum, classIdNum]);
             }
           }
         }
@@ -142,7 +189,7 @@ const enrollmentController = {
         await db.query('COMMIT');
 
         // I1 — notify class teachers of new enrollment(s)
-        const enrolledClassIds = [...new Set(Object.keys(selectedStudents).map(Number).filter(Boolean))];
+        const enrolledClassIds = [...new Set(Object.keys(selectedStudents || {}).map(Number).filter(Boolean).filter(id => ownedClassIds.has(id)))];
         if (enrolledClassIds.length) {
           const orgId = req.session.organizationId;
           notifSvc.notifyMultipleClassTeachers(db, {
@@ -166,12 +213,17 @@ const enrollmentController = {
 
     getStudentsByClass: async (req, res, db) => {
         const { classId } = req.query;
+        const organizationId = req.session.organizationId;
+
+        if (!organizationId) {
+            return res.status(401).json({ error: 'Unauthorized.' });
+        }
     
         try {
             const studentsResult = await db.query(`
                 SELECT student_id, first_name, last_name
                 FROM students
-                WHERE class_id = $1 AND graduated = FALSE
+                WHERE class_id = $1 AND organization_id = $2 AND graduated = FALSE
                 ORDER BY last_name, first_name
             `, [classId]);
     
@@ -342,14 +394,59 @@ const enrollmentController = {
         const { schoolYearId, termId, selectedClasses, selectedStudents } = req.body;
         const { enrollmentId } = req.params;
         const organizationId = req.session.organizationId;
-      
+
+        if (!organizationId) {
+          return res.status(401).json({ success: false, message: 'Unauthorized.' });
+        }
+
         try {
+          // Tenant boundary: the enrollment being modified must belong
+          // to the caller's organization.
+          const enrollmentOwn = await db.query(
+            `SELECT 1 FROM enrollments WHERE enrollment_id = $1 AND organization_id = $2`,
+            [enrollmentId, organizationId]
+          );
+          if (!enrollmentOwn.rows.length) {
+            return res.status(403).json({ success: false, message: 'Enrollment does not belong to your organization.' });
+          }
+
+          // Tenant boundary: filter class ids and student ids to the caller's org.
+          const requestedClassIds = (Array.isArray(selectedClasses) ? selectedClasses : (selectedClasses ? [selectedClasses] : []))
+            .map(v => Number(v))
+            .filter(v => Number.isInteger(v) && v > 0);
+          const ownedClassesRes = requestedClassIds.length
+            ? await db.query(
+                `SELECT class_id FROM classes WHERE class_id = ANY($1::int[]) AND organization_id = $2`,
+                [requestedClassIds, organizationId]
+              )
+            : { rows: [] };
+          const ownedClassIds = new Set(ownedClassesRes.rows.map(r => Number(r.class_id)));
+
+          const requestedStudentIds = [];
+          Object.values(selectedStudents || {}).forEach(arr => {
+            (Array.isArray(arr) ? arr : []).forEach(v => {
+              const n = Number(v);
+              if (Number.isInteger(n) && n > 0) requestedStudentIds.push(n);
+            });
+          });
+          const ownedStudentsRes = requestedStudentIds.length
+            ? await db.query(
+                `SELECT student_id FROM students WHERE student_id = ANY($1::int[]) AND organization_id = $2`,
+                [requestedStudentIds, organizationId]
+              )
+            : { rows: [] };
+          const ownedStudentIds = new Set(ownedStudentsRes.rows.map(r => Number(r.student_id)));
+
           await db.query('BEGIN');
       
           const conflictingStudents = [];
       
-          for (const [newClassId, studentIds] of Object.entries(selectedStudents)) {
-            for (const studentId of studentIds) {
+          for (const [newClassId, studentIds] of Object.entries(selectedStudents || {})) {
+            const newClassIdNum = Number(newClassId);
+            if (!ownedClassIds.has(newClassIdNum)) continue;
+            for (const studentId of (studentIds || [])) {
+              const studentIdNum = Number(studentId);
+              if (!ownedStudentIds.has(studentIdNum)) continue;
               const conflictRes = await db.query(`
                 SELECT c.class_id, c.class_name, s.first_name, s.last_name
                 FROM enrolled_students es
@@ -359,14 +456,14 @@ const enrollmentController = {
                 WHERE es.student_id = $1
                   AND es.enrollment_id = $2
                   AND es.class_id != $3
-              `, [studentId, enrollmentId, newClassId]);
+              `, [studentIdNum, enrollmentId, newClassIdNum]);
       
               if (conflictRes.rows.length > 0) {
                 const currentClass = conflictRes.rows[0].class_name;
                 const studentName = `${conflictRes.rows[0].first_name} ${conflictRes.rows[0].last_name}`;
-                const newClass = await db.query('SELECT class_name FROM classes WHERE class_id = $1', [newClassId]).then(r => r.rows[0].class_name);
+                const newClass = await db.query('SELECT class_name FROM classes WHERE class_id = $1 AND organization_id = $2', [newClassIdNum, organizationId]).then(r => r.rows[0]?.class_name || '');
                 conflictingStudents.push({
-                  studentId,
+                  studentId: studentIdNum,
                   studentName,
                   currentClass,
                   newClass
@@ -384,24 +481,32 @@ const enrollmentController = {
           }
       
           // No conflicts or confirmed to move. Clear existing data and re-insert.
+          // Org-bound: the enrollment is already validated above, and the
+          // class/student ids being reinserted have all been validated to
+          // belong to this org.
           await db.query('DELETE FROM enrolled_classes WHERE enrollment_id = $1', [enrollmentId]);
           await db.query('DELETE FROM enrolled_students WHERE enrollment_id = $1', [enrollmentId]);
       
-          if (selectedClasses && selectedClasses.length > 0) {
+          const safeClassIds = requestedClassIds.filter(id => ownedClassIds.has(id));
+          if (safeClassIds.length > 0) {
             await db.query(`
               INSERT INTO enrolled_classes (enrollment_id, class_id)
               SELECT $1, unnest($2::int[])
-            `, [enrollmentId, selectedClasses]);
+            `, [enrollmentId, safeClassIds]);
           }
       
           if (selectedStudents && Object.keys(selectedStudents).length > 0) {
             for (const classId in selectedStudents) {
+              const classIdNum = Number(classId);
+              if (!ownedClassIds.has(classIdNum)) continue;
               const students = selectedStudents[classId];
-              for (const studentId of students) {
+              for (const studentId of (students || [])) {
+                const studentIdNum = Number(studentId);
+                if (!ownedStudentIds.has(studentIdNum)) continue;
                 await db.query(`
                   INSERT INTO enrolled_students (enrollment_id, student_id, class_id)
                   VALUES ($1, $2, $3)
-                `, [enrollmentId, studentId, classId]);
+                `, [enrollmentId, studentIdNum, classIdNum]);
               }
             }
           }
@@ -418,8 +523,25 @@ const enrollmentController = {
                       
     deleteEnrollment: async (req, res, db) => {
         const enrollmentId = req.params.enrollmentId;
+        const organizationId = req.session.organizationId;
+
+        if (!organizationId) {
+            req.flash('error', 'Unauthorized.');
+            return res.redirect('/account/login');
+        }
 
         try {
+            // Tenant boundary: the enrollment must belong to the caller's
+            // organization before any cascade deletes touch related tables.
+            const ownership = await db.query(
+                `SELECT 1 FROM enrollments WHERE enrollment_id = $1 AND organization_id = $2`,
+                [enrollmentId, organizationId]
+            );
+            if (!ownership.rows.length) {
+                req.flash('error', 'Enrollment does not belong to your organization.');
+                return res.redirect('/enrollment/manageEnrollment');
+            }
+
             await db.query('BEGIN');
 
             // Delete enrolled students
@@ -428,8 +550,11 @@ const enrollmentController = {
             // Delete enrolled classes
             await db.query(`DELETE FROM enrolled_classes WHERE enrollment_id = $1`, [enrollmentId]);
 
-            // Delete the enrollment itself
-            await db.query(`DELETE FROM enrollments WHERE enrollment_id = $1`, [enrollmentId]);
+            // Delete the enrollment itself (org-scoped as a final guard)
+            await db.query(
+                `DELETE FROM enrollments WHERE enrollment_id = $1 AND organization_id = $2`,
+                [enrollmentId, organizationId]
+            );
 
             await db.query('COMMIT');
             req.flash('success', 'Enrollment deleted successfully.');

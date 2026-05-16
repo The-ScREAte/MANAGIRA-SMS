@@ -126,7 +126,9 @@
   <link rel="stylesheet" href="/css/registerSchoolYear.css" />
   <link rel="stylesheet" href="/css/studentDetails.css" />
   <link rel="stylesheet" href="/css/manageStudents.css" />
+  <% if (!(typeof hideGlobalChatbot !== 'undefined' && hideGlobalChatbot)) { %>
   <link rel="stylesheet" href="/css/chatbot.css" />
+  <% } %>
   <link rel="stylesheet" href="/css/guardian.css" />
 
   <!-- Loading indicator styles (SPA navigation progress + center spinner) -->
@@ -291,5 +293,7 @@
   <script src="/js/manageRecords.js" defer></script>
   <script src="/js/createEmployee.js" defer></script>
   <script src="/js/management.js" defer></script>
+  <% if (!(typeof hideGlobalChatbot !== 'undefined' && hideGlobalChatbot)) { %>
   <script src="/js/chatbot.js" defer></script>
+  <% } %>
 </head>

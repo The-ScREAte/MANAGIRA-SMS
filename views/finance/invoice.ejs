@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Invoice — <%= assignment.bill_title %></title>
+<style>
+  * { box-sizing:border-box; }
+  body { font-family:'Space Grotesk','DM Sans',Arial,sans-serif; margin:0; background:#f5f6fa; color:#1a1f2e; }
+  .doc { max-width:820px; margin:24px auto; background:#fff; border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,.06); padding:36px 40px; }
+  .head { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; flex-wrap:wrap; padding-bottom:18px; border-bottom:2px solid #00D4AA; }
+  .head .org h1 { margin:0 0 4px; font-size:1.4rem; font-weight:800; letter-spacing:-.01em; }
+  .head .org .meta { font-size:.78rem; color:#5a6378; line-height:1.5; }
+  .head .doc-title { text-align:right; }
+  .head .doc-title .label { font-size:.7rem; color:#5a6378; text-transform:uppercase; letter-spacing:.12em; font-weight:700; }
+  .head .doc-title h2 { margin:0; font-size:1.6rem; font-weight:800; color:#00D4AA; }
+  .head .doc-title .num { font-family:'JetBrains Mono',Consolas,monospace; font-size:.8rem; color:#5a6378; margin-top:4px; }
+  .grid { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin:22px 0; }
+  .grid .card { background:#f5f7fb; border-radius:10px; padding:14px 16px; }
+  .grid .card .label { font-size:.66rem; color:#5a6378; text-transform:uppercase; letter-spacing:.08em; font-weight:700; margin-bottom:5px; }
+  .grid .card .val { font-size:.95rem; font-weight:600; }
+  table { width:100%; border-collapse:collapse; margin-top:18px; font-size:.85rem; }
+  th, td { padding:10px 12px; text-align:left; border-bottom:1px solid #e6e9f0; }
+  th { background:#f5f7fb; font-size:.7rem; text-transform:uppercase; letter-spacing:.08em; color:#5a6378; font-weight:700; }
+  td.amt, th.amt { text-align:right; font-family:'JetBrains Mono',Consolas,monospace; }
+  .totals { margin-top:18px; display:flex; flex-direction:column; align-items:flex-end; gap:6px; font-size:.9rem; }
+  .totals .row { display:flex; justify-content:space-between; min-width:280px; padding:4px 0; }
+  .totals .row.grand { border-top:2px solid #1a1f2e; padding-top:8px; margin-top:4px; font-weight:800; font-size:1.1rem; }
+  .totals .row .v { font-family:'JetBrains Mono',Consolas,monospace; }
+  .status { display:inline-block; padding:3px 10px; border-radius:999px; font-size:.66rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+  .status.paid { background:#d6f7ec; color:#00845f; }
+  .status.partial { background:#fff3cf; color:#9a7700; }
+  .status.overdue { background:#ffd8df; color:#b1213e; }
+  .status.pending { background:#e6e9f0; color:#5a6378; }
+  .actions { display:flex; gap:10px; justify-content:flex-end; margin-top:24px; }
+  .btn { padding:9px 16px; border-radius:8px; font-size:.82rem; font-weight:700; cursor:pointer; text-decoration:none; border:none; }
+  .btn.primary { background:#00D4AA; color:#062018; }
+  .btn.ghost { background:transparent; color:#1a1f2e; border:1px solid #d4d9e3; }
+  .foot { margin-top:30px; padding-top:14px; border-top:1px solid #e6e9f0; font-size:.74rem; color:#5a6378; text-align:center; }
+  .badge { display:inline-flex; align-items:center; gap:5px; background:rgba(0,212,170,.12); color:#00845f; padding:4px 10px; border-radius:999px; font-size:.66rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; margin-top:6px; }
+  @media print {
+    body { background:#fff; }
+    .doc { box-shadow:none; margin:0; padding:18px; max-width:none; }
+    .actions { display:none; }
+  }
+</style>
+</head>
+<body>
+<%
+  const moneyFmt = typeof formatMoney === 'function'
+    ? formatMoney
+    : function(v){ return Number(v||0).toFixed(2); };
+  const usdEq = typeof formatUsdEquivalent === 'function' ? formatUsdEquivalent : function(){ return null; };
+%>
+<div class="doc">
+  <div class="head">
+    <div class="org">
+      <% if (assignment.org_logo) { %>
+        <img src="<%= assignment.org_logo.startsWith('http') ? assignment.org_logo : '/uploads/' + assignment.org_logo %>" alt="" style="max-height:48px;margin-bottom:8px;">
+      <% } %>
+      <h1><%= assignment.organization_name || 'School' %></h1>
+      <div class="meta">
+        <%= assignment.org_address || '' %><br>
+        <%= assignment.org_phone || '' %> · <%= assignment.org_email || '' %>
+      </div>
+      <span class="badge">🔒 PayGira Secure</span>
+    </div>
+    <div class="doc-title">
+      <div class="label">Invoice</div>
+      <h2><%= moneyFmt(Number(assignment.amount) + Number(assignment.late_fee_applied || 0)) %></h2>
+      <% if (usdEq(Number(assignment.amount) + Number(assignment.late_fee_applied || 0))) { %>
+        <div style="margin-top:4px;font-size:.78rem;color:#5a6378;">Approx. <%= usdEq(Number(assignment.amount) + Number(assignment.late_fee_applied || 0)) %></div>
+      <% } %>
+      <div class="num">#INV-<%= String(assignment.assignment_id).padStart(6,'0') %></div>
+      <div style="margin-top:6px;">
+        <span class="status <%= assignment.status || 'pending' %>"><%= assignment.status || 'pending' %></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="label">Billed To</div>
+      <div class="val"><%= assignment.first_name %> <%= assignment.last_name %></div>
+      <div style="font-size:.78rem;color:#5a6378;margin-top:3px;"><%= assignment.class_name || 'Unassigned class' %></div>
+    </div>
+    <div class="card">
+      <div class="label">Bill</div>
+      <div class="val"><%= assignment.bill_title %></div>
+      <div style="font-size:.78rem;color:#5a6378;margin-top:3px;">
+        <% if (assignment.bill_type === 'recurring') { %>Recurring · <%= assignment.recurrence || '' %><% } else { %><%= assignment.bill_type || 'One-time' %><% } %>
+        · Due <%= assignment.due_date ? new Date(assignment.due_date).toLocaleDateString() : '—' %>
+      </div>
+    </div>
+  </div>
+
+  <% if (assignment.bill_description) { %>
+    <p style="color:#5a6378;font-size:.88rem;margin:0 0 14px;"><%= assignment.bill_description %></p>
+  <% } %>
+
+  <table>
+    <thead><tr>
+      <th>Description</th><th class="amt">Amount</th>
+    </tr></thead>
+    <tbody>
+      <tr><td><%= assignment.bill_title %></td><td class="amt"><%= moneyFmt(assignment.amount) %></td></tr>
+      <% if (Number(assignment.late_fee_applied) > 0) { %>
+        <tr><td>Late fee</td><td class="amt"><%= moneyFmt(assignment.late_fee_applied) %></td></tr>
+      <% } %>
+    </tbody>
+  </table>
+
+  <% if (payments && payments.length) { %>
+    <h3 style="margin:22px 0 8px;font-size:.92rem;text-transform:uppercase;letter-spacing:.08em;color:#5a6378;">Payments received</h3>
+    <table>
+      <thead><tr><th>Date</th><th>Method</th><th>Reference</th><th class="amt">Amount</th></tr></thead>
+      <tbody>
+        <% payments.forEach(p => { %>
+          <tr>
+            <td><%= new Date(p.received_at).toLocaleString() %></td>
+            <td><%= p.method %></td>
+            <td style="color:#5a6378;font-size:.8rem;"><%= p.reference || '—' %></td>
+            <td class="amt"><%= moneyFmt(p.amount) %></td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  <% } %>
+
+  <div class="totals">
+    <div class="row"><div>Subtotal</div><div class="v"><%= moneyFmt(assignment.amount) %></div></div>
+    <% if (Number(assignment.late_fee_applied) > 0) { %>
+      <div class="row"><div>Late fee</div><div class="v"><%= moneyFmt(assignment.late_fee_applied) %></div></div>
+    <% } %>
+    <div class="row"><div>Paid</div><div class="v" style="color:#00845f;">−<%= moneyFmt(assignment.amount_paid) %></div></div>
+    <div class="row grand"><div>Balance Due</div><div class="v"><%= moneyFmt(balance) %></div></div>
+  </div>
+
+  <div class="actions">
+    <button class="btn ghost" onclick="window.print()">🖨️ Print</button>
+    <button class="btn primary" onclick="window.close()">Close</button>
+  </div>
+
+  <div class="foot">Generated <%= new Date().toLocaleString() %> · Powered by PayGira</div>
+</div>
+</body>
+</html>

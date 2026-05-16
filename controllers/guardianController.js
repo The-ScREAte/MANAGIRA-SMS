@@ -632,12 +632,48 @@ module.exports = {
         savedNotificationPrefs = {};
       }
 
+      // PayGira saved cards (for Cards & Billing card on settings page).
+      // Table is auto-created the first time the PayGira routes are hit;
+      // we just read here and gracefully fall back if it doesn't exist yet.
+      let cards = [];
+      try {
+        const c = await db.query(
+          `SELECT card_id, brand, last4, holder_name, exp_month, exp_year, is_default, student_id
+             FROM guardian_payment_methods
+            WHERE guardian_id=$1 AND organization_id=$2
+            ORDER BY is_default DESC, created_at DESC`,
+          [guardianId, organizationId]
+        );
+        cards = c.rows;
+      } catch (_) { cards = []; }
+
+      // List of children (for the "attach card to child" dropdown)
+      let children = [];
+      try {
+        const k = await db.query(
+          `SELECT DISTINCT s.student_id, s.first_name, s.last_name
+             FROM students s
+            WHERE s.organization_id = $1
+              AND (
+                EXISTS (SELECT 1 FROM guardians g
+                         WHERE g.student_id=s.student_id AND g.guardian_id=$2 AND g.organization_id=$1)
+                OR EXISTS (SELECT 1 FROM guardian_students gs
+                         WHERE gs.student_id=s.student_id AND gs.guardian_id=$2)
+              )
+            ORDER BY s.first_name`,
+          [organizationId, guardianId]
+        );
+        children = k.rows;
+      } catch (_) { children = []; }
+
       return res.render("guardian/settings", {
         title: "Settings",
         guardian: guardian,
         students: students.rows,
         notificationPrefs,
         savedNotificationPrefs,
+        cards,
+        children,
         messages: req.flash(),
         req,
       });

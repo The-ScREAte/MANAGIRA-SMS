@@ -6,6 +6,8 @@ const axios = require('axios');
 const { getPaystackSettings } = require('../utils/paystackConfig');
 const { getStripeClient, getStripeChargeCurrency } = require('../utils/stripeConfig');
 const { ensurePaymentProviderSchema } = require('../utils/paymentProviderSchema');
+const { getOrgChargeCards } = require('../utils/orgChargeCards');
+const { isPaystackEnabled, effectiveBillingProvider } = require('../utils/paystackEnabled');
 const { sendEmailSafely, renderCleanEmail } = require('../utils/emailHelper');
 const { isEmailEnabledForRecipient } = require('../utils/emailPreferences');
 require('dotenv').config();
@@ -176,9 +178,13 @@ async function runRecurringBilling() {
   // Find all organizations whose next_payment_end_date is today or earlier and are retryable.
   // ONLY exclude if they are currently in an ACTIVE trial (trial_active_until > NOW()).
   
+  // PAYSTACK_DISABLED: when the kill switch is off, only Stripe-provisioned
+  // orgs are eligible for recurring billing. Paystack-only orgs are skipped
+  // (their stored cards stay in stored_cards but are never charged).
+  const fallbackProvider = isPaystackEnabled() ? 'paystack' : 'stripe';
   const orgsDue = await db.query(`
-      SELECT o.organization_id, o.email, o.organization_name, o.plan_id, c.authorization_code, p.next_payment_end_date, o.trial_active_until,
-        COALESCE(o.billing_provider, 'paystack') AS billing_provider,
+      SELECT o.organization_id, o.email, o.organization_name, o.plan_id, p.next_payment_end_date, o.trial_active_until,
+        COALESCE(o.billing_provider, '${fallbackProvider}') AS billing_provider,
         o.stripe_customer_id,
            COALESCE(p.billing_period_key, 'monthly') AS billing_period_key,
            o.pending_plan_id, o.pending_plan_effective_date,
@@ -196,7 +202,6 @@ async function runRecurringBilling() {
            END as trial_status
     FROM organizations o
     JOIN payments p ON o.organization_id = p.organization_id
-    JOIN stored_cards c ON c.organization_id = o.organization_id AND c.is_primary = true AND c.is_active = true AND c.provider = COALESCE(o.billing_provider, 'paystack')
     LEFT JOIN plan_student_tiers pst ON pst.id = o.selected_student_tier_id
     WHERE ${retryStatusClause}
       AND o.on_hold = false
@@ -204,6 +209,12 @@ async function runRecurringBilling() {
       AND NOT (COALESCE(o.is_hub_member, false) = true AND o.hub_id IS NOT NULL)
       AND p.next_payment_end_date <= NOW()
       AND (o.trial_active_until IS NULL OR o.trial_active_until < NOW())
+      AND EXISTS (
+        SELECT 1 FROM stored_cards c
+         WHERE c.organization_id = o.organization_id
+           AND c.is_active = true
+           AND c.provider = COALESCE(o.billing_provider, '${fallbackProvider}')
+      )
   `);
 
   
@@ -335,47 +346,98 @@ async function runRecurringBilling() {
     const chargeAmount = periodDiscount > 0 ? rawTotal * (1 - periodDiscount / 100) : rawTotal;
     const amount = Math.round(chargeAmount * 100); // pesewas
 
-    // 3. Charge via the active provider using the saved primary card
+    // 3. Charge via the active provider using the saved cards (primary first, then fallbacks)
+    let chargeRes = null;
+    let chargeCard = null;
+    let lastFailureMessage = null;
+    let cardsTriedCount = 0;
+    let chargeError = null;
     try {
-      const chargeRes = org.billing_provider === 'stripe'
-        ? await (async () => {
-            if (!stripe || !org.stripe_customer_id) {
-              throw new Error('Stripe is not configured for recurring charges.');
-            }
+      // PAYSTACK_DISABLED: collapse provider to 'stripe' at runtime when the
+      // kill switch is off. Original org.billing_provider is preserved on the
+      // row in case it's still 'paystack' from before the switch.
+      const runtimeProvider = effectiveBillingProvider(org.billing_provider);
+      const orgCards = await getOrgChargeCards(db, org.organization_id, runtimeProvider);
+      if (!orgCards.length) {
+        throw new Error('No active card on file for this organization.');
+      }
 
-            const paymentIntent = await stripe.paymentIntents.create({
-              amount,
-              currency: stripeChargeCurrency,
-              customer: org.stripe_customer_id,
-              payment_method: org.authorization_code,
-              confirm: true,
-              off_session: true,
-              metadata: {
-                flow: 'recurring_renewal',
-                organization_id: String(org.organization_id),
-                billing_period_key: org.billing_period_key || 'monthly',
-              },
-            });
+      for (const card of orgCards) {
+        cardsTriedCount += 1;
+        try {
+          const attemptRes = runtimeProvider === 'stripe'
+            ? await (async () => {
+                if (!stripe || !org.stripe_customer_id) {
+                  throw new Error('Stripe is not configured for recurring charges.');
+                }
 
-            return {
-              data: {
-                status: paymentIntent.status === 'succeeded',
-                message: paymentIntent.last_payment_error?.message || null,
-              },
-            };
-          })()
-        : await axios.post(
-            'https://api.paystack.co/transaction/charge_authorization',
-            {
-              email: org.email,
-              amount,
-              authorization_code: org.authorization_code,
-              currency: 'GHS',
-            },
-            {
-              headers: { Authorization: `Bearer ${activePaystackSecretKey}` }
-            }
+                const paymentIntent = await stripe.paymentIntents.create({
+                  amount,
+                  currency: stripeChargeCurrency,
+                  customer: org.stripe_customer_id,
+                  payment_method: card.authorization_code,
+                  confirm: true,
+                  off_session: true,
+                  metadata: {
+                    flow: 'recurring_renewal',
+                    organization_id: String(org.organization_id),
+                    billing_period_key: org.billing_period_key || 'monthly',
+                    card_position: String(cardsTriedCount),
+                    is_primary_card: String(Boolean(card.is_primary)),
+                  },
+                });
+
+                return {
+                  data: {
+                    status: paymentIntent.status === 'succeeded',
+                    message: paymentIntent.last_payment_error?.message || null,
+                  },
+                };
+              })()
+            : await axios.post(
+                'https://api.paystack.co/transaction/charge_authorization',
+                {
+                  email: org.email,
+                  amount,
+                  authorization_code: card.authorization_code,
+                  currency: 'GHS',
+                },
+                {
+                  headers: { Authorization: `Bearer ${activePaystackSecretKey}` }
+                }
+              );
+
+          if (attemptRes.data?.status) {
+            chargeRes = attemptRes;
+            chargeCard = card;
+            // Remember which card succeeded on the row (for downstream reporting/auditing).
+            org.authorization_code = card.authorization_code;
+            break;
+          }
+          lastFailureMessage = attemptRes.data?.message || lastFailureMessage || 'Charge declined.';
+          console.warn(
+            `[RecurringBilling] charge declined for org ${org.organization_id} on card ${cardsTriedCount}/${orgCards.length} (last4=${card.last4 || '????'}): ${lastFailureMessage}`
           );
+        } catch (perCardErr) {
+          lastFailureMessage = perCardErr?.response?.data?.message || perCardErr.message || lastFailureMessage || 'Charge request failed.';
+          console.warn(
+            `[RecurringBilling] charge errored for org ${org.organization_id} on card ${cardsTriedCount}/${orgCards.length} (last4=${card.last4 || '????'}): ${lastFailureMessage}`
+          );
+          // continue to the next card in the fallback chain
+        }
+      }
+
+      if (!chargeRes || !chargeRes.data?.status) {
+        // All fallback cards exhausted — synthesize a failure response so the existing
+        // failure-handling branch below runs (record failure, email, on-hold logic).
+        chargeRes = { data: { status: false, message: lastFailureMessage || 'All saved cards failed.' } };
+      }
+    } catch (outerErr) {
+      chargeError = outerErr;
+    }
+
+    try {
+      if (chargeError) throw chargeError;
       
       if (chargeRes.data.status) {
         // 4. Update payment record — use billing period months or fall back to global interval

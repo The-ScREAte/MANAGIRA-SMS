@@ -1265,6 +1265,10 @@
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg></span>
             <span>Billing &amp; Plan</span>
           </button></li>
+          <li><a class="nav-link" href="/account/settings/finance" data-no-spa>
+            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M8.5 9.5c0-1.381 1.567-2.5 3.5-2.5s3.5 1.119 3.5 2.5-1.567 2.5-3.5 2.5S8.5 13.381 8.5 14.5 10.067 17 12 17s3.5-1.119 3.5-2.5"/></svg></span>
+            <span>PayGira</span>
+          </a></li>
           <li><button class="nav-link" data-target="security">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6l8-4z"/></svg></span>
             <span>Security</span>
@@ -1486,11 +1490,13 @@
           </div>
 
           <div class="card">
-            <h4>Organization Nickname</h4>
-            <small>This will change the subdomain name of your website.</small>
+            <h4>Organisation Nickname</h4>
+            <small>The display name for your school. Your web address is locked and won't change.</small>
             <p class="text-muted-sm">
-              This should be all lowercase. Keep it as simple as possible so your followers can easily remember it, like your school initials. For example: "mys", which will later be "mys.managira.com".
-              Example: tgss.managira.com.
+              Type the nickname the way you'd like it shown
+              (e.g. <em>HJS School</em>). Your web address
+              (<strong><%= (org && org.nickname) ? org.nickname : '' %>.managira.com</strong>)
+              was set at registration and is permanent.
             </p>
             <form action="/account/personalization/nickname" method="POST">
               <input type="hidden" name="redirectTo" value="/account/settings" />
@@ -1498,15 +1504,27 @@
                 <input
                   type="text"
                   name="orgNickName"
-                  value="<%= org?.nickname || '' %>"
-                  pattern="^[a-z]{3,15}$"
-                  title="Only lowercase letters (3-15 characters)."
+                  value="<%= (org && org.nickname_display && String(org.nickname_display).trim()) ? org.nickname_display : (org && org.nickname) ? org.nickname : '' %>"
+                  minlength="3"
+                  maxlength="60"
+                  title="Display name (3-60 characters). Your subdomain stays the same."
                   required
+                  autocomplete="off"
                   class="form-input"
                 />
-                <button class="btn-link" type="submit">Change Organization Nickname</button>
+                <button class="btn-link" type="submit">Save Display Name</button>
               </div>
             </form>
+            <div class="content-row" style="margin-top: 10px; align-items: center; gap: 8px;">
+              <label class="text-muted-sm" style="min-width: 110px;">Web address</label>
+              <input
+                type="text"
+                value="<%= (org && org.nickname) ? org.nickname : '' %>.managira.com"
+                readonly
+                class="form-input"
+                style="background:#f1f5f9; cursor:not-allowed; color:#475569;"
+              />
+            </div>
           </div>
 
           <div class="card">
@@ -2357,6 +2375,7 @@
     <script src="https://js.stripe.com/v3/"></script>
     <% } %>
     <script>
+    (function () {
       const orgEmail = <%- JSON.stringify(org?.email || "") %>;
       const orgPhone = <%- JSON.stringify(org?.organization_phone || "") %>;
       const orgName = <%- JSON.stringify(org?.organization_name || "") %>;
@@ -2553,6 +2572,7 @@
         }
 
         navLinks.forEach((btn) => {
+          if (!btn.dataset.target) return; // external link (e.g. Finance) — let browser navigate
           btn.addEventListener("click", () => {
             showSection(btn.dataset.target);
             closeNav();
@@ -3495,6 +3515,7 @@
         const initialSection = finalParams.get("section") || "customize";
         showSection(initialSection, { scroll: false });
       });
+    })();
     </script>
   </body>
 </html>

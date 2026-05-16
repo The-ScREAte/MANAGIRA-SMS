@@ -205,41 +205,82 @@
             </form>
         </section>
 
-        <!-- Organization nickname -->
+        <!-- Organization nickname (display name + locked subdomain) -->
         <section class="w-full max-w-xl rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div class="mb-4">
-                <h2 class="text-base font-semibold text-slate-900">Organization Nickname</h2>
+                <h2 class="text-base font-semibold text-slate-900">Organisation Nickname</h2>
+                <p class="mt-1 text-sm text-slate-600">
+                    The display name shown in your school dashboard. You can
+                    change it anytime — your web address stays the same.
+                </p>
             </div>
 
-            <div class="personalization-note rounded-lg border p-3 text-sm">
-                <p class="font-medium">Notice</p>
-                <p class="mt-1">Use only lowercase letters, 3–15 characters. Keep it memorable.                 <p class="mt-1 text-sm text-slate-600">This controls your subdomain: <span class="font-medium text-slate-800"><%= orgDetails.nickname %>.managira.com</span></p>
-</p>
-            </div>
-
-            <form id="nicknameForm" class="mt-4 space-y-3">
+            <form id="nicknameForm" action="/account/personalization/nickname" method="POST" class="mt-2 space-y-3">
+                <input type="hidden" name="redirectTo" value="/account/personalization" />
                 <div>
-                    <label for="orgNickName" class="block text-sm font-medium text-slate-700">Nickname</label>
+                    <label for="orgNickName" class="block text-sm font-medium text-slate-700">Display Name</label>
                     <input
                         type="text"
                         name="orgNickName"
                         id="orgNickName"
-                        placeholder="e.g. myschool"
-                        pattern="^[a-z]{3,15}$"
-                        title="Only lowercase letters (a-z). No numbers, spaces, or special characters."
-                        value="<%= orgDetails.nickname %>"
+                        placeholder="e.g. HJS School"
+                        minlength="3"
+                        maxlength="60"
+                        value="<%= (orgDetails.nickname_display && orgDetails.nickname_display.trim()) ? orgDetails.nickname_display : orgDetails.nickname %>"
                         required
+                        autocomplete="off"
                         class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
-                    <p class="mt-2 text-xs text-slate-600">Example: <span class="font-medium"><%= orgDetails.nickname %>.managira.com</span></p>
+                    <p class="mt-2 text-xs text-slate-600">
+                        This is how your school's nickname appears in the UI.
+                    </p>
+                </div>
+
+                <div class="rounded-md border border-slate-200 bg-slate-50 p-3">
+                    <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Your Web Address (locked)
+                    </label>
+                    <div class="mt-1 flex items-center gap-2">
+                        <input
+                            type="text"
+                            value="<%= orgDetails.nickname %>.managira.com"
+                            readonly
+                            class="block w-full cursor-not-allowed rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+                        />
+                        <button
+                            type="button"
+                            id="copySubdomainBtn"
+                            class="shrink-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                        >Copy</button>
+                    </div>
+                    <p class="mt-2 text-xs text-slate-500">
+                        The web address is permanent and cannot be changed.
+                    </p>
                 </div>
 
                 <div class="flex justify-center">
-                    <button type="button" id="openConfirmModal" class="inline-flex items-center justify-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
-                        Change Organization Nickname
+                    <button type="submit" class="inline-flex items-center justify-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
+                        Save Display Name
                     </button>
                 </div>
             </form>
+
+            <script>
+                (function () {
+                    var btn = document.getElementById('copySubdomainBtn');
+                    if (!btn) return;
+                    btn.addEventListener('click', function () {
+                        var addr = '<%= orgDetails.nickname %>.managira.com';
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            navigator.clipboard.writeText(addr).then(function () {
+                                var prev = btn.textContent;
+                                btn.textContent = 'Copied!';
+                                setTimeout(function () { btn.textContent = prev; }, 1500);
+                            });
+                        }
+                    });
+                })();
+            </script>
         </section>
 
         <!-- Upload logo -->

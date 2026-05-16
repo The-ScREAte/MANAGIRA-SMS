@@ -364,6 +364,118 @@
     </form>
   </div>
   <% } %>
+
+  <!-- ====================== PayGira Cards & Billing ====================== -->
+  <div id="cards" class="settings-section" style="margin-top:24px;background:linear-gradient(180deg,#0e1426,#131b33);color:#e9eef8;border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,0.18);">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:8px;">
+      <h2 style="margin:0;font-size:1.25rem;font-weight:800;letter-spacing:-0.01em;">
+        💳 Pay<span style="color:#00D4AA;font-style:italic;">Gira</span> — Cards &amp; Billing
+      </h2>
+      <span class="paygira-secure-badge" style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;background:linear-gradient(135deg,rgba(0,212,170,0.18),rgba(0,212,170,0.08));border:1px solid rgba(0,212,170,0.45);color:#00D4AA;font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+        Secure
+      </span>
+    </div>
+    <p style="margin:0 0 18px;color:#8a93a8;font-size:0.9rem;">
+      Save payment cards to your wallet to pay your child's bills in one tap. Only the last 4 digits are stored — your full card number stays private.
+    </p>
+
+    <% const _cards = (typeof cards !== 'undefined' && Array.isArray(cards)) ? cards : []; %>
+    <% const _myChildren = (typeof children !== 'undefined' && Array.isArray(children)) ? children : []; %>
+
+    <!-- Saved cards list -->
+    <% if (_cards.length) { %>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:22px;">
+        <% _cards.forEach(function(c) { %>
+          <div style="position:relative;background:linear-gradient(135deg,#1a2348,#0e1426);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:18px;color:#e9eef8;min-height:140px;display:flex;flex-direction:column;justify-content:space-between;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <span style="font-size:.7rem;color:#8a93a8;text-transform:uppercase;letter-spacing:.08em;font-weight:700;"><%= c.brand || 'Card' %></span>
+              <% if (c.is_default) { %>
+                <span style="background:rgba(0,212,170,0.18);color:#00D4AA;border:1px solid rgba(0,212,170,0.4);padding:2px 8px;border-radius:999px;font-size:.62rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">Default</span>
+              <% } %>
+            </div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:1.05rem;letter-spacing:.15em;font-weight:600;">
+              •••• •••• •••• <%= c.last4 %>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:#8a93a8;">
+              <span><%= c.holder_name || '—' %></span>
+              <span><%= c.exp_month ? String(c.exp_month).padStart(2,'0') : '--' %>/<%= c.exp_year ? String(c.exp_year).slice(-2) : '--' %></span>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:10px;">
+              <% if (!c.is_default) { %>
+                <form action="/guardian/cards/<%= c.card_id %>/default" method="POST" style="display:inline;">
+                  <button type="submit" style="background:rgba(255,255,255,0.06);color:#e9eef8;border:1px solid rgba(255,255,255,0.1);padding:5px 10px;border-radius:8px;font-size:.72rem;font-weight:600;cursor:pointer;">Make Default</button>
+                </form>
+              <% } %>
+              <form action="/guardian/cards/<%= c.card_id %>/delete" method="POST" style="display:inline;" onsubmit="return confirm('Remove this card?');">
+                <button type="submit" style="background:rgba(255,77,109,0.12);color:#FF4D6D;border:1px solid rgba(255,77,109,0.3);padding:5px 10px;border-radius:8px;font-size:.72rem;font-weight:600;cursor:pointer;">Remove</button>
+              </form>
+            </div>
+          </div>
+        <% }); %>
+      </div>
+    <% } else { %>
+      <div style="text-align:center;padding:24px;color:#8a93a8;background:rgba(255,255,255,0.03);border:1px dashed rgba(255,255,255,0.08);border-radius:12px;margin-bottom:22px;">
+        No cards saved yet. Add your first card below to make one-tap payments on PayGira.
+      </div>
+    <% } %>
+
+    <!-- Add card form -->
+    <form action="/guardian/cards" method="POST" autocomplete="off" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:18px;">
+      <h3 style="margin:0 0 14px;font-size:1rem;color:#e9eef8;font-weight:700;">➕ Add a new card</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:12px;">
+        <div>
+          <label style="display:block;font-size:.7rem;color:#8a93a8;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px;">Card number</label>
+          <input type="text" name="card_number" inputmode="numeric" pattern="[0-9 ]{12,23}" placeholder="1234 5678 9012 3456" required
+                 style="width:100%;padding:11px 14px;border-radius:10px;background:#080d1a;border:1px solid rgba(255,255,255,0.1);color:#e9eef8;font-family:'JetBrains Mono',monospace;letter-spacing:.08em;">
+        </div>
+        <div>
+          <label style="display:block;font-size:.7rem;color:#8a93a8;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px;">Cardholder name</label>
+          <input type="text" name="holder_name" placeholder="e.g. JANE DOE"
+                 style="width:100%;padding:11px 14px;border-radius:10px;background:#080d1a;border:1px solid rgba(255,255,255,0.1);color:#e9eef8;text-transform:uppercase;">
+        </div>
+        <div>
+          <label style="display:block;font-size:.7rem;color:#8a93a8;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px;">Exp Month</label>
+          <input type="number" name="exp_month" min="1" max="12" placeholder="MM" required
+                 style="width:100%;padding:11px 14px;border-radius:10px;background:#080d1a;border:1px solid rgba(255,255,255,0.1);color:#e9eef8;">
+        </div>
+        <div>
+          <label style="display:block;font-size:.7rem;color:#8a93a8;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px;">Exp Year</label>
+          <input type="number" name="exp_year" min="2024" max="2099" placeholder="YYYY" required
+                 style="width:100%;padding:11px 14px;border-radius:10px;background:#080d1a;border:1px solid rgba(255,255,255,0.1);color:#e9eef8;">
+        </div>
+        <div>
+          <label style="display:block;font-size:.7rem;color:#8a93a8;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px;">Attach to child (optional)</label>
+          <select name="child_student_id" style="width:100%;padding:11px 14px;border-radius:10px;background:#080d1a;border:1px solid rgba(255,255,255,0.1);color:#e9eef8;">
+            <option value="">— Any of my children —</option>
+            <% _myChildren.forEach(function(ch){ %>
+              <option value="<%= ch.student_id %>"><%= ch.first_name %> <%= ch.last_name %></option>
+            <% }); %>
+          </select>
+        </div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;color:#e9eef8;font-size:.85rem;margin-bottom:14px;cursor:pointer;">
+        <input type="checkbox" name="set_default" value="1" style="width:16px;height:16px;accent-color:#00D4AA;">
+        Make this my default payment card
+      </label>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+        <span style="font-size:.72rem;color:#8a93a8;display:inline-flex;align-items:center;gap:5px;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+          We store only the last 4 digits — your full PAN is never saved.
+        </span>
+        <button type="submit" style="background:linear-gradient(135deg,#00D4AA,#00b693);color:#062018;border:none;padding:10px 18px;border-radius:10px;font-weight:800;cursor:pointer;letter-spacing:.04em;font-size:.85rem;">
+          🔒 Save Card Securely
+        </button>
+      </div>
+    </form>
+
+    <div style="margin-top:18px;text-align:center;">
+      <a href="/guardian/paygira" style="color:#00D4AA;text-decoration:none;font-weight:600;font-size:.9rem;">
+        Go to PayGira to pay a bill →
+      </a>
+    </div>
+  </div>
+  <!-- ==================== /PayGira Cards & Billing ==================== -->
 </div>
 
 <script>

@@ -59,6 +59,8 @@
       '/common/admissions',
       '/common/reports',
       '/account/settings',
+      '/account/settings/finance',
+      '/account/settings/my-paygira',
       '/account/update',
       '/account/personalization',
       '/account/managePublicContent',
@@ -118,6 +120,7 @@
     guardian: [
       '/',
       '/guardian/dashboard',
+      '/guardian/paygira',
       '/guardian/academic-details',
       '/guardian/student',
       '/guardian/studentDetails',
@@ -169,8 +172,8 @@
   // Priority pages to preload per user type
   const PRELOAD_PRIORITY = {
     public: ['/account/login', '/account/register', '/account/service-plan'],
-    organization: ['/common/orgDashboard', '/common/management', '/account/settings'],
-    guardian: ['/guardian/dashboard'],
+    organization: ['/common/orgDashboard', '/common/management', '/account/settings', '/account/settings/finance', '/account/settings/my-paygira'],
+    guardian: ['/guardian/dashboard', '/guardian/paygira'],
     hub: ['/hub/dashboard', '/hub/settings'],
     admin: ['/admin/superDashboard', '/admin/superSettings']
   };

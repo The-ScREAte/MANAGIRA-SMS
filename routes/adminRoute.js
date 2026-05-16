@@ -25,7 +25,8 @@ module.exports = (db) => {
         try {
             // Verify the organization exists (also fetch nickname + hub for subdomain redirect)
             const orgCheck = await db.query(
-                `SELECT o.organization_id, o.organization_name, o.nickname, o.is_hub_member, o.hub_id,
+                                `SELECT o.organization_id, o.organization_name, o.nickname, o.nickname_display, o.logo, o.theme_color, o.font_style,
+                                                o.is_hub_member, o.hub_id,
                         mh.hub_nickname
                    FROM organizations o
                    LEFT JOIN managira_hubs mh ON o.hub_id = mh.hub_id
@@ -48,6 +49,12 @@ module.exports = (db) => {
             req.session.organizationId = orgIdNum;
             req.session.userRole = 'Admin';
             req.session.superAdminOrgSwitch = true;
+            req.session.organizationName = org.organization_name;
+            req.session.logo = org.logo || null;
+            req.session.themeColor = org.theme_color || 'teal';
+            req.session.fontStyle = org.font_style || null;
+            req.session.orgNickName = org.nickname || null;
+            req.session.orgNickNameDisplay = (org.nickname_display && String(org.nickname_display).trim()) || org.nickname || null;
             
             // Save session before redirect to ensure it persists
             req.session.save((err) => {
@@ -94,6 +101,12 @@ module.exports = (db) => {
             delete req.session.organizationId;
             delete req.session.userRole;
             delete req.session.superAdminOrgSwitch;
+            delete req.session.organizationName;
+            delete req.session.logo;
+            delete req.session.themeColor;
+            delete req.session.fontStyle;
+            delete req.session.orgNickName;
+            delete req.session.orgNickNameDisplay;
             
             req.flash('success', 'Returned to admin dashboard.');
             res.redirect('/admin');

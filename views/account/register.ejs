@@ -476,10 +476,82 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="orgNickName">Organization Nickname</label>
-          <input type="text" name="orgNickName" id="orgNickName" class="form-input" placeholder="myschool" minlength="3" maxlength="15" pattern="[a-z]+" title="3-15 lowercase letters only" required value="<%= formData?.orgNickName || '' %>">
-          <p class="form-hint">This determines your URL. Use 3-15 lowercase letters only (e.g., ttc, myschool)</p>
+          <label class="form-label" for="orgNickName">Organisation Nickname</label>
+          <input type="text" name="orgNickName" id="orgNickName" class="form-input" placeholder="HJS School" minlength="3" maxlength="60" required value="<%= formData?.orgNickName || '' %>" autocomplete="off">
+          <p class="form-hint" id="orgNickName-hint">
+            Type your school's nickname as you'd like it shown
+            (e.g. <em>HJS School</em>, <em>DDJ SCH</em>). We'll automatically
+            create a web address from it.
+          </p>
+          <div id="subdomain-preview" class="subdomain-preview" aria-live="polite">
+            Your school address will be:
+            <strong><span id="subdomain-slug">your-school</span>.managira.com</strong>
+          </div>
+          <p class="form-hint" style="margin-top: 6px; color: #b54708;">
+            <strong>Heads up:</strong> the web address is permanent. You can
+            rename your school later, but the subdomain stays the same.
+          </p>
         </div>
+
+        <style>
+          .subdomain-preview {
+            margin-top: 8px;
+            padding: 10px 12px;
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #075985;
+            word-break: break-all;
+          }
+          .subdomain-preview strong { color: #0c4a6e; }
+          .subdomain-preview.is-invalid {
+            background: #fef2f2;
+            border-color: #fecaca;
+            color: #991b1b;
+          }
+          .subdomain-preview.is-invalid strong { color: #7f1d1d; }
+        </style>
+
+        <script>
+          (function () {
+            // Mirror utils/orgNicknameSlug.js#slugifyNickname exactly.
+            function slugifyNickname(input) {
+              var value = String(input == null ? '' : input).trim();
+              if (!value) return '';
+              try {
+                value = value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+              } catch (_) {}
+              value = value.toLowerCase();
+              value = value.replace(/[^a-z0-9]+/g, '-');
+              value = value.replace(/-+/g, '-');
+              value = value.replace(/^-+|-+$/g, '');
+              if (value.length > 30) {
+                value = value.slice(0, 30).replace(/-+$/g, '');
+              }
+              return value;
+            }
+
+            var input = document.getElementById('orgNickName');
+            var preview = document.getElementById('subdomain-preview');
+            var slugEl = document.getElementById('subdomain-slug');
+            if (!input || !preview || !slugEl) return;
+
+            function update() {
+              var slug = slugifyNickname(input.value);
+              if (!slug || slug.length < 3) {
+                slugEl.textContent = 'your-school';
+                preview.classList.add('is-invalid');
+              } else {
+                slugEl.textContent = slug;
+                preview.classList.remove('is-invalid');
+              }
+            }
+
+            input.addEventListener('input', update);
+            update();
+          })();
+        </script>
 
         <div class="form-group">
           <label class="form-label" for="orgAddress">Organization Address</label>

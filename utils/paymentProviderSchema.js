@@ -71,21 +71,34 @@ async function ensurePaymentProviderSchema(db) {
   }
 
   schemaPromise = (async () => {
+    // PAYSTACK_DISABLED: default new rows to 'stripe' while Paystack is off.
+    // Existing rows keep whatever value they had; we don't migrate data here.
     await db.query(`
       ALTER TABLE organizations
-        ADD COLUMN IF NOT EXISTS billing_provider VARCHAR(20) NOT NULL DEFAULT 'paystack',
+        ADD COLUMN IF NOT EXISTS billing_provider VARCHAR(20) NOT NULL DEFAULT 'stripe',
         ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255)
     `);
+    await db.query(`ALTER TABLE organizations ALTER COLUMN billing_provider SET DEFAULT 'stripe'`).catch(() => {});
 
     await db.query(`
       ALTER TABLE payments
-        ADD COLUMN IF NOT EXISTS payment_provider VARCHAR(20) NOT NULL DEFAULT 'paystack',
+        ADD COLUMN IF NOT EXISTS payment_provider VARCHAR(20) NOT NULL DEFAULT 'stripe',
         ADD COLUMN IF NOT EXISTS stripe_payment_intent_id VARCHAR(255)
     `);
+    await db.query(`ALTER TABLE payments ALTER COLUMN payment_provider SET DEFAULT 'stripe'`).catch(() => {});
 
     await db.query(`
       ALTER TABLE stored_cards
-        ADD COLUMN IF NOT EXISTS provider VARCHAR(20) NOT NULL DEFAULT 'paystack'
+        ADD COLUMN IF NOT EXISTS provider VARCHAR(20) NOT NULL DEFAULT 'stripe'
+    `);
+    await db.query(`ALTER TABLE stored_cards ALTER COLUMN provider SET DEFAULT 'stripe'`).catch(() => {});
+
+    // Fallback order for Managira recurring billing.
+    // NULL = not in fallback chain; lower number = tried sooner.
+    // Primary card is always tried first regardless of this column.
+    await db.query(`
+      ALTER TABLE stored_cards
+        ADD COLUMN IF NOT EXISTS fallback_order INT
     `);
 
     await db.query(`

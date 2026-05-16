@@ -2419,6 +2419,36 @@ main {
   background: #ffffff;
 }
 
+#panel-frame-paygira {
+  padding: 0;
+}
+
+#panel-frame-paygira .workspace-frame-shell {
+  min-height: calc(100vh - 238px);
+  background: #080d1a;
+}
+
+#panel-frame-paygira .workspace-frame {
+  display: block;
+  min-height: calc(100vh - 238px);
+  background: #080d1a;
+}
+
+#panel-frame-attendance {
+  padding: 0;
+}
+
+#panel-frame-attendance .workspace-frame-shell {
+  min-height: calc(100vh - 238px);
+  background: #f8fafc;
+}
+
+#panel-frame-attendance .workspace-frame {
+  display: block;
+  min-height: calc(100vh - 238px);
+  background: #f8fafc;
+}
+
 @keyframes workspaceFadeIn {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
@@ -2492,6 +2522,11 @@ main {
 
   .workspace-frame {
     min-height: calc(100vh - 300px);
+  }
+
+  #panel-frame-paygira .workspace-frame-shell,
+  #panel-frame-paygira .workspace-frame {
+    min-height: calc(100vh - 188px);
   }
 }
 
@@ -2746,6 +2781,12 @@ main {
               <button class="nav-link" type="button" id="class-schedule-nav-link" data-nav-key="schedule" onclick="toggleClassScheduleModal(event)">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 10h18"/><path d="M8 2v4"/><path d="M16 2v4"/></svg></span>
                 <span class="nav-link-label">Class Schedule</span>
+              </button>
+            </li>
+            <li>
+              <button class="nav-link" type="button" data-nav-key="paygira" onclick="openWorkspaceTabByKey('paygira')">
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10h18"/><path d="M5 6h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/></svg></span>
+                <span class="nav-link-label">My PayGira</span>
               </button>
             </li>
 
@@ -3078,8 +3119,9 @@ main {
         className: <%- JSON.stringify(className) %>,
         basePath: <%- JSON.stringify(typeof classWorkspaceBasePath !== 'undefined' ? classWorkspaceBasePath : (`/common/classDashboard/${classId}`)) %>,
         initialRoute: <%- JSON.stringify(typeof initialWorkspaceRoute !== 'undefined' ? initialWorkspaceRoute : { panel: 'overview', itemId: '' }) %>,
-        attendanceUrl: <%- JSON.stringify(`/common/attendanceCollection?classId=${classId}&termId=${currentTerm.term_id}`) %>,
+        attendanceUrl: <%- JSON.stringify(`/common/attendanceCollection?classId=${classId}&termId=${currentTerm.term_id}&embed=workspace`) %>,
         docsUrl: <%- JSON.stringify(`/documents?classId=${classId}&create=1`) %>,
+        paygiraUrl: <%- JSON.stringify(`/account/settings/my-paygira?embed=workspace`) %>,
         students: <%- JSON.stringify(workspaceStudents) %>,
         subjects: <%- JSON.stringify(workspaceSubjects) %>,
         canOpenAttendance: <%= hasAttendanceFeature && (userRole !== "Teacher" || isMainTeacher) ? 'true' : 'false' %>,
@@ -3181,16 +3223,23 @@ main {
         panel.className = 'workspace-panel workspace-frame-panel';
         panel.id = tab.panelId;
         panel.setAttribute('data-panel-key', tab.id);
-        panel.innerHTML = '' +
-          '<div class="workspace-frame-shell">' +
-            '<div class="workspace-frame-header">' +
-              '<div>' +
-                '<h2 class="workspace-frame-title">' + esc(tab.title) + '</h2>' +
-                '<p class="workspace-frame-subtext">' + esc(tab.panelDescription || 'Focused work session') + '</p>' +
+        if (tab.noFrameHeader) {
+          panel.innerHTML =
+            '<div class="workspace-frame-shell">' +
+              '<iframe class="workspace-frame" src="' + esc(tab.iframeSrc) + '" loading="lazy" title="' + esc(tab.title) + '"></iframe>' +
+            '</div>';
+        } else {
+          panel.innerHTML =
+            '<div class="workspace-frame-shell">' +
+              '<div class="workspace-frame-header">' +
+                '<div>' +
+                  '<h2 class="workspace-frame-title">' + esc(tab.title) + '</h2>' +
+                  '<p class="workspace-frame-subtext">' + esc(tab.panelDescription || 'Focused work session') + '</p>' +
+                '</div>' +
               '</div>' +
-            '</div>' +
-            '<iframe class="workspace-frame" src="' + esc(tab.iframeSrc) + '" loading="lazy" title="' + esc(tab.title) + '"></iframe>' +
-          '</div>';
+              '<iframe class="workspace-frame" src="' + esc(tab.iframeSrc) + '" loading="lazy" title="' + esc(tab.title) + '"></iframe>' +
+            '</div>';
+        }
         root.appendChild(panel);
       }
 
@@ -3200,6 +3249,27 @@ main {
         if (panel && panel.parentNode) {
           panel.parentNode.removeChild(panel);
         }
+      }
+
+      function syncWorkspaceFramePanel(tab) {
+        if (!tab || tab.type !== 'iframe') return;
+        var panel = document.getElementById(tab.panelId);
+        if (!panel) return;
+        var hasFrameHeader = Boolean(panel.querySelector('.workspace-frame-header'));
+        if (hasFrameHeader === Boolean(tab.noFrameHeader)) {
+          removeWorkspaceDynamicPanel(tab);
+          ensureWorkspaceFramePanel(tab);
+          panel = document.getElementById(tab.panelId);
+          if (!panel) return;
+        }
+        var iframe = panel.querySelector('.workspace-frame');
+        if (iframe && iframe.getAttribute('src') !== tab.iframeSrc) {
+          iframe.setAttribute('src', tab.iframeSrc);
+        }
+        var titleNode = panel.querySelector('.workspace-frame-title');
+        if (titleNode) titleNode.textContent = tab.title;
+        var subtextNode = panel.querySelector('.workspace-frame-subtext');
+        if (subtextNode) subtextNode.textContent = tab.panelDescription || 'Focused work session';
       }
 
       function syncWorkspaceHistory(tab, options) {
@@ -3234,6 +3304,13 @@ main {
         if (!tab) return null;
         var existing = getWorkspaceTabById(tab.id);
         if (existing) {
+          if (tab.type === 'iframe') {
+            existing.iframeSrc = tab.iframeSrc;
+            existing.panelDescription = tab.panelDescription;
+            existing.title = tab.title;
+            existing.noFrameHeader = tab.noFrameHeader;
+            syncWorkspaceFramePanel(existing);
+          }
           activateWorkspaceTab(existing.id, options || {});
           return existing;
         }
@@ -3337,6 +3414,7 @@ main {
           routePath: workspaceContext.basePath + '/attendance',
           sidebarKey: 'attendance',
           type: 'iframe',
+          noFrameHeader: true,
           iframeSrc: workspaceContext.attendanceUrl,
           panelDescription: 'Attendance workspace for the current class and term.',
         };
@@ -3351,8 +3429,23 @@ main {
           routePath: workspaceContext.basePath + '/docs',
           sidebarKey: 'docs',
           type: 'iframe',
+          noFrameHeader: true,
           iframeSrc: workspaceContext.docsUrl,
           panelDescription: 'Class documents and sheets workspace.',
+        };
+      }
+
+      function getWorkspacePaygiraTab() {
+        return {
+          id: 'paygira',
+          title: 'My PayGira',
+          panelId: 'panel-frame-paygira',
+          routePath: workspaceContext.basePath + '/paygira',
+          sidebarKey: 'paygira',
+          type: 'iframe',
+          noFrameHeader: true,
+          iframeSrc: workspaceContext.paygiraUrl,
+          panelDescription: 'PayGira workspace for this class collector.',
         };
       }
 
@@ -3385,7 +3478,8 @@ main {
           routePath: workspaceContext.basePath + '/subject/' + match.id,
           sidebarKey: 'subjects',
           type: 'iframe',
-          iframeSrc: '/common/assessment?classId=' + encodeURIComponent(workspaceContext.classId) + '&subjectId=' + encodeURIComponent(match.id),
+          noFrameHeader: true,
+          iframeSrc: '/common/assessment?classId=' + encodeURIComponent(workspaceContext.classId) + '&subjectId=' + encodeURIComponent(match.id) + '&embed=workspace',
           panelDescription: 'Subject workspace for ' + match.name + '.',
         };
       }
@@ -3398,6 +3492,7 @@ main {
         if (tabKey === 'subjects') return openWorkspaceTab(getWorkspaceSubjectsTab(), options || {});
         if (tabKey === 'attendance') return openWorkspaceTab(getWorkspaceAttendanceTab(), options || {});
         if (tabKey === 'docs') return openWorkspaceTab(getWorkspaceDocsTab(), options || {});
+        if (tabKey === 'paygira') return openWorkspaceTab(getWorkspacePaygiraTab(), options || {});
         return openWorkspaceTab(getWorkspaceOverviewTab(), options || {});
       }
 
@@ -3420,6 +3515,10 @@ main {
         }
         if (workspaceContext.canOpenDocs && !getWorkspaceTabById('docs')) {
           openWorkspaceTabByKey('docs');
+          return;
+        }
+        if (!getWorkspaceTabById('paygira')) {
+          openWorkspaceTabByKey('paygira');
           return;
         }
         activateWorkspaceTab('overview');
@@ -3479,6 +3578,7 @@ main {
         if (safeRoute.panel === 'schedule') return openWorkspaceTabByKey('schedule', safeOptions);
         if (safeRoute.panel === 'students') return openWorkspaceTabByKey('students', safeOptions);
         if (safeRoute.panel === 'subjects') return openWorkspaceTabByKey('subjects', safeOptions);
+        if (safeRoute.panel === 'paygira') return openWorkspaceTabByKey('paygira', safeOptions);
         if (safeRoute.panel === 'student' && safeRoute.itemId) return openStudentWorkspaceTab(safeRoute.itemId, safeOptions);
         if (safeRoute.panel === 'subject' && safeRoute.itemId) return openSubjectWorkspaceTab(safeRoute.itemId, safeOptions);
         if (safeRoute.panel === 'docs') return openWorkspaceTabByKey('docs', safeOptions);

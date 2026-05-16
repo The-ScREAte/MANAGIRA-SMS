@@ -1122,9 +1122,18 @@ students
   deleteRemark: async (req, res) => {
     const { id } = req.params;
     const { classId, termId } = req.query; // Get classId and termId from the query parameters
+    const organizationId = req.session.organizationId;
 
     try {
-      await db.query("DELETE FROM remarks WHERE id = $1", [id]);
+      if (!organizationId) {
+        req.flash("error", "Unauthorized.");
+        return res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
+      }
+      // Tenant boundary: remark id must belong to caller's org.
+      await db.query(
+        "DELETE FROM remarks WHERE id = $1 AND organization_id = $2",
+        [id, organizationId]
+      );
       req.flash("success", "Remark deleted successfully.");
       res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
     } catch (error) {
@@ -2577,41 +2586,51 @@ students
   retryFailedEmail: asyncHandler(async (req, res) => {
     try {
       const { emailIds } = req.body; // Array of email_history ids to retry
-      
+      const sessionOrganizationId = req.session.organizationId;
+
+      if (!sessionOrganizationId) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
       if (!emailIds || !Array.isArray(emailIds) || emailIds.length === 0) {
         return res.status(400).json({ success: false, message: 'No email IDs provided' });
       }
-      
-      // Get the first email to extract batch details
-      const emailResult = await db.query(
-        `SELECT batch_id, organization_id, class_id, term_id FROM email_history WHERE id = $1`,
-        [emailIds[0]]
+
+      // Tenant boundary: only consider email_history rows that belong to
+      // the caller's organization. This filters out any foreign ids and
+      // prevents mutating other tenants' email job state.
+      const ownedResult = await db.query(
+        `SELECT id, batch_id, organization_id, class_id, term_id
+           FROM email_history
+          WHERE id = ANY($1) AND organization_id = $2`,
+        [emailIds, sessionOrganizationId]
       );
-      
-      if (emailResult.rows.length === 0) {
+
+      if (ownedResult.rows.length === 0) {
         return res.status(404).json({ success: false, message: 'Email not found' });
       }
-      
-      const { batch_id, organization_id, class_id, term_id } = emailResult.rows[0];
-      
-      // Reset status to pending
+
+      const ownedIds = ownedResult.rows.map(r => r.id);
+      const { batch_id, organization_id, class_id, term_id } = ownedResult.rows[0];
+
+      // Reset status to pending (org-scoped)
       await db.query(
-        `UPDATE email_history SET status = 'pending', error_message = NULL, updated_at = CURRENT_TIMESTAMP 
-         WHERE id = ANY($1)`,
-        [emailIds]
+        `UPDATE email_history
+            SET status = 'pending', error_message = NULL, updated_at = CURRENT_TIMESTAMP 
+          WHERE id = ANY($1) AND organization_id = $2`,
+        [ownedIds, sessionOrganizationId]
       );
-      
+
       // Trigger background processing for these specific emails
       const { processEmailBatch } = require('../utils/emailQueueProcessor');
       const protocol = req.protocol;
       const host = req.get('host');
       const cookies = req.headers.cookie;
-      
+
       setImmediate(() => {
-        processEmailBatch(batch_id, organization_id, class_id, term_id, protocol, host, cookies, emailIds);
+        processEmailBatch(batch_id, organization_id, class_id, term_id, protocol, host, cookies, ownedIds);
       });
-      
-      res.json({ success: true, message: `Retrying ${emailIds.length} email(s)...` });
+
+      res.json({ success: true, message: `Retrying ${ownedIds.length} email(s)...` });
     } catch (error) {
       console.error('[retryFailedEmail] Error:', error);
       res.status(500).json({ success: false, message: 'Failed to retry emails' });

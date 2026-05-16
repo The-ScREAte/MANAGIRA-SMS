@@ -21,9 +21,10 @@ main {
   text-align: left;
   margin: 0 auto;
   width: 100%;
-  max-width: 1200px;
-  padding: 16px 16px 40px;
+  max-width: <%= isEmbedded ? 'none' : '1200px' %>;
+  padding: <%= isEmbedded ? '0' : '16px 16px 40px' %>;
   flex: 1 0 auto;
+  box-sizing: border-box;
 }
 
 body {
@@ -35,12 +36,33 @@ body {
 }
 
 .assessment-header {
-  margin: 10px 0 16px;
-  padding: 14px;
+  margin: <%= isEmbedded ? '0 0 10px' : '10px 0 16px' %>;
+  padding: <%= isEmbedded ? '10px 12px' : '14px' %>;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: #fff;
   box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.assessment-header.compact {
+  display: grid;
+  gap: 4px;
+}
+
+.assessment-compact-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.assessment-compact-summary {
+  margin: 0;
+  color: #475569;
+  font-size: 0.82rem;
+  line-height: 1.45;
 }
 
 .meta-toggle {
@@ -146,20 +168,22 @@ body {
 /* Table Container */
 .table-container {
   overflow-x: auto;
-  margin: 12px auto;
+  margin: <%= isEmbedded ? '6px 0 0' : '12px auto' %>;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: <%= isEmbedded ? '0' : '12px' %>;
   background: #fff;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+  box-shadow: <%= isEmbedded ? 'none' : '0 4px 14px rgba(15, 23, 42, 0.04)' %>;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Table Styling */
 table {
   width: 100%;
-  min-width: 900px;
+  min-width: <%= isEmbedded ? 'max(100%, 980px)' : '900px' %>;
   border-collapse: collapse;
   background-color: #ffffff;
-  margin: 0 auto;
+  margin: 0;
   box-shadow: none;
 }
 
@@ -212,13 +236,14 @@ table td:nth-child(2) {
 /* Form Styling */
 #save-scores-form {
   width: 100%;
-  max-width: 1700px;
+  max-width: none;
   margin: 0 auto 16px;
-  padding: 16px;
+  padding: <%= isEmbedded ? '0' : '16px' %>;
   background-color: #ffffff;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+  border: <%= isEmbedded ? 'none' : '1px solid var(--border)' %>;
+  border-radius: <%= isEmbedded ? '0' : '12px' %>;
+  box-shadow: <%= isEmbedded ? 'none' : '0 4px 14px rgba(15, 23, 42, 0.04)' %>;
+  box-sizing: border-box;
 }
 
 input[type="number"] {
@@ -312,6 +337,14 @@ input[type="number"]:focus {
     padding: 12px 10px 28px;
   }
 
+  .assessment-compact-title {
+    font-size: 1rem;
+  }
+
+  .assessment-compact-summary {
+    font-size: 0.76rem;
+  }
+
   .top-nav-link {
     padding-top: 14px;
   }
@@ -371,6 +404,20 @@ input[type="number"]:focus {
     <main>
       <%- include('../partials/flash') %>
 
+      <% if (isEmbedded) { %>
+      <div class="assessment-header compact">
+        <h1 class="assessment-compact-title"><%= subjectName %></h1>
+        <p class="assessment-compact-summary">
+          <%= className %>
+          <% if (employees.length > 0) { %>
+            •
+            <% employees.forEach(function(employee, index) { %>
+              <% if (employee.main) { %>• <% } %><%= employee.first_name %> <%= employee.last_name %><% if (index < employees.length - 1) { %> / <% } %>
+            <% }); %>
+          <% } %>
+        </p>
+      </div>
+      <% } else { %>
       <div class="assessment-header" id="assessment-meta-card">
         <button class="meta-toggle" type="button" id="assessment-meta-toggle" aria-expanded="false" aria-controls="assessment-meta-content">
           <span class="meta-toggle-title">Class / Subject / Teachers</span>
@@ -394,6 +441,7 @@ input[type="number"]:focus {
           </div>
         </div>
       </div>
+      <% } %>
 
       <!-- Scores Section -->
       <form id="save-scores-form">

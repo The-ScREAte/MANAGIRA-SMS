@@ -223,7 +223,15 @@
     margin: 0;
     display: flex;
     align-items: center;
+    justify-content: flex-start;
     height: 100%;
+  }
+
+  .search-input-shell {
+    position: relative;
+    width: 100%;
+    display: flex;
+    align-items: center;
   }
 
   .search-autofill-trap {
@@ -236,14 +244,45 @@
     pointer-events: none;
   }
 
-  .search-icon {
+  .search-toggle-btn,
+  .search-close-btn {
+    border: 0;
+    background: transparent;
+    color: #667085;
+    padding: 0;
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .search-toggle-btn {
     position: absolute;
     left: 10px;
     top: 50%;
     transform: translateY(-50%);
+    width: 18px;
+    height: 18px;
+    z-index: 1;
+  }
+
+  .search-toggle-btn .search-icon {
     font-size: 16px;
-    color: #667085;
     line-height: 1;
+    pointer-events: none;
+  }
+
+  .search-close-btn {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 18px;
+    font-size: 18px;
+    line-height: 1;
+    opacity: 0;
     pointer-events: none;
   }
 
@@ -776,6 +815,8 @@
       --header-pad-y: 6px;
       --header-pad-x: 8px;
       --logo-size: 40px;
+      --mobile-search-collapsed-width: 38px;
+      --mobile-search-expanded-width: min(68vw, 220px);
     }
 
     body {
@@ -804,12 +845,13 @@
     .siteName {
       gap: 6px;
       min-width: 0;
-      flex-shrink: 1;
+      flex: 1 1 auto;
+      max-width: 100%;
     }
 
     .org-names {
       min-width: 0;
-      flex-shrink: 1;
+      flex: 1 1 auto;
       overflow: hidden;
     }
 
@@ -823,16 +865,63 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      max-width: 100px;
+      max-width: calc(100vw - 150px);
     }
 
     .search-bar-container {
-      width: 130px;
-      max-width: 150px;
+      position: relative;
+      width: var(--mobile-search-collapsed-width);
+      min-width: var(--mobile-search-collapsed-width);
+      max-width: var(--mobile-search-collapsed-width);
       margin: 0;
       align-self: center;
       height: auto;
       flex-shrink: 0;
+      overflow: visible;
+      z-index: 11020;
+    }
+
+    .search-bar-container.is-mobile-collapsible .search-bar {
+      position: absolute;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: var(--mobile-search-expanded-width);
+      min-width: 0;
+      justify-content: flex-end;
+      gap: 0;
+    }
+
+    .search-bar-container.is-mobile-collapsible .search-input-shell {
+      width: calc(var(--mobile-search-expanded-width) - var(--mobile-search-collapsed-width) + 4px);
+      max-width: 0;
+      opacity: 0;
+      overflow: hidden;
+      pointer-events: none;
+      transition: max-width 200ms ease-in, opacity 160ms ease-in;
+    }
+
+    .search-bar-container.is-mobile-collapsible.is-expanded .search-input-shell {
+      max-width: calc(var(--mobile-search-expanded-width) - var(--mobile-search-collapsed-width) + 4px);
+      opacity: 1;
+      pointer-events: auto;
+      transition: max-width 250ms ease-in-out, opacity 180ms ease-in-out;
+    }
+
+    .search-bar-container.is-mobile-collapsible .search-toggle-btn {
+      left: auto;
+      right: 10px;
+      transition: opacity 140ms ease-in-out;
+    }
+
+    .search-bar-container.is-mobile-collapsible.is-expanded .search-toggle-btn {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .search-bar-container.is-mobile-collapsible.is-expanded .search-close-btn {
+      opacity: 1;
+      pointer-events: auto;
     }
 
     .mobile-welcome {
@@ -872,12 +961,25 @@
 
     .search-bar {
       height: auto;
+      margin-right: 0;
     }
 
     #search-input {
       height: 30px;
       font-size: 0.85rem;
       padding-left: 32px;
+    }
+
+    .search-bar-container.is-mobile-collapsible #search-input {
+      padding-left: 12px;
+      padding-right: 32px;
+    }
+
+    .search-bar-container.is-mobile-collapsible .search-results-dropdown {
+      left: auto;
+      right: 0;
+      width: min(88vw, 320px);
+      min-width: 0;
     }
 
     #tools a.header-welcome {
@@ -1018,7 +1120,7 @@
 
     .org-names .org-nickname {
       font-size: 0.98rem;
-      max-width: 120px;
+      max-width: calc(100vw - 138px);
     }
 
     .nav-menu {
@@ -1060,6 +1162,7 @@
   <% const headerHomeHref = (typeof BASE_URL !== 'undefined' && BASE_URL) ? BASE_URL : '/'; %>
   <% const publicOrgFullName = (typeof orgDetails !== 'undefined' && orgDetails && orgDetails.organization_name) ? orgDetails.organization_name : ''; %>
   <% const publicOrgNickname = (typeof orgDetails !== 'undefined' && orgDetails && (orgDetails.nickname || orgDetails.org_nickname || orgDetails.organization_nickname)) ? (orgDetails.nickname || orgDetails.org_nickname || orgDetails.organization_nickname) : ''; %>
+  <% const publicOrgNicknameDisplay = (typeof orgDetails !== 'undefined' && orgDetails && orgDetails.nickname_display && String(orgDetails.nickname_display).trim()) ? orgDetails.nickname_display : publicOrgNickname; %>
   <% const dashboardHref = req.session && req.session.accountType === 'Hub' ? '/hub/dashboard' : (req.session && req.session.userRole === 'Guardian' ? '/guardian/dashboard' : '/common/orgDashboard'); %>
   <div class="header-mobile-row">
     <div class="header-mobile-left">
@@ -1103,10 +1206,14 @@
                 <% } %>
               </h3>
               <h3 class="org-nickname">
-                <% if (typeof orgHeaderNickname !== 'undefined' && orgHeaderNickname) { %>
+                <% if (typeof orgHeaderNicknameDisplay !== 'undefined' && orgHeaderNicknameDisplay) { %>
+                  <%= orgHeaderNicknameDisplay %>
+                <% } else if (typeof orgHeaderNickname !== 'undefined' && orgHeaderNickname) { %>
                   <%= orgHeaderNickname %>
                 <% } else if (showPublicOrgIdentity) { %>
-                  <%= publicOrgNickname || publicOrgFullName %>
+                  <%= publicOrgNicknameDisplay || publicOrgNickname || publicOrgFullName %>
+                <% } else if (session.orgNickNameDisplay) { %>
+                  <%= session.orgNickNameDisplay %>
                 <% } else if (session.orgNickName) { %>
                   <%= session.orgNickName %>
                 <% } %>
@@ -1121,23 +1228,41 @@
       <% if ((req.session.userRole && req.session.userRole !== 'Guardian') || req.session.accountType === 'Hub') { %>
       <div class="search-bar-container">
         <form class="search-bar" id="search-form" autocomplete="off" aria-label="Search">
-          <i class="fa-solid fa-magnifying-glass search-icon" aria-hidden="true"></i>
-          <input
-            type="search"
-            id="search-input"
-            name="search_query"
-            placeholder="Search"
-            autocomplete="new-password"
-            autocorrect="off"
-            autocapitalize="off"
-            spellcheck="false"
-            inputmode="search"
-            aria-autocomplete="none"
-            data-form-type="other"
-            data-lpignore="true"
-            data-1p-ignore="true"
-            data-bwignore="true"
-          />
+          <button
+            type="button"
+            class="search-toggle-btn"
+            id="search-toggle-button"
+            aria-label="Open search"
+            aria-expanded="false"
+          >
+            <i class="fa-solid fa-magnifying-glass search-icon" aria-hidden="true"></i>
+          </button>
+          <div class="search-input-shell">
+            <input
+              type="search"
+              id="search-input"
+              name="search_query"
+              placeholder="Search"
+              autocomplete="new-password"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+              inputmode="search"
+              aria-autocomplete="none"
+              data-form-type="other"
+              data-lpignore="true"
+              data-1p-ignore="true"
+              data-bwignore="true"
+            />
+            <button
+              type="button"
+              class="search-close-btn"
+              id="search-close-button"
+              aria-label="Close search"
+            >
+              &times;
+            </button>
+          </div>
           <div id="search-results" class="search-results-dropdown"></div>
         </form>
       </div>
@@ -1221,6 +1346,12 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
           </svg>
           My Reports
+        </a></li>
+        <li class="nav-item"><a href="/guardian/paygira" class="management-link">
+          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M5 6h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z"></path>
+          </svg>
+          PayGira
         </a></li>
         <li class="nav-item"><a href="/guardian/settings" class="nav-item-link management-link">
           <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1408,6 +1539,87 @@
     const searchInput = document.getElementById("search-input");
     const searchResults = document.getElementById("search-results");
     const searchForm = document.getElementById("search-form");
+    const searchContainer = document.querySelector(".search-bar-container");
+    const searchToggleButton = document.getElementById("search-toggle-button");
+    const searchCloseButton = document.getElementById("search-close-button");
+    const mobileSearchBreakpoint = window.matchMedia("(max-width: 768px)");
+
+    function isMobileCollapsibleSearch() {
+      return mobileSearchBreakpoint.matches && searchContainer && searchForm;
+    }
+
+    function clearHeaderSearch() {
+      if (searchResults) {
+        searchResults.innerHTML = "";
+        searchResults.style.display = "none";
+      }
+
+      if (searchInput) {
+        searchInput.value = "";
+      }
+    }
+
+    function closeMobileSearch(options = {}) {
+      const shouldBlur = options.shouldBlur !== false;
+
+      if (!searchContainer || !searchForm) {
+        return;
+      }
+
+      searchContainer.classList.remove("is-expanded");
+      searchForm.classList.remove("is-expanded");
+
+      if (searchToggleButton) {
+        searchToggleButton.setAttribute("aria-expanded", "false");
+      }
+
+      clearHeaderSearch();
+
+      if (shouldBlur && searchInput) {
+        searchInput.blur();
+      }
+    }
+
+    function openMobileSearch() {
+      if (!isMobileCollapsibleSearch()) {
+        if (searchInput) {
+          searchInput.focus({ preventScroll: true });
+        }
+        return;
+      }
+
+      searchContainer.classList.add("is-expanded");
+      searchForm.classList.add("is-expanded");
+
+      if (searchToggleButton) {
+        searchToggleButton.setAttribute("aria-expanded", "true");
+      }
+
+      window.setTimeout(() => {
+        if (searchInput) {
+          searchInput.focus({ preventScroll: true });
+        }
+      }, 60);
+    }
+
+    function syncMobileSearchMode() {
+      if (!searchContainer || !searchForm) {
+        return;
+      }
+
+      const isMobile = mobileSearchBreakpoint.matches;
+
+      searchContainer.classList.toggle("is-mobile-collapsible", isMobile);
+      searchForm.classList.toggle("is-mobile-collapsible", isMobile);
+
+      if (!isMobile) {
+        searchContainer.classList.remove("is-expanded");
+        searchForm.classList.remove("is-expanded");
+        if (searchToggleButton) {
+          searchToggleButton.setAttribute("aria-expanded", "false");
+        }
+      }
+    }
 
     // 🔧 Dynamic Organization Nickname Sizing for Mobile
     function adjustOrgNameSize() {
@@ -1539,6 +1751,29 @@
       });
     }
 
+    syncMobileSearchMode();
+    if (typeof mobileSearchBreakpoint.addEventListener === "function") {
+      mobileSearchBreakpoint.addEventListener("change", syncMobileSearchMode);
+    } else if (typeof mobileSearchBreakpoint.addListener === "function") {
+      mobileSearchBreakpoint.addListener(syncMobileSearchMode);
+    }
+
+    if (searchToggleButton) {
+      searchToggleButton.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openMobileSearch();
+      });
+    }
+
+    if (searchCloseButton) {
+      searchCloseButton.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        closeMobileSearch();
+      });
+    }
+
     if (searchInput && searchResults) {
       searchInput.setAttribute("readonly", "readonly");
       const unlockSearchInput = () => {
@@ -1546,9 +1781,18 @@
       };
       searchInput.addEventListener("focus", () => {
         setTimeout(unlockSearchInput, 0);
+        if (isMobileCollapsibleSearch()) {
+          openMobileSearch();
+        }
       });
       searchInput.addEventListener("mousedown", unlockSearchInput);
       searchInput.addEventListener("touchstart", unlockSearchInput, { passive: true });
+      searchInput.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeMobileSearch();
+        }
+      });
 
       searchInput.addEventListener("input", async (event) => {
         const query = event.target.value.trim();
@@ -1637,16 +1881,22 @@
 
       document.addEventListener("click", (e) => {
         if (!e.target.closest(".search-bar-container")) {
-          searchResults.style.display = "none";
-          searchInput.value = "";
+          if (isMobileCollapsibleSearch()) {
+            closeMobileSearch();
+          } else {
+            clearHeaderSearch();
+          }
         }
       });
 
       document.addEventListener("touchstart", (e) => {
         if (!e.target.closest(".search-bar-container")) {
-          searchResults.style.display = "none";
-          searchInput.value = "";
-          searchInput.blur();
+          if (isMobileCollapsibleSearch()) {
+            closeMobileSearch();
+          } else {
+            clearHeaderSearch();
+            searchInput.blur();
+          }
         }
       }, { passive: true });
     }

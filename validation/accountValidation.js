@@ -1,6 +1,7 @@
 //server side validation for account routes
 const db = require("../config/db");
 const { check, body, validationResult } = require("express-validator");
+const { deriveOrgNickname, slugifyNickname } = require("../utils/orgNicknameSlug");
 
 // validation for login page
 const validateLogin = [
@@ -95,17 +96,22 @@ const validateRegistration = [
     .isLength({ min: 3, max: 50 })
     .withMessage("Organization name must be between 3 and 50 characters"),
   check("orgNickName")
-    .escape()
+    // NOTE: do NOT .escape() this field — it accepts free-text Display Name
+    // (e.g. "St. Mary's Academy"). Escaping would mangle apostrophes. The
+    // value is only ever inserted via parameterised queries; the slug we
+    // store separately is restricted to [a-z0-9-].
     .trim()
     .not()
     .isEmpty()
-    .withMessage("Organization nickname is required")
-    .isLength({ min: 3, max: 15 })
-    .withMessage("Organization nickname must be between 3 and 15 characters")
-    .matches(/^[a-z]+$/)
-    .withMessage("Only lowercase letters allowed (a-z)")
+    .withMessage("Organisation nickname is required")
+    .isLength({ min: 3, max: 60 })
+    .withMessage("Nickname must be between 3 and 60 characters")
     .custom(async (value, { req }) => {
-      await checkNickNameExists(value);
+      const derived = deriveOrgNickname(value);
+      if (!derived.ok) {
+        throw new Error(derived.error);
+      }
+      await checkNickNameExists(derived.slug);
       return true;
     }),
   check("orgAddress")
@@ -147,13 +153,15 @@ const validateRegistrationResult = (req, res, next) => {
   next();
 };
 
-const checkNickNameExists = async (nickname) => {
+const checkNickNameExists = async (slug) => {
+  // `slug` is the lower-cased hyphenated subdomain candidate. We check
+  // against the existing `nickname` column which is the URL-safe slug.
   const result = await db.query(
     "SELECT COUNT(*) AS count FROM organizations WHERE nickname = $1",
-    [nickname]
+    [slug]
   );
   if (result.rows[0].count > 0) {
-    throw new Error("Organization nickname already exists");
+    throw new Error("That subdomain is already taken. Try a different nickname.");
   }
 };
 
@@ -214,15 +222,17 @@ const validateUpdateResult = (req, res, next) => {
 };
 
 // validate nickname update.
-
+//
+// IMPORTANT: in Settings the user only updates the human-readable display
+// name. The subdomain slug (`nickname` column) is LOCKED after registration,
+// so we don't require uniqueness here — we only require non-empty text.
 const validateNickname = [
   check("orgNickName")
-    .escape()
     .trim()
     .notEmpty()
-    .withMessage("Organization nickname is required")
-    .matches(/^[a-z]{3,15}$/)
-    .withMessage("Nickname must be 3–15 lowercase letters only (a–z)"),
+    .withMessage("Organisation nickname is required")
+    .isLength({ min: 3, max: 60 })
+    .withMessage("Nickname must be between 3 and 60 characters"),
 ];
 
 const validateNicknameResult = (req, res, next) => {
