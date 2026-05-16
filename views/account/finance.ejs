@@ -56,18 +56,23 @@
 
   /* ── Layout ───────────────────────────────────────────────────── */
   .fin-grid { display:grid; grid-template-columns:252px 1fr; gap:24px; max-width:1540px; margin:0 auto; }
-  .fin-main { min-width:0; }
+  .fin-main { min-width:0; max-width:100%; }
+
+  /* Prevent any child from forcing a horizontal scrollbar */
+  html, body { max-width:100%; overflow-x:hidden; }
+  .fin-shell { max-width:100%; overflow-x:hidden; }
 
   /* ── Sidebar ──────────────────────────────────────────────────── */
   .fin-side {
     background:linear-gradient(170deg, var(--fin-card) 0%, var(--fin-card-2) 100%);
     border:1px solid var(--fin-border); border-radius:var(--fin-r); padding:16px 10px;
     position:sticky; top:80px; height:fit-content;
+    min-width:0;
     box-shadow:0 28px 70px -24px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04);
   }
   .fin-side-brand {
-    display:flex; align-items:center; gap:10px;
-    padding:6px 12px 16px; border-bottom:1px solid var(--fin-border); margin-bottom:12px;
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    padding:8px 12px 16px; border-bottom:1px solid var(--fin-border); margin-bottom:12px;
   }
   .fin-side-mark {
     width:34px; height:34px; border-radius:10px; flex-shrink:0;
@@ -106,6 +111,9 @@
 
   /* ── Page heading ─────────────────────────────────────────────── */
   .fin-page-head { margin-bottom:24px; }
+  .fin-page-head-main-title { text-align:center; }
+  /* Secure badge pinned to right on desktop */
+  .fin-page-head .paygira-secure-badge { position:absolute; right:0; top:50%; transform:translateY(-50%); margin-left:0; }
   .fin-page-head h1 {
     font-family:'Space Grotesk',sans-serif; font-size:1.95rem; margin:0 0 4px;
     font-weight:800; letter-spacing:-.03em; line-height:1.1;
@@ -518,34 +526,74 @@
 
   /* ── Report filters ─────────────────────────────────────────── */
   .fin-report-filters {
-    display:flex; align-items:flex-end; flex-wrap:nowrap;
-    gap:10px; margin:6px 0 18px;
-    padding:14px;
-    overflow-x:auto;
+    display:flex; align-items:center; flex-wrap:nowrap;
+    gap:8px; margin:6px 0 18px;
+    padding:10px 12px;
     background:var(--fin-card-2); border:1px solid var(--fin-border); border-radius:12px;
-    scrollbar-width:thin;
   }
   .fin-report-filters .fin-field {
     margin:0;
-    min-width:135px;
-    flex:0 0 135px;
+    flex:1 1 0;
+    min-width:0;
   }
   .fin-report-filters .fin-field label {
-    font-size:.66rem; margin-bottom:4px;
+    font-size:.62rem; margin-bottom:3px;
     white-space:nowrap;
   }
-  .fin-report-filters .fin-field input,
   .fin-report-filters .fin-field select {
-    white-space:nowrap;
+    padding:6px 8px; font-size:.82rem;
   }
   .fin-report-filters .fin-btn {
-    white-space:nowrap;
+    flex-shrink:0; white-space:nowrap;
+    padding:6px 10px; font-size:.9rem; line-height:1;
+  }
+  .fin-report-filters .fin-filter-icon {
+    flex-shrink:0; line-height:1;
+  }
+  /* Mobile filter toggle button */
+  .fin-filters-toggle {
+    display:none;
+  }
+  @media (max-width:960px) {
+    /* Hide all filter forms inside their shell by default */
+    .fin-filters-shell .fin-report-filters {
+      display:none !important;
+      margin-top:8px;
+    }
+    /* Show when shell is open */
+    .fin-filters-shell.open .fin-report-filters {
+      display:flex !important;
+      flex-wrap:wrap;
+    }
+    .fin-filters-toggle {
+      display:flex; align-items:center; justify-content:space-between;
+      width:100%; padding:9px 14px; margin-bottom:0;
+      background:var(--fin-card-2); border:1px solid var(--fin-border);
+      border-radius:10px; cursor:pointer;
+      color:var(--fin-muted); font-size:.82rem; font-weight:600;
+    }
+    .fin-filters-toggle:hover { color:var(--fin-text); border-color:rgba(0,212,170,.3); }
+    .fin-filters-chev { transition:transform .2s; font-size:.75rem; }
+    .fin-filters-shell.open .fin-filters-chev { transform:rotate(180deg); color:var(--fin-teal); }
+    .fin-filters-shell.open .fin-filters-toggle { color:var(--fin-text); border-color:rgba(0,212,170,.3); }
   }
 
   /* ── PSP / Payment Settings card ─────────────────────────────── */
   .fin-psp-card {
     background:var(--fin-card-2); border:1px solid var(--fin-border);
     border-radius:14px; padding:18px 20px; margin-bottom:16px;
+  }
+  @media (max-width:600px) {
+    .fin-psp-card { padding:0; border-radius:12px; }
+    .fin-acc-head { padding:14px 14px; gap:10px; font-size:.9rem; }
+    .fin-psp-ico { width:34px; height:34px; border-radius:8px; font-size:1rem; }
+    .fin-psp-desc { display:none; }
+    .fin-psp-status { font-size:.62rem; padding:4px 8px; white-space:nowrap; }
+    .fin-acc-body { padding:0 14px 16px; }
+    .fin-charge-card-item { flex-direction:column; align-items:flex-start; }
+    .fin-charge-card-copy { min-width:0; width:100%; }
+    .fin-charge-card-controls { width:100%; justify-content:flex-start; }
+    .fin-acc-body .fin-row { grid-template-columns:1fr !important; }
   }
   .fin-psp-head {
     display:flex; align-items:center; gap:14px; margin-bottom:14px;
@@ -759,26 +807,54 @@
 
   /* ── Tablet ≤960px ────────────────────────────────────────────── */
   @media (max-width:960px) {
-    .fin-shell   { padding:16px 14px 80px; }
+    .fin-shell   { padding:16px 14px 80px; position:relative; }
     .fin-grid    { grid-template-columns:1fr; gap:14px; }
-    .fin-side    { position:static; padding:10px 8px; border-radius:14px; }
+    /* Nav floats over content — anchored BELOW the mobile header */
+    .fin-side    {
+      position:absolute; top:58px; left:0; right:0;
+      z-index:200;
+      border-radius:0 0 18px 18px;
+      min-width:0; overflow:hidden;
+      padding:10px 10px 14px;
+      background:linear-gradient(160deg,#0f1923 0%,#0a1118 100%);
+      border:1px solid rgba(0,212,170,.15);
+      border-top:none;
+      box-shadow:0 16px 40px rgba(0,0,0,.6);
+      transition:transform .28s cubic-bezier(.4,0,.2,1), opacity .22s ease;
+      transform:translateY(0); opacity:1;
+    }
+    .fin-side.fin-nav-closed {
+      transform:translateY(-20px);
+      opacity:0;
+      pointer-events:none;
+    }
+    /* Backdrop removed — close handled via click-outside */
     .fin-side-brand { display:none; }
     .fin-side-title { display:none; }
-    .fin-nav     { flex-direction:row; overflow-x:auto; gap:4px; padding-bottom:4px; scrollbar-width:none; }
-    .fin-nav::-webkit-scrollbar { display:none; }
-    .fin-nav a   { flex-shrink:0; padding:8px 14px; font-size:.81rem; border-radius:999px; border-left:0; background:rgba(255,255,255,.03); }
+    /* fin-nav direction/style handled in the mobile-header block below */
     .fin-nav a:hover { border-color:transparent; }
     .fin-nav a.active { background:var(--fin-teal-soft); box-shadow:0 0 0 1px rgba(0,212,170,.22); border-left:0; }
-    .fin-nav a .ico { display:none; }
     .fin-stats   { grid-template-columns:repeat(2,1fr); }
     .fin-two     { grid-template-columns:1fr; }
     .fin-row     { grid-template-columns:1fr; }
     .fin-row-3   { grid-template-columns:1fr 1fr; }
     .fin-page-head h1 { font-size:1.65rem; }
+    .fin-page-subtitle { display:none; }
     .fin-card    { padding:18px; }
     .fin-actions { padding:10px; }
     .fin-col-lg  { display:none !important; }
     .fin-modal-content { padding:20px; }
+    /* Secure badge — icon-only, inline in mobile header */
+    .paygira-secure-badge {
+      position:static; padding:7px; border-radius:50%;
+      box-shadow:0 2px 10px rgba(0,212,170,.35);
+      margin-left:auto;
+    }
+    .paygira-secure-badge .paygira-secure-text { display:none; }
+    .paygira-secure-badge svg { width:16px; height:16px; }
+    /* Badge in page-head is hidden — only the mobile-header badge shows */
+    .fin-page-head .paygira-secure-badge { display:none; }
+    .fin-page-head { position:static; }
   }
 
   /* ── Mobile ≤600px ────────────────────────────────────────────── */
@@ -789,6 +865,8 @@
     .stat .value { font-size:1.25rem; }
     .fin-row-3   { grid-template-columns:1fr; }
     .fin-page-head h1 { font-size:1.4rem; }
+    .fin-report-filters .fin-field label { display:none; }
+    .fin-report-filters .fin-field select { margin-top:0; }
     .fin-actions { flex-direction:row; flex-wrap:nowrap; overflow-x:auto; padding:8px 10px; scrollbar-width:none; }
     .fin-actions::-webkit-scrollbar { display:none; }
     .fin-actions .fin-btn { flex-shrink:0; }
@@ -806,7 +884,82 @@
     .fin-nav a { padding:7px 10px; font-size:.78rem; }
   }
 
-  /* ── Analytics chart grid ── responsive 2→1 col ──────────────── */
+  /* Mobile-only PayGira title shown above the nav */
+  .fin-mobile-header { display:none; }
+  .fin-hamburger { display:none; }
+  @media (max-width:960px) {
+    .fin-mobile-header {
+      display:flex; align-items:center;
+      justify-content:space-between;
+      padding:4px 2px 0;
+      position:relative; z-index:201; /* must be above backdrop(199) and nav(200) so × is always clickable */
+    }
+    .fin-mobile-header h2 {
+      margin:0; font-size:1.45rem; font-weight:700;
+      font-family:'Space Grotesk',sans-serif;
+      color:#fff;
+      flex:1; text-align:center;
+    }
+    .fin-mobile-header h2 .accent { color:var(--fin-teal); }
+    /* Hide the duplicate h1 in fin-page-head on mobile */
+    .fin-page-head-main-title { display:none; }
+    /* Hamburger button */
+    .fin-hamburger {
+      display:flex; flex-direction:column; justify-content:center; align-items:center; gap:5px;
+      background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12);
+      border-radius:9px; padding:8px 10px; cursor:pointer;
+      flex-shrink:0; flex-grow:0;
+      width:38px; height:38px; box-sizing:border-box;
+    }
+    .fin-hamburger span {
+      display:block; width:18px; height:2px;
+      background:#fff; border-radius:2px;
+      transition:transform .25s, opacity .2s;
+    }
+    .fin-hamburger[aria-expanded="false"] span:nth-child(1) { transform:none; }
+    .fin-hamburger[aria-expanded="false"] span:nth-child(2) { opacity:1; }
+    .fin-hamburger[aria-expanded="false"] span:nth-child(3) { transform:none; }
+    .fin-hamburger[aria-expanded="true"] span:nth-child(1) { transform:translateY(7px) rotate(45deg); }
+    .fin-hamburger[aria-expanded="true"] span:nth-child(2) { opacity:0; }
+    .fin-hamburger[aria-expanded="true"] span:nth-child(3) { transform:translateY(-7px) rotate(-45deg); }
+    /* Nav drawer — open by default, floats over content */
+    /* (position/transition handled in the ≤960px block above) */
+    /* Vertical nav on mobile — icon + text, styled links */
+    .fin-nav     { flex-direction:column !important; overflow-x:visible !important; gap:6px !important; padding:4px 0 0 !important; width:100% !important; }
+    .fin-nav a   {
+      flex-shrink:0;
+      display:flex; align-items:center; gap:12px;
+      padding:11px 16px; border-radius:12px; border-left:0;
+      background:rgba(255,255,255,.04);
+      color:rgba(255,255,255,.75);
+      font-size:.9rem; font-weight:500;
+      transition:background .15s, color .15s;
+    }
+    .fin-nav a .ico {
+      display:inline-flex !important;
+      align-items:center; justify-content:center;
+      width:30px; height:30px; border-radius:8px; flex-shrink:0;
+      background:rgba(255,255,255,.06);
+      font-size:1rem;
+    }
+    .fin-nav a:hover {
+      background:rgba(0,212,170,.10);
+      color:#fff;
+      border-color:transparent;
+    }
+    .fin-nav a:hover .ico { background:rgba(0,212,170,.15); }
+    .fin-nav a.active {
+      background:linear-gradient(90deg,rgba(0,212,170,.18),rgba(0,212,170,.06));
+      color:#fff;
+      border-left:3px solid var(--fin-teal);
+      border-radius:0 12px 12px 0;
+      box-shadow:none;
+    }
+    .fin-nav a.active .ico {
+      background:rgba(0,212,170,.22);
+      filter:drop-shadow(0 0 5px rgba(0,212,170,.4));
+    }
+  }
   .fin-analytics-grid {
     display:grid;
     grid-template-columns:1fr 1fr;
@@ -817,15 +970,27 @@
 
   @media (max-width:600px) {
     .fin-analytics-grid { grid-template-columns:1fr; }
-    /* Prevent the shell from creating horizontal scroll on mobile */
-    .fin-shell { overflow-x:hidden; }
   }
 </style>
 
 <div class="fin-shell">
   <div class="fin-grid">
 
-    <aside class="fin-side">
+    <!-- Mobile-only PayGira title: sits above the nav on small screens -->
+    <div class="fin-mobile-header">
+      <button class="fin-hamburger" id="finHamburger" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <h2>Pay<span class="accent">Gira</span></h2>
+      <span class="paygira-secure-badge" title="PayGira Secure — bank-grade encryption">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" fill="currentColor"/>
+          <path d="M9 12l2 2 4-4" stroke="#080d1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+    </div>
+
+    <aside class="fin-side fin-nav-closed">
       <div class="fin-side-brand">
         <div class="fin-side-mark">PG</div>
         <div class="fin-side-name">Pay<span class="accent">Gira</span></div>
@@ -844,17 +1009,16 @@
     </aside>
 
     <div class="fin-main">
-      <div class="fin-page-head" style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;">
-        <div>
+      <div class="fin-page-head" style="display:flex;justify-content:center;align-items:center;gap:16px;position:relative;flex-wrap:wrap;">
+        <div class="fin-page-head-main-title">
           <h1>Pay<span class="accent">Gira</span></h1>
-          <p>Premium financial command center for your school — bills, payments, subscriptions and reports.</p>
         </div>
         <span class="paygira-secure-badge" title="PayGira Secure — bank-grade encryption">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" fill="currentColor"/>
             <path d="M9 12l2 2 4-4" stroke="#080d1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          Secure
+          <span class="paygira-secure-text">Secure</span>
         </span>
       </div>
 
@@ -891,14 +1055,10 @@
               <% }) %>
             </select>
           </div>
-          <div class="fin-field" style="display:flex;align-items:flex-end;gap:8px;">
-            <% if (ovYear || ovTerm) { %>
-              <a href="/account/settings/finance?section=overview" class="fin-btn">↺ Reset</a>
-              <span style="color:var(--fin-teal);font-size:.78rem;font-family:'JetBrains Mono',monospace;">● Filtered</span>
-            <% } else { %>
-              <span style="color:var(--fin-muted);font-size:.78rem;">Current period</span>
-            <% } %>
-          </div>
+          <% if (ovYear || ovTerm) { %>
+          <a href="/account/settings/finance?section=overview" class="fin-btn fin-filter-icon" title="Reset filters">↺</a>
+          <span class="fin-filter-icon" title="Results are filtered" style="color:var(--fin-teal);font-size:1rem;">⦿</span>
+          <% } %>
         </form>
 
         <div class="fin-stats">
@@ -2301,6 +2461,58 @@ Regards,
 
 <script>
   (function () {
+    /* ── Mobile hamburger nav toggle ───────────────────────── */
+    var _finHamburger = document.getElementById('finHamburger');
+    var _finSide = document.querySelector('.fin-side');
+    var _finMobileHeader = document.querySelector('.fin-mobile-header');
+    function _finCloseNav() {
+      if (!_finSide) return;
+      _finSide.classList.add('fin-nav-closed');
+      if (_finHamburger) _finHamburger.setAttribute('aria-expanded', 'false');
+    }
+    function _finOpenNav() {
+      if (!_finSide) return;
+      _finSide.classList.remove('fin-nav-closed');
+      if (_finHamburger) _finHamburger.setAttribute('aria-expanded', 'true');
+    }
+    if (_finHamburger && _finSide) {
+      _finHamburger.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (_finSide.classList.contains('fin-nav-closed')) { _finOpenNav(); } else { _finCloseNav(); }
+      });
+      _finSide.querySelectorAll('a').forEach(function (link) {
+        link.addEventListener('click', function () { _finCloseNav(); });
+      });
+      /* Click outside both the header and nav closes the drawer */
+      document.addEventListener('click', function (e) {
+        if (_finSide.classList.contains('fin-nav-closed')) return;
+        if (_finSide.contains(e.target) || (_finMobileHeader && _finMobileHeader.contains(e.target))) return;
+        _finCloseNav();
+      });
+    }
+
+    /* ── Collapsible filter forms on mobile ────────────────── */
+    /* NOTE: script is at bottom of body — DOM is already built, run immediately */
+    (function () {
+      document.querySelectorAll('.fin-report-filters').forEach(function (form) {
+        /* Skip if already wrapped */
+        if (form.parentNode.classList.contains('fin-filters-shell')) return;
+        var wrapper = document.createElement('div');
+        wrapper.className = 'fin-filters-shell';
+        form.parentNode.insertBefore(wrapper, form);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'fin-filters-toggle';
+        btn.innerHTML = '<span>🔍 Filters</span><span class="fin-filters-chev">▾</span>';
+        btn.setAttribute('aria-expanded', 'false');
+        wrapper.appendChild(btn);
+        wrapper.appendChild(form);
+        btn.addEventListener('click', function () {
+          var open = wrapper.classList.toggle('open');
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+      });
+    })();
     var financeCurrencyCode = <%- JSON.stringify(currentCurrency) %>;
     var financeCurrencyLocale = <%- JSON.stringify((financeCurrency && financeCurrency.locale) || 'en-US') %>;
     var profilePlaceholderSrc = <%- JSON.stringify(profilePlaceholder) %>;
