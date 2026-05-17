@@ -102,6 +102,11 @@ async function ensurePaymentProviderSchema(db) {
     `);
 
     await db.query(`
+      ALTER TABLE stored_cards
+        ADD COLUMN IF NOT EXISTS display_name VARCHAR(120)
+    `);
+
+    await db.query(`
       CREATE INDEX IF NOT EXISTS idx_organizations_billing_provider
         ON organizations(billing_provider)
     `);

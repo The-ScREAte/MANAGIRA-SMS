@@ -102,6 +102,7 @@ const {
   getActiveStripePublicKey,
   getStripeChargeCurrency,
   getStripeClient,
+  getStripePlatformClient,
 } = require("../utils/stripeConfig");
 const { ensurePaymentProviderSchema, ensureStripeSubaccountSchema } = require("../utils/paymentProviderSchema");
 const {
@@ -342,6 +343,14 @@ async function buildRegistrationChargeContext(registrationDetails, promoCode, tr
 async function saveStoredCardMethod(dbClient, orgId, card, options = {}) {
   const provider = options.provider || "paystack";
   const authorizationCode = options.authorizationCode || card.authorization_code || card.id;
+  const displayName =
+    options.displayName !== undefined
+      ? options.displayName
+      : card.display_name !== undefined
+      ? card.display_name
+      : card.displayName !== undefined
+      ? card.displayName
+      : null;
 
   await dbClient.query(
     `INSERT INTO stored_cards (
@@ -358,9 +367,10 @@ async function saveStoredCardMethod(dbClient, orgId, card, options = {}) {
       signature,
       reusable,
       country_code,
+      display_name,
       is_primary,
       is_active
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, false, true)
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, false, true)
     ON CONFLICT (authorization_code) DO UPDATE SET
       organization_id = EXCLUDED.organization_id,
       provider = EXCLUDED.provider,
@@ -374,6 +384,7 @@ async function saveStoredCardMethod(dbClient, orgId, card, options = {}) {
       signature = EXCLUDED.signature,
       reusable = EXCLUDED.reusable,
       country_code = EXCLUDED.country_code,
+      display_name = COALESCE(stored_cards.display_name, EXCLUDED.display_name),
       is_active = true,
       updated_at = NOW()`,
     [
@@ -390,6 +401,7 @@ async function saveStoredCardMethod(dbClient, orgId, card, options = {}) {
       card.signature || null,
       card.reusable !== undefined ? card.reusable : true,
       card.country_code || null,
+      displayName ? String(displayName).trim().slice(0, 120) : null,
     ]
   );
 
@@ -691,7 +703,7 @@ async function saveCardAuthorization(db, orgId, authorization) {
 
 async function getStoredCardPaymentMethods(db, orgId, provider = null) {
   const result = await db.query(
-    `SELECT authorization_code, card_type, last4, exp_month, exp_year, is_primary, fallback_order
+    `SELECT authorization_code, card_type, last4, exp_month, exp_year, is_primary, fallback_order, display_name
      FROM stored_cards
      WHERE organization_id = $1 AND is_active = true
        AND ($2::text IS NULL OR provider = $2)
@@ -705,6 +717,7 @@ async function getStoredCardPaymentMethods(db, orgId, provider = null) {
     last4: row.last4,
     expMonth: row.exp_month,
     expYear: row.exp_year,
+    displayName: row.display_name || null,
     isPrimary: Boolean(row.is_primary),
     fallbackOrder: row.fallback_order === null ? null : Number(row.fallback_order),
   }));
@@ -3307,16 +3320,33 @@ const accountController = {
             type: "card",
           });
 
-          paymentMethods = (paymentMethodResult.data || []).map((method) => ({
-            id: method.id,
-            brand: method.card?.brand || "card",
-            last4: method.card?.last4,
-            expMonth: method.card?.exp_month,
-            expYear: method.card?.exp_year,
-            isPrimary: storedCardMethods.some(
-              (storedCard) => storedCard.id === method.id && storedCard.isPrimary
-            ),
-          }));
+          const _rawStripe = (paymentMethodResult.data || []).map((method) => {
+            const storedCardMeta = storedCardMethods.find(
+              (storedCard) => storedCard.id === method.id
+            );
+
+            return {
+              id: method.id,
+              brand: method.card?.brand || "card",
+              last4: method.card?.last4,
+              expMonth: method.card?.exp_month,
+              expYear: method.card?.exp_year,
+              funding: method.card?.funding || null,
+              fingerprint: method.card?.fingerprint || null,
+              displayName: storedCardMeta?.displayName || null,
+              isPrimary: Boolean(storedCardMeta?.isPrimary),
+            };
+          });
+          _rawStripe.sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0));
+          const _seenFp = new Set();
+          paymentMethods = _rawStripe
+            .filter((m) => {
+              if (!m.fingerprint) return true;
+              if (_seenFp.has(m.fingerprint)) return false;
+              _seenFp.add(m.fingerprint);
+              return true;
+            })
+            .map(({ fingerprint, ...rest }) => rest);
         } catch (_) {
         }
       } else if (!isHubMember && paystackCustomerCode) {
@@ -3336,21 +3366,31 @@ const accountController = {
           // Get saved cards from Paystack customer
 
           if (customer.authorizations && customer.authorizations.length > 0) {
+            const _seenPs = new Set();
             paymentMethods = customer.authorizations
               .filter((auth) => auth.channel === "card" && auth.reusable)
-              .map((auth) => ({
-                id: auth.authorization_code,
+              .filter((auth) => {
+                const _k = `${auth.brand}:${auth.last4}:${auth.exp_month}:${auth.exp_year}`;
+                if (_seenPs.has(_k)) return false;
+                _seenPs.add(_k);
+                return true;
+              })
+              .map((auth) => {
+                const storedCardMeta = storedCardMethods.find(
+                  (storedCard) => storedCard.id === auth.authorization_code
+                );
 
-                brand: auth.brand,
-
-                last4: auth.last4,
-
-                expMonth: auth.exp_month,
-
-                expYear: auth.exp_year,
-
-                email: auth.email,
-              }));
+                return {
+                  id: auth.authorization_code,
+                  brand: auth.brand,
+                  last4: auth.last4,
+                  expMonth: auth.exp_month,
+                  expYear: auth.exp_year,
+                  email: auth.email,
+                  displayName: storedCardMeta?.displayName || null,
+                  isPrimary: Boolean(storedCardMeta?.isPrimary),
+                };
+              });
           }
         } catch (paystackError) {
                   // Continue with empty payment methods if API fails
@@ -3892,6 +3932,49 @@ const accountController = {
       });
     } catch (error) {
       console.error("[setCardFallbackOrderPost]", error);
+      return res.status(500).json({ success: false, message: "Internal server error." });
+    }
+  },
+
+  setCardDisplayNamePost: async (req, res) => {
+    try {
+      const orgId = req.session.organizationId;
+      const { authorizationCode } = req.body || {};
+      let displayNameRaw = req.body && req.body.displayName;
+      if (displayNameRaw === undefined) displayNameRaw = req.body && req.body.display_name;
+
+      if (!orgId || !authorizationCode) {
+        return res.status(400).json({ success: false, message: "Missing required parameters." });
+      }
+
+      await ensurePaymentProviderSchema(db);
+
+      const displayName = String(displayNameRaw || "").trim();
+      if (displayName.length > 120) {
+        return res.status(400).json({ success: false, message: "Display name must be 120 characters or fewer." });
+      }
+
+      const result = await db.query(
+        `UPDATE stored_cards
+            SET display_name = $1
+          WHERE organization_id = $2
+            AND authorization_code = $3
+            AND is_active = true
+        RETURNING authorization_code, display_name`,
+        [displayName || null, orgId, authorizationCode]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ success: false, message: "Card not found for this organization." });
+      }
+
+      return res.json({
+        success: true,
+        message: displayName ? "Card payout name updated." : "Card payout name reset to default.",
+        card: result.rows[0],
+      });
+    } catch (error) {
+      console.error("[setCardDisplayNamePost]", error);
       return res.status(500).json({ success: false, message: "Internal server error." });
     }
   },
@@ -6666,7 +6749,7 @@ const accountController = {
 
       const orgResult = orgId
         ? await db.query(
-            `SELECT organization_name, logo, logo_path, image_url, font_style, nickname, nickname_display, role, email, paystack_customer_code, stripe_customer_id, billing_provider, first_name, last_name, organization_phone, is_hub_member, hub_id
+            `SELECT organization_name, logo, logo_path, image_url, font_style, nickname, nickname_display, role, email, paystack_customer_code, stripe_customer_id, billing_provider, first_name, last_name, organization_phone, is_hub_member, hub_id, stripe_connect_account_id
              FROM organizations 
              WHERE organization_id = $1`,
             [orgId]
@@ -6797,16 +6880,33 @@ const accountController = {
             type: 'card',
           });
 
-          paymentMethods = (paymentMethodResult.data || []).map((method) => ({
-            id: method.id,
-            brand: method.card?.brand || 'card',
-            last4: method.card?.last4,
-            expMonth: method.card?.exp_month,
-            expYear: method.card?.exp_year,
-            isPrimary: storedCardMethods.some(
-              (storedCard) => storedCard.id === method.id && storedCard.isPrimary
-            ),
-          }));
+          const _rawStripe2 = (paymentMethodResult.data || []).map((method) => {
+            const storedCardMeta = storedCardMethods.find(
+              (storedCard) => storedCard.id === method.id
+            );
+
+            return {
+              id: method.id,
+              brand: method.card?.brand || 'card',
+              last4: method.card?.last4,
+              expMonth: method.card?.exp_month,
+              expYear: method.card?.exp_year,
+              funding: method.card?.funding || null,
+              fingerprint: method.card?.fingerprint || null,
+              displayName: storedCardMeta?.displayName || null,
+              isPrimary: Boolean(storedCardMeta?.isPrimary),
+            };
+          });
+          _rawStripe2.sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0));
+          const _seenFp2 = new Set();
+          paymentMethods = _rawStripe2
+            .filter((m) => {
+              if (!m.fingerprint) return true;
+              if (_seenFp2.has(m.fingerprint)) return false;
+              _seenFp2.add(m.fingerprint);
+              return true;
+            })
+            .map(({ fingerprint, ...rest }) => rest);
 
           stripeInvoices = await listStripeInvoices(stripe, stripeCustomerId, 12);
         } catch (_) {
@@ -6862,16 +6962,31 @@ const accountController = {
 
             const customer = customerResponse.data.data;
             if (customer.authorizations && customer.authorizations.length > 0) {
+              const _seenPs2 = new Set();
               paymentMethods = customer.authorizations
                 .filter((auth) => auth.channel === 'card' && auth.reusable)
-                .map((auth) => ({
-                  id: auth.authorization_code,
-                  brand: auth.brand,
-                  last4: auth.last4,
-                  expMonth: auth.exp_month,
-                  expYear: auth.exp_year,
-                  email: auth.email,
-                }));
+                .filter((auth) => {
+                  const _k = `${auth.brand}:${auth.last4}:${auth.exp_month}:${auth.exp_year}`;
+                  if (_seenPs2.has(_k)) return false;
+                  _seenPs2.add(_k);
+                  return true;
+                })
+                .map((auth) => {
+                  const storedCardMeta = storedCardMethods.find(
+                    (storedCard) => storedCard.id === auth.authorization_code
+                  );
+
+                  return {
+                    id: auth.authorization_code,
+                    brand: auth.brand,
+                    last4: auth.last4,
+                    expMonth: auth.exp_month,
+                    expYear: auth.exp_year,
+                    email: auth.email,
+                    displayName: storedCardMeta?.displayName || null,
+                    isPrimary: Boolean(storedCardMeta?.isPrimary),
+                  };
+                });
             }
           } catch (paystackError) {
                       }
@@ -7008,6 +7123,7 @@ const accountController = {
         paystackSubaccounts,
         paystackCustomerCode,
         isHubMember,
+        stripeConnectAccountId: orgRow.stripe_connect_account_id || null,
         passwordVerified: req.session.passwordVerified || false,
         userId,
         orgTermDateBounds,
@@ -9092,6 +9208,107 @@ const accountController = {
     } catch (err) {
       return res.status(500).json({ success: false, message: err.message || "Save failed." });
     }
+  },
+
+  // ───────────────────────────────────────────────────────────────────────
+  // STRIPE CONNECT ONBOARDING
+  // Schools connect their Stripe account so registration payments flow to them.
+  // Flow: school clicks “Connect with Stripe” → we create an Express account (once),
+  //       generate an Account Link, redirect to Stripe’s hosted onboarding, then
+  //       Stripe redirects back to /account/stripe-connect/return when done.
+  // ───────────────────────────────────────────────────────────────────────
+
+  stripeConnectOnboardGet: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) return res.redirect('/account/login');
+
+    try {
+      const stripe   = await getStripePlatformClient(db);
+      const BASE_URL = process.env.BASE_URL ||
+        `${req.protocol}://${req.get('host')}`;
+
+      // Fetch current connected account id (if any)
+      const orgRow = await db.query(
+        `SELECT stripe_connect_account_id, organization_name, email
+           FROM organizations WHERE organization_id = $1`,
+        [orgId]
+      ).then(r => r.rows[0] || {});
+
+      let connectAccountId = (orgRow.stripe_connect_account_id || '').trim() || null;
+
+      // If not yet created, create a Stripe Express account for this school
+      if (!connectAccountId) {
+        const account = await stripe.accounts.create({
+          type:         'express',
+          email:        orgRow.email       || undefined,
+          business_profile: {
+            name:       orgRow.organization_name || undefined,
+          },
+          metadata: { organization_id: String(orgId) },
+        });
+        connectAccountId = account.id;
+        await db.query(
+          `UPDATE organizations SET stripe_connect_account_id = $1
+             WHERE organization_id = $2`,
+          [connectAccountId, orgId]
+        );
+      }
+
+      // Create a one-time Account Link for onboarding
+      const link = await stripe.accountLinks.create({
+        account:     connectAccountId,
+        refresh_url: `${BASE_URL}/account/stripe-connect/refresh`,
+        return_url:  `${BASE_URL}/account/stripe-connect/return`,
+        type:        'account_onboarding',
+      });
+
+      return res.redirect(link.url);
+    } catch (err) {
+      console.error('[StripeConnect] Onboard error:', err.message);
+      req.flash('error', 'Could not start Stripe Connect onboarding. Please try again.');
+      return res.redirect('/account/settings?section=billing');
+    }
+  },
+
+  // Stripe redirects here after the school finishes onboarding
+  stripeConnectReturnGet: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) return res.redirect('/account/login');
+
+    try {
+      const stripe = await getStripePlatformClient(db);
+      const orgRow = await db.query(
+        `SELECT stripe_connect_account_id FROM organizations WHERE organization_id = $1`,
+        [orgId]
+      ).then(r => r.rows[0] || {});
+
+      const connectAccountId = (orgRow.stripe_connect_account_id || '').trim() || null;
+      let isComplete = false;
+
+      if (connectAccountId) {
+        const account = await stripe.accounts.retrieve(connectAccountId).catch(() => null);
+        isComplete = Boolean(account?.charges_enabled);
+      }
+
+      if (isComplete) {
+        req.flash('success', 'Your Stripe account is connected! Payments from parents will now be sent to your school.');
+      } else {
+        req.flash('info', 'Almost there — Stripe may still need a few more details from you. You can complete setup from the Payout Accounts tab anytime.');
+      }
+      return res.redirect('/account/settings?section=billing&tab=payout');
+    } catch (err) {
+      console.error('[StripeConnect] Return error:', err.message);
+      req.flash('info', 'Stripe onboarding step completed. Check your Payout Accounts tab.');
+      return res.redirect('/account/settings?section=billing&tab=payout');
+    }
+  },
+
+  // Stripe redirects here if the Account Link expired before the school finished
+  stripeConnectRefreshGet: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) return res.redirect('/account/login');
+    // Just restart onboarding — creates a fresh Account Link
+    return res.redirect('/account/stripe-connect/onboard');
   },
 
   // GET - Display hub invitation acceptance page

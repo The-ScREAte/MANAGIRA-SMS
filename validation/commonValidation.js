@@ -1,6 +1,12 @@
 const { check, body, validationResult } = require("express-validator");
 
 // ── Smart sanitization helpers ──────────────────────────────────────────────
+function requestWantsJson(req) {
+  const accept = String(req.get("accept") || "").toLowerCase();
+  const fetchMode = String(req.get("sec-fetch-mode") || "").toLowerCase();
+  return req.xhr || accept.includes("application/json") || fetchMode === "cors";
+}
+
 function sanitizePhone(raw) {
   if (!raw) return '';
   // Strip everything except digits: +, spaces, dashes, parens, dots
@@ -147,18 +153,20 @@ const validatePublicRegister = [
   check("firstName")
     .trim()
     .escape()
-    .matches(/^[A-Za-zÀ-ÖØ-öø-ÿ\s'\-\.]+$/)
-    .withMessage("First name must contain only letters, spaces, hyphens, or apostrophes.")
     .notEmpty()
-    .withMessage("First name is required"),
+    .withMessage("First name is required")
+    .bail()
+    .matches(/^[A-Za-zÀ-ÖØ-öø-ÿ\s'\-\.]+$/)
+    .withMessage("First name must contain only letters, spaces, hyphens, or apostrophes."),
 
   check("lastName")
     .trim()
     .escape()
-    .matches(/^[A-Za-zÀ-ÖØ-öø-ÿ\s'\-\.]+$/)
-    .withMessage("Last name must contain only letters, spaces, hyphens, or apostrophes.")
     .notEmpty()
-    .withMessage("Last name is required"),
+    .withMessage("Last name is required")
+    .bail()
+    .matches(/^[A-Za-zÀ-ÖØ-öø-ÿ\s'\-\.]+$/)
+    .withMessage("Last name must contain only letters, spaces, hyphens, or apostrophes."),
 
   check("dateOfBirth").notEmpty().withMessage("Date of birth is required"),
 
@@ -182,12 +190,21 @@ const validatePublicRegister = [
 
 const validatePublicRegisterResult = (req, res, next) => {
   const errors = validationResult(req);
-  const orgId = req.query.organizationId;
 
   if (!errors.isEmpty()) {
+    const messages = errors.array().map((err) => err.msg);
+
+    if (requestWantsJson(req)) {
+      return res.status(400).json({
+        success: false,
+        error: messages[0] || "Missing required fields.",
+        errors: messages,
+      });
+    }
+
     req.flash(
       "error",
-      errors.array().map((err) => err.msg)
+      messages
     );
     return res.redirect("back");
   }

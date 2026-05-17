@@ -270,6 +270,9 @@ router.post("/cards/set-primary", isAuthenticated, requirePermission(PERMISSIONS
 router.post("/cards/set-fallback-order", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.setCardFallbackOrderPost(req, res)
 );
+router.post("/cards/set-display-name", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
+  accountController.setCardDisplayNamePost(req, res)
+);
 router.post("/api/tokenize-card/pin", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.tokenizeCardSubmitPin(req, res)
 );
@@ -298,6 +301,17 @@ router.delete("/paystack/:id", isAuthenticated, requirePermission(PERMISSIONS.MA
 );
 router.post("/paystack/set-primary", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.setPaystackSubaccountPrimary(req, res)
+);
+
+// Stripe Connect — school payout account onboarding
+router.get("/stripe-connect/onboard", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
+  accountController.stripeConnectOnboardGet(req, res)
+);
+router.get("/stripe-connect/return", isAuthenticated, (req, res) =>
+  accountController.stripeConnectReturnGet(req, res)
+);
+router.get("/stripe-connect/refresh", isAuthenticated, (req, res) =>
+  accountController.stripeConnectRefreshGet(req, res)
 );
 
 // Save a Stripe card as a Self Enrollment Transaction Account

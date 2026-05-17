@@ -29,6 +29,7 @@ const {
 } = require("../utils/currencyLocalization");
 const { getOrgChargeCards } = require("../utils/orgChargeCards");
 const { ensurePaymentProviderSchema } = require("../utils/paymentProviderSchema");
+const { getActiveStripePublicKey } = require("../utils/stripeConfig");
 const {
   getPlatformFeeSettings,
   isPlatformFeeMethod,
@@ -3452,12 +3453,22 @@ module.exports = {
             term_id: req.query.studentTerm || ((!req.query.studentYear && !req.query.studentTerm) ? (currentAcademic.termId || null) : null),
           }
         : {};
-      const [studentBilling, bills, overview, chargeCards] = await Promise.all([
+      const [studentBilling, bills, overview, chargeCards, paystackSubaccountsResult] = await Promise.all([
         loadStudentBilling(orgId, studentBillingFilters),
         loadBills(orgId, billListFilters),
         loadOverviewStats(orgId, overviewFilters),
         getOrgChargeCards(db, orgId, orgProfile.billing_provider || null),
+        db.query(
+          `SELECT id, account_type, business_name, account_number, bank_name, bank_code,
+                  momo_provider, momo_number, account_holder_name, is_primary
+           FROM paystack_subaccounts
+           WHERE organization_id = $1
+           ORDER BY is_primary DESC, id ASC`,
+          [orgId]
+        ),
       ]);
+      const paystackSubaccounts = paystackSubaccountsResult.rows;
+      const platformStripeKey = await getActiveStripePublicKey();
 
       const display = await buildFinanceDisplayContext(req, orgId, pspSettings, orgProfile.organization_country);
       const financeCountry = resolveCountryName(orgProfile.organization_country, display.financeCurrency.countryHint);
@@ -3527,6 +3538,8 @@ module.exports = {
         arrearsReports,
         arrearsPresets,
         chargeCards,
+        paystackSubaccounts,
+        platformStripeKey,
         billListFilters,
         studentBillingFilters,
         formatMoney: display.formatMoney,

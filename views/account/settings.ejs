@@ -714,6 +714,49 @@
         overflow-y: auto;
       }
 
+      #payment-method-modal {
+        overflow-y: auto;
+        align-items: flex-start;
+        padding-top: 92px;
+      }
+
+      #payment-method-modal .modal-card {
+        max-height: calc(100vh - 128px);
+        overflow-y: auto;
+      }
+
+      .pm-tab-bar {
+        display: flex;
+        gap: 0;
+        border-bottom: 2px solid var(--border);
+        margin: 12px 0 20px;
+      }
+
+      .pm-tab {
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        padding: 8px 18px;
+        font-size: .88rem;
+        font-weight: 500;
+        color: var(--muted, #6b7280);
+        cursor: pointer;
+        transition: color .15s, border-color .15s;
+      }
+
+      .pm-tab.active {
+        color: var(--primary, #2563eb);
+        border-bottom-color: var(--primary, #2563eb);
+      }
+
+      .pm-tab:hover:not(.active) {
+        color: #374151;
+      }
+
+      .pm-panel { display: none; }
+      .pm-panel.active { display: block; }
+
       #plan-modal {
         overflow-y: auto;
         align-items: flex-start;
@@ -1831,8 +1874,8 @@
 
           <% if (!isHubMember) { %>
           <div class="card security-card">
-            <h4>Payment Method</h4>
-            <small>Update your payment method for subscription billing.</small>
+            <h4>Payment Methods</h4>
+            <small>Manage subscription billing cards and payout accounts.</small>
             <div class="content-row">
               <div class="text-muted-sm">
                 <% if (defaultPaymentMethod) { %>
@@ -1841,33 +1884,15 @@
                 <% } else { %>
                   No card on file
                 <% } %>
+                <% const _primaryPayout = paystackSubaccounts && paystackSubaccounts.find(a => a.is_primary); %>
+                <% if (_primaryPayout) { %>
+                  &nbsp;&middot;&nbsp;<%= _primaryPayout.account_type === 'bank' ? '🏦' : '💳' %> <%= _primaryPayout.bank_name || _primaryPayout.business_name || 'Payout account' %>
+                <% } %>
               </div>
-              <button class="btn-primary btn-link btn-inline" id="open-payment-modal" type="button">Update Payment Method</button>
+              <button class="btn-primary btn-link btn-inline" id="open-payment-modal" type="button">Manage Payment Methods</button>
             </div>
           </div>
           <% } %>
-
-          <div class="card security-card">
-            <h4>Self Enrollment Transaction Account</h4>
-            <small>Manage where self enrollment payments are received.</small>
-            <div class="content-row">
-              <div class="text-muted-sm">
-                <% const primarySubaccount = (paystackSubaccounts || []).find((acc) => acc.is_primary); %>
-                <% if (primarySubaccount) { %>
-                  <%= primarySubaccount.account_type === 'mobile_money' ? 'Mobile Money' : 'Bank' %>
-                  - <%= primarySubaccount.business_name %>
-                  <% if (primarySubaccount.account_type === 'bank') { %>
-                    - <%= primarySubaccount.bank_name || primarySubaccount.bank_code || 'Bank' %>
-                  <% } else { %>
-                    - <%= primarySubaccount.momo_provider || 'MoMo' %>
-                  <% } %>
-                <% } else { %>
-                  No payout account selected
-                <% } %>
-              </div>
-              <button class="btn-link btn-inline" id="open-school-account-modal" type="button">Update Self Enrollment Transaction Account</button>
-            </div>
-          </div>
 
           <% if (!isHubMember) { %>
           <div class="card">
@@ -1982,6 +2007,7 @@
           </div>
           <% } %>
           <% } %>
+
         </section>
 
         <section id="security" class="settings-section">
@@ -2185,145 +2211,187 @@
     <div class="modal-overlay" id="payment-method-modal">
       <div class="modal-card wide">
         <button class="modal-close" type="button" id="payment-method-close">x</button>
-        <h2>Subscription Payment Method</h2>
-        <p class="modal-helper">Choose which saved card should be used for subscription billing.</p>
-        <% const activeCardId = defaultPaymentMethod ? defaultPaymentMethod.id : null; %>
-        <% if (paymentMethods && paymentMethods.length) { %>
-          <ul class="card-list">
-            <% paymentMethods.forEach((card) => { %>
-              <li class="card-item <%= card.id === activeCardId ? 'active' : '' %>">
-                <div class="card-meta">
-                  <strong><%= card.brand || 'Card' %></strong>
-                  <span class="text-muted-sm">**** <%= card.last4 %> - Exp <%= card.expMonth %>/<%= card.expYear %></span>
-                </div>
-                <div class="card-actions">
-                  <% if (card.id === activeCardId) { %>
-                    <span class="pill">Active</span>
-                  <% } else { %>
-                    <button class="btn-link set-primary-card" type="button" data-id="<%= card.id %>">Set Active</button>
-                  <% } %>
-                  <% if (paymentMethods.length > 1) { %>
-                    <button class="btn-link remove-card" type="button" data-id="<%= card.id %>">Remove</button>
-                  <% } %>
-                </div>
-              </li>
-            <% }) %>
-          </ul>
-        <% } else { %>
-          <p class="list-empty">No saved cards yet.</p>
-        <% } %>
-        <div class="content-row">
-          <button class="btn-primary btn-link" id="add-card-from-settings" type="button">Add New Card</button>
+        <h2>Payment Methods</h2>
+
+        <!-- Tab bar -->
+        <div class="pm-tab-bar" role="tablist">
+          <button class="pm-tab active" id="pm-tab-subscription" data-pm-tab="subscription" role="tab" aria-selected="true" aria-controls="pm-subscription-panel">Subscription Cards</button>
+          <button class="pm-tab" id="pm-tab-payout" data-pm-tab="payout" role="tab" aria-selected="false" aria-controls="pm-payout-panel">Payout Accounts</button>
         </div>
-      </div>
-    </div>
-    <div class="modal-overlay" id="school-account-modal">
-      <div class="modal-card wide school-account-modal">
-        <button class="modal-close" type="button" id="school-account-close">x</button>
-        <h2>Self Enrollment Transaction Account</h2>
-        <p class="modal-helper">Select the account that should receive payments from parents.</p>
-        <% if (paystackSubaccounts && paystackSubaccounts.length) { %>
-          <ul class="card-list" id="school-account-list">
-            <% paystackSubaccounts.forEach((account) => { %>
-              <li class="card-item <%= account.is_primary ? 'active' : '' %>">
-                <div class="card-meta">
-                  <strong><%= account.account_type === 'stripe_card' ? 'Stripe Card' : account.account_type === 'mobile_money' ? 'Mobile Money' : 'Bank' %></strong>
-                  <span class="text-muted-sm"><%= account.business_name %></span>
-                  <span class="text-muted-sm">
-                    <% if (account.account_type === 'bank') { %>
-                      <%= account.bank_name || account.bank_code || 'Bank' %>
-                    <% } else if (account.account_type === 'stripe_card') { %>
-                      **** <%= account.account_number %> &mdash; Stripe
+
+        <!-- ── Subscription Cards panel ─────────────────────────── -->
+        <div class="pm-panel active" id="pm-subscription-panel" role="tabpanel" aria-labelledby="pm-tab-subscription">
+          <p class="modal-helper">Choose which saved card should be used for subscription billing.</p>
+          <% const activeCardId = defaultPaymentMethod ? defaultPaymentMethod.id : null; %>
+          <% if (paymentMethods && paymentMethods.length) { %>
+            <ul class="card-list">
+              <% paymentMethods.forEach((card) => { %>
+                <li class="card-item <%= card.id === activeCardId ? 'active' : '' %>">
+                  <div class="card-meta">
+                    <strong><%= card.brand || 'Card' %></strong>
+                    <span class="text-muted-sm">**** <%= card.last4 %> - Exp <%= card.expMonth %>/<%= card.expYear %></span>
+                  </div>
+                  <div class="card-actions">
+                    <% if (card.id === activeCardId) { %>
+                      <span class="pill">Active</span>
                     <% } else { %>
-                      <%= account.momo_provider || 'MoMo' %> - <%= account.momo_number %>
+                      <button class="btn-link set-primary-card" type="button" data-id="<%= card.id %>">Set Active</button>
                     <% } %>
-                  </span>
-                </div>
-                <div class="card-actions">
-                  <% if (account.is_primary) { %>
-                    <span class="pill">Active</span>
-                  <% } else { %>
-                    <button class="btn-link set-school-primary" type="button" data-id="<%= account.id %>" data-type="<%= account.account_type %>">Set Active</button>
-                  <% } %>
-                  <button class="btn-link edit-school-account" type="button" data-id="<%= account.id %>">Edit</button>
-                </div>
-              </li>
-            <% }) %>
-          </ul>
-        <% } else { %>
-          <p class="list-empty">No payout accounts added yet.</p>
-        <% } %>
-
-        <form id="school-account-form">
-          <input type="hidden" id="sa-id" name="id" />
+                    <% if (paymentMethods.length > 1) { %>
+                      <button class="btn-link remove-card" type="button" data-id="<%= card.id %>">Remove</button>
+                    <% } %>
+                  </div>
+                </li>
+              <% }) %>
+            </ul>
+          <% } else { %>
+            <p class="list-empty">No saved cards yet.</p>
+          <% } %>
           <div class="content-row">
-            <div class="field-group">
-              <label class="form-label" for="sa-type">Payment Type</label>
-              <select id="sa-type" name="account_type" class="form-select" required>
-                <option value="">-- Choose Option --</option>
-                <option value="bank">Bank Account</option>
-                <option value="stripe_card">Stripe Card</option>
-              </select>
-            </div>
-            <div class="field-group">
-              <label class="form-label" for="sa-business-name">Business/School Name</label>
-              <input id="sa-business-name" name="business_name" class="form-input" type="text" required />
-            </div>
+            <button class="btn-primary btn-link" id="add-card-from-settings" type="button">Add New Card</button>
+          </div>
+        </div>
 
-            <div id="sa-bank-fields" class="form-split">
-              <div class="field-group">
-                <label class="form-label" for="sa-account-holder">Account Holder Name</label>
-                <input id="sa-account-holder" name="account_holder_name" class="form-input" type="text" />
-              </div>
-              <div class="field-group">
-                <label class="form-label" for="sa-bank-name-input">Bank Name</label>
-                <input id="sa-bank-name-input" name="bank_name" class="form-input" type="text" />
-              </div>
-              <div class="field-group">
-                <label class="form-label" for="sa-account-number">Account Number</label>
-                <input id="sa-account-number" name="account_number" class="form-input" type="text" />
-              </div>
-              <div class="field-group">
-                <label class="form-label" for="sa-routing-number">Routing / Sort Code</label>
-                <input id="sa-routing-number" name="routing_number" class="form-input" type="text" placeholder="Optional for some countries" />
-              </div>
-              <div class="field-group">
-                <label class="form-label" for="sa-bank-country">Country</label>
-                <select id="sa-bank-country" name="bank_country" class="form-select">
-                  <option value="US">United States</option>
-                  <option value="GB">United Kingdom</option>
-                  <option value="CA">Canada</option>
-                  <option value="AU">Australia</option>
-                  <option value="DE">Germany</option>
-                  <option value="FR">France</option>
-                  <option value="GH">Ghana</option>
-                  <option value="NG">Nigeria</option>
-                  <option value="KE">Kenya</option>
-                  <option value="ZA">South Africa</option>
-                </select>
-              </div>
-              <div class="field-group">
-                <label class="form-label" for="sa-bank-currency">Currency Code</label>
-                <input id="sa-bank-currency" name="bank_currency" class="form-input" type="text" placeholder="e.g. usd, gbp, ghs" />
-              </div>
-              <div id="sa-bank-errors" class="form-error" role="alert" style="color:#c0392b;font-size:0.85em;margin-top:4px;"></div>
-            </div>
+        <!-- ── Payout Accounts panel ────────────────────────────── -->
+        <div class="pm-panel" id="pm-payout-panel" role="tabpanel" aria-labelledby="pm-tab-payout">
+          <p class="modal-helper">Bank accounts and cards where parents send payments to your school.</p>
 
-            <div id="sa-stripe-card-fields" style="display:none;">
-              <div class="field-group">
-                <label class="form-label">Card Details</label>
-                <div id="sa-stripe-card-element" style="padding:10px 12px;border:1px solid #ccc;border-radius:4px;background:#fff;"></div>
-                <div id="sa-stripe-card-errors" class="form-error" role="alert" style="color:#c0392b;font-size:0.85em;margin-top:4px;"></div>
-              </div>
+          <!-- ── Stripe Connect banner ──────────────────────────── -->
+          <% const _connectId = typeof stripeConnectAccountId !== 'undefined' ? stripeConnectAccountId : null; %>
+          <% if (_connectId) { %>
+          <div style="display:flex;align-items:center;gap:12px;background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:14px 16px;margin-bottom:16px;">
+            <span style="font-size:1.3rem;flex-shrink:0;">✅</span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:700;font-size:.9rem;color:#15803d;">Stripe Payout Account Connected</div>
+              <div style="font-size:.78rem;color:#166534;margin-top:2px;word-break:break-all;"><%= _connectId %></div>
+              <div style="font-size:.78rem;color:#4b5563;margin-top:4px;">Registration payments from parents will be transferred to your connected Stripe account automatically.</div>
             </div>
-
-            <div class="card-actions">
-              <button class="btn-primary btn-link" id="sa-save" type="submit">Save Account</button>
-              <button class="btn-link" id="sa-reset" type="button">Add New Account</button>
-              <button class="btn-danger btn-link" id="sa-delete" type="button">Delete Account</button>
+            <a href="/account/stripe-connect/onboard" style="flex-shrink:0;font-size:.8rem;padding:6px 12px;background:#fff;border:1px solid #86efac;border-radius:7px;color:#15803d;text-decoration:none;white-space:nowrap;">Update / Re-onboard</a>
+          </div>
+          <% } else { %>
+          <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:16px 18px;margin-bottom:16px;">
+            <div style="display:flex;align-items:flex-start;gap:12px;">
+              <span style="font-size:1.3rem;flex-shrink:0;">🏦</span>
+              <div style="flex:1;">
+                <div style="font-weight:700;font-size:.92rem;color:#92400e;">Connect Your School's Stripe Account</div>
+                <div style="font-size:.83rem;color:#78350f;margin-top:4px;line-height:1.5;">
+                  To receive registration payments from parents directly into your school's bank account, you need to connect a Stripe account.<br>
+                  <strong>Without this, all payments go to Managira only.</strong>
+                </div>
+                <div style="margin-top:12px;">
+                  <a href="/account/stripe-connect/onboard"
+                     style="display:inline-flex;align-items:center;gap:8px;background:#635bff;color:#fff;border:none;padding:9px 18px;border-radius:8px;font-size:.88rem;font-weight:600;text-decoration:none;cursor:pointer;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                    Connect with Stripe
+                  </a>
+                </div>
+                <div style="font-size:.75rem;color:#92400e;margin-top:10px;">
+                  You'll be taken to Stripe's secure onboarding. You'll need your bank details and business info ready.
+                </div>
+              </div>
             </div>
           </div>
-        </form>
+          <% } %>
+
+          <% if (paystackSubaccounts && paystackSubaccounts.length) { %>
+          <ul style="list-style:none;padding:0;margin:0 0 16px;display:flex;flex-direction:column;gap:8px;" id="payout-accounts-list">
+            <% paystackSubaccounts.forEach(function(account) { %>
+            <li style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface,#f9fafb);">
+              <div>
+                <strong style="font-size:.9rem;">
+                  <%= account.account_type === 'stripe_card' ? '💳 Card' : '🏦 Bank Account' %>
+                  <% if (account.is_primary) { %><span style="margin-left:6px;background:#e7faf1;color:#0f5132;padding:1px 7px;border-radius:5px;font-size:.72rem;font-weight:600;">Primary</span><% } %>
+                </strong>
+                <div style="color:var(--muted);font-size:.82rem;margin-top:3px;">
+                  <% if (account.account_type === 'bank') { %>
+                    <%= account.bank_name || 'Bank' %> &middot; Acc: <%= account.account_number || '—' %>
+                  <% } else if (account.account_type === 'stripe_card') { %>
+                    Stripe card &middot; <%= account.business_name || '' %>
+                  <% } else { %>
+                    <%= account.business_name || '' %>
+                  <% } %>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;flex-shrink:0;">
+                <% if (!account.is_primary) { %>
+                <button type="button" class="btn-link set-school-primary" data-id="<%= account.id %>" data-type="<%= account.account_type %>" style="font-size:.8rem;">Set Primary</button>
+                <% } %>
+                <button type="button" class="btn-link edit-school-account" data-id="<%= account.id %>" style="font-size:.8rem;">Edit</button>
+              </div>
+            </li>
+            <% }) %>
+          </ul>
+          <% } else { %>
+          <%# 'No payout accounts set up yet.' message and Add Payout Account button hidden — Stripe Connect is the only payout method %>
+          <% } %>
+
+          <!-- Payout account form (hidden by default, shown when Add / Edit clicked) -->
+          <div id="payout-form-wrap" style="display:none;border-top:1px solid var(--border);padding-top:16px;margin-top:8px;">
+            <h4 style="margin:0 0 12px;font-size:.95rem;" id="payout-form-heading">Add Payout Account</h4>
+            <form id="school-account-form" autocomplete="off">
+              <input type="hidden" id="sa-id" name="id" />
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div class="field-group">
+                  <label class="form-label">Payment Type</label>
+                  <select id="sa-type" name="account_type" class="form-select" required>
+                    <option value="">— Choose —</option>
+                    <option value="bank">Bank Account</option>
+                    <% if (typeof stripePublishableKey !== 'undefined' && stripePublishableKey) { %>
+                    <option value="stripe_card">Debit / Credit Card</option>
+                    <% } %>
+                  </select>
+                </div>
+                <div class="field-group">
+                  <label class="form-label">Business / School Name</label>
+                  <input id="sa-business-name" name="business_name" type="text" class="form-input" required />
+                </div>
+              </div>
+
+              <!-- Bank fields -->
+              <div id="sa-bank-fields" style="display:none;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
+                <div class="field-group">
+                  <label class="form-label">Account Holder Name</label>
+                  <input id="sa-account-holder" name="account_holder_name" type="text" class="form-input" />
+                </div>
+                <div class="field-group">
+                  <label class="form-label">Bank</label>
+                  <select id="sa-bank-select" name="bank_name" class="form-select" style="display:none;">
+                    <option value="">Select bank…</option>
+                  </select>
+                  <input id="sa-bank-name-input" name="bank_name" type="text" class="form-input" placeholder="Enter bank name" style="display:none;" />
+                  <input type="hidden" id="sa-bank-code" name="bank_code" />
+                  <small id="sa-bank-load-error" style="display:none;color:var(--muted);font-size:.78rem;margin-top:4px;">Could not load bank list — enter name manually.</small>
+                </div>
+                <div class="field-group">
+                  <label class="form-label">Account Number</label>
+                  <input id="sa-account-number" name="account_number" type="text" class="form-input" />
+                </div>
+              </div>
+
+              <% if (typeof stripePublishableKey !== 'undefined' && stripePublishableKey) { %>
+              <!-- Stripe card fields -->
+              <div id="sa-stripe-card-fields" style="display:none;margin-top:12px;">
+                <div class="field-group">
+                  <label class="form-label">Card Details</label>
+                  <div id="sa-stripe-card-element" style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:#fff;"></div>
+                  <div id="sa-stripe-card-errors" style="color:#c0392b;font-size:.85em;margin-top:4px;"></div>
+                </div>
+              </div>
+              <% } %>
+
+              <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;align-items:center;">
+                <button type="submit" class="btn-primary btn-link">Save Account</button>
+                <button type="button" class="btn-link" id="sa-reset">Cancel</button>
+                <button type="button" class="btn-danger btn-link" id="sa-delete" style="display:none;">Delete Account</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="content-row" id="payout-add-row" style="display:none;margin-top:12px;">
+            <button class="btn-primary btn-link" id="add-payout-account-btn" type="button">Add Payout Account</button>
+          </div>
+        </div>
+
       </div>
     </div>
     <div class="modal-overlay" id="plan-modal">
@@ -2446,9 +2514,7 @@
         const paymentModal = document.getElementById("payment-method-modal");
         const paymentModalOpen = document.getElementById("open-payment-modal");
         const paymentModalClose = document.getElementById("payment-method-close");
-        const schoolModal = document.getElementById("school-account-modal");
-        const schoolModalOpen = document.getElementById("open-school-account-modal");
-        const schoolModalClose = document.getElementById("school-account-close");
+        const schoolModal = null; // payout accounts now live inside payment-method-modal
         const passwordModal = document.getElementById("billing-password-modal");
         const passwordModalClose = document.getElementById("billing-password-close");
         const passwordModalSubmit = document.getElementById("billing-password-submit");
@@ -2592,7 +2658,7 @@
           }
 
           // Ensure password modal is never hidden behind another open modal.
-          [planModal, paymentModal, schoolModal, cancelModal].forEach((modal) => {
+          [planModal, paymentModal, cancelModal].forEach((modal) => {
             if (modal && modal !== passwordModal) {
               closeModal(modal);
             }
@@ -2651,16 +2717,50 @@
           paymentModalOpen.addEventListener("click", () => requestPassword(paymentModal));
         }
 
-        if (schoolModalOpen) {
-          schoolModalOpen.addEventListener("click", () => requestPassword(schoolModal));
-        }
-
         if (paymentModalClose) {
           paymentModalClose.addEventListener("click", () => closeModal(paymentModal));
         }
 
-        if (schoolModalClose) {
-          schoolModalClose.addEventListener("click", () => closeModal(schoolModal));
+        // ── Payment Methods tab switching ─────────────────────────────────
+        function switchPmTab(tabName) {
+          document.querySelectorAll(".pm-tab").forEach((t) => {
+            const active = t.dataset.pmTab === tabName;
+            t.classList.toggle("active", active);
+            t.setAttribute("aria-selected", active ? "true" : "false");
+          });
+          document.querySelectorAll(".pm-panel").forEach((p) => {
+            p.classList.toggle("active", p.id === "pm-" + tabName + "-panel");
+          });
+        }
+
+        document.querySelectorAll(".pm-tab").forEach((tab) => {
+          tab.addEventListener("click", () => switchPmTab(tab.dataset.pmTab));
+        });
+
+        // ── Payout form show / hide helpers ──────────────────────────────
+        function showPayoutForm() {
+          const wrap = document.getElementById("payout-form-wrap");
+          const addRow = document.getElementById("payout-add-row");
+          if (wrap) wrap.style.display = "block";
+          if (addRow) addRow.style.display = "none";
+        }
+
+        function hidePayoutForm() {
+          const wrap = document.getElementById("payout-form-wrap");
+          const addRow = document.getElementById("payout-add-row");
+          if (wrap) wrap.style.display = "none";
+          if (addRow) addRow.style.display = "";
+          resetSchoolAccountForm();
+        }
+
+        const addPayoutAccountBtn = document.getElementById("add-payout-account-btn");
+        if (addPayoutAccountBtn) {
+          addPayoutAccountBtn.addEventListener("click", () => {
+            requestPassword(null, () => {
+              switchPmTab("payout");
+              showPayoutForm();
+            });
+          });
         }
 
         if (passwordModalClose) {
@@ -2907,6 +3007,42 @@
             });
           });
 
+          document.querySelectorAll(".edit-fallback-card-name").forEach((button) => {
+            button.addEventListener("click", () => {
+              requestPassword(null, async () => {
+                const authorizationCode = button.dataset.id;
+                const currentName = button.dataset.currentName || "";
+                const nextName = window.prompt(
+                  "Set the payout name parents should see for this card. Leave blank to use the school default.",
+                  currentName
+                );
+
+                if (nextName === null) {
+                  return;
+                }
+
+                try {
+                  const res = await fetch("/account/cards/set-display-name", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      authorizationCode,
+                      displayName: String(nextName || "").trim(),
+                    }),
+                  });
+                  const data = await res.json();
+                  if (data.success) {
+                    window.location.reload();
+                  } else {
+                    alert(data.message || "Failed to update the card payout name.");
+                  }
+                } catch (error) {
+                  alert("Unable to update the card payout name. Try again.");
+                }
+              });
+            });
+          });
+
           document.querySelectorAll(".remove-card").forEach((button) => {
             button.addEventListener("click", async () => {
               requestPassword(null, async () => {
@@ -3086,6 +3222,43 @@
           });
         }
 
+        let saBanksLoaded = false;
+        function loadSaBanks() {
+          if (saBanksLoaded) return;
+          saBanksLoaded = true;
+          const select = document.getElementById("sa-bank-select");
+          const nameInput = document.getElementById("sa-bank-name-input");
+          const errEl = document.getElementById("sa-bank-load-error");
+          fetch("/account/paystack-banks?country=ghana")
+            .then((r) => r.json())
+            .then((data) => {
+              const banks = data.banks || [];
+              if (!banks.length) throw new Error("Empty");
+              if (select) {
+                select.innerHTML = '<option value="">Select bank\u2026</option>';
+                banks.forEach((b) => {
+                  const opt = document.createElement("option");
+                  opt.value = b.name;
+                  opt.dataset.code = b.code;
+                  opt.textContent = b.name;
+                  select.appendChild(opt);
+                });
+                select.style.display = "";
+                if (nameInput) nameInput.style.display = "none";
+                select.addEventListener("change", function () {
+                  const sel = select.options[select.selectedIndex];
+                  const codeEl = document.getElementById("sa-bank-code");
+                  if (codeEl) codeEl.value = sel ? (sel.dataset.code || "") : "";
+                });
+              }
+            })
+            .catch(() => {
+              if (errEl) errEl.style.display = "";
+              if (nameInput) nameInput.style.display = "";
+              if (select) select.style.display = "none";
+            });
+        }
+
         function toggleSchoolAccountFields() {
           if (!schoolAccountType || !schoolAccountBankFields) {
             return;
@@ -3098,6 +3271,8 @@
           if (schoolAccountStripeCardFields) {
             schoolAccountStripeCardFields.style.display = isStripeCard ? "block" : "none";
           }
+
+          if (isBank) loadSaBanks();
 
           // Mount/destroy Stripe card element based on visibility
           if (isStripeCard && stripePublishableKey) {
@@ -3149,6 +3324,13 @@
           if (schoolAccountDelete) {
             schoolAccountDelete.style.display = "none";
           }
+          const heading = document.getElementById("payout-form-heading");
+          if (heading) heading.textContent = "Add Payout Account";
+          // Pre-fill business name with org name as default
+          const businessNameInput = document.getElementById("sa-business-name");
+          if (businessNameInput && !businessNameInput.value) {
+            businessNameInput.value = "<%= (org && org.organization_name) ? org.organization_name : '' %>";
+          }
           toggleSchoolAccountFields();
         }
 
@@ -3158,13 +3340,17 @@
         }
 
         if (schoolAccountReset) {
-          schoolAccountReset.addEventListener("click", resetSchoolAccountForm);
+          schoolAccountReset.addEventListener("click", hidePayoutForm);
         }
 
         document.querySelectorAll(".edit-school-account").forEach((button) => {
           button.addEventListener("click", async () => {
             requestPassword(null, async () => {
               const id = button.dataset.id;
+              // Open the payment modal on the payout tab
+              openModal(paymentModal);
+              switchPmTab("payout");
+              showPayoutForm();
               try {
                 const res = await fetch(`/account/paystack/${id}`);
                 const data = await res.json();
@@ -3190,6 +3376,8 @@
                 if (schoolAccountDelete) {
                   schoolAccountDelete.style.display = "inline-flex";
                 }
+                const heading = document.getElementById("payout-form-heading");
+                if (heading) heading.textContent = "Edit Payout Account";
               } catch (error) {
                 alert("Unable to load account. Try again.");
               }
@@ -3250,43 +3438,28 @@
               const payload = Object.fromEntries(formData.entries());
               const isEditing = payload.id && payload.id !== "";
 
-              // ─── Bank account via Stripe ────────────────────────────────────
+              // ─── Bank account via Paystack (direct) ────────────────────────
               if (payload.account_type === "bank") {
-                if (!stripePublishableKey) {
-                  alert("Stripe is not available. Cannot process bank account.");
-                  return;
+                const select = document.getElementById("sa-bank-select");
+                const nameInput = document.getElementById("sa-bank-name-input");
+                const codeEl = document.getElementById("sa-bank-code");
+                if (select && select.style.display !== "none") {
+                  const sel = select.options[select.selectedIndex];
+                  payload.bank_name = sel ? sel.value : "";
+                  payload.bank_code = codeEl ? codeEl.value : (sel ? (sel.dataset.code || "") : "");
+                } else if (nameInput) {
+                  payload.bank_name = nameInput.value;
+                  payload.bank_code = codeEl ? codeEl.value : payload.bank_name;
                 }
-                const bankErrEl = document.getElementById("sa-bank-errors");
-                const saStripeForBank = (saStripeElements && saStripeElements.stripe) || Stripe(stripePublishableKey);
-
+                const url = isEditing ? "/account/paystack" : "/account/add-paystack-subaccount";
+                const method = isEditing ? "PUT" : "POST";
                 try {
-                  const bankTokenResult = await saStripeForBank.createToken("bank_account", {
-                    country: payload.bank_country || "US",
-                    currency: (payload.bank_currency || "usd").toLowerCase().trim(),
-                    routing_number: payload.routing_number || undefined,
-                    account_number: payload.account_number,
-                    account_holder_name: payload.account_holder_name || payload.business_name,
-                    account_holder_type: "company",
-                  });
-                  if (bankTokenResult.error) throw new Error(bankTokenResult.error.message);
-
-                  const saveRes = await fetch("/account/paystack/stripe-bank-account", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      bankToken: bankTokenResult.token.id,
-                      business_name: payload.business_name,
-                      bank_name: payload.bank_name,
-                      bank_country: payload.bank_country || "US",
-                    }),
-                  });
-                  const saveData = await saveRes.json();
-                  if (!saveRes.ok || !saveData.success) throw new Error(saveData.message || "Failed to save bank account.");
-
-                  window.location.reload();
+                  const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+                  const data = await res.json();
+                  if (data.success) { window.location.reload(); }
+                  else { alert(data.message || "Failed to save bank account."); }
                 } catch (err) {
-                  if (bankErrEl) bankErrEl.textContent = err.message || "Error saving bank account.";
-                  else alert(err.message || "Error saving bank account.");
+                  alert(err.message || "Unable to save bank account. Try again.");
                 }
                 return;
               }
@@ -3337,26 +3510,6 @@
                   else alert(err.message || "Error saving Stripe card.");
                 }
                 return;
-              }
-
-              // ─── Bank account (regular Paystack) flow ──────────────────────
-              const url = isEditing ? "/account/paystack" : "/account/add-paystack-subaccount";
-              const method = isEditing ? "PUT" : "POST";
-
-              try {
-                const res = await fetch(url, {
-                  method,
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(payload),
-                });
-                const data = await res.json();
-                if (data.success) {
-                  window.location.reload();
-                } else {
-                  alert(data.message || "Failed to save account.");
-                }
-              } catch (error) {
-                alert("Unable to save account. Try again.");
               }
             });
           });

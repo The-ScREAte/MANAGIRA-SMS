@@ -278,6 +278,83 @@
     border-radius: 8px;
   }
 
+  /* ── Two-column field grid ───────────────────────────────────── */
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 24px;
+  }
+  .form-grid .form-group.full-width {
+    grid-column: 1 / -1;
+  }
+  @media (max-width: 600px) {
+    .form-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ── Section card for grouped fields ────────────────────────── */
+  .form-section-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 20px 24px 8px;
+    margin-bottom: 24px;
+  }
+  .form-section-card h4 {
+    margin: 0 0 16px 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #374151;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* ── Welcome card ────────────────────────────────────────────── */
+  .welcome-card {
+    background: linear-gradient(135deg, #eff6ff 0%, #e0f2fe 100%);
+    border: 1px solid #bfdbfe;
+    border-radius: 12px;
+    padding: 32px;
+    margin-bottom: 10px;
+  }
+  .welcome-card p { line-height: 1.75; color: #374151; font-size: 1.05rem; }
+  .fee-badge {
+    display: inline-block;
+    background: #2563eb;
+    color: white;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin: 8px 0;
+  }
+
+  /* ── Payment card ────────────────────────────────────────────── */
+  .payment-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 28px;
+    max-width: 520px;
+    margin: 0 auto;
+  }
+  .payment-fee-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    font-size: 1rem;
+    color: #374151;
+  }
+  .payment-fee-row strong { font-size: 1.15rem; color: #2563eb; }
+
+  /* Payment tabs */
+  #stripe-loading-spinner { display: inline-block; }
+  #payNowBtn:disabled { opacity: .6; cursor: not-allowed; }
 </style>
 </head>
 <body>
@@ -287,15 +364,15 @@
     <!-- Welcome Section -->
     <div id="welcomeSection">
       <h1 class="form-header">Welcome to <%= orgDetails.organization_name %></h1>
-      <p style="font-size: 1.1rem;">
-        <strong><%= orgDetails.organization_name %></strong> has opened applications for new students. We're thrilled you're considering joining us!
-        <br /><br />
-        The non-refundable application fee is <strong><%= orgDetails.public_registration_currency %> <%= orgDetails.public_registration_price %></strong> and will be collected before submitting your registration.
-        <br /><br />
-        After submission, you may receive a follow-up email, text or phone call from us for verification before final enrollment. Other relevant information will be communicated later.
-        <br /><br />
-        <strong>Make sure you provide all required information and upload a recent image of the student for proper identification.</strong>
-      </p>
+      <div class="welcome-card">
+        <p>
+          <strong><%= orgDetails.organization_name %></strong> has opened applications for new students. We're thrilled you're considering joining us!
+        </p>
+        <p style="margin-top:14px;">The non-refundable application fee is:</p>
+        <div><span class="fee-badge"><%= orgDetails.public_registration_currency %> <%= orgDetails.public_registration_price %></span></div>
+        <p style="margin-top:14px;">After submission, you may receive a follow-up email, text or phone call from us for verification before final enrollment.</p>
+        <p style="margin-top:14px;"><strong>Make sure you provide all required information and upload a recent image of the student for proper identification.</strong></p>
+      </div>
       <div class="form-actions">
         <button onclick="startRegistration()">Next</button>
       </div>
@@ -344,74 +421,80 @@
 
       <form id="registrationForm" enctype="multipart/form-data">
         <input type="hidden" name="organizationId" value="<%= organizationId %>" />
-  
-        <div class="form-group">
-          <label>First Name</label>
-          <input type="text" name="firstName" required />
-        </div>
-        <div class="form-group">
-          <label>Last Name</label>
-          <input type="text" name="lastName" required />
-        </div>
-        <div class="form-group">
-          <label>Date of Birth</label>
-          <input type="date" name="dateOfBirth" required />
-        </div>
-        <div class="form-group">
-          <label>Gender</label>
-          <select name="gender" required>
-            <option value="">Select Gender</option>
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Hometown</label>
-          <input type="text" name="hometown" />
-        </div>
-        <div class="form-group">
-          <label>Class</label>
-          <select name="classId" id="classId" required>
-            <option value="">Select Class</option>
-            <% classes.forEach(cls => { %>
-              <option value="<%= cls.class_id %>"><%= cls.class_name %></option>
-            <% }) %>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Student Image</label>
-          <input type="file" name="studentImage" required />
+
+        <div class="form-section-card">
+          <h4>🎓 Student Information</h4>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>First Name</label>
+              <input type="text" name="firstName" required />
+            </div>
+            <div class="form-group">
+              <label>Last Name</label>
+              <input type="text" name="lastName" required />
+            </div>
+            <div class="form-group">
+              <label>Date of Birth</label>
+              <input type="date" name="dateOfBirth" required />
+            </div>
+            <div class="form-group">
+              <label>Gender</label>
+              <select name="gender" required>
+                <option value="">Select Gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Hometown</label>
+              <input type="text" name="hometown" />
+            </div>
+            <div class="form-group">
+              <label>Class</label>
+              <select name="classId" id="classId" required>
+                <option value="">Select Class</option>
+                <% classes.forEach(cls => { %>
+                  <option value="<%= cls.class_id %>"><%= cls.class_name %></option>
+                <% }) %>
+              </select>
+            </div>
+            <div class="form-group full-width">
+              <label>Student Photo</label>
+              <input type="file" name="studentImage" accept="image/*" required />
+            </div>
+          </div>
         </div>
   
         <div id="guardiansContainer" style="display: none;">
-          <div class="guardians-section guardian-entry">
-            <h4>Guardian Details</h4>
+          <div class="form-section-card guardian-entry">
+            <h4>👤 Guardian Details</h4>
             <input type="hidden" id="existingGuardianId" name="existingGuardianId" value="" />
-            
-            <div class="form-group">
-              <label>Guardian First Name</label>
-              <input type="text" id="guardianFirstName0" name="guardianFirstName0" />
-            </div>
-            <div class="form-group">
-              <label>Guardian Last Name</label>
-              <input type="text" id="guardianLastName0" name="guardianLastName0" />
-            </div>
-            <div class="form-group">
-              <label>Guardian Phone</label>
-              <input type="text" id="guardianPhone0" name="guardianPhone0" />
-            </div>
-            <div class="form-group">
-              <label>Guardian Email</label>
-              <input type="email" id="guardianEmail0" name="guardianEmail0" />
-            </div>
-            <div class="form-group">
-              <label>Guardian Hometown</label>
-              <input type="text" id="guardianHometown0" name="guardianHometown0" />
-            </div>
-            <div class="form-group">
-              <label>Guardian Photo (Optional)</label>
-              <input type="file" id="guardianImage0" name="guardianImage0" accept="image/*" onchange="previewGuardianImage(this)" />
-              <img id="guardianImagePreview" class="image-preview" style="display: none;" />
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Guardian First Name</label>
+                <input type="text" id="guardianFirstName0" name="guardianFirstName0" />
+              </div>
+              <div class="form-group">
+                <label>Guardian Last Name</label>
+                <input type="text" id="guardianLastName0" name="guardianLastName0" />
+              </div>
+              <div class="form-group">
+                <label>Guardian Phone</label>
+                <input type="text" id="guardianPhone0" name="guardianPhone0" />
+              </div>
+              <div class="form-group">
+                <label>Guardian Email</label>
+                <input type="email" id="guardianEmail0" name="guardianEmail0" />
+              </div>
+              <div class="form-group full-width">
+                <label>Guardian Hometown</label>
+                <input type="text" id="guardianHometown0" name="guardianHometown0" />
+              </div>
+              <div class="form-group full-width">
+                <label>Guardian Photo <span style="color:#888;font-weight:400;">(Optional)</span></label>
+                <input type="file" id="guardianImage0" name="guardianImage0" accept="image/*" onchange="previewGuardianImage(this)" />
+                <img id="guardianImagePreview" class="image-preview" style="display: none;" />
+              </div>
             </div>
           </div>
         </div>
@@ -429,126 +512,235 @@
  <!-- Payment Section -->
  <div id="paymentFormContainer" style="display: none;">
   <button class="back-button" onclick="backToRegistration()">← Back to Registration</button>
-  <h3>Payment</h3>
-  <p>The non-refundable application fee is <strong><%= orgDetails.public_registration_currency %> <%= orgDetails.public_registration_price %></strong>.</p>
+  <h2 class="form-header" style="margin-bottom:20px;">Complete Your Payment</h2>
 
-  <div class="form-group">
-    <label>Select Payment Method (Bank or MoMo)</label>
-    <select id="orgPaymentMethod" name="orgPaymentMethod" required>
-      <option value="">-- Choose Payment Account --</option>
-      <% (paystackSubaccounts || []).forEach(account => { %>
-        <option value="<%= account.subaccount_code %>">
-          <%= account.account_type.toUpperCase() %>: <%= account.business_name %> - <%= account.account_number || account.momo_number %> <%= account.bank_name ? '(' + account.bank_name + ')' : (account.momo_provider ? '(' + account.momo_provider + ')' : '') %>
-        </option>
-      <% }) %>
-    </select>
+  <div class="payment-card">
+    <div class="payment-fee-row">
+      <span>Registration fee</span>
+      <strong><%= orgDetails.public_registration_currency %> <%= orgDetails.public_registration_price %></strong>
+    </div>
+
+    <div id="stripeLoadingMsg" style="text-align:center;padding:24px;color:#666;">
+      <div class="loader-circle" style="margin:0 auto 10px;"></div>
+      <p>Preparing secure payment form…</p>
+    </div>
+
+    <div id="stripeElementsWrapper" style="display:none;">
+      <!-- Apple Pay / Google Pay -->
+      <div id="express-checkout-element" style="margin-bottom:12px;"></div>
+      <div id="express-checkout-divider" style="display:none;text-align:center;margin:8px 0;color:#999;font-size:.85rem;">─── or pay with card ───</div>
+      <!-- Card form -->
+      <div id="payment-element" style="margin-bottom:16px;"></div>
+      <div id="stripeError" style="color:#dc2626;font-size:.9rem;margin-bottom:10px;display:none;"></div>
+      <div class="form-actions" style="margin-top:0;">
+        <button type="button" id="payNowBtn" onclick="payNow()">
+          Pay <%= orgDetails.public_registration_currency %> <%= orgDetails.public_registration_price %>
+        </button>
+      </div>
+    </div>
+
+    <div id="stripeInitError" style="display:none;color:#dc2626;padding:16px;border:1px solid #fca5a5;border-radius:8px;background:#fff1f2;"></div>
   </div>
 
-  <div class="form-actions">
-    <button type="button" onclick="submitRegistration()">Submit Registration & Pay</button>
-  </div>
-  <!-- Loader (hidden initially) -->
+  <!-- Loader -->
   <div id="loader" class="loader-container">
     <div class="loader-circle"></div>
-    <div class="loader-text">Redirecting...</div>
+    <div class="loader-text" id="loaderText">Processing…</div>
   </div>
 </div>
 
 
 </div>
 
+<script src="https://js.stripe.com/v3/"></script>
   <script>
-    let guardianCount = 1;
-    
+    const STRIPE_PUBLISHABLE_KEY = '<%= stripePublishableKey || "" %>';
+    const ORG_ID                 = '<%= organizationId %>';
+    const REGISTRATION_AMOUNT    = '<%= orgDetails.public_registration_price %>';
+    const REGISTRATION_CURRENCY  = '<%= orgDetails.public_registration_currency %>';
+    const HAS_PAYOUT_ACCOUNT     = <%= hasPayoutAccount ? 'true' : 'false' %>;
+
+    let guardianCount         = 1;
+    let stripeInstance        = null;
+    let stripeElements        = null;
+    let paymentElementMounted = false;
+
+    // ─── Navigation ──────────────────────────────────────────────────────────
+
     function startRegistration() {
-      document.getElementById("welcomeSection").style.display = "none";
-      document.getElementById("registrationFormSection").style.display = "block";
+      document.getElementById('welcomeSection').style.display = 'none';
+      document.getElementById('registrationFormSection').style.display = 'block';
     }
-    
+
     function backToRegistration() {
-      document.getElementById("paymentFormContainer").style.display = "none";
-      document.getElementById("registrationFormSection").style.display = "block";
+      document.getElementById('paymentFormContainer').style.display = 'none';
+      document.getElementById('registrationFormSection').style.display = 'block';
     }
-    
-    function continueToPayment() {
+
+    // ─── Step 1: Submit registration, then open payment ──────────────────────
+
+    async function continueToPayment() {
       const form = document.getElementById('registrationForm');
-      if (!form.checkValidity()) {
-        form.reportValidity();
-        return;
-      }
-      document.getElementById("registrationFormSection").style.display = "none";
-      document.getElementById("paymentFormContainer").style.display = "block";
-    }
-    
-    async function submitRegistration() {
-      // Show the loader immediately
-      document.getElementById('loader').style.display = 'flex';
-    
-      const form = document.getElementById('registrationForm');
-      const formData = new FormData(form);
-    
-      const paymentMethodId = document.getElementById('orgPaymentMethod').value;
-      if (!paymentMethodId) {
-        alert('Please select a payment account.');
-        document.getElementById('loader').style.display = 'none';
-        return;
-      }
-      formData.append('paymentMethodId', paymentMethodId);
-    
+      if (!form.checkValidity()) { form.reportValidity(); return; }
+
+      showLoader('Saving registration…');
+
+      let registrationData;
       try {
-        const res = await fetch('/common/publicRegister?organizationId=<%= organizationId %>', {
+        const res = await fetch('/common/publicRegister?organizationId=' + ORG_ID, {
           method: 'POST',
-          body: formData
+          body: new FormData(form),
+        });
+        registrationData = await res.json();
+      } catch (err) {
+        hideLoader();
+        alert('Network error. Please check your connection and try again.');
+        return;
+      }
+
+      if (!registrationData.success) {
+        hideLoader();
+        const msgs = registrationData.errors
+          ? registrationData.errors.map(e => e.msg).join('\n')
+          : (registrationData.error || 'Registration failed. Please try again.');
+        alert(msgs);
+        return;
+      }
+
+      hideLoader();
+      document.getElementById('registrationFormSection').style.display = 'none';
+      document.getElementById('paymentFormContainer').style.display = 'block';
+
+      // Block if school hasn't set up their Stripe payout account
+      if (!HAS_PAYOUT_ACCOUNT) {
+        document.getElementById('stripeLoadingMsg').style.display = 'none';
+        const initErr = document.getElementById('stripeInitError');
+        initErr.innerHTML = '<strong>Online payment is not available yet.</strong><br>This school has not set up their payout account. Please contact the school directly to arrange payment.';
+        initErr.style.display = 'block';
+        return;
+      }
+
+      await initStripePaymentElement(registrationData.amount);
+    }
+
+    // ─── Step 2: Init Stripe Payment Element ─────────────────────────────────
+
+    async function initStripePaymentElement(amount) {
+      const loadingMsg = document.getElementById('stripeLoadingMsg');
+      const wrapper    = document.getElementById('stripeElementsWrapper');
+      const initError  = document.getElementById('stripeInitError');
+
+      if (!STRIPE_PUBLISHABLE_KEY) {
+        loadingMsg.style.display = 'none';
+        initError.textContent    = 'Online payment is not configured. Please contact the school.';
+        initError.style.display  = 'block';
+        return;
+      }
+
+      try {
+        const res = await fetch('/common/createPaymentIntent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount: amount || REGISTRATION_AMOUNT, organizationId: ORG_ID }),
         });
         const data = await res.json();
-    
-        if (data.success) {
-          const paymentRes = await fetch('/common/initializePayment', {
-            method: 'POST',
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              subaccountCode: paymentMethodId,
-              amount: data.amount,
-              organizationId: "<%= organizationId %>"
-            })
-          });
-    
-          const paymentData = await paymentRes.json();
-    
-          if (paymentData.success && paymentData.payment_url) {
-            window.location.href = paymentData.payment_url;
-          } else {
-            alert('Error initializing payment. Please try again.');
-            document.getElementById('loader').style.display = 'none';
-          }
-        } else {
-          alert('Registration failed: ' + data.error);
-          document.getElementById('loader').style.display = 'none';
+
+        if (!data.success || !data.clientSecret) {
+          throw new Error(data.error || 'Could not create payment session.');
         }
+
+        if (data.platformFeePercent > 0) {
+          console.info(`[Payment] Platform fee: ${data.platformFeePercent}% | School receives: ${REGISTRATION_CURRENCY} ${data.schoolReceives}`);
+        }
+
+        stripeInstance = Stripe(data.publishableKey || STRIPE_PUBLISHABLE_KEY);
+
+        stripeElements = stripeInstance.elements({
+          clientSecret: data.clientSecret,
+          appearance: { theme: 'stripe', variables: { colorPrimary: '#2563eb', borderRadius: '8px' } },
+        });
+
+        const returnUrl = window.location.origin + '/common/paymentCallback?organizationId=' + ORG_ID;
+
+        // Apple Pay / Google Pay
+        const expressEl = stripeElements.create('expressCheckout');
+        expressEl.mount('#express-checkout-element');
+        expressEl.on('ready', ({ availablePaymentMethods }) => {
+          if (availablePaymentMethods && Object.keys(availablePaymentMethods).length) {
+            document.getElementById('express-checkout-divider').style.display = 'block';
+          }
+        });
+        expressEl.on('confirm', () => handleStripeConfirm(returnUrl));
+
+        // Card form
+        const paymentEl = stripeElements.create('payment');
+        paymentEl.mount('#payment-element');
+
+        loadingMsg.style.display = 'none';
+        wrapper.style.display    = 'block';
+        paymentElementMounted    = true;
+
       } catch (err) {
-        console.error('Error:', err);
-        alert('Error. Please try again.');
-        document.getElementById('loader').style.display = 'none';
+        loadingMsg.style.display = 'none';
+        initError.textContent    = err.message || 'Failed to load payment form. Please try again.';
+        initError.style.display  = 'block';
       }
     }
 
-    // Guardian check functions
+    // ─── Step 3: Confirm payment ──────────────────────────────────────────────
+
+    async function handleStripeConfirm(returnUrl) {
+      if (!stripeInstance || !stripeElements) return;
+      const errDiv = document.getElementById('stripeError');
+      const payBtn = document.getElementById('payNowBtn');
+      errDiv.style.display = 'none';
+      if (payBtn) payBtn.disabled = true;
+      showLoader('Processing payment…');
+
+      const { error } = await stripeInstance.confirmPayment({
+        elements: stripeElements,
+        confirmParams: { return_url: returnUrl },
+      });
+
+      hideLoader();
+      if (payBtn) payBtn.disabled = false;
+      if (error) {
+        errDiv.textContent   = error.message || 'Payment failed. Please try again.';
+        errDiv.style.display = 'block';
+      }
+      // On success Stripe redirects automatically
+    }
+
+    function payNow() {
+      if (!paymentElementMounted) { alert('Payment form is not ready. Please wait a moment.'); return; }
+      const returnUrl = window.location.origin + '/common/paymentCallback?organizationId=' + ORG_ID;
+      handleStripeConfirm(returnUrl);
+    }
+
+    // ─── Loader helpers ───────────────────────────────────────────────────────
+
+    function showLoader(msg) {
+      const t = document.getElementById('loaderText');
+      if (t) t.textContent = msg || 'Processing…';
+      document.getElementById('loader').style.display = 'flex';
+    }
+    function hideLoader() { document.getElementById('loader').style.display = 'none'; }
+
+    // ─── Guardian check ───────────────────────────────────────────────────────
+
     let hasExistingGuardian = false;
     let searchTimeout = null;
 
     function guardianExists(exists) {
       hasExistingGuardian = exists;
       document.getElementById('guardianCheckSection').style.display = 'none';
-      
       if (exists) {
-        // Show search section
         document.getElementById('guardianSearchSection').style.display = 'block';
-        document.getElementById('guardiansContainer').style.display = 'none';
+        document.getElementById('guardiansContainer').style.display   = 'none';
       } else {
-        // Show new guardian form
         document.getElementById('guardianSearchSection').style.display = 'none';
-        document.getElementById('guardiansContainer').style.display = 'block';
-        document.getElementById('addGuardianBtn').style.display = 'block';
+        document.getElementById('guardiansContainer').style.display   = 'block';
+        document.getElementById('addGuardianBtn').style.display       = 'block';
       }
     }
 
@@ -556,117 +748,66 @@
       const preview = document.getElementById('guardianImagePreview');
       if (input.files && input.files[0]) {
         const reader = new FileReader();
-        reader.onload = function(e) {
-          preview.src = e.target.result;
-          preview.style.display = 'block';
-        };
+        reader.onload = (e) => { preview.src = e.target.result; preview.style.display = 'block'; };
         reader.readAsDataURL(input.files[0]);
       }
     }
 
-    // Guardian search functionality
-    document.addEventListener('DOMContentLoaded', function() {
-      const searchInput = document.getElementById('guardianSearchInput');
-      if (searchInput) {
-        searchInput.addEventListener('input', function() {
-          clearTimeout(searchTimeout);
-          const query = this.value.trim();
-          
-          if (query.length < 2) {
-            document.getElementById('guardianSuggestions').classList.remove('show');
-            return;
-          }
-          
-          searchTimeout = setTimeout(() => searchGuardians(query), 300);
-        });
-      }
+    // ─── Guardian search ──────────────────────────────────────────────────────
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const input = document.getElementById('guardianSearchInput');
+      if (!input) return;
+      input.addEventListener('input', function () {
+        clearTimeout(searchTimeout);
+        const q = this.value.trim();
+        if (q.length < 2) { document.getElementById('guardianSuggestions').classList.remove('show'); return; }
+        searchTimeout = setTimeout(() => searchGuardians(q), 300);
+      });
     });
 
     async function searchGuardians(query) {
+      const suggestionsDiv = document.getElementById('guardianSuggestions');
       try {
-        const res = await fetch(`/common/searchGuardiansPublic?q=${encodeURIComponent(query)}&organizationId=<%= organizationId %>`);
-        
-        if (!res.ok) {
-          console.error('Search request failed:', res.status);
-          const suggestionsDiv = document.getElementById('guardianSuggestions');
-          suggestionsDiv.innerHTML = '<div style="padding: 12px; text-align: center; color: #ef4444;">Search failed. Please try again.</div>';
-          suggestionsDiv.classList.add('show');
-          return;
-        }
-        
+        const res  = await fetch(`/common/searchGuardiansPublic?q=${encodeURIComponent(query)}&organizationId=${ORG_ID}`);
         const data = await res.json();
-        const suggestionsDiv = document.getElementById('guardianSuggestions');
         suggestionsDiv.innerHTML = '';
-        
-        if (data.guardians && data.guardians.length > 0) {
-          data.guardians.forEach(guardian => {
+        if (data.guardians && data.guardians.length) {
+          data.guardians.forEach(g => {
             const item = document.createElement('div');
             item.className = 'guardian-suggestion-item';
-            
-            const firstName = escapeHtml(guardian.first_name || '');
-            const lastName = escapeHtml(guardian.last_name || '');
-            const phone = escapeHtml(guardian.phone || '');
-            const email = escapeHtml(guardian.email || '');
-            const imageUrl = guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? escapeHtml(guardian.image_url) : '/images/profilePlaceholder.png';
-            
+            const imgUrl = g.image_url && g.image_url !== 'profilePlaceholder.png'
+              ? escapeHtml(g.image_url) : '/images/profilePlaceholder.png';
             item.innerHTML = `
-              <img src="${imageUrl}" alt="Guardian" onerror="this.src='/images/profilePlaceholder.png'">
+              <img src="${imgUrl}" alt="Guardian" onerror="this.src='/images/profilePlaceholder.png'">
               <div class="guardian-suggestion-info">
-                <div class="guardian-suggestion-name">${firstName} ${lastName}</div>
-                <div class="guardian-suggestion-details">${phone}${phone && email ? ' • ' : ''}${email}</div>
-              </div>
-            `;
-            item.onclick = (e) => {
-              e.stopPropagation();
-              selectGuardian(guardian);
-            };
+                <div class="guardian-suggestion-name">${escapeHtml(g.first_name||'')} ${escapeHtml(g.last_name||'')}</div>
+                <div class="guardian-suggestion-details">${escapeHtml(g.phone||'')}${g.phone&&g.email?' • ':''}${escapeHtml(g.email||'')}</div>
+              </div>`;
+            item.onclick = (e) => { e.stopPropagation(); selectGuardian(g); };
             suggestionsDiv.appendChild(item);
           });
-          suggestionsDiv.classList.add('show');
         } else {
-          suggestionsDiv.innerHTML = '<div style="padding: 12px; text-align: center; color: #666;">❌ No guardians found matching your search</div>';
-          suggestionsDiv.classList.add('show');
+          suggestionsDiv.innerHTML = '<div style="padding:12px;text-align:center;color:#666;">No guardians found</div>';
         }
-      } catch (err) {
-        console.error('Search error:', err);
-        const suggestionsDiv = document.getElementById('guardianSuggestions');
-        suggestionsDiv.innerHTML = '<div style="padding: 12px; text-align: center; color: #ef4444;">❌ Search error. Please try again.</div>';
+        suggestionsDiv.classList.add('show');
+      } catch (_) {
+        suggestionsDiv.innerHTML = '<div style="padding:12px;text-align:center;color:#ef4444;">Search error. Try again.</div>';
         suggestionsDiv.classList.add('show');
       }
     }
-    
-    function escapeHtml(str) {
-      const div = document.createElement('div');
-      div.textContent = str;
-      return div.innerHTML;
-    }
 
     function selectGuardian(guardian) {
-      // Hide search suggestions
       document.getElementById('guardianSuggestions').classList.remove('show');
       document.getElementById('guardianSearchInput').value = '';
-      
-      // Show selected guardian
-      const display = document.getElementById('selectedGuardianDisplay');
-      const imgUrl = guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? guardian.image_url : '/images/profilePlaceholder.png';
-      const imgElement = document.getElementById('selectedGuardianImg');
-      imgElement.src = imgUrl;
-      imgElement.onerror = function() { this.src = '/images/profilePlaceholder.png'; };
-      
-      const firstName = guardian.first_name || '';
-      const lastName = guardian.last_name || '';
-      const phone = guardian.phone || '';
-      const email = guardian.email || '';
-      
-      document.getElementById('selectedGuardianName').textContent = `${firstName} ${lastName}`.trim();
-      document.getElementById('selectedGuardianDetails').textContent = `${phone}${phone && email ? ' • ' : ''}${email}`.trim();
-      display.classList.add('show');
-      
-      // Set hidden field with guardian ID
+      const img = document.getElementById('selectedGuardianImg');
+      img.src = (guardian.image_url && guardian.image_url !== 'profilePlaceholder.png')
+        ? guardian.image_url : '/images/profilePlaceholder.png';
+      img.onerror = () => { img.src = '/images/profilePlaceholder.png'; };
+      document.getElementById('selectedGuardianName').textContent    = `${guardian.first_name||''} ${guardian.last_name||''}`.trim();
+      document.getElementById('selectedGuardianDetails').textContent = `${guardian.phone||''}${guardian.phone&&guardian.email?' • ':''}${guardian.email||''}`;
+      document.getElementById('selectedGuardianDisplay').classList.add('show');
       document.getElementById('existingGuardianId').value = guardian.guardian_id;
-      
-      // Scroll to show the selection
-      display.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     function clearGuardianSelection() {
@@ -675,13 +816,17 @@
       document.getElementById('guardianSearchInput').value = '';
       document.getElementById('guardianSearchInput').focus();
     }
-    
-    // Close suggestions when clicking outside
-    document.addEventListener('click', function(e) {
-      const searchSection = document.getElementById('guardianSearchSection');
-      if (searchSection && !searchSection.contains(e.target)) {
+
+    document.addEventListener('click', (e) => {
+      const section = document.getElementById('guardianSearchSection');
+      if (section && !section.contains(e.target))
         document.getElementById('guardianSuggestions').classList.remove('show');
-      }
     });
+
+    function escapeHtml(str) {
+      const d = document.createElement('div');
+      d.textContent = str;
+      return d.innerHTML;
+    }
+  </script>
     
-    </script>

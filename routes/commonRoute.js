@@ -106,6 +106,10 @@ module.exports = (db) => {
   router.post("/initializePayment", (req, res) =>
     commonController.initializePayment(req, res, db)
   );
+
+  router.post("/createPaymentIntent", (req, res) =>
+    commonController.createPaymentIntent(req, res, db)
+  );
   
   router.get("/paymentCallback", (req, res) => commonController.paymentCallback(req, res, db));
 

@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS stored_cards (
     signature VARCHAR(255),
     reusable BOOLEAN DEFAULT true,
     country_code VARCHAR(3),
+    display_name VARCHAR(120),
     is_primary BOOLEAN DEFAULT false,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT NOW(),

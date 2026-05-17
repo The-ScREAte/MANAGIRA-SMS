@@ -46,6 +46,10 @@ const {
   clonePreviousClassSchedule,
 } = require("../utils/classScheduleService");
 const { hasGuardianPortalFeature } = require("../utils/guardianPortalAccess");
+const { getStripeClient, getStripePlatformClient, getStripeChargeCurrency, getStripeSettings, getActiveStripePublicKey } = require("../utils/stripeConfig");
+const { getUsdRate, normalizeCurrencyCode } = require("../utils/currencyLocalization");
+const { getPlatformFeeSettings } = require("../utils/platformFee");
+const { ensurePaymentProviderSchema } = require("../utils/paymentProviderSchema");
 const { triggerAbsenceAlertsForStudents, broadcastEventAnnouncement, notifyGuardiansOnClassChange, notifyTeacherOnReassignment, notifyTeachersOnAssessmentControl, resolveAssignmentNames, notifyEmployeeOnHoldChange, notifyGuardianAdmissionReceived, notifyGuardianOnStaffReply } = require("../utils/notificationDigestService");
 const notifSvc = require("../utils/notificationService");
 const {
@@ -61,6 +65,283 @@ async function getActivePaystackConfig(dbClient) {
     publicKey: settings.activePublicKey || process.env.PAYSTACK_PUBLIC_KEY || "",
     mode: settings.mode,
   };
+}
+
+let publicRegistrationSchemaReady = false;
+let guardianPaymentMethodSchemaReady = false;
+
+function roundCurrencyAmount(value) {
+  return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+}
+
+async function convertAmountBetweenCurrencies(amount, fromCurrency, toCurrency) {
+  const normalizedFrom = normalizeCurrencyCode(fromCurrency);
+  const normalizedTo = normalizeCurrencyCode(toCurrency);
+  const numericAmount = Number(amount || 0);
+
+  if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+    throw new Error("Invalid amount for currency conversion.");
+  }
+
+  if (!normalizedFrom || !normalizedTo) {
+    throw new Error("Invalid currency for conversion.");
+  }
+
+  if (normalizedFrom === normalizedTo) {
+    return roundCurrencyAmount(numericAmount);
+  }
+
+  const usdToFromRate = await getUsdRate(normalizedFrom);
+  const usdToToRate = await getUsdRate(normalizedTo);
+
+  if (!(usdToFromRate > 0) || !(usdToToRate > 0)) {
+    throw new Error(`Unable to convert ${normalizedFrom} to ${normalizedTo}.`);
+  }
+
+  const amountInUsd = numericAmount / usdToFromRate;
+  return roundCurrencyAmount(amountInUsd * usdToToRate);
+}
+
+async function ensurePublicRegistrationSchema(dbClient) {
+  if (publicRegistrationSchemaReady) return;
+
+  await dbClient.query(`
+    ALTER TABLE public_registration_payments
+      ADD COLUMN IF NOT EXISTS payment_provider VARCHAR(20) NOT NULL DEFAULT 'paystack',
+      ADD COLUMN IF NOT EXISTS stripe_session_id TEXT,
+      ADD COLUMN IF NOT EXISTS stripe_payment_intent_id TEXT,
+      ADD COLUMN IF NOT EXISTS pending_student_id INTEGER,
+      ADD COLUMN IF NOT EXISTS guardian_id INTEGER,
+      ADD COLUMN IF NOT EXISTS payment_method_snapshot JSONB
+  `);
+  await dbClient.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_public_registration_payments_stripe_session_id
+      ON public_registration_payments (stripe_session_id)
+      WHERE stripe_session_id IS NOT NULL
+  `);
+  await dbClient.query(`
+    CREATE INDEX IF NOT EXISTS idx_public_registration_payments_pending_student
+      ON public_registration_payments (pending_student_id, organization_id)
+  `);
+  // Ensure stripe_connect_account_id column exists on organizations
+  await dbClient.query(`
+    ALTER TABLE organizations
+      ADD COLUMN IF NOT EXISTS stripe_connect_account_id VARCHAR(255)
+  `).catch(() => {});
+  // Make paystack_reference nullable so Stripe-only rows don't need it
+  await dbClient.query(`
+    ALTER TABLE public_registration_payments
+      ALTER COLUMN paystack_reference DROP NOT NULL
+  `).catch(() => {});
+
+  publicRegistrationSchemaReady = true;
+}
+
+async function ensureGuardianPaymentMethodsSchema(dbClient) {
+  if (!guardianPaymentMethodSchemaReady) {
+    await dbClient.query(`
+      CREATE TABLE IF NOT EXISTS guardian_payment_methods (
+        card_id SERIAL PRIMARY KEY,
+        guardian_id INTEGER NOT NULL,
+        organization_id INTEGER NOT NULL,
+        brand VARCHAR(50),
+        last4 VARCHAR(4),
+        holder_name VARCHAR(255),
+        exp_month VARCHAR(2),
+        exp_year VARCHAR(4),
+        is_default BOOLEAN NOT NULL DEFAULT FALSE,
+        student_id INTEGER NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await dbClient.query(`CREATE INDEX IF NOT EXISTS idx_gpm_guardian ON guardian_payment_methods(guardian_id, organization_id)`);
+    guardianPaymentMethodSchemaReady = true;
+  }
+
+  await dbClient.query(`ALTER TABLE guardian_payment_methods ADD COLUMN IF NOT EXISTS provider VARCHAR(20) NOT NULL DEFAULT 'stripe'`).catch(() => {});
+  await dbClient.query(`ALTER TABLE guardian_payment_methods ADD COLUMN IF NOT EXISTS external_payment_method_id VARCHAR(255)`).catch(() => {});
+}
+
+function normalizeGuardianPhoneForLookup(value) {
+  return String(value || '').trim().replace(/[^\d+]/g, '');
+}
+
+async function ensureGuardianPortalProfileAndAccount(dbClient, options = {}) {
+  const organizationId = Number(options.organizationId || 0);
+  if (!organizationId) return null;
+
+  const firstName = String(options.firstName || '').trim();
+  const lastName = String(options.lastName || '').trim();
+  const hometown = String(options.hometown || '').trim() || null;
+  const imageUrl = String(options.imageUrl || '').trim() || null;
+  const email = String(options.email || '').trim().toLowerCase() || null;
+  const phone = normalizeGuardianPhoneForLookup(options.phone);
+  let guardianId = null;
+
+  if (email) {
+    const emailMatch = await dbClient.query(
+      `SELECT guardian_id FROM guardian_profiles WHERE organization_id = $1 AND LOWER(COALESCE(email, '')) = $2 LIMIT 1`,
+      [organizationId, email]
+    );
+    guardianId = emailMatch.rows[0]?.guardian_id || null;
+  }
+
+  if (!guardianId && phone) {
+    const phoneMatch = await dbClient.query(
+      `SELECT guardian_id
+         FROM guardian_profiles
+        WHERE organization_id = $1
+          AND REGEXP_REPLACE(COALESCE(phone, ''), '[^0-9+]', '', 'g') = $2
+        LIMIT 1`,
+      [organizationId, phone]
+    );
+    guardianId = phoneMatch.rows[0]?.guardian_id || null;
+  }
+
+  if (guardianId) {
+    await dbClient.query(
+      `UPDATE guardian_profiles
+          SET first_name = COALESCE(NULLIF($1, ''), first_name),
+              last_name = COALESCE(NULLIF($2, ''), last_name),
+              phone = COALESCE(NULLIF($3, ''), phone),
+              email = COALESCE(NULLIF($4, ''), email),
+              hometown = COALESCE($5, hometown),
+              image_url = COALESCE($6, image_url),
+              updated_at = NOW()
+        WHERE guardian_id = $7 AND organization_id = $8`,
+      [firstName, lastName, phone, email, hometown, imageUrl, guardianId, organizationId]
+    );
+  } else {
+    const inserted = await dbClient.query(
+      `INSERT INTO guardian_profiles
+        (organization_id, first_name, last_name, phone, email, hometown, image_url, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+       RETURNING guardian_id`,
+      [organizationId, firstName || 'Guardian', lastName || null, phone || null, email, hometown, imageUrl]
+    );
+    guardianId = inserted.rows[0]?.guardian_id || null;
+  }
+
+  if (!guardianId || (!email && !phone)) {
+    return guardianId;
+  }
+
+  const tempHash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
+
+  if (email) {
+    const existingByEmail = await dbClient.query(
+      `SELECT id FROM guardian_accounts WHERE organization_id = $1 AND LOWER(COALESCE(login_email, '')) = $2 LIMIT 1`,
+      [organizationId, email]
+    );
+
+    if (existingByEmail.rows.length) {
+      await dbClient.query(
+        `UPDATE guardian_accounts
+            SET guardian_id = $1,
+                login_phone = COALESCE($2, login_phone),
+                updated_at = NOW()
+          WHERE id = $3`,
+        [guardianId, phone || null, existingByEmail.rows[0].id]
+      );
+    } else {
+      await dbClient.query(
+        `INSERT INTO guardian_accounts
+          (organization_id, guardian_id, login_email, login_phone, password_hash, must_reset_password, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, true, NOW(), NOW())`,
+        [organizationId, guardianId, email, phone || null, tempHash]
+      );
+    }
+  } else if (phone) {
+    const existingByPhone = await dbClient.query(
+      `SELECT id FROM guardian_accounts WHERE organization_id = $1 AND login_phone = $2 LIMIT 1`,
+      [organizationId, phone]
+    );
+
+    if (existingByPhone.rows.length) {
+      await dbClient.query(
+        `UPDATE guardian_accounts
+            SET guardian_id = $1,
+                updated_at = NOW()
+          WHERE id = $2`,
+        [guardianId, existingByPhone.rows[0].id]
+      );
+    } else {
+      await dbClient.query(
+        `INSERT INTO guardian_accounts
+          (organization_id, guardian_id, login_phone, password_hash, must_reset_password, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, true, NOW(), NOW())`,
+        [organizationId, guardianId, phone, tempHash]
+      );
+    }
+  }
+
+  return guardianId;
+}
+
+async function saveGuardianPortalPaymentMethod(dbClient, options = {}) {
+  const guardianId = Number(options.guardianId || 0);
+  const organizationId = Number(options.organizationId || 0);
+  if (!guardianId || !organizationId || !options.last4) return null;
+
+  await ensureGuardianPaymentMethodsSchema(dbClient);
+
+  const brand = String(options.brand || 'card').trim() || 'card';
+  const last4 = String(options.last4 || '').trim();
+  const holderName = String(options.holderName || '').trim() || null;
+  const expMonth = options.expMonth == null ? null : String(options.expMonth).trim();
+  const expYear = options.expYear == null ? null : String(options.expYear).trim();
+  const provider = String(options.provider || 'stripe').trim() || 'stripe';
+  const externalPaymentMethodId = String(options.externalPaymentMethodId || '').trim() || null;
+  const studentId = options.studentId ? Number(options.studentId) : null;
+
+  const existing = await dbClient.query(
+    `SELECT card_id
+       FROM guardian_payment_methods
+      WHERE guardian_id = $1
+        AND organization_id = $2
+        AND LOWER(COALESCE(brand, '')) = LOWER($3)
+        AND COALESCE(last4, '') = $4
+        AND COALESCE(exp_month, '') = COALESCE($5, '')
+        AND COALESCE(exp_year, '') = COALESCE($6, '')
+      LIMIT 1`,
+    [guardianId, organizationId, brand, last4, expMonth, expYear]
+  );
+
+  if (existing.rows.length) {
+    await dbClient.query(
+      `UPDATE guardian_payment_methods
+          SET holder_name = COALESCE($1, holder_name),
+              student_id = COALESCE($2, student_id),
+              provider = COALESCE($3, provider),
+              external_payment_method_id = COALESCE($4, external_payment_method_id)
+        WHERE card_id = $5`,
+      [holderName, studentId, provider, externalPaymentMethodId, existing.rows[0].card_id]
+    );
+    return existing.rows[0].card_id;
+  }
+
+  const countResult = await dbClient.query(
+    `SELECT COUNT(*)::int AS n FROM guardian_payment_methods WHERE guardian_id = $1 AND organization_id = $2`,
+    [guardianId, organizationId]
+  );
+  const makeDefault = countResult.rows[0]?.n === 0;
+
+  if (makeDefault) {
+    await dbClient.query(
+      `UPDATE guardian_payment_methods SET is_default = false WHERE guardian_id = $1 AND organization_id = $2`,
+      [guardianId, organizationId]
+    );
+  }
+
+  const inserted = await dbClient.query(
+    `INSERT INTO guardian_payment_methods
+      (guardian_id, organization_id, brand, last4, holder_name, exp_month, exp_year, is_default, student_id, provider, external_payment_method_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+     RETURNING card_id`,
+    [guardianId, organizationId, brand, last4, holderName, expMonth, expYear, makeDefault, studentId, provider, externalPaymentMethodId]
+  );
+
+  return inserted.rows[0]?.card_id || null;
 }
 
 // Helper function for ordinal suffixes (1st, 2nd, 3rd, etc.)
@@ -2642,7 +2923,87 @@ const commonController = {
         [organizationId]
       );
       const paystackSubaccounts = paystackSubaccountsResult.rows;
+      await ensurePaymentProviderSchema(db);
+
+      // Determine fallback debit card when no real bank payout accounts exist
+      const bankPayoutAccounts = paystackSubaccounts.filter(
+        (a) => a.account_type !== 'stripe_card' && a.subaccount_code
+      );
+      let fallbackCard = null;
+      if (bankPayoutAccounts.length === 0) {
+        try {
+          const storedCardMetaResult = await db.query(
+            `SELECT authorization_code, display_name, is_primary
+               FROM stored_cards
+              WHERE organization_id = $1
+                AND is_active = true
+              ORDER BY is_primary DESC, updated_at DESC, created_at DESC`,
+            [organizationId]
+          );
+          const storedCardMetaById = new Map(
+            storedCardMetaResult.rows.map((row) => [row.authorization_code, row])
+          );
+
+          const orgBillingRow = await db.query(
+            `SELECT billing_provider, stripe_customer_id FROM organizations WHERE organization_id = $1`,
+            [organizationId]
+          );
+          const orgBilling = orgBillingRow.rows[0];
+          if (orgBilling?.billing_provider === 'stripe' && orgBilling?.stripe_customer_id) {
+            const stripe = await getStripeClient(db);
+            const pmResult = await stripe.paymentMethods.list({
+              customer: orgBilling.stripe_customer_id,
+              type: 'card',
+            });
+            const debitCards = (pmResult.data || [])
+              .filter((m) => m.card?.funding === 'debit' || m.card?.funding === 'prepaid')
+              .map((m) => {
+                const storedMeta = storedCardMetaById.get(m.id);
+                return {
+                  id: m.id,
+                  brand: m.card?.brand,
+                  last4: m.card?.last4,
+                  expMonth: m.card?.exp_month,
+                  expYear: m.card?.exp_year,
+                  displayName: storedMeta?.display_name || null,
+                  isPrimary: Boolean(storedMeta?.is_primary),
+                };
+              })
+              .sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0));
+            const best = debitCards[0];
+            if (best) {
+              fallbackCard = best;
+            }
+          } else {
+            // Paystack billing — use stored_cards (Verve = always debit in Ghana)
+            const storedResult = await db.query(
+              `SELECT card_type, last4, exp_month, exp_year, display_name FROM stored_cards
+               WHERE organization_id = $1 AND is_active = true
+               ORDER BY is_primary DESC, created_at DESC LIMIT 1`,
+              [organizationId]
+            );
+            if (storedResult.rows.length) {
+              const c = storedResult.rows[0];
+              fallbackCard = {
+                brand: c.card_type,
+                last4: c.last4,
+                expMonth: c.exp_month,
+                expYear: c.exp_year,
+                displayName: c.display_name || null,
+              };
+            }
+          }
+        } catch (_) {
+          // fallback is optional — silent fail
+        }
+      }
       const paystackConfig = await getActivePaystackConfig(db);
+      const stripePublishableKey = await getActiveStripePublicKey(db).catch(() => '');
+      const stripeConnectRow = await db.query(
+        `SELECT stripe_connect_account_id FROM organizations WHERE organization_id = $1`,
+        [organizationId]
+      ).catch(() => ({ rows: [] }));
+      const stripeConnectAccountId = (stripeConnectRow.rows[0]?.stripe_connect_account_id || '').trim() || null;
 
       res.render("common/publicRegisterStudent", {
         title: "Public Student Registration",
@@ -2654,7 +3015,11 @@ const commonController = {
         organizationId,
         orgDetails,
         paystackSubaccounts,
+        fallbackCard,
         publishableKey: paystackConfig.publicKey,
+        stripePublishableKey,
+        hasPayoutAccount: Boolean(stripeConnectAccountId),
+        stripeConnectAccountId,
         messages: req.flash(),
       });
     } catch (err) {
@@ -2682,8 +3047,7 @@ const commonController = {
         !body.lastName ||
         !body.dateOfBirth ||
         !body.gender ||
-        !body.classId ||
-        !body.paymentMethodId
+        !body.classId
       ) {
         console.log('[Public Register] ❌ Missing required fields');
         return res
@@ -2836,18 +3200,9 @@ const commonController = {
       }
       console.log('[Public Register] ✅ Subjects saved');
 
-      // Save payment info (but mark it as pending)
-      console.log('[Public Register] Saving payment info...');
-      console.log('[Public Register] Payment method ID:', body.paymentMethodId);
-      await db.query(
-        `INSERT INTO pending_student_payments (pending_student_id, payment_method_id, organization_id)
-         VALUES ($1, $2, $3)`,
-        [pendingStudentId, body.paymentMethodId, organizationId]
-      );
-      console.log('[Public Register] ✅ Payment info saved');
-
       // Save pending student ID in session
       req.session.pendingStudentId = pendingStudentId;
+      req.session.publicRegistrationExistingGuardianId = body.existingGuardianId || null;
       console.log('[Public Register] ✅ Session updated with pending student ID');
 
       // Send admission received confirmation to guardian
@@ -2874,7 +3229,10 @@ const commonController = {
 
       // Send response for payment initiation
       console.log('[Public Register] ✅✅✅ SUCCESS! Returning response:', { success: true, amount, currency, pendingStudentId });
-      res.json({ success: true, amount, currency, pendingStudentId });
+      const payload = { success: true, amount, currency, pendingStudentId };
+      return req.session.save
+        ? req.session.save(() => res.json(payload))
+        : res.json(payload);
     } catch (err) {
       console.error('[Public Register] ❌❌❌ ERROR OCCURRED:', err.message);
       console.error('[Public Register] Error stack:', err.stack);
@@ -2898,10 +3256,10 @@ const commonController = {
       process.env.BASE_URL_PRODUCTION ||
       process.env.BASE_URL_PRODUCTION_FALLBACK ||
       "https://managira.com";
-    const BASE_URL =
-      process.env.NODE_ENV === "production"
-        ? requestOrigin
-        : process.env.BASE_URL_LOCAL || "http://localhost:4000";
+    const BASE_URL = requestOrigin ||
+      (process.env.NODE_ENV === "production"
+        ? configuredProdBaseUrl
+        : process.env.BASE_URL_LOCAL || "http://localhost:4000");
 
     console.log('[Initialize Payment] BASE_URL:', BASE_URL || configuredProdBaseUrl);
 
@@ -2916,7 +3274,9 @@ const commonController = {
     }
 
     try {
-      const paystackConfig = await getActivePaystackConfig(db);
+      await ensurePublicRegistrationSchema(db);
+      const stripe = await getStripeClient(db);
+
       // ✅ Fetch organization ID with fallback
       console.log('[Initialize Payment] Fetching pending student details...');
       const studentResult = await db.query(
@@ -2941,10 +3301,11 @@ const commonController = {
       // ✅ Fetch currency
       console.log('[Initialize Payment] Fetching organization currency...');
       const orgResult = await db.query(
-        `SELECT public_registration_currency FROM organizations WHERE organization_id = $1`,
+        `SELECT public_registration_currency, organization_name FROM organizations WHERE organization_id = $1`,
         [organizationId]
       );
-      const currency = orgResult.rows[0]?.public_registration_currency || "GHS";
+      const currency = normalizeCurrencyCode(orgResult.rows[0]?.public_registration_currency) || "GHS";
+      const organizationName = orgResult.rows[0]?.organization_name || "School";
       console.log('[Initialize Payment] Currency:', currency);
 
       // ✅ Fetch primary guardian email
@@ -2954,154 +3315,117 @@ const commonController = {
         [pendingStudentId]
       );
       const primaryGuardian = guardianResult.rows[0];
-      const guardianEmail = primaryGuardian?.email || "user@dummy.com";
+      const guardianEmail = primaryGuardian?.email || null;
       console.log('[Initialize Payment] Guardian email:', guardianEmail);
 
       // ✅ Generate unique reference
       const paymentReference = `REG-${organizationId}-${pendingStudentId}-${Date.now()}`;
       console.log('[Initialize Payment] Payment reference:', paymentReference);
 
-      // ✅ Convert amount to kobo/pesewas (multiply by 100)
-      const amountInMinorUnit = Math.round(parseFloat(amount) * 100);
-      console.log('[Initialize Payment] Amount in minor unit:', amountInMinorUnit);
+      const requestedAmount = roundCurrencyAmount(parseFloat(amount));
+      if (!(requestedAmount > 0)) {
+        return res.status(400).json({ success: false, error: "Invalid registration amount." });
+      }
 
-      // ✅ Set up Paystack payment payload
-      console.log('[Initialize Payment] Building Paystack payload...');
-      const paymentPayload = {
-        email: guardianEmail,
-        amount: amountInMinorUnit,
-        currency: currency,
-        reference: paymentReference,
-        callback_url: `${BASE_URL}/common/paymentCallback?pendingStudentId=${pendingStudentId}&organizationId=${organizationId}`,
-        metadata: {
-          pending_student_id: pendingStudentId,
-          organization_id: organizationId,
-          student_name: `${first_name} ${last_name}`,
-          guardian_name: primaryGuardian?.first_name || "Guardian",
-          custom_fields: [
-            {
-              display_name: "Student Registration",
-              variable_name: "purpose",
-              value: "Public Registration Fee",
-            },
-          ],
-        },
-        channels: ["card"], // Only allow card payments for now
+      const stripeChargeCurrency = normalizeCurrencyCode(getStripeChargeCurrency()) || currency;
+      const stripeChargeAmount = await convertAmountBetweenCurrencies(
+        requestedAmount,
+        currency,
+        stripeChargeCurrency
+      );
+      const amountInMinorUnit = Math.round(stripeChargeAmount * 100);
+      console.log('[Initialize Payment] Amount in minor unit:', amountInMinorUnit);
+      if (!(amountInMinorUnit > 0)) {
+        return res.status(400).json({ success: false, error: "Invalid registration amount." });
+      }
+      console.log('[Initialize Payment] Stripe charge currency:', stripeChargeCurrency);
+      console.log('[Initialize Payment] Stripe charge amount:', stripeChargeAmount);
+
+      const metadata = {
+        flow: 'public_registration',
+        pending_student_id: String(pendingStudentId),
+        organization_id: String(organizationId),
+        student_name: `${first_name} ${last_name}`,
+        guardian_name: primaryGuardian?.first_name || 'Guardian',
+        existing_guardian_id: req.session.publicRegistrationExistingGuardianId
+          ? String(req.session.publicRegistrationExistingGuardianId)
+          : '',
+        payout_subaccount_code: String(subaccountCode || ''),
+        registration_amount: requestedAmount.toFixed(2),
+        registration_currency: currency,
+        stripe_charge_amount: stripeChargeAmount.toFixed(2),
+        stripe_charge_currency: stripeChargeCurrency,
       };
 
-      // Only add subaccount if provided and valid
-      if (subaccountCode && subaccountCode.trim()) {
-        paymentPayload.subaccount = subaccountCode;
-        console.log('[Initialize Payment] Including subaccount:', subaccountCode);
-      } else {
-        console.log('[Initialize Payment] No subaccount provided, proceeding with direct payment');
-      }
-
-      console.log('[Initialize Payment] Payload prepared:', JSON.stringify(paymentPayload, null, 2));
-
-      // ✅ Initialize payment with Paystack
-      console.log('[Initialize Payment] Calling Paystack API...');
-      
-      try {
-        const response = await axios.post(
-          "https://api.paystack.co/transaction/initialize",
-          paymentPayload,
+      console.log('[Initialize Payment] Creating Stripe Checkout session...');
+      const session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        success_url: `${BASE_URL}/common/paymentCallback?session_id={CHECKOUT_SESSION_ID}&pendingStudentId=${pendingStudentId}&organizationId=${organizationId}`,
+        cancel_url: `${BASE_URL}/common/paymentCallback?cancelled=1&pendingStudentId=${pendingStudentId}&organizationId=${organizationId}`,
+        billing_address_collection: 'auto',
+        customer_email: guardianEmail || undefined,
+        client_reference_id: String(pendingStudentId),
+        metadata,
+        line_items: [
           {
-            headers: {
-              Authorization: `Bearer ${paystackConfig.secretKey}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
-        console.log('[Initialize Payment] ✅ Paystack response received:', response.data);
-
-        if (response.data.status && response.data.data.authorization_url) {
-          // ✅ Store payment details in our tracking table
-          console.log('[Initialize Payment] Storing payment in database...');
-          await db.query(
-            `INSERT INTO public_registration_payments (
-              organization_id, student_name, student_email, amount, currency, 
-              paystack_reference, subaccount_code, status, metadata
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-            [
-              organizationId,
-              `${first_name} ${last_name}`,
-              guardianEmail,
-              parseFloat(amount),
-              currency,
-              paymentReference,
-              subaccountCode || null,
-              "pending",
-              JSON.stringify(paymentPayload.metadata),
-            ]
-          );
-
-          console.log('[Initialize Payment] ✅✅✅ SUCCESS! Payment initialized');
-
-          res.json({
-            success: true,
-            payment_url: response.data.data.authorization_url,
-            reference: paymentReference,
-            access_code: response.data.data.access_code,
-          });
-        } else {
-          console.log('[Initialize Payment] ❌ Invalid Paystack response');
-          throw new Error("Invalid response from Paystack");
-        }
-      } catch (paystackError) {
-        // If subaccount is invalid, retry without subaccount
-        if (paystackError.response?.data?.message?.includes('Subaccount') && paymentPayload.subaccount) {
-          console.log('[Initialize Payment] ⚠️ Subaccount invalid, retrying without subaccount...');
-          delete paymentPayload.subaccount;
-          
-          const retryResponse = await axios.post(
-            "https://api.paystack.co/transaction/initialize",
-            paymentPayload,
-            {
-              headers: {
-                Authorization: `Bearer ${paystackConfig.secretKey}`,
-                "Content-Type": "application/json",
+            quantity: 1,
+            price_data: {
+              currency: stripeChargeCurrency.toLowerCase(),
+              unit_amount: amountInMinorUnit,
+              product_data: {
+                name: `${organizationName} Registration Fee`,
+                description:
+                  stripeChargeCurrency === currency
+                    ? `Public student registration for ${first_name} ${last_name}`
+                    : `Public student registration for ${first_name} ${last_name} (${requestedAmount.toFixed(2)} ${currency})`,
               },
-            }
-          );
+            },
+          },
+        ],
+        payment_intent_data: {
+          description: `Public registration for ${first_name} ${last_name} · ${organizationName}`,
+          metadata,
+          setup_future_usage: 'off_session',
+        },
+      });
 
-          console.log('[Initialize Payment] ✅ Retry successful:', retryResponse.data);
+      await db.query(
+        `INSERT INTO public_registration_payments (
+          organization_id,
+          pending_student_id,
+          student_name,
+          student_email,
+          amount,
+          currency,
+          payment_provider,
+          stripe_session_id,
+          subaccount_code,
+          status,
+          metadata
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        ON CONFLICT DO NOTHING`,
+        [
+          organizationId,
+          pendingStudentId,
+          `${first_name} ${last_name}`,
+          guardianEmail,
+          requestedAmount,
+          currency,
+          'stripe',
+          session.id,
+          subaccountCode || null,
+          'pending',
+          JSON.stringify(metadata),
+        ]
+      );
 
-          if (retryResponse.data.status && retryResponse.data.data.authorization_url) {
-            await db.query(
-              `INSERT INTO public_registration_payments (
-                organization_id, student_name, student_email, amount, currency, 
-                paystack_reference, subaccount_code, status, metadata
-              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-              [
-                organizationId,
-                `${first_name} ${last_name}`,
-                guardianEmail,
-                parseFloat(amount),
-                currency,
-                paymentReference,
-                null, // No subaccount
-                "pending",
-                JSON.stringify(paymentPayload.metadata),
-              ]
-            );
-
-            console.log('[Initialize Payment] ✅✅✅ SUCCESS! Payment initialized without subaccount');
-
-            res.json({
-              success: true,
-              payment_url: retryResponse.data.data.authorization_url,
-              reference: paymentReference,
-              access_code: retryResponse.data.data.access_code,
-            });
-          } else {
-            throw new Error("Invalid response from Paystack on retry");
-          }
-        } else {
-          throw paystackError;
-        }
-      }
+      return res.json({
+        success: true,
+        payment_url: session.url,
+        reference: paymentReference,
+        checkout_session_id: session.id,
+        provider: 'stripe',
+      });
     } catch (error) {
       console.error('[Initialize Payment] ❌❌❌ ERROR:', error.message);
       console.error('[Initialize Payment] Error stack:', error.stack);
@@ -3113,14 +3437,549 @@ const commonController = {
     }
   },
 
+  // ─── Inline Stripe Payment Element (Stripe Connect destination charge) ────────
+  // Creates a PaymentIntent with transfer_data so money flows:
+  //   Parent → Managira platform → School connected account
+  // Platform fee is pulled from app_settings (set in admin service pricing).
+  createPaymentIntent: async (req, res, db) => {
+    const { amount } = req.body;
+    const pendingStudentId = req.session.pendingStudentId;
+
+    if (!pendingStudentId) {
+      return res.status(400).json({ success: false, error: 'Missing pending registration session. Please fill the form again.' });
+    }
+
+    try {
+      await ensurePublicRegistrationSchema(db);
+
+      // Use the platform client (full sk_ key) — must match the key used to
+      // create the Connect account, otherwise Stripe returns "No such destination".
+      const stripe = await getStripePlatformClient(db);
+      const stripeSettings = await getStripeSettings(db);
+
+      // 1. Get pending student
+      const studentResult = await db.query(
+        `SELECT organization_id, first_name, last_name FROM pending_students WHERE pending_id = $1`,
+        [pendingStudentId]
+      );
+      if (!studentResult.rows.length) {
+        return res.status(400).json({ success: false, error: 'Pending student not found.' });
+      }
+      const { organization_id: organizationId, first_name, last_name } = studentResult.rows[0];
+
+      // 2. Get org details including Stripe connected account
+      const orgResult = await db.query(
+        `SELECT public_registration_currency, organization_name, stripe_connect_account_id
+           FROM organizations WHERE organization_id = $1`,
+        [organizationId]
+      );
+      const orgRow = orgResult.rows[0];
+      const currency = normalizeCurrencyCode(orgRow?.public_registration_currency) || 'GHS';
+      const organizationName = orgRow?.organization_name || 'School';
+      const stripeConnectAccountId = (orgRow?.stripe_connect_account_id || '').trim() || null;
+
+      // BLOCK payment if school has not connected their Stripe account yet.
+      // Without a connected account the money has nowhere to go — do not proceed.
+      if (!stripeConnectAccountId) {
+        return res.status(400).json({
+          success: false,
+          error: 'Online payment is not available for this school yet. The school has not set up their payout account. Please contact the school directly.',
+          code: 'NO_PAYOUT_ACCOUNT',
+        });
+      }
+
+      // 3. Get guardian email
+      const guardianResult = await db.query(
+        `SELECT email, first_name FROM pending_guardians WHERE pending_id = $1 LIMIT 1`,
+        [pendingStudentId]
+      );
+      const primaryGuardian = guardianResult.rows[0] || null;
+      const guardianEmail = primaryGuardian?.email || null;
+
+      // 4. Convert amount to Stripe charge currency
+      const requestedAmount = roundCurrencyAmount(parseFloat(amount));
+      if (!(requestedAmount > 0)) {
+        return res.status(400).json({ success: false, error: 'Invalid registration amount.' });
+      }
+      const stripeChargeCurrency = normalizeCurrencyCode(getStripeChargeCurrency()) || currency;
+      const stripeChargeAmount = await convertAmountBetweenCurrencies(requestedAmount, currency, stripeChargeCurrency);
+      const amountInMinorUnit = Math.round(stripeChargeAmount * 100);
+
+      // 5. Platform fee from admin service pricing (app_settings key: platform_fee_percentage)
+      const feeSettings = await getPlatformFeeSettings(db).catch(() => ({ percentage: 0 }));
+      const platformFeePercent = feeSettings.percentage || 0;
+      const applicationFeeAmount = platformFeePercent > 0
+        ? Math.round(amountInMinorUnit * (platformFeePercent / 100))
+        : 0;
+
+      console.log('[CreatePaymentIntent]', {
+        student: `${first_name} ${last_name}`,
+        amountInMinorUnit,
+        stripeChargeCurrency,
+        platformFeePercent,
+        applicationFeeAmount,
+        schoolReceives: amountInMinorUnit - applicationFeeAmount,
+        stripeConnectAccountId: stripeConnectAccountId || '(none – funds stay on platform)',
+      });
+
+      // 6. Build metadata
+      const metadata = {
+        flow: 'public_registration_inline',
+        pending_student_id: String(pendingStudentId),
+        organization_id: String(organizationId),
+        student_name: `${first_name} ${last_name}`,
+        guardian_name: primaryGuardian?.first_name || 'Guardian',
+        existing_guardian_id: req.session.publicRegistrationExistingGuardianId
+          ? String(req.session.publicRegistrationExistingGuardianId) : '',
+        registration_amount: requestedAmount.toFixed(2),
+        registration_currency: currency,
+        stripe_charge_amount: stripeChargeAmount.toFixed(2),
+        stripe_charge_currency: stripeChargeCurrency,
+        platform_fee_percent: String(platformFeePercent),
+        application_fee_amount: String(applicationFeeAmount),
+        stripe_connect_account_id: stripeConnectAccountId || '',
+      };
+
+      // 7. Build PaymentIntent params (destination charge when connected account present)
+      const paymentIntentParams = {
+        amount: amountInMinorUnit,
+        currency: stripeChargeCurrency.toLowerCase(),
+        description: `Public registration – ${first_name} ${last_name} · ${organizationName}`,
+        metadata,
+        ...(guardianEmail ? { receipt_email: guardianEmail } : {}),
+      };
+
+      if (stripeConnectAccountId) {
+        paymentIntentParams.transfer_data = { destination: stripeConnectAccountId };
+        if (applicationFeeAmount > 0) {
+          paymentIntentParams.application_fee_amount = applicationFeeAmount;
+        }
+      }
+
+      // 8. Create PaymentIntent
+      const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
+
+      // 9. Persist payment record
+      await db.query(
+        `INSERT INTO public_registration_payments (
+          organization_id, pending_student_id, student_name, student_email,
+          amount, currency, payment_provider, stripe_session_id,
+          subaccount_code, status, metadata, paystack_reference
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+        ON CONFLICT DO NOTHING`,
+        [
+          organizationId, pendingStudentId,
+          `${first_name} ${last_name}`, guardianEmail,
+          requestedAmount, currency, 'stripe',
+          paymentIntent.id,
+          null, // subaccount_code — Stripe Connect ID is not a Paystack subaccount; FK would reject it
+          'pending',
+          JSON.stringify(metadata),
+          `stripe-${paymentIntent.id}`,
+        ]
+      );
+
+      return res.json({
+        success: true,
+        clientSecret: paymentIntent.client_secret,
+        // Return the publishable key that MATCHES the secret key used above.
+        // getStripePlatformClient prefers sk_test_ keys, so we must return
+        // the test publishable key — not the active (possibly live) one.
+        publishableKey: (() => {
+          const connectKey = (process.env.STRIPE_CONNECT_SECRET_KEY || '').trim();
+          const usedKey = connectKey || [
+            process.env.STRIPE_LIVE_SECRET_KEY,
+            process.env.STRIPE_SECRET_KEY,
+            process.env.STRIPE_TEST_SECRET_KEY,
+          ].map(k => (k || '').trim()).find(k => k.startsWith('sk_')) || '';
+          if (usedKey.startsWith('sk_test_')) {
+            return process.env.STRIPE_TEST_PUBLISHABLE_KEY || process.env.STRIPE_PUBLISHABLE_KEY || stripeSettings.activePublicKey;
+          }
+          if (usedKey.startsWith('sk_live_')) {
+            return process.env.STRIPE_LIVE_PUBLISHABLE_KEY || process.env.STRIPE_PUBLISHABLE_KEY || stripeSettings.activePublicKey;
+          }
+          return stripeSettings.activePublicKey;
+        })(),
+        amount: requestedAmount,
+        currency,
+        paymentIntentId: paymentIntent.id,
+        platformFeePercent,
+        schoolReceives: ((amountInMinorUnit - applicationFeeAmount) / 100).toFixed(2),
+      });
+    } catch (error) {
+      console.error('[CreatePaymentIntent] Error:', error.message);
+      return res.status(500).json({ success: false, error: 'Payment initialization failed. Please try again.' });
+    }
+  },
+
   paymentCallback: async (req, res, db) => {
-    const reference = req.query.reference;
+    const stripeSessionId = String(req.query.session_id || '').trim();
+    // Payment Element redirect returns payment_intent instead of session_id
+    const paymentIntentIdFromQuery = String(req.query.payment_intent || '').trim();
+    const redirectStatus = String(req.query.redirect_status || '').trim();
     const pendingStudentId = req.query.pendingStudentId;
+    const wasCancelled = parseTruthyFlag(req.query.cancelled);
+
+    // ── Branch 1: Payment Element inline flow (payment_intent in query) ──────
+    if (paymentIntentIdFromQuery && !wasCancelled) {
+      let organizationId = req.query.organizationId || '';
+      const qPendingStudentId = pendingStudentId;
+      try {
+        await ensurePublicRegistrationSchema(db);
+
+        const stripe = await getStripeClient(db);
+        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentIdFromQuery, {
+          expand: ['payment_method'],
+        });
+
+        const orgLookup = await db.query(
+          `SELECT o.organization_id, o.organization_name, o.nickname
+             FROM organizations o
+             JOIN pending_students ps ON ps.organization_id = o.organization_id
+            WHERE ps.pending_id = $1
+            LIMIT 1`,
+          [qPendingStudentId || '0']
+        );
+        const orgDetails = orgLookup.rows[0] || null;
+        organizationId = orgDetails?.organization_id || organizationId;
+        const orgName = orgDetails?.organization_name || 'School';
+
+        const registrationRedirect =
+          process.env.NODE_ENV === 'production' && orgDetails?.nickname
+            ? `https://${orgDetails.nickname}.managira.com/common/publicRegister?organizationId=${organizationId}`
+            : `/common/publicRegister?organizationId=${organizationId}`;
+
+        if (redirectStatus === 'canceled' || paymentIntent.status === 'canceled') {
+          if (qPendingStudentId) {
+            await db.query(`UPDATE public_registration_payments SET status = 'cancelled' WHERE stripe_session_id = $1`, [paymentIntentIdFromQuery]).catch(() => {});
+            await db.query(`DELETE FROM pending_guardians WHERE pending_id = $1`, [qPendingStudentId]).catch(() => {});
+            await db.query(`DELETE FROM pending_student_subjects WHERE pending_student_id = $1`, [qPendingStudentId]).catch(() => {});
+            await db.query(`DELETE FROM pending_students WHERE pending_id = $1`, [qPendingStudentId]).catch(() => {});
+          }
+          req.session.pendingStudentId = null;
+          req.session.publicRegistrationExistingGuardianId = null;
+          req.flash('error', 'Payment was cancelled. Registration was not saved.');
+          return res.redirect(registrationRedirect);
+        }
+
+        if (paymentIntent.status !== 'succeeded') {
+          req.flash('error', `Payment status: ${paymentIntent.status}. Please try again.`);
+          return res.redirect(registrationRedirect);
+        }
+
+        // Payment succeeded – look up the payment record by payment_intent id
+        const paymentRecordResult = await db.query(
+          `SELECT * FROM public_registration_payments WHERE stripe_session_id = $1 LIMIT 1`,
+          [paymentIntentIdFromQuery]
+        );
+        const paymentRecord = paymentRecordResult.rows[0] || null;
+
+        const recordPendingId = paymentRecord?.pending_student_id || qPendingStudentId;
+
+        // Mark payment verified
+        await db.query(
+          `UPDATE pending_students SET stripe_payment_verified = true, payment_pending = false WHERE pending_id = $1`,
+          [recordPendingId]
+        );
+        await db.query(
+          `UPDATE public_registration_payments SET status = 'success', updated_at = NOW() WHERE stripe_session_id = $1`,
+          [paymentIntentIdFromQuery]
+        );
+
+        // Save guardian portal payment method snapshot
+        const pm = paymentIntent.payment_method;
+        if (pm && pm.card && recordPendingId) {
+          try {
+            const guardianInfo = await db.query(
+              `SELECT email, first_name, last_name FROM pending_guardians WHERE pending_id = $1 LIMIT 1`,
+              [recordPendingId]
+            );
+            const gRow = guardianInfo.rows[0] || {};
+            const guardianIdResult = await db.query(
+              `SELECT guardian_id FROM guardian_profiles WHERE organization_id = $1 AND LOWER(TRIM(COALESCE(email,''))) = $2 LIMIT 1`,
+              [organizationId, (gRow.email || '').toLowerCase()]
+            );
+            const guardianId = guardianIdResult.rows[0]?.guardian_id || null;
+            if (guardianId) {
+              await saveGuardianPortalPaymentMethod(db, {
+                guardianId,
+                organizationId,
+                brand: pm.card.brand,
+                last4: pm.card.last4,
+                holderName: `${gRow.first_name || ''} ${gRow.last_name || ''}`.trim(),
+                expMonth: pm.card.exp_month,
+                expYear: pm.card.exp_year,
+                provider: 'stripe',
+                externalPaymentMethodId: pm.id,
+                studentId: paymentRecord?.pending_student_id || null,
+              });
+            }
+          } catch (_) { /* non-critical */ }
+        }
+
+        // Send confirmation email
+        const guardianResult = await db.query(
+          `SELECT email, first_name FROM pending_guardians WHERE pending_id = $1 LIMIT 1`,
+          [recordPendingId]
+        );
+        const primaryGuardian = guardianResult.rows[0] || null;
+        if (primaryGuardian?.email) {
+          const html = renderCleanEmail({
+            title: 'Student Registration & Payment Confirmation',
+            greeting: `Hello <strong>${he.encode(primaryGuardian.first_name || 'Guardian')}</strong>,`,
+            paragraphs: [
+              `We are pleased to confirm that the student's registration and payment have been successfully processed for <strong>${he.encode(orgName)}</strong>.`,
+              'The admissions team has received the details and will be in touch. Thank you for choosing us!',
+            ],
+            note: 'For help, visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a>.',
+          });
+          sendEmailInBackground(
+            {
+              to: primaryGuardian.email,
+              subject: `Student Registration & Payment Confirmation - ${orgName}`,
+              html,
+              attachments: [{ filename: 'managira.png', path: require('path').join(__dirname, '../public/images/managira.png'), cid: 'managira_logo' }],
+            },
+            'Payment Confirmation Email'
+          );
+        }
+
+        req.session.pendingStudentId = null;
+        req.session.publicRegistrationExistingGuardianId = null;
+        req.flash('success', 'Registration and payment completed successfully!');
+
+        const successRedirect =
+          process.env.NODE_ENV === 'production' && orgDetails?.nickname
+            ? `https://${orgDetails.nickname}.managira.com/common/publicDashboard?success=1`
+            : `/common/publicDashboard?organizationId=${organizationId}&success=1`;
+        return res.redirect(successRedirect);
+      } catch (err) {
+        console.error('[Payment Callback] Payment Element error:', err.message);
+        req.flash('error', 'Error verifying payment. Please contact support.');
+        return res.redirect(`/common/publicDashboard?organizationId=${organizationId || ''}`);
+      }
+    }
+
+    if (stripeSessionId || wasCancelled) {
+      let organizationId = req.query.organizationId || '';
+
+      try {
+        await ensurePublicRegistrationSchema(db);
+
+        if (!pendingStudentId) {
+          req.flash('error', 'Missing pending registration session.');
+          return res.redirect(`/common/publicDashboard?organizationId=${organizationId}`);
+        }
+
+        const orgLookup = await db.query(
+          `SELECT organization_id, organization_name, nickname
+             FROM organizations
+            WHERE organization_id = COALESCE($1::int, (SELECT organization_id FROM pending_students WHERE pending_id = $2))`,
+          [organizationId || null, pendingStudentId]
+        );
+        const orgDetails = orgLookup.rows[0] || null;
+        organizationId = orgDetails?.organization_id || organizationId;
+
+        const registrationRedirect =
+          process.env.NODE_ENV === 'production' && orgDetails?.nickname
+            ? `https://${orgDetails.nickname}.managira.com/common/publicRegister?organizationId=${organizationId}`
+            : `/common/publicRegister?organizationId=${organizationId}`;
+
+        if (wasCancelled) {
+          await db.query(
+            `UPDATE public_registration_payments
+                SET status = 'cancelled', updated_at = NOW()
+              WHERE pending_student_id = $1 AND payment_provider = 'stripe'`,
+            [pendingStudentId]
+          ).catch(() => {});
+          await db.query(`DELETE FROM pending_guardians WHERE pending_id = $1`, [pendingStudentId]).catch(() => {});
+          await db.query(`DELETE FROM pending_student_subjects WHERE pending_student_id = $1`, [pendingStudentId]).catch(() => {});
+          await db.query(`DELETE FROM pending_students WHERE pending_id = $1`, [pendingStudentId]).catch(() => {});
+          req.session.pendingStudentId = null;
+          req.session.publicRegistrationExistingGuardianId = null;
+          req.flash('error', 'Payment was cancelled. Registration was not saved.');
+          return res.redirect(registrationRedirect);
+        }
+
+        const paymentRecordResult = await db.query(
+          `SELECT *
+             FROM public_registration_payments
+            WHERE stripe_session_id = $1
+              AND pending_student_id = $2
+            LIMIT 1`,
+          [stripeSessionId, pendingStudentId]
+        );
+        const paymentRecord = paymentRecordResult.rows[0] || null;
+
+        if (!paymentRecord) {
+          req.flash('error', 'We could not locate this Stripe checkout session.');
+          return res.redirect(registrationRedirect);
+        }
+
+        if (String(paymentRecord.status || '').toLowerCase() === 'success') {
+          req.session.pendingStudentId = null;
+          req.session.publicRegistrationExistingGuardianId = null;
+          req.flash('success', 'Registration and payment completed successfully!');
+          const successRedirect =
+            process.env.NODE_ENV === 'production' && orgDetails?.nickname
+              ? `https://${orgDetails.nickname}.managira.com/common/publicDashboard?success=1`
+              : `/common/publicDashboard?organizationId=${organizationId}&success=1`;
+          return res.redirect(successRedirect);
+        }
+
+        const stripe = await getStripeClient(db);
+        const checkoutSession = await stripe.checkout.sessions.retrieve(stripeSessionId, {
+          expand: ['payment_intent.payment_method'],
+        });
+
+        let paymentIntent = checkoutSession.payment_intent;
+        if (paymentIntent && typeof paymentIntent !== 'object') {
+          paymentIntent = await stripe.paymentIntents.retrieve(paymentIntent, {
+            expand: ['payment_method'],
+          });
+        }
+
+        if (checkoutSession.payment_status !== 'paid' && paymentIntent?.status !== 'succeeded') {
+          await db.query(
+            `UPDATE public_registration_payments
+                SET status = 'failed',
+                    stripe_payment_intent_id = COALESCE($1, stripe_payment_intent_id),
+                    updated_at = NOW()
+              WHERE stripe_session_id = $2`,
+            [paymentIntent?.id || null, stripeSessionId]
+          );
+          await db.query(`DELETE FROM pending_guardians WHERE pending_id = $1`, [pendingStudentId]).catch(() => {});
+          await db.query(`DELETE FROM pending_student_subjects WHERE pending_student_id = $1`, [pendingStudentId]).catch(() => {});
+          await db.query(`DELETE FROM pending_students WHERE pending_id = $1`, [pendingStudentId]).catch(() => {});
+          req.session.pendingStudentId = null;
+          req.session.publicRegistrationExistingGuardianId = null;
+          req.flash('error', 'Stripe payment was not completed. Registration was not saved.');
+          return res.redirect(registrationRedirect);
+        }
+
+        const guardianResult = await db.query(
+          `SELECT first_name, last_name, phone, email, hometown
+             FROM pending_guardians
+            WHERE pending_id = $1
+            ORDER BY email DESC NULLS LAST, first_name ASC
+            LIMIT 1`,
+          [pendingStudentId]
+        );
+        const primaryGuardian = guardianResult.rows[0] || null;
+
+        const metadata = paymentRecord.metadata || {};
+        let guardianId = metadata.existing_guardian_id ? Number(metadata.existing_guardian_id) : null;
+
+        if (!guardianId && primaryGuardian) {
+          guardianId = await ensureGuardianPortalProfileAndAccount(db, {
+            organizationId,
+            firstName: primaryGuardian.first_name,
+            lastName: primaryGuardian.last_name,
+            phone: primaryGuardian.phone,
+            email: primaryGuardian.email,
+            hometown: primaryGuardian.hometown,
+          });
+        }
+
+        const paymentMethod = paymentIntent?.payment_method && typeof paymentIntent.payment_method === 'object'
+          ? paymentIntent.payment_method
+          : null;
+        const cardDetails = paymentMethod?.card || null;
+        const holderName = paymentMethod?.billing_details?.name || checkoutSession.customer_details?.name || null;
+        const paymentMethodSnapshot = cardDetails
+          ? {
+              brand: cardDetails.brand || 'card',
+              last4: cardDetails.last4 || null,
+              exp_month: cardDetails.exp_month != null ? String(cardDetails.exp_month) : null,
+              exp_year: cardDetails.exp_year != null ? String(cardDetails.exp_year) : null,
+              holder_name: holderName,
+              wallet_type: cardDetails.wallet?.type || null,
+            }
+          : null;
+
+        if (guardianId && paymentMethodSnapshot?.last4) {
+          await saveGuardianPortalPaymentMethod(db, {
+            guardianId,
+            organizationId,
+            brand: paymentMethodSnapshot.brand,
+            last4: paymentMethodSnapshot.last4,
+            holderName: paymentMethodSnapshot.holder_name,
+            expMonth: paymentMethodSnapshot.exp_month,
+            expYear: paymentMethodSnapshot.exp_year,
+            provider: 'stripe',
+            externalPaymentMethodId: paymentMethod?.id || null,
+          });
+        }
+
+        await db.query(
+          `UPDATE pending_students
+              SET stripe_payment_verified = true,
+                  payment_pending = false
+            WHERE pending_id = $1`,
+          [pendingStudentId]
+        );
+
+        await db.query(
+          `UPDATE public_registration_payments
+              SET status = 'success',
+                  stripe_payment_intent_id = $1,
+                  guardian_id = COALESCE($2, guardian_id),
+                  payment_method_snapshot = $3,
+                  updated_at = NOW()
+            WHERE stripe_session_id = $4`,
+          [
+            paymentIntent?.id || null,
+            guardianId || null,
+            paymentMethodSnapshot ? JSON.stringify(paymentMethodSnapshot) : null,
+            stripeSessionId,
+          ]
+        );
+
+        if (primaryGuardian && primaryGuardian.email) {
+          const html = renderCleanEmail({
+            title: 'Student Registration & Payment Confirmation',
+            greeting: `Hello <strong>${he.encode(primaryGuardian.first_name || 'Guardian')}</strong>,`,
+            paragraphs: [
+              `We are pleased to confirm that the student's registration and payment have been successfully processed for <strong>${he.encode(orgDetails?.organization_name || 'the school')}</strong>.`,
+              `The admissions team at <strong>${he.encode(orgDetails?.organization_name || 'the school')}</strong> has received the details. You may hear from them soon, or you can reach out directly if you have any questions.`,
+              'Thank you for choosing us!',
+            ],
+            note: 'For help, visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
+          });
+
+          sendEmailInBackground({
+            to: primaryGuardian.email,
+            subject: `Student Registration & Payment Confirmation - ${orgDetails?.organization_name || 'School'}`,
+            html,
+          }, 'Public Registration Payment Confirmation').catch((err) => {
+            console.error('[Payment Callback] Stripe confirmation email failed:', err.message);
+          });
+        }
+
+        req.flash('success', 'Registration and payment completed successfully!');
+        req.session.pendingStudentId = null;
+        req.session.publicRegistrationExistingGuardianId = null;
+
+        const successRedirect =
+          process.env.NODE_ENV === 'production' && orgDetails?.nickname
+            ? `https://${orgDetails.nickname}.managira.com/common/publicDashboard?success=1`
+            : `/common/publicDashboard?organizationId=${organizationId}&success=1`;
+
+        return res.redirect(successRedirect);
+      } catch (err) {
+        console.error('[Payment Callback] Stripe public registration error:', err.message);
+        req.flash('error', 'Error verifying Stripe payment. Please contact support.');
+        return res.redirect(`/common/publicDashboard?organizationId=${organizationId || ''}`);
+      }
+    }
+
+    const reference = req.query.reference;
+    const paystackPendingStudentId = req.query.pendingStudentId;
 
     console.log('[Payment Callback] Reference:', reference);
-    console.log('[Payment Callback] Pending Student ID:', pendingStudentId);
+    console.log('[Payment Callback] Pending Student ID:', paystackPendingStudentId);
 
-    if (!reference || !pendingStudentId) {
+    if (!reference || !paystackPendingStudentId) {
       console.log('[Payment Callback] Missing reference or pending student ID');
       
       // Try to get organizationId from query or session
@@ -3160,7 +4019,7 @@ const commonController = {
             WHERE prp.paystack_reference = $1
               AND ps.pending_id = $2
             LIMIT 1`,
-          [reference, pendingStudentId]
+          [reference, paystackPendingStudentId]
         );
 
         if (ownershipCheck.rows.length === 0) {
@@ -3173,7 +4032,7 @@ const commonController = {
         // ✅ Mark payment as verified
         await db.query(
           `UPDATE pending_students SET stripe_payment_verified = true, payment_pending = false WHERE pending_id = $1`,
-          [pendingStudentId]
+          [paystackPendingStudentId]
         );
 
         // Update payment record
@@ -3185,7 +4044,7 @@ const commonController = {
         // ✅ Fetch guardian details
         const guardianResult = await db.query(
           `SELECT email, first_name FROM pending_guardians WHERE pending_id = $1 LIMIT 1`,
-          [pendingStudentId]
+          [paystackPendingStudentId]
         );
         const primaryGuardian = guardianResult.rows[0];
 
@@ -3194,7 +4053,7 @@ const commonController = {
           `SELECT organization_id, organization_name, nickname FROM organizations WHERE organization_id = (
             SELECT organization_id FROM pending_students WHERE pending_id = $1
           )`,
-          [pendingStudentId]
+          [paystackPendingStudentId]
         );
         const orgDetails = orgResult.rows[0];
         const orgName = orgDetails?.organization_name || "the school";
@@ -3238,6 +4097,7 @@ const commonController = {
           "Registration and payment completed successfully!"
         );
         req.session.pendingStudentId = null;
+        req.session.publicRegistrationExistingGuardianId = null;
 
         console.log('[Payment Callback] ✅ Redirecting to public dashboard with organizationId:', organizationId);
 
@@ -3261,7 +4121,7 @@ const commonController = {
             WHERE prp.paystack_reference = $1
               AND ps.pending_id = $2
             LIMIT 1`,
-          [reference, pendingStudentId]
+          [reference, paystackPendingStudentId]
         );
 
         if (failureOwnership.rows.length === 0) {
@@ -3275,10 +4135,11 @@ const commonController = {
 
         // Payment failed — delete pending record (already org-bound above)
         await db.query(`DELETE FROM pending_students WHERE pending_id = $1`, [
-          pendingStudentId,
+          paystackPendingStudentId,
         ]);
         req.flash("error", "Payment failed. Registration was not saved.");
         req.session.pendingStudentId = null;
+        req.session.publicRegistrationExistingGuardianId = null;
 
         const fallbackRedirect =
           process.env.NODE_ENV === "production" && req.schoolDetails
@@ -3297,7 +4158,7 @@ const commonController = {
       try {
         const orgIdResult = await db.query(
           `SELECT organization_id FROM pending_students WHERE pending_id = $1`,
-          [pendingStudentId]
+          [paystackPendingStudentId]
         );
         errorOrgId = orgIdResult.rows[0]?.organization_id || '';
       } catch (dbErr) {
@@ -3696,6 +4557,25 @@ const commonController = {
             organizationId,
           ]
         );
+
+        const portalGuardianId = await ensureGuardianPortalProfileAndAccount(client, {
+          organizationId,
+          firstName: g.first_name,
+          lastName: g.last_name,
+          phone: g.phone,
+          email: g.email,
+          hometown: g.hometown,
+          imageUrl: g.image_url,
+        });
+
+        if (portalGuardianId) {
+          await client.query(
+            `INSERT INTO guardian_students (guardian_id, student_id)
+             VALUES ($1, $2)
+             ON CONFLICT (guardian_id, student_id) DO NOTHING`,
+            [portalGuardianId, studentId]
+          );
+        }
       }
 
       // ✅ Delete from pending
@@ -11986,32 +12866,40 @@ const commonController = {
       const q = (req.query.q || "").trim();
 
       if (!organizationId) return res.status(400).json({ guardians: [] });
-      // Require a reasonably specific identifier (full phone/email),
-      // not a 2-character name fragment.
-      if (q.length < 5) return res.json({ guardians: [] });
+      if (q.length < 2) return res.json({ guardians: [] });
 
-      // Only accept lookups that look like a phone number or an email.
       const looksLikeEmail = /@/.test(q) && /\./.test(q);
       const looksLikePhone = /^\+?[0-9\s\-()]{5,}$/.test(q);
-      if (!looksLikeEmail && !looksLikePhone) {
-        return res.json({ guardians: [] });
-      }
-
       const normalizedPhone = looksLikePhone ? q.replace(/[\s\-()]/g, "") : null;
+      const namePattern = (!looksLikeEmail && !looksLikePhone) ? '%' + q.toLowerCase() + '%' : null;
 
       const result = await db.query(
         `
+        WITH ranked AS (
+          SELECT guardian_id, first_name, last_name, phone, email, image_url, updated_at,
+            ROW_NUMBER() OVER (
+              PARTITION BY organization_id, LOWER(first_name), LOWER(last_name), LOWER(COALESCE(email, ''))
+              ORDER BY updated_at DESC, guardian_id DESC
+            ) AS rn
+          FROM guardian_profiles
+          WHERE organization_id = $1
+            AND (
+              ($2::text IS NOT NULL AND LOWER(email) = LOWER($2))
+              OR ($3::text IS NOT NULL AND REGEXP_REPLACE(COALESCE(phone, ''), '[^0-9+]', '', 'g') = $3)
+              OR ($4::text IS NOT NULL AND (
+                LOWER(CONCAT(first_name, ' ', last_name)) LIKE $4
+                OR LOWER(first_name) LIKE $4
+                OR LOWER(last_name) LIKE $4
+              ))
+            )
+        )
         SELECT guardian_id, first_name, last_name, phone, email, image_url
-        FROM guardian_profiles
-        WHERE organization_id = $1
-          AND (
-            ($2::text IS NOT NULL AND LOWER(email) = LOWER($2::text))
-            OR ($3::text IS NOT NULL AND REGEXP_REPLACE(COALESCE(phone, ''), '[^0-9+]', '', 'g') = $3::text)
-          )
+        FROM ranked
+        WHERE rn = 1
         ORDER BY updated_at DESC, guardian_id DESC
-        LIMIT 5
+        LIMIT 10
         `,
-        [organizationId, looksLikeEmail ? q : null, normalizedPhone]
+        [organizationId, looksLikeEmail ? q : null, normalizedPhone, namePattern]
       );
 
       return res.json({ guardians: result.rows });

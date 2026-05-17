@@ -115,6 +115,33 @@ async function getStripeClient(dbClient = defaultDb) {
   return new Stripe(secretKey);
 }
 
+// Platform-level client for Stripe Connect operations (account creation, account links).
+// Stripe Connect requires a FULL secret key (sk_live_... or sk_test_...).
+// Restricted keys (rk_live_...) do NOT have the needed permissions.
+// Priority:
+//   1. STRIPE_CONNECT_SECRET_KEY env var (dedicated full key)
+//   2. Any configured key starting with 'sk_' (non-restricted)
+//   3. Fall back to active key (may fail if it is a restricted key)
+async function getStripePlatformClient(dbClient = defaultDb) {
+  // 1. Dedicated Connect key
+  const connectKey = (process.env.STRIPE_CONNECT_SECRET_KEY || '').trim();
+  if (connectKey) return new Stripe(connectKey);
+
+  // 2. Find the first non-restricted sk_ key across all configured env vars
+  const candidates = [
+    process.env.STRIPE_LIVE_SECRET_KEY,
+    process.env.STRIPE_SECRET_KEY,
+    process.env.STRIPE_TEST_SECRET_KEY,
+  ];
+  const fullKey = candidates.map(k => (k || '').trim()).find(k => k.startsWith('sk_'));
+  if (fullKey) return new Stripe(fullKey);
+
+  // 3. Fall back — may fail if active key is restricted
+  const secretKey = await getActiveStripeSecretKey(dbClient);
+  if (!secretKey) throw new Error('Stripe secret key is not configured.');
+  return new Stripe(secretKey);
+}
+
 module.exports = {
   STRIPE_MODE_KEY,
   DEFAULT_STRIPE_CHARGE_CURRENCY,
@@ -127,4 +154,5 @@ module.exports = {
   getActiveStripePublicKey,
   getStripeChargeCurrency,
   getStripeClient,
+  getStripePlatformClient,
 };
