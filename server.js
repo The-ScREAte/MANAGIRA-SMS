@@ -400,6 +400,14 @@ app.get("/service-worker.js", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "service-worker.js"));
 });
 
+// Web app manifest — explicit route ensures correct MIME type on all hosts
+// (some CDNs/proxies serve .webmanifest as text/plain which breaks PWA install)
+app.get("/images/favicon_io/site.webmanifest", (req, res) => {
+  res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.sendFile(path.join(__dirname, "public", "images", "favicon_io", "site.webmanifest"));
+});
+
 // Dynamic favicon for subdomains: root domain keeps default favicon,
 // school subdomains use school logo so search engines can show school branding.
 app.get("/favicon.ico", (req, res, next) => {
