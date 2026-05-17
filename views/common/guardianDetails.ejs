@@ -816,13 +816,17 @@
   <div class="gd-card gd-portal-card">
     <h3 class="gd-portal-title">📱 Parent Portal Access</h3>
     <div class="gd-portal-info">
-      <p><strong>Login Email:</strong> <span><%= guardian.email || 'Not provided' %></span></p>
-      <p><strong>Login Phone:</strong> <span><%= guardian.phone || 'Not provided' %></span></p>
+      <p><strong>Login Email:</strong> <span><%= account && account.login_email ? account.login_email : 'Not provided' %></span></p>
+      <p><strong>Login Phone:</strong> <span><%= account && account.login_phone ? account.login_phone : 'Not provided' %></span></p>
+      <p><strong>Password Status:</strong> <span><%= account && account.password_status ? account.password_status : 'Not set' %></span></p>
     </div>
     <% if (hasGuardianPortalFeature) { %>
     <p class="gd-portal-note">
       This guardian can use either their <strong>email</strong> or <strong>phone number</strong> to log in to the Parent Portal with their password. 
       Click "Send Password Setup" above to send instructions.
+    </p>
+    <p class="gd-portal-note" style="margin-top:8px;">
+      For security and compliance, Managira does not display any part of the saved password to staff.
     </p>
     <% } else { %>
     <p class="gd-portal-note">

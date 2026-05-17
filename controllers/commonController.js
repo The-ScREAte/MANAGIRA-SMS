@@ -10890,7 +10890,7 @@ const commonController = {
 
       if (guardianSource === 'profile') {
         const guardianResult = await db.query(
-          `SELECT gp.*, ga.login_email, ga.login_phone, 'profile'::text AS source
+          `SELECT gp.*, ga.login_email, ga.login_phone, ga.password_hash, ga.must_reset_password, 'profile'::text AS source
            FROM guardian_profiles gp
            LEFT JOIN guardian_accounts ga
              ON ga.guardian_id = gp.guardian_id
@@ -10909,6 +10909,8 @@ const commonController = {
         account = {
           login_email: guardian.login_email || guardian.email || null,
           login_phone: guardian.login_phone || guardian.phone || null,
+          password_set: !!guardian.password_hash,
+          must_reset_password: !!guardian.must_reset_password,
         };
 
         const teacherFilter = userRole === 'Teacher' && userId
@@ -10960,7 +10962,13 @@ const commonController = {
         }
 
         guardian = guardianResult.rows[0];
-        account = { login_email: guardian.email || null, login_phone: guardian.phone || null };
+        const linkedProfile = await findBestGuardianProfileMatch(db, organizationId, guardianId, guardian);
+        account = {
+          login_email: linkedProfile?.login_email || guardian.email || null,
+          login_phone: linkedProfile?.login_phone || guardian.phone || null,
+          password_set: !!linkedProfile?.password_hash,
+          must_reset_password: !!linkedProfile?.must_reset_password,
+        };
 
         if (userRole === 'Teacher' && userId) {
           studentsResult = await db.query(
@@ -11017,6 +11025,9 @@ const commonController = {
       );
 
       const hasGuardianPortal = await hasGuardianPortalFeature(db, organizationId);
+      account.password_status = !account.password_set
+        ? 'Not set'
+        : (account.must_reset_password ? 'Reset required' : 'Password set');
 
       return res.render("common/guardianDetails", {
         title: "Guardian Details",
@@ -11624,13 +11635,8 @@ const commonController = {
       }
 
       if (!guardianProfileId) {
-        const profileCheck = await db.query(
-          `SELECT guardian_id FROM guardian_profiles 
-           WHERE first_name = $1 AND last_name = $2 AND phone = $3 AND organization_id = $4`,
-          [guardian.first_name, guardian.last_name, guardian.phone, organizationId]
-        );
-
-        guardianProfileId = profileCheck.rows.length > 0 ? profileCheck.rows[0].guardian_id : null;
+        const linkedProfile = await findBestGuardianProfileMatch(db, organizationId, guardianId, guardian);
+        guardianProfileId = linkedProfile?.profile_guardian_id || null;
       }
 
       // If no profile exists, create one
@@ -11683,6 +11689,15 @@ const commonController = {
           `INSERT INTO guardian_accounts (guardian_id, organization_id, login_email, login_phone, password_hash, created_at)
            VALUES ($1, $2, $3, $4, NULL, NOW())`,
           [guardianProfileId, organizationId, contactEmail, contactPhone]
+        );
+      } else {
+        await db.query(
+          `UPDATE guardian_accounts
+           SET login_email = $1,
+               login_phone = $2,
+               updated_at = NOW()
+           WHERE guardian_id = $3 AND organization_id = $4`,
+          [contactEmail || null, contactPhone || null, guardianProfileId, organizationId]
         );
       }
 
@@ -12231,6 +12246,69 @@ const sendGuardianStudentAddedEmail = async (guardianEmail, guardianFirstName, g
       } catch (error) {
       }
 };
+
+async function findBestGuardianProfileMatch(db, organizationId, guardianId, guardian = {}) {
+  if (!organizationId || !guardian) return null;
+  const phone = guardian.phone ? String(guardian.phone).trim() : null;
+  const email = guardian.email ? String(guardian.email).trim() : null;
+  const result = await db.query(
+    `SELECT gp.guardian_id AS profile_guardian_id,
+            gp.organization_id,
+            gp.first_name,
+            gp.last_name,
+            gp.email,
+            gp.phone,
+            ga.id AS account_id,
+            ga.login_email,
+            ga.login_phone,
+            ga.password_hash,
+            ga.must_reset_password
+       FROM guardian_profiles gp
+       LEFT JOIN guardian_accounts ga
+         ON ga.guardian_id = gp.guardian_id
+        AND ga.organization_id = gp.organization_id
+      WHERE gp.organization_id = $1
+        AND (
+          gp.guardian_id = $2
+          OR (
+            LOWER(TRIM(gp.first_name)) = LOWER(TRIM($3::text))
+            AND LOWER(TRIM(gp.last_name)) = LOWER(TRIM($4::text))
+            AND (
+              ($5::text IS NOT NULL AND regexp_replace(COALESCE(gp.phone, ''), '[^0-9+]', '', 'g') = regexp_replace($5::text, '[^0-9+]', '', 'g'))
+              OR ($6::text IS NOT NULL AND LOWER(COALESCE(gp.email, '')) = LOWER($6::text))
+              OR ($5::text IS NOT NULL AND regexp_replace(COALESCE(ga.login_phone, ''), '[^0-9+]', '', 'g') = regexp_replace($5::text, '[^0-9+]', '', 'g'))
+              OR ($6::text IS NOT NULL AND LOWER(COALESCE(ga.login_email, '')) = LOWER($6::text))
+            )
+          )
+        )
+      ORDER BY
+        CASE WHEN gp.guardian_id = $2 THEN 0 ELSE 1 END,
+        CASE
+          WHEN ga.password_hash IS NOT NULL THEN 0
+          WHEN ga.id IS NOT NULL THEN 1
+          ELSE 2
+        END,
+        CASE
+          WHEN $6::text IS NOT NULL AND LOWER(COALESCE(ga.login_email, '')) = LOWER($6::text) THEN 0
+          WHEN $6::text IS NOT NULL AND LOWER(COALESCE(gp.email, '')) = LOWER($6::text) THEN 1
+          WHEN $5::text IS NOT NULL AND regexp_replace(COALESCE(ga.login_phone, ''), '[^0-9+]', '', 'g') = regexp_replace($5::text, '[^0-9+]', '', 'g') THEN 2
+          WHEN $5::text IS NOT NULL AND regexp_replace(COALESCE(gp.phone, ''), '[^0-9+]', '', 'g') = regexp_replace($5::text, '[^0-9+]', '', 'g') THEN 3
+          ELSE 4
+        END,
+        COALESCE(ga.updated_at, gp.updated_at, gp.created_at) DESC NULLS LAST,
+        gp.guardian_id DESC
+      LIMIT 1`,
+    [
+      organizationId,
+      guardianId || null,
+      guardian.first_name || null,
+      guardian.last_name || null,
+      phone,
+      email,
+    ]
+  );
+  return result.rows[0] || null;
+}
 
 module.exports = {
   isAuthenticated,

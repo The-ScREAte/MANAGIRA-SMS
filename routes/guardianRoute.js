@@ -95,6 +95,12 @@ module.exports = (db) => {
   router.get("/paygira", isGuardianAuthenticated, (req, res) =>
     financeController.guardianPaygiraGet(req, res, db)
   );
+  router.post("/paygira/stripe-intent", isGuardianAuthenticated, (req, res) =>
+    financeController.guardianPaygiraStripeIntentPost(req, res, db)
+  );
+  router.get("/paygira/stripe-return", isGuardianAuthenticated, (req, res) =>
+    financeController.guardianPaygiraStripeReturnGet(req, res, db)
+  );
   router.post("/paygira/pay", isGuardianAuthenticated, (req, res) =>
     financeController.guardianPaygiraPayPost(req, res, db)
   );

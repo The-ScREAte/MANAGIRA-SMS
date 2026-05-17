@@ -48,6 +48,23 @@ function parseDateInput(value) {
   return parsed;
 }
 
+function normalizeGuardianLoginPhone(value) {
+  return String(value || "").replace(/[^\d+]/g, "");
+}
+
+function resolveGuardianLoginScope(req) {
+  const host = String(req.get("host") || "")
+    .split(":")[0]
+    .trim()
+    .toLowerCase();
+  if (!host || host === "localhost") return null;
+  const parts = host.split(".").filter(Boolean);
+  if (parts.length < 3) return null;
+  const subdomain = parts[0];
+  if (!subdomain || ["www", "app", "api"].includes(subdomain)) return null;
+  return subdomain;
+}
+
 function computeTierMonthlyPrice(planBasePrice, tier) {
   const basePrice = Number(planBasePrice || 0);
   const adjustmentPercent = Number(tier?.adjustment_percentage);
@@ -58,8 +75,6 @@ function computeTierMonthlyPrice(planBasePrice, tier) {
 }
 const bcrypt = require("bcryptjs");
 
-const bcryptjs = require("bcryptjs");
-
 const db = require("../config/db");
 const { deriveOrgNickname, normalizeDisplayName } = require("../utils/orgNicknameSlug");
 const crypto = require("crypto");
@@ -67,105 +82,6 @@ const crypto = require("crypto");
 const path = require("path");
 
 const nodemailer = require("nodemailer");
-
-const { upload, uploadToS3, deleteFromS3 } = require("../middleware/s3Upload");
-
-const fs = require("fs");
-
-const PDFDocument = require("pdfkit");
-
-const axios = require("axios");
-
-const he = require("he");
-
-const { sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require("../utils/emailHelper");
-const {
-  getCurrencyProfileForRequest,
-  localizeUsdAmount,
-  formatCurrencyAmount,
-} = require("../utils/currencyLocalization");
-const {
-  getFreeTrialSettings,
-  formatFreeTrialLength,
-  hasEmailLockedTrial,
-} = require("../utils/freeTrial");
-const { getPaystackSettings } = require("../utils/paystackConfig");
-const { isPaystackEnabled } = require("../utils/paystackEnabled");
-const {
-  getPaymentProvider,
-  providerSupportsPaystack,
-  providerSupportsStripe,
-} = require("../utils/paymentProviderConfig");
-const {
-  getStripeSettings,
-  getStripeConfigurationIssue,
-  getActiveStripePublicKey,
-  getStripeChargeCurrency,
-  getStripeClient,
-} = require("../utils/stripeConfig");
-const { ensurePaymentProviderSchema, ensureStripeSubaccountSchema } = require("../utils/paymentProviderSchema");
-const {
-  getPlatformFeeSettings,
-  buildPlatformChargeBreakdown,
-} = require("../utils/platformFee");
-const {
-  WEEKDAY_OPTIONS,
-  parseBoolean,
-  normalizeWeekendDaysInput,
-  ensureAttendanceCalendarSchema,
-  getHolidayCountryOptions,
-  getTermRecord,
-  getAttendanceCalendarProfile,
-  getAttendanceCalendarDays,
-  upsertAttendanceCalendarProfile,
-  syncPublicHolidayDays,
-  upsertManualCalendarDay,
-  deleteManualCalendarDay,
-} = require("../utils/attendanceCalendar");
-const { hasGuardianPortalFeature } = require("../utils/guardianPortalAccess");
-const { invalidateOrganizationAccessCache } = require("../utils/accessCache");
-const { logOrganizationActivity } = require("../utils/activityLog");
-const cacheManager = require("../utils/cacheManager");
-const {
-  ensureEmailPreferencesSchema,
-  getStaffPreferencesForRole,
-  getUserPreferenceMap,
-  setUserPreferences,
-} = require("../utils/emailPreferences");
-// Invalidate the /admin dashboard organizations cache so newly-registered
-// organizations become visible immediately (mirrors adminController’s behavior
-// on edit/approve actions; registration previously never busted this cache).
-function invalidateAdminOrganizationsCache() {
-  try {
-    cacheManager.invalidate("admin", "organizations:list");
-  } catch (err) {
-    console.warn("[accountController] failed to invalidate admin organizations cache:", err && err.message);
-  }
-}
-
-function extractS3KeyFromUrl(url) {
-  const value = String(url || "").trim();
-  if (!value || value === "profilePlaceholder.png") return null;
-
-  const s3Prefix = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/`;
-  if (value.startsWith(s3Prefix)) {
-    return value.substring(s3Prefix.length);
-  }
-  if (value.startsWith("images/")) {
-    return value;
-  }
-  return null;
-}
-
-async function getActivePaystackSecretKey() {
-  const settings = await getPaystackSettings(db);
-  return settings.activeSecretKey || process.env.PAYSTACK_SECRET_KEY || "";
-}
-
-async function getActivePaystackPublicKey() {
-  const settings = await getPaystackSettings(db);
-  return settings.activePublicKey || process.env.PAYSTACK_PUBLIC_KEY || "";
-}
 
 async function getActivePaymentProvider() {
   await ensurePaymentProviderSchema(db);
@@ -4669,7 +4585,8 @@ const accountController = {
     const { identifier, password } = req.body;
 
     try {
-      const cleanedPhone = String(identifier || "").replace(/[^\d+]/g, "");
+      const cleanedPhone = normalizeGuardianLoginPhone(identifier);
+      const loginScope = resolveGuardianLoginScope(req);
 
       const guardianAcc = await db.query(
         `
@@ -4679,13 +4596,34 @@ const accountController = {
         JOIN guardian_profiles gp ON gp.guardian_id = ga.guardian_id
         JOIN organizations o ON o.organization_id = ga.organization_id
         WHERE
-          (ga.login_email IS NOT NULL AND LOWER(ga.login_email) = LOWER($1))
-          OR
-          (ga.login_phone IS NOT NULL AND ga.login_phone = $2)
+          (
+            (ga.login_email IS NOT NULL AND LOWER(TRIM(ga.login_email)) = LOWER(TRIM($1)))
+            OR
+            (ga.login_phone IS NOT NULL AND regexp_replace(COALESCE(ga.login_phone, ''), '[^0-9+]', '', 'g') = $2)
+          )
+          AND
+          (
+            $3::text IS NULL
+            OR LOWER(COALESCE(o.nickname, '')) = $3
+            OR LOWER(COALESCE(o.nickname_display, '')) = $3
+          )
+        ORDER BY
+          CASE WHEN $3::text IS NOT NULL AND LOWER(COALESCE(o.nickname, '')) = $3 THEN 0 ELSE 1 END,
+          CASE WHEN ga.password_hash IS NOT NULL THEN 0 ELSE 1 END,
+          ga.updated_at DESC NULLS LAST,
+          ga.id DESC
         LIMIT 1
         `,
-        [identifier, cleanedPhone]
+        [identifier, cleanedPhone, loginScope]
       );
+
+      if (!guardianAcc.rows.length && loginScope) {
+        req.flash(
+          "error",
+          "No parent portal account matched this school. Use the login details for this school or ask the school to resend the setup link."
+        );
+        return res.redirect("/account/guardian-login");
+      }
 
       if (!guardianAcc.rows.length) {
         req.flash("error", "Invalid email/phone or password.");
@@ -6476,13 +6414,13 @@ const accountController = {
     try {
       // Search all tables for the token
       const userResult = await db.query(
-        `SELECT email, 'users' AS source FROM users WHERE reset_password_token = $1
+        `SELECT email, 'users' AS source FROM users WHERE reset_password_token = $1 AND (reset_password_expires IS NULL OR reset_password_expires > NOW())
          UNION
-         SELECT email, 'organizations' AS source FROM organizations WHERE reset_password_token = $1
+         SELECT email, 'organizations' AS source FROM organizations WHERE reset_password_token = $1 AND (reset_password_expires IS NULL OR reset_password_expires > NOW())
          UNION
-         SELECT login_email AS email, 'guardian_accounts' AS source FROM guardian_accounts WHERE reset_password_token = $1
+         SELECT login_email AS email, 'guardian_accounts' AS source FROM guardian_accounts WHERE reset_password_token = $1 AND (reset_password_expires IS NULL OR reset_password_expires > NOW())
          UNION
-         SELECT hub_email AS email, 'managira_hubs' AS source FROM managira_hubs WHERE reset_password_token = $1`,
+         SELECT hub_email AS email, 'managira_hubs' AS source FROM managira_hubs WHERE reset_password_token = $1 AND (reset_password_expires IS NULL OR reset_password_expires > NOW())`,
         [hashedToken]
       );
 
@@ -6553,63 +6491,57 @@ const accountController = {
 
     try {
       let email = null;
-      let updated = false;
+      let updatedCount = 0;
 
       // Try users table
       const userResult = await db.query(
         `UPDATE users SET password = $1, reset_password_token = NULL, reset_password_expires = NULL
-         WHERE reset_password_token = $2
+         WHERE reset_password_token = $2 AND (reset_password_expires IS NULL OR reset_password_expires > NOW())
          RETURNING email`,
         [hashedPassword, hashedToken]
       );
       if (userResult.rows.length > 0) {
-        email = userResult.rows[0].email;
-        updated = true;
+        email = email || userResult.rows[0].email;
+        updatedCount += userResult.rows.length;
       }
 
       // Try organizations table
-      if (!updated) {
-        const orgResult = await db.query(
-          `UPDATE organizations SET password = $1, reset_password_token = NULL, reset_password_expires = NULL
-           WHERE reset_password_token = $2
-           RETURNING email`,
-          [hashedPassword, hashedToken]
-        );
-        if (orgResult.rows.length > 0) {
-          email = orgResult.rows[0].email;
-          updated = true;
-        }
+      const orgResult = await db.query(
+        `UPDATE organizations SET password = $1, reset_password_token = NULL, reset_password_expires = NULL
+         WHERE reset_password_token = $2 AND (reset_password_expires IS NULL OR reset_password_expires > NOW())
+         RETURNING email`,
+        [hashedPassword, hashedToken]
+      );
+      if (orgResult.rows.length > 0) {
+        email = email || orgResult.rows[0].email;
+        updatedCount += orgResult.rows.length;
       }
 
       // Try guardian_accounts table
-      if (!updated) {
-        const guardianResult = await db.query(
-          `UPDATE guardian_accounts SET password_hash = $1, reset_password_token = NULL, reset_password_expires = NULL, must_reset_password = false
-           WHERE reset_password_token = $2
-           RETURNING login_email AS email`,
-          [hashedPassword, hashedToken]
-        );
-        if (guardianResult.rows.length > 0) {
-          email = guardianResult.rows[0].email;
-          updated = true;
-        }
+      const guardianResult = await db.query(
+        `UPDATE guardian_accounts SET password_hash = $1, reset_password_token = NULL, reset_password_expires = NULL, must_reset_password = false
+         WHERE reset_password_token = $2 AND (reset_password_expires IS NULL OR reset_password_expires > NOW())
+         RETURNING login_email AS email`,
+        [hashedPassword, hashedToken]
+      );
+      if (guardianResult.rows.length > 0) {
+        email = email || guardianResult.rows[0].email;
+        updatedCount += guardianResult.rows.length;
       }
 
       // Try managira_hubs table
-      if (!updated) {
-        const hubResult = await db.query(
-          `UPDATE managira_hubs SET hub_password = $1, reset_password_token = NULL, reset_password_expires = NULL
-           WHERE reset_password_token = $2
-           RETURNING hub_email AS email`,
-          [hashedPassword, hashedToken]
-        );
-        if (hubResult.rows.length > 0) {
-          email = hubResult.rows[0].email;
-          updated = true;
-        }
+      const hubResult = await db.query(
+        `UPDATE managira_hubs SET hub_password = $1, reset_password_token = NULL, reset_password_expires = NULL
+         WHERE reset_password_token = $2 AND (reset_password_expires IS NULL OR reset_password_expires > NOW())
+         RETURNING hub_email AS email`,
+        [hashedPassword, hashedToken]
+      );
+      if (hubResult.rows.length > 0) {
+        email = email || hubResult.rows[0].email;
+        updatedCount += hubResult.rows.length;
       }
 
-      if (!updated) {
+      if (!updatedCount) {
         req.flash("error", "Invalid or expired reset link.");
         return res.render("account/resetPassword", {
           title: "Reset Password",

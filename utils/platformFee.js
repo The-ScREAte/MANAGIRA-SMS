@@ -44,7 +44,20 @@ async function upsertPlatformFeeSettings(values, dbClient = defaultDb) {
 
 function isPlatformFeeMethod(method) {
   const normalized = String(method || "").trim().toLowerCase();
-  return ["card", "stripe", "apple_pay", "google_pay", "link", "cashapp"].includes(normalized);
+  return [
+    "card",
+    "stripe",
+    "apple_pay",
+    "google_pay",
+    "link",
+    "cashapp",
+    "us_bank_account",
+    "sepa_debit",
+    "bacs_debit",
+    "klarna",
+    "afterpay_clearpay",
+    "ideal",
+  ].includes(normalized);
 }
 
 function buildPlatformChargeBreakdown(baseAmount, options = {}) {
