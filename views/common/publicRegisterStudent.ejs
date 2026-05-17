@@ -7,81 +7,107 @@
 <style>
       :root {
         --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
+        --pr-blue: #2563eb;
+        --pr-blue-dark: #1d4ed8;
+        --pr-green: #10b981;
+        --pr-green-dark: #059669;
+        --pr-radius: 10px;
       }
 
+  * { box-sizing: border-box; }
+
+  body { margin: 0; background: #f1f5f9; }
 
   .registration-container {
-    max-width: 1000px;
-    margin: 40px auto;
-    padding: 30px;
+    max-width: 960px;
+    margin: 24px auto;
+    padding: 24px;
     background: #fff;
-    border-radius: 10px;
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+    border-radius: var(--pr-radius);
+    box-shadow: 0 4px 24px rgba(0,0,0,.09);
     font-family: var(--font-family);
   }
   .form-header {
     text-align: center;
-    margin-bottom: 25px;
+    margin-bottom: 22px;
   }
-  .form-group {
-    margin-bottom: 20px;
+  .form-header h1, .form-header h2 {
+    font-size: clamp(1.25rem, 4vw, 1.7rem);
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 4px;
   }
+  .form-group { margin-bottom: 10px; }
   .form-group label {
     font-weight: 500;
     display: block;
-    margin-bottom: 5px;
+    margin-bottom: 3px;
+    font-size: .85rem;
+    color: #374151;
   }
   .form-group input,
   .form-group select {
     width: 100%;
-    padding: 10px;
+    padding: 8px 10px;
     border-radius: 6px;
-    border: 1px solid #ccc;
+    border: 1px solid #d1d5db;
+    font-size: .9rem;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .form-group input:focus,
+  .form-group select:focus {
+    outline: none;
+    border-color: var(--pr-blue);
+    box-shadow: 0 0 0 3px rgba(37,99,235,.12);
   }
   .form-actions {
     text-align: center;
-    margin-top: 30px;
+    margin-top: 24px;
   }
   .form-actions button {
-    background-color: #2563eb;
-    color: white;
-    padding: 12px 30px;
+    background: var(--pr-blue);
+    color: #fff;
+    padding: 13px 36px;
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     cursor: pointer;
     font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: .01em;
+    transition: background .2s, transform .1s;
+    width: 100%;
+    max-width: 320px;
   }
-  .guardians-section {
-    margin-top: 25px;
-    padding: 15px;
-    border: 1px solid #eee;
-    border-radius: 6px;
-    background: #f9f9f9;
-  }
-  #registrationFormSection {
-    display: none;
-  }
-  #paymentFormContainer {
-    display: none;
-    margin-top: 30px;
-  }
+  .form-actions button:hover { background: var(--pr-blue-dark); }
+  .form-actions button:active { transform: scale(.98); }
+  #registrationFormSection { display: none; }
+  #paymentFormContainer { display: none; margin-top: 24px; }
   .back-button {
-    margin-bottom: 20px;
-    background: #ddd;
-    padding: 5px 10px;
-    border: none;
-    border-radius: 5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 18px;
+    background: #f1f5f9;
+    color: #374151;
+    padding: 8px 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 7px;
     cursor: pointer;
+    font-size: .9rem;
+    font-weight: 500;
+    transition: background .2s;
   }
+  .back-button:hover { background: #e2e8f0; }
   .remove-guardian {
-    background: #f44336;
-    color: white;
+    background: #ef4444;
+    color: #fff;
     border: none;
-    margin-top: 5px;
+    margin-top: 6px;
     cursor: pointer;
-    border-radius: 4px;
-    padding: 3px 8px;
-    font-size: 0.9rem;
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: .85rem;
+    font-weight: 500;
   }
 
   .loader-container {
@@ -117,56 +143,61 @@
   /* Guardian Check Section */
   .guardian-check-section {
     text-align: center;
-    padding: 30px;
-    background: #f9f9f9;
-    border-radius: 8px;
-    margin: 20px 0;
+    padding: 18px 16px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    margin: 14px 0;
+  }
+  .guardian-check-section h3 {
+    font-size: clamp(1rem, 3.5vw, 1.2rem);
+    color: #1e293b;
+    margin: 0 0 8px;
+  }
+  .guardian-check-section p {
+    color: #64748b;
+    margin: 0 0 20px;
+    font-size: .95rem;
   }
   .guardian-check-buttons {
     display: flex;
-    gap: 20px;
+    gap: 12px;
     justify-content: center;
-    margin-top: 20px;
+    margin-top: 4px;
   }
   .guardian-check-buttons button {
-    padding: 15px 40px;
-    font-size: 1.1rem;
-    border: none;
-    border-radius: 8px;
+    flex: 0 0 auto;
+    width: 120px;
+    padding: 10px 0;
+    font-size: .95rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+    border-radius: 7px;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: background .2s, transform .1s;
   }
-  .btn-yes {
-    background: #10b981;
-    color: white;
-  }
-  .btn-yes:hover {
-    background: #059669;
-  }
-  .btn-no {
-    background: #2563eb;
-    color: white;
-  }
-  .btn-no:hover {
-    background: #1d4ed8;
-  }
+  .guardian-check-buttons button:active { transform: scale(.97); }
+  .btn-yes { background: var(--pr-green); color: #fff; }
+  .btn-yes:hover { background: var(--pr-green-dark); }
+  .btn-no { background: var(--pr-blue); color: #fff; }
+  .btn-no:hover { background: var(--pr-blue-dark); }
 
   /* Guardian Search */
   .guardian-search-container {
-    margin: 20px 0;
-    padding: 20px;
+    margin: 12px 0;
+    padding: 12px 14px;
     background: #f9f9f9;
     border-radius: 8px;
     position: relative;
   }
   .guardian-search-input {
     width: 100%;
-    padding: 12px;
-    font-size: 1rem;
-    border: 2px solid #ddd;
+    padding: 8px 10px;
+    font-size: .88rem;
+    border: 1.5px solid #d1d5db;
     border-radius: 6px;
-    margin-bottom: 10px;
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    margin-bottom: 0;
+    transition: border-color 0.2s, box-shadow 0.2s;
   }
   .guardian-search-input:focus {
     border-color: #10b981;
@@ -181,96 +212,116 @@
     top: 100%;
     left: 0;
     right: 0;
-    margin-top: 4px;
+    margin-top: 3px;
     background: white;
-    border: 1px solid #ddd;
+    border: 1px solid #e2e8f0;
     border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    max-height: 300px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.1);
+    max-height: 240px;
     overflow-y: auto;
     display: none;
     z-index: 1000;
   }
-  .guardian-suggestions.show {
-    display: block;
-  }
+  .guardian-suggestions.show { display: block; }
   .guardian-suggestion-item {
-    padding: 12px;
-    border-bottom: 1px solid #eee;
+    padding: 8px 10px;
+    border-bottom: 1px solid #f1f5f9;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 12px;
-    transition: background 0.2s ease;
+    gap: 8px;
+    transition: background 0.15s;
   }
-  .guardian-suggestion-item:last-child {
-    border-bottom: none;
-  }
-  .guardian-suggestion-item:hover {
-    background: #f0f9ff;
-  }
-  .guardian-suggestion-item:first-child {
-    border-radius: 8px 8px 0 0;
-  }
-  .guardian-suggestion-item:last-child {
-    border-radius: 0 0 8px 8px;
-  }
+  .guardian-suggestion-item:last-child { border-bottom: none; }
+  .guardian-suggestion-item:hover { background: #f0fdf4; }
+  .guardian-suggestion-item:first-child { border-radius: 8px 8px 0 0; }
+  .guardian-suggestion-item:last-child { border-radius: 0 0 8px 8px; }
   .guardian-suggestion-item img {
-    width: 50px;
-    height: 50px;
+    width: 34px;
+    height: 34px;
     border-radius: 50%;
     object-fit: cover;
-    border: 2px solid #e5e7eb;
+    border: 1.5px solid #e5e7eb;
+    flex-shrink: 0;
   }
-  .guardian-suggestion-info {
-    flex: 1;
-  }
+  .guardian-suggestion-info { flex: 1; min-width: 0; }
   .guardian-suggestion-name {
     font-weight: 600;
-    color: #333;
-    margin-bottom: 4px;
+    font-size: .82rem;
+    color: #1e293b;
+    margin-bottom: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .guardian-suggestion-details {
-    font-size: 0.9rem;
-    color: #666;
+    font-size: .73rem;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .selected-guardian-display {
     background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-    border: 2px solid #10b981;
-    border-radius: 8px;
-    padding: 15px;
-    margin: 15px 0;
+    border: 1.5px solid #10b981;
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin: 12px 0;
     display: none;
     position: relative;
+    align-items: center;
+    gap: 10px;
   }
   .selected-guardian-display.show {
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 10px;
   }
-  .selected-guardian-display::before {
-    content: '✓';
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    width: 24px;
-    height: 24px;
-    background: #10b981;
-    color: white;
+  .selected-guardian-display img {
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #10b981;
+    flex-shrink: 0;
+  }
+  .selected-guardian-display .sg-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .selected-guardian-display .sg-name {
+    font-weight: 600;
+    font-size: .82rem;
+    color: #065f46;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .selected-guardian-display .sg-details {
+    font-size: .74rem;
+    color: #047857;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 1px;
+  }
+  .btn-change-guardian {
+    background: none;
+    border: 1.5px solid #10b981;
+    color: #10b981;
+    border-radius: 6px;
+    width: 30px;
+    height: 30px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: bold;
-    font-size: 14px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background .2s, color .2s;
+    title: "Change guardian";
   }
-  .selected-guardian-display img {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 3px solid #10b981;
-  }
+  .btn-change-guardian:hover { background: #10b981; color: #fff; }
+  .btn-change-guardian svg { width: 14px; height: 14px; }
   .image-preview {
     max-width: 200px;
     max-height: 200px;
@@ -282,51 +333,99 @@
   .form-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0 24px;
+    gap: 0 20px;
   }
-  .form-grid .form-group.full-width {
-    grid-column: 1 / -1;
-  }
-  @media (max-width: 600px) {
-    .form-grid { grid-template-columns: 1fr; }
-  }
+  .form-grid .form-group.full-width { grid-column: 1 / -1; }
 
   /* ── Section card for grouped fields ────────────────────────── */
   .form-section-card {
     background: #f8fafc;
     border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    padding: 20px 24px 8px;
-    margin-bottom: 24px;
+    border-radius: 8px;
+    padding: 12px 14px 4px;
+    margin-bottom: 12px;
   }
   .form-section-card h4 {
-    margin: 0 0 16px 0;
-    font-size: 1rem;
+    margin: 0 0 8px;
+    font-size: .85rem;
     font-weight: 600;
     color: #374151;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 5px;
   }
 
   /* ── Welcome card ────────────────────────────────────────────── */
   .welcome-card {
-    background: linear-gradient(135deg, #eff6ff 0%, #e0f2fe 100%);
-    border: 1px solid #bfdbfe;
-    border-radius: 12px;
-    padding: 32px;
-    margin-bottom: 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
   }
-  .welcome-card p { line-height: 1.75; color: #374151; font-size: 1.05rem; }
+  .welcome-card p { line-height: 1.6; color: #374151; font-size: .93rem; margin: 0 0 6px; }
+  .welcome-card p:last-child { margin-bottom: 0; }
+  .welcome-tagline { font-size: .93rem; color: #374151; line-height: 1.6; margin: 0 0 14px !important; }
+  .welcome-steps {
+    display: flex;
+    gap: 8px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 14px;
+  }
+  .welcome-step {
+    flex: 1;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .step-num {
+    min-width: 22px;
+    height: 22px;
+    background: var(--pr-blue);
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: .75rem;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .step-info { display: flex; flex-direction: column; gap: 2px; }
+  .step-info strong { font-size: .82rem; color: #1e293b; }
+  .step-info span { color: #64748b; font-size: .76rem; }
+  .fee-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 10px;
+    font-size: .9rem;
+    color: #374151;
+    flex-wrap: wrap;
+  }
+  .fee-note { color: #6b7280; font-size: .8rem; }
   .fee-badge {
     display: inline-block;
-    background: #2563eb;
-    color: white;
-    padding: 6px 16px;
+    background: var(--pr-blue);
+    color: #fff;
+    padding: 3px 12px;
     border-radius: 20px;
-    font-weight: 600;
-    font-size: 1.1rem;
-    margin: 8px 0;
+    font-weight: 700;
+    font-size: .9rem;
+  }
+  .welcome-checklist {
+    display: flex;
+    gap: 16px;
+    font-size: .8rem;
+    color: #64748b;
+    background: #f1f5f9;
+    border-radius: 6px;
+    padding: 8px 12px;
+    flex-wrap: wrap;
   }
 
   /* ── Payment card ────────────────────────────────────────────── */
@@ -334,7 +433,7 @@
     background: #f8fafc;
     border: 1px solid #e2e8f0;
     border-radius: 12px;
-    padding: 28px;
+    padding: 24px;
     max-width: 520px;
     margin: 0 auto;
   }
@@ -342,7 +441,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: white;
+    background: #fff;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
     padding: 12px 16px;
@@ -350,11 +449,36 @@
     font-size: 1rem;
     color: #374151;
   }
-  .payment-fee-row strong { font-size: 1.15rem; color: #2563eb; }
-
-  /* Payment tabs */
-  #stripe-loading-spinner { display: inline-block; }
+  .payment-fee-row strong { font-size: 1.1rem; color: var(--pr-blue); }
   #payNowBtn:disabled { opacity: .6; cursor: not-allowed; }
+
+  /* ── Responsive ──────────────────────────────────────────────── */
+  @media (max-width: 640px) {
+    .registration-container {
+      margin: 0;
+      padding: 16px;
+      border-radius: 0;
+      box-shadow: none;
+    }
+    .form-grid { grid-template-columns: 1fr; gap: 0; }
+    .form-section-card { padding: 14px 14px 2px; }
+    .welcome-card { padding: 16px; }
+    .welcome-steps { flex-direction: column; gap: 8px; }
+    .welcome-checklist { gap: 8px; }
+    .guardian-check-buttons {
+      gap: 12px;
+    }
+    .guardian-check-buttons button {
+      width: 120px;
+      padding: 10px 0;
+    }
+    .payment-card { padding: 16px; }
+    .form-actions button { max-width: 100%; }
+    .back-button { width: 100%; justify-content: center; }
+  }
+  @media (min-width: 641px) and (max-width: 800px) {
+    .registration-container { margin: 16px; padding: 22px; }
+  }
 </style>
 </head>
 <body>
@@ -363,40 +487,70 @@
   <div class="registration-container">
     <!-- Welcome Section -->
     <div id="welcomeSection">
-      <h1 class="form-header">Welcome to <%= orgDetails.organization_name %></h1>
+      <div class="form-header"><h1>Welcome to <%= orgDetails.organization_name %></h1></div>
       <div class="welcome-card">
-        <p>
-          <strong><%= orgDetails.organization_name %></strong> has opened applications for new students. We're thrilled you're considering joining us!
-        </p>
-        <p style="margin-top:14px;">The non-refundable application fee is:</p>
-        <div><span class="fee-badge"><%= orgDetails.public_registration_currency %> <%= orgDetails.public_registration_price %></span></div>
-        <p style="margin-top:14px;">After submission, you may receive a follow-up email, text or phone call from us for verification before final enrollment.</p>
-        <p style="margin-top:14px;"><strong>Make sure you provide all required information and upload a recent image of the student for proper identification.</strong></p>
+        <p class="welcome-tagline">Start your child's journey at <strong><%= orgDetails.organization_name %></strong>. The application process is quick, secure, and fully online.</p>
+
+        <div class="welcome-steps">
+          <div class="welcome-step">
+            <div class="step-num">1</div>
+            <div class="step-info">
+              <strong>Complete the form</strong>
+              <span>Student &amp; guardian details</span>
+            </div>
+          </div>
+          <div class="welcome-step">
+            <div class="step-num">2</div>
+            <div class="step-info">
+              <strong>Pay the application fee</strong>
+              <span>Secure online payment</span>
+            </div>
+          </div>
+          <div class="welcome-step">
+            <div class="step-num">3</div>
+            <div class="step-info">
+              <strong>Confirmation</strong>
+              <span>We&rsquo;ll be in touch shortly</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="fee-line">
+          Application fee:
+          <span class="fee-badge"><%= orgDetails.public_registration_currency %> <%= orgDetails.public_registration_price %></span>
+          <span class="fee-note">non-refundable</span>
+        </div>
+
+        <div class="welcome-checklist">
+          <span>&#128248; Recent photo of the student</span>
+          <span>&#128222; Guardian phone &amp; email</span>
+          <span>&#127891; Intended class / grade</span>
+        </div>
       </div>
       <div class="form-actions">
-        <button onclick="startRegistration()">Next</button>
+        <button onclick="startRegistration()">Start Application &rarr;</button>
       </div>
     </div>
   
     <!-- Registration Section -->
     <div id="registrationFormSection" style="display: none;">
-      <h2 class="form-header">Student Registration Form</h2>
+      <div class="form-header"><h2>Student Registration</h2></div>
       
       <!-- Guardian Check Section -->
       <div id="guardianCheckSection" class="guardian-check-section">
         <h3>Guardian Information</h3>
-        <p style="font-size: 1.05rem; margin: 15px 0;">Do you already have a child enrolled in this school?</p>
+        <p>Do you already have a child enrolled in this school?</p>
         <div class="guardian-check-buttons">
-          <button class="btn-yes" onclick="guardianExists(true)">Yes, I have a child here</button>
-          <button class="btn-no" onclick="guardianExists(false)">No, I'm new</button>
+          <button class="btn-yes" onclick="guardianExists(true)">Yes</button>
+          <button class="btn-no" onclick="guardianExists(false)">No</button>
         </div>
       </div>
 
       <!-- Guardian Search (shown if YES) -->
       <div id="guardianSearchSection" style="display: none;">
         <div class="guardian-search-container">
-          <h4 style="margin-bottom: 10px; color: #10b981;">🔍 Search for Your Information</h4>
-          <p style="color: #666; margin-bottom: 15px;">Type your name, phone number, or email to find your guardian profile (minimum 2 characters)</p>
+          <h4 style="margin-bottom: 6px; color: #10b981; font-size:.82rem;">&#128269; Find Your Profile</h4>
+          <p style="color: #64748b; margin-bottom: 8px; font-size:.78rem;">Search by name, phone, or email to link your existing guardian profile.</p>
           <div class="search-wrapper">
             <input 
               type="text" 
@@ -410,11 +564,16 @@
           
           <div id="selectedGuardianDisplay" class="selected-guardian-display">
             <img id="selectedGuardianImg" src="/images/profilePlaceholder.png" alt="Guardian">
-            <div style="flex: 1;">
-              <div class="guardian-suggestion-name" id="selectedGuardianName"></div>
-              <div class="guardian-suggestion-details" id="selectedGuardianDetails"></div>
+            <div class="sg-info">
+              <div class="sg-name" id="selectedGuardianName"></div>
+              <div class="sg-details" id="selectedGuardianDetails"></div>
             </div>
-            <button type="button" class="remove-guardian" onclick="clearGuardianSelection()">Change</button>
+            <button type="button" class="btn-change-guardian" onclick="clearGuardianSelection()" title="Change guardian">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+            </button>
           </div>
         </div>
       </div>
@@ -511,8 +670,8 @@
   
  <!-- Payment Section -->
  <div id="paymentFormContainer" style="display: none;">
-  <button class="back-button" onclick="backToRegistration()">← Back to Registration</button>
-  <h2 class="form-header" style="margin-bottom:20px;">Complete Your Payment</h2>
+  <button class="back-button" onclick="backToRegistration()">← Back</button>
+  <div class="form-header"><h2>Complete Your Payment</h2></div>
 
   <div class="payment-card">
     <div class="payment-fee-row">
