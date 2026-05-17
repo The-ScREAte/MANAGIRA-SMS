@@ -36,6 +36,7 @@ const setThemeColor = require("./middleware/setThemeColor");
 const compression = require("compression");
 const { setCacheHeaders, preloadCache } = require("./middleware/cacheMiddleware");
 const { createRequestLatencyMonitor } = require("./middleware/requestLatencyMonitor");
+const financeController = require("./controllers/financeController");
 const {
   createOrganizationActivityLogMiddleware,
   ensureOrganizationActivityLogSchema,
@@ -423,6 +424,12 @@ app.get("/favicon.ico", (req, res, next) => {
     return next();
   }
 });
+
+app.post(
+  "/account/settings/finance/webhooks/stripe",
+  express.raw({ type: "application/json" }),
+  (req, res) => financeController.financeStripeWebhookPost(req, res, db)
+);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

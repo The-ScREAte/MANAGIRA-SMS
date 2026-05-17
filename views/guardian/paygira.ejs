@@ -8,8 +8,6 @@
   function statusClass(s){ return ({paid:'paid',partial:'partial',overdue:'overdue',pending:'pending'})[s||'pending']; }
 %>
 
-<script src="https://js.stripe.com/v3/"></script>
-
 <style>
   :root {
     --pg-bg:        #080d1a;
@@ -334,90 +332,103 @@
     font-size:.72rem;
     margin-top:8px;
   }
-  .pg-inline-note {
-    border:1px solid rgba(255,255,255,.08);
-    background:rgba(8,13,26,.7);
-    border-radius:12px;
-    padding:12px 14px;
-    color:var(--pg-text);
-    font-size:.78rem;
-    line-height:1.5;
-  }
-  .pg-inline-note strong {
-    color:var(--pg-teal);
-  }
-  .pg-stripe-shell {
-    border:1px solid rgba(0,212,170,.22);
-    background:linear-gradient(180deg, rgba(0,212,170,.08), rgba(8,13,26,.92));
-    border-radius:16px;
-    padding:16px;
-  }
-  .pg-stripe-head {
-    display:flex;
-    align-items:flex-start;
-    justify-content:space-between;
-    gap:10px;
-    margin-bottom:12px;
-    flex-wrap:wrap;
-  }
-  .pg-stripe-title {
-    font-size:.9rem;
-    font-weight:700;
-  }
-  .pg-stripe-copy {
+  .pg-pay-mode-note {
     color:var(--pg-muted);
-    font-size:.75rem;
-    margin-top:4px;
+    font-size:.74rem;
+    line-height:1.55;
   }
-  .pg-stripe-badge {
+  .pg-method-chip-list {
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:10px;
+  }
+  .pg-method-chip {
     display:inline-flex;
     align-items:center;
     gap:6px;
     padding:6px 10px;
     border-radius:999px;
-    font-size:.66rem;
+    border:1px solid rgba(0,212,170,.18);
+    background:rgba(0,212,170,.08);
+    color:#dffbf5;
+    font-size:.7rem;
     font-weight:700;
-    letter-spacing:.05em;
+    letter-spacing:.04em;
     text-transform:uppercase;
-    color:var(--pg-teal);
-    background:rgba(0,212,170,.12);
-    border:1px solid rgba(0,212,170,.3);
+  }
+  .pg-payment-shell {
+    border:1px solid rgba(255,255,255,.08);
+    background:rgba(8,13,26,.6);
+    border-radius:16px;
+    padding:14px;
+  }
+  .pg-payment-shell[hidden] {
+    display:none !important;
+  }
+  .pg-stripe-shell {
+    display:grid;
+    gap:12px;
+  }
+  .pg-stripe-box {
+    border:1px solid rgba(123,97,255,.2);
+    background:linear-gradient(180deg, rgba(123,97,255,.08), rgba(8,13,26,.75));
+    border-radius:14px;
+    padding:14px;
+  }
+  .pg-stripe-box-title {
+    font-weight:700;
+    font-size:.86rem;
+    margin-bottom:6px;
+  }
+  .pg-stripe-box-subtitle {
+    color:var(--pg-muted);
+    font-size:.74rem;
+    line-height:1.5;
+    margin-bottom:10px;
   }
   .pg-express-shell {
     display:none;
-    border:1px solid rgba(255,255,255,.08);
-    border-radius:14px;
+    border:1px dashed rgba(0,212,170,.2);
+    border-radius:12px;
     padding:12px;
-    background:rgba(8,13,26,.5);
-    margin-bottom:12px;
+    background:rgba(0,212,170,.05);
   }
-  .pg-express-shell.visible {
+  .pg-express-shell.is-visible {
     display:block;
-  }
-  .pg-express-title {
-    font-size:.78rem;
-    font-weight:700;
-    margin-bottom:4px;
-  }
-  .pg-express-copy {
-    color:var(--pg-muted);
-    font-size:.72rem;
-    margin-bottom:10px;
-  }
-  .pg-stripe-message {
-    color:var(--pg-muted);
-    font-size:.74rem;
-    margin-bottom:12px;
-  }
-  .pg-stripe-element {
-    padding:4px 0;
   }
   .pg-stripe-error {
     display:none;
-    margin:12px 0 0;
-    color:var(--pg-red);
+    color:#ff9fb0;
     font-size:.76rem;
-    font-weight:600;
+    line-height:1.45;
+  }
+  .pg-stripe-error.show {
+    display:block;
+  }
+  .pg-stripe-test-note {
+    color:var(--pg-muted);
+    font-size:.72rem;
+    line-height:1.5;
+    border-top:1px solid rgba(255,255,255,.08);
+    margin-top:12px;
+    padding-top:12px;
+  }
+  .pg-offline-title {
+    font-weight:700;
+    font-size:.84rem;
+    margin-bottom:6px;
+  }
+  .pg-offline-details {
+    color:var(--pg-text);
+    font-size:.8rem;
+    line-height:1.55;
+  }
+  .pg-offline-details strong {
+    color:#ffffff;
+  }
+  .pg-offline-details div + div {
+    margin-top:4px;
   }
 
   .pg-history {
@@ -555,6 +566,10 @@
     }
   }
 </style>
+
+<% if (allowedMethods && allowedMethods.stripeOn && pspSettings && pspSettings.stripe_publishable_key) { %>
+  <script src="https://js.stripe.com/v3/"></script>
+<% } %>
 
 <div class="pg-wrap">
   <div class="pg-container">
@@ -704,10 +719,12 @@
   scheduled_occurrence_dates: a.scheduled_occurrence_dates || [],
   occurrence_payments: a.occurrence_payments || {},
   student_credit: Number(a.student_credit || 0),
+  accepts_card: !!a.accepts_card,
+  accepts_cash: !!a.accepts_cash,
+  accepts_transfer: !!a.accepts_transfer,
+  payment_destination: a.payment_destination || 'stripe',
 }))) %></script>
-<script id="pgStripeCheckoutConfig" type="application/json"><%- JSON.stringify(stripeCheckout || null) %></script>
 
-<!-- Pay Modal -->
 <div class="pg-modal-bg" id="pgPayModal">
   <div class="pg-modal">
     <h3 style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
@@ -717,95 +734,82 @@
         Secure
       </span>
     </h3>
-    <form action="/guardian/paygira/pay" method="POST">
+    <form action="/guardian/paygira/pay" method="POST" id="pgPayForm">
       <input type="hidden" name="assignment_id" id="pgPayAssignment">
       <input type="hidden" name="occurrence_date" id="pgOccurrenceDate">
       <input type="hidden" name="occurrence_dates" id="pgOccurrenceDates">
-      <input type="hidden" name="payment_intent_id" id="pgPaymentIntentId">
-      <input type="hidden" name="payment_context_key" id="pgPaymentContextKey">
       <div class="pg-form-grid">
-      <div class="pg-field span2">
-        <label>Bill</label>
-        <input type="text" id="pgPayBillName" disabled>
-      </div>
-      <div class="pg-field span2">
-        <label>Student</label>
-        <input type="text" id="pgPayStudent" disabled>
-      </div>
-      <div class="pg-field span2" id="pgCreditField" hidden>
-        <label>Available Balance</label>
-        <div class="pg-credit-box">
-          <div class="pg-credit-value" id="pgCreditAmount"><%= money(0) %></div>
-          <label class="pg-credit-toggle"><input type="checkbox" name="apply_credit" id="pgApplyCredit"> Apply available balance before charging this payment</label>
-          <div class="pg-credit-note" id="pgCreditHint">Any available balance for this child can be used first before charging a new payment.</div>
+        <div class="pg-field span2">
+          <label>Bill</label>
+          <input type="text" id="pgPayBillName" disabled>
         </div>
-      </div>
-      <div class="pg-field">
-        <label>Amount (<%= currencyCode %>)</label>
-        <input type="number" step="0.01" min="0.01" name="amount" id="pgPayAmount" required>
-      </div>
-      <div class="pg-field">
-        <label>Checkout</label>
-        <div class="pg-inline-note" id="pgCheckoutModeNote">
-          Choose a payment method below. Secure online methods are completed inside the Stripe checkout panel.
+        <div class="pg-field span2">
+          <label>Student</label>
+          <input type="text" id="pgPayStudent" disabled>
         </div>
-      </div>
-      <div class="pg-field span2">
-        <label>Method</label>
-        <select name="method" id="pgMethod">
-          <% if (stripeCheckout && stripeCheckout.publishableKey) { %>
-            <option value="stripe">💳 Secure online checkout</option>
-          <% } %>
-          <% if (typeof allowedMethods !== 'undefined' && allowedMethods.bankOn) { %>
-            <option value="bank_transfer">🏦 Bank transfer<% if (allowedMethods.bank && allowedMethods.bank.name) { %> — <%= allowedMethods.bank.name %><% } %></option>
-          <% } %>
-          <% if (typeof allowedMethods !== 'undefined' && allowedMethods.momoOn) { %>
-            <option value="mobile_money">📱 Mobile money<% if (allowedMethods.momoProvider) { %> — <%= allowedMethods.momoProvider.toUpperCase() %><% } %></option>
-          <% } %>
-          <option value="other">Other</option>
-        </select>
-        <small id="pgMethodHint" style="display:block;color:var(--pg-muted,#8a93a8);font-size:.72rem;margin-top:6px;">Only the payment methods your school has enabled appear here.</small>
-      </div>
-      <div class="pg-field span2" id="pgMethodDetails">
-        <div class="pg-inline-note" id="pgMethodDetailText"></div>
-      </div>
-      <div class="pg-field span2" id="pgStripeField" hidden>
-        <label>Secure Online Checkout</label>
-        <div class="pg-stripe-shell" id="pgStripeShell">
-          <div class="pg-stripe-head">
-            <div>
-              <div class="pg-stripe-title">Pay online with your school&apos;s enabled Stripe methods</div>
-              <div class="pg-stripe-copy">Cards, wallets, and any supported Stripe method the school has turned on will appear here when available.</div>
+        <div class="pg-field span2" id="pgCreditField" hidden>
+          <label>Available Balance</label>
+          <div class="pg-credit-box">
+            <div class="pg-credit-value" id="pgCreditAmount"><%= money(0) %></div>
+            <label class="pg-credit-toggle"><input type="checkbox" name="apply_credit" id="pgApplyCredit"> Apply available balance before charging this payment</label>
+            <div class="pg-credit-note" id="pgCreditHint">Any available balance for this child can be used first before charging a new payment.</div>
+          </div>
+        </div>
+        <div class="pg-field">
+          <label>Amount (<%= currencyCode %>)</label>
+          <input type="number" step="0.01" min="0.01" name="amount" id="pgPayAmount" required>
+        </div>
+        <div class="pg-field">
+          <label>Method</label>
+          <select name="method" id="pgMethod"></select>
+        </div>
+        <div class="pg-field span2">
+          <small id="pgMethodHint" style="display:block;color:var(--pg-muted,#8a93a8);font-size:.72rem;">Only the payment methods this bill and your school support will appear here.</small>
+        </div>
+        <div class="pg-field span2 pg-recurring-panel" id="pgRecurringPanel" hidden>
+          <label>Recurring Dates</label>
+          <div class="pg-recurring-caption">Choose the exact dates you want to settle. The total below only includes what is still owed for those dates.</div>
+          <div class="pg-recurring-toolbar">
+            <div class="pg-recurring-summary" id="pgRecurringSummary">Choose one or more owing dates. Total updates automatically.</div>
+            <div class="pg-recurring-actions">
+              <button type="button" class="pg-btn ghost" id="pgSelectAllDates" style="padding:7px 10px;font-size:.72rem;">Select all</button>
+              <button type="button" class="pg-btn ghost" id="pgClearDates" style="padding:7px 10px;font-size:.72rem;">Clear</button>
             </div>
-            <span class="pg-stripe-badge">Stripe Secure</span>
           </div>
-          <div class="pg-stripe-message" id="pgStripeMessage"></div>
-          <div class="pg-express-shell" id="pgExpressShell">
-            <div class="pg-express-title">Express checkout</div>
-            <div class="pg-express-copy">Apple Pay and Google Pay only appear on supported devices, browsers, and verified Stripe domains.</div>
-            <div id="pgExpressElement"></div>
-          </div>
-          <div class="pg-stripe-element" id="pgPaymentElement"></div>
-          <p class="pg-stripe-error" id="pgStripeError"></p>
+          <div class="pg-recurring-list" id="pgRecurringList"></div>
+          <small class="pg-pay-hint" id="pgRecurringHint">Select one or more dates to pay only the remaining amount for those dates.</small>
         </div>
-      </div>
-      <div class="pg-field span2 pg-recurring-panel" id="pgRecurringPanel" hidden>
-        <label>Recurring Dates</label>
-        <div class="pg-recurring-caption">Choose the exact dates you want to settle. The total below only includes what is still owed for those dates.</div>
-        <div class="pg-recurring-toolbar">
-          <div class="pg-recurring-summary" id="pgRecurringSummary">Choose one or more owing dates. Total updates automatically.</div>
-          <div class="pg-recurring-actions">
-            <button type="button" class="pg-btn ghost" id="pgSelectAllDates" style="padding:7px 10px;font-size:.72rem;">Select all</button>
-            <button type="button" class="pg-btn ghost" id="pgClearDates" style="padding:7px 10px;font-size:.72rem;">Clear</button>
+        <div class="pg-field span2">
+          <div class="pg-payment-shell pg-stripe-shell" id="pgStripeShell" hidden>
+            <div>
+              <div class="pg-stripe-box-title">Secure Online Checkout</div>
+              <div class="pg-pay-mode-note" id="pgStripeIntro">Pay online with the Stripe options your school enabled for PayGira.</div>
+              <div class="pg-method-chip-list" id="pgStripeMethodChips"></div>
+            </div>
+            <div class="pg-stripe-box">
+              <div class="pg-express-shell" id="pgExpressShell">
+                <div class="pg-stripe-box-title">Express Checkout</div>
+                <div class="pg-stripe-box-subtitle">Apple Pay and Google Pay appear here when your browser, device, and Stripe domain setup support them.</div>
+                <div id="pgExpressCheckoutElement"></div>
+              </div>
+              <div class="pg-stripe-box-title" style="margin-top:4px;">Payment Details</div>
+              <div class="pg-stripe-box-subtitle">Choose from the Stripe payment options your school enabled. Redirect-based methods return here automatically when complete.</div>
+              <div id="pgStripePaymentElement"></div>
+              <p class="pg-stripe-error" id="pgStripeError"></p>
+              <div class="pg-stripe-test-note" id="pgStripeTestNote" <%= (pspSettings && pspSettings.stripe_mode === 'test') ? '' : 'hidden' %>>
+                Test mode: use 4242 4242 4242 4242 with any future expiry date, any 3-digit CVC, and any ZIP or postal code.
+              </div>
+            </div>
+          </div>
+          <div class="pg-payment-shell" id="pgOfflineShell" hidden>
+            <div class="pg-offline-title" id="pgOfflineTitle">Payment instructions</div>
+            <div class="pg-offline-details" id="pgOfflineDetails"></div>
           </div>
         </div>
-        <div class="pg-recurring-list" id="pgRecurringList"></div>
-        <small class="pg-pay-hint" id="pgRecurringHint">Select one or more dates to pay only the remaining amount for those dates.</small>
-      </div>
       </div>
       <div class="pg-modal-actions">
         <button type="button" class="pg-btn ghost" onclick="closePgPay()">Cancel</button>
-        <button type="submit" class="pg-btn primary" id="pgSubmitBtn">🔒 Pay Securely</button>
+        <button type="submit" class="pg-btn primary" id="pgSubmitBtn">Continue</button>
       </div>
     </form>
   </div>
@@ -814,25 +818,30 @@
 <script>
   (function() {
     var payAssignments = {};
-    var stripeCheckout = null;
     try {
       JSON.parse(document.getElementById('pgAssignmentsData').textContent || '[]').forEach(function(item) {
         payAssignments[String(item.assignment_id)] = item;
       });
     } catch (_) {}
-    try {
-      stripeCheckout = JSON.parse(document.getElementById('pgStripeCheckoutConfig').textContent || 'null');
-    } catch (_) {}
 
-    var bankDetails = <%- JSON.stringify((allowedMethods && allowedMethods.bank) ? allowedMethods.bank : {}) %>;
-    var momoDetails = <%- JSON.stringify({
-      provider: allowedMethods && allowedMethods.momoProvider ? allowedMethods.momoProvider : '',
-      number: allowedMethods && allowedMethods.momoNumber ? allowedMethods.momoNumber : '',
-      name: allowedMethods && allowedMethods.momoName ? allowedMethods.momoName : ''
-    }) %>;
+    var allowedMethods = <%- JSON.stringify(allowedMethods || {}) %>;
+    var stripeCatalog = <%- JSON.stringify(stripeCatalog || []) %>;
+    var stripeCheckoutConfig = <%- JSON.stringify(stripeCheckoutConfig || {}) %>;
+    var stripePublishableKey = <%- JSON.stringify((pspSettings && pspSettings.stripe_publishable_key) || '') %>;
+    var stripeMode = <%- JSON.stringify((pspSettings && pspSettings.stripe_mode) || 'test') %>;
+    var stripeEnabled = Boolean(allowedMethods && allowedMethods.stripeOn && stripePublishableKey && window.Stripe);
+    var stripe = stripeEnabled ? window.Stripe(stripePublishableKey) : null;
+    var stripeCurrency = String((allowedMethods && allowedMethods.currency) || <%- JSON.stringify(currencyCode) %> || 'USD').toLowerCase();
+    var stripeElements = null;
+    var stripePaymentElement = null;
+    var expressCheckoutElement = null;
+    var stripeMountedAmount = null;
+    var stripeBusy = false;
+    var bypassStripeSubmit = false;
+    var activeRecord = null;
 
     var payModal = document.getElementById('pgPayModal');
-    var payForm = payModal.querySelector('form');
+    var payForm = document.getElementById('pgPayForm');
     var amountInput = document.getElementById('pgPayAmount');
     var amountLabel = amountInput.closest('.pg-field').querySelector('label');
     var recurringPanel = document.getElementById('pgRecurringPanel');
@@ -847,23 +856,26 @@
     var creditHint = document.getElementById('pgCreditHint');
     var applyCreditCheckbox = document.getElementById('pgApplyCredit');
     var methodSelect = document.getElementById('pgMethod');
-    var methodDetails = document.getElementById('pgMethodDetails');
-    var methodDetailText = document.getElementById('pgMethodDetailText');
-    var checkoutModeNote = document.getElementById('pgCheckoutModeNote');
-    var stripeField = document.getElementById('pgStripeField');
-    var stripeMessage = document.getElementById('pgStripeMessage');
-    var stripeError = document.getElementById('pgStripeError');
+    var methodHint = document.getElementById('pgMethodHint');
+    var stripeShell = document.getElementById('pgStripeShell');
+    var stripeMethodChips = document.getElementById('pgStripeMethodChips');
+    var stripeIntro = document.getElementById('pgStripeIntro');
     var expressShell = document.getElementById('pgExpressShell');
-    var paymentElementContainer = document.getElementById('pgPaymentElement');
-    var paymentIntentInput = document.getElementById('pgPaymentIntentId');
-    var paymentContextKeyInput = document.getElementById('pgPaymentContextKey');
-    var activeRecord = null;
-    var stripe = null;
-    var stripeElements = null;
-    var paymentElement = null;
-    var expressCheckoutElement = null;
-    var currentStripeAmountMinor = 0;
-    var isStripeBusy = false;
+    var stripePaymentElementHost = document.getElementById('pgStripePaymentElement');
+    var expressCheckoutHost = document.getElementById('pgExpressCheckoutElement');
+    var stripeError = document.getElementById('pgStripeError');
+    var offlineShell = document.getElementById('pgOfflineShell');
+    var offlineTitle = document.getElementById('pgOfflineTitle');
+    var offlineDetails = document.getElementById('pgOfflineDetails');
+
+    function escapeHtml(value) {
+      return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
 
     function formatMoney(value) {
       try {
@@ -876,254 +888,6 @@
       } catch (_) {
         return <%- JSON.stringify(currencyCode) %> + ' ' + Number(value || 0).toFixed(2);
       }
-    }
-
-    function clearStripeHiddenState() {
-      if (paymentIntentInput) paymentIntentInput.value = '';
-      if (paymentContextKeyInput) paymentContextKeyInput.value = '';
-    }
-
-    function setStripeError(message) {
-      if (!stripeError) return;
-      stripeError.textContent = message || '';
-      stripeError.style.display = message ? 'block' : 'none';
-    }
-
-    function setStripeMessage(message) {
-      if (!stripeMessage) return;
-      stripeMessage.textContent = message || '';
-      stripeMessage.style.display = message ? 'block' : 'none';
-    }
-
-    function getChargeNowAmount() {
-      return Math.max(Number(amountInput.value || 0), 0);
-    }
-
-    function getSelectedMethod() {
-      return methodSelect ? String(methodSelect.value || 'other') : 'other';
-    }
-
-    function getSubmitLabel() {
-      var method = getSelectedMethod();
-      var chargeNow = getChargeNowAmount();
-      if (method === 'stripe' && chargeNow > 0) return '🔒 Pay Securely';
-      if (chargeNow <= 0 && applyCreditCheckbox && applyCreditCheckbox.checked) return 'Apply Balance';
-      if (method === 'bank_transfer') return 'Record Bank Transfer';
-      if (method === 'mobile_money') return 'Record Mobile Money';
-      return 'Submit Payment';
-    }
-
-    function isRecurringSelectionMissing() {
-      return !!(activeRecord && String(activeRecord.bill_type || '') === 'recurring' && !occurrenceDatesInput.value);
-    }
-
-    function updateSubmitButtonState() {
-      submitButton.disabled = isStripeBusy || isRecurringSelectionMissing();
-      submitButton.textContent = isStripeBusy ? 'Processing...' : getSubmitLabel();
-    }
-
-    function setStripeBusy(isBusy) {
-      isStripeBusy = !!isBusy;
-      updateSubmitButtonState();
-    }
-
-    function initializeStripeCheckout() {
-      if (!stripeCheckout || !stripeCheckout.publishableKey || !window.Stripe || stripeElements) return;
-      stripe = window.Stripe(stripeCheckout.publishableKey);
-      currentStripeAmountMinor = Math.max(50, Math.round(getChargeNowAmount() * 100));
-      stripeElements = stripe.elements({
-        mode: 'payment',
-        amount: currentStripeAmountMinor,
-        currency: String(stripeCheckout.currency || 'USD').toLowerCase(),
-        paymentMethodTypes: Array.isArray(stripeCheckout.paymentMethodTypes) && stripeCheckout.paymentMethodTypes.length
-          ? stripeCheckout.paymentMethodTypes
-          : ['card'],
-      });
-      paymentElement = stripeElements.create('payment', {
-        layout: 'tabs',
-      });
-      paymentElement.on('change', function(event) {
-        setStripeError(event && event.error ? event.error.message : '');
-      });
-      paymentElement.mount('#pgPaymentElement');
-
-      if (stripeCheckout.hasExpressWallets) {
-        expressCheckoutElement = stripeElements.create('expressCheckout', {
-          emailRequired: true,
-          paymentMethods: stripeCheckout.expressWallets || { applePay: 'always', googlePay: 'always' },
-          layout: {
-            maxColumns: 2,
-            maxRows: 1,
-            overflowMenu: 'auto'
-          },
-          buttonHeight: 44,
-        });
-        expressCheckoutElement.on('ready', function(event) {
-          expressShell.classList.toggle('visible', !!(event && event.availablePaymentMethods));
-        });
-        expressCheckoutElement.on('confirm', function() {
-          handleStripeConfirmation().catch(function(error) {
-            setStripeBusy(false);
-            setStripeError(error.message || 'Unable to complete express checkout.');
-          });
-        });
-        expressCheckoutElement.mount('#pgExpressElement');
-      }
-    }
-
-    function updateStripeAmount() {
-      if (!stripeElements) return;
-      var nextMinor = Math.max(0, Math.round(getChargeNowAmount() * 100));
-      if (!(nextMinor > 0) || nextMinor === currentStripeAmountMinor) return;
-      currentStripeAmountMinor = nextMinor;
-      stripeElements.update({ amount: nextMinor });
-    }
-
-    function buildBankDetailsMessage() {
-      var parts = [];
-      if (bankDetails && bankDetails.name) parts.push(bankDetails.name);
-      if (bankDetails && bankDetails.account) parts.push('Account ' + bankDetails.account);
-      if (bankDetails && bankDetails.holder) parts.push(bankDetails.holder);
-      if (bankDetails && bankDetails.branch) parts.push('Branch ' + bankDetails.branch);
-      return parts.length
-        ? 'Bank transfer details: <strong>' + parts.join(' · ') + '</strong>. Submitting this form records the payment for the school to reconcile.'
-        : 'Submit only after the school has confirmed the bank transfer details and payment.';
-    }
-
-    function buildMobileMoneyMessage() {
-      var parts = [];
-      if (momoDetails && momoDetails.provider) parts.push(String(momoDetails.provider).toUpperCase());
-      if (momoDetails && momoDetails.number) parts.push(momoDetails.number);
-      if (momoDetails && momoDetails.name) parts.push(momoDetails.name);
-      return parts.length
-        ? 'Mobile money details: <strong>' + parts.join(' · ') + '</strong>. Submitting this form records the payment for the school to reconcile.'
-        : 'Submit only after the school has confirmed the mobile money payment details.';
-    }
-
-    function refreshMethodPanels(options) {
-      options = options || {};
-      var method = getSelectedMethod();
-      var chargeNow = getChargeNowAmount();
-      if (!options.preservePaymentSession) clearStripeHiddenState();
-      setStripeError('');
-
-      if (checkoutModeNote) {
-        checkoutModeNote.innerHTML = method === 'stripe'
-          ? 'The final amount is confirmed inside Stripe before PayGira records the payment.'
-          : 'Use this form only for payment methods your school has enabled and already confirmed with you.';
-      }
-
-      if (methodDetails && methodDetailText) {
-        if (method === 'stripe') {
-          var enabledMethods = stripeCheckout && Array.isArray(stripeCheckout.enabledMethodLabels) && stripeCheckout.enabledMethodLabels.length
-            ? stripeCheckout.enabledMethodLabels.join(' · ')
-            : 'Card';
-          methodDetailText.innerHTML = 'Secure online checkout is enabled for <strong>' + enabledMethods + '</strong>. Apple Pay and Google Pay only appear when the device, browser, and Stripe domain setup support them.';
-        } else if (method === 'bank_transfer') {
-          methodDetailText.innerHTML = buildBankDetailsMessage();
-        } else if (method === 'mobile_money') {
-          methodDetailText.innerHTML = buildMobileMoneyMessage();
-        } else {
-          methodDetailText.innerHTML = 'Use this option only for offline or school-confirmed manual arrangements outside secure online checkout.';
-        }
-        methodDetails.hidden = false;
-      }
-
-      if (stripeField) stripeField.hidden = method !== 'stripe';
-      if (method === 'stripe') {
-        initializeStripeCheckout();
-        if (!stripeCheckout || !stripeCheckout.publishableKey || !window.Stripe) {
-          setStripeMessage('Stripe is not available on this page right now. Refresh and try again.');
-          if (paymentElementContainer) paymentElementContainer.style.display = 'none';
-          if (expressShell) expressShell.style.display = 'none';
-        } else if (!(chargeNow > 0)) {
-          setStripeMessage('No external charge is needed. Submit now to apply the available balance only.');
-          if (paymentElementContainer) paymentElementContainer.style.display = 'none';
-          if (expressShell) expressShell.style.display = 'none';
-        } else {
-          updateStripeAmount();
-          setStripeMessage('Stripe will securely confirm this payment before PayGira records it.');
-          if (paymentElementContainer) paymentElementContainer.style.display = '';
-          if (expressShell && stripeCheckout.hasExpressWallets) expressShell.style.display = '';
-        }
-      } else {
-        setStripeMessage('');
-      }
-
-      updateSubmitButtonState();
-    }
-
-    async function createStripeIntent() {
-      var response = await fetch('/guardian/paygira/stripe-intent', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
-        },
-        body: JSON.stringify({
-          assignment_id: document.getElementById('pgPayAssignment').value,
-          amount: amountInput.value,
-          occurrence_date: occurrenceDateInput.value,
-          occurrence_dates: occurrenceDatesInput.value,
-          apply_credit: applyCreditCheckbox && applyCreditCheckbox.checked ? '1' : ''
-        })
-      });
-      var data = await response.json().catch(function() { return {}; });
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Unable to initialize secure online checkout.');
-      }
-      if (paymentIntentInput) paymentIntentInput.value = data.paymentIntentId || '';
-      if (paymentContextKeyInput) paymentContextKeyInput.value = data.contextKey || '';
-      return data;
-    }
-
-    function buildStripeReturnUrl(intentData) {
-      return window.location.origin + '/guardian/paygira/stripe-return?contextKey=' + encodeURIComponent(intentData.contextKey || '');
-    }
-
-    async function handleStripeConfirmation() {
-      if (!(getChargeNowAmount() > 0)) {
-        payForm.submit();
-        return;
-      }
-      if (!stripe || !stripeElements) {
-        throw new Error('Stripe is not available right now.');
-      }
-
-      setStripeBusy(true);
-      setStripeError('');
-      setStripeMessage('Preparing secure checkout...');
-
-      var submitResult = await stripeElements.submit();
-      if (submitResult.error) {
-        throw submitResult.error;
-      }
-
-      var intentData = await createStripeIntent();
-      setStripeMessage('Confirming your secure payment...');
-
-      var confirmation = await stripe.confirmPayment({
-        elements: stripeElements,
-        clientSecret: intentData.clientSecret,
-        confirmParams: {
-          return_url: buildStripeReturnUrl(intentData)
-        },
-        redirect: 'if_required'
-      });
-
-      if (confirmation.error) {
-        throw confirmation.error;
-      }
-      if (!confirmation.paymentIntent) {
-        return;
-      }
-      if (confirmation.paymentIntent.status !== 'succeeded') {
-        throw new Error('Stripe did not complete this payment.');
-      }
-
-      if (paymentIntentInput) paymentIntentInput.value = confirmation.paymentIntent.id;
-      payForm.submit();
     }
 
     function recurStepDays(recurrence) {
@@ -1276,6 +1040,199 @@
       return Math.max(Number(record.balance || 0), 0);
     }
 
+    function currentChargeMinor() {
+      return Math.round(Math.max(Number(amountInput.value || 0), 0) * 100);
+    }
+
+    function isStripeFlowSelected() {
+      return String(methodSelect.value || '') === 'stripe';
+    }
+
+    function setStripeError(message) {
+      if (!stripeError) return;
+      stripeError.textContent = message || '';
+      stripeError.classList.toggle('show', Boolean(message));
+    }
+
+    function destroyStripeElements() {
+      stripeMountedAmount = null;
+      if (stripePaymentElement && typeof stripePaymentElement.destroy === 'function') {
+        stripePaymentElement.destroy();
+      }
+      if (expressCheckoutElement && typeof expressCheckoutElement.destroy === 'function') {
+        expressCheckoutElement.destroy();
+      }
+      stripePaymentElement = null;
+      expressCheckoutElement = null;
+      stripeElements = null;
+      if (expressShell) expressShell.classList.remove('is-visible');
+      if (stripePaymentElementHost) stripePaymentElementHost.innerHTML = '';
+      if (expressCheckoutHost) expressCheckoutHost.innerHTML = '';
+      setStripeError('');
+    }
+
+    function renderStripeMethodChips() {
+      var selectedIds = Array.isArray(stripeCheckoutConfig.selectedIds) ? stripeCheckoutConfig.selectedIds : [];
+      stripeMethodChips.innerHTML = selectedIds.map(function(methodId) {
+        var match = stripeCatalog.find(function(entry) { return entry.id === methodId; });
+        var label = match ? match.label : methodId.replace(/_/g, ' ');
+        return '<span class="pg-method-chip">' + escapeHtml(label) + '</span>';
+      }).join('');
+      if (!stripeMethodChips.innerHTML) {
+        stripeMethodChips.innerHTML = '<span class="pg-method-chip">Card</span>';
+      }
+    }
+
+    function ensureStripeElements() {
+      if (!stripeEnabled || !isStripeFlowSelected()) return;
+      var amountMinor = currentChargeMinor();
+      if (!(amountMinor > 0)) {
+        destroyStripeElements();
+        setStripeError('No card or wallet charge is needed. Submit this payment to apply available balance only.');
+        return;
+      }
+      if (stripeElements && stripeMountedAmount === amountMinor) return;
+      destroyStripeElements();
+
+      stripeElements = stripe.elements({
+        mode: 'payment',
+        amount: amountMinor,
+        currency: stripeCurrency,
+      });
+      stripeMountedAmount = amountMinor;
+      stripePaymentElement = stripeElements.create('payment', {
+        layout: { type: 'tabs' },
+        paymentMethodOrder: Array.isArray(stripeCheckoutConfig.paymentMethodOrder) && stripeCheckoutConfig.paymentMethodOrder.length
+          ? stripeCheckoutConfig.paymentMethodOrder
+          : ['card'],
+      });
+      stripePaymentElement.mount('#pgStripePaymentElement');
+      stripePaymentElement.on('change', function(event) {
+        setStripeError(event && event.error ? event.error.message : '');
+      });
+
+      expressCheckoutElement = stripeElements.create('expressCheckout', {
+        paymentMethods: {
+          applePay: stripeCheckoutConfig.expressWallets && stripeCheckoutConfig.expressWallets.applePay ? stripeCheckoutConfig.expressWallets.applePay : 'auto',
+          googlePay: stripeCheckoutConfig.expressWallets && stripeCheckoutConfig.expressWallets.googlePay ? stripeCheckoutConfig.expressWallets.googlePay : 'auto',
+        },
+        layout: { maxColumns: 2, maxRows: 2, overflowMenu: 'auto' },
+        buttonHeight: 44,
+      });
+      expressCheckoutElement.on('ready', function(event) {
+        if (event && event.availablePaymentMethods) {
+          expressShell.classList.add('is-visible');
+        }
+      });
+      expressCheckoutElement.on('confirm', function(event) {
+        if (event && typeof event.preventDefault === 'function') event.preventDefault();
+        void handleStripeConfirmation();
+      });
+      expressCheckoutElement.mount('#pgExpressCheckoutElement');
+    }
+
+    function getMethodOptions(record) {
+      var options = [];
+      if (stripeEnabled && record && record.accepts_card) {
+        options.push({
+          value: 'stripe',
+          label: 'Secure online checkout',
+          hint: 'Stripe handles card, wallet, and any Stripe methods your school enabled for PayGira.'
+        });
+      }
+      if (allowedMethods && allowedMethods.bankOn && record && record.accepts_transfer) {
+        options.push({
+          value: 'bank_transfer',
+          label: 'Bank transfer',
+          hint: 'Use your school bank details below, then submit this transfer in PayGira.'
+        });
+      }
+      if (allowedMethods && allowedMethods.momoOn) {
+        options.push({
+          value: 'mobile_money',
+          label: 'Mobile money',
+          hint: 'Use the school mobile money details below, then submit this transfer in PayGira.'
+        });
+      }
+      options.push({
+        value: 'other',
+        label: 'Other approved method',
+        hint: 'Use this when the school has given you another approved payment path for this bill.'
+      });
+      return options;
+    }
+
+    function renderOfflineDetails(methodValue) {
+      if (methodValue === 'bank_transfer') {
+        offlineTitle.textContent = 'Bank transfer details';
+        offlineDetails.innerHTML = [
+          allowedMethods && allowedMethods.bank && allowedMethods.bank.name ? '<div><strong>Bank:</strong> ' + escapeHtml(allowedMethods.bank.name) + '</div>' : '',
+          allowedMethods && allowedMethods.bank && allowedMethods.bank.holder ? '<div><strong>Account name:</strong> ' + escapeHtml(allowedMethods.bank.holder) + '</div>' : '',
+          allowedMethods && allowedMethods.bank && allowedMethods.bank.account ? '<div><strong>Account number:</strong> ' + escapeHtml(allowedMethods.bank.account) + '</div>' : '',
+          allowedMethods && allowedMethods.bank && allowedMethods.bank.branch ? '<div><strong>Branch:</strong> ' + escapeHtml(allowedMethods.bank.branch) + '</div>' : '',
+          '<div>Complete the transfer, then submit this payment so the bill reflects what you just paid.</div>'
+        ].filter(Boolean).join('');
+      } else if (methodValue === 'mobile_money') {
+        offlineTitle.textContent = 'Mobile money details';
+        offlineDetails.innerHTML = [
+          allowedMethods && allowedMethods.momoProvider ? '<div><strong>Provider:</strong> ' + escapeHtml(String(allowedMethods.momoProvider).toUpperCase()) + '</div>' : '',
+          allowedMethods && allowedMethods.momoName ? '<div><strong>Name:</strong> ' + escapeHtml(allowedMethods.momoName) + '</div>' : '',
+          allowedMethods && allowedMethods.momoNumber ? '<div><strong>Number:</strong> ' + escapeHtml(allowedMethods.momoNumber) + '</div>' : '',
+          '<div>Send the money to the school account above, then submit this payment in PayGira.</div>'
+        ].filter(Boolean).join('');
+      } else {
+        offlineTitle.textContent = 'Other payment instructions';
+        offlineDetails.innerHTML = '<div>Use the approved payment path your school shared with you, then submit the amount here so the bill updates in PayGira.</div>';
+      }
+    }
+
+    function updateSubmitButton() {
+      if (stripeBusy) {
+        submitButton.textContent = 'Processing...';
+        submitButton.disabled = true;
+        return;
+      }
+      submitButton.disabled = false;
+      if (isStripeFlowSelected()) {
+        submitButton.textContent = currentChargeMinor() > 0 ? 'Pay Securely' : 'Apply Balance Only';
+        return;
+      }
+      if (String(methodSelect.value || '') === 'bank_transfer') {
+        submitButton.textContent = 'Submit Bank Transfer';
+        return;
+      }
+      if (String(methodSelect.value || '') === 'mobile_money') {
+        submitButton.textContent = 'Submit Mobile Money Payment';
+        return;
+      }
+      submitButton.textContent = 'Submit Payment';
+    }
+
+    function syncPaymentMode() {
+      var selectedMethod = String(methodSelect.value || '');
+      var isStripe = selectedMethod === 'stripe';
+      stripeShell.hidden = !isStripe;
+      offlineShell.hidden = isStripe;
+
+      if (isStripe) {
+        methodHint.textContent = 'Stripe will show the online payment methods your school enabled. Apple Pay and Google Pay only appear on supported devices and verified domains.';
+        if (stripeIntro) {
+          stripeIntro.textContent = 'Pay online with Stripe using the methods your school enabled for PayGira.';
+        }
+        renderStripeMethodChips();
+        ensureStripeElements();
+      } else {
+        methodHint.textContent = getMethodOptions(activeRecord).filter(function(option) {
+          return option.value === selectedMethod;
+        }).map(function(option) {
+          return option.hint;
+        })[0] || 'Only the payment methods this bill and your school support will appear here.';
+        renderOfflineDetails(selectedMethod);
+        destroyStripeElements();
+      }
+      updateSubmitButton();
+    }
+
     function syncCreditPanel(options) {
       var record = activeRecord;
       var availableCredit = getAvailableCredit(record);
@@ -1312,7 +1269,11 @@
         amountLabel.textContent = usingCredit ? 'Charge Now (<%= currencyCode %>)' : 'Amount (<%= currencyCode %>)';
       }
       amountInput.min = '0';
-      refreshMethodPanels();
+      if (!(record && String(record.bill_type || '') === 'recurring')) {
+        amountInput.max = Number(record && record.balance || 0) > 0 ? Number(record.balance || 0).toFixed(2) : '';
+      }
+      if (isStripeFlowSelected()) ensureStripeElements();
+      updateSubmitButton();
     }
 
     function updateRecurringSelection() {
@@ -1328,7 +1289,8 @@
         recurringSummary.textContent = 'Choose one or more owing dates. Total updates automatically.';
         recurringHint.textContent = 'Fully paid dates are disabled. Select any owing dates to pay their remaining balances.';
         syncCreditPanel({ setAmount: false });
-        updateSubmitButtonState();
+        submitButton.disabled = true;
+        updateSubmitButton();
         return;
       }
 
@@ -1345,7 +1307,9 @@
       recurringHint.textContent = selectedDates.length === 1
         ? 'You are paying the remaining balance for ' + fmtDate(selectedDates[0]) + '.'
         : 'You are paying the remaining balances for ' + selectedDates.length + ' recurring dates together.';
-      updateSubmitButtonState();
+      submitButton.disabled = !(totalAmount > 0);
+      if (isStripeFlowSelected()) ensureStripeElements();
+      updateSubmitButton();
     }
 
     function renderRecurringPanel(record) {
@@ -1404,28 +1368,101 @@
       amountLabel.textContent = 'Amount (<%= currencyCode %>)';
       amountInput.readOnly = false;
       amountInput.min = '0';
-      updateSubmitButtonState();
+      submitButton.disabled = false;
+    }
+
+    function renderMethodOptions(record) {
+      var options = getMethodOptions(record);
+      var previousValue = String(methodSelect.value || '');
+      methodSelect.innerHTML = options.map(function(option) {
+        return '<option value="' + escapeHtml(option.value) + '">' + escapeHtml(option.label) + '</option>';
+      }).join('');
+      if (previousValue && options.some(function(option) { return option.value === previousValue; })) {
+        methodSelect.value = previousValue;
+      } else if (options.length) {
+        methodSelect.value = options[0].value;
+      }
+      syncPaymentMode();
+    }
+
+    async function createStripeIntent() {
+      var response = await fetch('/guardian/paygira/stripe-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assignment_id: document.getElementById('pgPayAssignment').value,
+          amount: amountInput.value,
+          occurrence_date: occurrenceDateInput.value,
+          occurrence_dates: occurrenceDatesInput.value,
+          apply_credit: applyCreditCheckbox && applyCreditCheckbox.checked,
+        })
+      });
+      var data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Unable to initialize Stripe payment.');
+      }
+      return data;
+    }
+
+    async function handleStripeConfirmation() {
+      if (!stripeEnabled || !stripe || !isStripeFlowSelected()) return;
+      if (!(currentChargeMinor() > 0)) {
+        bypassStripeSubmit = true;
+        payForm.submit();
+        return;
+      }
+
+      stripeBusy = true;
+      updateSubmitButton();
+      try {
+        ensureStripeElements();
+        if (!stripeElements) throw new Error('Stripe checkout is not available right now.');
+        setStripeError('');
+        var submitResult = await stripeElements.submit();
+        if (submitResult && submitResult.error) throw submitResult.error;
+
+        var intentData = await createStripeIntent();
+        var confirmation = await stripe.confirmPayment({
+          elements: stripeElements,
+          clientSecret: intentData.clientSecret,
+          confirmParams: {
+            return_url: intentData.returnUrl,
+          },
+          redirect: 'if_required'
+        });
+
+        if (confirmation.error) {
+          throw confirmation.error;
+        }
+
+        if (confirmation.paymentIntent && (confirmation.paymentIntent.status === 'succeeded' || confirmation.paymentIntent.status === 'processing')) {
+          window.location.href = intentData.returnUrl + '?payment_intent=' + encodeURIComponent(confirmation.paymentIntent.id);
+          return;
+        }
+      } catch (error) {
+        setStripeError(error && error.message ? error.message : 'Unable to complete Stripe payment.');
+      }
+      stripeBusy = false;
+      updateSubmitButton();
     }
 
     window.openPgPay = function(assignmentId) {
       var record = payAssignments[String(assignmentId)];
       if (!record) return;
       activeRecord = record;
-      clearStripeHiddenState();
-      setStripeError('');
-      setStripeMessage('');
-      setStripeBusy(false);
+      destroyStripeElements();
       payForm.reset();
+      stripeBusy = false;
       document.getElementById('pgPayAssignment').value = record.assignment_id;
       document.getElementById('pgPayBillName').value = record.bill_title;
       document.getElementById('pgPayStudent').value = record.student_name;
+      renderMethodOptions(record);
       if (String(record.bill_type || '') === 'recurring') {
         renderRecurringPanel(record);
       } else {
         hideRecurringPanel();
         amountInput.value = Number(record.balance || 0).toFixed(2);
         amountInput.max = Number(record.balance || 0).toFixed(2);
-        syncCreditPanel({ setAmount: false });
       }
       syncCreditPanel({ setAmount: false });
       payModal.classList.add('open');
@@ -1433,17 +1470,17 @@
 
     window.closePgPay = function() {
       activeRecord = null;
+      stripeBusy = false;
       hideRecurringPanel();
-      clearStripeHiddenState();
-      setStripeError('');
-      setStripeMessage('');
-      setStripeBusy(false);
+      destroyStripeElements();
       payModal.classList.remove('open');
     };
 
     payModal.addEventListener('click', function(e) {
       if (e.target === payModal) closePgPay();
     });
+
+    methodSelect.addEventListener('change', syncPaymentMode);
     if (applyCreditCheckbox) {
       applyCreditCheckbox.addEventListener('change', function() {
         if (activeRecord && String(activeRecord.bill_type || '') === 'recurring') updateRecurringSelection();
@@ -1455,25 +1492,16 @@
         syncCreditPanel({ setAmount: false });
       }
     });
-    if (methodSelect) {
-      methodSelect.addEventListener('change', function() {
-        refreshMethodPanels();
-      });
-    }
-    payForm.addEventListener('submit', async function(event) {
-      if (getSelectedMethod() !== 'stripe' || !(getChargeNowAmount() > 0)) {
+    payForm.addEventListener('submit', function(event) {
+      if (bypassStripeSubmit) {
+        bypassStripeSubmit = false;
+        return;
+      }
+      if (!isStripeFlowSelected()) {
         return;
       }
       event.preventDefault();
-      if (isStripeBusy) return;
-      try {
-        await handleStripeConfirmation();
-      } catch (error) {
-        setStripeBusy(false);
-        setStripeError(error.message || 'Unable to complete secure online checkout.');
-        setStripeMessage('');
-      }
+      void handleStripeConfirmation();
     });
-    refreshMethodPanels();
   })();
 </script>

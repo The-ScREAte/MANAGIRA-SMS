@@ -4,10 +4,9 @@
 
 const fs = require("fs");
 const path = require("path");
-const crypto = require("crypto");
 const PDFDocument = require("pdfkit");
-const bcrypt = require("bcryptjs");
 const Stripe = require("stripe");
+const bcrypt = require("bcryptjs");
 const db = require("../config/db");
 const { userHasPermission } = require("../middleware/permissionMiddleware");
 const { logOrganizationActivity } = require("../utils/activityLog");
@@ -92,6 +91,35 @@ async function ensureFinanceSchema() {
     await db.query(`ALTER TABLE finance_payments ADD COLUMN IF NOT EXISTS platform_fee_percentage NUMERIC(5,2) NOT NULL DEFAULT 0`);
     await db.query(`ALTER TABLE finance_payments ADD COLUMN IF NOT EXISTS platform_fee_amount NUMERIC(14,2) NOT NULL DEFAULT 0`);
     await db.query(`ALTER TABLE finance_payments ADD COLUMN IF NOT EXISTS tax_amount NUMERIC(14,2) NOT NULL DEFAULT 0`);
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS finance_pending_stripe_payments (
+        payment_intent_id VARCHAR(255) PRIMARY KEY,
+        organization_id INT NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE,
+        guardian_id INT NOT NULL,
+        assignment_id INT NOT NULL REFERENCES finance_bill_assignments(assignment_id) ON DELETE CASCADE,
+        bill_id INT REFERENCES finance_bills(bill_id) ON DELETE SET NULL,
+        student_id INT REFERENCES students(student_id) ON DELETE SET NULL,
+        requested_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+        total_external_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+        credit_applied_expected NUMERIC(14,2) NOT NULL DEFAULT 0,
+        platform_fee_percentage NUMERIC(5,2) NOT NULL DEFAULT 0,
+        platform_fee_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+        tax_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+        charged_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+        currency VARCHAR(12) NOT NULL DEFAULT 'USD',
+        selected_occurrence_dates JSONB NOT NULL DEFAULT '[]'::jsonb,
+        payment_entries JSONB NOT NULL DEFAULT '[]'::jsonb,
+        status VARCHAR(24) NOT NULL DEFAULT 'pending',
+        stripe_method_type VARCHAR(80),
+        last_error TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        processed_at TIMESTAMPTZ
+      )
+    `);
+    await db.query(
+      `CREATE INDEX IF NOT EXISTS idx_finance_pending_stripe_org_status ON finance_pending_stripe_payments (organization_id, status, created_at DESC)`
+    );
     await db.query(`
       CREATE TABLE IF NOT EXISTS finance_collection_signoffs (
         signoff_id SERIAL PRIMARY KEY,
@@ -953,138 +981,63 @@ const STRIPE_METHOD_CATALOG = [
   { id: 'ideal',            label: 'iDEAL' },
 ];
 
-const STRIPE_CLIENT_CACHE = new Map();
-const STRIPE_METHOD_TYPE_MAP = {
-  card: 'card',
-  apple_pay: 'card',
-  google_pay: 'card',
-  link: 'link',
-  cashapp: 'cashapp',
-  us_bank_account: 'us_bank_account',
-  sepa_debit: 'sepa_debit',
-  bacs_debit: 'bacs_debit',
-  klarna: 'klarna',
-  afterpay_clearpay: 'afterpay_clearpay',
-  ideal: 'ideal',
-};
-const GUARDIAN_PAYGIRA_PENDING_TTL_MS = 6 * 60 * 60 * 1000;
-
-function createGuardianPaygiraError(message, statusCode = 400) {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  return error;
+function normalizeStripeMethodList(rawValue) {
+  const rawList = Array.isArray(rawValue)
+    ? rawValue
+    : (typeof rawValue === 'string' && rawValue.trim()
+        ? rawValue.split(',')
+        : []);
+  const normalized = rawList
+    .map((value) => String(value || '').trim().toLowerCase())
+    .filter(Boolean);
+  return [...new Set(normalized.length ? normalized : ['card'])];
 }
 
-function getFinanceStripeClient(pspSettings) {
+function buildGuardianStripeCheckoutConfig(stripeMethods) {
+  const selectedIds = normalizeStripeMethodList(stripeMethods);
+  const selected = new Set(selectedIds);
+  const paymentMethodOrder = [];
+  if (selected.has('card') || selected.has('apple_pay') || selected.has('google_pay')) {
+    paymentMethodOrder.push('card');
+  }
+  ['link', 'cashapp', 'us_bank_account', 'sepa_debit', 'bacs_debit', 'klarna', 'afterpay_clearpay', 'ideal'].forEach((methodId) => {
+    if (selected.has(methodId)) paymentMethodOrder.push(methodId);
+  });
+  if (!paymentMethodOrder.length) paymentMethodOrder.push('card');
+  return {
+    selectedIds,
+    paymentMethodOrder,
+    expressWallets: {
+      applePay: selected.has('apple_pay') || selected.has('card') ? 'auto' : 'never',
+      googlePay: selected.has('google_pay') || selected.has('card') ? 'auto' : 'never',
+    },
+    displayLabels: STRIPE_METHOD_CATALOG
+      .filter((method) => selected.has(method.id))
+      .map((method) => method.label),
+  };
+}
+
+function getSchoolStripeClient(pspSettings) {
   const secretKey = String(pspSettings?.stripe_secret_key || '').trim();
   if (!secretKey) {
-    throw createGuardianPaygiraError('Stripe is not fully configured for this school.', 400);
+    throw new PaygiraRequestError('Stripe is not configured for this school.', 400);
   }
-  if (!STRIPE_CLIENT_CACHE.has(secretKey)) {
-    STRIPE_CLIENT_CACHE.set(secretKey, new Stripe(secretKey));
-  }
-  return STRIPE_CLIENT_CACHE.get(secretKey);
+  return new Stripe(secretKey);
 }
 
-function resolveStripeIntentMethodTypes(stripeMethods) {
-  const selected = Array.isArray(stripeMethods) ? stripeMethods : [];
-  const paymentMethodTypes = new Set();
-  selected.forEach((methodId) => {
-    const normalized = String(methodId || '').trim().toLowerCase();
-    const paymentMethodType = STRIPE_METHOD_TYPE_MAP[normalized];
-    if (paymentMethodType) paymentMethodTypes.add(paymentMethodType);
-  });
-  if (!paymentMethodTypes.size) paymentMethodTypes.add('card');
-  return Array.from(paymentMethodTypes);
-}
-
-function resolveStripeWalletAvailability(stripeMethods) {
-  const selected = new Set(
-    (Array.isArray(stripeMethods) ? stripeMethods : [])
-      .map((methodId) => String(methodId || '').trim().toLowerCase())
-      .filter(Boolean)
-  );
-  return {
-    applePay: selected.has('apple_pay') ? 'always' : 'never',
-    googlePay: selected.has('google_pay') ? 'always' : 'never',
-  };
-}
-
-function describeEnabledStripeMethods(stripeMethods) {
-  const selected = new Set(
-    (Array.isArray(stripeMethods) ? stripeMethods : [])
-      .map((methodId) => String(methodId || '').trim().toLowerCase())
-      .filter(Boolean)
-  );
-  const labels = STRIPE_METHOD_CATALOG
-    .filter((method) => selected.has(method.id))
-    .map((method) => method.label);
-  return labels.length ? labels : ['Card'];
-}
-
-function buildGuardianStripeCheckoutConfig(pspSettings, financeCurrency) {
-  const allowedMethods = computeAllowedMethods(pspSettings);
-  if (!allowedMethods.stripeOn) return null;
-  const expressWallets = resolveStripeWalletAvailability(allowedMethods.stripeMethods);
-  return {
-    publishableKey: String(pspSettings?.stripe_publishable_key || '').trim(),
-    currency: String(financeCurrency || allowedMethods.currency || 'USD').toUpperCase(),
-    paymentMethodTypes: resolveStripeIntentMethodTypes(allowedMethods.stripeMethods),
-    expressWallets,
-    enabledMethodLabels: describeEnabledStripeMethods(allowedMethods.stripeMethods),
-    hasExpressWallets: expressWallets.applePay === 'always' || expressWallets.googlePay === 'always',
-  };
-}
-
-function resolvePaygiraStripePaymentSource(paymentIntent) {
-  const paymentMethod = paymentIntent && typeof paymentIntent.payment_method === 'object'
-    ? paymentIntent.payment_method
-    : null;
-  const walletType = paymentMethod?.card?.wallet?.type || null;
-  const method = walletType || paymentMethod?.type || 'stripe';
-  return {
-    method,
-    reference: paymentIntent?.id || 'STRIPE',
-  };
-}
-
-function getGuardianPaygiraPendingStore(req) {
-  if (!req.session) return {};
-  const pendingStore = req.session.guardianPaygiraPending && typeof req.session.guardianPaygiraPending === 'object'
-    ? req.session.guardianPaygiraPending
-    : {};
-  const now = Date.now();
-  Object.keys(pendingStore).forEach((key) => {
-    const entry = pendingStore[key];
-    if (!entry || !entry.createdAt || now - Number(entry.createdAt) > GUARDIAN_PAYGIRA_PENDING_TTL_MS) {
-      delete pendingStore[key];
+function resolveStripeFinanceMethod(paymentIntent) {
+  const paymentMethod = paymentIntent?.payment_method;
+  if (paymentMethod && typeof paymentMethod === 'object') {
+    if (paymentMethod.type === 'card' && paymentMethod.card?.wallet?.type) {
+      const walletType = String(paymentMethod.card.wallet.type || '').trim().toLowerCase();
+      if (walletType === 'apple_pay') return 'apple_pay';
+      if (walletType === 'google_pay') return 'google_pay';
     }
-  });
-  req.session.guardianPaygiraPending = pendingStore;
-  return pendingStore;
-}
-
-function setGuardianPaygiraPendingContext(req, contextKey, payload) {
-  const pendingStore = getGuardianPaygiraPendingStore(req);
-  pendingStore[String(contextKey)] = {
-    ...(payload || {}),
-    createdAt: Date.now(),
-  };
-  req.session.guardianPaygiraPending = pendingStore;
-  return pendingStore[String(contextKey)];
-}
-
-function getGuardianPaygiraPendingContext(req, contextKey) {
-  if (!contextKey) return null;
-  const pendingStore = getGuardianPaygiraPendingStore(req);
-  return pendingStore[String(contextKey)] || null;
-}
-
-function clearGuardianPaygiraPendingContext(req, contextKey) {
-  if (!req.session || !contextKey) return;
-  const pendingStore = getGuardianPaygiraPendingStore(req);
-  delete pendingStore[String(contextKey)];
-  req.session.guardianPaygiraPending = pendingStore;
+    const normalizedType = String(paymentMethod.type || '').trim().toLowerCase();
+    if (normalizedType) return normalizedType;
+  }
+  const fallbackType = String(paymentIntent?.payment_method_types?.[0] || 'stripe').trim().toLowerCase();
+  return fallbackType || 'stripe';
 }
 
 // Given a school's PSP settings, return the methods parents/staff are allowed to use.
@@ -1308,6 +1261,468 @@ async function loadPspSettings(orgId) {
     [orgId]
   ).catch(() => ({ rows: [] }));
   return (r.rows[0] && r.rows[0].data) || {};
+}
+
+async function loadGuardianAssignmentForPayment(client, orgId, guardianId, assignmentId) {
+  const verify = await client.query(
+    `SELECT a.*, b.title AS bill_title, b.due_date, b.bill_type, b.recurrence, b.recurrence_end_date,
+            b.term_id, b.exclude_non_school_days,
+            b.accepts_card, b.accepts_cash, b.accepts_transfer, b.payment_destination,
+            tm.end_date AS term_end_date
+       FROM finance_bill_assignments a
+       JOIN finance_bills b ON b.bill_id = a.bill_id
+       LEFT JOIN terms tm ON tm.term_id = b.term_id
+      WHERE a.assignment_id=$1 AND a.organization_id=$2
+        AND a.status <> 'cancelled'
+        AND COALESCE(b.status, 'active') <> 'cancelled'
+        AND (
+          EXISTS (
+            SELECT 1 FROM guardians g
+             WHERE g.student_id=a.student_id AND g.guardian_id=$3 AND g.organization_id=$2
+          )
+          OR EXISTS (
+            SELECT 1 FROM guardian_students gs
+             WHERE gs.student_id=a.student_id AND gs.guardian_id=$3
+          )
+        )
+      LIMIT 1`,
+    [assignmentId, orgId, guardianId]
+  );
+  return verify.rows[0] || null;
+}
+
+async function buildGuardianPaygiraPaymentPlan({
+  client,
+  orgId,
+  guardianId,
+  assignmentId,
+  amount,
+  occurrenceDate,
+  occurrenceDates,
+  applyCredit,
+  lockCredit = false,
+}) {
+  const selectedOccurrenceDates = parseOccurrenceDates(occurrenceDates);
+  if (!selectedOccurrenceDates.length) {
+    const singleOccurrenceDate = parseOccurrenceDates(occurrenceDate);
+    if (singleOccurrenceDate.length) selectedOccurrenceDates.push(singleOccurrenceDate[0]);
+  }
+
+  const row = await loadGuardianAssignmentForPayment(client, orgId, guardianId, assignmentId);
+  if (!row) {
+    throw new PaygiraRequestError('Not authorized to pay this bill.', 403);
+  }
+
+  const isRecurringBill = String(row.bill_type || '') === 'recurring';
+  const wantsCredit = Boolean(parseBoolean(applyCredit));
+  if (isRecurringBill && !selectedOccurrenceDates.length) {
+    throw new PaygiraRequestError('Select at least one recurring date to pay.', 400);
+  }
+
+  const requestedAmount = Math.max(Number(amount || 0), 0);
+  if (!isRecurringBill && requestedAmount <= 0 && !wantsCredit) {
+    throw new PaygiraRequestError('Enter a valid amount.', 400);
+  }
+
+  const paymentNotesBase = `Guardian portal payment by guardian #${guardianId}`;
+  let paymentEntries = [];
+  let creditApplied = 0;
+  let totalExternalAmount = 0;
+  let availableCredit = 0;
+
+  if (wantsCredit) {
+    availableCredit = await getStudentCreditBalance(client, orgId, row.student_id, { forUpdate: lockCredit });
+  }
+
+  if (isRecurringBill) {
+    const existingOccurrencePayments = await client.query(
+      `SELECT occurrence_date::text AS occurrence_date, COALESCE(SUM(amount), 0) AS paid_amount
+         FROM finance_payments
+        WHERE organization_id=$1 AND assignment_id=$2 AND occurrence_date = ANY($3::date[])
+        GROUP BY occurrence_date`,
+      [orgId, row.assignment_id, selectedOccurrenceDates]
+    );
+    const paidByDate = existingOccurrencePayments.rows.reduce((accumulator, entry) => {
+      accumulator[entry.occurrence_date] = Number(entry.paid_amount || 0);
+      return accumulator;
+    }, {});
+    paymentEntries = selectedOccurrenceDates.reduce((entries, dateValue) => {
+      const outstandingAmount = Math.max(Number(row.amount || 0) - Number(paidByDate[dateValue] || 0), 0);
+      if (!(outstandingAmount > 0)) return entries;
+      entries.push({
+        amount: outstandingAmount,
+        occurrenceDate: dateValue,
+        notes: `${paymentNotesBase} for ${dateValue}`,
+        creditAmount: 0,
+        externalAmount: 0,
+      });
+      return entries;
+    }, []);
+    if (!paymentEntries.length) {
+      throw new PaygiraRequestError('The selected recurring dates are already fully paid.', 400);
+    }
+    creditApplied = wantsCredit
+      ? Math.min(availableCredit, paymentEntries.reduce((sum, entry) => sum + Number(entry.amount || 0), 0))
+      : 0;
+    let remainingCredit = creditApplied;
+    paymentEntries = paymentEntries.map((entry) => {
+      const creditAmount = Math.min(Number(entry.amount || 0), remainingCredit);
+      remainingCredit -= creditAmount;
+      const externalAmount = Math.max(Number(entry.amount || 0) - creditAmount, 0);
+      return {
+        ...entry,
+        creditAmount,
+        externalAmount,
+      };
+    });
+    totalExternalAmount = paymentEntries.reduce((sum, entry) => sum + Number(entry.externalAmount || 0), 0);
+  } else {
+    const currentOutstanding = Math.max(Number(row.amount || 0) + Number(row.late_fee_applied || 0) - Number(row.amount_paid || 0), 0);
+    creditApplied = wantsCredit
+      ? Math.min(availableCredit, Math.max(currentOutstanding - requestedAmount, 0))
+      : 0;
+    totalExternalAmount = requestedAmount;
+    paymentEntries = [{
+      amount: requestedAmount + creditApplied,
+      occurrenceDate: normalizeOccurrenceDate(occurrenceDate),
+      notes: paymentNotesBase,
+      creditAmount: creditApplied,
+      externalAmount: requestedAmount,
+    }];
+  }
+
+  if (!(totalExternalAmount > 0 || creditApplied > 0)) {
+    throw new PaygiraRequestError('Enter a valid amount.', 400);
+  }
+
+  return {
+    row,
+    isRecurringBill,
+    wantsCredit,
+    requestedAmount,
+    paymentNotesBase,
+    paymentEntries,
+    selectedOccurrenceDates,
+    creditApplied,
+    totalExternalAmount,
+    availableCredit,
+  };
+}
+
+async function upsertPendingGuardianStripePayment(client, payload) {
+  await client.query(
+    `INSERT INTO finance_pending_stripe_payments (
+      payment_intent_id,
+      organization_id,
+      guardian_id,
+      assignment_id,
+      bill_id,
+      student_id,
+      requested_amount,
+      total_external_amount,
+      credit_applied_expected,
+      platform_fee_percentage,
+      platform_fee_amount,
+      tax_amount,
+      charged_amount,
+      currency,
+      selected_occurrence_dates,
+      payment_entries,
+      status,
+      stripe_method_type,
+      last_error,
+      updated_at,
+      processed_at
+    ) VALUES (
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb,$16::jsonb,$17,$18,$19,NOW(),$20
+    )
+    ON CONFLICT (payment_intent_id) DO UPDATE SET
+      requested_amount = EXCLUDED.requested_amount,
+      total_external_amount = EXCLUDED.total_external_amount,
+      credit_applied_expected = EXCLUDED.credit_applied_expected,
+      platform_fee_percentage = EXCLUDED.platform_fee_percentage,
+      platform_fee_amount = EXCLUDED.platform_fee_amount,
+      tax_amount = EXCLUDED.tax_amount,
+      charged_amount = EXCLUDED.charged_amount,
+      currency = EXCLUDED.currency,
+      selected_occurrence_dates = EXCLUDED.selected_occurrence_dates,
+      payment_entries = EXCLUDED.payment_entries,
+      status = EXCLUDED.status,
+      stripe_method_type = EXCLUDED.stripe_method_type,
+      last_error = EXCLUDED.last_error,
+      updated_at = NOW(),
+      processed_at = EXCLUDED.processed_at`,
+    [
+      payload.paymentIntentId,
+      payload.organizationId,
+      payload.guardianId,
+      payload.assignmentId,
+      payload.billId,
+      payload.studentId,
+      payload.requestedAmount,
+      payload.totalExternalAmount,
+      payload.creditAppliedExpected,
+      payload.platformFeePercentage,
+      payload.platformFeeAmount,
+      payload.taxAmount,
+      payload.chargedAmount,
+      payload.currency,
+      JSON.stringify(payload.selectedOccurrenceDates || []),
+      JSON.stringify(payload.paymentEntries || []),
+      payload.status || 'pending',
+      payload.stripeMethodType || null,
+      payload.lastError || null,
+      payload.processedAt || null,
+    ]
+  );
+}
+
+async function loadPendingGuardianStripePayment(client, paymentIntentId, options = {}) {
+  const suffix = options.forUpdate ? ' FOR UPDATE' : '';
+  const result = await client.query(
+    `SELECT * FROM finance_pending_stripe_payments WHERE payment_intent_id=$1${suffix}`,
+    [paymentIntentId]
+  );
+  return result.rows[0] || null;
+}
+
+async function updatePendingGuardianStripePaymentStatus(client, paymentIntentId, status, extra = {}) {
+  await client.query(
+    `UPDATE finance_pending_stripe_payments
+        SET status = $2,
+            stripe_method_type = COALESCE($3, stripe_method_type),
+            last_error = $4,
+            processed_at = CASE WHEN $5 THEN COALESCE($6, NOW()) ELSE processed_at END,
+            updated_at = NOW()
+      WHERE payment_intent_id = $1`,
+    [
+      paymentIntentId,
+      status,
+      extra.stripeMethodType || null,
+      extra.lastError || null,
+      Boolean(extra.markProcessed),
+      extra.processedAt || null,
+    ]
+  );
+}
+
+async function finalizePendingGuardianStripePayment(database, paymentIntentId) {
+  let client;
+  try {
+    client = typeof database.connect === 'function' ? await database.connect() : database;
+    await client.query('BEGIN');
+
+    const pending = await loadPendingGuardianStripePayment(client, paymentIntentId, { forUpdate: true });
+    if (!pending) {
+      await client.query('ROLLBACK');
+      return { status: 'missing' };
+    }
+    if (String(pending.status || '').toLowerCase() === 'completed') {
+      await client.query('COMMIT');
+      return {
+        status: 'already_processed',
+        assignmentId: pending.assignment_id,
+        totalExternalAmount: Number(pending.total_external_amount || 0),
+        chargedAmount: Number(pending.charged_amount || 0),
+      };
+    }
+
+    const pspSettings = await loadPspSettings(pending.organization_id);
+    const stripe = getSchoolStripeClient(pspSettings);
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId, {
+      expand: ['payment_method'],
+    });
+
+    if (paymentIntent.status === 'processing') {
+      await updatePendingGuardianStripePaymentStatus(client, paymentIntentId, 'processing', {
+        stripeMethodType: resolveStripeFinanceMethod(paymentIntent),
+      });
+      await client.query('COMMIT');
+      return { status: 'processing' };
+    }
+
+    if (paymentIntent.status !== 'succeeded') {
+      await updatePendingGuardianStripePaymentStatus(client, paymentIntentId, 'failed', {
+        stripeMethodType: resolveStripeFinanceMethod(paymentIntent),
+        lastError: paymentIntent.last_payment_error?.message || `Stripe payment status is ${paymentIntent.status}.`,
+      });
+      await client.query('COMMIT');
+      return {
+        status: 'failed',
+        message: paymentIntent.last_payment_error?.message || `Stripe payment status is ${paymentIntent.status}.`,
+      };
+    }
+
+    const alreadyProcessed = await client.query(
+      `SELECT 1
+         FROM finance_payments
+        WHERE organization_id=$1 AND assignment_id=$2 AND reference=$3
+        LIMIT 1`,
+      [pending.organization_id, pending.assignment_id, paymentIntentId]
+    );
+    if (alreadyProcessed.rows.length) {
+      await updatePendingGuardianStripePaymentStatus(client, paymentIntentId, 'completed', {
+        stripeMethodType: resolveStripeFinanceMethod(paymentIntent),
+        markProcessed: true,
+      });
+      await client.query('COMMIT');
+      return {
+        status: 'already_processed',
+        assignmentId: pending.assignment_id,
+        totalExternalAmount: Number(pending.total_external_amount || 0),
+        chargedAmount: Number(pending.charged_amount || 0),
+      };
+    }
+
+    const assignmentResult = await client.query(
+      `SELECT a.*, b.title AS bill_title, b.due_date, b.bill_type, b.recurrence, b.recurrence_end_date,
+              b.term_id, b.exclude_non_school_days, tm.end_date AS term_end_date
+         FROM finance_bill_assignments a
+         JOIN finance_bills b ON b.bill_id = a.bill_id
+         LEFT JOIN terms tm ON tm.term_id = b.term_id
+        WHERE a.assignment_id=$1 AND a.organization_id=$2
+          AND a.status <> 'cancelled'
+          AND COALESCE(b.status, 'active') <> 'cancelled'
+        LIMIT 1`,
+      [pending.assignment_id, pending.organization_id]
+    );
+    if (!assignmentResult.rows.length) {
+      await updatePendingGuardianStripePaymentStatus(client, paymentIntentId, 'failed', {
+        lastError: 'The selected bill is no longer available for payment.',
+      });
+      await client.query('COMMIT');
+      return { status: 'failed', message: 'The selected bill is no longer available for payment.' };
+    }
+
+    const row = assignmentResult.rows[0];
+    const pendingEntries = Array.isArray(pending.payment_entries) ? pending.payment_entries : [];
+    const pendingCreditTarget = Math.max(Number(pending.credit_applied_expected || 0), 0);
+    const availableCredit = pendingCreditTarget > 0
+      ? await getStudentCreditBalance(client, pending.organization_id, row.student_id, { forUpdate: true })
+      : 0;
+    let remainingCreditBudget = Math.min(availableCredit, pendingCreditTarget);
+    const effectiveEntries = pendingEntries.map((entry) => {
+      const intendedCredit = Math.max(Number(entry.creditAmount || entry.credit_amount || 0), 0);
+      const appliedCredit = Math.min(intendedCredit, remainingCreditBudget);
+      remainingCreditBudget -= appliedCredit;
+      return {
+        amount: Number(entry.amount || 0),
+        occurrenceDate: normalizeOccurrenceDate(entry.occurrenceDate || entry.occurrence_date),
+        notes: String(entry.notes || '').trim(),
+        creditAmount: appliedCredit,
+        externalAmount: Math.max(Number(entry.externalAmount || entry.external_amount || 0), 0),
+      };
+    });
+    const creditApplied = effectiveEntries.reduce((sum, entry) => sum + Number(entry.creditAmount || 0), 0);
+    const totalExternalAmount = effectiveEntries.reduce((sum, entry) => sum + Number(entry.externalAmount || 0), 0);
+    const payMethod = resolveStripeFinanceMethod(paymentIntent);
+    const platformFeePercentage = Number(pending.platform_fee_percentage || 0);
+    let totalPlatformFeeAmount = 0;
+
+    if (creditApplied > 0) {
+      for (const entry of effectiveEntries) {
+        if (!(Number(entry.creditAmount || 0) > 0)) continue;
+        await client.query(
+          `INSERT INTO finance_payments
+            (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, occurrence_date)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+          [
+            pending.organization_id,
+            row.assignment_id,
+            row.bill_id,
+            row.student_id,
+            entry.creditAmount,
+            'credit',
+            'STUDENT-CREDIT',
+            `${entry.notes || `Guardian portal payment by guardian #${pending.guardian_id}`} using available student credit`,
+            entry.occurrenceDate || null,
+          ]
+        );
+      }
+      await setStudentCreditBalance(client, pending.organization_id, row.student_id, Math.max(availableCredit - creditApplied, 0));
+    }
+
+    if (totalExternalAmount > 0) {
+      for (const entry of effectiveEntries) {
+        if (!(Number(entry.externalAmount || 0) > 0)) continue;
+        const chargeBreakdown = buildFinancePaymentChargeBreakdown(entry.externalAmount, payMethod, platformFeePercentage);
+        totalPlatformFeeAmount += chargeBreakdown.platformFeeAmount;
+        await client.query(
+          `INSERT INTO finance_payments
+            (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, occurrence_date, platform_fee_percentage, platform_fee_amount, tax_amount)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+          [
+            pending.organization_id,
+            row.assignment_id,
+            row.bill_id,
+            row.student_id,
+            entry.externalAmount,
+            payMethod,
+            paymentIntentId,
+            entry.notes || `Guardian portal Stripe payment by guardian #${pending.guardian_id}`,
+            entry.occurrenceDate || null,
+            chargeBreakdown.platformFeePercentage,
+            chargeBreakdown.platformFeeAmount,
+            chargeBreakdown.taxAmount,
+          ]
+        );
+      }
+    }
+
+    const isRecurringBill = String(row.bill_type || '') === 'recurring';
+    const newPaid = Number(row.amount_paid || 0) + totalExternalAmount + creditApplied;
+    const scheduleContext = createBillScheduleContextLoader(client, pending.organization_id);
+    const total = (isRecurringBill ? await getScheduledBilledAmount(row, scheduleContext) : Number(row.amount || 0)) + Number(row.late_fee_applied || 0);
+    let appliedToAssignment = newPaid;
+    let creditCreated = 0;
+    if (newPaid > total) {
+      creditCreated = newPaid - total;
+      appliedToAssignment = total;
+    }
+    const newStatus = appliedToAssignment >= total
+      ? 'paid'
+      : (appliedToAssignment > 0
+          ? 'partial'
+          : recalcAssignmentStatus(row.amount, row.late_fee_applied, appliedToAssignment, row.due_date));
+    await client.query(
+      `UPDATE finance_bill_assignments SET amount_paid=$1, status=$2, updated_at=now() WHERE assignment_id=$3`,
+      [appliedToAssignment, newStatus, row.assignment_id]
+    );
+    if (creditCreated > 0) {
+      await addStudentCredit(client, pending.organization_id, row.student_id, creditCreated);
+    }
+
+    await updatePendingGuardianStripePaymentStatus(client, paymentIntentId, 'completed', {
+      stripeMethodType: payMethod,
+      markProcessed: true,
+    });
+    await client.query('COMMIT');
+    return {
+      status: 'completed',
+      assignmentId: row.assignment_id,
+      studentId: row.student_id,
+      billId: row.bill_id,
+      billTitle: row.bill_title,
+      payMethod,
+      creditApplied,
+      creditCreated,
+      totalExternalAmount,
+      chargedAmount: Number(pending.charged_amount || paymentIntent.amount_received || paymentIntent.amount || 0),
+      totalPlatformFeeAmount,
+      isRecurringBill,
+      selectedOccurrenceDates: Array.isArray(pending.selected_occurrence_dates) ? pending.selected_occurrence_dates : [],
+      newStatus,
+      organizationId: pending.organization_id,
+      guardianId: pending.guardian_id,
+    };
+  } catch (error) {
+    if (client) {
+      try { await client.query('ROLLBACK'); } catch (_) {}
+    }
+    throw error;
+  } finally {
+    if (client && client.release) client.release();
+  }
 }
 
 async function loadStudentBilling(orgId, filters = {}) {
@@ -2617,456 +3032,6 @@ async function auditStaffCollection(req, result) {
       ],
     });
   } catch (_) {
-  }
-}
-
-function buildGuardianPaygiraStripeChargeTotals(paymentEntries, platformFeePercentage, feeMethod = 'stripe') {
-  return (Array.isArray(paymentEntries) ? paymentEntries : []).reduce((accumulator, entry) => {
-    const externalAmount = Number(entry?.externalAmount || 0);
-    if (!(externalAmount > 0)) return accumulator;
-    const chargeBreakdown = buildFinancePaymentChargeBreakdown(externalAmount, feeMethod, platformFeePercentage);
-    accumulator.subtotalAmount += Number(chargeBreakdown.subtotalAmount || 0);
-    accumulator.platformFeeAmount += Number(chargeBreakdown.platformFeeAmount || 0);
-    accumulator.taxAmount += Number(chargeBreakdown.taxAmount || 0);
-    accumulator.totalChargedAmount += Number(chargeBreakdown.totalChargedAmount || 0);
-    return accumulator;
-  }, {
-    subtotalAmount: 0,
-    platformFeeAmount: 0,
-    taxAmount: 0,
-    totalChargedAmount: 0,
-  });
-}
-
-async function buildGuardianPaygiraChargeContext({
-  client,
-  orgId,
-  guardianId,
-  assignmentId,
-  amount,
-  occurrenceDate,
-  occurrenceDates,
-  applyCredit,
-  lockCredit = false,
-}) {
-  const selectedOccurrenceDates = parseOccurrenceDates(occurrenceDates);
-  if (!selectedOccurrenceDates.length) {
-    const singleOccurrenceDate = parseOccurrenceDates(occurrenceDate);
-    if (singleOccurrenceDate.length) selectedOccurrenceDates.push(singleOccurrenceDate[0]);
-  }
-
-  const verify = await client.query(
-    `SELECT a.*, b.title AS bill_title, b.due_date, b.bill_type, b.recurrence, b.recurrence_end_date,
-            b.term_id, b.exclude_non_school_days,
-            b.accepts_card, b.accepts_cash, b.accepts_transfer, b.payment_destination,
-            tm.end_date AS term_end_date
-       FROM finance_bill_assignments a
-       JOIN finance_bills b ON b.bill_id = a.bill_id
-       LEFT JOIN terms tm ON tm.term_id = b.term_id
-      WHERE a.assignment_id=$1 AND a.organization_id=$2
-        AND a.status <> 'cancelled'
-        AND COALESCE(b.status, 'active') <> 'cancelled'
-        AND (
-          EXISTS (SELECT 1 FROM guardians g
-                   WHERE g.student_id=a.student_id AND g.guardian_id=$3 AND g.organization_id=$2)
-          OR EXISTS (SELECT 1 FROM guardian_students gs
-                   WHERE gs.student_id=a.student_id AND gs.guardian_id=$3)
-        )
-      LIMIT 1`,
-    [assignmentId, orgId, guardianId]
-  );
-  if (!verify.rows.length) {
-    throw createGuardianPaygiraError('Not authorized to pay this bill.', 403);
-  }
-
-  const row = verify.rows[0];
-  const isRecurringBill = String(row.bill_type || '') === 'recurring';
-  const wantsCredit = Boolean(parseBoolean(applyCredit));
-  if (isRecurringBill && !selectedOccurrenceDates.length) {
-    throw createGuardianPaygiraError('Select at least one recurring date to pay.');
-  }
-
-  const requestedAmount = Math.max(Number(amount || 0), 0);
-  if (!isRecurringBill && requestedAmount <= 0 && !wantsCredit) {
-    throw createGuardianPaygiraError('Enter a valid amount.');
-  }
-
-  const paymentNotesBase = `Guardian portal payment by guardian #${guardianId}`;
-  let paymentEntries = [];
-  let creditApplied = 0;
-  let totalExternalAmount = 0;
-  let availableCredit = 0;
-
-  if (wantsCredit) {
-    availableCredit = await getStudentCreditBalance(client, orgId, row.student_id, { forUpdate: lockCredit });
-  }
-
-  if (isRecurringBill) {
-    const existingOccurrencePayments = await client.query(
-      `SELECT occurrence_date::text AS occurrence_date, COALESCE(SUM(amount), 0) AS paid_amount
-         FROM finance_payments
-        WHERE organization_id=$1 AND assignment_id=$2 AND occurrence_date = ANY($3::date[])
-        GROUP BY occurrence_date`,
-      [orgId, row.assignment_id, selectedOccurrenceDates]
-    );
-    const paidByDate = existingOccurrencePayments.rows.reduce((accumulator, entry) => {
-      accumulator[entry.occurrence_date] = Number(entry.paid_amount || 0);
-      return accumulator;
-    }, {});
-
-    paymentEntries = selectedOccurrenceDates.reduce((entries, dateValue) => {
-      const outstandingAmount = Math.max(Number(row.amount || 0) - Number(paidByDate[dateValue] || 0), 0);
-      if (!(outstandingAmount > 0)) return entries;
-      entries.push({
-        amount: outstandingAmount,
-        occurrenceDate: dateValue,
-        notes: `${paymentNotesBase} for ${dateValue}`,
-        creditAmount: 0,
-        externalAmount: 0,
-      });
-      return entries;
-    }, []);
-
-    if (!paymentEntries.length) {
-      throw createGuardianPaygiraError('The selected recurring dates are already fully paid.');
-    }
-
-    creditApplied = wantsCredit
-      ? Math.min(availableCredit, paymentEntries.reduce((sum, entry) => sum + Number(entry.amount || 0), 0))
-      : 0;
-    let remainingCredit = creditApplied;
-    paymentEntries = paymentEntries.map((entry) => {
-      const creditAmount = Math.min(Number(entry.amount || 0), remainingCredit);
-      remainingCredit -= creditAmount;
-      const externalAmount = Math.max(Number(entry.amount || 0) - creditAmount, 0);
-      return {
-        ...entry,
-        creditAmount,
-        externalAmount,
-      };
-    });
-    totalExternalAmount = paymentEntries.reduce((sum, entry) => sum + Number(entry.externalAmount || 0), 0);
-  } else {
-    const currentOutstanding = Math.max(Number(row.amount || 0) + Number(row.late_fee_applied || 0) - Number(row.amount_paid || 0), 0);
-    creditApplied = wantsCredit
-      ? Math.min(availableCredit, Math.max(currentOutstanding - requestedAmount, 0))
-      : 0;
-    totalExternalAmount = requestedAmount;
-    paymentEntries = [{
-      amount: requestedAmount,
-      occurrenceDate: normalizeOccurrenceDate(occurrenceDate),
-      notes: paymentNotesBase,
-      creditAmount: creditApplied,
-      externalAmount: requestedAmount,
-    }];
-  }
-
-  if (!(totalExternalAmount > 0 || creditApplied > 0)) {
-    throw createGuardianPaygiraError('Enter a valid amount.');
-  }
-
-  return {
-    row,
-    isRecurringBill,
-    wantsCredit,
-    paymentNotesBase,
-    paymentEntries,
-    creditApplied,
-    totalExternalAmount,
-    availableCredit,
-    selectedOccurrenceDates,
-  };
-}
-
-async function finalizeGuardianPaygiraPayment({ req, database, paymentInput }) {
-  const orgId = req.session.organizationId;
-  const guardianId = req.session.guardianId;
-  if (!orgId || !guardianId) {
-    throw createGuardianPaygiraError('Please sign in again to complete this payment.', 401);
-  }
-
-  const {
-    assignment_id,
-    amount,
-    method,
-    occurrence_date,
-    occurrence_dates,
-    apply_credit,
-    payment_intent_id,
-    payment_context_key,
-  } = paymentInput || {};
-
-  let client;
-  let shouldReleaseClient = false;
-  let transactionOpen = false;
-
-  try {
-    if (typeof database.connect === 'function') {
-      client = await database.connect();
-      shouldReleaseClient = true;
-    } else {
-      client = database;
-    }
-
-    await client.query('BEGIN');
-    transactionOpen = true;
-
-    const paymentContext = await buildGuardianPaygiraChargeContext({
-      client,
-      orgId,
-      guardianId,
-      assignmentId: assignment_id,
-      amount,
-      occurrenceDate: occurrence_date,
-      occurrenceDates: occurrence_dates,
-      applyCredit: apply_credit,
-      lockCredit: true,
-    });
-    const {
-      row,
-      isRecurringBill,
-      paymentNotesBase,
-      paymentEntries,
-      creditApplied,
-      totalExternalAmount,
-      availableCredit,
-      selectedOccurrenceDates,
-    } = paymentContext;
-
-    const requestedMethod = String(method || 'other').trim().toLowerCase();
-    const stripeIntentId = String(payment_intent_id || '').trim();
-    const psp = await loadPspSettings(orgId);
-    const allowedMethods = computeAllowedMethods(psp);
-    const { percentage: platformFeePercentage } = await getPlatformFeeSettings(client);
-
-    let payMethod = requestedMethod;
-    let reference = `GUARDIAN-${guardianId}`;
-
-    if (totalExternalAmount > 0) {
-      if (requestedMethod === 'stripe' || stripeIntentId) {
-        if (!(row.accepts_card && allowedMethods.stripeOn)) {
-          throw createGuardianPaygiraError('This bill does not accept secure online checkout.');
-        }
-        if (!stripeIntentId) {
-          throw createGuardianPaygiraError('Secure payment session not found. Please try again.');
-        }
-
-        const existingStripePayment = await client.query(
-          `SELECT payment_id FROM finance_payments
-            WHERE organization_id=$1 AND assignment_id=$2 AND reference=$3
-            LIMIT 1`,
-          [orgId, row.assignment_id, stripeIntentId]
-        );
-        if (existingStripePayment.rows.length) {
-          await client.query('ROLLBACK');
-          transactionOpen = false;
-          clearGuardianPaygiraPendingContext(req, payment_context_key);
-          req.flash && req.flash('success', 'This online payment was already applied.');
-          return { alreadyApplied: true };
-        }
-
-        const stripeChargeTotals = buildGuardianPaygiraStripeChargeTotals(paymentEntries, platformFeePercentage, 'stripe');
-        const stripeClient = getFinanceStripeClient(psp);
-        const paymentIntent = await stripeClient.paymentIntents.retrieve(stripeIntentId, {
-          expand: ['payment_method'],
-        });
-
-        if (String(paymentIntent.metadata?.flow || '').trim() !== 'guardian_paygira') {
-          throw createGuardianPaygiraError('This Stripe payment does not belong to PayGira.');
-        }
-        if (String(paymentIntent.metadata?.organization_id || '').trim() && Number(paymentIntent.metadata.organization_id) !== Number(orgId)) {
-          throw createGuardianPaygiraError('This Stripe payment belongs to a different school.');
-        }
-        if (String(paymentIntent.metadata?.guardian_id || '').trim() && Number(paymentIntent.metadata.guardian_id) !== Number(guardianId)) {
-          throw createGuardianPaygiraError('This Stripe payment belongs to a different guardian account.');
-        }
-        if (paymentIntent.status !== 'succeeded') {
-          throw createGuardianPaygiraError(
-            paymentIntent.status === 'processing'
-              ? 'Stripe is still processing this payment. It has not been applied yet.'
-              : `Stripe did not complete this payment (status: ${paymentIntent.status}).`
-          );
-        }
-
-        const chargedAmount = Number(paymentIntent.amount_received || paymentIntent.amount || 0) / 100;
-        if (Math.abs(chargedAmount - Number(stripeChargeTotals.totalChargedAmount || 0)) > 0.01) {
-          throw createGuardianPaygiraError('The confirmed Stripe amount no longer matches this bill. Please try again.');
-        }
-
-        const stripePaymentSource = resolvePaygiraStripePaymentSource(paymentIntent);
-        payMethod = stripePaymentSource.method || 'stripe';
-        reference = stripePaymentSource.reference || stripeIntentId;
-      } else {
-        const allowedManualMethod =
-          (requestedMethod === 'bank_transfer' && row.accepts_transfer && allowedMethods.bankOn) ||
-          (requestedMethod === 'mobile_money' && allowedMethods.momoOn) ||
-          requestedMethod === 'other';
-        if (!allowedManualMethod) {
-          throw createGuardianPaygiraError(`This bill does not accept "${requestedMethod}". Choose a method the school has enabled.`);
-        }
-      }
-    }
-
-    let totalPlatformFeeAmount = 0;
-
-    if (creditApplied > 0) {
-      for (const entry of paymentEntries) {
-        if (!(Number(entry.creditAmount || 0) > 0)) continue;
-        await client.query(
-          `INSERT INTO finance_payments
-            (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, occurrence_date)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-          [
-            orgId,
-            row.assignment_id,
-            row.bill_id,
-            row.student_id,
-            entry.creditAmount,
-            'credit',
-            'STUDENT-CREDIT',
-            `${entry.notes} using available student credit`,
-            entry.occurrenceDate || null,
-          ]
-        );
-      }
-      await setStudentCreditBalance(client, orgId, row.student_id, availableCredit - creditApplied);
-    }
-
-    if (totalExternalAmount > 0) {
-      if (isRecurringBill) {
-        for (const entry of paymentEntries) {
-          if (!(Number(entry.externalAmount || 0) > 0)) continue;
-          const chargeBreakdown = buildFinancePaymentChargeBreakdown(entry.externalAmount, payMethod, platformFeePercentage);
-          totalPlatformFeeAmount += Number(chargeBreakdown.platformFeeAmount || 0);
-          await client.query(
-            `INSERT INTO finance_payments
-              (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, occurrence_date, platform_fee_percentage, platform_fee_amount, tax_amount)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-            [
-              orgId,
-              row.assignment_id,
-              row.bill_id,
-              row.student_id,
-              entry.externalAmount,
-              payMethod,
-              reference,
-              entry.notes,
-              entry.occurrenceDate || null,
-              chargeBreakdown.platformFeePercentage,
-              chargeBreakdown.platformFeeAmount,
-              chargeBreakdown.taxAmount,
-            ]
-          );
-        }
-      } else {
-        const chargeBreakdown = buildFinancePaymentChargeBreakdown(totalExternalAmount, payMethod, platformFeePercentage);
-        totalPlatformFeeAmount += Number(chargeBreakdown.platformFeeAmount || 0);
-        await client.query(
-          `INSERT INTO finance_payments
-            (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, occurrence_date, platform_fee_percentage, platform_fee_amount, tax_amount)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-          [
-            orgId,
-            row.assignment_id,
-            row.bill_id,
-            row.student_id,
-            totalExternalAmount,
-            payMethod,
-            reference,
-            paymentNotesBase,
-            normalizeOccurrenceDate(occurrence_date),
-            chargeBreakdown.platformFeePercentage,
-            chargeBreakdown.platformFeeAmount,
-            chargeBreakdown.taxAmount,
-          ]
-        );
-      }
-    }
-
-    const newPaid = Number(row.amount_paid) + totalExternalAmount + creditApplied;
-    const scheduleContext = createBillScheduleContextLoader(client, orgId);
-    const total = (isRecurringBill ? await getScheduledBilledAmount(row, scheduleContext) : Number(row.amount)) + Number(row.late_fee_applied || 0);
-    let appliedToAssignment = newPaid;
-    let creditCreated = 0;
-    if (!isRecurringBill && newPaid > total) {
-      creditCreated = newPaid - total;
-      appliedToAssignment = total;
-    }
-    const newStatus = isRecurringBill
-      ? (appliedToAssignment >= total
-          ? 'paid'
-          : (newPaid > 0 ? 'partial' : recalcAssignmentStatus(row.amount, row.late_fee_applied, appliedToAssignment, row.due_date)))
-      : recalcAssignmentStatus(row.amount, row.late_fee_applied, appliedToAssignment, row.due_date);
-    await client.query(
-      `UPDATE finance_bill_assignments SET amount_paid=$1, status=$2, updated_at=now() WHERE assignment_id=$3`,
-      [appliedToAssignment, newStatus, row.assignment_id]
-    );
-    if (creditCreated > 0) {
-      await addStudentCredit(client, orgId, row.student_id, creditCreated);
-    }
-
-    await client.query('COMMIT');
-    transactionOpen = false;
-    clearGuardianPaygiraPendingContext(req, payment_context_key);
-
-    const display = await buildFinanceDisplayContext(req, orgId);
-    if (isRecurringBill) {
-      const recurringMessagePrefix = paymentEntries.length > 1
-        ? `${paymentEntries.length} recurring dates settled.`
-        : `${new Date(selectedOccurrenceDates[0] + 'T00:00:00').toLocaleDateString()} settled.`;
-      const recurringMessageParts = [];
-      if (creditApplied > 0) recurringMessageParts.push(`${display.formatMoney(creditApplied)} applied from available balance`);
-      if (totalExternalAmount > 0) recurringMessageParts.push(`${display.formatMoney(totalExternalAmount)} received`);
-      if (totalPlatformFeeAmount > 0) recurringMessageParts.push(`${display.formatMoney(totalPlatformFeeAmount)} platform fee charged`);
-      req.flash && req.flash('success', `${recurringMessagePrefix} ${recurringMessageParts.join(' and ')}.`.trim());
-    } else {
-      const paymentSummary = [];
-      if (creditApplied > 0) paymentSummary.push(`${display.formatMoney(creditApplied)} applied from available balance`);
-      if (totalExternalAmount > 0) paymentSummary.push(`${display.formatMoney(totalExternalAmount)} received`);
-      if (totalPlatformFeeAmount > 0) paymentSummary.push(`${display.formatMoney(totalPlatformFeeAmount)} platform fee charged`);
-      const baseMessage = paymentSummary.length ? `${paymentSummary.join(' and ')}.` : 'Payment applied.';
-      req.flash && req.flash('success', creditCreated > 0
-        ? `${baseMessage} ${display.formatMoney(creditCreated)} kept as credit.`
-        : `${baseMessage} Thank you.`);
-    }
-
-    try {
-      const gRow = (await database.query(`SELECT first_name, last_name FROM guardians WHERE guardian_id=$1 LIMIT 1`, [guardianId])).rows[0];
-      const sRow = (await database.query(`SELECT first_name, last_name FROM students WHERE student_id=$1 AND organization_id=$2`, [row.student_id, orgId])).rows[0];
-      const bRow = (await database.query(`SELECT title FROM finance_bills WHERE bill_id=$1 AND organization_id=$2`, [row.bill_id, orgId])).rows[0];
-      const studentLabel = sRow ? `${sRow.first_name} ${sRow.last_name}` : `Student #${row.student_id}`;
-      const guardianName = gRow ? `${gRow.first_name || ''} ${gRow.last_name || ''}`.trim() : `Guardian #${guardianId}`;
-      await logPaygira(req, {
-        userName: guardianName,
-        userRole: 'Guardian',
-        actionType: 'Paid',
-        recordType: 'Payment',
-        recordId: row.assignment_id,
-        recordLabel: `${studentLabel} — ${bRow?.title || 'Bill'}`,
-        description: `Guardian ${guardianName} applied $${(creditApplied || 0).toFixed(2)} in student credit and paid $${(totalExternalAmount || 0).toFixed(2)}${totalExternalAmount > 0 ? ` (${payMethod})` : ''} for ${studentLabel} on bill "${bRow?.title || row.bill_id}"${isRecurringBill && selectedOccurrenceDates.length ? ` across ${selectedOccurrenceDates.length} recurring date(s)` : ''}. New status: ${newStatus}${creditCreated > 0 ? `; $${creditCreated.toFixed(2)} credited.` : ''}.`,
-        changedFields: [
-          { field: 'Applied Credit', value: `$${(creditApplied || 0).toFixed(2)}` },
-          { field: 'Amount', value: `$${(totalExternalAmount || 0).toFixed(2)}` },
-          ...(totalPlatformFeeAmount > 0 ? [{ field: 'Platform Fee', value: `$${totalPlatformFeeAmount.toFixed(2)}` }] : []),
-          { field: 'Method', value: totalExternalAmount > 0 ? payMethod : 'credit' },
-          { field: 'Reference', value: reference || '—' },
-          ...(isRecurringBill && selectedOccurrenceDates.length ? [{ field: 'Recurring Dates', value: selectedOccurrenceDates.join(', ') }] : []),
-          { field: 'New Status', value: newStatus },
-        ],
-      });
-    } catch (_) {
-    }
-
-    return {
-      alreadyApplied: false,
-    };
-  } catch (error) {
-    if (client && transactionOpen) {
-      try { await client.query('ROLLBACK'); } catch (_) {}
-    }
-    throw error;
-  } finally {
-    if (client && shouldReleaseClient) client.release();
   }
 }
 
@@ -5084,9 +5049,9 @@ module.exports = {
       const pspSettings = await loadPspSettings(orgId);
       const maskedPsp = maskPspSecrets(pspSettings);
       const allowedMethods = computeAllowedMethods(pspSettings);
+      const stripeCheckoutConfig = buildGuardianStripeCheckoutConfig(allowedMethods.stripeMethods);
       const orgProfile = await loadOrganizationProfile(orgId);
       const display = await buildFinanceDisplayContext(req, orgId, pspSettings, orgProfile.organization_country);
-      const stripeCheckout = buildGuardianStripeCheckoutConfig(pspSettings, display.financeCurrency.code);
       allowedMethods.currency = display.financeCurrency.code;
       maskedPsp.currency = maskedPsp.currency || display.financeCurrency.code;
 
@@ -5100,7 +5065,8 @@ module.exports = {
         totals,
         pspSettings: maskedPsp,
         allowedMethods,
-        stripeCheckout,
+        stripeCatalog: STRIPE_METHOD_CATALOG,
+        stripeCheckoutConfig,
         financeCurrency: display.financeCurrency,
         formatMoney: display.formatMoney,
         money,
@@ -5119,20 +5085,13 @@ module.exports = {
     const orgId = req.session.organizationId;
     const guardianId = req.session.guardianId;
     if (!orgId || !guardianId) {
-      return res.status(401).json({ success: false, message: 'Please sign in again to continue.' });
+      return res.status(401).json({ success: false, message: 'Your guardian session has expired. Please log in again.' });
     }
 
     let client;
     let shouldReleaseClient = false;
     try {
       await ensureFinanceSchema();
-      const pspSettings = await loadPspSettings(orgId);
-      const allowedMethods = computeAllowedMethods(pspSettings);
-      if (!allowedMethods.stripeOn) {
-        return res.status(400).json({ success: false, message: 'Online checkout is not enabled for this school.' });
-      }
-
-      const stripeClient = getFinanceStripeClient(pspSettings);
       if (typeof database.connect === 'function') {
         client = await database.connect();
         shouldReleaseClient = true;
@@ -5140,7 +5099,13 @@ module.exports = {
         client = database;
       }
 
-      const paymentContext = await buildGuardianPaygiraChargeContext({
+      const pspSettings = await loadPspSettings(orgId);
+      const allowedMethods = computeAllowedMethods(pspSettings);
+      if (!allowedMethods.stripeOn) {
+        return res.status(400).json({ success: false, message: 'Stripe is not configured for this school.' });
+      }
+
+      const plan = await buildGuardianPaygiraPaymentPlan({
         client,
         orgId,
         guardianId,
@@ -5149,83 +5114,85 @@ module.exports = {
         occurrenceDate: req.body?.occurrence_date,
         occurrenceDates: req.body?.occurrence_dates,
         applyCredit: req.body?.apply_credit,
+        lockCredit: false,
       });
 
-      if (!paymentContext.row.accepts_card) {
-        return res.status(400).json({ success: false, message: 'This bill does not accept secure online checkout.' });
+      if (!plan.row.accepts_card) {
+        return res.status(400).json({ success: false, message: 'This bill does not accept online card or wallet payments.' });
       }
-      if (!(paymentContext.totalExternalAmount > 0)) {
-        return res.status(400).json({ success: false, message: 'No external charge is needed for this payment.' });
+      if (!(plan.totalExternalAmount > 0)) {
+        return res.status(400).json({ success: false, message: 'This selection is fully covered by available balance. Submit it without Stripe.' });
       }
 
       const { percentage: platformFeePercentage } = await getPlatformFeeSettings(client);
-      const chargeTotals = buildGuardianPaygiraStripeChargeTotals(paymentContext.paymentEntries, platformFeePercentage, 'stripe');
-      const chargeAmountMinor = Math.round(Math.max(0, Number(chargeTotals.totalChargedAmount || 0)) * 100);
-      if (!(chargeAmountMinor > 0)) {
-        return res.status(400).json({ success: false, message: 'No external charge is needed for this payment.' });
-      }
-
+      const chargeBreakdown = buildFinancePaymentChargeBreakdown(plan.totalExternalAmount, 'stripe', platformFeePercentage);
       const orgProfile = await loadOrganizationProfile(orgId);
       const display = await buildFinanceDisplayContext(req, orgId, pspSettings, orgProfile.organization_country);
-      const chargeCurrency = String(display.financeCurrency.code || allowedMethods.currency || 'USD').trim().toLowerCase();
+      const currencyCode = String(display.financeCurrency.code || 'USD').toLowerCase();
+      const stripeCheckoutConfig = buildGuardianStripeCheckoutConfig(allowedMethods.stripeMethods);
+      const stripe = getSchoolStripeClient(pspSettings);
 
-      const guardianProfile = await client.query(
-        `SELECT gp.first_name, gp.last_name, ga.login_email
-           FROM guardian_profiles gp
-           LEFT JOIN guardian_accounts ga
-             ON ga.guardian_id = gp.guardian_id
-            AND ga.organization_id = gp.organization_id
-          WHERE gp.guardian_id = $1 AND gp.organization_id = $2
-          LIMIT 1`,
-        [guardianId, orgId]
-      );
-      const guardianContact = guardianProfile.rows[0] || {};
-      const contextKey = crypto.randomUUID();
-
-      const paymentIntent = await stripeClient.paymentIntents.create({
-        amount: chargeAmountMinor,
-        currency: chargeCurrency,
-        payment_method_types: resolveStripeIntentMethodTypes(allowedMethods.stripeMethods),
-        receipt_email: guardianContact.login_email || req.session.user?.email || undefined,
-        description: `${paymentContext.row.bill_title || 'PayGira payment'} for guardian ${guardianContact.first_name || guardianId}`,
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(chargeBreakdown.totalChargedAmount * 100),
+        currency: currencyCode,
+        automatic_payment_methods: {
+          enabled: true,
+          allow_redirects: 'always',
+        },
         metadata: {
           flow: 'guardian_paygira',
           organization_id: String(orgId),
           guardian_id: String(guardianId),
-          assignment_id: String(paymentContext.row.assignment_id),
-          occurrence_dates: paymentContext.selectedOccurrenceDates.join(','),
-          apply_credit: parseBoolean(req.body?.apply_credit) ? '1' : '0',
-          context_key: contextKey,
+          assignment_id: String(plan.row.assignment_id),
+          bill_id: String(plan.row.bill_id),
+          student_id: String(plan.row.student_id),
         },
+        description: `PayGira ${plan.row.bill_title || 'Bill'} · Assignment ${plan.row.assignment_id}`,
       });
 
-      setGuardianPaygiraPendingContext(req, contextKey, {
-        assignment_id: String(req.body?.assignment_id || ''),
-        amount: String(req.body?.amount || ''),
-        occurrence_date: normalizeOccurrenceDate(req.body?.occurrence_date),
-        occurrence_dates: paymentContext.selectedOccurrenceDates,
-        apply_credit: Boolean(parseBoolean(req.body?.apply_credit)),
+      await upsertPendingGuardianStripePayment(client, {
         paymentIntentId: paymentIntent.id,
+        organizationId: orgId,
+        guardianId,
+        assignmentId: plan.row.assignment_id,
+        billId: plan.row.bill_id,
+        studentId: plan.row.student_id,
+        requestedAmount: plan.requestedAmount,
+        totalExternalAmount: plan.totalExternalAmount,
+        creditAppliedExpected: plan.creditApplied,
+        platformFeePercentage: chargeBreakdown.platformFeePercentage,
+        platformFeeAmount: chargeBreakdown.platformFeeAmount,
+        taxAmount: chargeBreakdown.taxAmount,
+        chargedAmount: chargeBreakdown.totalChargedAmount,
+        currency: String(display.financeCurrency.code || 'USD').toUpperCase(),
+        selectedOccurrenceDates: plan.selectedOccurrenceDates,
+        paymentEntries: plan.paymentEntries,
+        status: 'pending',
       });
 
-      return req.session.save(() => {
-        res.json({
-          success: true,
-          clientSecret: paymentIntent.client_secret,
-          paymentIntentId: paymentIntent.id,
-          contextKey,
-          amountDue: Number(chargeTotals.totalChargedAmount || 0),
-          subtotalAmount: Number(paymentContext.totalExternalAmount || 0),
-          platformFeeAmount: Number(chargeTotals.platformFeeAmount || 0),
-          currency: chargeCurrency.toUpperCase(),
-        });
-      });
+      req.session.guardianPaygiraStripeIntentId = paymentIntent.id;
+      const payload = {
+        success: true,
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id,
+        amountDue: Math.round(chargeBreakdown.totalChargedAmount * 100),
+        amountApplied: Math.round(plan.totalExternalAmount * 100),
+        platformFeeAmount: Math.round(chargeBreakdown.platformFeeAmount * 100),
+        currency: String(display.financeCurrency.code || 'USD').toUpperCase(),
+        returnUrl: `${req.protocol}://${req.get('host')}/guardian/paygira/stripe-return`,
+        paymentMethodOrder: stripeCheckoutConfig.paymentMethodOrder,
+        expressWallets: stripeCheckoutConfig.expressWallets,
+      };
+
+      return req.session.save
+        ? req.session.save(() => res.json(payload))
+        : res.json(payload);
     } catch (error) {
+      if (error instanceof PaygiraRequestError) {
+        return res.status(error.status || 400).json({ success: false, message: error.message });
+      }
       console.error('[guardianPaygiraStripeIntentPost]', error);
-      return res.status(error.statusCode || 500).json({
-        success: false,
-        message: error.message || 'Unable to initialize secure online checkout.',
-      });
+      return res.status(500).json({ success: false, message: 'Unable to initialize Stripe payment.' });
     } finally {
       if (client && shouldReleaseClient) client.release();
     }
@@ -5237,49 +5204,460 @@ module.exports = {
     const guardianId = req.session.guardianId;
     if (!orgId || !guardianId) return res.redirect('/account/login');
 
-    const contextKey = String(req.query.contextKey || '').trim();
-    const pendingContext = getGuardianPaygiraPendingContext(req, contextKey);
-    if (!pendingContext) {
-      req.flash && req.flash('error', 'The online payment session could not be found. Please try again.');
+    const paymentIntentId = String(
+      req.query.payment_intent || req.session.guardianPaygiraStripeIntentId || ''
+    ).trim();
+
+    if (!paymentIntentId) {
+      req.flash && req.flash('error', 'Stripe did not return a valid payment session.');
       return res.redirect('/guardian/paygira');
     }
 
     try {
-      await finalizeGuardianPaygiraPayment({
-        req,
-        database,
-        paymentInput: {
-          ...pendingContext,
-          method: 'stripe',
-          payment_intent_id: req.query.payment_intent || pendingContext.paymentIntentId,
-          payment_context_key: contextKey,
-        },
-      });
+      const result = await finalizePendingGuardianStripePayment(database, paymentIntentId);
+      req.session.guardianPaygiraStripeIntentId = null;
+
+      if (result.status === 'completed') {
+        const orgProfile = await loadOrganizationProfile(orgId);
+        const display = await buildFinanceDisplayContext(req, orgId, await loadPspSettings(orgId), orgProfile.organization_country);
+        const messageParts = [];
+        if (result.creditApplied > 0) messageParts.push(`${display.formatMoney(result.creditApplied)} applied from available balance`);
+        if (result.totalExternalAmount > 0) messageParts.push(`${display.formatMoney(result.totalExternalAmount)} applied to the bill`);
+        if (result.totalPlatformFeeAmount > 0) messageParts.push(`${display.formatMoney(result.totalPlatformFeeAmount)} charged as platform fee`);
+        req.flash && req.flash('success', messageParts.length
+          ? `Stripe payment completed. ${messageParts.join(' and ')}.`
+          : 'Stripe payment completed successfully.');
+      } else if (result.status === 'already_processed') {
+        req.flash && req.flash('success', 'This Stripe payment was already applied to the bill.');
+      } else if (result.status === 'processing') {
+        req.flash && req.flash('success', 'Stripe is still processing this payment. PayGira will update automatically once Stripe confirms it.');
+      } else if (result.status === 'failed') {
+        req.flash && req.flash('error', result.message || 'Stripe payment was not completed.');
+      } else {
+        req.flash && req.flash('error', 'We could not find this Stripe payment session.');
+      }
+
+      return req.session.save
+        ? req.session.save(() => res.redirect('/guardian/paygira'))
+        : res.redirect('/guardian/paygira');
     } catch (error) {
       console.error('[guardianPaygiraStripeReturnGet]', error);
-      req.flash && req.flash('error', error.message || 'Payment could not be finalized.');
+      req.flash && req.flash('error', 'Stripe payment could not be finalized.');
+      return res.redirect('/guardian/paygira');
     }
-
-    return req.session.save(() => res.redirect('/guardian/paygira'));
   },
 
+  financeStripeWebhookPost: async (req, res, dbArg) => {
+    const database = dbArg || db;
+    const sig = req.headers['stripe-signature'];
+    let event = null;
+
+    try {
+      const secretRows = await database.query(
+        `SELECT organization_id,
+                data->>'stripe_webhook_secret' AS stripe_webhook_secret,
+                data->>'stripe_secret_key' AS stripe_secret_key
+           FROM finance_psp_settings
+          WHERE COALESCE(data->>'stripe_webhook_secret', '') <> ''
+            AND COALESCE(data->>'stripe_secret_key', '') <> ''`
+      );
+
+      let lastError = null;
+      for (const row of secretRows.rows) {
+        try {
+          const stripe = getSchoolStripeClient({ stripe_secret_key: row.stripe_secret_key });
+          event = stripe.webhooks.constructEvent(req.body, sig, row.stripe_webhook_secret);
+          break;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
+      if (!event) {
+        throw lastError || new Error('Unable to verify Stripe webhook signature');
+      }
+    } catch (error) {
+      return res.status(400).send(`Webhook Error: ${error.message}`);
+    }
+
+    try {
+      const paymentIntentId = event.data?.object?.id;
+      if (!paymentIntentId) return res.json({ received: true });
+
+      switch (event.type) {
+        case 'payment_intent.succeeded':
+          await finalizePendingGuardianStripePayment(database, paymentIntentId);
+          break;
+        case 'payment_intent.processing': {
+          const client = await database.connect();
+          try {
+            await client.query('BEGIN');
+            await updatePendingGuardianStripePaymentStatus(client, paymentIntentId, 'processing', {
+              stripeMethodType: resolveStripeFinanceMethod(event.data.object),
+            });
+            await client.query('COMMIT');
+          } catch (error) {
+            try { await client.query('ROLLBACK'); } catch (_) {}
+            throw error;
+          } finally {
+            client.release();
+          }
+          break;
+        }
+        case 'payment_intent.payment_failed':
+        case 'payment_intent.canceled': {
+          const client = await database.connect();
+          try {
+            await client.query('BEGIN');
+            await updatePendingGuardianStripePaymentStatus(client, paymentIntentId, 'failed', {
+              stripeMethodType: resolveStripeFinanceMethod(event.data.object),
+              lastError: event.data.object?.last_payment_error?.message || `Stripe event ${event.type}.`,
+            });
+            await client.query('COMMIT');
+          } catch (error) {
+            try { await client.query('ROLLBACK'); } catch (_) {}
+            throw error;
+          } finally {
+            client.release();
+          }
+          break;
+        }
+        default:
+          break;
+      }
+    } catch (error) {
+      console.error('[financeStripeWebhookPost]', error);
+      return res.status(500).send('Webhook processing error');
+    }
+
+    return res.json({ received: true });
+  },
+
+  // Guardian pays a bill (one assignment). Uses saved card metadata or generic.
   guardianPaygiraPayPost: async (req, res, dbArg) => {
     const database = dbArg || db;
     const orgId = req.session.organizationId;
     const guardianId = req.session.guardianId;
     if (!orgId || !guardianId) return res.redirect("/account/login");
+    const { assignment_id, amount, card_id, method, occurrence_date, occurrence_dates, apply_credit } = req.body;
+    let client;
+    let shouldReleaseClient = false;
     try {
-      await finalizeGuardianPaygiraPayment({
-        req,
-        database,
-        paymentInput: req.body,
-      });
+      const selectedOccurrenceDates = parseOccurrenceDates(occurrence_dates);
+      if (!selectedOccurrenceDates.length) {
+        const singleOccurrenceDate = parseOccurrenceDates(occurrence_date);
+        if (singleOccurrenceDate.length) selectedOccurrenceDates.push(singleOccurrenceDate[0]);
+      }
+
+      // Verify this assignment belongs to a student linked to this guardian
+      if (typeof database.connect === "function") {
+        client = await database.connect();
+        shouldReleaseClient = true;
+      } else {
+        client = database;
+      }
+
+      const verify = await client.query(
+        `SELECT a.*, b.title AS bill_title, b.due_date, b.bill_type, b.recurrence, b.recurrence_end_date,
+          b.term_id, b.exclude_non_school_days,
+          b.accepts_card, b.accepts_cash, b.accepts_transfer, b.payment_destination,
+          tm.end_date AS term_end_date
+           FROM finance_bill_assignments a
+           JOIN finance_bills b ON b.bill_id = a.bill_id
+           LEFT JOIN terms tm ON tm.term_id = b.term_id
+          WHERE a.assignment_id=$1 AND a.organization_id=$2
+            AND a.status <> 'cancelled'
+            AND COALESCE(b.status, 'active') <> 'cancelled'
+            AND (
+              EXISTS (SELECT 1 FROM guardians g
+                       WHERE g.student_id=a.student_id AND g.guardian_id=$3 AND g.organization_id=$2)
+              OR EXISTS (SELECT 1 FROM guardian_students gs
+                       WHERE gs.student_id=a.student_id AND gs.guardian_id=$3)
+            )
+          LIMIT 1`,
+        [assignment_id, orgId, guardianId]
+      );
+      if (!verify.rows.length) {
+        req.flash && req.flash("error", "Not authorized to pay this bill.");
+        return res.redirect("/guardian/paygira");
+      }
+      const row = verify.rows[0];
+      const isRecurringBill = String(row.bill_type || "") === "recurring";
+      const wantsCredit = Boolean(parseBoolean(apply_credit));
+      if (isRecurringBill && !selectedOccurrenceDates.length) {
+        req.flash && req.flash("error", "Select at least one recurring date to pay.");
+        return res.redirect("/guardian/paygira");
+      }
+
+      const requestedAmount = Math.max(Number(amount || 0), 0);
+      if (!isRecurringBill && requestedAmount <= 0 && !wantsCredit) {
+        req.flash && req.flash("error", "Enter a valid amount.");
+        return res.redirect("/guardian/paygira");
+      }
+
+      const paymentNotesBase = `Guardian portal payment by guardian #${guardianId}`;
+      let paymentEntries = [];
+      let creditApplied = 0;
+      let creditCreated = 0;
+      let totalExternalAmount = 0;
+      let availableCredit = 0;
+
+      await client.query("BEGIN");
+
+      if (wantsCredit) {
+        availableCredit = await getStudentCreditBalance(client, orgId, row.student_id, { forUpdate: true });
+      }
+
+      if (isRecurringBill) {
+        const existingOccurrencePayments = await client.query(
+          `SELECT occurrence_date::text AS occurrence_date, COALESCE(SUM(amount), 0) AS paid_amount
+             FROM finance_payments
+            WHERE organization_id=$1 AND assignment_id=$2 AND occurrence_date = ANY($3::date[])
+            GROUP BY occurrence_date`,
+          [orgId, row.assignment_id, selectedOccurrenceDates]
+        );
+        const paidByDate = existingOccurrencePayments.rows.reduce((accumulator, entry) => {
+          accumulator[entry.occurrence_date] = Number(entry.paid_amount || 0);
+          return accumulator;
+        }, {});
+        paymentEntries = selectedOccurrenceDates.reduce((entries, dateValue) => {
+          const outstandingAmount = Math.max(Number(row.amount || 0) - Number(paidByDate[dateValue] || 0), 0);
+          if (!(outstandingAmount > 0)) return entries;
+          entries.push({
+            amount: outstandingAmount,
+            occurrenceDate: dateValue,
+            notes: `${paymentNotesBase} for ${dateValue}`,
+            creditAmount: 0,
+            externalAmount: 0,
+          });
+          return entries;
+        }, []);
+        if (!paymentEntries.length) {
+          await client.query("ROLLBACK");
+          req.flash && req.flash("error", "The selected recurring dates are already fully paid.");
+          return res.redirect("/guardian/paygira");
+        }
+        creditApplied = wantsCredit
+          ? Math.min(availableCredit, paymentEntries.reduce((sum, entry) => sum + Number(entry.amount || 0), 0))
+          : 0;
+        let remainingCredit = creditApplied;
+        paymentEntries = paymentEntries.map((entry) => {
+          const creditAmount = Math.min(Number(entry.amount || 0), remainingCredit);
+          remainingCredit -= creditAmount;
+          const externalAmount = Math.max(Number(entry.amount || 0) - creditAmount, 0);
+          return {
+            ...entry,
+            creditAmount,
+            externalAmount,
+          };
+        });
+        totalExternalAmount = paymentEntries.reduce((sum, entry) => sum + Number(entry.externalAmount || 0), 0);
+      } else {
+        const currentOutstanding = Math.max(Number(row.amount || 0) + Number(row.late_fee_applied || 0) - Number(row.amount_paid || 0), 0);
+        creditApplied = wantsCredit
+          ? Math.min(availableCredit, Math.max(currentOutstanding - requestedAmount, 0))
+          : 0;
+        totalExternalAmount = requestedAmount;
+        paymentEntries = [{
+          amount: requestedAmount,
+          occurrenceDate: normalizeOccurrenceDate(occurrence_date),
+          notes: paymentNotesBase,
+          creditAmount: creditApplied,
+          externalAmount: requestedAmount,
+        }];
+      }
+
+      if (!(totalExternalAmount > 0 || creditApplied > 0)) {
+        await client.query("ROLLBACK");
+        req.flash && req.flash("error", "Enter a valid amount.");
+        return res.redirect("/guardian/paygira");
+      }
+
+      let reference = `GUARDIAN-${guardianId}`;
+      let payMethod = String(method || "card").toLowerCase();
+      if (totalExternalAmount > 0) {
+        const psp = await loadPspSettings(orgId);
+        const allow = computeAllowedMethods(psp);
+        const ok =
+          (payMethod === 'card'          && row.accepts_card && allow.stripeOn) ||
+          (payMethod === 'stripe'        && row.accepts_card && allow.stripeOn) ||
+          (payMethod === 'bank_transfer' && row.accepts_transfer && allow.bankOn) ||
+          (payMethod === 'mobile_money'  && allow.momoOn) ||
+          (payMethod === 'other');
+        if (!ok) {
+          await client.query("ROLLBACK");
+          req.flash && req.flash("error", `This bill does not accept "${payMethod}". Choose a method the school has enabled.`);
+          return res.redirect("/guardian/paygira");
+        }
+
+        if (card_id && (payMethod === 'card' || payMethod === 'stripe')) {
+          const c = await client.query(
+            `SELECT brand, last4 FROM guardian_payment_methods
+              WHERE card_id=$1 AND guardian_id=$2 AND organization_id=$3`,
+            [parseInt(card_id, 10) || 0, guardianId, orgId]
+          );
+          if (c.rows.length) {
+            reference = `${c.rows[0].brand || "CARD"} •••• ${c.rows[0].last4}`;
+            payMethod = "card";
+          }
+        }
+      }
+
+      const { percentage: platformFeePercentage } = await getPlatformFeeSettings(client);
+      let totalPlatformFeeAmount = 0;
+
+      if (creditApplied > 0) {
+        for (const entry of paymentEntries) {
+          if (!(Number(entry.creditAmount || 0) > 0)) continue;
+          await client.query(
+            `INSERT INTO finance_payments
+              (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, occurrence_date)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+            [
+              orgId,
+              row.assignment_id,
+              row.bill_id,
+              row.student_id,
+              entry.creditAmount,
+              'credit',
+              'STUDENT-CREDIT',
+              `${entry.notes} using available student credit`,
+              entry.occurrenceDate || null,
+            ]
+          );
+        }
+        await setStudentCreditBalance(client, orgId, row.student_id, availableCredit - creditApplied);
+      }
+
+      if (totalExternalAmount > 0) {
+        if (isRecurringBill) {
+          for (const entry of paymentEntries) {
+            if (!(Number(entry.externalAmount || 0) > 0)) continue;
+            const chargeBreakdown = buildFinancePaymentChargeBreakdown(entry.externalAmount, payMethod, platformFeePercentage);
+            totalPlatformFeeAmount += chargeBreakdown.platformFeeAmount;
+            await client.query(
+              `INSERT INTO finance_payments
+                (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, occurrence_date, platform_fee_percentage, platform_fee_amount, tax_amount)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+              [
+                orgId,
+                row.assignment_id,
+                row.bill_id,
+                row.student_id,
+                entry.externalAmount,
+                payMethod,
+                reference,
+                entry.notes,
+                entry.occurrenceDate || null,
+                chargeBreakdown.platformFeePercentage,
+                chargeBreakdown.platformFeeAmount,
+                chargeBreakdown.taxAmount,
+              ]
+            );
+          }
+        } else {
+          const chargeBreakdown = buildFinancePaymentChargeBreakdown(totalExternalAmount, payMethod, platformFeePercentage);
+          totalPlatformFeeAmount += chargeBreakdown.platformFeeAmount;
+          await client.query(
+            `INSERT INTO finance_payments
+              (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, occurrence_date, platform_fee_percentage, platform_fee_amount, tax_amount)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+            [
+              orgId,
+              row.assignment_id,
+              row.bill_id,
+              row.student_id,
+              totalExternalAmount,
+              payMethod,
+              reference,
+              paymentNotesBase,
+              normalizeOccurrenceDate(occurrence_date),
+              chargeBreakdown.platformFeePercentage,
+              chargeBreakdown.platformFeeAmount,
+              chargeBreakdown.taxAmount,
+            ]
+          );
+        }
+      }
+
+      const newPaid = Number(row.amount_paid) + totalExternalAmount + creditApplied;
+      const scheduleContext = createBillScheduleContextLoader(client, orgId);
+      const total = (isRecurringBill ? await getScheduledBilledAmount(row, scheduleContext) : Number(row.amount)) + Number(row.late_fee_applied || 0);
+      let appliedToAssignment = newPaid;
+      if (!isRecurringBill && newPaid > total) {
+        creditCreated = newPaid - total;
+        appliedToAssignment = total;
+      }
+      const newStatus = isRecurringBill
+        ? (appliedToAssignment >= total
+            ? "paid"
+            : (newPaid > 0 ? "partial" : recalcAssignmentStatus(row.amount, row.late_fee_applied, appliedToAssignment, row.due_date)))
+        : recalcAssignmentStatus(row.amount, row.late_fee_applied, appliedToAssignment, row.due_date);
+      await client.query(
+        `UPDATE finance_bill_assignments SET amount_paid=$1, status=$2, updated_at=now() WHERE assignment_id=$3`,
+        [appliedToAssignment, newStatus, row.assignment_id]
+      );
+      if (creditCreated > 0) {
+        await addStudentCredit(client, orgId, row.student_id, creditCreated);
+      }
+      await client.query("COMMIT");
+
+      const display = await buildFinanceDisplayContext(req, orgId);
+      if (isRecurringBill) {
+        const recurringMessagePrefix = paymentEntries.length > 1
+          ? `${paymentEntries.length} recurring dates settled.`
+          : `${new Date(selectedOccurrenceDates[0] + "T00:00:00").toLocaleDateString()} settled.`;
+        const recurringMessageParts = [];
+        if (creditApplied > 0) recurringMessageParts.push(`${display.formatMoney(creditApplied)} applied from available balance`);
+        if (totalExternalAmount > 0) recurringMessageParts.push(`${display.formatMoney(totalExternalAmount)} received`);
+        if (totalPlatformFeeAmount > 0) recurringMessageParts.push(`${display.formatMoney(totalPlatformFeeAmount)} platform fee charged`);
+        req.flash && req.flash("success", `${recurringMessagePrefix} ${recurringMessageParts.join(' and ')}.`.trim());
+      } else {
+        const paymentSummary = [];
+        if (creditApplied > 0) paymentSummary.push(`${display.formatMoney(creditApplied)} applied from available balance`);
+        if (totalExternalAmount > 0) paymentSummary.push(`${display.formatMoney(totalExternalAmount)} received`);
+        if (totalPlatformFeeAmount > 0) paymentSummary.push(`${display.formatMoney(totalPlatformFeeAmount)} platform fee charged`);
+        const baseMessage = paymentSummary.length ? `${paymentSummary.join(' and ')}.` : 'Payment applied.';
+        req.flash && req.flash("success", creditCreated > 0
+          ? `${baseMessage} ${display.formatMoney(creditCreated)} kept as credit.`
+          : `${baseMessage} Thank you.`);
+      }
+      // Audit log (guardian-initiated)
+      try {
+        const gRow = (await database.query(`SELECT first_name, last_name FROM guardians WHERE guardian_id=$1 LIMIT 1`, [guardianId])).rows[0];
+        const sRow = (await database.query(`SELECT first_name, last_name FROM students WHERE student_id=$1 AND organization_id=$2`, [row.student_id, orgId])).rows[0];
+        const bRow = (await database.query(`SELECT title FROM finance_bills WHERE bill_id=$1 AND organization_id=$2`, [row.bill_id, orgId])).rows[0];
+        const studentLabel = sRow ? `${sRow.first_name} ${sRow.last_name}` : `Student #${row.student_id}`;
+        const guardianName = gRow ? `${gRow.first_name || ''} ${gRow.last_name || ''}`.trim() : `Guardian #${guardianId}`;
+        await logPaygira(req, {
+          userName: guardianName,
+          userRole: "Guardian",
+          actionType: "Paid",
+          recordType: "Payment",
+          recordId: row.assignment_id,
+          recordLabel: `${studentLabel} — ${bRow?.title || 'Bill'}`,
+          description: `Guardian ${guardianName} applied $${(creditApplied || 0).toFixed(2)} in student credit and paid $${(totalExternalAmount || 0).toFixed(2)}${totalExternalAmount > 0 ? ` (${payMethod})` : ''} for ${studentLabel} on bill "${bRow?.title || row.bill_id}"${isRecurringBill && selectedOccurrenceDates.length ? ` across ${selectedOccurrenceDates.length} recurring date(s)` : ''}. New status: ${newStatus}${creditCreated > 0 ? `; $${creditCreated.toFixed(2)} credited.` : ''}.`,
+          changedFields: [
+            { field: "Applied Credit", value: `$${(creditApplied || 0).toFixed(2)}` },
+            { field: "Amount", value: `$${(totalExternalAmount || 0).toFixed(2)}` },
+            ...(totalPlatformFeeAmount > 0 ? [{ field: "Platform Fee", value: `$${totalPlatformFeeAmount.toFixed(2)}` }] : []),
+            { field: "Method", value: totalExternalAmount > 0 ? payMethod : 'credit' },
+            { field: "Reference", value: reference || '—' },
+            ...(isRecurringBill && selectedOccurrenceDates.length ? [{ field: "Recurring Dates", value: selectedOccurrenceDates.join(", ") }] : []),
+            { field: "New Status", value: newStatus },
+          ],
+        });
+      } catch (_) {}
     } catch (e) {
+      if (client) {
+        try { await client.query("ROLLBACK"); } catch (_) {}
+      }
       console.error("[guardianPaygiraPayPost]", e);
       req.flash && req.flash("error", "Payment could not be processed: " + e.message);
+    } finally {
+      if (client && shouldReleaseClient) client.release();
     }
-
-    return req.session.save(() => res.redirect('/guardian/paygira'));
+    res.redirect("/guardian/paygira");
   },
 
   // ===================================================================
