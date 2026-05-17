@@ -695,6 +695,13 @@ module.exports = {
       const normalizedEmail = String(email || '').trim().toLowerCase();
       const normalizedAddress = String(address || '').trim();
       const normalizedHometown = String(hometown || '').trim();
+      const cleanedPhone = normalizedPhone ? normalizedPhone.replace(/[^\d+]/g, '') : null;
+
+      // Read old guardian name before updates so we can match to legacy guardians table
+      const oldProfileRow = (await db.query(
+        `SELECT first_name, last_name FROM guardian_profiles WHERE guardian_id=$1 AND organization_id=$2`,
+        [guardianId, organizationId]
+      )).rows[0];
 
       // Handle guardian profile image upload
       let guardianImageUrl = null;
@@ -742,30 +749,42 @@ module.exports = {
         [normalizedFirstName, normalizedLastName, normalizedPhone, normalizedEmail, normalizedAddress, normalizedHometown, guardianId, organizationId]
       );
 
-      // Update guardian account email and phone
+      // Update guardian account email and phone (normalize phone to digits)
       await db.query(
         `UPDATE guardian_accounts 
-         SET login_email = $1, login_phone = $2
+         SET login_email = $1, login_phone = $2, updated_at = NOW()
          WHERE guardian_id = $3 AND organization_id = $4`,
-        [normalizedEmail, normalizedPhone, guardianId, organizationId]
+        [normalizedEmail || null, cleanedPhone, guardianId, organizationId]
       );
 
-      if (guardianImageUrl) {
-        await db.query(
-          `UPDATE guardians
-           SET first_name = $1, last_name = $2, phone = $3, email = $4,
-               address = $5, hometown = $6, image_url = $7
-           WHERE guardian_id = $8 AND organization_id = $9`,
-          [normalizedFirstName, normalizedLastName, normalizedPhone, normalizedEmail, normalizedAddress, normalizedHometown, guardianImageUrl, guardianId, organizationId]
-        );
-      } else {
-        await db.query(
-          `UPDATE guardians
-           SET first_name = $1, last_name = $2, phone = $3, email = $4,
-               address = $5, hometown = $6
-           WHERE guardian_id = $7 AND organization_id = $8`,
-          [normalizedFirstName, normalizedLastName, normalizedPhone, normalizedEmail, normalizedAddress, normalizedHometown, guardianId, organizationId]
-        );
+      // Sync to legacy guardians table by old name match
+      // (guardian_profiles.guardian_id != guardians.guardian_id so we cannot use ID)
+      if (oldProfileRow) {
+        if (guardianImageUrl) {
+          await db.query(
+            `UPDATE guardians
+               SET first_name = $1, last_name = $2, phone = $3, email = $4,
+                   address = $5, hometown = $6, image_url = $7
+             WHERE organization_id = $8
+               AND LOWER(first_name) = LOWER($9)
+               AND LOWER(last_name)  = LOWER($10)`,
+            [normalizedFirstName, normalizedLastName, normalizedPhone, normalizedEmail,
+             normalizedAddress, normalizedHometown, guardianImageUrl,
+             organizationId, oldProfileRow.first_name, oldProfileRow.last_name]
+          );
+        } else {
+          await db.query(
+            `UPDATE guardians
+               SET first_name = $1, last_name = $2, phone = $3, email = $4,
+                   address = $5, hometown = $6
+             WHERE organization_id = $7
+               AND LOWER(first_name) = LOWER($8)
+               AND LOWER(last_name)  = LOWER($9)`,
+            [normalizedFirstName, normalizedLastName, normalizedPhone, normalizedEmail,
+             normalizedAddress, normalizedHometown,
+             organizationId, oldProfileRow.first_name, oldProfileRow.last_name]
+          );
+        }
       }
 
       req.flash('success', 'Settings updated successfully!');

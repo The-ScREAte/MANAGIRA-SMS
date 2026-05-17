@@ -271,6 +271,12 @@ app.use(async (req, res, next) => {
 app.use(compression());
 app.use(createRequestLatencyMonitor());
 
+// Service worker must be served with no-cache so browsers always check for updates
+app.get('/service-worker.js', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.sendFile(path.join(__dirname, 'public', 'service-worker.js'));
+});
+
 // Static files with long-term caching should bypass session middleware.
 app.use(express.static("public", {
   maxAge: '1d',

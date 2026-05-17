@@ -2,6 +2,12 @@
   <meta charset="UTF-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- PWA meta tags -->
+  <meta name="theme-color" content="#01535b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Managira" />
   <title><%- title %><% if (!title.includes('Managira')) { %> | Managira<% } %></title>
   
   <!-- SEO Meta Tags -->
@@ -296,4 +302,13 @@
   <% if (!(typeof hideGlobalChatbot !== 'undefined' && hideGlobalChatbot)) { %>
   <script src="/js/chatbot.js" defer></script>
   <% } %>
+
+  <!-- PWA: Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('/service-worker.js').catch(function () {});
+      });
+    }
+  </script>
 </head>

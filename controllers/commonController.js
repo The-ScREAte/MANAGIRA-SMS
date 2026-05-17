@@ -11085,6 +11085,7 @@ const commonController = {
       const guardianId = req.params.guardianId;
       const guardianSource = req.query.source === 'profile' ? 'profile' : 'legacy';
       const { firstName, lastName, email, phone, address, hometown } = req.body;
+      const cleanedPhone = phone ? String(phone).replace(/[^\d+]/g, '') : null;
 
       let imageUrl = null;
       if (req.file) {
@@ -11093,6 +11094,12 @@ const commonController = {
       }
 
       if (guardianSource === 'profile') {
+        // Read old profile name so we can cross-sync the legacy guardians table
+        const oldProfileRow = (await db.query(
+          `SELECT first_name, last_name FROM guardian_profiles WHERE guardian_id=$1 AND organization_id=$2`,
+          [guardianId, organizationId]
+        )).rows[0];
+
         const updateProfileQuery = imageUrl
           ? `UPDATE guardian_profiles
              SET first_name = $1, last_name = $2, email = $3, phone = $4,
@@ -11110,11 +11117,30 @@ const commonController = {
         await db.query(updateProfileQuery, profileParams);
         await db.query(
           `UPDATE guardian_accounts
-           SET login_email = $1, login_phone = $2
+           SET login_email = $1, login_phone = $2, updated_at = NOW()
            WHERE guardian_id = $3 AND organization_id = $4`,
-          [email || null, phone || null, guardianId, organizationId]
+          [email || null, cleanedPhone, guardianId, organizationId]
         );
+
+        // Sync to legacy guardians table (name-based match using old name)
+        if (oldProfileRow) {
+          await db.query(
+            `UPDATE guardians
+               SET first_name = $1, last_name = $2, email = $3, phone = $4, address = $5, hometown = $6
+             WHERE organization_id = $7
+               AND LOWER(first_name) = LOWER($8)
+               AND LOWER(last_name)  = LOWER($9)`,
+            [firstName, lastName, email || null, phone || null, address, hometown,
+             organizationId, oldProfileRow.first_name, oldProfileRow.last_name]
+          );
+        }
       } else {
+        // Read old guardian data so we can cross-sync guardian_profiles / guardian_accounts
+        const oldGuardianRow = (await db.query(
+          `SELECT first_name, last_name FROM guardians WHERE guardian_id=$1 AND organization_id=$2`,
+          [guardianId, organizationId]
+        )).rows[0];
+
         const updateQuery = imageUrl
           ? `UPDATE guardians
              SET first_name = $1, last_name = $2, email = $3, phone = $4,
@@ -11130,6 +11156,31 @@ const commonController = {
           : [firstName, lastName, email || null, phone, address, hometown, guardianId, organizationId];
 
         await db.query(updateQuery, params);
+
+        // Sync to guardian_profiles and guardian_accounts by old name match
+        if (oldGuardianRow) {
+          await db.query(
+            `UPDATE guardian_profiles
+               SET first_name = $1, last_name = $2, email = $3, phone = $4, address = $5, hometown = $6, updated_at = NOW()
+             WHERE organization_id = $7
+               AND LOWER(first_name) = LOWER($8)
+               AND LOWER(last_name)  = LOWER($9)`,
+            [firstName, lastName, email || null, phone || null, address, hometown,
+             organizationId, oldGuardianRow.first_name, oldGuardianRow.last_name]
+          );
+          await db.query(
+            `UPDATE guardian_accounts
+               SET login_email = $1, login_phone = $2, updated_at = NOW()
+             WHERE organization_id = $3
+               AND guardian_id IN (
+                 SELECT guardian_id FROM guardian_profiles
+                 WHERE organization_id = $3
+                   AND LOWER(first_name) = LOWER($4)
+                   AND LOWER(last_name)  = LOWER($5)
+               )`,
+            [email || null, cleanedPhone, organizationId, firstName, lastName]
+          );
+        }
       }
 
       req.flash('success', 'Guardian information updated successfully');

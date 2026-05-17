@@ -34,6 +34,7 @@ const {
   isPlatformFeeMethod,
   buildPlatformChargeBreakdown,
 } = require("../utils/platformFee");
+const { createNotification } = require("../utils/notificationService");
 
 // PayGira audit logger — captures Admin/Mini-Admin actions that the
 // auto-middleware skips, with precise descriptions and field diffs.
@@ -3731,6 +3732,40 @@ module.exports = {
           { field: "Status", value: status === 'draft' ? 'draft' : 'active' },
         ],
       });
+
+      // Notify each guardian linked to the newly assigned students about the new bill
+      if (status !== 'draft' && eligibleStudentIds.length) {
+        Promise.resolve().then(async () => {
+          try {
+            const guardianRows = await db.query(
+              `SELECT DISTINCT
+                 COALESCE(gp.guardian_id, NULL)   AS profile_guardian_id,
+                 g.guardian_id                    AS legacy_guardian_id,
+                 s.first_name || ' ' || s.last_name AS student_name,
+                 gp.guardian_id                   AS notif_id
+               FROM students s
+               LEFT JOIN guardian_students gs ON gs.student_id = s.student_id
+               LEFT JOIN guardian_profiles  gp ON gp.guardian_id = gs.guardian_id AND gp.organization_id = $1
+               LEFT JOIN guardians          g  ON g.student_id  = s.student_id   AND g.organization_id  = $1
+               WHERE s.student_id = ANY($2::int[]) AND s.organization_id = $1
+                 AND gp.guardian_id IS NOT NULL`,
+              [orgId, eligibleStudentIds]
+            );
+            for (const gr of guardianRows.rows) {
+              if (!gr.notif_id) continue;
+              await createNotification(db, {
+                orgId,
+                recipientType: 'guardian',
+                recipientId: Number(gr.notif_id),
+                type: 'new_bill',
+                title: `New payment assigned — ${gr.student_name}`,
+                body: `"${title}" has been assigned. Amount: ${amt.toFixed(2)}.`,
+                link: `/guardian/paygira`,
+              });
+            }
+          } catch (_) {}
+        });
+      }
     } catch (e) {
       if (client) {
         try { await client.query("ROLLBACK"); } catch (_) {}
@@ -5622,7 +5657,7 @@ module.exports = {
           ? `${baseMessage} ${display.formatMoney(creditCreated)} kept as credit.`
           : `${baseMessage} Thank you.`);
       }
-      // Audit log (guardian-initiated)
+      // Audit log + guardian payment notification (guardian-initiated)
       try {
         const gRow = (await database.query(`SELECT first_name, last_name FROM guardians WHERE guardian_id=$1 LIMIT 1`, [guardianId])).rows[0];
         const sRow = (await database.query(`SELECT first_name, last_name FROM students WHERE student_id=$1 AND organization_id=$2`, [row.student_id, orgId])).rows[0];
@@ -5647,6 +5682,21 @@ module.exports = {
             { field: "New Status", value: newStatus },
           ],
         });
+
+        // In-app notification for the guardian confirming their payment
+        const billTitle = bRow?.title || 'bill';
+        const paidStr = totalExternalAmount > 0
+          ? display.formatMoney(totalExternalAmount)
+          : (creditApplied > 0 ? display.formatMoney(creditApplied) + ' (credit)' : 'payment');
+        createNotification(database, {
+          orgId,
+          recipientType: 'guardian',
+          recipientId: Number(guardianId),
+          type: 'payment_made',
+          title: `Payment confirmed — ${studentLabel}`,
+          body: `${paidStr} applied to "${billTitle}". Status: ${newStatus}.`,
+          link: `/guardian/paygira`,
+        }).catch(() => {});
       } catch (_) {}
     } catch (e) {
       if (client) {
