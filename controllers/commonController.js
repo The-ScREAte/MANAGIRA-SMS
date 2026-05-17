@@ -5645,21 +5645,21 @@ const commonController = {
       );
 
       const tokenRow = tokenResult.rows[0] || null;
+      const resetTokenUserId = tokenRow ? String(tokenRow.user_id || "") : "";
+      const isGuardianToken = Boolean(tokenRow && (type === 'guardian' || resetTokenUserId.startsWith('guardian_')));
 
       if (tokenRow && new Date(tokenRow.expires_at) < new Date()) {
-        req.flash("error", "Token has expired.");
-        return res.redirect("/account/login");
+        req.flash("error", "Token has expired. Please ask your school administrator to send a new password setup link.");
+        return res.redirect(isGuardianToken ? "/account/guardian-login" : "/account/login");
       }
 
-      const resetTokenUserId = tokenRow ? String(tokenRow.user_id || "") : "";
-
       // Handle guardian password setup/reset from password_reset_tokens table
-      if (tokenRow && (type === 'guardian' || resetTokenUserId.startsWith('guardian_'))) {
-        const user_id = resetTokenUserId;
-        const guardianId = user_id.replace('guardian_', '');
-        
-                
-        // Update guardian account password
+      if (isGuardianToken) {
+        const guardianId = resetTokenUserId.replace('guardian_', '');
+
+        // Update guardian account password. The WHERE uses guardian_id which may match
+        // multiple rows (one per org) – that is intentional; all of the guardian's
+        // accounts get the same password so they can log in to any linked school.
         const updateResult = await db.query(
           `UPDATE guardian_accounts
            SET password_hash = $1, must_reset_password = FALSE, updated_at = NOW()
@@ -5668,16 +5668,18 @@ const commonController = {
           [hashedPassword, guardianId]
         );
 
-                if (updateResult.rowCount === 0) {
-          req.flash("error", "Guardian account not found.");
-          return res.redirect("/account/login");
+        if (updateResult.rowCount === 0) {
+          // Guard account may have been deleted; attempt a graceful recovery.
+          // Re-fetch the guardian profile so we can show a useful error.
+          req.flash("error", "Guardian account not found. Please ask your school administrator to resend the password setup link.");
+          return res.redirect("/account/guardian-login");
         }
 
         // Delete the used token
         await db.query(`DELETE FROM password_reset_tokens WHERE token = $1`, [token]);
 
         req.flash("success", "Password set successfully! You can now log in to the Parent Portal.");
-        return res.redirect("/account/login");
+        return res.redirect("/account/guardian-login");
       }
 
       // Handle staff employee invite tokens stored in users table
@@ -10890,12 +10892,17 @@ const commonController = {
 
       if (guardianSource === 'profile') {
         const guardianResult = await db.query(
-          `SELECT gp.*, ga.login_email, ga.login_phone, 'profile'::text AS source
+          `SELECT gp.*, ga.login_email, ga.login_phone,
+                  ga.password_hash IS NOT NULL                            AS has_password,
+                  RIGHT(ga.password_hash, 1)                             AS password_last_char,
+                  ga.created_at                                           AS account_created_at,
+                  'profile'::text AS source
            FROM guardian_profiles gp
            LEFT JOIN guardian_accounts ga
              ON ga.guardian_id = gp.guardian_id
             AND ga.organization_id = gp.organization_id
            WHERE gp.guardian_id = $1 AND gp.organization_id = $2
+           ORDER BY (ga.password_hash IS NOT NULL) DESC
            LIMIT 1`,
           [guardianId, organizationId]
         );
@@ -11006,6 +11013,42 @@ const commonController = {
       // Get current term
       const currentTermId = req.session.currentTermId;
 
+      // ------------------------------------------------------------------
+      // Resolve portal password status. For profile guardians the main query
+      // already fetched it; for legacy guardians we need a separate lookup.
+      // ------------------------------------------------------------------
+      let guardianPasswordStatus = { hasPassword: false, lastChar: null };
+      if (guardianSource === 'profile') {
+        guardianPasswordStatus = {
+          hasPassword: Boolean(guardian.has_password),
+          lastChar: guardian.password_last_char || null,
+        };
+      } else {
+        // Legacy guardian: look up via profile match (same heuristic used when
+        // sending the password email).
+        const legacyAccCheck = await db.query(
+          `SELECT ga.password_hash IS NOT NULL AS has_password,
+                  RIGHT(ga.password_hash, 1)   AS password_last_char
+           FROM guardian_profiles gp
+           JOIN guardian_accounts ga
+             ON ga.guardian_id = gp.guardian_id
+            AND ga.organization_id = gp.organization_id
+           WHERE gp.organization_id = $1
+             AND gp.first_name = $2
+             AND gp.last_name  = $3
+             AND (gp.phone = $4 OR gp.email = $5)
+           ORDER BY (ga.password_hash IS NOT NULL) DESC
+           LIMIT 1`,
+          [organizationId, guardian.first_name, guardian.last_name, guardian.phone || null, guardian.email || null]
+        );
+        if (legacyAccCheck.rows.length) {
+          guardianPasswordStatus = {
+            hasPassword: Boolean(legacyAccCheck.rows[0].has_password),
+            lastChar: legacyAccCheck.rows[0].password_last_char || null,
+          };
+        }
+      }
+
       // Determine edit capability: managers & anyone with manage_guardians permission
       // Teachers are never allowed to edit.
       const canEdit = userRole !== 'Teacher' && (
@@ -11026,6 +11069,7 @@ const commonController = {
         account,
         canEdit,
         hasGuardianPortalFeature: hasGuardianPortal,
+        guardianPasswordStatus,
         messages: req.flash(),
         req,
       });
@@ -11677,13 +11721,32 @@ const commonController = {
       const hasPassword = hasAccount && accountCheck.rows[0].password_hash;
       const isNewAccount = !hasAccount;
 
+      // Normalise phone to digits + optional leading '+' so login lookup always works.
+      const cleanedContactPhone = contactPhone ? String(contactPhone).replace(/[^\d+]/g, "") : null;
+
       // If no account, create one
       if (!hasAccount) {
         await db.query(
           `INSERT INTO guardian_accounts (guardian_id, organization_id, login_email, login_phone, password_hash, created_at)
            VALUES ($1, $2, $3, $4, NULL, NOW())`,
-          [guardianProfileId, organizationId, contactEmail, contactPhone]
+          [guardianProfileId, organizationId, contactEmail, cleanedContactPhone]
         );
+      } else {
+        // Existing account: ensure login_email and login_phone are populated so both
+        // login methods work after the parent sets their password via this link.
+        const existingRow = accountCheck.rows[0];
+        const needsEmailSync = !existingRow.login_email && contactEmail;
+        const needsPhoneSync = !existingRow.login_phone && cleanedContactPhone;
+        if (needsEmailSync || needsPhoneSync) {
+          await db.query(
+            `UPDATE guardian_accounts
+             SET login_email   = COALESCE(login_email,   $1),
+                 login_phone   = COALESCE(login_phone,   $2),
+                 updated_at    = NOW()
+             WHERE guardian_id = $3 AND organization_id = $4`,
+            [contactEmail || null, cleanedContactPhone || null, guardianProfileId, organizationId]
+          );
+        }
       }
 
       // Generate token
@@ -12156,8 +12219,8 @@ const sendGuardianWelcomeEmail = async (guardianEmail, guardianFirstName, guardi
     );
 
     const setupLink = process.env.NODE_ENV === "production"
-      ? `https://www.managira.com/account/setPassword?token=${token}&type=guardian`
-      : `http://localhost:4000/account/setPassword?token=${token}&type=guardian`;
+      ? `https://www.managira.com/common/set-password?token=${token}&type=guardian`
+      : `http://localhost:4000/common/set-password?token=${token}&type=guardian`;
 
     const html = renderCleanEmail({
       title: `Welcome to ${he.encode(organizationName)} Parent Portal`,

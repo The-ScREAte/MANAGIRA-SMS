@@ -824,6 +824,22 @@
       This guardian can use either their <strong>email</strong> or <strong>phone number</strong> to log in to the Parent Portal with their password. 
       Click "Send Password Setup" above to send instructions.
     </p>
+    <% if (typeof guardianPasswordStatus !== 'undefined') { %>
+    <div class="gd-password-status" style="margin-top:8px;">
+      <% if (guardianPasswordStatus.hasPassword) { %>
+        <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:6px;background:#d1fae5;color:#065f46;font-size:0.85rem;font-weight:600;">
+          ✅ Password set
+          <% if (guardianPasswordStatus.lastChar) { %>
+            <span style="font-weight:400;color:#047857;">(ends in &ldquo;<%= guardianPasswordStatus.lastChar %>&rdquo;)</span>
+          <% } %>
+        </span>
+      <% } else { %>
+        <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:6px;background:#fee2e2;color:#991b1b;font-size:0.85rem;font-weight:600;">
+          ⚠️ No password set yet
+        </span>
+      <% } %>
+    </div>
+    <% } %>
     <% } else { %>
     <p class="gd-portal-note">
       Parent Portal is not enabled for this organization's current plan.

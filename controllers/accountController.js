@@ -4669,6 +4669,8 @@ const accountController = {
     const { identifier, password } = req.body;
 
     try {
+      // Normalise to digits + leading '+' only so stored phones like "024-412-3456"
+      // match typed inputs like "0244123456" regardless of formatting.
       const cleanedPhone = String(identifier || "").replace(/[^\d+]/g, "");
 
       const guardianAcc = await db.query(
@@ -4681,7 +4683,10 @@ const accountController = {
         WHERE
           (ga.login_email IS NOT NULL AND LOWER(ga.login_email) = LOWER($1))
           OR
-          (ga.login_phone IS NOT NULL AND ga.login_phone = $2)
+          (ga.login_phone IS NOT NULL
+            AND regexp_replace(ga.login_phone, '[^\\d+]', '', 'g') = $2
+            AND $2 <> '')
+        ORDER BY (ga.password_hash IS NOT NULL) DESC
         LIMIT 1
         `,
         [identifier, cleanedPhone]
