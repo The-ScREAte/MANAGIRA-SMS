@@ -3,7 +3,8 @@
   const money = typeof formatMoney === 'function'
     ? formatMoney
     : function(v){ return Number(v||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); };
-  function balance(a){ return Math.max(Number(a.amount||0) + Number(a.late_fee_applied||0) - Number(a.amount_paid||0), 0); }
+  function billedTotal(a){ return Math.max(Number(a.scheduled_billed_total ?? a.amount ?? 0), 0); }
+  function balance(a){ return Math.max(billedTotal(a) + Number(a.late_fee_applied||0) - Number(a.amount_paid||0), 0); }
   function statusClass(s){ return ({paid:'paid',partial:'partial',overdue:'overdue',pending:'pending'})[s||'pending']; }
 %>
 
@@ -168,6 +169,169 @@
   .pg-field input:disabled { background:rgba(255,255,255,.04); color:var(--pg-text); }
   .pg-field input:focus, .pg-field select:focus { outline:none; border-color:var(--pg-teal); }
   .pg-modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:18px; }
+  .pg-recurring-panel {
+    border:1px solid rgba(0,212,170,.22);
+    background:linear-gradient(180deg, rgba(0,212,170,.09), rgba(14,20,38,.92));
+    border-radius:16px;
+    padding:16px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.03);
+  }
+  .pg-recurring-caption {
+    color:var(--pg-muted);
+    font-size:.76rem;
+    margin:-2px 0 12px;
+  }
+  .pg-recurring-toolbar {
+    display:flex;
+    align-items:stretch;
+    justify-content:space-between;
+    gap:12px;
+    flex-wrap:wrap;
+    margin-bottom:12px;
+  }
+  .pg-recurring-summary {
+    color:var(--pg-text);
+    font-size:.82rem;
+    font-weight:700;
+    padding:12px 14px;
+    border-radius:14px;
+    border:1px solid rgba(255,255,255,.08);
+    background:rgba(8,13,26,.48);
+    min-width:min(280px, 100%);
+  }
+  .pg-recurring-actions {
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    align-items:center;
+  }
+  .pg-recurring-list {
+    display:grid;
+    gap:10px;
+    max-height:320px;
+    overflow-y:auto;
+    padding-right:2px;
+  }
+  .pg-occ-card {
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
+    padding:12px 13px;
+    border:1px solid var(--pg-border);
+    border-radius:14px;
+    background:rgba(8,13,26,.72);
+    cursor:pointer;
+    transition:border-color .16s ease, transform .16s ease, background .16s ease;
+  }
+  .pg-occ-card:hover {
+    border-color:rgba(0,212,170,.28);
+    background:rgba(14,20,38,.92);
+    transform:translateY(-1px);
+  }
+  .pg-occ-card input {
+    width:16px;
+    height:16px;
+    accent-color:var(--pg-teal);
+    cursor:pointer;
+    margin-top:3px;
+  }
+  .pg-occ-card-copy {
+    min-width:0;
+    flex:1;
+  }
+  .pg-occ-date {
+    font-weight:700;
+    font-size:.88rem;
+  }
+  .pg-occ-meta {
+    color:var(--pg-muted);
+    font-size:.72rem;
+    margin-top:2px;
+  }
+  .pg-occ-tag {
+    color:var(--pg-gold);
+    font-size:.68rem;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+  }
+  .pg-occ-tag.paid {
+    color:#15803d;
+  }
+  .pg-occ-status {
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-shrink:0;
+  }
+  .pg-occ-checkmark {
+    width:22px;
+    height:22px;
+    border-radius:50%;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    border:1px solid rgba(21,128,61,.35);
+    background:rgba(21,128,61,.16);
+    color:#15803d;
+    font-size:.82rem;
+    font-weight:800;
+  }
+  .pg-occ-tag.partial {
+    color:#b45309;
+  }
+  .pg-occ-tag.owing {
+    color:#b91c1c;
+  }
+  .pg-occ-card.disabled {
+    opacity:.62;
+    cursor:not-allowed;
+  }
+  .pg-occ-card.disabled input {
+    cursor:not-allowed;
+  }
+  .pg-occ-amount {
+    color:#d9f8f0;
+    font-size:.72rem;
+    margin-top:4px;
+    font-weight:600;
+  }
+  .pg-pay-hint {
+    display:block;
+    color:var(--pg-muted);
+    font-size:.72rem;
+    margin-top:8px;
+  }
+  .pg-credit-box {
+    border:1px solid rgba(0,212,170,.24);
+    background:linear-gradient(180deg, rgba(0,212,170,.10), rgba(14,20,38,.88));
+    border-radius:14px;
+    padding:14px;
+  }
+  .pg-credit-value {
+    font-family:'JetBrains Mono',monospace;
+    font-size:1rem;
+    font-weight:800;
+    color:var(--pg-teal);
+    margin-bottom:8px;
+  }
+  .pg-credit-toggle {
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    color:var(--pg-text);
+    font-size:.8rem;
+    line-height:1.4;
+  }
+  .pg-credit-toggle input {
+    margin-top:2px;
+    accent-color:var(--pg-teal);
+  }
+  .pg-credit-note {
+    color:var(--pg-muted);
+    font-size:.72rem;
+    margin-top:8px;
+  }
 
   .pg-history {
     background:var(--pg-surface); border:1px solid var(--pg-border); border-radius:14px;
@@ -276,6 +440,9 @@
       width:100%;
       justify-content:center;
     }
+    .pg-recurring-toolbar {
+      align-items:stretch;
+    }
   }
 
   @media (max-width:520px) {
@@ -330,6 +497,7 @@
       <div class="pg-stat"><div class="label">Total Billed</div><div class="value"><%= money(totals.billed) %></div><div class="sub">Across all your children</div></div>
       <div class="pg-stat teal"><div class="label">Total Paid</div><div class="value"><%= money(totals.paid) %></div><div class="sub">Thank you</div></div>
       <div class="pg-stat gold"><div class="label">Outstanding</div><div class="value"><%= money(totals.outstanding) %></div><div class="sub">Pay now to stay current</div></div>
+      <div class="pg-stat teal"><div class="label">Available Balance</div><div class="value"><%= money(totals.credit || 0) %></div><div class="sub"><%= Number(totals.credit || 0) > 0 ? (money(totals.net_outstanding || 0) + ' still due after balance') : 'No available balance yet' %></div></div>
       <div class="pg-stat"><div class="label">Saved Cards</div><div class="value"><%= cards.length %></div><div class="sub"><a href="/guardian/settings#cards" style="color:var(--pg-teal);text-decoration:none;">Manage in Settings →</a></div></div>
     </div>
 
@@ -351,47 +519,53 @@
                  alt="<%= child.first_name %>">
             <div class="pg-child-copy">
               <div class="pg-child-name"><%= child.first_name %> <%= child.last_name %></div>
-              <div class="pg-child-meta"><%= child.class_name || 'Unassigned class' %> · <%= kidAssignments.length %> bill<%= kidAssignments.length !== 1 ? 's' : '' %></div>
+              <div class="pg-child-meta"><%= child.class_name || 'Unassigned class' %> · <%= kidAssignments.length %> open bill<%= kidAssignments.length !== 1 ? 's' : '' %><% if (Number(child.student_credit || 0) > 0) { %> · Available balance <%= money(child.student_credit) %><% } %></div>
             </div>
           </div>
 
           <% if (!kidAssignments.length) { %>
             <div class="pg-empty" style="padding:28px;">
               <div style="font-size:1.4rem;">✅</div>
-              <div>No outstanding bills for this child.</div>
+              <div>No outstanding bills for this child.<% if (Number(child.student_credit || 0) > 0) { %> Available balance: <%= money(child.student_credit) %>.<% } %></div>
             </div>
           <% } else { kidAssignments.forEach(a => {
             const bal = balance(a);
+            const recurring = String(a.bill_type || '') === 'recurring';
+            const canPay = bal > 0;
           %>
             <div class="pg-bill-row"
-                 <% if (balance(a) > 0) { %>onclick="openPgPay('<%= a.assignment_id %>','<%- (a.bill_title || '').replace(/'/g,"&#39;") %>','<%= balance(a).toFixed(2) %>','<%= child.first_name %> <%= child.last_name %>')"<% } %>>
+                 <% if (canPay) { %>onclick="openPgPay('<%= a.assignment_id %>')"<% } %>>
               <div>
                 <div class="pg-bill-title"><%= a.bill_title %></div>
                 <div class="pg-bill-sub">
                   Due <%= a.due_date ? new Date(a.due_date).toLocaleDateString() : '—' %>
+                  <% if (recurring && a.recurrence) { %> · Recurs <%= a.recurrence %><% } %>
+                  <% if (recurring && a.recurrence_end_date) { %> · Through <%= new Date(a.recurrence_end_date).toLocaleDateString() %><% } %>
                   <% if (a.bill_description) { %> · <%= a.bill_description %><% } %>
                 </div>
               </div>
               <div class="pg-bill-col" data-label="Billed">
                 <div class="pg-bill-sub">Billed</div>
-                <div class="pg-amount"><%= money(a.amount) %></div>
+                <div class="pg-amount"><%= money(billedTotal(a)) %></div>
               </div>
               <div class="pg-bill-col" data-label="Paid">
                 <div class="pg-bill-sub">Paid</div>
                 <div class="pg-amount" style="color:var(--pg-teal);"><%= money(a.amount_paid) %></div>
               </div>
               <div class="pg-bill-col" data-label="Balance">
-                <div class="pg-bill-sub">Balance</div>
+                <div class="pg-bill-sub"><%= recurring ? 'Remaining' : 'Balance' %></div>
                 <div>
                   <div class="pg-balance"><%= money(bal) %></div>
+                  <% if (recurring && a.recurrence) { %><div class="pg-bill-sub">Pay exact dates inside the panel</div><% } %>
+                  <% if (Number(a.student_credit || 0) > 0) { %><div class="pg-bill-sub">Available balance <%= money(a.student_credit) %> can be applied here</div><% } %>
                   <span class="pg-status <%= statusClass(a.status) %>" style="margin-top:4px;"><%= a.status %></span>
                 </div>
               </div>
               <div class="pg-bill-actions" onclick="event.stopPropagation()">
-                <% if (bal > 0) { %>
+                <% if (canPay) { %>
                   <button type="button" class="pg-btn primary"
-                          onclick="openPgPay('<%= a.assignment_id %>','<%- (a.bill_title || '').replace(/'/g,"&#39;") %>','<%= bal.toFixed(2) %>','<%= child.first_name %> <%= child.last_name %>')">
-                    💳 Pay Now
+                          onclick="openPgPay('<%= a.assignment_id %>')">
+                    <%= recurring ? '📅 Pay Dates' : '💳 Pay Now' %>
                   </button>
                 <% } else { %>
                   <span class="pg-status paid">Paid</span>
@@ -404,7 +578,7 @@
       <% }); %>
     <% } %>
 
-    <div class="pg-section-title">Recent Payments</div>
+    <div class="pg-section-title">Recent Payments · Latest 15</div>
     <div class="pg-history">
       <div class="pg-history-row head">
         <div>Date</div><div>Student</div><div>Bill</div><div>Amount</div>
@@ -427,6 +601,24 @@
   </div>
 </div>
 
+<script id="pgAssignmentsData" type="application/json"><%- JSON.stringify(assignments.map(a => ({
+  assignment_id: a.assignment_id,
+  bill_title: a.bill_title,
+  student_name: `${a.first_name || ''} ${a.last_name || ''}`.trim(),
+  balance: balance(a),
+  amount: Number(a.amount || 0),
+  scheduled_billed_total: Number(a.scheduled_billed_total || 0),
+  amount_paid: Number(a.amount_paid || 0),
+  bill_type: a.bill_type,
+  recurrence: a.recurrence,
+  due_date: a.due_date,
+  recurrence_end_date: a.recurrence_end_date,
+  term_end_date: a.term_end_date,
+  scheduled_occurrence_dates: a.scheduled_occurrence_dates || [],
+  occurrence_payments: a.occurrence_payments || {},
+  student_credit: Number(a.student_credit || 0),
+}))) %></script>
+
 <!-- Pay Modal -->
 <div class="pg-modal-bg" id="pgPayModal">
   <div class="pg-modal">
@@ -439,6 +631,8 @@
     </h3>
     <form action="/guardian/paygira/pay" method="POST">
       <input type="hidden" name="assignment_id" id="pgPayAssignment">
+      <input type="hidden" name="occurrence_date" id="pgOccurrenceDate">
+      <input type="hidden" name="occurrence_dates" id="pgOccurrenceDates">
       <div class="pg-form-grid">
       <div class="pg-field span2">
         <label>Bill</label>
@@ -447,6 +641,14 @@
       <div class="pg-field span2">
         <label>Student</label>
         <input type="text" id="pgPayStudent" disabled>
+      </div>
+      <div class="pg-field span2" id="pgCreditField" hidden>
+        <label>Available Balance</label>
+        <div class="pg-credit-box">
+          <div class="pg-credit-value" id="pgCreditAmount"><%= money(0) %></div>
+          <label class="pg-credit-toggle"><input type="checkbox" name="apply_credit" id="pgApplyCredit"> Apply available balance before charging this payment</label>
+          <div class="pg-credit-note" id="pgCreditHint">Any available balance for this child can be used first before charging a new payment.</div>
+        </div>
       </div>
       <div class="pg-field">
         <label>Amount (<%= currencyCode %>)</label>
@@ -479,28 +681,386 @@
         </select>
         <small id="pgMethodHint" style="display:block;color:var(--pg-muted,#8a93a8);font-size:.72rem;margin-top:6px;">Only the payment methods your school has enabled appear here.</small>
       </div>
+      <div class="pg-field span2 pg-recurring-panel" id="pgRecurringPanel" hidden>
+        <label>Recurring Dates</label>
+        <div class="pg-recurring-caption">Choose the exact dates you want to settle. The total below only includes what is still owed for those dates.</div>
+        <div class="pg-recurring-toolbar">
+          <div class="pg-recurring-summary" id="pgRecurringSummary">Choose one or more owing dates. Total updates automatically.</div>
+          <div class="pg-recurring-actions">
+            <button type="button" class="pg-btn ghost" id="pgSelectAllDates" style="padding:7px 10px;font-size:.72rem;">Select all</button>
+            <button type="button" class="pg-btn ghost" id="pgClearDates" style="padding:7px 10px;font-size:.72rem;">Clear</button>
+          </div>
+        </div>
+        <div class="pg-recurring-list" id="pgRecurringList"></div>
+        <small class="pg-pay-hint" id="pgRecurringHint">Select one or more dates to pay only the remaining amount for those dates.</small>
+      </div>
       </div>
       <div class="pg-modal-actions">
         <button type="button" class="pg-btn ghost" onclick="closePgPay()">Cancel</button>
-        <button type="submit" class="pg-btn primary">🔒 Pay Securely</button>
+        <button type="submit" class="pg-btn primary" id="pgSubmitBtn">🔒 Pay Securely</button>
       </div>
     </form>
   </div>
 </div>
 
 <script>
-  function openPgPay(assignmentId, billTitle, balance, studentName) {
-    document.getElementById('pgPayAssignment').value = assignmentId;
-    document.getElementById('pgPayBillName').value = billTitle;
-    document.getElementById('pgPayStudent').value = studentName;
-    document.getElementById('pgPayAmount').value = balance;
-    document.getElementById('pgPayAmount').max = balance;
-    document.getElementById('pgPayModal').classList.add('open');
-  }
-  function closePgPay() {
-    document.getElementById('pgPayModal').classList.remove('open');
-  }
-  document.getElementById('pgPayModal').addEventListener('click', function(e){
-    if (e.target === this) closePgPay();
-  });
+  (function() {
+    var payAssignments = {};
+    try {
+      JSON.parse(document.getElementById('pgAssignmentsData').textContent || '[]').forEach(function(item) {
+        payAssignments[String(item.assignment_id)] = item;
+      });
+    } catch (_) {}
+
+    var payModal = document.getElementById('pgPayModal');
+    var payForm = payModal.querySelector('form');
+    var amountInput = document.getElementById('pgPayAmount');
+    var amountLabel = amountInput.closest('.pg-field').querySelector('label');
+    var recurringPanel = document.getElementById('pgRecurringPanel');
+    var recurringList = document.getElementById('pgRecurringList');
+    var recurringSummary = document.getElementById('pgRecurringSummary');
+    var recurringHint = document.getElementById('pgRecurringHint');
+    var occurrenceDateInput = document.getElementById('pgOccurrenceDate');
+    var occurrenceDatesInput = document.getElementById('pgOccurrenceDates');
+    var submitButton = document.getElementById('pgSubmitBtn');
+    var creditField = document.getElementById('pgCreditField');
+    var creditAmount = document.getElementById('pgCreditAmount');
+    var creditHint = document.getElementById('pgCreditHint');
+    var applyCreditCheckbox = document.getElementById('pgApplyCredit');
+    var activeRecord = null;
+
+    function formatMoney(value) {
+      try {
+        return new Intl.NumberFormat(undefined, {
+          style: 'currency',
+          currency: <%- JSON.stringify(currencyCode) %>,
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        }).format(Number(value || 0));
+      } catch (_) {
+        return <%- JSON.stringify(currencyCode) %> + ' ' + Number(value || 0).toFixed(2);
+      }
+    }
+
+    function recurStepDays(recurrence) {
+      return ({ daily: 1, weekly: 7, monthly: 30, term: 90, year: 365 })[String(recurrence || '').toLowerCase()] || 0;
+    }
+
+    function advanceOccurrenceDate(dateValue, recurrence) {
+      var next = new Date(dateValue.getTime());
+      switch (String(recurrence || '').toLowerCase()) {
+        case 'daily': next.setDate(next.getDate() + 1); return next;
+        case 'weekly': next.setDate(next.getDate() + 7); return next;
+        case 'monthly': next.setMonth(next.getMonth() + 1); return next;
+        case 'term': next.setMonth(next.getMonth() + 3); return next;
+        case 'year': next.setFullYear(next.getFullYear() + 1); return next;
+        default: return null;
+      }
+    }
+
+    function fmtDate(dateValue) {
+      try { return dateValue ? new Date(dateValue).toLocaleDateString() : '—'; } catch (_) { return '—'; }
+    }
+
+    function isoDate(dateValue) {
+      return dateValue.getFullYear() + '-' + String(dateValue.getMonth() + 1).padStart(2, '0') + '-' + String(dateValue.getDate()).padStart(2, '0');
+    }
+
+    function smartLabel(diff, recurrence) {
+      var normalized = String(recurrence || '').toLowerCase();
+      if (diff === 0) return 'Today';
+      if (diff === 1) return normalized === 'daily' ? 'Tomorrow' : 'Next';
+      if (diff === -1) return normalized === 'daily' ? 'Yesterday' : 'Previous';
+      if (diff < 0) return Math.abs(diff) + ' day(s) ago';
+      return 'In ' + diff + ' day(s)';
+    }
+
+    function buildOccurrences(record) {
+      var step = recurStepDays(record.recurrence);
+      if (!step) return [];
+      var anchor = record.due_date ? new Date(record.due_date) : new Date();
+      if (Number.isNaN(anchor.getTime())) anchor = new Date();
+      anchor.setHours(0, 0, 0, 0);
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+      var paymentMap = record.occurrence_payments || {};
+      var occurrences = [];
+      var exactDateList = Array.isArray(record.scheduled_occurrence_dates) && record.scheduled_occurrence_dates.length
+        ? record.scheduled_occurrence_dates.slice()
+        : null;
+      if (exactDateList) {
+        return exactDateList.reduce(function(rows, value) {
+          var occurrenceDate = new Date(value + 'T00:00:00');
+          if (Number.isNaN(occurrenceDate.getTime())) return rows;
+          var diff = Math.round((occurrenceDate - today) / 86400000);
+          var paidAmount = Number(paymentMap[value] || 0);
+          var outstandingAmount = Math.max(Number(record.amount || 0) - paidAmount, 0);
+          var status = outstandingAmount <= 0 ? 'Paid' : (paidAmount > 0 ? 'Partial' : 'Owing');
+          rows.push({
+            value: value,
+            label: fmtDate(occurrenceDate),
+            meta: smartLabel(diff, record.recurrence),
+            windowTag: diff < 0 ? 'Past' : (diff === 0 ? 'Due' : 'Upcoming'),
+            status: status,
+            statusClass: status.toLowerCase(),
+            paidAmount: paidAmount,
+            outstandingAmount: outstandingAmount,
+            amountLabel: outstandingAmount <= 0
+              ? 'Fully paid'
+              : (paidAmount > 0
+                  ? 'Owing ' + formatMoney(outstandingAmount) + ' after ' + formatMoney(paidAmount) + ' paid'
+                  : 'Owing ' + formatMoney(outstandingAmount))
+          });
+          return rows;
+        }, []);
+      }
+      var scheduleEndIso = record.recurrence_end_date || record.term_end_date || '';
+      if (scheduleEndIso) {
+        var scheduleEnd = new Date(scheduleEndIso + 'T00:00:00');
+        if (!Number.isNaN(scheduleEnd.getTime()) && scheduleEnd >= anchor) {
+          var cursor = new Date(anchor.getTime());
+          for (var guard = 0; guard < 5000 && cursor <= scheduleEnd; guard += 1) {
+            var exactDiff = Math.round((cursor - today) / 86400000);
+            var exactValue = isoDate(cursor);
+            var exactPaidAmount = Number(paymentMap[exactValue] || 0);
+            var exactOutstandingAmount = Math.max(Number(record.amount || 0) - exactPaidAmount, 0);
+            var exactStatus = exactOutstandingAmount <= 0 ? 'Paid' : (exactPaidAmount > 0 ? 'Partial' : 'Owing');
+            occurrences.push({
+              value: exactValue,
+              label: fmtDate(cursor),
+              meta: smartLabel(exactDiff, record.recurrence),
+              windowTag: exactDiff < 0 ? 'Past' : (exactDiff === 0 ? 'Due' : 'Upcoming'),
+              status: exactStatus,
+              statusClass: exactStatus.toLowerCase(),
+              paidAmount: exactPaidAmount,
+              outstandingAmount: exactOutstandingAmount,
+              amountLabel: exactOutstandingAmount <= 0
+                ? 'Fully paid'
+                : (exactPaidAmount > 0
+                    ? 'Owing ' + formatMoney(exactOutstandingAmount) + ' after ' + formatMoney(exactPaidAmount) + ' paid'
+                    : 'Owing ' + formatMoney(exactOutstandingAmount))
+            });
+            var nextExact = advanceOccurrenceDate(cursor, record.recurrence);
+            if (!nextExact || nextExact.getTime() === cursor.getTime()) break;
+            cursor = nextExact;
+          }
+          if (occurrences.length) return occurrences;
+        }
+      }
+      var back = record.recurrence === 'monthly' ? 4 : 8;
+      var forward = record.recurrence === 'monthly' ? 8 : 16;
+      for (var index = -back; index <= forward; index += 1) {
+        var occurrenceDate = new Date(anchor);
+        occurrenceDate.setDate(anchor.getDate() + (index * step));
+        var diff = Math.round((occurrenceDate - today) / 86400000);
+        var value = isoDate(occurrenceDate);
+        var paidAmount = Number(paymentMap[value] || 0);
+        var outstandingAmount = Math.max(Number(record.amount || 0) - paidAmount, 0);
+        var status = outstandingAmount <= 0 ? 'Paid' : (paidAmount > 0 ? 'Partial' : 'Owing');
+        occurrences.push({
+          value: value,
+          label: fmtDate(occurrenceDate),
+          meta: smartLabel(diff, record.recurrence),
+          windowTag: diff < 0 ? 'Past' : (diff === 0 ? 'Due' : 'Upcoming'),
+          status: status,
+          statusClass: status.toLowerCase(),
+          paidAmount: paidAmount,
+          outstandingAmount: outstandingAmount,
+          amountLabel: outstandingAmount <= 0
+            ? 'Fully paid'
+            : (paidAmount > 0
+                ? 'Owing ' + formatMoney(outstandingAmount) + ' after ' + formatMoney(paidAmount) + ' paid'
+                : 'Owing ' + formatMoney(outstandingAmount))
+        });
+      }
+      return occurrences;
+    }
+
+    function getAvailableCredit(record) {
+      return Math.max(Number((record && record.student_credit) || 0), 0);
+    }
+
+    function getRecurringSelectedDue() {
+      return Array.prototype.slice.call(recurringList.querySelectorAll('.pg-occ-check:checked')).reduce(function(sum, input) {
+        return sum + Number(input.getAttribute('data-outstanding') || 0);
+      }, 0);
+    }
+
+    function getCurrentDue(record) {
+      if (!record) return 0;
+      if (String(record.bill_type || '') === 'recurring') return getRecurringSelectedDue();
+      return Math.max(Number(record.balance || 0), 0);
+    }
+
+    function syncCreditPanel(options) {
+      var record = activeRecord;
+      var availableCredit = getAvailableCredit(record);
+      var dueAmount = getCurrentDue(record);
+      var usingCredit = !!(applyCreditCheckbox && applyCreditCheckbox.checked && availableCredit > 0);
+      var creditToApply = usingCredit ? Math.min(availableCredit, dueAmount) : 0;
+      var chargeNow = Math.max(dueAmount - creditToApply, 0);
+
+      if (creditField) creditField.hidden = !(availableCredit > 0);
+      if (creditAmount) creditAmount.textContent = formatMoney(availableCredit);
+      if (applyCreditCheckbox) {
+        applyCreditCheckbox.disabled = !(availableCredit > 0);
+        if (!(availableCredit > 0)) applyCreditCheckbox.checked = false;
+      }
+      if (creditHint) {
+        if (!(availableCredit > 0)) {
+          creditHint.textContent = 'No available balance is stored for this child yet.';
+        } else if (!usingCredit) {
+          creditHint.textContent = 'Check this box to use up to ' + formatMoney(Math.min(availableCredit, dueAmount)) + ' before charging a new payment.';
+        } else if (chargeNow > 0) {
+          creditHint.textContent = formatMoney(creditToApply) + ' will be used first. ' + formatMoney(chargeNow) + ' will still be charged now.';
+        } else {
+          creditHint.textContent = 'This payment can be fully covered from the available balance.';
+        }
+      }
+
+      if (String((record && record.bill_type) || '') === 'recurring') {
+        amountInput.value = chargeNow > 0 ? chargeNow.toFixed(2) : '0.00';
+        amountLabel.textContent = usingCredit ? 'Charge Now (<%= currencyCode %>)' : 'Total (<%= currencyCode %>)';
+      } else if (options && options.setAmount) {
+        amountInput.value = chargeNow > 0 ? chargeNow.toFixed(2) : '0.00';
+        amountLabel.textContent = usingCredit ? 'Charge Now (<%= currencyCode %>)' : 'Amount (<%= currencyCode %>)';
+      } else {
+        amountLabel.textContent = usingCredit ? 'Charge Now (<%= currencyCode %>)' : 'Amount (<%= currencyCode %>)';
+      }
+      amountInput.min = '0';
+    }
+
+    function updateRecurringSelection() {
+      if (!activeRecord) return;
+      var selectedInputs = Array.prototype.slice.call(recurringList.querySelectorAll('.pg-occ-check:checked'));
+      var selectedDates = selectedInputs.map(function(input) {
+        return input.value;
+      });
+      occurrenceDatesInput.value = JSON.stringify(selectedDates);
+      occurrenceDateInput.value = selectedDates.length === 1 ? selectedDates[0] : '';
+      if (!selectedDates.length) {
+        amountInput.value = '';
+        recurringSummary.textContent = 'Choose one or more owing dates. Total updates automatically.';
+        recurringHint.textContent = 'Fully paid dates are disabled. Select any owing dates to pay their remaining balances.';
+        syncCreditPanel({ setAmount: false });
+        submitButton.disabled = true;
+        return;
+      }
+
+      var totalAmount = selectedInputs.reduce(function(sum, input) {
+        return sum + Number(input.getAttribute('data-outstanding') || 0);
+      }, 0);
+      syncCreditPanel({ setAmount: true });
+      var creditUsed = applyCreditCheckbox && applyCreditCheckbox.checked
+        ? Math.min(getAvailableCredit(activeRecord), totalAmount)
+        : 0;
+      var chargeNow = Math.max(totalAmount - creditUsed, 0);
+      recurringSummary.textContent = selectedDates.length + ' date(s) selected · ' + formatMoney(totalAmount)
+        + (creditUsed > 0 ? (' · ' + formatMoney(creditUsed) + ' from balance · ' + formatMoney(chargeNow) + ' to charge') : '');
+      recurringHint.textContent = selectedDates.length === 1
+        ? 'You are paying the remaining balance for ' + fmtDate(selectedDates[0]) + '.'
+        : 'You are paying the remaining balances for ' + selectedDates.length + ' recurring dates together.';
+      submitButton.disabled = !(totalAmount > 0);
+    }
+
+    function renderRecurringPanel(record) {
+      recurringPanel.hidden = false;
+      amountLabel.textContent = 'Total (<%= currencyCode %>)';
+      amountInput.readOnly = true;
+      amountInput.max = '';
+      var occurrences = buildOccurrences(record);
+      var firstUpcomingIndex = occurrences.findIndex(function(item) {
+        return item.outstandingAmount > 0 && (item.windowTag === 'Due' || item.windowTag === 'Upcoming');
+      });
+      if (firstUpcomingIndex < 0) {
+        firstUpcomingIndex = occurrences.findIndex(function(item) {
+          return item.outstandingAmount > 0;
+        });
+      }
+      recurringList.innerHTML = occurrences.map(function(item, index) {
+        var isDisabled = !(item.outstandingAmount > 0);
+        return '' +
+          '<label class="pg-occ-card' + (isDisabled ? ' disabled' : '') + '">' +
+            '<input type="checkbox" class="pg-occ-check" value="' + item.value + '" data-outstanding="' + item.outstandingAmount.toFixed(2) + '"' + (index === firstUpcomingIndex ? ' checked' : '') + (isDisabled ? ' disabled' : '') + '>' +
+            '<div class="pg-occ-card-copy">' +
+              '<div class="pg-occ-date">' + item.label + '</div>' +
+              '<div class="pg-occ-meta">' + item.meta + ' · ' + item.windowTag + '</div>' +
+              '<div class="pg-occ-amount">' + item.amountLabel + '</div>' +
+            '</div>' +
+            '<div class="pg-occ-status">' +
+              (item.statusClass === 'paid' ? '<span class="pg-occ-checkmark" aria-hidden="true">✓</span>' : '') +
+              '<span class="pg-occ-tag ' + item.statusClass + '">' + item.status + '</span>' +
+            '</div>' +
+          '</label>';
+      }).join('');
+      Array.prototype.forEach.call(recurringList.querySelectorAll('.pg-occ-check'), function(input) {
+        input.addEventListener('change', updateRecurringSelection);
+      });
+      document.getElementById('pgSelectAllDates').onclick = function() {
+        Array.prototype.forEach.call(recurringList.querySelectorAll('.pg-occ-check'), function(input) {
+          if (!input.disabled) input.checked = true;
+        });
+        updateRecurringSelection();
+      };
+      document.getElementById('pgClearDates').onclick = function() {
+        Array.prototype.forEach.call(recurringList.querySelectorAll('.pg-occ-check'), function(input) {
+          input.checked = false;
+        });
+        updateRecurringSelection();
+      };
+      updateRecurringSelection();
+    }
+
+    function hideRecurringPanel() {
+      recurringPanel.hidden = true;
+      recurringList.innerHTML = '';
+      occurrenceDateInput.value = '';
+      occurrenceDatesInput.value = '';
+      amountLabel.textContent = 'Amount (<%= currencyCode %>)';
+      amountInput.readOnly = false;
+      amountInput.min = '0';
+      submitButton.disabled = false;
+    }
+
+    window.openPgPay = function(assignmentId) {
+      var record = payAssignments[String(assignmentId)];
+      if (!record) return;
+      activeRecord = record;
+      payForm.reset();
+      document.getElementById('pgPayAssignment').value = record.assignment_id;
+      document.getElementById('pgPayBillName').value = record.bill_title;
+      document.getElementById('pgPayStudent').value = record.student_name;
+      if (String(record.bill_type || '') === 'recurring') {
+        renderRecurringPanel(record);
+      } else {
+        hideRecurringPanel();
+        amountInput.value = Number(record.balance || 0).toFixed(2);
+        amountInput.max = Number(record.balance || 0).toFixed(2);
+        syncCreditPanel({ setAmount: false });
+      }
+      syncCreditPanel({ setAmount: false });
+      payModal.classList.add('open');
+    };
+
+    window.closePgPay = function() {
+      activeRecord = null;
+      hideRecurringPanel();
+      payModal.classList.remove('open');
+    };
+
+    payModal.addEventListener('click', function(e) {
+      if (e.target === payModal) closePgPay();
+    });
+    if (applyCreditCheckbox) {
+      applyCreditCheckbox.addEventListener('change', function() {
+        if (activeRecord && String(activeRecord.bill_type || '') === 'recurring') updateRecurringSelection();
+        else syncCreditPanel({ setAmount: true });
+      });
+    }
+    amountInput.addEventListener('input', function() {
+      if (activeRecord && String(activeRecord.bill_type || '') !== 'recurring') {
+        syncCreditPanel({ setAmount: false });
+      }
+    });
+  })();
 </script>

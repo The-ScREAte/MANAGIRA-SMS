@@ -5,10 +5,19 @@
 const fs = require("fs");
 const path = require("path");
 const PDFDocument = require("pdfkit");
+const bcrypt = require("bcryptjs");
 const db = require("../config/db");
 const { userHasPermission } = require("../middleware/permissionMiddleware");
 const { logOrganizationActivity } = require("../utils/activityLog");
-const { getHolidayCountryOptions } = require("../utils/attendanceCalendar");
+const {
+  getHolidayCountryOptions,
+  parseBoolean,
+  ensureAttendanceCalendarSchema,
+  getAttendanceCalendarProfile,
+  getAttendanceCalendarDays,
+  buildCalendarDayMap,
+  isAttendanceCountableForDate,
+} = require("../utils/attendanceCalendar");
 const { sendEmailSafely, renderCleanEmail } = require("../utils/emailHelper");
 const {
   getCurrencyProfileForRequest,
@@ -68,6 +77,33 @@ async function ensureFinanceSchema() {
   try {
     const sql = fs.readFileSync(sqlPath, "utf8");
     await db.query(sql);
+    await db.query(`ALTER TABLE finance_bills ADD COLUMN IF NOT EXISTS recurrence_end_date DATE`);
+    await db.query(`ALTER TABLE finance_bills ADD COLUMN IF NOT EXISTS exclude_non_school_days BOOLEAN NOT NULL DEFAULT FALSE`);
+    await db.query(`ALTER TABLE finance_bills ADD COLUMN IF NOT EXISTS target_class_ids INT[]`);
+    await db.query(`ALTER TABLE finance_bills ADD COLUMN IF NOT EXISTS target_student_ids INT[]`);
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS finance_collection_signoffs (
+        signoff_id SERIAL PRIMARY KEY,
+        organization_id INT NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE,
+        bill_id INT NOT NULL REFERENCES finance_bills(bill_id) ON DELETE CASCADE,
+        class_id INT NOT NULL DEFAULT 0,
+        occurrence_date DATE,
+        scope_key VARCHAR(40) NOT NULL,
+        signed_by_user_id INT REFERENCES users(user_id) ON DELETE SET NULL,
+        signed_by_name VARCHAR(160) NOT NULL,
+        signer_role VARCHAR(80),
+        student_count INT NOT NULL DEFAULT 0,
+        total_collected NUMERIC(14,2) NOT NULL DEFAULT 0,
+        signed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (organization_id, bill_id, class_id, scope_key)
+      )
+    `);
+    await db.query(
+      `CREATE INDEX IF NOT EXISTS idx_finance_collection_signoffs_bill_scope ON finance_collection_signoffs (organization_id, bill_id, class_id, scope_key)`
+    );
+    await db.query(
+      `CREATE INDEX IF NOT EXISTS idx_finance_collection_signoffs_signed_at ON finance_collection_signoffs (organization_id, signed_at DESC)`
+    );
   } catch (e) {
     console.error("[financeSchema]", e.message);
   }
@@ -354,6 +390,36 @@ function parseMultiValue(rawValue) {
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
+}
+
+function normalizeIdArray(rawValue) {
+  if (typeof rawValue === "string") {
+    const trimmed = rawValue.trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith("{")) {
+      rawValue = trimmed.slice(1, -1).split(",").map((value) => value.trim()).filter(Boolean);
+    } else if (trimmed.startsWith("[")) {
+      try {
+        rawValue = JSON.parse(trimmed);
+      } catch (_) {
+        rawValue = trimmed.split(",");
+      }
+    } else {
+      rawValue = trimmed.split(",");
+    }
+  }
+
+  const values = Array.isArray(rawValue)
+    ? rawValue
+    : rawValue === undefined || rawValue === null || rawValue === ""
+      ? []
+      : [rawValue];
+
+  return [...new Set(
+    values
+      .map((value) => parseInt(value, 10))
+      .filter((value) => Number.isInteger(value) && value > 0)
+  )].sort((left, right) => left - right);
 }
 
 function normalizeArrearsFilters(rawFilters = {}) {
@@ -921,18 +987,35 @@ async function loadOverviewStats(orgId, filters = {}) {
   if (tm) { where.push(`b.term_id        = $${i++}`); params.push(tm); }
   const whereSql = where.join(' AND ');
 
-  const totals = await db.query(
-    `SELECT
-       COALESCE(SUM(a.amount),0)::numeric                                                 AS total_billed,
-       COALESCE(SUM(a.amount_paid),0)::numeric                                            AS total_collected,
-       COALESCE(SUM(GREATEST(a.amount + a.late_fee_applied - a.amount_paid, 0)),0)::numeric AS outstanding,
-       COUNT(*) FILTER (WHERE a.status = 'overdue')::int                                  AS overdue_count,
-       COUNT(*)::int                                                                      AS total_assignments
-     FROM finance_bill_assignments a
-     JOIN finance_bills b ON b.bill_id = a.bill_id
-     WHERE ${whereSql}`,
+  const totalsRows = await db.query(
+    `SELECT a.amount, a.amount_paid, a.late_fee_applied, a.status,
+            b.bill_type, b.recurrence, b.due_date, b.recurrence_end_date,
+            b.term_id, b.exclude_non_school_days,
+            tm.end_date AS term_end_date
+       FROM finance_bill_assignments a
+       JOIN finance_bills b ON b.bill_id = a.bill_id
+       LEFT JOIN terms tm ON tm.term_id = b.term_id
+      WHERE ${whereSql}`,
     params
   );
+  const scheduleContext = createBillScheduleContextLoader(db, orgId);
+  const scheduledRows = await Promise.all(
+    totalsRows.rows.map((row) => enrichScheduledAssignment(row, scheduleContext))
+  );
+  const totalSummary = scheduledRows.reduce((accumulator, assignment) => {
+    accumulator.total_billed += Number(assignment.scheduled_billed_total || 0);
+    accumulator.total_collected += Number(assignment.amount_paid || 0);
+    accumulator.outstanding += Number(assignment.scheduled_outstanding_total || 0);
+    accumulator.overdue_count += assignment.status === 'overdue' ? 1 : 0;
+    accumulator.total_assignments += 1;
+    return accumulator;
+  }, {
+    total_billed: 0,
+    total_collected: 0,
+    outstanding: 0,
+    overdue_count: 0,
+    total_assignments: 0,
+  });
 
   const credits = await db.query(
     `SELECT COALESCE(SUM(amount),0)::numeric AS overpayments
@@ -958,49 +1041,101 @@ async function loadOverviewStats(orgId, filters = {}) {
   );
 
   return {
-    totals: totals.rows[0] || {},
+    totals: totalSummary,
     overpayments: credits.rows[0]?.overpayments || 0,
     recent: recent.rows,
     filters: { school_year_id: yr, term_id: tm },
   };
 }
 
-async function loadBills(orgId) {
+async function loadBills(orgId, filters = {}) {
+  const schoolYearId = parseInt(filters.school_year_id, 10);
+  const termId = parseInt(filters.term_id, 10);
+  const where = ['b.organization_id = $1'];
+  const params = [orgId];
+  let nextParamIndex = 2;
+
+  if (Number.isInteger(schoolYearId) && schoolYearId > 0) {
+    where.push(`b.school_year_id = $${nextParamIndex++}`);
+    params.push(schoolYearId);
+  }
+  if (Number.isInteger(termId) && termId > 0) {
+    where.push(`b.term_id = $${nextParamIndex++}`);
+    params.push(termId);
+  }
+
   const r = await db.query(
     `SELECT b.*,
             (SELECT COUNT(*) FROM finance_bill_assignments a WHERE a.bill_id = b.bill_id) AS assigned_count,
-            (SELECT COALESCE(SUM(a.amount),0) FROM finance_bill_assignments a WHERE a.bill_id = b.bill_id)      AS total_amount,
-            (SELECT COALESCE(SUM(a.amount_paid),0) FROM finance_bill_assignments a WHERE a.bill_id = b.bill_id) AS total_paid,
             u.first_name AS assignee_first_name,
             u.last_name  AS assignee_last_name,
             u.account_type AS assignee_role,
             sy.year_label,
-            tm.term_name
+            tm.term_name,
+            tm.end_date AS term_end_date
        FROM finance_bills b
        LEFT JOIN users        u  ON u.user_id  = b.assignee_id
        LEFT JOIN school_years sy ON sy.id      = b.school_year_id
        LEFT JOIN terms        tm ON tm.term_id = b.term_id
-      WHERE b.organization_id = $1
+      WHERE ${where.join(' AND ')}
       ORDER BY b.created_at DESC LIMIT 200`,
-    [orgId]
+    params
   ).catch(async () => {
     // Fallback if year/term columns are missing on legacy schemas
     return db.query(
       `SELECT b.*,
               (SELECT COUNT(*) FROM finance_bill_assignments a WHERE a.bill_id = b.bill_id) AS assigned_count,
-              (SELECT COALESCE(SUM(a.amount),0) FROM finance_bill_assignments a WHERE a.bill_id = b.bill_id)      AS total_amount,
-              (SELECT COALESCE(SUM(a.amount_paid),0) FROM finance_bill_assignments a WHERE a.bill_id = b.bill_id) AS total_paid,
               u.first_name AS assignee_first_name,
               u.last_name  AS assignee_last_name,
               u.account_type AS assignee_role
          FROM finance_bills b
          LEFT JOIN users u ON u.user_id = b.assignee_id
-        WHERE b.organization_id = $1
+        WHERE ${where.join(' AND ')}
         ORDER BY b.created_at DESC LIMIT 200`,
-      [orgId]
+      params
     );
   });
-  return r.rows;
+  const billIds = r.rows.map((row) => row.bill_id);
+  const collectorIdsByBillId = new Map();
+  if (billIds.length) {
+    const collectorsR = await db.query(
+      `SELECT bill_id, ARRAY_AGG(user_id ORDER BY user_id) AS collector_ids
+         FROM finance_bill_collectors
+        WHERE organization_id = $1 AND bill_id = ANY($2::int[])
+        GROUP BY bill_id`,
+      [orgId, billIds]
+    ).catch(() => ({ rows: [] }));
+    collectorsR.rows.forEach((row) => {
+      collectorIdsByBillId.set(String(row.bill_id), normalizeIdArray(row.collector_ids));
+    });
+  }
+  let assignments = [];
+  if (billIds.length) {
+    const assignmentsR = await db.query(
+      `SELECT a.bill_id, a.amount, a.amount_paid, a.late_fee_applied,
+              b.bill_type, b.recurrence, b.due_date, b.recurrence_end_date,
+              b.term_id, b.exclude_non_school_days,
+              tm.end_date AS term_end_date
+         FROM finance_bill_assignments a
+         JOIN finance_bills b ON b.bill_id = a.bill_id
+         LEFT JOIN terms tm ON tm.term_id = b.term_id
+        WHERE a.organization_id = $1 AND a.bill_id = ANY($2::int[])`,
+      [orgId, billIds]
+    );
+    const scheduleContext = createBillScheduleContextLoader(db, orgId);
+    assignments = await Promise.all(
+      assignmentsR.rows.map((row) => enrichScheduledAssignment(row, scheduleContext))
+    );
+  }
+  return applyScheduledBillRollups(r.rows, assignments).map((bill) => ({
+    ...bill,
+    assignee_ids: normalizeIdArray([
+      ...(collectorIdsByBillId.get(String(bill.bill_id)) || []),
+      bill.assignee_id,
+    ]),
+    target_class_ids: normalizeIdArray(bill.target_class_ids),
+    target_student_ids: normalizeIdArray(bill.target_student_ids),
+  }));
 }
 
 async function ensurePspSettingsTable() {
@@ -1022,23 +1157,146 @@ async function loadPspSettings(orgId) {
   return (r.rows[0] && r.rows[0].data) || {};
 }
 
-async function loadStudentBilling(orgId) {
-  const r = await db.query(
+async function loadStudentBilling(orgId, filters = {}) {
+  const schoolYearId = parseInt(filters.school_year_id, 10);
+  const termId = parseInt(filters.term_id, 10);
+  const assignmentWhere = [
+    'a.organization_id = $1',
+    "a.status <> 'cancelled'",
+    "COALESCE(b.status, 'active') <> 'cancelled'",
+  ];
+  const params = [orgId];
+  let nextParamIndex = 2;
+
+  if (Number.isInteger(schoolYearId) && schoolYearId > 0) {
+    assignmentWhere.push(`b.school_year_id = $${nextParamIndex++}`);
+    params.push(schoolYearId);
+  }
+  if (Number.isInteger(termId) && termId > 0) {
+    assignmentWhere.push(`b.term_id = $${nextParamIndex++}`);
+    params.push(termId);
+  }
+
+  const assignmentRows = await db.query(
+    `SELECT a.student_id, a.amount, a.amount_paid, a.late_fee_applied,
+            b.bill_type, b.recurrence, b.due_date, b.recurrence_end_date,
+            b.term_id, b.exclude_non_school_days,
+            tm.end_date AS term_end_date
+       FROM finance_bill_assignments a
+       JOIN finance_bills b ON b.bill_id = a.bill_id
+       LEFT JOIN terms tm ON tm.term_id = b.term_id
+      WHERE ${assignmentWhere.join(' AND ')}`,
+    params
+  );
+  const scheduleContext = createBillScheduleContextLoader(db, orgId);
+  const scheduledAssignments = await Promise.all(
+    assignmentRows.rows.map((row) => enrichScheduledAssignment(row, scheduleContext))
+  );
+  const totalsByStudentId = scheduledAssignments.reduce((accumulator, assignment) => {
+    const studentKey = String(assignment.student_id || '');
+    if (!studentKey) return accumulator;
+    if (!accumulator[studentKey]) {
+      accumulator[studentKey] = {
+        total_billed: 0,
+        total_paid: 0,
+        outstanding: 0,
+      };
+    }
+    accumulator[studentKey].total_billed += Number(assignment.scheduled_billed_total || assignment.amount || 0);
+    accumulator[studentKey].total_paid += Number(assignment.amount_paid || 0);
+    accumulator[studentKey].outstanding += Number(
+      assignment.scheduled_outstanding_total != null
+        ? assignment.scheduled_outstanding_total
+        : Math.max(Number(assignment.amount || 0) + Number(assignment.late_fee_applied || 0) - Number(assignment.amount_paid || 0), 0)
+    );
+    return accumulator;
+  }, {});
+
+  const students = await db.query(
     `SELECT s.student_id, s.first_name, s.last_name, s.image_url, s.class_id,
             c.class_name,
-            COALESCE(SUM(a.amount),0)        AS total_billed,
-            COALESCE(SUM(a.amount_paid),0)   AS total_paid,
-            COALESCE(SUM(GREATEST(a.amount + a.late_fee_applied - a.amount_paid, 0)),0) AS outstanding
+            COALESCE(sc.amount,0) AS student_credit
        FROM students s
        LEFT JOIN classes c ON c.class_id = s.class_id
-       LEFT JOIN finance_bill_assignments a ON a.student_id = s.student_id AND a.organization_id = s.organization_id
+       LEFT JOIN finance_student_credits sc ON sc.student_id = s.student_id AND sc.organization_id = s.organization_id
       WHERE s.organization_id = $1
-      GROUP BY s.student_id, c.class_name
       ORDER BY s.last_name, s.first_name
       LIMIT 500`,
     [orgId]
   );
-  return r.rows;
+  return students.rows.map((row) => {
+    const totals = totalsByStudentId[String(row.student_id)] || { total_billed: 0, total_paid: 0, outstanding: 0 };
+    const studentCredit = Number(row.student_credit || 0);
+    const outstanding = Number(totals.outstanding || 0);
+    return {
+      ...row,
+      total_billed: Number(totals.total_billed || 0),
+      total_paid: Number(totals.total_paid || 0),
+      outstanding,
+      student_credit: studentCredit,
+      net_outstanding: Math.max(outstanding - studentCredit, 0),
+    };
+  });
+}
+
+async function loadStudentCreditMap(database, orgId, studentIds) {
+  const normalizedStudentIds = normalizeIdArray(studentIds);
+  if (!normalizedStudentIds.length) return new Map();
+  const result = await database.query(
+    `SELECT student_id, COALESCE(amount, 0) AS credit
+       FROM finance_student_credits
+      WHERE organization_id = $1
+        AND student_id = ANY($2::int[])`,
+    [orgId, normalizedStudentIds]
+  );
+  return new Map(
+    result.rows.map((row) => [String(row.student_id), Number(row.credit || 0)])
+  );
+}
+
+async function getStudentCreditBalance(database, orgId, studentId, options = {}) {
+  const forUpdate = !!options.forUpdate;
+  const result = await database.query(
+    `SELECT COALESCE(amount, 0) AS credit
+       FROM finance_student_credits
+      WHERE organization_id = $1
+        AND student_id = $2${forUpdate ? ' FOR UPDATE' : ''}`,
+    [orgId, studentId]
+  );
+  return Number(result.rows[0]?.credit || 0);
+}
+
+async function setStudentCreditBalance(database, orgId, studentId, amount) {
+  const normalizedAmount = Math.max(Number(amount || 0), 0);
+  if (!(normalizedAmount > 0)) {
+    await database.query(
+      `DELETE FROM finance_student_credits WHERE organization_id = $1 AND student_id = $2`,
+      [orgId, studentId]
+    );
+    return 0;
+  }
+
+  await database.query(
+    `INSERT INTO finance_student_credits (organization_id, student_id, amount)
+       VALUES ($1,$2,$3)
+     ON CONFLICT (student_id) DO UPDATE
+        SET amount = $3, updated_at = now()`,
+    [orgId, studentId, normalizedAmount]
+  );
+  return normalizedAmount;
+}
+
+async function addStudentCredit(database, orgId, studentId, amount) {
+  const normalizedAmount = Number(amount || 0);
+  if (!(normalizedAmount > 0)) return getStudentCreditBalance(database, orgId, studentId);
+  await database.query(
+    `INSERT INTO finance_student_credits (organization_id, student_id, amount)
+       VALUES ($1,$2,$3)
+     ON CONFLICT (student_id) DO UPDATE
+        SET amount = finance_student_credits.amount + EXCLUDED.amount, updated_at = now()`,
+    [orgId, studentId, normalizedAmount]
+  );
+  return getStudentCreditBalance(database, orgId, studentId);
 }
 
 async function loadTemplates(orgId) {
@@ -1071,7 +1329,7 @@ async function loadClassesAndStudents(orgId) {
     [orgId]
   ).catch(() => ({ rows: [] }));
   const terms = await db.query(
-    `SELECT term_id, term_name AS name, school_year_id, current
+    `SELECT term_id, term_name AS name, school_year_id, current, start_date, end_date
        FROM terms
       WHERE organization_id = $1
       ORDER BY current DESC NULLS LAST, start_date DESC NULLS LAST, term_id DESC`,
@@ -1081,6 +1339,13 @@ async function loadClassesAndStudents(orgId) {
     `SELECT DISTINCT ec.class_id, e.school_year_id, e.term_id
        FROM enrollments e
        JOIN enrolled_classes ec ON ec.enrollment_id = e.enrollment_id
+      WHERE e.organization_id = $1`,
+    [orgId]
+  ).catch(() => ({ rows: [] }));
+  const enrolledStudentLinks = await db.query(
+    `SELECT DISTINCT es.student_id, e.school_year_id, e.term_id
+       FROM enrollments e
+       JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id
       WHERE e.organization_id = $1`,
     [orgId]
   ).catch(() => ({ rows: [] }));
@@ -1094,6 +1359,7 @@ async function loadClassesAndStudents(orgId) {
     [orgId]
   ).catch(() => ({ rows: [] }));
   const classMap = new Map();
+  const studentMap = new Map();
   enrolledClassLinks.rows.forEach((row) => {
     const key = String(row.class_id || '');
     if (!key) return;
@@ -1101,6 +1367,16 @@ async function loadClassesAndStudents(orgId) {
       classMap.set(key, { schoolYearIds: new Set(), termIds: new Set() });
     }
     const bucket = classMap.get(key);
+    if (row.school_year_id != null) bucket.schoolYearIds.add(String(row.school_year_id));
+    if (row.term_id != null) bucket.termIds.add(String(row.term_id));
+  });
+  enrolledStudentLinks.rows.forEach((row) => {
+    const key = String(row.student_id || '');
+    if (!key) return;
+    if (!studentMap.has(key)) {
+      studentMap.set(key, { schoolYearIds: new Set(), termIds: new Set() });
+    }
+    const bucket = studentMap.get(key);
     if (row.school_year_id != null) bucket.schoolYearIds.add(String(row.school_year_id));
     if (row.term_id != null) bucket.termIds.add(String(row.term_id));
   });
@@ -1112,7 +1388,15 @@ async function loadClassesAndStudents(orgId) {
       term_ids: linked ? Array.from(linked.termIds) : [],
     };
   });
-  return { classes: hydratedClasses, students: students.rows, years: years.rows, terms: terms.rows, employees: employees.rows };
+  const hydratedStudents = students.rows.map((row) => {
+    const linked = studentMap.get(String(row.student_id || ''));
+    return {
+      ...row,
+      school_year_ids: linked ? Array.from(linked.schoolYearIds) : [],
+      term_ids: linked ? Array.from(linked.termIds) : [],
+    };
+  });
+  return { classes: hydratedClasses, students: hydratedStudents, years: years.rows, terms: terms.rows, employees: employees.rows };
 }
 
 function getCurrentAcademicContext(refs = {}) {
@@ -1133,6 +1417,222 @@ function getCurrentAcademicContext(refs = {}) {
   };
 }
 
+async function resolveBillAcademicContext(database, orgId, schoolYearIdInput, termIdInput) {
+  const schoolYearId = parseInt(schoolYearIdInput, 10);
+  const termId = parseInt(termIdInput, 10);
+
+  if (!Number.isInteger(schoolYearId) || schoolYearId <= 0 || !Number.isInteger(termId) || termId <= 0) {
+    throw new PaygiraRequestError("Select both a school year and a term for this bill.");
+  }
+
+  const termResult = await database.query(
+    `SELECT t.term_id, t.term_name, t.school_year_id, sy.year_label
+       FROM terms t
+       JOIN school_years sy ON sy.id = t.school_year_id
+      WHERE t.term_id = $1
+        AND t.organization_id = $2
+      LIMIT 1`,
+    [termId, orgId]
+  );
+
+  if (!termResult.rows.length) {
+    throw new PaygiraRequestError("Selected term was not found for this organization.");
+  }
+
+  const termRow = termResult.rows[0];
+  if (Number(termRow.school_year_id) !== schoolYearId) {
+    throw new PaygiraRequestError("Selected term does not belong to the chosen school year.");
+  }
+
+  return {
+    schoolYearId,
+    termId,
+    termName: termRow.term_name,
+    yearLabel: termRow.year_label,
+  };
+}
+
+async function loadBillAudienceTargets(database, orgId, billId, appliesTo, targetClassIds, targetStudentIds) {
+  const audience = String(appliesTo || "school").toLowerCase();
+  const normalizedClassIds = normalizeIdArray(targetClassIds);
+  const normalizedStudentIds = normalizeIdArray(targetStudentIds);
+
+  if (audience === "classes") {
+    if (normalizedClassIds.length) {
+      return { targetClassIds: normalizedClassIds, targetStudentIds: [] };
+    }
+    if (!billId) return { targetClassIds: [], targetStudentIds: [] };
+    const fallbackClasses = await database.query(
+      `SELECT DISTINCT s.class_id
+         FROM finance_bill_assignments fba
+         JOIN students s ON s.student_id = fba.student_id
+        WHERE fba.bill_id = $1
+          AND fba.organization_id = $2
+          AND s.class_id IS NOT NULL`,
+      [billId, orgId]
+    );
+    return {
+      targetClassIds: normalizeIdArray(fallbackClasses.rows.map((row) => row.class_id)),
+      targetStudentIds: [],
+    };
+  }
+
+  if (audience === "students") {
+    if (normalizedStudentIds.length) {
+      return { targetClassIds: [], targetStudentIds: normalizedStudentIds };
+    }
+    if (!billId) return { targetClassIds: [], targetStudentIds: [] };
+    const fallbackStudents = await database.query(
+      `SELECT DISTINCT student_id
+         FROM finance_bill_assignments
+        WHERE bill_id = $1
+          AND organization_id = $2`,
+      [billId, orgId]
+    );
+    return {
+      targetClassIds: [],
+      targetStudentIds: normalizeIdArray(fallbackStudents.rows.map((row) => row.student_id)),
+    };
+  }
+
+  return { targetClassIds: [], targetStudentIds: [] };
+}
+
+async function loadEligibleBillStudents(database, orgId, schoolYearId, termId, appliesTo, targetClassIds, targetStudentIds) {
+  const audience = String(appliesTo || "school").toLowerCase();
+  const classIds = normalizeIdArray(targetClassIds);
+  const studentIds = normalizeIdArray(targetStudentIds);
+
+  if (audience === "classes") {
+    if (!classIds.length) return [];
+    const result = await database.query(
+      `SELECT DISTINCT es.student_id
+         FROM enrollments e
+         JOIN enrolled_classes ec ON ec.enrollment_id = e.enrollment_id
+         JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id AND es.class_id = ec.class_id
+        WHERE e.organization_id = $1
+          AND e.school_year_id = $2
+          AND e.term_id = $3
+          AND ec.class_id = ANY($4::int[])
+        ORDER BY es.student_id`,
+      [orgId, schoolYearId, termId, classIds]
+    );
+    return result.rows.map((row) => Number(row.student_id)).filter((value) => Number.isInteger(value) && value > 0);
+  }
+
+  if (audience === "students") {
+    if (!studentIds.length) return [];
+    const result = await database.query(
+      `SELECT DISTINCT es.student_id
+         FROM enrollments e
+         JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id
+        WHERE e.organization_id = $1
+          AND e.school_year_id = $2
+          AND e.term_id = $3
+          AND es.student_id = ANY($4::int[])
+        ORDER BY es.student_id`,
+      [orgId, schoolYearId, termId, studentIds]
+    );
+    return result.rows.map((row) => Number(row.student_id)).filter((value) => Number.isInteger(value) && value > 0);
+  }
+
+  const result = await database.query(
+    `SELECT DISTINCT es.student_id
+       FROM enrollments e
+       JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id
+      WHERE e.organization_id = $1
+        AND e.school_year_id = $2
+        AND e.term_id = $3
+      ORDER BY es.student_id`,
+    [orgId, schoolYearId, termId]
+  );
+  return result.rows.map((row) => Number(row.student_id)).filter((value) => Number.isInteger(value) && value > 0);
+}
+
+async function syncBillAssignmentsForAudience(database, orgId, billId, options = {}) {
+  const appliesTo = String(options.appliesTo || "school").toLowerCase();
+  const schoolYearId = parseInt(options.schoolYearId, 10);
+  const termId = parseInt(options.termId, 10);
+  const amount = Number(options.amount || 0);
+  const dueDate = options.dueDate || null;
+  const status = String(options.status || "active").toLowerCase();
+
+  const resolvedTargets = await loadBillAudienceTargets(
+    database,
+    orgId,
+    billId,
+    appliesTo,
+    options.targetClassIds,
+    options.targetStudentIds
+  );
+  const eligibleStudentIds = await loadEligibleBillStudents(
+    database,
+    orgId,
+    schoolYearId,
+    termId,
+    appliesTo,
+    resolvedTargets.targetClassIds,
+    resolvedTargets.targetStudentIds
+  );
+
+  if (!eligibleStudentIds.length) {
+    throw new PaygiraRequestError("No enrolled students were found for the selected audience in that school year and term.");
+  }
+
+  const existingAssignments = await database.query(
+    `SELECT fba.assignment_id,
+            fba.student_id,
+            fba.amount_paid,
+            EXISTS(
+              SELECT 1
+                FROM finance_payments fp
+               WHERE fp.assignment_id = fba.assignment_id
+                 AND fp.organization_id = $2
+            ) AS has_payments
+       FROM finance_bill_assignments fba
+      WHERE fba.bill_id = $1
+        AND fba.organization_id = $2`,
+    [billId, orgId]
+  );
+
+  const targetSet = new Set(eligibleStudentIds);
+  const existingByStudentId = new Map(existingAssignments.rows.map((row) => [Number(row.student_id), row]));
+  const assignmentsToDelete = [];
+
+  existingAssignments.rows.forEach((row) => {
+    const studentId = Number(row.student_id);
+    if (targetSet.has(studentId)) return;
+    const paidAmount = Number(row.amount_paid || 0);
+    if (paidAmount > 0 || row.has_payments) {
+      throw new PaygiraRequestError("This bill already has recorded payments for students outside the new year or term scope. Delete and recreate it to reassign.");
+    }
+    assignmentsToDelete.push(Number(row.assignment_id));
+  });
+
+  if (assignmentsToDelete.length) {
+    await database.query(
+      `DELETE FROM finance_bill_assignments
+        WHERE organization_id = $1
+          AND assignment_id = ANY($2::int[])`,
+      [orgId, assignmentsToDelete]
+    );
+  }
+
+  const assignmentsToInsert = eligibleStudentIds.filter((studentId) => !existingByStudentId.has(studentId));
+  if (assignmentsToInsert.length && status !== "draft") {
+    const statusValue = recalcAssignmentStatus(amount, 0, 0, dueDate);
+    for (const studentId of assignmentsToInsert) {
+      await database.query(
+        `INSERT INTO finance_bill_assignments (organization_id, bill_id, student_id, amount, due_date, status)
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        [orgId, billId, studentId, amount, dueDate, statusValue]
+      );
+    }
+  }
+
+  return resolvedTargets;
+}
+
 function recalcAssignmentStatus(amount, late, paid, dueDate) {
   const total = Number(amount) + Number(late || 0);
   const p = Number(paid || 0);
@@ -1140,6 +1640,822 @@ function recalcAssignmentStatus(amount, late, paid, dueDate) {
   if (p > 0) return "partial";
   if (dueDate && new Date(dueDate) < new Date()) return "overdue";
   return "pending";
+}
+
+class PaygiraRequestError extends Error {
+  constructor(message, status = 400) {
+    super(message);
+    this.name = "PaygiraRequestError";
+    this.status = status;
+  }
+}
+
+function requestWantsJson(req) {
+  const accept = String(req.get("accept") || "").toLowerCase();
+  const requestedWith = String(req.get("x-requested-with") || "").toLowerCase();
+  return req.xhr || requestedWith === "xmlhttprequest" || accept.includes("application/json");
+}
+
+function normalizeOccurrenceDate(rawOccurrenceDate) {
+  if (rawOccurrenceDate instanceof Date && !Number.isNaN(rawOccurrenceDate.getTime())) {
+    return [
+      rawOccurrenceDate.getFullYear(),
+      String(rawOccurrenceDate.getMonth() + 1).padStart(2, "0"),
+      String(rawOccurrenceDate.getDate()).padStart(2, "0"),
+    ].join("-");
+  }
+  const value = String(rawOccurrenceDate || "").trim();
+  if (!value) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? null : value;
+}
+
+function normalizeClassId(rawClassId) {
+  const parsed = parseInt(rawClassId, 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function normalizeSignoffClassId(rawClassId) {
+  return normalizeClassId(rawClassId) || 0;
+}
+
+function buildAcademicClassScopeClause({ studentAlias = "s", billAlias = "b", classParamSql, orgParamSql = "$1" }) {
+  return `(${classParamSql}::int = 0 OR EXISTS (
+    SELECT 1
+      FROM enrollments e
+      JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id
+     WHERE es.student_id = ${studentAlias}.student_id
+       AND es.class_id = ${classParamSql}
+       AND e.organization_id = ${orgParamSql}
+       AND (
+         (
+           ${billAlias}.school_year_id IS NOT NULL
+           AND ${billAlias}.term_id IS NOT NULL
+           AND e.school_year_id = ${billAlias}.school_year_id
+           AND e.term_id = ${billAlias}.term_id
+         )
+         OR (
+           (${billAlias}.school_year_id IS NULL OR ${billAlias}.term_id IS NULL)
+           AND ${studentAlias}.class_id = ${classParamSql}
+         )
+       )
+  ))`;
+}
+
+function isRecurringBill(row) {
+  return String(row?.bill_type || "").toLowerCase() === "recurring";
+}
+
+function shouldExcludeNonSchoolDays(row) {
+  return Boolean(parseBoolean(row?.exclude_non_school_days));
+}
+
+function getRecurringScheduleEnd(row) {
+  return normalizeOccurrenceDate(row?.recurrence_end_date || row?.term_end_date || null);
+}
+
+function addRecurringStep(dateValue, recurrence) {
+  const next = new Date(dateValue.getTime());
+  switch (String(recurrence || "").toLowerCase()) {
+    case "daily":
+      next.setDate(next.getDate() + 1);
+      return next;
+    case "weekly":
+      next.setDate(next.getDate() + 7);
+      return next;
+    case "monthly":
+      next.setMonth(next.getMonth() + 1);
+      return next;
+    case "term":
+      next.setMonth(next.getMonth() + 3);
+      return next;
+    case "year":
+      next.setFullYear(next.getFullYear() + 1);
+      return next;
+    default:
+      return null;
+  }
+}
+
+function createBillScheduleContextLoader(database, orgId) {
+  const cache = new Map();
+  let ensuredAttendanceCalendar = false;
+  return async function getCalendarContext(row) {
+    if (!shouldExcludeNonSchoolDays(row)) return null;
+    const startIso = normalizeOccurrenceDate(row?.due_date);
+    const endIso = getRecurringScheduleEnd(row) || startIso;
+    const termId = row?.term_id ? Number(row.term_id) : null;
+    const cacheKey = [String(termId || "org"), String(startIso || ""), String(endIso || "")].join(":");
+    if (cache.has(cacheKey)) return cache.get(cacheKey);
+
+    if (!ensuredAttendanceCalendar) {
+      ensuredAttendanceCalendar = true;
+      try {
+        await ensureAttendanceCalendarSchema(database);
+      } catch (_) {}
+    }
+
+    let profile = null;
+    let dayMap = new Map();
+    try {
+      profile = await getAttendanceCalendarProfile(database, orgId, termId || null);
+      if (profile && startIso && endIso) {
+        const days = await getAttendanceCalendarDays(database, profile.calendar_id, startIso, endIso);
+        dayMap = buildCalendarDayMap(days);
+      }
+    } catch (_) {
+      profile = null;
+      dayMap = new Map();
+    }
+
+    const context = { profile, dayMap };
+    cache.set(cacheKey, context);
+    return context;
+  };
+}
+
+async function getScheduledOccurrenceDates(row, getCalendarContext) {
+  const startIso = normalizeOccurrenceDate(row?.due_date);
+  if (!startIso) return [];
+  if (!isRecurringBill(row)) return [startIso];
+
+  const endIso = getRecurringScheduleEnd(row);
+  if (!endIso) return [startIso];
+
+  const startDate = new Date(`${startIso}T00:00:00`);
+  const endDate = new Date(`${endIso}T00:00:00`);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || endDate < startDate) return [];
+
+  const calendarContext = typeof getCalendarContext === "function" && shouldExcludeNonSchoolDays(row)
+    ? await getCalendarContext({ ...row, due_date: startIso, recurrence_end_date: endIso })
+    : null;
+
+  const occurrenceDates = [];
+  let cursor = new Date(startDate.getTime());
+  for (let guard = 0; guard < 5000; guard += 1) {
+    if (cursor > endDate) break;
+    const dateKey = normalizeOccurrenceDate(cursor);
+    if (!calendarContext || isAttendanceCountableForDate(dateKey, calendarContext.profile, calendarContext.dayMap)) {
+      occurrenceDates.push(dateKey);
+    }
+    const next = addRecurringStep(cursor, row?.recurrence);
+    if (!next || next.getTime() === cursor.getTime()) break;
+    cursor = next;
+  }
+
+  return occurrenceDates;
+}
+
+async function countScheduledOccurrences(row, getCalendarContext) {
+  const occurrenceDates = await getScheduledOccurrenceDates(row, getCalendarContext);
+  return Math.max(occurrenceDates.length, 1);
+}
+
+async function getScheduledBilledAmount(row, getCalendarContext) {
+  const billedPerOccurrence = Number(row?.amount || 0);
+  if (!isRecurringBill(row)) return billedPerOccurrence;
+  return billedPerOccurrence * (await countScheduledOccurrences(row, getCalendarContext));
+}
+
+async function enrichScheduledAssignment(row, getCalendarContext) {
+  const normalizedDueDate = normalizeOccurrenceDate(row?.due_date) || null;
+  const scheduleEnd = getRecurringScheduleEnd(row);
+  const scheduledOccurrenceDates = await getScheduledOccurrenceDates({
+    ...row,
+    due_date: normalizedDueDate,
+    recurrence_end_date: scheduleEnd,
+  }, getCalendarContext);
+  const scheduledCount = Math.max(scheduledOccurrenceDates.length, 1);
+  const scheduledBilledTotal = Number(row?.amount || 0) * scheduledCount;
+  const amountPaid = Number(row?.amount_paid || 0);
+  const lateFeeApplied = Number(row?.late_fee_applied || 0);
+  return {
+    ...row,
+    due_date: normalizedDueDate,
+    recurrence_end_date: scheduleEnd,
+    scheduled_occurrences: scheduledCount,
+    scheduled_occurrence_dates: scheduledOccurrenceDates.length
+      ? scheduledOccurrenceDates
+      : (normalizedDueDate ? [normalizedDueDate] : []),
+    scheduled_billed_total: scheduledBilledTotal,
+    scheduled_outstanding_total: Math.max(scheduledBilledTotal + lateFeeApplied - amountPaid, 0),
+  };
+}
+
+function applyScheduledBillRollups(bills, assignments) {
+  const totalsByBillId = (assignments || []).reduce((accumulator, assignment) => {
+    const billKey = String(assignment.bill_id);
+    if (!accumulator[billKey]) {
+      accumulator[billKey] = {
+        assigned_count: 0,
+        total_amount: 0,
+        total_paid: 0,
+        total_outstanding: 0,
+        scheduled_occurrence_dates: null,
+      };
+    }
+    accumulator[billKey].assigned_count += 1;
+    accumulator[billKey].total_amount += Number(assignment.scheduled_billed_total || assignment.amount || 0);
+    accumulator[billKey].total_paid += Number(assignment.amount_paid || 0);
+    accumulator[billKey].total_outstanding += Number(assignment.scheduled_outstanding_total || 0);
+    if (!accumulator[billKey].scheduled_occurrence_dates && Array.isArray(assignment.scheduled_occurrence_dates)) {
+      accumulator[billKey].scheduled_occurrence_dates = assignment.scheduled_occurrence_dates.slice();
+    }
+    return accumulator;
+  }, {});
+
+  return (bills || []).map((bill) => {
+    const normalizedDueDate = normalizeOccurrenceDate(bill?.due_date) || null;
+    const scheduleEnd = getRecurringScheduleEnd(bill);
+    const totals = totalsByBillId[String(bill.bill_id)] || null;
+    return {
+      ...bill,
+      due_date: normalizedDueDate,
+      recurrence_end_date: scheduleEnd,
+      assigned_count: totals ? totals.assigned_count : Number(bill.assigned_count || 0),
+      total_amount: totals ? totals.total_amount : Number(bill.total_amount || 0),
+      total_paid: totals ? totals.total_paid : Number(bill.total_paid || 0),
+      total_outstanding: totals ? totals.total_outstanding : Number(bill.total_outstanding || 0),
+      scheduled_occurrence_dates: totals && Array.isArray(totals.scheduled_occurrence_dates)
+        ? totals.scheduled_occurrence_dates.slice()
+        : (Array.isArray(bill.scheduled_occurrence_dates) ? bill.scheduled_occurrence_dates.slice() : []),
+    };
+  });
+}
+
+function normalizePersonName(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+function getSignoffScopeKey(occurrenceDate) {
+  return normalizeOccurrenceDate(occurrenceDate) || "bill";
+}
+
+function doesSignoffApplyToView(signoffRow, viewClassId) {
+  const rowClassId = normalizeSignoffClassId(signoffRow?.class_id);
+  const scopeClassId = normalizeSignoffClassId(viewClassId);
+  if (scopeClassId > 0) return rowClassId === 0 || rowClassId === scopeClassId;
+  return rowClassId === 0;
+}
+
+function getCurrentViewBillSignoff(signoffRows, viewClassId) {
+  return (signoffRows || []).find((row) => row.scope_key === "bill" && doesSignoffApplyToView(row, viewClassId)) || null;
+}
+
+function getCurrentViewSignedOffDates(signoffRows, viewClassId) {
+  return Array.from(new Set(
+    (signoffRows || [])
+      .filter((row) => row.scope_key !== "bill" && doesSignoffApplyToView(row, viewClassId))
+      .map((row) => normalizeOccurrenceDate(row.occurrence_date))
+      .filter(Boolean)
+  )).sort();
+}
+
+async function loadCollectionSignoffs(orgId, billIds) {
+  if (!Array.isArray(billIds) || !billIds.length) return [];
+  const result = await db.query(
+    `SELECT signoff_id, organization_id, bill_id, class_id,
+            occurrence_date::text AS occurrence_date,
+            scope_key, signed_by_user_id, signed_by_name, signer_role,
+            student_count, total_collected, signed_at
+       FROM finance_collection_signoffs
+      WHERE organization_id = $1 AND bill_id = ANY($2::int[])
+      ORDER BY signed_at DESC`,
+    [orgId, billIds]
+  ).catch(() => ({ rows: [] }));
+  return result.rows;
+}
+
+async function loadCollectionSignoffHistory(orgId) {
+  const result = await db.query(
+    `SELECT h.signoff_id, h.bill_id, h.class_id,
+            h.occurrence_date::text AS occurrence_date,
+            h.scope_key, h.signed_by_user_id, h.signed_by_name,
+            h.signer_role, h.student_count, h.total_collected, h.signed_at,
+            b.title AS bill_title,
+            c.class_name,
+            u.first_name AS signer_first_name,
+            u.last_name AS signer_last_name
+       FROM finance_collection_signoffs h
+       JOIN finance_bills b ON b.bill_id = h.bill_id
+       LEFT JOIN classes c ON c.class_id = NULLIF(h.class_id, 0)
+       LEFT JOIN users u ON u.user_id = h.signed_by_user_id
+      WHERE h.organization_id = $1
+      ORDER BY h.signed_at DESC
+      LIMIT 200`,
+    [orgId]
+  ).catch(() => ({ rows: [] }));
+  return result.rows;
+}
+
+async function resolveScheduleValidationContext(database, orgId, schedule) {
+  const normalizedDueDate = normalizeOccurrenceDate(schedule?.due_date);
+  if (!normalizedDueDate) {
+    throw new Error("Start / first date is required.");
+  }
+
+  const directEndDate = normalizeOccurrenceDate(schedule?.recurrence_end_date);
+  let termEndDate = null;
+  const termId = schedule?.term_id ? Number(schedule.term_id) : null;
+  if (!directEndDate && termId) {
+    const termResult = await database.query(
+      `SELECT end_date FROM terms WHERE term_id = $1 AND organization_id = $2 LIMIT 1`,
+      [termId, orgId]
+    ).catch(() => ({ rows: [] }));
+    termEndDate = normalizeOccurrenceDate(termResult.rows[0]?.end_date || null);
+  }
+
+  const effectiveEndDate = directEndDate || termEndDate || null;
+  if (effectiveEndDate && effectiveEndDate < normalizedDueDate) {
+    throw new Error("End date cannot be before the start date.");
+  }
+
+  const excludeNonSchoolDays = isRecurringBill(schedule) && shouldExcludeNonSchoolDays(schedule);
+  if (isRecurringBill(schedule) && !String(schedule?.recurrence || "").trim()) {
+    throw new Error("Recurring bills need a recurrence pattern.");
+  }
+
+  const getCalendarContext = createBillScheduleContextLoader(database, orgId);
+  const occurrenceDates = await getScheduledOccurrenceDates({
+    ...schedule,
+    due_date: normalizedDueDate,
+    recurrence_end_date: effectiveEndDate,
+    term_end_date: termEndDate,
+    exclude_non_school_days: excludeNonSchoolDays,
+  }, getCalendarContext);
+
+  if (isRecurringBill(schedule) && effectiveEndDate && !occurrenceDates.length) {
+    throw new Error("No bill dates remain after weekends and holidays were excluded. Adjust the schedule or turn off the exclusion.");
+  }
+
+  return {
+    normalizedDueDate,
+    recurrenceEndDate: directEndDate,
+    effectiveEndDate,
+    excludeNonSchoolDays,
+    occurrenceDates,
+  };
+}
+
+async function verifyCollectionSignoffCredentials(client, req, fullName, password) {
+  const orgId = req.session.organizationId;
+  const userId = req.session.user?.user_id || req.session.userId || null;
+  const enteredName = String(fullName || "").trim().replace(/\s+/g, " ");
+  if (!orgId || !userId) {
+    throw new PaygiraRequestError("Unauthorized.", 401);
+  }
+  if (!enteredName) {
+    throw new PaygiraRequestError("Enter your full name to sign off.", 400);
+  }
+  if (!String(password || "").trim()) {
+    throw new PaygiraRequestError("Enter your password to sign off.", 400);
+  }
+
+  const userResult = await client.query(
+    `SELECT first_name, last_name, password, account_type
+       FROM users
+      WHERE user_id = $1 AND organization_id = $2
+      LIMIT 1`,
+    [userId, orgId]
+  );
+  if (!userResult.rows.length) {
+    throw new PaygiraRequestError("User account not found.", 404);
+  }
+
+  const userRow = userResult.rows[0];
+  const expectedName = [userRow.first_name, userRow.last_name].filter(Boolean).join(" ").trim()
+    || [req.session.user?.first_name, req.session.user?.last_name].filter(Boolean).join(" ").trim()
+    || req.session.userName
+    || "";
+
+  let passwordMatch = false;
+  if (userRow.password) {
+    passwordMatch = await bcrypt.compare(String(password), userRow.password);
+  }
+  if (!passwordMatch) {
+    const organizationResult = await client.query(
+      `SELECT password FROM organizations WHERE organization_id = $1 LIMIT 1`,
+      [orgId]
+    );
+    if (organizationResult.rows[0]?.password) {
+      passwordMatch = await bcrypt.compare(String(password), organizationResult.rows[0].password);
+    }
+  }
+
+  if (!passwordMatch) {
+    throw new PaygiraRequestError("Incorrect password. Please try again.", 401);
+  }
+
+  return {
+    signedByUserId: userId,
+    signedByName: enteredName || expectedName,
+    signerRole: userRow.account_type || req.session.accountType || req.session.userRole || "Staff",
+  };
+}
+
+async function loadBillSignoffSummary(client, orgId, billId, occurrenceDate, classId) {
+  const scopeClassId = normalizeSignoffClassId(classId);
+  if (normalizeOccurrenceDate(occurrenceDate)) {
+    const result = await client.query(
+      `SELECT COUNT(*)::int AS student_count,
+              COALESCE(SUM(a.amount), 0) AS total_expected,
+              COALESCE(SUM(COALESCE(paid_scope.paid_amount, 0)), 0) AS total_paid,
+              COALESCE(SUM(GREATEST(a.amount - COALESCE(paid_scope.paid_amount, 0), 0)), 0) AS total_outstanding
+         FROM finance_bill_assignments a
+         JOIN finance_bills b ON b.bill_id = a.bill_id
+         JOIN students s ON s.student_id = a.student_id
+         LEFT JOIN LATERAL (
+           SELECT COALESCE(SUM(p.amount), 0) AS paid_amount
+             FROM finance_payments p
+            WHERE p.organization_id = $1
+              AND p.assignment_id = a.assignment_id
+              AND p.occurrence_date = $3::date
+         ) paid_scope ON TRUE
+        WHERE a.organization_id = $1
+          AND a.bill_id = $2
+          AND a.status <> 'cancelled'
+          AND COALESCE(b.status, 'active') <> 'cancelled'
+          AND ${buildAcademicClassScopeClause({ studentAlias: 's', billAlias: 'b', classParamSql: '$4', orgParamSql: '$1' })}`,
+      [orgId, billId, normalizeOccurrenceDate(occurrenceDate), scopeClassId]
+    );
+    return result.rows[0] || null;
+  }
+
+  const result = await client.query(
+    `SELECT COUNT(*)::int AS student_count,
+            COALESCE(SUM(a.amount + COALESCE(a.late_fee_applied, 0)), 0) AS total_expected,
+            COALESCE(SUM(a.amount_paid), 0) AS total_paid,
+            COALESCE(SUM(GREATEST(a.amount + COALESCE(a.late_fee_applied, 0) - a.amount_paid, 0)), 0) AS total_outstanding
+       FROM finance_bill_assignments a
+       JOIN finance_bills b ON b.bill_id = a.bill_id
+       JOIN students s ON s.student_id = a.student_id
+      WHERE a.organization_id = $1
+        AND a.bill_id = $2
+        AND a.status <> 'cancelled'
+        AND ${buildAcademicClassScopeClause({ studentAlias: 's', billAlias: 'b', classParamSql: '$3', orgParamSql: '$1' })}`,
+    [orgId, billId, scopeClassId]
+  );
+  return result.rows[0] || null;
+}
+
+async function findExistingCollectionSignoff(client, orgId, billId, occurrenceDate, classId) {
+  const scopeClassId = normalizeSignoffClassId(classId);
+  const scopeKey = getSignoffScopeKey(occurrenceDate);
+  const params = [orgId, billId, scopeKey];
+  let whereSql = `organization_id = $1 AND bill_id = $2 AND scope_key = $3`;
+  if (scopeClassId > 0) {
+    params.push(scopeClassId);
+    whereSql += ` AND class_id IN (0, $4)`;
+  } else {
+    whereSql += ` AND class_id = 0`;
+  }
+  const result = await client.query(
+    `SELECT signoff_id, class_id, occurrence_date::text AS occurrence_date, signed_by_name, signed_at
+       FROM finance_collection_signoffs
+      WHERE ${whereSql}
+      ORDER BY class_id DESC, signed_at DESC
+      LIMIT 1`,
+    params
+  );
+  return result.rows[0] || null;
+}
+
+function buildStaffCollectSuccessMessage(display, amount, studentName, credit) {
+  const safeStudentName = studentName || "this student";
+  if (credit > 0) {
+    return `Collected ${display.formatMoney(amount)} from ${safeStudentName}. ${display.formatMoney(credit)} added as student credit.`;
+  }
+  return `Collected ${display.formatMoney(amount)} from ${safeStudentName}.`;
+}
+
+function buildStaffCollectionResponse(result) {
+  return {
+    assignment_id: result.assignmentId,
+    bill_id: result.billId,
+    student_id: result.studentId,
+    first_name: result.firstName,
+    last_name: result.lastName,
+    image_url: result.imageUrl,
+    class_name: result.className,
+    amount: result.billedAmount,
+    amount_paid: result.amountPaid,
+    late_fee_applied: result.lateFeeApplied,
+    status: result.status,
+    balance: result.balance,
+    bill_type: result.billType,
+    amount_collected: result.amountCollected,
+    credit: result.credit,
+    method: result.method,
+    occurrence_date: result.occurrenceDate,
+    occurrence_due: result.occurrenceDue,
+    occurrence_paid: result.occurrencePaid,
+    occurrence_outstanding: result.occurrenceOutstanding,
+    payment_id: result.paymentId,
+    invoice_url: `/account/settings/my-paygira/invoice/${result.assignmentId}`,
+  };
+}
+
+function parseBulkCollectItems(rawItems) {
+  if (Array.isArray(rawItems)) return rawItems;
+  if (typeof rawItems === "string" && rawItems.trim()) {
+    try {
+      const parsed = JSON.parse(rawItems);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+      return [];
+    }
+  }
+  return [];
+}
+
+function parseOccurrenceDates(rawOccurrenceDates) {
+  let values = [];
+  if (Array.isArray(rawOccurrenceDates)) {
+    values = rawOccurrenceDates;
+  } else if (typeof rawOccurrenceDates === "string" && rawOccurrenceDates.trim()) {
+    const rawValue = rawOccurrenceDates.trim();
+    if (rawValue.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(rawValue);
+        values = Array.isArray(parsed) ? parsed : [];
+      } catch (_) {
+        values = [];
+      }
+    } else {
+      values = [rawValue];
+    }
+  }
+
+  const seen = new Set();
+  return values.reduce((accumulator, value) => {
+    const normalized = normalizeOccurrenceDate(value);
+    if (!normalized || seen.has(normalized)) return accumulator;
+    seen.add(normalized);
+    accumulator.push(normalized);
+    return accumulator;
+  }, []);
+}
+
+async function collectStaffPaygiraPayment({
+  client,
+  orgId,
+  userId,
+  assignmentId,
+  scopedClassId,
+  amount,
+  method,
+  reference,
+  notes,
+  occurrenceDate,
+  allowedMethods,
+  display,
+}) {
+  const assignmentResult = await client.query(
+    `SELECT a.*, b.title AS bill_title, b.due_date, b.assignee_id, b.bill_type, b.recurrence, b.recurrence_end_date,
+            b.school_year_id, b.term_id,
+            b.exclude_non_school_days,
+            b.accepts_card, b.accepts_cash, b.accepts_transfer, b.payment_destination,
+            s.first_name, s.last_name, s.image_url,
+            s.class_id,
+            c.class_name,
+            tm.end_date AS term_end_date
+       FROM finance_bill_assignments a
+       JOIN finance_bills b ON b.bill_id = a.bill_id
+       LEFT JOIN students s ON s.student_id = a.student_id
+       LEFT JOIN classes c ON c.class_id = s.class_id
+       LEFT JOIN terms tm ON tm.term_id = b.term_id
+      WHERE a.assignment_id=$1 AND a.organization_id=$2
+        AND a.status <> 'cancelled'
+        AND COALESCE(b.status, 'active') <> 'cancelled'
+        AND ${buildAcademicClassScopeClause({ studentAlias: 's', billAlias: 'b', classParamSql: '$3', orgParamSql: '$2' })}`,
+    [assignmentId, orgId, normalizeSignoffClassId(scopedClassId)]
+  );
+  if (!assignmentResult.rows.length) {
+    throw new PaygiraRequestError("Not authorized to collect for this bill.", 403);
+  }
+
+  const row = assignmentResult.rows[0];
+  const collectorResult = await client.query(
+    `SELECT 1 FROM finance_bill_collectors WHERE bill_id=$1 AND user_id=$2`,
+    [row.bill_id, userId]
+  );
+  const isCollector = Number(row.assignee_id || 0) === Number(userId || 0) || collectorResult.rows.length > 0;
+  if (!isCollector) {
+    throw new PaygiraRequestError("Not authorized to collect for this bill.", 403);
+  }
+
+  const amt = Number(amount || 0);
+  if (!Number.isFinite(amt) || amt <= 0) {
+    throw new PaygiraRequestError("Enter a valid amount.", 400);
+  }
+
+  const requested = String(method || "cash").toLowerCase();
+  const isMethodAllowed =
+    (requested === "cash" && row.accepts_cash) ||
+    (requested === "bank_transfer" && row.accepts_transfer && allowedMethods.bankOn) ||
+    (requested === "mobile_money" && allowedMethods.momoOn) ||
+    (requested === "card" && row.accepts_card && allowedMethods.stripeOn) ||
+    (requested === "stripe" && row.accepts_card && allowedMethods.stripeOn) ||
+    requested === "other";
+  if (!isMethodAllowed) {
+    throw new PaygiraRequestError(`Method "${requested}" is not enabled on this bill / school. Update Payment Settings.`, 400);
+  }
+
+  const occDateVal = normalizeOccurrenceDate(occurrenceDate);
+  const isRecurringBill = String(row.bill_type || "") === "recurring";
+  const existingSignoff = await findExistingCollectionSignoff(client, orgId, row.bill_id, occDateVal, normalizeSignoffClassId(scopedClassId));
+  if (existingSignoff) {
+    throw new PaygiraRequestError(
+      occDateVal ? "This date has already been signed off." : "This bill has already been signed off.",
+      400
+    );
+  }
+
+  const scheduleContext = createBillScheduleContextLoader(client, orgId);
+  const scheduledAssignmentTotal = await getScheduledBilledAmount(row, scheduleContext);
+  let occurrencePaidBefore = 0;
+  let occurrenceDue = Number(row.amount || 0);
+  let occurrenceOutstanding = occurrenceDue;
+  if (isRecurringBill) {
+    if (!occDateVal) {
+      throw new PaygiraRequestError("Select a recurring date before collecting.", 400);
+    }
+    const occurrencePaymentResult = await client.query(
+      `SELECT COALESCE(SUM(amount), 0) AS paid_amount
+         FROM finance_payments
+        WHERE organization_id=$1 AND assignment_id=$2 AND occurrence_date=$3::date`,
+      [orgId, row.assignment_id, occDateVal]
+    );
+    occurrencePaidBefore = Number(occurrencePaymentResult.rows[0]?.paid_amount || 0);
+    occurrenceOutstanding = Math.max(occurrenceDue - occurrencePaidBefore, 0);
+    if (!(occurrenceOutstanding > 0)) {
+      throw new PaygiraRequestError("This selected date is already fully paid.", 400);
+    }
+    if (amt > occurrenceOutstanding) {
+      throw new PaygiraRequestError(`Amount exceeds the selected date balance of ${display.formatMoney(occurrenceOutstanding)}.`, 400);
+    }
+  }
+
+  const paymentInsert = await client.query(
+    `INSERT INTO finance_payments
+      (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, received_by, occurrence_date)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+     RETURNING payment_id, received_at`,
+    [
+      orgId,
+      row.assignment_id,
+      row.bill_id,
+      row.student_id,
+      amt,
+      requested,
+      reference || null,
+      notes || null,
+      userId,
+      occDateVal,
+    ]
+  );
+
+  const totalDue = (isRecurringBill ? scheduledAssignmentTotal : Number(row.amount || 0)) + Number(row.late_fee_applied || 0);
+  const newPaid = Number(row.amount_paid || 0) + amt;
+  let credit = 0;
+  let appliedToAssignment = newPaid;
+  if (!isRecurringBill && newPaid > totalDue) {
+    credit = newPaid - totalDue;
+    appliedToAssignment = totalDue;
+  }
+  const newStatus = isRecurringBill
+    ? (appliedToAssignment >= totalDue
+        ? "paid"
+        : (appliedToAssignment > 0 ? "partial" : recalcAssignmentStatus(row.amount, row.late_fee_applied, appliedToAssignment, row.due_date)))
+    : recalcAssignmentStatus(row.amount, row.late_fee_applied, appliedToAssignment, row.due_date);
+  await client.query(
+    `UPDATE finance_bill_assignments
+        SET amount_paid=$1, status=$2, updated_at=now()
+      WHERE assignment_id=$3`,
+    [appliedToAssignment, newStatus, row.assignment_id]
+  );
+  if (credit > 0) {
+    await client.query(
+      `INSERT INTO finance_student_credits (organization_id, student_id, amount)
+         VALUES ($1,$2,$3)
+       ON CONFLICT (student_id) DO UPDATE
+          SET amount = finance_student_credits.amount + EXCLUDED.amount, updated_at=now()`,
+      [orgId, row.student_id, credit]
+    );
+  }
+
+  const firstName = row.first_name || "";
+  const lastName = row.last_name || "";
+  const studentName = [firstName, lastName].filter(Boolean).join(" ").trim() || `Student #${row.student_id}`;
+
+  return {
+    assignmentId: row.assignment_id,
+    billId: row.bill_id,
+    billTitle: row.bill_title || "Bill",
+    studentId: row.student_id,
+    firstName,
+    lastName,
+    studentName,
+    className: row.class_name || "",
+    imageUrl: row.image_url || "",
+    billedAmount: Number(row.amount || 0),
+    lateFeeApplied: Number(row.late_fee_applied || 0),
+    amountPaid: appliedToAssignment,
+    balance: Math.max(totalDue - appliedToAssignment, 0),
+    totalDue,
+    billType: row.bill_type || "one_time",
+    amountCollected: amt,
+    credit,
+    method: requested,
+    reference: reference || null,
+    notes: notes || null,
+    occurrenceDate: occDateVal,
+    occurrenceDue,
+    occurrencePaid: occurrencePaidBefore + amt,
+    occurrenceOutstanding: Math.max(occurrenceOutstanding - amt, 0),
+    status: newStatus,
+    paymentId: paymentInsert.rows[0]?.payment_id || null,
+    receivedAt: paymentInsert.rows[0]?.received_at || null,
+    successMessage: isRecurringBill && occDateVal
+      ? `Collected ${display.formatMoney(amt)} from ${studentName} for ${new Date(`${occDateVal}T00:00:00`).toLocaleDateString()}.`
+      : buildStaffCollectSuccessMessage(display, amt, studentName, credit),
+  };
+}
+
+async function notifyGuardiansOfStaffCollection(display, result) {
+  try {
+    const orgRow = (await db.query(
+      `SELECT organization_name FROM organizations WHERE organization_id=$1`,
+      [result.orgId]
+    )).rows[0];
+    const guardians = (await db.query(
+      `SELECT gp.email, gp.first_name FROM guardian_profiles gp
+         JOIN guardian_students gs ON gs.guardian_id = gp.guardian_id
+        WHERE gs.student_id=$1 AND gp.organization_id=$2 AND gp.email IS NOT NULL AND gp.email <> ''`,
+      [result.studentId, result.orgId]
+    )).rows;
+    if (!guardians.length) return;
+
+    const orgName = orgRow?.organization_name || "Your School";
+    const amtFmt = display.formatMoney(result.amountCollected);
+    const occText = result.occurrenceDate
+      ? ` for ${new Date(`${result.occurrenceDate}T00:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`
+      : "";
+    const statusText = result.status === "paid"
+      ? "fully paid"
+      : `partially paid (${display.formatMoney(result.amountPaid)} of ${display.formatMoney(result.totalDue)})`;
+
+    for (const guardian of guardians) {
+      const html = renderCleanEmail({
+        title: `Payment Recorded — ${result.billTitle}`,
+        greeting: `Hello ${guardian.first_name},`,
+        paragraphs: [
+          `A payment of <strong>${amtFmt}</strong> has been recorded for <strong>${result.studentName}</strong> on the bill <strong>${result.billTitle}</strong>${occText}.`,
+          `This bill is now <strong>${statusText}</strong>.`,
+        ],
+        details: [
+          { label: "Student", value: result.studentName },
+          { label: "Bill", value: result.billTitle },
+          ...(result.occurrenceDate ? [{ label: "For date", value: new Date(`${result.occurrenceDate}T00:00:00`).toLocaleDateString() }] : []),
+          { label: "Amount paid", value: amtFmt },
+          { label: "Method", value: result.method },
+          { label: "Status", value: result.status },
+        ],
+        note: `This is an automated notification from ${orgName}. You can log in to the guardian portal to view your ward's full payment history.`,
+      });
+      await sendEmailSafely({
+        from: process.env.ADMIN_NOTIFY_EMAIL_USER,
+        to: guardian.email,
+        subject: `[${orgName}] Payment Recorded — ${result.billTitle}`,
+        html,
+      }, "PayGira guardian notification");
+    }
+  } catch (emailErr) {
+    console.warn("[notifyGuardiansOfStaffCollection] guardian email failed:", emailErr.message);
+  }
+}
+
+async function auditStaffCollection(req, result) {
+  try {
+    await logPaygira(req, {
+      actionType: "Collected",
+      recordType: "Payment",
+      recordId: result.assignmentId,
+      recordLabel: `${result.studentName} — ${result.billTitle}`,
+      description: `Collector recorded $${result.amountCollected.toFixed(2)} (${result.method}) for ${result.studentName} on bill "${result.billTitle}". New status: ${result.status}${result.credit > 0 ? `; $${result.credit.toFixed(2)} credited.` : ""}.`,
+      changedFields: [
+        { field: "Amount", value: `$${result.amountCollected.toFixed(2)}` },
+        { field: "Method", value: result.method },
+        { field: "Reference", value: result.reference || "—" },
+        { field: "New Status", value: result.status },
+      ],
+    });
+  } catch (_) {
+  }
 }
 
 module.exports = {
@@ -1534,21 +2850,36 @@ module.exports = {
       await ensureAssigneeColumn();
       await ensurePaymentProviderSchema(db);
       const section = String(req.query.section || "overview").toLowerCase();
-      const [bills, studentBilling, templates, refs, pspSettings, orgProfile] = await Promise.all([
-        loadBills(orgId),
-        loadStudentBilling(orgId),
+      const [templates, refs, pspSettings, orgProfile, signoffHistory] = await Promise.all([
         loadTemplates(orgId),
         loadClassesAndStudents(orgId),
         loadPspSettings(orgId),
         loadOrganizationProfile(orgId),
+        loadCollectionSignoffHistory(orgId),
       ]);
-      const chargeCards = await getOrgChargeCards(db, orgId, orgProfile.billing_provider || null);
       const currentAcademic = getCurrentAcademicContext(refs);
       const overviewFilters = {
         school_year_id: req.query.year || currentAcademic.schoolYearId || null,
         term_id: req.query.term || ((!req.query.year && !req.query.term) ? (currentAcademic.termId || null) : null),
       };
-      const overview = await loadOverviewStats(orgId, overviewFilters);
+      const billListFilters = section === "bills"
+        ? {
+            school_year_id: req.query.billYear || currentAcademic.schoolYearId || null,
+            term_id: req.query.billTerm || ((!req.query.billYear && !req.query.billTerm) ? (currentAcademic.termId || null) : null),
+          }
+        : {};
+      const studentBillingFilters = section === "students"
+        ? {
+            school_year_id: req.query.studentYear || currentAcademic.schoolYearId || null,
+            term_id: req.query.studentTerm || ((!req.query.studentYear && !req.query.studentTerm) ? (currentAcademic.termId || null) : null),
+          }
+        : {};
+      const [studentBilling, bills, overview, chargeCards] = await Promise.all([
+        loadStudentBilling(orgId, studentBillingFilters),
+        loadBills(orgId, billListFilters),
+        loadOverviewStats(orgId, overviewFilters),
+        getOrgChargeCards(db, orgId, orgProfile.billing_provider || null),
+      ]);
 
       const display = await buildFinanceDisplayContext(req, orgId, pspSettings, orgProfile.organization_country);
       const financeCountry = resolveCountryName(orgProfile.organization_country, display.financeCurrency.countryHint);
@@ -1613,10 +2944,13 @@ module.exports = {
         currencyOptions: display.currencyOptions,
         countryOptions: getFinanceCountryOptions(),
         financeCountry,
+        signoffHistory,
         arrearsData,
         arrearsReports,
         arrearsPresets,
         chargeCards,
+        billListFilters,
+        studentBillingFilters,
         formatMoney: display.formatMoney,
         formatUsdEquivalent: display.formatUsdEquivalent,
         stripeCatalog: STRIPE_METHOD_CATALOG,
@@ -1687,12 +3021,16 @@ module.exports = {
   billCreatePost: async (req, res) => {
     if (!(await isFinanceAdmin(req))) return res.redirect("/account/settings");
     const orgId = req.session.organizationId;
+    let client;
     try {
       await ensureFinanceSchema();
+      client = await db.connect();
+      await client.query("BEGIN");
       const {
-        title, description, amount, bill_type, recurrence,
+        title, description, amount, bill_type, recurrence, recurrence_end_date,
         late_fee_amount, late_fee_after_days,
         applies_to, school_year_id, term_id, due_date,
+        exclude_non_school_days,
         accepts_card, accepts_cash, accepts_transfer,
         notify_email, notify_sms,
         target_class_ids, target_student_ids, status,
@@ -1712,29 +3050,72 @@ module.exports = {
       const destination = ['stripe','cash','bank','momo'].includes(String(payment_destination))
         ? payment_destination : 'stripe';
 
+      const resolvedBillType = ['one_time','recurring','installment'].includes(String(bill_type))
+        ? String(bill_type)
+        : 'one_time';
+      const resolvedRecurrence = ['daily','weekly','monthly','term','year'].includes(String(recurrence))
+        ? String(recurrence)
+        : null;
+      const academicContext = await resolveBillAcademicContext(client, orgId, school_year_id, term_id);
+      const audience = ['school', 'classes', 'students'].includes(String(applies_to))
+        ? String(applies_to)
+        : 'school';
+      const resolvedTargets = await loadBillAudienceTargets(
+        client,
+        orgId,
+        null,
+        audience,
+        target_class_ids,
+        target_student_ids
+      );
+      const eligibleStudentIds = await loadEligibleBillStudents(
+        client,
+        orgId,
+        academicContext.schoolYearId,
+        academicContext.termId,
+        audience,
+        resolvedTargets.targetClassIds,
+        resolvedTargets.targetStudentIds
+      );
+      if (!eligibleStudentIds.length && status !== 'draft') {
+        throw new PaygiraRequestError('No enrolled students were found for the selected audience in that school year and term.');
+      }
+      const schedule = await resolveScheduleValidationContext(client, orgId, {
+        bill_type: resolvedBillType,
+        recurrence: resolvedRecurrence,
+        recurrence_end_date,
+        due_date,
+        term_id: academicContext.termId,
+        exclude_non_school_days,
+      });
       const amt = Number(amount || 0);
-      const insert = await db.query(
+      const insert = await client.query(
         `INSERT INTO finance_bills
-         (organization_id, title, description, amount, bill_type, recurrence,
-          late_fee_amount, late_fee_after_days, applies_to, school_year_id, term_id, due_date,
-          accepts_card, accepts_cash, accepts_transfer, notify_email, notify_sms, status, created_by, assignee_id, payment_destination)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+         (organization_id, title, description, amount, bill_type, recurrence, recurrence_end_date,
+          late_fee_amount, late_fee_after_days, applies_to, school_year_id, term_id, due_date, exclude_non_school_days,
+          accepts_card, accepts_cash, accepts_transfer, notify_email, notify_sms, status, created_by, assignee_id, payment_destination,
+          target_class_ids, target_student_ids)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
          RETURNING bill_id`,
-        [orgId, title, description || null, amt, bill_type || 'one_time', recurrence || null,
+        [orgId, title, description || null, amt, resolvedBillType, resolvedRecurrence,
+          schedule.recurrenceEndDate,
           Number(late_fee_amount || 0), Number(late_fee_after_days || 7),
-          applies_to || 'school',
-          school_year_id || null, term_id || null,
-          due_date || null,
+          audience,
+          academicContext.schoolYearId, academicContext.termId,
+          schedule.normalizedDueDate,
+          schedule.excludeNonSchoolDays,
           !!accepts_card, !!accepts_cash, !!accepts_transfer,
           !!notify_email, !!notify_sms,
           status === 'draft' ? 'draft' : 'active',
-          req.session.user?.user_id || null, assignee_id, destination]
+          req.session.user?.user_id || null, assignee_id, destination,
+          resolvedTargets.targetClassIds.length ? resolvedTargets.targetClassIds : null,
+          resolvedTargets.targetStudentIds.length ? resolvedTargets.targetStudentIds : null]
       );
       const billId = insert.rows[0].bill_id;
 
       // Sync collectors junction table
       if (assigneeList.length > 0) {
-        await db.query(
+        await client.query(
           `INSERT INTO finance_bill_collectors (bill_id, user_id, organization_id)
            SELECT $1, unnest($2::int[]), $3
            ON CONFLICT (bill_id, user_id) DO NOTHING`,
@@ -1742,62 +3123,45 @@ module.exports = {
         );
       }
 
-      // Resolve student set
-      let studentRows = [];
-      if (applies_to === 'students' && target_student_ids) {
-        const ids = (Array.isArray(target_student_ids) ? target_student_ids : [target_student_ids])
-          .map(x => parseInt(x, 10)).filter(Boolean);
-        if (ids.length) {
-          const r = await db.query(`SELECT student_id FROM students WHERE organization_id = $1 AND student_id = ANY($2::int[])`, [orgId, ids]);
-          studentRows = r.rows;
-        }
-      } else if (applies_to === 'classes' && target_class_ids) {
-        const ids = (Array.isArray(target_class_ids) ? target_class_ids : [target_class_ids])
-          .map(x => parseInt(x, 10)).filter(Boolean);
-        if (ids.length) {
-          const r = await db.query(`SELECT student_id FROM students WHERE organization_id = $1 AND class_id = ANY($2::int[])`, [orgId, ids]);
-          studentRows = r.rows;
-        }
-      } else {
-        const r = await db.query(`SELECT student_id FROM students WHERE organization_id = $1`, [orgId]);
-        studentRows = r.rows;
-      }
-
-      if (studentRows.length && status !== 'draft') {
-        const values = [];
-        const params = [];
-        studentRows.forEach((s, i) => {
-          const baseIdx = i * 4;
-          values.push(`($${baseIdx + 1}, $${baseIdx + 2}, $${baseIdx + 3}, $${baseIdx + 4})`);
-          params.push(billId, orgId, s.student_id, amt);
+      if (status !== 'draft' && eligibleStudentIds.length) {
+        await syncBillAssignmentsForAudience(client, orgId, billId, {
+          appliesTo: audience,
+          schoolYearId: academicContext.schoolYearId,
+          termId: academicContext.termId,
+          targetClassIds: resolvedTargets.targetClassIds,
+          targetStudentIds: resolvedTargets.targetStudentIds,
+          amount: amt,
+          dueDate: schedule.normalizedDueDate,
+          status,
         });
-        await db.query(
-          `INSERT INTO finance_bill_assignments (bill_id, organization_id, student_id, amount)
-           VALUES ${values.join(",")}
-           ON CONFLICT (bill_id, student_id) DO NOTHING`,
-          params
-        );
       }
 
-      req.flash("success", `Bill created and assigned to ${studentRows.length} student(s).`);
+      await client.query("COMMIT");
+
+      req.flash("success", `Bill created and assigned to ${eligibleStudentIds.length} student(s).`);
       await logPaygira(req, {
         actionType: "Created",
         recordType: "Bill",
         recordId: billId,
         recordLabel: title,
-        description: `Created bill "${title}" ($${amt.toFixed(2)}) — type: ${bill_type || 'one_time'}, applies to ${applies_to || 'school'}, ${studentRows.length} student(s) assigned, destination: ${destination}.`,
+        description: `Created bill "${title}" ($${amt.toFixed(2)}) — type: ${resolvedBillType}, applies to ${audience}, ${eligibleStudentIds.length} student(s) assigned, destination: ${destination}.`,
         changedFields: [
           { field: "Amount", value: `$${amt.toFixed(2)}` },
-          { field: "Bill Type", value: bill_type || 'one_time' },
-          { field: "Audience", value: applies_to || 'school' },
-          { field: "Assignments", value: String(studentRows.length) },
+          { field: "Bill Type", value: resolvedBillType },
+          { field: "Audience", value: audience },
+          { field: "Assignments", value: String(eligibleStudentIds.length) },
           { field: "Destination", value: destination },
           { field: "Status", value: status === 'draft' ? 'draft' : 'active' },
         ],
       });
     } catch (e) {
+      if (client) {
+        try { await client.query("ROLLBACK"); } catch (_) {}
+      }
       console.error("[billCreate]", e);
       req.flash("error", "Could not create bill: " + e.message);
+    } finally {
+      if (client) client.release();
     }
     res.redirect("/account/settings/finance?section=bills");
   },
@@ -1945,12 +3309,16 @@ module.exports = {
     if (!(await isFinanceAdmin(req))) return res.redirect("/account/settings");
     const orgId = req.session.organizationId;
     const billId = req.params.id;
+    let client;
     const {
       title, description, amount, due_date,
       late_fee_amount, late_fee_after_days,
       assignee_ids: rawAids,
       assignee_id: rawAid,
-      bill_type, recurrence,
+      bill_type, recurrence, recurrence_end_date,
+      exclude_non_school_days,
+      applies_to,
+      target_class_ids, target_student_ids,
       school_year_id, term_id,
       payment_destination,
       accepts_card, accepts_cash, accepts_transfer,
@@ -1970,76 +3338,182 @@ module.exports = {
     const validType = ['one_time','recurring','installment'].includes(String(bill_type)) ? bill_type : null;
     const validRec = ['daily','weekly','monthly','term','year'].includes(String(recurrence)) ? recurrence : null;
     const validStatus = ['active','draft','scheduled','cancelled'].includes(String(status)) ? status : null;
+    const hasEditedClassTargets = Object.prototype.hasOwnProperty.call(req.body || {}, 'target_class_ids');
+    const hasEditedStudentTargets = Object.prototype.hasOwnProperty.call(req.body || {}, 'target_student_ids');
     try {
+      client = await db.connect();
+      await client.query("BEGIN");
       // Snapshot existing for diff
-      const before = (await db.query(
+      const before = (await client.query(
         `SELECT * FROM finance_bills WHERE bill_id=$1 AND organization_id=$2`,
         [billId, orgId]
       )).rows[0];
       if (!before) {
+        await client.query("ROLLBACK");
         req.flash("error", "Bill not found.");
         return res.redirect("/account/settings/finance?section=bills");
       }
+
+      const requestedBillType = validType || before.bill_type || 'one_time';
+      const requestedRecurrence = requestedBillType === 'recurring'
+        ? (validRec || before.recurrence || null)
+        : null;
+      const requestedStatus = validStatus || before.status || 'active';
+      const requestedSchoolYearId = school_year_id || before.school_year_id;
+      const requestedTermId = term_id || before.term_id;
+      const requestedAudience = ['school', 'classes', 'students'].includes(String(applies_to))
+        ? String(applies_to)
+        : (['school', 'classes', 'students'].includes(String(before.applies_to))
+            ? String(before.applies_to)
+            : 'school');
+      const academicContext = await resolveBillAcademicContext(client, orgId, requestedSchoolYearId, requestedTermId);
+      const resolvedTargets = await loadBillAudienceTargets(
+        client,
+        orgId,
+        billId,
+        requestedAudience,
+        hasEditedClassTargets ? target_class_ids : before.target_class_ids,
+        hasEditedStudentTargets ? target_student_ids : before.target_student_ids
+      );
+      const eligibleStudentIds = await loadEligibleBillStudents(
+        client,
+        orgId,
+        academicContext.schoolYearId,
+        academicContext.termId,
+        requestedAudience,
+        resolvedTargets.targetClassIds,
+        resolvedTargets.targetStudentIds
+      );
+      if (!eligibleStudentIds.length && requestedStatus !== 'draft') {
+        throw new PaygiraRequestError('No enrolled students were found for this bill in the selected school year and term.');
+      }
+      const schedule = await resolveScheduleValidationContext(client, orgId, {
+        bill_type: requestedBillType,
+        recurrence: requestedRecurrence,
+        recurrence_end_date,
+        due_date,
+        term_id: academicContext.termId,
+        exclude_non_school_days,
+      });
 
       const next = {
         title: title ?? before.title,
         description: description ?? before.description,
         amount: newAmount,
-        due_date: due_date || null,
+        due_date: schedule.normalizedDueDate,
         late_fee_amount: Number(late_fee_amount || 0),
         late_fee_after_days: Number(late_fee_after_days || 7),
         assignee_id: edit_assignee_id,
-        bill_type: validType || before.bill_type,
-        recurrence: validRec, // null clears
-        school_year_id: school_year_id ? Number(school_year_id) : null,
-        term_id: term_id ? Number(term_id) : null,
+        bill_type: requestedBillType,
+        recurrence: requestedRecurrence,
+        recurrence_end_date: schedule.recurrenceEndDate,
+        exclude_non_school_days: schedule.excludeNonSchoolDays,
+        applies_to: requestedAudience,
+        school_year_id: academicContext.schoolYearId,
+        term_id: academicContext.termId,
+        target_class_ids: resolvedTargets.targetClassIds,
+        target_student_ids: resolvedTargets.targetStudentIds,
         payment_destination: validDest || before.payment_destination || 'stripe',
         accepts_card: !!accepts_card,
         accepts_cash: !!accepts_cash,
         accepts_transfer: !!accepts_transfer,
         notify_email: !!notify_email,
         notify_sms: !!notify_sms,
-        status: validStatus || before.status,
+        status: requestedStatus,
       };
 
-      await db.query(
+      await client.query(
         `UPDATE finance_bills SET
            title=$1, description=$2, amount=$3, due_date=$4,
            late_fee_amount=$5, late_fee_after_days=$6,
            assignee_id=$7,
-           bill_type=$8, recurrence=$9,
-           school_year_id=$10, term_id=$11,
-           payment_destination=$12,
-           accepts_card=$13, accepts_cash=$14, accepts_transfer=$15,
-           notify_email=$16, notify_sms=$17,
-           status=$18,
+           bill_type=$8, recurrence=$9, recurrence_end_date=$10,
+           exclude_non_school_days=$11,
+           applies_to=$12,
+           school_year_id=$13, term_id=$14,
+           payment_destination=$15,
+           accepts_card=$16, accepts_cash=$17, accepts_transfer=$18,
+           notify_email=$19, notify_sms=$20,
+           status=$21,
+           target_class_ids=$22,
+           target_student_ids=$23,
            updated_at=now()
-         WHERE bill_id=$19 AND organization_id=$20`,
+         WHERE bill_id=$24 AND organization_id=$25`,
         [
           next.title, next.description, next.amount, next.due_date,
           next.late_fee_amount, next.late_fee_after_days,
           next.assignee_id,
-          next.bill_type, next.recurrence,
+          next.bill_type, next.recurrence, next.recurrence_end_date,
+          next.exclude_non_school_days,
+          next.applies_to,
           next.school_year_id, next.term_id,
           next.payment_destination,
           next.accepts_card, next.accepts_cash, next.accepts_transfer,
           next.notify_email, next.notify_sms,
           next.status,
+          next.target_class_ids.length ? next.target_class_ids : null,
+          next.target_student_ids.length ? next.target_student_ids : null,
           billId, orgId,
         ]
       );
 
-      // Sync amount on pending/overdue assignments only (don't disturb paid)
-      await db.query(
-        `UPDATE finance_bill_assignments SET amount=$1, updated_at=now()
-         WHERE bill_id=$2 AND organization_id=$3 AND status IN ('pending','overdue')`,
-        [newAmount, billId, orgId]
-      );
+      if (next.status !== 'draft') {
+        await syncBillAssignmentsForAudience(client, orgId, billId, {
+          appliesTo: next.applies_to,
+          schoolYearId: next.school_year_id,
+          termId: next.term_id,
+          targetClassIds: next.target_class_ids,
+          targetStudentIds: next.target_student_ids,
+          amount: newAmount,
+          dueDate: next.due_date,
+          status: next.status,
+        });
+      }
+
+      const assignmentRows = (await client.query(
+        `SELECT assignment_id, student_id, amount, amount_paid, late_fee_applied
+           FROM finance_bill_assignments
+          WHERE bill_id=$1 AND organization_id=$2`,
+        [billId, orgId]
+      )).rows;
+      const scheduleContext = createBillScheduleContextLoader(client, orgId);
+      const recurringScheduledTotal = next.bill_type === 'recurring'
+        ? await getScheduledBilledAmount({
+            amount: next.amount,
+            bill_type: next.bill_type,
+            recurrence: next.recurrence,
+            due_date: next.due_date,
+            recurrence_end_date: next.recurrence_end_date,
+            term_id: next.term_id,
+            exclude_non_school_days: next.exclude_non_school_days,
+          }, scheduleContext)
+        : null;
+
+      for (const assignmentRow of assignmentRows) {
+        const oldTotalDue = Number(assignmentRow.amount || 0) + Number(assignmentRow.late_fee_applied || 0);
+        const newTotalDue = Number(next.bill_type === 'recurring' ? recurringScheduledTotal : next.amount) + Number(assignmentRow.late_fee_applied || 0);
+        const paidAmount = Number(assignmentRow.amount_paid || 0);
+        const creditDelta = Math.max(paidAmount - newTotalDue, 0) - Math.max(paidAmount - oldTotalDue, 0);
+        if (creditDelta > 0.000001) {
+          await addStudentCredit(client, orgId, assignmentRow.student_id, creditDelta);
+        }
+        const recalculatedStatus = next.bill_type === 'recurring'
+          ? (paidAmount >= newTotalDue && newTotalDue > 0
+              ? 'paid'
+              : (paidAmount > 0 ? 'partial' : recalcAssignmentStatus(next.amount, assignmentRow.late_fee_applied, paidAmount, next.due_date)))
+          : recalcAssignmentStatus(next.amount, assignmentRow.late_fee_applied, paidAmount, next.due_date);
+        await client.query(
+          `UPDATE finance_bill_assignments
+              SET amount=$1, due_date=$2, status=$3, updated_at=now()
+            WHERE assignment_id=$4`,
+          [next.amount, next.due_date, recalculatedStatus, assignmentRow.assignment_id]
+        );
+      }
 
       // Sync collectors junction table
+      await client.query(`DELETE FROM finance_bill_collectors WHERE bill_id=$1`, [billId]);
       if (assigneeList.length > 0) {
-        await db.query(`DELETE FROM finance_bill_collectors WHERE bill_id=$1`, [billId]);
-        await db.query(
+        await client.query(
           `INSERT INTO finance_bill_collectors (bill_id, user_id, organization_id)
            SELECT $1, unnest($2::int[]), $3
            ON CONFLICT (bill_id, user_id) DO NOTHING`,
@@ -2049,12 +3523,14 @@ module.exports = {
 
       // Cancel-propagate if status changed to cancelled
       if (next.status === 'cancelled' && before.status !== 'cancelled') {
-        await db.query(
+        await client.query(
           `UPDATE finance_bill_assignments SET status='cancelled', updated_at=now()
            WHERE bill_id=$1 AND organization_id=$2 AND status NOT IN ('paid')`,
           [billId, orgId]
         );
       }
+
+      await client.query("COMMIT");
 
       // Build changed-field diff for activity log
       const fmtVal = (v) => v === null || v === undefined ? "—" : (typeof v === 'boolean' ? (v ? 'Yes' : 'No') : String(v));
@@ -2069,8 +3545,10 @@ module.exports = {
         }
       };
       cmp('title','Title'); cmp('description','Description'); cmp('amount','Amount');
-      cmp('due_date','Due Date'); cmp('late_fee_amount','Late Fee'); cmp('late_fee_after_days','Late Fee Days');
+      cmp('due_date','Start / First Date'); cmp('recurrence_end_date','End Date'); cmp('late_fee_amount','Late Fee'); cmp('late_fee_after_days','Late Fee Days');
       cmp('assignee_id','Assignee'); cmp('bill_type','Bill Type'); cmp('recurrence','Recurrence');
+      cmp('exclude_non_school_days','Skip Weekends/Holidays');
+      cmp('applies_to','Applicable To');
       cmp('school_year_id','School Year'); cmp('term_id','Term'); cmp('payment_destination','Destination');
       cmp('accepts_card','Accept Card'); cmp('accepts_cash','Accept Cash'); cmp('accepts_transfer','Accept Transfer');
       cmp('notify_email','Notify Email'); cmp('notify_sms','Notify SMS'); cmp('status','Status');
@@ -2087,7 +3565,15 @@ module.exports = {
       });
 
       req.flash("success", "Bill updated.");
-    } catch (e) { console.error("[billEdit]", e); req.flash("error", "Could not update bill: " + e.message); }
+    } catch (e) {
+      if (client) {
+        try { await client.query("ROLLBACK"); } catch (_) {}
+      }
+      console.error("[billEdit]", e);
+      req.flash("error", "Could not update bill: " + e.message);
+    } finally {
+      if (client) client.release();
+    }
     res.redirect("/account/settings/finance?section=bills");
   },
 
@@ -2211,15 +3697,35 @@ module.exports = {
             WHERE s.student_id=$1 AND s.organization_id=$2`,
           [studentId, orgId]
         ),
-        db.query(
-          `SELECT a.assignment_id, a.amount, a.amount_paid, a.late_fee_applied, a.status,
-                  b.title, b.bill_type, b.due_date, b.recurrence
-             FROM finance_bill_assignments a
-             JOIN finance_bills b ON b.bill_id=a.bill_id
-            WHERE a.student_id=$1 AND a.organization_id=$2
-            ORDER BY b.due_date DESC NULLS LAST`,
-          [studentId, orgId]
-        ),
+        (async () => {
+          const assignmentRows = await db.query(
+            `SELECT a.assignment_id, a.amount, a.amount_paid, a.late_fee_applied, a.status,
+                    b.title, b.bill_type, b.due_date, b.recurrence, b.recurrence_end_date,
+                    b.term_id, b.exclude_non_school_days,
+                    tm.end_date AS term_end_date
+               FROM finance_bill_assignments a
+               JOIN finance_bills b ON b.bill_id=a.bill_id
+               LEFT JOIN terms tm ON tm.term_id = b.term_id
+              WHERE a.student_id=$1 AND a.organization_id=$2
+                AND a.status <> 'cancelled'
+                AND COALESCE(b.status, 'active') <> 'cancelled'
+              ORDER BY b.due_date DESC NULLS LAST`,
+            [studentId, orgId]
+          );
+          const scheduleContext = createBillScheduleContextLoader(db, orgId);
+          const scheduledBills = await Promise.all(
+            assignmentRows.rows.map((row) => enrichScheduledAssignment(row, scheduleContext))
+          );
+          return scheduledBills.map((bill) => ({
+            ...bill,
+            amount: Number(bill.scheduled_billed_total || bill.amount || 0),
+            balance: Number(
+              bill.scheduled_outstanding_total != null
+                ? bill.scheduled_outstanding_total
+                : Math.max(Number(bill.amount || 0) + Number(bill.late_fee_applied || 0) - Number(bill.amount_paid || 0), 0)
+            ),
+          }));
+        })(),
         db.query(
           `SELECT p.payment_id, p.amount, p.method, p.reference, p.received_at, b.title AS bill_title
              FROM finance_payments p
@@ -2280,48 +3786,86 @@ module.exports = {
     if (!orgId || !userId) return res.redirect("/account/login");
     try {
       const isEmbedded = String(req.query.embed || '').toLowerCase() === 'workspace';
+      const viewClassId = normalizeClassId(req.query.classId);
+      const scopeClassId = normalizeSignoffClassId(viewClassId);
       await ensureFinanceSchema();
       await ensureAssigneeColumn();
 
       // All bills assigned to me as collector/overseer (via junction table OR legacy assignee_id)
       const billsR = await db.query(
-        `SELECT b.*,
-                (SELECT COUNT(*) FROM finance_bill_assignments a WHERE a.bill_id=b.bill_id)               AS assigned_count,
-                (SELECT COALESCE(SUM(a.amount),0)      FROM finance_bill_assignments a WHERE a.bill_id=b.bill_id) AS total_amount,
-                (SELECT COALESCE(SUM(a.amount_paid),0) FROM finance_bill_assignments a WHERE a.bill_id=b.bill_id) AS total_paid,
-                (SELECT COALESCE(SUM(GREATEST(a.amount + a.late_fee_applied - a.amount_paid, 0)),0)
-                   FROM finance_bill_assignments a WHERE a.bill_id=b.bill_id)                            AS total_outstanding
+        `SELECT b.*, tm.end_date AS term_end_date, COUNT(a.assignment_id) AS assigned_count
            FROM finance_bills b
+           JOIN finance_bill_assignments a ON a.bill_id = b.bill_id AND a.organization_id = $1
+           JOIN students s ON s.student_id = a.student_id
+           LEFT JOIN terms tm ON tm.term_id = b.term_id
           WHERE b.organization_id = $1
+            AND COALESCE(b.status, 'active') <> 'cancelled'
+            AND a.status <> 'cancelled'
             AND (b.assignee_id = $2
                  OR EXISTS (SELECT 1 FROM finance_bill_collectors c WHERE c.bill_id = b.bill_id AND c.user_id = $2))
+            AND ${buildAcademicClassScopeClause({ studentAlias: 's', billAlias: 'b', classParamSql: '$3', orgParamSql: '$1' })}
+          GROUP BY b.bill_id, tm.end_date
           ORDER BY b.due_date NULLS LAST, b.created_at DESC`,
-        [orgId, userId]
+        [orgId, userId, scopeClassId]
       );
 
       // All outstanding per-student assignments under my bills
       const assignmentsR = await db.query(
-        `SELECT a.*, b.title AS bill_title, b.due_date,
-                s.first_name, s.last_name, s.image_url, c.class_name
+        `SELECT a.*, b.title AS bill_title, b.due_date, b.bill_type, b.recurrence, b.recurrence_end_date,
+                b.term_id, b.exclude_non_school_days,
+                tm.end_date AS term_end_date,
+                s.first_name, s.last_name, s.image_url, s.class_id, c.class_name
            FROM finance_bill_assignments a
            JOIN finance_bills b ON b.bill_id = a.bill_id
            JOIN students s ON s.student_id = a.student_id
            LEFT JOIN classes c ON c.class_id = s.class_id
+           LEFT JOIN terms tm ON tm.term_id = b.term_id
           WHERE a.organization_id = $1
+            AND a.status <> 'cancelled'
+            AND COALESCE(b.status, 'active') <> 'cancelled'
             AND (b.assignee_id = $2
                  OR EXISTS (SELECT 1 FROM finance_bill_collectors c WHERE c.bill_id = b.bill_id AND c.user_id = $2))
+            AND ${buildAcademicClassScopeClause({ studentAlias: 's', billAlias: 'b', classParamSql: '$3', orgParamSql: '$1' })}
           ORDER BY a.status DESC, b.due_date NULLS LAST, s.last_name`,
-        [orgId, userId]
+        [orgId, userId, scopeClassId]
       );
+      const scheduleContext = createBillScheduleContextLoader(db, orgId);
+      const allAssignments = await Promise.all(
+        assignmentsR.rows.map((row) => enrichScheduledAssignment(row, scheduleContext))
+      );
+      const signoffRows = await loadCollectionSignoffs(
+        orgId,
+        billsR.rows.map((row) => Number(row.bill_id)).filter(Boolean)
+      );
+      const signoffsByBillId = signoffRows.reduce((accumulator, row) => {
+        const billKey = String(row.bill_id || "");
+        if (!billKey) return accumulator;
+        if (!accumulator[billKey]) accumulator[billKey] = [];
+        accumulator[billKey].push(row);
+        return accumulator;
+      }, {});
+
+      const assignments = allAssignments.filter((assignment) => {
+        if (String(assignment.bill_type || '').toLowerCase() === 'recurring') return true;
+        return !getCurrentViewBillSignoff(signoffsByBillId[String(assignment.bill_id)] || [], viewClassId);
+      });
+
+      const visibleBillIds = new Set(assignments.map((assignment) => String(assignment.bill_id)));
+      const bills = applyScheduledBillRollups(billsR.rows, assignments)
+        .map((bill) => ({
+          ...bill,
+          signed_off: !!getCurrentViewBillSignoff(signoffsByBillId[String(bill.bill_id)] || [], viewClassId),
+          signed_off_dates: getCurrentViewSignedOffDates(signoffsByBillId[String(bill.bill_id)] || [], viewClassId),
+        }))
+        .filter((bill) => visibleBillIds.has(String(bill.bill_id)) && !bill.signed_off);
 
       // Aggregate totals across my assigned bills
       const stats = {
-        bills:        billsR.rows.length,
-        students:     assignmentsR.rows.length,
-        billed:       assignmentsR.rows.reduce((s, a) => s + Number(a.amount || 0), 0),
-        collected:    assignmentsR.rows.reduce((s, a) => s + Number(a.amount_paid || 0), 0),
-        outstanding:  assignmentsR.rows.reduce((s, a) =>
-                          s + Math.max(Number(a.amount || 0) + Number(a.late_fee_applied || 0) - Number(a.amount_paid || 0), 0), 0),
+        bills:        bills.length,
+        students:     assignments.length,
+        billed:       assignments.reduce((sum, assignment) => sum + Number(assignment.scheduled_billed_total || 0), 0),
+        collected:    assignments.reduce((sum, assignment) => sum + Number(assignment.amount_paid || 0), 0),
+        outstanding:  assignments.reduce((sum, assignment) => sum + Number(assignment.scheduled_outstanding_total || 0), 0),
       };
 
       const pspSettings = await loadPspSettings(orgId);
@@ -2332,8 +3876,8 @@ module.exports = {
 
       res.render("account/myPaygira", {
         title: "My PayGira",
-        bills: billsR.rows,
-        assignments: assignmentsR.rows,
+        bills,
+        assignments,
         stats,
         allowedMethods,
         financeCurrency: display.financeCurrency,
@@ -2341,6 +3885,7 @@ module.exports = {
         money,
         messages: req.flash ? req.flash() : {},
         isEmbedded,
+        viewClassId,
         hideGlobalHeader: isEmbedded,
         hideGlobalFooter: isEmbedded,
         hideGlobalChatbot: isEmbedded,
@@ -2356,170 +3901,333 @@ module.exports = {
   staffMyPaygiraCollectPost: async (req, res) => {
     const orgId = req.session.organizationId;
     const userId = req.session.user?.user_id || req.session.userId || null;
-    if (!orgId || !userId) return res.redirect("/account/login");
+    const wantsJson = requestWantsJson(req);
+    if (!orgId || !userId) {
+      if (wantsJson) return res.status(401).json({ ok: false, message: "Unauthorized" });
+      return res.redirect("/account/login");
+    }
     const { assignment_id, amount, method, reference, notes } = req.body;
     const isEmbedded = String((req.query && req.query.embed) || req.body.embedMode || '').toLowerCase() === 'workspace';
-    const paygiraRedirectPath = isEmbedded ? "/account/settings/my-paygira?embed=workspace" : "/account/settings/my-paygira";
+    const viewClassId = normalizeClassId((req.query && req.query.classId) || req.body.classId);
+    const paygiraRedirectPath = isEmbedded
+      ? `/account/settings/my-paygira?embed=workspace${viewClassId ? `&classId=${viewClassId}` : ""}`
+      : "/account/settings/my-paygira";
+    let client;
     try {
-      // Verify the assignment belongs to a bill where this user is a collector
-      const a = await db.query(
-        `SELECT a.*, b.due_date, b.assignee_id,
-                b.accepts_card, b.accepts_cash, b.accepts_transfer, b.payment_destination
-           FROM finance_bill_assignments a
-           JOIN finance_bills b ON b.bill_id = a.bill_id
-          WHERE a.assignment_id=$1 AND a.organization_id=$2`,
-        [assignment_id, orgId]
-      );
-      if (!a.rows.length) {
-        req.flash && req.flash("error", "Not authorized to collect for this bill.");
-        return res.redirect(paygiraRedirectPath);
-      }
-      const row = a.rows[0];
-      // Check: user is primary assignee OR in the collectors junction table
-      const isCollector = row.assignee_id === userId ||
-        (await db.query(
-          `SELECT 1 FROM finance_bill_collectors WHERE bill_id=$1 AND user_id=$2`,
-          [row.bill_id, userId]
-        )).rows.length > 0;
-      if (!isCollector) {
-        req.flash && req.flash("error", "Not authorized to collect for this bill.");
-        return res.redirect(paygiraRedirectPath);
-      }
-      const amt = Number(amount || 0);
-      if (amt <= 0) {
-        req.flash && req.flash("error", "Enter a valid amount.");
-        return res.redirect(paygiraRedirectPath);
-      }
-
-      // Validate the method against what the school has enabled + what the bill accepts
       const psp = await loadPspSettings(orgId);
-      const allow = computeAllowedMethods(psp);
-      const requested = String(method || 'cash').toLowerCase();
-      const ok =
-        (requested === 'cash'          && row.accepts_cash)     ||
-        (requested === 'bank_transfer' && row.accepts_transfer && allow.bankOn) ||
-        (requested === 'mobile_money'  && allow.momoOn)         ||
-        (requested === 'card'          && row.accepts_card && allow.stripeOn) ||
-        (requested === 'stripe'        && row.accepts_card && allow.stripeOn) ||
-        (requested === 'other');
-      if (!ok) {
-        req.flash && req.flash("error", `Method "${requested}" is not enabled on this bill / school. Update Payment Settings.`);
-        return res.redirect(paygiraRedirectPath);
+      const display = await buildFinanceDisplayContext(req, orgId);
+      const allowedMethods = computeAllowedMethods(psp);
+      client = await db.connect();
+      await client.query("BEGIN");
+      const result = await collectStaffPaygiraPayment({
+        client,
+        orgId,
+        userId,
+        assignmentId: assignment_id,
+        scopedClassId: viewClassId,
+        amount,
+        method,
+        reference,
+        notes,
+        occurrenceDate: req.body.occurrence_date,
+        allowedMethods,
+        display,
+      });
+      await client.query("COMMIT");
+      result.orgId = orgId;
+
+      await notifyGuardiansOfStaffCollection(display, result);
+      await auditStaffCollection(req, result);
+
+      if (wantsJson) {
+        return res.json({
+          ok: true,
+          message: result.successMessage,
+          payment: buildStaffCollectionResponse(result),
+        });
       }
 
-      // Parse occurrence_date from the submitted form value (hidden field)
-      const rawOccDate = req.body.occurrence_date || null;
-      let occDateVal = null;
-      if (rawOccDate) {
-        const d = new Date(rawOccDate);
-        occDateVal = isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+      req.flash && req.flash("success", result.successMessage);
+      return res.redirect(paygiraRedirectPath);
+    } catch (e) {
+      if (client) {
+        try { await client.query("ROLLBACK"); } catch (_) {}
+      }
+      console.error("[staffMyPaygiraCollectPost]", e);
+      const status = e instanceof PaygiraRequestError ? e.status : 500;
+      const message = e instanceof PaygiraRequestError
+        ? e.message
+        : "Could not record collection: " + e.message;
+      if (wantsJson) {
+        return res.status(status).json({ ok: false, message });
+      }
+      req.flash && req.flash("error", message);
+      return res.redirect(paygiraRedirectPath);
+    } finally {
+      if (client) client.release();
+    }
+  },
+
+  // POST /account/my-paygira/collect/bulk — staff collector records several payments at once
+  staffMyPaygiraBulkCollectPost: async (req, res) => {
+    const orgId = req.session.organizationId;
+    const userId = req.session.user?.user_id || req.session.userId || null;
+    const wantsJson = requestWantsJson(req) || String(req.get("content-type") || "").toLowerCase().includes("application/json");
+    if (!orgId || !userId) {
+      if (wantsJson) return res.status(401).json({ ok: false, message: "Unauthorized" });
+      return res.redirect("/account/login");
+    }
+
+    const isEmbedded = String((req.query && req.query.embed) || req.body.embedMode || "").toLowerCase() === "workspace";
+    const viewClassId = normalizeClassId((req.query && req.query.classId) || req.body.classId);
+    const paygiraRedirectPath = isEmbedded
+      ? `/account/settings/my-paygira?embed=workspace${viewClassId ? `&classId=${viewClassId}` : ""}`
+      : "/account/settings/my-paygira";
+    const items = parseBulkCollectItems(req.body.items);
+    let client;
+    try {
+      const uniqueItems = [];
+      const seenAssignmentIds = new Set();
+      items.forEach((item) => {
+        const assignmentKey = String(item && item.assignment_id != null ? item.assignment_id : "").trim();
+        if (!assignmentKey || seenAssignmentIds.has(assignmentKey)) return;
+        seenAssignmentIds.add(assignmentKey);
+        uniqueItems.push(item);
+      });
+      if (!uniqueItems.length) {
+        throw new PaygiraRequestError("Select at least one student to collect from.", 400);
       }
 
-      const payInsert = await db.query(
-        `INSERT INTO finance_payments
-          (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, received_by, occurrence_date)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-         RETURNING payment_id`,
-        [orgId, row.assignment_id, row.bill_id, row.student_id, amt,
-          requested, reference || null, notes || null, userId, occDateVal]
-      );
+      const display = await buildFinanceDisplayContext(req, orgId);
+      const psp = await loadPspSettings(orgId);
+      const allowedMethods = computeAllowedMethods(psp);
+      client = await db.connect();
+      await client.query("BEGIN");
 
-      const newPaid = Number(row.amount_paid) + amt;
-      const total = Number(row.amount) + Number(row.late_fee_applied || 0);
-      let credit = 0;
-      let appliedToAssignment = newPaid;
-      if (newPaid > total) { credit = newPaid - total; appliedToAssignment = total; }
-      const newStatus = recalcAssignmentStatus(row.amount, row.late_fee_applied, appliedToAssignment, row.due_date);
-      await db.query(
-        `UPDATE finance_bill_assignments SET amount_paid=$1, status=$2, updated_at=now() WHERE assignment_id=$3`,
-        [appliedToAssignment, newStatus, row.assignment_id]
+      const results = [];
+      for (const item of uniqueItems) {
+        const result = await collectStaffPaygiraPayment({
+          client,
+          orgId,
+          userId,
+          assignmentId: item.assignment_id,
+          scopedClassId: viewClassId,
+          amount: item.amount,
+          method: item.method || req.body.method,
+          reference: item.reference || req.body.reference,
+          notes: item.notes || req.body.notes,
+          occurrenceDate: item.occurrence_date || req.body.occurrence_date,
+          allowedMethods,
+          display,
+        });
+        result.orgId = orgId;
+        results.push(result);
+      }
+
+      await client.query("COMMIT");
+
+      await Promise.allSettled(results.map((result) => notifyGuardiansOfStaffCollection(display, result)));
+      await Promise.allSettled(results.map((result) => auditStaffCollection(req, result)));
+
+      const totalCollected = results.reduce((sum, result) => sum + Number(result.amountCollected || 0), 0);
+      const totalCredit = results.reduce((sum, result) => sum + Number(result.credit || 0), 0);
+      const message = results.length === 1
+        ? results[0].successMessage
+        : totalCredit > 0
+          ? `Collected ${display.formatMoney(totalCollected)} from ${results.length} students. ${display.formatMoney(totalCredit)} added as student credit.`
+          : `Collected ${display.formatMoney(totalCollected)} from ${results.length} students.`;
+
+      if (wantsJson) {
+        return res.json({
+          ok: true,
+          message,
+          payments: results.map(buildStaffCollectionResponse),
+          summary: {
+            count: results.length,
+            total_amount: totalCollected,
+            total_credit: totalCredit,
+            students: results.map((result) => result.studentName),
+          },
+        });
+      }
+
+      req.flash && req.flash("success", message);
+      return res.redirect(paygiraRedirectPath);
+    } catch (e) {
+      if (client) {
+        try { await client.query("ROLLBACK"); } catch (_) {}
+      }
+      console.error("[staffMyPaygiraBulkCollectPost]", e);
+      const status = e instanceof PaygiraRequestError ? e.status : 500;
+      const message = e instanceof PaygiraRequestError
+        ? e.message
+        : "Could not record bulk collection: " + e.message;
+      if (wantsJson) {
+        return res.status(status).json({ ok: false, message });
+      }
+      req.flash && req.flash("error", message);
+      return res.redirect(paygiraRedirectPath);
+    } finally {
+      if (client) client.release();
+    }
+  },
+
+  staffMyPaygiraSignOffPost: async (req, res) => {
+    const orgId = req.session.organizationId;
+    const userId = req.session.user?.user_id || req.session.userId || null;
+    const wantsJson = requestWantsJson(req);
+    if (!orgId || !userId) {
+      if (wantsJson) return res.status(401).json({ ok: false, message: "Unauthorized" });
+      return res.redirect("/account/login");
+    }
+
+    const isEmbedded = String((req.query && req.query.embed) || req.body.embedMode || '').toLowerCase() === 'workspace';
+    const viewClassId = normalizeClassId((req.query && req.query.classId) || req.body.classId);
+    const paygiraRedirectPath = isEmbedded
+      ? `/account/settings/my-paygira?embed=workspace${viewClassId ? `&classId=${viewClassId}` : ""}`
+      : "/account/settings/my-paygira";
+
+    const billId = parseInt(req.body.bill_id, 10);
+    const occurrenceDate = normalizeOccurrenceDate(req.body.occurrence_date);
+    const fullName = req.body.full_name;
+    const password = req.body.password;
+    let client;
+    try {
+      await ensureFinanceSchema();
+      await ensureAssigneeColumn();
+      if (!billId) {
+        throw new PaygiraRequestError("Choose a bill before signing off.", 400);
+      }
+
+      const financeAdmin = await isFinanceAdmin(req);
+      client = await db.connect();
+      await client.query("BEGIN");
+
+      const billResult = await client.query(
+        `SELECT b.bill_id, b.title, b.bill_type, b.recurrence, b.assignee_id
+           FROM finance_bills b
+          WHERE b.organization_id = $1
+            AND b.bill_id = $2
+            AND (
+              $3::boolean = TRUE
+              OR b.assignee_id = $4
+              OR EXISTS (
+                SELECT 1 FROM finance_bill_collectors c
+                 WHERE c.bill_id = b.bill_id AND c.user_id = $4
+              )
+            )
+          LIMIT 1`,
+        [orgId, billId, financeAdmin, userId]
       );
-      if (credit > 0) {
-        await db.query(
-          `INSERT INTO finance_student_credits (organization_id, student_id, amount)
-             VALUES ($1,$2,$3)
-           ON CONFLICT (student_id) DO UPDATE
-              SET amount = finance_student_credits.amount + EXCLUDED.amount, updated_at=now()`,
-          [orgId, row.student_id, credit]
+      if (!billResult.rows.length) {
+        throw new PaygiraRequestError("Not authorized to sign off this bill.", 403);
+      }
+
+      const bill = billResult.rows[0];
+      const recurring = String(bill.bill_type || '').toLowerCase() === 'recurring';
+      if (recurring && !occurrenceDate) {
+        throw new PaygiraRequestError("Select a recurring date before signing off.", 400);
+      }
+
+      const existingSignoff = await findExistingCollectionSignoff(client, orgId, billId, recurring ? occurrenceDate : null, viewClassId);
+      if (existingSignoff) {
+        throw new PaygiraRequestError(
+          recurring ? "This date has already been signed off." : "This bill has already been signed off.",
+          400
         );
       }
-      const display = await buildFinanceDisplayContext(req, orgId);
-      req.flash && req.flash("success", credit > 0
-        ? `Collected ${display.formatMoney(amt)}. ${display.formatMoney(credit)} added as student credit.`
-        : `Collected ${display.formatMoney(amt)} from this student.`);
 
-      // ── Email guardian/parent ──────────────────────────────────────────────
-      try {
-        const billRow = (await db.query(`SELECT title FROM finance_bills WHERE bill_id=$1`, [row.bill_id])).rows[0];
-        const orgRow  = (await db.query(`SELECT organization_name, logo_url FROM organizations WHERE organization_id=$1`, [orgId])).rows[0];
-        const studentRow = (await db.query(`SELECT first_name, last_name FROM students WHERE student_id=$1`, [row.student_id])).rows[0];
-        // Find guardian email(s) linked to this student
-        const guardians = (await db.query(
-          `SELECT gp.email, gp.first_name FROM guardian_profiles gp
-             JOIN guardian_students gs ON gs.guardian_id = gp.guardian_id
-            WHERE gs.student_id=$1 AND gp.organization_id=$2 AND gp.email IS NOT NULL AND gp.email <> ''`,
-          [row.student_id, orgId]
-        )).rows;
-        if (guardians.length > 0 && billRow && studentRow) {
-          const orgName    = orgRow?.organization_name || 'Your School';
-          const studentName = `${studentRow.first_name} ${studentRow.last_name}`;
-          const billName   = billRow.title;
-          const amtFmt     = display.formatMoney(amt);
-          const occText    = occDateVal ? ` for ${new Date(occDateVal + 'T00:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}` : '';
-          const statusText = newStatus === 'paid' ? 'fully paid' : `partially paid (${display.formatMoney(appliedToAssignment)} of ${display.formatMoney(total)})`;
-          for (const g of guardians) {
-            const html = renderCleanEmail({
-              title: `Payment Recorded — ${billName}`,
-              greeting: `Hello ${g.first_name},`,
-              paragraphs: [
-                `A payment of <strong>${amtFmt}</strong> has been recorded for <strong>${studentName}</strong> on the bill <strong>${billName}</strong>${occText}.`,
-                `This bill is now <strong>${statusText}</strong>.`,
-              ],
-              details: [
-                { label: 'Student',   value: studentName },
-                { label: 'Bill',      value: billName },
-                ...(occDateVal ? [{ label: 'For date', value: new Date(occDateVal + 'T00:00:00').toLocaleDateString() }] : []),
-                { label: 'Amount paid', value: amtFmt },
-                { label: 'Method',    value: requested },
-                { label: 'Status',    value: newStatus },
-              ],
-              note: `This is an automated notification from ${orgName}. You can log in to the guardian portal to view your ward's full payment history.`,
-            });
-            await sendEmailSafely({
-              from: process.env.ADMIN_NOTIFY_EMAIL_USER,
-              to: g.email,
-              subject: `[${orgName}] Payment Recorded — ${billName}`,
-              html,
-            }, 'PayGira guardian notification');
-          }
-        }
-      } catch (emailErr) {
-        console.warn('[staffMyPaygiraCollectPost] guardian email failed:', emailErr.message);
+      const signer = await verifyCollectionSignoffCredentials(client, req, fullName, password);
+      const summary = await loadBillSignoffSummary(client, orgId, billId, recurring ? occurrenceDate : null, viewClassId);
+      if (!summary || !Number(summary.student_count || 0)) {
+        throw new PaygiraRequestError("No students matched this bill scope.", 404);
       }
-      // Audit log
-      try {
-        const sRow = (await db.query(`SELECT first_name, last_name FROM students WHERE student_id=$1 AND organization_id=$2`, [row.student_id, orgId])).rows[0];
-        const bRow = (await db.query(`SELECT title FROM finance_bills WHERE bill_id=$1 AND organization_id=$2`, [row.bill_id, orgId])).rows[0];
-        const studentLabel = sRow ? `${sRow.first_name} ${sRow.last_name}` : `Student #${row.student_id}`;
-        await logPaygira(req, {
-          actionType: "Collected",
-          recordType: "Payment",
-          recordId: row.assignment_id,
-          recordLabel: `${studentLabel} — ${bRow?.title || 'Bill'}`,
-          description: `Collector recorded $${amt.toFixed(2)} (${requested}) for ${studentLabel} on bill "${bRow?.title || row.bill_id}". New status: ${newStatus}${credit > 0 ? `; $${credit.toFixed(2)} credited.` : ''}.`,
-          changedFields: [
-            { field: "Amount", value: `$${amt.toFixed(2)}` },
-            { field: "Method", value: requested },
-            { field: "Reference", value: reference || '—' },
-            { field: "New Status", value: newStatus },
-          ],
+      if (Number(summary.total_outstanding || 0) > 0.009) {
+        throw new PaygiraRequestError(
+          recurring
+            ? "All students for this date must be fully collected before sign-off."
+            : "This bill still has outstanding balances. Collect the remaining amounts before signing off.",
+          400
+        );
+      }
+
+      const insert = await client.query(
+        `INSERT INTO finance_collection_signoffs
+          (organization_id, bill_id, class_id, occurrence_date, scope_key, signed_by_user_id, signed_by_name, signer_role, student_count, total_collected)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         RETURNING signoff_id, signed_at`,
+        [
+          orgId,
+          billId,
+          normalizeSignoffClassId(viewClassId),
+          recurring ? occurrenceDate : null,
+          getSignoffScopeKey(recurring ? occurrenceDate : null),
+          signer.signedByUserId,
+          signer.signedByName,
+          signer.signerRole,
+          Number(summary.student_count || 0),
+          Number(summary.total_paid || 0),
+        ]
+      );
+
+      await client.query("COMMIT");
+
+      const display = await buildFinanceDisplayContext(req, orgId);
+      const scopeLabel = recurring && occurrenceDate
+        ? new Date(`${occurrenceDate}T00:00:00`).toLocaleDateString()
+        : bill.title;
+      const message = recurring
+        ? `Signed off ${bill.title} for ${scopeLabel}. It has been moved to finance history.`
+        : `Signed off ${bill.title}. It has been moved to finance history.`;
+
+      await logPaygira(req, {
+        actionType: "Signed Off",
+        recordType: "Collection Sign-Off",
+        recordId: insert.rows[0]?.signoff_id || billId,
+        recordLabel: recurring ? `${bill.title} — ${scopeLabel}` : bill.title,
+        description: `${signer.signedByName} signed off ${recurring ? `the ${scopeLabel} collection for ` : ''}"${bill.title}" after ${display.formatMoney(summary.total_paid || 0)} had been collected across ${summary.student_count} student(s).`,
+        changedFields: [
+          { field: "Scope", value: recurring ? scopeLabel : 'Bill' },
+          { field: "Students", value: String(summary.student_count || 0) },
+          { field: "Collected", value: display.formatMoney(summary.total_paid || 0) },
+        ],
+      });
+
+      if (wantsJson) {
+        return res.json({
+          ok: true,
+          message,
+          signoff: {
+            signoff_id: insert.rows[0]?.signoff_id || null,
+            bill_id: billId,
+            class_id: normalizeSignoffClassId(viewClassId),
+            occurrence_date: recurring ? occurrenceDate : null,
+            signed_at: insert.rows[0]?.signed_at || null,
+            total_collected: Number(summary.total_paid || 0),
+            student_count: Number(summary.student_count || 0),
+          },
         });
-      } catch (_) {}
+      }
+
+      req.flash && req.flash("success", message);
+      return res.redirect(paygiraRedirectPath);
     } catch (e) {
-      console.error("[staffMyPaygiraCollectPost]", e);
-      req.flash && req.flash("error", "Could not record collection: " + e.message);
+      if (client) {
+        try { await client.query("ROLLBACK"); } catch (_) {}
+      }
+      console.error("[staffMyPaygiraSignOffPost]", e);
+      const status = e instanceof PaygiraRequestError ? e.status : 500;
+      const message = e instanceof PaygiraRequestError
+        ? e.message
+        : "Could not sign off this collection: " + e.message;
+      if (wantsJson) {
+        return res.status(status).json({ ok: false, message });
+      }
+      req.flash && req.flash("error", message);
+      return res.redirect(paygiraRedirectPath);
+    } finally {
+      if (client) client.release();
     }
-    res.redirect(paygiraRedirectPath);
   },
 
   // ===================================================================
@@ -2532,6 +4240,8 @@ module.exports = {
     if (!orgId || !userId) return res.status(401).json({ error: 'Unauthorized' });
     const billId = parseInt(req.query.bill_id, 10);
     const dateStr = String(req.query.date || '').trim(); // YYYY-MM-DD
+    const viewClassId = normalizeClassId(req.query.classId);
+    const scopeClassId = normalizeSignoffClassId(viewClassId);
     if (!billId || !dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
       return res.status(400).json({ error: 'bill_id and date (YYYY-MM-DD) required' });
     }
@@ -2550,31 +4260,64 @@ module.exports = {
       // Per-student: amount due per occurrence = bill.amount (each period is one amount)
       const assignments = await db.query(
         `SELECT a.assignment_id, a.student_id, a.amount, a.late_fee_applied,
+                s.first_name, s.last_name, s.image_url,
+                c.class_id, c.class_name,
                 COALESCE(SUM(p.amount) FILTER (WHERE p.occurrence_date=$2::date), 0) AS paid_this_day,
                 COALESCE(SUM(p.amount), 0) AS paid_total
            FROM finance_bill_assignments a
+           JOIN finance_bills b ON b.bill_id = a.bill_id
+           JOIN students s ON s.student_id = a.student_id
+           LEFT JOIN classes c ON c.class_id = s.class_id
            LEFT JOIN finance_payments p ON p.assignment_id = a.assignment_id AND p.organization_id=$1
           WHERE a.bill_id=$3 AND a.organization_id=$1
-          GROUP BY a.assignment_id`,
-        [orgId, dateStr, billId]
+            AND a.status <> 'cancelled'
+            AND COALESCE(b.status, 'active') <> 'cancelled'
+            AND ${buildAcademicClassScopeClause({ studentAlias: 's', billAlias: 'b', classParamSql: '$4', orgParamSql: '$1' })}
+          GROUP BY a.assignment_id, s.first_name, s.last_name, s.image_url, c.class_id, c.class_name
+          ORDER BY s.last_name, s.first_name`,
+        [orgId, dateStr, billId, scopeClassId]
       );
-      const rows = assignments.rows;
-      const totalStudents   = rows.length;
-      // For a recurring bill each occurrence is one period amount; per-occurrence expected = bill.amount per student
-      const perOccAmount    = Number(bill.amount || 0);
-      const totalExpected   = perOccAmount * totalStudents;
-      const totalPaidDay    = rows.reduce((s, r) => s + Number(r.paid_this_day || 0), 0);
-      const totalOutstanding = Math.max(totalExpected - totalPaidDay, 0);
-      const paidCount       = rows.filter(r => Number(r.paid_this_day) >= perOccAmount).length;
+      const todayIso = new Date().toISOString().slice(0, 10);
+      const items = assignments.rows.map((row) => {
+        const dueAmount = Number(row.amount || 0);
+        const paidOnDate = Number(row.paid_this_day || 0);
+        const outstandingAmount = Math.max(dueAmount - paidOnDate, 0);
+        const status = outstandingAmount <= 0
+          ? 'paid'
+          : paidOnDate > 0
+            ? 'partial'
+            : (dateStr < todayIso ? 'overdue' : 'pending');
+        return {
+          assignment_id: row.assignment_id,
+          student_id: row.student_id,
+          first_name: row.first_name,
+          last_name: row.last_name,
+          image_url: row.image_url,
+          class_id: row.class_id,
+          class_name: row.class_name,
+          due_amount: dueAmount,
+          paid_on_date: paidOnDate,
+          outstanding: outstandingAmount,
+          paid_total: Number(row.paid_total || 0),
+          status,
+        };
+      });
+      const totalStudents = items.length;
+      const totalExpected = items.reduce((sum, item) => sum + Number(item.due_amount || 0), 0);
+      const totalPaidDay = items.reduce((sum, item) => sum + Number(item.paid_on_date || 0), 0);
+      const totalOutstanding = items.reduce((sum, item) => sum + Number(item.outstanding || 0), 0);
+      const paidCount = items.filter((item) => Number(item.outstanding || 0) <= 0).length;
 
       res.json({
+        date: dateStr,
         students:        totalStudents,
-        per_student:     perOccAmount,
+        per_student:     Number(bill.amount || 0),
         total_expected:  totalExpected,
         paid_today:      totalPaidDay,
         outstanding:     totalOutstanding,
         paid_count:      paidCount,
         unpaid_count:    totalStudents - paidCount,
+        items,
       });
     } catch (e) {
       console.error('[occurrenceSummaryGet]', e);
@@ -2613,24 +4356,61 @@ module.exports = {
       );
       const children = kidsR.rows;
       const studentIds = children.map(c => c.student_id);
+      const studentCreditMap = await loadStudentCreditMap(database, orgId, studentIds);
+      const hydratedChildren = children.map((child) => ({
+        ...child,
+        student_credit: Number(studentCreditMap.get(String(child.student_id)) || 0),
+      }));
 
       // All bill assignments for those children
       let assignments = [];
       let payments = [];
+      let occurrencePaymentsByAssignment = {};
       if (studentIds.length) {
         const r = await database.query(
           `SELECT a.*, b.title AS bill_title, b.description AS bill_description,
-                  b.due_date, b.bill_type, b.accepts_card, b.accepts_cash, b.accepts_transfer,
+                  b.due_date, b.bill_type, b.recurrence, b.recurrence_end_date,
+                  b.term_id, b.exclude_non_school_days,
+                  tm.end_date AS term_end_date,
+                  b.accepts_card, b.accepts_cash, b.accepts_transfer,
                   b.payment_destination,
                   s.first_name, s.last_name, s.image_url, s.student_id
              FROM finance_bill_assignments a
              JOIN finance_bills b ON b.bill_id = a.bill_id
              JOIN students s ON s.student_id = a.student_id
+             LEFT JOIN terms tm ON tm.term_id = b.term_id
             WHERE a.organization_id = $1 AND a.student_id = ANY($2::int[])
+                    AND a.status <> 'cancelled'
+                    AND COALESCE(b.status, 'active') <> 'cancelled'
             ORDER BY a.status, b.due_date NULLS LAST`,
           [orgId, studentIds]
         );
-        assignments = r.rows;
+        const scheduleContext = createBillScheduleContextLoader(database, orgId);
+        assignments = await Promise.all(
+          r.rows.map((row) => enrichScheduledAssignment(row, scheduleContext))
+        );
+
+        if (assignments.length) {
+          const assignmentIds = assignments.map((assignment) => assignment.assignment_id);
+          const occurrencePaymentsR = await database.query(
+            `SELECT assignment_id, occurrence_date::text AS occurrence_date, COALESCE(SUM(amount), 0) AS paid_amount
+               FROM finance_payments
+              WHERE organization_id=$1 AND assignment_id = ANY($2::int[]) AND occurrence_date IS NOT NULL
+              GROUP BY assignment_id, occurrence_date`,
+            [orgId, assignmentIds]
+          );
+          occurrencePaymentsByAssignment = occurrencePaymentsR.rows.reduce((accumulator, row) => {
+            const assignmentKey = String(row.assignment_id);
+            if (!accumulator[assignmentKey]) accumulator[assignmentKey] = {};
+            accumulator[assignmentKey][row.occurrence_date] = Number(row.paid_amount || 0);
+            return accumulator;
+          }, {});
+          assignments = assignments.map((assignment) => ({
+            ...assignment,
+            occurrence_payments: occurrencePaymentsByAssignment[String(assignment.assignment_id)] || {},
+            student_credit: Number(studentCreditMap.get(String(assignment.student_id)) || 0),
+          }));
+        }
 
         const p = await database.query(
           `SELECT p.payment_id, p.amount, p.method, p.received_at, p.reference,
@@ -2639,11 +4419,20 @@ module.exports = {
              LEFT JOIN students s ON s.student_id = p.student_id
              LEFT JOIN finance_bills b ON b.bill_id = p.bill_id
             WHERE p.organization_id=$1 AND p.student_id = ANY($2::int[])
-            ORDER BY p.received_at DESC LIMIT 30`,
+            ORDER BY p.received_at DESC LIMIT 15`,
           [orgId, studentIds]
         );
         payments = p.rows;
       }
+
+      const visibleAssignments = assignments.filter((assignment) => {
+        const outstandingAmount = Number(
+          assignment.scheduled_outstanding_total != null
+            ? assignment.scheduled_outstanding_total
+            : Math.max(Number(assignment.amount || 0) + Number(assignment.late_fee_applied || 0) - Number(assignment.amount_paid || 0), 0)
+        );
+        return outstandingAmount > 0;
+      });
 
       // Saved payment cards on file (last 4 only — never PAN)
       const cardsR = await database.query(
@@ -2656,11 +4445,12 @@ module.exports = {
 
       // Aggregate per-student totals
       const totals = {
-        billed:      assignments.reduce((s, a) => s + Number(a.amount || 0), 0),
-        paid:        assignments.reduce((s, a) => s + Number(a.amount_paid || 0), 0),
-        outstanding: assignments.reduce((s, a) =>
-                        s + Math.max(Number(a.amount || 0) + Number(a.late_fee_applied || 0) - Number(a.amount_paid || 0), 0), 0),
+        billed:      assignments.reduce((sum, assignment) => sum + Number(assignment.scheduled_billed_total || 0), 0),
+        paid:        assignments.reduce((sum, assignment) => sum + Number(assignment.amount_paid || 0), 0),
+        outstanding: assignments.reduce((sum, assignment) => sum + Number(assignment.scheduled_outstanding_total || 0), 0),
+        credit:      hydratedChildren.reduce((sum, child) => sum + Number(child.student_credit || 0), 0),
       };
+      totals.net_outstanding = Math.max(Number(totals.outstanding || 0) - Number(totals.credit || 0), 0);
 
       // Guardian profile for header
       const gp = await database.query(
@@ -2680,8 +4470,8 @@ module.exports = {
       res.render("guardian/paygira", {
         title: "PayGira — Pay Bills",
         guardian: gp.rows[0] || {},
-        children,
-        assignments,
+        children: hydratedChildren,
+        assignments: visibleAssignments,
         payments,
         cards: cardsR.rows,
         totals,
@@ -2706,14 +4496,35 @@ module.exports = {
     const orgId = req.session.organizationId;
     const guardianId = req.session.guardianId;
     if (!orgId || !guardianId) return res.redirect("/account/login");
-    const { assignment_id, amount, card_id, method } = req.body;
+    const { assignment_id, amount, card_id, method, occurrence_date, occurrence_dates, apply_credit } = req.body;
+    let client;
+    let shouldReleaseClient = false;
     try {
+      const selectedOccurrenceDates = parseOccurrenceDates(occurrence_dates);
+      if (!selectedOccurrenceDates.length) {
+        const singleOccurrenceDate = parseOccurrenceDates(occurrence_date);
+        if (singleOccurrenceDate.length) selectedOccurrenceDates.push(singleOccurrenceDate[0]);
+      }
+
       // Verify this assignment belongs to a student linked to this guardian
-      const verify = await database.query(
-        `SELECT a.*, b.due_date, b.accepts_card, b.accepts_cash, b.accepts_transfer, b.payment_destination
+      if (typeof database.connect === "function") {
+        client = await database.connect();
+        shouldReleaseClient = true;
+      } else {
+        client = database;
+      }
+
+      const verify = await client.query(
+        `SELECT a.*, b.title AS bill_title, b.due_date, b.bill_type, b.recurrence, b.recurrence_end_date,
+          b.term_id, b.exclude_non_school_days,
+          b.accepts_card, b.accepts_cash, b.accepts_transfer, b.payment_destination,
+          tm.end_date AS term_end_date
            FROM finance_bill_assignments a
            JOIN finance_bills b ON b.bill_id = a.bill_id
+           LEFT JOIN terms tm ON tm.term_id = b.term_id
           WHERE a.assignment_id=$1 AND a.organization_id=$2
+            AND a.status <> 'cancelled'
+            AND COALESCE(b.status, 'active') <> 'cancelled'
             AND (
               EXISTS (SELECT 1 FROM guardians g
                        WHERE g.student_id=a.student_id AND g.guardian_id=$3 AND g.organization_id=$2)
@@ -2728,76 +4539,231 @@ module.exports = {
         return res.redirect("/guardian/paygira");
       }
       const row = verify.rows[0];
-      const amt = Number(amount || 0);
-      if (amt <= 0) {
+      const isRecurringBill = String(row.bill_type || "") === "recurring";
+      const wantsCredit = Boolean(parseBoolean(apply_credit));
+      if (isRecurringBill && !selectedOccurrenceDates.length) {
+        req.flash && req.flash("error", "Select at least one recurring date to pay.");
+        return res.redirect("/guardian/paygira");
+      }
+
+      const requestedAmount = Math.max(Number(amount || 0), 0);
+      if (!isRecurringBill && requestedAmount <= 0 && !wantsCredit) {
         req.flash && req.flash("error", "Enter a valid amount.");
         return res.redirect("/guardian/paygira");
       }
 
-      // Validate the chosen method against what the school has enabled + bill's accepted methods
-      const psp = await loadPspSettings(orgId);
-      const allow = computeAllowedMethods(psp);
-      const requested = String(method || "card").toLowerCase();
-      const ok =
-        (requested === 'card'          && row.accepts_card && allow.stripeOn) ||
-        (requested === 'stripe'        && row.accepts_card && allow.stripeOn) ||
-        (requested === 'bank_transfer' && row.accepts_transfer && allow.bankOn) ||
-        (requested === 'mobile_money'  && allow.momoOn) ||
-        (requested === 'other');
-      if (!ok) {
-        req.flash && req.flash("error", `This bill does not accept "${requested}". Choose a method the school has enabled.`);
+      const paymentNotesBase = `Guardian portal payment by guardian #${guardianId}`;
+      let paymentEntries = [];
+      let creditApplied = 0;
+      let creditCreated = 0;
+      let totalExternalAmount = 0;
+      let availableCredit = 0;
+
+      await client.query("BEGIN");
+
+      if (wantsCredit) {
+        availableCredit = await getStudentCreditBalance(client, orgId, row.student_id, { forUpdate: true });
+      }
+
+      if (isRecurringBill) {
+        const existingOccurrencePayments = await client.query(
+          `SELECT occurrence_date::text AS occurrence_date, COALESCE(SUM(amount), 0) AS paid_amount
+             FROM finance_payments
+            WHERE organization_id=$1 AND assignment_id=$2 AND occurrence_date = ANY($3::date[])
+            GROUP BY occurrence_date`,
+          [orgId, row.assignment_id, selectedOccurrenceDates]
+        );
+        const paidByDate = existingOccurrencePayments.rows.reduce((accumulator, entry) => {
+          accumulator[entry.occurrence_date] = Number(entry.paid_amount || 0);
+          return accumulator;
+        }, {});
+        paymentEntries = selectedOccurrenceDates.reduce((entries, dateValue) => {
+          const outstandingAmount = Math.max(Number(row.amount || 0) - Number(paidByDate[dateValue] || 0), 0);
+          if (!(outstandingAmount > 0)) return entries;
+          entries.push({
+            amount: outstandingAmount,
+            occurrenceDate: dateValue,
+            notes: `${paymentNotesBase} for ${dateValue}`,
+            creditAmount: 0,
+            externalAmount: 0,
+          });
+          return entries;
+        }, []);
+        if (!paymentEntries.length) {
+          await client.query("ROLLBACK");
+          req.flash && req.flash("error", "The selected recurring dates are already fully paid.");
+          return res.redirect("/guardian/paygira");
+        }
+        creditApplied = wantsCredit
+          ? Math.min(availableCredit, paymentEntries.reduce((sum, entry) => sum + Number(entry.amount || 0), 0))
+          : 0;
+        let remainingCredit = creditApplied;
+        paymentEntries = paymentEntries.map((entry) => {
+          const creditAmount = Math.min(Number(entry.amount || 0), remainingCredit);
+          remainingCredit -= creditAmount;
+          const externalAmount = Math.max(Number(entry.amount || 0) - creditAmount, 0);
+          return {
+            ...entry,
+            creditAmount,
+            externalAmount,
+          };
+        });
+        totalExternalAmount = paymentEntries.reduce((sum, entry) => sum + Number(entry.externalAmount || 0), 0);
+      } else {
+        const currentOutstanding = Math.max(Number(row.amount || 0) + Number(row.late_fee_applied || 0) - Number(row.amount_paid || 0), 0);
+        creditApplied = wantsCredit
+          ? Math.min(availableCredit, Math.max(currentOutstanding - requestedAmount, 0))
+          : 0;
+        totalExternalAmount = requestedAmount;
+        paymentEntries = [{
+          amount: requestedAmount,
+          occurrenceDate: normalizeOccurrenceDate(occurrence_date),
+          notes: paymentNotesBase,
+          creditAmount: creditApplied,
+          externalAmount: requestedAmount,
+        }];
+      }
+
+      if (!(totalExternalAmount > 0 || creditApplied > 0)) {
+        await client.query("ROLLBACK");
+        req.flash && req.flash("error", "Enter a valid amount.");
         return res.redirect("/guardian/paygira");
       }
 
-      // Build a reference label from saved card if used
       let reference = `GUARDIAN-${guardianId}`;
-      let payMethod = requested;
-      if (card_id && (requested === 'card' || requested === 'stripe')) {
-        const c = await database.query(
-          `SELECT brand, last4 FROM guardian_payment_methods
-            WHERE card_id=$1 AND guardian_id=$2 AND organization_id=$3`,
-          [parseInt(card_id, 10) || 0, guardianId, orgId]
-        );
-        if (c.rows.length) {
-          reference = `${c.rows[0].brand || "CARD"} •••• ${c.rows[0].last4}`;
-          payMethod = "card";
+      let payMethod = String(method || "card").toLowerCase();
+      if (totalExternalAmount > 0) {
+        const psp = await loadPspSettings(orgId);
+        const allow = computeAllowedMethods(psp);
+        const ok =
+          (payMethod === 'card'          && row.accepts_card && allow.stripeOn) ||
+          (payMethod === 'stripe'        && row.accepts_card && allow.stripeOn) ||
+          (payMethod === 'bank_transfer' && row.accepts_transfer && allow.bankOn) ||
+          (payMethod === 'mobile_money'  && allow.momoOn) ||
+          (payMethod === 'other');
+        if (!ok) {
+          await client.query("ROLLBACK");
+          req.flash && req.flash("error", `This bill does not accept "${payMethod}". Choose a method the school has enabled.`);
+          return res.redirect("/guardian/paygira");
+        }
+
+        if (card_id && (payMethod === 'card' || payMethod === 'stripe')) {
+          const c = await client.query(
+            `SELECT brand, last4 FROM guardian_payment_methods
+              WHERE card_id=$1 AND guardian_id=$2 AND organization_id=$3`,
+            [parseInt(card_id, 10) || 0, guardianId, orgId]
+          );
+          if (c.rows.length) {
+            reference = `${c.rows[0].brand || "CARD"} •••• ${c.rows[0].last4}`;
+            payMethod = "card";
+          }
         }
       }
 
-      await database.query(
-        `INSERT INTO finance_payments
-          (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-        [orgId, row.assignment_id, row.bill_id, row.student_id, amt,
-          payMethod, reference, `Guardian portal payment by guardian #${guardianId}`]
-      );
+      if (creditApplied > 0) {
+        for (const entry of paymentEntries) {
+          if (!(Number(entry.creditAmount || 0) > 0)) continue;
+          await client.query(
+            `INSERT INTO finance_payments
+              (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, occurrence_date)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+            [
+              orgId,
+              row.assignment_id,
+              row.bill_id,
+              row.student_id,
+              entry.creditAmount,
+              'credit',
+              'STUDENT-CREDIT',
+              `${entry.notes} using available student credit`,
+              entry.occurrenceDate || null,
+            ]
+          );
+        }
+        await setStudentCreditBalance(client, orgId, row.student_id, availableCredit - creditApplied);
+      }
 
-      const newPaid = Number(row.amount_paid) + amt;
-      const total = Number(row.amount) + Number(row.late_fee_applied || 0);
-      let credit = 0;
+      if (totalExternalAmount > 0) {
+        if (isRecurringBill) {
+          for (const entry of paymentEntries) {
+            if (!(Number(entry.externalAmount || 0) > 0)) continue;
+            await client.query(
+              `INSERT INTO finance_payments
+                (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, occurrence_date)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+              [
+                orgId,
+                row.assignment_id,
+                row.bill_id,
+                row.student_id,
+                entry.externalAmount,
+                payMethod,
+                reference,
+                entry.notes,
+                entry.occurrenceDate || null,
+              ]
+            );
+          }
+        } else {
+          await client.query(
+            `INSERT INTO finance_payments
+              (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, occurrence_date)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+            [
+              orgId,
+              row.assignment_id,
+              row.bill_id,
+              row.student_id,
+              totalExternalAmount,
+              payMethod,
+              reference,
+              paymentNotesBase,
+              normalizeOccurrenceDate(occurrence_date),
+            ]
+          );
+        }
+      }
+
+      const newPaid = Number(row.amount_paid) + totalExternalAmount + creditApplied;
+      const scheduleContext = createBillScheduleContextLoader(client, orgId);
+      const total = (isRecurringBill ? await getScheduledBilledAmount(row, scheduleContext) : Number(row.amount)) + Number(row.late_fee_applied || 0);
       let appliedToAssignment = newPaid;
-      if (newPaid > total) { credit = newPaid - total; appliedToAssignment = total; }
-      const newStatus = recalcAssignmentStatus(row.amount, row.late_fee_applied, appliedToAssignment, row.due_date);
-      await database.query(
+      if (!isRecurringBill && newPaid > total) {
+        creditCreated = newPaid - total;
+        appliedToAssignment = total;
+      }
+      const newStatus = isRecurringBill
+        ? (appliedToAssignment >= total
+            ? "paid"
+            : (newPaid > 0 ? "partial" : recalcAssignmentStatus(row.amount, row.late_fee_applied, appliedToAssignment, row.due_date)))
+        : recalcAssignmentStatus(row.amount, row.late_fee_applied, appliedToAssignment, row.due_date);
+      await client.query(
         `UPDATE finance_bill_assignments SET amount_paid=$1, status=$2, updated_at=now() WHERE assignment_id=$3`,
         [appliedToAssignment, newStatus, row.assignment_id]
       );
-      if (credit > 0) {
-        await database.query(
-          `INSERT INTO finance_student_credits (organization_id, student_id, amount)
-             VALUES ($1,$2,$3)
-           ON CONFLICT (student_id) DO UPDATE
-              SET amount = finance_student_credits.amount + EXCLUDED.amount, updated_at=now()`,
-          [orgId, row.student_id, credit]
-        );
+      if (creditCreated > 0) {
+        await addStudentCredit(client, orgId, row.student_id, creditCreated);
       }
+      await client.query("COMMIT");
+
       const display = await buildFinanceDisplayContext(req, orgId);
-      req.flash && req.flash("success", credit > 0
-        ? `Payment recorded. ${display.formatMoney(credit)} added as student credit.`
-        : "Payment recorded successfully.");
-      req.flash && req.flash("success", credit > 0
-        ? `Payment of $${amt.toFixed(2)} received. $${credit.toFixed(2)} kept as credit.`
-        : `Payment of $${amt.toFixed(2)} received. Thank you.`);
+      if (isRecurringBill) {
+        const recurringMessagePrefix = paymentEntries.length > 1
+          ? `${paymentEntries.length} recurring dates settled.`
+          : `${new Date(selectedOccurrenceDates[0] + "T00:00:00").toLocaleDateString()} settled.`;
+        const recurringMessageParts = [];
+        if (creditApplied > 0) recurringMessageParts.push(`${display.formatMoney(creditApplied)} applied from available balance`);
+        if (totalExternalAmount > 0) recurringMessageParts.push(`${display.formatMoney(totalExternalAmount)} received`);
+        req.flash && req.flash("success", `${recurringMessagePrefix} ${recurringMessageParts.join(' and ')}.`.trim());
+      } else {
+        const paymentSummary = [];
+        if (creditApplied > 0) paymentSummary.push(`${display.formatMoney(creditApplied)} applied from available balance`);
+        if (totalExternalAmount > 0) paymentSummary.push(`${display.formatMoney(totalExternalAmount)} received`);
+        const baseMessage = paymentSummary.length ? `${paymentSummary.join(' and ')}.` : 'Payment applied.';
+        req.flash && req.flash("success", creditCreated > 0
+          ? `${baseMessage} ${display.formatMoney(creditCreated)} kept as credit.`
+          : `${baseMessage} Thank you.`);
+      }
       // Audit log (guardian-initiated)
       try {
         const gRow = (await database.query(`SELECT first_name, last_name FROM guardians WHERE guardian_id=$1 LIMIT 1`, [guardianId])).rows[0];
@@ -2812,18 +4778,25 @@ module.exports = {
           recordType: "Payment",
           recordId: row.assignment_id,
           recordLabel: `${studentLabel} — ${bRow?.title || 'Bill'}`,
-          description: `Guardian ${guardianName} paid $${amt.toFixed(2)} (${payMethod}) for ${studentLabel} on bill "${bRow?.title || row.bill_id}". New status: ${newStatus}${credit > 0 ? `; $${credit.toFixed(2)} credited.` : ''}.`,
+          description: `Guardian ${guardianName} applied $${(creditApplied || 0).toFixed(2)} in student credit and paid $${(totalExternalAmount || 0).toFixed(2)}${totalExternalAmount > 0 ? ` (${payMethod})` : ''} for ${studentLabel} on bill "${bRow?.title || row.bill_id}"${isRecurringBill && selectedOccurrenceDates.length ? ` across ${selectedOccurrenceDates.length} recurring date(s)` : ''}. New status: ${newStatus}${creditCreated > 0 ? `; $${creditCreated.toFixed(2)} credited.` : ''}.`,
           changedFields: [
-            { field: "Amount", value: `$${amt.toFixed(2)}` },
-            { field: "Method", value: payMethod },
+            { field: "Applied Credit", value: `$${(creditApplied || 0).toFixed(2)}` },
+            { field: "Amount", value: `$${(totalExternalAmount || 0).toFixed(2)}` },
+            { field: "Method", value: totalExternalAmount > 0 ? payMethod : 'credit' },
             { field: "Reference", value: reference || '—' },
+            ...(isRecurringBill && selectedOccurrenceDates.length ? [{ field: "Recurring Dates", value: selectedOccurrenceDates.join(", ") }] : []),
             { field: "New Status", value: newStatus },
           ],
         });
       } catch (_) {}
     } catch (e) {
+      if (client) {
+        try { await client.query("ROLLBACK"); } catch (_) {}
+      }
       console.error("[guardianPaygiraPayPost]", e);
       req.flash && req.flash("error", "Payment could not be processed: " + e.message);
+    } finally {
+      if (client && shouldReleaseClient) client.release();
     }
     res.redirect("/guardian/paygira");
   },

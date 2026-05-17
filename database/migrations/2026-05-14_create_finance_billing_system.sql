@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS finance_bills (
   school_year_id     INT,
   term_id            INT,
   due_date           DATE,
+  recurrence_end_date DATE,
   accepts_card       BOOLEAN NOT NULL DEFAULT TRUE,
   accepts_cash       BOOLEAN NOT NULL DEFAULT TRUE,
   accepts_transfer   BOOLEAN NOT NULL DEFAULT TRUE,

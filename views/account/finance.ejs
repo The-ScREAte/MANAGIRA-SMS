@@ -12,6 +12,10 @@
   const collectedTotal = Number(t.total_collected || 0);
   const outstandingTotal = Number(t.outstanding || 0);
   const overpaymentsTotal = Number(overview.overpayments || 0);
+  const billYearFilter = (typeof billListFilters !== 'undefined' && billListFilters && billListFilters.school_year_id) || '';
+  const billTermFilter = (typeof billListFilters !== 'undefined' && billListFilters && billListFilters.term_id) || '';
+  const studentYearFilter = (typeof studentBillingFilters !== 'undefined' && studentBillingFilters && studentBillingFilters.school_year_id) || '';
+  const studentTermFilter = (typeof studentBillingFilters !== 'undefined' && studentBillingFilters && studentBillingFilters.term_id) || '';
 %>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet">
 
@@ -1314,7 +1318,7 @@
               </div>
               <div class="fin-field">
                 <label>Recurrence (if recurring)</label>
-                <select name="recurrence">
+                <select name="recurrence" id="billCreateRecurrence">
                   <option value="">—</option>
                   <option value="daily">Daily</option>
                   <option value="weekly">Weekly</option>
@@ -1387,6 +1391,8 @@
                   <label class="fin-chip student"
                          data-student-id="<%= s.student_id %>"
                          data-class-id="<%= s.class_id || '' %>"
+                         data-school-year-ids="<%= (s.school_year_ids || []).join(',') %>"
+                         data-term-ids="<%= (s.term_ids || []).join(',') %>"
                          data-search="<%= ((s.first_name||'') + ' ' + (s.last_name||'') + ' ' + (s.class_name||'')).toLowerCase() %>">
                     <input type="checkbox" name="target_student_ids" value="<%= s.student_id %>" onchange="finChipChanged(this,'studentCount')">
                     <span class="fin-chip-avatar">
@@ -1406,9 +1412,9 @@
 
             <div class="fin-row">
               <div class="fin-field">
-                <label>School Year</label>
-                <select name="school_year_id" id="billCreateYearSelect">
-                  <option value="">— Any —</option>
+                <label>School Year *</label>
+                <select name="school_year_id" id="billCreateYearSelect" required>
+                  <option value="">— Select school year —</option>
                   <% (refs.years || []).forEach(y => { %><option value="<%= y.school_year_id %>" <%= y.current ? 'selected' : '' %>><%= y.name %><%= y.current ? ' (current)' : '' %></option><% }) %>
                 </select>
                 <% if (!refs.years || !refs.years.length) { %>
@@ -1416,16 +1422,31 @@
                 <% } %>
               </div>
               <div class="fin-field">
-                <label>Term</label>
-                <select name="term_id" id="billCreateTermSelect" data-year-required-label="Select year first">
-                  <option value="">— Any —</option>
-                  <% (refs.terms || []).forEach(t => { %><option value="<%= t.term_id %>" data-school-year-id="<%= t.school_year_id || '' %>" data-current="<%= t.current ? 'true' : 'false' %>" <%= t.current ? 'selected' : '' %>><%= t.name %><%= t.current ? ' (current)' : '' %></option><% }) %>
+                <label>Term *</label>
+                <select name="term_id" id="billCreateTermSelect" data-year-required-label="Select year first" required>
+                  <option value="">— Select term —</option>
+                  <% (refs.terms || []).forEach(t => { %><option value="<%= t.term_id %>" data-school-year-id="<%= t.school_year_id || '' %>" data-current="<%= t.current ? 'true' : 'false' %>" data-start-date="<%= t.start_date ? new Date(t.start_date).toISOString().slice(0,10) : '' %>" data-end-date="<%= t.end_date ? new Date(t.end_date).toISOString().slice(0,10) : '' %>" <%= t.current ? 'selected' : '' %>><%= t.name %><%= t.current ? ' (current)' : '' %></option><% }) %>
                 </select>
+                <small style="color:var(--fin-muted);font-size:.74rem;">Assignments only go to students enrolled in this exact school year and term.</small>
+              </div>
+            </div>
+            <div class="fin-row">
+              <div class="fin-field">
+                <label>Start / First Date *</label>
+                <input name="due_date" id="billCreateStartDate" type="date" required>
+              </div>
+              <div class="fin-field">
+                <label>End Date</label>
+                <input name="recurrence_end_date" id="billCreateEndDate" type="date">
+                <small style="color:var(--fin-muted);font-size:.72rem;">Recurring schedules use this as the last bill date. If you leave it blank, the selected term end date is used when available.</small>
               </div>
             </div>
             <div class="fin-field">
-              <label>Due Date *</label>
-              <input name="due_date" type="date" required>
+              <label>Schedule Rules</label>
+              <div class="fin-checks">
+                <label class="fin-check"><input type="checkbox" name="exclude_non_school_days" id="billCreateExcludeNonSchoolDays"> Do not include weekends and holidays</label>
+              </div>
+              <small style="color:var(--fin-muted);font-size:.72rem;">Uses the attendance calendar settings for the selected term, including weekend days and public holidays. If you extend the end date, the bill dates are recalculated after excluded days are removed.</small>
             </div>
             <div class="fin-field">
               <label>Collectors / Overseers <span style="color:var(--fin-muted);font-weight:400;font-size:.75em;">(hold Ctrl / ⌘ to pick multiple)</span></label>
@@ -1464,7 +1485,6 @@
               <label>Notify Parents</label>
               <div class="fin-checks">
                 <label class="fin-check"><input type="checkbox" name="notify_email" checked> Email</label>
-                <label class="fin-check"><input type="checkbox" name="notify_sms"> SMS</label>
               </div>
             </div>
             <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:6px;">
@@ -1477,6 +1497,30 @@
 
         <div class="fin-card">
           <div class="section-head"><h2>All Bills</h2><span class="fin-section-count"><%= bills.length %> bill<%= bills.length === 1 ? '' : 's' %></span></div>
+          <form method="GET" action="/account/settings/finance" class="fin-form" style="margin-bottom:16px;">
+            <input type="hidden" name="section" value="bills">
+            <div class="fin-row" style="align-items:end;">
+              <div class="fin-field">
+                <label>School Year</label>
+                <select name="billYear" id="billListYearFilter">
+                  <option value="">— Current default —</option>
+                  <% (refs.years || []).forEach(y => { %><option value="<%= y.school_year_id %>" <%= String(billYearFilter) === String(y.school_year_id) ? 'selected' : '' %>><%= y.name %><%= y.current ? ' (current)' : '' %></option><% }) %>
+                </select>
+              </div>
+              <div class="fin-field">
+                <label>Term</label>
+                <select name="billTerm" id="billListTermFilter" data-year-required-label="Select year first">
+                  <option value="">— Current default —</option>
+                  <% (refs.terms || []).forEach(t => { %><option value="<%= t.term_id %>" data-school-year-id="<%= t.school_year_id || '' %>" <%= String(billTermFilter) === String(t.term_id) ? 'selected' : '' %>><%= t.name %><%= t.current ? ' (current)' : '' %></option><% }) %>
+                </select>
+              </div>
+              <div class="fin-field" style="align-self:end;display:flex;gap:10px;flex-wrap:wrap;">
+                <button type="submit" class="fin-btn">Apply Context</button>
+                <a class="fin-btn ghost" href="/account/settings/finance?section=bills">Use current term</a>
+              </div>
+            </div>
+            <small style="color:var(--fin-muted);font-size:.74rem;">Bills default to the current academic context here. Switch year or term to review a different billing period.</small>
+          </form>
           <% if (!bills.length) { %>
             <div class="empty-state"><div class="ico">📋</div><h3>No bills created yet</h3><p>Use the form above to create your first bill.</p></div>
           <% } else { %>
@@ -1494,7 +1538,7 @@
                   <th></th>
                 </tr></thead>
                 <tbody>
-                  <% bills.forEach(b => { const _bpayload = {id:b.bill_id,title:b.title,description:b.description||"",amount:b.amount,due_date:b.due_date?new Date(b.due_date).toISOString().slice(0,10):"",bill_type:b.bill_type||'one_time',recurrence:b.recurrence||"",late_fee_amount:b.late_fee_amount||0,late_fee_after_days:b.late_fee_after_days||7,assignee_id:b.assignee_id||"",applies_to:b.applies_to||'school',school_year_id:b.school_year_id||"",term_id:b.term_id||"",payment_destination:b.payment_destination||'stripe',accepts_card:!!b.accepts_card,accepts_cash:!!b.accepts_cash,accepts_transfer:!!b.accepts_transfer,notify_email:!!b.notify_email,notify_sms:!!b.notify_sms,status:b.status||'active'}; %>
+                  <% bills.forEach(b => { const _bpayload = {id:b.bill_id,title:b.title,description:b.description||"",amount:b.amount,due_date:b.due_date?new Date(b.due_date).toISOString().slice(0,10):"",recurrence_end_date:b.recurrence_end_date?new Date(b.recurrence_end_date).toISOString().slice(0,10):"",bill_type:b.bill_type||'one_time',recurrence:b.recurrence||"",late_fee_amount:b.late_fee_amount||0,late_fee_after_days:b.late_fee_after_days||7,exclude_non_school_days:!!b.exclude_non_school_days,assignee_id:b.assignee_id||"",assignee_ids:b.assignee_ids||[],applies_to:b.applies_to||'school',school_year_id:b.school_year_id||"",term_id:b.term_id||"",target_class_ids:b.target_class_ids||[],target_student_ids:b.target_student_ids||[],payment_destination:b.payment_destination||'stripe',accepts_card:!!b.accepts_card,accepts_cash:!!b.accepts_cash,accepts_transfer:!!b.accepts_transfer,notify_email:!!b.notify_email,status:b.status||'active'}; %>
                     <tr class="fin-click-row" onclick='openEditBill(<%- JSON.stringify(_bpayload) %>)' title="Open bill and edit">
                       <td>
                         <div class="fin-bill-copy">
@@ -1541,11 +1585,44 @@
       <% } %>
 
       <% if (sec === 'students') { %>
+        <% const studentsWithCredit = (studentBilling || []).filter(s => Number(s.student_credit || 0) > 0); %>
+        <% const totalStudentCredit = studentsWithCredit.reduce((sum, s) => sum + Number(s.student_credit || 0), 0); %>
         <div class="fin-card">
           <div class="section-head"><h2>Org-Wide Bills</h2><span class="fin-section-count"><%= studentBilling.length %> students</span></div>
           <% if (!studentBilling.length) { %>
             <div class="empty-state"><div class="ico">👨‍👩‍👧</div><h3>No students yet</h3></div>
           <% } else { %>
+            <form method="GET" action="/account/settings/finance" class="fin-form" style="margin-bottom:16px;">
+              <input type="hidden" name="section" value="students">
+              <div class="fin-row" style="align-items:end;">
+                <div class="fin-field">
+                  <label>School Year</label>
+                  <select name="studentYear" id="studentBillingYearFilter">
+                    <option value="">— Current default —</option>
+                    <% (refs.years || []).forEach(y => { %><option value="<%= y.school_year_id %>" <%= String(studentYearFilter) === String(y.school_year_id) ? 'selected' : '' %>><%= y.name %><%= y.current ? ' (current)' : '' %></option><% }) %>
+                  </select>
+                </div>
+                <div class="fin-field">
+                  <label>Term</label>
+                  <select name="studentTerm" id="studentBillingTermFilter" data-year-required-label="Select year first">
+                    <option value="">— Current default —</option>
+                    <% (refs.terms || []).forEach(t => { %><option value="<%= t.term_id %>" data-school-year-id="<%= t.school_year_id || '' %>" <%= String(studentTermFilter) === String(t.term_id) ? 'selected' : '' %>><%= t.name %><%= t.current ? ' (current)' : '' %></option><% }) %>
+                  </select>
+                </div>
+                <div class="fin-field" style="align-self:end;display:flex;gap:10px;flex-wrap:wrap;">
+                  <button type="submit" class="fin-btn">Apply Context</button>
+                  <a class="fin-btn ghost" href="/account/settings/finance?section=students">Use current term</a>
+                </div>
+              </div>
+              <small style="color:var(--fin-muted);font-size:.74rem;">Student-wide billing totals are scoped to this academic year and term. Credit balances remain visible because they are still owed by the school.</small>
+            </form>
+            <div class="fin-stats" style="margin-bottom:16px;">
+              <div class="stat gold">
+                <div class="label">Students Owed Balance</div>
+                <div class="value"><%= studentsWithCredit.length %></div>
+                <div class="sub"><%= fmt(totalStudentCredit) %> still available as student credit</div>
+              </div>
+            </div>
             <div class="fin-report-filters" style="margin-bottom:16px;">
               <div class="fin-field">
                 <label>Search</label>
@@ -1576,23 +1653,33 @@
                   <option value="clear">No debt</option>
                 </select>
               </div>
+              <div class="fin-field">
+                <label>Balance Owed By School</label>
+                <select id="orgCreditFilter" onchange="finRunOrgWideFilter()">
+                  <option value="">All</option>
+                  <option value="has-credit">With student credit</option>
+                  <option value="no-credit">No student credit</option>
+                </select>
+              </div>
               <div class="fin-field" style="display:flex;align-items:flex-end;">
                 <button type="button" class="fin-btn" onclick="finResetOrgWideFilter()">Reset</button>
               </div>
             </div>
             <div class="fin-table-wrap">
               <table class="fin-table fin-student-table">
-                <thead><tr><th>Student</th><th>Class</th><th class="num">Billed</th><th class="num">Paid</th><th class="num">Outstanding</th><th>Status</th></tr></thead>
+                <thead><tr><th>Student</th><th>Class</th><th class="num">Billed</th><th class="num">Paid</th><th class="num">Credit</th><th class="num">Outstanding</th><th class="num">Net Due</th><th>Status</th></tr></thead>
                 <tbody>
                   <% studentBilling.forEach(s => {
                     const out = Number(s.outstanding||0);
+                    const credit = Number(s.student_credit||0);
+                    const netOut = Number(s.net_outstanding||Math.max(out - credit, 0));
                     const billed = Number(s.total_billed||0);
                     let st = 'pending';
                     if (billed === 0) st = 'draft';
-                    else if (out === 0) st = 'paid';
-                    else if (Number(s.total_paid||0) > 0) st = 'partial';
+                    else if (netOut === 0) st = 'paid';
+                    else if (Number(s.total_paid||0) > 0 || credit > 0) st = 'partial';
                   %>
-                    <tr class="fin-click-row" onclick="openStudentDrawer(<%= s.student_id %>)" title="Open student billing detail" data-text="<%= ((s.first_name||'') + ' ' + (s.last_name||'') + ' ' + (s.class_name||'')).toLowerCase() %>" data-class="<%= s.class_id || '' %>" data-status="<%= st %>" data-debt="<%= out > 0 ? 'has-debt' : 'clear' %>">
+                    <tr class="fin-click-row" onclick="openStudentDrawer(<%= s.student_id %>)" title="Open student billing detail" data-text="<%= ((s.first_name||'') + ' ' + (s.last_name||'') + ' ' + (s.class_name||'')).toLowerCase() %>" data-class="<%= s.class_id || '' %>" data-status="<%= st %>" data-debt="<%= netOut > 0 ? 'has-debt' : 'clear' %>" data-credit="<%= credit > 0 ? 'has-credit' : 'no-credit' %>">
                       <td>
                         <div class="fin-student-main">
                           <div class="fin-student-avatar">
@@ -1607,7 +1694,9 @@
                       <td><span class="fin-class-chip"><%= s.class_name || 'No class' %></span></td>
                       <td class="num fin-money-neutral"><%= fmt(s.total_billed) %></td>
                       <td class="num fin-money-positive"><%= fmt(s.total_paid) %></td>
+                      <td class="num <%= credit > 0 ? 'fin-money-positive' : 'fin-money-neutral' %>"><%= fmt(credit) %></td>
                       <td class="num <%= out > 0 ? 'fin-money-negative' : 'fin-money-neutral' %>"><%= fmt(out) %></td>
+                      <td class="num <%= netOut > 0 ? 'fin-money-negative' : 'fin-money-neutral' %>"><%= fmt(netOut) %></td>
                       <td><span class="badge <%= st %>"><%= st %></span></td>
                     </tr>
                   <% }) %>
@@ -1717,6 +1806,39 @@
                   <% }) %>
                 </tbody>
               </table>
+            </div>
+          <% } %>
+        </div>
+
+        <div class="fin-card" style="margin-top:20px;">
+          <div class="section-head"><h2>Collection Sign-Off History</h2><span class="fin-section-count"><%= (signoffHistory || []).length %> record<%= (signoffHistory || []).length === 1 ? '' : 's' %></span></div>
+          <% if (!(signoffHistory || []).length) { %>
+            <div class="empty-state"><div class="ico">✍</div><h3>No sign-offs yet</h3><p>Teacher and manager sign-offs will appear here after collections are fully settled.</p></div>
+          <% } else { %>
+            <div class="fin-report-filters" style="margin-bottom:16px;">
+              <div class="fin-field">
+                <label>Search</label>
+                <input type="text" id="signoffSearch" oninput="finRunSignoffFilter()" placeholder="Bill, class, signer, date...">
+              </div>
+            </div>
+            <div class="fin-table-wrap">
+              <table class="fin-table" id="signoffHistoryTable">
+                <thead><tr><th>Signed At</th><th>Bill</th><th>Scope</th><th>Class</th><th>Signed By</th><th class="num">Students</th><th class="num">Collected</th></tr></thead>
+                <tbody>
+                  <% (signoffHistory || []).forEach(function(row) { const scopeLabel = row.occurrence_date ? new Date(row.occurrence_date).toLocaleDateString() : 'Whole bill'; const classLabel = Number(row.class_id || 0) > 0 ? (row.class_name || 'Class scope') : 'All assigned students'; const signerLabel = (row.signed_by_name || (((row.signer_first_name || '') + ' ' + (row.signer_last_name || '')).trim()) || 'Staff') + (row.signer_role ? (' · ' + row.signer_role) : ''); const searchText = [row.bill_title, scopeLabel, classLabel, signerLabel, row.occurrence_date || '', row.signer_role || ''].join(' ').toLowerCase(); %>
+                    <tr data-text="<%= searchText %>">
+                      <td><%= row.signed_at ? new Date(row.signed_at).toLocaleString() : '—' %></td>
+                      <td><strong><%= row.bill_title || 'Bill' %></strong></td>
+                      <td><%= scopeLabel %></td>
+                      <td><%= classLabel %></td>
+                      <td><%= signerLabel %></td>
+                      <td class="num"><%= row.student_count || 0 %></td>
+                      <td class="num fin-money-positive"><%= fmt(row.total_collected || 0) %></td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+              <div id="signoffHistoryEmpty" style="display:none;text-align:center;color:var(--fin-muted);padding:24px;">No sign-offs match your search.</div>
             </div>
           <% } %>
         </div>
@@ -2617,6 +2739,22 @@ Regards,
       }
       termSelect.disabled = !yearValue || !firstMatching;
     };
+    window.autofillBillScheduleDates = function(termSelect, startInput, endInput, options) {
+      if (!termSelect) return;
+      var selected = termSelect.options[termSelect.selectedIndex];
+      if (!selected || selected.disabled) return;
+      var force = !!(options && options.force);
+      var startDate = String(selected.getAttribute('data-start-date') || '');
+      var endDate = String(selected.getAttribute('data-end-date') || '');
+      if (startInput && startDate && (force || !String(startInput.value || '').trim())) startInput.value = startDate;
+      if (endInput && endDate && (force || !String(endInput.value || '').trim())) endInput.value = endDate;
+    };
+    window.syncBillScheduleControls = function(typeSelect, recurrenceSelect, excludeCheckbox) {
+      var recurring = !!typeSelect && String(typeSelect.value || '') === 'recurring';
+      if (recurrenceSelect) recurrenceSelect.disabled = !recurring;
+      if (excludeCheckbox) excludeCheckbox.disabled = !recurring;
+      return recurring;
+    };
     window.syncArrearsYearTerms = function() {
       if (!arrearsFilterForm) return;
       var selectedYears = Array.prototype.slice.call(arrearsFilterForm.querySelectorAll('input[name="schoolYearIds"]:checked')).map(function (input) { return String(input.value || ''); });
@@ -2686,6 +2824,28 @@ Regards,
       });
       finRecountChips('classCount');
     };
+    window.syncBillTargetStudents = function() {
+      var grid = document.getElementById('studentChips');
+      if (!grid) return;
+      var selectedYear = String((document.getElementById('billCreateYearSelect') || {}).value || '');
+      var selectedTerm = String((document.getElementById('billCreateTermSelect') || {}).value || '');
+      var query = String((document.getElementById('studentSearchBox') || {}).value || '').trim().toLowerCase();
+      grid.querySelectorAll('.fin-chip.student').forEach(function (chip) {
+        var matchesAcademic = true;
+        if (selectedTerm) matchesAcademic = matchesDataIds(chip.getAttribute('data-term-ids'), [selectedTerm]);
+        else if (selectedYear) matchesAcademic = matchesDataIds(chip.getAttribute('data-school-year-ids'), [selectedYear]);
+        var hay = chip.getAttribute('data-search') || '';
+        var matchesQuery = !query || hay.indexOf(query) !== -1;
+        var visible = matchesAcademic && matchesQuery;
+        chip.classList.toggle('hidden', !visible);
+        if (!visible) {
+          var checkbox = chip.querySelector('input[type="checkbox"]');
+          if (checkbox) checkbox.checked = false;
+          chip.classList.remove('checked');
+        }
+      });
+      finRecountChips('studentCount');
+    };
     // === Toggle class/student pickers ===
     var sel = document.getElementById('appliesTo');
     var cp  = document.getElementById('classPicker');
@@ -2720,6 +2880,122 @@ Regards,
     }
 
     // === Edit Bill Modal ===
+    function formatBillAudienceSummary(bill) {
+      var audience = String((bill && bill.applies_to) || 'school');
+      if (audience === 'students') {
+        var studentCount = Array.isArray(bill.target_student_ids) ? bill.target_student_ids.length : 0;
+        return studentCount ? ('Currently set to ' + studentCount + ' individual student' + (studentCount === 1 ? '' : 's') + '. You can change the audience or update the selected students below.') : 'Currently set to individually selected students.';
+      }
+      if (audience === 'classes') {
+        var classCount = Array.isArray(bill.target_class_ids) ? bill.target_class_ids.length : 0;
+        return classCount ? ('Currently set to ' + classCount + ' class' + (classCount === 1 ? '' : 'es') + '. You can change the audience or update the selected classes below.') : 'Currently set to specific classes.';
+      }
+      return 'Currently set to the entire school for the selected year and term.';
+    }
+
+    function setMultiSelectValues(selectId, values) {
+      var select = document.getElementById(selectId);
+      if (!select) return;
+      var wanted = Array.isArray(values) ? values.map(function(value) { return String(value); }) : [];
+      Array.prototype.forEach.call(select.options, function(option) {
+        option.selected = wanted.indexOf(String(option.value || '')) !== -1;
+      });
+    }
+
+    function syncEditBillTargets() {
+      var appliesTo = String((document.getElementById('ebl-applies_to') || {}).value || 'school');
+      var selectedYear = String((document.getElementById('ebl-school_year_id') || {}).value || '');
+      var selectedTerm = String((document.getElementById('ebl-term_id') || {}).value || '');
+      var classWrap = document.getElementById('ebl-target-classes-wrap');
+      var studentWrap = document.getElementById('ebl-target-students-wrap');
+      var classSelect = document.getElementById('ebl-target_class_ids');
+      var studentSelect = document.getElementById('ebl-target_student_ids');
+      var appliesSummary = document.getElementById('ebl-applies_to_summary');
+
+      if (classWrap) classWrap.style.display = appliesTo === 'classes' ? '' : 'none';
+      if (studentWrap) studentWrap.style.display = appliesTo === 'students' ? '' : 'none';
+
+      [classSelect, studentSelect].forEach(function(select) {
+        if (!select) return;
+        Array.prototype.forEach.call(select.options, function(option) {
+          var matches = true;
+          if (selectedTerm) matches = matchesDataIds(option.getAttribute('data-term-ids'), [selectedTerm]);
+          else if (selectedYear) matches = matchesDataIds(option.getAttribute('data-school-year-ids'), [selectedYear]);
+          option.setAttribute('data-academic-match', matches ? 'true' : 'false');
+          option.disabled = !matches;
+          if (!matches) option.selected = false;
+        });
+      });
+
+      filterEditBillTargetOptions('ebl-target_class_ids', (document.getElementById('ebl-target_class_search') || {}).value || '');
+      filterEditBillTargetOptions('ebl-target_student_ids', (document.getElementById('ebl-target_student_search') || {}).value || '');
+
+      if (appliesSummary) {
+        var classCount = classSelect ? Array.prototype.filter.call(classSelect.options, function(option) {
+          return option.selected && !option.disabled;
+        }).length : 0;
+        var studentCount = studentSelect ? Array.prototype.filter.call(studentSelect.options, function(option) {
+          return option.selected && !option.disabled;
+        }).length : 0;
+        if (appliesTo === 'classes') {
+          appliesSummary.textContent = classCount
+            ? ('Currently set to ' + classCount + ' class' + (classCount === 1 ? '' : 'es') + ' in this academic context.')
+            : 'Choose one or more classes for this bill.';
+        } else if (appliesTo === 'students') {
+          appliesSummary.textContent = studentCount
+            ? ('Currently set to ' + studentCount + ' individual student' + (studentCount === 1 ? '' : 's') + ' in this academic context.')
+            : 'Choose one or more students for this bill.';
+        } else {
+          appliesSummary.textContent = 'This bill will apply to the entire school for the selected year and term.';
+        }
+      }
+    }
+
+    function filterEditBillTargetOptions(selectId, query) {
+      var select = document.getElementById(selectId);
+      if (!select) return;
+      var normalizedQuery = String(query || '').trim().toLowerCase();
+      Array.prototype.forEach.call(select.options, function(option) {
+        var academicMatch = option.getAttribute('data-academic-match') !== 'false';
+        var matchesQuery = !normalizedQuery || String(option.textContent || '').toLowerCase().indexOf(normalizedQuery) !== -1;
+        option.hidden = !academicMatch || !matchesQuery;
+      });
+    }
+
+    function setAllEditBillTargets(selectId, shouldSelect) {
+      var select = document.getElementById(selectId);
+      if (!select) return;
+      Array.prototype.forEach.call(select.options, function(option) {
+        if (option.disabled || option.hidden) return;
+        option.selected = !!shouldSelect;
+      });
+      syncEditBillTargets();
+    }
+
+    function syncEditBillPaymentMethodMaster() {
+      var master = document.getElementById('ebl-payAll');
+      var methodInputs = Array.prototype.slice.call(document.querySelectorAll('.ebl-pay-method')).filter(function(input) {
+        return !input.disabled;
+      });
+      if (!master) return;
+      if (!methodInputs.length) {
+        master.checked = false;
+        master.indeterminate = false;
+        return;
+      }
+      var checkedCount = methodInputs.filter(function(input) { return input.checked; }).length;
+      master.checked = checkedCount === methodInputs.length;
+      master.indeterminate = checkedCount > 0 && checkedCount < methodInputs.length;
+    }
+
+    function toggleAllEditBillPaymentMethods(checked) {
+      document.querySelectorAll('.ebl-pay-method').forEach(function(input) {
+        if (input.disabled) return;
+        input.checked = !!checked;
+      });
+      syncEditBillPaymentMethodMaster();
+    }
+
     window.openEditBill = function (bill) {
       var m = document.getElementById('editBillModal');
       if (!m) return;
@@ -2730,30 +3006,29 @@ Regards,
       setVal('ebl-description', bill.description || '');
       setVal('ebl-amount', bill.amount);
       setVal('ebl-due_date', bill.due_date || '');
+      setVal('ebl-recurrence_end_date', bill.recurrence_end_date || '');
       setVal('ebl-late_fee', bill.late_fee_amount || 0);
       setVal('ebl-late_days', bill.late_fee_after_days || 7);
-      // Multi-select assignee — pre-select current assignee_id (additional collectors loaded separately when junction table is read)
-      var assigneeSel = document.getElementById('ebl-assignee');
-      if (assigneeSel) {
-        Array.prototype.forEach.call(assigneeSel.options, function(opt){ opt.selected = false; });
-        var aid = String(bill.assignee_id || '');
-        if (aid) {
-          var match = assigneeSel.querySelector('option[value="' + aid + '"]');
-          if (match) match.selected = true;
-        }
-      }
+      setMultiSelectValues('ebl-assignee', (Array.isArray(bill.assignee_ids) && bill.assignee_ids.length) ? bill.assignee_ids : (bill.assignee_id ? [bill.assignee_id] : []));
       setVal('ebl-bill_type', bill.bill_type || 'one_time');
       setVal('ebl-recurrence', bill.recurrence || '');
+      setChk('ebl-exclude_non_school_days', bill.exclude_non_school_days);
       setVal('ebl-applies_to', bill.applies_to || 'school');
+      setVal('ebl-target_class_search', '');
+      setVal('ebl-target_student_search', '');
       setVal('ebl-school_year_id', bill.school_year_id || '');
       window.syncSingleTermSelect(document.getElementById('ebl-school_year_id'), document.getElementById('ebl-term_id'), { preferredTermId: bill.term_id || '', keepBlankWhenYearChanges: false });
+      setMultiSelectValues('ebl-target_class_ids', bill.target_class_ids || []);
+      setMultiSelectValues('ebl-target_student_ids', bill.target_student_ids || []);
+      syncEditBillTargets();
+      window.syncBillScheduleControls(document.getElementById('ebl-bill_type'), document.getElementById('ebl-recurrence'), document.getElementById('ebl-exclude_non_school_days'));
       setVal('ebl-payment_destination', bill.payment_destination || 'stripe');
       setVal('ebl-status', bill.status || 'active');
       setChk('ebl-accepts_card', bill.accepts_card);
       setChk('ebl-accepts_cash', bill.accepts_cash);
       setChk('ebl-accepts_transfer', bill.accepts_transfer);
       setChk('ebl-notify_email', bill.notify_email);
-      setChk('ebl-notify_sms', bill.notify_sms);
+      syncEditBillPaymentMethodMaster();
       document.getElementById('editBillForm').action   = '/account/settings/finance/bills/' + bill.id + '/edit';
       m.classList.add('open');
     };
@@ -2799,12 +3074,13 @@ Regards,
       var credit = d.credit || 0;
       var totalBilled  = bills.reduce((a,b) => a + Number(b.amount||0), 0);
       var totalPaid    = bills.reduce((a,b) => a + Number(b.amount_paid||0), 0);
-      var outstanding  = bills.reduce((a,b) => a + Math.max(Number(b.amount||0) + Number(b.late_fee_applied||0) - Number(b.amount_paid||0), 0), 0);
+      var outstanding  = bills.reduce((a,b) => a + Number(b.balance != null ? b.balance : Math.max(Number(b.amount||0) + Number(b.late_fee_applied||0) - Number(b.amount_paid||0), 0)), 0);
+      var netDue       = Math.max(outstanding - Number(credit || 0), 0);
       var initials     = ((s.first_name||'?')[0] + (s.last_name||'')[0]).toUpperCase();
       var avatarHtml = '<img src="' + (s.image_url || profilePlaceholderSrc) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.onerror=null;this.src=\'' + profilePlaceholderSrc + '\';">';
 
       var billRows = bills.map(function(b) {
-        var bal = Math.max(Number(b.amount||0) + Number(b.late_fee_applied||0) - Number(b.amount_paid||0), 0);
+        var bal = Number(b.balance != null ? b.balance : Math.max(Number(b.amount||0) + Number(b.late_fee_applied||0) - Number(b.amount_paid||0), 0));
         var due = b.due_date ? new Date(b.due_date).toLocaleDateString() : '—';
         return '<tr><td>' + (b.title||'') + '</td><td class="fin-date-muted">' + due + '</td>'
           + '<td class="num fin-money-neutral">' + fmt(b.amount) + '</td>'
@@ -2830,6 +3106,7 @@ Regards,
         + '<div class="stat green"><div class="label">Total Paid</div><div class="value fin-mono">' + fmt(totalPaid) + '</div></div>'
         + '<div class="stat red"><div class="label">Outstanding</div><div class="value fin-mono">' + fmt(outstanding) + '</div></div>'
         + '<div class="stat gold"><div class="label">Credits</div><div class="value fin-mono">' + fmt(credit) + '</div></div>'
+        + '<div class="stat"><div class="label">Net Due</div><div class="value fin-mono">' + fmt(netDue) + '</div></div>'
         + '</div>'
         + '<div style="font-family:\'Space Grotesk\',sans-serif;font-weight:700;font-size:1rem;margin-bottom:10px;">Bills</div>'
         + '<div class="fin-table-wrap" style="margin-bottom:22px;"><table class="fin-table"><thead><tr><th>Bill</th><th>Due</th><th class="num">Amount</th><th class="num">Paid</th><th class="num">Balance</th><th>Status</th></tr></thead><tbody>' + billRows + '</tbody></table></div>'
@@ -2882,13 +3159,7 @@ Regards,
     finRecountChips(gridId === 'classChips' ? 'classCount' : 'studentCount');
   }
   function finFilterStudents(q) {
-    var query = (q || '').trim().toLowerCase();
-    var grid = document.getElementById('studentChips');
-    if (!grid) return;
-    grid.querySelectorAll('.fin-chip.student').forEach(function(chip) {
-      var hay = chip.getAttribute('data-search') || '';
-      chip.classList.toggle('hidden', query && hay.indexOf(query) === -1);
-    });
+    if (typeof window.syncBillTargetStudents === 'function') window.syncBillTargetStudents();
   }
 
   // ===== "All payment methods" toggle =====
@@ -2942,6 +3213,22 @@ Regards,
     finRunReportFilter();
   }
 
+  function finRunSignoffFilter() {
+    var table = document.getElementById('signoffHistoryTable');
+    if (!table) return;
+    var query = ((document.getElementById('signoffSearch') || {}).value || '').trim().toLowerCase();
+    var rows = table.querySelectorAll('tbody tr');
+    var shown = 0;
+    rows.forEach(function(row) {
+      var text = (row.getAttribute('data-text') || '').toLowerCase();
+      var ok = !query || text.indexOf(query) !== -1;
+      row.style.display = ok ? '' : 'none';
+      if (ok) shown += 1;
+    });
+    var empty = document.getElementById('signoffHistoryEmpty');
+    if (empty) empty.style.display = shown === 0 ? '' : 'none';
+  }
+
   // ===== Org-wide bills filter =====
   function finRunOrgWideFilter() {
     var tbody = document.querySelector('.fin-student-table tbody');
@@ -2950,6 +3237,7 @@ Regards,
     var cls = (document.getElementById('orgClassFilter') || {}).value || '';
     var st = (document.getElementById('orgStatusFilter') || {}).value || '';
     var debt = (document.getElementById('orgDebtFilter') || {}).value || '';
+    var credit = (document.getElementById('orgCreditFilter') || {}).value || '';
     q = q.trim().toLowerCase();
     var rows = tbody.querySelectorAll('tr');
     rows.forEach(function(r) {
@@ -2957,16 +3245,18 @@ Regards,
       var klass = r.getAttribute('data-class') || '';
       var status = r.getAttribute('data-status') || '';
       var debtState = r.getAttribute('data-debt') || '';
+      var creditState = r.getAttribute('data-credit') || '';
       var ok = true;
       if (q && text.indexOf(q) === -1) ok = false;
       if (cls && klass !== cls) ok = false;
       if (st && status !== st) ok = false;
       if (debt && debtState !== debt) ok = false;
+      if (credit && creditState !== credit) ok = false;
       r.style.display = ok ? '' : 'none';
     });
   }
   function finResetOrgWideFilter() {
-    ['orgStudentSearch','orgClassFilter','orgStatusFilter','orgDebtFilter'].forEach(function(id) {
+    ['orgStudentSearch','orgClassFilter','orgStatusFilter','orgDebtFilter','orgCreditFilter'].forEach(function(id) {
       var el = document.getElementById(id);
       if (el) el.value = '';
     });
@@ -3208,28 +3498,117 @@ Regards,
     });
   }
 
+  var billListYearFilter = document.getElementById('billListYearFilter');
+  var billListTermFilter = document.getElementById('billListTermFilter');
+  if (billListYearFilter && billListTermFilter) {
+    window.syncSingleTermSelect(billListYearFilter, billListTermFilter, { keepBlankWhenYearChanges: false });
+    billListYearFilter.addEventListener('change', function () {
+      window.syncSingleTermSelect(billListYearFilter, billListTermFilter, { keepBlankWhenYearChanges: true });
+    });
+  }
+
+  var studentBillingYearFilter = document.getElementById('studentBillingYearFilter');
+  var studentBillingTermFilter = document.getElementById('studentBillingTermFilter');
+  if (studentBillingYearFilter && studentBillingTermFilter) {
+    window.syncSingleTermSelect(studentBillingYearFilter, studentBillingTermFilter, { keepBlankWhenYearChanges: false });
+    studentBillingYearFilter.addEventListener('change', function () {
+      window.syncSingleTermSelect(studentBillingYearFilter, studentBillingTermFilter, { keepBlankWhenYearChanges: true });
+    });
+  }
+
   var billCreateYearSelect = document.getElementById('billCreateYearSelect');
   var billCreateTermSelect = document.getElementById('billCreateTermSelect');
+  var billTypeSelect = document.getElementById('billTypeSel');
+  var billCreateRecurrenceSelect = document.getElementById('billCreateRecurrence');
+  var billCreateExcludeCheckbox = document.getElementById('billCreateExcludeNonSchoolDays');
+  var billCreateStartDate = document.getElementById('billCreateStartDate');
+  var billCreateEndDate = document.getElementById('billCreateEndDate');
+  if (billTypeSelect) {
+    window.syncBillScheduleControls(billTypeSelect, billCreateRecurrenceSelect, billCreateExcludeCheckbox);
+    billTypeSelect.addEventListener('change', function () {
+      window.syncBillScheduleControls(billTypeSelect, billCreateRecurrenceSelect, billCreateExcludeCheckbox);
+    });
+  }
   if (billCreateYearSelect && billCreateTermSelect) {
     window.syncSingleTermSelect(billCreateYearSelect, billCreateTermSelect, { keepBlankWhenYearChanges: false });
     window.syncBillTargetClasses();
+    window.syncBillTargetStudents();
+    window.autofillBillScheduleDates(billCreateTermSelect, billCreateStartDate, billCreateEndDate);
     billCreateYearSelect.addEventListener('change', function () {
       window.syncSingleTermSelect(billCreateYearSelect, billCreateTermSelect, { keepBlankWhenYearChanges: true });
       window.syncBillTargetClasses();
+      window.syncBillTargetStudents();
+      window.autofillBillScheduleDates(billCreateTermSelect, billCreateStartDate, billCreateEndDate);
     });
     billCreateTermSelect.addEventListener('change', function () {
       window.syncBillTargetClasses();
+      window.syncBillTargetStudents();
+      window.autofillBillScheduleDates(billCreateTermSelect, billCreateStartDate, billCreateEndDate);
     });
   }
 
   var editBillYearSelect = document.getElementById('ebl-school_year_id');
   var editBillTermSelect = document.getElementById('ebl-term_id');
-  if (editBillYearSelect && editBillTermSelect) {
-    window.syncSingleTermSelect(editBillYearSelect, editBillTermSelect, { keepBlankWhenYearChanges: false });
-    editBillYearSelect.addEventListener('change', function () {
-      window.syncSingleTermSelect(editBillYearSelect, editBillTermSelect, { keepBlankWhenYearChanges: true });
+  var editBillAudienceSelect = document.getElementById('ebl-applies_to');
+  var editBillTypeSelect = document.getElementById('ebl-bill_type');
+  var editBillRecurrenceSelect = document.getElementById('ebl-recurrence');
+  var editBillExcludeCheckbox = document.getElementById('ebl-exclude_non_school_days');
+  var editBillStartDate = document.getElementById('ebl-due_date');
+  var editBillEndDate = document.getElementById('ebl-recurrence_end_date');
+  if (editBillTypeSelect) {
+    window.syncBillScheduleControls(editBillTypeSelect, editBillRecurrenceSelect, editBillExcludeCheckbox);
+    editBillTypeSelect.addEventListener('change', function () {
+      window.syncBillScheduleControls(editBillTypeSelect, editBillRecurrenceSelect, editBillExcludeCheckbox);
     });
   }
+  if (editBillYearSelect && editBillTermSelect) {
+    window.syncSingleTermSelect(editBillYearSelect, editBillTermSelect, { keepBlankWhenYearChanges: false });
+    if (typeof syncEditBillTargets === 'function') syncEditBillTargets();
+    editBillYearSelect.addEventListener('change', function () {
+      window.syncSingleTermSelect(editBillYearSelect, editBillTermSelect, { keepBlankWhenYearChanges: true });
+      if (typeof syncEditBillTargets === 'function') syncEditBillTargets();
+      window.autofillBillScheduleDates(editBillTermSelect, editBillStartDate, editBillEndDate);
+    });
+    editBillTermSelect.addEventListener('change', function () {
+      if (typeof syncEditBillTargets === 'function') syncEditBillTargets();
+      window.autofillBillScheduleDates(editBillTermSelect, editBillStartDate, editBillEndDate);
+    });
+  }
+  if (editBillAudienceSelect && typeof syncEditBillTargets === 'function') {
+    editBillAudienceSelect.addEventListener('change', syncEditBillTargets);
+  }
+  ['ebl-target_class_ids', 'ebl-target_student_ids'].forEach(function(id) {
+    var select = document.getElementById(id);
+    if (select && typeof syncEditBillTargets === 'function') {
+      select.addEventListener('change', syncEditBillTargets);
+    }
+  });
+  [['ebl-target_class_search', 'ebl-target_class_ids'], ['ebl-target_student_search', 'ebl-target_student_ids']].forEach(function(pair) {
+    var input = document.getElementById(pair[0]);
+    if (!input) return;
+    input.addEventListener('input', function () {
+      if (typeof filterEditBillTargetOptions === 'function') filterEditBillTargetOptions(pair[1], input.value || '');
+    });
+  });
+  [['ebl-target_class_select_all', 'ebl-target_class_ids', true], ['ebl-target_class_clear', 'ebl-target_class_ids', false], ['ebl-target_student_select_all', 'ebl-target_student_ids', true], ['ebl-target_student_clear', 'ebl-target_student_ids', false]].forEach(function(config) {
+    var button = document.getElementById(config[0]);
+    if (!button) return;
+    button.addEventListener('click', function () {
+      if (typeof setAllEditBillTargets === 'function') setAllEditBillTargets(config[1], config[2]);
+    });
+  });
+  var editBillPayAll = document.getElementById('ebl-payAll');
+  if (editBillPayAll) {
+    editBillPayAll.addEventListener('change', function () {
+      if (typeof toggleAllEditBillPaymentMethods === 'function') toggleAllEditBillPaymentMethods(editBillPayAll.checked);
+    });
+  }
+  document.querySelectorAll('.ebl-pay-method').forEach(function(input) {
+    input.addEventListener('change', function () {
+      if (typeof syncEditBillPaymentMethodMaster === 'function') syncEditBillPaymentMethodMaster();
+    });
+  });
+  if (typeof syncEditBillPaymentMethodMaster === 'function') syncEditBillPaymentMethodMaster();
 
   document.querySelectorAll('[data-arrears-multiselect]').forEach(function(box) {
     box.setAttribute('data-empty-label', box.querySelector('[data-arrears-summary]') ? box.querySelector('[data-arrears-summary]').textContent : 'All items');
@@ -3396,7 +3775,19 @@ Regards,
       </div>
 
       <div class="fin-row">
-        <div class="fin-field"><label>Due Date</label><input id="ebl-due_date" name="due_date" type="date"></div>
+        <div class="fin-field"><label>Start / First Date</label><input id="ebl-due_date" name="due_date" type="date"></div>
+        <div class="fin-field"><label>End Date</label><input id="ebl-recurrence_end_date" name="recurrence_end_date" type="date"></div>
+      </div>
+
+      <div class="fin-field">
+        <label>Schedule Rules</label>
+        <div class="fin-checks">
+          <label class="fin-check"><input type="checkbox" id="ebl-exclude_non_school_days" name="exclude_non_school_days"> Do not include weekends and holidays</label>
+        </div>
+        <small style="color:var(--fin-muted);font-size:.74rem;">Uses the attendance calendar settings for the bill term when the schedule is recurring. If you extend the end date, the bill dates are recalculated after excluded days are removed.</small>
+      </div>
+
+      <div class="fin-row">
         <div class="fin-field">
           <label>Status</label>
           <select id="ebl-status" name="status">
@@ -3415,29 +3806,64 @@ Regards,
 
       <div class="fin-row">
         <div class="fin-field">
-          <label>School Year</label>
-          <select id="ebl-school_year_id" name="school_year_id">
-            <option value="">— Any —</option>
+          <label>School Year *</label>
+          <select id="ebl-school_year_id" name="school_year_id" required>
+            <option value="">— Select school year —</option>
             <% (refs.years || []).forEach(y => { %><option value="<%= y.school_year_id %>"><%= y.name %><%= y.current ? ' (current)' : '' %></option><% }) %>
           </select>
         </div>
         <div class="fin-field">
-          <label>Term</label>
-          <select id="ebl-term_id" name="term_id" data-year-required-label="Select year first">
-            <option value="">— Any —</option>
-            <% (refs.terms || []).forEach(t => { %><option value="<%= t.term_id %>" data-school-year-id="<%= t.school_year_id || '' %>" data-current="<%= t.current ? 'true' : 'false' %>"><%= t.name %><%= t.current ? ' (current)' : '' %></option><% }) %>
+          <label>Term *</label>
+          <select id="ebl-term_id" name="term_id" data-year-required-label="Select year first" required>
+            <option value="">— Select term —</option>
+            <% (refs.terms || []).forEach(t => { %><option value="<%= t.term_id %>" data-school-year-id="<%= t.school_year_id || '' %>" data-current="<%= t.current ? 'true' : 'false' %>" data-start-date="<%= t.start_date ? new Date(t.start_date).toISOString().slice(0,10) : '' %>" data-end-date="<%= t.end_date ? new Date(t.end_date).toISOString().slice(0,10) : '' %>"><%= t.name %><%= t.current ? ' (current)' : '' %></option><% }) %>
           </select>
         </div>
       </div>
 
       <div class="fin-field">
         <label>Applicable To</label>
-        <select id="ebl-applies_to" name="applies_to" disabled>
+        <select id="ebl-applies_to" name="applies_to">
           <option value="school">Entire School</option>
           <option value="classes">Specific Classes</option>
           <option value="students">Individual Students</option>
         </select>
-        <small style="color:var(--fin-muted);font-size:.74rem;">Audience cannot be changed after creation — delete and recreate to reassign.</small>
+        <small id="ebl-applies_to_summary" style="display:block;color:var(--fin-muted);font-size:.74rem;margin-top:6px;"></small>
+        <small style="color:var(--fin-muted);font-size:.74rem;">You can change the audience type and the selected classes or students below. If recorded payments fall outside the new scope, the update will be blocked.</small>
+      </div>
+
+      <div class="fin-field" id="ebl-target-classes-wrap" style="display:none;">
+        <label>Selected Classes</label>
+        <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-bottom:8px;">
+          <div class="fin-field" style="flex:1;min-width:180px;margin:0;">
+            <input type="text" id="ebl-target_class_search" placeholder="Filter classes...">
+          </div>
+          <button type="button" class="fin-btn ghost" id="ebl-target_class_select_all">Select visible</button>
+          <button type="button" class="fin-btn ghost" id="ebl-target_class_clear">Clear</button>
+        </div>
+        <select id="ebl-target_class_ids" name="target_class_ids" multiple size="6" style="min-height:130px;">
+          <% (refs.classes || []).forEach(function(c) { %>
+            <option value="<%= c.class_id %>" data-school-year-ids="<%= (c.school_year_ids || []).join(',') %>" data-term-ids="<%= (c.term_ids || []).join(',') %>"><%= c.class_name %></option>
+          <% }) %>
+        </select>
+        <small style="color:var(--fin-muted);font-size:.72rem;">Change the class targets here. Hold Ctrl / ⌘ to pick multiple manually, or use the buttons above.</small>
+      </div>
+
+      <div class="fin-field" id="ebl-target-students-wrap" style="display:none;">
+        <label>Selected Students</label>
+        <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-bottom:8px;">
+          <div class="fin-field" style="flex:1;min-width:180px;margin:0;">
+            <input type="text" id="ebl-target_student_search" placeholder="Filter students...">
+          </div>
+          <button type="button" class="fin-btn ghost" id="ebl-target_student_select_all">Select visible</button>
+          <button type="button" class="fin-btn ghost" id="ebl-target_student_clear">Clear</button>
+        </div>
+        <select id="ebl-target_student_ids" name="target_student_ids" multiple size="8" style="min-height:170px;">
+          <% (refs.students || []).forEach(function(s) { %>
+            <option value="<%= s.student_id %>" data-school-year-ids="<%= (s.school_year_ids || []).join(',') %>" data-term-ids="<%= (s.term_ids || []).join(',') %>"><%= s.first_name %> <%= s.last_name %><%= s.class_name ? (' · ' + s.class_name) : '' %></option>
+          <% }) %>
+        </select>
+        <small style="color:var(--fin-muted);font-size:.72rem;">Change the student targets here. Hold Ctrl / ⌘ to pick multiple manually, or use the buttons above.</small>
       </div>
 
       <div class="fin-field">
@@ -3463,9 +3889,10 @@ Regards,
       <div class="fin-field">
         <label>Payment Methods Accepted</label>
         <div class="fin-checks">
-          <label class="fin-check"><input type="checkbox" id="ebl-accepts_card" name="accepts_card"> 💳 Card / Stripe</label>
-          <label class="fin-check"><input type="checkbox" id="ebl-accepts_cash" name="accepts_cash"> 💵 Cash</label>
-          <label class="fin-check"><input type="checkbox" id="ebl-accepts_transfer" name="accepts_transfer"> 🏦 Bank / Mobile Money</label>
+          <label class="fin-check fin-check-all"><input type="checkbox" id="ebl-payAll"> <strong>All methods</strong></label>
+          <label class="fin-check"><input type="checkbox" class="ebl-pay-method" id="ebl-accepts_card" name="accepts_card"> 💳 Card / Stripe</label>
+          <label class="fin-check"><input type="checkbox" class="ebl-pay-method" id="ebl-accepts_cash" name="accepts_cash"> 💵 Cash</label>
+          <label class="fin-check"><input type="checkbox" class="ebl-pay-method" id="ebl-accepts_transfer" name="accepts_transfer"> 🏦 Bank / Mobile Money</label>
         </div>
       </div>
 
@@ -3473,7 +3900,6 @@ Regards,
         <label>Notify Parents</label>
         <div class="fin-checks">
           <label class="fin-check"><input type="checkbox" id="ebl-notify_email" name="notify_email"> Email</label>
-          <label class="fin-check"><input type="checkbox" id="ebl-notify_sms" name="notify_sms"> SMS</label>
         </div>
       </div>
 

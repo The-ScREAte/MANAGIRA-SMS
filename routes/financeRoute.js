@@ -52,6 +52,8 @@ router.post("/finance/psp/:provider", isAuthenticated, requireBilling, c.pspSave
 // assigned collector or an admin, so we keep them on isAuthenticated.
 router.get("/my-paygira", isAuthenticated, c.staffMyPaygiraGet);
 router.post("/my-paygira/collect", isAuthenticated, c.staffMyPaygiraCollectPost);
+router.post("/my-paygira/collect/bulk", isAuthenticated, c.staffMyPaygiraBulkCollectPost);
+router.post("/my-paygira/signoff", isAuthenticated, c.staffMyPaygiraSignOffPost);
 router.get("/my-paygira/occurrence-summary", isAuthenticated, c.occurrenceSummaryGet);
 
 // Invoices & receipts (staff side — assignee or admin)

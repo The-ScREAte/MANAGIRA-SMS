@@ -58,7 +58,6 @@
   .mp-bill-card .bc-tag{ position:absolute; top:12px; right:12px; font-size:.58rem; padding:3px 8px; border-radius:999px; text-transform:uppercase; letter-spacing:.06em; font-weight:700;
     background:rgba(123,97,255,.15); color:var(--fin-purple); border:1px solid rgba(123,97,255,.3); }
   .mp-bill-card.recurring .bc-tag{ background:rgba(245,200,66,.15); color:var(--fin-gold); border:1px solid rgba(245,200,66,.3); }
-  .mp-bill-card .bc-open{ font-size:.7rem; color:var(--fin-teal); font-weight:700; margin-top:2px; }
 
   .mp-empty{ text-align:center; padding:36px 18px; color:var(--fin-muted); border:1px dashed var(--fin-border); border-radius:14px; }
 
@@ -134,7 +133,15 @@
   .mp-collect-notice svg{ flex-shrink:0; }
 
   .mp-student-list{ display:grid; gap:8px; }
+  .mp-student-toolbar{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+  .mp-student-toolbar-actions{ display:flex; align-items:center; gap:8px; flex-wrap:nowrap; max-width:100%; overflow-x:auto; padding-bottom:2px; }
+  .mp-signoff-hint{ font-size:.68rem; color:var(--fin-muted); font-weight:700; }
+  .mp-bulk-toggle.is-active{ background:rgba(0,212,170,.12); border:1px solid rgba(0,212,170,.28); color:var(--fin-teal); }
+  .mp-bulk-summary{ display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-wrap:wrap; font-size:.72rem; color:var(--fin-muted); font-weight:700; margin-left:auto; }
+  .mp-bulk-warning{ color:var(--fin-gold); }
   .mp-student-row{ display:flex; flex-direction:column; gap:6px; padding:10px 12px; background:var(--fin-bg); border:1px solid var(--fin-border); border-radius:12px; color:var(--fin-text); }
+  .mp-student-row.bulk-enabled{ border-color:rgba(0,212,170,.18); }
+  .mp-student-row.bulk-selected{ border-color:rgba(0,212,170,.4); background:rgba(0,212,170,.06); box-shadow:0 0 0 1px rgba(0,212,170,.15); }
   .mp-stu-top{ display:flex; align-items:center; gap:10px; }
   .mp-stu-top .who{ display:flex; align-items:center; gap:10px; flex:1; min-width:0; }
   .mp-student-row .who img{ width:32px; height:32px; border-radius:50%; object-fit:cover; border:1px solid var(--fin-border); flex-shrink:0; }
@@ -145,6 +152,8 @@
   .mp-student-row .amts .out{ color:var(--fin-gold); font-weight:700; }
   .mp-student-row .amts .pd{ color:var(--fin-teal); }
   .mp-stu-top .acts{ display:flex; gap:6px; align-items:center; flex-shrink:0; }
+  .mp-bulk-pick{ display:inline-flex; align-items:center; gap:7px; padding:4px 8px; border-radius:999px; border:1px solid var(--fin-border); color:var(--fin-muted); font-size:.64rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; cursor:pointer; }
+  .mp-bulk-pick input{ width:15px; height:15px; accent-color:var(--fin-teal); cursor:pointer; }
 
   .mp-status{ display:inline-block; padding:2px 8px; border-radius:999px; font-size:.6rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; }
   .mp-status.paid{ background:rgba(0,212,170,.15); color:var(--fin-teal); border:1px solid rgba(0,212,170,.3); }
@@ -158,11 +167,13 @@
   .mp-btn.ghost{ background:rgba(255,255,255,.04); color:var(--fin-text); border:1px solid var(--fin-border); }
   .mp-btn.ghost:hover{ background:rgba(255,255,255,.08); }
   .mp-btn.tiny{ padding:4px 8px; font-size:.66rem; }
+  .mp-btn:disabled{ opacity:.45; cursor:not-allowed; transform:none; }
 
   /* Collect modal */
   .mp-modal-bg{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.78); z-index:1400; align-items:center; justify-content:center; padding:12px; overflow-y:auto; }
   .mp-modal-bg.open{ display:flex; }
   .mp-modal{ background:var(--fin-surface); border:1px solid var(--fin-border); border-radius:14px; padding:18px; max-width:480px; width:100%; max-height:calc(100vh - 24px); overflow-y:auto; color:var(--fin-text); }
+  .mp-modal.mp-modal-wide{ max-width:760px; }
   .mp-modal h3{ margin:0 0 12px; font-size:1rem; display:flex; align-items:center; justify-content:space-between; gap:8px; color:var(--fin-text); }
   .mp-form-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:8px 10px; }
   .mp-form-grid .span2{ grid-column:1 / -1; }
@@ -174,6 +185,29 @@
   .mp-field textarea{ resize:vertical; min-height:50px; }
   .mp-field input:focus, .mp-field select:focus, .mp-field textarea:focus{ outline:none; border-color:var(--fin-teal); }
   .mp-modal-actions{ display:flex; gap:8px; justify-content:flex-end; margin-top:12px; position:sticky; bottom:0; padding-top:10px; background:linear-gradient(to top, var(--fin-surface) 60%, transparent); }
+  .mp-bulk-context{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+  .mp-bulk-context-chip{ display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:999px; border:1px solid var(--fin-border); background:rgba(255,255,255,.05); color:var(--fin-muted); font-size:.68rem; font-weight:700; }
+  .mp-bulk-total{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; border-radius:10px; background:rgba(0,212,170,.08); border:1px solid rgba(0,212,170,.22); margin:12px 0; }
+  .mp-bulk-total span{ color:var(--fin-muted); font-size:.72rem; font-weight:700; }
+  .mp-bulk-total strong{ color:var(--fin-teal); font-size:.95rem; font-family:'JetBrains Mono',monospace; }
+  .mp-bulk-list{ display:grid; gap:8px; max-height:360px; overflow-y:auto; padding-right:2px; }
+  .mp-bulk-row{ display:grid; grid-template-columns:minmax(0,1.5fr) minmax(110px,140px) minmax(90px,110px); gap:10px; align-items:center; padding:10px 12px; border:1px solid var(--fin-border); border-radius:12px; background:var(--fin-bg); }
+  .mp-bulk-row.disabled{ opacity:.55; }
+  .mp-bulk-student{ display:flex; align-items:center; gap:10px; min-width:0; }
+  .mp-bulk-student input{ width:16px; height:16px; accent-color:var(--fin-teal); cursor:pointer; }
+  .mp-bulk-student img{ width:34px; height:34px; border-radius:50%; object-fit:cover; border:1px solid var(--fin-border); flex-shrink:0; }
+  .mp-bulk-student-copy{ min-width:0; }
+  .mp-bulk-student-name{ font-size:.88rem; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mp-bulk-student-meta{ font-size:.68rem; color:var(--fin-muted); margin-top:2px; }
+  .mp-bulk-amount input{ text-align:right; font-family:'JetBrains Mono',monospace; }
+  .mp-bulk-balance{ text-align:right; color:var(--fin-gold); font-size:.78rem; font-weight:700; font-family:'JetBrains Mono',monospace; }
+  .mp-signoff-summary{ padding:12px 14px; border-radius:12px; border:1px solid rgba(0,212,170,.2); background:rgba(0,212,170,.08); color:var(--fin-text); font-size:.8rem; line-height:1.45; }
+  .mp-signoff-summary strong{ color:var(--fin-teal); }
+  .mp-toast-stack{ position:fixed; top:18px; right:18px; z-index:1600; display:grid; gap:8px; pointer-events:none; }
+  .mp-toast{ min-width:280px; max-width:min(420px, calc(100vw - 32px)); padding:12px 14px; border-radius:12px; border:1px solid var(--fin-border); background:var(--fin-surface-2); color:var(--fin-text); box-shadow:0 16px 40px rgba(0,0,0,.35); opacity:0; transform:translateY(-8px); transition:opacity .18s ease, transform .18s ease; font-size:.82rem; font-weight:700; }
+  .mp-toast.show{ opacity:1; transform:translateY(0); }
+  .mp-toast.success{ border-color:rgba(0,212,170,.3); color:var(--fin-teal); }
+  .mp-toast.error{ border-color:rgba(255,77,109,.3); color:var(--fin-red); }
 
   @media (max-width:960px){
     .mp-head{ align-items:flex-start; }
@@ -207,6 +241,12 @@
     .mp-drawer-head{ padding:12px; }
     .mp-drawer-body{ padding:12px; }
     .mp-occ-row .mp-status{ display:none; }
+    .mp-student-toolbar{ align-items:stretch; }
+    .mp-bulk-summary{ justify-content:flex-start; }
+    .mp-bulk-row{ grid-template-columns:1fr; }
+    .mp-bulk-balance{ text-align:left; }
+    .mp-toast-stack{ top:12px; right:12px; left:12px; }
+    .mp-toast{ min-width:0; max-width:none; }
   }
 
   @media (max-width:420px){
@@ -240,10 +280,10 @@
     <% } %>
 
     <div class="mp-stats">
-      <div class="mp-stat"><div class="label">Bills</div><div class="value"><%= stats.bills %></div></div>
-      <div class="mp-stat"><div class="label">Students</div><div class="value"><%= stats.students %></div></div>
-      <div class="mp-stat teal"><div class="label">Collected</div><div class="value"><%= moneyFmt(stats.collected) %></div></div>
-      <div class="mp-stat gold"><div class="label">Outstanding</div><div class="value"><%= moneyFmt(stats.outstanding) %></div></div>
+      <div class="mp-stat"><div class="label">Bills</div><div class="value" id="mpStatBills"><%= stats.bills %></div></div>
+      <div class="mp-stat"><div class="label">Students</div><div class="value" id="mpStatStudents"><%= stats.students %></div></div>
+      <div class="mp-stat teal"><div class="label">Collected</div><div class="value" id="mpStatCollected"><%= moneyFmt(stats.collected) %></div></div>
+      <div class="mp-stat gold"><div class="label">Outstanding</div><div class="value" id="mpStatOutstanding"><%= moneyFmt(stats.outstanding) %></div></div>
     </div>
 
     <% if (!bills.length) { %>
@@ -268,11 +308,10 @@
               <span>👥 <%= b.assigned_count %> student<%= Number(b.assigned_count) === 1 ? '' : 's' %></span>
             </div>
             <div class="bc-amts">
-              <div>Billed<strong><%= moneyFmt(b.total_amount) %></strong></div>
-              <div class="col">Collected<strong><%= moneyFmt(b.total_paid) %></strong></div>
-              <div class="out">Outstanding<strong><%= moneyFmt(b.total_outstanding) %></strong></div>
+              <div>Billed<strong class="bc-billed"><%= moneyFmt(b.total_amount) %></strong></div>
+              <div class="col">Collected<strong class="bc-collected"><%= moneyFmt(b.total_paid) %></strong></div>
+              <div class="out">Outstanding<strong class="bc-outstanding"><%= moneyFmt(b.total_outstanding) %></strong></div>
             </div>
-            <div class="bc-open">Tap to open →</div>
           </div>
         <% }); %>
       </div>
@@ -302,6 +341,11 @@
     bill_type: b.bill_type,
     recurrence: b.recurrence,
     due_date: b.due_date,
+    recurrence_end_date: b.recurrence_end_date,
+    term_end_date: b.term_end_date,
+    exclude_non_school_days: !!b.exclude_non_school_days,
+    scheduled_occurrence_dates: b.scheduled_occurrence_dates || [],
+    signed_off_dates: b.signed_off_dates || [],
     description: b.description,
     accepts_card: b.accepts_card,
     accepts_cash: b.accepts_cash,
@@ -316,6 +360,7 @@
       image_url: a.image_url,
       class_name: a.class_name,
       amount: a.amount,
+      scheduled_billed_total: a.scheduled_billed_total,
       amount_paid: a.amount_paid,
       late_fee_applied: a.late_fee_applied,
       status: a.status
@@ -333,7 +378,7 @@
         Secure
       </span>
     </h3>
-    <form action="/account/settings/my-paygira/collect<%= isEmbedded ? '?embed=workspace' : '' %>" method="POST">
+    <form id="mpCollectForm" action="/account/settings/my-paygira/collect<%= isEmbedded ? ('?embed=workspace' + (viewClassId ? ('&classId=' + viewClassId) : '')) : '' %>" method="POST">
       <input type="hidden" name="embedMode" value="<%= isEmbedded ? 'workspace' : '' %>">
       <input type="hidden" name="assignment_id" id="mpAssignmentId">
       <div class="mp-form-grid">
@@ -362,383 +407,1337 @@
       </div>
       <div class="mp-modal-actions">
         <button type="button" class="mp-btn ghost" onclick="mpCloseCollect()">Cancel</button>
-        <button type="submit" class="mp-btn primary">🔒 Record Payment</button>
+        <button type="submit" class="mp-btn primary" id="mpCollectSubmit">🔒 Record Payment</button>
       </div>
     </form>
   </div>
 </div>
 
+<!-- Bulk collect modal -->
+<div class="mp-modal-bg" id="mpBulkModal" onclick="if(event.target===this) mpCloseBulkCollect()">
+  <div class="mp-modal mp-modal-wide">
+    <h3>
+      Bulk Collection Review
+      <span class="paygira-secure-badge" style="padding:3px 9px;font-size:.58rem;">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+        Secure
+      </span>
+    </h3>
+    <form id="mpBulkForm" action="/account/settings/my-paygira/collect/bulk<%= isEmbedded ? ('?embed=workspace' + (viewClassId ? ('&classId=' + viewClassId) : '')) : '' %>" method="POST">
+      <input type="hidden" id="mpBulkOccurrenceDate">
+      <div class="mp-bulk-context" id="mpBulkContext"></div>
+      <div class="mp-form-grid">
+        <div class="mp-field"><label>Method</label>
+          <select id="mpBulkMethod">
+            <option value="cash">💵 Cash</option>
+            <% if (typeof allowedMethods !== 'undefined' && allowedMethods.stripeOn) { %>
+              <option value="card">💳 Card</option>
+            <% } %>
+            <% if (typeof allowedMethods !== 'undefined' && allowedMethods.bankOn) { %>
+              <option value="bank_transfer">🏦 Bank<% if (allowedMethods.bank && allowedMethods.bank.name) { %> — <%= allowedMethods.bank.name %><% } %></option>
+            <% } %>
+            <% if (typeof allowedMethods !== 'undefined' && allowedMethods.momoOn) { %>
+              <option value="mobile_money">📱 Mobile money</option>
+            <% } %>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="mp-field"><label>Occurrence</label><input type="text" id="mpBulkOccDisplay" disabled style="color:var(--fin-text);background:rgba(255,255,255,.04);"></div>
+        <div class="mp-field"><label>Reference</label><input type="text" id="mpBulkReference" placeholder="Receipt batch, txn ref"></div>
+        <div class="mp-field"><label>Selected Total</label><input type="text" id="mpBulkTotalDisplay" disabled style="color:var(--fin-text);background:rgba(255,255,255,.04);"></div>
+        <div class="mp-field span2"><label>Notes</label><textarea id="mpBulkNotes" rows="1"></textarea></div>
+      </div>
+      <div class="mp-bulk-total">
+        <span><strong id="mpBulkCountValue">0</strong> student(s) ready</span>
+        <strong id="mpBulkTotalValue"><%= typeof formatMoney === 'function' ? formatMoney(0) : moneyFmt(0) %></strong>
+      </div>
+      <div class="mp-bulk-list" id="mpBulkList"></div>
+      <div class="mp-modal-actions">
+        <button type="button" class="mp-btn ghost" onclick="mpCloseBulkCollect()">Cancel</button>
+        <button type="submit" class="mp-btn primary" id="mpBulkSubmit">🔒 Record Selected Payments</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Sign-off modal -->
+<div class="mp-modal-bg" id="mpSignoffModal" onclick="if(event.target===this) mpCloseSignoff()">
+  <div class="mp-modal">
+    <h3>
+      Sign Off Collection
+      <span class="paygira-secure-badge" style="padding:3px 9px;font-size:.58rem;">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+        Secure
+      </span>
+    </h3>
+    <form id="mpSignoffForm" action="/account/settings/my-paygira/signoff<%= isEmbedded ? ('?embed=workspace' + (viewClassId ? ('&classId=' + viewClassId) : '')) : '' %>" method="POST">
+      <input type="hidden" name="embedMode" value="<%= isEmbedded ? 'workspace' : '' %>">
+      <input type="hidden" name="bill_id" id="mpSignoffBillId">
+      <input type="hidden" name="occurrence_date" id="mpSignoffOccurrenceDate">
+      <div class="mp-form-grid">
+        <div class="mp-field span2"><label>Bill</label><input type="text" id="mpSignoffBillName" disabled style="color:var(--fin-text);background:rgba(255,255,255,.04);"></div>
+        <div class="mp-field span2"><label>Scope</label><input type="text" id="mpSignoffScope" disabled style="color:var(--fin-text);background:rgba(255,255,255,.04);"></div>
+        <div class="mp-field span2">
+          <div class="mp-signoff-summary" id="mpSignoffSummary"></div>
+        </div>
+        <div class="mp-field span2"><label>Full Name</label><input type="text" name="full_name" id="mpSignoffName" required placeholder="Enter the name to record on this sign-off"><div class="mp-signoff-hint">Your name is recorded for the sign-off. Your password is the verification step.</div></div>
+        <div class="mp-field span2"><label>Password</label><input type="password" name="password" id="mpSignoffPassword" required placeholder="Confirm with your password"></div>
+      </div>
+      <div class="mp-modal-actions">
+        <button type="button" class="mp-btn ghost" onclick="mpCloseSignoff()">Cancel</button>
+        <button type="submit" class="mp-btn primary" id="mpSignoffSubmit">✍ Sign Off</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="mp-toast-stack" id="mpToastStack" aria-live="polite" aria-atomic="true"></div>
+
 <script>
   (function(){
     var financeCurrencyCode = <%- JSON.stringify(currencyCode) %>;
     var financeCurrencyLocale = <%- JSON.stringify(currencyLocale) %>;
+    var scopedClassId = <%- JSON.stringify(typeof viewClassId !== 'undefined' ? viewClassId : null) %>;
     var DATA = [];
-    try { DATA = JSON.parse(document.getElementById('mpBillsData').textContent || '[]'); } catch(e){ DATA = []; }
-    var byId = {};
-    DATA.forEach(function(b){ byId[b.bill_id] = b; });
+    try { DATA = JSON.parse(document.getElementById('mpBillsData').textContent || '[]'); } catch (e) { DATA = []; }
 
-    function money(v){
+    var byId = {};
+    var state = {
+      currentBillId: null,
+      classId: scopedClassId,
+      selectedOccLabel: '',
+      selectedOccDate: '',
+      occFilter: 'all',
+      bulkMode: false,
+      bulkSelection: {},
+      occurrenceCache: {},
+      occurrenceLoading: {},
+      toastTimer: null,
+    };
+
+    function money(value) {
       try {
         return new Intl.NumberFormat(financeCurrencyLocale, {
-          style:'currency',
+          style: 'currency',
           currency: financeCurrencyCode,
-          minimumFractionDigits:2,
-          maximumFractionDigits:2
-        }).format(Number(v||0));
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }).format(Number(value || 0));
       } catch (_) {
-        return financeCurrencyCode + ' ' + Number(v||0).toFixed(2);
+        return financeCurrencyCode + ' ' + Number(value || 0).toFixed(2);
       }
     }
-    function bal(a){ return Math.max(Number(a.amount||0) + Number(a.late_fee_applied||0) - Number(a.amount_paid||0), 0); }
-    function statusClass(s){ return ({paid:'paid',partial:'partial',overdue:'overdue',pending:'pending'})[s||'pending']; }
-    function recurStepDays(r){ return ({daily:1,weekly:7,monthly:30,term:90,year:365})[String(r||'').toLowerCase()] || 0; }
-    function fmt(d){ try{ return d ? new Date(d).toLocaleDateString() : '—'; }catch(e){ return '—'; } }
-    function isoDate(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 
-    // Smart human-readable label for an occurrence
-    function smartOccLabel(diff, recurrence, date){
-      var r = String(recurrence||'').toLowerCase();
+    function escapeHtml(value) {
+      var map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      };
+      return String(value == null ? '' : value).replace(/[&<>"']/g, function(char) {
+        return map[char] || char;
+      });
+    }
+
+    function pickImage(imageUrl) {
+      return imageUrl && imageUrl !== 'profilePlaceholder.png'
+        ? imageUrl
+        : '/images/profilePlaceholder.png';
+    }
+
+    function assignmentBilledTotal(assignment) {
+      var scheduled = Number(assignment && assignment.scheduled_billed_total);
+      return Number.isFinite(scheduled) ? scheduled : Number(assignment && assignment.amount || 0);
+    }
+
+    function bal(assignment) {
+      return Math.max(assignmentBilledTotal(assignment) + Number(assignment.late_fee_applied || 0) - Number(assignment.amount_paid || 0), 0);
+    }
+
+    function advanceOccurrenceDate(dateValue, recurrence) {
+      var next = new Date(dateValue.getTime());
+      switch (String(recurrence || '').toLowerCase()) {
+        case 'daily': next.setDate(next.getDate() + 1); return next;
+        case 'weekly': next.setDate(next.getDate() + 7); return next;
+        case 'monthly': next.setMonth(next.getMonth() + 1); return next;
+        case 'term': next.setMonth(next.getMonth() + 3); return next;
+        case 'year': next.setFullYear(next.getFullYear() + 1); return next;
+        default: return null;
+      }
+    }
+
+    function occurrenceCacheKey(billId, dateIso) {
+      return [String(billId || ''), String(dateIso || ''), String(state.classId || 'all')].join(':');
+    }
+
+    function getOccurrenceSnapshotForBill(bill) {
+      if (!bill || bill.bill_type !== 'recurring' || !state.selectedOccDate) return null;
+      return state.occurrenceCache[occurrenceCacheKey(bill.bill_id, state.selectedOccDate)] || null;
+    }
+
+    function hasOccurrenceSnapshotForBill(bill) {
+      var snapshot = getOccurrenceSnapshotForBill(bill);
+      return !!(snapshot && !snapshot.error);
+    }
+
+    function ensureOccurrenceSnapshot(bill) {
+      if (!bill || bill.bill_type !== 'recurring' || !state.selectedOccDate) return;
+      var cacheKey = occurrenceCacheKey(bill.bill_id, state.selectedOccDate);
+      if (state.occurrenceCache[cacheKey] || state.occurrenceLoading[cacheKey]) return;
+      state.occurrenceLoading[cacheKey] = true;
+      var url = '/account/settings/my-paygira/occurrence-summary?bill_id=' + encodeURIComponent(bill.bill_id) + '&date=' + encodeURIComponent(state.selectedOccDate);
+      if (state.classId) url += '&classId=' + encodeURIComponent(state.classId);
+      fetch(url, {
+        headers: {
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      })
+        .then(function(response) {
+          if (!response.ok) throw new Error('Could not load date balances.');
+          return response.json();
+        })
+        .then(function(payload) {
+          var indexed = {};
+          (payload.items || []).forEach(function(item) {
+            indexed[String(item.assignment_id)] = item;
+          });
+          payload.byAssignmentId = indexed;
+          state.occurrenceCache[cacheKey] = payload;
+          if (Number(state.currentBillId) === Number(bill.bill_id) && state.selectedOccDate === payload.date) {
+            renderDrawer(state.currentBillId, { preserveState: true });
+          }
+        })
+        .catch(function(error) {
+          state.occurrenceCache[cacheKey] = {
+            date: state.selectedOccDate,
+            students: 0,
+            total_expected: 0,
+            paid_today: 0,
+            outstanding: 0,
+            paid_count: 0,
+            unpaid_count: 0,
+            items: [],
+            byAssignmentId: {},
+            error: error.message || 'Could not load date balances.'
+          };
+          showToast('error', error.message || 'Could not load date balances.');
+          if (Number(state.currentBillId) === Number(bill.bill_id)) {
+            renderDrawer(state.currentBillId, { preserveState: true });
+          }
+        })
+        .finally(function() {
+          delete state.occurrenceLoading[cacheKey];
+        });
+    }
+
+    function getStudentOccurrenceItem(bill, student) {
+      var snapshot = getOccurrenceSnapshotForBill(bill);
+      return snapshot && snapshot.byAssignmentId ? snapshot.byAssignmentId[String(student.assignment_id)] || null : null;
+    }
+
+    function studentCollectBalance(bill, student) {
+      if (bill && bill.bill_type === 'recurring' && state.selectedOccDate) {
+        var occurrenceItem = getStudentOccurrenceItem(bill, student);
+        return occurrenceItem ? Math.max(Number(occurrenceItem.outstanding || 0), 0) : 0;
+      }
+      return bal(student);
+    }
+
+    function studentDisplayBilled(bill, student) {
+      var occurrenceItem = getStudentOccurrenceItem(bill, student);
+      if (bill && bill.bill_type === 'recurring' && state.selectedOccDate && occurrenceItem) {
+        return Number(occurrenceItem.due_amount || 0);
+      }
+      return assignmentBilledTotal(student);
+    }
+
+    function studentDisplayPaid(bill, student) {
+      var occurrenceItem = getStudentOccurrenceItem(bill, student);
+      if (bill && bill.bill_type === 'recurring' && state.selectedOccDate && occurrenceItem) {
+        return Number(occurrenceItem.paid_on_date || 0);
+      }
+      return Number(student.amount_paid || 0);
+    }
+
+    function studentDisplayStatus(bill, student) {
+      var occurrenceItem = getStudentOccurrenceItem(bill, student);
+      if (bill && bill.bill_type === 'recurring' && state.selectedOccDate && occurrenceItem) {
+        return occurrenceItem.status || student.status;
+      }
+      return student.status;
+    }
+
+    function invalidateOccurrenceCache(billId, occurrenceDate) {
+      Object.keys(state.occurrenceCache).forEach(function(cacheKey) {
+        var parts = cacheKey.split(':');
+        if (String(parts[0]) !== String(billId)) return;
+        if (occurrenceDate && String(parts[1]) !== String(occurrenceDate)) return;
+        delete state.occurrenceCache[cacheKey];
+      });
+    }
+
+    function statusClass(status) {
+      return ({ paid: 'paid', partial: 'partial', overdue: 'overdue', pending: 'pending' })[status || 'pending'];
+    }
+
+    function recurStepDays(recurrence) {
+      return ({ daily: 1, weekly: 7, monthly: 30, term: 90, year: 365 })[String(recurrence || '').toLowerCase()] || 0;
+    }
+
+    function fmt(dateValue) {
+      try { return dateValue ? new Date(dateValue).toLocaleDateString() : '—'; } catch (_) { return '—'; }
+    }
+
+    function isoDate(dateValue) {
+      return dateValue.getFullYear() + '-' + String(dateValue.getMonth() + 1).padStart(2, '0') + '-' + String(dateValue.getDate()).padStart(2, '0');
+    }
+
+    function currentBill() {
+      return state.currentBillId != null ? byId[state.currentBillId] || null : null;
+    }
+
+    function syncBillTotals(bill) {
+      if (!bill) return;
+      var billed = 0;
+      var collected = 0;
+      var outstanding = 0;
+      (bill.students || []).forEach(function(student) {
+        billed += assignmentBilledTotal(student);
+        collected += Number(student.amount_paid || 0);
+        outstanding += bal(student);
+      });
+      bill.total_amount = billed;
+      bill.total_paid = collected;
+      bill.total_outstanding = outstanding;
+    }
+
+    function refreshBillCard(bill) {
+      if (!bill) return;
+      var card = document.querySelector('.mp-bill-card[data-bill-id="' + bill.bill_id + '"]');
+      if (!card) return;
+      var billedNode = card.querySelector('.bc-billed');
+      var collectedNode = card.querySelector('.bc-collected');
+      var outstandingNode = card.querySelector('.bc-outstanding');
+      if (billedNode) billedNode.textContent = money(bill.total_amount);
+      if (collectedNode) collectedNode.textContent = money(bill.total_paid);
+      if (outstandingNode) outstandingNode.textContent = money(bill.total_outstanding);
+    }
+
+    function refreshDashboardStats() {
+      var totals = DATA.reduce(function(acc, bill) {
+        syncBillTotals(bill);
+        acc.bills += 1;
+        acc.students += (bill.students || []).length;
+        acc.collected += Number(bill.total_paid || 0);
+        acc.outstanding += Number(bill.total_outstanding || 0);
+        return acc;
+      }, { bills: 0, students: 0, collected: 0, outstanding: 0 });
+      var billCountNode = document.getElementById('mpStatBills');
+      var studentCountNode = document.getElementById('mpStatStudents');
+      var collectedNode = document.getElementById('mpStatCollected');
+      var outstandingNode = document.getElementById('mpStatOutstanding');
+      if (billCountNode) billCountNode.textContent = String(totals.bills);
+      if (studentCountNode) studentCountNode.textContent = String(totals.students);
+      if (collectedNode) collectedNode.textContent = money(totals.collected);
+      if (outstandingNode) outstandingNode.textContent = money(totals.outstanding);
+
+      var grid = document.querySelector('.mp-bill-grid');
+      if (grid && !grid.querySelector('.mp-bill-card') && !grid.querySelector('.mp-empty')) {
+        grid.innerHTML = '<div class="mp-empty"><div style="font-size:2rem;margin-bottom:6px;">✅</div><div>Everything assigned to you has been signed off.</div></div>';
+      }
+    }
+
+    function showToast(type, message) {
+      var stack = document.getElementById('mpToastStack');
+      if (!stack || !message) return;
+      stack.innerHTML = '';
+      var toast = document.createElement('div');
+      toast.className = 'mp-toast ' + (type || 'success');
+      toast.textContent = message;
+      stack.appendChild(toast);
+      requestAnimationFrame(function() {
+        toast.classList.add('show');
+      });
+      if (state.toastTimer) window.clearTimeout(state.toastTimer);
+      state.toastTimer = window.setTimeout(function() {
+        toast.classList.remove('show');
+        window.setTimeout(function() {
+          if (toast.parentNode) toast.parentNode.removeChild(toast);
+        }, 180);
+      }, 3200);
+    }
+
+    function parseResponse(response) {
+      return response.json().catch(function() {
+        return { ok: false, message: 'Unexpected response from server.' };
+      }).then(function(payload) {
+        if (!response.ok || payload.ok === false) {
+          var error = new Error((payload && payload.message) || 'Request failed.');
+          error.status = response.status;
+          throw error;
+        }
+        return payload;
+      });
+    }
+
+    function sanitizeBulkSelection(bill) {
+      if (!bill) {
+        state.bulkSelection = {};
+        return;
+      }
+      var nextSelection = {};
+      (bill.students || []).forEach(function(student) {
+        var key = String(student.assignment_id);
+        if (state.bulkSelection[key] && studentCollectBalance(bill, student) > 0) nextSelection[key] = true;
+      });
+      state.bulkSelection = nextSelection;
+    }
+
+    function getSelectedBulkStudents() {
+      var bill = currentBill();
+      if (!bill) return [];
+      sanitizeBulkSelection(bill);
+      return (bill.students || []).filter(function(student) {
+        return !!state.bulkSelection[String(student.assignment_id)] && studentCollectBalance(bill, student) > 0;
+      });
+    }
+
+    function getSignoffState(bill) {
+      if (!bill) return { enabled: false, hint: '', outstanding: 0 };
+      if (bill.bill_type === 'recurring') {
+        if (!state.selectedOccDate) {
+          return { enabled: false, hint: 'Select a date above before signing off.', outstanding: null };
+        }
+        if ((bill.signed_off_dates || []).indexOf(state.selectedOccDate) !== -1) {
+          return { enabled: false, hint: 'This date has already been signed off.', outstanding: 0 };
+        }
+        var snapshot = getOccurrenceSnapshotForBill(bill);
+        if (!snapshot || snapshot.error) {
+          return { enabled: false, hint: 'Date balances are still loading.', outstanding: null };
+        }
+        var recurringOutstanding = Number(snapshot.outstanding || 0);
+        return {
+          enabled: recurringOutstanding <= 0,
+          hint: recurringOutstanding <= 0
+            ? 'Move this fully collected date into finance history.'
+            : 'Collect every student due on this date before signing off.',
+          outstanding: recurringOutstanding,
+        };
+      }
+
+      var oneTimeOutstanding = Number(bill.total_outstanding || 0);
+      return {
+        enabled: oneTimeOutstanding <= 0,
+        hint: oneTimeOutstanding <= 0
+          ? 'Move this fully collected bill into finance history.'
+          : 'Collect the remaining balance before signing off.',
+        outstanding: oneTimeOutstanding,
+      };
+    }
+
+    function smartOccLabel(diff, recurrence) {
+      var normalized = String(recurrence || '').toLowerCase();
       if (diff === 0) return 'Today — end of day';
-      if (diff === -1) return r === 'daily' ? 'Yesterday — end of day' : 'Yesterday';
-      if (diff === 1) return r === 'daily' ? 'Tomorrow — end of day' : 'Tomorrow';
-      if (diff < 0){
-        var abs = Math.abs(diff);
-        if (r === 'daily') return abs + ' days ago';
-        if (r === 'weekly'){ var wk = Math.round(abs/7); return wk === 1 ? 'Last week' : wk + ' weeks ago'; }
-        if (r === 'monthly'){ var mo = Math.round(abs/30); return mo === 1 ? 'Last month' : mo + ' months ago'; }
-        return abs + ' days ago';
-      } else {
-        if (r === 'daily') return 'In ' + diff + ' days';
-        if (r === 'weekly'){ var wk = Math.round(diff/7); return wk === 1 ? 'Next week' : 'In ' + wk + ' weeks'; }
-        if (r === 'monthly'){ var mo = Math.round(diff/30); return mo === 1 ? 'Next month' : 'In ' + mo + ' months'; }
-        return 'In ' + diff + ' days';
+      if (diff === -1) return normalized === 'daily' ? 'Yesterday — end of day' : 'Yesterday';
+      if (diff === 1) return normalized === 'daily' ? 'Tomorrow — end of day' : 'Tomorrow';
+      if (diff < 0) {
+        var absoluteDays = Math.abs(diff);
+        if (normalized === 'daily') return absoluteDays + ' days ago';
+        if (normalized === 'weekly') {
+          var weeksAgo = Math.round(absoluteDays / 7);
+          return weeksAgo === 1 ? 'Last week' : weeksAgo + ' weeks ago';
+        }
+        if (normalized === 'monthly') {
+          var monthsAgo = Math.round(absoluteDays / 30);
+          return monthsAgo === 1 ? 'Last month' : monthsAgo + ' months ago';
+        }
+        return absoluteDays + ' days ago';
       }
+      if (normalized === 'daily') return 'In ' + diff + ' days';
+      if (normalized === 'weekly') {
+        var weeksAhead = Math.round(diff / 7);
+        return weeksAhead === 1 ? 'Next week' : 'In ' + weeksAhead + ' weeks';
+      }
+      if (normalized === 'monthly') {
+        var monthsAhead = Math.round(diff / 30);
+        return monthsAhead === 1 ? 'Next month' : 'In ' + monthsAhead + ' months';
+      }
+      return 'In ' + diff + ' days';
     }
 
-    function buildOccurrences(bill){
+    function buildOccurrences(bill) {
       var step = recurStepDays(bill.recurrence);
       if (!step || bill.bill_type !== 'recurring') return [];
+      var signedOffDates = Array.isArray(bill.signed_off_dates) ? bill.signed_off_dates.reduce(function(map, value) {
+        map[String(value)] = true;
+        return map;
+      }, {}) : {};
+      var exactDateList = Array.isArray(bill.scheduled_occurrence_dates) && bill.scheduled_occurrence_dates.length
+        ? bill.scheduled_occurrence_dates.slice()
+        : null;
       var anchor = bill.due_date ? new Date(bill.due_date) : new Date();
-      if (isNaN(anchor.getTime())) anchor = new Date();
-      anchor.setHours(0,0,0,0);
-      var today = new Date(); today.setHours(0,0,0,0);
-      // range: 14 past occurrences + 14 future (capped sensibly per recurrence)
+      if (Number.isNaN(anchor.getTime())) anchor = new Date();
+      anchor.setHours(0, 0, 0, 0);
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (exactDateList) {
+        return exactDateList.reduce(function(rows, dateKey) {
+          if (!dateKey || signedOffDates[String(dateKey)]) return rows;
+          var occurrenceDate = new Date(dateKey + 'T00:00:00');
+          if (Number.isNaN(occurrenceDate.getTime())) return rows;
+          var diff = Math.round((occurrenceDate - today) / 86400000);
+          rows.push({
+            date: occurrenceDate,
+            kind: diff < 0 ? 'past' : (diff === 0 ? 'due' : 'future'),
+            label: fmt(occurrenceDate),
+            smart: smartOccLabel(diff, bill.recurrence),
+          });
+          return rows;
+        }, []);
+      }
+
+      var scheduleEndIso = bill.recurrence_end_date || bill.term_end_date || '';
+      if (scheduleEndIso) {
+        var scheduleEnd = new Date(scheduleEndIso + 'T00:00:00');
+        if (!Number.isNaN(scheduleEnd.getTime()) && scheduleEnd >= anchor) {
+          var exactRows = [];
+          var cursor = new Date(anchor.getTime());
+          for (var guard = 0; guard < 5000 && cursor <= scheduleEnd; guard += 1) {
+            var exactDateKey = isoDate(cursor);
+            if (signedOffDates[exactDateKey]) {
+              var nextSigned = advanceOccurrenceDate(cursor, bill.recurrence);
+              if (!nextSigned || nextSigned.getTime() === cursor.getTime()) break;
+              cursor = nextSigned;
+              continue;
+            }
+            var exactDiff = Math.round((cursor - today) / 86400000);
+            exactRows.push({
+              date: new Date(cursor.getTime()),
+              kind: exactDiff < 0 ? 'past' : (exactDiff === 0 ? 'due' : 'future'),
+              label: fmt(cursor),
+              smart: smartOccLabel(exactDiff, bill.recurrence),
+            });
+            var nextExact = advanceOccurrenceDate(cursor, bill.recurrence);
+            if (!nextExact || nextExact.getTime() === cursor.getTime()) break;
+            cursor = nextExact;
+          }
+          if (exactRows.length) return exactRows;
+        }
+      }
       var back = bill.recurrence === 'monthly' ? 4 : (bill.recurrence === 'weekly' ? 8 : 14);
-      var fwd  = bill.recurrence === 'monthly' ? 6 : (bill.recurrence === 'weekly' ? 12 : 14);
+      var forward = bill.recurrence === 'monthly' ? 6 : (bill.recurrence === 'weekly' ? 12 : 14);
       var rows = [];
-      for (var i = -back; i <= fwd; i++){
-        var d = new Date(anchor); d.setDate(anchor.getDate() + i * step);
-        var diff = Math.round((d - today) / 86400000);
-        var kind = diff < 0 ? 'past' : (diff === 0 ? 'due' : 'future');
-        rows.push({ date:d, kind:kind, label:fmt(d), smart: smartOccLabel(diff, bill.recurrence, d) });
+      for (var index = -back; index <= forward; index += 1) {
+        var occurrenceDate = new Date(anchor);
+        occurrenceDate.setDate(anchor.getDate() + index * step);
+        if (signedOffDates[isoDate(occurrenceDate)]) continue;
+        var diff = Math.round((occurrenceDate - today) / 86400000);
+        rows.push({
+          date: occurrenceDate,
+          kind: diff < 0 ? 'past' : (diff === 0 ? 'due' : 'future'),
+          label: fmt(occurrenceDate),
+          smart: smartOccLabel(diff, bill.recurrence),
+        });
       }
       return rows;
     }
 
-    function renderDaySummaryAjax(bill, dateIso){
+    function renderDaySummaryAjax(bill, dateIso) {
       var summaryEl = document.getElementById('mpDaySummary');
       if (!summaryEl) return;
+      if (!bill || !dateIso) {
+        summaryEl.style.display = 'none';
+        return;
+      }
       summaryEl.style.display = '';
-      summaryEl.innerHTML = '<div class="mp-day-summary" style="opacity:.4"><div class="ds-item"><div class="ds-lbl">Loading…</div></div></div>';
-      fetch('/account/settings/my-paygira/occurrence-summary?bill_id=' + bill.bill_id + '&date=' + encodeURIComponent(dateIso))
-        .then(function(r){ return r.json(); })
-        .then(function(d){
-          if (!summaryEl) return;
-          var fmtVal = function(n){ return money(n).replace(/\B(?=(\d{3})+(?!\d))/g,','); };
-          summaryEl.innerHTML =
-            '<div class="mp-day-summary">' +
-              '<div class="ds-item"><div class="ds-lbl">Due today</div><div class="ds-val">' + d.students + '</div></div>' +
-              '<div class="ds-item teal"><div class="ds-lbl">Paid today</div><div class="ds-val">' + money(d.paid_today) + '</div></div>' +
-              '<div class="ds-item red"><div class="ds-lbl">Still owed</div><div class="ds-val">' + money(d.outstanding) + '</div></div>' +
-              '<div class="ds-item gold"><div class="ds-lbl">Expected</div><div class="ds-val">' + money(d.total_expected) + '</div></div>' +
-            '</div>';
-        })
-        .catch(function(){ summaryEl.style.display = 'none'; });
+      var snapshot = getOccurrenceSnapshotForBill(bill);
+      if (!snapshot) {
+        summaryEl.innerHTML = '<div class="mp-day-summary" style="opacity:.4"><div class="ds-item"><div class="ds-lbl">Loading…</div></div></div>';
+        ensureOccurrenceSnapshot(bill);
+        return;
+      }
+      if (snapshot.error) {
+        summaryEl.style.display = 'none';
+        return;
+      }
+      summaryEl.innerHTML = '' +
+        '<div class="mp-day-summary">' +
+          '<div class="ds-item"><div class="ds-lbl">Students due</div><div class="ds-val">' + snapshot.students + '</div></div>' +
+          '<div class="ds-item teal"><div class="ds-lbl">Paid on date</div><div class="ds-val">' + money(snapshot.paid_today) + '</div></div>' +
+          '<div class="ds-item red"><div class="ds-lbl">Still owed</div><div class="ds-val">' + money(snapshot.outstanding) + '</div></div>' +
+          '<div class="ds-item gold"><div class="ds-lbl">Expected</div><div class="ds-val">' + money(snapshot.total_expected) + '</div></div>' +
+        '</div>';
     }
 
-    // Refresh collect buttons whenever selection changes
-    function refreshCollectButtons(){
-      var body = document.getElementById('mpDrawerBody');
-      if (!body) return;
-      var bill = window.__mpCurrentBill;
-      var isRecurring = bill && bill.bill_type === 'recurring';
-      var selected = window.__mpSelectedOcc;
-      var selectedDateIso = window.__mpSelectedOccDate || '';
-      var notice = body.querySelector('.mp-collect-notice');
-      if (notice) notice.style.display = (isRecurring && !selected) ? '' : 'none';
-      // Day summary (AJAX)
-      var summaryEl = body.querySelector('#mpDaySummary');
-      if (summaryEl) {
-        if (selected && bill && isRecurring && selectedDateIso) renderDaySummaryAjax(bill, selectedDateIso);
-        else summaryEl.style.display = 'none';
-      }
-      body.querySelectorAll('.mp-collect-btn-wrap').forEach(function(wrap){
-        var btn = wrap.querySelector('button.mp-btn.primary');
-        if (!btn) return;
-        if (isRecurring && !selected){
-          btn.disabled = true;
-          btn.style.opacity = '0.45';
-          btn.style.cursor = 'not-allowed';
-          btn.title = 'Select a date first';
-        } else {
-          btn.disabled = false;
-          btn.style.opacity = '';
-          btn.style.cursor = '';
-          btn.title = '';
-          var aid   = wrap.getAttribute('data-aid');
-          var bname = wrap.getAttribute('data-bname');
-          var sname = wrap.getAttribute('data-sname');
-          var bal_  = wrap.getAttribute('data-bal');
-          var capturedDateIso = selectedDateIso;
-          btn.onclick = function(){ mpOpenCollect(Number(aid), bname, sname, Number(bal_), window.__mpSelectedOcc || '', capturedDateIso); };
-        }
+    function syncOccurrenceFilterButtons() {
+      var toggle = document.getElementById('mpOccToggle');
+      if (!toggle) return;
+      Array.prototype.forEach.call(toggle.querySelectorAll('button[data-filter]'), function(button) {
+        button.classList.toggle('active', button.getAttribute('data-filter') === state.occFilter);
       });
     }
 
-    function studentRowHTML(bill, s){
-      var b = bal(s);
-      var img = (s.image_url && s.image_url !== 'profilePlaceholder.png') ? s.image_url : '/images/profilePlaceholder.png';
-      var canCollect = b > 0;
-      var nameSafe = (s.first_name + ' ' + s.last_name).replace(/"/g,'&quot;');
-      var billSafe = String(bill.title || '').replace(/"/g,'&quot;');
-      var collectBtn = canCollect
-        ? '<div class="mp-collect-btn-wrap" data-aid="' + s.assignment_id + '" data-bname="' + billSafe + '" data-sname="' + nameSafe + '" data-bal="' + b.toFixed(2) + '">' +
+    function filterOccurrenceRows(filter) {
+      var occList = document.getElementById('mpOccList');
+      if (!occList) return;
+      Array.prototype.forEach.call(occList.querySelectorAll('.mp-occ-row'), function(row) {
+        var kind = row.getAttribute('data-kind');
+        var shouldShow = filter === 'all' || filter === kind || (filter === 'past' && (kind === 'past' || kind === 'due'));
+        row.style.display = shouldShow ? '' : 'none';
+      });
+    }
+
+    function syncOccurrenceSelectionDom() {
+      var occList = document.getElementById('mpOccList');
+      if (occList) {
+        Array.prototype.forEach.call(occList.querySelectorAll('.mp-occ-row'), function(row) {
+          row.classList.remove('selected');
+        });
+        if (state.selectedOccDate) {
+          var selectedRow = occList.querySelector('.mp-occ-row[data-date="' + state.selectedOccDate + '"]');
+          if (selectedRow) {
+            selectedRow.classList.add('selected');
+            state.selectedOccLabel = selectedRow.getAttribute('data-label') || state.selectedOccLabel || '';
+          }
+        }
+      }
+      var calendar = document.getElementById('mpOccCalendar');
+      if (calendar) calendar.value = state.selectedOccDate || '';
+    }
+
+    function openOccPopup() {
+      var popup = document.getElementById('mpOccPopup');
+      if (!popup || !popup.innerHTML.trim()) return;
+      var body = document.getElementById('mpDrawerBody');
+      var drawerHead = document.querySelector('.mp-drawer-head');
+      var sticky = body ? body.querySelector('.mp-occ-sticky') : null;
+      if (drawerHead && sticky) popup.style.top = (drawerHead.offsetHeight + sticky.offsetHeight) + 'px';
+      popup.classList.add('open');
+    }
+
+    function closeOccPopup() {
+      var popup = document.getElementById('mpOccPopup');
+      if (popup) popup.classList.remove('open');
+    }
+
+    function buildStudentToolbarHTML(bill) {
+      var selectedStudents = getSelectedBulkStudents();
+      var selectedTotal = selectedStudents.reduce(function(sum, student) {
+        return sum + studentCollectBalance(bill, student);
+      }, 0);
+      var signoffState = getSignoffState(bill);
+      var occurrenceReady = bill.bill_type !== 'recurring' || !state.selectedOccDate || hasOccurrenceSnapshotForBill(bill);
+      var canReview = selectedStudents.length > 0 && (bill.bill_type !== 'recurring' || (!!state.selectedOccDate && occurrenceReady));
+      var summaryText = state.bulkMode
+        ? (bill.bill_type === 'recurring' && state.selectedOccDate && !occurrenceReady
+            ? 'Loading date balances…'
+            : (selectedStudents.length ? selectedStudents.length + ' selected Â· ' + money(selectedTotal) : 'Select students below to build a batch.'))
+        : '';
+      var warning = state.bulkMode && bill.bill_type === 'recurring' && !state.selectedOccDate
+        ? '<span class="mp-bulk-warning">Select a date above before collecting.</span>'
+        : '';
+      return '' +
+        '<div class="mp-student-toolbar">' +
+          '<div class="mp-student-toolbar-actions">' +
+            '<button type="button" class="mp-btn ghost tiny mp-bulk-toggle' + (state.bulkMode ? ' is-active' : '') + '" id="mpBulkToggle">' + (state.bulkMode ? '✕ Exit Bulk' : '☑ Bulk Collect') + '</button>' +
+            (state.bulkMode ? '<button type="button" class="mp-btn ghost tiny" id="mpBulkSelectAll">☑ Select Owing</button>' : '') +
+            (state.bulkMode ? '<button type="button" class="mp-btn ghost tiny" id="mpBulkClear">⌫ Clear</button>' : '') +
+            '<button type="button" class="mp-btn ghost tiny" id="mpSignOffBtn"' + (signoffState.enabled ? '' : ' disabled') + '>✍ Sign Off</button>' +
+          '</div>' +
+          '<div class="mp-bulk-summary">' +
+            (summaryText ? '<span>' + escapeHtml(summaryText) + '</span>' : '') +
+            warning +
+            (signoffState.hint ? '<span class="mp-signoff-hint">' + escapeHtml(signoffState.hint) + '</span>' : '') +
+            (state.bulkMode ? '<button type="button" class="mp-btn primary tiny" id="mpBulkReview"' + (canReview ? '' : ' disabled') + '>Review &amp; Record</button>' : '') +
+          '</div>' +
+        '</div>';
+    }
+
+    function studentRowHTML(bill, student) {
+      var dateScopedRecurring = bill.bill_type === 'recurring' && !!state.selectedOccDate;
+      var occurrenceReady = !dateScopedRecurring || hasOccurrenceSnapshotForBill(bill);
+      var balance = occurrenceReady ? studentCollectBalance(bill, student) : 0;
+      var canCollect = balance > 0;
+      var status = studentDisplayStatus(bill, student) || 'pending';
+      var billedAmount = occurrenceReady ? studentDisplayBilled(bill, student) : 0;
+      var paidAmount = occurrenceReady ? studentDisplayPaid(bill, student) : 0;
+      var fullName = [student.first_name, student.last_name].filter(Boolean).join(' ').trim() || 'Student';
+      var selected = !!state.bulkSelection[String(student.assignment_id)];
+      var rowClass = 'mp-student-row';
+      if (state.bulkMode) rowClass += ' bulk-enabled';
+      if (state.bulkMode && selected) rowClass += ' bulk-selected';
+
+      var bulkControl = state.bulkMode && canCollect
+        ? '' +
+          '<label class="mp-bulk-pick">' +
+            '<input type="checkbox" class="mp-bulk-check" data-assignment-id="' + student.assignment_id + '"' + (selected ? ' checked' : '') + '>' +
+            '<span>Select</span>' +
+          '</label>'
+        : '';
+      var collectButton = canCollect
+        ? '' +
+          '<div class="mp-collect-btn-wrap" data-aid="' + student.assignment_id + '" data-bname="' + escapeHtml(bill.title || '') + '" data-sname="' + escapeHtml(fullName) + '" data-bal="' + balance.toFixed(2) + '">' +
             '<button class="mp-btn primary tiny" type="button">💵 Collect</button>' +
           '</div>'
         : '';
-      var invoiceBtn = Number(s.amount_paid) > 0
-        ? '<a class="mp-btn ghost tiny" href="/account/settings/my-paygira/invoice/' + s.assignment_id + '" target="_blank" title="Invoice">🧾</a>'
+      var invoiceButton = Number(student.amount_paid || 0) > 0
+        ? '<a class="mp-btn ghost tiny" href="/account/settings/my-paygira/invoice/' + student.assignment_id + '" target="_blank" title="Invoice">🧾</a>'
         : '';
-      return '<div class="mp-student-row">' +
-        '<div class="mp-stu-top">' +
-          '<div class="who">' +
-            '<img src="' + img + '" alt="">' +
-            '<div><div class="nm">' + s.first_name + ' ' + s.last_name + '</div>' +
-            '<div class="cls">' + (s.class_name || '—') + '</div></div>' +
+
+      return '' +
+        '<div class="' + rowClass + '">' +
+          '<div class="mp-stu-top">' +
+            '<div class="who">' +
+              '<img src="' + escapeHtml(pickImage(student.image_url)) + '" alt="">' +
+              '<div><div class="nm">' + escapeHtml(fullName) + '</div><div class="cls">' + escapeHtml(student.class_name || '—') + '</div></div>' +
+            '</div>' +
+            '<div class="acts">' +
+              bulkControl +
+              '<span class="mp-status ' + statusClass(status) + '">' + escapeHtml(status) + '</span>' +
+              collectButton +
+              invoiceButton +
+            '</div>' +
           '</div>' +
-          '<div class="acts">' +
-            '<span class="mp-status ' + statusClass(s.status) + '">' + s.status + '</span>' +
-            collectBtn + invoiceBtn +
+          '<div class="amts">' +
+            '<div>' + (dateScopedRecurring ? 'Due ' : 'Billed ') + (occurrenceReady ? money(billedAmount) : 'Loading…') + '</div>' +
+            '<div class="pd">Paid ' + (occurrenceReady ? money(paidAmount) : 'Loading…') + '</div>' +
+            '<div class="out">' + (dateScopedRecurring ? 'Owing ' : 'Bal ') + (occurrenceReady ? money(balance) : 'Loading…') + '</div>' +
           '</div>' +
-        '</div>' +
-        '<div class="amts">' +
-          '<div>Billed ' + money(s.amount) + '</div>' +
-          '<div class="pd">Paid ' + money(s.amount_paid) + '</div>' +
-          '<div class="out">Bal ' + money(b) + '</div>' +
-        '</div>' +
-      '</div>';
+        '</div>';
     }
 
-    function renderDrawer(billId){
+    function refreshCollectButtons() {
+      var body = document.getElementById('mpDrawerBody');
+      var bill = currentBill();
+      if (!body || !bill) return;
+      var isRecurring = bill.bill_type === 'recurring';
+      var occurrenceReady = !isRecurring || !state.selectedOccDate || hasOccurrenceSnapshotForBill(bill);
+      var canCollectNow = !isRecurring || (!!state.selectedOccDate && occurrenceReady);
+
+      var notice = body.querySelector('.mp-collect-notice');
+      if (notice) notice.style.display = isRecurring && !state.selectedOccDate ? '' : 'none';
+
+      var summaryEl = body.querySelector('#mpDaySummary');
+      if (summaryEl) {
+        if (isRecurring && state.selectedOccDate) renderDaySummaryAjax(bill, state.selectedOccDate);
+        else summaryEl.style.display = 'none';
+      }
+
+      if (isRecurring && state.selectedOccDate && !occurrenceReady) {
+        ensureOccurrenceSnapshot(bill);
+      }
+
+      Array.prototype.forEach.call(body.querySelectorAll('.mp-collect-btn-wrap'), function(wrap) {
+        var button = wrap.querySelector('button.mp-btn.primary');
+        if (!button) return;
+        if (!canCollectNow) {
+          button.disabled = true;
+          button.title = state.selectedOccDate ? 'Loading date balances' : 'Select a date first';
+          button.onclick = null;
+          return;
+        }
+        button.disabled = false;
+        button.title = '';
+        var assignmentId = Number(wrap.getAttribute('data-aid'));
+        var billName = wrap.getAttribute('data-bname') || '';
+        var studentName = wrap.getAttribute('data-sname') || '';
+        var balance = Number(wrap.getAttribute('data-bal') || 0);
+        button.onclick = function() {
+          mpOpenCollect(assignmentId, billName, studentName, balance, state.selectedOccLabel, state.selectedOccDate);
+        };
+      });
+    }
+
+    function captureDrawerScroll() {
+      var body = document.getElementById('mpDrawerBody');
+      return body ? body.scrollTop : 0;
+    }
+
+    function renderDrawer(billId, options) {
       var bill = byId[billId];
       if (!bill) return;
-      window.__mpCurrentBill = bill;
-      window.__mpSelectedOcc = '';
-      window.__mpSelectedOccDate = '';
-      var isRecurring = bill.bill_type === 'recurring';
+      var preserveState = !!(options && options.preserveState && Number(state.currentBillId) === Number(billId));
+      var preservedScrollTop = preserveState ? captureDrawerScroll() : 0;
 
-      // Header chips
-      document.getElementById('mpDrawerTitle').textContent = bill.title;
-      var subEl = document.getElementById('mpDrawerSub');
-      var chips = '';
-      if (isRecurring) chips += '<span class="sub-chip recur">🔁 ' + (bill.recurrence || 'recurring') + '</span>';
-      else             chips += '<span class="sub-chip">one-time</span>';
-      chips += '<span class="sub-chip">📅 Due ' + fmt(bill.due_date) + '</span>';
-      chips += '<span class="sub-chip students">👥 ' + (bill.students||[]).length + ' student(s)</span>';
-      subEl.innerHTML = chips;
+      state.currentBillId = bill.bill_id;
+      if (!preserveState) {
+        state.selectedOccLabel = '';
+        state.selectedOccDate = '';
+        state.occFilter = 'all';
+        state.bulkMode = false;
+        state.bulkSelection = {};
+      }
+      sanitizeBulkSelection(bill);
+
+      document.getElementById('mpDrawerTitle').textContent = bill.title || 'Bill';
+      document.getElementById('mpDrawerSub').innerHTML = '' +
+        (bill.bill_type === 'recurring' ? '<span class="sub-chip recur">🔁 ' + escapeHtml(bill.recurrence || 'recurring') + '</span>' : '<span class="sub-chip">one-time</span>') +
+        '<span class="sub-chip">📅 Due ' + escapeHtml(fmt(bill.due_date)) + '</span>' +
+        (bill.bill_type === 'recurring' && (bill.recurrence_end_date || bill.term_end_date)
+          ? '<span class="sub-chip">⏱ Through ' + escapeHtml(fmt(bill.recurrence_end_date || bill.term_end_date)) + '</span>'
+          : '') +
+        '<span class="sub-chip students">👥 ' + (bill.students || []).length + ' student(s)</span>';
 
       var html = '';
-      var occRowsHtml = ''; // built below, injected into #mpOccPopup (outside overflow container)
+      var occRowsHtml = '';
 
-      // Sticky occurrence section for recurring bills
-      if (isRecurring) {
-        var occs = buildOccurrences(bill);
-        if (occs.length) {
-          var allCount = occs.length;
-          var pastCount = occs.filter(function(o){ return o.kind==='past'||o.kind==='due'; }).length;
-          var futureCount = occs.filter(function(o){ return o.kind==='future'; }).length;
-          // Build rows HTML for popup (popup lives outside drawer-body to avoid overflow clip)
-          occRowsHtml = occs.map(function(o){
-            var dateStr = isoDate(o.date);
-            var statusLbl = o.kind==='past' ? '<span class="mp-status overdue">past</span>' : (o.kind==='due' ? '<span class="mp-status partial">due today</span>' : '');
-            return '<div class="mp-occ-row ' + o.kind + '" data-kind="' + o.kind + '" data-date="' + dateStr + '" data-label="' + o.label + '">' +
-              '<div class="mp-radio-dot"></div>' +
-              '<span class="dot"></span>' +
-              '<div class="occ-info"><div class="when">' + o.label + '</div><div class="lbl">' + o.smart + '</div></div>' +
-              statusLbl +
-            '</div>';
+      if (bill.bill_type === 'recurring') {
+        var occurrences = buildOccurrences(bill);
+        if (occurrences.length) {
+          var allCount = occurrences.length;
+          var pastCount = occurrences.filter(function(occurrence) {
+            return occurrence.kind === 'past' || occurrence.kind === 'due';
+          }).length;
+          var futureCount = occurrences.filter(function(occurrence) {
+            return occurrence.kind === 'future';
+          }).length;
+
+          occRowsHtml = occurrences.map(function(occurrence) {
+            var dateStr = isoDate(occurrence.date);
+            var statusLabel = occurrence.kind === 'past'
+              ? '<span class="mp-status overdue">past</span>'
+              : (occurrence.kind === 'due' ? '<span class="mp-status partial">due today</span>' : '');
+            return '' +
+              '<div class="mp-occ-row ' + occurrence.kind + '" data-kind="' + occurrence.kind + '" data-date="' + dateStr + '" data-label="' + escapeHtml(occurrence.label) + '">' +
+                '<div class="mp-radio-dot"></div>' +
+                '<span class="dot"></span>' +
+                '<div class="occ-info"><div class="when">' + escapeHtml(occurrence.label) + '</div><div class="lbl">' + escapeHtml(occurrence.smart) + '</div></div>' +
+                statusLabel +
+              '</div>';
           }).join('');
 
-          html += '<div class="mp-occ-sticky">' +
-                    '<div class="mp-occ-toggle" id="mpOccToggle">' +
-                      '<button type="button" data-filter="past">Past (' + pastCount + ')</button>' +
-                      '<button type="button" data-filter="all">All (' + allCount + ')</button>' +
-                      '<button type="button" data-filter="future">Future (' + futureCount + ')</button>' +
-                    '</div>' +
-                    '<div class="mp-occ-sticky-right">' +
-                      '<label for="mpOccCalendar">📅</label>' +
-                      '<input type="date" id="mpOccCalendar" title="Pick any date">' +
-                    '</div>' +
-                  '</div>';
+          html += '' +
+            '<div class="mp-occ-sticky">' +
+              '<div class="mp-occ-toggle" id="mpOccToggle">' +
+                '<button type="button" data-filter="past">Past (' + pastCount + ')</button>' +
+                '<button type="button" data-filter="all">All (' + allCount + ')</button>' +
+                '<button type="button" data-filter="future">Future (' + futureCount + ')</button>' +
+              '</div>' +
+              '<div class="mp-occ-sticky-right">' +
+                '<label for="mpOccCalendar">📅</label>' +
+                '<input type="date" id="mpOccCalendar" title="Pick any date">' +
+              '</div>' +
+            '</div>';
         }
       }
 
-      // Date-gating notice + day summary (only for recurring)
-      var noticeDisplay = isRecurring ? '' : 'display:none';
-      html += '<div class="mp-drawer-inner">';
-      html += '<div id="mpDaySummary" style="display:none;"></div>';
-      html += '<div class="mp-collect-notice" style="' + noticeDisplay + '">' +
-                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r=".5" fill="currentColor"/></svg>' +
-                'Select a date above before collecting' +
-              '</div>';
-      html += '<div class="mp-section-title"><span>Students</span><span class="ln"></span><span>' + (bill.students||[]).length + '</span></div>';
-      html += '<div class="mp-student-list">' +
-        (bill.students || []).map(function(s){ return studentRowHTML(bill, s); }).join('') +
-      '</div>';
-      html += '</div>'; // end mp-drawer-inner
+      html += '' +
+        '<div class="mp-drawer-inner">' +
+          '<div id="mpDaySummary" style="display:none;"></div>' +
+          '<div class="mp-collect-notice" style="' + (bill.bill_type === 'recurring' ? '' : 'display:none') + '">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><circle cx="12" cy="16" r=".5" fill="currentColor"></circle></svg>' +
+            'Select a date above before collecting' +
+          '</div>' +
+          buildStudentToolbarHTML(bill) +
+          '<div class="mp-section-title"><span>Students</span><span class="ln"></span><span>' + (bill.students || []).length + '</span></div>' +
+          '<div class="mp-student-list">' +
+            (bill.students || []).map(function(student) { return studentRowHTML(bill, student); }).join('') +
+          '</div>' +
+        '</div>';
 
       var body = document.getElementById('mpDrawerBody');
       body.innerHTML = html;
 
-      // Inject rows into popup (outside drawer body — avoids overflow:auto clipping)
-      var occPopup = document.getElementById('mpOccPopup');
-      if (occPopup){
-        occPopup.innerHTML = occRowsHtml
-          ? '<div class="mp-occ-list" id="mpOccList">' + occRowsHtml + '</div>'
-          : '';
-        occPopup.classList.remove('open');
+      var popup = document.getElementById('mpOccPopup');
+      if (popup) {
+        popup.innerHTML = occRowsHtml ? '<div class="mp-occ-list" id="mpOccList">' + occRowsHtml + '</div>' : '';
+        popup.classList.remove('open');
       }
 
-      // Wire collect buttons after render
-      refreshCollectButtons();
+      syncOccurrenceFilterButtons();
+      filterOccurrenceRows(state.occFilter);
+      syncOccurrenceSelectionDom();
 
-      // --- Occurrence popup helpers ---
-      function closeOccPopup(){
-        var pp = document.getElementById('mpOccPopup');
-        var tg = document.getElementById('mpOccToggle');
-        if (pp) pp.classList.remove('open');
-        if (tg) tg.querySelectorAll('button').forEach(function(b){ b.classList.remove('active'); });
-      }
-      function selectOcc(row){
-        var occList = document.getElementById('mpOccList');
-        if (occList) occList.querySelectorAll('.mp-occ-row').forEach(function(r){ r.classList.remove('selected'); });
-        row.classList.add('selected');
-        window.__mpSelectedOcc     = row.getAttribute('data-label');
-        window.__mpSelectedOccDate = row.getAttribute('data-date');   // YYYY-MM-DD
-        var cal = document.getElementById('mpOccCalendar');
-        if (cal) cal.value = row.getAttribute('data-date');
-        closeOccPopup();
-        refreshCollectButtons();
+      if (popup) {
+        popup.onclick = function(event) {
+          var row = event.target.closest('.mp-occ-row');
+          if (!row) return;
+          state.selectedOccDate = row.getAttribute('data-date') || '';
+          state.selectedOccLabel = row.getAttribute('data-label') || '';
+          closeOccPopup();
+          renderDrawer(state.currentBillId, { preserveState: true });
+        };
       }
 
-      // Row clicks delegated on popup element
-      if (occPopup){
-        occPopup.addEventListener('click', function(e){
-          var row = e.target.closest('.mp-occ-row'); if (row) selectOcc(row);
-        });
-      }
-
-      // Calendar in sticky bar — pick a date, sets selection, no popup needed
-      var cal = document.getElementById('mpOccCalendar');
-      if (cal){
-        cal.addEventListener('change', function(){
-          var val = cal.value; if (!val) return;
+      var calendar = document.getElementById('mpOccCalendar');
+      if (calendar) {
+        calendar.onchange = function() {
+          var value = calendar.value;
+          if (!value) return;
           var occList = document.getElementById('mpOccList');
-          var match = occList ? occList.querySelector('.mp-occ-row[data-date="' + val + '"]') : null;
-          if (match){
-            match.style.display = '';
-            if (occList) occList.querySelectorAll('.mp-occ-row').forEach(function(r){ r.classList.remove('selected'); });
-            match.classList.add('selected');
-            window.__mpSelectedOcc     = match.getAttribute('data-label');
-            window.__mpSelectedOccDate = val;   // YYYY-MM-DD from calendar
-          } else {
-            if (occList) occList.querySelectorAll('.mp-occ-row').forEach(function(r){ r.classList.remove('selected'); });
-            window.__mpSelectedOcc     = new Date(val + 'T00:00:00').toLocaleDateString();
-            window.__mpSelectedOccDate = val;
-          }
-          refreshCollectButtons();
-        });
+          var match = occList ? occList.querySelector('.mp-occ-row[data-date="' + value + '"]') : null;
+          state.selectedOccDate = value;
+          state.selectedOccLabel = match
+            ? (match.getAttribute('data-label') || fmt(value))
+            : new Date(value + 'T00:00:00').toLocaleDateString();
+          closeOccPopup();
+          renderDrawer(state.currentBillId, { preserveState: true });
+        };
       }
 
-      // Filter toggle: click opens popup below sticky bar; click same tab again closes it
       var toggle = document.getElementById('mpOccToggle');
-      if (toggle){
-        toggle.addEventListener('click', function(e){
-          var btn = e.target.closest('button[data-filter]'); if (!btn) return;
-          var f = btn.getAttribute('data-filter');
-          var wasActive = btn.classList.contains('active');
-          toggle.querySelectorAll('button').forEach(function(b){ b.classList.remove('active'); });
-          var pp = document.getElementById('mpOccPopup');
-          if (wasActive){ if (pp) pp.classList.remove('open'); return; }
-          btn.classList.add('active');
-          // Filter rows
-          var occList = document.getElementById('mpOccList');
-          if (occList) occList.querySelectorAll('.mp-occ-row').forEach(function(r){
-            var k = r.getAttribute('data-kind');
-            r.style.display = (f==='all'||f===k||(f==='past'&&(k==='past'||k==='due'))) ? '' : 'none';
-          });
-          // Position popup right below the sticky bar then open
-          if (pp){
-            var dh = document.querySelector('.mp-drawer-head');
-            var st = body.querySelector('.mp-occ-sticky');
-            if (dh && st) pp.style.top = (dh.offsetHeight + st.offsetHeight) + 'px';
-            pp.classList.add('open');
+      if (toggle) {
+        toggle.onclick = function(event) {
+          var button = event.target.closest('button[data-filter]');
+          if (!button) return;
+          var nextFilter = button.getAttribute('data-filter');
+          var popupNode = document.getElementById('mpOccPopup');
+          var wasOpen = popupNode && popupNode.classList.contains('open');
+          var isSameFilter = state.occFilter === nextFilter;
+          state.occFilter = nextFilter;
+          syncOccurrenceFilterButtons();
+          filterOccurrenceRows(nextFilter);
+          if (popupNode && isSameFilter && wasOpen) {
+            closeOccPopup();
+            return;
           }
-        });
+          openOccPopup();
+        };
       }
 
-      // Click anywhere in drawer body (outside sticky bar) closes popup
-      body.addEventListener('click', function(e){
-        if (!e.target.closest('.mp-occ-sticky')) closeOccPopup();
+      var bulkToggle = body.querySelector('#mpBulkToggle');
+      if (bulkToggle) {
+        bulkToggle.onclick = function() {
+          state.bulkMode = !state.bulkMode;
+          if (!state.bulkMode) state.bulkSelection = {};
+          renderDrawer(state.currentBillId, { preserveState: true });
+        };
+      }
+
+      var bulkSelectAll = body.querySelector('#mpBulkSelectAll');
+      if (bulkSelectAll) {
+        bulkSelectAll.onclick = function() {
+          (bill.students || []).forEach(function(student) {
+            if (studentCollectBalance(bill, student) > 0) state.bulkSelection[String(student.assignment_id)] = true;
+          });
+          renderDrawer(state.currentBillId, { preserveState: true });
+        };
+      }
+
+      var bulkClear = body.querySelector('#mpBulkClear');
+      if (bulkClear) {
+        bulkClear.onclick = function() {
+          state.bulkSelection = {};
+          renderDrawer(state.currentBillId, { preserveState: true });
+        };
+      }
+
+      var bulkReview = body.querySelector('#mpBulkReview');
+      if (bulkReview) {
+        bulkReview.onclick = function() {
+          openBulkReview();
+        };
+      }
+
+      var signoffButton = body.querySelector('#mpSignOffBtn');
+      if (signoffButton) {
+        signoffButton.onclick = function() {
+          mpOpenSignoff();
+        };
+      }
+
+      Array.prototype.forEach.call(body.querySelectorAll('.mp-bulk-check'), function(input) {
+        input.onchange = function() {
+          var assignmentId = String(input.getAttribute('data-assignment-id') || '');
+          if (!assignmentId) return;
+          if (input.checked) state.bulkSelection[assignmentId] = true;
+          else delete state.bulkSelection[assignmentId];
+          renderDrawer(state.currentBillId, { preserveState: true });
+        };
       });
+
+      body.onclick = function(event) {
+        if (!event.target.closest('.mp-occ-sticky') && !event.target.closest('#mpOccPopup')) closeOccPopup();
+      };
+
+      refreshCollectButtons();
+      body.scrollTop = preservedScrollTop;
     }
 
-    window.mpOpenBill = function(id){
-      renderDrawer(id);
+    function mergePaymentIntoData(payment) {
+      var bill = byId[payment.bill_id];
+      if (!bill) return;
+      var student = (bill.students || []).find(function(entry) {
+        return Number(entry.assignment_id) === Number(payment.assignment_id);
+      });
+      if (!student) return;
+      student.first_name = payment.first_name != null ? payment.first_name : student.first_name;
+      student.last_name = payment.last_name != null ? payment.last_name : student.last_name;
+      student.image_url = payment.image_url != null ? payment.image_url : student.image_url;
+      student.class_name = payment.class_name != null ? payment.class_name : student.class_name;
+      student.amount = payment.amount != null ? Number(payment.amount) : Number(student.amount || 0);
+      student.amount_paid = payment.amount_paid != null ? Number(payment.amount_paid) : Number(student.amount_paid || 0);
+      student.late_fee_applied = payment.late_fee_applied != null ? Number(payment.late_fee_applied) : Number(student.late_fee_applied || 0);
+      student.status = payment.status || student.status;
+      syncBillTotals(bill);
+    }
+
+    function applyPayments(payments) {
+      var touchedBillIds = {};
+      (payments || []).forEach(function(payment) {
+        mergePaymentIntoData(payment);
+        if (payment && payment.bill_id) invalidateOccurrenceCache(payment.bill_id, payment.occurrence_date || '');
+        touchedBillIds[String(payment.bill_id)] = true;
+      });
+      Object.keys(touchedBillIds).forEach(function(billId) {
+        refreshBillCard(byId[billId]);
+      });
+      refreshDashboardStats();
+      if (state.currentBillId != null) renderDrawer(state.currentBillId, { preserveState: true });
+    }
+
+    function removeBillFromState(billId) {
+      DATA = DATA.filter(function(entry) {
+        return Number(entry.bill_id) !== Number(billId);
+      });
+      delete byId[billId];
+      var card = document.querySelector('.mp-bill-card[data-bill-id="' + billId + '"]');
+      if (card && card.parentNode) card.parentNode.removeChild(card);
+      if (Number(state.currentBillId) === Number(billId)) {
+        mpCloseBill();
+        state.currentBillId = null;
+      }
+      refreshDashboardStats();
+    }
+
+    function applySignoff(signoff) {
+      if (!signoff) return;
+      var bill = byId[signoff.bill_id];
+      if (!bill) return;
+      if (signoff.occurrence_date) {
+        var signedOffDates = Array.isArray(bill.signed_off_dates) ? bill.signed_off_dates.slice() : [];
+        if (signedOffDates.indexOf(signoff.occurrence_date) === -1) signedOffDates.push(signoff.occurrence_date);
+        signedOffDates.sort();
+        bill.signed_off_dates = signedOffDates;
+        invalidateOccurrenceCache(signoff.bill_id, signoff.occurrence_date);
+        if (state.selectedOccDate === signoff.occurrence_date) {
+          state.selectedOccDate = '';
+          state.selectedOccLabel = '';
+          state.bulkMode = false;
+          state.bulkSelection = {};
+        }
+        if (!buildOccurrences(bill).length && Number(bill.total_outstanding || 0) <= 0) {
+          removeBillFromState(signoff.bill_id);
+          return;
+        }
+        if (Number(state.currentBillId) === Number(signoff.bill_id)) {
+          renderDrawer(state.currentBillId, { preserveState: true });
+        }
+        refreshDashboardStats();
+        return;
+      }
+      removeBillFromState(signoff.bill_id);
+    }
+
+    function buildBulkReviewRow(student) {
+      var bill = currentBill();
+      var balance = studentCollectBalance(bill, student);
+      var fullName = [student.first_name, student.last_name].filter(Boolean).join(' ').trim() || 'Student';
+      return '' +
+        '<div class="mp-bulk-row" data-assignment-id="' + student.assignment_id + '">' +
+          '<label class="mp-bulk-student">' +
+            '<input type="checkbox" class="mp-bulk-item-check" checked>' +
+            '<img src="' + escapeHtml(pickImage(student.image_url)) + '" alt="">' +
+            '<div class="mp-bulk-student-copy">' +
+              '<div class="mp-bulk-student-name">' + escapeHtml(fullName) + '</div>' +
+              '<div class="mp-bulk-student-meta">' + escapeHtml(student.class_name || '—') + ' · Balance ' + escapeHtml(money(balance)) + '</div>' +
+            '</div>' +
+          '</label>' +
+          '<div class="mp-field mp-bulk-amount"><label>Amount</label><input type="number" class="mp-bulk-item-amount" min="0.01" step="0.01" max="' + balance.toFixed(2) + '" value="' + balance.toFixed(2) + '"></div>' +
+          '<div class="mp-bulk-balance">Max ' + escapeHtml(money(balance)) + '</div>' +
+        '</div>';
+    }
+
+    function refreshBulkModalTotals() {
+      var total = 0;
+      var count = 0;
+      Array.prototype.forEach.call(document.querySelectorAll('#mpBulkList .mp-bulk-row'), function(row) {
+        var checkbox = row.querySelector('.mp-bulk-item-check');
+        var amountInput = row.querySelector('.mp-bulk-item-amount');
+        if (!checkbox || !amountInput) return;
+        amountInput.disabled = !checkbox.checked;
+        row.classList.toggle('disabled', !checkbox.checked);
+        var amount = Number(amountInput.value || 0);
+        if (checkbox.checked && amount > 0) {
+          count += 1;
+          total += amount;
+        }
+      });
+      var countNode = document.getElementById('mpBulkCountValue');
+      var totalNode = document.getElementById('mpBulkTotalValue');
+      var totalDisplay = document.getElementById('mpBulkTotalDisplay');
+      if (countNode) countNode.textContent = String(count);
+      if (totalNode) totalNode.textContent = money(total);
+      if (totalDisplay) totalDisplay.value = money(total);
+    }
+
+    function resetBulkModal() {
+      var form = document.getElementById('mpBulkForm');
+      if (form) form.reset();
+      document.getElementById('mpBulkList').innerHTML = '';
+      document.getElementById('mpBulkContext').innerHTML = '';
+      document.getElementById('mpBulkCountValue').textContent = '0';
+      document.getElementById('mpBulkTotalValue').textContent = money(0);
+      document.getElementById('mpBulkTotalDisplay').value = money(0);
+      document.getElementById('mpBulkOccDisplay').value = '';
+      document.getElementById('mpBulkOccurrenceDate').value = '';
+    }
+
+    function openBulkReview() {
+      var bill = currentBill();
+      if (!bill) return;
+      var selectedStudents = getSelectedBulkStudents();
+      if (!selectedStudents.length) {
+        showToast('error', 'Select at least one student first.');
+        return;
+      }
+      if (bill.bill_type === 'recurring' && !state.selectedOccDate) {
+        showToast('error', 'Select a date above before recording a bulk payment.');
+        return;
+      }
+      if (bill.bill_type === 'recurring' && state.selectedOccDate && !hasOccurrenceSnapshotForBill(bill)) {
+        showToast('error', 'Date balances are still loading. Try again in a moment.');
+        ensureOccurrenceSnapshot(bill);
+        return;
+      }
+
+      resetBulkModal();
+      document.getElementById('mpBulkList').innerHTML = selectedStudents.map(buildBulkReviewRow).join('');
+      document.getElementById('mpBulkContext').innerHTML = '' +
+        '<span class="mp-bulk-context-chip">' + escapeHtml(bill.title || 'Bill') + '</span>' +
+        '<span class="mp-bulk-context-chip">👥 ' + selectedStudents.length + ' student(s)</span>' +
+        '<span class="mp-bulk-context-chip">📅 ' + escapeHtml(state.selectedOccLabel || (state.selectedOccDate ? new Date(state.selectedOccDate + 'T00:00:00').toLocaleDateString() : 'One-time bill')) + '</span>';
+
+      document.getElementById('mpBulkOccDisplay').value = state.selectedOccLabel || (state.selectedOccDate ? new Date(state.selectedOccDate + 'T00:00:00').toLocaleDateString() : 'One-time bill');
+      document.getElementById('mpBulkOccurrenceDate').value = state.selectedOccDate || '';
+      document.getElementById('mpBulkNotes').value = state.selectedOccLabel ? ('Occurrence: ' + state.selectedOccLabel) : '';
+      if (state.selectedOccDate) document.getElementById('mpBulkReference').value = 'BATCH-' + state.selectedOccDate;
+
+      Array.prototype.forEach.call(document.querySelectorAll('#mpBulkList .mp-bulk-item-check, #mpBulkList .mp-bulk-item-amount'), function(node) {
+        node.onchange = refreshBulkModalTotals;
+        node.oninput = refreshBulkModalTotals;
+      });
+
+      refreshBulkModalTotals();
+      document.getElementById('mpBulkModal').classList.add('open');
+    }
+
+    window.mpOpenBill = function(id) {
+      renderDrawer(id, { preserveState: false });
       document.getElementById('mpDrawerBg').classList.add('open');
       document.getElementById('mpDrawer').classList.add('open');
-      document.getElementById('mpDrawer').setAttribute('aria-hidden','false');
+      document.getElementById('mpDrawer').setAttribute('aria-hidden', 'false');
     };
-    window.mpCloseBill = function(e){
-      if (e && e.target && e.target.id !== 'mpDrawerBg') return;
+
+    window.mpCloseBill = function(event) {
+      if (event && event.target && event.target.id !== 'mpDrawerBg') return;
       document.getElementById('mpDrawerBg').classList.remove('open');
       document.getElementById('mpDrawer').classList.remove('open');
-      document.getElementById('mpDrawer').setAttribute('aria-hidden','true');
-      window.__mpSelectedOcc = '';
-      var pp = document.getElementById('mpOccPopup');
-      if (pp) pp.classList.remove('open');
+      document.getElementById('mpDrawer').setAttribute('aria-hidden', 'true');
+      closeOccPopup();
     };
-    // Allow the close button (which has no target check) to always close
-    document.addEventListener('DOMContentLoaded', function(){
-      var closeBtn = document.querySelector('.mp-close-btn');
-      if (closeBtn) closeBtn.onclick = function(){
-        document.getElementById('mpDrawerBg').classList.remove('open');
-        document.getElementById('mpDrawer').classList.remove('open');
-        document.getElementById('mpDrawer').setAttribute('aria-hidden','true');
-        window.__mpSelectedOcc = '';
-        var pp = document.getElementById('mpOccPopup');
-        if (pp) pp.classList.remove('open');
-      };
-    });
 
-    window.mpOpenCollect = function(id, bill, student, balance, occLabel, occDateIso){
+    window.mpOpenCollect = function(id, bill, student, balance, occLabel, occDateIso) {
+      var form = document.getElementById('mpCollectForm');
+      if (form) form.reset();
       document.getElementById('mpAssignmentId').value = id;
       document.getElementById('mpBillName').value = bill;
       document.getElementById('mpStudentName').value = student;
-      document.getElementById('mpAmount').value = balance;
-      document.getElementById('mpAmount').max = balance;
+      document.getElementById('mpAmount').value = balance.toFixed(2);
+      document.getElementById('mpAmount').max = balance.toFixed(2);
       document.getElementById('mpOccDisplay').value = occLabel || '';
-      var occDateField = document.getElementById('mpOccurrenceDate');
-      if (occDateField) occDateField.value = occDateIso || '';
-      var notes = document.getElementById('mpNotes');
-      notes.value = occLabel ? ('Occurrence: ' + occLabel) : '';
-      var ref = document.getElementById('mpReference');
-      if (occLabel && !ref.value) ref.value = 'OCC-' + occLabel.replace(/[^0-9A-Za-z]+/g,'-');
+      document.getElementById('mpOccurrenceDate').value = occDateIso || '';
+      document.getElementById('mpNotes').value = occLabel ? ('Occurrence: ' + occLabel) : '';
+      document.getElementById('mpReference').value = occLabel ? ('OCC-' + occLabel.replace(/[^0-9A-Za-z]+/g, '-')) : '';
       document.getElementById('mpCollectModal').classList.add('open');
     };
-    window.mpCloseCollect = function(){
+
+    window.mpCloseCollect = function() {
       document.getElementById('mpCollectModal').classList.remove('open');
     };
+
+    window.mpCloseBulkCollect = function() {
+      document.getElementById('mpBulkModal').classList.remove('open');
+    };
+
+    window.mpOpenSignoff = function() {
+      var bill = currentBill();
+      if (!bill) return;
+      var signoffState = getSignoffState(bill);
+      if (!signoffState.enabled) {
+        showToast('error', signoffState.hint || 'This bill is not ready to sign off yet.');
+        if (bill.bill_type === 'recurring' && state.selectedOccDate && !hasOccurrenceSnapshotForBill(bill)) {
+          ensureOccurrenceSnapshot(bill);
+        }
+        return;
+      }
+      var form = document.getElementById('mpSignoffForm');
+      if (form) form.reset();
+      document.getElementById('mpSignoffBillId').value = bill.bill_id;
+      document.getElementById('mpSignoffOccurrenceDate').value = bill.bill_type === 'recurring' ? (state.selectedOccDate || '') : '';
+      document.getElementById('mpSignoffBillName').value = bill.title || 'Bill';
+      document.getElementById('mpSignoffScope').value = bill.bill_type === 'recurring'
+        ? (state.selectedOccLabel || (state.selectedOccDate ? new Date(state.selectedOccDate + 'T00:00:00').toLocaleDateString() : 'Recurring date'))
+        : 'Entire bill';
+      document.getElementById('mpSignoffSummary').innerHTML = bill.bill_type === 'recurring'
+        ? 'This date is fully settled. Signing off will remove <strong>' + escapeHtml(document.getElementById('mpSignoffScope').value) + '</strong> from your drawer and save it in finance history.'
+        : 'This bill is fully settled. Signing off will remove <strong>' + escapeHtml(bill.title || 'this bill') + '</strong> from your screen and save it in finance history.';
+      document.getElementById('mpSignoffModal').classList.add('open');
+    };
+
+    window.mpCloseSignoff = function() {
+      document.getElementById('mpSignoffModal').classList.remove('open');
+    };
+
+    var collectForm = document.getElementById('mpCollectForm');
+    if (collectForm) {
+      collectForm.addEventListener('submit', function(event) {
+        event.preventDefault();
+        var submitButton = document.getElementById('mpCollectSubmit');
+        var idleLabel = submitButton ? submitButton.textContent : '';
+        if (submitButton) {
+          submitButton.disabled = true;
+          submitButton.textContent = 'Saving…';
+        }
+        var requestBody = new URLSearchParams(new FormData(collectForm));
+        fetch(collectForm.action, {
+          method: 'POST',
+          body: requestBody,
+          headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        })
+          .then(parseResponse)
+          .then(function(payload) {
+            applyPayments([payload.payment]);
+            mpCloseCollect();
+            showToast('success', payload.message);
+          })
+          .catch(function(error) {
+            showToast('error', error.message);
+          })
+          .finally(function() {
+            if (submitButton) {
+              submitButton.disabled = false;
+              submitButton.textContent = idleLabel;
+            }
+          });
+      });
+    }
+
+    var bulkForm = document.getElementById('mpBulkForm');
+    if (bulkForm) {
+      bulkForm.addEventListener('submit', function(event) {
+        event.preventDefault();
+        var rows = Array.prototype.slice.call(document.querySelectorAll('#mpBulkList .mp-bulk-row'));
+        var items = rows.reduce(function(accumulator, row) {
+          var checkbox = row.querySelector('.mp-bulk-item-check');
+          var amountInput = row.querySelector('.mp-bulk-item-amount');
+          if (!checkbox || !amountInput || !checkbox.checked) return accumulator;
+          var amount = Number(amountInput.value || 0);
+          if (!(amount > 0)) return accumulator;
+          accumulator.push({
+            assignment_id: Number(row.getAttribute('data-assignment-id') || 0),
+            amount: amount,
+            occurrence_date: document.getElementById('mpBulkOccurrenceDate').value || ''
+          });
+          return accumulator;
+        }, []);
+
+        if (!items.length) {
+          showToast('error', 'Select at least one student with a valid amount.');
+          return;
+        }
+
+        var submitButton = document.getElementById('mpBulkSubmit');
+        var idleLabel = submitButton ? submitButton.textContent : '';
+        if (submitButton) {
+          submitButton.disabled = true;
+          submitButton.textContent = 'Saving…';
+        }
+
+        fetch(bulkForm.action, {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: JSON.stringify({
+            method: document.getElementById('mpBulkMethod').value,
+            reference: document.getElementById('mpBulkReference').value,
+            notes: document.getElementById('mpBulkNotes').value,
+            occurrence_date: document.getElementById('mpBulkOccurrenceDate').value,
+            items: items
+          })
+        })
+          .then(parseResponse)
+          .then(function(payload) {
+            state.bulkSelection = {};
+            applyPayments(payload.payments || []);
+            resetBulkModal();
+            mpCloseBulkCollect();
+            showToast('success', payload.message);
+          })
+          .catch(function(error) {
+            showToast('error', error.message);
+          })
+          .finally(function() {
+            if (submitButton) {
+              submitButton.disabled = false;
+              submitButton.textContent = idleLabel;
+            }
+          });
+      });
+    }
+
+    var signoffForm = document.getElementById('mpSignoffForm');
+    if (signoffForm) {
+      signoffForm.addEventListener('submit', function(event) {
+        event.preventDefault();
+        var submitButton = document.getElementById('mpSignoffSubmit');
+        var idleLabel = submitButton ? submitButton.textContent : '';
+        if (submitButton) {
+          submitButton.disabled = true;
+          submitButton.textContent = 'Signing…';
+        }
+        var requestBody = new URLSearchParams(new FormData(signoffForm));
+        fetch(signoffForm.action, {
+          method: 'POST',
+          body: requestBody,
+          headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        })
+          .then(parseResponse)
+          .then(function(payload) {
+            applySignoff(payload.signoff);
+            mpCloseSignoff();
+            showToast('success', payload.message);
+          })
+          .catch(function(error) {
+            showToast('error', error.message);
+          })
+          .finally(function() {
+            if (submitButton) {
+              submitButton.disabled = false;
+              submitButton.textContent = idleLabel;
+            }
+          });
+      });
+    }
+
+    DATA.forEach(function(bill) {
+      syncBillTotals(bill);
+      byId[bill.bill_id] = bill;
+    });
+    refreshDashboardStats();
   })();
 </script>
 

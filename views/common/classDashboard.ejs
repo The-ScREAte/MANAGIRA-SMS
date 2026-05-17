@@ -3190,7 +3190,7 @@ main {
         initialRoute: <%- JSON.stringify(typeof initialWorkspaceRoute !== 'undefined' ? initialWorkspaceRoute : { panel: 'overview', itemId: '' }) %>,
         attendanceUrl: <%- JSON.stringify(`/common/attendanceCollection?classId=${classId}&termId=${currentTerm.term_id}&embed=workspace`) %>,
         docsUrl: <%- JSON.stringify(`/documents?classId=${classId}`) %>,
-        paygiraUrl: <%- JSON.stringify(`/account/settings/my-paygira?embed=workspace`) %>,
+        paygiraUrl: <%- JSON.stringify(`/account/settings/my-paygira?embed=workspace&classId=${classId}`) %>,
         students: <%- JSON.stringify(workspaceStudents) %>,
         subjects: <%- JSON.stringify(workspaceSubjects) %>,
         canOpenAttendance: <%= hasAttendanceFeature && (userRole !== "Teacher" || isMainTeacher) ? 'true' : 'false' %>,
