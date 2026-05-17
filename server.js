@@ -392,6 +392,14 @@ app.use(expressLayouts);
 app.set("layout", "layout"); // Set default layout file
 app.set("view engine", "ejs");
 
+// Service worker — must be served with no-cache headers so the browser always
+// picks up the latest version and the SW scope is correct (root of the app).
+app.get("/service-worker.js", (req, res) => {
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.setHeader("Content-Type", "application/javascript; charset=utf-8");
+  res.sendFile(path.join(__dirname, "public", "service-worker.js"));
+});
+
 // Dynamic favicon for subdomains: root domain keeps default favicon,
 // school subdomains use school logo so search engines can show school branding.
 app.get("/favicon.ico", (req, res, next) => {

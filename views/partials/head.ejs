@@ -296,4 +296,15 @@
   <% if (!(typeof hideGlobalChatbot !== 'undefined' && hideGlobalChatbot)) { %>
   <script src="/js/chatbot.js" defer></script>
   <% } %>
+
+  <!-- PWA: register service worker (static-asset cache only; never intercepts auth or API) -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker
+          .register('/service-worker.js', { scope: '/' })
+          .catch(function () { /* silent — app works fine without SW */ });
+      });
+    }
+  </script>
 </head>
