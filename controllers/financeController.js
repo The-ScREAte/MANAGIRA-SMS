@@ -28,6 +28,11 @@ const {
 } = require("../utils/currencyLocalization");
 const { getOrgChargeCards } = require("../utils/orgChargeCards");
 const { ensurePaymentProviderSchema } = require("../utils/paymentProviderSchema");
+const {
+  getPlatformFeeSettings,
+  isPlatformFeeMethod,
+  buildPlatformChargeBreakdown,
+} = require("../utils/platformFee");
 
 // PayGira audit logger — captures Admin/Mini-Admin actions that the
 // auto-middleware skips, with precise descriptions and field diffs.
@@ -81,6 +86,10 @@ async function ensureFinanceSchema() {
     await db.query(`ALTER TABLE finance_bills ADD COLUMN IF NOT EXISTS exclude_non_school_days BOOLEAN NOT NULL DEFAULT FALSE`);
     await db.query(`ALTER TABLE finance_bills ADD COLUMN IF NOT EXISTS target_class_ids INT[]`);
     await db.query(`ALTER TABLE finance_bills ADD COLUMN IF NOT EXISTS target_student_ids INT[]`);
+    await db.query(`ALTER TABLE finance_payments ADD COLUMN IF NOT EXISTS occurrence_date DATE`);
+    await db.query(`ALTER TABLE finance_payments ADD COLUMN IF NOT EXISTS platform_fee_percentage NUMERIC(5,2) NOT NULL DEFAULT 0`);
+    await db.query(`ALTER TABLE finance_payments ADD COLUMN IF NOT EXISTS platform_fee_amount NUMERIC(14,2) NOT NULL DEFAULT 0`);
+    await db.query(`ALTER TABLE finance_payments ADD COLUMN IF NOT EXISTS tax_amount NUMERIC(14,2) NOT NULL DEFAULT 0`);
     await db.query(`
       CREATE TABLE IF NOT EXISTS finance_collection_signoffs (
         signoff_id SERIAL PRIMARY KEY,
@@ -161,6 +170,14 @@ async function isFinanceAdmin(req) {
 function money(n) {
   const v = Number(n || 0);
   return v.toFixed(2);
+}
+
+function buildFinancePaymentChargeBreakdown(amount, method, platformFeePercentage, taxAmount = 0) {
+  return buildPlatformChargeBreakdown(amount, {
+    platformFeePercentage,
+    applyPlatformFee: isPlatformFeeMethod(method),
+    taxAmount,
+  });
 }
 
 const DEFAULT_FINANCE_CURRENCY = "USD";
@@ -2300,10 +2317,13 @@ async function collectStaffPaygiraPayment({
     }
   }
 
+  const { percentage: platformFeePercentage } = await getPlatformFeeSettings(client);
+  const chargeBreakdown = buildFinancePaymentChargeBreakdown(amt, requested, platformFeePercentage);
+
   const paymentInsert = await client.query(
     `INSERT INTO finance_payments
-      (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, received_by, occurrence_date)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+      (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, received_by, occurrence_date, platform_fee_percentage, platform_fee_amount, tax_amount)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
      RETURNING payment_id, received_at`,
     [
       orgId,
@@ -2316,6 +2336,9 @@ async function collectStaffPaygiraPayment({
       notes || null,
       userId,
       occDateVal,
+      chargeBreakdown.platformFeePercentage,
+      chargeBreakdown.platformFeeAmount,
+      chargeBreakdown.taxAmount,
     ]
   );
 
@@ -2380,9 +2403,12 @@ async function collectStaffPaygiraPayment({
     status: newStatus,
     paymentId: paymentInsert.rows[0]?.payment_id || null,
     receivedAt: paymentInsert.rows[0]?.received_at || null,
+    platformFeeAmount: chargeBreakdown.platformFeeAmount,
+    platformFeePercentage: chargeBreakdown.platformFeePercentage,
+    totalChargedAmount: chargeBreakdown.totalChargedAmount,
     successMessage: isRecurringBill && occDateVal
-      ? `Collected ${display.formatMoney(amt)} from ${studentName} for ${new Date(`${occDateVal}T00:00:00`).toLocaleDateString()}.`
-      : buildStaffCollectSuccessMessage(display, amt, studentName, credit),
+      ? `Collected ${display.formatMoney(amt)} from ${studentName} for ${new Date(`${occDateVal}T00:00:00`).toLocaleDateString()}.${chargeBreakdown.platformFeeAmount > 0 ? ` ${display.formatMoney(chargeBreakdown.platformFeeAmount)} charged as platform fee.` : ""}`
+      : `${buildStaffCollectSuccessMessage(display, amt, studentName, credit)}${chargeBreakdown.platformFeeAmount > 0 ? ` ${display.formatMoney(chargeBreakdown.platformFeeAmount)} charged as platform fee.` : ""}`,
   };
 }
 
@@ -3223,14 +3249,20 @@ module.exports = {
       const row = a.rows[0];
       const amt = Number(amount || 0);
       if (amt <= 0) { req.flash("error", "Enter a valid amount."); return res.redirect("/account/settings/finance?section=bills"); }
+      const normalizedMethod = String(method || 'cash').toLowerCase();
+      const { percentage: platformFeePercentage } = await getPlatformFeeSettings(db);
+      const chargeBreakdown = buildFinancePaymentChargeBreakdown(amt, normalizedMethod, platformFeePercentage);
 
       await db.query(
         `INSERT INTO finance_payments
-          (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, received_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+          (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, received_by, platform_fee_percentage, platform_fee_amount, tax_amount)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
         [orgId, row.assignment_id, row.bill_id, row.student_id, amt,
-          method || 'cash', reference || null, notes || null,
-          req.session.user?.user_id || null]
+          normalizedMethod, reference || null, notes || null,
+          req.session.user?.user_id || null,
+          chargeBreakdown.platformFeePercentage,
+          chargeBreakdown.platformFeeAmount,
+          chargeBreakdown.taxAmount]
       );
       const newPaid = Number(row.amount_paid) + amt;
       const total = Number(row.amount) + Number(row.late_fee_applied || 0);
@@ -3254,7 +3286,11 @@ module.exports = {
         );
       }
       const display = await buildFinanceDisplayContext(req, orgId);
-      req.flash("success", credit > 0 ? `Payment recorded. ${display.formatMoney(credit)} added as credit.` : "Payment recorded.");
+      let successMessage = credit > 0 ? `Payment recorded. ${display.formatMoney(credit)} added as credit.` : "Payment recorded.";
+      if (chargeBreakdown.platformFeeAmount > 0) {
+        successMessage += ` ${display.formatMoney(chargeBreakdown.platformFeeAmount)} charged as platform fee.`;
+      }
+      req.flash("success", successMessage);
       // Resolve student name for log
       let studentLabel = `Student #${row.student_id}`;
       try {
@@ -4660,6 +4696,9 @@ module.exports = {
         }
       }
 
+      const { percentage: platformFeePercentage } = await getPlatformFeeSettings(client);
+      let totalPlatformFeeAmount = 0;
+
       if (creditApplied > 0) {
         for (const entry of paymentEntries) {
           if (!(Number(entry.creditAmount || 0) > 0)) continue;
@@ -4687,10 +4726,12 @@ module.exports = {
         if (isRecurringBill) {
           for (const entry of paymentEntries) {
             if (!(Number(entry.externalAmount || 0) > 0)) continue;
+            const chargeBreakdown = buildFinancePaymentChargeBreakdown(entry.externalAmount, payMethod, platformFeePercentage);
+            totalPlatformFeeAmount += chargeBreakdown.platformFeeAmount;
             await client.query(
               `INSERT INTO finance_payments
-                (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, occurrence_date)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+                (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, occurrence_date, platform_fee_percentage, platform_fee_amount, tax_amount)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
               [
                 orgId,
                 row.assignment_id,
@@ -4701,14 +4742,19 @@ module.exports = {
                 reference,
                 entry.notes,
                 entry.occurrenceDate || null,
+                chargeBreakdown.platformFeePercentage,
+                chargeBreakdown.platformFeeAmount,
+                chargeBreakdown.taxAmount,
               ]
             );
           }
         } else {
+          const chargeBreakdown = buildFinancePaymentChargeBreakdown(totalExternalAmount, payMethod, platformFeePercentage);
+          totalPlatformFeeAmount += chargeBreakdown.platformFeeAmount;
           await client.query(
             `INSERT INTO finance_payments
-              (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, occurrence_date)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+              (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, occurrence_date, platform_fee_percentage, platform_fee_amount, tax_amount)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
             [
               orgId,
               row.assignment_id,
@@ -4719,6 +4765,9 @@ module.exports = {
               reference,
               paymentNotesBase,
               normalizeOccurrenceDate(occurrence_date),
+              chargeBreakdown.platformFeePercentage,
+              chargeBreakdown.platformFeeAmount,
+              chargeBreakdown.taxAmount,
             ]
           );
         }
@@ -4754,11 +4803,13 @@ module.exports = {
         const recurringMessageParts = [];
         if (creditApplied > 0) recurringMessageParts.push(`${display.formatMoney(creditApplied)} applied from available balance`);
         if (totalExternalAmount > 0) recurringMessageParts.push(`${display.formatMoney(totalExternalAmount)} received`);
+        if (totalPlatformFeeAmount > 0) recurringMessageParts.push(`${display.formatMoney(totalPlatformFeeAmount)} platform fee charged`);
         req.flash && req.flash("success", `${recurringMessagePrefix} ${recurringMessageParts.join(' and ')}.`.trim());
       } else {
         const paymentSummary = [];
         if (creditApplied > 0) paymentSummary.push(`${display.formatMoney(creditApplied)} applied from available balance`);
         if (totalExternalAmount > 0) paymentSummary.push(`${display.formatMoney(totalExternalAmount)} received`);
+        if (totalPlatformFeeAmount > 0) paymentSummary.push(`${display.formatMoney(totalPlatformFeeAmount)} platform fee charged`);
         const baseMessage = paymentSummary.length ? `${paymentSummary.join(' and ')}.` : 'Payment applied.';
         req.flash && req.flash("success", creditCreated > 0
           ? `${baseMessage} ${display.formatMoney(creditCreated)} kept as credit.`
@@ -4782,6 +4833,7 @@ module.exports = {
           changedFields: [
             { field: "Applied Credit", value: `$${(creditApplied || 0).toFixed(2)}` },
             { field: "Amount", value: `$${(totalExternalAmount || 0).toFixed(2)}` },
+            ...(totalPlatformFeeAmount > 0 ? [{ field: "Platform Fee", value: `$${totalPlatformFeeAmount.toFixed(2)}` }] : []),
             { field: "Method", value: totalExternalAmount > 0 ? payMethod : 'credit' },
             { field: "Reference", value: reference || '—' },
             ...(isRecurringBill && selectedOccurrenceDates.length ? [{ field: "Recurring Dates", value: selectedOccurrenceDates.join(", ") }] : []),
@@ -4989,10 +5041,14 @@ module.exports = {
 
       const pspSettings = await loadPspSettings(orgId);
       const display = await buildFinanceDisplayContext(req, orgId, pspSettings, row.organization_country);
+      const platformFeeSettings = await getPlatformFeeSettings(database);
 
       // Payment history for this assignment
       const pays = await database.query(
-        `SELECT amount, method, reference, received_at
+        `SELECT amount, method, reference, received_at,
+                COALESCE(platform_fee_percentage, 0) AS platform_fee_percentage,
+                COALESCE(platform_fee_amount, 0) AS platform_fee_amount,
+                COALESCE(tax_amount, 0) AS tax_amount
            FROM finance_payments
           WHERE assignment_id=$1 AND organization_id=$2
           ORDER BY received_at`,
@@ -5006,6 +5062,7 @@ module.exports = {
         financeCurrency: display.financeCurrency,
         formatMoney: display.formatMoney,
         formatUsdEquivalent: display.formatUsdEquivalent,
+        platformFeePercentage: platformFeeSettings.percentage,
         money,
         balance: Math.max(Number(row.amount || 0) + Number(row.late_fee_applied || 0) - Number(row.amount_paid || 0), 0),
       });
@@ -5037,14 +5094,15 @@ module.exports = {
                 a.late_fee_applied AS assignment_late_fee,
                 o.organization_name, o.email AS org_email, o.organization_phone AS org_phone, o.organization_address AS org_address, o.logo_path AS org_logo,
                 o.organization_country,
-                u.first_name AS recv_first, u.last_name AS recv_last
+                COALESCE(p.platform_fee_percentage, 0) AS platform_fee_percentage,
+                COALESCE(p.platform_fee_amount, 0) AS platform_fee_amount,
+                COALESCE(p.tax_amount, 0) AS tax_amount
            FROM finance_payments p
            LEFT JOIN finance_bills b ON b.bill_id = p.bill_id
            LEFT JOIN finance_bill_assignments a ON a.assignment_id = p.assignment_id
            LEFT JOIN students s ON s.student_id = p.student_id
            LEFT JOIN classes c ON c.class_id = s.class_id
            LEFT JOIN organizations o ON o.organization_id = p.organization_id
-           LEFT JOIN users u ON u.user_id = p.received_by
           WHERE p.payment_id = $1 AND p.organization_id = $2
           LIMIT 1`,
         [paymentId, orgId]

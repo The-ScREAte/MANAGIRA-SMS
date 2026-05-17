@@ -1090,6 +1090,33 @@
         <div class="form-container settings-card is-collapsed" data-settings-card>
           <div class="settings-card-header">
             <div class="settings-card-heading-group">
+              <h2 class="settings-card-heading">Platform Fee</h2>
+              <p class="collapsed-card-copy">Control the percentage added to in-app card and wallet charges.</p>
+            </div>
+            <button type="button" class="top-section-toggle" data-settings-toggle aria-expanded="false">Expand</button>
+          </div>
+          <div class="settings-card-body">
+            <p class="gateway-strategy-note">This fee is used for Managira Stripe card and wallet checkouts and is reflected on PayGira card receipts. Apple Pay and Google Pay ride on Stripe, so they still require a supported browser/device and Stripe domain verification.</p>
+            <form action="/admin/updatePlatformFeeSettings" method="POST" id="platform-fee-settings-form">
+              <label for="platform_fee_percentage">Platform Fee Percentage:</label>
+              <input
+                type="number"
+                id="platform_fee_percentage"
+                name="platform_fee_percentage"
+                min="0"
+                max="100"
+                step="0.01"
+                value="<%= Number(platformFeePercentage || 0).toFixed(2).replace(/\.00$/, '') %>"
+                required
+              />
+              <button type="submit">Save Platform Fee</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="form-container settings-card is-collapsed" data-settings-card>
+          <div class="settings-card-header">
+            <div class="settings-card-heading-group">
               <h2 class="settings-card-heading">Paystack Mode & Keys</h2>
               <p class="collapsed-card-copy">Switch Paystack between test and live billing environments.</p>
             </div>

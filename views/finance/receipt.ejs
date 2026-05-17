@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Receipt — #<%= payment.payment_id %></title>
+<title>PayGira Receipt — #<%= payment.payment_id %></title>
 <style>
   * { box-sizing:border-box; }
   body { font-family:'Space Grotesk','DM Sans',Arial,sans-serif; margin:0; background:#f5f6fa; color:#1a1f2e; }
@@ -40,16 +40,22 @@
   const usdEq = typeof formatUsdEquivalent === 'function' ? formatUsdEquivalent : function(){ return null; };
 %>
 <div class="doc">
+  <%
+    const platformFeePercentage = Number(payment.platform_fee_percentage || 0);
+    const platformFeeAmount = Number(payment.platform_fee_amount || 0);
+    const taxAmount = Number(payment.tax_amount || 0);
+    const totalChargedAmount = Number(payment.amount || 0) + platformFeeAmount + taxAmount;
+  %>
   <div class="head">
     <div class="org">
       <h1><%= payment.organization_name || 'School' %></h1>
       <div class="meta"><%= payment.org_address || '' %> · <%= payment.org_phone || '' %></div>
       <span class="badge" style="margin-top:8px;">🔒 PayGira Secure</span>
     </div>
-    <div class="label">Payment Receipt</div>
-    <div class="amount"><%= moneyFmt(payment.amount) %></div>
-    <% if (usdEq(payment.amount)) { %>
-      <div style="margin-top:4px;font-size:.76rem;color:#5a6378;">Approx. <%= usdEq(payment.amount) %></div>
+    <div class="label">PayGira Receipt</div>
+    <div class="amount"><%= moneyFmt(totalChargedAmount) %></div>
+    <% if (usdEq(totalChargedAmount)) { %>
+      <div style="margin-top:4px;font-size:.76rem;color:#5a6378;">Approx. <%= usdEq(totalChargedAmount) %></div>
     <% } %>
     <div class="num">#RCP-<%= String(payment.payment_id).padStart(6,'0') %></div>
   </div>
@@ -68,6 +74,16 @@
        var paid  = Number(payment.assignment_paid || 0);
        var bal   = Math.max(total - paid, 0);
   %>
+    <div class="row"><div>Applied to bill</div><div class="v"><%= moneyFmt(payment.amount) %></div></div>
+    <% if (platformFeeAmount > 0) { %>
+      <div class="row"><div>Platform fee<%= platformFeePercentage > 0 ? ` (${Number(platformFeePercentage).toFixed(2).replace(/\.00$/, '')}%)` : '' %></div><div class="v"><%= moneyFmt(platformFeeAmount) %></div></div>
+    <% } %>
+    <% if (taxAmount > 0) { %>
+      <div class="row"><div>Taxes</div><div class="v"><%= moneyFmt(taxAmount) %></div></div>
+    <% } %>
+    <% if (platformFeeAmount > 0 || taxAmount > 0) { %>
+      <div class="row" style="font-weight:800;"><div>Total charged</div><div class="v"><%= moneyFmt(totalChargedAmount) %></div></div>
+    <% } %>
     <div class="row"><div>Total billed</div><div class="v"><%= moneyFmt(total) %></div></div>
     <div class="row"><div>Paid to date</div><div class="v" style="color:#00845f;"><%= moneyFmt(paid) %></div></div>
     <div class="row" style="font-weight:800;"><div>Outstanding</div><div class="v"><%= moneyFmt(bal) %></div></div>
@@ -77,9 +93,7 @@
     <p style="margin:14px 0 0;color:#5a6378;font-size:.82rem;"><strong style="color:#1a1f2e;">Notes:</strong> <%= payment.notes %></p>
   <% } %>
 
-  <% if (payment.recv_first) { %>
-    <p style="margin:14px 0 0;color:#5a6378;font-size:.78rem;">Received by <strong style="color:#1a1f2e;"><%= payment.recv_first %> <%= payment.recv_last %></strong></p>
-  <% } %>
+  <p style="margin:14px 0 0;color:#5a6378;font-size:.78rem;">Received by <strong style="color:#1a1f2e;"><%= payment.organization_name || 'School' %></strong></p>
 
   <div class="actions">
     <button class="btn ghost" onclick="window.print()">🖨️ Print</button>

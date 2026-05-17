@@ -343,6 +343,7 @@ module.exports = (db) => {
     // Add missing routes for admin settings
     router.post('/updateFreeTrialSettings', ensureAdmin, adminController.updateFreeTrialSettings);
     router.post('/updateBillingInterval', ensureAdmin, adminController.updateBillingInterval);
+    router.post('/updatePlatformFeeSettings', ensureAdmin, adminController.updatePlatformFeeSettings);
     router.post('/updateBillingPeriod', ensureAdmin, adminController.updateBillingPeriod);
     router.get('/getBillingPeriods', ensureAdmin, adminController.getBillingPeriods);
     router.post('/updatePaymentProviderSettings', ensureAdmin, adminController.updatePaymentProviderSettings);

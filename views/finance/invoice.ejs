@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Invoice — <%= assignment.bill_title %></title>
+<title>PayGira Invoice — <%= assignment.bill_title %></title>
 <style>
   * { box-sizing:border-box; }
   body { font-family:'Space Grotesk','DM Sans',Arial,sans-serif; margin:0; background:#f5f6fa; color:#1a1f2e; }
@@ -65,7 +65,7 @@
       <span class="badge">🔒 PayGira Secure</span>
     </div>
     <div class="doc-title">
-      <div class="label">Invoice</div>
+      <div class="label">PayGira Invoice</div>
       <h2><%= moneyFmt(Number(assignment.amount) + Number(assignment.late_fee_applied || 0)) %></h2>
       <% if (usdEq(Number(assignment.amount) + Number(assignment.late_fee_applied || 0))) { %>
         <div style="margin-top:4px;font-size:.78rem;color:#5a6378;">Approx. <%= usdEq(Number(assignment.amount) + Number(assignment.late_fee_applied || 0)) %></div>
@@ -97,6 +97,10 @@
     <p style="color:#5a6378;font-size:.88rem;margin:0 0 14px;"><%= assignment.bill_description %></p>
   <% } %>
 
+  <% if (Number(platformFeePercentage || 0) > 0) { %>
+    <p style="color:#5a6378;font-size:.82rem;margin:0 0 14px;">PayGira card and wallet payments currently include a <strong style="color:#1a1f2e;"><%= Number(platformFeePercentage || 0).toFixed(2).replace(/\.00$/, '') %>% platform fee</strong> when charged online.</p>
+  <% } %>
+
   <table>
     <thead><tr>
       <th>Description</th><th class="amt">Amount</th>
@@ -112,14 +116,30 @@
   <% if (payments && payments.length) { %>
     <h3 style="margin:22px 0 8px;font-size:.92rem;text-transform:uppercase;letter-spacing:.08em;color:#5a6378;">Payments received</h3>
     <table>
-      <thead><tr><th>Date</th><th>Method</th><th>Reference</th><th class="amt">Amount</th></tr></thead>
+      <thead><tr><th>Date</th><th>Method</th><th>Reference</th><th class="amt">Applied</th><th class="amt">Charges</th><th class="amt">Total</th></tr></thead>
       <tbody>
         <% payments.forEach(p => { %>
+          <% const paymentCharges = Number(p.platform_fee_amount || 0) + Number(p.tax_amount || 0); %>
+          <% const paymentTotal = Number(p.amount || 0) + paymentCharges; %>
           <tr>
             <td><%= new Date(p.received_at).toLocaleString() %></td>
             <td><%= p.method %></td>
             <td style="color:#5a6378;font-size:.8rem;"><%= p.reference || '—' %></td>
             <td class="amt"><%= moneyFmt(p.amount) %></td>
+            <td class="amt">
+              <%= paymentCharges > 0 ? moneyFmt(paymentCharges) : '—' %>
+              <% if (paymentCharges > 0) { %>
+                <div style="color:#5a6378;font-size:.72rem;margin-top:4px;line-height:1.45;">
+                  <% if (Number(p.platform_fee_amount || 0) > 0) { %>
+                    <div>Fee <%= moneyFmt(p.platform_fee_amount) %></div>
+                  <% } %>
+                  <% if (Number(p.tax_amount || 0) > 0) { %>
+                    <div>Tax <%= moneyFmt(p.tax_amount) %></div>
+                  <% } %>
+                </div>
+              <% } %>
+            </td>
+            <td class="amt"><%= moneyFmt(paymentTotal) %></td>
           </tr>
         <% }); %>
       </tbody>

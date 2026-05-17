@@ -105,6 +105,10 @@ const {
 } = require("../utils/stripeConfig");
 const { ensurePaymentProviderSchema, ensureStripeSubaccountSchema } = require("../utils/paymentProviderSchema");
 const {
+  getPlatformFeeSettings,
+  buildPlatformChargeBreakdown,
+} = require("../utils/platformFee");
+const {
   WEEKDAY_OPTIONS,
   parseBoolean,
   normalizeWeekendDaysInput,
@@ -245,7 +249,12 @@ async function buildRegistrationChargeContext(registrationDetails, promoCode, tr
     finalAmount -= finalAmount * (discountAmount / 100);
   }
 
-  let amountDue = Math.round(finalAmount * 100);
+  const platformFeeSettings = await getPlatformFeeSettings(db);
+  let chargeBreakdown = buildPlatformChargeBreakdown(finalAmount, {
+    platformFeePercentage: platformFeeSettings.percentage,
+    applyPlatformFee: true,
+  });
+  let amountDue = Math.round(chargeBreakdown.totalChargedAmount * 100);
   let billingInterval = "monthly";
   let freeTrialDays = null;
   let freeTrialEnabled = false;
@@ -280,6 +289,10 @@ async function buildRegistrationChargeContext(registrationDetails, promoCode, tr
 
   if (isTrialCheckout) {
     amountDue = 0;
+    chargeBreakdown = buildPlatformChargeBreakdown(0, {
+      platformFeePercentage: 0,
+      applyPlatformFee: false,
+    });
 
     const minDate = startOfDayLocal(new Date());
     const maxDate = startOfDayLocal(new Date());
@@ -310,7 +323,12 @@ async function buildRegistrationChargeContext(registrationDetails, promoCode, tr
     discountAmount,
     applyDiscountOnce,
     finalAmount,
+    subtotalAmount: chargeBreakdown.subtotalAmount,
     amountDue,
+    platformFeePercentage: chargeBreakdown.platformFeePercentage,
+    platformFeeAmount: chargeBreakdown.platformFeeAmount,
+    taxAmount: chargeBreakdown.taxAmount,
+    totalChargedAmount: chargeBreakdown.totalChargedAmount,
     billingInterval,
     isTrialCheckout,
     freeTrialDays,
@@ -961,6 +979,10 @@ async function completeStripeRegistrationPayment(
       organizationId,
       discountAmount: paymentContext.discountAmount,
       finalAmount: paymentContext.finalAmount,
+      totalChargedAmount: paymentContext.totalChargedAmount,
+      platformFeePercentage: paymentContext.platformFeePercentage,
+      platformFeeAmount: paymentContext.platformFeeAmount,
+      chargeCurrency: paymentContext.chargeCurrency,
     };
   } catch (error) {
     console.error("[Stripe][complete] failed; rolling back:", error);
@@ -1679,9 +1701,14 @@ const accountController = {
           : planPrice;
       const stripeChargeCurrency = getStripeChargeCurrency().toUpperCase();
       const stripeChargeBase = isTrialCheckout ? 0 : planPrice;
+      const platformFeeSettings = await getPlatformFeeSettings(db);
+      const stripeChargeBreakdown = buildPlatformChargeBreakdown(stripeChargeBase, {
+        platformFeePercentage: isTrialCheckout ? 0 : platformFeeSettings.percentage,
+        applyPlatformFee: !isTrialCheckout,
+      });
 
       let amountDue = Math.round(ghsChargeBase * 100);
-      let stripeAmountDue = Math.round(stripeChargeBase * 100);
+      let stripeAmountDue = Math.round(stripeChargeBreakdown.totalChargedAmount * 100);
 
       let isTrialActive = false;
 
@@ -1825,7 +1852,14 @@ const accountController = {
         registrationDetails,
 
         paymentDetails: { amount: amountDue },
-        stripePaymentDetails: { amount: stripeAmountDue, currency: stripeChargeCurrency },
+        stripePaymentDetails: {
+          amount: stripeAmountDue,
+          currency: stripeChargeCurrency,
+          subtotalAmount: stripeChargeBreakdown.subtotalAmount,
+          platformFeePercentage: stripeChargeBreakdown.platformFeePercentage,
+          platformFeeAmount: stripeChargeBreakdown.platformFeeAmount,
+          totalChargedAmount: stripeChargeBreakdown.totalChargedAmount,
+        },
 
         paymentReference: paymentReference,
 
@@ -2567,7 +2601,12 @@ const accountController = {
         discountAmount: paymentContext.discountAmount,
         applyDiscountOnce: paymentContext.applyDiscountOnce,
         finalAmount: paymentContext.finalAmount,
+        subtotalAmount: paymentContext.subtotalAmount,
         amountDue: paymentContext.amountDue,
+        platformFeePercentage: paymentContext.platformFeePercentage,
+        platformFeeAmount: paymentContext.platformFeeAmount,
+        taxAmount: paymentContext.taxAmount,
+        totalChargedAmount: paymentContext.totalChargedAmount,
         chargeCurrency: stripeChargeCurrency,
         billingInterval: paymentContext.billingInterval,
         isTrialCheckout: paymentContext.isTrialCheckout,
@@ -3138,7 +3177,16 @@ const accountController = {
 
       let message = "";
       if (result.discountAmount > 0) {
-        message += `Discount applied successfully. You will be charged ₵${result.finalAmount} per month. `;
+        const chargeLabel = `${result.chargeCurrency || 'USD'} ${Number(result.totalChargedAmount || result.finalAmount || 0).toFixed(2)}`;
+        message += `Discount applied successfully. Your charge is ${chargeLabel}`;
+        if (Number(result.platformFeeAmount || 0) > 0) {
+          const pctLabel = Number(result.platformFeePercentage || 0).toFixed(2).replace(/\.00$/, '');
+          message += `, including a ${pctLabel}% platform fee`;
+        }
+        message += ". ";
+      } else if (Number(result.platformFeeAmount || 0) > 0) {
+        const pctLabel = Number(result.platformFeePercentage || 0).toFixed(2).replace(/\.00$/, '');
+        message += `This charge includes a ${pctLabel}% platform fee. `;
       }
       message += stripeIntentType === "setup"
         ? "Registration successful! Your free trial is now active and your card has been saved for future payments. You may now log in to your account."

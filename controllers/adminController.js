@@ -30,6 +30,11 @@ const {
   normalizeMode: normalizeStripeMode,
   upsertStripeSettings,
 } = require("../utils/stripeConfig");
+const {
+  getPlatformFeeSettings,
+  upsertPlatformFeeSettings,
+  normalizePlatformFeePercentage,
+} = require("../utils/platformFee");
 const { ensurePaymentProviderSchema } = require("../utils/paymentProviderSchema");
 const {
   invalidateOrganizationAccessCache,
@@ -2304,6 +2309,7 @@ const adminController = {
       const paystackSettings = await getPaystackSettings(db);
       const stripeSettings = await getStripeSettings(db);
       const paymentProvider = await getPaymentProvider(db);
+      const platformFeeSettings = await getPlatformFeeSettings(db);
       const featuresResult = await db.query(
         "SELECT * FROM features ORDER BY feature_name ASC"
       );
@@ -2422,6 +2428,7 @@ const adminController = {
         billingPeriods,
         studentTiersByPlan,
         paymentProvider,
+        platformFeePercentage: platformFeeSettings.percentage,
         paystackMode: paystackSettings.mode,
         stripeMode: stripeSettings.mode,
         stripeKeysMasked: stripeSettings.masked,
@@ -2471,6 +2478,17 @@ const adminController = {
             req.flash('error', 'Failed to update billing interval.');
     }
     res.redirect('/admin/servicePricing');
+  },
+
+  updatePlatformFeeSettings: async (req, res) => {
+    try {
+      const percentage = normalizePlatformFeePercentage(req.body?.platform_fee_percentage, 2);
+      await upsertPlatformFeeSettings({ platform_fee_percentage: percentage }, db);
+      req.flash('success', `Platform fee updated to ${percentage}% for in-app card and wallet charges.`);
+    } catch (error) {
+      req.flash('error', 'Failed to update platform fee settings.');
+    }
+    return res.redirect('/admin/servicePricing');
   },
 
   updateBillingPeriod: async (req, res) => {

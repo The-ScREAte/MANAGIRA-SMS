@@ -774,7 +774,9 @@
           <p class="summary-row"><strong>Email:</strong> <%= registrationDetails.email || 'N/A' %></p>
           <p class="summary-row"><strong>Plan:</strong> <%= planNameDisplay %></p>
           <% if (!isTrialCheckout) { %>
-            <p class="summary-row" id="amount-due-row"><strong>Amount Due:</strong> <span id="amount-due-currency"><%= stripeChargeCurrency || 'USD' %></span> <span id="amount-due"><%= stripePaymentDetails ? (stripePaymentDetails.amount / 100).toFixed(2) : (paymentDetails.amount / 100).toFixed(2) %></span></p>
+            <p class="summary-row" id="subtotal-row"><strong>Plan Subtotal:</strong> <span id="subtotal-currency"><%= stripeChargeCurrency || 'USD' %></span> <span id="subtotal-amount"><%= stripePaymentDetails ? Number(stripePaymentDetails.subtotalAmount || 0).toFixed(2) : (paymentDetails.amount / 100).toFixed(2) %></span></p>
+            <p class="summary-row" id="platform-fee-row" style="display:<%= stripePaymentDetails && Number(stripePaymentDetails.platformFeeAmount || 0) > 0 ? '' : 'none' %>;"><strong id="platform-fee-label">Platform Fee (<%= Number(stripePaymentDetails?.platformFeePercentage || 0).toFixed(2).replace(/\.00$/, '') %>%)</strong>: <span id="platform-fee-currency"><%= stripeChargeCurrency || 'USD' %></span> <span id="platform-fee-amount"><%= stripePaymentDetails ? Number(stripePaymentDetails.platformFeeAmount || 0).toFixed(2) : '0.00' %></span></p>
+            <p class="summary-row" id="amount-due-row"><strong>Total Due:</strong> <span id="amount-due-currency"><%= stripeChargeCurrency || 'USD' %></span> <span id="amount-due"><%= stripePaymentDetails ? (stripePaymentDetails.amount / 100).toFixed(2) : (paymentDetails.amount / 100).toFixed(2) %></span></p>
           <% } %>
           <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
             <p class="summary-row"><strong>Local Estimate (<%= currencyProfile.userCurrency %>):</strong> <%= localizedPriceDisplay || 'N/A' %></p>
@@ -908,8 +910,11 @@
 <script>
       document.addEventListener("DOMContentLoaded", function () {
         const baseStripeAmount = parseInt('<%= stripePaymentDetails ? stripePaymentDetails.amount : paymentDetails.amount %>', 10);
+  const baseStripeSubtotalAmount = parseInt('<%= stripePaymentDetails ? Math.round(Number(stripePaymentDetails.subtotalAmount || 0) * 100) : paymentDetails.amount %>', 10);
+  const platformFeePercentage = Number(<%- JSON.stringify(stripePaymentDetails ? Number(stripePaymentDetails.platformFeePercentage || 0) : 0) %>);
         let finalStripeAmount = baseStripeAmount;
         let appliedPromoCode = '';
+  let appliedPromoDiscount = 0;
         let isSubmittingAfterPayment = false;
         const stripeConfigError = <%- JSON.stringify(resolvedStripeConfigError || '') %>;
         const stripePublishableKey = <%- JSON.stringify(stripePublishableKey || '') %>;
@@ -924,6 +929,12 @@
         const stripeHelpNote = document.getElementById("stripe-help-note");
         const expressShell = document.getElementById("express-shell");
         const gatewayFlowNote = document.getElementById("gateway-flow-note");
+        const subtotalCurrencyEl = document.getElementById('subtotal-currency');
+        const subtotalAmountEl = document.getElementById('subtotal-amount');
+        const platformFeeRowEl = document.getElementById('platform-fee-row');
+        const platformFeeLabelEl = document.getElementById('platform-fee-label');
+        const platformFeeCurrencyEl = document.getElementById('platform-fee-currency');
+        const platformFeeAmountEl = document.getElementById('platform-fee-amount');
         const selectedGatewayInput = document.getElementById("selectedGateway");
         const payButtonEl = document.getElementById("pay-button");
         let stripe = null;
@@ -947,6 +958,21 @@
 
         function formatMoney(amountMinor, currencyCode) {
           return `${currencyCode} ${(Math.max(0, Number(amountMinor) || 0) / 100).toFixed(2)}`;
+        }
+
+        function formatPercent(value) {
+          const numeric = Number(value) || 0;
+          return Number.isInteger(numeric) ? String(numeric) : numeric.toFixed(2).replace(/\.00$/, '');
+        }
+
+        function computeDiscountedSubtotalAmount() {
+          if (isTrialCheckout) return 0;
+          return Math.max(0, Math.round(baseStripeSubtotalAmount * (1 - ((Number(appliedPromoDiscount) || 0) / 100))));
+        }
+
+        function computePlatformFeeAmount(amountMinor) {
+          if (isTrialCheckout || !(platformFeePercentage > 0)) return 0;
+          return Math.max(0, Math.round(amountMinor * (platformFeePercentage / 100)));
         }
 
         function getCurrentGatewayAmountText() {
@@ -986,8 +1012,25 @@
         }
 
         function updateAmountDueRow() {
+          const subtotalMinor = computeDiscountedSubtotalAmount();
+          const platformFeeMinor = computePlatformFeeAmount(subtotalMinor);
           const currencyEl = document.getElementById('amount-due-currency');
           const amountEl = document.getElementById('amount-due');
+          finalStripeAmount = subtotalMinor + platformFeeMinor;
+          if (subtotalCurrencyEl && subtotalAmountEl) {
+            subtotalCurrencyEl.textContent = stripeChargeCurrency;
+            subtotalAmountEl.textContent = (Math.max(0, subtotalMinor) / 100).toFixed(2);
+          }
+          if (platformFeeLabelEl) {
+            platformFeeLabelEl.textContent = `Platform Fee (${formatPercent(platformFeePercentage)}%)`;
+          }
+          if (platformFeeCurrencyEl && platformFeeAmountEl) {
+            platformFeeCurrencyEl.textContent = stripeChargeCurrency;
+            platformFeeAmountEl.textContent = (Math.max(0, platformFeeMinor) / 100).toFixed(2);
+          }
+          if (platformFeeRowEl) {
+            platformFeeRowEl.style.display = !isTrialCheckout && platformFeeMinor > 0 ? '' : 'none';
+          }
           if (!currencyEl || !amountEl) return;
           currencyEl.textContent = stripeChargeCurrency;
           amountEl.textContent = (Math.max(0, finalStripeAmount) / 100).toFixed(2);
@@ -1010,6 +1053,8 @@
             amount: Math.max(0, finalStripeAmount)
           });
         }
+
+        updateAmountDueRow();
 
         if (stripePublishableKey && window.Stripe) {
           stripe = window.Stripe(stripePublishableKey);
@@ -1299,8 +1344,7 @@
             promoError.style.display = "none";
 
             appliedPromoCode = promoCode;
-
-            finalStripeAmount = Math.round(baseStripeAmount * (1 - (data.discount / 100)));
+            appliedPromoDiscount = Number(data.discount || 0);
             updateExpressCheckoutAmount();
             updatePayButtonLabel();
             updateGatewayFlowNote();
