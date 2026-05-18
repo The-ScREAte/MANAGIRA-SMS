@@ -788,3 +788,36 @@ form textarea {
     font-size: 40px;
   }
 }
+
+/* ── Global mobile button scaling ── */
+@media (max-width: 640px) {
+  button {
+    padding: 9px 14px;
+    font-size: 0.9rem;
+    margin-top: 12px;
+  }
+
+  button[type="submit"] {
+    padding: 10px 18px;
+    font-size: 0.9rem;
+    margin-top: 14px;
+  }
+
+  .link-to-next-back a {
+    padding: 8px 16px;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 400px) {
+  button {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    margin-top: 10px;
+  }
+
+  button[type="submit"] {
+    padding: 9px 14px;
+    font-size: 0.85rem;
+  }
+}
