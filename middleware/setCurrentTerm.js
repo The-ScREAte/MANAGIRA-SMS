@@ -1,6 +1,6 @@
 module.exports = async function setCurrentTerm(req, res, next) {
   const db = req.app.get("db");
-  const organizationId = req.session.organizationId;
+  const organizationId = req.session?.organizationId;
 
   if (!organizationId) {
     res.locals.currentTerm = null;

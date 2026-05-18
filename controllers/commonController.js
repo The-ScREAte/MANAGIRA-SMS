@@ -9953,6 +9953,7 @@ const commonController = {
 
       res.render("common/managementTools", {
         title: "Management Tools",
+        organizationId: req.session.organizationId,
         currentTerm: currentTerm,
       });
     } catch (error) {
