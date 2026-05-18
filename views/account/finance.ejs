@@ -16,6 +16,8 @@
   const billTermFilter = (typeof billListFilters !== 'undefined' && billListFilters && billListFilters.term_id) || '';
   const studentYearFilter = (typeof studentBillingFilters !== 'undefined' && studentBillingFilters && studentBillingFilters.school_year_id) || '';
   const studentTermFilter = (typeof studentBillingFilters !== 'undefined' && studentBillingFilters && studentBillingFilters.term_id) || '';
+  const createBillDraftState = (typeof createBillDraft !== 'undefined' && createBillDraft) ? createBillDraft : null;
+  const openCreateBillForm = sec === 'bills' && (Boolean(createBillDraftState) || (typeof messages !== 'undefined' && messages && messages.error && messages.error.length));
 %>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet">
 
@@ -2498,6 +2500,16 @@ Regards,
     var financeCurrencyCode = <%- JSON.stringify(currentCurrency) %>;
     var financeCurrencyLocale = <%- JSON.stringify((financeCurrency && financeCurrency.locale) || 'en-US') %>;
     var profilePlaceholderSrc = <%- JSON.stringify(profilePlaceholder) %>;
+    var createBillDraft = <%- JSON.stringify(createBillDraftState || null) %>;
+    var shouldOpenCreateBillForm = <%= openCreateBillForm ? 'true' : 'false' %>;
+    function getLocalTodayIso() {
+      var today = new Date();
+      return [
+        today.getFullYear(),
+        String(today.getMonth() + 1).padStart(2, '0'),
+        String(today.getDate()).padStart(2, '0')
+      ].join('-');
+    }
     function splitDataIds(value) {
       return String(value || '')
         .split(',')
@@ -2839,9 +2851,26 @@ Regards,
       setChk('ebl-accepts_cash', bill.accepts_cash);
       setChk('ebl-accepts_transfer', bill.accepts_transfer);
       setChk('ebl-notify_email', bill.notify_email);
+      setVal('ebl-status_action', '');
       syncEditBillPaymentMethodMaster();
       document.getElementById('editBillForm').action   = '/account/settings/finance/bills/' + bill.id + '/edit';
       m.classList.add('open');
+    };
+    window.submitEditBillForm = function (mode) {
+      var form = document.getElementById('editBillForm');
+      var statusField = document.getElementById('ebl-status');
+      var statusActionField = document.getElementById('ebl-status_action');
+      if (!form) return;
+      if (statusActionField) statusActionField.value = '';
+      if (mode === 'active') {
+        if (statusField) statusField.value = 'active';
+        if (statusActionField) statusActionField.value = 'active';
+      } else if (mode === 'draft') {
+        if (statusField) statusField.value = 'draft';
+        if (statusActionField) statusActionField.value = 'draft';
+      }
+      if (typeof form.requestSubmit === 'function') form.requestSubmit();
+      else form.submit();
     };
     var editCloseBtn = document.getElementById('editBillClose');
     if (editCloseBtn) editCloseBtn.addEventListener('click', function () {
@@ -2973,17 +3002,136 @@ Regards,
     if (typeof window.syncBillTargetStudents === 'function') window.syncBillTargetStudents();
   }
 
+  function normalizeCreateDraftArray(value) {
+    if (Array.isArray(value)) {
+      return value.map(function(item) { return String(item || '').trim(); }).filter(Boolean);
+    }
+    return splitDataIds(value);
+  }
+
+  function syncCreateBillPaymentMethodMaster() {
+    var master = document.getElementById('payAll');
+    var enabledMethods = Array.prototype.slice.call(document.querySelectorAll('input.pay-method')).filter(function(input) {
+      return !input.disabled;
+    });
+    if (!master) return;
+    if (!enabledMethods.length) {
+      master.checked = false;
+      master.indeterminate = false;
+      return;
+    }
+    var checkedCount = enabledMethods.filter(function(input) { return input.checked; }).length;
+    master.checked = checkedCount === enabledMethods.length;
+    master.indeterminate = checkedCount > 0 && checkedCount < enabledMethods.length;
+  }
+
+  function syncCreateBillDateLimits() {
+    var todayIso = getLocalTodayIso();
+    if (billCreateStartDate) {
+      billCreateStartDate.min = todayIso;
+      if (!String(billCreateStartDate.value || '').trim() || billCreateStartDate.value < todayIso) {
+        billCreateStartDate.value = todayIso;
+      }
+    }
+    if (billCreateEndDate) {
+      var minEndDate = (billCreateStartDate && String(billCreateStartDate.value || '').trim())
+        ? billCreateStartDate.value
+        : todayIso;
+      billCreateEndDate.min = minEndDate;
+      if (String(billCreateEndDate.value || '').trim() && billCreateEndDate.value < minEndDate) {
+        billCreateEndDate.value = minEndDate;
+      }
+    }
+  }
+
+  function applyCreateBillDraft(draft) {
+    if (!draft || typeof draft !== 'object') return;
+    var createForm = document.querySelector('form[action="/account/settings/finance/bills"]');
+    if (!createForm) return;
+    var setFieldValue = function(selector, value) {
+      var field = createForm.querySelector(selector);
+      if (field) field.value = value == null ? '' : String(value);
+    };
+
+    setFieldValue('[name="title"]', draft.title || '');
+    setFieldValue('[name="amount"]', draft.amount || '');
+    setFieldValue('[name="description"]', draft.description || '');
+    setFieldValue('[name="late_fee_amount"]', draft.late_fee_amount || '');
+    setFieldValue('[name="late_fee_after_days"]', draft.late_fee_after_days || '7');
+
+    if (billTypeSelect) billTypeSelect.value = String(draft.bill_type || 'one_time');
+    if (billCreateRecurrenceSelect) billCreateRecurrenceSelect.value = String(draft.recurrence || '');
+    if (billCreateExcludeCheckbox) billCreateExcludeCheckbox.checked = !!draft.exclude_non_school_days;
+    if (billCreateYearSelect) billCreateYearSelect.value = String(draft.school_year_id || '');
+    if (billCreateTermSelect) {
+      window.syncSingleTermSelect(billCreateYearSelect, billCreateTermSelect, {
+        preferredTermId: String(draft.term_id || ''),
+        keepBlankWhenYearChanges: false,
+      });
+      billCreateTermSelect.value = String(draft.term_id || billCreateTermSelect.value || '');
+    }
+    if (billCreateStartDate) billCreateStartDate.value = String(draft.due_date || '');
+    if (billCreateEndDate) billCreateEndDate.value = String(draft.recurrence_end_date || '');
+    if (sel) {
+      sel.value = String(draft.applies_to || 'school');
+      refreshPicker();
+    }
+    if (typeof window.syncBillScheduleControls === 'function') {
+      window.syncBillScheduleControls(billTypeSelect, billCreateRecurrenceSelect, billCreateExcludeCheckbox);
+    }
+    if (typeof window.syncBillTargetClasses === 'function') window.syncBillTargetClasses();
+    if (typeof window.syncBillTargetStudents === 'function') window.syncBillTargetStudents();
+
+    var classIds = normalizeCreateDraftArray(draft.target_class_ids);
+    createForm.querySelectorAll('input[name="target_class_ids"]').forEach(function(input) {
+      var checked = classIds.indexOf(String(input.value || '')) !== -1;
+      input.checked = checked;
+      var chip = input.closest('.fin-chip');
+      if (chip) chip.classList.toggle('checked', checked);
+    });
+
+    var studentIds = normalizeCreateDraftArray(draft.target_student_ids);
+    createForm.querySelectorAll('input[name="target_student_ids"]').forEach(function(input) {
+      var checked = studentIds.indexOf(String(input.value || '')) !== -1;
+      input.checked = checked;
+      var chip = input.closest('.fin-chip');
+      if (chip) chip.classList.toggle('checked', checked);
+    });
+
+    var assigneeIds = normalizeCreateDraftArray(draft.assignee_ids);
+    var assigneeSelect = createForm.querySelector('select[name="assignee_ids[]"]');
+    if (assigneeSelect) {
+      Array.prototype.forEach.call(assigneeSelect.options, function(option) {
+        option.selected = assigneeIds.indexOf(String(option.value || '')) !== -1;
+      });
+    }
+
+    setFieldValue('[name="payment_destination"]', draft.payment_destination || 'stripe');
+
+    var acceptsCard = createForm.querySelector('input[name="accepts_card"]');
+    var acceptsCash = createForm.querySelector('input[name="accepts_cash"]');
+    var acceptsTransfer = createForm.querySelector('input[name="accepts_transfer"]');
+    var notifyEmail = createForm.querySelector('input[name="notify_email"]');
+    if (acceptsCard && !acceptsCard.disabled) acceptsCard.checked = !!draft.accepts_card;
+    if (acceptsCash) acceptsCash.checked = !!draft.accepts_cash;
+    if (acceptsTransfer && !acceptsTransfer.disabled) acceptsTransfer.checked = !!draft.accepts_transfer;
+    if (notifyEmail) notifyEmail.checked = !!draft.notify_email;
+
+    finRecountChips('classCount');
+    finRecountChips('studentCount');
+    syncCreateBillPaymentMethodMaster();
+    syncCreateBillDateLimits();
+  }
+
   // ===== "All payment methods" toggle =====
   function finTogglePayAll(master) {
     document.querySelectorAll('input.pay-method').forEach(function(cb) { cb.checked = !!master.checked; });
+    syncCreateBillPaymentMethodMaster();
   }
   // Keep master in sync when user toggles individual ones
   document.addEventListener('change', function(e) {
     if (e.target && e.target.classList && e.target.classList.contains('pay-method')) {
-      var all = document.querySelectorAll('input.pay-method');
-      var checked = document.querySelectorAll('input.pay-method:checked');
-      var master = document.getElementById('payAll');
-      if (master) master.checked = (all.length === checked.length);
+      syncCreateBillPaymentMethodMaster();
     }
   });
 
@@ -3345,17 +3493,31 @@ Regards,
     window.syncBillTargetClasses();
     window.syncBillTargetStudents();
     window.autofillBillScheduleDates(billCreateTermSelect, billCreateStartDate, billCreateEndDate);
+    syncCreateBillDateLimits();
     billCreateYearSelect.addEventListener('change', function () {
       window.syncSingleTermSelect(billCreateYearSelect, billCreateTermSelect, { keepBlankWhenYearChanges: true });
       window.syncBillTargetClasses();
       window.syncBillTargetStudents();
       window.autofillBillScheduleDates(billCreateTermSelect, billCreateStartDate, billCreateEndDate);
+      syncCreateBillDateLimits();
     });
     billCreateTermSelect.addEventListener('change', function () {
       window.syncBillTargetClasses();
       window.syncBillTargetStudents();
       window.autofillBillScheduleDates(billCreateTermSelect, billCreateStartDate, billCreateEndDate);
+      syncCreateBillDateLimits();
     });
+  }
+  if (billCreateStartDate) billCreateStartDate.addEventListener('change', syncCreateBillDateLimits);
+  if (billCreateEndDate) billCreateEndDate.addEventListener('change', syncCreateBillDateLimits);
+  if (createBillDraft) applyCreateBillDraft(createBillDraft);
+  syncCreateBillPaymentMethodMaster();
+  syncCreateBillDateLimits();
+  if (shouldOpenCreateBillForm) {
+    var createBillAccordion = document.getElementById('acc-create-bill');
+    if (createBillAccordion && !createBillAccordion.classList.contains('open')) {
+      finToggleAcc('acc-create-bill');
+    }
   }
 
   var editBillYearSelect = document.getElementById('ebl-school_year_id');
@@ -3559,6 +3721,7 @@ Regards,
     </div>
     <form class="fin-form" method="POST" id="editBillForm" action="#">
       <input type="hidden" id="ebl-id" name="_bill_id">
+      <input type="hidden" id="ebl-status_action" name="status_action" value="">
 
       <div class="fin-row">
         <div class="fin-field"><label>Bill Title *</label><input id="ebl-title" name="title" required></div>
@@ -3719,9 +3882,8 @@ Regards,
       </div>
 
       <div style="display:flex;gap:10px;margin-top:6px;flex-wrap:wrap;">
-        <button type="submit" class="fin-btn primary">Save Changes</button>
-        <button type="submit" name="status_action" value="active" class="fin-btn">Save &amp; Activate</button>
-        <button type="submit" name="status_action" value="draft" class="fin-btn">Save as Draft</button>
+        <button type="button" class="fin-btn primary" onclick="submitEditBillForm()">Save Changes</button>
+        <button type="button" class="fin-btn" onclick="submitEditBillForm('draft')">Save as Draft</button>
         <button type="button" class="fin-btn" id="editBillClose2" onclick="document.getElementById('editBillModal').classList.remove('open')">Cancel</button>
       </div>
     </form>

@@ -29,7 +29,7 @@ const {
 } = require("../utils/currencyLocalization");
 const { getOrgChargeCards } = require("../utils/orgChargeCards");
 const { ensurePaymentProviderSchema } = require("../utils/paymentProviderSchema");
-const { getActiveStripePublicKey } = require("../utils/stripeConfig");
+const { getActiveStripePublicKey, getStripeSettings } = require("../utils/stripeConfig");
 const {
   getPlatformFeeSettings,
   isPlatformFeeMethod,
@@ -333,7 +333,7 @@ async function loadOrganizationProfile(orgId) {
   if (!orgId) return {};
   try {
     const result = await db.query(
-      `SELECT organization_name, organization_country
+      `SELECT organization_name, organization_country, billing_provider, stripe_customer_id, stripe_connect_account_id
          FROM organizations
         WHERE organization_id = $1
         LIMIT 1`,
@@ -1042,10 +1042,77 @@ function resolveStripeFinanceMethod(paymentIntent) {
   return fallbackType || 'stripe';
 }
 
+async function resolvePlatformStripeCredentials() {
+  const stripeSettings = await getStripeSettings(db).catch(() => null);
+  const connectSecretKey = String(process.env.STRIPE_CONNECT_SECRET_KEY || '').trim();
+  const fallbackFullSecretKey = [
+    process.env.STRIPE_LIVE_SECRET_KEY,
+    process.env.STRIPE_SECRET_KEY,
+    process.env.STRIPE_TEST_SECRET_KEY,
+  ]
+    .map((value) => String(value || '').trim())
+    .find((value) => value.startsWith('sk_')) || '';
+  const activeSecretKey = String(stripeSettings?.activeSecretKey || '').trim();
+  const activePublicKey = String(stripeSettings?.activePublicKey || '').trim();
+  const secretKey = connectSecretKey || fallbackFullSecretKey || activeSecretKey;
+
+  let publishableKey = activePublicKey;
+  if (secretKey.startsWith('sk_test_')) {
+    publishableKey = String(process.env.STRIPE_TEST_PUBLISHABLE_KEY || process.env.STRIPE_PUBLISHABLE_KEY || publishableKey).trim();
+  } else if (secretKey.startsWith('sk_live_')) {
+    publishableKey = String(process.env.STRIPE_LIVE_PUBLISHABLE_KEY || process.env.STRIPE_PUBLISHABLE_KEY || publishableKey).trim();
+  }
+
+  return { secretKey, publishableKey };
+}
+
+async function resolveFinanceStripeRuntime(orgId, pspSettings, orgProfileInput) {
+  const orgProfile = orgProfileInput && Object.keys(orgProfileInput).length
+    ? orgProfileInput
+    : await loadOrganizationProfile(orgId);
+  const schoolPublishableKey = String(pspSettings?.stripe_publishable_key || '').trim();
+  const schoolSecretKey = String(pspSettings?.stripe_secret_key || '').trim();
+  const connectedAccountId = String(orgProfile?.stripe_connect_account_id || '').trim();
+  const hasSchoolStripeConfig = Boolean(schoolPublishableKey && schoolSecretKey);
+
+  if (hasSchoolStripeConfig) {
+    return {
+      stripeOn: true,
+      publishableKey: schoolPublishableKey,
+      secretKey: schoolSecretKey,
+      connectedAccountId,
+      useConnectedDestinationCharge: false,
+    };
+  }
+
+  const platformCredentials = await resolvePlatformStripeCredentials();
+  const canUseConnectedStripe = Boolean(
+    connectedAccountId &&
+    platformCredentials.secretKey &&
+    platformCredentials.publishableKey
+  );
+
+  return {
+    stripeOn: canUseConnectedStripe,
+    publishableKey: canUseConnectedStripe ? platformCredentials.publishableKey : '',
+    secretKey: canUseConnectedStripe ? platformCredentials.secretKey : '',
+    connectedAccountId: canUseConnectedStripe ? connectedAccountId : '',
+    useConnectedDestinationCharge: canUseConnectedStripe,
+  };
+}
+
+function getFinanceStripeClient(stripeRuntime) {
+  const secretKey = String(stripeRuntime?.secretKey || '').trim();
+  if (!secretKey) {
+    throw new PaygiraRequestError('Stripe is not configured for this school.', 400);
+  }
+  return new Stripe(secretKey);
+}
+
 // Given a school's PSP settings, return the methods parents/staff are allowed to use.
-function computeAllowedMethods(pspSettings) {
+function computeAllowedMethods(pspSettings, options = {}) {
   const s = pspSettings || {};
-  const stripeOn = !!(s.stripe_publishable_key && s.stripe_secret_key);
+  const stripeOn = !!(s.stripe_publishable_key && s.stripe_secret_key) || !!options.stripeOn;
   // Selected stripe methods – default to ['card'] if Stripe is on but no list saved
   let stripeMethods = [];
   if (stripeOn) {
@@ -1081,6 +1148,49 @@ function maskPspSecrets(p) {
     }
   });
   return safe;
+}
+
+function normalizeFinanceDraftArray(value) {
+  const rawValues = Array.isArray(value)
+    ? value
+    : (value == null || value === '' ? [] : [value]);
+  return rawValues
+    .map((entry) => String(entry || '').trim())
+    .filter(Boolean);
+}
+
+function buildFinanceBillCreateDraft(body = {}) {
+  const requestedStatus = String(body.status || '').trim().toLowerCase();
+  const rawAssigneeIds = body.assignee_ids || body['assignee_ids[]'] || body.assignee_id;
+  return {
+    title: String(body.title || '').trim(),
+    description: String(body.description || ''),
+    amount: body.amount != null ? String(body.amount) : '',
+    bill_type: String(body.bill_type || 'one_time').trim() || 'one_time',
+    recurrence: String(body.recurrence || '').trim(),
+    recurrence_end_date: String(body.recurrence_end_date || '').trim(),
+    late_fee_amount: body.late_fee_amount != null ? String(body.late_fee_amount) : '',
+    late_fee_after_days: body.late_fee_after_days != null ? String(body.late_fee_after_days) : '7',
+    applies_to: ['school', 'classes', 'students'].includes(String(body.applies_to || '').trim())
+      ? String(body.applies_to).trim()
+      : 'school',
+    school_year_id: body.school_year_id != null ? String(body.school_year_id) : '',
+    term_id: body.term_id != null ? String(body.term_id) : '',
+    due_date: String(body.due_date || '').trim(),
+    exclude_non_school_days: Boolean(parseBoolean(body.exclude_non_school_days)),
+    assignee_ids: normalizeFinanceDraftArray(rawAssigneeIds),
+    target_class_ids: normalizeFinanceDraftArray(body.target_class_ids),
+    target_student_ids: normalizeFinanceDraftArray(body.target_student_ids),
+    payment_destination: ['stripe', 'cash', 'bank', 'momo'].includes(String(body.payment_destination || '').trim())
+      ? String(body.payment_destination).trim()
+      : 'stripe',
+    accepts_card: Object.prototype.hasOwnProperty.call(body, 'accepts_card') ? Boolean(parseBoolean(body.accepts_card)) : true,
+    accepts_cash: Object.prototype.hasOwnProperty.call(body, 'accepts_cash') ? Boolean(parseBoolean(body.accepts_cash)) : true,
+    accepts_transfer: Object.prototype.hasOwnProperty.call(body, 'accepts_transfer') ? Boolean(parseBoolean(body.accepts_transfer)) : true,
+    notify_email: Object.prototype.hasOwnProperty.call(body, 'notify_email') ? Boolean(parseBoolean(body.notify_email)) : true,
+    notify_sms: Object.prototype.hasOwnProperty.call(body, 'notify_sms') ? Boolean(parseBoolean(body.notify_sms)) : false,
+    status: ['draft', 'active', 'scheduled', 'cancelled'].includes(requestedStatus) ? requestedStatus : 'active',
+  };
 }
 
 async function loadOverviewStats(orgId, filters = {}) {
@@ -1530,7 +1640,9 @@ async function finalizePendingGuardianStripePayment(database, paymentIntentId) {
     }
 
     const pspSettings = await loadPspSettings(pending.organization_id);
-    const stripe = getSchoolStripeClient(pspSettings);
+    const orgProfile = await loadOrganizationProfile(pending.organization_id);
+    const stripeRuntime = await resolveFinanceStripeRuntime(pending.organization_id, pspSettings, orgProfile);
+    const stripe = getFinanceStripeClient(stripeRuntime);
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId, {
       expand: ['payment_method'],
     });
@@ -2147,10 +2259,6 @@ async function syncBillAssignmentsForAudience(database, orgId, billId, options =
     resolvedTargets.targetStudentIds
   );
 
-  if (!eligibleStudentIds.length) {
-    throw new PaygiraRequestError("No enrolled students were found for the selected audience in that school year and term.");
-  }
-
   const existingAssignments = await database.query(
     `SELECT fba.assignment_id,
             fba.student_id,
@@ -2166,6 +2274,14 @@ async function syncBillAssignmentsForAudience(database, orgId, billId, options =
         AND fba.organization_id = $2`,
     [billId, orgId]
   );
+
+  if (!eligibleStudentIds.length) {
+    if (!existingAssignments.rows.length) {
+      throw new PaygiraRequestError("No enrolled students were found for the selected audience in that school year and term.");
+    }
+    // Bill already has assignments — preserve them as-is; nothing to sync.
+    return resolvedTargets;
+  }
 
   const targetSet = new Set(eligibleStudentIds);
   const existingByStudentId = new Map(existingAssignments.rows.map((row) => [Number(row.student_id), row]));
@@ -2195,9 +2311,9 @@ async function syncBillAssignmentsForAudience(database, orgId, billId, options =
     const statusValue = recalcAssignmentStatus(amount, 0, 0, dueDate);
     for (const studentId of assignmentsToInsert) {
       await database.query(
-        `INSERT INTO finance_bill_assignments (organization_id, bill_id, student_id, amount, due_date, status)
-         VALUES ($1,$2,$3,$4,$5,$6)`,
-        [orgId, billId, studentId, amount, dueDate, statusValue]
+        `INSERT INTO finance_bill_assignments (organization_id, bill_id, student_id, amount, status)
+         VALUES ($1,$2,$3,$4,$5)`,
+        [orgId, billId, studentId, amount, statusValue]
       );
     }
   }
@@ -3431,6 +3547,7 @@ module.exports = {
       await ensureAssigneeColumn();
       await ensurePaymentProviderSchema(db);
       const section = String(req.query.section || "overview").toLowerCase();
+      const createBillDraft = req.session.financeBillCreateDraft || null;
       const [templates, refs, pspSettings, orgProfile, signoffHistory] = await Promise.all([
         loadTemplates(orgId),
         loadClassesAndStudents(orgId),
@@ -3517,9 +3634,13 @@ module.exports = {
 
       // Mask sensitive secrets before sending to view
       const safePsp = maskPspSecrets(pspSettings);
-      const allowedMethods = computeAllowedMethods(pspSettings);
+      const stripeRuntime = await resolveFinanceStripeRuntime(orgId, pspSettings, orgProfile);
+      const allowedMethods = computeAllowedMethods(pspSettings, { stripeOn: stripeRuntime.stripeOn });
       allowedMethods.currency = display.financeCurrency.code;
       safePsp.currency = safePsp.currency || display.financeCurrency.code;
+      if (!safePsp.stripe_publishable_key && stripeRuntime.publishableKey) {
+        safePsp.stripe_publishable_key = stripeRuntime.publishableKey;
+      }
 
       res.render("account/finance", {
         title: "Finance & Billing",
@@ -3542,6 +3663,7 @@ module.exports = {
         chargeCards,
         paystackSubaccounts,
         platformStripeKey,
+        createBillDraft,
         billListFilters,
         studentBillingFilters,
         formatMoney: display.formatMoney,
@@ -3729,6 +3851,8 @@ module.exports = {
         });
       }
 
+      delete req.session.financeBillCreateDraft;
+
       await client.query("COMMIT");
 
       req.flash("success", `Bill created and assigned to ${eligibleStudentIds.length} student(s).`);
@@ -3786,9 +3910,13 @@ module.exports = {
         try { await client.query("ROLLBACK"); } catch (_) {}
       }
       console.error("[billCreate]", e);
+      req.session.financeBillCreateDraft = buildFinanceBillCreateDraft(req.body || {});
       req.flash("error", "Could not create bill: " + e.message);
     } finally {
       if (client) client.release();
+    }
+    if (req.session && typeof req.session.save === 'function') {
+      return req.session.save(() => res.redirect("/account/settings/finance?section=bills"));
     }
     res.redirect("/account/settings/finance?section=bills");
   },
@@ -4028,9 +4156,6 @@ module.exports = {
         resolvedTargets.targetClassIds,
         resolvedTargets.targetStudentIds
       );
-      if (!eligibleStudentIds.length && requestedStatus !== 'draft') {
-        throw new PaygiraRequestError('No enrolled students were found for this bill in the selected school year and term.');
-      }
       const schedule = await resolveScheduleValidationContext(client, orgId, {
         bill_type: requestedBillType,
         recurrence: requestedRecurrence,
@@ -4148,9 +4273,9 @@ module.exports = {
           : recalcAssignmentStatus(next.amount, assignmentRow.late_fee_applied, paidAmount, next.due_date);
         await client.query(
           `UPDATE finance_bill_assignments
-              SET amount=$1, due_date=$2, status=$3, updated_at=now()
-            WHERE assignment_id=$4`,
-          [next.amount, next.due_date, recalculatedStatus, assignmentRow.assignment_id]
+              SET amount=$1, status=$2, updated_at=now()
+            WHERE assignment_id=$3`,
+          [next.amount, recalculatedStatus, assignmentRow.assignment_id]
         );
       }
 
@@ -4513,8 +4638,9 @@ module.exports = {
       };
 
       const pspSettings = await loadPspSettings(orgId);
-      const allowedMethods = computeAllowedMethods(pspSettings);
       const orgProfile = await loadOrganizationProfile(orgId);
+      const stripeRuntime = await resolveFinanceStripeRuntime(orgId, pspSettings, orgProfile);
+      const allowedMethods = computeAllowedMethods(pspSettings, { stripeOn: stripeRuntime.stripeOn });
       const display = await buildFinanceDisplayContext(req, orgId, pspSettings, orgProfile.organization_country);
       allowedMethods.currency = display.financeCurrency.code;
 
@@ -4559,8 +4685,10 @@ module.exports = {
     let client;
     try {
       const psp = await loadPspSettings(orgId);
+      const orgProfile = await loadOrganizationProfile(orgId);
       const display = await buildFinanceDisplayContext(req, orgId);
-      const allowedMethods = computeAllowedMethods(psp);
+      const stripeRuntime = await resolveFinanceStripeRuntime(orgId, psp, orgProfile);
+      const allowedMethods = computeAllowedMethods(psp, { stripeOn: stripeRuntime.stripeOn });
       client = await db.connect();
       await client.query("BEGIN");
       const result = await collectStaffPaygiraPayment({
@@ -4644,7 +4772,9 @@ module.exports = {
 
       const display = await buildFinanceDisplayContext(req, orgId);
       const psp = await loadPspSettings(orgId);
-      const allowedMethods = computeAllowedMethods(psp);
+      const orgProfile = await loadOrganizationProfile(orgId);
+      const stripeRuntime = await resolveFinanceStripeRuntime(orgId, psp, orgProfile);
+      const allowedMethods = computeAllowedMethods(psp, { stripeOn: stripeRuntime.stripeOn });
       client = await db.connect();
       await client.query("BEGIN");
 
@@ -5105,12 +5235,16 @@ module.exports = {
       // Payment options available to this guardian (set by the school)
       const pspSettings = await loadPspSettings(orgId);
       const maskedPsp = maskPspSecrets(pspSettings);
-      const allowedMethods = computeAllowedMethods(pspSettings);
-      const stripeCheckoutConfig = buildGuardianStripeCheckoutConfig(allowedMethods.stripeMethods);
       const orgProfile = await loadOrganizationProfile(orgId);
+      const stripeRuntime = await resolveFinanceStripeRuntime(orgId, pspSettings, orgProfile);
+      const allowedMethods = computeAllowedMethods(pspSettings, { stripeOn: stripeRuntime.stripeOn });
+      const stripeCheckoutConfig = buildGuardianStripeCheckoutConfig(allowedMethods.stripeMethods);
       const display = await buildFinanceDisplayContext(req, orgId, pspSettings, orgProfile.organization_country);
       allowedMethods.currency = display.financeCurrency.code;
       maskedPsp.currency = maskedPsp.currency || display.financeCurrency.code;
+      if (!maskedPsp.stripe_publishable_key && stripeRuntime.publishableKey) {
+        maskedPsp.stripe_publishable_key = stripeRuntime.publishableKey;
+      }
 
       res.render("guardian/paygira", {
         title: "PayGira — Pay Bills",
@@ -5157,7 +5291,9 @@ module.exports = {
       }
 
       const pspSettings = await loadPspSettings(orgId);
-      const allowedMethods = computeAllowedMethods(pspSettings);
+      const orgProfile = await loadOrganizationProfile(orgId);
+      const stripeRuntime = await resolveFinanceStripeRuntime(orgId, pspSettings, orgProfile);
+      const allowedMethods = computeAllowedMethods(pspSettings, { stripeOn: stripeRuntime.stripeOn });
       if (!allowedMethods.stripeOn) {
         return res.status(400).json({ success: false, message: 'Stripe is not configured for this school.' });
       }
@@ -5183,11 +5319,10 @@ module.exports = {
 
       const { percentage: platformFeePercentage } = await getPlatformFeeSettings(client);
       const chargeBreakdown = buildFinancePaymentChargeBreakdown(plan.totalExternalAmount, 'stripe', platformFeePercentage);
-      const orgProfile = await loadOrganizationProfile(orgId);
       const display = await buildFinanceDisplayContext(req, orgId, pspSettings, orgProfile.organization_country);
       const currencyCode = String(display.financeCurrency.code || 'USD').toLowerCase();
       const stripeCheckoutConfig = buildGuardianStripeCheckoutConfig(allowedMethods.stripeMethods);
-      const stripe = getSchoolStripeClient(pspSettings);
+      const stripe = getFinanceStripeClient(stripeRuntime);
 
       // ── Stripe Customer: get or create so we can attach payment methods ────
       const gpRow = await client.query(
@@ -5251,6 +5386,13 @@ module.exports = {
         },
         description: `PayGira ${plan.row.bill_title || 'Bill'} · Assignment ${plan.row.assignment_id}`,
       };
+      if (stripeRuntime.useConnectedDestinationCharge && stripeRuntime.connectedAccountId) {
+        piParams.transfer_data = { destination: stripeRuntime.connectedAccountId };
+        const applicationFeeAmount = Math.round(Number(chargeBreakdown.platformFeeAmount || 0) * 100);
+        if (applicationFeeAmount > 0) {
+          piParams.application_fee_amount = applicationFeeAmount;
+        }
+      }
       const paymentIntent = await stripe.paymentIntents.create(piParams);
 
       await upsertPendingGuardianStripePayment(client, {
@@ -5581,7 +5723,9 @@ module.exports = {
       let payMethod = String(method || "card").toLowerCase();
       if (totalExternalAmount > 0) {
         const psp = await loadPspSettings(orgId);
-        const allow = computeAllowedMethods(psp);
+        const orgProfile = await loadOrganizationProfile(orgId);
+        const stripeRuntime = await resolveFinanceStripeRuntime(orgId, psp, orgProfile);
+        const allow = computeAllowedMethods(psp, { stripeOn: stripeRuntime.stripeOn });
         const ok =
           (payMethod === 'card'          && row.accepts_card && allow.stripeOn) ||
           (payMethod === 'stripe'        && row.accepts_card && allow.stripeOn) ||
