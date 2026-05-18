@@ -3960,7 +3960,7 @@ module.exports = {
       payment_destination,
       accepts_card, accepts_cash, accepts_transfer,
       notify_email, notify_sms,
-      status,
+      status, status_action,
     } = req.body;
     const assigneeList = (() => {
       const raw = rawAids || rawAid;
@@ -3974,7 +3974,14 @@ module.exports = {
     const validDest = ['stripe','cash','bank','momo'].includes(String(payment_destination)) ? payment_destination : null;
     const validType = ['one_time','recurring','installment'].includes(String(bill_type)) ? bill_type : null;
     const validRec = ['daily','weekly','monthly','term','year'].includes(String(recurrence)) ? recurrence : null;
-    const validStatus = ['active','draft','scheduled','cancelled'].includes(String(status)) ? status : null;
+    const normalizedStatusAction = String(status_action || '').trim().toLowerCase();
+    const validStatusAction = ['active', 'draft', 'scheduled', 'cancelled'].includes(normalizedStatusAction)
+      ? normalizedStatusAction
+      : null;
+    const normalizedStatus = String(status || '').trim().toLowerCase();
+    const validStatus = ['active','draft','scheduled','cancelled'].includes(normalizedStatus)
+      ? normalizedStatus
+      : null;
     const hasEditedClassTargets = Object.prototype.hasOwnProperty.call(req.body || {}, 'target_class_ids');
     const hasEditedStudentTargets = Object.prototype.hasOwnProperty.call(req.body || {}, 'target_student_ids');
     try {
@@ -3995,7 +4002,7 @@ module.exports = {
       const requestedRecurrence = requestedBillType === 'recurring'
         ? (validRec || before.recurrence || null)
         : null;
-      const requestedStatus = validStatus || before.status || 'active';
+      const requestedStatus = validStatusAction || validStatus || before.status || 'active';
       const requestedSchoolYearId = school_year_id || before.school_year_id;
       const requestedTermId = term_id || before.term_id;
       const requestedAudience = ['school', 'classes', 'students'].includes(String(applies_to))

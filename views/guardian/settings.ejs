@@ -1,45 +1,244 @@
 <style>
-  .settings-container {
-    max-width: 800px;
+  .settings-page {
+    max-width: 920px;
     margin: 0 auto;
     padding: 24px;
   }
 
-  .settings-form-card {
-    background: white;
-    border-radius: 12px;
-    padding: 28px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    border: 1px solid #e2e8f0;
-  }
-
-  .form-section {
-    margin-bottom: 28px;
-  }
-
-  .form-section-title {
-    font-size: 18px;
-    font-weight: 700;
-    color: #1e293b;
-    margin: 0 0 16px 0;
-    padding-bottom: 12px;
-    border-bottom: 2px solid #e2e8f0;
-  }
-
-  .form-row {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 20px;
+  .settings-intro {
     margin-bottom: 20px;
   }
 
+  .settings-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: #ecfeff;
+    border: 1px solid #bae6fd;
+    color: #0f766e;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .settings-page-title {
+    margin: 0 0 6px;
+    font-size: clamp(1.6rem, 2.5vw, 2.15rem);
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.02em;
+  }
+
+  .settings-page-subtitle {
+    margin: 0;
+    max-width: 760px;
+    color: #64748b;
+    font-size: 0.98rem;
+    line-height: 1.6;
+  }
+
+  .settings-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+
+  .settings-column {
+    display: grid;
+    gap: 24px;
+    align-self: start;
+  }
+
+  .settings-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    box-shadow: 0 10px 35px rgba(15, 23, 42, 0.08);
+    overflow: hidden;
+  }
+
+  .settings-card--dark {
+    background: linear-gradient(180deg, #0e1426, #131b33);
+    color: #e9eef8;
+    border-color: rgba(255,255,255,0.08);
+    box-shadow: 0 14px 40px rgba(2, 6, 23, 0.26);
+  }
+
+  .settings-card--dark,
+  .settings-card--dark > .accordion-summary,
+  .settings-card--dark > .accordion-body {
+    background-color: #10182d;
+  }
+
+  .settings-card-header {
+    padding: 24px 24px 0;
+  }
+
+  .profile-settings-shell > .accordion-summary {
+    background: #fff;
+    padding: 22px 24px;
+  }
+
+  .profile-settings-shell > .accordion-summary:hover {
+    background: #f8fafc;
+  }
+
+  .profile-settings-shell[open] > .accordion-summary {
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .profile-settings-shell > .accordion-summary .accordion-badge {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    font-size: 1.15rem;
+  }
+
+  .profile-settings-shell > .accordion-summary .accordion-title {
+    font-size: 1.18rem;
+  }
+
+  .profile-settings-shell > .accordion-body {
+    padding: 0;
+    background: #fff;
+  }
+
+  .settings-card-title {
+    margin: 0 0 6px;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #0f172a;
+  }
+
+  .settings-card-description {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.92rem;
+    line-height: 1.55;
+  }
+
+  .settings-form {
+    padding: 20px 24px 24px;
+    display: grid;
+    gap: 16px;
+  }
+
+  .settings-accordion {
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    background: #f8fafc;
+    overflow: hidden;
+  }
+
+  .settings-card > .settings-accordion,
+  .settings-card.settings-accordion {
+    border: 0;
+    border-radius: inherit;
+    background: transparent;
+  }
+
+  .settings-accordion summary {
+    list-style: none;
+  }
+
+  .settings-accordion summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .accordion-summary {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 18px 20px;
+    background: #f8fafc;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s ease, border-color 0.2s ease;
+  }
+
+  .accordion-summary:hover {
+    background: #f1f5f9;
+  }
+
+  .settings-accordion[open] > .accordion-summary {
+    background: #fff;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .accordion-badge {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(1, 83, 91, 0.14), rgba(111, 211, 196, 0.18));
+    color: #0f766e;
+    font-size: 1.05rem;
+    flex-shrink: 0;
+  }
+
+  .accordion-copy {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .accordion-title {
+    display: block;
+    color: #0f172a;
+    font-size: 1rem;
+    font-weight: 800;
+    line-height: 1.25;
+  }
+
+  .accordion-subtitle {
+    display: block;
+    color: #64748b;
+    font-size: 0.86rem;
+    line-height: 1.45;
+    margin-top: 3px;
+  }
+
+  .accordion-chevron {
+    color: #94a3b8;
+    font-size: 1.3rem;
+    line-height: 1;
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+  }
+
+  .settings-accordion[open] .accordion-chevron {
+    transform: rotate(180deg);
+  }
+
+  .accordion-body {
+    padding: 20px;
+    background: #fff;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+
   .form-field {
-    margin-bottom: 0;
+    margin: 0;
+  }
+
+  .form-field--full {
+    grid-column: 1 / -1;
   }
 
   .form-label {
     display: block;
-    font-weight: 600;
+    font-weight: 700;
     color: #475569;
     margin-bottom: 8px;
     font-size: 14px;
@@ -49,433 +248,796 @@
     width: 100%;
     padding: 12px 16px;
     border: 2px solid #e2e8f0;
-    border-radius: 8px;
-    font-size: 15px;
-    transition: all 0.3s ease;
+    border-radius: 10px;
+    font-size: 16px;
+    font-family: inherit;
+    background: #fff;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
   }
 
   .form-input:focus {
     outline: none;
     border-color: #6fd3c4;
-    box-shadow: 0 0 0 3px rgba(111, 211, 196, 0.1);
+    box-shadow: 0 0 0 3px rgba(111, 211, 196, 0.12);
+  }
+
+  .media-panel {
+    display: grid;
+    gap: 14px;
+  }
+
+  .image-preview-container {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+  }
+
+  .image-preview {
+    width: 82px;
+    height: 82px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #e2e8f0;
+    flex-shrink: 0;
+  }
+
+  .image-upload-info p {
+    margin: 0;
+    color: #64748b;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .image-upload-info p:first-child {
+    font-weight: 700;
+    color: #334155;
+  }
+
+  .helper-text {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.84rem;
+    line-height: 1.5;
   }
 
   .form-actions {
     display: flex;
     gap: 12px;
-    margin-top: 28px;
+    margin-top: 6px;
     padding-top: 20px;
     border-top: 2px solid #e2e8f0;
+    flex-wrap: wrap;
   }
 
   .btn-primary {
     padding: 14px 28px;
     background: var(--primary);
-    color: white;
+    color: #fff;
     border: none;
-    border-radius: 8px;
-    font-weight: 600;
+    border-radius: 10px;
+    font-weight: 700;
     font-size: 15px;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   }
 
   .btn-primary:hover {
     background: var(--primary-hover-fill, var(--primary-hover));
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.18);
   }
 
   .btn-secondary {
     padding: 14px 28px;
-    background: white;
+    background: #fff;
     color: #475569;
     border: 2px solid #e2e8f0;
-    border-radius: 8px;
-    font-weight: 600;
+    border-radius: 10px;
+    font-weight: 700;
     font-size: 15px;
     text-decoration: none;
     cursor: pointer;
-    transition: all 0.3s ease;
-    display: inline-block;
+    transition: background 0.2s ease, border-color 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
-    .btn-secondary:hover {
-      background: #f8fafc;
-      border-color: #cbd5e1;
+  .btn-secondary:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+  }
+
+  .notification-list {
+    display: grid;
+    gap: 10px;
+    margin: 0 0 18px;
+    padding: 0;
+    list-style: none;
+  }
+
+  .notification-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 13px 14px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #f8fafc;
+  }
+
+  .notification-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin-top: 3px;
+    accent-color: #01535b;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+
+  .notification-label {
+    flex: 1;
+    cursor: pointer;
+  }
+
+  .notification-label strong {
+    display: block;
+    font-size: 0.94rem;
+    color: #0f172a;
+    margin-bottom: 2px;
+  }
+
+  .notification-label span {
+    display: block;
+    font-size: 0.83rem;
+    line-height: 1.45;
+    color: #64748b;
+  }
+
+  .settings-card--dark .accordion-summary {
+    background: linear-gradient(180deg, #0e1426, #131b33);
+  }
+
+  .settings-card--dark .accordion-summary:hover {
+    background: linear-gradient(180deg, #14203c, #172240);
+  }
+
+  .settings-card--dark[open] > .accordion-summary {
+    background: linear-gradient(180deg, #14203c, #172240);
+    border-bottom-color: rgba(255,255,255,0.08);
+  }
+
+  .settings-card--dark .accordion-badge {
+    background: linear-gradient(135deg, rgba(0,212,170,0.18), rgba(0,212,170,0.08));
+    color: #00d4aa;
+  }
+
+  .settings-card--dark .accordion-title {
+    color: #f8fafc;
+  }
+
+  .settings-card--dark .accordion-subtitle,
+  .settings-card--dark .accordion-chevron {
+    color: #cbd5e1;
+  }
+
+  .settings-card--dark .accordion-body {
+    background: linear-gradient(180deg, #111a31, #141d36);
+  }
+
+  .paygira-secure-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 13px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(0,212,170,0.18), rgba(0,212,170,0.08));
+    border: 1px solid rgba(0,212,170,0.45);
+    color: #00d4aa;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .paygira-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  .paygira-intro {
+    margin: 0 0 18px;
+    color: #cbd5e1;
+    font-size: 0.92rem;
+    line-height: 1.6;
+  }
+
+  .paygira-cards-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+
+  .wallet-card {
+    position: relative;
+    min-height: 148px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 18px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #1a2348, #0e1426);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #e9eef8;
+  }
+
+  .wallet-card-meta,
+  .wallet-card-footer,
+  .wallet-card-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .wallet-card-brand {
+    font-size: 0.72rem;
+    color: #dbe4f5;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+  }
+
+  .wallet-card-default {
+    background: rgba(0,212,170,0.18);
+    color: #00d4aa;
+    border: 1px solid rgba(0,212,170,0.4);
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .wallet-card-number {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 1.05rem;
+    letter-spacing: 0.15em;
+    font-weight: 600;
+  }
+
+  .wallet-card-footer {
+    font-size: 0.78rem;
+    color: #dbe4f5;
+  }
+
+  .wallet-action-btn {
+    appearance: none;
+    border-radius: 8px;
+    padding: 6px 11px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.06);
+    color: #e9eef8;
+  }
+
+  .wallet-action-btn--danger {
+    background: rgba(255,77,109,0.12);
+    color: #ff4d6d;
+    border-color: rgba(255,77,109,0.3);
+  }
+
+  .paygira-empty-state {
+    text-align: center;
+    padding: 24px;
+    color: #dbe4f5;
+    background: rgba(255,255,255,0.03);
+    border: 1px dashed rgba(255,255,255,0.08);
+    border-radius: 12px;
+    margin-bottom: 22px;
+  }
+
+  .paygira-form {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+    padding: 18px;
+  }
+
+  .paygira-form-title {
+    margin: 0 0 14px;
+    font-size: 1rem;
+    color: #e9eef8;
+    font-weight: 700;
+  }
+
+  .paygira-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .paygira-label {
+    display: block;
+    font-size: 0.7rem;
+    color: #dbe4f5;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .paygira-input,
+  .paygira-select {
+    width: 100%;
+    padding: 11px 14px;
+    border-radius: 10px;
+    background: #080d1a;
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #e9eef8;
+    font-size: 16px;
+    font-family: inherit;
+  }
+
+  .paygira-input--mono {
+    font-family: "JetBrains Mono", monospace;
+    letter-spacing: 0.08em;
+  }
+
+  .paygira-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #e9eef8;
+    font-size: 0.85rem;
+    margin-bottom: 14px;
+    cursor: pointer;
+  }
+
+  .paygira-checkbox input {
+    width: 16px;
+    height: 16px;
+    accent-color: #00d4aa;
+  }
+
+  .paygira-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .paygira-note {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.72rem;
+    color: #dbe4f5;
+    line-height: 1.5;
+  }
+
+  .paygira-submit {
+    background: linear-gradient(135deg, #00d4aa, #00b693);
+    color: #062018;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-weight: 800;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    font-size: 0.85rem;
+  }
+
+  .paygira-link-wrap {
+    margin-top: 18px;
+    text-align: center;
+  }
+
+  .paygira-link {
+    color: #00d4aa;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 0.92rem;
+  }
+
+  @media (max-width: 768px) {
+    .settings-page {
+      padding: 16px;
     }
 
-    /* Image upload sections */
-    .student-image-section {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 24px;
+    .settings-card-header,
+    .settings-form {
+      padding-left: 18px;
+      padding-right: 18px;
     }
 
-    .student-image-section h2 {
-      margin: 0 0 16px 0;
-      font-size: 17px;
-      font-weight: 700;
-      color: #1e293b;
+    .profile-settings-shell > .accordion-summary {
+      padding: 18px;
+    }
+
+    .accordion-summary,
+    .accordion-body {
+      padding: 16px;
+    }
+
+    .form-grid,
+    .paygira-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .form-actions,
+    .paygira-actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .btn-primary,
+    .btn-secondary,
+    .paygira-submit {
+      width: 100%;
+      justify-content: center;
+      text-align: center;
     }
 
     .image-preview-container {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      margin-top: 12px;
-      padding: 16px;
-      background: #fff;
-      border: 1px solid #e2e8f0;
+      flex-direction: column;
+      text-align: center;
+    }
+
+    .wallet-card-number {
+      font-size: 0.94rem;
+      letter-spacing: 0.11em;
+    }
+  }
+
+  @media (max-width: 520px) {
+    .settings-page {
+      padding: 12px;
+    }
+
+    .settings-card {
+      border-radius: 14px;
+    }
+
+    .accordion-summary {
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .accordion-badge {
+      width: 38px;
+      height: 38px;
       border-radius: 10px;
+      font-size: 0.95rem;
     }
 
-    .image-preview {
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 3px solid #e2e8f0;
+    .settings-page-subtitle,
+    .accordion-subtitle,
+    .settings-card-description,
+    .paygira-intro {
+      font-size: 0.9rem;
     }
-
-    .image-upload-info p {
-      margin: 0;
-      color: #64748b;
-      font-size: 14px;
-    }
-
-    .image-upload-info p:first-child {
-      font-weight: 600;
-      color: #334155;
-    }
-
-    @media (max-width: 768px) {
-      .settings-container {
-        padding: 16px;
-      }
-
-      .settings-form-card {
-        padding: 20px;
-      }
-
-      .form-row {
-        grid-template-columns: 1fr;
-        gap: 16px;
-      }
-
-      .form-actions {
-        flex-direction: column;
-      }
-
-      .btn-primary, .btn-secondary {
-        width: 100%;
-        text-align: center;
-      }
-
-      .image-preview-container {
-        flex-direction: column;
-        text-align: center;
-      }
-    }
+  }
 </style>
 
-<div class="settings-container">
-  <div class="settings-form-card">
-    <form action="/guardian/settings" method="POST" enctype="multipart/form-data">
-      
-      <!-- Guardian Profile Image Section -->
-      <div class="student-image-section">
-        <h2>👤 Your Profile Image</h2>
-        <div class="form-field">
-          <label class="form-label">Upload Your Profile Picture</label>
-          <input 
-            type="file" 
-            name="guardianImage" 
-            class="form-input" 
-            accept="image/*"
-          />
-          <div class="image-preview-container">
-            <img 
-              src="<%= guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? guardian.image_url : '/images/profilePlaceholder.png' %>" 
-              alt="Guardian Profile"
-              class="image-preview"
-            />
-            <div class="image-upload-info">
-              <p>Current profile picture</p>
-              <p style="font-size: 12px;">Upload a new image to replace this one</p>
-            </div>
-          </div>
-        </div>
-      </div>
+<% const _cards = (typeof cards !== 'undefined' && Array.isArray(cards)) ? cards : []; %>
+<% const _myChildren = (typeof children !== 'undefined' && Array.isArray(children)) ? children : []; %>
 
-      <!-- Student Image Upload Section -->
-      <% if (students && students.length > 0) { %>
-      <div class="student-image-section">
-        <h2>👨‍👩‍👧‍👦 Update Student Images</h2>
-        <div class="form-field" style="margin-bottom: 16px;">
-          <label class="form-label">Select Student</label>
-          <select name="studentId" id="studentSelect" class="form-input" onchange="updateStudentPreview()">
-            <option value="">-- Select a student to update their image --</option>
-            <% students.forEach(student => { %>
-              <option 
-                value="<%= student.student_id %>" 
-                data-image="<%= student.image_url && student.image_url !== 'profilePlaceholder.png' ? student.image_url : '/images/profilePlaceholder.png' %>">
-                <%= student.first_name %> <%= student.last_name %>
-              </option>
-            <% }) %>
-          </select>
-        </div>
+<div class="settings-page">
+  <div class="settings-intro">
+    <div class="settings-kicker">Guardian Account</div>
+    <h1 class="settings-page-title">Settings &amp; Billing</h1>
+    <p class="settings-page-subtitle">Manage your profile, update student images, control notification preferences, and handle PayGira billing from one responsive dashboard.</p>
+  </div>
 
-        <div class="form-field" id="studentImageUpload" style="display: none;">
-          <label class="form-label">Upload Student Image</label>
-          <input 
-            type="file" 
-            name="studentImage" 
-            class="form-input" 
-            accept="image/*"
-          />
-          <div class="image-preview-container">
-            <img 
-              src="/images/profilePlaceholder.png" 
-              alt="Student"
-              id="studentImagePreview"
-              class="image-preview"
-            />
-            <div class="image-upload-info">
-              <p id="studentImageInfo">Select a student to see their current image</p>
-              <p style="font-size: 12px;">Upload a new image to replace it</p>
+  <div class="settings-grid">
+    <div class="settings-column">
+      <details class="settings-card settings-accordion profile-settings-shell">
+        <summary class="accordion-summary">
+          <span class="accordion-badge">⚙️</span>
+          <span class="accordion-copy">
+            <span class="accordion-title">Profile Settings</span>
+            <span class="accordion-subtitle">Open this section to manage your photo, student images, and all personal details.</span>
+          </span>
+          <span class="accordion-chevron" aria-hidden="true">⌄</span>
+        </summary>
+
+        <div class="accordion-body">
+        <form action="/guardian/settings" method="POST" enctype="multipart/form-data" class="settings-form">
+          <details class="settings-accordion">
+            <summary class="accordion-summary">
+              <span class="accordion-badge">👤</span>
+              <span class="accordion-copy">
+                <span class="accordion-title">Your Profile Image</span>
+                <span class="accordion-subtitle">Upload and preview your current guardian picture.</span>
+              </span>
+              <span class="accordion-chevron" aria-hidden="true">⌄</span>
+            </summary>
+            <div class="accordion-body">
+              <div class="media-panel">
+                <div class="form-field">
+                  <label class="form-label">Upload Your Profile Picture</label>
+                  <input type="file" name="guardianImage" class="form-input" accept="image/*" />
+                </div>
+
+                <div class="image-preview-container">
+                  <img
+                    src="<%= guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? guardian.image_url : '/images/profilePlaceholder.png' %>"
+                    alt="Guardian Profile"
+                    class="image-preview"
+                  />
+                  <div class="image-upload-info">
+                    <p>Current profile picture</p>
+                    <p>Upload a new image to replace this one.</p>
+                  </div>
+                </div>
+              </div>
             </div>
+          </details>
+
+          <% if (students && students.length > 0) { %>
+          <details class="settings-accordion" id="studentImagesAccordion">
+            <summary class="accordion-summary">
+              <span class="accordion-badge">🧒</span>
+              <span class="accordion-copy">
+                <span class="accordion-title">Student Images</span>
+                <span class="accordion-subtitle">Choose a student and replace their current profile image.</span>
+              </span>
+              <span class="accordion-chevron" aria-hidden="true">⌄</span>
+            </summary>
+            <div class="accordion-body">
+              <div class="media-panel">
+                <div class="form-field">
+                  <label class="form-label">Select Student</label>
+                  <select name="studentId" id="studentSelect" class="form-input" onchange="updateStudentPreview()">
+                    <option value="">-- Select a student to update their image --</option>
+                    <% students.forEach(student => { %>
+                      <option
+                        value="<%= student.student_id %>"
+                        data-image="<%= student.image_url && student.image_url !== 'profilePlaceholder.png' ? student.image_url : '/images/profilePlaceholder.png' %>">
+                        <%= student.first_name %> <%= student.last_name %>
+                      </option>
+                    <% }) %>
+                  </select>
+                </div>
+
+                <div class="form-field" id="studentImageUpload" style="display:none;">
+                  <label class="form-label">Upload Student Image</label>
+                  <input type="file" name="studentImage" class="form-input" accept="image/*" />
+
+                  <div class="image-preview-container">
+                    <img src="/images/profilePlaceholder.png" alt="Student" id="studentImagePreview" class="image-preview" />
+                    <div class="image-upload-info">
+                      <p id="studentImageInfo">Select a student to see their current image</p>
+                      <p>Upload a new image to replace it.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </details>
+          <% } %>
+
+          <details class="settings-accordion">
+            <summary class="accordion-summary">
+              <span class="accordion-badge">🪪</span>
+              <span class="accordion-copy">
+                <span class="accordion-title">Personal Information</span>
+                <span class="accordion-subtitle">Update your names, contact information, and location details in one place.</span>
+              </span>
+              <span class="accordion-chevron" aria-hidden="true">⌄</span>
+            </summary>
+            <div class="accordion-body">
+              <div class="form-grid">
+                <div class="form-field">
+                  <label class="form-label">First Name *</label>
+                  <input type="text" name="firstName" class="form-input" value="<%= guardian.first_name %>" required />
+                </div>
+
+                <div class="form-field">
+                  <label class="form-label">Last Name</label>
+                  <input type="text" name="lastName" class="form-input" value="<%= guardian.last_name || '' %>" />
+                </div>
+
+                <div class="form-field">
+                  <label class="form-label">Email Address *</label>
+                  <input type="email" name="email" class="form-input" value="<%= guardian.email || guardian.login_email || '' %>" required />
+                </div>
+
+                <div class="form-field">
+                  <label class="form-label">Phone Number *</label>
+                  <input type="text" name="phone" class="form-input" value="<%= guardian.phone || guardian.login_phone || '' %>" required />
+                </div>
+
+                <div class="form-field form-field--full">
+                  <label class="form-label">Address</label>
+                  <input type="text" name="address" class="form-input" value="<%= guardian.address || '' %>" />
+                </div>
+
+                <div class="form-field form-field--full">
+                  <label class="form-label">Hometown</label>
+                  <input type="text" name="hometown" class="form-input" value="<%= guardian.hometown || '' %>" />
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">💾 Save Changes</button>
+            <a href="/guardian/dashboard" class="btn-secondary">Cancel</a>
           </div>
+        </form>
         </div>
-      </div>
+      </details>
+    </div>
+
+    <div class="settings-column">
+      <% if (typeof notificationPrefs !== 'undefined' && Array.isArray(notificationPrefs) && notificationPrefs.length) {
+           const _saved = (typeof savedNotificationPrefs !== 'undefined' && savedNotificationPrefs) ? savedNotificationPrefs : {}; %>
+      <details class="settings-card settings-accordion">
+        <summary class="accordion-summary">
+          <span class="accordion-badge">📬</span>
+          <span class="accordion-copy">
+            <span class="accordion-title">Email Notifications</span>
+            <span class="accordion-subtitle">Choose which alerts you want to receive about your child(ren).</span>
+          </span>
+          <span class="accordion-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="accordion-body">
+          <p class="helper-text" style="margin-bottom:16px;">Account-security and admission decision emails are always sent.</p>
+
+          <form action="/guardian/settings/notifications" method="POST" autocomplete="off">
+            <ul class="notification-list">
+              <% notificationPrefs.forEach(function(p) {
+                   const checked = (p.key in _saved) ? !!_saved[p.key] : true; %>
+                <li class="notification-item">
+                  <input type="checkbox" name="preferences" id="g-pref-<%= p.key %>" value="<%= p.key %>" <%= checked ? 'checked' : '' %> />
+                  <label for="g-pref-<%= p.key %>" class="notification-label">
+                    <strong><%= p.label %></strong>
+                    <% if (p.description) { %><span><%= p.description %></span><% } %>
+                  </label>
+                </li>
+              <% }); %>
+            </ul>
+
+            <div class="form-actions">
+              <button type="submit" class="btn-primary">💾 Save Preferences</button>
+            </div>
+          </form>
+        </div>
+      </details>
       <% } %>
 
-      <div class="form-section">
-        <h2 class="form-section-title">Personal Information</h2>
-        
-        <div class="form-row">
-          <div class="form-field">
-            <label class="form-label">First Name *</label>
-            <input 
-              type="text" 
-              name="firstName" 
-              class="form-input" 
-              value="<%= guardian.first_name %>" 
-              required
-            />
+      <details id="cards" class="settings-card settings-accordion settings-card--dark">
+        <summary class="accordion-summary">
+          <span class="accordion-badge">💳</span>
+          <span class="accordion-copy">
+            <span class="accordion-title">PayGira Cards &amp; Billing</span>
+            <span class="accordion-subtitle">Manage saved cards and billing tools in one secure place.</span>
+          </span>
+          <span class="accordion-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="accordion-body">
+          <div class="paygira-topbar">
+            <h2 style="margin:0;font-size:1.25rem;font-weight:800;letter-spacing:-0.01em;">💳 Pay<span style="color:#00d4aa;font-style:italic;">Gira</span> — Cards &amp; Billing</h2>
+            <span class="paygira-secure-badge">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+              Secure
+            </span>
           </div>
 
-          <div class="form-field">
-            <label class="form-label">Last Name</label>
-            <input 
-              type="text" 
-              name="lastName" 
-              class="form-input" 
-              value="<%= guardian.last_name || '' %>"
-            />
-          </div>
-        </div>
-      </div>
+          <p class="paygira-intro">Save payment cards to your wallet to pay your child's bills in one tap. Only the last 4 digits are stored and shown.</p>
 
-      <div class="form-section">
-        <h2 class="form-section-title">Contact Information</h2>
-        
-        <div class="form-row">
-          <div class="form-field">
-            <label class="form-label">Email Address *</label>
-            <input 
-              type="email" 
-              name="email" 
-              class="form-input" 
-              value="<%= guardian.email || guardian.login_email || '' %>" 
-              required
-            />
-          </div>
+          <% if (_cards.length) { %>
+            <div class="paygira-cards-grid">
+              <% _cards.forEach(function(c) { %>
+                <div class="wallet-card">
+                  <div class="wallet-card-meta">
+                    <span class="wallet-card-brand"><%= c.brand || 'Card' %></span>
+                    <% if (c.is_default) { %>
+                      <span class="wallet-card-default">Default</span>
+                    <% } %>
+                  </div>
 
-          <div class="form-field">
-            <label class="form-label">Phone Number *</label>
-            <input 
-              type="text" 
-              name="phone" 
-              class="form-input" 
-              value="<%= guardian.phone || guardian.login_phone || '' %>" 
-              required
-            />
-          </div>
-        </div>
-      </div>
+                  <div class="wallet-card-number">•••• •••• •••• <%= c.last4 %></div>
 
-      <div class="form-section">
-        <h2 class="form-section-title">Location</h2>
-        
-        <div class="form-field" style="margin-bottom: 20px;">
-          <label class="form-label">Address</label>
-          <input 
-            type="text" 
-            name="address" 
-            class="form-input" 
-            value="<%= guardian.address || '' %>"
-          />
-        </div>
+                  <div class="wallet-card-footer">
+                    <span><%= c.holder_name || '—' %></span>
+                    <span><%= c.exp_month ? String(c.exp_month).padStart(2,'0') : '--' %>/<%= c.exp_year ? String(c.exp_year).slice(-2) : '--' %></span>
+                  </div>
 
-        <div class="form-field">
-          <label class="form-label">Hometown</label>
-          <input 
-            type="text" 
-            name="hometown" 
-            class="form-input" 
-            value="<%= guardian.hometown || '' %>"
-          />
-        </div>
-      </div>
+                  <div class="wallet-card-actions">
+                    <% if (!c.is_default) { %>
+                      <form action="/guardian/cards/<%= c.card_id %>/default" method="POST">
+                        <button type="submit" class="wallet-action-btn">Make Default</button>
+                      </form>
+                    <% } %>
 
-      <div class="form-actions">
-        <button type="submit" class="btn-primary">💾 Save Changes</button>
-        <a href="/guardian/dashboard" class="btn-secondary">Cancel</a>
-      </div>
-    </form>
-  </div>
+                    <form action="/guardian/cards/<%= c.card_id %>/delete" method="POST" onsubmit="return confirm('Remove this card?');">
+                      <button type="submit" class="wallet-action-btn wallet-action-btn--danger">Remove</button>
+                    </form>
+                  </div>
+                </div>
+              <% }); %>
+            </div>
+          <% } else { %>
+            <div class="paygira-empty-state">No cards saved yet. Add your first card below to make one-tap payments on PayGira.</div>
+          <% } %>
 
-  <% if (typeof notificationPrefs !== 'undefined' && Array.isArray(notificationPrefs) && notificationPrefs.length) {
-       const _saved = (typeof savedNotificationPrefs !== 'undefined' && savedNotificationPrefs) ? savedNotificationPrefs : {}; %>
-  <div class="settings-section" style="margin-top:24px;background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:24px;box-shadow:0 6px 22px rgba(15,23,42,0.06);">
-    <h2 style="margin:0 0 6px;font-size:1.2rem;color:#0f172a;">📬 Email Notifications</h2>
-    <p style="margin:0 0 16px;color:#64748b;font-size:0.92rem;">Choose which emails you want to receive about your child(ren). Account-security and admission decision emails are always sent.</p>
+          <form action="/guardian/cards" method="POST" autocomplete="off" class="paygira-form">
+            <h3 class="paygira-form-title">➕ Add a new card</h3>
 
-    <form action="/guardian/settings/notifications" method="POST" autocomplete="off">
-      <ul style="display:flex;flex-direction:column;gap:10px;margin:0 0 16px;padding:0;list-style:none;">
-        <% notificationPrefs.forEach(function(p) {
-             const checked = (p.key in _saved) ? !!_saved[p.key] : true; %>
-          <li style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border:1px solid #e5e7eb;border-radius:10px;background:#f9fafb;">
-            <input type="checkbox" name="preferences" id="g-pref-<%= p.key %>" value="<%= p.key %>" <%= checked ? 'checked' : '' %> style="margin-top:4px;width:18px;height:18px;accent-color:#01535b;flex-shrink:0;cursor:pointer;" />
-            <label for="g-pref-<%= p.key %>" style="flex:1;cursor:pointer;">
-              <span style="font-weight:600;color:#0f172a;font-size:0.93rem;display:block;"><%= p.label %></span>
-              <% if (p.description) { %><span style="font-size:0.83rem;color:#64748b;margin-top:2px;line-height:1.4;display:block;"><%= p.description %></span><% } %>
+            <div class="paygira-grid">
+              <div>
+                <label class="paygira-label">Card number</label>
+                <input type="text" name="card_number" inputmode="numeric" pattern="[0-9 ]{12,23}" placeholder="1234 5678 9012 3456" required class="paygira-input paygira-input--mono" />
+              </div>
+
+              <div>
+                <label class="paygira-label">Cardholder name</label>
+                <input type="text" name="holder_name" placeholder="e.g. JANE DOE" class="paygira-input" style="text-transform:uppercase;" />
+              </div>
+
+              <div>
+                <label class="paygira-label">Exp Month</label>
+                <input type="number" name="exp_month" min="1" max="12" placeholder="MM" required class="paygira-input" />
+              </div>
+
+              <div>
+                <label class="paygira-label">Exp Year</label>
+                <input type="number" name="exp_year" min="2024" max="2099" placeholder="YYYY" required class="paygira-input" />
+              </div>
+
+              <div>
+                <label class="paygira-label">Attach to child (optional)</label>
+                <select name="child_student_id" class="paygira-select">
+                  <option value="">— Any of my children —</option>
+                  <% _myChildren.forEach(function(ch){ %>
+                    <option value="<%= ch.student_id %>"><%= ch.first_name %> <%= ch.last_name %></option>
+                  <% }); %>
+                </select>
+              </div>
+            </div>
+
+            <label class="paygira-checkbox">
+              <input type="checkbox" name="set_default" value="1">
+              Make this my default payment card
             </label>
-          </li>
-        <% }); %>
-      </ul>
-      <div class="form-actions">
-        <button type="submit" class="btn-primary">💾 Save Preferences</button>
-      </div>
-    </form>
-  </div>
-  <% } %>
 
-  <!-- ====================== PayGira Cards & Billing ====================== -->
-  <div id="cards" class="settings-section" style="margin-top:24px;background:linear-gradient(180deg,#0e1426,#131b33);color:#e9eef8;border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,0.18);">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:8px;">
-      <h2 style="margin:0;font-size:1.25rem;font-weight:800;letter-spacing:-0.01em;">
-        💳 Pay<span style="color:#00D4AA;font-style:italic;">Gira</span> — Cards &amp; Billing
-      </h2>
-      <span class="paygira-secure-badge" style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;background:linear-gradient(135deg,rgba(0,212,170,0.18),rgba(0,212,170,0.08));border:1px solid rgba(0,212,170,0.45);color:#00D4AA;font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
-        Secure
-      </span>
-    </div>
-    <p style="margin:0 0 18px;color:#8a93a8;font-size:0.9rem;">
-      Save payment cards to your wallet to pay your child's bills in one tap. Only the last 4 digits are stored — your full card number stays private.
-    </p>
+            <div class="paygira-actions">
+              <span class="paygira-note">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+                We store only the last 4 digits — your full PAN is never saved.
+              </span>
 
-    <% const _cards = (typeof cards !== 'undefined' && Array.isArray(cards)) ? cards : []; %>
-    <% const _myChildren = (typeof children !== 'undefined' && Array.isArray(children)) ? children : []; %>
+              <button type="submit" class="paygira-submit">🔒 Save Card Securely</button>
+            </div>
+          </form>
 
-    <!-- Saved cards list -->
-    <% if (_cards.length) { %>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:22px;">
-        <% _cards.forEach(function(c) { %>
-          <div style="position:relative;background:linear-gradient(135deg,#1a2348,#0e1426);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:18px;color:#e9eef8;min-height:140px;display:flex;flex-direction:column;justify-content:space-between;">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-              <span style="font-size:.7rem;color:#8a93a8;text-transform:uppercase;letter-spacing:.08em;font-weight:700;"><%= c.brand || 'Card' %></span>
-              <% if (c.is_default) { %>
-                <span style="background:rgba(0,212,170,0.18);color:#00D4AA;border:1px solid rgba(0,212,170,0.4);padding:2px 8px;border-radius:999px;font-size:.62rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">Default</span>
-              <% } %>
-            </div>
-            <div style="font-family:'JetBrains Mono',monospace;font-size:1.05rem;letter-spacing:.15em;font-weight:600;">
-              •••• •••• •••• <%= c.last4 %>
-            </div>
-            <div style="display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:#8a93a8;">
-              <span><%= c.holder_name || '—' %></span>
-              <span><%= c.exp_month ? String(c.exp_month).padStart(2,'0') : '--' %>/<%= c.exp_year ? String(c.exp_year).slice(-2) : '--' %></span>
-            </div>
-            <div style="display:flex;gap:8px;margin-top:10px;">
-              <% if (!c.is_default) { %>
-                <form action="/guardian/cards/<%= c.card_id %>/default" method="POST" style="display:inline;">
-                  <button type="submit" style="background:rgba(255,255,255,0.06);color:#e9eef8;border:1px solid rgba(255,255,255,0.1);padding:5px 10px;border-radius:8px;font-size:.72rem;font-weight:600;cursor:pointer;">Make Default</button>
-                </form>
-              <% } %>
-              <form action="/guardian/cards/<%= c.card_id %>/delete" method="POST" style="display:inline;" onsubmit="return confirm('Remove this card?');">
-                <button type="submit" style="background:rgba(255,77,109,0.12);color:#FF4D6D;border:1px solid rgba(255,77,109,0.3);padding:5px 10px;border-radius:8px;font-size:.72rem;font-weight:600;cursor:pointer;">Remove</button>
-              </form>
-            </div>
+          <div class="paygira-link-wrap">
+            <a href="/guardian/paygira" class="paygira-link">Go to PayGira to pay a bill →</a>
           </div>
-        <% }); %>
-      </div>
-    <% } else { %>
-      <div style="text-align:center;padding:24px;color:#8a93a8;background:rgba(255,255,255,0.03);border:1px dashed rgba(255,255,255,0.08);border-radius:12px;margin-bottom:22px;">
-        No cards saved yet. Add your first card below to make one-tap payments on PayGira.
-      </div>
-    <% } %>
-
-    <!-- Add card form -->
-    <form action="/guardian/cards" method="POST" autocomplete="off" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:18px;">
-      <h3 style="margin:0 0 14px;font-size:1rem;color:#e9eef8;font-weight:700;">➕ Add a new card</h3>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:12px;">
-        <div>
-          <label style="display:block;font-size:.7rem;color:#8a93a8;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px;">Card number</label>
-          <input type="text" name="card_number" inputmode="numeric" pattern="[0-9 ]{12,23}" placeholder="1234 5678 9012 3456" required
-                 style="width:100%;padding:11px 14px;border-radius:10px;background:#080d1a;border:1px solid rgba(255,255,255,0.1);color:#e9eef8;font-family:'JetBrains Mono',monospace;letter-spacing:.08em;">
         </div>
-        <div>
-          <label style="display:block;font-size:.7rem;color:#8a93a8;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px;">Cardholder name</label>
-          <input type="text" name="holder_name" placeholder="e.g. JANE DOE"
-                 style="width:100%;padding:11px 14px;border-radius:10px;background:#080d1a;border:1px solid rgba(255,255,255,0.1);color:#e9eef8;text-transform:uppercase;">
-        </div>
-        <div>
-          <label style="display:block;font-size:.7rem;color:#8a93a8;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px;">Exp Month</label>
-          <input type="number" name="exp_month" min="1" max="12" placeholder="MM" required
-                 style="width:100%;padding:11px 14px;border-radius:10px;background:#080d1a;border:1px solid rgba(255,255,255,0.1);color:#e9eef8;">
-        </div>
-        <div>
-          <label style="display:block;font-size:.7rem;color:#8a93a8;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px;">Exp Year</label>
-          <input type="number" name="exp_year" min="2024" max="2099" placeholder="YYYY" required
-                 style="width:100%;padding:11px 14px;border-radius:10px;background:#080d1a;border:1px solid rgba(255,255,255,0.1);color:#e9eef8;">
-        </div>
-        <div>
-          <label style="display:block;font-size:.7rem;color:#8a93a8;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px;">Attach to child (optional)</label>
-          <select name="child_student_id" style="width:100%;padding:11px 14px;border-radius:10px;background:#080d1a;border:1px solid rgba(255,255,255,0.1);color:#e9eef8;">
-            <option value="">— Any of my children —</option>
-            <% _myChildren.forEach(function(ch){ %>
-              <option value="<%= ch.student_id %>"><%= ch.first_name %> <%= ch.last_name %></option>
-            <% }); %>
-          </select>
-        </div>
-      </div>
-      <label style="display:flex;align-items:center;gap:8px;color:#e9eef8;font-size:.85rem;margin-bottom:14px;cursor:pointer;">
-        <input type="checkbox" name="set_default" value="1" style="width:16px;height:16px;accent-color:#00D4AA;">
-        Make this my default payment card
-      </label>
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-        <span style="font-size:.72rem;color:#8a93a8;display:inline-flex;align-items:center;gap:5px;">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
-          We store only the last 4 digits — your full PAN is never saved.
-        </span>
-        <button type="submit" style="background:linear-gradient(135deg,#00D4AA,#00b693);color:#062018;border:none;padding:10px 18px;border-radius:10px;font-weight:800;cursor:pointer;letter-spacing:.04em;font-size:.85rem;">
-          🔒 Save Card Securely
-        </button>
-      </div>
-    </form>
-
-    <div style="margin-top:18px;text-align:center;">
-      <a href="/guardian/paygira" style="color:#00D4AA;text-decoration:none;font-weight:600;font-size:.9rem;">
-        Go to PayGira to pay a bill →
-      </a>
+      </details>
     </div>
   </div>
-  <!-- ==================== /PayGira Cards & Billing ==================== -->
 </div>
 
 <script>
@@ -484,18 +1046,32 @@ function updateStudentPreview() {
   const uploadSection = document.getElementById('studentImageUpload');
   const preview = document.getElementById('studentImagePreview');
   const info = document.getElementById('studentImageInfo');
-  
+  const accordion = document.getElementById('studentImagesAccordion');
+
+  if (!select || !uploadSection || !preview || !info) return;
+
   if (select.value) {
     const selectedOption = select.options[select.selectedIndex];
     const imageUrl = selectedOption.dataset.image;
-    
+
     preview.src = imageUrl;
     info.textContent = `Current image for ${selectedOption.text}`;
     uploadSection.style.display = 'block';
+    if (accordion) accordion.open = true;
   } else {
     uploadSection.style.display = 'none';
     preview.src = '/images/profilePlaceholder.png';
     info.textContent = 'Select a student to see their current image';
   }
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.location.hash === '#cards') {
+    const cardsSection = document.getElementById('cards');
+    if (cardsSection) {
+      cardsSection.open = true;
+      cardsSection.scrollIntoView({ block: 'start' });
+    }
+  }
+});
 </script>

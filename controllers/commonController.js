@@ -3546,6 +3546,7 @@ const commonController = {
         currency: stripeChargeCurrency.toLowerCase(),
         description: `Public registration – ${first_name} ${last_name} · ${organizationName}`,
         metadata,
+        automatic_payment_methods: { enabled: true, allow_redirects: 'always' },
         ...(guardianEmail ? { receipt_email: guardianEmail } : {}),
       };
 
