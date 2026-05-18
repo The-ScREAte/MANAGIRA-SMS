@@ -1139,6 +1139,73 @@ function computeAllowedMethods(pspSettings, options = {}) {
   };
 }
 
+function mapPayoutAccountTypeToCollectionDestination(accountType) {
+  const normalized = String(accountType || '').trim().toLowerCase();
+  if (normalized === 'stripe_card') return 'stripe';
+  if (normalized === 'bank') return 'bank';
+  if (normalized === 'mobile_money') return 'momo';
+  return null;
+}
+
+function buildCollectionDestinationLabel(account, stripeRuntime) {
+  const destination = mapPayoutAccountTypeToCollectionDestination(account && account.account_type);
+  if (destination === 'stripe') {
+    if (stripeRuntime && stripeRuntime.connectedAccountId) return 'Stripe Payout Account';
+    return 'Stripe';
+  }
+  if (destination === 'bank') {
+    return account && (account.bank_name || account.business_name)
+      ? `Bank Account — ${account.bank_name || account.business_name}`
+      : 'Bank Account';
+  }
+  if (destination === 'momo') {
+    return account && (account.momo_provider || account.business_name)
+      ? `Mobile Money — ${account.momo_provider || account.business_name}`
+      : 'Mobile Money';
+  }
+  return '';
+}
+
+async function resolveBillCollectionDestinations(database, orgId, orgProfileInput = null, pspSettingsInput = null) {
+  const orgProfile = orgProfileInput && Object.keys(orgProfileInput).length
+    ? orgProfileInput
+    : await loadOrganizationProfile(orgId);
+  const pspSettings = pspSettingsInput && Object.keys(pspSettingsInput).length
+    ? pspSettingsInput
+    : await loadPspSettings(orgId).catch(() => ({}));
+  const stripeRuntime = await resolveFinanceStripeRuntime(orgId, pspSettings, orgProfile);
+  const payoutAccounts = (await database.query(
+    `SELECT id, account_type, business_name, bank_name, momo_provider, is_primary
+       FROM paystack_subaccounts
+      WHERE organization_id = $1
+      ORDER BY is_primary DESC, id ASC`,
+    [orgId]
+  )).rows;
+
+  const primaryPayoutAccount = payoutAccounts.find((account) => account.is_primary) || payoutAccounts[0] || null;
+  const options = [];
+
+  if (primaryPayoutAccount) {
+    const value = mapPayoutAccountTypeToCollectionDestination(primaryPayoutAccount.account_type);
+    if (value) {
+      options.push({
+        value,
+        label: buildCollectionDestinationLabel(primaryPayoutAccount, stripeRuntime),
+      });
+    }
+  } else if (stripeRuntime && stripeRuntime.stripeOn) {
+    options.push({
+      value: 'stripe',
+      label: stripeRuntime.connectedAccountId ? 'Stripe Payout Account' : 'Stripe',
+    });
+  }
+
+  return {
+    options,
+    defaultValue: options[0] ? options[0].value : '',
+  };
+}
+
 function maskPspSecrets(p) {
   const safe = { ...(p || {}) };
   ['stripe_secret_key','stripe_webhook_secret'].forEach(k => {
@@ -3636,6 +3703,7 @@ module.exports = {
       const safePsp = maskPspSecrets(pspSettings);
       const stripeRuntime = await resolveFinanceStripeRuntime(orgId, pspSettings, orgProfile);
       const allowedMethods = computeAllowedMethods(pspSettings, { stripeOn: stripeRuntime.stripeOn });
+      const collectionDestinations = await resolveBillCollectionDestinations(db, orgId, orgProfile, pspSettings);
       allowedMethods.currency = display.financeCurrency.code;
       safePsp.currency = safePsp.currency || display.financeCurrency.code;
       if (!safePsp.stripe_publishable_key && stripeRuntime.publishableKey) {
@@ -3662,6 +3730,8 @@ module.exports = {
         arrearsPresets,
         chargeCards,
         paystackSubaccounts,
+        collectionDestinationOptions: collectionDestinations.options,
+        defaultCollectionDestination: collectionDestinations.defaultValue,
         platformStripeKey,
         createBillDraft,
         billListFilters,
@@ -3762,8 +3832,14 @@ module.exports = {
         )];
       })();
       const assignee_id = assigneeList[0] || null; // primary (legacy column)
-      const destination = ['stripe','cash','bank','momo'].includes(String(payment_destination))
-        ? payment_destination : 'stripe';
+      const collectionDestinations = await resolveBillCollectionDestinations(client, orgId);
+      const allowedDestinationValues = new Set(collectionDestinations.options.map((option) => option.value));
+      const destination = allowedDestinationValues.has(String(payment_destination || '').trim())
+        ? String(payment_destination).trim()
+        : collectionDestinations.defaultValue;
+      if (!destination) {
+        throw new PaygiraRequestError('Set a primary payout account in Account Settings before creating a bill.');
+      }
 
       const resolvedBillType = ['one_time','recurring','installment'].includes(String(bill_type))
         ? String(bill_type)
@@ -4099,7 +4175,7 @@ module.exports = {
     })();
     const edit_assignee_id = assigneeList[0] || null;
     const newAmount = Number(amount || 0);
-    const validDest = ['stripe','cash','bank','momo'].includes(String(payment_destination)) ? payment_destination : null;
+    const requestedDestination = String(payment_destination || '').trim();
     const validType = ['one_time','recurring','installment'].includes(String(bill_type)) ? bill_type : null;
     const validRec = ['daily','weekly','monthly','term','year'].includes(String(recurrence)) ? recurrence : null;
     const normalizedStatusAction = String(status_action || '').trim().toLowerCase();
@@ -4112,6 +4188,8 @@ module.exports = {
       : null;
     const hasEditedClassTargets = Object.prototype.hasOwnProperty.call(req.body || {}, 'target_class_ids');
     const hasEditedStudentTargets = Object.prototype.hasOwnProperty.call(req.body || {}, 'target_student_ids');
+    const submittedClassTargetIds = normalizeIdArray(target_class_ids);
+    const submittedStudentTargetIds = normalizeIdArray(target_student_ids);
     try {
       client = await db.connect();
       await client.query("BEGIN");
@@ -4126,6 +4204,15 @@ module.exports = {
         return res.redirect("/account/settings/finance?section=bills");
       }
 
+      const collectionDestinations = await resolveBillCollectionDestinations(client, orgId);
+      const allowedDestinationValues = new Set(collectionDestinations.options.map((option) => option.value));
+      const validDest = allowedDestinationValues.has(requestedDestination)
+        ? requestedDestination
+        : collectionDestinations.defaultValue;
+      if (!validDest) {
+        throw new PaygiraRequestError('Set a primary payout account in Account Settings before updating this bill.');
+      }
+
       const requestedBillType = validType || before.bill_type || 'one_time';
       const requestedRecurrence = requestedBillType === 'recurring'
         ? (validRec || before.recurrence || null)
@@ -4138,14 +4225,20 @@ module.exports = {
         : (['school', 'classes', 'students'].includes(String(before.applies_to))
             ? String(before.applies_to)
             : 'school');
+      if (requestedAudience === 'classes' && hasEditedClassTargets && !submittedClassTargetIds.length) {
+        throw new PaygiraRequestError('Choose one or more classes for this bill.');
+      }
+      if (requestedAudience === 'students' && hasEditedStudentTargets && !submittedStudentTargetIds.length) {
+        throw new PaygiraRequestError('Choose one or more students for this bill.');
+      }
       const academicContext = await resolveBillAcademicContext(client, orgId, requestedSchoolYearId, requestedTermId);
       const resolvedTargets = await loadBillAudienceTargets(
         client,
         orgId,
         billId,
         requestedAudience,
-        hasEditedClassTargets ? target_class_ids : before.target_class_ids,
-        hasEditedStudentTargets ? target_student_ids : before.target_student_ids
+        hasEditedClassTargets ? submittedClassTargetIds : before.target_class_ids,
+        hasEditedStudentTargets ? submittedStudentTargetIds : before.target_student_ids
       );
       const eligibleStudentIds = await loadEligibleBillStudents(
         client,
@@ -4182,7 +4275,7 @@ module.exports = {
         term_id: academicContext.termId,
         target_class_ids: resolvedTargets.targetClassIds,
         target_student_ids: resolvedTargets.targetStudentIds,
-        payment_destination: validDest || before.payment_destination || 'stripe',
+        payment_destination: validDest,
         accepts_card: !!accepts_card,
         accepts_cash: !!accepts_cash,
         accepts_transfer: !!accepts_transfer,

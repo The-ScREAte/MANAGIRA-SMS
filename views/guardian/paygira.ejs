@@ -11,15 +11,14 @@
 <style>
   :root {
     --pg-bg:        #080d1a;
-    --pg-surface:   #0e1426;
-    --pg-surface-2: #131b33;
+    --pg-surface:   #10182d;
+    --pg-surface-2: #162038;
     --pg-border:    rgba(255,255,255,.08);
     --pg-text:      #e9eef8;
     --pg-muted:     #8a93a8;
     --pg-teal:      #00D4AA;
     --pg-gold:      #F5C842;
     --pg-red:       #FF4D6D;
-    --pg-purple:    #7B61FF;
   }
 
   .pg-wrap {
@@ -27,41 +26,40 @@
     color:var(--pg-text);
     min-height:calc(100vh - 80px);
     font-family:'Space Grotesk','DM Sans',system-ui,sans-serif;
-    padding:clamp(18px, 3vw, 32px) clamp(12px, 2.5vw, 20px) 64px;
+    padding:clamp(30px, 5vw, 48px) clamp(12px, 2.5vw, 20px) 64px;
   }
   .pg-container { max-width:1200px; margin:0 auto; }
 
   .pg-head {
     display:flex; justify-content:space-between; align-items:flex-start;
-    gap:16px; flex-wrap:wrap; margin-bottom:28px;
+    gap:16px; flex-wrap:wrap; margin-bottom:22px;
   }
   .pg-head h1 {
     margin:0; font-size:2.1rem; font-weight:800; letter-spacing:-.02em;
     font-family:'Space Grotesk',sans-serif;
   }
   .pg-head h1 .accent { color:var(--pg-teal); font-style:italic; }
-  .pg-head p { margin:6px 0 0; color:var(--pg-muted); font-size:.92rem; }
+  .pg-head p { margin:8px 0 0; color:var(--pg-muted); font-size:.92rem; max-width:56ch; line-height:1.55; }
 
   .paygira-secure-badge {
     display:inline-flex; align-items:center; gap:6px;
     padding:8px 14px; border-radius:999px;
-    background:linear-gradient(135deg, rgba(0,212,170,.18), rgba(0,212,170,.08));
-    border:1px solid rgba(0,212,170,.45);
+    background:rgba(0,212,170,.08);
+    border:1px solid rgba(0,212,170,.26);
     color:var(--pg-teal);
     font-size:.72rem; font-weight:700; letter-spacing:.08em;
     text-transform:uppercase;
     font-family:'Space Grotesk',sans-serif;
-    box-shadow:0 4px 18px rgba(0,212,170,.18);
     white-space:nowrap;
   }
 
-  .pg-stats { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:14px; margin-bottom:28px; }
+  .pg-stats { display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:12px; margin-bottom:24px; }
   .pg-stat {
-    background:linear-gradient(180deg, var(--pg-surface), var(--pg-surface-2));
-    border:1px solid var(--pg-border); border-radius:16px; padding:18px 20px;
+    background:var(--pg-surface);
+    border:1px solid var(--pg-border); border-radius:14px; padding:16px 18px;
   }
   .pg-stat .label { font-size:.72rem; color:var(--pg-muted); text-transform:uppercase; letter-spacing:.08em; font-weight:600; }
-  .pg-stat .value { font-size:1.7rem; font-weight:800; margin-top:6px; font-family:'JetBrains Mono',monospace; }
+  .pg-stat .value { font-size:1.55rem; font-weight:800; margin-top:6px; font-family:'JetBrains Mono',monospace; }
   .pg-stat .sub   { font-size:.75rem; color:var(--pg-muted); margin-top:4px; }
   .pg-stat.teal .value { color:var(--pg-teal); }
   .pg-stat.gold .value { color:var(--pg-gold); }
@@ -74,20 +72,20 @@
   }
 
   .pg-child-card {
-    background:linear-gradient(180deg, var(--pg-surface), var(--pg-surface-2));
+    background:var(--pg-surface);
     border:1px solid var(--pg-border);
-    border-radius:18px;
+    border-radius:16px;
     overflow:hidden;
-    margin-bottom:22px;
+    margin-bottom:18px;
   }
   .pg-child-head {
     display:flex; align-items:center; gap:14px;
     padding:18px 22px; border-bottom:1px solid var(--pg-border);
-    background:rgba(123,97,255,.05);
+    background:rgba(255,255,255,.02);
   }
   .pg-child-avatar {
     width:48px; height:48px; border-radius:50%; object-fit:cover;
-    border:2px solid var(--pg-teal);
+    border:1px solid rgba(0,212,170,.32);
     background:var(--pg-surface-2);
   }
   .pg-child-name { font-weight:700; font-size:1.05rem; }
@@ -96,15 +94,24 @@
   .pg-child-copy { min-width:0; }
 
   .pg-bill-row {
-    display:grid; grid-template-columns: 1.5fr 1fr 1fr 1fr auto;
-    gap:14px; align-items:center;
-    padding:14px 22px; border-bottom:1px solid var(--pg-border);
+    display:grid; grid-template-columns: minmax(0, 1.6fr) minmax(88px, .8fr) minmax(88px, .8fr) minmax(116px, 1fr) auto;
+    gap:12px; align-items:center;
+    padding:16px 22px; border-bottom:1px solid var(--pg-border);
     cursor:pointer; transition:background .15s;
   }
-  .pg-bill-row:hover { background:rgba(0,212,170,.04); }
+  .pg-bill-row:hover { background:rgba(255,255,255,.03); }
   .pg-bill-row:last-child { border-bottom:none; }
   .pg-bill-title { font-weight:600; }
-  .pg-bill-sub { color:var(--pg-muted); font-size:.78rem; margin-top:2px; }
+  .pg-bill-sub {
+    color:var(--pg-muted);
+    font-size:.77rem;
+    margin-top:3px;
+    line-height:1.45;
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
+  }
   .pg-amount { font-family:'JetBrains Mono',monospace; font-weight:600; }
   .pg-balance { font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--pg-gold); }
   .pg-bill-col { min-width:0; }
@@ -127,8 +134,8 @@
 
   .pg-btn {
     display:inline-flex; align-items:center; gap:6px;
-    padding:8px 14px; border-radius:10px;
-    font-size:.78rem; font-weight:700; cursor:pointer;
+    padding:8px 13px; border-radius:9px;
+    font-size:.76rem; font-weight:700; cursor:pointer;
     border:none; transition:all .15s;
     text-decoration:none;
   }
@@ -143,18 +150,15 @@
   .pg-flash.error   { background:rgba(255,77,109,.12); color:var(--pg-red);  border:1px solid rgba(255,77,109,.3); }
 
   .pg-empty { text-align:center; padding:48px 20px; color:var(--pg-muted); }
-  .pg-empty .icon { font-size:3rem; margin-bottom:10px; }
-
-  /* Modal */
   .pg-modal-bg {
     display:none; position:fixed; inset:0; background:rgba(0,0,0,.78);
-    z-index:1000; align-items:center; justify-content:center; padding:12px; overflow-y:auto;
+    z-index:1000; align-items:flex-start; justify-content:center;
+    padding:clamp(72px,11vh,90px) 12px 32px; overflow-y:auto;
   }
   .pg-modal-bg.open { display:flex; }
   .pg-modal {
     background:var(--pg-surface); border:1px solid var(--pg-border); border-radius:16px;
-    padding:20px; max-width:520px; width:100%; color:var(--pg-text);
-    max-height:calc(100vh - 24px); overflow-y:auto;
+    padding:22px; max-width:520px; width:100%; color:var(--pg-text); box-shadow:0 20px 48px rgba(0,0,0,.32);
   }
   .pg-modal h3 { margin:0 0 18px; font-size:1.2rem; }
   .pg-form-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px 12px; }
@@ -162,48 +166,43 @@
   .pg-field { margin-bottom:0; }
   .pg-field label { display:block; font-size:.78rem; color:var(--pg-muted); margin-bottom:6px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; }
   .pg-field input, .pg-field select {
-    width:100%; padding:9px 12px; border-radius:9px;
+    width:100%; padding:10px 12px; border-radius:9px;
     background:var(--pg-bg); border:1px solid var(--pg-border); color:var(--pg-text);
-    font-family:inherit; font-size:.88rem;
+    font-family:inherit; font-size:1rem;
   }
   .pg-field input:disabled { background:rgba(255,255,255,.04); color:var(--pg-text); }
   .pg-field input:focus, .pg-field select:focus { outline:none; border-color:var(--pg-teal); }
   .pg-modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:18px; }
   .pg-recurring-panel {
     border:1px solid rgba(0,212,170,.22);
-    background:linear-gradient(180deg, rgba(0,212,170,.09), rgba(14,20,38,.92));
+    background:rgba(0,212,170,.06);
     border-radius:16px;
     padding:16px;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.03);
-  }
-  .pg-recurring-caption {
-    color:var(--pg-muted);
-    font-size:.76rem;
-    margin:-2px 0 12px;
   }
   .pg-recurring-toolbar {
-    display:flex;
-    align-items:stretch;
-    justify-content:space-between;
+    display:grid;
+    grid-template-columns:minmax(0, 1fr) auto;
+    align-items:center;
     gap:12px;
-    flex-wrap:wrap;
     margin-bottom:12px;
   }
   .pg-recurring-summary {
     color:var(--pg-text);
     font-size:.82rem;
     font-weight:700;
-    padding:12px 14px;
+    min-height:44px;
+    padding:10px 14px;
     border-radius:14px;
     border:1px solid rgba(255,255,255,.08);
     background:rgba(8,13,26,.48);
-    min-width:min(280px, 100%);
+    display:flex;
+    align-items:center;
   }
   .pg-recurring-actions {
     display:flex;
     gap:8px;
-    flex-wrap:wrap;
     align-items:center;
+    flex-wrap:nowrap;
   }
   .pg-recurring-list {
     display:grid;
@@ -213,10 +212,11 @@
     padding-right:2px;
   }
   .pg-occ-card {
-    display:flex;
-    align-items:flex-start;
+    display:grid;
+    grid-template-columns:16px minmax(0, 1fr) auto;
+    align-items:center;
     gap:12px;
-    padding:12px 13px;
+    padding:11px 13px;
     border:1px solid var(--pg-border);
     border-radius:14px;
     background:rgba(8,13,26,.72);
@@ -233,20 +233,25 @@
     height:16px;
     accent-color:var(--pg-teal);
     cursor:pointer;
-    margin-top:3px;
+    margin-top:0;
   }
   .pg-occ-card-copy {
+    display:flex;
+    align-items:center;
+    gap:10px;
     min-width:0;
-    flex:1;
+    flex-wrap:nowrap;
   }
   .pg-occ-date {
     font-weight:700;
     font-size:.88rem;
+    white-space:nowrap;
   }
   .pg-occ-meta {
     color:var(--pg-muted);
     font-size:.72rem;
-    margin-top:2px;
+    margin-top:0;
+    white-space:nowrap;
   }
   .pg-occ-tag {
     color:var(--pg-gold);
@@ -263,6 +268,8 @@
     align-items:center;
     gap:8px;
     flex-shrink:0;
+    margin-left:auto;
+    white-space:nowrap;
   }
   .pg-occ-checkmark {
     width:22px;
@@ -293,8 +300,9 @@
   .pg-occ-amount {
     color:#d9f8f0;
     font-size:.72rem;
-    margin-top:4px;
+    margin-top:0;
     font-weight:600;
+    white-space:nowrap;
   }
   .pg-pay-hint {
     display:block;
@@ -304,7 +312,7 @@
   }
   .pg-credit-box {
     border:1px solid rgba(0,212,170,.24);
-    background:linear-gradient(180deg, rgba(0,212,170,.10), rgba(14,20,38,.88));
+    background:rgba(0,212,170,.06);
     border-radius:14px;
     padding:14px;
   }
@@ -323,6 +331,18 @@
     font-size:.8rem;
     line-height:1.4;
   }
+  .pg-credit-actions {
+    display:flex;
+    gap:8px;
+    align-items:center;
+    flex-wrap:wrap;
+    margin-top:10px;
+  }
+    .pg-modal-actions .pg-btn {
+      flex:1 1 0;
+      min-height:44px;
+      justify-content:center;
+    }
   .pg-credit-toggle input {
     margin-top:2px;
     accent-color:var(--pg-teal);
@@ -359,7 +379,7 @@
   }
   .pg-payment-shell {
     border:1px solid rgba(255,255,255,.08);
-    background:rgba(8,13,26,.6);
+    background:rgba(255,255,255,.02);
     border-radius:16px;
     padding:14px;
   }
@@ -371,28 +391,24 @@
     gap:12px;
   }
   .pg-stripe-box {
-    border:1px solid rgba(123,97,255,.2);
-    background:linear-gradient(180deg, rgba(123,97,255,.08), rgba(8,13,26,.75));
+    border:1px solid rgba(255,255,255,.08);
+    background:rgba(8,13,26,.56);
     border-radius:14px;
     padding:14px;
   }
   .pg-stripe-box-title {
     font-weight:700;
-    font-size:.86rem;
+    font-size:.84rem;
     margin-bottom:6px;
-  }
-  .pg-stripe-box-subtitle {
     color:var(--pg-muted);
-    font-size:.74rem;
-    line-height:1.5;
-    margin-bottom:10px;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    font-size:.72rem;
   }
   .pg-express-shell {
     display:none;
-    border:1px dashed rgba(0,212,170,.2);
-    border-radius:12px;
-    padding:12px;
-    background:rgba(0,212,170,.05);
+    border-radius:10px;
+    margin-bottom:10px;
   }
   .pg-express-shell.is-visible {
     display:block;
@@ -409,10 +425,10 @@
   .pg-stripe-test-note {
     color:var(--pg-muted);
     font-size:.72rem;
-    line-height:1.5;
+    line-height:1.4;
     border-top:1px solid rgba(255,255,255,.08);
-    margin-top:12px;
-    padding-top:12px;
+    margin-top:10px;
+    padding-top:10px;
   }
   .pg-offline-title {
     font-weight:700;
@@ -432,7 +448,7 @@
   }
 
   .pg-history {
-    background:var(--pg-surface); border:1px solid var(--pg-border); border-radius:14px;
+    background:var(--pg-surface); border:1px solid var(--pg-border); border-radius:16px;
     overflow:hidden;
   }
   .pg-history-row {
@@ -457,7 +473,7 @@
   }
 
   @media (max-width:760px) {
-    .pg-wrap { padding:14px 10px 40px; }
+    .pg-wrap { padding:22px 10px 40px; }
     .pg-head { align-items:center; justify-content:center; text-align:center; margin-bottom:0; }
     .pg-head h1 { font-size:1.4rem; }
     .pg-head p { font-size:.84rem; max-width:40ch; }
@@ -539,7 +555,15 @@
       justify-content:center;
     }
     .pg-recurring-toolbar {
+      grid-template-columns:1fr;
       align-items:stretch;
+    }
+    .pg-occ-card-copy {
+      flex-wrap:wrap;
+      gap:8px;
+    }
+    .pg-occ-status {
+      margin-left:0;
     }
   }
 
@@ -577,7 +601,7 @@
     <div class="pg-head">
       <div>
         <h1>Pay<span class="accent">Gira</span></h1>
-        <p>Welcome <%= guardian.first_name || 'Parent' %> — pay your child's school bills securely from one place.</p>
+        <p>Welcome <%= guardian.first_name || 'Parent' %>. Manage and pay your children's school bills from one clean payment space.</p>
       </div>
       <span class="paygira-secure-badge" title="Bank-grade encrypted payments">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -606,7 +630,6 @@
     <% if (!children.length) { %>
       <div class="pg-child-card">
         <div class="pg-empty">
-          <div class="icon">👨‍👩‍👧</div>
           <p>No linked students found. Contact your school to link your children.</p>
         </div>
       </div>
@@ -621,13 +644,12 @@
                  alt="<%= child.first_name %>">
             <div class="pg-child-copy">
               <div class="pg-child-name"><%= child.first_name %> <%= child.last_name %></div>
-              <div class="pg-child-meta"><%= child.class_name || 'Unassigned class' %> · <%= kidAssignments.length %> open bill<%= kidAssignments.length !== 1 ? 's' : '' %><% if (Number(child.student_credit || 0) > 0) { %> · Available balance <%= money(child.student_credit) %><% } %></div>
+              <div class="pg-child-meta"><%= child.class_name || 'Unassigned class' %> · <%= kidAssignments.length %> bill<%= kidAssignments.length !== 1 ? 's' : '' %> due<% if (Number(child.student_credit || 0) > 0) { %> · Balance available <%= money(child.student_credit) %><% } %></div>
             </div>
           </div>
 
           <% if (!kidAssignments.length) { %>
             <div class="pg-empty" style="padding:28px;">
-              <div style="font-size:1.4rem;">✅</div>
               <div>No outstanding bills for this child.<% if (Number(child.student_credit || 0) > 0) { %> Available balance: <%= money(child.student_credit) %>.<% } %></div>
             </div>
           <% } else { kidAssignments.forEach(a => {
@@ -658,7 +680,6 @@
                 <div class="pg-bill-sub"><%= recurring ? 'Remaining' : 'Balance' %></div>
                 <div>
                   <div class="pg-balance"><%= money(bal) %></div>
-                  <% if (recurring && a.recurrence) { %><div class="pg-bill-sub">Pay exact dates inside the panel</div><% } %>
                   <% if (Number(a.student_credit || 0) > 0) { %><div class="pg-bill-sub">Available balance <%= money(a.student_credit) %> can be applied here</div><% } %>
                   <span class="pg-status <%= statusClass(a.status) %>" style="margin-top:4px;"><%= a.status %></span>
                 </div>
@@ -667,12 +688,12 @@
                 <% if (canPay) { %>
                   <button type="button" class="pg-btn primary"
                           onclick="openPgPay('<%= a.assignment_id %>')">
-                    <%= recurring ? '📅 Pay Dates' : '💳 Pay Now' %>
+                    <%= recurring ? 'Pay Dates' : 'Pay Now' %>
                   </button>
                 <% } else { %>
                   <span class="pg-status paid">Paid</span>
                 <% } %>
-                <a href="/guardian/paygira/invoice/<%= a.assignment_id %>" target="_blank" class="pg-btn ghost" style="margin-left:6px;padding:7px 10px;font-size:.72rem;" title="View invoice">🧾</a>
+                <a href="/guardian/paygira/invoice/<%= a.assignment_id %>" target="_blank" class="pg-btn ghost" style="margin-left:6px;padding:7px 10px;font-size:.72rem;" title="View invoice">Invoice</a>
               </div>
             </div>
           <% }); } %>
@@ -680,7 +701,7 @@
       <% }); %>
     <% } %>
 
-    <div class="pg-section-title">Recent Payments · Latest 15</div>
+    <div class="pg-section-title">Recent Payments</div>
     <div class="pg-history">
       <div class="pg-history-row head">
         <div>Date</div><div>Student</div><div>Bill</div><div>Amount</div>
@@ -694,7 +715,7 @@
           <div data-label="Bill"><%= p.bill_title %> · <span style="color:var(--pg-muted);"><%= p.method %></span></div>
           <div data-label="Amount" class="pg-amount" style="color:var(--pg-teal);display:flex;align-items:center;justify-content:space-between;gap:6px;">
             <%= money(p.amount) %>
-            <% if (p.payment_id) { %><a href="/guardian/paygira/receipt/<%= p.payment_id %>" target="_blank" title="Receipt" style="color:var(--pg-muted);text-decoration:none;">🧾</a><% } %>
+            <% if (p.payment_id) { %><a href="/guardian/paygira/receipt/<%= p.payment_id %>" target="_blank" title="Receipt" style="color:var(--pg-muted);text-decoration:none;">Receipt</a><% } %>
           </div>
         </div>
       <% }); } %>
@@ -740,11 +761,11 @@
       <input type="hidden" name="occurrence_dates" id="pgOccurrenceDates">
       <input type="hidden" name="saved_card_id" id="pgSavedCardId" value="">
       <div class="pg-form-grid">
-        <div class="pg-field span2">
+        <div class="pg-field">
           <label>Bill</label>
           <input type="text" id="pgPayBillName" disabled>
         </div>
-        <div class="pg-field span2">
+        <div class="pg-field">
           <label>Student</label>
           <input type="text" id="pgPayStudent" disabled>
         </div>
@@ -752,8 +773,11 @@
           <label>Available Balance</label>
           <div class="pg-credit-box">
             <div class="pg-credit-value" id="pgCreditAmount"><%= money(0) %></div>
-            <label class="pg-credit-toggle"><input type="checkbox" name="apply_credit" id="pgApplyCredit"> Apply available balance before charging this payment</label>
-            <div class="pg-credit-note" id="pgCreditHint">Any available balance for this child can be used first before charging a new payment.</div>
+            <label class="pg-credit-toggle"><input type="checkbox" name="apply_credit" id="pgApplyCredit"> Apply balance before charging</label>
+            <div class="pg-credit-actions">
+              <button type="button" class="pg-btn ghost" id="pgApplyBalanceBtn" hidden>Apply Balance</button>
+            </div>
+            <div class="pg-credit-note" id="pgCreditHint"></div>
           </div>
         </div>
         <div class="pg-field">
@@ -764,50 +788,40 @@
           <label>Method</label>
           <select name="method" id="pgMethod"></select>
         </div>
-        <div class="pg-field span2">
-          <small id="pgMethodHint" style="display:block;color:var(--pg-muted,#8a93a8);font-size:.72rem;">Only the payment methods this bill and your school support will appear here.</small>
+        <div class="pg-field span2" id="pgMethodHintWrap">
+          <small id="pgMethodHint" style="display:block;color:var(--pg-muted);font-size:.75rem;"></small>
         </div>
         <div class="pg-field span2 pg-recurring-panel" id="pgRecurringPanel" hidden>
-          <label>Recurring Dates</label>
-          <div class="pg-recurring-caption">Choose the exact dates you want to settle. The total below only includes what is still owed for those dates.</div>
+          <label>Choose Dates to Pay</label>
           <div class="pg-recurring-toolbar">
-            <div class="pg-recurring-summary" id="pgRecurringSummary">Choose one or more owing dates. Total updates automatically.</div>
+            <div class="pg-recurring-summary" id="pgRecurringSummary"></div>
             <div class="pg-recurring-actions">
-              <button type="button" class="pg-btn ghost" id="pgSelectAllDates" style="padding:7px 10px;font-size:.72rem;">Select all</button>
-              <button type="button" class="pg-btn ghost" id="pgClearDates" style="padding:7px 10px;font-size:.72rem;">Clear</button>
+              <button type="button" class="pg-btn ghost" id="pgSelectAllDates" style="padding:6px 10px;font-size:.72rem;">All</button>
+              <button type="button" class="pg-btn ghost" id="pgClearDates" style="padding:6px 10px;font-size:.72rem;">Clear</button>
             </div>
           </div>
           <div class="pg-recurring-list" id="pgRecurringList"></div>
-          <small class="pg-pay-hint" id="pgRecurringHint">Select one or more dates to pay only the remaining amount for those dates.</small>
+          <small class="pg-pay-hint" id="pgRecurringHint"></small>
         </div>
         <div class="pg-field span2">
           <div class="pg-payment-shell pg-stripe-shell" id="pgStripeShell" hidden>
-            <div>
-              <div class="pg-stripe-box-title">Secure Online Checkout</div>
-              <div class="pg-pay-mode-note" id="pgStripeIntro">Pay online with the Stripe options your school enabled for PayGira.</div>
-              <div class="pg-method-chip-list" id="pgStripeMethodChips"></div>
-            </div>
-            <!-- Saved cards (shown only when guardian has at least one reusable card) -->
-            <div id="pgSavedCardsSection" style="display:none;margin-bottom:12px;">
-              <div class="pg-stripe-box-title" style="margin-bottom:8px;">Pay with a saved card</div>
+            <div class="pg-method-chip-list" id="pgStripeMethodChips"></div>
+            <div id="pgSavedCardsSection" style="display:none;margin-top:12px;">
+              <div class="pg-stripe-box-title" style="margin-bottom:8px;">Saved cards</div>
               <div id="pgSavedCardChips" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
-              <div style="margin-top:8px;display:flex;align-items:center;gap:8px;">
+              <div style="margin-top:8px;">
                 <button type="button" id="pgUseNewCardBtn" class="pg-btn ghost" style="font-size:.78rem;padding:5px 12px;display:none;" onclick="clearSavedCardSelection()">+ Use a different card</button>
               </div>
             </div>
             <div id="pgNewCardSection">
-              <div class="pg-stripe-box">
+              <div class="pg-stripe-box" style="margin-top:10px;">
                 <div class="pg-express-shell" id="pgExpressShell">
-                  <div class="pg-stripe-box-title">Express Checkout</div>
-                  <div class="pg-stripe-box-subtitle">Apple Pay and Google Pay appear here when your browser, device, and Stripe domain setup support them.</div>
                   <div id="pgExpressCheckoutElement"></div>
                 </div>
-                <div class="pg-stripe-box-title" style="margin-top:4px;">Payment Details</div>
-                <div class="pg-stripe-box-subtitle">Choose from the Stripe payment options your school enabled. Redirect-based methods return here automatically when complete.</div>
                 <div id="pgStripePaymentElement"></div>
                 <p class="pg-stripe-error" id="pgStripeError"></p>
                 <div class="pg-stripe-test-note" id="pgStripeTestNote" <%= (pspSettings && pspSettings.stripe_mode === 'test') ? '' : 'hidden' %>>
-                  Test mode: use 4242 4242 4242 4242 with any future expiry date, any 3-digit CVC, and any ZIP or postal code.
+                  Test: card 4242 4242 4242 4242 · any future date · any CVC &amp; ZIP
                 </div>
               </div>
             </div>
@@ -820,7 +834,7 @@
       </div>
       <div class="pg-modal-actions">
         <button type="button" class="pg-btn ghost" onclick="closePgPay()">Cancel</button>
-        <button type="submit" class="pg-btn primary" id="pgSubmitBtn">Continue</button>
+        <button type="submit" class="pg-btn primary" id="pgSubmitBtn">Submit Payment</button>
       </div>
     </form>
   </div>
@@ -843,7 +857,6 @@
     var stripeEnabled = Boolean(allowedMethods && allowedMethods.stripeOn && stripePublishableKey && window.Stripe);
     var stripe = stripeEnabled ? window.Stripe(stripePublishableKey) : null;
     var stripeCurrency = String((allowedMethods && allowedMethods.currency) || <%- JSON.stringify(currencyCode) %> || 'USD').toLowerCase();
-    // Saved cards that have a Stripe PM id and can be reused
     var savedCards = <%- JSON.stringify((cards || []).filter(function(c){ return c.external_payment_method_id; })) %>;
     var selectedSavedCardId = null;
     var stripeElements = null;
@@ -868,6 +881,7 @@
     var creditField = document.getElementById('pgCreditField');
     var creditAmount = document.getElementById('pgCreditAmount');
     var creditHint = document.getElementById('pgCreditHint');
+    var applyBalanceButton = document.getElementById('pgApplyBalanceBtn');
     var applyCreditCheckbox = document.getElementById('pgApplyCredit');
     var methodSelect = document.getElementById('pgMethod');
     var methodHint = document.getElementById('pgMethodHint');
@@ -1195,8 +1209,8 @@
           '<div>Send the money to the school account above, then submit this payment in PayGira.</div>'
         ].filter(Boolean).join('');
       } else {
-        offlineTitle.textContent = 'Other payment instructions';
-        offlineDetails.innerHTML = '<div>Use the approved payment path your school shared with you, then submit the amount here so the bill updates in PayGira.</div>';
+        offlineTitle.textContent = '';
+        offlineDetails.innerHTML = '';
       }
     }
 
@@ -1225,8 +1239,9 @@
     function syncPaymentMode() {
       var selectedMethod = String(methodSelect.value || '');
       var isStripe = selectedMethod === 'stripe';
+      var hideOfflineDetails = selectedMethod === 'other';
       stripeShell.hidden = !isStripe;
-      offlineShell.hidden = isStripe;
+      offlineShell.hidden = isStripe || hideOfflineDetails;
 
       if (isStripe) {
         methodHint.textContent = 'Stripe will show the online payment methods your school enabled. Apple Pay and Google Pay only appear on supported devices and verified domains.';
@@ -1278,7 +1293,6 @@
       selectedSavedCardId = cardId;
       document.getElementById('pgSavedCardId').value = cardId;
       renderSavedCardSection();
-      // Hide new-card elements — not needed
       destroyStripeElements();
       var newCardSection = document.getElementById('pgNewCardSection');
       if (newCardSection) newCardSection.style.display = 'none';
@@ -1313,11 +1327,15 @@
         applyCreditCheckbox.disabled = !(availableCredit > 0);
         if (!(availableCredit > 0)) applyCreditCheckbox.checked = false;
       }
+      if (applyBalanceButton) {
+        applyBalanceButton.hidden = !(availableCredit > 0);
+        applyBalanceButton.textContent = usingCredit ? 'Remove Balance' : 'Apply Balance';
+      }
       if (creditHint) {
         if (!(availableCredit > 0)) {
-          creditHint.textContent = 'No available balance is stored for this child yet.';
+          creditHint.textContent = '';
         } else if (!usingCredit) {
-          creditHint.textContent = 'Check this box to use up to ' + formatMoney(Math.min(availableCredit, dueAmount)) + ' before charging a new payment.';
+          creditHint.textContent = formatMoney(Math.min(availableCredit, dueAmount)) + ' is ready to apply to this bill.';
         } else if (chargeNow > 0) {
           creditHint.textContent = formatMoney(creditToApply) + ' will be used first. ' + formatMoney(chargeNow) + ' will still be charged now.';
         } else {
@@ -1352,7 +1370,7 @@
       occurrenceDateInput.value = selectedDates.length === 1 ? selectedDates[0] : '';
       if (!selectedDates.length) {
         amountInput.value = '';
-        recurringSummary.textContent = 'Choose one or more owing dates. Total updates automatically.';
+        recurringSummary.textContent = '';
         recurringHint.textContent = 'Fully paid dates are disabled. Select any owing dates to pay their remaining balances.';
         syncCreditPanel({ setAmount: false });
         submitButton.disabled = true;
@@ -1486,7 +1504,6 @@
         var intentData = await createStripeIntent();
 
         if (intentData.isSavedCard) {
-          // — Saved card: the PI already has payment_method set; just confirm directly
           var savedConfirm = await stripe.confirmPayment({
             clientSecret: intentData.clientSecret,
             confirmParams: { return_url: intentData.returnUrl },
@@ -1498,7 +1515,6 @@
             return;
           }
         } else {
-          // — New card: use Elements
           ensureStripeElements();
           if (!stripeElements) throw new Error('Stripe checkout is not available right now.');
           var submitResult = await stripeElements.submit();
@@ -1528,7 +1544,6 @@
       if (!record) return;
       activeRecord = record;
       destroyStripeElements();
-      // Reset saved card state when opening a new payment
       selectedSavedCardId = null;
       document.getElementById('pgSavedCardId').value = '';
       var newCardSection = document.getElementById('pgNewCardSection');
@@ -1567,6 +1582,14 @@
     methodSelect.addEventListener('change', syncPaymentMode);
     if (applyCreditCheckbox) {
       applyCreditCheckbox.addEventListener('change', function() {
+        if (activeRecord && String(activeRecord.bill_type || '') === 'recurring') updateRecurringSelection();
+        else syncCreditPanel({ setAmount: true });
+      });
+    }
+    if (applyBalanceButton) {
+      applyBalanceButton.addEventListener('click', function() {
+        if (!applyCreditCheckbox || applyCreditCheckbox.disabled) return;
+        applyCreditCheckbox.checked = !applyCreditCheckbox.checked;
         if (activeRecord && String(activeRecord.bill_type || '') === 'recurring') updateRecurringSelection();
         else syncCreditPanel({ setAmount: true });
       });

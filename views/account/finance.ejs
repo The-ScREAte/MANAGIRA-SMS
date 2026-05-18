@@ -17,6 +17,8 @@
   const studentYearFilter = (typeof studentBillingFilters !== 'undefined' && studentBillingFilters && studentBillingFilters.school_year_id) || '';
   const studentTermFilter = (typeof studentBillingFilters !== 'undefined' && studentBillingFilters && studentBillingFilters.term_id) || '';
   const createBillDraftState = (typeof createBillDraft !== 'undefined' && createBillDraft) ? createBillDraft : null;
+  const collectionDestinationOptionsSafe = (typeof collectionDestinationOptions !== 'undefined' && Array.isArray(collectionDestinationOptions)) ? collectionDestinationOptions : [];
+  const defaultCollectionDestinationSafe = (typeof defaultCollectionDestination !== 'undefined' && defaultCollectionDestination) ? defaultCollectionDestination : '';
   const openCreateBillForm = sec === 'bills' && (Boolean(createBillDraftState) || (typeof messages !== 'undefined' && messages && messages.error && messages.error.length));
 %>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -427,6 +429,153 @@
   .fin-check-all {
     padding:6px 12px; border-radius:8px;
     background:rgba(0,212,170,.08); border:1px solid rgba(0,212,170,.25);
+  }
+  .fin-visually-hidden {
+    position:absolute !important;
+    width:1px !important;
+    height:1px !important;
+    padding:0 !important;
+    margin:-1px !important;
+    overflow:hidden !important;
+    clip:rect(0, 0, 0, 0) !important;
+    white-space:nowrap !important;
+    border:0 !important;
+  }
+  .fin-edit-block {
+    display:grid;
+    gap:12px;
+    padding:14px;
+    border:1px solid var(--fin-border);
+    border-radius:12px;
+    background:linear-gradient(180deg, rgba(18,28,47,.92), rgba(10,17,31,.98));
+  }
+  .fin-edit-block-head {
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  .fin-edit-block-title {
+    font-size:.94rem;
+    font-weight:700;
+    color:var(--fin-text);
+    letter-spacing:-.01em;
+  }
+  .fin-edit-block-copy {
+    color:var(--fin-muted);
+    font-size:.76rem;
+    line-height:1.45;
+  }
+  .fin-edit-block-badge {
+    display:inline-flex;
+    align-items:center;
+    padding:5px 10px;
+    border-radius:999px;
+    border:1px solid rgba(0,212,170,.24);
+    background:rgba(0,212,170,.08);
+    color:var(--fin-teal);
+    font-size:.68rem;
+    font-weight:700;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+  }
+  .fin-edit-block-note,
+  .fin-selection-summary {
+    color:var(--fin-muted);
+    font-size:.74rem;
+    line-height:1.5;
+  }
+  .fin-audience-grid,
+  .fin-edit-payment-grid,
+  .fin-check-grid {
+    display:grid;
+    gap:10px;
+  }
+  .fin-audience-grid {
+    grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));
+  }
+  .fin-edit-payment-grid {
+    grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));
+  }
+  .fin-check-grid {
+    grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+  }
+  .fin-audience-card {
+    width:100%;
+    padding:13px 14px;
+    border-radius:12px;
+    border:1px solid var(--fin-border);
+    background:rgba(255,255,255,.02);
+    color:var(--fin-text);
+    text-align:left;
+    cursor:pointer;
+    transition:border-color .16s ease, background .16s ease, box-shadow .16s ease;
+  }
+  .fin-audience-card:hover {
+    border-color:rgba(0,212,170,.24);
+    background:rgba(0,212,170,.04);
+  }
+  .fin-audience-card.is-active {
+    border-color:rgba(0,212,170,.42);
+    background:rgba(0,212,170,.08);
+    box-shadow:0 0 0 1px rgba(0,212,170,.12) inset;
+  }
+  .fin-audience-card-title {
+    display:block;
+    font-size:.86rem;
+    font-weight:700;
+    color:var(--fin-text);
+  }
+  .fin-audience-card-copy {
+    display:block;
+    margin-top:4px;
+    font-size:.73rem;
+    color:var(--fin-muted);
+    line-height:1.45;
+  }
+  .fin-selection-tools {
+    display:flex;
+    gap:10px;
+    align-items:end;
+    flex-wrap:wrap;
+    margin-bottom:8px;
+  }
+  .fin-selection-tools .fin-field {
+    flex:1;
+    min-width:180px;
+    margin:0;
+  }
+  .fin-multi-select {
+    min-height:140px;
+    padding:6px;
+    background-image:none !important;
+  }
+  .fin-multi-select option {
+    padding:9px 10px;
+    border-radius:8px;
+  }
+  .fin-check-card {
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    min-height:52px;
+    padding:11px 12px;
+    border:1px solid var(--fin-border);
+    border-radius:10px;
+    background:rgba(255,255,255,.03);
+  }
+  .fin-check-card strong {
+    display:block;
+    font-size:.84rem;
+    color:var(--fin-text);
+  }
+  .fin-check-card span {
+    display:block;
+    margin-top:2px;
+    color:var(--fin-muted);
+    font-size:.72rem;
+    line-height:1.4;
   }
 
   /* ── Collapsible accordion forms ─────────────────────────────── */
@@ -1461,26 +1610,27 @@
             </div>
             <div class="fin-field">
               <label>Collection Destination *</label>
+              <% const selectedCreateDestination = collectionDestinationOptionsSafe.some(function(option) { return String(option.value) === String((createBillDraftState && createBillDraftState.payment_destination) || ''); })
+                ? String((createBillDraftState && createBillDraftState.payment_destination) || '')
+                : String(defaultCollectionDestinationSafe || ''); %>
               <select name="payment_destination" required>
-                <%
-                  const dStripe = (allowedMethods && allowedMethods.stripeOn);
-                  const dMomo   = (allowedMethods && allowedMethods.momoOn);
-                  const dBank   = (allowedMethods && allowedMethods.bankOn);
-                %>
-                <option value="stripe" <%= !dStripe ? 'disabled' : '' %>>💳 Stripe — online card / wallet <%= !dStripe ? '(not configured)' : '' %></option>
-                <option value="cash">💵 Cash — handed to collector</option>
-                <option value="bank"   <%= !dBank ? 'disabled' : '' %>>🏦 School Bank Transfer <%= !dBank ? '(no bank details set)' : '' %></option>
-                <option value="momo"   <%= !dMomo ? 'disabled' : '' %>>📱 Mobile Money <%= !dMomo ? '(not configured)' : '' %></option>
+                <% if (collectionDestinationOptionsSafe.length) { %>
+                  <% collectionDestinationOptionsSafe.forEach(function(option) { %>
+                    <option value="<%= option.value %>" <%= selectedCreateDestination === String(option.value) ? 'selected' : '' %>><%= option.label %></option>
+                  <% }) %>
+                <% } else { %>
+                  <option value="">No payout account configured</option>
+                <% } %>
               </select>
-              <small style="color:var(--fin-muted);font-size:.74rem;">Where the money collected for this bill should land. Configure providers in Payment Settings.</small>
+              <small style="color:var(--fin-muted);font-size:.74rem;">This comes from the primary payout account in Account Settings.</small>
             </div>
             <div class="fin-field">
               <label>Payment Methods Accepted (visible to parent)</label>
               <div class="fin-checks">
                 <label class="fin-check fin-check-all"><input type="checkbox" id="payAll" onchange="finTogglePayAll(this)" checked> <strong>All methods</strong></label>
-                <label class="fin-check"><input type="checkbox" class="pay-method" name="accepts_card" checked <%= !dStripe ? 'disabled' : '' %>> 💳 Card / Stripe <%= !dStripe ? '(off — set Stripe keys)' : '' %></label>
+                <label class="fin-check"><input type="checkbox" class="pay-method" name="accepts_card" checked <%= !(allowedMethods && allowedMethods.stripeOn) ? 'disabled' : '' %>> 💳 Card / Stripe <%= !(allowedMethods && allowedMethods.stripeOn) ? '(off — set Stripe keys)' : '' %></label>
                 <label class="fin-check"><input type="checkbox" class="pay-method" name="accepts_cash" checked> 💵 Cash</label>
-                <label class="fin-check"><input type="checkbox" class="pay-method" name="accepts_transfer" checked <%= (!dBank && !dMomo) ? 'disabled' : '' %>> 🏦 Bank / Mobile Money <%= (!dBank && !dMomo) ? '(off — set details)' : '' %></label>
+                <label class="fin-check"><input type="checkbox" class="pay-method" name="accepts_transfer" checked <%= (!(allowedMethods && allowedMethods.bankOn) && !(allowedMethods && allowedMethods.momoOn)) ? 'disabled' : '' %>> 🏦 Bank / Mobile Money <%= (!(allowedMethods && allowedMethods.bankOn) && !(allowedMethods && allowedMethods.momoOn)) ? '(off — set details)' : '' %></label>
               </div>
             </div>
             <div class="fin-field">
@@ -2501,6 +2651,8 @@ Regards,
     var financeCurrencyLocale = <%- JSON.stringify((financeCurrency && financeCurrency.locale) || 'en-US') %>;
     var profilePlaceholderSrc = <%- JSON.stringify(profilePlaceholder) %>;
     var createBillDraft = <%- JSON.stringify(createBillDraftState || null) %>;
+    var defaultCollectionDestination = <%- JSON.stringify(defaultCollectionDestinationSafe || '') %>;
+    var collectionDestinationValues = <%- JSON.stringify(collectionDestinationOptionsSafe.map(function(option) { return option.value; })) %>;
     var shouldOpenCreateBillForm = <%= openCreateBillForm ? 'true' : 'false' %>;
     function getLocalTodayIso() {
       var today = new Date();
@@ -2707,13 +2859,25 @@ Regards,
       var audience = String((bill && bill.applies_to) || 'school');
       if (audience === 'students') {
         var studentCount = Array.isArray(bill.target_student_ids) ? bill.target_student_ids.length : 0;
-        return studentCount ? ('Currently set to ' + studentCount + ' individual student' + (studentCount === 1 ? '' : 's') + '. You can change the audience or update the selected students below.') : 'Currently set to individually selected students.';
+        return studentCount ? (studentCount + ' student' + (studentCount === 1 ? '' : 's') + ' selected.') : 'Select one or more students.';
       }
       if (audience === 'classes') {
         var classCount = Array.isArray(bill.target_class_ids) ? bill.target_class_ids.length : 0;
-        return classCount ? ('Currently set to ' + classCount + ' class' + (classCount === 1 ? '' : 'es') + '. You can change the audience or update the selected classes below.') : 'Currently set to specific classes.';
+        return classCount ? (classCount + ' class' + (classCount === 1 ? '' : 'es') + ' selected.') : 'Select one or more classes.';
       }
-      return 'Currently set to the entire school for the selected year and term.';
+      return 'Entire school in the selected year and term.';
+    }
+
+    function syncEditBillCollectorSummary() {
+      var select = document.getElementById('ebl-assignee');
+      var summary = document.getElementById('ebl-assignee_summary');
+      if (!select || !summary) return;
+      var selectedCount = Array.prototype.filter.call(select.options, function(option) {
+        return option.selected;
+      }).length;
+      summary.textContent = selectedCount
+        ? (selectedCount + ' collector' + (selectedCount === 1 ? '' : 's') + ' selected.')
+        : 'Leave empty if unassigned.';
     }
 
     function setMultiSelectValues(selectId, values) {
@@ -2795,6 +2959,25 @@ Regards,
       syncEditBillTargets();
     }
 
+    function enableEditBillToggleMultiSelect(selectId) {
+      var select = document.getElementById(selectId);
+      if (!select || select.dataset.toggleMultiReady === 'true') return;
+      select.dataset.toggleMultiReady = 'true';
+      select.addEventListener('mousedown', function (event) {
+        var option = event.target;
+        if (!option || option.tagName !== 'OPTION' || option.disabled) return;
+        event.preventDefault();
+        var scrollTop = select.scrollTop;
+        option.selected = !option.selected;
+        if (selectId === 'ebl-target_class_ids' || selectId === 'ebl-target_student_ids') syncEditBillTargets();
+        if (selectId === 'ebl-assignee') syncEditBillCollectorSummary();
+        window.requestAnimationFrame(function () {
+          select.focus();
+          select.scrollTop = scrollTop;
+        });
+      });
+    }
+
     function syncEditBillPaymentMethodMaster() {
       var master = document.getElementById('ebl-payAll');
       var methodInputs = Array.prototype.slice.call(document.querySelectorAll('.ebl-pay-method')).filter(function(input) {
@@ -2845,7 +3028,13 @@ Regards,
       setMultiSelectValues('ebl-target_student_ids', bill.target_student_ids || []);
       syncEditBillTargets();
       window.syncBillScheduleControls(document.getElementById('ebl-bill_type'), document.getElementById('ebl-recurrence'), document.getElementById('ebl-exclude_non_school_days'));
-      setVal('ebl-payment_destination', bill.payment_destination || 'stripe');
+      var editDestinationSelect = document.getElementById('ebl-payment_destination');
+      if (editDestinationSelect) {
+        var requestedDestination = String(bill.payment_destination || '');
+        editDestinationSelect.value = collectionDestinationValues.indexOf(requestedDestination) !== -1
+          ? requestedDestination
+          : defaultCollectionDestination;
+      }
       setVal('ebl-status', bill.status || 'active');
       setChk('ebl-accepts_card', bill.accepts_card);
       setChk('ebl-accepts_cash', bill.accepts_cash);
@@ -2853,6 +3042,7 @@ Regards,
       setChk('ebl-notify_email', bill.notify_email);
       setVal('ebl-status_action', '');
       syncEditBillPaymentMethodMaster();
+      syncEditBillCollectorSummary();
       document.getElementById('editBillForm').action   = '/account/settings/finance/bills/' + bill.id + '/edit';
       m.classList.add('open');
     };
@@ -3570,6 +3760,15 @@ Regards,
       if (typeof setAllEditBillTargets === 'function') setAllEditBillTargets(config[1], config[2]);
     });
   });
+  ['ebl-target_class_ids', 'ebl-target_student_ids'].forEach(function(id) {
+    if (typeof enableEditBillToggleMultiSelect === 'function') enableEditBillToggleMultiSelect(id);
+  });
+  if (typeof enableEditBillToggleMultiSelect === 'function') enableEditBillToggleMultiSelect('ebl-assignee');
+  var editBillAssigneeSelect = document.getElementById('ebl-assignee');
+  if (editBillAssigneeSelect && typeof syncEditBillCollectorSummary === 'function') {
+    editBillAssigneeSelect.addEventListener('change', syncEditBillCollectorSummary);
+    syncEditBillCollectorSummary();
+  }
   var editBillPayAll = document.getElementById('ebl-payAll');
   if (editBillPayAll) {
     editBillPayAll.addEventListener('change', function () {
@@ -3807,11 +4006,10 @@ Regards,
           <option value="students">Individual Students</option>
         </select>
         <small id="ebl-applies_to_summary" style="display:block;color:var(--fin-muted);font-size:.74rem;margin-top:6px;"></small>
-        <small style="color:var(--fin-muted);font-size:.74rem;">You can change the audience type and the selected classes or students below. If recorded payments fall outside the new scope, the update will be blocked.</small>
       </div>
 
       <div class="fin-field" id="ebl-target-classes-wrap" style="display:none;">
-        <label>Selected Classes</label>
+        <label>Classes</label>
         <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-bottom:8px;">
           <div class="fin-field" style="flex:1;min-width:180px;margin:0;">
             <input type="text" id="ebl-target_class_search" placeholder="Filter classes...">
@@ -3819,16 +4017,17 @@ Regards,
           <button type="button" class="fin-btn ghost" id="ebl-target_class_select_all">Select visible</button>
           <button type="button" class="fin-btn ghost" id="ebl-target_class_clear">Clear</button>
         </div>
-        <select id="ebl-target_class_ids" name="target_class_ids" multiple size="6" style="min-height:130px;">
+        <input type="hidden" name="target_class_ids" value="">
+        <select id="ebl-target_class_ids" name="target_class_ids" class="fin-multi-select" multiple size="6">
           <% (refs.classes || []).forEach(function(c) { %>
             <option value="<%= c.class_id %>" data-school-year-ids="<%= (c.school_year_ids || []).join(',') %>" data-term-ids="<%= (c.term_ids || []).join(',') %>"><%= c.class_name %></option>
           <% }) %>
         </select>
-        <small style="color:var(--fin-muted);font-size:.72rem;">Change the class targets here. Hold Ctrl / ⌘ to pick multiple manually, or use the buttons above.</small>
+        <small style="color:var(--fin-muted);font-size:.72rem;">Click classes to add or remove them.</small>
       </div>
 
       <div class="fin-field" id="ebl-target-students-wrap" style="display:none;">
-        <label>Selected Students</label>
+        <label>Students</label>
         <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-bottom:8px;">
           <div class="fin-field" style="flex:1;min-width:180px;margin:0;">
             <input type="text" id="ebl-target_student_search" placeholder="Filter students...">
@@ -3836,41 +4035,48 @@ Regards,
           <button type="button" class="fin-btn ghost" id="ebl-target_student_select_all">Select visible</button>
           <button type="button" class="fin-btn ghost" id="ebl-target_student_clear">Clear</button>
         </div>
-        <select id="ebl-target_student_ids" name="target_student_ids" multiple size="8" style="min-height:170px;">
+        <input type="hidden" name="target_student_ids" value="">
+        <select id="ebl-target_student_ids" name="target_student_ids" class="fin-multi-select" multiple size="8">
           <% (refs.students || []).forEach(function(s) { %>
             <option value="<%= s.student_id %>" data-school-year-ids="<%= (s.school_year_ids || []).join(',') %>" data-term-ids="<%= (s.term_ids || []).join(',') %>"><%= s.first_name %> <%= s.last_name %><%= s.class_name ? (' · ' + s.class_name) : '' %></option>
           <% }) %>
         </select>
-        <small style="color:var(--fin-muted);font-size:.72rem;">Change the student targets here. Hold Ctrl / ⌘ to pick multiple manually, or use the buttons above.</small>
+        <small style="color:var(--fin-muted);font-size:.72rem;">Click students to add or remove them.</small>
       </div>
 
       <div class="fin-field">
-        <label>Collectors / Overseers <span style="color:var(--fin-muted);font-weight:400;font-size:.75em;">(hold Ctrl / ⌘ for multiple)</span></label>
-        <select id="ebl-assignee" name="assignee_ids[]" multiple size="4" style="min-height:90px;">
+        <label>Collectors / Overseers</label>
+        <select id="ebl-assignee" name="assignee_ids[]" class="fin-multi-select" multiple size="5" style="min-height:120px;">
           <% (refs.employees || []).forEach(function(e) { %>
             <option value="<%= e.user_id %>"><%= e.first_name %> <%= e.last_name %> (<%= e.account_type %>)</option>
           <% }) %>
         </select>
-        <small style="color:var(--fin-muted);font-size:.72rem;">Leave empty for unassigned.</small>
+        <small id="ebl-assignee_summary" style="display:block;color:var(--fin-muted);font-size:.72rem;margin-top:6px;">Leave empty if nobody should be assigned.</small>
       </div>
 
-      <div class="fin-field">
-        <label>Collection Destination</label>
-        <select id="ebl-payment_destination" name="payment_destination">
-          <option value="stripe">💳 Stripe — online card / wallet</option>
-          <option value="cash">💵 Cash — handed to collector</option>
-          <option value="bank">🏦 School Bank Transfer</option>
-          <option value="momo">📱 Mobile Money</option>
-        </select>
-      </div>
+      <div class="fin-row">
+        <div class="fin-field">
+          <label>Collection Destination</label>
+          <select id="ebl-payment_destination" name="payment_destination">
+            <% if (collectionDestinationOptionsSafe.length) { %>
+              <% collectionDestinationOptionsSafe.forEach(function(option) { %>
+                <option value="<%= option.value %>" <%= String(defaultCollectionDestinationSafe || '') === String(option.value) ? 'selected' : '' %>><%= option.label %></option>
+              <% }) %>
+            <% } else { %>
+              <option value="">No payout account configured</option>
+            <% } %>
+          </select>
+          <small style="color:var(--fin-muted);font-size:.72rem;">Uses the primary payout account from Account Settings.</small>
+        </div>
 
-      <div class="fin-field">
-        <label>Payment Methods Accepted</label>
-        <div class="fin-checks">
-          <label class="fin-check fin-check-all"><input type="checkbox" id="ebl-payAll"> <strong>All methods</strong></label>
-          <label class="fin-check"><input type="checkbox" class="ebl-pay-method" id="ebl-accepts_card" name="accepts_card"> 💳 Card / Stripe</label>
-          <label class="fin-check"><input type="checkbox" class="ebl-pay-method" id="ebl-accepts_cash" name="accepts_cash"> 💵 Cash</label>
-          <label class="fin-check"><input type="checkbox" class="ebl-pay-method" id="ebl-accepts_transfer" name="accepts_transfer"> 🏦 Bank / Mobile Money</label>
+        <div class="fin-field">
+          <label>Payment Methods Accepted</label>
+          <div class="fin-checks">
+            <label class="fin-check fin-check-all"><input type="checkbox" id="ebl-payAll"> <strong>All methods</strong></label>
+            <label class="fin-check"><input type="checkbox" class="ebl-pay-method" id="ebl-accepts_card" name="accepts_card"> Card / Stripe</label>
+            <label class="fin-check"><input type="checkbox" class="ebl-pay-method" id="ebl-accepts_cash" name="accepts_cash"> Cash</label>
+            <label class="fin-check"><input type="checkbox" class="ebl-pay-method" id="ebl-accepts_transfer" name="accepts_transfer"> Bank / Mobile Money</label>
+          </div>
         </div>
       </div>
 
