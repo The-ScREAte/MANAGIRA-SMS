@@ -32,6 +32,7 @@ const expressLayouts = require("express-ejs-layouts");
 const pgSession = require("connect-pg-simple")(session);
 const setAllowedFeatures = require("./middleware/setAllowedFeatures");
 const setAllowedRoles = require("./middleware/setAllowedRoles");
+const setAllowedPermissions = require("./middleware/setAllowedPermissions");
 const setThemeColor = require("./middleware/setThemeColor");
 const compression = require("compression");
 const { setCacheHeaders, preloadCache } = require("./middleware/cacheMiddleware");
@@ -384,6 +385,7 @@ app.use(async (req, res, next) => {
 app.use(setCurrentTerm);
 app.use(setAllowedFeatures);
 app.use(setAllowedRoles);
+app.use(setAllowedPermissions);
 app.use(setThemeColor);
 app.use(preloadCache);
 
