@@ -186,8 +186,8 @@ const managiraFAQ = [
     id: 26,
     category: "Billing & Subscription",
     question: "What payment methods do you accept?",
-    answer: "We accept payments through Paystack, which supports credit/debit cards, mobile money, and bank transfers depending on your region. All transactions are processed securely with industry-standard encryption.",
-    keywords: ["payment methods", "paystack", "credit card", "mobile money", "bank transfer", "how to pay", "accepted payments", "debit card"]
+    answer: "Managira supports secure payments through Stripe and other configured payment methods depending on the workflow. For school payments, a school can enable options such as online card or wallet checkout through Stripe and bank transfer, while some Managira billing flows may also use region-specific gateways such as Paystack. The payment methods a user sees depend on the school's configuration and the bill being paid.",
+    keywords: ["payment methods", "stripe", "paystack", "credit card", "wallet", "bank transfer", "how to pay", "accepted payments", "debit card", "school payments", "paygira"]
   },
   {
     id: 27,
@@ -729,6 +729,76 @@ const managiraFAQ = [
     question: "How do I choose which emails I receive?",
     answer: "Each user can opt out of optional (non-transactional) emails from their own settings page. Organization users (Manager, Supervisor, Teacher, Cashier) open Account Settings and select the Notifications tab to toggle items like the weekly digest, broadcasts, guardian-report alerts, and assignment-change notices. Parents/guardians open the Parent Portal Settings page and use the Email Notifications section to toggle the weekly parent digest, attendance alerts, class-change notices, broadcasts, report-card delivery, and staff replies. Hub administrators manage their preferences from the hub admin settings. Choices save instantly, are per-user, and only affect optional emails — security, billing, and other transactional emails are always sent.",
     keywords: ["opt out", "unsubscribe", "email preferences", "turn off emails", "notification settings", "stop receiving", "manage emails", "email opt-in", "notifications tab"]
+  },
+  {
+    id: 100,
+    category: "PayGira & School Payments",
+    question: "What is PayGira?",
+    answer: "PayGira is Managira's school billing and collection workspace. Schools use it to create bills, assign collectors, receive parent payments, track balances, and keep a full history of collections, invoices, receipts, and sign-offs.",
+    keywords: ["paygira", "what is paygira", "school billing", "school collections", "fees", "bills", "finance workspace", "payment workspace"]
+  },
+  {
+    id: 101,
+    category: "PayGira & School Payments",
+    question: "What can schools use PayGira for?",
+    answer: "Schools can use PayGira for one-time and recurring school bills such as tuition, levies, transport, feeding, examination fees, club charges, and other approved charges. Managira's payment setup can also support online public registration and admission payments when the school has completed its payout and online payment configuration.",
+    keywords: ["use paygira for", "tuition", "school fees", "levies", "transport", "feeding", "exam fees", "recurring bills", "registration payment", "admission payment"]
+  },
+  {
+    id: 102,
+    category: "PayGira & School Payments",
+    question: "Who can use PayGira?",
+    answer: "Finance administrators and other authorised school officials set up payment settings, payout destinations, bill templates, and bills. Teachers, class teachers, supervisors, and managers who are assigned as collectors or overseers can use My PayGira to collect or monitor payments for their bills. Parents and guardians use the Guardian Portal to view and pay bills linked to their children.",
+    keywords: ["who uses paygira", "parents", "guardians", "teachers", "class teachers", "supervisors", "managers", "school officials", "collectors"]
+  },
+  {
+    id: 103,
+    category: "PayGira & School Payments",
+    question: "How does a school set up PayGira?",
+    answer: "A school first configures its payment settings and payout destination, then creates bills, chooses who each bill applies to, enables accepted payment methods, and optionally assigns staff collectors or overseers. Once the setup is complete, parents can see eligible bills in the Guardian Portal and assigned staff can work from their own My PayGira collection view.",
+    keywords: ["set up paygira", "setup paygira", "payment settings", "payout destination", "assign collectors", "create bills", "bill setup", "finance setup"]
+  },
+  {
+    id: 104,
+    category: "PayGira & School Payments",
+    question: "How do parents and guardians pay through PayGira?",
+    answer: "In the Guardian Portal, parents can open PayGira, review each child's billed, paid, outstanding, and available credit amounts, and then pay the selected bill or recurring dates. If the school has enabled Stripe and the bill accepts online payments, parents can pay online by card or supported wallets. If the school has enabled bank transfer, that option can also appear. Payment history, invoices, and receipts remain available in the portal.",
+    keywords: ["guardian paygira", "parent payment", "guardian portal payments", "pay bills", "card payment", "stripe payment", "wallet payment", "bank transfer", "invoice", "receipt"]
+  },
+  {
+    id: 105,
+    category: "PayGira & School Payments",
+    question: "How do teachers, supervisors, and managers use My PayGira?",
+    answer: "Assigned teachers, class teachers, supervisors, managers, and finance administrators can use My PayGira to record collections for the bills under their responsibility. They can record one payment at a time or use bulk collection for multiple students. When staff record a collection, the student's balance is updated immediately and the school can keep follow-up records in finance history.",
+    keywords: ["my paygira", "staff collection", "teacher collect payment", "supervisor collect payment", "manager collect payment", "bulk collection", "record collection"]
+  },
+  {
+    id: 106,
+    category: "PayGira & School Payments",
+    question: "How does PayGira sign-off work?",
+    answer: "A bill or recurring date can only be signed off after it is fully settled for the relevant scope. During sign-off, the staff member enters the name to record on the sign-off and confirms with a password. The sign-off is then saved in finance history with the signer, student count, and total collected, and the fully settled collection is removed from the active collection drawer.",
+    keywords: ["paygira sign off", "collection sign off", "signoff", "sign off payment", "fully settled", "password verification", "finance history"]
+  },
+  {
+    id: 107,
+    category: "PayGira & School Payments",
+    question: "Can PayGira handle recurring bills, part-payments, and student credit?",
+    answer: "Yes. PayGira supports one-time bills and recurring bills. Recurring collections can be managed date by date, and each selected due date is tracked separately. The system also supports partial payments, outstanding balances, late fees where applicable, and student credit balances that can be applied to reduce what still needs to be paid.",
+    keywords: ["recurring bills", "partial payment", "part payment", "student credit", "late fee", "date by date billing", "outstanding balance"]
+  },
+  {
+    id: 108,
+    category: "PayGira & School Payments",
+    question: "What records does PayGira keep after payment?",
+    answer: "PayGira keeps invoices, receipts, payment history, balance changes, and sign-off history. Guardians can review recent payment activity in the Guardian Portal, while school finance teams can review payment records and collection sign-off history inside the finance workspace.",
+    keywords: ["payment history", "receipts", "invoices", "finance records", "sign-off history", "guardian payment history", "audit trail"]
+  },
+  {
+    id: 109,
+    category: "PayGira & School Payments",
+    question: "How secure is PayGira and its online payment process?",
+    answer: "PayGira uses authenticated school and guardian sessions, organization-scoped data access, role-based permissions, and audited finance records. Where a school enables Stripe, online card and wallet payments are handled through Stripe's secure payment flows, and payment confirmations are finalized through verified payment-intent and webhook processing. Sensitive actions such as collection sign-off require password verification, and payment views show masked card details instead of full card numbers.",
+    keywords: ["paygira security", "secure payments", "stripe security", "payment security", "masked card", "webhook", "payment intent", "password verification"]
   }
 ];
 

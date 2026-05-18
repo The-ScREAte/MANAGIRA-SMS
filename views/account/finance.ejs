@@ -1,6 +1,6 @@
 <%
   const rawSec = (typeof section !== 'undefined' && section) ? section : 'overview';
-  const sec = rawSec === 'reports' ? 'overview' : rawSec;
+  const sec = (rawSec === 'reports' || rawSec === 'templates') ? 'overview' : rawSec;
   const currentCurrency = (typeof financeCurrency !== 'undefined' && financeCurrency && financeCurrency.code) ? financeCurrency.code : 'USD';
   const profilePlaceholder = '/images/profilePlaceholder.png';
   const fmt = (n) => typeof formatMoney === 'function'
@@ -20,6 +20,14 @@
   const collectionDestinationOptionsSafe = (typeof collectionDestinationOptions !== 'undefined' && Array.isArray(collectionDestinationOptions)) ? collectionDestinationOptions : [];
   const defaultCollectionDestinationSafe = (typeof defaultCollectionDestination !== 'undefined' && defaultCollectionDestination) ? defaultCollectionDestination : '';
   const openCreateBillForm = sec === 'bills' && (Boolean(createBillDraftState) || (typeof messages !== 'undefined' && messages && messages.error && messages.error.length));
+  const formatCollectorOptionLabel = (employee) => {
+    const fullName = [employee && employee.first_name, employee && employee.last_name].filter(Boolean).join(' ').trim() || 'Unnamed staff';
+    const role = (employee && employee.account_type) ? employee.account_type : 'Staff';
+    const assignedClasses = String((employee && employee.assigned_classes_label) || '').trim();
+    return assignedClasses
+      ? `${fullName} · ${role} · Classes: ${assignedClasses}`
+      : `${fullName} · ${role} · No assigned class`;
+  };
 %>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet">
 
@@ -705,9 +713,66 @@
   .fin-report-filters .fin-filter-icon {
     flex-shrink:0; line-height:1;
   }
+  .fin-student-context-card {
+    margin-bottom:16px;
+    padding:16px 18px;
+    border:1px solid var(--fin-border);
+    border-radius:16px;
+    background:linear-gradient(180deg, rgba(17,27,46,.96), rgba(10,18,33,.98));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.03);
+  }
+  .fin-student-context-grid {
+    display:grid;
+    grid-template-columns:repeat(3, minmax(0, 1fr));
+    gap:14px;
+    align-items:end;
+  }
+  .fin-student-context-actions {
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:flex-end;
+    justify-content:flex-start;
+  }
+  .fin-student-context-note {
+    display:block;
+    margin-top:12px;
+    color:var(--fin-muted);
+    font-size:.74rem;
+    line-height:1.55;
+  }
+  .fin-stats.fin-student-summary-grid {
+    grid-template-columns:repeat(3, minmax(0, 1fr));
+  }
+  .fin-stats.fin-student-summary-grid .stat .sub strong {
+    color:var(--fin-text);
+    font-weight:700;
+  }
+  .fin-report-filters.fin-student-filter-grid {
+    display:grid;
+    grid-template-columns:repeat(6, minmax(0, 1fr));
+    gap:12px;
+    align-items:end;
+  }
+  .fin-report-filters.fin-student-filter-grid .fin-field {
+    min-width:0;
+  }
+  .fin-report-filters.fin-student-filter-grid .fin-field.fin-filter-action {
+    display:flex;
+    align-items:flex-end;
+  }
   /* Mobile filter toggle button */
   .fin-filters-toggle {
     display:none;
+  }
+  @media (max-width:1100px) {
+    .fin-student-context-grid,
+    .fin-stats.fin-student-summary-grid {
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+    }
+    .fin-report-filters.fin-student-filter-grid {
+      grid-template-columns:repeat(3, minmax(0, 1fr));
+    }
   }
   @media (max-width:960px) {
     /* Hide all filter forms inside their shell by default */
@@ -1148,6 +1213,13 @@
       filter:drop-shadow(0 0 5px rgba(0,212,170,.4));
     }
   }
+  @media (max-width:700px) {
+    .fin-student-context-grid,
+    .fin-stats.fin-student-summary-grid,
+    .fin-report-filters.fin-student-filter-grid {
+      grid-template-columns:1fr;
+    }
+  }
   .fin-analytics-grid {
     display:grid;
     grid-template-columns:1fr 1fr;
@@ -1190,7 +1262,7 @@
         <a href="/account/settings/finance?section=students"      class="<%= sec==='students' ? 'active':'' %>"><span class="ico">🏢</span><span>Org-Wide Bills</span></a>
         <a href="/account/settings/finance?section=subscriptions" class="<%= sec==='subscriptions' ? 'active':'' %>"><span class="ico">📅</span><span>Subscriptions</span></a>
         <a href="/account/settings/finance?section=payments"      class="<%= sec==='payments' ? 'active':'' %>"><span class="ico">💰</span><span>Payment Tracking</span></a>
-        <a href="/account/settings/finance?section=templates"     class="<%= sec==='templates' ? 'active':'' %>"><span class="ico">🏫</span><span>Fee Templates</span></a>
+        <% /* Fee Templates hidden for now */ %>
         <a href="/account/settings/finance/arrears"               class="<%= sec==='arrears' ? 'active':'' %>"><span class="ico">🧾</span><span>Fee Recovery</span></a>
         <a href="/account/settings/finance?section=settings"      class="<%= sec==='settings' ? 'active':'' %>"><span class="ico">⚙️</span><span>Payment Settings</span></a>
       </nav>
@@ -1603,7 +1675,7 @@
               <label>Collectors / Overseers <span style="color:var(--fin-muted);font-weight:400;font-size:.75em;">(hold Ctrl / ⌘ to pick multiple)</span></label>
               <select name="assignee_ids[]" multiple size="4" style="min-height:90px;">
                 <% (refs.employees || []).forEach(function(e) { %>
-                  <option value="<%= e.user_id %>"><%= e.first_name %> <%= e.last_name %> · <%= e.account_type %></option>
+                  <option value="<%= e.user_id %>"><%= formatCollectorOptionLabel(e) %></option>
                 <% }) %>
               </select>
               <small style="color:var(--fin-muted);font-size:.72rem;">Leave empty for no specific collector.</small>
@@ -1737,6 +1809,9 @@
       <% } %>
 
       <% if (sec === 'students') { %>
+        <% const studentNetOutstanding = (student) => Number(student.net_outstanding || Math.max(Number(student.outstanding || 0) - Number(student.student_credit || 0), 0)); %>
+        <% const studentsWithDebt = (studentBilling || []).filter(s => studentNetOutstanding(s) > 0); %>
+        <% const totalNetOutstanding = studentsWithDebt.reduce((sum, s) => sum + studentNetOutstanding(s), 0); %>
         <% const studentsWithCredit = (studentBilling || []).filter(s => Number(s.student_credit || 0) > 0); %>
         <% const totalStudentCredit = studentsWithCredit.reduce((sum, s) => sum + Number(s.student_credit || 0), 0); %>
         <div class="fin-card">
@@ -1744,9 +1819,9 @@
           <% if (!studentBilling.length) { %>
             <div class="empty-state"><div class="ico">👨‍👩‍👧</div><h3>No students yet</h3></div>
           <% } else { %>
-            <form method="GET" action="/account/settings/finance" class="fin-form" style="margin-bottom:16px;">
+            <form method="GET" action="/account/settings/finance" class="fin-form fin-student-context-card">
               <input type="hidden" name="section" value="students">
-              <div class="fin-row" style="align-items:end;">
+              <div class="fin-student-context-grid">
                 <div class="fin-field">
                   <label>School Year</label>
                   <select name="studentYear" id="studentBillingYearFilter">
@@ -1761,21 +1836,34 @@
                     <% (refs.terms || []).forEach(t => { %><option value="<%= t.term_id %>" data-school-year-id="<%= t.school_year_id || '' %>" <%= String(studentTermFilter) === String(t.term_id) ? 'selected' : '' %>><%= t.name %><%= t.current ? ' (current)' : '' %></option><% }) %>
                   </select>
                 </div>
-                <div class="fin-field" style="align-self:end;display:flex;gap:10px;flex-wrap:wrap;">
-                  <button type="submit" class="fin-btn">Apply Context</button>
-                  <a class="fin-btn ghost" href="/account/settings/finance?section=students">Use current term</a>
+                <div class="fin-field">
+                  <label>Context Actions</label>
+                  <div class="fin-student-context-actions">
+                    <button type="submit" class="fin-btn">Apply Context</button>
+                    <a class="fin-btn ghost" href="/account/settings/finance?section=students">Use current term</a>
+                  </div>
                 </div>
               </div>
-              <small style="color:var(--fin-muted);font-size:.74rem;">Student-wide billing totals are scoped to this academic year and term. Credit balances remain visible because they are still owed by the school.</small>
+              <small class="fin-student-context-note">Student-wide billing totals are scoped to this academic year and term. Credit balances remain visible because they are still owed by the school.</small>
             </form>
-            <div class="fin-stats" style="margin-bottom:16px;">
-              <div class="stat gold">
+            <div class="fin-stats fin-student-summary-grid" style="margin-bottom:16px;">
+              <div class="stat red">
                 <div class="label">Students Owed Balance</div>
-                <div class="value"><%= studentsWithCredit.length %></div>
-                <div class="sub"><%= fmt(totalStudentCredit) %> still available as student credit</div>
+                <div class="value"><%= studentsWithDebt.length %></div>
+                <div class="sub"><strong><%= fmt(totalNetOutstanding) %></strong> still due in this context</div>
+              </div>
+              <div class="stat gold">
+                <div class="label">Net Amount Due</div>
+                <div class="value"><%= fmt(totalNetOutstanding) %></div>
+                <div class="sub"><%= studentsWithDebt.length ? (studentsWithDebt.length + ' student' + (studentsWithDebt.length === 1 ? '' : 's') + ' still owe balances') : 'No outstanding balances in this context' %></div>
+              </div>
+              <div class="stat green">
+                <div class="label">Student Credit Held</div>
+                <div class="value"><%= fmt(totalStudentCredit) %></div>
+                <div class="sub"><%= studentsWithCredit.length ? (studentsWithCredit.length + ' student' + (studentsWithCredit.length === 1 ? '' : 's') + ' still have school-held credit') : 'No student credit is currently held' %></div>
               </div>
             </div>
-            <div class="fin-report-filters" style="margin-bottom:16px;">
+            <div class="fin-report-filters fin-student-filter-grid" style="margin-bottom:16px;">
               <div class="fin-field">
                 <label>Search</label>
                 <input type="text" id="orgStudentSearch" oninput="finRunOrgWideFilter()" placeholder="Student...">
@@ -1813,7 +1901,7 @@
                   <option value="no-credit">No student credit</option>
                 </select>
               </div>
-              <div class="fin-field" style="display:flex;align-items:flex-end;">
+              <div class="fin-field fin-filter-action">
                 <button type="button" class="fin-btn" onclick="finResetOrgWideFilter()">Reset</button>
               </div>
             </div>
@@ -4045,7 +4133,7 @@ Regards,
         <label>Collectors / Overseers</label>
         <select id="ebl-assignee" name="assignee_ids[]" class="fin-multi-select" multiple size="5" style="min-height:120px;">
           <% (refs.employees || []).forEach(function(e) { %>
-            <option value="<%= e.user_id %>"><%= e.first_name %> <%= e.last_name %> (<%= e.account_type %>)</option>
+            <option value="<%= e.user_id %>"><%= formatCollectorOptionLabel(e) %></option>
           <% }) %>
         </select>
         <small id="ebl-assignee_summary" style="display:block;color:var(--fin-muted);font-size:.72rem;margin-top:6px;">Leave empty if nobody should be assigned.</small>

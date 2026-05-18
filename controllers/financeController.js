@@ -2095,12 +2095,18 @@ async function loadClassesAndStudents(orgId) {
     [orgId]
   ).catch(() => ({ rows: [] }));
   const employees = await db.query(
-    `SELECT user_id, first_name, last_name, account_type
-       FROM users
-      WHERE organization_id = $1
-        AND account_type IN ('Manager','Supervisor','Teacher')
-        AND (on_hold IS NULL OR on_hold = false)
-      ORDER BY last_name, first_name`,
+    `SELECT u.user_id,
+            u.first_name,
+            u.last_name,
+            u.account_type,
+            ARRAY_REMOVE(ARRAY_AGG(DISTINCT uc.class_id), NULL) AS class_ids
+       FROM users u
+       LEFT JOIN user_classes uc ON uc.user_id = u.user_id
+      WHERE u.organization_id = $1
+        AND u.account_type IN ('Manager','Supervisor','Teacher')
+        AND (u.on_hold IS NULL OR u.on_hold = false)
+      GROUP BY u.user_id, u.first_name, u.last_name, u.account_type
+      ORDER BY u.last_name, u.first_name`,
     [orgId]
   ).catch(() => ({ rows: [] }));
   const classMap = new Map();
@@ -2141,7 +2147,35 @@ async function loadClassesAndStudents(orgId) {
       term_ids: linked ? Array.from(linked.termIds) : [],
     };
   });
-  return { classes: hydratedClasses, students: hydratedStudents, years: years.rows, terms: terms.rows, employees: employees.rows };
+  const employeeClassIds = Array.from(new Set(
+    employees.rows.flatMap((row) => Array.isArray(row.class_ids) ? row.class_ids : [])
+      .map((value) => parseInt(value, 10))
+      .filter((value) => Number.isInteger(value) && value > 0)
+  ));
+  const employeeClassRows = employeeClassIds.length
+    ? await db.query(
+        `SELECT class_id, class_name
+           FROM classes
+          WHERE class_id = ANY($1::int[])
+          ORDER BY class_name ASC`,
+        [employeeClassIds]
+      ).catch(() => ({ rows: [] }))
+    : { rows: [] };
+  const classNameById = new Map(employeeClassRows.rows.map((row) => [String(row.class_id), row.class_name]));
+  const hydratedEmployees = employees.rows.map((row) => {
+    const classIds = Array.isArray(row.class_ids)
+      ? row.class_ids.map((value) => parseInt(value, 10)).filter((value) => Number.isInteger(value) && value > 0)
+      : [];
+    const assignedClassNames = Array.from(new Set(
+      classIds.map((classId) => classNameById.get(String(classId))).filter(Boolean)
+    )).sort((left, right) => String(left).localeCompare(String(right)));
+    return {
+      ...row,
+      class_ids: classIds,
+      assigned_classes_label: assignedClassNames.join(', '),
+    };
+  });
+  return { classes: hydratedClasses, students: hydratedStudents, years: years.rows, terms: terms.rows, employees: hydratedEmployees };
 }
 
 function getCurrentAcademicContext(refs = {}) {
