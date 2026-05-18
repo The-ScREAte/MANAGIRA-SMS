@@ -46,7 +46,7 @@ const {
   clonePreviousClassSchedule,
 } = require("../utils/classScheduleService");
 const { hasGuardianPortalFeature } = require("../utils/guardianPortalAccess");
-const { getStripeClient, getStripePlatformClient, getStripeChargeCurrency, getStripeSettings, getActiveStripePublicKey } = require("../utils/stripeConfig");
+const { getStripeClient, getStripePlatformClient, getStripePlatformCredentials, getStripeChargeCurrency, getStripeSettings, getActiveStripePublicKey } = require("../utils/stripeConfig");
 const { getUsdRate, normalizeCurrencyCode } = require("../utils/currencyLocalization");
 const { getPlatformFeeSettings } = require("../utils/platformFee");
 const { ensurePaymentProviderSchema } = require("../utils/paymentProviderSchema");
@@ -3452,10 +3452,19 @@ const commonController = {
     try {
       await ensurePublicRegistrationSchema(db);
 
-      // Use the platform client (full sk_ key) — must match the key used to
-      // create the Connect account, otherwise Stripe returns "No such destination".
+      const platformStripe = await getStripePlatformCredentials(db);
+      if (platformStripe.issue) {
+        return res.status(500).json({
+          success: false,
+          error: `${platformStripe.issue} Update Stripe mode or keys in Admin Service Pricing.`,
+          code: 'STRIPE_PLATFORM_NOT_CONFIGURED',
+        });
+      }
+
+      // Use the platform client (full sk_ key) that matches the active admin mode.
+      // It must match the key used to create the connected account, otherwise
+      // Stripe returns "No such destination".
       const stripe = await getStripePlatformClient(db);
-      const stripeSettings = await getStripeSettings(db);
 
       // 1. Get pending student
       const studentResult = await db.query(
@@ -3583,24 +3592,7 @@ const commonController = {
       return res.json({
         success: true,
         clientSecret: paymentIntent.client_secret,
-        // Return the publishable key that MATCHES the secret key used above.
-        // getStripePlatformClient prefers sk_test_ keys, so we must return
-        // the test publishable key — not the active (possibly live) one.
-        publishableKey: (() => {
-          const connectKey = (process.env.STRIPE_CONNECT_SECRET_KEY || '').trim();
-          const usedKey = connectKey || [
-            process.env.STRIPE_LIVE_SECRET_KEY,
-            process.env.STRIPE_SECRET_KEY,
-            process.env.STRIPE_TEST_SECRET_KEY,
-          ].map(k => (k || '').trim()).find(k => k.startsWith('sk_')) || '';
-          if (usedKey.startsWith('sk_test_')) {
-            return process.env.STRIPE_TEST_PUBLISHABLE_KEY || process.env.STRIPE_PUBLISHABLE_KEY || stripeSettings.activePublicKey;
-          }
-          if (usedKey.startsWith('sk_live_')) {
-            return process.env.STRIPE_LIVE_PUBLISHABLE_KEY || process.env.STRIPE_PUBLISHABLE_KEY || stripeSettings.activePublicKey;
-          }
-          return stripeSettings.activePublicKey;
-        })(),
+        publishableKey: platformStripe.publicKey,
         amount: requestedAmount,
         currency,
         paymentIntentId: paymentIntent.id,

@@ -27,6 +27,7 @@ const {
 } = require("../utils/paymentProviderConfig");
 const {
   getStripeSettings,
+  getStripePlatformCredentials,
   normalizeMode: normalizeStripeMode,
   upsertStripeSettings,
 } = require("../utils/stripeConfig");
@@ -2308,6 +2309,12 @@ const adminController = {
       const currencyProfile = await getCurrencyProfileForRequest(req);
       const paystackSettings = await getPaystackSettings(db);
       const stripeSettings = await getStripeSettings(db);
+      const stripePlatformStatus = await getStripePlatformCredentials(db).catch(() => ({
+        mode: stripeSettings.mode,
+        issue: "Stripe platform key status could not be verified.",
+        secretKey: "",
+        publicKey: "",
+      }));
       const paymentProvider = await getPaymentProvider(db);
       const platformFeeSettings = await getPlatformFeeSettings(db);
       const featuresResult = await db.query(
@@ -2432,6 +2439,7 @@ const adminController = {
         paystackMode: paystackSettings.mode,
         stripeMode: stripeSettings.mode,
         stripeKeysMasked: stripeSettings.masked,
+        stripePlatformStatus,
         showFooterTopSection: true
       });
     } catch (error) {

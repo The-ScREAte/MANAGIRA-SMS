@@ -352,6 +352,165 @@
     font-size:.72rem;
     margin-top:8px;
   }
+  .pgv2-section-label {
+    display:block;
+    color:var(--pg-muted);
+    font-size:.72rem;
+    font-weight:700;
+    letter-spacing:.08em;
+    margin-bottom:10px;
+    text-transform:uppercase;
+  }
+  .pgv2-balance-card {
+    border:1px solid rgba(0,212,170,.24);
+    background:linear-gradient(180deg, rgba(0,212,170,.08), rgba(0,212,170,.03));
+    border-radius:16px;
+    padding:16px;
+  }
+  .pgv2-balance-top {
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:14px;
+    flex-wrap:wrap;
+  }
+  .pgv2-balance-heading {
+    color:var(--pg-muted);
+    font-size:.72rem;
+    font-weight:700;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+  }
+  .pgv2-balance-figure {
+    margin-top:6px;
+    color:var(--pg-teal);
+    font-family:'JetBrains Mono',monospace;
+    font-size:1.4rem;
+    font-weight:800;
+  }
+  .pgv2-apply-btn {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-height:42px;
+    padding:10px 16px;
+    border-radius:999px;
+    border:1px solid rgba(0,212,170,.26);
+    background:rgba(0,212,170,.08);
+    color:var(--pg-teal);
+    font-size:.78rem;
+    font-weight:700;
+    cursor:pointer;
+    transition:transform .15s ease, box-shadow .15s ease, background .15s ease, color .15s ease;
+  }
+  .pgv2-apply-btn:hover:not(:disabled) {
+    transform:translateY(-1px);
+    box-shadow:0 12px 24px rgba(0,0,0,.18);
+  }
+  .pgv2-apply-btn:disabled {
+    opacity:.45;
+    cursor:not-allowed;
+  }
+  .pgv2-apply-btn.is-applied {
+    border-color:transparent;
+    background:linear-gradient(135deg, var(--pg-teal), #00b693);
+    color:#062018;
+  }
+  .pgv2-balance-hint {
+    color:var(--pg-muted);
+    font-size:.78rem;
+    line-height:1.5;
+  }
+  .pgv2-balance-hint.is-covered {
+    color:var(--pg-teal);
+    font-weight:700;
+  }
+  .pgv2-amount-wrap {
+    display:grid;
+    grid-template-columns:minmax(0, 1fr) minmax(220px, .95fr);
+    gap:12px;
+    align-items:stretch;
+  }
+  .pgv2-breakdown {
+    border:1px solid rgba(255,255,255,.08);
+    background:rgba(255,255,255,.03);
+    border-radius:14px;
+    padding:14px;
+    display:grid;
+    gap:10px;
+  }
+  .pgv2-brow {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    color:var(--pg-text);
+    font-size:.82rem;
+  }
+  .pgv2-brow.is-credit {
+    color:var(--pg-teal);
+  }
+  .pgv2-brow.is-charge {
+    color:var(--pg-gold);
+  }
+  .pgv2-mono {
+    font-family:'JetBrains Mono',monospace;
+    font-weight:700;
+  }
+  .pgv2-method-cards {
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));
+    gap:10px;
+  }
+  .pgv2-method-card {
+    width:100%;
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
+    padding:14px;
+    border-radius:16px;
+    border:1px solid rgba(255,255,255,.08);
+    background:rgba(255,255,255,.03);
+    color:var(--pg-text);
+    text-align:left;
+    cursor:pointer;
+    transition:border-color .15s ease, transform .15s ease, background .15s ease, box-shadow .15s ease;
+  }
+  .pgv2-method-card:hover {
+    transform:translateY(-1px);
+    border-color:rgba(0,212,170,.22);
+    background:rgba(255,255,255,.05);
+  }
+  .pgv2-method-card.is-selected {
+    border-color:rgba(0,212,170,.38);
+    background:rgba(0,212,170,.11);
+    box-shadow:0 12px 24px rgba(0,0,0,.18);
+  }
+  .pgv2-method-ico {
+    width:42px;
+    height:42px;
+    flex-shrink:0;
+    border-radius:12px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    background:rgba(255,255,255,.06);
+    font-size:1.1rem;
+  }
+  .pgv2-method-copy {
+    display:grid;
+    gap:4px;
+    min-width:0;
+  }
+  .pgv2-method-name {
+    font-size:.9rem;
+    font-weight:700;
+  }
+  .pgv2-method-subdesc {
+    color:var(--pg-muted);
+    font-size:.75rem;
+    line-height:1.45;
+  }
   .pg-pay-mode-note {
     color:var(--pg-muted);
     font-size:.74rem;
@@ -554,6 +713,10 @@
       width:100%;
       justify-content:center;
     }
+    .pgv2-amount-wrap { grid-template-columns:1fr; }
+    .pgv2-method-cards { grid-template-columns:1fr; }
+    .pgv2-balance-top { align-items:stretch; }
+    .pgv2-apply-btn { width:100%; }
     .pg-recurring-toolbar {
       grid-template-columns:1fr;
       align-items:stretch;
@@ -751,7 +914,9 @@
     <h3 style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
       Pay Bill
       <span class="paygira-secure-badge" style="padding:4px 10px;font-size:.62rem;">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+        </svg>
         Secure
       </span>
     </h3>
@@ -760,7 +925,7 @@
       <input type="hidden" name="occurrence_date" id="pgOccurrenceDate">
       <input type="hidden" name="occurrence_dates" id="pgOccurrenceDates">
       <input type="hidden" name="saved_card_id" id="pgSavedCardId" value="">
-      <div class="pg-form-grid">
+      <div class="pg-form-grid" style="margin-bottom:14px;">
         <div class="pg-field">
           <label>Bill</label>
           <input type="text" id="pgPayBillName" disabled>
@@ -769,70 +934,96 @@
           <label>Student</label>
           <input type="text" id="pgPayStudent" disabled>
         </div>
-        <div class="pg-field span2" id="pgCreditField" hidden>
-          <label>Available Balance</label>
-          <div class="pg-credit-box">
-            <div class="pg-credit-value" id="pgCreditAmount"><%= money(0) %></div>
-            <label class="pg-credit-toggle"><input type="checkbox" name="apply_credit" id="pgApplyCredit"> Apply balance before charging</label>
-            <div class="pg-credit-actions">
-              <button type="button" class="pg-btn ghost" id="pgApplyBalanceBtn" hidden>Apply Balance</button>
+      </div>
+
+      <div id="pgCreditField" hidden style="margin-bottom:14px;">
+        <div class="pgv2-balance-card">
+          <div class="pgv2-balance-top">
+            <div>
+              <div class="pgv2-balance-heading">Available Balance</div>
+              <div class="pgv2-balance-figure" id="pgCreditAmount"><%= money(0) %></div>
             </div>
-            <div class="pg-credit-note" id="pgCreditHint"></div>
+            <button type="button" class="pgv2-apply-btn" id="pgApplyBalanceBtn">
+              Apply to payment
+            </button>
+          </div>
+          <div class="pgv2-balance-hint" id="pgCreditHint"></div>
+        </div>
+        <input type="checkbox" name="apply_credit" id="pgApplyCredit" style="display:none;">
+      </div>
+
+      <div class="pg-field span2 pg-recurring-panel" id="pgRecurringPanel" hidden>
+        <label>Choose Dates to Pay</label>
+        <div class="pg-recurring-toolbar">
+          <div class="pg-recurring-summary" id="pgRecurringSummary"></div>
+          <div class="pg-recurring-actions">
+            <button type="button" class="pg-btn ghost" id="pgSelectAllDates" style="padding:6px 10px;font-size:.72rem;">All</button>
+            <button type="button" class="pg-btn ghost" id="pgClearDates" style="padding:6px 10px;font-size:.72rem;">Clear</button>
           </div>
         </div>
+        <div class="pg-recurring-list" id="pgRecurringList"></div>
+        <small class="pg-pay-hint" id="pgRecurringHint"></small>
+      </div>
+
+      <div class="pgv2-amount-wrap" style="margin-bottom:14px;">
         <div class="pg-field">
           <label>Amount (<%= currencyCode %>)</label>
-          <input type="number" step="0.01" min="0.01" name="amount" id="pgPayAmount" required>
+          <input type="number" step="0.01" min="0.01" name="amount" id="pgPayAmount" required placeholder="0.00">
         </div>
-        <div class="pg-field">
-          <label>Method</label>
-          <select name="method" id="pgMethod"></select>
-        </div>
-        <div class="pg-field span2" id="pgMethodHintWrap">
-          <small id="pgMethodHint" style="display:block;color:var(--pg-muted);font-size:.75rem;"></small>
-        </div>
-        <div class="pg-field span2 pg-recurring-panel" id="pgRecurringPanel" hidden>
-          <label>Choose Dates to Pay</label>
-          <div class="pg-recurring-toolbar">
-            <div class="pg-recurring-summary" id="pgRecurringSummary"></div>
-            <div class="pg-recurring-actions">
-              <button type="button" class="pg-btn ghost" id="pgSelectAllDates" style="padding:6px 10px;font-size:.72rem;">All</button>
-              <button type="button" class="pg-btn ghost" id="pgClearDates" style="padding:6px 10px;font-size:.72rem;">Clear</button>
-            </div>
+        <div class="pgv2-breakdown" id="pgBreakdown" hidden>
+          <div class="pgv2-brow">
+            <span>Total due</span>
+            <span class="pgv2-mono" id="pgBreakdownTotal"></span>
           </div>
-          <div class="pg-recurring-list" id="pgRecurringList"></div>
-          <small class="pg-pay-hint" id="pgRecurringHint"></small>
-        </div>
-        <div class="pg-field span2">
-          <div class="pg-payment-shell pg-stripe-shell" id="pgStripeShell" hidden>
-            <div class="pg-method-chip-list" id="pgStripeMethodChips"></div>
-            <div id="pgSavedCardsSection" style="display:none;margin-top:12px;">
-              <div class="pg-stripe-box-title" style="margin-bottom:8px;">Saved cards</div>
-              <div id="pgSavedCardChips" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
-              <div style="margin-top:8px;">
-                <button type="button" id="pgUseNewCardBtn" class="pg-btn ghost" style="font-size:.78rem;padding:5px 12px;display:none;" onclick="clearSavedCardSelection()">+ Use a different card</button>
-              </div>
-            </div>
-            <div id="pgNewCardSection">
-              <div class="pg-stripe-box" style="margin-top:10px;">
-                <div class="pg-express-shell" id="pgExpressShell">
-                  <div id="pgExpressCheckoutElement"></div>
-                </div>
-                <div id="pgStripePaymentElement"></div>
-                <p class="pg-stripe-error" id="pgStripeError"></p>
-                <div class="pg-stripe-test-note" id="pgStripeTestNote" <%= (pspSettings && pspSettings.stripe_mode === 'test') ? '' : 'hidden' %>>
-                  Test: card 4242 4242 4242 4242 · any future date · any CVC &amp; ZIP
-                </div>
-              </div>
-            </div>
+          <div class="pgv2-brow is-credit" id="pgBreakdownCreditRow" hidden>
+            <span>Balance applied</span>
+            <span class="pgv2-mono" id="pgBreakdownCredit"></span>
           </div>
-          <div class="pg-payment-shell" id="pgOfflineShell" hidden>
-            <div class="pg-offline-title" id="pgOfflineTitle">Payment instructions</div>
-            <div class="pg-offline-details" id="pgOfflineDetails"></div>
+          <div class="pgv2-brow is-charge" id="pgBreakdownChargeRow" hidden>
+            <span>Charged now</span>
+            <span class="pgv2-mono" id="pgBreakdownCharge"></span>
           </div>
         </div>
       </div>
-      <div class="pg-modal-actions">
+
+      <select name="method" id="pgMethod" style="display:none;"></select>
+      <div style="margin-bottom:14px;">
+        <span class="pgv2-section-label">Pay with</span>
+        <div class="pgv2-method-cards" id="pgMethodCards"></div>
+        <div class="pgv2-balance-hint" id="pgMethodHint" style="margin-top:8px;"></div>
+      </div>
+
+      <div class="pg-payment-shell pg-stripe-shell" id="pgStripeShell" hidden>
+        <div class="pg-method-chip-list" id="pgStripeMethodChips"></div>
+        <div id="pgSavedCardsSection" style="display:none;margin-top:12px;">
+          <div class="pg-stripe-box-title" style="margin-bottom:8px;">Saved cards</div>
+          <div id="pgSavedCardChips" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+          <div style="margin-top:8px;">
+            <button type="button" id="pgUseNewCardBtn" class="pg-btn ghost"
+                    style="font-size:.78rem;padding:5px 12px;display:none;"
+                    onclick="clearSavedCardSelection()">+ Use a different card</button>
+          </div>
+        </div>
+        <div id="pgNewCardSection">
+          <div class="pg-stripe-box" style="margin-top:10px;">
+            <div class="pg-express-shell" id="pgExpressShell">
+              <div id="pgExpressCheckoutElement"></div>
+            </div>
+            <div id="pgStripePaymentElement"></div>
+            <p class="pg-stripe-error" id="pgStripeError"></p>
+            <div class="pg-stripe-test-note" id="pgStripeTestNote" <%= (pspSettings && pspSettings.stripe_mode === 'test') ? '' : 'hidden' %>>
+              Test: card 4242 4242 4242 4242 · any future date · any CVC &amp; ZIP
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pg-payment-shell" id="pgOfflineShell" hidden>
+        <div class="pg-offline-title" id="pgOfflineTitle">Payment instructions</div>
+        <div class="pg-offline-details" id="pgOfflineDetails"></div>
+      </div>
+
+      <div class="pg-modal-actions" style="margin-top:20px;">
         <button type="button" class="pg-btn ghost" onclick="closePgPay()">Cancel</button>
         <button type="submit" class="pg-btn primary" id="pgSubmitBtn">Submit Payment</button>
       </div>
@@ -1164,29 +1355,17 @@
       if (stripeEnabled && record && record.accepts_card) {
         options.push({
           value: 'stripe',
-          label: 'Secure online checkout',
-          hint: 'Stripe handles card, wallet, and any Stripe methods your school enabled for PayGira.'
+          label: 'Card / Apple Pay / Google Pay',
+          hint: 'Pay securely with a debit or credit card. Apple Pay and Google Pay appear automatically on supported devices.'
         });
       }
       if (allowedMethods && allowedMethods.bankOn && record && record.accepts_transfer) {
         options.push({
-          value: 'bank_transfer',
-          label: 'Bank transfer',
-          hint: 'Use your school bank details below, then submit this transfer in PayGira.'
+          value: 'bank_transfer', 
+          label: 'Bank payment',
+          hint: 'Transfer directly from your bank account. Use the school bank details shown below, then submit this record in PayGira.'
         });
       }
-      if (allowedMethods && allowedMethods.momoOn) {
-        options.push({
-          value: 'mobile_money',
-          label: 'Mobile money',
-          hint: 'Use the school mobile money details below, then submit this transfer in PayGira.'
-        });
-      }
-      options.push({
-        value: 'other',
-        label: 'Other approved method',
-        hint: 'Use this when the school has given you another approved payment path for this bill.'
-      });
       return options;
     }
 
@@ -1200,14 +1379,6 @@
           allowedMethods && allowedMethods.bank && allowedMethods.bank.branch ? '<div><strong>Branch:</strong> ' + escapeHtml(allowedMethods.bank.branch) + '</div>' : '',
           '<div>Complete the transfer, then submit this payment so the bill reflects what you just paid.</div>'
         ].filter(Boolean).join('');
-      } else if (methodValue === 'mobile_money') {
-        offlineTitle.textContent = 'Mobile money details';
-        offlineDetails.innerHTML = [
-          allowedMethods && allowedMethods.momoProvider ? '<div><strong>Provider:</strong> ' + escapeHtml(String(allowedMethods.momoProvider).toUpperCase()) + '</div>' : '',
-          allowedMethods && allowedMethods.momoName ? '<div><strong>Name:</strong> ' + escapeHtml(allowedMethods.momoName) + '</div>' : '',
-          allowedMethods && allowedMethods.momoNumber ? '<div><strong>Number:</strong> ' + escapeHtml(allowedMethods.momoNumber) + '</div>' : '',
-          '<div>Send the money to the school account above, then submit this payment in PayGira.</div>'
-        ].filter(Boolean).join('');
       } else {
         offlineTitle.textContent = '';
         offlineDetails.innerHTML = '';
@@ -1216,32 +1387,42 @@
 
     function updateSubmitButton() {
       if (stripeBusy) {
-        submitButton.textContent = 'Processing...';
+        submitButton.textContent = 'Processing…';
         submitButton.disabled = true;
         return;
       }
       submitButton.disabled = false;
+      var method = String(methodSelect.value || '');
+      var charge = currentChargeMinor();
+      var usingCredit = !!(applyCreditCheckbox && applyCreditCheckbox.checked
+                       && activeRecord && getAvailableCredit(activeRecord) > 0);
+      var fullyCovered = usingCredit && charge === 0;
+
       if (isStripeFlowSelected()) {
-        submitButton.textContent = currentChargeMinor() > 0 ? 'Pay Securely' : 'Apply Balance Only';
+        if (fullyCovered) {
+          submitButton.textContent = 'Apply Balance — No Card Charge';
+          return;
+        }
+        if (charge > 0) {
+          submitButton.textContent = 'Pay ' + formatMoney(charge / 100) + ' Securely →';
+          return;
+        }
+        submitButton.textContent = 'Pay Securely →';
         return;
       }
-      if (String(methodSelect.value || '') === 'bank_transfer') {
-        submitButton.textContent = 'Submit Bank Transfer';
+      if (method === 'bank_transfer') {
+        submitButton.textContent = 'Confirm Bank Transfer →';
         return;
       }
-      if (String(methodSelect.value || '') === 'mobile_money') {
-        submitButton.textContent = 'Submit Mobile Money Payment';
-        return;
-      }
-      submitButton.textContent = 'Submit Payment';
+      submitButton.textContent = 'Submit Payment →';
     }
 
     function syncPaymentMode() {
       var selectedMethod = String(methodSelect.value || '');
       var isStripe = selectedMethod === 'stripe';
-      var hideOfflineDetails = selectedMethod === 'other';
+      var isBankTransfer = selectedMethod === 'bank_transfer';
       stripeShell.hidden = !isStripe;
-      offlineShell.hidden = isStripe || hideOfflineDetails;
+      offlineShell.hidden = !isBankTransfer;
 
       if (isStripe) {
         methodHint.textContent = 'Stripe will show the online payment methods your school enabled. Apple Pay and Google Pay only appear on supported devices and verified domains.';
@@ -1320,42 +1501,64 @@
       var usingCredit = !!(applyCreditCheckbox && applyCreditCheckbox.checked && availableCredit > 0);
       var creditToApply = usingCredit ? Math.min(availableCredit, dueAmount) : 0;
       var chargeNow = Math.max(dueAmount - creditToApply, 0);
+      var fullyCovered = usingCredit && chargeNow === 0;
 
       if (creditField) creditField.hidden = !(availableCredit > 0);
       if (creditAmount) creditAmount.textContent = formatMoney(availableCredit);
-      if (applyCreditCheckbox) {
-        applyCreditCheckbox.disabled = !(availableCredit > 0);
-        if (!(availableCredit > 0)) applyCreditCheckbox.checked = false;
-      }
       if (applyBalanceButton) {
-        applyBalanceButton.hidden = !(availableCredit > 0);
-        applyBalanceButton.textContent = usingCredit ? 'Remove Balance' : 'Apply Balance';
+        applyBalanceButton.classList.toggle('is-applied', usingCredit);
+        applyBalanceButton.textContent = usingCredit ? '✓ Balance applied' : 'Apply to payment';
+        applyBalanceButton.disabled = !(availableCredit > 0);
       }
       if (creditHint) {
         if (!(availableCredit > 0)) {
           creditHint.textContent = '';
+          creditHint.className = 'pgv2-balance-hint';
         } else if (!usingCredit) {
-          creditHint.textContent = formatMoney(Math.min(availableCredit, dueAmount)) + ' is ready to apply to this bill.';
-        } else if (chargeNow > 0) {
-          creditHint.textContent = formatMoney(creditToApply) + ' will be used first. ' + formatMoney(chargeNow) + ' will still be charged now.';
+          creditHint.textContent = 'Tap "Apply" to use ' + formatMoney(Math.min(availableCredit, dueAmount)) + ' from your balance toward this payment.';
+          creditHint.className = 'pgv2-balance-hint';
+        } else if (fullyCovered) {
+          creditHint.textContent = '✓ Your balance fully covers this payment — no card charge needed.';
+          creditHint.className = 'pgv2-balance-hint is-covered';
         } else {
-          creditHint.textContent = 'This payment can be fully covered from the available balance.';
+          creditHint.textContent = formatMoney(creditToApply) + ' from your balance · ' + formatMoney(chargeNow) + ' remaining to charge.';
+          creditHint.className = 'pgv2-balance-hint';
         }
       }
 
-      if (String((record && record.bill_type) || '') === 'recurring') {
+      var isRecurring = String((record && record.bill_type) || '') === 'recurring';
+      amountLabel.textContent = usingCredit
+        ? 'Charge Now (<%= currencyCode %>)'
+        : (isRecurring ? 'Total (<%= currencyCode %>)' : 'Amount (<%= currencyCode %>)');
+
+      if (isRecurring) {
         amountInput.value = chargeNow > 0 ? chargeNow.toFixed(2) : '0.00';
-        amountLabel.textContent = usingCredit ? 'Charge Now (<%= currencyCode %>)' : 'Total (<%= currencyCode %>)';
       } else if (options && options.setAmount) {
         amountInput.value = chargeNow > 0 ? chargeNow.toFixed(2) : '0.00';
-        amountLabel.textContent = usingCredit ? 'Charge Now (<%= currencyCode %>)' : 'Amount (<%= currencyCode %>)';
-      } else {
-        amountLabel.textContent = usingCredit ? 'Charge Now (<%= currencyCode %>)' : 'Amount (<%= currencyCode %>)';
       }
       amountInput.min = '0';
-      if (!(record && String(record.bill_type || '') === 'recurring')) {
+      if (!isRecurring) {
         amountInput.max = Number(record && record.balance || 0) > 0 ? Number(record.balance || 0).toFixed(2) : '';
       }
+
+      var breakdown = document.getElementById('pgBreakdown');
+      var bdTotal = document.getElementById('pgBreakdownTotal');
+      var bdCreditRow = document.getElementById('pgBreakdownCreditRow');
+      var bdCredit = document.getElementById('pgBreakdownCredit');
+      var bdChargeRow = document.getElementById('pgBreakdownChargeRow');
+      var bdCharge = document.getElementById('pgBreakdownCharge');
+      if (breakdown) {
+        var show = usingCredit && dueAmount > 0;
+        breakdown.hidden = !show;
+        if (show) {
+          if (bdTotal) bdTotal.textContent = formatMoney(dueAmount);
+          if (bdCreditRow) bdCreditRow.hidden = false;
+          if (bdCredit) bdCredit.textContent = '−' + formatMoney(creditToApply);
+          if (bdChargeRow) bdChargeRow.hidden = fullyCovered;
+          if (bdCharge) bdCharge.textContent = formatMoney(chargeNow);
+        }
+      }
+
       if (isStripeFlowSelected()) ensureStripeElements();
       updateSubmitButton();
     }
@@ -1461,11 +1664,46 @@
       methodSelect.innerHTML = options.map(function(option) {
         return '<option value="' + escapeHtml(option.value) + '">' + escapeHtml(option.label) + '</option>';
       }).join('');
+      var selectedValue;
       if (previousValue && options.some(function(option) { return option.value === previousValue; })) {
-        methodSelect.value = previousValue;
-      } else if (options.length) {
-        methodSelect.value = options[0].value;
+        selectedValue = previousValue;
+      } else {
+        selectedValue = options.length ? options[0].value : '';
       }
+      methodSelect.value = selectedValue;
+
+      var pgv2Cards = document.getElementById('pgMethodCards');
+      var METHOD_META = {
+        stripe: { icon: '💳', desc: 'Card · Apple Pay · Google Pay' },
+        bank_transfer: { icon: '🏦', desc: 'Send the transfer, then submit this record' }
+      };
+      if (pgv2Cards) {
+        if (!options.length) {
+          pgv2Cards.innerHTML = '<div style="color:var(--pg-muted);font-size:.82rem;padding:10px 0;">No payment methods available for this bill.</div>';
+        } else {
+          pgv2Cards.innerHTML = options.map(function(option) {
+            var meta = METHOD_META[option.value] || { icon: '💰', desc: '' };
+            var isSelected = option.value === selectedValue;
+            return '<button type="button" class="pgv2-method-card' + (isSelected ? ' is-selected' : '') + '" data-pgv2-method="' + escapeHtml(option.value) + '">'
+              + '<div class="pgv2-method-ico">' + meta.icon + '</div>'
+              + '<div class="pgv2-method-copy">'
+              + '<span class="pgv2-method-name">' + escapeHtml(option.label) + '</span>'
+              + '<span class="pgv2-method-subdesc">' + escapeHtml(meta.desc) + '</span>'
+              + '</div></button>';
+          }).join('');
+          pgv2Cards.querySelectorAll('.pgv2-method-card').forEach(function(card) {
+            card.addEventListener('click', function() {
+              var value = card.getAttribute('data-pgv2-method');
+              pgv2Cards.querySelectorAll('.pgv2-method-card').forEach(function(item) {
+                item.classList.toggle('is-selected', item === card);
+              });
+              methodSelect.value = value;
+              syncPaymentMode();
+            });
+          });
+        }
+      }
+
       syncPaymentMode();
     }
 

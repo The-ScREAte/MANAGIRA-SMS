@@ -3909,9 +3909,6 @@ Regards,
 </script>
 
 <!-- Edit Bill Modal -->
-</script>
-
-<!-- Edit Bill Modal -->
 <div class="fin-modal" id="editBillModal">
   <div class="fin-modal-content" style="max-width:720px;">
     <div class="fin-modal-head">
@@ -4106,4 +4103,305 @@ Regards,
     </div>
     <div id="studentDrawerBody"></div>
   </div>
-</div>
+</div> 
+
+<script>
+  (function() {
+    function splitPatchIds(value) {
+      return String(value || '')
+        .split(',')
+        .map(function(item) { return String(item || '').trim(); })
+        .filter(Boolean);
+    }
+
+    function matchesPatchIds(value, wantedIds) {
+      var available = splitPatchIds(value);
+      var wanted = Array.isArray(wantedIds)
+        ? wantedIds.map(function(item) { return String(item || '').trim(); }).filter(Boolean)
+        : [];
+      if (!wanted.length) return true;
+      return wanted.some(function(id) {
+        return available.indexOf(id) !== -1;
+      });
+    }
+
+    function setPatchMultiSelectValues(selectId, values) {
+      var select = document.getElementById(selectId);
+      if (!select) return;
+      var wanted = Array.isArray(values)
+        ? values.map(function(value) { return String(value || '').trim(); }).filter(Boolean)
+        : [];
+      Array.prototype.forEach.call(select.options, function(option) {
+        option.selected = wanted.indexOf(String(option.value || '')) !== -1;
+      });
+    }
+
+    function syncEditBillPaymentMethodMasterPatch() {
+      var master = document.getElementById('ebl-payAll');
+      var inputs = Array.prototype.slice.call(document.querySelectorAll('.ebl-pay-method')).filter(function(input) {
+        return !input.disabled;
+      });
+      if (!master) return;
+      if (!inputs.length) {
+        master.checked = false;
+        master.indeterminate = false;
+        return;
+      }
+      var checkedCount = inputs.filter(function(input) { return input.checked; }).length;
+      master.checked = checkedCount === inputs.length;
+      master.indeterminate = checkedCount > 0 && checkedCount < inputs.length;
+    }
+
+    function syncAudiencePicker() {
+      var appliesTo = String((document.getElementById('ebl-applies_to') || {}).value || 'school');
+      var selectedYear = String((document.getElementById('ebl-school_year_id') || {}).value || '');
+      var selectedTerm = String((document.getElementById('ebl-term_id') || {}).value || '');
+      var classWrap = document.getElementById('ebl-target-classes-wrap');
+      var studentWrap = document.getElementById('ebl-target-students-wrap');
+      var classSelect = document.getElementById('ebl-target_class_ids');
+      var studentSelect = document.getElementById('ebl-target_student_ids');
+      var classSearch = document.getElementById('ebl-target_class_search');
+      var studentSearch = document.getElementById('ebl-target_student_search');
+      var summary = document.getElementById('ebl-applies_to_summary');
+
+      if (classWrap) classWrap.style.display = appliesTo === 'classes' ? '' : 'none';
+      if (studentWrap) studentWrap.style.display = appliesTo === 'students' ? '' : 'none';
+
+      [classSelect, studentSelect].forEach(function(select) {
+        if (!select) return;
+        Array.prototype.forEach.call(select.options, function(option) {
+          var matches = true;
+          if (selectedTerm) matches = matchesPatchIds(option.getAttribute('data-term-ids'), [selectedTerm]);
+          else if (selectedYear) matches = matchesPatchIds(option.getAttribute('data-school-year-ids'), [selectedYear]);
+          option.disabled = !matches;
+          option.setAttribute('data-academic-match', matches ? 'true' : 'false');
+          if (!matches) option.selected = false;
+        });
+      });
+
+      window.filterEditBillTargetOptions('ebl-target_class_ids', classSearch ? classSearch.value : '');
+      window.filterEditBillTargetOptions('ebl-target_student_ids', studentSearch ? studentSearch.value : '');
+
+      if (!summary) return;
+      if (appliesTo === 'classes') {
+        var classCount = classSelect ? Array.prototype.filter.call(classSelect.options, function(option) {
+          return option.selected && !option.disabled;
+        }).length : 0;
+        summary.textContent = classCount
+          ? ('Currently set to ' + classCount + ' class' + (classCount === 1 ? '' : 'es') + ' in this academic context.')
+          : 'Choose one or more classes for this bill.';
+        return;
+      }
+      if (appliesTo === 'students') {
+        var studentCount = studentSelect ? Array.prototype.filter.call(studentSelect.options, function(option) {
+          return option.selected && !option.disabled;
+        }).length : 0;
+        summary.textContent = studentCount
+          ? ('Currently set to ' + studentCount + ' individual student' + (studentCount === 1 ? '' : 's') + ' in this academic context.')
+          : 'Choose one or more students for this bill.';
+        return;
+      }
+      summary.textContent = 'This bill will apply to the entire school for the selected year and term.';
+    }
+
+    window.filterEditBillTargetOptions = function(selectId, query) {
+      var select = document.getElementById(selectId);
+      if (!select) return;
+      var normalizedQuery = String(query || '').trim().toLowerCase();
+      Array.prototype.forEach.call(select.options, function(option) {
+        var academicMatch = option.getAttribute('data-academic-match') !== 'false';
+        var matchesQuery = !normalizedQuery || String(option.textContent || '').toLowerCase().indexOf(normalizedQuery) !== -1;
+        option.hidden = !academicMatch || !matchesQuery;
+      });
+    };
+
+    window.setAllEditBillTargets = function(selectId, shouldSelect) {
+      var select = document.getElementById(selectId);
+      if (!select) return;
+      Array.prototype.forEach.call(select.options, function(option) {
+        if (option.disabled || option.hidden) return;
+        option.selected = !!shouldSelect;
+      });
+      syncAudiencePicker();
+    };
+
+    window.syncEditBillTargets = syncAudiencePicker;
+
+    function enablePatchToggleMultiSelect(selectId, onChange) {
+      var select = document.getElementById(selectId);
+      if (!select || select.dataset.patchToggleMultiReady === 'true') return;
+      select.dataset.patchToggleMultiReady = 'true';
+      select.addEventListener('mousedown', function(event) {
+        var option = event.target;
+        if (!option || option.tagName !== 'OPTION' || option.disabled) return;
+        event.preventDefault();
+        var scrollTop = select.scrollTop;
+        option.selected = !option.selected;
+        if (typeof onChange === 'function') onChange();
+        window.requestAnimationFrame(function() {
+          select.focus();
+          select.scrollTop = scrollTop;
+        });
+      });
+    }
+
+    function closeEditBillModal() {
+      var modal = document.getElementById('editBillModal');
+      if (modal) modal.classList.remove('open');
+    }
+
+    function syncCreateAudiencePicker() {
+      var select = document.getElementById('appliesTo');
+      var classPicker = document.getElementById('classPicker');
+      var studentPicker = document.getElementById('studentPicker');
+      if (!select) return;
+      var appliesTo = String(select.value || 'school');
+      if (classPicker) classPicker.style.display = appliesTo === 'classes' ? '' : 'none';
+      if (studentPicker) studentPicker.style.display = appliesTo === 'students' ? '' : 'none';
+      if (typeof window.syncBillTargetClasses === 'function') window.syncBillTargetClasses();
+      if (typeof window.syncBillTargetStudents === 'function') window.syncBillTargetStudents();
+    }
+
+    function bindEditBillListeners() {
+      var editBillYearSelect = document.getElementById('ebl-school_year_id');
+      var editBillTermSelect = document.getElementById('ebl-term_id');
+      var editBillAudienceSelect = document.getElementById('ebl-applies_to');
+      var editBillPayAll = document.getElementById('ebl-payAll');
+
+      if (editBillAudienceSelect && editBillAudienceSelect.dataset.patchAudienceReady !== 'true') {
+        editBillAudienceSelect.dataset.patchAudienceReady = 'true';
+        editBillAudienceSelect.addEventListener('change', syncAudiencePicker);
+      }
+
+      if (editBillYearSelect && editBillYearSelect.dataset.patchAcademicReady !== 'true') {
+        editBillYearSelect.dataset.patchAcademicReady = 'true';
+        editBillYearSelect.addEventListener('change', function() {
+          syncAudiencePicker();
+        });
+      }
+
+      if (editBillTermSelect && editBillTermSelect.dataset.patchAcademicReady !== 'true') {
+        editBillTermSelect.dataset.patchAcademicReady = 'true';
+        editBillTermSelect.addEventListener('change', function() {
+          syncAudiencePicker();
+        });
+      }
+
+      ['ebl-target_class_ids', 'ebl-target_student_ids'].forEach(function(selectId) {
+        var select = document.getElementById(selectId);
+        if (!select || select.dataset.patchChangeReady === 'true') return;
+        select.dataset.patchChangeReady = 'true';
+        select.addEventListener('change', syncAudiencePicker);
+      });
+
+      [['ebl-target_class_search', 'ebl-target_class_ids'], ['ebl-target_student_search', 'ebl-target_student_ids']].forEach(function(pair) {
+        var input = document.getElementById(pair[0]);
+        if (!input || input.dataset.patchFilterReady === 'true') return;
+        input.dataset.patchFilterReady = 'true';
+        input.addEventListener('input', function() {
+          window.filterEditBillTargetOptions(pair[1], input.value || '');
+        });
+      });
+
+      [['ebl-target_class_select_all', 'ebl-target_class_ids', true], ['ebl-target_class_clear', 'ebl-target_class_ids', false], ['ebl-target_student_select_all', 'ebl-target_student_ids', true], ['ebl-target_student_clear', 'ebl-target_student_ids', false]].forEach(function(config) {
+        var button = document.getElementById(config[0]);
+        if (!button || button.dataset.patchActionReady === 'true') return;
+        button.dataset.patchActionReady = 'true';
+        button.addEventListener('click', function() {
+          window.setAllEditBillTargets(config[1], config[2]);
+        });
+      });
+
+      enablePatchToggleMultiSelect('ebl-target_class_ids', syncAudiencePicker);
+      enablePatchToggleMultiSelect('ebl-target_student_ids', syncAudiencePicker);
+
+      if (editBillPayAll && editBillPayAll.dataset.patchPayAllReady !== 'true') {
+        editBillPayAll.dataset.patchPayAllReady = 'true';
+        editBillPayAll.addEventListener('change', function() {
+          document.querySelectorAll('.ebl-pay-method').forEach(function(input) {
+            if (input.disabled) return;
+            input.checked = !!editBillPayAll.checked;
+          });
+          syncEditBillPaymentMethodMasterPatch();
+        });
+      }
+
+      document.querySelectorAll('.ebl-pay-method').forEach(function(input) {
+        if (input.dataset.patchPayMethodReady === 'true') return;
+        input.dataset.patchPayMethodReady = 'true';
+        input.addEventListener('change', syncEditBillPaymentMethodMasterPatch);
+      });
+
+      ['editBillClose', 'editBillClose2'].forEach(function(id) {
+        var button = document.getElementById(id);
+        if (!button || button.dataset.patchCloseReady === 'true') return;
+        button.dataset.patchCloseReady = 'true';
+        button.addEventListener('click', function(event) {
+          event.preventDefault();
+          closeEditBillModal();
+        });
+      });
+
+      var modal = document.getElementById('editBillModal');
+      if (modal && modal.dataset.patchOverlayReady !== 'true') {
+        modal.dataset.patchOverlayReady = 'true';
+        modal.addEventListener('click', function(event) {
+          if (event.target === modal) closeEditBillModal();
+        });
+      }
+
+      syncEditBillPaymentMethodMasterPatch();
+      syncAudiencePicker();
+    }
+
+    function bindCreateAudienceListeners() {
+      var createAudienceSelect = document.getElementById('appliesTo');
+      var createYearSelect = document.getElementById('billCreateYearSelect');
+      var createTermSelect = document.getElementById('billCreateTermSelect');
+      if (createAudienceSelect && createAudienceSelect.dataset.patchAudienceReady !== 'true') {
+        createAudienceSelect.dataset.patchAudienceReady = 'true';
+        createAudienceSelect.addEventListener('change', syncCreateAudiencePicker);
+      }
+      if (createYearSelect && createYearSelect.dataset.patchAcademicReady !== 'true') {
+        createYearSelect.dataset.patchAcademicReady = 'true';
+        createYearSelect.addEventListener('change', syncCreateAudiencePicker);
+      }
+      if (createTermSelect && createTermSelect.dataset.patchAcademicReady !== 'true') {
+        createTermSelect.dataset.patchAcademicReady = 'true';
+        createTermSelect.addEventListener('change', syncCreateAudiencePicker);
+      }
+
+      ['classChips', 'studentChips'].forEach(function(gridId) {
+        var grid = document.getElementById(gridId);
+        if (!grid || grid.dataset.patchSelectionReady === 'true') return;
+        grid.dataset.patchSelectionReady = 'true';
+        grid.addEventListener('change', syncCreateAudiencePicker);
+      });
+
+      syncCreateAudiencePicker();
+    }
+
+    if (typeof window.openEditBill === 'function' && window.openEditBill.__patchWrapped !== true) {
+      var originalOpenEditBill = window.openEditBill;
+      var wrappedOpenEditBill = function(bill) {
+        originalOpenEditBill.call(this, bill);
+        syncAudiencePicker();
+        syncEditBillPaymentMethodMasterPatch();
+      };
+      wrappedOpenEditBill.__patchWrapped = true;
+      window.openEditBill = wrappedOpenEditBill;
+    }
+
+    bindEditBillListeners();
+    bindCreateAudienceListeners();
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function() {
+        bindEditBillListeners();
+        bindCreateAudienceListeners();
+      }, { once: true });
+    }
+
+    window.setPatchMultiSelectValues = setPatchMultiSelectValues;
+  })();
+</script>

@@ -27,6 +27,24 @@ function getStripeChargeCurrency() {
   return normalizeStripeChargeCurrency(process.env.STRIPE_CHARGE_CURRENCY);
 }
 
+function getModeSecretPrefix(mode) {
+  return normalizeMode(mode) === "live" ? "sk_live_" : "sk_test_";
+}
+
+function getModePublicPrefix(mode) {
+  return normalizeMode(mode) === "live" ? "pk_live_" : "pk_test_";
+}
+
+function isFullSecretKeyForMode(value, mode) {
+  const key = String(value || "").trim();
+  return Boolean(key) && key.startsWith(getModeSecretPrefix(mode));
+}
+
+function isPublicKeyForMode(value, mode) {
+  const key = String(value || "").trim();
+  return Boolean(key) && key.startsWith(getModePublicPrefix(mode));
+}
+
 function getStripeConfigurationIssue(settings = {}) {
   const mode = normalizeMode(settings.mode);
   const activeSecretKey = String(settings.activeSecretKey || "").trim();
@@ -107,6 +125,33 @@ async function getActiveStripePublicKey(dbClient = defaultDb) {
   return settings.activePublicKey || "";
 }
 
+async function getStripePlatformCredentials(dbClient = defaultDb) {
+  const settings = await getStripeSettings(dbClient);
+  const mode = normalizeMode(settings.mode);
+  const connectKey = normalizeMode(mode) === "live"
+    ? String(process.env.STRIPE_CONNECT_LIVE_SECRET_KEY || process.env.STRIPE_CONNECT_SECRET_KEY || "").trim()
+    : String(process.env.STRIPE_CONNECT_TEST_SECRET_KEY || process.env.STRIPE_CONNECT_SECRET_KEY || "").trim();
+  const modeSecretKey = String(mode === "live" ? settings.liveSecretKey : settings.testSecretKey).trim();
+  const publicKey = String(mode === "live" ? settings.livePublicKey : settings.testPublicKey).trim();
+  const secretKey = [connectKey, modeSecretKey].find((value) => isFullSecretKeyForMode(value, mode)) || "";
+
+  let issue = "";
+  if (!secretKey) {
+    issue = `Stripe ${mode} platform secret key is not configured for Connect and destination-charge flows.`;
+  } else if (!publicKey) {
+    issue = `Stripe ${mode} publishable key is not configured.`;
+  } else if (!isPublicKeyForMode(publicKey, mode)) {
+    issue = `Stripe is set to ${mode} mode, but the ${mode} publishable key does not match that mode.`;
+  }
+
+  return {
+    mode,
+    secretKey,
+    publicKey,
+    issue,
+  };
+}
+
 async function getStripeClient(dbClient = defaultDb) {
   const secretKey = await getActiveStripeSecretKey(dbClient);
   if (!secretKey) {
@@ -118,27 +163,16 @@ async function getStripeClient(dbClient = defaultDb) {
 // Platform-level client for Stripe Connect operations (account creation, account links).
 // Stripe Connect requires a FULL secret key (sk_live_... or sk_test_...).
 // Restricted keys (rk_live_...) do NOT have the needed permissions.
-// Priority:
-//   1. STRIPE_CONNECT_SECRET_KEY env var (dedicated full key)
-//   2. Any configured key starting with 'sk_' (non-restricted)
-//   3. Fall back to active key (may fail if it is a restricted key)
+// Creates a Stripe client for platform/Connect flows using a full platform
+// secret that matches the active admin Stripe mode.
+// Dedicated test/live Connect keys are preferred, then the mode-specific
+// primary secret if it is a full sk_ key.
 async function getStripePlatformClient(dbClient = defaultDb) {
-  // 1. Dedicated Connect key
-  const connectKey = (process.env.STRIPE_CONNECT_SECRET_KEY || '').trim();
-  if (connectKey) return new Stripe(connectKey);
-
-  // 2. Find the first non-restricted sk_ key across all configured env vars
-  const candidates = [
-    process.env.STRIPE_LIVE_SECRET_KEY,
-    process.env.STRIPE_SECRET_KEY,
-    process.env.STRIPE_TEST_SECRET_KEY,
-  ];
-  const fullKey = candidates.map(k => (k || '').trim()).find(k => k.startsWith('sk_'));
-  if (fullKey) return new Stripe(fullKey);
-
-  // 3. Fall back — may fail if active key is restricted
-  const secretKey = await getActiveStripeSecretKey(dbClient);
-  if (!secretKey) throw new Error('Stripe secret key is not configured.');
+  const platform = await getStripePlatformCredentials(dbClient);
+  const secretKey = String(platform.secretKey || "").trim();
+  if (!secretKey) {
+    throw new Error(platform.issue || `Stripe ${platform.mode || "active"} platform secret key is not configured.`);
+  }
   return new Stripe(secretKey);
 }
 
@@ -152,6 +186,7 @@ module.exports = {
   upsertStripeSettings,
   getActiveStripeSecretKey,
   getActiveStripePublicKey,
+  getStripePlatformCredentials,
   getStripeChargeCurrency,
   getStripeClient,
   getStripePlatformClient,

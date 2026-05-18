@@ -29,7 +29,7 @@ const {
 } = require("../utils/currencyLocalization");
 const { getOrgChargeCards } = require("../utils/orgChargeCards");
 const { ensurePaymentProviderSchema } = require("../utils/paymentProviderSchema");
-const { getActiveStripePublicKey, getStripeSettings } = require("../utils/stripeConfig");
+const { getActiveStripePublicKey, getStripeSettings, getStripePlatformCredentials } = require("../utils/stripeConfig");
 const {
   getPlatformFeeSettings,
   isPlatformFeeMethod,
@@ -1043,27 +1043,14 @@ function resolveStripeFinanceMethod(paymentIntent) {
 }
 
 async function resolvePlatformStripeCredentials() {
-  const stripeSettings = await getStripeSettings(db).catch(() => null);
-  const connectSecretKey = String(process.env.STRIPE_CONNECT_SECRET_KEY || '').trim();
-  const fallbackFullSecretKey = [
-    process.env.STRIPE_LIVE_SECRET_KEY,
-    process.env.STRIPE_SECRET_KEY,
-    process.env.STRIPE_TEST_SECRET_KEY,
-  ]
-    .map((value) => String(value || '').trim())
-    .find((value) => value.startsWith('sk_')) || '';
-  const activeSecretKey = String(stripeSettings?.activeSecretKey || '').trim();
-  const activePublicKey = String(stripeSettings?.activePublicKey || '').trim();
-  const secretKey = connectSecretKey || fallbackFullSecretKey || activeSecretKey;
-
-  let publishableKey = activePublicKey;
-  if (secretKey.startsWith('sk_test_')) {
-    publishableKey = String(process.env.STRIPE_TEST_PUBLISHABLE_KEY || process.env.STRIPE_PUBLISHABLE_KEY || publishableKey).trim();
-  } else if (secretKey.startsWith('sk_live_')) {
-    publishableKey = String(process.env.STRIPE_LIVE_PUBLISHABLE_KEY || process.env.STRIPE_PUBLISHABLE_KEY || publishableKey).trim();
-  }
-
-  return { secretKey, publishableKey };
+  const platformCredentials = await getStripePlatformCredentials(db).catch(() => ({
+    secretKey: '',
+    publicKey: '',
+  }));
+  return {
+    secretKey: String(platformCredentials.secretKey || '').trim(),
+    publishableKey: String(platformCredentials.publicKey || '').trim(),
+  };
 }
 
 async function resolveFinanceStripeRuntime(orgId, pspSettings, orgProfileInput) {
@@ -1174,6 +1161,7 @@ async function resolveBillCollectionDestinations(database, orgId, orgProfileInpu
     ? pspSettingsInput
     : await loadPspSettings(orgId).catch(() => ({}));
   const stripeRuntime = await resolveFinanceStripeRuntime(orgId, pspSettings, orgProfile);
+  const connectedAccountId = String(orgProfile?.stripe_connect_account_id || '').trim();
   const payoutAccounts = (await database.query(
     `SELECT id, account_type, business_name, bank_name, momo_provider, is_primary
        FROM paystack_subaccounts
@@ -1193,10 +1181,10 @@ async function resolveBillCollectionDestinations(database, orgId, orgProfileInpu
         label: buildCollectionDestinationLabel(primaryPayoutAccount, stripeRuntime),
       });
     }
-  } else if (stripeRuntime && stripeRuntime.stripeOn) {
+  } else if (connectedAccountId || (stripeRuntime && stripeRuntime.stripeOn)) {
     options.push({
       value: 'stripe',
-      label: stripeRuntime.connectedAccountId ? 'Stripe Payout Account' : 'Stripe',
+      label: connectedAccountId ? 'Stripe Payout Account' : 'Stripe',
     });
   }
 

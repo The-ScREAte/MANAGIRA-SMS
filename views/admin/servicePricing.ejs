@@ -85,6 +85,30 @@
       .stripe-test-card-note strong {
         color: #0f172a;
       }
+
+      .stripe-platform-status {
+        margin-top: 16px;
+        padding: 14px;
+        border-radius: 12px;
+        font-size: 13px;
+        line-height: 1.65;
+      }
+
+      .stripe-platform-status strong {
+        color: #0f172a;
+      }
+
+      .stripe-platform-status.is-ready {
+        background: #ecfdf3;
+        border: 1px solid #a7f3d0;
+        color: #166534;
+      }
+
+      .stripe-platform-status.is-warning {
+        background: #fff7ed;
+        border: 1px solid #fed7aa;
+        color: #9a3412;
+      }
       
       .form-container {
         background: #fff;
@@ -1175,6 +1199,21 @@
               <div>Test secret key: <%= stripeKeysMasked?.testSecretKey || 'Not set' %></div>
               <div>Live publishable key: <%= stripeKeysMasked?.livePublicKey || 'Not set' %></div>
               <div>Live secret key: <%= stripeKeysMasked?.liveSecretKey || 'Not set' %></div>
+            </div>
+
+            <div class="stripe-platform-status <%= stripePlatformStatus?.issue ? 'is-warning' : 'is-ready' %>">
+              <div><strong>Connect and destination charges</strong></div>
+              <% if (stripePlatformStatus?.issue) { %>
+                <div><%= stripePlatformStatus.issue %></div>
+                <div>
+                  Add a full <%= stripeMode === 'live' ? 'sk_live_' : 'sk_test_' %> platform secret in
+                  <%= stripeMode === 'live' ? 'STRIPE_CONNECT_LIVE_SECRET_KEY or STRIPE_LIVE_SECRET_KEY' : 'STRIPE_CONNECT_TEST_SECRET_KEY, STRIPE_CONNECT_SECRET_KEY, STRIPE_TEST_SECRET_KEY, or STRIPE_SECRET_KEY' %>
+                  so the selected mode can create Connect and destination-charge payments.
+                </div>
+              <% } else { %>
+                <div>Ready for <%= String((stripePlatformStatus && stripePlatformStatus.mode) || stripeMode || 'test').toUpperCase() %> mode.</div>
+                <div>The selected mode has a matching platform secret and publishable key for Connect-linked Stripe payments.</div>
+              <% } %>
             </div>
 
             <div class="stripe-test-card-note">
