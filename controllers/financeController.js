@@ -29,7 +29,7 @@ const {
 } = require("../utils/currencyLocalization");
 const { getOrgChargeCards } = require("../utils/orgChargeCards");
 const { ensurePaymentProviderSchema } = require("../utils/paymentProviderSchema");
-const { getActiveStripePublicKey, getStripeSettings, getStripePlatformCredentials } = require("../utils/stripeConfig");
+const { getActiveStripePublicKey, getStripeSettings, getStripePlatformCredentials, getStripeConnectAccountId, ensureStripeConnectAccountSchema } = require("../utils/stripeConfig");
 const {
   getPlatformFeeSettings,
   isPlatformFeeMethod,
@@ -332,14 +332,20 @@ function resolveCurrencyFromCountry(rawCountry) {
 async function loadOrganizationProfile(orgId) {
   if (!orgId) return {};
   try {
+    await ensureStripeConnectAccountSchema(db);
+    const stripeSettings = await getStripeSettings(db).catch(() => ({ mode: 'test' }));
     const result = await db.query(
-      `SELECT organization_name, organization_country, billing_provider, stripe_customer_id, stripe_connect_account_id
+      `SELECT organization_name, organization_country, billing_provider, stripe_customer_id, stripe_connect_account_id, stripe_connect_account_id_test, stripe_connect_account_id_live
          FROM organizations
         WHERE organization_id = $1
         LIMIT 1`,
       [orgId]
     );
-    return result.rows[0] || {};
+    const row = result.rows[0] || {};
+    return {
+      ...row,
+      stripe_connect_account_id: getStripeConnectAccountId(row, stripeSettings.mode) || "",
+    };
   } catch (_) {
     return {};
   }

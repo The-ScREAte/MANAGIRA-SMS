@@ -46,7 +46,7 @@ const {
   clonePreviousClassSchedule,
 } = require("../utils/classScheduleService");
 const { hasGuardianPortalFeature } = require("../utils/guardianPortalAccess");
-const { getStripeClient, getStripePlatformClient, getStripePlatformCredentials, getStripeChargeCurrency, getStripeSettings, getActiveStripePublicKey } = require("../utils/stripeConfig");
+const { getStripeClient, getStripePlatformClient, getStripePlatformCredentials, getStripeChargeCurrency, getStripeSettings, getActiveStripePublicKey, getStripeConnectAccountId, ensureStripeConnectAccountSchema } = require("../utils/stripeConfig");
 const { getUsdRate, normalizeCurrencyCode } = require("../utils/currencyLocalization");
 const { getPlatformFeeSettings } = require("../utils/platformFee");
 const { ensurePaymentProviderSchema } = require("../utils/paymentProviderSchema");
@@ -123,11 +123,7 @@ async function ensurePublicRegistrationSchema(dbClient) {
     CREATE INDEX IF NOT EXISTS idx_public_registration_payments_pending_student
       ON public_registration_payments (pending_student_id, organization_id)
   `);
-  // Ensure stripe_connect_account_id column exists on organizations
-  await dbClient.query(`
-    ALTER TABLE organizations
-      ADD COLUMN IF NOT EXISTS stripe_connect_account_id VARCHAR(255)
-  `).catch(() => {});
+  await ensureStripeConnectAccountSchema(dbClient).catch(() => {});
   // Make paystack_reference nullable so Stripe-only rows don't need it
   await dbClient.query(`
     ALTER TABLE public_registration_payments
@@ -2998,12 +2994,14 @@ const commonController = {
         }
       }
       const paystackConfig = await getActivePaystackConfig(db);
+      const stripeSettings = await getStripeSettings(db).catch(() => ({ mode: 'test' }));
       const stripePublishableKey = await getActiveStripePublicKey(db).catch(() => '');
+      await ensureStripeConnectAccountSchema(db);
       const stripeConnectRow = await db.query(
-        `SELECT stripe_connect_account_id FROM organizations WHERE organization_id = $1`,
+        `SELECT stripe_connect_account_id, stripe_connect_account_id_test, stripe_connect_account_id_live FROM organizations WHERE organization_id = $1`,
         [organizationId]
       ).catch(() => ({ rows: [] }));
-      const stripeConnectAccountId = (stripeConnectRow.rows[0]?.stripe_connect_account_id || '').trim() || null;
+      const stripeConnectAccountId = getStripeConnectAccountId(stripeConnectRow.rows[0] || {}, stripeSettings.mode) || null;
 
       res.render("common/publicRegisterStudent", {
         title: "Public Student Registration",
@@ -3477,15 +3475,16 @@ const commonController = {
       const { organization_id: organizationId, first_name, last_name } = studentResult.rows[0];
 
       // 2. Get org details including Stripe connected account
+      await ensureStripeConnectAccountSchema(db);
       const orgResult = await db.query(
-        `SELECT public_registration_currency, organization_name, stripe_connect_account_id
+        `SELECT public_registration_currency, organization_name, stripe_connect_account_id, stripe_connect_account_id_test, stripe_connect_account_id_live
            FROM organizations WHERE organization_id = $1`,
         [organizationId]
       );
       const orgRow = orgResult.rows[0];
       const currency = normalizeCurrencyCode(orgRow?.public_registration_currency) || 'GHS';
       const organizationName = orgRow?.organization_name || 'School';
-      const stripeConnectAccountId = (orgRow?.stripe_connect_account_id || '').trim() || null;
+      const stripeConnectAccountId = getStripeConnectAccountId(orgRow || {}, platformStripe.mode) || null;
 
       // BLOCK payment if school has not connected their Stripe account yet.
       // Without a connected account the money has nowhere to go — do not proceed.

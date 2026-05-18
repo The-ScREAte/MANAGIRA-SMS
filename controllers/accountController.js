@@ -103,6 +103,11 @@ const {
   getStripeChargeCurrency,
   getStripeClient,
   getStripePlatformClient,
+  getStripeConnectAccountColumn,
+  getStripeConnectAccountId,
+  ensureStripeConnectAccountSchema,
+  saveOrganizationStripeConnectAccountId,
+  preserveStripeConnectAccountForOtherMode,
 } = require("../utils/stripeConfig");
 const { ensurePaymentProviderSchema, ensureStripeSubaccountSchema } = require("../utils/paymentProviderSchema");
 const {
@@ -166,6 +171,43 @@ async function getActivePaystackSecretKey() {
 async function getActivePaystackPublicKey() {
   const settings = await getPaystackSettings(db);
   return settings.activePublicKey || process.env.PAYSTACK_PUBLIC_KEY || "";
+}
+
+function isMissingStripeConnectAccountError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  const code = String(error?.code || "").toLowerCase();
+  return code === "resource_missing" ||
+    message.includes("not connected to your platform") ||
+    message.includes("does not exist");
+}
+
+function getStripeConnectBaseUrl(req, mode) {
+  const requestOrigin = `${req.protocol}://${req.get("host")}`;
+  const configuredProdBaseUrl =
+    process.env.BASE_URL_PRODUCTION ||
+    process.env.BASE_URL_PRODUCTION_FALLBACK ||
+    process.env.BASE_URL ||
+    "https://managira.com";
+  const localBaseUrl = process.env.BASE_URL_LOCAL || requestOrigin || "http://localhost:4000";
+
+  return String(mode === "live" ? configuredProdBaseUrl : localBaseUrl)
+    .trim()
+    .replace(/\/$/, "");
+}
+
+function getStripeConnectOnboardingErrorMessage(error) {
+  const message = String(error?.message || "").trim();
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("responsibilities of managing losses for connected accounts")) {
+    return "Stripe live Connect is not fully activated yet. In your Stripe Dashboard, open Settings > Connect > Platform profile and review the responsibilities for managing losses for connected accounts, then try again.";
+  }
+
+  if (normalized.includes("invalid redirect url") || normalized.includes("must use https") || normalized.includes("valid https url")) {
+    return "Stripe live Connect requires HTTPS return URLs. Set BASE_URL_PRODUCTION to your production https:// domain and try again.";
+  }
+
+  return "Could not start Stripe Connect onboarding. Please try again.";
 }
 
 async function getActivePaymentProvider() {
@@ -6747,9 +6789,12 @@ const accountController = {
         }
       }
 
+      const stripeSettings = await getStripeSettings(db).catch(() => ({ mode: 'test' }));
+      await ensureStripeConnectAccountSchema(db);
+
       const orgResult = orgId
         ? await db.query(
-            `SELECT organization_name, logo, logo_path, image_url, font_style, nickname, nickname_display, role, email, paystack_customer_code, stripe_customer_id, billing_provider, first_name, last_name, organization_phone, is_hub_member, hub_id, stripe_connect_account_id
+            `SELECT organization_name, logo, logo_path, image_url, font_style, nickname, nickname_display, role, email, paystack_customer_code, stripe_customer_id, billing_provider, first_name, last_name, organization_phone, is_hub_member, hub_id, stripe_connect_account_id, stripe_connect_account_id_test, stripe_connect_account_id_live
              FROM organizations 
              WHERE organization_id = $1`,
             [orgId]
@@ -7123,7 +7168,7 @@ const accountController = {
         paystackSubaccounts,
         paystackCustomerCode,
         isHubMember,
-        stripeConnectAccountId: orgRow.stripe_connect_account_id || null,
+        stripeConnectAccountId: getStripeConnectAccountId(orgRow, stripeSettings.mode) || null,
         passwordVerified: req.session.passwordVerified || false,
         userId,
         orgTermDateBounds,
@@ -9223,18 +9268,38 @@ const accountController = {
     if (!orgId) return res.redirect('/account/login');
 
     try {
-      const stripe   = await getStripePlatformClient(db);
-      const BASE_URL = process.env.BASE_URL ||
-        `${req.protocol}://${req.get('host')}`;
+      const stripeSettings = await getStripeSettings(db);
+      const stripe = await getStripePlatformClient(db);
+      const mode = stripeSettings.mode;
+      const BASE_URL = getStripeConnectBaseUrl(req, mode);
+      const activeConnectColumn = getStripeConnectAccountColumn(mode);
+
+      await ensureStripeConnectAccountSchema(db);
 
       // Fetch current connected account id (if any)
       const orgRow = await db.query(
-        `SELECT stripe_connect_account_id, organization_name, email
+        `SELECT stripe_connect_account_id, stripe_connect_account_id_test, stripe_connect_account_id_live, organization_name, email
            FROM organizations WHERE organization_id = $1`,
         [orgId]
       ).then(r => r.rows[0] || {});
 
-      let connectAccountId = (orgRow.stripe_connect_account_id || '').trim() || null;
+      const legacyConnectAccountId = String(orgRow.stripe_connect_account_id || '').trim() || null;
+      const scopedConnectAccountId = String(orgRow[activeConnectColumn] || '').trim() || null;
+      let connectAccountId = getStripeConnectAccountId(orgRow, mode) || null;
+
+      if (connectAccountId) {
+        try {
+          await stripe.accounts.retrieve(connectAccountId);
+        } catch (error) {
+          if (!isMissingStripeConnectAccountError(error)) {
+            throw error;
+          }
+          if (!scopedConnectAccountId && legacyConnectAccountId === connectAccountId) {
+            await preserveStripeConnectAccountForOtherMode(orgId, legacyConnectAccountId, db, mode);
+          }
+          connectAccountId = null;
+        }
+      }
 
       // If not yet created, create a Stripe Express account for this school
       if (!connectAccountId) {
@@ -9247,11 +9312,7 @@ const accountController = {
           metadata: { organization_id: String(orgId) },
         });
         connectAccountId = account.id;
-        await db.query(
-          `UPDATE organizations SET stripe_connect_account_id = $1
-             WHERE organization_id = $2`,
-          [connectAccountId, orgId]
-        );
+        await saveOrganizationStripeConnectAccountId(orgId, connectAccountId, db, mode);
       }
 
       // Create a one-time Account Link for onboarding
@@ -9265,7 +9326,7 @@ const accountController = {
       return res.redirect(link.url);
     } catch (err) {
       console.error('[StripeConnect] Onboard error:', err.message);
-      req.flash('error', 'Could not start Stripe Connect onboarding. Please try again.');
+      req.flash('error', getStripeConnectOnboardingErrorMessage(err));
       return res.redirect('/account/settings?section=billing');
     }
   },
@@ -9276,13 +9337,15 @@ const accountController = {
     if (!orgId) return res.redirect('/account/login');
 
     try {
+      const stripeSettings = await getStripeSettings(db);
       const stripe = await getStripePlatformClient(db);
+      await ensureStripeConnectAccountSchema(db);
       const orgRow = await db.query(
-        `SELECT stripe_connect_account_id FROM organizations WHERE organization_id = $1`,
+        `SELECT stripe_connect_account_id, stripe_connect_account_id_test, stripe_connect_account_id_live FROM organizations WHERE organization_id = $1`,
         [orgId]
       ).then(r => r.rows[0] || {});
 
-      const connectAccountId = (orgRow.stripe_connect_account_id || '').trim() || null;
+      const connectAccountId = getStripeConnectAccountId(orgRow, stripeSettings.mode) || null;
       let isComplete = false;
 
       if (connectAccountId) {

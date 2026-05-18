@@ -3,6 +3,11 @@ const defaultDb = require("../config/db");
 
 const STRIPE_MODE_KEY = "stripe_mode";
 const DEFAULT_STRIPE_CHARGE_CURRENCY = "usd";
+const STRIPE_CONNECT_ACCOUNT_ID_LEGACY_COLUMN = "stripe_connect_account_id";
+const STRIPE_CONNECT_ACCOUNT_ID_TEST_COLUMN = "stripe_connect_account_id_test";
+const STRIPE_CONNECT_ACCOUNT_ID_LIVE_COLUMN = "stripe_connect_account_id_live";
+
+let stripeConnectAccountSchemaReady = false;
 
 function normalizeMode(value) {
   const mode = String(value || "test").trim().toLowerCase();
@@ -43,6 +48,79 @@ function isFullSecretKeyForMode(value, mode) {
 function isPublicKeyForMode(value, mode) {
   const key = String(value || "").trim();
   return Boolean(key) && key.startsWith(getModePublicPrefix(mode));
+}
+
+function normalizeConnectAccountId(value) {
+  const accountId = String(value || "").trim();
+  return accountId.startsWith("acct_") ? accountId : "";
+}
+
+function getStripeConnectAccountColumn(mode) {
+  return normalizeMode(mode) === "live"
+    ? STRIPE_CONNECT_ACCOUNT_ID_LIVE_COLUMN
+    : STRIPE_CONNECT_ACCOUNT_ID_TEST_COLUMN;
+}
+
+function getOppositeStripeConnectAccountColumn(mode) {
+  return normalizeMode(mode) === "live"
+    ? STRIPE_CONNECT_ACCOUNT_ID_TEST_COLUMN
+    : STRIPE_CONNECT_ACCOUNT_ID_LIVE_COLUMN;
+}
+
+function getStripeConnectAccountId(record = {}, mode) {
+  const activeColumn = getStripeConnectAccountColumn(mode);
+  return normalizeConnectAccountId(record?.[activeColumn]) ||
+    normalizeConnectAccountId(record?.[STRIPE_CONNECT_ACCOUNT_ID_LEGACY_COLUMN]) ||
+    "";
+}
+
+async function ensureStripeConnectAccountSchema(dbClient = defaultDb) {
+  if (stripeConnectAccountSchemaReady) return;
+
+  await dbClient.query(`
+    ALTER TABLE organizations
+      ADD COLUMN IF NOT EXISTS stripe_connect_account_id VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS stripe_connect_account_id_test VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS stripe_connect_account_id_live VARCHAR(255)
+  `).catch(() => {});
+
+  stripeConnectAccountSchemaReady = true;
+}
+
+async function saveOrganizationStripeConnectAccountId(orgId, accountId, dbClient = defaultDb, mode) {
+  const resolvedMode = normalizeMode(mode);
+  const activeColumn = getStripeConnectAccountColumn(resolvedMode);
+  const normalizedId = normalizeConnectAccountId(accountId);
+
+  if (!orgId || !normalizedId) return;
+  await ensureStripeConnectAccountSchema(dbClient);
+
+  await dbClient.query(
+    `UPDATE organizations
+        SET ${STRIPE_CONNECT_ACCOUNT_ID_LEGACY_COLUMN} = $1,
+            ${activeColumn} = $1
+      WHERE organization_id = $2`,
+    [normalizedId, orgId]
+  );
+}
+
+async function preserveStripeConnectAccountForOtherMode(orgId, accountId, dbClient = defaultDb, mode) {
+  const resolvedMode = normalizeMode(mode);
+  const oppositeColumn = getOppositeStripeConnectAccountColumn(resolvedMode);
+  const normalizedId = normalizeConnectAccountId(accountId);
+
+  if (!orgId || !normalizedId) return;
+  await ensureStripeConnectAccountSchema(dbClient);
+
+  await dbClient.query(
+    `UPDATE organizations
+        SET ${oppositeColumn} = CASE
+          WHEN COALESCE(NULLIF(BTRIM(${oppositeColumn}), ''), '') = '' THEN $1
+          ELSE ${oppositeColumn}
+        END
+      WHERE organization_id = $2`,
+    [normalizedId, orgId]
+  );
 }
 
 function getStripeConfigurationIssue(settings = {}) {
@@ -181,11 +259,16 @@ module.exports = {
   DEFAULT_STRIPE_CHARGE_CURRENCY,
   normalizeMode,
   normalizeStripeChargeCurrency,
+  getStripeConnectAccountColumn,
+  getStripeConnectAccountId,
   getStripeConfigurationIssue,
   getStripeSettings,
   upsertStripeSettings,
   getActiveStripeSecretKey,
   getActiveStripePublicKey,
+  ensureStripeConnectAccountSchema,
+  saveOrganizationStripeConnectAccountId,
+  preserveStripeConnectAccountForOtherMode,
   getStripePlatformCredentials,
   getStripeChargeCurrency,
   getStripeClient,
