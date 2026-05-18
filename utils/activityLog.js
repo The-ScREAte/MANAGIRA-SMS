@@ -689,7 +689,7 @@ async function buildLogPayloadFromRequest(req, database = db) {
   const rawChangedFields = summarizeChangedFields(req.body);
   const sessionUser = getSessionUser(req);
   const actionType = inferActionType(req);
-  const organizationId = req.session.organizationId;
+  const organizationId = req.session?.organizationId;
 
   const [recordReference, changedFields] = await Promise.all([
     resolveRecordReferenceLabel(database, organizationId, req, rawRecordReference),
@@ -739,6 +739,12 @@ function createOrganizationActivityLogMiddleware(database = db) {
     res.on("finish", () => {
       if (res.statusCode < 200 || res.statusCode >= 400) {
         if (debug) console.log(`[ActivityLog] skipped write status=${res.statusCode} ${method} ${path}`);
+        return;
+      }
+
+      // Guard: session may have been destroyed (e.g. during logout) by the time this fires
+      if (!req.session?.organizationId) {
+        if (debug) console.log(`[ActivityLog] skipped write (session unavailable) ${method} ${path}`);
         return;
       }
 

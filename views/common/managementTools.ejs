@@ -816,12 +816,14 @@
               </svg>
               Configure Grading System
             </a>
-            <a href="/common/manageAssessment?organizationId=63&termId=150" class="action-btn">
+            <% if (currentTerm) { %>
+            <a href="/common/manageAssessment?organizationId=<%= organizationId %>&termId=<%= currentTerm.term_id %>" class="action-btn">
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"></path>
               </svg>
               Manage Assessment Scores
             </a>
+            <% } %>
           </div>
         </div>
       </section>
@@ -870,12 +872,14 @@
                   </div>
                 </div>
               </div>
-              <a href="/common/manageAssessment?organizationId=63&termId=150" class="action-btn">
+              <% if (currentTerm) { %>
+              <a href="/common/manageAssessment?organizationId=<%= organizationId %>&termId=<%= currentTerm.term_id %>" class="action-btn">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"></path>
                 </svg>
                 Manage Assessment Scores
               </a>
+              <% } %>
             </div>
           </div>
         </section>
