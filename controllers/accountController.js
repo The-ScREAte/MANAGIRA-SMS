@@ -5998,7 +5998,12 @@ const accountController = {
   },
 
   updateAboutUsSection: async (req, res) => {
-    const { organization_id, aboutUs } = req.body;
+    const organizationId = req.session.organizationId;
+    const { aboutUs } = req.body;
+
+    if (!organizationId) {
+      return res.status(403).send("Unauthorized.");
+    }
 
     const toList = (value) => {
       const values = Array.isArray(value) ? value : [value];
@@ -6019,12 +6024,12 @@ const accountController = {
       await db.query(
         `UPDATE organizations SET aboutUs = $1, motto = $2 WHERE organization_id = $3`,
 
-        [aboutUs, primaryMotto, organization_id]
+        [aboutUs, primaryMotto, organizationId]
       );
 
       const existingDash = await db.query(
         "SELECT order_data FROM organization_dashboard WHERE organization_id = $1",
-        [organization_id]
+        [organizationId]
       );
 
       let order = [];
@@ -6061,7 +6066,7 @@ const accountController = {
          VALUES ($1, $2)
          ON CONFLICT (organization_id)
          DO UPDATE SET order_data = EXCLUDED.order_data`,
-        [organization_id, payload]
+        [organizationId, payload]
       );
 
       res.redirect("/account/managePublicContent"); // Replace with the actual page route

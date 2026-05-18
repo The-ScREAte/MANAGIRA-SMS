@@ -6223,7 +6223,10 @@ module.exports = {
       if (!authorized && guardianId) {
         const g = await database.query(
           `SELECT 1 FROM guardians WHERE student_id=$1 AND guardian_id=$2 AND organization_id=$3
-            UNION SELECT 1 FROM guardian_students WHERE student_id=$1 AND guardian_id=$2 LIMIT 1`,
+            UNION SELECT 1 FROM guardian_students gs
+              JOIN guardian_profiles gp ON gp.guardian_id = gs.guardian_id
+              WHERE gs.student_id=$1 AND gs.guardian_id=$2 AND gp.organization_id=$3
+            LIMIT 1`,
           [row.student_id, guardianId, orgId]
         );
         if (g.rows.length) authorized = true;
@@ -6308,7 +6311,10 @@ module.exports = {
       if (!authorized && guardianId && row.student_id) {
         const g = await database.query(
           `SELECT 1 FROM guardians WHERE student_id=$1 AND guardian_id=$2 AND organization_id=$3
-            UNION SELECT 1 FROM guardian_students WHERE student_id=$1 AND guardian_id=$2 LIMIT 1`,
+            UNION SELECT 1 FROM guardian_students gs
+              JOIN guardian_profiles gp ON gp.guardian_id = gs.guardian_id
+              WHERE gs.student_id=$1 AND gs.guardian_id=$2 AND gp.organization_id=$3
+            LIMIT 1`,
           [row.student_id, guardianId, orgId]
         );
         if (g.rows.length) authorized = true;

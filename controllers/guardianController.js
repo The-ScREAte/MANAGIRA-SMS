@@ -333,8 +333,8 @@ module.exports = {
 
       // Guardians associated with the student (staff page shows this; for guardians we'll keep it, but the template will hide it)
       const guardiansResult = await db.query(
-        `SELECT * FROM guardians WHERE student_id = $1`,
-        [studentId]
+        `SELECT * FROM guardians WHERE student_id = $1 AND organization_id = $2`,
+        [studentId, organizationId]
       );
 
       const currentTermId = req.session.currentTermId;
@@ -440,10 +440,13 @@ module.exports = {
       if (!studentId) return res.status(400).send("Student ID is required.");
       if (!termId) return res.status(400).send("Term ID is required.");
 
-      // ✅ Security: guardian must be linked to this student
+      // ✅ Security: guardian must be linked to this student within the same org
       const link = await db.query(
-        `SELECT 1 FROM guardian_students WHERE guardian_id=$1 AND student_id=$2 LIMIT 1`,
-        [guardianId, studentId]
+        `SELECT 1 FROM guardian_students gs
+         JOIN guardian_profiles gp ON gp.guardian_id = gs.guardian_id
+         WHERE gs.guardian_id=$1 AND gs.student_id=$2 AND gp.organization_id=$3
+         LIMIT 1`,
+        [guardianId, studentId, organizationId]
       );
       if (!link.rows.length) {
         req.flash("error", "You do not have access to that student.");
@@ -541,7 +544,7 @@ module.exports = {
       const subjects = Array.from(subjectsMap.values());
 
       // Guardians (from your existing table) so the parent can see who else is listed
-      const guardiansResult = await db.query(`SELECT * FROM guardians WHERE student_id=$1`, [studentId]);
+      const guardiansResult = await db.query(`SELECT * FROM guardians WHERE student_id=$1 AND organization_id=$2`, [studentId, organizationId]);
 
       // Teacher info
       const mainTeacherResult = await db.query(

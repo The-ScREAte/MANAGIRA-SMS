@@ -229,15 +229,17 @@ const printController = (db) => ({
       const [promotedClassName, repeatedClassName] = await Promise.all([
         promotedClassId
           ? db
-              .query("SELECT class_name FROM classes WHERE class_id = $1", [
+              .query("SELECT class_name FROM classes WHERE class_id = $1 AND organization_id = $2", [
                 promotedClassId,
+                organizationId,
               ])
               .then((res) => res.rows[0]?.class_name || "No Promoted Class")
           : "No Promoted Class",
         repeatedClassId
           ? db
-              .query("SELECT class_name FROM classes WHERE class_id = $1", [
+              .query("SELECT class_name FROM classes WHERE class_id = $1 AND organization_id = $2", [
                 repeatedClassId,
+                organizationId,
               ])
               .then((res) => res.rows[0]?.class_name || "No Repeated Class")
           : "No Repeated Class",
