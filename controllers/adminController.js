@@ -10,6 +10,7 @@ const { uploadToS3, deleteFromS3 } = require("../config/s3");
 const he = require("he");
 const cacheManager = require("../utils/cacheManager");
 const { sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require("../utils/emailHelper");
+const { pingSearchEngines } = require("../utils/sitemapPing");
 const {
   getCurrencyProfileForRequest,
   localizeUsdAmount,
@@ -1303,6 +1304,9 @@ const adminController = {
 
       // Invalidate cache after update
       cacheManager.invalidate('admin', 'organizations:list');
+
+      // Notify search engines so the school page gets indexed quickly
+      pingSearchEngines();
 
       req.flash("success", "Organization resumed successfully.");
 
