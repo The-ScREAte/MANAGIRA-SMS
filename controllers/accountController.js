@@ -56,6 +56,39 @@ function computeTierMonthlyPrice(planBasePrice, tier) {
   }
   return Number(tier?.price_usd || 0);
 }
+
+function normalizeLoginReturnPath(returnTo) {
+  if (typeof returnTo !== "string") return "";
+  const trimmed = returnTo.trim();
+  if (!trimmed) return "";
+
+  try {
+    const parsed = new URL(trimmed, "http://localhost");
+    const normalized = `${parsed.pathname || ""}${parsed.search || ""}`;
+    return normalized.startsWith("/") ? normalized : "";
+  } catch (_) {
+    return trimmed.startsWith("/") ? trimmed : "";
+  }
+}
+
+const LOGIN_REDIRECT_PERMISSION_RULES = [
+  {
+    pattern: /^\/common\/(manageEmployees|createEmployee|modifyEmployee|deleteEmployee|toggleHoldEmployee)(?:$|[/?#])/i,
+    permissionKey: "manage_employees",
+  },
+];
+
+async function resolveSafeLoginRedirect(database, permissionContext, returnTo, fallbackUrl) {
+  const normalizedReturnTo = normalizeLoginReturnPath(returnTo);
+  if (!normalizedReturnTo) return fallbackUrl;
+
+  const matchedRule = LOGIN_REDIRECT_PERMISSION_RULES.find((rule) => rule.pattern.test(normalizedReturnTo));
+  if (!matchedRule) return normalizedReturnTo;
+
+  const allowed = await userHasPermission(database, permissionContext, matchedRule.permissionKey);
+  return allowed ? normalizedReturnTo : fallbackUrl;
+}
+
 const bcrypt = require("bcryptjs");
 
 const bcryptjs = require("bcryptjs");
@@ -128,6 +161,7 @@ const {
   upsertManualCalendarDay,
   deleteManualCalendarDay,
 } = require("../utils/attendanceCalendar");
+const { userHasPermission } = require("../middleware/permissionMiddleware");
 const { hasGuardianPortalFeature } = require("../utils/guardianPortalAccess");
 const { invalidateOrganizationAccessCache } = require("../utils/accessCache");
 const { logOrganizationActivity } = require("../utils/activityLog");
@@ -4542,12 +4576,14 @@ const accountController = {
               return res.redirect("/account/login");
             }
 
-            req.session.regenerate((err) => {
+            req.session.regenerate(async (err) => {
               if (err) {
                                 req.flash("error", "Login failed. Please try again.");
 
                 return res.redirect("/account/login");
               }
+
+              try {
 
               req.session.user = {
                 user_id: user.user_id,
@@ -4590,18 +4626,32 @@ const accountController = {
                 req.session.hubLogo = organization.hub_logo;
               }
 
+              const redirectUrl =
+                process.env.NODE_ENV === "production"
+                  ? `https://${req.session.orgNickName}.managira.com/common/orgDashboard`
+                  : "/common/orgDashboard?organizationId=" +
+                    req.session.organizationId;
+              const requestedReturnTo = req.session.returnTo;
+              delete req.session.returnTo;
+              const finalRedirectUrl = await resolveSafeLoginRedirect(
+                db,
+                {
+                  userId: user.user_id,
+                  userRole: user.account_type,
+                  organizationId: user.organization_id,
+                  accountType: user.account_type,
+                  userEmail: user.email,
+                },
+                requestedReturnTo,
+                redirectUrl
+              );
+
               req.session.save((err) => {
                 if (err) {
                                     req.flash("error", "Login failed. Please try again.");
 
                   return res.redirect("/account/login");
                 }
-
-                const redirectUrl =
-                  process.env.NODE_ENV === "production"
-                    ? `https://${req.session.orgNickName}.managira.com/common/orgDashboard`
-                    : "/common/orgDashboard?organizationId=" +
-                      req.session.organizationId;
 
                 logOrganizationActivity({
                   organizationId: req.session.organizationId,
@@ -4618,8 +4668,12 @@ const accountController = {
                   ipAddress: req.ip,
                 }).catch(() => {});
 
-                return res.redirect(req.session.returnTo || redirectUrl);
+                return res.redirect(finalRedirectUrl);
               });
+              } catch (error) {
+                req.flash("error", "Login failed. Please try again.");
+                return res.redirect("/account/login");
+              }
             });
 
             return;
@@ -4670,12 +4724,14 @@ const accountController = {
             return res.redirect("/account/login");
           }
 
-          req.session.regenerate((err) => {
+          req.session.regenerate(async (err) => {
             if (err) {
                             req.flash("error", "Login failed. Please try again.");
 
               return res.redirect("/account/login");
             }
+
+            try {
 
             req.session.user = {
               user_id: organization.organization_id,
@@ -4717,18 +4773,32 @@ const accountController = {
 
             // Do NOT fetch or store features here; handled by setAllowedFeatures middleware
 
+            const redirectUrl =
+              process.env.NODE_ENV === "production"
+                ? `https://${req.session.orgNickName}.managira.com/common/orgDashboard`
+                : "/common/orgDashboard?organizationId=" +
+                  req.session.organizationId;
+            const requestedReturnTo = req.session.returnTo;
+            delete req.session.returnTo;
+            const finalRedirectUrl = await resolveSafeLoginRedirect(
+              db,
+              {
+                userId: organization.organization_id,
+                userRole: "Manager",
+                organizationId: organization.organization_id,
+                accountType: "Organization",
+                userEmail: organization.email,
+              },
+              requestedReturnTo,
+              redirectUrl
+            );
+
             req.session.save((err) => {
               if (err) {
                                 req.flash("error", "Login failed. Please try again.");
 
                 return res.redirect("/account/login");
               }
-
-              const redirectUrl =
-                process.env.NODE_ENV === "production"
-                  ? `https://${req.session.orgNickName}.managira.com/common/orgDashboard`
-                  : "/common/orgDashboard?organizationId=" +
-                    req.session.organizationId;
 
               req.flash(
                 "success",
@@ -4751,8 +4821,12 @@ const accountController = {
                 ipAddress: req.ip,
               }).catch(() => {});
 
-              return res.redirect(req.session.returnTo || redirectUrl);
+              return res.redirect(finalRedirectUrl);
             });
+            } catch (error) {
+              req.flash("error", "Login failed. Please try again.");
+              return res.redirect("/account/login");
+            }
           });
 
           return;

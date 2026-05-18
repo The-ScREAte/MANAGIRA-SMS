@@ -9322,11 +9322,11 @@ const commonController = {
           SELECT COUNT(DISTINCT d.id) AS total
           FROM documents d
           JOIN document_class_assignments dca ON d.id = dca.document_id
-          JOIN class_employees ce ON ce.class_id = dca.class_id
+          JOIN user_classes uc ON uc.class_id = dca.class_id
           WHERE d.organization_id = $1
             AND d.is_deleted = FALSE
             AND dca.class_id = $2
-            AND ce.user_id = $3
+            AND uc.user_id = $3
         `, [organizationId, classId, currentUserId]);
         assignedFilesCount = Number(assignedFiles.rows[0]?.total || 0);
       }
@@ -10824,10 +10824,22 @@ const commonController = {
       `, [req.session.organizationId]);
       
       const currentTerm = termResult.rows.length > 0 ? termResult.rows[0] : null;
+      const canManageEmployees = await userHasPermission(
+        db,
+        {
+          userId: req.session.user?.user_id || req.session.userId || null,
+          userRole: req.session.userRole || req.session.user?.account_type || null,
+          organizationId: req.session.organizationId || null,
+          accountType: req.session.accountType || req.session.user?.account_type || null,
+          userEmail: req.session.user?.email || null,
+        },
+        PERMISSIONS.MANAGE_EMPLOYEES
+      );
 
       res.render("common/managementTools", {
         title: "Management Tools",
         currentTerm: currentTerm,
+        canManageEmployees,
       });
     } catch (error) {
             res.status(500).send("Failed to load management data");

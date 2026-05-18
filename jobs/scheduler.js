@@ -13,8 +13,8 @@ const { purgeOldActivityLogs } = require('../utils/activityLog');
 
 const shouldRunScheduler = process.env.NODE_ENV === 'production' || process.env.ENABLE_BILLING_SCHEDULER === 'true';
 const shouldRunNotifications = process.env.NODE_ENV === 'production' || process.env.ENABLE_NOTIFICATION_SCHEDULER === 'true';
-const shouldRunAdminEmailScheduler = process.env.ENABLE_ADMIN_EMAIL_SCHEDULER !== 'false';
-const shouldRunActivityLogRetention = process.env.ENABLE_ACTIVITY_LOG_RETENTION !== 'false';
+const shouldRunAdminEmailScheduler = process.env.NODE_ENV === 'production' || process.env.ENABLE_ADMIN_EMAIL_SCHEDULER === 'true';
+const shouldRunActivityLogRetention = process.env.NODE_ENV === 'production' || process.env.ENABLE_ACTIVITY_LOG_RETENTION === 'true';
 const ACTIVITY_LOG_RETENTION_DAYS = Number(process.env.ACTIVITY_LOG_RETENTION_DAYS) || 1095; // ~3 years
 
 if (shouldRunScheduler) {
@@ -75,7 +75,7 @@ if (shouldRunAdminEmailScheduler) {
     }
   });
 } else {
-  console.log('[Admin Email Scheduler] Disabled. Set ENABLE_ADMIN_EMAIL_SCHEDULER=true to enable.');
+  console.log('[Admin Email Scheduler] Disabled outside production. Set ENABLE_ADMIN_EMAIL_SCHEDULER=true to enable.');
 }
 
 if (shouldRunActivityLogRetention) {
@@ -93,5 +93,5 @@ if (shouldRunActivityLogRetention) {
     }
   });
 } else {
-  console.log('[Activity Log Retention] Disabled. Set ENABLE_ACTIVITY_LOG_RETENTION=true to enable.');
+  console.log('[Activity Log Retention] Disabled outside production. Set ENABLE_ACTIVITY_LOG_RETENTION=true to enable.');
 }

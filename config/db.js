@@ -2,6 +2,7 @@ const { Pool } = require('pg');
 require('dotenv').config();
 
 const dbConnectionString = process.env.DB_CONNECTION_STRING;
+const shouldLogSlowQueries = String(process.env.LOG_SLOW_DB_QUERIES || '').trim().toLowerCase() === 'true';
 
 const shouldUseSsl =
   process.env.DB_SSL === 'true' ||
@@ -59,12 +60,14 @@ pool.query = async (...args) => {
 
     if (elapsedMs >= slowQueryThresholdMs) {
       dbMetrics.slowQueries += 1;
-      const queryInput = args[0];
-      const sqlText = typeof queryInput === 'string'
-        ? queryInput
-        : (queryInput && typeof queryInput.text === 'string' ? queryInput.text : '[unknown query]');
-      const compactSql = sqlText.replace(/\s+/g, ' ').trim().slice(0, 240);
-      console.warn(`[DB][SLOW] ${elapsedMs.toFixed(1)}ms ${compactSql}`);
+      if (shouldLogSlowQueries) {
+        const queryInput = args[0];
+        const sqlText = typeof queryInput === 'string'
+          ? queryInput
+          : (queryInput && typeof queryInput.text === 'string' ? queryInput.text : '[unknown query]');
+        const compactSql = sqlText.replace(/\s+/g, ' ').trim().slice(0, 240);
+        console.warn(`[DB][SLOW] ${elapsedMs.toFixed(1)}ms ${compactSql}`);
+      }
     }
   }
 };

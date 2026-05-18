@@ -54,8 +54,11 @@ const ROLE_DEFAULT_PERMISSIONS = {
   // Spreading here so MANAGER_DEFAULT_OPTIONAL_PERMISSIONS changes automatically propagate.
   Manager: [...MANAGER_DEFAULT_OPTIONAL_PERMISSIONS],
   Teacher: [
+    PERMISSIONS.MANAGE_STUDENTS,
     PERMISSIONS.MANAGE_ASSESSMENTS,
     PERMISSIONS.MARK_ATTENDANCE,
+    PERMISSIONS.MANAGE_CLASSES_SUBJECTS,
+    PERMISSIONS.MANAGE_REPORTS,
   ],
   Supervisor: [
     PERMISSIONS.MANAGE_STUDENTS,
@@ -375,7 +378,18 @@ async function userHasPermission(database, { userId, userRole, organizationId, a
   }
 
   const userPermissions = await getUserPermissions(database, userId, organizationId);
-  return userPermissions.includes(permissionKey);
+  const assignedPermissions = new Set(userPermissions);
+  if (assignedPermissions.has(permissionKey)) return true;
+
+  // Treat role defaults as baseline access for non-manager roles too. This keeps
+  // older employee records working when new standard permissions are added to a
+  // role after their original permission rows were saved.
+  const roleDefaults = ROLE_DEFAULT_PERMISSIONS[normalizedUserRole];
+  if (Array.isArray(roleDefaults) && roleDefaults.includes(permissionKey)) {
+    return true;
+  }
+
+  return false;
 }
 
 function requirePermission(permissionKey) {
