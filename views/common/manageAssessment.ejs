@@ -55,6 +55,30 @@
       .action-btn-modify { background: #eef4f7; color: #0f5a66; border: 1px solid #c9dde5; }
       .action-btn-modify:hover { background: #ddeef5; transform: translateY(-1px); }
       .empty-row td { text-align: center; color: #7a919e; font-style: italic; padding: 32px; }
+
+      /* ── Small screen ── */
+      @media (max-width: 640px) {
+        .page-wrap { padding: 14px 12px 28px; }
+        .top-bar { gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+        .top-bar h1 { font-size: 1.15rem; }
+        .btn { padding: 7px 12px; font-size: 0.8rem; }
+        table { font-size: 0.8rem; min-width: 580px; }
+        thead th { padding: 9px 9px; font-size: 0.78rem; }
+        td { padding: 9px 9px; }
+        .badge { font-size: 0.72rem; padding: 2px 7px; }
+        .window-info { font-size: 0.7rem; }
+        .edit-pill { font-size: 0.7rem; padding: 2px 6px; }
+        .action-btn { padding: 5px 10px; font-size: 0.76rem; }
+        .collapse-btn { padding: 5px 10px; font-size: 0.76rem; }
+        .collapse-body ul { font-size: 0.76rem; }
+        .collapse-class-name { font-size: 0.78rem; }
+      }
+      @media (max-width: 420px) {
+        .top-bar { flex-direction: column; align-items: flex-start; }
+        .top-bar h1 { font-size: 1.05rem; }
+        .top-bar-actions { gap: 6px; }
+        .btn { font-size: 0.75rem; padding: 6px 9px; }
+      }
     </style>
 </head>
 <body>

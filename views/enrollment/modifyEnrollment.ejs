@@ -30,6 +30,9 @@
         color: #0f2d32;
       }
 
+      h1 { font-size: 1.55rem; margin: 0 0 12px; }
+      h4 { font-size: 1rem; margin: 0 0 8px; }
+
       .card {
         background: #ffffff;
         box-shadow: 0 8px 22px rgba(15, 45, 50, 0.12);
@@ -263,6 +266,23 @@
           width: 100%;
           max-width: 360px;
         }
+      }
+
+      @media (max-width: 640px) {
+        main { padding: 14px 14px 24px; }
+        h1 { font-size: 1.25rem; }
+        h4 { font-size: 0.95rem; }
+        .card { padding: 16px 14px; }
+        .collapsible-btn { font-size: 13px; padding: 8px 12px; }
+        select, input[type="text"], input[type="number"] { font-size: 13px; padding: 8px 10px; }
+        label { font-size: 0.88rem; }
+        .submit-button, .delete-button { padding: 9px 14px; font-size: 0.88rem; }
+      }
+
+      @media (max-width: 420px) {
+        main { padding: 10px 10px 20px; }
+        h1 { font-size: 1.1rem; }
+        .card { padding: 12px 10px; }
       }
 
       .checkbox-container {

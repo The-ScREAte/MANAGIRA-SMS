@@ -373,6 +373,25 @@
         flex-direction: column;
       }
     }
+
+    @media (max-width: 480px) {
+      .promotion-page { padding: 12px 10px 20px; }
+      h2 { font-size: 1.2rem; margin-bottom: 8px; }
+      h3 { font-size: 0.98rem; margin-bottom: 8px; }
+      .card { padding: 14px 12px; border-radius: 10px; }
+      .form-card { padding: 14px 12px; border-radius: 10px; }
+      .form-card h3 { font-size: 1rem; }
+      button { padding: 8px 12px; font-size: 0.88rem; }
+      label { font-size: 0.88rem; }
+      select, input[type="date"], input[type="time"] { font-size: 0.88rem; padding: 8px 10px; }
+      .mode-option { padding: 6px 10px; font-size: 0.85rem; }
+      table { font-size: 0.8rem; }
+      th, td { padding: 8px 6px; }
+      .history-card > summary { padding: 11px 13px; font-size: 0.9rem; }
+      .history-card-content { padding: 8px 10px 12px; }
+      #instructions-container { padding: 14px; }
+      #instructions-container p { font-size: 0.88rem; }
+    }
   </style>
 </head>
 <body>
@@ -499,6 +518,7 @@
     <details class="history-card">
       <summary>Promotion History (<%= schedules.length %>)</summary>
       <div class="history-card-content">
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
         <table>
           <thead>
             <tr>
@@ -547,6 +567,7 @@
             <% }) %>
           </tbody>
         </table>
+        </div><!-- /overflow-x scroll wrapper -->
 
         <% if (schedules.length > 5) { %>
           <div style="text-align: center; margin-top: 10px;">
