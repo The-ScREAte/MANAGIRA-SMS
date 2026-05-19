@@ -56,6 +56,11 @@ const {
   computeNextRunAt,
 } = require("../utils/adminEmailCampaigns");
 const { ensureAdminAnnouncementSchema } = require("../utils/adminAnnouncementSchema");
+const {
+  ensureUserFeedbackSchema,
+  FEEDBACK_STATUS_OPTIONS,
+  normalizeFeedbackStatus,
+} = require("../utils/userFeedback");
 
 function computeTierMonthlyPrice(planBasePrice, tier) {
   const basePrice = Number(planBasePrice || 0);
@@ -94,6 +99,26 @@ function formatAdminSideRoleShort(accountType) {
     default:
       return (accountType || '').trim();
   }
+}
+
+function wantsJsonResponse(req) {
+  return req.xhr || String(req.get("accept") || "").includes("application/json");
+}
+
+function computeFeedbackSummary(feedbackItems = []) {
+  const rows = Array.isArray(feedbackItems) ? feedbackItems : [];
+  const reviewItems = rows.filter((item) => Number.isInteger(Number(item.rating)) && Number(item.rating) > 0);
+  const averageRating = reviewItems.length
+    ? reviewItems.reduce((sum, item) => sum + Number(item.rating || 0), 0) / reviewItems.length
+    : 0;
+
+  return {
+    total: rows.length,
+    newCount: rows.filter((item) => item.status === "new").length,
+    featureRequestCount: rows.filter((item) => item.feedback_type === "feature_request").length,
+    bugReportCount: rows.filter((item) => item.feedback_type === "bug_report").length,
+    averageRating,
+  };
 }
 
 async function fetchAdminSideUsers() {
@@ -434,6 +459,7 @@ const adminController = {
   adminDashboard: async (req, res) => {
     try {
       await ensureInternalWorkerSchema(db);
+      await ensureUserFeedbackSchema(db).catch(() => {});
 
       const accountType = req.session.accountType;
       const isInternalWorker = accountType === 'Internal Worker';
@@ -536,6 +562,42 @@ const adminController = {
         contacts = all.rows;
       }
 
+      let feedbackSummary = {
+        total: 0,
+        newCount: 0,
+        featureRequestCount: 0,
+        bugReportCount: 0,
+        averageRating: 0,
+      };
+
+      try {
+        const feedbackSummaryResult = await db.query(
+          `SELECT
+             COUNT(*)::int AS total,
+             COUNT(*) FILTER (WHERE status = 'new')::int AS new_count,
+             COUNT(*) FILTER (WHERE feedback_type = 'feature_request')::int AS feature_request_count,
+             COUNT(*) FILTER (WHERE feedback_type = 'bug_report')::int AS bug_report_count,
+             AVG(rating)::numeric(10,2) FILTER (WHERE rating IS NOT NULL) AS average_rating
+           FROM user_feedback`
+        );
+
+        feedbackSummary = {
+          total: Number(feedbackSummaryResult.rows[0]?.total || 0),
+          newCount: Number(feedbackSummaryResult.rows[0]?.new_count || 0),
+          featureRequestCount: Number(feedbackSummaryResult.rows[0]?.feature_request_count || 0),
+          bugReportCount: Number(feedbackSummaryResult.rows[0]?.bug_report_count || 0),
+          averageRating: Number(feedbackSummaryResult.rows[0]?.average_rating || 0),
+        };
+      } catch (_) {
+        feedbackSummary = {
+          total: 0,
+          newCount: 0,
+          featureRequestCount: 0,
+          bugReportCount: 0,
+          averageRating: 0,
+        };
+      }
+
       res.render("admin/dashboard", {
         title: "Admin Dashboard",
         applications,
@@ -546,6 +608,7 @@ const adminController = {
         isFullAdmin,
         canManageAllContacts,
         canAssignContacts,
+        feedbackSummary,
         messages: req.flash(),
         nodeEnv: process.env.NODE_ENV,
         baseDomain: "managira.com",
@@ -563,6 +626,13 @@ const adminController = {
         isFullAdmin: req.session.accountType === 'Admin',
         canManageAllContacts: isAdminSideManager(req.session.accountType),
         canAssignContacts: req.session.accountType === 'Admin',
+        feedbackSummary: {
+          total: 0,
+          newCount: 0,
+          featureRequestCount: 0,
+          bugReportCount: 0,
+          averageRating: 0,
+        },
         messages: req.flash(),
         nodeEnv: process.env.NODE_ENV,
         baseDomain: "managira.com",
@@ -2022,6 +2092,106 @@ const adminController = {
       });
     } catch (error) {
             res.status(500).send("Failed to fetch help messages.");
+    }
+  },
+
+  feedbackInbox: async (req, res) => {
+    try {
+      await ensureUserFeedbackSchema(db);
+
+      const feedbackResult = await db.query(
+        `SELECT feedback_id, organization_id, user_id, user_name, user_role, organization_name,
+                feedback_type, area, subject, message, rating, priority, status,
+                created_at, updated_at
+         FROM user_feedback
+         ORDER BY created_at DESC, feedback_id DESC`
+      );
+
+      const feedbackItems = feedbackResult.rows.map((row) => ({
+        ...row,
+        feedback_id: Number(row.feedback_id || 0),
+        organization_id: row.organization_id ? Number(row.organization_id) : null,
+        user_id: row.user_id ? Number(row.user_id) : null,
+        rating: row.rating === null || row.rating === undefined ? null : Number(row.rating),
+      }));
+
+      return res.render("admin/adminFeedback", {
+        title: "Feedback",
+        feedbackItems,
+        feedbackStats: computeFeedbackSummary(feedbackItems),
+        feedbackStatusOptions: FEEDBACK_STATUS_OPTIONS,
+        messages: req.flash(),
+        showFooterTopSection: true,
+      });
+    } catch (error) {
+      req.flash("error", "Failed to load feedback.");
+      return res.redirect("/admin");
+    }
+  },
+
+  updateFeedbackStatus: async (req, res) => {
+    const shouldReturnJson = wantsJsonResponse(req);
+    const feedbackId = Number.parseInt(req.params.id, 10);
+    const status = normalizeFeedbackStatus(req.body?.status);
+
+    if (!Number.isInteger(feedbackId) || feedbackId <= 0) {
+      const errorMessage = "Invalid feedback ID.";
+      if (shouldReturnJson) {
+        return res.status(400).json({ success: false, error: errorMessage });
+      }
+      req.flash("error", errorMessage);
+      return res.redirect("/admin/feedback");
+    }
+
+    if (!status) {
+      const errorMessage = "Invalid feedback status.";
+      if (shouldReturnJson) {
+        return res.status(400).json({ success: false, error: errorMessage });
+      }
+      req.flash("error", errorMessage);
+      return res.redirect("/admin/feedback");
+    }
+
+    try {
+      await ensureUserFeedbackSchema(db);
+      const updateResult = await db.query(
+        `UPDATE user_feedback
+         SET status = $2,
+             updated_at = NOW()
+         WHERE feedback_id = $1
+         RETURNING feedback_id, status, updated_at`,
+        [feedbackId, status]
+      );
+
+      if (updateResult.rows.length === 0) {
+        const errorMessage = "Feedback entry not found.";
+        if (shouldReturnJson) {
+          return res.status(404).json({ success: false, error: errorMessage });
+        }
+        req.flash("error", errorMessage);
+        return res.redirect("/admin/feedback");
+      }
+
+      if (shouldReturnJson) {
+        return res.json({
+          success: true,
+          feedback: updateResult.rows[0],
+          message: "Feedback status updated successfully.",
+        });
+      }
+
+      req.flash("success", "Feedback status updated successfully.");
+      return res.redirect("/admin/feedback");
+    } catch (error) {
+      if (shouldReturnJson) {
+        return res.status(500).json({
+          success: false,
+          error: "Failed to update feedback status.",
+        });
+      }
+
+      req.flash("error", "Failed to update feedback status.");
+      return res.redirect("/admin/feedback");
     }
   },
 

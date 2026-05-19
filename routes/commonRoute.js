@@ -21,6 +21,17 @@ module.exports = (db) => {
   // ...removed log for clean background operation...
     return commonController.orgDashboard(req, res, db);
   });
+  router.get("/feedback", isAuthenticated, blockGuardians, (req, res) =>
+    commonController.feedbackGet(req, res, db)
+  );
+  router.post(
+    "/feedback",
+    isAuthenticated,
+    blockGuardians,
+    express.json(),
+    express.urlencoded({ extended: true }),
+    (req, res) => commonController.feedbackPost(req, res, db)
+  );
   router.get(
     "/orgDashboard/schoolYearId/:schoolYearId/termId/:termId",
     isAuthenticated,

@@ -10,6 +10,15 @@ module.exports = (db) => {
     router.use(isAuthenticated);
     router.use(fetchUserInfo);
 
+    const ensureAdminOrMiniAdmin = (req, res, next) => {
+        const accountType = String(req.session?.accountType || '').trim().toLowerCase();
+        if (accountType === 'admin' || accountType === 'mini admin') {
+            return next();
+        }
+        req.flash('error', 'You do not have permission to access feedback.');
+        return res.redirect('/admin');
+    };
+
     // Route: /org/:organization_id (for super admin to view org dashboard)
     // This route works in both development and production
     router.get('/org/:organization_id', ensureAdmin, async (req, res) => {
@@ -260,6 +269,23 @@ module.exports = (db) => {
             res.redirect('/admin');
         }
     });
+
+    router.get('/feedback', ensureAdminOrMiniAdmin, async (req, res) => {
+        try {
+            await adminController.feedbackInbox(req, res);
+        } catch (error) {
+            req.flash('error', 'Failed to load feedback.');
+            res.redirect('/admin');
+        }
+    });
+
+    router.post(
+        '/feedback/:id/status',
+        ensureAdminOrMiniAdmin,
+        express.json(),
+        express.urlencoded({ extended: true }),
+        adminController.updateFeedbackStatus
+    );
 
     router.post('/respondMessage', adminController.respondToMessage);
     router.post('/resolveMessage', adminController.markAsResolved);

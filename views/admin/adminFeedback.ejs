@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Feedback</title>
+  <link rel="stylesheet" href="/css/admin.css" />
+  <%
+    if (typeof messages === 'undefined') {
+      var messages = { success: [], error: [], info: [] };
+    }
+  %>
+  <style>
+    :root {
+      --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
+      --primary: #01535b;
+      --primary-hover: #014a51;
+      --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
+      --bg: #f3f4f6;
+      --surface: #ffffff;
+      --surface-muted: #f8fafc;
+      --border: #e5e7eb;
+      --text: #111827;
+      --muted: #6b7280;
+      --danger: #dc2626;
+      --warning: #d97706;
+      --success: #15803d;
+      --shadow-lg: 0 20px 44px rgba(15, 23, 42, 0.08);
+      --shadow-md: 0 12px 28px rgba(15, 23, 42, 0.06);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: var(--font-family);
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .feedback-admin-page {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 30px 20px 40px;
+    }
+
+    .feedback-admin-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+
+    .feedback-admin-head h1 {
+      margin: 0 0 6px;
+      font-size: 2rem;
+      letter-spacing: -0.03em;
+    }
+
+    .feedback-admin-head p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .feedback-admin-actions {
+      display: inline-flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .feedback-admin-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border-radius: 10px;
+      padding: 11px 16px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 700;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+
+    .feedback-admin-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+      border-color: color-mix(in srgb, var(--primary) 24%, var(--border));
+    }
+
+    .feedback-admin-btn--primary {
+      background: var(--primary);
+      border-color: transparent;
+      color: #fff;
+    }
+
+    .feedback-admin-btn--primary:hover {
+      background: var(--primary-hover-fill, var(--primary-hover));
+    }
+
+    .support-tabs {
+      display: inline-flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .support-tab {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.88);
+      color: var(--muted);
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 0.88rem;
+      transition: all 0.18s ease;
+    }
+
+    .support-tab.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+      box-shadow: 0 12px 24px rgba(1, 83, 91, 0.18);
+    }
+
+    .support-tab:not(.active):hover {
+      color: var(--text);
+      border-color: color-mix(in srgb, var(--primary) 18%, var(--border));
+    }
+
+    .feedback-stats {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .feedback-stat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: var(--shadow-md);
+    }
+
+    .feedback-stat__label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .feedback-stat__value {
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+
+    .feedback-toolbar,
+    .feedback-table-shell,
+    .feedback-notice {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: var(--shadow-md);
+    }
+
+    .feedback-toolbar {
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .feedback-toolbar__grid {
+      display: grid;
+      grid-template-columns: minmax(220px, 1.4fr) repeat(3, minmax(140px, 0.7fr));
+      gap: 12px;
+    }
+
+    .feedback-filter {
+      display: grid;
+      gap: 7px;
+    }
+
+    .feedback-filter label {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .feedback-filter input,
+    .feedback-filter select {
+      width: 100%;
+      padding: 12px 13px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      font: inherit;
+      background: #fff;
+      color: var(--text);
+    }
+
+    .feedback-filter input:focus,
+    .feedback-filter select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(1, 83, 91, 0.12);
+    }
+
+    .feedback-table-shell {
+      overflow: hidden;
+    }
+
+    .feedback-table-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 18px 18px 0;
+    }
+
+    .feedback-table-head h2 {
+      margin: 0;
+      font-size: 1.08rem;
+    }
+
+    .feedback-table-head p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    .feedback-table-count {
+      color: var(--muted);
+      font-size: 0.84rem;
+      font-weight: 700;
+    }
+
+    .feedback-table-wrap {
+      overflow: auto;
+      margin-top: 14px;
+    }
+
+    .feedback-table {
+      width: 100%;
+      min-width: 1600px;
+      border-collapse: collapse;
+    }
+
+    .feedback-table th,
+    .feedback-table td {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+      font-size: 0.88rem;
+    }
+
+    .feedback-table th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #f8fafc;
+      color: var(--muted);
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 800;
+    }
+
+    .feedback-row {
+      cursor: pointer;
+      transition: background 0.16s ease;
+    }
+
+    .feedback-row:hover {
+      background: #f8fbfc;
+    }
+
+    .feedback-row.is-active {
+      background: color-mix(in srgb, var(--primary) 6%, white);
+    }
+
+    .feedback-table__subject {
+      min-width: 220px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .feedback-table__message {
+      max-width: 320px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .feedback-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .feedback-pill--type {
+      background: color-mix(in srgb, var(--primary) 12%, white);
+      color: var(--primary);
+    }
+
+    .feedback-pill--status-new {
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+
+    .feedback-pill--status-reviewed {
+      background: #fff7ed;
+      color: var(--warning);
+    }
+
+    .feedback-pill--status-done {
+      background: #ecfdf5;
+      color: var(--success);
+    }
+
+    .feedback-pill--priority-low {
+      background: #f1f5f9;
+      color: #475569;
+    }
+
+    .feedback-pill--priority-medium {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .feedback-pill--priority-high {
+      background: #ffedd5;
+      color: #c2410c;
+    }
+
+    .feedback-pill--priority-critical {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+
+    .feedback-empty {
+      display: none;
+      padding: 26px 18px 30px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .feedback-empty.is-visible {
+      display: block;
+    }
+
+    .feedback-pagination {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 16px 18px 18px;
+    }
+
+    .feedback-pagination__meta {
+      color: var(--muted);
+      font-size: 0.86rem;
+      font-weight: 700;
+    }
+
+    .feedback-pagination__actions {
+      display: inline-flex;
+      gap: 10px;
+    }
+
+    .feedback-pagination__button {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      background: #fff;
+      color: var(--text);
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .feedback-pagination__button:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    .feedback-notice {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding: 14px 16px;
+      font-weight: 700;
+    }
+
+    .feedback-notice.is-visible {
+      display: flex;
+    }
+
+    .feedback-notice.is-success {
+      border-color: #bbf7d0;
+      background: #f0fdf4;
+      color: var(--success);
+    }
+
+    .feedback-notice.is-error {
+      border-color: #fecaca;
+      background: #fff1f2;
+      color: var(--danger);
+    }
+
+    .feedback-notice button {
+      border: 0;
+      background: transparent;
+      color: inherit;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 800;
+    }
+
+    .feedback-drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s ease;
+      z-index: 50;
+    }
+
+    .feedback-drawer-backdrop.is-open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .feedback-drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: min(480px, 100%);
+      height: 100vh;
+      background: #fff;
+      border-left: 1px solid var(--border);
+      box-shadow: -16px 0 42px rgba(15, 23, 42, 0.14);
+      transform: translateX(100%);
+      transition: transform 0.2s ease;
+      z-index: 60;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .feedback-drawer.is-open {
+      transform: translateX(0);
+    }
+
+    .feedback-drawer__head,
+    .feedback-drawer__body,
+    .feedback-drawer__foot {
+      padding: 18px 20px;
+    }
+
+    .feedback-drawer__head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .feedback-drawer__head h3 {
+      margin: 0 0 6px;
+      font-size: 1.18rem;
+      line-height: 1.3;
+    }
+
+    .feedback-drawer__head p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    .feedback-drawer__close {
+      border: 0;
+      background: #f1f5f9;
+      color: var(--text);
+      border-radius: 999px;
+      width: 40px;
+      height: 40px;
+      cursor: pointer;
+      font-size: 1.1rem;
+      font-weight: 800;
+    }
+
+    .feedback-drawer__body {
+      flex: 1;
+      overflow: auto;
+      display: grid;
+      gap: 18px;
+    }
+
+    .feedback-detail-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .feedback-detail {
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+    }
+
+    .feedback-detail__label {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--muted);
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .feedback-detail__value {
+      font-weight: 700;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+
+    .feedback-message-card {
+      padding: 16px;
+      border-radius: 16px;
+      background: #fff;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-md);
+    }
+
+    .feedback-message-card h4 {
+      margin: 0 0 10px;
+      font-size: 0.95rem;
+    }
+
+    .feedback-message-card p {
+      margin: 0;
+      color: var(--text);
+      white-space: pre-wrap;
+      line-height: 1.7;
+    }
+
+    .feedback-drawer__foot {
+      border-top: 1px solid var(--border);
+      background: #fff;
+    }
+
+    .feedback-status-form {
+      display: grid;
+      gap: 10px;
+    }
+
+    .feedback-status-form label {
+      font-size: 0.82rem;
+      font-weight: 800;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .feedback-status-form select {
+      width: 100%;
+      padding: 12px 13px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      font: inherit;
+    }
+
+    .feedback-status-form button {
+      border: 0;
+      border-radius: 12px;
+      padding: 12px 14px;
+      background: var(--primary);
+      color: #fff;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .feedback-status-form button:hover {
+      background: var(--primary-hover-fill, var(--primary-hover));
+    }
+
+    @media (max-width: 1180px) {
+      .feedback-stats {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .feedback-toolbar__grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 780px) {
+      .feedback-admin-page {
+        padding: 20px 12px 28px;
+      }
+
+      .feedback-stats,
+      .feedback-toolbar__grid,
+      .feedback-detail-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .feedback-drawer {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="feedback-admin-page">
+    <div class="support-tabs">
+      <a class="support-tab" href="/admin/helpMessages">Help Tickets</a>
+      <a class="support-tab active" href="/admin/feedback">Feedback</a>
+    </div>
+
+    <div class="feedback-admin-head">
+      <div>
+        <h1>Feedback Inbox</h1>
+        <p>Review feedback from schools, update progress, and keep track of product signals in one place.</p>
+      </div>
+      <div class="feedback-admin-actions">
+        <a class="feedback-admin-btn" href="/admin/helpMessages">Open Help Tickets</a>
+        <a class="feedback-admin-btn feedback-admin-btn--primary" href="/admin">Back to Admin</a>
+      </div>
+    </div>
+
+    <%- include('../partials/flash') %>
+
+    <div id="feedbackNotice" class="feedback-notice" hidden>
+      <span id="feedbackNoticeText"></span>
+      <button type="button" id="feedbackNoticeClose">Dismiss</button>
+    </div>
+
+    <section class="feedback-stats">
+      <article class="feedback-stat">
+        <span class="feedback-stat__label">Total</span>
+        <div class="feedback-stat__value" id="feedbackStatTotal"><%= feedbackStats.total %></div>
+      </article>
+      <article class="feedback-stat">
+        <span class="feedback-stat__label">New / Unread</span>
+        <div class="feedback-stat__value" id="feedbackStatNew"><%= feedbackStats.newCount %></div>
+      </article>
+      <article class="feedback-stat">
+        <span class="feedback-stat__label">Feature Requests</span>
+        <div class="feedback-stat__value" id="feedbackStatFeatures"><%= feedbackStats.featureRequestCount %></div>
+      </article>
+      <article class="feedback-stat">
+        <span class="feedback-stat__label">Bug Reports</span>
+        <div class="feedback-stat__value" id="feedbackStatBugs"><%= feedbackStats.bugReportCount %></div>
+      </article>
+      <article class="feedback-stat">
+        <span class="feedback-stat__label">Average Rating</span>
+        <div class="feedback-stat__value" id="feedbackStatRating"><%= feedbackStats.averageRating ? feedbackStats.averageRating.toFixed(1) : '--' %></div>
+      </article>
+    </section>
+
+    <section class="feedback-toolbar">
+      <div class="feedback-toolbar__grid">
+        <div class="feedback-filter">
+          <label for="feedbackSearch">Search</label>
+          <input id="feedbackSearch" type="search" placeholder="Search subject, message, organization, user..." />
+        </div>
+        <div class="feedback-filter">
+          <label for="feedbackTypeFilter">Type</label>
+          <select id="feedbackTypeFilter">
+            <option value="">All types</option>
+            <option value="feature_request">Feature Request</option>
+            <option value="bug_report">Bug Report</option>
+            <option value="review">Review</option>
+            <option value="general">General</option>
+            <option value="ux_design">UX/Design</option>
+            <option value="performance">Performance</option>
+          </select>
+        </div>
+        <div class="feedback-filter">
+          <label for="feedbackStatusFilter">Status</label>
+          <select id="feedbackStatusFilter">
+            <option value="">All statuses</option>
+            <% feedbackStatusOptions.forEach(function(option) { %>
+              <option value="<%= option.value %>"><%= option.label %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="feedback-filter">
+          <label for="feedbackPriorityFilter">Priority</label>
+          <select id="feedbackPriorityFilter">
+            <option value="">All priorities</option>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+            <option value="critical">Critical</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <section class="feedback-table-shell">
+      <div class="feedback-table-head">
+        <div>
+          <h2>All Feedback</h2>
+          <p>Click any row to open the full message and update its workflow status.</p>
+        </div>
+        <div class="feedback-table-count" id="feedbackVisibleCount">0 results</div>
+      </div>
+
+      <div class="feedback-table-wrap">
+        <table class="feedback-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Created</th>
+              <th>Updated</th>
+              <th>Organization</th>
+              <th>User</th>
+              <th>Role</th>
+              <th>Type</th>
+              <th>Area</th>
+              <th>Subject</th>
+              <th>Message</th>
+              <th>Rating</th>
+              <th>Priority</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="feedbackTableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="feedback-empty" id="feedbackEmpty">No feedback matches the current search and filter combination.</div>
+
+      <div class="feedback-pagination">
+        <div class="feedback-pagination__meta" id="feedbackPaginationMeta">Showing 0 of 0</div>
+        <div class="feedback-pagination__actions">
+          <button type="button" class="feedback-pagination__button" id="feedbackPrevButton">Previous</button>
+          <button type="button" class="feedback-pagination__button" id="feedbackNextButton">Next</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="feedback-drawer-backdrop" id="feedbackDrawerBackdrop"></div>
+  <aside class="feedback-drawer" id="feedbackDrawer" aria-hidden="true">
+    <div class="feedback-drawer__head">
+      <div>
+        <h3 id="feedbackDrawerTitle">Feedback Detail</h3>
+        <p id="feedbackDrawerMeta">Select a feedback row to inspect its full details.</p>
+      </div>
+      <button type="button" class="feedback-drawer__close" id="feedbackDrawerClose" aria-label="Close detail panel">&times;</button>
+    </div>
+    <div class="feedback-drawer__body" id="feedbackDrawerBody"></div>
+    <div class="feedback-drawer__foot">
+      <form class="feedback-status-form" id="feedbackStatusForm">
+        <label for="feedbackStatusSelect">Update Status</label>
+        <select id="feedbackStatusSelect" name="status">
+          <% feedbackStatusOptions.forEach(function(option) { %>
+            <option value="<%= option.value %>"><%= option.label %></option>
+          <% }) %>
+        </select>
+        <button type="submit" id="feedbackStatusSubmit">Save Status</button>
+      </form>
+    </div>
+  </aside>
+
+  <script>
+    (function () {
+      const feedbackItems = <%- JSON.stringify(feedbackItems || []) %>;
+      const statusOptions = <%- JSON.stringify(feedbackStatusOptions || []) %>;
+      const tableBody = document.getElementById('feedbackTableBody');
+      const emptyState = document.getElementById('feedbackEmpty');
+      const visibleCount = document.getElementById('feedbackVisibleCount');
+      const paginationMeta = document.getElementById('feedbackPaginationMeta');
+      const prevButton = document.getElementById('feedbackPrevButton');
+      const nextButton = document.getElementById('feedbackNextButton');
+      const searchInput = document.getElementById('feedbackSearch');
+      const typeFilter = document.getElementById('feedbackTypeFilter');
+      const statusFilter = document.getElementById('feedbackStatusFilter');
+      const priorityFilter = document.getElementById('feedbackPriorityFilter');
+      const drawer = document.getElementById('feedbackDrawer');
+      const drawerBackdrop = document.getElementById('feedbackDrawerBackdrop');
+      const drawerClose = document.getElementById('feedbackDrawerClose');
+      const drawerTitle = document.getElementById('feedbackDrawerTitle');
+      const drawerMeta = document.getElementById('feedbackDrawerMeta');
+      const drawerBody = document.getElementById('feedbackDrawerBody');
+      const statusForm = document.getElementById('feedbackStatusForm');
+      const statusSelect = document.getElementById('feedbackStatusSelect');
+      const statusSubmit = document.getElementById('feedbackStatusSubmit');
+      const notice = document.getElementById('feedbackNotice');
+      const noticeText = document.getElementById('feedbackNoticeText');
+      const noticeClose = document.getElementById('feedbackNoticeClose');
+      const statTotal = document.getElementById('feedbackStatTotal');
+      const statNew = document.getElementById('feedbackStatNew');
+      const statFeatures = document.getElementById('feedbackStatFeatures');
+      const statBugs = document.getElementById('feedbackStatBugs');
+      const statRating = document.getElementById('feedbackStatRating');
+
+      const pageSize = 20;
+      let currentPage = 1;
+      let activeFeedbackId = null;
+
+      function escapeHtml(value) {
+        return String(value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function toLabel(value) {
+        const lookup = {
+          feature_request: 'Feature Request',
+          bug_report: 'Bug Report',
+          review: 'Review',
+          general: 'General',
+          ux_design: 'UX/Design',
+          performance: 'Performance',
+          students: 'Students',
+          attendance: 'Attendance',
+          assessments: 'Assessments',
+          guardians: 'Guardians',
+          payments: 'Payments',
+          employees: 'Employees',
+          reports: 'Reports',
+          settings: 'Settings',
+          notifications: 'Notifications',
+          mobile: 'Mobile',
+          other: 'Other',
+          low: 'Low',
+          medium: 'Medium',
+          high: 'High',
+          critical: 'Critical',
+          new: 'New',
+          reviewed: 'Reviewed',
+          done: 'Done',
+        };
+        return lookup[value] || String(value || '').replace(/_/g, ' ');
+      }
+
+      function formatDate(value) {
+        if (!value) return '--';
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) return '--';
+        return parsed.toLocaleString();
+      }
+
+      function truncate(value, maxLength) {
+        const text = String(value || '');
+        return text.length > maxLength ? `${text.slice(0, maxLength - 1)}...` : text;
+      }
+
+      function getFilteredItems() {
+        const search = searchInput.value.trim().toLowerCase();
+        const selectedType = typeFilter.value;
+        const selectedStatus = statusFilter.value;
+        const selectedPriority = priorityFilter.value;
+
+        return feedbackItems.filter((item) => {
+          const matchesSearch = !search || [
+            item.organization_name,
+            item.user_name,
+            item.user_role,
+            item.subject,
+            item.message,
+            item.feedback_type,
+            item.area,
+            item.priority,
+            item.status,
+          ].join(' ').toLowerCase().includes(search);
+
+          const matchesType = !selectedType || item.feedback_type === selectedType;
+          const matchesStatus = !selectedStatus || item.status === selectedStatus;
+          const matchesPriority = !selectedPriority || item.priority === selectedPriority;
+          return matchesSearch && matchesType && matchesStatus && matchesPriority;
+        });
+      }
+
+      function renderStats() {
+        const reviews = feedbackItems.filter((item) => Number.isInteger(Number(item.rating)) && Number(item.rating) > 0);
+        const averageRating = reviews.length
+          ? (reviews.reduce((sum, item) => sum + Number(item.rating || 0), 0) / reviews.length).toFixed(1)
+          : '--';
+
+        statTotal.textContent = feedbackItems.length;
+        statNew.textContent = feedbackItems.filter((item) => item.status === 'new').length;
+        statFeatures.textContent = feedbackItems.filter((item) => item.feedback_type === 'feature_request').length;
+        statBugs.textContent = feedbackItems.filter((item) => item.feedback_type === 'bug_report').length;
+        statRating.textContent = averageRating;
+      }
+
+      function renderTable() {
+        const filteredItems = getFilteredItems();
+        const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize));
+        if (currentPage > totalPages) currentPage = totalPages;
+
+        const startIndex = (currentPage - 1) * pageSize;
+        const pageItems = filteredItems.slice(startIndex, startIndex + pageSize);
+
+        visibleCount.textContent = `${filteredItems.length} result${filteredItems.length === 1 ? '' : 's'}`;
+        paginationMeta.textContent = filteredItems.length
+          ? `Showing ${startIndex + 1}-${startIndex + pageItems.length} of ${filteredItems.length}`
+          : 'Showing 0 of 0';
+        prevButton.disabled = currentPage === 1;
+        nextButton.disabled = currentPage >= totalPages;
+
+        emptyState.classList.toggle('is-visible', filteredItems.length === 0);
+
+        tableBody.innerHTML = pageItems.map((item) => `
+          <tr class="feedback-row ${item.feedback_id === activeFeedbackId ? 'is-active' : ''}" data-feedback-id="${item.feedback_id}">
+            <td>#${item.feedback_id}</td>
+            <td>${escapeHtml(formatDate(item.created_at))}</td>
+            <td>${escapeHtml(formatDate(item.updated_at))}</td>
+            <td>${escapeHtml(item.organization_name || '--')}</td>
+            <td>${escapeHtml(item.user_name || '--')}</td>
+            <td>${escapeHtml(item.user_role || '--')}</td>
+            <td><span class="feedback-pill feedback-pill--type">${escapeHtml(toLabel(item.feedback_type))}</span></td>
+            <td>${escapeHtml(toLabel(item.area))}</td>
+            <td class="feedback-table__subject">${escapeHtml(item.subject || '--')}</td>
+            <td class="feedback-table__message">${escapeHtml(truncate(item.message || '--', 86))}</td>
+            <td>${item.rating ? `${item.rating}/5` : '--'}</td>
+            <td>${item.priority ? `<span class="feedback-pill feedback-pill--priority-${item.priority}">${escapeHtml(toLabel(item.priority))}</span>` : '--'}</td>
+            <td><span class="feedback-pill feedback-pill--status-${item.status}">${escapeHtml(toLabel(item.status))}</span></td>
+          </tr>
+        `).join('');
+
+        tableBody.querySelectorAll('.feedback-row').forEach((row) => {
+          row.addEventListener('click', () => {
+            const feedbackId = Number(row.getAttribute('data-feedback-id'));
+            openDrawer(feedbackId);
+          });
+        });
+      }
+
+      function getFeedbackById(feedbackId) {
+        return feedbackItems.find((item) => Number(item.feedback_id) === Number(feedbackId)) || null;
+      }
+
+      function openDrawer(feedbackId) {
+        const item = getFeedbackById(feedbackId);
+        if (!item) return;
+
+        activeFeedbackId = item.feedback_id;
+        drawerTitle.textContent = item.subject || `Feedback #${item.feedback_id}`;
+        drawerMeta.textContent = `${toLabel(item.feedback_type)} from ${item.user_name || 'Unknown User'} at ${item.organization_name || 'Unknown Organization'}`;
+        drawerBody.innerHTML = `
+          <div class="feedback-detail-grid">
+            <div class="feedback-detail">
+              <span class="feedback-detail__label">Feedback ID</span>
+              <div class="feedback-detail__value">#${item.feedback_id}</div>
+            </div>
+            <div class="feedback-detail">
+              <span class="feedback-detail__label">Organization</span>
+              <div class="feedback-detail__value">${escapeHtml(item.organization_name || '--')}</div>
+            </div>
+            <div class="feedback-detail">
+              <span class="feedback-detail__label">User</span>
+              <div class="feedback-detail__value">${escapeHtml(item.user_name || '--')}</div>
+            </div>
+            <div class="feedback-detail">
+              <span class="feedback-detail__label">Role</span>
+              <div class="feedback-detail__value">${escapeHtml(item.user_role || '--')}</div>
+            </div>
+            <div class="feedback-detail">
+              <span class="feedback-detail__label">Type</span>
+              <div class="feedback-detail__value">${escapeHtml(toLabel(item.feedback_type))}</div>
+            </div>
+            <div class="feedback-detail">
+              <span class="feedback-detail__label">Area</span>
+              <div class="feedback-detail__value">${escapeHtml(toLabel(item.area))}</div>
+            </div>
+            <div class="feedback-detail">
+              <span class="feedback-detail__label">Priority</span>
+              <div class="feedback-detail__value">${escapeHtml(item.priority ? toLabel(item.priority) : '--')}</div>
+            </div>
+            <div class="feedback-detail">
+              <span class="feedback-detail__label">Rating</span>
+              <div class="feedback-detail__value">${item.rating ? `${item.rating}/5` : '--'}</div>
+            </div>
+            <div class="feedback-detail">
+              <span class="feedback-detail__label">Created</span>
+              <div class="feedback-detail__value">${escapeHtml(formatDate(item.created_at))}</div>
+            </div>
+            <div class="feedback-detail">
+              <span class="feedback-detail__label">Updated</span>
+              <div class="feedback-detail__value">${escapeHtml(formatDate(item.updated_at))}</div>
+            </div>
+          </div>
+          <div class="feedback-message-card">
+            <h4>Full Message</h4>
+            <p>${escapeHtml(item.message || '--')}</p>
+          </div>
+        `;
+        statusSelect.value = item.status || statusOptions[0]?.value || 'new';
+        drawer.classList.add('is-open');
+        drawer.setAttribute('aria-hidden', 'false');
+        drawerBackdrop.classList.add('is-open');
+        renderTable();
+      }
+
+      function closeDrawer() {
+        activeFeedbackId = null;
+        drawer.classList.remove('is-open');
+        drawer.setAttribute('aria-hidden', 'true');
+        drawerBackdrop.classList.remove('is-open');
+        renderTable();
+      }
+
+      function showNotice(message, type) {
+        noticeText.textContent = message;
+        notice.hidden = false;
+        notice.classList.add('is-visible');
+        notice.classList.toggle('is-success', type === 'success');
+        notice.classList.toggle('is-error', type === 'error');
+      }
+
+      function hideNotice() {
+        notice.hidden = true;
+        notice.classList.remove('is-visible', 'is-success', 'is-error');
+        noticeText.textContent = '';
+      }
+
+      async function handleStatusSubmit(event) {
+        event.preventDefault();
+        const item = getFeedbackById(activeFeedbackId);
+        if (!item) return;
+
+        statusSubmit.disabled = true;
+        statusSubmit.textContent = 'Saving...';
+
+        try {
+          const response = await fetch(`/admin/feedback/${encodeURIComponent(item.feedback_id)}/status`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify({ status: statusSelect.value }),
+          });
+
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok || !result.success) {
+            throw new Error(result.error || 'Failed to update feedback status.');
+          }
+
+          item.status = result.feedback.status;
+          item.updated_at = result.feedback.updated_at;
+          renderStats();
+          openDrawer(item.feedback_id);
+          showNotice(result.message || 'Feedback status updated successfully.', 'success');
+        } catch (error) {
+          showNotice(error.message || 'Failed to update feedback status.', 'error');
+        } finally {
+          statusSubmit.disabled = false;
+          statusSubmit.textContent = 'Save Status';
+        }
+      }
+
+      function handleFilterChange() {
+        currentPage = 1;
+        renderTable();
+      }
+
+      searchInput.addEventListener('input', handleFilterChange);
+      typeFilter.addEventListener('change', handleFilterChange);
+      statusFilter.addEventListener('change', handleFilterChange);
+      priorityFilter.addEventListener('change', handleFilterChange);
+      prevButton.addEventListener('click', () => {
+        if (currentPage > 1) {
+          currentPage -= 1;
+          renderTable();
+        }
+      });
+      nextButton.addEventListener('click', () => {
+        const filteredItems = getFilteredItems();
+        const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize));
+        if (currentPage < totalPages) {
+          currentPage += 1;
+          renderTable();
+        }
+      });
+      drawerClose.addEventListener('click', closeDrawer);
+      drawerBackdrop.addEventListener('click', closeDrawer);
+      statusForm.addEventListener('submit', handleStatusSubmit);
+      noticeClose.addEventListener('click', hideNotice);
+
+      renderStats();
+      renderTable();
+    })();
+  </script>
+</body>
+</html>

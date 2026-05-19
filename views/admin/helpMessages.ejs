@@ -46,6 +46,41 @@
         margin-bottom: 20px;
       }
 
+      .support-tabs {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-bottom: 18px;
+      }
+
+      .support-tab {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 14px;
+        border-radius: 999px;
+        border: 1px solid #d1d5db;
+        background: rgba(255, 255, 255, 0.88);
+        color: #64748b;
+        text-decoration: none;
+        font-size: 0.86rem;
+        font-weight: 700;
+        transition: all 0.18s ease;
+      }
+
+      .support-tab.active {
+        background: var(--admin-primary, #2563eb);
+        border-color: var(--admin-primary, #2563eb);
+        color: #fff;
+        box-shadow: 0 12px 22px rgba(37, 99, 235, 0.16);
+      }
+
+      .support-tab:not(.active):hover {
+        color: #111827;
+        border-color: #93c5fd;
+      }
+
       .ticket-table {
         width: 100%;
         border-collapse: collapse;
@@ -269,8 +304,19 @@
 </head>
 <body>
   <div class="content-container">
+    <% 
+      const _helpFeedbackAccountType = String(session && session.accountType ? session.accountType : '').trim().toLowerCase();
+      const canAccessFeedbackInbox = _helpFeedbackAccountType === 'admin' || _helpFeedbackAccountType === 'mini admin';
+    %>
     <div class="link-to-next-back">
       <a href="/admin/helpHistory" class="admin-btn admin-btn-secondary">📜 Ticket History</a>
+    </div>
+
+    <div class="support-tabs">
+      <a href="/admin/helpMessages" class="support-tab active">Help Tickets</a>
+      <% if (canAccessFeedbackInbox) { %>
+      <a href="/admin/feedback" class="support-tab">Feedback</a>
+      <% } %>
     </div>
 
     <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">

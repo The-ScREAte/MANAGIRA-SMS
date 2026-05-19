@@ -156,7 +156,7 @@
         scroll-margin-top: var(--settings-header-offset);
       }
 
-      #customize {
+      .settings-section.is-default {
         display: block;
       }
 
@@ -323,9 +323,146 @@
         padding-top:0px;
       }
 
+      .form-textarea {
+        width: 100%;
+        min-height: 170px;
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        font: inherit;
+        color: var(--text);
+        background: #fff;
+        resize: vertical;
+      }
+
       .form-actions {
         display: flex;
         align-items: center;
+      }
+
+      .feedback-settings-form {
+        display: grid;
+        gap: 16px;
+      }
+
+      .feedback-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .feedback-field--full {
+        grid-column: 1 / -1;
+      }
+
+      .feedback-settings-form .field-group {
+        gap: 6px;
+      }
+
+      .feedback-settings-form .form-input,
+      .feedback-settings-form .form-select {
+        min-height: 44px;
+        padding: 12px 14px;
+        border-radius: 10px;
+        background: #fff;
+      }
+
+      .feedback-settings-form .form-input:focus,
+      .feedback-settings-form .form-select:focus,
+      .feedback-settings-form .form-textarea:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 4px rgba(1, 83, 91, 0.12);
+      }
+
+      .feedback-rating[hidden],
+      .feedback-priority[hidden],
+      .feedback-status[hidden] {
+        display: none !important;
+      }
+
+      .feedback-stars-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .feedback-star {
+        position: relative;
+        display: inline-flex;
+      }
+
+      .feedback-star input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .feedback-star label {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 46px;
+        height: 46px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: #fff;
+        color: #94a3b8;
+        cursor: pointer;
+        font-size: 22px;
+        transition: all 0.18s ease;
+      }
+
+      .feedback-star label:hover {
+        transform: translateY(-1px);
+        border-color: #f59e0b;
+        color: #f59e0b;
+      }
+
+      .feedback-star input:checked + label {
+        border-color: #f59e0b;
+        background: #fff7ed;
+        color: #f59e0b;
+        box-shadow: 0 10px 18px rgba(245, 158, 11, 0.18);
+      }
+
+      .feedback-helper {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.4;
+      }
+
+      .feedback-counter.is-limit {
+        color: #dc2626;
+        font-weight: 700;
+      }
+
+      .feedback-status {
+        padding: 12px 14px;
+        border-radius: 10px;
+        border: 1px solid transparent;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      .feedback-status.is-error {
+        background: #fff1f2;
+        border-color: #fecaca;
+        color: #b91c1c;
+      }
+
+      .feedback-status.is-success {
+        background: #f0fdf4;
+        border-color: #bbf7d0;
+        color: #166534;
+      }
+
+      .feedback-actions-row {
+        display: flex;
+        justify-content: flex-end;
       }
 
       .text-muted-sm {
@@ -1324,6 +1461,24 @@
         .plan-grid {
           grid-template-columns: 1fr;
         }
+
+        .feedback-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .feedback-helper {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .feedback-star label {
+          width: 42px;
+          height: 42px;
+        }
+
+        .feedback-actions-row .btn-primary {
+          width: 100%;
+        }
       }
     </style>
     <link rel="stylesheet" href="/css/workspace-shell.css" />
@@ -1331,6 +1486,12 @@
   <body>
     <%- include('../partials/flash') %>
     <div class="settings-layout">
+      <% 
+        const _canCustomizeSettings = typeof canAccessCustomizeSettings === 'boolean' ? canAccessCustomizeSettings : true;
+        const _canBillingSettings = typeof canAccessBillingSettings === 'boolean' ? canAccessBillingSettings : true;
+        const _canPaygiraSettings = typeof canAccessPaygiraSettings === 'boolean' ? canAccessPaygiraSettings : true;
+        const _defaultSettingsSectionId = _canCustomizeSettings ? 'customize' : 'profile';
+      %>
       <aside class="settings-nav" id="settings-nav-panel">
         <div class="settings-nav-header">
           <span class="settings-nav-toggle">
@@ -1340,22 +1501,28 @@
           </span>
         </div>
         <ul class="nav-list">
-          <li><button class="nav-link active" data-target="customize">
+          <% if (_canCustomizeSettings) { %>
+          <li><button class="nav-link <%= _defaultSettingsSectionId === 'customize' ? 'active' : '' %>" data-target="customize">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 3l9 4-9 4-9-4 9-4z"/><path d="M3 12l9 4 9-4"/><path d="M3 17l9 4 9-4"/></svg></span>
             <span>Customize School</span>
           </button></li>
-          <li><button class="nav-link" data-target="profile">
+          <% } %>
+          <li><button class="nav-link <%= _defaultSettingsSectionId === 'profile' ? 'active' : '' %>" data-target="profile">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.418 3.582-8 8-8s8 3.582 8 8"/></svg></span>
             <span>Profile</span>
           </button></li>
+          <% if (_canBillingSettings) { %>
           <li><button class="nav-link" data-target="billing">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg></span>
             <span>Billing &amp; Plan</span>
           </button></li>
+          <% } %>
+          <% if (_canPaygiraSettings) { %>
           <li><a class="nav-link" href="/account/settings/finance" data-no-spa>
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M8.5 9.5c0-1.381 1.567-2.5 3.5-2.5s3.5 1.119 3.5 2.5-1.567 2.5-3.5 2.5S8.5 13.381 8.5 14.5 10.067 17 12 17s3.5-1.119 3.5-2.5"/></svg></span>
             <span>PayGira</span>
           </a></li>
+          <% } %>
           <li><button class="nav-link" data-target="security">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6l8-4z"/></svg></span>
             <span>Security</span>
@@ -1366,11 +1533,16 @@
             <span>Notifications</span>
           </button></li>
           <% } %>
+          <li><button class="nav-link" data-target="feedback">
+            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M8 10h8"/><path d="M8 14h5"/><path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-4 3v-3H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/></svg></span>
+            <span>Feedback</span>
+          </button></li>
         </ul>
       </aside>
 
       <main class="settings-main">
-        <section id="customize" class="settings-section">
+        <% if (_canCustomizeSettings) { %>
+        <section id="customize" class="settings-section <%= _defaultSettingsSectionId === 'customize' ? 'is-default' : '' %>">
           <h1>Customize School</h1>
           <p class="lead">
             Manage your school website branding and settings.
@@ -1751,8 +1923,9 @@
             <% } %>
           </div>
         </section>
+        <% } %>
 
-        <section id="profile" class="settings-section">
+        <section id="profile" class="settings-section <%= _defaultSettingsSectionId === 'profile' ? 'is-default' : '' %>">
           <h1>Profile</h1>
           <p class="lead">View and manage your profile information.</p>
 
@@ -1861,6 +2034,7 @@
           </div>
         </section>
 
+        <% if (_canBillingSettings) { %>
         <section id="billing" class="settings-section">
           <h1>Billing &amp; Plan</h1>
           <p class="lead">Manage your billing and transaction account settings.</p>
@@ -2009,6 +2183,7 @@
           <% } %>
 
         </section>
+        <% } %>
 
         <section id="security" class="settings-section">
           <h1>Security</h1>
@@ -2135,6 +2310,98 @@
           </div>
         </section>
         <% } %>
+
+        <section id="feedback" class="settings-section">
+          <h1>Feedback</h1>
+          <p class="lead">Send a quick review, bug report, feature request, or general feedback.</p>
+
+          <div class="card">
+            <form id="settings-feedback-form" class="feedback-settings-form" action="/common/feedback" method="POST" novalidate>
+              <div id="settings-feedback-status" class="feedback-status" hidden></div>
+
+              <div class="feedback-grid">
+                <div class="field-group">
+                  <label class="form-label" for="settings-feedback-type">Feedback type</label>
+                  <select id="settings-feedback-type" name="feedbackType" class="form-select" required>
+                    <option value="">Select feedback type</option>
+                    <% feedbackTypeOptions.forEach(function(option) { %>
+                      <option value="<%= option.value %>"><%= option.label %></option>
+                    <% }) %>
+                  </select>
+                </div>
+
+                <div class="field-group">
+                  <label class="form-label" for="settings-feedback-area">Area</label>
+                  <select id="settings-feedback-area" name="area" class="form-select" required>
+                    <option value="">Select area</option>
+                    <% feedbackAreaOptions.forEach(function(option) { %>
+                      <option value="<%= option.value %>"><%= option.label %></option>
+                    <% }) %>
+                  </select>
+                </div>
+
+                <div class="field-group feedback-priority" id="settings-feedback-priority-field" hidden>
+                  <label class="form-label" for="settings-feedback-priority">Priority</label>
+                  <select id="settings-feedback-priority" name="priority" class="form-select">
+                    <option value="">Select priority</option>
+                    <% feedbackPriorityOptions.forEach(function(option) { %>
+                      <option value="<%= option.value %>"><%= option.label %></option>
+                    <% }) %>
+                  </select>
+                </div>
+
+                <div class="field-group feedback-field--full">
+                  <label class="form-label" for="settings-feedback-subject">Subject</label>
+                  <input
+                    type="text"
+                    id="settings-feedback-subject"
+                    name="subject"
+                    class="form-input"
+                    maxlength="120"
+                    placeholder="Summarize the issue or idea"
+                    required
+                  />
+                </div>
+
+                <div class="field-group feedback-field--full feedback-rating" id="settings-feedback-rating-field" hidden>
+                  <label class="form-label">Rating</label>
+                  <div class="feedback-stars-row" role="radiogroup" aria-label="Feedback rating">
+                    <% for (let rating = 1; rating <= 5; rating += 1) { %>
+                      <span class="feedback-star">
+                        <input id="settings-feedback-rating-<%= rating %>" type="radio" name="rating" value="<%= rating %>" />
+                        <label for="settings-feedback-rating-<%= rating %>" title="<%= rating %> out of 5">&#9733;</label>
+                      </span>
+                    <% } %>
+                  </div>
+                  <div class="feedback-helper">
+                    <span>Only required for reviews.</span>
+                    <span id="settings-feedback-rating-label">1 to 5 stars</span>
+                  </div>
+                </div>
+
+                <div class="field-group feedback-field--full">
+                  <label class="form-label" for="settings-feedback-message">Message</label>
+                  <textarea
+                    id="settings-feedback-message"
+                    name="message"
+                    class="form-textarea"
+                    maxlength="2000"
+                    placeholder="Explain what happened, what you expected, or what would make this better."
+                    required
+                  ></textarea>
+                  <div class="feedback-helper">
+                    <span>Be specific so we can act on it quickly.</span>
+                    <span class="feedback-counter" id="settings-feedback-counter">0/2000</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="feedback-actions-row">
+                <button type="submit" class="btn-primary btn-link" id="settings-feedback-submit">Submit Feedback</button>
+              </div>
+            </form>
+          </div>
+        </section>
       </main>
     </div>
     <div class="modal-overlay" id="cancel-modal">
@@ -2544,6 +2811,17 @@
         const schoolAccountBankCurrency = document.getElementById("sa-bank-currency");
         const calendarSchoolYearSelect = document.getElementById("calendar-school-year-select");
         const calendarTermSelect = document.getElementById("calendar-term-select");
+        const settingsFeedbackForm = document.getElementById("settings-feedback-form");
+        const settingsFeedbackType = document.getElementById("settings-feedback-type");
+        const settingsFeedbackPriorityField = document.getElementById("settings-feedback-priority-field");
+        const settingsFeedbackPriority = document.getElementById("settings-feedback-priority");
+        const settingsFeedbackRatingField = document.getElementById("settings-feedback-rating-field");
+        const settingsFeedbackRatings = Array.from(document.querySelectorAll('#settings-feedback-form input[name="rating"]'));
+        const settingsFeedbackRatingLabel = document.getElementById("settings-feedback-rating-label");
+        const settingsFeedbackMessage = document.getElementById("settings-feedback-message");
+        const settingsFeedbackCounter = document.getElementById("settings-feedback-counter");
+        const settingsFeedbackStatus = document.getElementById("settings-feedback-status");
+        const settingsFeedbackSubmit = document.getElementById("settings-feedback-submit");
 
         function initSettingsCardCollapsibles() {
           const cards = document.querySelectorAll(".settings-section .card");
@@ -2583,6 +2861,109 @@
 
         initSettingsCardCollapsibles();
 
+        function setFeedbackStatus(message, type) {
+          if (!settingsFeedbackStatus) return;
+          if (!message) {
+            settingsFeedbackStatus.hidden = true;
+            settingsFeedbackStatus.textContent = "";
+            settingsFeedbackStatus.classList.remove("is-error", "is-success");
+            return;
+          }
+
+          settingsFeedbackStatus.hidden = false;
+          settingsFeedbackStatus.textContent = message;
+          settingsFeedbackStatus.classList.toggle("is-error", type === "error");
+          settingsFeedbackStatus.classList.toggle("is-success", type === "success");
+        }
+
+        function updateFeedbackMessageCounter() {
+          if (!settingsFeedbackMessage || !settingsFeedbackCounter) return;
+          const length = settingsFeedbackMessage.value.length;
+          settingsFeedbackCounter.textContent = `${length}/2000`;
+          settingsFeedbackCounter.classList.toggle("is-limit", length >= 1900);
+        }
+
+        function updateFeedbackRatingLabel() {
+          if (!settingsFeedbackRatingLabel) return;
+          const selected = settingsFeedbackRatings.find((input) => input.checked);
+          settingsFeedbackRatingLabel.textContent = selected ? `${selected.value} out of 5 stars` : "1 to 5 stars";
+        }
+
+        function updateFeedbackConditionalFields() {
+          if (!settingsFeedbackType) return;
+
+          const selectedType = settingsFeedbackType.value || "";
+          const showRating = selectedType === "review";
+          const showPriority = selectedType === "feature_request" || selectedType === "bug_report";
+
+          if (settingsFeedbackRatingField) settingsFeedbackRatingField.hidden = !showRating;
+          if (settingsFeedbackPriorityField) settingsFeedbackPriorityField.hidden = !showPriority;
+
+          if (settingsFeedbackPriority) {
+            settingsFeedbackPriority.required = showPriority;
+            if (!showPriority) settingsFeedbackPriority.value = "";
+          }
+
+          settingsFeedbackRatings.forEach((input) => {
+            input.required = showRating;
+            if (!showRating) input.checked = false;
+          });
+
+          updateFeedbackRatingLabel();
+        }
+
+        async function submitSettingsFeedback(event) {
+          event.preventDefault();
+          if (!settingsFeedbackForm) return;
+
+          setFeedbackStatus("", "");
+          updateFeedbackConditionalFields();
+
+          if (!settingsFeedbackForm.checkValidity()) {
+            settingsFeedbackForm.reportValidity();
+            return;
+          }
+
+          const defaultLabel = settingsFeedbackSubmit ? settingsFeedbackSubmit.textContent : "Submit Feedback";
+          if (settingsFeedbackSubmit) {
+            settingsFeedbackSubmit.disabled = true;
+            settingsFeedbackSubmit.textContent = "Submitting...";
+          }
+
+          try {
+            const response = await fetch(settingsFeedbackForm.action, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+              },
+              body: JSON.stringify(Object.fromEntries(new FormData(settingsFeedbackForm).entries())),
+            });
+
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || !result.success) {
+              throw new Error(result.error || "We could not submit your feedback right now.");
+            }
+
+            settingsFeedbackForm.reset();
+            updateFeedbackConditionalFields();
+            updateFeedbackMessageCounter();
+            setFeedbackStatus(
+              result.feedbackId
+                ? `Feedback #${result.feedbackId} sent successfully.`
+                : "Feedback sent successfully.",
+              "success"
+            );
+          } catch (error) {
+            setFeedbackStatus(error.message || "We could not submit your feedback right now.", "error");
+          } finally {
+            if (settingsFeedbackSubmit) {
+              settingsFeedbackSubmit.disabled = false;
+              settingsFeedbackSubmit.textContent = defaultLabel;
+            }
+          }
+        }
+
         function getSettingsScrollOffset() {
           const header = document.getElementById("top-header");
           const headerHeight = header ? header.getBoundingClientRect().height : 64;
@@ -2599,17 +2980,26 @@
         }
 
         function showSection(targetId, options = {}) {
+          const availableSectionIds = sections.map((sec) => sec.id);
+          const resolvedTargetId = availableSectionIds.includes(targetId)
+            ? targetId
+            : (availableSectionIds[0] || null);
+
+          if (!resolvedTargetId) {
+            return;
+          }
+
           const shouldScroll = options.scroll !== false;
 
           sections.forEach((sec) => {
-            sec.style.display = sec.id === targetId ? "block" : "none";
+            sec.style.display = sec.id === resolvedTargetId ? "block" : "none";
           });
           navLinks.forEach((btn) => {
-            btn.classList.toggle("active", btn.dataset.target === targetId);
+            btn.classList.toggle("active", btn.dataset.target === resolvedTargetId);
           });
 
           if (shouldScroll) {
-            requestAnimationFrame(() => scrollSectionIntoView(targetId));
+            requestAnimationFrame(() => scrollSectionIntoView(resolvedTargetId));
           }
         }
 
@@ -2688,6 +3078,24 @@
             closeNav();
           });
         });
+
+        if (settingsFeedbackType) {
+          settingsFeedbackType.addEventListener("change", updateFeedbackConditionalFields);
+        }
+
+        settingsFeedbackRatings.forEach((input) => {
+          input.addEventListener("change", updateFeedbackRatingLabel);
+        });
+
+        if (settingsFeedbackMessage) {
+          settingsFeedbackMessage.addEventListener("input", updateFeedbackMessageCounter);
+        }
+
+        if (settingsFeedbackForm) {
+          settingsFeedbackForm.addEventListener("submit", submitSettingsFeedback);
+          updateFeedbackConditionalFields();
+          updateFeedbackMessageCounter();
+        }
 
         if (navHeader) {
           navHeader.addEventListener("click", () => {
@@ -3711,7 +4119,7 @@
         }
 
         const finalParams = new URLSearchParams(window.location.search);
-        const initialSection = finalParams.get("section") || "customize";
+        const initialSection = finalParams.get("section") || "<%= _defaultSettingsSectionId %>";
         showSection(initialSection, { scroll: false });
       });
     })();

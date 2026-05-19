@@ -1253,6 +1253,7 @@
     <% const _adminAnnouncements = (typeof adminAnnouncements !== 'undefined' && Array.isArray(adminAnnouncements)) ? adminAnnouncements : []; %>
     <% const _latestAnnouncement = (typeof latestAnnouncement !== 'undefined') ? latestAnnouncement : null; %>
     <% const _displayName = (session && (session.firstName || session.lastName)) ? `${session.firstName || ''} ${session.lastName || ''}`.trim() : ''; %>
+    <% const _canAccessFeedbackInbox = ['admin', 'mini admin'].includes(String(session && session.accountType ? session.accountType : '').trim().toLowerCase()); %>
 
     <div class="dashboard-header">
       <div class="dashboard-title">
@@ -1264,11 +1265,15 @@
           <p>Simple overview and control of all organizations</p>
         <% } %>
       </div>
-      <% if (!_isInternal) { %>
-        <div class="dashboard-actions">
-          <a href="/admin/hubs" class="btn-primary">🏢 Manage Hubs</a>
-        </div>
-      <% } %>
+      <div class="dashboard-actions">
+        <a href="/admin/helpMessages" class="btn-secondary">Help Tickets</a>
+        <% if (_canAccessFeedbackInbox) { %>
+        <a href="/admin/feedback" class="btn-primary">Feedback<%= feedbackSummary && feedbackSummary.newCount ? ` (${feedbackSummary.newCount})` : '' %></a>
+        <% } %>
+        <% if (!_isInternal) { %>
+          <a href="/admin/hubs" class="btn-secondary">Manage Hubs</a>
+        <% } %>
+      </div>
     </div>
 
     <%- include('../partials/flash') %>
@@ -1334,6 +1339,12 @@
         <div class="stat-label">On Hold</div>
         <div class="stat-value"><%= applications ? applications.filter(app => app.on_hold).length : 0 %></div>
       </div>
+      <% if (_canAccessFeedbackInbox) { %>
+      <div class="stat-card">
+        <div class="stat-label">New Feedback</div>
+        <div class="stat-value"><%= feedbackSummary ? feedbackSummary.newCount : 0 %></div>
+      </div>
+      <% } %>
     </div>
     <% } %>
 
@@ -1386,7 +1397,7 @@
             </tr>
           </thead>
           <tbody>
-            <% applications.forEach(function(application) { %>
+            <% applications.forEach((application) => { %>
             <% const orgDashboardUrl = `/admin/org/${application.organization_id}`; %>
             <tr>
               <td>

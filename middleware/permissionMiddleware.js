@@ -353,28 +353,9 @@ async function userHasPermission(database, { userId, userRole, organizationId, a
   await ensurePermissionsSchema(database);
 
   if (isManagerRole(normalizedUserRole)) {
-    const primaryManagerUserId = await getPrimaryManagerUserId(database, organizationId);
-    const isPrimaryManager =
-      primaryManagerUserId !== null && String(primaryManagerUserId) === String(userId);
-
     const managerPermissions = await getUserPermissions(database, userId, organizationId);
-
-    if (managerPermissions.length === 0) {
-      return isPrimaryManager
-        ? true
-        : MANAGER_DEFAULT_OPTIONAL_PERMISSIONS.includes(permissionKey);
-    }
-
     const assignedPermissions = new Set(managerPermissions);
-    if (assignedPermissions.has(permissionKey)) return true;
-
-    // A standard manager permission may be missing from the DB if it was added
-    // to the system after this manager's permissions were last saved. The UI
-    // always shows all standard manager permissions as checked, so grant them
-    // here too rather than requiring a manual re-save to pick up new permissions.
-    if (MANAGER_DEFAULT_OPTIONAL_PERMISSIONS.includes(permissionKey)) return true;
-
-    return false;
+    return assignedPermissions.has(permissionKey);
   }
 
   const userPermissions = await getUserPermissions(database, userId, organizationId);

@@ -161,7 +161,7 @@ const {
   upsertManualCalendarDay,
   deleteManualCalendarDay,
 } = require("../utils/attendanceCalendar");
-const { userHasPermission } = require("../middleware/permissionMiddleware");
+const { userHasPermission, PERMISSIONS } = require("../middleware/permissionMiddleware");
 const { hasGuardianPortalFeature } = require("../utils/guardianPortalAccess");
 const { invalidateOrganizationAccessCache } = require("../utils/accessCache");
 const { logOrganizationActivity } = require("../utils/activityLog");
@@ -173,6 +173,11 @@ const {
   getUserPreferenceMap,
   setUserPreferences,
 } = require("../utils/emailPreferences");
+const {
+  FEEDBACK_TYPE_OPTIONS,
+  FEEDBACK_AREA_OPTIONS,
+  FEEDBACK_PRIORITY_OPTIONS,
+} = require("../utils/userFeedback");
 // Invalidate the /admin dashboard organizations cache so newly-registered
 // organizations become visible immediately (mirrors adminController’s behavior
 // on edit/approve actions; registration previously never busted this cache).
@@ -7233,6 +7238,38 @@ const accountController = {
         savedNotificationPrefs = {};
       }
 
+      const permissionContext = {
+        userId,
+        userRole: req.session.userRole || user?.account_type || null,
+        organizationId: orgId,
+        accountType: req.session.accountType || user?.account_type || null,
+        userEmail: user?.email || req.session.email || null,
+      };
+      const normalizedSettingsRole = String(permissionContext.userRole || permissionContext.accountType || "")
+        .trim()
+        .toLowerCase();
+      const isTeacherSettingsUser = normalizedSettingsRole === "teacher";
+
+      let canAccessCustomizeSettings = false;
+      let canAccessBillingSettings = false;
+      let canAccessPaygiraSettings = false;
+
+      if (!isTeacherSettingsUser) {
+        canAccessCustomizeSettings = await userHasPermission(
+          db,
+          permissionContext,
+          PERMISSIONS.MANAGE_SETTINGS
+        );
+        canAccessBillingSettings = await userHasPermission(
+          db,
+          permissionContext,
+          PERMISSIONS.MANAGE_BILLING
+        );
+        canAccessPaygiraSettings =
+          canAccessBillingSettings ||
+          (await userHasPermission(db, permissionContext, PERMISSIONS.MANAGE_PAYGIRA));
+      }
+
       res.render("account/settings", {
         title: "Settings",
         org: orgRow,
@@ -7262,6 +7299,12 @@ const accountController = {
         publicDashboardTheme,
         notificationPrefs,
         savedNotificationPrefs,
+        canAccessCustomizeSettings,
+        canAccessBillingSettings,
+        canAccessPaygiraSettings,
+        feedbackTypeOptions: FEEDBACK_TYPE_OPTIONS,
+        feedbackAreaOptions: FEEDBACK_AREA_OPTIONS,
+        feedbackPriorityOptions: FEEDBACK_PRIORITY_OPTIONS,
         messages: req.flash(),
       });
     } catch (error) {

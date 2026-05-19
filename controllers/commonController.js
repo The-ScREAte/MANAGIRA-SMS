@@ -57,6 +57,15 @@ const {
   getActivityLogFilterOptions,
   getOrganizationActivityLogs,
 } = require("../utils/activityLog");
+const {
+  FEEDBACK_TYPE_OPTIONS,
+  FEEDBACK_AREA_OPTIONS,
+  FEEDBACK_PRIORITY_OPTIONS,
+  ensureUserFeedbackSchema,
+  normalizeFeedbackType,
+  normalizeFeedbackArea,
+  normalizeFeedbackPriority,
+} = require("../utils/userFeedback");
 
 async function getActivePaystackConfig(dbClient) {
   const settings = await getPaystackSettings(dbClient);
@@ -691,6 +700,142 @@ async function getClassEmployeesWithMain(db, classId) {
 
 function getSessionUserId(req) {
   return req?.session?.userId || req?.session?.user?.user_id || null;
+}
+
+function wantsJsonResponse(req) {
+  return req.xhr || String(req.get("accept") || "").includes("application/json");
+}
+
+function joinNonEmptySegments(parts = []) {
+  return parts
+    .map((value) => String(value || "").trim())
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+}
+
+async function resolveFeedbackSessionContext(dbClient, req) {
+  let organizationId = Number.parseInt(req?.session?.organizationId, 10);
+  organizationId = Number.isInteger(organizationId) && organizationId > 0 ? organizationId : null;
+
+  let userId = getSessionUserId(req);
+  userId = Number.parseInt(userId, 10);
+  userId = Number.isInteger(userId) && userId > 0 ? userId : null;
+
+  let userRole = String(
+    req?.session?.userRole || req?.session?.user?.account_type || req?.session?.accountType || ""
+  ).trim();
+  let userName =
+    joinNonEmptySegments([req?.session?.user?.first_name, req?.session?.user?.last_name]) ||
+    joinNonEmptySegments([req?.session?.firstName, req?.session?.lastName]) ||
+    String(req?.session?.user?.email || "").trim();
+  let organizationName = String(req?.session?.organizationName || "").trim();
+
+  if ((!organizationId || !userName || !userRole) && userId) {
+    const userResult = await dbClient.query(
+      `SELECT user_id, organization_id, first_name, last_name, email, account_type
+       FROM users
+       WHERE user_id = $1
+       LIMIT 1`,
+      [userId]
+    );
+
+    const userRow = userResult.rows[0] || null;
+    if (userRow) {
+      if (!organizationId) {
+        const resolvedOrganizationId = Number.parseInt(userRow.organization_id, 10);
+        organizationId =
+          Number.isInteger(resolvedOrganizationId) && resolvedOrganizationId > 0
+            ? resolvedOrganizationId
+            : null;
+      }
+      if (!userName) {
+        userName =
+          joinNonEmptySegments([userRow.first_name, userRow.last_name]) ||
+          String(userRow.email || "").trim();
+      }
+      if (!userRole) {
+        userRole = String(userRow.account_type || "").trim();
+      }
+    }
+  }
+
+  if (organizationId && !organizationName) {
+    const organizationResult = await dbClient.query(
+      `SELECT organization_name
+       FROM organizations
+       WHERE organization_id = $1
+       LIMIT 1`,
+      [organizationId]
+    );
+    organizationName = String(organizationResult.rows[0]?.organization_name || "").trim();
+  }
+
+  if (!userName && req?.session?.accountType === "organization") {
+    userName = organizationName || "Organization Owner";
+  }
+
+  return {
+    organizationId,
+    userId,
+    userName: userName || "Unknown User",
+    userRole: userRole || "Staff",
+    organizationName: organizationName || "Organization",
+  };
+}
+
+function validateFeedbackPayload(body = {}) {
+  const feedbackType = normalizeFeedbackType(body.feedbackType || body.feedback_type);
+  const area = normalizeFeedbackArea(body.area);
+  const subject = String(body.subject || "").trim();
+  const message = String(body.message || "").trim();
+  const ratingInput = body.rating;
+  const parsedRating =
+    ratingInput === "" || ratingInput === null || ratingInput === undefined
+      ? null
+      : Number.parseInt(ratingInput, 10);
+  let priority = normalizeFeedbackPriority(body.priority);
+
+  const errors = [];
+  if (!feedbackType) errors.push("Please choose a feedback type.");
+  if (!area) errors.push("Please choose an area.");
+  if (!subject) errors.push("Please enter a subject.");
+  if (subject.length > 120) errors.push("Subject must be 120 characters or fewer.");
+  if (!message) errors.push("Please enter your message.");
+  if (message.length > 2000) errors.push("Message must be 2000 characters or fewer.");
+
+  if (
+    parsedRating !== null &&
+    (!Number.isInteger(parsedRating) || parsedRating < 1 || parsedRating > 5)
+  ) {
+    errors.push("Rating must be between 1 and 5.");
+  }
+
+  if (feedbackType === "review") {
+    if (!Number.isInteger(parsedRating) || parsedRating < 1 || parsedRating > 5) {
+      errors.push("Please select a star rating for your review.");
+    }
+  }
+
+  const requiresPriority = feedbackType === "feature_request" || feedbackType === "bug_report";
+  if (requiresPriority && !priority) {
+    errors.push("Please choose a priority level.");
+  }
+  if (!requiresPriority) {
+    priority = null;
+  }
+
+  return {
+    errors,
+    payload: {
+      feedbackType,
+      area,
+      subject,
+      message,
+      rating: feedbackType === "review" ? parsedRating : null,
+      priority,
+    },
+  };
 }
 
 function buildClassSchedulePermissions(req, isMainTeacher) {
@@ -6161,12 +6306,9 @@ const commonController = {
       ? requestedPermissions
       : requestedPermissions.filter((permission) => !highRiskPermissions.has(permission));
 
-    // Managers must always have the full manager permission set.
-    // For non-managers, persist exactly what was selected (after safety filtering).
-    const effectivePermissions =
-      account_type === "Manager"
-        ? mergePermissionsForRole("Manager", sanitizedRequestedPermissions)
-        : sanitizedRequestedPermissions;
+    // Persist exactly what was selected in the form (after safety filtering)
+    // so the permission page remains authoritative for every employee role.
+    const effectivePermissions = sanitizedRequestedPermissions;
 
     console.info(`[CreateEmployee:POST][${postId}] effective_permissions_computed`, {
       sanitizedRequestedPermissions,
@@ -6985,12 +7127,7 @@ const commonController = {
         userId,
         req.session.organizationId
       );
-      // For Managers, default to all manager-level permissions so every checkbox
-      // is pre-checked. An admin can still uncheck and save overrides.
-      const selectedPermissions =
-        user.account_type === 'Manager'
-          ? mergePermissionsForRole('Manager', rawSelectedPermissions)
-          : rawSelectedPermissions;
+      const selectedPermissions = rawSelectedPermissions;
 
       res.render("common/modifyEmployee", {
         title: "Modify Employee",
@@ -10844,6 +10981,98 @@ const commonController = {
       });
     } catch (error) {
             res.status(500).send("Failed to load management data");
+    }
+  },
+
+  feedbackGet: async (req, res, db) => {
+    try {
+      return res.redirect("/account/settings?section=feedback");
+    } catch (error) {
+      req.flash("error", "Unable to open the feedback form.");
+      return res.redirect("/common/orgDashboard");
+    }
+  },
+
+  feedbackPost: async (req, res, db) => {
+    const shouldReturnJson = wantsJsonResponse(req);
+
+    try {
+      await ensureUserFeedbackSchema(db);
+      const feedbackActor = await resolveFeedbackSessionContext(db, req);
+
+      if (!feedbackActor.organizationId) {
+        const errorMessage = "Unable to determine your organization for feedback.";
+        if (shouldReturnJson) {
+          return res.status(400).json({ success: false, error: errorMessage });
+        }
+        req.flash("error", errorMessage);
+        return res.redirect("/account/settings?section=feedback");
+      }
+
+      const { errors, payload } = validateFeedbackPayload(req.body);
+      if (errors.length > 0) {
+        if (shouldReturnJson) {
+          return res.status(400).json({ success: false, error: errors[0], errors });
+        }
+        req.flash("error", errors[0]);
+        return res.redirect("/account/settings?section=feedback");
+      }
+
+      const insertResult = await db.query(
+        `INSERT INTO user_feedback (
+           organization_id,
+           user_id,
+           user_name,
+           user_role,
+           organization_name,
+           feedback_type,
+           area,
+           subject,
+           message,
+           rating,
+           priority,
+           status,
+           created_at,
+           updated_at
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'new', NOW(), NOW())
+         RETURNING feedback_id, created_at`,
+        [
+          feedbackActor.organizationId,
+          feedbackActor.userId,
+          feedbackActor.userName,
+          feedbackActor.userRole,
+          feedbackActor.organizationName,
+          payload.feedbackType,
+          payload.area,
+          payload.subject,
+          payload.message,
+          payload.rating,
+          payload.priority,
+        ]
+      );
+
+      if (shouldReturnJson) {
+        return res.status(201).json({
+          success: true,
+          feedbackId: insertResult.rows[0]?.feedback_id || null,
+          createdAt: insertResult.rows[0]?.created_at || null,
+          message: "Thanks for your feedback. We have recorded it successfully.",
+        });
+      }
+
+      req.flash("success", "Thanks for your feedback. We have recorded it successfully.");
+      return res.redirect("/account/settings?section=feedback");
+    } catch (error) {
+      if (shouldReturnJson) {
+        return res.status(500).json({
+          success: false,
+          error: "We could not save your feedback right now. Please try again.",
+        });
+      }
+
+      req.flash("error", "We could not save your feedback right now. Please try again.");
+      return res.redirect("/account/settings?section=feedback");
     }
   },
 
