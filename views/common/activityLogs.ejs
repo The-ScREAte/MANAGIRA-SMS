@@ -122,39 +122,60 @@
   .logs-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
   .logs-summary {
     display: flex; justify-content: space-between; gap: 10px;
-    align-items: center; padding: 8px 12px;
+    align-items: center; padding: 6px 12px;
     border-bottom: 1px solid var(--border);
-    color: var(--muted); font-size: 0.78rem;
+    color: #9ca3af; font-size: 0.7rem;
   }
   .logs-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .logs-list { list-style: none; margin: 0; padding: 0; min-width: 860px; }
+  .logs-list li { margin: 0; padding: 0; }
   .logs-head, .log-item {
     display: grid;
-    grid-template-columns: 130px 78px minmax(130px,1fr) 110px minmax(120px,1fr) minmax(220px,2.2fr);
-    gap: 10px; padding: 3px 12px; align-items: center;
+    grid-template-columns: 154px 62px minmax(180px,1.4fr) 108px minmax(110px,1fr) minmax(180px,2fr);
+    gap: 8px; padding: 4px 16px; align-items: center;
   }
   .logs-head {
-    position: sticky; top: 0; background: #f3f4f6;
-    border-bottom: 1px solid var(--border);
-    font-size: 0.68rem; font-weight: 700; color: #4b5563;
-    text-transform: uppercase; letter-spacing: 0.04em;
-    padding: 6px 12px;
+    position: sticky; top: 0; z-index: 1;
+    background: #f4f6f8; border-bottom: 2px solid var(--border);
+    font-size: 0.6rem; font-weight: 700; color: #a0aec0;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    padding: 6px 16px; align-items: center;
   }
-  .log-item { border-top: 1px solid #eef1f3; font-size: 0.76rem; }
-  .log-item:nth-child(even) { background: var(--row-alt); }
-  .log-item:hover { background: #f1f5f7; }
+  .log-item {
+    border-top: 1px solid #f0f2f5;
+    font-family: 'SFMono-Regular', 'Consolas', 'Liberation Mono', monospace;
+    font-size: 0.695rem; line-height: 1.4; color: #374151;
+  }
+  /* Very faint stripe — odd rows plain white, even rows barely tinted */
+  .log-item:nth-child(odd)  { background: #ffffff; }
+  .log-item:nth-child(even) { background: #f2f5f8; }
+  .log-item:hover { background: #e6eef6; }
   .log-cell { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .log-desc { white-space: normal; }
-  .log-stamp { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* Timestamp */
+  .log-stamp { color: #b0bac6; font-variant-numeric: tabular-nums; font-size: 0.67rem; }
+
+  /* Action — plain bold text, no badge box */
   .log-action {
-    display: inline-block; padding: 2px 8px; border-radius: 999px;
-    background: #e0f2f1; color: #014a51;
-    font-size: 0.68rem; font-weight: 600;
+    font-family: 'SFMono-Regular', 'Consolas', 'Liberation Mono', monospace;
+    font-size: 0.6rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.07em;
+    color: #64748b;
   }
-  .log-user { font-weight: 600; color: #111827; display: block; }
-  .log-role { color: var(--muted); font-size: 0.68rem; }
-  .log-module { font-weight: 500; }
-  .log-record { color: #374151; }
+
+  /* User column — single line */
+  .log-user { font-weight: 600; color: #1e293b; }
+  .log-role { color: #b0bac6; font-size: 0.62rem; }
+  .log-role::before { content: ' · '; color: #dde1e7; }
+
+  /* Module */
+  .log-module { color: #64748b; }
+
+  /* Record */
+  .log-record { color: #7c8a9a; }
+
+  /* Description */
+  .log-desc { color: #a0adb8; }
 
   .empty-state { padding: 28px 16px; text-align: center; color: var(--muted); font-size: 0.85rem; }
   .pagination {
@@ -181,6 +202,88 @@
   }
   @media (max-width: 520px) {
     .filter-field, .filter-field.date { flex: 1 1 100%; }
+  }
+
+  /* Clickable description button */
+  .log-desc { overflow: hidden; }
+  .log-desc-btn {
+    background: none !important; border: none; padding: 0; margin: 0;
+    font: inherit; cursor: pointer; text-align: left;
+    width: 100%; display: block;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: #94a3b8; font-size: 0.7rem;
+    text-decoration: underline dotted #d1d5db;
+    text-underline-offset: 2px;
+    box-shadow: none !important; outline: none;
+  }
+  .log-desc-btn:hover { color: #334155; text-decoration-color: #94a3b8; }
+  .log-desc-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 2px; }
+
+  /* Description modal */
+  .log-modal-backdrop {
+    display: none; position: fixed; inset: 0;
+    background: rgba(15,23,42,0.38); z-index: 9999;
+    align-items: center; justify-content: center; padding: 20px;
+    backdrop-filter: blur(2px);
+  }
+  .log-modal-backdrop.open { display: flex; }
+  .log-modal {
+    background: #fff; border-radius: 12px;
+    max-width: 500px; width: 100%;
+    box-shadow: 0 24px 64px rgba(15,23,42,0.2), 0 0 0 1px rgba(15,23,42,0.06);
+    overflow: hidden; animation: modalIn 0.15s ease;
+  }
+  @keyframes modalIn {
+    from { opacity: 0; transform: scale(0.97) translateY(6px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  .log-modal-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 11px 14px; border-bottom: 1px solid #f1f3f5;
+    background: #f8fafc;
+  }
+  .log-modal-title { margin: 0; font-size: 0.75rem; font-weight: 700; color: #374151; letter-spacing: 0.02em; text-transform: uppercase; }
+  .log-modal-close {
+    background: none !important; border: none; cursor: pointer;
+    color: #94a3b8; padding: 2px 5px; line-height: 1;
+    font-size: 0.72rem; border-radius: 4px; box-shadow: none;
+  }
+  .log-modal-close:hover { background: #e5e7eb !important; color: #374151; }
+  .log-modal-meta {
+    display: flex; flex-wrap: wrap; gap: 0;
+    padding: 8px 14px; border-bottom: 1px solid #f1f3f5;
+    font-family: 'SFMono-Regular', 'Consolas', monospace;
+    font-size: 0.65rem; color: #94a3b8; line-height: 1.6;
+  }
+  .log-modal-meta span { margin-right: 14px; white-space: nowrap; }
+  .log-modal-meta strong { color: #1e293b; font-weight: 600; }
+  .log-modal-body {
+    padding: 14px;
+    font-family: 'SFMono-Regular', 'Consolas', 'Liberation Mono', monospace;
+    font-size: 0.72rem; line-height: 1.7; color: #334155;
+    max-height: 50vh; overflow-y: auto;
+    white-space: pre-wrap; word-break: break-word;
+    background: #fff;
+  }
+
+  /* Mobile card layout */
+  @media (max-width: 640px) {
+    .logs-scroll { overflow-x: unset; }
+    .logs-list { min-width: unset; }
+    .logs-head { display: none; }
+    .log-item {
+      display: flex; flex-wrap: wrap; align-items: baseline;
+      gap: 2px 6px; padding: 7px 12px;
+      border-top: 1px solid #f0f2f4;
+    }
+    .log-cell { display: none; }
+    .log-cell.log-action-cell { display: block; order: 1; }
+    .log-cell.log-module      { display: block; order: 2; font-size: 0.64rem; color: #9ca3af; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .log-cell.log-user-cell   { display: block; order: 3; flex-basis: 100%; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .log-cell.log-record      { display: block; order: 4; font-size: 0.63rem; color: #b0b8c4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .log-cell.log-stamp       { display: block; order: 5; flex-basis: 100%; font-size: 0.61rem; color: #c4cdd6; margin-top: 1px; }
+    .log-cell.log-desc        { display: block; order: 6; flex-basis: 100%; overflow: hidden; }
+    .log-desc-btn { font-size: 0.64rem; }
   }
 </style>
 
@@ -287,8 +390,8 @@
           <% currentLogs.forEach((log) => { %>
             <li class="log-item">
               <span class="log-cell log-stamp"><%= formatDate(log.created_at) %></span>
-              <span class="log-cell"><span class="log-action"><%= log.action_type %></span></span>
-              <span class="log-cell">
+              <span class="log-cell log-action-cell"><span class="log-action log-action--<%= (log.action_type || '').toLowerCase().replace(/[^a-z0-9]+/g, '-') %>"><%= log.action_type %></span></span>
+              <span class="log-cell log-user-cell">
                 <span class="log-user"><%= log.user_name %></span>
                 <span class="log-role"><%= log.user_role || '—' %></span>
               </span>
@@ -296,7 +399,13 @@
               <span class="log-cell log-record">
                 <%= log.record_label || log.record_type || '—' %>
               </span>
-              <span class="log-cell log-desc"><%= log.description %></span>
+              <span class="log-cell log-desc"><button class="log-desc-btn"
+                data-desc="<%= log.description || '' %>"
+                data-action="<%= log.action_type || '' %>"
+                data-user="<%= log.user_name || '' %>"
+                data-module="<%= log.module_name || '' %>"
+                data-stamp="<%= formatDate(log.created_at) %>"
+              ><%= log.description %></button></span>
             </li>
           <% }) %>
         </ul>
@@ -317,8 +426,47 @@
   </div>
 </div>
 
+<div class="log-modal-backdrop" id="logModalBackdrop" role="dialog" aria-modal="true" aria-labelledby="logModalTitle">
+  <div class="log-modal">
+    <div class="log-modal-head">
+      <p class="log-modal-title" id="logModalTitle">Full Description</p>
+      <button class="log-modal-close" id="logModalClose" aria-label="Close">&#x2715;</button>
+    </div>
+    <div class="log-modal-meta" id="logModalMeta"></div>
+    <div class="log-modal-body" id="logModalText"></div>
+  </div>
+</div>
+
 <script>
   document.addEventListener('DOMContentLoaded', function () {
+    // Description modal
+    const backdrop = document.getElementById('logModalBackdrop');
+    const modalText = document.getElementById('logModalText');
+    const modalMeta = document.getElementById('logModalMeta');
+    const modalClose = document.getElementById('logModalClose');
+    function openModal(btn) {
+      modalText.textContent = btn.dataset.desc || '';
+      const parts = [
+        btn.dataset.action ? '<span><strong>' + btn.dataset.action + '</strong></span>' : '',
+        btn.dataset.user   ? '<span>' + btn.dataset.user + '</span>' : '',
+        btn.dataset.module ? '<span>' + btn.dataset.module + '</span>' : '',
+        btn.dataset.stamp  ? '<span>' + btn.dataset.stamp + '</span>' : ''
+      ].filter(Boolean);
+      modalMeta.innerHTML = parts.join('');
+      modalMeta.style.display = parts.length ? '' : 'none';
+      backdrop.classList.add('open');
+      backdrop.removeAttribute('hidden');
+      modalClose.focus();
+    }
+    function closeModal() { backdrop.classList.remove('open'); }
+    document.querySelectorAll('.log-desc-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() { openModal(btn); });
+    });
+    if (modalClose) modalClose.addEventListener('click', closeModal);
+    backdrop.addEventListener('click', function(e) { if (e.target === backdrop) closeModal(); });
+    document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
+
+    // Filters toggle
     const toggle = document.getElementById('filtersToggle');
     const row = document.getElementById('filtersRow');
     if (toggle && row) {
