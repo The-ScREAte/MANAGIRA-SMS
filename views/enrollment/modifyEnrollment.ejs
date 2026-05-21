@@ -468,7 +468,7 @@
                   .map(s => `
                     <div class="checkbox-container search-result">
                       <span>${escapeHtml(s.first_name)} ${escapeHtml(s.last_name)} (${escapeHtml(s.class_name)})</span>
-                      <button type="button" onclick="addStudent('${cid}', ${s.student_id}, '${escapeHtml(s.first_name)} ${escapeHtml(s.last_name)}')">Add</button>
+                      <button type="button" onclick="addStudent('${cid}', ${s.id}, '${escapeHtml(s.first_name)} ${escapeHtml(s.last_name)}')">Add</button>
                     </div>
                   `).join('')
               }
