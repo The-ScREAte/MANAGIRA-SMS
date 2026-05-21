@@ -463,7 +463,7 @@
                 }
                 const resp = await fetch(`/enrollment/searchUsers?query=${encodeURIComponent(query)}`)
                 const data = await resp.json()
-                resEl.innerHTML = data.users
+                resEl.innerHTML = (data.results || [])
                   .filter(u => u.type === 'student')
                   .map(s => `
                     <div class="checkbox-container search-result">
