@@ -566,18 +566,22 @@ const enrollmentController = {
         }
     },
         searchUsers: async (req, res, db) => {
-          const query = String(req.query.query || "").trim();
-
-          if (!query) {
-            return res.status(400).json({ error: 'No search query provided.' });
-          }
-
-          const likeQuery = `%${query}%`;
           const orgId = req.session.organizationId;
 
           if (!orgId) {
             return res.status(401).json({ error: 'Unauthorized organization context.' });
           }
+
+          const query = String(req.query.query || "").trim();
+
+          // Enforce minimum length server-side (cannot be bypassed like the frontend check)
+          if (query.length < 2) {
+            return res.status(400).json({ error: 'Search query must be at least 2 characters.' });
+          }
+
+          // Escape LIKE special characters so user input cannot inject wildcards
+          const escapedQuery = query.replace(/[\\%_]/g, '\\$&');
+          const likeQuery = `%${escapedQuery}%`;
 
           try {
             const [studentsRes, employeesRes, guardiansRes, classesRes, subjectsRes, orgProfileRes] = await Promise.all([
@@ -589,8 +593,10 @@ const enrollmentController = {
                   LEFT JOIN classes c ON s.class_id = c.class_id AND c.organization_id = $2
                   WHERE s.organization_id = $2
                   AND (
-                    s.first_name ILIKE $1 OR s.last_name ILIKE $1 OR CONCAT(s.first_name, ' ', s.last_name) ILIKE $1
+                    s.first_name ILIKE $1 ESCAPE '\\' OR s.last_name ILIKE $1 ESCAPE '\\'
+                    OR CONCAT(s.first_name, ' ', s.last_name) ILIKE $1 ESCAPE '\\'
                   )
+                  LIMIT 20
                 `,
                 [likeQuery, orgId]
               ),
@@ -602,8 +608,10 @@ const enrollmentController = {
                   FROM users u
                   WHERE u.organization_id = $2
                   AND (
-                    u.first_name ILIKE $1 OR u.last_name ILIKE $1 OR CONCAT(u.first_name, ' ', u.last_name) ILIKE $1
+                    u.first_name ILIKE $1 ESCAPE '\\' OR u.last_name ILIKE $1 ESCAPE '\\'
+                    OR CONCAT(u.first_name, ' ', u.last_name) ILIKE $1 ESCAPE '\\'
                   )
+                  LIMIT 20
                 `,
                 [likeQuery, orgId]
               ),
@@ -620,7 +628,8 @@ const enrollmentController = {
                   FROM guardians g
                   WHERE g.organization_id = $2
                   AND (
-                    g.first_name ILIKE $1 OR g.last_name ILIKE $1 OR CONCAT(g.first_name, ' ', g.last_name) ILIKE $1
+                    g.first_name ILIKE $1 ESCAPE '\\' OR g.last_name ILIKE $1 ESCAPE '\\'
+                    OR CONCAT(g.first_name, ' ', g.last_name) ILIKE $1 ESCAPE '\\'
                   )
                   ORDER BY
                     LOWER(TRIM(COALESCE(g.first_name, ''))),
@@ -629,6 +638,7 @@ const enrollmentController = {
                     REGEXP_REPLACE(COALESCE(g.phone, ''), '[^0-9]', '', 'g'),
                     CASE WHEN COALESCE(g.image_url, '') <> '' AND g.image_url <> 'profilePlaceholder.png' THEN 0 ELSE 1 END,
                     g.guardian_id DESC
+                  LIMIT 20
                 `,
                 [likeQuery, orgId]
               ),
@@ -638,7 +648,8 @@ const enrollmentController = {
                      c.class_name, c.class_id, NULL::text AS account_type, NULL::text AS subject_name
                   FROM classes c
                   WHERE c.organization_id = $2
-                  AND c.class_name ILIKE $1
+                  AND c.class_name ILIKE $1 ESCAPE '\\'
+                  LIMIT 20
                 `,
                 [likeQuery, orgId]
               ),
@@ -648,7 +659,8 @@ const enrollmentController = {
                      NULL::text AS class_name, NULL::int AS class_id, NULL::text AS account_type, s.subject_name AS subject_name
                   FROM subjects s
                   WHERE s.organization_id = $2
-                  AND s.subject_name ILIKE $1
+                  AND s.subject_name ILIKE $1 ESCAPE '\\'
+                  LIMIT 20
                 `,
                 [likeQuery, orgId]
               ),
@@ -662,10 +674,10 @@ const enrollmentController = {
                   FROM organizations o
                   WHERE o.organization_id = $2
                   AND (
-                    o.first_name ILIKE $1
-                    OR o.last_name ILIKE $1
-                    OR CONCAT(o.first_name, ' ', o.last_name) ILIKE $1
-                    OR o.organization_name ILIKE $1
+                    o.first_name ILIKE $1 ESCAPE '\\'
+                    OR o.last_name ILIKE $1 ESCAPE '\\'
+                    OR CONCAT(o.first_name, ' ', o.last_name) ILIKE $1 ESCAPE '\\'
+                    OR o.organization_name ILIKE $1 ESCAPE '\\'
                   )
                 `,
                 [likeQuery, orgId]
