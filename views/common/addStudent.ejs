@@ -2868,13 +2868,16 @@ function addStudentForm() {
         document.addEventListener('input', scheduleSaveDraft, true);
         document.addEventListener('change', scheduleSaveDraft, true);
 
-        const restored = await restoreDraftFromLocalStorage();
-        if (!restored) {
-          addStudentForm();
-        }
-
         if (hasSaveSuccessMessage) {
-          collapseAllFormsExceptLast();
+          // Clear the saved draft so old data never comes back
+          try { localStorage.removeItem(LOCAL_DRAFT_KEY); } catch (e) {}
+          // Start with a clean blank form
+          addStudentForm();
+        } else {
+          const restored = await restoreDraftFromLocalStorage();
+          if (!restored) {
+            addStudentForm();
+          }
         }
       });
 
