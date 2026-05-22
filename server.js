@@ -289,13 +289,13 @@ if (process.env.NODE_ENV === "production") {
       store: new pgSession({ pool: db, tableName: "user_sessions" }),
       secret: process.env.SESSION_SECRET || "YourSecret",
       resave: false,
-      rolling: true, // refresh cookie expiry on every response so active users don't time out
+      rolling: false,
       saveUninitialized: false,
       cookie: {
         secure: false,
         domain: ".managira.com",
         sameSite: "lax",
-        maxAge: 12 * 60 * 60 * 1000, // 12 hours
+        maxAge: 24 * 60 * 60 * 1000, // 24-hour hard ceiling (idle timeout enforces 4h inactivity limit)
       },
     })
   );
@@ -306,17 +306,46 @@ if (process.env.NODE_ENV === "production") {
       store: new pgSession({ pool: db, tableName: "user_sessions" }),
       secret: process.env.SESSION_SECRET || "YourSecret",
       resave: false,
-      rolling: true, // refresh cookie expiry on every response so active users don't time out
+      rolling: false,
       saveUninitialized: false,
       cookie: {
         secure: false,
         sameSite: "lax",
-        maxAge: 12 * 60 * 60 * 1000, // 12 hours
+        maxAge: 24 * 60 * 60 * 1000, // 24-hour hard ceiling (idle timeout enforces 4h inactivity limit)
       },
     })
   );
 }
 
+
+// Idle session timeout — log out users after 4 hours of real inactivity.
+// Background polling paths (notifications, health) are excluded so they
+// don't count as "activity" and don't reset the idle clock.
+const IDLE_TIMEOUT_MS = 4 * 60 * 60 * 1000; // 4 hours
+const IDLE_SKIP_PATHS = new Set([
+  '/notifications/count',
+  '/notifications/feed',
+  '/health',
+]);
+app.use((req, res, next) => {
+  if (!req.session || !req.session.organizationId) return next();
+  if (IDLE_SKIP_PATHS.has(req.path)) return next();
+
+  const now = Date.now();
+  const lastActivity = req.session.lastActivity || now;
+
+  if (now - lastActivity > IDLE_TIMEOUT_MS) {
+    return req.session.destroy(() => {
+      if (req.xhr || (req.headers.accept || '').includes('application/json')) {
+        return res.status(401).json({ error: 'Session expired due to inactivity. Please log in again.' });
+      }
+      return res.redirect('/account/login?reason=idle');
+    });
+  }
+
+  req.session.lastActivity = now;
+  next();
+});
 
 // Flash messages middleware
 app.use(flash());

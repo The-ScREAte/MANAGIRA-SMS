@@ -3295,7 +3295,7 @@ main {
         if (tab.noFrameHeader) {
           panel.innerHTML =
             '<div class="workspace-frame-shell">' +
-              '<iframe class="workspace-frame" src="' + esc(tab.iframeSrc) + '" loading="lazy" title="' + esc(tab.title) + '"></iframe>' +
+              '<iframe class="workspace-frame" src="' + esc(tab.iframeSrc) + '" loading="eager" title="' + esc(tab.title) + '"></iframe>' +
             '</div>';
         } else {
           panel.innerHTML =
@@ -3306,7 +3306,7 @@ main {
                   '<p class="workspace-frame-subtext">' + esc(tab.panelDescription || 'Focused work session') + '</p>' +
                 '</div>' +
               '</div>' +
-              '<iframe class="workspace-frame" src="' + esc(tab.iframeSrc) + '" loading="lazy" title="' + esc(tab.title) + '"></iframe>' +
+              '<iframe class="workspace-frame" src="' + esc(tab.iframeSrc) + '" loading="eager" title="' + esc(tab.title) + '"></iframe>' +
             '</div>';
         }
         root.appendChild(panel);

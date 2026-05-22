@@ -313,14 +313,26 @@ const documentController = {
     const orgId = req.session.organizationId;
     const userId = req.session.userId || req.session.user?.user_id || null;
     const userRole = req.session.userRole;
+    const accountType = req.session.accountType;
     const classId = req.query.classId ? Number(req.query.classId) : null;
     const canManageRecords = await userHasPermission(
       db,
-      { userId, userRole, organizationId: orgId },
+      { userId, userRole, organizationId: orgId, accountType },
       PERMISSIONS.MANAGE_RECORDS
     );
     const canCreate = canManageRecords;
     const shouldAutoCreate = canCreate && req.query.create === '1';
+
+    // For Organisation logins the session userId is null; resolve the actual
+    // manager user_id so that "created_by" queries match correctly.
+    let effectiveUserId = userId;
+    if (!effectiveUserId && canCreate) {
+      effectiveUserId = await resolveCreatorUserId(db, {
+        orgId,
+        sessionUserId: userId,
+        sessionAccountType: accountType,
+      });
+    }
 
     try {
       await ensureDocumentsSchema(db);
@@ -330,21 +342,50 @@ const documentController = {
       console.log('[DOCS][LIST] session dump', { orgId, userId, userRole, classId, canCreate });
 
       if (classId) {
-        // Unified class workspace query — same rules regardless of canCreate:
-        // Case 1: doc assigned to THIS class → visible to all class members
-        // Case 2: doc created by user OR user has explicit permission, NOT assigned to this class → personal / other-class
         const classExists = await classBelongsToOrg(db, classId, orgId);
         if (!classExists) {
           documentRows = [];
+        } else if (canCreate) {
+          // Admin / manager: show ALL org docs with class-context labels.
+          // No userId filter — admins see everything regardless of who created it.
+          const docs = await db.query(`
+            SELECT DISTINCT d.id, d.title, d.doc_type, d.created_at, d.updated_at,
+              u.first_name || ' ' || u.last_name AS created_by_name,
+              d.created_by,
+              CASE
+                WHEN EXISTS (
+                  SELECT 1 FROM document_class_assignments dca
+                  WHERE dca.document_id = d.id AND dca.class_id = $2
+                ) THEN 'class'::text
+                WHEN EXISTS (
+                  SELECT 1 FROM document_class_assignments dca
+                  JOIN classes c ON c.class_id = dca.class_id
+                  WHERE dca.document_id = d.id AND c.organization_id = $1
+                ) THEN 'other_class'::text
+                ELSE 'personal'::text
+              END AS visibility_type,
+              (
+                SELECT c3.class_name
+                FROM document_class_assignments dca3
+                JOIN classes c3 ON c3.class_id = dca3.class_id
+                WHERE dca3.document_id = d.id AND c3.organization_id = $1
+                LIMIT 1
+              ) AS other_class_name
+            FROM documents d
+            JOIN users u ON d.created_by = u.user_id
+            WHERE d.organization_id = $1 AND d.is_deleted = FALSE
+            ORDER BY d.updated_at DESC
+          `, [orgId, classId]);
+          console.log('[DOCS][LIST][ADMIN] query returned', docs.rows.length, 'rows for classId', classId, 'userId', userId, 'effectiveUserId', effectiveUserId);
+          documentRows = docs.rows;
         } else {
-          // $4 = canCreate: admins/managers bypass the class_employees membership check
-          // so they see all docs assigned to this class, not just ones where they're a member
+          // Regular user (teacher etc): show only docs they can access for this class.
+          // Case 1: doc assigned to THIS class AND user is a class_employee
+          // Case 2: doc created by user OR user has explicit permission, NOT assigned to this class
           const docs = await db.query(`
             SELECT id, title, doc_type, created_at, updated_at, created_by_name, created_by,
                    visibility_type, other_class_name
             FROM (
-              -- Case 1: doc assigned to this class
-              -- visible if user is a class_employee OR has manage-records permission ($4)
               SELECT DISTINCT d.id, d.title, d.doc_type, d.created_at, d.updated_at,
                 u.first_name || ' ' || u.last_name AS created_by_name,
                 d.created_by,
@@ -354,17 +395,13 @@ const documentController = {
               JOIN users u ON d.created_by = u.user_id
               JOIN document_class_assignments dca ON d.id = dca.document_id AND dca.class_id = $2
               WHERE d.organization_id = $1 AND d.is_deleted = FALSE
-                AND (
-                  $4 = TRUE
-                  OR EXISTS (
-                    SELECT 1 FROM class_employees ce
-                    WHERE ce.class_id = $2 AND ce.user_id = $3
-                  )
+                AND EXISTS (
+                  SELECT 1 FROM class_employees ce
+                  WHERE ce.class_id = $2 AND ce.user_id = $3
                 )
 
               UNION
 
-              -- Case 2: user created it or has explicit permission, not assigned to this class
               SELECT DISTINCT d.id, d.title, d.doc_type, d.created_at, d.updated_at,
                 u.first_name || ' ' || u.last_name AS created_by_name,
                 d.created_by,
@@ -394,8 +431,8 @@ const documentController = {
                 )
             ) sub
             ORDER BY updated_at DESC
-          `, [orgId, classId, userId, canCreate]);
-          console.log('[DOCS][LIST] query returned', docs.rows.length, 'rows for classId', classId, 'userId', userId, 'canCreate', canCreate);
+          `, [orgId, classId, effectiveUserId]);
+          console.log('[DOCS][LIST][USER] query returned', docs.rows.length, 'rows for classId', classId, 'userId', userId, 'effectiveUserId', effectiveUserId);
           documentRows = docs.rows;
         }
       } else if (canCreate) {
@@ -428,7 +465,7 @@ const documentController = {
           WHERE d.organization_id = $2 AND d.is_deleted = FALSE
             AND (d.created_by = $1 OR dp.user_id IS NOT NULL OR ce.user_id IS NOT NULL)
           ORDER BY d.updated_at DESC
-        `, [userId, orgId]);
+        `, [effectiveUserId, orgId]);
         documentRows = docs.rows;
       }
 
