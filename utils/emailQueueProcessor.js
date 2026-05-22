@@ -42,6 +42,7 @@ async function processEmailBatch(batchId, organizationId, classId, termId, proto
 
     const emailsResult = await db.query(query, params);
     const emails = emailsResult.rows;
+    const emailHistoryLink = `/print/emailHistoryPage?classId=${encodeURIComponent(String(classId || ""))}&termId=${encodeURIComponent(String(termId || ""))}`;
 
     console.log(`[processEmailBatch] Found ${emails.length} emails to process`);
 
@@ -133,6 +134,15 @@ async function processEmailBatch(batchId, organizationId, classId, termId, proto
             to: email,
             subject: `Report Card - ${student_name} | ${org.organization_name}`,
             html: emailHtml,
+            failureNotification: {
+              orgId: organizationId,
+              recipientType: 'broadcast',
+              recipientId: 0,
+              title: 'Report email delivery failed',
+              body: `Report email for ${student_name} could not be delivered to ${email}. Update the saved email and resend from Email History.`,
+              link: emailHistoryLink,
+              dedupeHours: 12,
+            },
             attachments: [
               { filename: `${student_name.replace(/ /g, '_')}_Report.pdf`, path: pdfPath },
               { filename: 'managira-logo.png', path: logoFilePath, cid: 'managira_logo' }

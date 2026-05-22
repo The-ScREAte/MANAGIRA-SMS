@@ -15,6 +15,7 @@
  *  Conversations : guardian_report_new | guardian_reply | staff_reply | staff_report_filed
  *  Assessments   : assessment_created | assessment_modified | assessment_locked | assessment_unlocked
  *  Attendance    : absence_alert
+ *  Email         : email_delivery_failed
  *  Documents     : document_shared_user | document_shared_class | document_permission_changed | document_deleted
  *  Employment    : employee_on_hold | employee_resumed | class_reassigned
  *  Admissions    : admission_pending | admission_approved | admission_rejected

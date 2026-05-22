@@ -39,6 +39,28 @@ function toNumber(value, fallback) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function buildFailureNotification(organizationId, {
+  title = "Email delivery failed",
+  body = "A school email could not be delivered.",
+  link = null,
+  dedupeHours = 12,
+} = {}) {
+  const orgId = Number.parseInt(organizationId, 10);
+  if (!Number.isInteger(orgId) || orgId <= 0) {
+    return null;
+  }
+
+  return {
+    orgId,
+    recipientType: 'broadcast',
+    recipientId: 0,
+    title,
+    body,
+    link,
+    dedupeHours,
+  };
+}
+
 function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
 }
@@ -274,13 +296,23 @@ async function sendLoggedEmail(database, params) {
 
   if (!dispatchId) return false;
 
+  const failureNotification = buildFailureNotification(organizationId, {
+    title: 'Email delivery failed',
+    body: `An email for ${recipientKind || 'a recipient'} could not be delivered to ${recipientEmail}.`,
+  });
+
+  const sendOptions = { to: recipientEmail, subject, html, failureNotification };
+
   if (background) {
-    sendEmailInBackground({ to: recipientEmail, subject, html }, context || eventType);
-    await markDispatchSent(database, dispatchId);
+    sendEmailSafely(sendOptions, context || eventType)
+      .then((sent) => sent
+        ? markDispatchSent(database, dispatchId)
+        : markDispatchFailed(database, dispatchId, 'SMTP send failed'))
+      .catch((error) => markDispatchFailed(database, dispatchId, error?.message || 'SMTP send failed'));
     return true;
   }
 
-  const sent = await sendEmailSafely({ to: recipientEmail, subject, html }, context || eventType);
+  const sent = await sendEmailSafely(sendOptions, context || eventType);
   if (sent) {
     await markDispatchSent(database, dispatchId);
   } else {
@@ -1722,7 +1754,15 @@ async function notifyGuardiansOnClassChange(database, { organizationId, studentI
       ],
       note: "If you have questions, please contact the school directly.",
     });
-    sendEmailInBackground({ to: row.email, subject: `[${organizationName}] Class Change: ${studentName}`, html }, "Class Change Notification");
+    sendEmailInBackground({
+      to: row.email,
+      subject: `[${organizationName}] Class Change: ${studentName}`,
+      html,
+      failureNotification: buildFailureNotification(organizationId, {
+        title: 'Class change email failed',
+        body: `The class change email for ${studentName} could not be delivered to ${row.email}.`,
+      }),
+    }, "Class Change Notification");
   }
 }
 
@@ -1760,7 +1800,15 @@ async function notifyTeacherOnReassignment(database, { organizationId, userId, t
     ],
     note: "If you have questions about these changes, please contact your administrator.",
   });
-  sendEmailInBackground({ to: teacherEmail, subject: `[${organizationName}] Your Assignments Have Changed`, html }, "Teacher Reassignment");
+  sendEmailInBackground({
+    to: teacherEmail,
+    subject: `[${organizationName}] Your Assignments Have Changed`,
+    html,
+    failureNotification: buildFailureNotification(organizationId, {
+      title: 'Teacher reassignment email failed',
+      body: `The reassignment email for ${teacherName || 'a teacher'} could not be delivered to ${teacherEmail}.`,
+    }),
+  }, "Teacher Reassignment");
 }
 
 /**
@@ -1821,7 +1869,15 @@ async function notifyTeachersOnAssessmentControl(database, { organizationId, gro
       ],
       note: "Log in to your Managira dashboard for more details.",
     });
-    sendEmailInBackground({ to: teacher.email, subject: `[${organizationName}] Assessment ${msg.verb}: ${groupName}`, html }, "Assessment Control");
+    sendEmailInBackground({
+      to: teacher.email,
+      subject: `[${organizationName}] Assessment ${msg.verb}: ${groupName}`,
+      html,
+      failureNotification: buildFailureNotification(organizationId, {
+        title: 'Assessment update email failed',
+        body: `The assessment ${msg.verb} email for ${groupName} could not be delivered to ${teacher.email}.`,
+      }),
+    }, "Assessment Control");
   }
 }
 
@@ -1883,7 +1939,15 @@ async function notifyEmployeeOnHoldChange(database, { organizationId, userId, on
       ? "Contact your school administrator if you need assistance."
       : "Welcome back! Log in to your Managira dashboard to continue.",
   });
-  sendEmailInBackground({ to: user.email, subject: `[${organizationName}] Account ${status}`, html }, "Account Hold/Resume");
+  sendEmailInBackground({
+    to: user.email,
+    subject: `[${organizationName}] Account ${status}`,
+    html,
+    failureNotification: buildFailureNotification(organizationId, {
+      title: 'Account status email failed',
+      body: `The account ${status} email for ${user.first_name || 'a staff member'} could not be delivered to ${user.email}.`,
+    }),
+  }, "Account Hold/Resume");
 }
 
 /**
@@ -1908,7 +1972,15 @@ async function notifyGuardianAdmissionReceived(database, { organizationId, guard
     ],
     note: "You will receive another email when your application is approved or if additional information is needed.",
   });
-  sendEmailInBackground({ to: guardianEmail, subject: `[${organizationName}] Application Received for ${studentName}`, html }, "Admission Confirmation");
+  sendEmailInBackground({
+    to: guardianEmail,
+    subject: `[${organizationName}] Application Received for ${studentName}`,
+    html,
+    failureNotification: buildFailureNotification(organizationId, {
+      title: 'Admission confirmation email failed',
+      body: `The admission confirmation email for ${studentName} could not be delivered to ${guardianEmail}.`,
+    }),
+  }, "Admission Confirmation");
 }
 
 /**
@@ -1943,7 +2015,15 @@ async function notifyGuardianOnStaffReply(database, { organizationId, reportId, 
     ],
     note: "Log in to your Parent Portal to view the full conversation and respond.",
   });
-  sendEmailInBackground({ to: guardianEmail, subject: `[${organizationName}] Reply on report: ${reportSubject || "Your Report"}`, html }, "Staff Reply to Guardian");
+  sendEmailInBackground({
+    to: guardianEmail,
+    subject: `[${organizationName}] Reply on report: ${reportSubject || "Your Report"}`,
+    html,
+    failureNotification: buildFailureNotification(organizationId, {
+      title: 'Guardian reply email failed',
+      body: `The report reply email${studentName ? ` for ${studentName}` : ''} could not be delivered to ${guardianEmail}.`,
+    }),
+  }, "Staff Reply to Guardian");
 }
 
 module.exports = {

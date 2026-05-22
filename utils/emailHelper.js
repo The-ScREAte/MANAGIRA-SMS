@@ -11,6 +11,12 @@ function _getDb() {
   try { _db = require("../config/db"); } catch (_) { _db = null; }
   return _db;
 }
+let _notificationService = null;
+function _getNotificationService() {
+  if (_notificationService) return _notificationService;
+  try { _notificationService = require("./notificationService"); } catch (_) { _notificationService = null; }
+  return _notificationService;
+}
 const {
   isEmailSuppressed,
   suppressEmail,
@@ -32,6 +38,7 @@ const MANAGIRA_LOGO_URL = `${MANAGIRA_PUBLIC_BASE}/images/managira.png`;
 // Display name used on every outgoing email. Mail clients prefer a human-
 // readable “From”; emails with just an address score higher for Promotions.
 const MANAGIRA_FROM_NAME = process.env.EMAIL_FROM_NAME || "Managira";
+const EMAIL_ADDRESS_PATTERN = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
 
 // Strip HTML to a clean plain-text body. Gmail/Outlook flag HTML-only mail as
 // promotional more often than multipart/alternative mail.
@@ -152,6 +159,168 @@ function sanitizeEnvelope(envelope) {
   return sanitized;
 }
 
+function toRecipientList(value) {
+  const rawValues = Array.isArray(value) ? value : [value];
+  const validRecipients = [];
+  const invalidRecipients = [];
+  const seen = new Set();
+
+  for (const rawValue of rawValues) {
+    const chunks = String(rawValue ?? "").split(/[;,]/);
+    for (const chunk of chunks) {
+      const normalized = String(chunk || "").trim().toLowerCase();
+      if (!normalized || seen.has(normalized)) {
+        continue;
+      }
+      seen.add(normalized);
+
+      if (EMAIL_ADDRESS_PATTERN.test(normalized)) {
+        validRecipients.push(normalized);
+      } else {
+        invalidRecipients.push(normalized);
+      }
+    }
+  }
+
+  return { validRecipients, invalidRecipients };
+}
+
+function formatRecipientList(recipients) {
+  return (Array.isArray(recipients) ? recipients : [recipients])
+    .filter(Boolean)
+    .join(", ");
+}
+
+function normalizeFailureNotification(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return null;
+  }
+
+  const orgId = Number.parseInt(raw.orgId, 10);
+  if (!Number.isInteger(orgId) || orgId <= 0) {
+    return null;
+  }
+
+  const recipientType = raw.recipientType === "staff" || raw.recipientType === "guardian"
+    ? raw.recipientType
+    : "broadcast";
+  const parsedRecipientId = Number.parseInt(raw.recipientId, 10);
+  const recipientId = recipientType === "broadcast"
+    ? 0
+    : (Number.isInteger(parsedRecipientId) && parsedRecipientId > 0 ? parsedRecipientId : 0);
+
+  if (recipientType !== "broadcast" && recipientId <= 0) {
+    return null;
+  }
+
+  const refId = Number.parseInt(raw.refId, 10);
+  const dedupeHours = Number.parseInt(raw.dedupeHours, 10);
+
+  return {
+    orgId,
+    recipientType,
+    recipientId,
+    title: firstNonEmpty(raw.title) || "Email delivery failed",
+    body: firstNonEmpty(raw.body) || "",
+    link: firstNonEmpty(raw.link) || null,
+    refId: Number.isInteger(refId) && refId > 0 ? refId : null,
+    dedupeHours: Number.isInteger(dedupeHours) && dedupeHours > 0 ? Math.min(dedupeHours, 72) : 12,
+  };
+}
+
+function buildFailureNotification(orgId, options = {}) {
+  return normalizeFailureNotification({
+    orgId,
+    recipientType: options.recipientType,
+    recipientId: options.recipientId,
+    title: options.title,
+    body: options.body,
+    link: options.link,
+    refId: options.refId,
+    dedupeHours: options.dedupeHours,
+  });
+}
+
+function getFailureReasonText(reason) {
+  switch (reason) {
+    case "invalid_format":
+      return "The email address format is invalid.";
+    case "no_mx_records":
+      return "The email domain does not accept mail.";
+    case "suppressed":
+      return "This address was already marked as undeliverable from an earlier attempt.";
+    case "smtp_hard_bounce":
+      return "The recipient server rejected the address as undeliverable.";
+    default:
+      return "Please update the address and try again.";
+  }
+}
+
+function buildFailureNotificationBody(baseBody, recipient, reason) {
+  const safeRecipient = firstNonEmpty(recipient) || "the saved email address";
+  const intro = firstNonEmpty(baseBody) || `Messages to ${safeRecipient} could not be delivered.`;
+  return `${intro} ${getFailureReasonText(reason)}`.trim();
+}
+
+async function notifyEmailFailure(db, { recipient, reason, failureNotification }) {
+  const notification = normalizeFailureNotification(failureNotification);
+  if (!db || !notification) {
+    return;
+  }
+
+  const notificationService = _getNotificationService();
+  if (!notificationService || typeof notificationService.createNotification !== "function") {
+    return;
+  }
+
+  const body = buildFailureNotificationBody(notification.body, recipient, reason);
+
+  try {
+    const existing = await db.query(
+      `SELECT 1
+       FROM notifications
+       WHERE organization_id = $1
+         AND recipient_type = $2
+         AND recipient_id = $3
+         AND type = 'email_delivery_failed'
+         AND title = $4
+         AND body = $5
+         AND COALESCE(link, '') = COALESCE($6, '')
+         AND created_at >= NOW() - ($7::int * INTERVAL '1 hour')
+       LIMIT 1`,
+      [
+        notification.orgId,
+        notification.recipientType,
+        notification.recipientId,
+        notification.title,
+        body,
+        notification.link,
+        notification.dedupeHours,
+      ]
+    );
+    if (existing.rows.length > 0) {
+      return;
+    }
+  } catch (_) {
+    // The notifications table may not exist yet; createNotification handles that path.
+  }
+
+  try {
+    await notificationService.createNotification(db, {
+      orgId: notification.orgId,
+      recipientType: notification.recipientType,
+      recipientId: notification.recipientId,
+      type: "email_delivery_failed",
+      title: notification.title,
+      body,
+      link: notification.link,
+      refId: notification.refId,
+    });
+  } catch (error) {
+    console.warn(`[Email][Notify] Failed to create delivery notification: ${error?.message || "unknown error"}`);
+  }
+}
+
 function renderCleanEmail({
   title,
   greeting,
@@ -250,6 +419,43 @@ function renderCleanEmail({
 // yet available at module load, it is created lazily on first use.
 let _transporter = null;
 let _transporterConfig = null;
+let _warnedMissingBounceAddress = false;
+
+function resolveEnvelopeFrom(fromAddress) {
+  const envelopeFrom = firstNonEmpty(
+    process.env.EMAIL_BOUNCE_ADDRESS,
+    process.env.SMTP_ENVELOPE_FROM,
+    process.env.MAIL_ENVELOPE_FROM,
+    process.env.EMAIL_RETURN_PATH,
+    fromAddress
+  );
+
+  if (!_warnedMissingBounceAddress && envelopeFrom === fromAddress) {
+    _warnedMissingBounceAddress = true;
+    console.warn('[Email] Dedicated bounce address is not configured. Mailer-Daemon replies may still go to the authenticated mailbox. Set EMAIL_BOUNCE_ADDRESS or SMTP_ENVELOPE_FROM to route bounces elsewhere.');
+  }
+
+  return envelopeFrom;
+}
+
+function buildEnvelopeConfig(rawEnvelope, fromAddress, recipients) {
+  const sanitizedEnvelope = sanitizeEnvelope(rawEnvelope) || {};
+  const envelopeFrom = firstNonEmpty(sanitizedEnvelope.from) || resolveEnvelopeFrom(fromAddress);
+  const explicitTo = sanitizedEnvelope.to;
+  const envelopeRecipients = Array.isArray(explicitTo)
+    ? explicitTo
+    : (explicitTo ? toRecipientList(explicitTo).validRecipients : recipients);
+
+  if (!envelopeFrom || !Array.isArray(envelopeRecipients) || envelopeRecipients.length === 0) {
+    return undefined;
+  }
+
+  return {
+    ...sanitizedEnvelope,
+    from: envelopeFrom,
+    to: envelopeRecipients,
+  };
+}
 
 function getTransporter() {
   const { user, pass, host, port, secure } = resolveSmtpConfig();
@@ -275,7 +481,6 @@ function getTransporter() {
       id: 'managira-notify',
       return: 'HDRS',
       notify: ['NEVER'],       // suppress all bounce-back / DSN replies
-      recipient: user,
     },
   });
 
@@ -289,6 +494,7 @@ function getTransporter() {
  */
 async function sendEmailSafely(mailOptions, context = "Email") {
   const sendStart = Date.now();
+  let attemptedRecipients = [];
   try {
     const { user, pass } = resolveSmtpConfig();
 
@@ -297,39 +503,85 @@ async function sendEmailSafely(mailOptions, context = "Email") {
       return false;
     }
 
-    // Validate recipient email before attempting send
-    const recipient = String(mailOptions.to || "").trim().toLowerCase();
-    if (!recipient || !/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/.test(recipient)) {
-      console.warn(`[Email][${context}] Invalid recipient address "${mailOptions.to}" — skipping.`);
-      // Permanently suppress malformed addresses so callers stop retrying.
-      const db = _getDb();
-      if (db) suppressEmail(db, recipient || mailOptions.to, "invalid_format", "Malformed address").catch(() => {});
+    const db = _getDb();
+    const { validRecipients, invalidRecipients } = toRecipientList(mailOptions.to);
+
+    if (invalidRecipients.length > 0) {
+      console.warn(`[Email][${context}] Invalid recipient address(es) "${formatRecipientList(invalidRecipients)}" — skipping those recipients.`);
+      if (db) {
+        for (const invalidRecipient of invalidRecipients) {
+          suppressEmail(db, invalidRecipient, "invalid_format", "Malformed address").catch(() => {});
+          await notifyEmailFailure(db, {
+            recipient: invalidRecipient,
+            reason: "invalid_format",
+            failureNotification: mailOptions.failureNotification,
+          });
+        }
+      }
+    }
+
+    if (!validRecipients.length) {
       return false;
     }
 
+    let deliverableRecipients = [...validRecipients];
+
     // Skip recipients that have previously failed permanently.
-    const db = _getDb();
     if (db) {
-      try {
-        const blocked = await isEmailSuppressed(db, recipient);
-        if (blocked) {
-          console.warn(`[Email][${context}] Recipient "${recipient}" is on the suppression list — skipping.`);
-          return false;
+      const filteredRecipients = [];
+      for (const recipient of deliverableRecipients) {
+        try {
+          const blocked = await isEmailSuppressed(db, recipient);
+          if (blocked) {
+            console.warn(`[Email][${context}] Recipient "${recipient}" is on the suppression list — skipping.`);
+            await notifyEmailFailure(db, {
+              recipient,
+              reason: "suppressed",
+              failureNotification: mailOptions.failureNotification,
+            });
+            continue;
+          }
+        } catch (_) {
+          // Fall through and try to send to this recipient.
         }
-      } catch (_) { /* fall through and try to send */ }
+        filteredRecipients.push(recipient);
+      }
+      deliverableRecipients = filteredRecipients;
+    }
+
+    if (!deliverableRecipients.length) {
+      return false;
     }
 
     const skipMxCheck = Boolean(mailOptions.skipMxCheck);
 
     // Verify the domain can receive email (has MX records) unless explicitly bypassed.
     if (!skipMxCheck) {
-      const domainOk = await hasMxRecords(recipient);
-      if (!domainOk) {
-        console.warn(`[Email][${context}] Domain has no MX records for "${recipient}" — skipping.`);
-        if (db) suppressEmail(db, recipient, "no_mx_records", "Domain has no MX records").catch(() => {});
-        return false;
+      const filteredRecipients = [];
+      for (const recipient of deliverableRecipients) {
+        const domainOk = await hasMxRecords(recipient);
+        if (!domainOk) {
+          console.warn(`[Email][${context}] Domain has no MX records for "${recipient}" — skipping.`);
+          if (db) {
+            suppressEmail(db, recipient, "no_mx_records", "Domain has no MX records").catch(() => {});
+            await notifyEmailFailure(db, {
+              recipient,
+              reason: "no_mx_records",
+              failureNotification: mailOptions.failureNotification,
+            });
+          }
+          continue;
+        }
+        filteredRecipients.push(recipient);
       }
+      deliverableRecipients = filteredRecipients;
     }
+
+    if (!deliverableRecipients.length) {
+      return false;
+    }
+
+    attemptedRecipients = deliverableRecipients;
 
     const transporter = getTransporter();
 
@@ -339,7 +591,13 @@ async function sendEmailSafely(mailOptions, context = "Email") {
     const from = `"${MANAGIRA_FROM_NAME}" <${fromAddress}>`;
 
     // Strip smtpConfig if caller passed it (we ignore custom transporter configs)
-    const { smtpConfig, from: _ignoredFrom, skipMxCheck: _skipMxCheck, ...restOptions } = mailOptions;
+    const {
+      smtpConfig,
+      from: _ignoredFrom,
+      skipMxCheck: _skipMxCheck,
+      failureNotification: _failureNotification,
+      ...restOptions
+    } = mailOptions;
 
     // Strip any caller-provided "managira_logo" inline attachment. The logo is
     // now rendered via a public HTTPS <img src> in renderCleanEmail, so adding
@@ -348,14 +606,16 @@ async function sendEmailSafely(mailOptions, context = "Email") {
     // want. Real file attachments (PDF reports, resumes, etc.) are kept.
     const mergedAttachments = (Array.isArray(restOptions.attachments) ? restOptions.attachments : [])
       .filter((item) => !(item && item.cid === 'managira_logo'));
-    const envelope = sanitizeEnvelope(restOptions.envelope);
+    const envelope = buildEnvelopeConfig(restOptions.envelope, fromAddress, deliverableRecipients);
 
     // Provide a plain-text fallback whenever one wasn’t supplied. multipart/
     // alternative mail is a strong Primary-tab signal.
     const textBody = restOptions.text
       || (restOptions.html ? htmlToPlainText(restOptions.html) : "");
 
-    console.info(`[Email][${context}] sending via SMTP to ${restOptions.to}`);
+    const recipientHeader = formatRecipientList(deliverableRecipients);
+
+    console.info(`[Email][${context}] sending via SMTP to ${recipientHeader}`);
 
     const messageIdDomain = (fromAddress.split('@')[1] || 'managira.com').trim();
     const messageId = `<managira-${Date.now()}-${Math.random().toString(36).slice(2, 10)}@${messageIdDomain}>`;
@@ -364,6 +624,7 @@ async function sendEmailSafely(mailOptions, context = "Email") {
       from,
       replyTo: restOptions.replyTo || fromAddress,
       ...restOptions,
+      to: recipientHeader,
       text: textBody,
       attachments: mergedAttachments,
       envelope,
@@ -381,8 +642,28 @@ async function sendEmailSafely(mailOptions, context = "Email") {
       },
     });
 
+    const rejectedRecipients = toRecipientList(info?.rejected || []).validRecipients;
+    if (rejectedRecipients.length > 0 && db) {
+      for (const recipient of rejectedRecipients) {
+        suppressEmail(
+          db,
+          recipient,
+          "smtp_hard_bounce",
+          info?.response || info?.messageId || "Recipient rejected"
+        ).catch(() => {});
+        await notifyEmailFailure(db, {
+          recipient,
+          reason: "smtp_hard_bounce",
+          failureNotification: mailOptions.failureNotification,
+        });
+      }
+    }
+
+    const acceptedRecipients = toRecipientList(info?.accepted || []).validRecipients;
+    const sendSucceeded = acceptedRecipients.length > 0 || rejectedRecipients.length === 0;
+
     console.info(`[Email][${context}] SMTP sent OK in ${Date.now() - sendStart}ms`, info.messageId);
-    return true;
+    return sendSucceeded;
   } catch (error) {
     _transporter = null;
     _transporterConfig = null;
@@ -398,12 +679,22 @@ async function sendEmailSafely(mailOptions, context = "Email") {
     if (isHardAddressFailure(error)) {
       const db = _getDb();
       if (db) {
-        suppressEmail(
-          db,
-          String(mailOptions.to || "").trim().toLowerCase(),
-          "smtp_hard_bounce",
-          error.response || error.message
-        ).catch(() => {});
+        const recipientsToFlag = attemptedRecipients.length > 0
+          ? attemptedRecipients
+          : toRecipientList(mailOptions.to).validRecipients;
+        for (const recipient of recipientsToFlag) {
+          suppressEmail(
+            db,
+            recipient,
+            "smtp_hard_bounce",
+            error.response || error.message
+          ).catch(() => {});
+          await notifyEmailFailure(db, {
+            recipient,
+            reason: "smtp_hard_bounce",
+            failureNotification: mailOptions.failureNotification,
+          });
+        }
       }
     }
     return false;
@@ -417,12 +708,14 @@ async function sendEmailSafely(mailOptions, context = "Email") {
  */
 function sendEmailInBackground(mailOptions, context = "Email") {
   // Intentionally NOT awaited — runs in background
-  sendEmailSafely(mailOptions, context).catch((err) => {
+  return sendEmailSafely(mailOptions, context).catch((err) => {
     console.error(`[Email][${context}] Background send error:`, err.message);
+    return false;
   });
 }
 
 module.exports = {
+  buildFailureNotification,
   sendEmailSafely,
   sendEmailInBackground,
   renderCleanEmail,

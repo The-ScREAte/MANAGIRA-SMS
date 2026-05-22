@@ -19,7 +19,7 @@ const {
   buildCalendarDayMap,
   isAttendanceCountableForDate,
 } = require("../utils/attendanceCalendar");
-const { sendEmailSafely, renderCleanEmail } = require("../utils/emailHelper");
+const { buildFailureNotification, sendEmailSafely, renderCleanEmail } = require("../utils/emailHelper");
 const {
   getCurrencyProfileForRequest,
   getLocaleForCurrency,
@@ -3224,6 +3224,10 @@ async function notifyGuardiansOfStaffCollection(display, result) {
         to: guardian.email,
         subject: `[${orgName}] Payment Recorded — ${result.billTitle}`,
         html,
+        failureNotification: buildFailureNotification(result.orgId, {
+          title: 'Payment notification email failed',
+          body: `The payment recorded email for ${result.studentName} could not be delivered to ${guardian.email}.`,
+        }),
       }, "PayGira guardian notification");
     }
   } catch (emailErr) {
@@ -3535,7 +3539,16 @@ module.exports = {
           cta: req.body.include_payment_link ? { url: paymentLink, text: "Pay Now" } : null,
           note: "This message was sent from the Managira Fee Recovery workspace.",
         });
-        const ok = await sendEmailSafely({ to: recipientEmail, subject, html }, "Fee Recovery");
+        const ok = await sendEmailSafely({
+          to: recipientEmail,
+          subject,
+          html,
+          failureNotification: buildFailureNotification(orgId, {
+            title: 'Fee recovery email failed',
+            body: `The fee recovery email for ${student.student_name} could not be delivered to ${recipientEmail}.`,
+            link: '/account/settings/finance/arrears',
+          }),
+        }, "Fee Recovery");
         await db.query(
           `INSERT INTO finance_arrears_email_logs (organization_id, student_id, guardian_id, recipient_email, subject, status, error_message, sent_by, sent_by_name, metadata)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb)`,

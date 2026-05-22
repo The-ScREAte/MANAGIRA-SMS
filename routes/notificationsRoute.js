@@ -4,6 +4,19 @@ const router = express.Router();
 const db = require('../config/db');
 const ns = require('../utils/notificationService');
 
+function resolveStaffReaderId(session) {
+  const directUserId = session.userId || (session.user && session.user.user_id) || null;
+  if (directUserId) return Number(directUserId);
+
+  const accountType = String(session.accountType || session.user?.account_type || '').trim().toLowerCase();
+  const userRole = String(session.userRole || session.user?.role || '').trim().toLowerCase();
+  if (accountType === 'organization' && userRole === 'manager') {
+    return 0;
+  }
+
+  return null;
+}
+
 // ── Auth helpers ──────────────────────────────────────────────────────────────
 function resolveReaderContext(req) {
   const session = req.session || {};
@@ -15,8 +28,8 @@ function resolveReaderContext(req) {
     return { recipientType: 'guardian', recipientId: Number(guardianId), orgId: Number(orgId) };
   }
   // Staff / org owner
-  const userId = session.userId || (session.user && session.user.user_id) || null;
-  if (!userId || !orgId) return null;
+  const userId = resolveStaffReaderId(session);
+  if (userId === null || !orgId) return null;
   return { recipientType: 'staff', recipientId: Number(userId), orgId: Number(orgId) };
 }
 

@@ -12,6 +12,19 @@ const db = require('../config/db');
 let dbRetryAfter = 0;
 let lastErrLogAt  = 0;
 
+function resolveStaffReaderId(session) {
+  const directUserId = session.userId || (session.user && session.user.user_id) || null;
+  if (directUserId) return Number(directUserId);
+
+  const accountType = String(session.accountType || session.user?.account_type || '').trim().toLowerCase();
+  const userRole = String(session.userRole || session.user?.role || '').trim().toLowerCase();
+  if (accountType === 'organization' && userRole === 'manager') {
+    return 0;
+  }
+
+  return null;
+}
+
 const fetchNotifCount = async (req, res, next) => {
   // Default — never undefined in templates
   res.locals.notifUnreadCount = 0;
@@ -38,8 +51,8 @@ const fetchNotifCount = async (req, res, next) => {
     }
 
     // Staff / org owner
-    const userId = session.userId || (session.user && session.user.user_id) || null;
-    if (userId) {
+    const userId = resolveStaffReaderId(session);
+    if (userId !== null) {
       res.locals.notifUnreadCount = await ns.getUnreadCount(db, {
         recipientType: 'staff',
         recipientId:   Number(userId),

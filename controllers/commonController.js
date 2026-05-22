@@ -8,7 +8,7 @@ require("dotenv").config(); // Load environment variables from .env file
 const { uploadToS3, deleteFromS3 } = require("../middleware/s3Upload");
 const axios = require("axios");
 const he = require("he");
-const { sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require("../utils/emailHelper");
+const { buildFailureNotification, sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require("../utils/emailHelper");
 const { isEmailEnabledForRecipient } = require("../utils/emailPreferences");
 const { getPaystackSettings } = require("../utils/paystackConfig");
 const {
@@ -1062,6 +1062,10 @@ async function notifyTeachersForAssessmentControl({
           to: teacher.email,
           subject: `Assessment Access Update: ${testTitle || "Assessment"}`,
           html,
+          failureNotification: buildFailureNotification(organizationId, {
+            title: "Assessment access email failed",
+            body: `The assessment access email for ${testTitle || "Assessment"} could not be delivered to ${teacher.email}.`,
+          }),
         },
         "Assessment Access Notification"
       );
@@ -2589,7 +2593,8 @@ const commonController = {
                   g.firstName,
                   g.lastName,
                   studentName,
-                  organizationName
+                  organizationName,
+                  organizationId
                 ).catch(err => {});
               });
             }
@@ -3875,6 +3880,10 @@ const commonController = {
               to: primaryGuardian.email,
               subject: `Student Registration & Payment Confirmation - ${orgName}`,
               html,
+              failureNotification: buildFailureNotification(organizationId, {
+                title: 'Registration payment confirmation email failed',
+                body: `The registration payment confirmation email could not be delivered to ${primaryGuardian.email}.`,
+              }),
               attachments: [{ filename: 'managira.png', path: require('path').join(__dirname, '../public/images/managira.png'), cid: 'managira_logo' }],
             },
             'Payment Confirmation Email'
@@ -4088,6 +4097,10 @@ const commonController = {
             to: primaryGuardian.email,
             subject: `Student Registration & Payment Confirmation - ${orgDetails?.organization_name || 'School'}`,
             html,
+            failureNotification: buildFailureNotification(organizationId, {
+              title: 'Registration payment confirmation email failed',
+              body: `The registration payment confirmation email could not be delivered to ${primaryGuardian.email}.`,
+            }),
           }, 'Public Registration Payment Confirmation').catch((err) => {
             console.error('[Payment Callback] Stripe confirmation email failed:', err.message);
           });
@@ -4216,6 +4229,10 @@ const commonController = {
               to: primaryGuardian.email,
               subject: `Student Registration & Payment Confirmation - ${orgName}`,
               html,
+              failureNotification: buildFailureNotification(organizationId, {
+                title: 'Registration payment confirmation email failed',
+                body: `The registration payment confirmation email could not be delivered to ${primaryGuardian.email}.`,
+              }),
               attachments: [
                 {
                   filename: "managira.png",
@@ -4747,6 +4764,10 @@ const commonController = {
             student.first_name
           )} ${he.encode(student.last_name)}`,
           html,
+          failureNotification: buildFailureNotification(organizationId, {
+            title: "Admission approval email failed",
+            body: `The admission approval email for ${student.first_name} ${student.last_name} could not be delivered to one or more guardian email addresses.`,
+          }),
           attachments: [
             {
               filename: "managira.png",
@@ -4856,6 +4877,10 @@ const commonController = {
           to: guardianEmails.join(","),
           subject: `Admission Rejected: ${student.first_name} ${student.last_name}`,
           html,
+          failureNotification: buildFailureNotification(orgId, {
+            title: "Admission rejection email failed",
+            body: `The admission rejection email for ${student.first_name} ${student.last_name} could not be delivered to one or more guardian email addresses.`,
+          }),
           attachments: [
             {
               filename: "managira.png",
@@ -6518,7 +6543,7 @@ const commonController = {
       setImmediate(async () => {
         try {
           const { classNames, subjectNames } = await resolveAssignmentNames(db, normalizedClassIds, normalizedSubjectIds);
-          const sent = await sendInviteEmail(email, firstName, lastName, setPasswordUrl, organizationName, classNames, subjectNames);
+          const sent = await sendInviteEmail(email, firstName, lastName, setPasswordUrl, organizationName, organizationId, classNames, subjectNames);
           if (!sent) {
             console.warn(`[CreateEmployee:POST][${postId}] email_send_FAILED for user ${userId} (${email})`);
           } else {
@@ -6702,7 +6727,7 @@ const commonController = {
         `UPDATE users
          SET password = $1, reset_password_token = NULL, reset_password_expires = NULL
          WHERE reset_password_token = $2 AND reset_password_expires > NOW()
-         RETURNING first_name, last_name, email`,
+         RETURNING first_name, last_name, email, organization_id`,
         [hashedPassword, hashedToken]
       );
 
@@ -6711,10 +6736,10 @@ const commonController = {
         return res.redirect("/account/login");
       }
 
-      const { first_name, last_name, email } = result.rows[0];
+      const { first_name, last_name, email, organization_id } = result.rows[0];
 
       // Send success email to the user
-      await sendPasswordSetSuccessEmail(email, first_name, last_name);
+      await sendPasswordSetSuccessEmail(email, first_name, last_name, organization_id);
 
       req.flash("success", "Password set successfully. You can now log in.");
       res.redirect("/account/login");
@@ -12488,7 +12513,7 @@ const commonController = {
         if (!guardianAllows) {
           // Skip email but the report still gets stored in-app.
         } else {
-        const { renderCleanEmail, sendEmailInBackground } = require("../utils/emailHelper");
+        const { buildFailureNotification, renderCleanEmail, sendEmailInBackground } = require("../utils/emailHelper");
         const path = require("path");
 
         const orgResult = await db.query(
@@ -12514,6 +12539,10 @@ const commonController = {
           to: emailRecipient,
           subject: `[${orgName}] Report for ${studentName}`,
           html,
+          failureNotification: buildFailureNotification(organizationId, {
+            title: 'Staff report email failed',
+            body: `The staff report email for ${studentName} could not be delivered to ${emailRecipient}.`,
+          }),
           attachments: [{
             filename: 'managira_logo.png',
             path: path.join(__dirname, '..', 'public', 'images', 'managira.png'),
@@ -12971,6 +13000,10 @@ const commonController = {
         to: contactEmail,
         subject: `${emailTitle} - ${organizationName} Parent Portal`,
         html,
+        failureNotification: buildFailureNotification(organizationId, {
+          title: 'Guardian password email failed',
+          body: `The guardian password email for ${contactEmail} could not be delivered.`,
+        }),
         attachments: [
           {
             filename: 'managira.png',
@@ -13305,6 +13338,7 @@ async function sendInviteEmail(
   lastName,
   link,
   organizationName,
+  organizationId,
   classNames = [],
   subjectNames = []
 ) {
@@ -13337,6 +13371,10 @@ async function sendInviteEmail(
     to: email,
     subject: "Set Your Password - Managira",
     html,
+    failureNotification: buildFailureNotification(organizationId, {
+      title: 'Employee invite email failed',
+      body: `The employee invite email for ${firstName} ${lastName} could not be delivered to ${email}.`,
+    }),
     attachments: [
       {
         filename: "managira.png",
@@ -13348,7 +13386,7 @@ async function sendInviteEmail(
   sendEmailInBackground(mailOptions, "Employee Invite Email");
 }
 
-async function sendPasswordSetSuccessEmail(email, firstName, lastName) {
+async function sendPasswordSetSuccessEmail(email, firstName, lastName, organizationId = null) {
   const html = renderCleanEmail({
     title: "Password Set Successfully",
     greeting: `Hello <strong>${he.encode(firstName)} ${he.encode(lastName)}</strong>,`,
@@ -13363,6 +13401,10 @@ async function sendPasswordSetSuccessEmail(email, firstName, lastName) {
     to: email,
     subject: "Your Password Has Been Set Successfully",
     html,
+    failureNotification: buildFailureNotification(organizationId, {
+      title: 'Password set success email failed',
+      body: `The password set confirmation email for ${firstName} ${lastName} could not be delivered to ${email}.`,
+    }),
     attachments: [
       {
         filename: "managira.png",
@@ -13415,6 +13457,10 @@ const sendGuardianWelcomeEmail = async (guardianEmail, guardianFirstName, guardi
       to: guardianEmail,
       subject: `Action required: set your ${organizationName} parent portal password`,
       html,
+      failureNotification: buildFailureNotification(organizationId, {
+        title: 'Guardian welcome email failed',
+        body: `The guardian welcome email for ${studentName} could not be delivered to ${guardianEmail}.`,
+      }),
       attachments: [
         {
           filename: 'managira.png',
@@ -13430,7 +13476,7 @@ const sendGuardianWelcomeEmail = async (guardianEmail, guardianFirstName, guardi
 };
 
 // Send notification when additional student is added to existing guardian
-const sendGuardianStudentAddedEmail = async (guardianEmail, guardianFirstName, guardianLastName, studentName, organizationName) => {
+const sendGuardianStudentAddedEmail = async (guardianEmail, guardianFirstName, guardianLastName, studentName, organizationName, organizationId) => {
   try {
     // Honor guardian preference for "additional child added" notifications.
     const _db = require("../config/db");
@@ -13454,6 +13500,10 @@ const sendGuardianStudentAddedEmail = async (guardianEmail, guardianFirstName, g
       to: guardianEmail,
       subject: `New Student Added - ${organizationName} Parent Portal`,
       html,
+      failureNotification: buildFailureNotification(organizationId, {
+        title: 'Guardian student-added email failed',
+        body: `The student-added email for ${studentName} could not be delivered to ${guardianEmail}.`,
+      }),
       attachments: [
         {
           filename: 'managira.png',
