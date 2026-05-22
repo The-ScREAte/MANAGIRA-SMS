@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <meta name="description" content="<%= description %>">
+  <% if (keywords) { %><meta name="keywords" content="<%= keywords %>"><% } %>
+  <link rel="canonical" href="<%= canonicalUrl %>">
+  <% if (structuredData) { %>
+  <script type="application/ld+json"><%- structuredData %></script>
+  <% } %>
+  <style>
+    :root {
+      --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
+      --primary: #01535b;
+      --primary-light: #e8f4f5;
+      --border: #e5e7eb;
+      --text: #1f2937;
+      --text-muted: #6b7280;
+      --bg: #f9fafb;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--font-family);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    /* ── Layout ────────────────────────────────── */
+    .article-page {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 28px 20px 60px;
+    }
+
+    /* ── Breadcrumb / back link ─────────────────── */
+    .article-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--primary);
+      text-decoration: none;
+      margin-bottom: 18px;
+    }
+    .article-back:hover { text-decoration: underline; }
+    .article-back svg { flex-shrink: 0; }
+
+    .article-breadcrumb {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+    }
+    .article-breadcrumb a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .article-breadcrumb a:hover { text-decoration: underline; }
+    .article-breadcrumb span { color: #cbd5e1; }
+
+    /* ── Header card ────────────────────────────── */
+    .article-header {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px 24px 18px;
+      margin-bottom: 16px;
+    }
+
+    .article-topic-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--primary);
+      background: var(--primary-light);
+      padding: 4px 10px;
+      border-radius: 999px;
+      margin-bottom: 14px;
+    }
+
+    .article-title {
+      font-size: clamp(1.25rem, 3.5vw, 1.75rem);
+      font-weight: 800;
+      color: #0f172a;
+      line-height: 1.2;
+      letter-spacing: -0.01em;
+      margin-bottom: 14px;
+    }
+
+    .article-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+    .article-meta-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .article-meta-item svg { flex-shrink: 0; color: #94a3b8; }
+
+    .article-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 16px;
+    }
+    .article-tag {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: #f1f5f9;
+      color: #475569;
+      border: 1px solid #e2e8f0;
+    }
+
+    /* ── Draft banner ───────────────────────────── */
+    .draft-banner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 18px;
+      background: #fef9c3;
+      border: 1px solid #fde68a;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      font-size: 0.9rem;
+      color: #92400e;
+      font-weight: 600;
+    }
+
+    /* ── Article body ───────────────────────────── */
+    .article-body {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px 28px 22px;
+      margin-bottom: 18px;
+    }
+
+    /* Rich-text content styles */
+    .article-content { font-size: 1rem; line-height: 1.75; color: #374151; }
+    .article-content h1,
+    .article-content h2,
+    .article-content h3,
+    .article-content h4 {
+      color: #0f172a;
+      font-weight: 700;
+      line-height: 1.25;
+      margin: 1.6em 0 0.6em;
+    }
+    .article-content h1 { font-size: 1.55rem; }
+    .article-content h2 { font-size: 1.3rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.4em; }
+    .article-content h3 { font-size: 1.12rem; }
+    .article-content h4 { font-size: 1rem; }
+    .article-content p { margin: 0 0 1.1em; }
+    .article-content a { color: var(--primary); text-decoration: underline; }
+    .article-content a:hover { color: #014048; }
+    .article-content ul,
+    .article-content ol { padding-left: 1.5em; margin: 0 0 1.1em; }
+    .article-content li { margin-bottom: 0.35em; }
+    .article-content blockquote {
+      border-left: 3px solid var(--primary);
+      background: var(--primary-light);
+      padding: 12px 18px;
+      border-radius: 0 8px 8px 0;
+      margin: 1.2em 0;
+      color: #374151;
+      font-style: italic;
+    }
+    .article-content pre {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 16px 20px;
+      border-radius: 10px;
+      overflow-x: auto;
+      font-size: 0.9rem;
+      margin: 1.2em 0;
+    }
+    .article-content code {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.88em;
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #0f172a;
+    }
+    .article-content pre code {
+      background: transparent;
+      padding: 0;
+      color: inherit;
+    }
+    .article-content table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.93rem;
+      margin: 1.2em 0;
+    }
+    .article-content th {
+      background: #f8fafc;
+      font-weight: 700;
+      text-align: left;
+      padding: 10px 14px;
+      border: 1px solid #e2e8f0;
+      color: #0f172a;
+    }
+    .article-content td {
+      padding: 10px 14px;
+      border: 1px solid #e2e8f0;
+      vertical-align: top;
+    }
+    .article-content tr:nth-child(even) td { background: #f8fafc; }
+    .article-content img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      margin: 1em 0;
+    }
+    .article-content figure {
+      margin: 1.4em 0;
+      text-align: center;
+    }
+    .article-content figcaption {
+      font-size: 0.84rem;
+      color: var(--text-muted);
+      margin-top: 6px;
+      font-style: italic;
+    }
+    .article-content iframe {
+      max-width: 100%;
+      border-radius: 8px;
+      margin: 1em 0;
+    }
+    /* Responsive video embed */
+    .article-content figure.doc-video {
+      position: relative;
+      padding-bottom: 56.25%;
+      height: 0;
+      overflow: hidden;
+      border-radius: 10px;
+      margin: 1.4em 0;
+    }
+    .article-content figure.doc-video iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      margin: 0;
+      border-radius: 10px;
+    }
+    /* Attachment card */
+    .article-content .doc-attachment-card {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      text-decoration: none;
+      color: #0f172a;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
+    }
+    .article-content .doc-attachment-card:hover { border-color: #01535b; color: #01535b; background: #f0fafa; text-decoration: none; }
+
+    /* ── Helpful vote widget ────────────────────── */
+    .article-helpful {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px 28px;
+      margin-bottom: 22px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+    .article-helpful__label {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .article-helpful__label small {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 400;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .article-helpful__btns {
+      display: flex;
+      gap: 10px;
+    }
+    .helpful-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 18px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      font-family: inherit;
+      color: #374151;
+      transition: border-color 0.2s, background 0.2s, color 0.2s;
+    }
+    .helpful-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .helpful-btn.voted-yes { border-color: var(--primary); background: var(--primary-light); color: var(--primary); }
+    .helpful-btn.voted-no  { border-color: #dc2626; background: #fef2f2; color: #dc2626; }
+    .helpful-btn:disabled  { opacity: 0.55; cursor: not-allowed; }
+    .helpful-count {
+      font-size: 0.8rem;
+      font-weight: 400;
+      opacity: 0.7;
+    }
+    .helpful-thankyou {
+      display: none;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--primary);
+    }
+
+    /* ── Admin toolbar ──────────────────────────── */
+    .article-admin-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      margin-bottom: 22px;
+    }
+    .article-admin-bar__label {
+      font-size: 0.7rem;
+      font-weight: 800;
+      color: #94a3b8;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding-right: 8px;
+      border-right: 1px solid #e2e8f0;
+      margin-right: 4px;
+      white-space: nowrap;
+    }
+    .article-admin-bar__btns {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .admin-icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s, border-color 0.15s;
+      text-decoration: none;
+      flex-shrink: 0;
+    }
+    .admin-icon-btn svg { pointer-events: none; }
+    .admin-icon-btn:hover        { background: #e8f4f5; border-color: #01535b; }
+    .admin-icon-btn.warn:hover   { background: #fff7ed; border-color: #f59e0b; }
+    .admin-icon-btn.danger:hover { background: #fef2f2; border-color: #dc2626; }
+    .admin-bar-sep { width: 1px; height: 18px; background: #e2e8f0; margin: 0 2px; }
+
+    /* ── Edit slide-over ────────────────────────── */
+    .edit-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      z-index: 900;
+      display: none;
+      align-items: flex-end;
+    }
+    .edit-overlay.is-open { display: flex; }
+
+    @media (min-width: 640px) {
+      .edit-overlay { align-items: center; justify-content: flex-end; }
+    }
+
+    .edit-panel {
+      background: #fff;
+      width: 100%;
+      max-width: 560px;
+      height: 100%;
+      max-height: 100dvh;
+      overflow-y: auto;
+      border-radius: 16px 16px 0 0;
+      display: flex;
+      flex-direction: column;
+      box-shadow: -4px 0 40px rgba(15,23,42,0.18);
+    }
+
+    @media (min-width: 640px) {
+      .edit-panel { border-radius: 16px 0 0 16px; height: 100dvh; }
+    }
+
+    .edit-panel__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 22px 16px;
+      border-bottom: 1px solid #e5e7eb;
+      position: sticky;
+      top: 0;
+      background: #fff;
+      z-index: 2;
+    }
+
+    .edit-panel__head h2 { font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0; }
+
+    .edit-panel__close {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border: none;
+      background: #f1f5f9;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 18px;
+      color: #475569;
+      font-family: inherit;
+    }
+    .edit-panel__close:hover { background: #e2e8f0; }
+
+    .edit-panel__body {
+      padding: 20px 22px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .ep-form-row { display: grid; gap: 14px; }
+    .ep-form-row.two-col { grid-template-columns: 1fr 1fr; }
+
+    .ep-field { display: flex; flex-direction: column; gap: 5px; }
+
+    .ep-field label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #374151;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .ep-field input,
+    .ep-field select,
+    .ep-field textarea {
+      padding: 10px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      color: #0f172a;
+      background: #fff;
+      transition: border-color 0.2s;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .ep-field input:focus,
+    .ep-field select:focus,
+    .ep-field textarea:focus {
+      outline: none;
+      border-color: #01535b;
+      box-shadow: 0 0 0 3px rgba(1,83,91,0.08);
+    }
+
+    .ep-field textarea { min-height: 70px; resize: vertical; }
+
+    .ep-field__hint { font-size: 0.78rem; color: #94a3b8; }
+
+    .ep-editor-wrap { border: 1px solid #d1d5db; border-radius: 8px; overflow: hidden; }
+
+    .ep-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px;
+      padding: 8px 10px;
+      background: #f8fafc;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .ep-toolbar button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border: none;
+      background: transparent;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 13px;
+      font-family: inherit;
+      font-weight: 700;
+      color: #374151;
+      transition: background 0.15s;
+      padding: 0;
+    }
+
+    .ep-toolbar button:hover { background: #e2e8f0; }
+    .ep-toolbar .sep { width: 1px; background: #e5e7eb; margin: 3px 4px; align-self: stretch; }
+
+    .ep-editor {
+      min-height: 260px;
+      max-height: 380px;
+      overflow-y: auto;
+      padding: 14px;
+      outline: none;
+      font-size: 0.95rem;
+      line-height: 1.65;
+      color: #1f2937;
+    }
+
+    .ep-editor:focus { box-shadow: inset 0 0 0 2px rgba(1,83,91,0.15); }
+    .ep-editor h2 { font-size: 1.2rem; font-weight: 700; margin: 0.8em 0 0.3em; }
+    .ep-editor h3 { font-size: 1.05rem; font-weight: 700; margin: 0.8em 0 0.3em; }
+    .ep-editor ul, .ep-editor ol { padding-left: 1.4em; margin: 0.4em 0; }
+    .ep-editor blockquote { border-left: 3px solid #01535b; padding-left: 12px; color: #475569; margin: 0.5em 0; font-style: italic; }
+    .ep-editor a { color: #01535b; }
+    .ep-editor code { font-family: monospace; background: #f1f5f9; padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+
+    .edit-panel__foot {
+      padding: 16px 22px;
+      border-top: 1px solid #e5e7eb;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: flex-end;
+      position: sticky;
+      bottom: 0;
+      background: #fff;
+    }
+
+    .ep-error { font-size: 0.85rem; color: #dc2626; flex: 1; display: none; }
+
+    .ep-btn-cancel {
+      padding: 10px 20px;
+      border: 1px solid #e2e8f0;
+      background: #fff;
+      border-radius: 8px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      color: #374151;
+    }
+    .ep-btn-cancel:hover { background: #f1f5f9; }
+
+    .ep-btn-save {
+      padding: 10px 24px;
+      background: #01535b;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      transition: background 0.2s;
+    }
+    .ep-btn-save:hover { background: #014048; }
+    .ep-btn-save:disabled { background: #94a3b8; cursor: not-allowed; }
+
+    /* ── Media pickers ────────────────────────────── */
+    .ep-mpick {
+      display: none;
+      border-bottom: 1px solid #e2e8f0;
+      background: #f8fafc;
+      padding: 12px 14px;
+    }
+    .ep-mpick.is-open { display: block; }
+    .ep-mpick__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .ep-mpick__head span { font-size: 0.78rem; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: #374151; }
+    .ep-mpick__close { background: none; border: none; cursor: pointer; font-size: 18px; color: #94a3b8; line-height: 1; padding: 0; }
+    .ep-mpick__close:hover { color: #374151; }
+    .ep-mpick__tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+    .ep-mpick__tab {
+      padding: 4px 12px; border: 1px solid #d1d5db; background: #fff;
+      border-radius: 6px; font-size: 0.78rem; font-weight: 600;
+      font-family: inherit; cursor: pointer; color: #374151;
+      transition: background 0.12s;
+    }
+    .ep-mpick__tab.active { background: #01535b; color: #fff; border-color: #01535b; }
+    .ep-mpick__panel { display: none; }
+    .ep-mpick__panel.active { display: flex; flex-direction: column; gap: 8px; }
+    .ep-mpick__drop {
+      display: flex; align-items: center; gap: 8px;
+      border: 1.5px dashed #d1d5db; border-radius: 8px;
+      padding: 12px 14px; cursor: pointer; color: #6b7280;
+      font-size: 0.84rem; transition: border-color 0.15s, background 0.15s;
+      background: #fff;
+    }
+    .ep-mpick__drop:hover, .ep-mpick__drop.drag-over { border-color: #01535b; background: #f0fafa; color: #01535b; }
+    .ep-mpick__inp {
+      width: 100%; padding: 8px 10px; border: 1px solid #d1d5db;
+      border-radius: 6px; font-size: 0.87rem; font-family: inherit;
+      background: #fff; box-sizing: border-box;
+    }
+    .ep-mpick__inp:focus { outline: none; border-color: #01535b; }
+    .ep-mpick__row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .ep-mpick__foot { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+    .ep-mpick__err { font-size: 0.8rem; color: #dc2626; flex: 1; min-height: 1em; }
+    .ep-mpick__btn {
+      padding: 7px 14px; background: #01535b; color: #fff;
+      border: none; border-radius: 6px; font-size: 0.84rem;
+      font-weight: 700; font-family: inherit; cursor: pointer;
+      white-space: nowrap; transition: background 0.12s;
+    }
+    .ep-mpick__btn:hover { background: #014048; }
+    .ep-mpick__btn:disabled { background: #94a3b8; cursor: not-allowed; }
+    .ep-mpick__hint { font-size: 0.76rem; color: #64748b; margin: 0; line-height: 1.45; }
+
+    @media (max-width: 600px) { .ep-form-row.two-col { grid-template-columns: 1fr; } }
+
+    /* ── 404 state ──────────────────────────────── */
+    .article-not-found {
+      text-align: center;
+      padding: 60px 20px;
+    }
+    .article-not-found__icon {
+      font-size: 3rem;
+      margin-bottom: 16px;
+    }
+    .article-not-found h2 {
+      color: #0f172a;
+      font-size: 1.5rem;
+      margin-bottom: 10px;
+    }
+    .article-not-found p {
+      color: var(--text-muted);
+      font-size: 0.97rem;
+      margin-bottom: 24px;
+    }
+    .article-not-found a {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--primary);
+      color: #fff;
+      padding: 12px 26px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+    .article-not-found a:hover { background: #014048; }
+
+    /* ── Responsive ─────────────────────────────── */
+    @media (max-width: 768px) {
+      .article-page   { padding: 22px 14px 50px; }
+      .article-header { padding: 20px 18px 16px; }
+      .article-body   { padding: 20px 16px 16px; }
+      .article-helpful { padding: 16px 16px; }
+    }
+    @media (max-width: 480px) {
+      .article-page   { padding: 16px 12px 36px; }
+      .article-back   { font-size: 0.82rem; margin-bottom: 14px; }
+      .article-header { padding: 16px 14px 12px; border-radius: 10px; }
+      .article-body   { padding: 16px 14px; border-radius: 10px; }
+      .article-helpful { flex-direction: column; align-items: flex-start; padding: 14px 14px; border-radius: 10px; }
+      .article-title  { font-size: 1.2rem; }
+      .article-content { font-size: 0.94rem; line-height: 1.7; }
+      .article-content h2 { font-size: 1.08rem; }
+      .article-content h3 { font-size: 0.98rem; }
+      .article-content pre { padding: 12px 14px; font-size: 0.82rem; border-radius: 8px; }
+      .article-content blockquote { padding: 10px 14px; }
+      .article-content table { font-size: 0.84rem; }
+      .article-content th,
+      .article-content td  { padding: 8px 10px; }
+    }
+  </style>
+</head>
+<body>
+
+<%- include('../partials/header', { showFooterTopSection: showFooterTopSection }) %>
+
+<div class="article-page">
+
+  <!-- Back link -->
+  <a href="/legal/user-documentation" class="article-back">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="15 18 9 12 15 6"></polyline>
+    </svg>
+    Documentation
+  </a>
+
+  <% if (pageNotFound) { %>
+    <!-- 404 state -->
+    <div class="article-not-found">
+      <div class="article-not-found__icon">📄</div>
+      <h2>Article Not Found</h2>
+      <p>We couldn't find the article you were looking for.<br>It may have moved or been removed.</p>
+      <a href="/legal/user-documentation">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+        Back to Documentation
+      </a>
+    </div>
+
+  <% } else { %>
+
+    <% const article = selectedArticle; %>
+
+    <!-- Draft warning (admin only) -->
+    <% if (article.status === 'draft') { %>
+    <div class="draft-banner">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+      Draft — this article is not published. Only admins can view it.
+    </div>
+    <% } %>
+
+    <!-- Admin toolbar -->
+    <% if (documentationAdmin) { %>
+    <div class="article-admin-bar">
+      <span class="article-admin-bar__label">Admin</span>
+      <div class="article-admin-bar__btns">
+        <!-- Edit -->
+        <button type="button" class="admin-icon-btn" id="openEditPanel" title="Edit article">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <div class="admin-bar-sep"></div>
+        <!-- Publish / Unpublish -->
+        <button
+          type="button"
+          class="admin-icon-btn warn"
+          data-action="toggle-status"
+          data-id="<%= article.id %>"
+          data-current-status="<%= article.status %>"
+          title="<%= article.status === 'draft' ? 'Publish this article' : 'Unpublish (move to draft)' %>"
+        >
+          <% if (article.status === 'draft') { %>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          <% } else { %>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          <% } %>
+        </button>
+        <div class="admin-bar-sep"></div>
+        <!-- Delete -->
+        <button
+          type="button"
+          class="admin-icon-btn danger"
+          data-action="delete-article"
+          data-id="<%= article.id %>"
+          data-title="<%= article.title.replace(/"/g, '&quot;') %>"
+          title="Delete article"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        </button>
+      </div>
+    </div>
+    <% } %>
+
+    <!-- Breadcrumb -->
+    <% if (article.breadcrumb && article.breadcrumb.length > 1) { %>
+    <nav class="article-breadcrumb" aria-label="Breadcrumb">
+      <a href="/legal/user-documentation">Docs</a>
+      <% article.breadcrumb.forEach(function(crumb, i) { %>
+        <span>/</span>
+        <% if (i < article.breadcrumb.length - 1) { %>
+          <span><%= crumb %></span>
+        <% } else { %>
+          <span style="color:#374151;font-weight:600;"><%= crumb %></span>
+        <% } %>
+      <% }); %>
+    </nav>
+    <% } %>
+
+    <!-- Article header -->
+    <div class="article-header">
+      <div class="article-topic-badge">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+        </svg>
+        <%= article.subtopic ? article.topic + ' — ' + article.subtopic : article.topic %>
+      </div>
+
+      <h1 class="article-title"><%= article.title %></h1>
+
+      <div class="article-meta">
+        <% if (article.createdAt) { %>
+        <div class="article-meta-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+          <%
+            const artDate = new Date(article.updatedAt || article.createdAt);
+            const artDateStr = artDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          %>
+          Updated <%= artDateStr %>
+        </div>
+        <% } %>
+
+        <% if (article.helpfulYes + article.helpfulNo > 0) { %>
+        <div class="article-meta-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
+          </svg>
+          <%
+            const totalVotes = article.helpfulYes + article.helpfulNo;
+            const pct = totalVotes > 0 ? Math.round((article.helpfulYes / totalVotes) * 100) : 0;
+          %>
+          <%= pct %>% found this helpful
+        </div>
+        <% } %>
+      </div>
+
+      <% if (article.tags && article.tags.length > 0) { %>
+      <div class="article-tags">
+        <% article.tags.forEach(function(tag) { %>
+          <span class="article-tag"><%= tag %></span>
+        <% }); %>
+      </div>
+      <% } %>
+    </div>
+
+    <!-- Article content -->
+    <div class="article-body">
+      <div class="article-content">
+        <%- article.contentHtml %>
+      </div>
+    </div>
+
+    <!-- Was this helpful -->
+    <div class="article-helpful" id="helpfulWidget" data-article-id="<%= article.id %>">
+      <div class="article-helpful__label">
+        Was this article helpful?
+        <small>Your feedback helps us improve our documentation.</small>
+      </div>
+      <div class="article-helpful__btns" id="helpfulBtns">
+        <button type="button" class="helpful-btn" id="btnYes" data-vote="yes">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
+          </svg>
+          Yes
+          <span class="helpful-count" id="yesCount">(<%= article.helpfulYes %>)</span>
+        </button>
+        <button type="button" class="helpful-btn" id="btnNo" data-vote="no">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"></path>
+          </svg>
+          No
+          <span class="helpful-count" id="noCount">(<%= article.helpfulNo %>)</span>
+        </button>
+      </div>
+      <div class="helpful-thankyou" id="helpfulThankyou">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        Thanks for your feedback!
+      </div>
+    </div>
+
+  <% } %>
+
+</div>
+
+<%- include('../partials/footer', { showFooterTopSection: showFooterTopSection }) %>
+
+<!-- ── Edit slide-over (admin only) ──────────────── -->
+<% if (!pageNotFound && documentationAdmin) { %>
+<% const art = selectedArticle; %>
+<div class="edit-overlay" id="editOverlay" role="dialog" aria-modal="true" aria-label="Edit article">
+  <div class="edit-panel" id="editPanel">
+    <div class="edit-panel__head">
+      <h2>Edit Article</h2>
+      <button type="button" class="edit-panel__close" id="closeEditPanel" aria-label="Close">×</button>
+    </div>
+    <div class="edit-panel__body">
+      <input type="hidden" id="epArticleId" value="<%= art.id %>">
+
+      <div class="ep-form-row two-col">
+        <div class="ep-field">
+          <label for="epTitle">Title <span style="color:#dc2626">*</span></label>
+          <input type="text" id="epTitle" value="<%= art.title %>" maxlength="200">
+        </div>
+        <div class="ep-field">
+          <label for="epTopic">Topic <span style="color:#dc2626">*</span></label>
+          <input type="text" id="epTopic" value="<%= art.topic %>" maxlength="120">
+        </div>
+      </div>
+
+      <div class="ep-form-row two-col">
+        <div class="ep-field">
+          <label for="epSubtopic">Subtopic</label>
+          <input type="text" id="epSubtopic" value="<%= art.subtopic || '' %>" maxlength="120">
+        </div>
+        <div class="ep-field">
+          <label for="epStatus">Status</label>
+          <select id="epStatus">
+            <option value="active"<%= art.status !== 'draft' ? ' selected' : '' %>>Published</option>
+            <option value="draft"<%= art.status === 'draft' ? ' selected' : '' %>>Draft (hidden)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="ep-field">
+        <label for="epTags">Tags <span class="ep-field__hint">(comma separated)</span></label>
+        <input type="text" id="epTags" value="<%= (art.tags || []).join(', ') %>">
+      </div>
+
+      <div class="ep-field">
+        <label for="epSeo">SEO Description <span class="ep-field__hint">(optional)</span></label>
+        <textarea id="epSeo" rows="2" maxlength="320"><%= art.seoDescription || '' %></textarea>
+      </div>
+
+      <div class="ep-field">
+        <label>Content</label>
+        <div class="ep-editor-wrap">
+          <div class="ep-toolbar" id="epToolbar">
+            <button type="button" data-cmd="bold" title="Bold"><b>B</b></button>
+            <button type="button" data-cmd="italic" title="Italic"><i>I</i></button>
+            <button type="button" data-cmd="underline" title="Underline"><u>U</u></button>
+            <div class="sep"></div>
+            <button type="button" data-cmd="formatBlock" data-val="h2" title="Heading 2">H2</button>
+            <button type="button" data-cmd="formatBlock" data-val="h3" title="Heading 3">H3</button>
+            <button type="button" data-cmd="formatBlock" data-val="p" title="Paragraph">¶</button>
+            <div class="sep"></div>
+            <button type="button" data-cmd="insertUnorderedList" title="Bullet list">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="6" x2="20" y2="6"></line><line x1="9" y1="12" x2="20" y2="12"></line><line x1="9" y1="18" x2="20" y2="18"></line><circle cx="4" cy="6" r="1" fill="currentColor"></circle><circle cx="4" cy="12" r="1" fill="currentColor"></circle><circle cx="4" cy="18" r="1" fill="currentColor"></circle></svg>
+            </button>
+            <button type="button" data-cmd="insertOrderedList" title="Numbered list">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="6" x2="21" y2="6"></line><line x1="10" y1="12" x2="21" y2="12"></line><line x1="10" y1="18" x2="21" y2="18"></line><path d="M4 6h1v4"></path><path d="M4 10h2"></path><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"></path></svg>
+            </button>
+            <button type="button" data-cmd="formatBlock" data-val="blockquote" title="Blockquote">❝</button>
+            <div class="sep"></div>
+            <button type="button" id="epInsertLink" title="Link">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+            </button>
+            <button type="button" data-cmd="removeFormat" title="Clear format">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path></svg>
+            </button>
+            <div class="sep"></div>
+            <button type="button" id="epInsertImage" title="Insert image">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            </button>
+            <button type="button" id="epInsertVideo" title="Embed YouTube / Vimeo video">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+            </button>
+          </div>
+
+          <!-- Image picker -->
+          <div class="ep-mpick" id="epImgPick">
+            <div class="ep-mpick__head">
+              <span>Insert Image</span>
+              <button type="button" class="ep-mpick__close" data-close="epImgPick">&times;</button>
+            </div>
+            <div class="ep-mpick__tabs">
+              <button type="button" class="ep-mpick__tab active" data-for="epImgUploadP">Upload File</button>
+              <button type="button" class="ep-mpick__tab" data-for="epImgUrlP">Image URL</button>
+            </div>
+            <div class="ep-mpick__panel active" id="epImgUploadP">
+              <label class="ep-mpick__drop" id="epImgDrop">
+                <input type="file" id="epImgFileInp" accept="image/*" style="display:none">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <span id="epImgDropLabel">Click to select an image</span>
+              </label>
+              <div class="ep-mpick__row">
+                <input type="text" class="ep-mpick__inp" id="epImgAlt" placeholder="Alt text (recommended)">
+                <input type="text" class="ep-mpick__inp" id="epImgCaption" placeholder="Caption (optional)">
+              </div>
+              <div class="ep-mpick__foot">
+                <span class="ep-mpick__err" id="epImgUploadErr"></span>
+                <button type="button" class="ep-mpick__btn" id="epImgUploadBtn">Upload &amp; Insert</button>
+              </div>
+            </div>
+            <div class="ep-mpick__panel" id="epImgUrlP">
+              <input type="url" class="ep-mpick__inp" id="epImgUrlInp" placeholder="https://&#x2026; image URL">
+              <div class="ep-mpick__row">
+                <input type="text" class="ep-mpick__inp" id="epImgUrlAlt" placeholder="Alt text">
+                <input type="text" class="ep-mpick__inp" id="epImgUrlCap" placeholder="Caption (optional)">
+              </div>
+              <div class="ep-mpick__foot">
+                <span></span>
+                <button type="button" class="ep-mpick__btn" id="epImgUrlBtn">Insert Image</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Video embed picker -->
+          <div class="ep-mpick" id="epVidPick">
+            <div class="ep-mpick__head">
+              <span>Embed Video</span>
+              <button type="button" class="ep-mpick__close" data-close="epVidPick">&times;</button>
+            </div>
+            <div class="ep-mpick__panel active" style="display:flex">
+              <input type="url" class="ep-mpick__inp" id="epVidUrl" placeholder="https://www.youtube.com/watch?v=&#x2026; or youtu.be/&#x2026;">
+              <p class="ep-mpick__hint">Supports YouTube and Vimeo. Embeds as a responsive player.</p>
+              <div class="ep-mpick__foot">
+                <span class="ep-mpick__err" id="epVidErr"></span>
+                <button type="button" class="ep-mpick__btn" id="epVidEmbedBtn">Embed Video</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="ep-editor" id="epEditor" contenteditable="true"><%- art.contentHtml %></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="edit-panel__foot">
+      <span class="ep-error" id="epError"></span>
+      <button type="button" class="ep-btn-cancel" id="cancelEditPanel">Cancel</button>
+      <button type="button" class="ep-btn-save" id="saveEditBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        Save Changes
+      </button>
+    </div>
+  </div>
+</div>
+<% } %>
+
+<script>
+(function () {
+  // ── Helpful vote widget ──────────────────────────
+  const widget      = document.getElementById('helpfulWidget');
+  const btnYes      = document.getElementById('btnYes');
+  const btnNo       = document.getElementById('btnNo');
+  const yesCount    = document.getElementById('yesCount');
+  const noCount     = document.getElementById('noCount');
+  const thankYou    = document.getElementById('helpfulThankyou');
+  const helpfulBtns = document.getElementById('helpfulBtns');
+
+  if (widget && btnYes && btnNo) {
+    const articleId  = widget.dataset.articleId;
+    const storageKey = 'managira_helpful_' + articleId;
+
+    if (localStorage.getItem(storageKey)) {
+      const prior = localStorage.getItem(storageKey);
+      if (prior === 'yes') btnYes.classList.add('voted-yes');
+      if (prior === 'no')  btnNo.classList.add('voted-no');
+      btnYes.disabled = true;
+      btnNo.disabled  = true;
+    }
+
+    async function castVote(vote) {
+      btnYes.disabled = true;
+      btnNo.disabled  = true;
+      try {
+        const res = await fetch('/legal/user-documentation/api/helpful', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ articleId: Number(articleId), vote }),
+        });
+        const data = await res.json();
+        if (data.helpfulYes !== undefined) {
+          yesCount.textContent = '(' + data.helpfulYes + ')';
+          noCount.textContent  = '(' + data.helpfulNo  + ')';
+        }
+      } catch (_) {}
+      if (vote === 'yes') btnYes.classList.add('voted-yes');
+      else                btnNo.classList.add('voted-no');
+      localStorage.setItem(storageKey, vote);
+      helpfulBtns.style.display = 'none';
+      thankYou.style.display    = 'flex';
+    }
+
+    btnYes.addEventListener('click', function () { castVote('yes'); });
+    btnNo.addEventListener('click',  function () { castVote('no');  });
+  }
+
+  // ── Admin status toggle ──────────────────────────
+  document.querySelectorAll('[data-action="toggle-status"]').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+      const id      = btn.dataset.id;
+      const current = btn.dataset.currentStatus;
+      const next    = current === 'draft' ? 'active' : 'draft';
+      if (!confirm('Change status to "' + (next === 'active' ? 'Published' : 'Draft') + '"?')) return;
+      btn.disabled = true;
+      try {
+        const res  = await fetch('/legal/user-documentation/api/articles/' + id + '/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: next }),
+        });
+        const data = await res.json();
+        if (data.success) location.reload();
+        else alert(data.message || 'Failed to update status.');
+      } catch (_) { alert('Request failed.'); }
+      btn.disabled = false;
+    });
+  });
+
+  // ── Admin delete ─────────────────────────────────
+  document.querySelectorAll('[data-action="delete-article"]').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+      const id    = btn.dataset.id;
+      const title = btn.dataset.title;
+      if (!confirm('Permanently delete "' + title + '"? This cannot be undone.')) return;
+      btn.disabled = true;
+      try {
+        const res  = await fetch('/legal/user-documentation/api/articles/' + id + '/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        const data = await res.json();
+        if (data.success) window.location.href = '/legal/user-documentation';
+        else alert(data.message || 'Failed to delete article.');
+      } catch (_) { alert('Request failed.'); }
+      btn.disabled = false;
+    });
+  });
+
+  // ── Edit panel ───────────────────────────────────
+  const editOverlay  = document.getElementById('editOverlay');
+  if (!editOverlay) return;
+
+  const epEditor   = document.getElementById('epEditor');
+  const epError    = document.getElementById('epError');
+  const saveEditBtn = document.getElementById('saveEditBtn');
+
+  function openEdit() {
+    epError.style.display = 'none';
+    editOverlay.classList.add('is-open');
+    epEditor.focus();
+  }
+
+  function closeEdit() {
+    editOverlay.classList.remove('is-open');
+  }
+
+  document.getElementById('openEditPanel').addEventListener('click', openEdit);
+  document.getElementById('closeEditPanel').addEventListener('click', closeEdit);
+  document.getElementById('cancelEditPanel').addEventListener('click', closeEdit);
+
+  editOverlay.addEventListener('click', function (e) {
+    if (e.target === editOverlay) closeEdit();
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeEdit();
+  });
+
+  // Toolbar
+  document.getElementById('epToolbar').addEventListener('mousedown', function (e) {
+    const btn = e.target.closest('[data-cmd]');
+    if (!btn) return;
+    e.preventDefault();
+    document.execCommand(btn.dataset.cmd, false, btn.dataset.val || null);
+    epEditor.focus();
+  });
+
+  document.getElementById('epInsertLink').addEventListener('mousedown', function (e) {
+    e.preventDefault();
+    const url = prompt('Enter URL:');
+    if (url) document.execCommand('createLink', false, url);
+    epEditor.focus();
+  });
+
+  // ── Media picker helpers ─────────────────────────────────────────────────
+  let _epSavedRange = null;
+
+  // Track cursor whenever the editor loses focus (user clicks into a picker)
+  epEditor.addEventListener('blur', function () {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0 && epEditor.contains(sel.anchorNode)) {
+      _epSavedRange = sel.getRangeAt(0).cloneRange();
+    }
+  });
+
+  function epMediaInsert(html) {
+    epEditor.focus();
+    if (_epSavedRange) {
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(_epSavedRange);
+      _epSavedRange = null;
+    }
+    document.execCommand('insertHTML', false, html);
+  }
+
+  function epEsc(s) {
+    return String(s).replace(/[&<>"']/g, function(c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function epTogglePicker(id) {
+    ['epImgPick', 'epVidPick'].forEach(function(pid) {
+      const el = document.getElementById(pid);
+      if (pid === id) { el.classList.toggle('is-open'); }
+      else            { el.classList.remove('is-open'); }
+    });
+  }
+
+  // Close buttons
+  document.querySelectorAll('.ep-mpick__close').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      const id = btn.dataset.close;
+      if (id) document.getElementById(id).classList.remove('is-open');
+    });
+  });
+
+  // Tab switching
+  document.querySelectorAll('.ep-mpick__tab').forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      const panelId = tab.dataset.for;
+      const picker  = tab.closest('.ep-mpick');
+      picker.querySelectorAll('.ep-mpick__tab').forEach(function(t) { t.classList.remove('active'); });
+      picker.querySelectorAll('.ep-mpick__panel').forEach(function(p) { p.classList.remove('active'); });
+      tab.classList.add('active');
+      document.getElementById(panelId).classList.add('active');
+    });
+  });
+
+  // Open image picker (save cursor on mousedown before focus shifts)
+  document.getElementById('epInsertImage').addEventListener('mousedown', function(e) {
+    e.preventDefault();
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0 && epEditor.contains(sel.anchorNode)) {
+      _epSavedRange = sel.getRangeAt(0).cloneRange();
+    }
+    epTogglePicker('epImgPick');
+  });
+
+  // Open video picker
+  document.getElementById('epInsertVideo').addEventListener('mousedown', function(e) {
+    e.preventDefault();
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0 && epEditor.contains(sel.anchorNode)) {
+      _epSavedRange = sel.getRangeAt(0).cloneRange();
+    }
+    epTogglePicker('epVidPick');
+  });
+
+  // File input trigger
+  document.getElementById('epImgDrop').addEventListener('click', function() {
+    document.getElementById('epImgFileInp').click();
+  });
+  document.getElementById('epImgFileInp').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) document.getElementById('epImgDropLabel').textContent = file.name;
+  });
+
+  // Upload image to S3 and insert
+  document.getElementById('epImgUploadBtn').addEventListener('click', async function() {
+    const file  = document.getElementById('epImgFileInp').files[0];
+    const errEl = document.getElementById('epImgUploadErr');
+    errEl.textContent = '';
+    if (!file) { errEl.textContent = 'Please select an image first.'; return; }
+
+    const btn = document.getElementById('epImgUploadBtn');
+    btn.disabled = true;
+    btn.textContent = 'Uploading…';
+
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const alt     = document.getElementById('epImgAlt').value.trim();
+      const caption = document.getElementById('epImgCaption').value.trim();
+      if (alt)     fd.append('alt', alt);
+      if (caption) fd.append('caption', caption);
+
+      const res  = await fetch('/legal/user-documentation/api/media', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (!data.success) { errEl.textContent = data.message || 'Upload failed.'; return; }
+
+      epMediaInsert(data.html);
+      document.getElementById('epImgPick').classList.remove('is-open');
+      document.getElementById('epImgFileInp').value = '';
+      document.getElementById('epImgAlt').value = '';
+      document.getElementById('epImgCaption').value = '';
+      document.getElementById('epImgDropLabel').textContent = 'Click to select an image';
+    } catch (_) {
+      errEl.textContent = 'Network error. Please try again.';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Upload & Insert';
+    }
+  });
+
+  // Insert image by URL
+  document.getElementById('epImgUrlBtn').addEventListener('click', function() {
+    const url = document.getElementById('epImgUrlInp').value.trim();
+    if (!url) return;
+    const alt     = document.getElementById('epImgUrlAlt').value.trim();
+    const caption = document.getElementById('epImgUrlCap').value.trim();
+    const figcap  = caption ? `<figcaption>${epEsc(caption)}</figcaption>` : '';
+    const html = `<figure class="doc-media doc-image"><img class="doc-inline-image" src="${epEsc(url)}" alt="${epEsc(alt || 'Image')}">${figcap}</figure>`;
+    epMediaInsert(html);
+    document.getElementById('epImgPick').classList.remove('is-open');
+    document.getElementById('epImgUrlInp').value = '';
+    document.getElementById('epImgUrlAlt').value = '';
+    document.getElementById('epImgUrlCap').value = '';
+  });
+
+  // Embed YouTube / Vimeo video
+  document.getElementById('epVidEmbedBtn').addEventListener('click', function() {
+    const raw   = document.getElementById('epVidUrl').value.trim();
+    const errEl = document.getElementById('epVidErr');
+    errEl.textContent = '';
+    if (!raw) { errEl.textContent = 'Please enter a URL.'; return; }
+
+    let embedSrc = null;
+    const ytMatch = raw.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+    if (ytMatch) embedSrc = `https://www.youtube-nocookie.com/embed/${ytMatch[1]}`;
+    const viMatch = !ytMatch && raw.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+    if (viMatch) embedSrc = `https://player.vimeo.com/video/${viMatch[1]}`;
+
+    if (!embedSrc) { errEl.textContent = 'Could not parse a YouTube or Vimeo URL.'; return; }
+
+    const html = `<figure class="doc-media doc-video"><iframe class="doc-youtube-embed" src="${epEsc(embedSrc)}" title="Embedded video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe></figure>`;
+    epMediaInsert(html);
+    document.getElementById('epVidPick').classList.remove('is-open');
+    document.getElementById('epVidUrl').value = '';
+  });
+
+  // Save
+  saveEditBtn.addEventListener('click', async function () {
+    epError.style.display = 'none';
+    const id    = document.getElementById('epArticleId').value;
+    const title = document.getElementById('epTitle').value.trim();
+    const topic = document.getElementById('epTopic').value.trim();
+    if (!title) { showEpError('Title is required.'); return; }
+    if (!topic) { showEpError('Topic is required.'); return; }
+
+    saveEditBtn.disabled = true;
+    saveEditBtn.textContent = 'Saving…';
+
+    const payload = {
+      title,
+      topic,
+      subtopic: document.getElementById('epSubtopic').value.trim(),
+      status:   document.getElementById('epStatus').value,
+      tags:     document.getElementById('epTags').value.split(',').map(function(t){ return t.trim(); }).filter(Boolean),
+      seoDescription: document.getElementById('epSeo').value.trim(),
+      contentHtml: epEditor.innerHTML,
+    };
+
+    try {
+      const res  = await fetch('/legal/user-documentation/api/articles/' + id, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!data.success) { showEpError(data.message || 'Could not save.'); return; }
+      closeEdit();
+      window.location.href = '/legal/user-documentation/' + data.article.slug;
+    } catch (_) {
+      showEpError('Network error. Please try again.');
+    } finally {
+      saveEditBtn.disabled = false;
+      saveEditBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Save Changes';
+    }
+  });
+
+  function showEpError(msg) {
+    epError.textContent    = msg;
+    epError.style.display  = 'block';
+  }
+}());
+</script>
+
+</body>
+</html>

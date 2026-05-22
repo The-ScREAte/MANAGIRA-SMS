@@ -187,6 +187,18 @@
     }
     .result-link:hover { text-decoration: underline; }
 
+    .result-breadcrumb {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #01535b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 2px;
+    }
+
+    .result-doc-badge { background: #fef9ec; color: #92400e; }
+    .result-article-badge { background: #eef6f6; color: #01535b; }
+
     .empty-state {
       text-align: center;
       padding: 28px 16px;
@@ -576,67 +588,74 @@
       return { docHits, faqHits, tokens };
     }
 
+    // ── Shared doc/article card renderer ──────────────────────────────────
+    function renderDocCards(hits, tokens, block, out) {
+      if (!hits.length) { block.style.display = 'none'; return; }
+      block.style.display = '';
+      out.innerHTML = hits.map(function(h) {
+        const item = h.item || h;
+        const isArticle = !!item.isArticle;
+        const badgeCls  = isArticle ? 'result-badge result-article-badge' : 'result-badge doc result-doc-badge';
+        const extAttr   = item.external ? 'target="_blank" rel="noopener"' : '';
+        const cta       = isArticle ? 'Read article →' : (item.external ? 'Open ↗' : 'Open →');
+        const bcHtml    = item.breadcrumb
+          ? `<div class="result-breadcrumb">${escapeHtml(item.breadcrumb)}</div>`
+          : '';
+        return `
+          <div class="result-card">
+            <div class="result-title">
+              <span class="${badgeCls}">${isArticle ? 'Article' : 'Doc'}</span>
+              <a href="${escapeHtml(item.url)}" ${extAttr}>${escapeHtml(item.title)}</a>
+            </div>
+            ${bcHtml}
+            <div class="result-snippet">${highlight(item.subtitle || '', tokens)}</div>
+            <a class="result-link" href="${escapeHtml(item.url)}" ${extAttr}>${cta}</a>
+          </div>`;
+      }).join('');
+    }
+
+    let _liveAbort = null;
+
     function render(q) {
-      const meta = document.getElementById('searchMeta');
-      const wrap = document.getElementById('searchResults');
-      const def = document.getElementById('defaultBlock');
-      const docBlock = document.getElementById('docResultsBlock');
-      const faqBlock = document.getElementById('faqResultsBlock');
+      const meta       = document.getElementById('searchMeta');
+      const wrap       = document.getElementById('searchResults');
+      const def        = document.getElementById('defaultBlock');
+      const docBlock   = document.getElementById('docResultsBlock');
+      const faqBlock   = document.getElementById('faqResultsBlock');
       const emptyBlock = document.getElementById('emptyResultsBlock');
-      const docOut = document.getElementById('docResults');
-      const faqOut = document.getElementById('faqResults');
-      const clearBtn = document.getElementById('helpSearchClear');
+      const docOut     = document.getElementById('docResults');
+      const faqOut     = document.getElementById('faqResults');
+      const clearBtn   = document.getElementById('helpSearchClear');
 
       const trimmed = q.trim();
       if (trimmed.length === 0) {
         wrap.style.display = 'none';
-        def.style.display = '';
-        meta.textContent = 'Try: “register a school”, “report cards”, “bulk import”, “guardian portal”';
+        def.style.display  = '';
+        meta.textContent   = 'Try: "register a school", "report cards", "bulk import", "guardian portal"';
         clearBtn.style.display = 'none';
+        if (_liveAbort) { _liveAbort.abort(); _liveAbort = null; }
         return;
       }
 
       clearBtn.style.display = 'flex';
-      def.style.display = 'none';
+      def.style.display  = 'none';
       wrap.style.display = '';
 
-      const { docHits, faqHits, tokens } = search(trimmed);
-      const total = docHits.length + faqHits.length;
-      meta.textContent = total === 0
-        ? `No matches for “${trimmed}”.`
-        : `${total} result${total === 1 ? '' : 's'} for “${trimmed}”`;
+      const tokens = expandTokens(trimmed);
+      const { docHits, faqHits } = search(trimmed);
 
-      // Documentation
-      if (docHits.length) {
-        docBlock.style.display = '';
-        docOut.innerHTML = docHits.map(({item}) => `
-          <div class="result-card">
-            <div class="result-title">
-              <span class="result-badge doc">Doc</span>
-              <a href="${escapeHtml(item.url)}" ${item.external ? 'target="_blank" rel="noopener"' : ''}>${escapeHtml(item.title)}</a>
-            </div>
-            <div class="result-snippet">${highlight(item.subtitle || '', tokens)}</div>
-            <a class="result-link" href="${escapeHtml(item.url)}" ${item.external ? 'target="_blank" rel="noopener"' : ''}>
-              Open ${item.external ? '↗' : '→'}
-            </a>
-          </div>
-        `).join('');
-      } else {
-        docBlock.style.display = 'none';
-      }
-
-      // FAQ
+      // ── FAQ (immediate, local) ─────────────────────────────────────
       if (faqHits.length) {
         faqBlock.style.display = '';
-        faqOut.innerHTML = faqHits.map(({item}) => {
-          const faqUrl = '/legal/faq?q=' + encodeURIComponent(item.question);
+        faqOut.innerHTML = faqHits.map(function(h) {
+          const faqUrl = '/legal/faq?q=' + encodeURIComponent(h.item.question);
           return `
           <div class="result-card">
             <div class="result-title">
               <span class="result-badge">FAQ</span>
-              <a href="${faqUrl}">${escapeHtml(item.question)}</a>
+              <a href="${faqUrl}">${escapeHtml(h.item.question)}</a>
             </div>
-            <div class="result-snippet">${highlight(item.answer, tokens)}</div>
+            <div class="result-snippet">${highlight(h.item.answer, tokens)}</div>
             <a class="result-link" href="${faqUrl}">Read full answer →</a>
           </div>`;
         }).join('');
@@ -644,17 +663,71 @@
         faqBlock.style.display = 'none';
       }
 
-      emptyBlock.style.display = total === 0 ? '' : 'none';
+      // ── Static doc quick-links (immediate) ───────────────────────────
+      renderDocCards(docHits, tokens, docBlock, docOut);
+
+      const localTotal = docHits.length + faqHits.length;
+      meta.textContent = localTotal === 0
+        ? `Searching "${trimmed}"…`
+        : `${localTotal} result${localTotal !== 1 ? 's' : ''} for "${trimmed}"`;
+      emptyBlock.style.display = localTotal === 0 ? '' : 'none';
+
+      // ── Live database search (async API) ──────────────────────────────
+      if (_liveAbort) _liveAbort.abort();
+      if (trimmed.length < 2) return;
+      _liveAbort = new AbortController();
+      const captureQ      = trimmed;
+      const captureTokens = tokens;
+      const captureFaqLen = faqHits.length;
+
+      fetch('/legal/user-documentation/api/search?q=' + encodeURIComponent(trimmed), {
+        signal: _liveAbort.signal,
+        headers: { 'Accept': 'application/json' }
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data.success || !Array.isArray(data.articles)) return;
+        _liveAbort = null;
+
+        const articleHits = data.articles.map(function(a) {
+          return {
+            item: {
+              isArticle: true,
+              title:     a.title,
+              subtitle:  a.seoDescription || a.excerpt || '',
+              url:       '/legal/user-documentation/' + a.slug,
+              external:  false,
+              breadcrumb: [a.topic, a.subtopic].filter(Boolean).join(' / '),
+            }
+          };
+        });
+
+        // Live articles first, then static external quick-links
+        const combined = articleHits.concat(
+          docHits.filter(function(d) { return d.item.external; })
+        );
+
+        renderDocCards(combined, captureTokens, docBlock, docOut);
+
+        const total = combined.length + captureFaqLen;
+        meta.textContent = total === 0
+          ? `No matches for "${captureQ}".`
+          : `${total} result${total !== 1 ? 's' : ''} for "${captureQ}"`;
+        emptyBlock.style.display = total === 0 ? '' : 'none';
+      })
+      .catch(function(e) {
+        if (e.name !== 'AbortError') console.warn('Documentation search error:', e);
+      });
     }
 
-    const input = document.getElementById('helpSearch');
+    const input   = document.getElementById('helpSearch');
     const clearBtn = document.getElementById('helpSearchClear');
-    let t = null;
-    input.addEventListener('input', (e) => {
-      clearTimeout(t);
-      t = setTimeout(() => render(e.target.value), 90);
+    let _debounce = null;
+    input.addEventListener('input', function(e) {
+      clearTimeout(_debounce);
+      _debounce = setTimeout(function() { render(e.target.value); }, 120);
     });
-    clearBtn.addEventListener('click', () => {
+    clearBtn.addEventListener('click', function() {
       input.value = '';
       input.focus();
       render('');

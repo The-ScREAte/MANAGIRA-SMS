@@ -285,8 +285,16 @@ class ManagiraChatbot {
       this.requestController = null;
 
       if (data.success) {
-        if (data.results && data.results.length > 0) {
-          this.showFAQResults(data.results, data.contact);
+        const hasFAQResults = Array.isArray(data.results) && data.results.length > 0;
+        const hasDocumentationResults = Array.isArray(data.documentationResults) && data.documentationResults.length > 0;
+
+        if (hasFAQResults || hasDocumentationResults) {
+          this.showFAQResults(
+            data.results || [],
+            data.contact,
+            data.documentationResults || [],
+            data.message
+          );
         } else if (data.suggestions) {
           this.showSuggestions(data.message, data.suggestions, data.contact);
         } else {
@@ -358,37 +366,65 @@ class ManagiraChatbot {
     this.scrollToBottom();
   }
 
-  showFAQResults(results, contact) {
+  showFAQResults(results, contact, documentationResults, introMessage) {
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message message-bot';
 
     const bubbleDiv = document.createElement('div');
     bubbleDiv.className = 'message-bubble';
-    bubbleDiv.textContent = "Here's what I found — tap any item to see the full answer:";
-
-    const resultsDiv = document.createElement('div');
-    resultsDiv.className = 'faq-results';
+    bubbleDiv.textContent = introMessage || "Here's what I found — tap any item to see the full answer:";
 
     const escapeHtml = (s) => String(s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-    results.forEach(faq => {
-      const faqDiv = document.createElement('div');
-      faqDiv.className = 'faq-item';
-      faqDiv.innerHTML = `
-        <div class="faq-question">${escapeHtml(faq.question)}</div>
-        <div class="faq-category">${escapeHtml(faq.category || '')}</div>
-      `;
+    messageDiv.appendChild(bubbleDiv);
 
-      faqDiv.addEventListener('click', () => {
-        this.showFAQAnswer(faq);
+    if (Array.isArray(results) && results.length > 0) {
+      const resultsDiv = document.createElement('div');
+      resultsDiv.className = 'faq-results';
+
+      results.forEach(faq => {
+        const faqDiv = document.createElement('div');
+        faqDiv.className = 'faq-item';
+        faqDiv.innerHTML = `
+          <div class="faq-question">${escapeHtml(faq.question)}</div>
+          <div class="faq-category">${escapeHtml(faq.category || '')}</div>
+        `;
+
+        faqDiv.addEventListener('click', () => {
+          this.showFAQAnswer(faq);
+        });
+
+        resultsDiv.appendChild(faqDiv);
       });
 
-      resultsDiv.appendChild(faqDiv);
-    });
+      messageDiv.appendChild(resultsDiv);
+    }
 
-    messageDiv.appendChild(bubbleDiv);
-    messageDiv.appendChild(resultsDiv);
+    if (Array.isArray(documentationResults) && documentationResults.length > 0) {
+      const documentationSection = document.createElement('div');
+      documentationSection.className = 'chatbot-doc-results';
+
+      const documentationHeading = document.createElement('div');
+      documentationHeading.className = 'chatbot-doc-results__title';
+      documentationHeading.textContent = results.length > 0 ? 'Related documentation' : 'Documentation articles';
+      documentationSection.appendChild(documentationHeading);
+
+      documentationResults.forEach((article) => {
+        const articleCard = document.createElement('a');
+        articleCard.className = 'chatbot-doc-card';
+        articleCard.href = `/legal/user-documentation/${encodeURIComponent(article.slug)}`;
+        articleCard.innerHTML = `
+          <div class="chatbot-doc-card__meta">${escapeHtml([article.topic, article.subtopic].filter(Boolean).join(' / '))}</div>
+          <div class="chatbot-doc-card__title">${escapeHtml(article.title)}</div>
+          <div class="chatbot-doc-card__excerpt">${escapeHtml(article.excerpt || '')}</div>
+          <div class="chatbot-doc-card__cta">View Article <span aria-hidden="true">→</span></div>
+        `;
+        documentationSection.appendChild(articleCard);
+      });
+
+      messageDiv.appendChild(documentationSection);
+    }
 
     if (contact) {
       const contactDiv = document.createElement('div');

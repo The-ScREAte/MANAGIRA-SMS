@@ -1,6 +1,7 @@
 // Chatbot knowledge base. Kept separate from utils/managiraFAQ.js (which
 // powers the public FAQ page) so chatbot content can evolve independently.
 const managiraFAQ = require('../utils/managiraChatbotKnowledge');
+const { searchDocumentationArticles } = require('../utils/documentationCenter');
 
 // Synonym map for smarter matching
 const SYNONYMS = {
@@ -138,7 +139,8 @@ function basicStem(word) {
 
 class ChatbotController {
   // Search through FAQ based on user query
-  static searchFAQ(query) {
+  static searchFAQ(query, options = {}) {
+    const { includeFallback = true } = options;
     if (!query || query.trim().length === 0) {
       return [];
     }
@@ -268,8 +270,9 @@ class ChatbotController {
       }
     });
 
-    // If no results, return top 3 popular FAQs as fallback
-    if (results.length === 0) {
+    // Keep the optional fallback for non-search contexts, but allow the live
+    // chatbot flow to return a real miss so documentation or suggestions can take over.
+    if (results.length === 0 && includeFallback) {
       return managiraFAQ.slice(0, 3);
     }
 
@@ -280,7 +283,7 @@ class ChatbotController {
   }
 
   // Get response for user query
-  static getResponse(req, res) {
+  static async getResponse(req, res) {
     try {
       const { query } = req.body;
 
@@ -291,14 +294,30 @@ class ChatbotController {
         });
       }
 
-      // Search FAQ first — if we find results, the query IS Managira-related
-      const results = ChatbotController.searchFAQ(query);
+      const faqResults = ChatbotController.searchFAQ(query, { includeFallback: false });
+      const documentationResults = await searchDocumentationArticles(query, {
+        includeDrafts: false,
+        limit: 3,
+      });
 
-      if (results.length > 0) {
+      if (faqResults.length > 0 || documentationResults.length > 0) {
         return res.json({
           success: true,
-          results: results,
-          contact: results.length < 3 ? "For more information, contact us at info@managira.com" : null
+          message: faqResults.length > 0
+            ? "Here's what I found — tap any FAQ item to see the full answer, or open a related guide."
+            : "I found related documentation articles that should help with that workflow.",
+          results: faqResults,
+          documentationResults: documentationResults.map((article) => ({
+            id: article.id,
+            slug: article.slug,
+            title: article.title,
+            topic: article.topic,
+            subtopic: article.subtopic,
+            excerpt: article.excerpt,
+          })),
+          contact: (faqResults.length + documentationResults.length) < 3
+            ? "For more information, contact us at info@managira.com"
+            : null
         });
       }
 
