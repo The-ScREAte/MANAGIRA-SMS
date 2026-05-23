@@ -360,7 +360,8 @@
       const q = params.get('q');
       if (q) {
         searchBar.value = q;
-        runFaqSearch(q);
+        // Delay so the page fully renders before scrolling
+        setTimeout(function() { runFaqSearch(q); }, 120);
       }
     })();
   </script>

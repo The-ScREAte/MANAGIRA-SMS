@@ -285,23 +285,15 @@ class ManagiraChatbot {
       this.requestController = null;
 
       if (data.success) {
-        const hasFAQResults = Array.isArray(data.results) && data.results.length > 0;
-        const hasDocumentationResults = Array.isArray(data.documentationResults) && data.documentationResults.length > 0;
-
-        if (hasFAQResults || hasDocumentationResults) {
-          this.showFAQResults(
-            data.results || [],
-            data.contact,
-            data.documentationResults || [],
-            data.message
-          );
-        } else if (data.suggestions) {
-          this.showSuggestions(data.message, data.suggestions, data.contact);
+        if (data.type === 'results') {
+          this.showSearchResults(data.summary, data.faqHits || [], data.docHits || []);
+        } else if (data.type === 'no_results') {
+          this.showNoResults(data.message, data.links || []);
         } else {
           this.addMessage(data.message, 'bot');
         }
       } else {
-        this.addMessage(data.message, 'bot');
+        this.showErrorLinks(data.message, data.links || []);
       }
     } catch (error) {
       if (error.name === 'AbortError') {
@@ -366,79 +358,113 @@ class ManagiraChatbot {
     this.scrollToBottom();
   }
 
-  showFAQResults(results, contact, documentationResults, introMessage) {
+  showSearchResults(summary, faqHits, docHits) {
+    const escape = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message message-bot';
 
     const bubbleDiv = document.createElement('div');
     bubbleDiv.className = 'message-bubble';
-    bubbleDiv.textContent = introMessage || "Here's what I found — tap any item to see the full answer:";
-
-    const escapeHtml = (s) => String(s)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
+    bubbleDiv.textContent = summary;
     messageDiv.appendChild(bubbleDiv);
 
-    if (Array.isArray(results) && results.length > 0) {
-      const resultsDiv = document.createElement('div');
-      resultsDiv.className = 'faq-results';
-
-      results.forEach(faq => {
-        const faqDiv = document.createElement('div');
-        faqDiv.className = 'faq-item';
-        faqDiv.innerHTML = `
-          <div class="faq-question">${escapeHtml(faq.question)}</div>
-          <div class="faq-category">${escapeHtml(faq.category || '')}</div>
-        `;
-
-        faqDiv.addEventListener('click', () => {
-          this.showFAQAnswer(faq);
-        });
-
-        resultsDiv.appendChild(faqDiv);
+    if (faqHits.length > 0) {
+      const section = document.createElement('div');
+      section.className = 'chatbot-results-section';
+      const heading = document.createElement('div');
+      heading.className = 'chatbot-results-heading';
+      heading.textContent = 'From the FAQ';
+      section.appendChild(heading);
+      faqHits.forEach((hit) => {
+        const a = document.createElement('a');
+        a.className = 'chatbot-result-card chatbot-result-card--faq';
+        a.href = hit.url;
+        a.innerHTML = `<span class="chatbot-result-card__type">FAQ</span><span class="chatbot-result-card__title">${escape(hit.question)}</span><span class="chatbot-result-card__cta">Read →</span>`;
+        section.appendChild(a);
       });
-
-      messageDiv.appendChild(resultsDiv);
+      messageDiv.appendChild(section);
     }
 
-    if (Array.isArray(documentationResults) && documentationResults.length > 0) {
-      const documentationSection = document.createElement('div');
-      documentationSection.className = 'chatbot-doc-results';
-
-      const documentationHeading = document.createElement('div');
-      documentationHeading.className = 'chatbot-doc-results__title';
-      documentationHeading.textContent = results.length > 0 ? 'Related documentation' : 'Documentation articles';
-      documentationSection.appendChild(documentationHeading);
-
-      documentationResults.forEach((article) => {
-        const articleCard = document.createElement('a');
-        articleCard.className = 'chatbot-doc-card';
-        articleCard.href = `/legal/user-documentation/${encodeURIComponent(article.slug)}`;
-        articleCard.innerHTML = `
-          <div class="chatbot-doc-card__meta">${escapeHtml([article.topic, article.subtopic].filter(Boolean).join(' / '))}</div>
-          <div class="chatbot-doc-card__title">${escapeHtml(article.title)}</div>
-          <div class="chatbot-doc-card__excerpt">${escapeHtml(article.excerpt || '')}</div>
-          <div class="chatbot-doc-card__cta">View Article <span aria-hidden="true">→</span></div>
-        `;
-        documentationSection.appendChild(articleCard);
+    if (docHits.length > 0) {
+      const section = document.createElement('div');
+      section.className = 'chatbot-results-section';
+      const heading = document.createElement('div');
+      heading.className = 'chatbot-results-heading';
+      heading.textContent = 'From Documentation';
+      section.appendChild(heading);
+      docHits.forEach((hit) => {
+        const a = document.createElement('a');
+        a.className = 'chatbot-result-card chatbot-result-card--article';
+        a.href = hit.url;
+        const excerptHtml = hit.excerpt
+          ? `<span class="chatbot-result-card__excerpt">${escape(hit.excerpt.slice(0, 90))}${hit.excerpt.length > 90 ? '\u2026' : ''}</span>`
+          : '';
+        a.innerHTML = `<span class="chatbot-result-card__type">Article</span><span class="chatbot-result-card__title">${escape(hit.title)}</span>${excerptHtml}<span class="chatbot-result-card__cta">Read →</span>`;
+        section.appendChild(a);
       });
-
-      messageDiv.appendChild(documentationSection);
+      messageDiv.appendChild(section);
     }
 
-    if (contact) {
-      const contactDiv = document.createElement('div');
-      contactDiv.className = 'contact-info';
-      contactDiv.textContent = contact;
-      messageDiv.appendChild(contactDiv);
-    }
-
+    const meta = document.createElement('div');
+    meta.className = 'message-meta';
+    meta.textContent = 'Managira • ' + this.formatTime(new Date());
+    messageDiv.appendChild(meta);
     this.messagesContainer.appendChild(messageDiv);
     this.scrollToBottom();
   }
 
-  showFAQAnswer(faq) {
-    this.addMessage(faq.answer, 'bot');
+  showNoResults(message, links) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message message-bot';
+    const bubble = document.createElement('div');
+    bubble.className = 'message-bubble';
+    bubble.textContent = message;
+    messageDiv.appendChild(bubble);
+    if (links.length > 0) {
+      const linksDiv = document.createElement('div');
+      linksDiv.className = 'chatbot-browse-links';
+      links.forEach((l) => {
+        const a = document.createElement('a');
+        a.className = 'chatbot-browse-link';
+        a.href = l.url;
+        a.textContent = l.label;
+        linksDiv.appendChild(a);
+      });
+      messageDiv.appendChild(linksDiv);
+    }
+    const meta = document.createElement('div');
+    meta.className = 'message-meta';
+    meta.textContent = 'Managira • ' + this.formatTime(new Date());
+    messageDiv.appendChild(meta);
+    this.messagesContainer.appendChild(messageDiv);
+    this.scrollToBottom();
+  }
+
+  showErrorLinks(message, links) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message message-bot';
+    const bubble = document.createElement('div');
+    bubble.className = 'message-bubble';
+    bubble.textContent = message || "I'm having trouble right now. Try these links:";
+    messageDiv.appendChild(bubble);
+    if (links.length > 0) {
+      const linksDiv = document.createElement('div');
+      linksDiv.className = 'chatbot-browse-links';
+      links.forEach((l) => {
+        const a = document.createElement('a');
+        a.className = 'chatbot-browse-link';
+        a.href = l.url;
+        a.textContent = l.label;
+        linksDiv.appendChild(a);
+      });
+      messageDiv.appendChild(linksDiv);
+    }
+    const meta = document.createElement('div');
+    meta.className = 'message-meta';
+    meta.textContent = 'Managira • ' + this.formatTime(new Date());
+    messageDiv.appendChild(meta);
+    this.messagesContainer.appendChild(messageDiv);
+    this.scrollToBottom();
   }
 
   showSuggestions(message, suggestions, contact) {
@@ -520,8 +546,8 @@ class ManagiraChatbot {
     const welcomeDiv = document.createElement('div');
     welcomeDiv.className = 'welcome-message';
     welcomeDiv.innerHTML = `
-      <h4>👋 Hi! I’m the Managira assistant.</h4>
-      <p>Ask me anything about the platform, or pick a question below to get started.</p>
+      <h4>Managira Help</h4>
+      <p>Ask anything and I'll try to help.</p>
     `;
     
     this.messagesContainer.appendChild(welcomeDiv);
@@ -547,20 +573,15 @@ class ManagiraChatbot {
     popularDiv.className = 'popular-questions';
     
     const titleDiv = document.createElement('h5');
-    titleDiv.textContent = 'Popular Questions:';
+    titleDiv.textContent = 'Popular topics:';
     popularDiv.appendChild(titleDiv);
     
-    questions.forEach(question => {
-      const questionDiv = document.createElement('div');
-      questionDiv.className = 'popular-question';
-      questionDiv.textContent = question.question;
-      
-      questionDiv.addEventListener('click', async () => {
-        this.input.value = question.question;
-        await this.sendMessage();
-      });
-      
-      popularDiv.appendChild(questionDiv);
+    questions.forEach((q) => {
+      const a = document.createElement('a');
+      a.className = 'popular-question popular-question--link';
+      a.href = q.url;
+      a.textContent = q.question;
+      popularDiv.appendChild(a);
     });
     
     this.messagesContainer.appendChild(popularDiv);

@@ -1,393 +1,139 @@
-// Chatbot knowledge base. Kept separate from utils/managiraFAQ.js (which
-// powers the public FAQ page) so chatbot content can evolve independently.
-const managiraFAQ = require('../utils/managiraChatbotKnowledge');
+﻿// Chatbot controller â€” searches the public FAQ and documentation articles,
+// then returns links so users read the full answer on the source page.
+const managiraFAQ = require('../utils/managiraFAQ');
 const { searchDocumentationArticles } = require('../utils/documentationCenter');
 
-// Synonym map for smarter matching
-const SYNONYMS = {
-  'price': ['pricing', 'cost', 'fee', 'billing', 'payment', 'subscription', 'plan', 'charge'],
-  'pricing': ['price', 'cost', 'fee', 'billing', 'payment', 'subscription', 'plan'],
-  'cost': ['price', 'pricing', 'fee', 'billing', 'payment', 'charge'],
-  'fee': ['price', 'pricing', 'cost', 'billing', 'payment', 'tuition', 'charge'],
-  'pay': ['payment', 'billing', 'fee', 'cost', 'price', 'subscription'],
-  'money': ['payment', 'billing', 'fee', 'cost', 'price'],
-  'login': ['sign in', 'log in', 'access', 'authenticate', 'password'],
-  'signin': ['login', 'log in', 'access', 'authenticate'],
-  'signup': ['register', 'registration', 'create account', 'sign up'],
-  'register': ['signup', 'sign up', 'create account', 'registration', 'enroll'],
-  'password': ['login', 'forgot', 'reset', 'credentials', 'sign in'],
-  'forgot': ['forget', 'reset', 'lost', 'password'],
-  'forget': ['forgot', 'reset', 'lost', 'password'],
-  'reset': ['forgot', 'forget', 'change', 'password', 'restore'],
-  'kid': ['child', 'student', 'son', 'daughter', 'children', 'kids'],
-  'child': ['kid', 'student', 'son', 'daughter', 'children', 'kids'],
-  'children': ['kids', 'students', 'child', 'kid'],
-  'parent': ['guardian', 'mother', 'father', 'family', 'mom', 'dad'],
-  'guardian': ['parent', 'mother', 'father', 'family'],
-  'mom': ['parent', 'guardian', 'mother'],
-  'dad': ['parent', 'guardian', 'father'],
-  'teacher': ['educator', 'staff', 'instructor', 'faculty'],
-  'educator': ['teacher', 'staff', 'instructor', 'faculty'],
-  'staff': ['teacher', 'educator', 'employee', 'faculty', 'worker'],
-  'employee': ['staff', 'teacher', 'worker', 'hire'],
-  'grade': ['mark', 'score', 'result', 'assessment', 'performance', 'grades'],
-  'grades': ['grade', 'marks', 'scores', 'results', 'assessments', 'performance'],
-  'mark': ['grade', 'score', 'result', 'assessment'],
-  'score': ['grade', 'mark', 'result', 'performance'],
-  'report': ['report card', 'merit sheet', 'transcript', 'results', 'statement'],
-  'attendance': ['present', 'absent', 'roll call', 'check in'],
-  'absent': ['attendance', 'missing', 'away'],
-  'present': ['attendance', 'here', 'check in'],
-  'class': ['classroom', 'course', 'subject', 'section', 'grade level'],
-  'subject': ['class', 'course', 'topic'],
-  'school': ['institution', 'organization', 'academy', 'college', 'centre'],
-  'institution': ['school', 'organization', 'academy'],
-  'hub': ['government', 'district', 'network', 'ministry', 'oversight', 'central'],
-  'government': ['hub', 'ministry', 'district', 'department'],
-  'trial': ['free', 'demo', 'try', 'test'],
-  'free': ['trial', 'demo', 'no cost', 'complimentary'],
-  'data': ['information', 'records', 'details'],
-  'export': ['download', 'extract', 'csv', 'pdf', 'backup'],
-  'download': ['export', 'extract', 'save', 'get'],
-  'secure': ['security', 'safe', 'protected', 'encryption', 'privacy'],
-  'security': ['secure', 'safe', 'protected', 'encryption', 'privacy'],
-  'safe': ['security', 'secure', 'protected'],
-  'permission': ['permissions', 'access', 'role', 'authorization', 'rbac'],
-  'permissions': ['permission', 'access', 'roles', 'authorization', 'rbac'],
-  'role': ['roles', 'permission', 'access', 'position', 'title'],
-  'roles': ['role', 'permissions', 'access', 'positions'],
-  'help': ['support', 'assist', 'contact', 'question'],
-  'support': ['help', 'assist', 'contact', 'service'],
-  'contact': ['support', 'help', 'email', 'reach', 'call'],
-  'announcement': ['announcements', 'news', 'update', 'notice', 'event'],
-  'event': ['events', 'announcement', 'activity', 'happening'],
-  'website': ['site', 'page', 'portal', 'public dashboard', 'web'],
-  'portal': ['website', 'dashboard', 'platform', 'site'],
-  'file': ['files', 'document', 'documents', 'spreadsheet', 'sheet'],
-  'document': ['documents', 'file', 'files', 'sheet', 'spreadsheet'],
-  'spreadsheet': ['spreadsheets', 'sheet', 'sheets', 'file', 'excel', 'cells'],
-  'formula': ['formulas', 'sum', 'average', 'count', 'calculate', 'calculation'],
-  'calculate': ['formula', 'sum', 'average', 'count', 'compute'],
-  'transcript': ['transcripts', 'academic record', 'academic history', 'report'],
-  'enroll': ['enrollment', 'enrolment', 'register', 'admission', 'apply'],
-  'enrollment': ['enroll', 'enrolment', 'register', 'admission', 'application'],
-  'admission': ['enrollment', 'enroll', 'apply', 'application', 'register'],
-  'apply': ['application', 'admission', 'enrollment', 'enroll'],
-  'promote': ['promotion', 'advance', 'next year', 'next grade', 'progress'],
-  'promotion': ['promote', 'advance', 'next year', 'progress'],
-  'customise': ['customize', 'personalise', 'personalize', 'brand', 'logo', 'theme'],
-  'customize': ['customise', 'personalise', 'personalize', 'brand', 'logo', 'theme'],
-  'logo': ['brand', 'customise', 'customize', 'branding', 'personalise'],
-  'brand': ['branding', 'logo', 'customise', 'customize', 'colour', 'color', 'theme'],
-  'colour': ['color', 'theme', 'brand', 'customise'],
-  'color': ['colour', 'theme', 'brand', 'customize'],
-  'mobile': ['phone', 'tablet', 'device', 'responsive', 'app'],
-  'phone': ['mobile', 'device', 'cell'],
-  'device': ['mobile', 'phone', 'tablet', 'desktop', 'laptop'],
-  'work': ['function', 'operate', 'use', 'how'],
-  'start': ['begin', 'setup', 'get started', 'onboard'],
-  'setup': ['start', 'begin', 'configure', 'install', 'onboard'],
-  'change': ['update', 'modify', 'edit', 'switch'],
-  'update': ['change', 'modify', 'edit', 'upgrade'],
-  'delete': ['remove', 'cancel', 'deactivate'],
-  'remove': ['delete', 'cancel', 'deactivate'],
-  'cancel': ['delete', 'remove', 'stop', 'end', 'unsubscribe'],
-  'manage': ['management', 'handle', 'administer', 'control', 'organize'],
-  'management': ['manage', 'handling', 'administration', 'control'],
-  'add': ['create', 'new', 'insert', 'include'],
-  'create': ['add', 'new', 'make', 'build', 'set up'],
-  'invite': ['invitation', 'add', 'send', 'join'],
-  'join': ['invite', 'connect', 'link', 'attach'],
-  'term': ['semester', 'quarter', 'period', 'academic term'],
-  'semester': ['term', 'quarter', 'period'],
-  'year': ['academic year', 'school year', 'annual'],
-  'documentation': ['docs', 'guide', 'manual', 'user guide', 'help guide', 'tutorial', 'instructions'],
-  'guide': ['documentation', 'manual', 'tutorial', 'instructions', 'help'],
-  'manual': ['documentation', 'guide', 'tutorial', 'instructions'],
-  'tutorial': ['guide', 'documentation', 'manual', 'instructions', 'video'],
-  'record': ['records', 'data', 'information', 'history', 'log'],
-  'print': ['download', 'export', 'pdf', 'hard copy'],
-  'bulk': ['import', 'batch', 'mass', 'multiple', 'many'],
-  'import': ['bulk', 'upload', 'migrate', 'csv'],
-  'donate': ['donation', 'donations', 'contribute', 'give', 'fund'],
-  'donation': ['donate', 'donations', 'contribute', 'give', 'fund'],
-  'employ': ['employment', 'job', 'hire', 'career', 'work', 'vacancy'],
-  'employment': ['employ', 'job', 'hire', 'career', 'vacancy', 'apply'],
-  'job': ['employment', 'career', 'hire', 'work', 'vacancy', 'position'],
-  'hire': ['employment', 'job', 'recruit', 'staff'],
-};
-
-// Common word stems for basic stemming
-function basicStem(word) {
-  return word
-    .replace(/ies$/, 'y')
-    .replace(/tion$/, 't')
-    .replace(/sion$/, 's')
-    .replace(/ment$/, '')
-    .replace(/ness$/, '')
-    .replace(/ing$/, '')
-    .replace(/ous$/, '')
-    .replace(/ful$/, '')
-    .replace(/able$/, '')
-    .replace(/ible$/, '')
-    .replace(/ly$/, '')
-    .replace(/ed$/, '')
-    .replace(/er$/, '')
-    .replace(/est$/, '')
-    .replace(/s$/, '');
-}
+const _normalize = (s) => s.toLowerCase().replace(/[^a-z0-9\s]+/g, ' ').trim();
 
 class ChatbotController {
-  // Search through FAQ based on user query
-  static searchFAQ(query, options = {}) {
-    const { includeFallback = true } = options;
-    if (!query || query.trim().length === 0) {
-      return [];
-    }
+  /**
+   * Score a public FAQ entry against the query.
+   * Checks: question substring, keyword overlap, category, answer.
+   */
+  static _scoreFAQ(faq, nq, terms) {
+    let score = 0;
+    const nQuestion = _normalize(faq.question);
+    const nAnswer = _normalize(faq.answer);
+    const nCategory = _normalize(faq.category || '');
 
-    const normalize = (str) => str.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-    const normalizedQuery = normalize(query);
+    if (nq.length > 2 && nQuestion.includes(nq)) score += 50;
 
-    const searchTerms = normalizedQuery
-      .split(' ')
-      .filter(term => term.length > 1); // Allow 2-char terms like "id", "ok"
-
-    // Expand search terms with synonyms
-    const expandedTerms = new Set(searchTerms);
-    searchTerms.forEach(term => {
-      // Direct synonym lookup
-      if (SYNONYMS[term]) {
-        SYNONYMS[term].forEach(syn => expandedTerms.add(syn));
-      }
-      // Stemmed synonym lookup
-      const stemmed = basicStem(term);
-      if (stemmed !== term && SYNONYMS[stemmed]) {
-        SYNONYMS[stemmed].forEach(syn => expandedTerms.add(syn));
-      }
+    terms.forEach((term) => {
+      if (nQuestion.includes(term)) score += 5;
+      if (nCategory.includes(term)) score += 2;
+      if (nAnswer.includes(term)) score += 1;
+      (faq.keywords || []).forEach((kw) => {
+        const nkw = _normalize(kw);
+        if (nkw.includes(term) || term.includes(nkw)) score += 3;
+      });
     });
 
-    const results = [];
-
-    managiraFAQ.forEach(faq => {
-      let score = 0;
-
-      const normalizedQuestion = normalize(faq.question);
-      const normalizedAnswer = normalize(faq.answer);
-      const normalizedCategory = normalize(faq.category);
-
-      // Exact match on full question
-      if (normalizedQuery === normalizedQuestion) {
-        score += 100;
-      }
-
-      // Check if query is a substring of the question or vice versa
-      if (normalizedQuestion.includes(normalizedQuery) && normalizedQuery.length > 3) {
-        score += 50;
-      }
-      if (normalizedQuery.includes(normalizedQuestion) && normalizedQuestion.length > 3) {
-        score += 40;
-      }
-
-      // Exact match on any keyword
-      faq.keywords.forEach(keyword => {
-        const normalizedKeyword = normalize(keyword);
-        if (normalizedQuery === normalizedKeyword) {
-          score += 80;
-        }
-        // Query contains full keyword
-        if (normalizedQuery.includes(normalizedKeyword) && normalizedKeyword.length > 2) {
-          score += 30;
-        }
-        // Keyword contains full query
-        if (normalizedKeyword.includes(normalizedQuery) && normalizedQuery.length > 2) {
-          score += 25;
-        }
-      });
-
-      // Original terms matching (higher weight)
-      searchTerms.forEach(term => {
-        const stemmedTerm = basicStem(term);
-        // Question matching
-        if (normalizedQuestion.includes(term)) {
-          score += 5;
-        } else {
-          // Stemmed question matching
-          const questionWords = normalizedQuestion.split(' ');
-          if (questionWords.some(w => basicStem(w) === stemmedTerm)) {
-            score += 3;
-          }
-        }
-      });
-
-      // Keyword matching with stems
-      faq.keywords.forEach(keyword => {
-        const normalizedKeyword = normalize(keyword);
-        const keywordWords = normalizedKeyword.split(' ');
-
-        searchTerms.forEach(term => {
-          const stemmedTerm = basicStem(term);
-          if (normalizedKeyword.includes(term) || term.includes(normalizedKeyword)) {
-            score += 4;
-          } else if (keywordWords.some(w => basicStem(w) === stemmedTerm)) {
-            score += 3;
-          }
-        });
-      });
-
-      // Expanded synonym terms matching (lower weight than direct matches)
-      expandedTerms.forEach(synTerm => {
-        if (searchTerms.includes(synTerm)) return; // Skip original terms already scored
-
-        if (normalizedQuestion.includes(synTerm)) {
-          score += 3;
-        }
-        if (normalizedAnswer.includes(synTerm)) {
-          score += 1;
-        }
-        faq.keywords.forEach(keyword => {
-          if (normalize(keyword).includes(synTerm)) {
-            score += 2;
-          }
-        });
-      });
-
-      // Answer content matching
-      searchTerms.forEach(term => {
-        if (normalizedAnswer.includes(term)) {
-          score += 1;
-        }
-      });
-
-      // Category matching
-      searchTerms.forEach(term => {
-        if (normalizedCategory.includes(term)) {
-          score += 2;
-        }
-      });
-
-      if (score > 0) {
-        results.push({ ...faq, score });
-      }
-    });
-
-    // Keep the optional fallback for non-search contexts, but allow the live
-    // chatbot flow to return a real miss so documentation or suggestions can take over.
-    if (results.length === 0 && includeFallback) {
-      return managiraFAQ.slice(0, 3);
-    }
-
-    return results
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5)
-      .map(({ score, ...faq }) => faq);
+    return score;
   }
 
-  // Get response for user query
   static async getResponse(req, res) {
     try {
       const { query } = req.body;
-
       if (!query || query.trim().length === 0) {
-        return res.json({
-          success: false,
-          message: "Please enter a question about Managira."
-        });
+        return res.json({ success: false, message: 'Please enter a question.' });
       }
 
-      const faqResults = ChatbotController.searchFAQ(query, { includeFallback: false });
-      const documentationResults = await searchDocumentationArticles(query, {
+      const q = query.trim();
+      const nq = _normalize(q);
+      const terms = nq.split(/\s+/).filter((t) => t.length > 1);
+
+      // â”€â”€ Search public FAQ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      const faqHits = managiraFAQ
+        .map((item) => ({ item, score: ChatbotController._scoreFAQ(item, nq, terms) }))
+        .filter((r) => r.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 4)
+        .map((r) => ({
+          question: r.item.question,
+          category: r.item.category,
+          url: '/legal/faq?q=' + encodeURIComponent(r.item.question),
+        }));
+
+      // â”€â”€ Search documentation articles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      const docArticles = await searchDocumentationArticles(q, {
         includeDrafts: false,
         limit: 3,
       });
 
-      if (faqResults.length > 0 || documentationResults.length > 0) {
+      const docHits = docArticles.map((a) => ({
+        title: a.title,
+        topic: a.topic,
+        subtopic: a.subtopic,
+        excerpt: a.seoDescription || a.excerpt || '',
+        url: '/legal/user-documentation/' + a.slug,
+      }));
+
+      const total = faqHits.length + docHits.length;
+      if (total === 0) {
         return res.json({
           success: true,
-          message: faqResults.length > 0
-            ? "Here's what I found — tap any FAQ item to see the full answer, or open a related guide."
-            : "I found related documentation articles that should help with that workflow.",
-          results: faqResults,
-          documentationResults: documentationResults.map((article) => ({
-            id: article.id,
-            slug: article.slug,
-            title: article.title,
-            topic: article.topic,
-            subtopic: article.subtopic,
-            excerpt: article.excerpt,
-          })),
-          contact: (faqResults.length + documentationResults.length) < 3
-            ? "For more information, contact us at info@managira.com"
-            : null
+          type: 'no_results',
+          message: "I searched our FAQ and documentation but couldn't find anything specific for that. Try rephrasing, or browse directly:",
+          links: [
+            { label: 'Browse FAQ', url: '/legal/faq' },
+            { label: 'View Documentation', url: '/legal/user-documentation' },
+            { label: 'Help Centre', url: '/legal/help' },
+          ],
         });
       }
 
-      // No results found — offer suggestions
-      return res.json({
-        success: true,
-        message: "I couldn't find specific information about that. Here are some ways I can help:",
-        suggestions: [
-          "How do I register my school?",
-          "How does billing and payment work?",
-          "How do parents access their child's information?",
-          "How do roles and permissions work?",
-          "How do files and spreadsheets work?"
-        ],
-        contact: "For more detailed assistance, please contact our support team at info@managira.com"
-      });
+      let summary;
+      if (faqHits.length > 0 && docHits.length > 0) {
+        summary = `I found ${faqHits.length} FAQ result${faqHits.length !== 1 ? 's' : ''} and ${docHits.length} guide${docHits.length !== 1 ? 's' : ''}. Click any link to read the full answer.`;
+      } else if (faqHits.length > 0) {
+        summary = `I found ${faqHits.length} FAQ result${faqHits.length !== 1 ? 's' : ''}. Click to open the full answer on the FAQ page.`;
+      } else {
+        summary = `I found ${docHits.length} documentation article${docHits.length !== 1 ? 's' : ''} that should help. Click to read.`;
+      }
 
+      return res.json({ success: true, type: 'results', summary, faqHits, docHits });
     } catch (error) {
       return res.json({
         success: false,
-        message: "I'm having trouble processing your request. Please try again or contact support at info@managira.com"
+        message: "I'm having trouble searching right now. Please visit our FAQ or documentation directly.",
+        links: [
+          { label: 'FAQ', url: '/legal/faq' },
+          { label: 'Documentation', url: '/legal/user-documentation' },
+        ],
       });
     }
   }
 
-  // Get popular questions
+  // Return popular FAQ links for the welcome screen
   static getPopularQuestions(req, res) {
     try {
-      const popularQuestions = managiraFAQ
-        .filter(faq => [1, 3, 5, 10].includes(faq.id))
-        .map(faq => ({
-          id: faq.id,
-          question: faq.question,
-          category: faq.category
+      const popularIds = [3, 4, 30];
+      const popular = managiraFAQ
+        .filter((f) => popularIds.includes(f.id))
+        .map((f) => ({
+          question: f.question,
+          url: '/legal/faq?q=' + encodeURIComponent(f.question),
         }));
-
-      return res.json({
-        success: true,
-        questions: popularQuestions
+      // Add one documentation article link
+      popular.push({
+        question: 'Browse the setup guides & articles',
+        url: '/legal/user-documentation',
       });
+      return res.json({ success: true, questions: popular });
     } catch (error) {
-      return res.json({
-        success: false,
-        message: "Unable to load popular questions"
-      });
+      return res.json({ success: false, message: 'Unable to load popular questions' });
     }
   }
 
-  // Get FAQ by ID
+  // Keep for backward compatibility
   static getFAQById(req, res) {
     try {
       const { id } = req.params;
-      const faq = managiraFAQ.find(f => f.id === parseInt(id));
-
-      if (!faq) {
-        return res.json({
-          success: false,
-          message: "Question not found"
-        });
-      }
-
-      return res.json({
-        success: true,
-        faq: faq
-      });
+      const faq = managiraFAQ.find((f) => f.id === parseInt(id));
+      if (!faq) return res.json({ success: false, message: 'Question not found' });
+      return res.json({ success: true, faq });
     } catch (error) {
-      return res.json({
-        success: false,
-        message: "Unable to load question"
-      });
+      return res.json({ success: false, message: 'Unable to load question' });
     }
   }
 }

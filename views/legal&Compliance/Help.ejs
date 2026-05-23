@@ -67,48 +67,50 @@
     /* Smart search */
     .search-wrap {
       position: relative;
-      margin: 0 0 12px;
+      margin: 0 0 10px;
     }
     .search-wrap svg.search-ico {
       position: absolute;
-      left: 16px;
+      left: 13px;
       top: 50%;
       transform: translateY(-50%);
       color: #94a3b8;
       pointer-events: none;
+      width: 17px;
+      height: 17px;
     }
     #helpSearch {
       width: 100%;
-      padding: 16px 48px 16px 48px;
+      padding: 10px 42px 10px 42px;
       border: 1px solid var(--border);
-      border-radius: 14px;
-      font-size: 1rem;
+      border-radius: 10px;
+      font-size: 0.92rem;
       font-family: inherit;
       background: #fff;
-      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
       transition: border-color 0.2s, box-shadow 0.2s;
     }
     #helpSearch:focus {
       outline: none;
       border-color: #01535b;
-      box-shadow: 0 4px 18px rgba(1,83,91,0.12);
+      box-shadow: 0 2px 12px rgba(1,83,91,0.10);
     }
     #helpSearchClear {
       position: absolute;
-      right: 12px;
+      right: 10px;
       top: 50%;
       transform: translateY(-50%);
       background: #f1f5f9;
       border: none;
-      width: 28px;
-      height: 28px;
+      width: 24px;
+      height: 24px;
       border-radius: 50%;
       cursor: pointer;
       color: #64748b;
       display: none;
       align-items: center;
       justify-content: center;
-      font-size: 18px;
+      font-size: 16px;
       line-height: 1;
     }
     #helpSearchClear:hover { background: #e2e8f0; color: #0f172a; }
@@ -142,62 +144,54 @@
       border-color: #01535b;
       box-shadow: 0 4px 14px rgba(1,83,91,0.08);
     }
-    .result-title {
+    .result-row {
       display: flex;
       align-items: center;
-      gap: 10px;
-      font-weight: 600;
-      color: var(--text);
-      font-size: 0.98rem;
-      margin-bottom: 4px;
+      gap: 8px;
+      margin-bottom: 3px;
     }
-    .result-title a { color: inherit; text-decoration: none; }
-    .result-title a:hover { color: #01535b; }
-    .result-badge {
-      font-size: 10px;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      background: #eef6f6;
-      color: #01535b;
-      padding: 3px 8px;
-      border-radius: 999px;
+    .result-type {
+      font-size: 0.68rem;
       font-weight: 700;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: 999px;
+      flex-shrink: 0;
+      line-height: 1.6;
     }
-    .result-badge.doc { background: #fef6e0; color: #b8860b; }
-    .result-snippet {
-      font-size: 0.9rem;
-      color: #475569;
-      line-height: 1.55;
+    .result-type--article { background: #e6f4f5; color: #01535b; }
+    .result-type--doc     { background: #fef6e0; color: #92400e; }
+    .result-type--faq     { background: #ede9fe; color: #4f46e5; }
+    .result-card-title {
+      font-weight: 600;
+      font-size: 0.96rem;
+      color: var(--text);
+      text-decoration: none;
+      line-height: 1.3;
     }
-    .result-snippet mark {
+    .result-card-title:hover { color: #01535b; }
+    .result-meta-line {
+      font-size: 0.85rem;
+      color: #64748b;
+      margin: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .result-meta-line mark {
       background: #fef3c7;
       color: inherit;
       padding: 0 2px;
       border-radius: 2px;
     }
-    .result-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      margin-top: 8px;
-      font-size: 0.84rem;
+    .result-cta {
       color: #01535b;
-      text-decoration: none;
       font-weight: 600;
+      text-decoration: none;
+      white-space: nowrap;
     }
-    .result-link:hover { text-decoration: underline; }
-
-    .result-breadcrumb {
-      font-size: 0.75rem;
-      font-weight: 700;
-      color: #01535b;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-bottom: 2px;
-    }
-
-    .result-doc-badge { background: #fef9ec; color: #92400e; }
-    .result-article-badge { background: #eef6f6; color: #01535b; }
+    .result-cta:hover { text-decoration: underline; }
 
     .empty-state {
       text-align: center;
@@ -593,23 +587,20 @@
       if (!hits.length) { block.style.display = 'none'; return; }
       block.style.display = '';
       out.innerHTML = hits.map(function(h) {
-        const item = h.item || h;
+        const item      = h.item || h;
         const isArticle = !!item.isArticle;
-        const badgeCls  = isArticle ? 'result-badge result-article-badge' : 'result-badge doc result-doc-badge';
+        const typeCls   = isArticle ? 'result-type--article' : 'result-type--doc';
+        const typeLabel = isArticle ? 'Article' : 'Doc';
         const extAttr   = item.external ? 'target="_blank" rel="noopener"' : '';
-        const cta       = isArticle ? 'Read article →' : (item.external ? 'Open ↗' : 'Open →');
-        const bcHtml    = item.breadcrumb
-          ? `<div class="result-breadcrumb">${escapeHtml(item.breadcrumb)}</div>`
-          : '';
+        const cta       = isArticle ? 'Read article \u2192' : (item.external ? 'Open \u2197' : 'Open \u2192');
+        const snippet   = highlight(item.subtitle || '', tokens);
         return `
           <div class="result-card">
-            <div class="result-title">
-              <span class="${badgeCls}">${isArticle ? 'Article' : 'Doc'}</span>
-              <a href="${escapeHtml(item.url)}" ${extAttr}>${escapeHtml(item.title)}</a>
+            <div class="result-row">
+              <span class="result-type ${typeCls}">${typeLabel}</span>
+              <a class="result-card-title" href="${escapeHtml(item.url)}" ${extAttr}>${escapeHtml(item.title)}</a>
             </div>
-            ${bcHtml}
-            <div class="result-snippet">${highlight(item.subtitle || '', tokens)}</div>
-            <a class="result-link" href="${escapeHtml(item.url)}" ${extAttr}>${cta}</a>
+            <p class="result-meta-line">${snippet ? snippet + ' \u00B7 ' : ''}<a class="result-cta" href="${escapeHtml(item.url)}" ${extAttr}>${cta}</a></p>
           </div>`;
       }).join('');
     }
@@ -648,15 +639,15 @@
       if (faqHits.length) {
         faqBlock.style.display = '';
         faqOut.innerHTML = faqHits.map(function(h) {
-          const faqUrl = '/legal/faq?q=' + encodeURIComponent(h.item.question);
+          const faqUrl  = '/legal/faq?q=' + encodeURIComponent(h.item.question);
+          const snippet = highlight(h.item.answer, tokens);
           return `
           <div class="result-card">
-            <div class="result-title">
-              <span class="result-badge">FAQ</span>
-              <a href="${faqUrl}">${escapeHtml(h.item.question)}</a>
+            <div class="result-row">
+              <span class="result-type result-type--faq">FAQ</span>
+              <a class="result-card-title" href="${faqUrl}">${escapeHtml(h.item.question)}</a>
             </div>
-            <div class="result-snippet">${highlight(h.item.answer, tokens)}</div>
-            <a class="result-link" href="${faqUrl}">Read full answer →</a>
+            <p class="result-meta-line">${snippet ? snippet + ' \u00B7 ' : ''}<a class="result-cta" href="${faqUrl}">Read full answer \u2192</a></p>
           </div>`;
         }).join('');
       } else {

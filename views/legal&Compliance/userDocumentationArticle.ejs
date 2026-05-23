@@ -101,34 +101,33 @@
       margin-bottom: 14px;
     }
 
-    .article-meta {
+    .article-meta-row {
       display: flex;
       flex-wrap: wrap;
-      gap: 16px;
-      font-size: 0.82rem;
-      color: var(--text-muted);
-    }
-    .article-meta-item {
-      display: flex;
       align-items: center;
-      gap: 5px;
-    }
-    .article-meta-item svg { flex-shrink: 0; color: #94a3b8; }
-
-    .article-tags {
-      display: flex;
-      flex-wrap: wrap;
       gap: 6px;
-      margin-top: 16px;
+      margin-top: 12px;
+    }
+    .article-meta-date {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      padding-right: 8px;
+      border-right: 1px solid #e2e8f0;
+      margin-right: 2px;
     }
     .article-tag {
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       font-weight: 600;
-      padding: 3px 10px;
+      padding: 3px 9px;
       border-radius: 999px;
       background: #f1f5f9;
       color: #475569;
       border: 1px solid #e2e8f0;
+      max-width: 110px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      display: inline-block;
     }
 
     /* ── Draft banner ───────────────────────────── */
@@ -719,14 +718,6 @@
 
 <div class="article-page">
 
-  <!-- Back link -->
-  <a href="/legal/user-documentation" class="article-back">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <polyline points="15 18 9 12 15 6"></polyline>
-    </svg>
-    Documentation
-  </a>
-
   <% if (pageNotFound) { %>
     <!-- 404 state -->
     <div class="article-not-found">
@@ -802,67 +793,31 @@
     <% if (article.breadcrumb && article.breadcrumb.length > 1) { %>
     <nav class="article-breadcrumb" aria-label="Breadcrumb">
       <a href="/legal/user-documentation">Docs</a>
-      <% article.breadcrumb.forEach(function(crumb, i) { %>
+      <% article.breadcrumb.slice(0, -1).forEach(function(crumb) { %>
         <span>/</span>
-        <% if (i < article.breadcrumb.length - 1) { %>
-          <span><%= crumb %></span>
-        <% } else { %>
-          <span style="color:#374151;font-weight:600;"><%= crumb %></span>
-        <% } %>
+        <span><%= crumb %></span>
       <% }); %>
     </nav>
     <% } %>
 
     <!-- Article header -->
     <div class="article-header">
-      <div class="article-topic-badge">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
-          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
-        </svg>
-        <%= article.subtopic ? article.topic + ' — ' + article.subtopic : article.topic %>
-      </div>
-
       <h1 class="article-title"><%= article.title %></h1>
 
-      <div class="article-meta">
-        <% if (article.createdAt) { %>
-        <div class="article-meta-item">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-            <line x1="16" y1="2" x2="16" y2="6"></line>
-            <line x1="8" y1="2" x2="8" y2="6"></line>
-            <line x1="3" y1="10" x2="21" y2="10"></line>
-          </svg>
-          <%
-            const artDate = new Date(article.updatedAt || article.createdAt);
-            const artDateStr = artDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-          %>
-          Updated <%= artDateStr %>
-        </div>
+      <div class="article-meta-row">
+        <% if (article.createdAt || article.updatedAt) { %>
+        <%
+          const artDate = new Date(article.updatedAt || article.createdAt);
+          const artDateStr = artDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        %>
+        <span class="article-meta-date">Updated <%= artDateStr %></span>
         <% } %>
-
-        <% if (article.helpfulYes + article.helpfulNo > 0) { %>
-        <div class="article-meta-item">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
-          </svg>
-          <%
-            const totalVotes = article.helpfulYes + article.helpfulNo;
-            const pct = totalVotes > 0 ? Math.round((article.helpfulYes / totalVotes) * 100) : 0;
-          %>
-          <%= pct %>% found this helpful
-        </div>
+        <% if (article.tags && article.tags.length > 0) { %>
+          <% article.tags.forEach(function(tag) { %>
+            <span class="article-tag"><%= tag %></span>
+          <% }); %>
         <% } %>
       </div>
-
-      <% if (article.tags && article.tags.length > 0) { %>
-      <div class="article-tags">
-        <% article.tags.forEach(function(tag) { %>
-          <span class="article-tag"><%= tag %></span>
-        <% }); %>
-      </div>
-      <% } %>
     </div>
 
     <!-- Article content -->
