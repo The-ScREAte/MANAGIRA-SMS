@@ -49,11 +49,15 @@
     margin-bottom: 28px;
     border: 1px solid var(--border);
     border-radius: 10px;
-    font-size: 0.95rem;
+    font-size: 1rem; /* 16px — prevents iOS Safari auto-zoom on tap */
     font-family: var(--font-family);
     background: #fff;
-    transition: border-color 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s;
     box-sizing: border-box;
+    position: sticky;
+    top: 70px;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   }
 
   #search-bar:focus {
@@ -354,14 +358,15 @@
     const searchBar = document.getElementById('search-bar');
     searchBar.addEventListener('input', function () { runFaqSearch(this.value); });
 
-    // Pre-fill from ?q= when arriving from Help Center smart search
+    // Pre-fill from ?q= when arriving from chatbot or Help Center search
     (function () {
       const params = new URLSearchParams(window.location.search);
       const q = params.get('q');
       if (q) {
         searchBar.value = q;
-        // Delay so the page fully renders before scrolling
-        setTimeout(function() { runFaqSearch(q); }, 120);
+        // Scroll so the sticky search bar is visible first, then run the search
+        searchBar.scrollIntoView({ behavior: 'instant', block: 'start' });
+        setTimeout(function() { runFaqSearch(q); }, 150);
       }
     })();
   </script>
