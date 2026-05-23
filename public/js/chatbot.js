@@ -204,7 +204,7 @@ class ManagiraChatbot {
     this.toggleButton.style.opacity = '0';
     this.toggleButton.style.pointerEvents = 'none';
     
-    if (this.input) {
+    if (this.input && window.innerWidth > 768) {
       this.input.focus();
     }
   }
