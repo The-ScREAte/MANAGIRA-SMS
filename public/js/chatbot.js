@@ -83,6 +83,11 @@ class ManagiraChatbot {
     this.sendButton = document.getElementById('chatbot-send');
     this.closeButton = container.querySelector('.chatbot-close');
     this.minimizeButton = container.querySelector('.chatbot-minimize');
+
+    // Guarantee 16px on the input regardless of cached CSS — iOS zooms if < 16px
+    if (this.input) {
+      this.input.style.fontSize = '16px';
+    }
   }
 
   bindEvents() {

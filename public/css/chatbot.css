@@ -367,6 +367,8 @@ body[data-page="publicDashboard"] .chatbot-container {
   color: #333;
   border: 1px solid #e1e5e9;
   border-bottom-left-radius: 6px;
+  width: fit-content;
+  max-width: 100%;
 }
 
 .message-user .message-bubble {
@@ -1203,6 +1205,8 @@ body[data-page="publicDashboard"] .chatbot-container {
   margin-top: 8px;
   display: grid;
   gap: 6px;
+  width: 100%;
+  min-width: 0;
 }
 
 .chatbot-results-heading {
