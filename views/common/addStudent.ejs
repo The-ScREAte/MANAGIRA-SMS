@@ -1856,10 +1856,11 @@
               <div class="future-enrollment-section" id="futureEnrollmentSection-__INDEX__">
                 <div class="form-field-group">
                   <label class="form-label">School Year</label>
-                  <select class="form-input form-select" name="schoolYearId___INDEX__">
+                  <select class="form-input form-select" id="schoolYear-__INDEX__" name="schoolYearId___INDEX__" required>
                     <option value="">Select School Year</option>
                     <% schoolYears.forEach(year => { %>
-                      <option value="<%= year.school_year_id %>" data-terms='<%- JSON.stringify(year.terms) %>'>
+                      <option value="<%= year.school_year_id %>" data-terms='<%- JSON.stringify(year.terms) %>'
+                        <%= currentTerm && currentTerm.school_year_id == year.school_year_id ? 'selected' : '' %>>
                         <%= year.year_label %>
                       </option>
                     <% }) %>
@@ -1867,7 +1868,7 @@
                 </div>
                 <div class="form-field-group">
                   <label class="form-label">Term</label>
-                  <select class="form-input form-select" name="termId___INDEX__">
+                  <select class="form-input form-select" id="term-__INDEX__" name="termId___INDEX__" required data-default-term="<%= currentTerm ? currentTerm.term_id : '' %>">
                     <option value="">Select Term</option>
                   </select>
                 </div>
@@ -2535,17 +2536,26 @@
         const yearSelect = document.querySelector(`#schoolYear-${index}`);
         const termSelect = document.querySelector(`#term-${index}`);
         if (!yearSelect || !termSelect) return;
-    
-        yearSelect.addEventListener("change", function () {
-          const terms = JSON.parse(this.options[this.selectedIndex].getAttribute("data-terms") || "[]");
+
+        function populateTerms(preSelectTermId) {
+          const selected = yearSelect.options[yearSelect.selectedIndex];
+          const terms = JSON.parse(selected?.getAttribute("data-terms") || "[]");
           termSelect.innerHTML = '<option value="">Select a term</option>';
           terms.forEach(term => {
             const opt = document.createElement("option");
             opt.value = term.term_id;
             opt.textContent = term.term_name;
+            if (preSelectTermId && String(term.term_id) === String(preSelectTermId)) opt.selected = true;
             termSelect.appendChild(opt);
           });
-        });
+        }
+
+        yearSelect.addEventListener("change", () => populateTerms(null));
+
+        // Populate immediately if year is already pre-selected (e.g. current year default)
+        if (yearSelect.value) {
+          populateTerms(termSelect.dataset.defaultTerm || null);
+        }
       }
     
 // Add this function to your existing JavaScript
@@ -2630,6 +2640,10 @@ function addStudentForm() {
             const showFuture = !!future.checked;
             section.classList.toggle('is-visible', showFuture);
             section.style.display = showFuture ? 'flex' : 'none';
+            const yearSel = section.querySelector('select[id^="schoolYear-"]');
+            const termSel = section.querySelector('select[id^="term-"]');
+            if (yearSel) yearSel.required = showFuture;
+            if (termSel) termSel.required = showFuture;
           };
           current.addEventListener("change", applyState);
           future.addEventListener("change", applyState);

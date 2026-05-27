@@ -2085,7 +2085,7 @@ const commonController = {
       // Fetch the current school year and term
       const currentTermResult = await db.query(
         `
-            SELECT t.term_id, t.term_name, sy.year_label
+            SELECT t.term_id, t.term_name, sy.year_label, sy.id AS school_year_id
             FROM terms t
             JOIN school_years sy ON t.school_year_id = sy.id
             WHERE t.current = true AND sy.organization_id = $1
