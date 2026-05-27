@@ -117,11 +117,14 @@
   }
 
   .org-names .org-full-name {
-    display: block;
-    font-size: 1.25rem;
+    font-size: 1.05rem;
     font-weight: 600;
-    max-width: 240px;
+    max-width: 360px;
     color: var(--org-primary-color, #01535b);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
   .org-names .org-nickname {

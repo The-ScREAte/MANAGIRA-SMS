@@ -615,11 +615,54 @@
   <style>
     .yellow-dot {
       color: rgb(204, 173, 0);
-      font-size: 25px;
-      margin-left: 5px;
+      font-size: 0.75rem;
+      margin-left: 2px;
+      vertical-align: middle;
     }
 
     /* Make action links stand out - use theme color */
+    .classes-container ul {
+      padding: 0;
+      margin: 0;
+      list-style: none;
+      text-align: left;
+    }
+
+    .class-item {
+      list-style: none;
+    }
+
+    .class-header {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 0;
+      white-space: nowrap;
+      font-size: 0.82rem;
+    }
+
+    .class-header > a {
+      min-width: 6em;
+      flex-shrink: 0;
+    }
+
+    .teachers-list {
+      padding-left: 8px;
+      padding-bottom: 4px;
+    }
+
+    .teacher-entry {
+      font-size: 0.72rem;
+      color: #475569;
+      padding: 0;
+      line-height: 1.4;
+    }
+
+    .teacher-toggle svg {
+      width: 10px;
+      height: 10px;
+    }
+
     .classes-container li a {
       color: var(--org-primary-color);
       text-decoration: none;
