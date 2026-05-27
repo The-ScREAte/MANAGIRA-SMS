@@ -268,6 +268,60 @@ app.use(async (req, res, next) => {
   next();
 });
 
+// ── Subdomain-aware robots.txt ────────────────────────────────────────────────
+// For school subdomains: point to the school's own sitemap so Google knows
+// exactly which URL to index for that school.
+app.get("/robots.txt", (req, res, next) => {
+  const host = String(req.hostname || "").toLowerCase();
+  const isRootHost = host === "managira.com" || host === "www.managira.com" ||
+                     host === "localhost" || host.startsWith("127.");
+  if (isRootHost || !req.schoolDetails) return next(); // serve static file
+
+  const nickname = req.schoolDetails.nickname;
+  const schoolSitemap = `https://${nickname}.managira.com/sitemap.xml`;
+  res.setHeader("Content-Type", "text/plain");
+  res.setHeader("Cache-Control", "public, max-age=86400");
+  res.send(
+`User-agent: *
+Allow: /
+
+Sitemap: ${schoolSitemap}
+Sitemap: https://www.managira.com/sitemap-schools.xml`
+  );
+});
+
+// ── Per-school sitemap at the subdomain level ─────────────────────────────────
+// Googlebot looks for /sitemap.xml on every host it crawls. Serving a
+// school-specific sitemap here makes the school page get indexed faster.
+app.get("/sitemap.xml", async (req, res, next) => {
+  const host = String(req.hostname || "").toLowerCase();
+  const isRootHost = host === "managira.com" || host === "www.managira.com" ||
+                     host === "localhost" || host.startsWith("127.");
+  if (isRootHost || !req.schoolDetails) return next(); // serve static file
+
+  const nickname = req.schoolDetails.nickname;
+  const orgName = req.schoolDetails.organization_name || nickname;
+  const today = new Date().toISOString().split("T")[0];
+  const schoolUrl = `https://${nickname}.managira.com/`;
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
+          http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+  <url>
+    <loc>${schoolUrl}</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>`;
+
+  res.setHeader("Content-Type", "application/xml");
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  res.send(xml);
+});
+
 // Enable gzip compression for faster loading
 app.use(compression());
 app.use(createRequestLatencyMonitor());

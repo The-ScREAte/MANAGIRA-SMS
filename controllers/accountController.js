@@ -166,7 +166,7 @@ const { hasGuardianPortalFeature } = require("../utils/guardianPortalAccess");
 const { invalidateOrganizationAccessCache } = require("../utils/accessCache");
 const { logOrganizationActivity } = require("../utils/activityLog");
 const cacheManager = require("../utils/cacheManager");
-const { pingSearchEngines } = require("../utils/sitemapPing");
+const { pingSearchEngines, pingSchoolUrl } = require("../utils/sitemapPing");
 const {
   ensureEmailPreferencesSchema,
   getStaffPreferencesForRole,
@@ -2493,6 +2493,7 @@ const accountController = {
 
       // Notify search engines about the new school page
       pingSearchEngines();
+      pingSchoolUrl(orgNickName);
 
       // Send registration success email (bypass error)
 

@@ -1886,20 +1886,42 @@ const commonController = {
         ? `${aboutusPlain}`
         : `Official website and public portal for ${orgDetails?.organization_name || "School"}${orgDetails?.nickname ? ` (${orgDetails.nickname})` : ""} on Managira. View announcements, events, registration updates, and school information.`;
 
+      // Build rich keyword list: full name, every word, every partial combination,
+      // nickname variations, and common school search terms — maximises chances of
+      // appearing for partial name searches and minor spelling differences.
+      const _orgName  = orgDetails?.organization_name || "";
+      const _nickname = orgDetails?.nickname || "";
+      const _words    = _orgName.split(/\s+/).filter(Boolean);
+
+      // All consecutive word subsequences (e.g. "SAM KORANCHIE", "KORANCHIE SOLID", etc.)
+      const _nameVariants = new Set();
+      _nameVariants.add(_orgName);
+      _nameVariants.add(_orgName.toLowerCase());
+      _nameVariants.add(_nickname);
+      _nameVariants.add(`${_nickname}.managira.com`);
+      for (let i = 0; i < _words.length; i++) {
+        for (let j = i + 1; j <= _words.length; j++) {
+          _nameVariants.add(_words.slice(i, j).join(" "));
+          _nameVariants.add(_words.slice(i, j).join(" ").toLowerCase());
+        }
+      }
+      // Drop empties
+      _nameVariants.delete("");
+      _nameVariants.delete(" ");
+
       const seoKeywords = [
-        orgDetails?.organization_name,
-        orgDetails?.organization_name ? `${orgDetails.organization_name} school` : null,
-        orgDetails?.nickname,
-        orgDetails?.nickname ? `${orgDetails.nickname}.managira.com` : null,
-        orgDetails?.nickname ? `https://${orgDetails.nickname}.managira.com` : null,
-        "school portal",
-        "school website",
-        "public school page",
-        "school announcements",
-        "school events",
-        "managira",
-        "school management",
-        "school management system"
+        ..._nameVariants,
+        `${_orgName} school`,
+        `${_orgName} Ghana`,
+        `${_orgName} admissions`,
+        `${_orgName} enrollment`,
+        `${_nickname} school`,
+        `${_nickname} managira`,
+        "school portal Ghana",
+        "school website Ghana",
+        "school management system",
+        "managira school",
+        "school admissions Ghana",
       ].filter(Boolean).join(", ");
 
       // Build rich Schema.org School structured data
@@ -1908,7 +1930,11 @@ const commonController = {
             "@context": "https://schema.org",
             "@type": "School",
             name: orgDetails.organization_name,
-            alternateName: orgDetails.nickname || undefined,
+            ...(orgDetails.nickname ? { alternateName: [
+              orgDetails.nickname,
+              `${orgDetails.nickname}.managira.com`,
+              ...(orgDetails.organization_name || "").split(/\s+/).filter(w => w.length > 3)
+            ]} : {}),
             url: canonicalUrl,
             ...(toAbsoluteUrl(orgDetails.logo) ? {
               logo: {
@@ -1919,10 +1945,22 @@ const commonController = {
             } : {}),
             ...(aboutusPlain ? { description: aboutusPlain } : {}),
             ...(orgDetails.motto ? { slogan: orgDetails.motto } : {}),
+            ...(orgDetails.organization_address ? { address: {
+              "@type": "PostalAddress",
+              streetAddress: orgDetails.organization_address,
+              ...(orgDetails.organization_country ? { addressCountry: orgDetails.organization_country } : {}),
+            }} : {}),
+            ...(orgDetails.organization_phone ? { telephone: orgDetails.organization_phone } : {}),
+            ...(orgDetails.email ? { email: orgDetails.email } : {}),
             sameAs: [
               canonicalUrl,
-              `https://www.managira.com/legal/directory`
-            ]
+              `https://www.managira.com/legal/directory`,
+            ],
+            potentialAction: {
+              "@type": "SearchAction",
+              target: `${canonicalUrl}?q={search_term_string}`,
+              "query-input": "required name=search_term_string"
+            }
           }
         : null;
 
