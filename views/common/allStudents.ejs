@@ -668,35 +668,35 @@
   .as-bulk-bar {
     display: none;
     align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
+    gap: 8px;
+    flex-wrap: nowrap;
     background: var(--primary);
     color: #fff;
-    border-radius: 12px;
-    padding: 10px 16px;
-    margin-bottom: 12px;
+    border-radius: 8px;
+    padding: 6px 10px;
+    margin-bottom: 10px;
     animation: asBulkIn 0.18s ease;
   }
   @keyframes asBulkIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
   .as-bulk-bar.active { display: flex; }
   .as-bulk-count {
-    font-size: 13.5px;
+    font-size: 12px;
     font-weight: 700;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     flex: 1;
     white-space: nowrap;
   }
-  .as-bulk-count svg { width: 16px; height: 16px; }
-  .as-bulk-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .as-bulk-count svg { width: 14px; height: 14px; }
+  .as-bulk-actions { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
   .as-bulk-btn {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 7px 14px;
-    border-radius: 8px;
-    font-size: 12.5px;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11.5px;
     font-weight: 700;
     cursor: pointer;
     border: none;
@@ -704,7 +704,7 @@
     white-space: nowrap;
     transition: all 0.15s;
   }
-  .as-bulk-btn svg { width: 14px; height: 14px; }
+  .as-bulk-btn svg { width: 12px; height: 12px; }
   .as-bulk-btn-edit  { background: #fff; color: var(--primary); }
   .as-bulk-btn-edit:hover { background: #f0fdf4; }
   .as-bulk-btn-clear { background: rgba(255,255,255,0.18); color: #fff; border: 1px solid rgba(255,255,255,0.3); }
