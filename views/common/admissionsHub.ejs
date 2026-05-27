@@ -444,6 +444,12 @@
             <span>Create Student</span>
           </button>
         </li>
+        <li>
+          <button class="nav-link" data-section="all-students">
+            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg></span>
+            <span>All Students</span>
+          </button>
+        </li>
         <% if (Array.isArray(allowedFeatures) && (allowedFeatures.includes('School Website') || allowedFeatures.includes('SchoolWebsite'))) { %>
         <li>
           <button class="nav-link" data-section="pending">
@@ -493,6 +499,46 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
             </svg>
             Add New Student
+          </a>
+        </div>
+      </section>
+
+      <!-- All Students Section -->
+      <section class="hub-section" id="all-students">
+        <div class="section-header" data-eyebrow="Admissions Workspace">
+          <h1>All Students</h1>
+          <p>View and manage all students enrolled in your organisation.</p>
+        </div>
+        <div class="section-content">
+          <div class="features-grid">
+            <div class="feature-item">
+              <div class="feature-icon">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+              </div>
+              <div class="feature-content">
+                <h4>Full Directory</h4>
+                <p>Browse every student in your organisation with search and filters.</p>
+              </div>
+            </div>
+            <div class="feature-item">
+              <div class="feature-icon">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                </svg>
+              </div>
+              <div class="feature-content">
+                <h4>Quick Class Edit</h4>
+                <p>Reassign a student to a different class without leaving the list.</p>
+              </div>
+            </div>
+          </div>
+          <a href="/common/allStudents" class="action-btn">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+            </svg>
+            View All Students
           </a>
         </div>
       </section>

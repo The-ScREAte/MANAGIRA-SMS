@@ -13035,6 +13035,253 @@ const commonController = {
     }
   },
 
+  // All Students List (Admissions Hub)
+  allStudents: async (req, res, db) => {
+    try {
+      const organizationId = req.session.organizationId;
+      if (!organizationId) {
+        req.flash("error", "Organization not found.");
+        return res.redirect("/common/orgDashboard");
+      }
+
+      const [studentsResult, classesResult, schoolYearsResult] = await Promise.all([
+        db.query(
+          `SELECT
+              s.student_id,
+              s.first_name,
+              s.last_name,
+              s.gender,
+              s.date_of_birth,
+              s.image_url,
+              COALESCE(s.graduated, false) AS graduated,
+              c.class_name,
+              c.class_id,
+              g.name AS grad_year_group_name,
+              last_sy.year_label AS last_school_year,
+              last_sy.is_current AS in_current_year
+            FROM students s
+            LEFT JOIN classes c ON s.class_id = c.class_id
+            LEFT JOIN graduation_year_groups g ON s.graduation_year_group_id = g.id
+            LEFT JOIN LATERAL (
+              SELECT sy.year_label, sy.current AS is_current
+              FROM enrolled_students es
+              JOIN enrollments e ON es.enrollment_id = e.enrollment_id
+              JOIN school_years sy ON e.school_year_id = sy.id
+              WHERE es.student_id = s.student_id
+                AND e.organization_id = $1
+              ORDER BY sy.id DESC
+              LIMIT 1
+            ) last_sy ON true
+            WHERE s.organization_id = $1
+            ORDER BY s.last_name ASC, s.first_name ASC`,
+          [organizationId]
+        ),
+        db.query(
+          `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY class_name ASC`,
+          [organizationId]
+        ),
+        db.query(
+          `SELECT id, year_label, current FROM school_years WHERE organization_id = $1 ORDER BY id DESC`,
+          [organizationId]
+        ),
+      ]);
+
+      res.render("common/allStudents", {
+        title: "All Students",
+        students: studentsResult.rows,
+        classes: classesResult.rows,
+        schoolYears: schoolYearsResult.rows,
+        messages: req.flash(),
+      });
+    } catch (error) {
+      res.status(500).send("Failed to load students list.");
+    }
+  },
+
+  // Change student class (AJAX — used from All Students list)
+  changeStudentClass: async (req, res, db) => {
+    try {
+      const organizationId = req.session.organizationId;
+      const { studentId } = req.params;
+      const { classId } = req.body;
+
+      if (!organizationId) return res.status(401).json({ success: false, error: "Unauthorized" });
+      if (!classId) return res.status(400).json({ success: false, error: "classId is required" });
+
+      // Verify student belongs to this org
+      const studentCheck = await db.query(
+        `SELECT student_id FROM students WHERE student_id = $1 AND organization_id = $2`,
+        [studentId, organizationId]
+      );
+      if (!studentCheck.rows.length) {
+        return res.status(404).json({ success: false, error: "Student not found" });
+      }
+
+      // Verify class belongs to this org
+      const classCheck = await db.query(
+        `SELECT class_id, class_name FROM classes WHERE class_id = $1 AND organization_id = $2`,
+        [classId, organizationId]
+      );
+      if (!classCheck.rows.length) {
+        return res.status(400).json({ success: false, error: "Class not found" });
+      }
+
+      await db.query(
+        `UPDATE students SET class_id = $1 WHERE student_id = $2 AND organization_id = $3`,
+        [classId, studentId, organizationId]
+      );
+
+      // Also sync enrolled_students.class_id for the current school year so class rosters stay in sync
+      await db.query(
+        `UPDATE enrolled_students es
+         SET class_id = $1
+         FROM enrollments e
+         INNER JOIN school_years sy ON e.school_year_id = sy.id
+         WHERE es.enrollment_id = e.enrollment_id
+           AND es.student_id = $2
+           AND e.organization_id = $3
+           AND sy.current = TRUE`,
+        [classId, studentId, organizationId]
+      );
+
+      return res.json({ success: true, className: classCheck.rows[0].class_name });
+    } catch (error) {
+      return res.status(500).json({ success: false, error: "Failed to update class" });
+    }
+  },
+
+  // Bulk update students — change class and/or enroll in school year
+  bulkUpdateStudents: async (req, res, db) => {
+    try {
+      const organizationId = req.session.organizationId;
+      if (!organizationId) return res.status(401).json({ success: false, error: "Unauthorized" });
+
+      const { studentIds, classId, schoolYearId } = req.body;
+
+      if (!Array.isArray(studentIds) || studentIds.length === 0)
+        return res.status(400).json({ success: false, error: "No students selected" });
+      if (!classId && !schoolYearId)
+        return res.status(400).json({ success: false, error: "Nothing to update — select a class or school year" });
+
+      // Sanitize to positive integers
+      const safeIds = [...new Set(
+        studentIds.map(id => parseInt(id, 10)).filter(id => Number.isInteger(id) && id > 0)
+      )];
+      if (!safeIds.length) return res.status(400).json({ success: false, error: "Invalid student IDs" });
+
+      // Verify all students belong to this org
+      const ownershipCheck = await db.query(
+        `SELECT COUNT(*)::int AS c FROM students WHERE student_id = ANY($1::int[]) AND organization_id = $2`,
+        [safeIds, organizationId]
+      );
+      if (ownershipCheck.rows[0].c !== safeIds.length)
+        return res.status(403).json({ success: false, error: "One or more students do not belong to your organisation" });
+
+      const client = await db.connect();
+      try {
+        await client.query("BEGIN");
+
+        let safeClassId = null;
+        let newClassName = null;
+        if (classId) {
+          const classCheck = await client.query(
+            `SELECT class_id, class_name FROM classes WHERE class_id = $1 AND organization_id = $2`,
+            [parseInt(classId, 10), organizationId]
+          );
+          if (!classCheck.rows.length) throw new Error("Selected class does not belong to your organisation");
+          safeClassId = classCheck.rows[0].class_id;
+          newClassName = classCheck.rows[0].class_name;
+
+          await client.query(
+            `UPDATE students SET class_id = $1 WHERE student_id = ANY($2::int[]) AND organization_id = $3`,
+            [safeClassId, safeIds, organizationId]
+          );
+
+          // Also sync enrolled_students.class_id for the current school year so class rosters stay in sync
+          await client.query(
+            `UPDATE enrolled_students es
+             SET class_id = $1
+             FROM enrollments e
+             INNER JOIN school_years sy ON e.school_year_id = sy.id
+             WHERE es.enrollment_id = e.enrollment_id
+               AND es.student_id = ANY($2::int[])
+               AND e.organization_id = $3
+               AND sy.current = TRUE`,
+            [safeClassId, safeIds, organizationId]
+          );
+        }
+
+        let newYearLabel = null;
+        if (schoolYearId) {
+          const syCheck = await client.query(
+            `SELECT id, year_label FROM school_years WHERE id = $1 AND organization_id = $2`,
+            [parseInt(schoolYearId, 10), organizationId]
+          );
+          if (!syCheck.rows.length) throw new Error("Selected school year does not belong to your organisation");
+          const safeSyId = syCheck.rows[0].id;
+          newYearLabel = syCheck.rows[0].year_label;
+
+          // Find or create a single enrollment record for this school year + org
+          let enrollmentId;
+          const enrollRes = await client.query(
+            `SELECT enrollment_id FROM enrollments WHERE school_year_id = $1 AND organization_id = $2 ORDER BY enrollment_id DESC LIMIT 1`,
+            [safeSyId, organizationId]
+          );
+          if (enrollRes.rows.length) {
+            enrollmentId = enrollRes.rows[0].enrollment_id;
+          } else {
+            const newEnroll = await client.query(
+              `INSERT INTO enrollments (school_year_id, organization_id) VALUES ($1, $2) RETURNING enrollment_id`,
+              [safeSyId, organizationId]
+            );
+            enrollmentId = newEnroll.rows[0].enrollment_id;
+          }
+
+          // For each student: remove old enrolled_students for this school year, then insert fresh
+          for (const studentId of safeIds) {
+            // Remove any existing entry for this student in this school year (across all enrollments of this year)
+            await client.query(
+              `DELETE FROM enrolled_students es
+               USING enrollments e
+               WHERE es.enrollment_id = e.enrollment_id
+                 AND e.school_year_id = $1
+                 AND e.organization_id = $2
+                 AND es.student_id = $3`,
+              [safeSyId, organizationId, studentId]
+            );
+
+            // Get effective class_id (may have just been updated above)
+            const studentRow = await client.query(
+              `SELECT class_id FROM students WHERE student_id = $1`,
+              [studentId]
+            );
+            const effectiveClassId = safeClassId || studentRow.rows[0]?.class_id || null;
+
+            await client.query(
+              `INSERT INTO enrolled_students (enrollment_id, student_id, class_id) VALUES ($1, $2, $3)`,
+              [enrollmentId, studentId, effectiveClassId]
+            );
+          }
+        }
+
+        await client.query("COMMIT");
+        return res.json({
+          success: true,
+          updated: safeIds.length,
+          className: newClassName,
+          yearLabel: newYearLabel,
+        });
+      } catch (err) {
+        await client.query("ROLLBACK");
+        return res.status(500).json({ success: false, error: err.message || "Bulk update failed" });
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      return res.status(500).json({ success: false, error: "Bulk update failed" });
+    }
+  },
+
   // Reports Hub
   reportsHub: async (req, res, db) => {
     try {

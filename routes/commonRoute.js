@@ -580,6 +580,21 @@ module.exports = (db) => {
     commonController.admissionsHub(req, res, db)
   );
 
+  // All Students list (Admissions)
+  router.get("/allStudents", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) =>
+    commonController.allStudents(req, res, db)
+  );
+
+  // Change student class (AJAX)
+  router.post("/students/:studentId/change-class", isAuthenticated, express.json(), requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) =>
+    commonController.changeStudentClass(req, res, db)
+  );
+
+  // Bulk update students — change class and/or assign school year (AJAX)
+  router.post("/students/bulk-update", isAuthenticated, express.json(), requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) =>
+    commonController.bulkUpdateStudents(req, res, db)
+  );
+
   // Reports Hub
   router.get("/reports", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_REPORTS), (req, res) =>
     commonController.reportsHub(req, res, db)
