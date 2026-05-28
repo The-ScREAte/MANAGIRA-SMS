@@ -77,12 +77,8 @@ async function run() {
 
   console.log(`Found ${rows.length} organization(s).\n`);
 
-  // Build URL list — school homepages + the public directory page
-  const schoolUrls = rows.map((r) => `https://${r.nickname}.managira.com/`);
-  const urlList = [
-    ...schoolUrls,
-    "https://www.managira.com/legal/directory",
-  ];
+  // Build URL list — all school homepages
+  const urlList = rows.map((r) => `https://${r.nickname}.managira.com/`);
 
   const body = {
     host: "managira.com",

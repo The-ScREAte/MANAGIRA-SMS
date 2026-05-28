@@ -49,14 +49,13 @@ function pingSchoolUrl(nickname) {
   if (!key) return;
 
   const schoolUrl = `https://${nickname}.managira.com/`;
-  const directoryUrl = "https://www.managira.com/legal/directory";
   const sitemapUrl = "https://www.managira.com/sitemap-schools.xml";
 
   const body = {
     host: "managira.com",
     key,
     keyLocation: `https://www.managira.com/${key}.txt`,
-    urlList: [schoolUrl, directoryUrl],
+    urlList: [schoolUrl],
   };
 
   // Submit to IndexNow (routes to Google, Bing, Yandex, etc.)

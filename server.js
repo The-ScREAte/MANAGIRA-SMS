@@ -679,16 +679,8 @@ app.get("/sitemap-schools.xml", async (req, res) => {
   </url>`;
     });
 
-    const directoryUrlEntry = `  <url>
-    <loc>https://www.managira.com/legal/directory</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.9</priority>
-  </url>`;
-
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${directoryUrlEntry}
 ${urls.join("\n")}
 </urlset>`;
 
