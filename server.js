@@ -117,10 +117,53 @@ const attachSchoolContext = (req, org) => {
   }
 };
 
-const renderOrganizationNotFound = (req, res) => {
+// ── Levenshtein distance (used for "Did you mean?" subdomain suggestions) ─────
+function _levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, (_, i) =>
+    Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
+  );
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] =
+        a[i - 1] === b[j - 1]
+          ? dp[i - 1][j - 1]
+          : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+  return dp[m][n];
+}
+
+const renderOrganizationNotFound = async (req, res, subdomain) => {
   const backToHomeUrl = (req.session && (req.session.userId || req.session.organizationId))
     ? "/common/orgDashboard"
     : "https://managira.com";
+
+  // ── Try to suggest the closest matching school ────────────────────────────
+  let suggestion = null;
+  if (subdomain) {
+    try {
+      const { rows } = await db.query(
+        `SELECT nickname, organization_name FROM organizations WHERE deleted = false AND nickname IS NOT NULL AND nickname <> '' LIMIT 2000`
+      );
+      let bestDist = Infinity, bestRow = null;
+      const typed = subdomain.toLowerCase();
+      for (const row of rows) {
+        const d = _levenshtein(typed, row.nickname.toLowerCase());
+        if (d < bestDist) { bestDist = d; bestRow = row; }
+      }
+      // Suggest if edit distance is small relative to the typed name
+      const threshold = Math.max(2, Math.floor(typed.length * 0.4));
+      if (bestRow && bestDist <= threshold && bestDist > 0) {
+        suggestion = { nickname: bestRow.nickname, name: bestRow.organization_name };
+      }
+    } catch (_) { /* non-fatal — just skip suggestion */ }
+  }
+
+  const suggestionHtml = suggestion
+    ? `<div class="suggestion">
+        Did you mean <strong>${suggestion.name}</strong>?
+        <a href="https://${suggestion.nickname}.managira.com/">Go to ${suggestion.nickname}.managira.com →</a>
+       </div>`
+    : "";
 
   return res.status(404).send(`
     <!DOCTYPE html>
@@ -136,6 +179,9 @@ const renderOrganizationNotFound = (req, res) => {
         .status-code { font-size: 5rem; font-weight: 800; color: #0f5a66; margin-bottom: 8px; line-height: 1; }
         h1 { font-size: 1.5rem; font-weight: 700; color: #1e293b; margin-bottom: 12px; }
         p { color: #64748b; font-size: 1rem; line-height: 1.6; margin-bottom: 28px; }
+        .suggestion { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 14px 18px; margin-bottom: 24px; font-size: 0.95rem; color: #166534; line-height: 1.6; }
+        .suggestion a { display: block; margin-top: 6px; color: #0f5a66; font-weight: 700; text-decoration: none; }
+        .suggestion a:hover { text-decoration: underline; }
         .btn { display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #0f2d32, #0f5a66); color: white; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 0.95rem; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 4px 14px rgba(15,90,102,0.25); }
         .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(15,90,102,0.35); }
         .home-link { display: block; margin-top: 16px; color: #0f5a66; text-decoration: none; font-size: 0.9rem; font-weight: 600; }
@@ -147,6 +193,7 @@ const renderOrganizationNotFound = (req, res) => {
         <div class="status-code">404</div>
         <h1>Organization Not Found</h1>
         <p>The organization you're looking for doesn't exist on Managira or may have been removed.</p>
+        ${suggestionHtml}
         <a class="btn" href="https://managira.com/legal/directory">Browse All Organizations</a>
         <a class="home-link" href="${backToHomeUrl}">← Back to Managira Home</a>
       </div>
@@ -201,7 +248,7 @@ app.use(async (req, res, next) => {
 
       if (cached) {
         if (!cached.found) {
-          return renderOrganizationNotFound(req, res);
+          return await renderOrganizationNotFound(req, res, subdomain);
         }
 
         attachSchoolContext(req, cached.org);
@@ -257,7 +304,7 @@ app.use(async (req, res, next) => {
         }
       } else {
         setSubdomainCache(cacheKey, { found: false }, SUBDOMAIN_NEGATIVE_CACHE_TTL_MS);
-        return renderOrganizationNotFound(req, res);
+        return await renderOrganizationNotFound(req, res, subdomain);
       }
     } catch (err) {
       console.error("Error fetching subdomain organization:", err);
