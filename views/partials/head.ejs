@@ -11,7 +11,12 @@
   <% if (typeof keywords !== 'undefined' && keywords) { %>
     <meta name="keywords" content="<%- keywords %>">
   <% } %>
-  <meta name="robots" content="index, follow">
+  <%
+    const _noindexPaths = ['/legal/help', '/legal/employment', '/legal/app-demo', '/legal/user-documentation', '/legal/donations', '/account/login'];
+    const _reqPath = req && req.path ? req.path : '';
+    const _shouldNoindex = _noindexPaths.some(p => _reqPath === p || _reqPath.startsWith(p + '/'));
+  %>
+  <meta name="robots" content="<%= _shouldNoindex ? 'noindex, nofollow' : 'index, follow' %>">
   <meta name="author" content="Managira">
   
   <!-- Open Graph Meta Tags -->
