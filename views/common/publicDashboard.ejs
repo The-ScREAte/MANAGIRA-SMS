@@ -4255,6 +4255,13 @@ body[data-pd-theme] .gallery-card .caption{
                   </ul>
                 </div>
               <% } %>
+              <% if (orgDetails && orgDetails.organization_address) { %>
+                <div class="about-meta-block">
+                  <ul class="about-inline-list">
+                    <li class="about-inline-item"><span class="about-inline-label">Address</span><span class="about-inline-text"><%= [orgDetails.organization_address, orgDetails.organization_province, orgDetails.organization_country].filter(Boolean).join(', ') %></span></li>
+                  </ul>
+                </div>
+              <% } %>
             </div>
           </div>
         </div>
@@ -4367,6 +4374,13 @@ body[data-pd-theme] .gallery-card .caption{
                   </ul>
                 </div>
               <% } %>
+              <% if (orgDetails && orgDetails.organization_address) { %>
+                <div class="about-meta-block">
+                  <ul class="about-inline-list">
+                    <li class="about-inline-item"><span class="about-inline-label">Address</span><span class="about-inline-text"><%= [orgDetails.organization_address, orgDetails.organization_province, orgDetails.organization_country].filter(Boolean).join(', ') %></span></li>
+                  </ul>
+                </div>
+              <% } %>
             </div>
           </div>
         </div>
@@ -4473,6 +4487,13 @@ body[data-pd-theme] .gallery-card .caption{
                   </ul>
                 </div>
               <% } %>
+              <% if (orgDetails && orgDetails.organization_address) { %>
+                <div class="about-meta-block">
+                  <ul class="about-inline-list">
+                    <li class="about-inline-item"><span class="about-inline-label">Address</span><span class="about-inline-text"><%= [orgDetails.organization_address, orgDetails.organization_province, orgDetails.organization_country].filter(Boolean).join(', ') %></span></li>
+                  </ul>
+                </div>
+              <% } %>
             </div>
           </div>
         </div>
@@ -4570,6 +4591,13 @@ body[data-pd-theme] .gallery-card .caption{
                     <% aboutPhones.forEach((item) => { %>
                       <li class="about-inline-item"><span class="about-inline-label">Phone</span><span class="about-inline-text"><%= item %></span></li>
                     <% }); %>
+                  </ul>
+                </div>
+              <% } %>
+              <% if (orgDetails && orgDetails.organization_address) { %>
+                <div class="about-meta-block">
+                  <ul class="about-inline-list">
+                    <li class="about-inline-item"><span class="about-inline-label">Address</span><span class="about-inline-text"><%= [orgDetails.organization_address, orgDetails.organization_province, orgDetails.organization_country].filter(Boolean).join(', ') %></span></li>
                   </ul>
                 </div>
               <% } %>
@@ -4682,6 +4710,13 @@ body[data-pd-theme] .gallery-card .caption{
                     <% aboutPhones.forEach((item) => { %>
                       <li class="about-inline-item"><span class="about-inline-label">Phone</span><span class="about-inline-text"><%= item %></span></li>
                     <% }); %>
+                  </ul>
+                </div>
+              <% } %>
+              <% if (orgDetails && orgDetails.organization_address) { %>
+                <div class="about-meta-block">
+                  <ul class="about-inline-list">
+                    <li class="about-inline-item"><span class="about-inline-label">Address</span><span class="about-inline-text"><%= [orgDetails.organization_address, orgDetails.organization_province, orgDetails.organization_country].filter(Boolean).join(', ') %></span></li>
                   </ul>
                 </div>
               <% } %>
