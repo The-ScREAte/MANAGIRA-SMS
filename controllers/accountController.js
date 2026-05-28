@@ -167,6 +167,7 @@ const { invalidateOrganizationAccessCache } = require("../utils/accessCache");
 const { logOrganizationActivity } = require("../utils/activityLog");
 const cacheManager = require("../utils/cacheManager");
 const { pingSearchEngines, pingSchoolUrl } = require("../utils/sitemapPing");
+const { autoGeocodeOrg } = require("../utils/geocode");
 const {
   ensureEmailPreferencesSchema,
   getStaffPreferencesForRole,
@@ -2494,6 +2495,9 @@ const accountController = {
       // Notify search engines about the new school page
       pingSearchEngines();
       pingSchoolUrl(orgNickName);
+
+      // Auto-geocode the org's address for local SEO (fire-and-forget)
+      autoGeocodeOrg(db, organization_id, orgAddress, orgProvince, orgCountry);
 
       // Send registration success email (bypass error)
 
@@ -5077,8 +5081,8 @@ const accountController = {
 
       if (req.session.user.account_type === "Manager") {
         const orgQuery = await db.query(
-          `SELECT organization_id, first_name, last_name, email, scheduled_hold_date, on_hold, 
-                   organization_address, organization_country, organization_province 
+          `SELECT organization_id, first_name, last_name, email, scheduled_hold_date, on_hold,
+                   organization_address, organization_country, organization_province
                    FROM organizations WHERE organization_id = $1`,
 
           [req.session.organizationId]
@@ -5215,6 +5219,20 @@ const accountController = {
         }
 
         await db.query(updateQuery, params);
+
+        // Auto-geocode updated address for local SEO (fire-and-forget)
+        autoGeocodeOrg(db, orgId, orgAddress, orgProvince, orgCountry);
+
+        // Notify Google/Bing that the school page has been updated
+        try {
+          const nickRow = await db.query(
+            "SELECT nickname FROM organizations WHERE organization_id = $1",
+            [orgId]
+          );
+          if (nickRow.rows.length > 0 && nickRow.rows[0].nickname) {
+            pingSchoolUrl(nickRow.rows[0].nickname);
+          }
+        } catch (_) { /* non-critical */ }
 
         // ✅ Update session
 
@@ -5718,6 +5736,17 @@ const accountController = {
         "UPDATE organizations SET organization_name = $1 WHERE organization_id = $2",
         [orgName, orgId]
       );
+
+      // Notify Google/Bing of the updated page content via IndexNow
+      try {
+        const nickRow = await db.query(
+          "SELECT nickname FROM organizations WHERE organization_id = $1",
+          [orgId]
+        );
+        if (nickRow.rows.length > 0 && nickRow.rows[0].nickname) {
+          pingSchoolUrl(nickRow.rows[0].nickname);
+        }
+      } catch (_) { /* non-critical — ignore */ }
 
       req.session.organizationName = orgName;
       req.flash("success", "Organization name updated successfully.");

@@ -29,6 +29,18 @@
       <link rel="canonical" href="<%= canonicalUrl %>">
     <% } %>
 
+    <!-- Geo Meta Tags (for local "near me" search ranking) -->
+    <% if (orgDetails && orgDetails.geo_lat != null && orgDetails.geo_lng != null) { %>
+      <meta name="geo.position" content="<%= orgDetails.geo_lat %>;<%= orgDetails.geo_lng %>">
+      <meta name="ICBM" content="<%= orgDetails.geo_lat %>, <%= orgDetails.geo_lng %>">
+    <% } %>
+    <% if (orgDetails && (orgDetails.organization_country || orgDetails.organization_province)) { %>
+      <meta name="geo.region" content="<%= [orgDetails.organization_country, orgDetails.organization_province].filter(Boolean).join('-') %>">
+    <% } %>
+    <% if (orgDetails && orgDetails.organization_address) { %>
+      <meta name="geo.placename" content="<%= orgDetails.organization_address %>">
+    <% } %>
+
     <!-- Open Graph Meta Tags -->
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Managira">

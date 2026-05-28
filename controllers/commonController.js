@@ -1684,6 +1684,11 @@ const commonController = {
           email,
           organization_phone,
           organization_name,
+          organization_address,
+          organization_country,
+          organization_province,
+          geo_lat,
+          geo_lng,
           nickname,
           font_style,
           theme_color,
@@ -1928,7 +1933,7 @@ const commonController = {
       const structuredDataSchema = orgDetails
         ? {
             "@context": "https://schema.org",
-            "@type": "School",
+            "@type": ["School", "EducationalOrganization"],
             name: orgDetails.organization_name,
             ...(orgDetails.nickname ? { alternateName: [
               orgDetails.nickname,
@@ -1948,8 +1953,17 @@ const commonController = {
             ...(orgDetails.organization_address ? { address: {
               "@type": "PostalAddress",
               streetAddress: orgDetails.organization_address,
+              ...(orgDetails.organization_province ? { addressLocality: orgDetails.organization_province, addressRegion: orgDetails.organization_province } : {}),
               ...(orgDetails.organization_country ? { addressCountry: orgDetails.organization_country } : {}),
             }} : {}),
+            ...(orgDetails.geo_lat != null && orgDetails.geo_lng != null ? {
+              geo: {
+                "@type": "GeoCoordinates",
+                latitude: parseFloat(orgDetails.geo_lat),
+                longitude: parseFloat(orgDetails.geo_lng),
+              },
+              hasMap: `https://www.google.com/maps?q=${orgDetails.geo_lat},${orgDetails.geo_lng}`,
+            } : {}),
             ...(orgDetails.organization_phone ? { telephone: orgDetails.organization_phone } : {}),
             ...(orgDetails.email ? { email: orgDetails.email } : {}),
             sameAs: [
@@ -5410,7 +5424,7 @@ const commonController = {
 
       // Fetch classes
       const classResult = await db.query(
-        `SELECT class_id, class_name FROM classes WHERE organization_id = $1;`,
+        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY class_name ASC`,
         [organizationId]
       );
 
@@ -6275,7 +6289,7 @@ const commonController = {
       logStep("permissions_schema_ready");
 
       const classesResult = await db.query(
-        "SELECT * FROM classes WHERE organization_id = $1",
+        "SELECT * FROM classes WHERE organization_id = $1 ORDER BY class_name ASC",
         [req.session.organizationId]
       );
       logStep("classes_loaded", { classCount: classesResult.rows.length });
@@ -6987,7 +7001,7 @@ const commonController = {
       );
 
       const classesResult = await db.query(
-        "SELECT * FROM classes WHERE organization_id = $1",
+        "SELECT * FROM classes WHERE organization_id = $1 ORDER BY class_name ASC",
         [req.session.organizationId]
       );
 
@@ -7019,7 +7033,7 @@ const commonController = {
 
         // 🔥 Fetch only the classes assigned to this employee
         const classesQuery = await db.query(
-          "SELECT class_id, class_name FROM classes WHERE class_id = ANY($1)",
+          "SELECT class_id, class_name FROM classes WHERE class_id = ANY($1) ORDER BY class_name ASC",
           [classIds]
         );
         const classes = classesQuery.rows;
@@ -10064,7 +10078,7 @@ const commonController = {
         [req.session.organizationId]
       );
       const classesResult = await db.query(
-        "SELECT * FROM classes WHERE organization_id = $1",
+        "SELECT * FROM classes WHERE organization_id = $1 ORDER BY class_name ASC",
         [req.session.organizationId]
       );
       const eventsResult = await db.query(
@@ -10566,7 +10580,7 @@ const commonController = {
       const { organizationId } = req.session;
 
       const classResult = await db.query(
-        "SELECT * FROM classes WHERE organization_id = $1",
+        "SELECT * FROM classes WHERE organization_id = $1 ORDER BY class_name ASC",
         [organizationId]
       );
       const classes = classResult.rows;
