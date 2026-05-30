@@ -31,7 +31,7 @@
       .es-container {
         max-width: 860px;
         margin: 0 auto;
-        padding: 24px;
+        padding: 12px 24px 24px;
       }
 
       .es-top-bar {
@@ -61,6 +61,51 @@
       }
 
       .es-back-btn:hover { background: #f1f5f9; }
+
+      .es-id-widget {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
+        margin-left: auto;
+        flex-shrink: 0;
+      }
+      .es-id-label {
+        font-size: 0.74rem;
+        font-weight: 600;
+        color: #64748b;
+        white-space: nowrap;
+      }
+      .es-id-label strong { color: #0f172a; }
+      .es-id-input {
+        width: auto;
+        min-width: 7ch;
+        max-width: 10ch;
+        border: none;
+        border-bottom: 1.5px solid #cbd5e1;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        background: transparent;
+        color: #1e293b;
+        font-size: 0.78rem;
+        font-weight: 600;
+        font-family: 'SFMono-Regular', Consolas, monospace;
+        outline: none;
+        padding: 0 !important;
+        margin: 0 !important;
+        transition: border-color 0.15s, color 0.15s;
+        text-align: left;
+      }
+      .es-id-input:focus { border-bottom-color: var(--primary); }
+      .es-id-input.sid-taken { color: #ef4444; border-bottom-color: #ef4444; }
+      .es-id-input::placeholder { color: #94a3b8; opacity: 1; }
+      .es-id-taken-msg {
+        font-size: 0.68rem;
+        color: #ef4444;
+        font-weight: 500;
+        display: none;
+      }
+      .es-id-taken-msg.visible { display: inline; }
 
       .es-card {
         background: white;
@@ -393,6 +438,39 @@
           }
         });
 
+        // Real-time student ID conflict check
+        (function() {
+          const input = document.getElementById('esCustomStudentId');
+          if (!input) return;
+          const syncStudentIdInputWidth = (node) => {
+            const basis = (node.value || node.placeholder || '').trim();
+            const chars = Math.max(6, Math.min(10, basis.length || 6));
+            node.style.width = (chars + 0.8) + 'ch';
+          };
+          const prefix = '<%= (studentIdSettings && studentIdSettings.student_id_prefix) ? studentIdSettings.student_id_prefix : "" %>';
+          const originalValue = input.value.trim();
+          const studentId = '<%= student.student_id %>';
+          let timer;
+          syncStudentIdInputWidth(input);
+          input.addEventListener('input', function() {
+            clearTimeout(timer);
+            syncStudentIdInputWidth(input);
+            const val = this.value.trim();
+            if (!val) {
+              input.classList.remove('sid-taken');
+              return;
+            }
+            timer = setTimeout(async function() {
+              try {
+                const fullId = prefix + val;
+                const r = await fetch('/common/check-student-id?id=' + encodeURIComponent(fullId) + '&num=' + encodeURIComponent(val) + '&exclude=' + studentId);
+                const d = await r.json();
+                input.classList.toggle('sid-taken', d.taken);
+              } catch(e) {}
+            }, 400);
+          });
+        })();
+
         function addGuardian() {
             const container = document.getElementById("guardiansContainer");
             const count = container.querySelectorAll('.es-guardian-entry').length;
@@ -412,10 +490,21 @@
 </head>
 <body>
 <div class="es-container">
-  <div class="es-top-bar">
-    <h1>Edit Student</h1>
-    <a href="/common/studentDetails?studentId=<%= student.student_id %>&termId=<%= currentTerm ? currentTerm.term_id : '' %>" class="es-back-btn">← Back</a>
-  </div>
+  <%
+    var _prefix = '';
+    var _displayId = '';
+    var _numPart = '';
+    if (studentIdSettings && studentIdSettings.use_custom_student_id) {
+      _prefix = studentIdSettings.student_id_prefix || '';
+      _displayId = student.custom_student_id ||
+        (_prefix
+          ? _prefix + String(student.student_id).padStart(3, '0')
+          : String(student.student_id).padStart(3, '0'));
+      _numPart = (_prefix && _displayId.toUpperCase().indexOf(_prefix.toUpperCase()) === 0)
+        ? _displayId.slice(_prefix.length)
+        : _displayId;
+    }
+  %>
 
   <form action="/common/editStudent/<%= student.student_id %>" method="POST" enctype="multipart/form-data" onsubmit="confirmUpdate(event)">
     
@@ -447,7 +536,20 @@
 
     <!-- Personal Information -->
     <div class="es-card">
-      <h3 class="es-section-title">👤 Personal Information</h3>
+      <div class="es-section-title">
+        <span>👤 Personal Information</span>
+        <% if (studentIdSettings && studentIdSettings.use_custom_student_id) { %>
+        <div class="es-id-widget">
+          <span class="es-id-label">ID:<% if (_prefix) { %> <strong><%= _prefix %></strong><% } %></span>
+          <input type="text" name="customStudentId" id="esCustomStudentId" class="es-id-input"
+            value="<%= _numPart %>"
+            placeholder="001"
+            maxlength="100"
+            inputmode="numeric"
+            autocomplete="off">
+        </div>
+        <% } %>
+      </div>
       <div class="es-form-grid">
         <div class="es-field">
           <label>First Name *</label>

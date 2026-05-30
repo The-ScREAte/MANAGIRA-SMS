@@ -127,6 +127,27 @@
         color: var(--text);
       }
 
+      .student-heading-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .student-id-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border: 1px solid rgba(1, 83, 91, 0.16);
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--primary) 6%, white);
+        color: var(--primary);
+        font-size: 0.76rem;
+        font-weight: 700;
+        font-family: 'SFMono-Regular', Consolas, monospace;
+        letter-spacing: 0.04em;
+      }
+
       .student-details-toggle {
         display: none;
         margin-top: 6px;
@@ -324,7 +345,22 @@
 
         <!-- Student Details -->
         <div class="student-details">
-          <h2><%= student.first_name %> <%= student.last_name %></h2>
+          <%
+            var _studentDisplayId = '';
+            if (studentIdSettings && studentIdSettings.use_custom_student_id) {
+              var _studentPrefix = studentIdSettings.student_id_prefix || '';
+              _studentDisplayId = student.custom_student_id ||
+                (_studentPrefix
+                  ? _studentPrefix + String(student.student_id).padStart(3, '0')
+                  : String(student.student_id).padStart(3, '0'));
+            }
+          %>
+          <div class="student-heading-row">
+            <h2><%= student.first_name %> <%= student.last_name %></h2>
+            <% if (_studentDisplayId) { %>
+            <span class="student-id-chip">ID: <%= _studentDisplayId %></span>
+            <% } %>
+          </div>
           <button class="student-details-toggle" type="button" id="student-details-toggle" aria-expanded="false" aria-controls="student-extra-details">More details</button>
           <div class="student-extra-details" id="student-extra-details">
           <p><strong>Gender:</strong> <%= student.gender %></p>

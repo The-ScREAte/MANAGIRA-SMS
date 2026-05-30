@@ -2147,6 +2147,14 @@ const commonController = {
       );
       const currentTerm = currentTermResult.rows[0];
 
+      // Fetch org student ID settings
+      const orgIdSettingsResult = await db.query(
+        `SELECT use_custom_student_id, student_id_prefix, student_id_auto_generate, student_id_counter
+         FROM organizations WHERE organization_id = $1`,
+        [organizationId]
+      );
+      const studentIdSettings = orgIdSettingsResult.rows[0] || {};
+
       res.render("common/addStudent", {
         title: "Add New Student",
         classes: classResult.rows,
@@ -2154,6 +2162,7 @@ const commonController = {
         subjects: subjectResult.rows,
         schoolYears,
         currentTerm,
+        studentIdSettings,
         messages: req.flash(),
         organizationId: req.session.organizationId,
       });
@@ -2169,6 +2178,14 @@ const commonController = {
     const body = req.body;
     const uploadedFiles = Array.isArray(req.files) ? req.files : [];
     const allowDuplicateSave = String(body.allowDuplicateSave || 'false') === 'true';
+
+    // Fetch org student ID settings once before processing students
+    const orgIdSettingsResult = await db.query(
+      `SELECT use_custom_student_id, student_id_prefix, student_id_auto_generate, student_id_counter
+       FROM organizations WHERE organization_id = $1`,
+      [organizationId]
+    );
+    const idSettings = orgIdSettingsResult.rows[0] || {};
 
     const indexes = [];
     const studentFieldPattern = /^(?:firstName|lastName|dateOfBirth|gender|classId|graduationYearGroupId|hometown|height|enrollmentType|schoolYearId|termId)_(\d+)$/;
@@ -2227,6 +2244,7 @@ const commonController = {
           enrollmentType: getStudentField('enrollmentType'),
           schoolYearId: getStudentField('schoolYearId'),
           termId: getStudentField('termId'),
+          customStudentId: getStudentField('customStudentId'),
           subjects: body[`subjects_${index}`] || [],
           guardians: [],
         };
@@ -2313,10 +2331,79 @@ const commonController = {
 
         // Use imageUrl as usual in your INSERT query:
         currentPhaseForLog = 'insertStudent';
+
+        // Resolve custom student ID for this student
+        let resolvedCustomId = null;
+        if (idSettings.use_custom_student_id) {
+          const prefix = idSettings.student_id_prefix || '';
+          const rawManual = student.customStudentId ? String(student.customStudentId).trim() : '';
+          // Strip prefix from manual input to avoid doubling (e.g. user types "MGI042" when prefix is "MGI")
+          const manualOverride = rawManual
+            ? (prefix && rawManual.toUpperCase().startsWith(prefix.toUpperCase())
+                ? rawManual.slice(prefix.length)
+                : rawManual)
+            : '';
+
+          if (idSettings.student_id_auto_generate && !manualOverride) {
+            // Increment counter atomically within the transaction
+            const counterResult = await client.query(
+              `UPDATE organizations SET student_id_counter = student_id_counter + 1
+               WHERE organization_id = $1 RETURNING student_id_counter`,
+              [organizationId]
+            );
+            let counter = counterResult.rows[0].student_id_counter;
+            resolvedCustomId = prefix + String(counter).padStart(3, '0');
+            // If this ID is already taken (e.g. someone manually entered a higher number),
+            // keep incrementing until we find a free slot
+            let collision = false;
+            for (let attempt = 0; attempt < 1000; attempt++) {
+              const idConflict = await client.query(
+                `SELECT 1 FROM students WHERE organization_id = $1 AND custom_student_id = $2`,
+                [organizationId, resolvedCustomId]
+              );
+              if (idConflict.rows.length === 0) break;
+              collision = true;
+              counter++;
+              resolvedCustomId = prefix + String(counter).padStart(3, '0');
+            }
+            // Sync counter to the actual number used so the next student continues from here
+            if (collision) {
+              await client.query(
+                `UPDATE organizations SET student_id_counter = $1 WHERE organization_id = $2`,
+                [counter, organizationId]
+              );
+            }
+          } else if (manualOverride) {
+            resolvedCustomId = prefix + manualOverride;
+            // Check if manually specified ID is already taken
+            const idConflict = await client.query(
+              `SELECT 1 FROM students WHERE organization_id = $1 AND custom_student_id = $2`,
+              [organizationId, resolvedCustomId]
+            );
+            if (idConflict.rows.length > 0) {
+              // Find next available ID starting from +1 and suggest it
+              const numPart = parseInt(manualOverride.replace(/\D/g, ''), 10) || 0;
+              const padLen = manualOverride.replace(/\D/g, '').length || 3;
+              let suggestion = null;
+              for (let n = numPart + 1; n < numPart + 1000; n++) {
+                const candidate = prefix + String(n).padStart(padLen, '0');
+                const check = await client.query(
+                  `SELECT 1 FROM students WHERE organization_id = $1 AND custom_student_id = $2`,
+                  [organizationId, candidate]
+                );
+                if (check.rows.length === 0) { suggestion = candidate; break; }
+              }
+              throw new Error(
+                `ID "${resolvedCustomId}" is already taken.${suggestion ? ` Next available: "${suggestion}".` : ''}`
+              );
+            }
+          }
+        }
+
         const studentInsert = await client.query(
           `INSERT INTO students 
-          (first_name, last_name, date_of_birth, height, hometown, class_id, image_url, graduation_year_group_id, gender, created_by, organization_id)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+          (first_name, last_name, date_of_birth, height, hometown, class_id, image_url, graduation_year_group_id, gender, created_by, organization_id, custom_student_id)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
           RETURNING student_id`,
           [
             student.firstName,
@@ -2325,11 +2412,12 @@ const commonController = {
             student.height,
             student.hometown,
             student.classId,
-            imageUrl, // ✅ Use uploaded image if present
+            imageUrl,
             student.graduationYearGroupId || null,
             student.gender,
             createdBy,
             organizationId,
+            resolvedCustomId,
           ]
         );
 
@@ -5281,9 +5369,17 @@ const commonController = {
 
       const termNameForPage = termResult.rows[0]?.term_name || "Unknown";
 
+      // Fetch student ID settings for display
+      const sidSettingsResult = await db.query(
+        `SELECT use_custom_student_id, student_id_prefix FROM organizations WHERE organization_id = $1`,
+        [organizationId]
+      );
+      const studentIdSettings = sidSettingsResult.rows[0] || {};
+
       res.render("common/studentDetails", {
         title: "Student Details",
         student,
+        studentIdSettings,
         guardians,
         subjects,
         uniqueAssessments,
@@ -5453,8 +5549,17 @@ const commonController = {
       );
 
       // ✅ Ensure term is always defined
+      // Fetch org student ID settings for the edit form
+      const editOrgIdSettingsResult = await db.query(
+        `SELECT use_custom_student_id, student_id_prefix, student_id_auto_generate
+         FROM organizations WHERE organization_id = $1`,
+        [organizationId]
+      );
+      const studentIdSettings = editOrgIdSettingsResult.rows[0] || {};
+
       res.render("common/editStudent", {
         title: "Edit Student",
+        hideGlobalHeader: true,
         student,
         classes: classResult.rows,
         graduationYearGroups: graduationYearGroups.rows,
@@ -5462,6 +5567,7 @@ const commonController = {
         studentGuardians: guardians.rows,
         studentSubjects: studentSubjects.rows.map((row) => row.subject_id),
         currentTerm, // ✅ Fix: Now always defined
+        studentIdSettings,
         messages: req.flash(),
       });
     } catch (error) {
@@ -5484,6 +5590,7 @@ const commonController = {
         classId,
         graduationYearGroupId,
         gender,
+        customStudentId,
       } = req.body;
 
       if (!sessionOrganizationId) {
@@ -5572,6 +5679,34 @@ const commonController = {
       const oldClassId = oldStudentResult.rows[0]?.class_id;
       const oldClassName = oldStudentResult.rows[0]?.old_class_name;
 
+      // Validate custom student ID uniqueness (exclude current student)
+      const rawCustomId = (customStudentId || '').trim();
+      if (rawCustomId) {
+        const idConflict = await db.query(
+          `SELECT 1 FROM students
+           WHERE organization_id = $1 AND custom_student_id = $2 AND student_id <> $3`,
+          [sessionOrganizationId, rawCustomId, studentId]
+        );
+        if (idConflict.rows.length > 0) {
+          await db.query('ROLLBACK');
+          // Find next available suggestion
+          const numPart = parseInt(rawCustomId.replace(/\D/g, ''), 10) || 0;
+          const prefixPart = rawCustomId.replace(/[0-9]+$/, '');
+          const padLen = rawCustomId.replace(/\D/g, '').length || 3;
+          let suggestion = null;
+          for (let n = numPart + 1; n < numPart + 1000; n++) {
+            const candidate = prefixPart + String(n).padStart(padLen, '0');
+            const check = await db.query(
+              `SELECT 1 FROM students WHERE organization_id = $1 AND custom_student_id = $2 AND student_id <> $3`,
+              [sessionOrganizationId, candidate, studentId]
+            );
+            if (check.rows.length === 0) { suggestion = candidate; break; }
+          }
+          req.flash('error', `ID "${rawCustomId}" is already taken.${suggestion ? ` Try "${suggestion}" instead.` : ''}`);
+          return res.redirect('/common/editStudent?studentId=' + studentId);
+        }
+      }
+
       // Update student details
       const updateStudentQuery = `
             UPDATE students
@@ -5583,7 +5718,8 @@ const commonController = {
                 class_id = $6, 
                 graduation_year_group_id = $7, 
                 gender = $8, 
-                image_url = COALESCE($9, image_url)
+                image_url = COALESCE($9, image_url),
+                custom_student_id = $12
             WHERE student_id = $10 
             AND organization_id = $11;
         `;
@@ -5599,6 +5735,7 @@ const commonController = {
         imageUrl,
         studentId,
         sessionOrganizationId,
+        rawCustomId || null,
       ]);
 
       // Update subjects (org-scoped delete prevents cross-org cascade)
@@ -13625,6 +13762,53 @@ const commonController = {
       return res.status(500).json({ error: "Failed to save changes." });
     } finally {
       client.release();
+    }
+  },
+
+  // GET /common/check-student-id?id=MGI042&exclude=5
+  // Returns { taken: true|false }
+  checkStudentId: async (req, res, db) => {
+    try {
+      const organizationId = req.session.organizationId;
+      if (!organizationId) return res.status(401).json({ error: "Unauthorized" });
+      const customId = (req.query.id || "").trim();
+      if (!customId) return res.json({ taken: false });
+      // numOnly is the bare number the user typed (e.g. "222").
+      // customId is the full resolved ID (e.g. "DBB222").
+      // We check both so that legacy records stored without a prefix are also caught.
+      const numOnly = (req.query.num || "").trim();
+      const excludeStudentId = parseInt(req.query.exclude) || null;
+      const checkBoth = numOnly && numOnly !== customId;
+      let result;
+      if (excludeStudentId) {
+        if (checkBoth) {
+          result = await db.query(
+            `SELECT 1 FROM students WHERE organization_id = $1 AND (custom_student_id = $2 OR custom_student_id = $3) AND student_id != $4 LIMIT 1`,
+            [organizationId, customId, numOnly, excludeStudentId]
+          );
+        } else {
+          result = await db.query(
+            `SELECT 1 FROM students WHERE organization_id = $1 AND custom_student_id = $2 AND student_id != $3 LIMIT 1`,
+            [organizationId, customId, excludeStudentId]
+          );
+        }
+      } else {
+        if (checkBoth) {
+          result = await db.query(
+            `SELECT 1 FROM students WHERE organization_id = $1 AND (custom_student_id = $2 OR custom_student_id = $3) LIMIT 1`,
+            [organizationId, customId, numOnly]
+          );
+        } else {
+          result = await db.query(
+            `SELECT 1 FROM students WHERE organization_id = $1 AND custom_student_id = $2 LIMIT 1`,
+            [organizationId, customId]
+          );
+        }
+      }
+      return res.json({ taken: result.rows.length > 0 });
+    } catch (err) {
+      console.error('[checkStudentId]', err.message);
+      return res.status(500).json({ error: "Server error" });
     }
   },
 };

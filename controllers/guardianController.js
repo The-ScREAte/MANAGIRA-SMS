@@ -405,9 +405,18 @@ module.exports = {
 
       const termNameForPage = termResult.rows[0]?.term_name || "Unknown";
 
+      const sidSettingsResult = await db.query(
+        `SELECT use_custom_student_id, student_id_prefix
+           FROM organizations
+          WHERE organization_id = $1`,
+        [organizationId]
+      );
+      const studentIdSettings = sidSettingsResult.rows[0] || {};
+
       return res.render("common/studentDetails", {
         title: "Student Details",
         student,
+        studentIdSettings,
         guardians: guardiansResult.rows,
         subjects,
         uniqueAssessments,

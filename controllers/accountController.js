@@ -5781,6 +5781,46 @@ const accountController = {
     }
   },
 
+  updateStudentIdSettingsPost: async (req, res, db) => {
+    try {
+      const orgId = req.session.organizationId;
+      if (!orgId) {
+        req.flash("error", "Unauthorized.");
+        return res.redirect("/account/login");
+      }
+
+      const useCustom = req.body.useCustomStudentId === "on";
+      const autoGenerate = req.body.studentIdAutoGenerate === "on";
+
+      // Sanitize prefix: only alphanumeric, dash, underscore — max 10 chars
+      const rawPrefix = (req.body.studentIdPrefix || "").trim();
+      const safePrefix = rawPrefix.replace(/[^A-Za-z0-9\-_]/g, "").toUpperCase().slice(0, 10) || null;
+
+      // Starting number: school can set where auto-numbering begins (stored as counter = startingNumber - 1)
+      const rawStarting = parseInt(req.body.startingNumber, 10);
+      const safeStarting = Number.isInteger(rawStarting) && rawStarting >= 1 ? rawStarting - 1 : null;
+
+      await db.query(
+        `UPDATE organizations
+         SET use_custom_student_id   = $1,
+             student_id_prefix        = $2,
+             student_id_auto_generate = $3
+             ${safeStarting !== null ? ', student_id_counter = $5' : ''}
+         WHERE organization_id = $4`,
+        safeStarting !== null
+          ? [useCustom, safePrefix, autoGenerate, orgId, safeStarting]
+          : [useCustom, safePrefix, autoGenerate, orgId]
+      );
+
+      const redirectTo = req.body.redirectTo || "/account/settings";
+      req.flash("success", "Student ID settings updated.");
+      return res.redirect(redirectTo);
+    } catch (err) {
+      req.flash("error", "Failed to update student ID settings.");
+      return res.redirect(req.body.redirectTo || "/account/settings");
+    }
+  },
+
   personalizationLogoPost: async (req, res) => {
     const { file } = req;
 
@@ -7007,6 +7047,18 @@ const accountController = {
 
       const orgRow = orgResult.rows[0] || {};
       const isHubMember = Boolean(orgRow.is_hub_member && orgRow.hub_id);
+
+      // Fetch student ID settings for the Student ID Settings card
+      let studentIdSettings = {};
+      if (orgId) {
+        const sidResult = await db.query(
+          `SELECT use_custom_student_id, student_id_prefix, student_id_auto_generate, student_id_counter
+           FROM organizations WHERE organization_id = $1`,
+          [orgId]
+        );
+        studentIdSettings = sidResult.rows[0] || {};
+      }
+
       let paystackCustomerCode = orgRow.paystack_customer_code || '';
       const stripeCustomerId = orgRow.stripe_customer_id || null;
       const activeSystemProvider = await getActivePaymentProvider();
@@ -7335,6 +7387,7 @@ const accountController = {
         feedbackTypeOptions: FEEDBACK_TYPE_OPTIONS,
         feedbackAreaOptions: FEEDBACK_AREA_OPTIONS,
         feedbackPriorityOptions: FEEDBACK_PRIORITY_OPTIONS,
+        studentIdSettings,
         messages: req.flash(),
       });
     } catch (error) {
