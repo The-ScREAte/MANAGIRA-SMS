@@ -107,7 +107,7 @@ const legalController = {
             title: 'About Managira - School Management That Actually Works',
             description: 'Real school management software built for schools tired of spreadsheets and disconnected systems. Simple setup, reliable operations, and actual support from people who understand schools.',
             keywords: 'managira about us, school management software, education management system, student information system, school administration',
-            canonicalUrl: 'https://www.managira.com/legal/about-us',
+            canonicalUrl: 'https://managira.com/legal/about-us',
             showFooterTopSection: true
         });
     },
@@ -447,7 +447,7 @@ const legalController = {
             title: 'User Documentation - Managira School Management System',
             description: 'Complete user documentation for Managira school management system. Learn how to manage students, attendance, assessments, reports, promotions, admissions, and more.',
             keywords: 'managira user documentation, managira guide, school management guide, how to use managira, managira help, managira tutorial, managira Nigeria, school management Nigeria',
-            canonicalUrl: 'https://www.managira.com/legal/user-documentation',
+            canonicalUrl: 'https://managira.com/legal/user-documentation',
             showFooterTopSection: true
         });
     },
@@ -457,7 +457,7 @@ const legalController = {
             title: 'App Demo - Explore Managira',
             description: 'Explore Managira through an interactive visual demo covering the dashboard, student management, attendance, fees, reports, and settings.',
             keywords: 'managira demo, school management software demo, dashboard demo, attendance demo, fees demo, reports demo',
-            canonicalUrl: 'https://www.managira.com/legal/app-demo',
+            canonicalUrl: 'https://managira.com/legal/app-demo',
             showFooterTopSection: false,
             hideGlobalHeader: true,
             hideGlobalFooter: true
@@ -469,7 +469,7 @@ const legalController = {
             title: 'Request a Demo - Managira',
             description: 'Request a personalised live demo of Managira and see how it can transform your school operations.',
             keywords: 'managira demo request, schedule demo, school management demo, book a demo',
-            canonicalUrl: 'https://www.managira.com/legal/request-demo',
+            canonicalUrl: 'https://managira.com/legal/request-demo',
             success: req.flash('success'),
             error: req.flash('error'),
             messages: req.flash(),
@@ -675,7 +675,7 @@ const legalController = {
                 };
             });
 
-            const baseSiteUrl = 'https://www.managira.com';
+            const baseSiteUrl = 'https://managira.com';
             const toAbsoluteUrl = (value) => {
                 if (!value) return null;
                 if (/^https?:\/\//i.test(value)) return value;
@@ -689,12 +689,12 @@ const legalController = {
                     {
                         '@type': 'CollectionPage',
                         name: 'Managira School Directory',
-                        url: 'https://www.managira.com/legal/directory',
+                        url: 'https://managira.com/legal/directory',
                         description: 'Find schools on Managira by school name, nickname, or public URL.',
                         keywords: 'school management system, school management software, school directory, school portal, school ERP, education management software',
                         potentialAction: {
                             '@type': 'SearchAction',
-                            target: 'https://www.managira.com/legal/directory?q={search_term_string}',
+                            target: 'https://managira.com/legal/directory?q={search_term_string}',
                             'query-input': 'required name=search_term_string'
                         }
                     },
@@ -722,7 +722,7 @@ const legalController = {
                 title: 'School Directory | School Management System | Managira',
                 description: 'School directory on Managira. Find schools by full school name, nickname, or URL. Discover school websites, portals, and public updates.',
                 keywords: 'school management system, school management software, management system for schools, school directory, school portal, school website, school ERP software, find school by name, school nickname search, school URL search, education management software, schools on managira',
-                canonicalUrl: 'https://www.managira.com/legal/directory',
+                canonicalUrl: 'https://managira.com/legal/directory',
                 organizations: orgs,
                 structuredData,
                 showFooterTopSection: true

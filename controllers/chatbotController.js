@@ -107,9 +107,10 @@ class ChatbotController {
   // Return popular FAQ links for the welcome screen
   static getPopularQuestions(req, res) {
     try {
-      const popularIds = [3, 4, 30];
-      const popular = managiraFAQ
-        .filter((f) => popularIds.includes(f.id))
+      const popularIds = [110, 3, 30];
+      const popular = popularIds
+        .map((id) => managiraFAQ.find((f) => f.id === id))
+        .filter(Boolean)
         .map((f) => ({
           question: f.question,
           url: '/legal/faq?q=' + encodeURIComponent(f.question),

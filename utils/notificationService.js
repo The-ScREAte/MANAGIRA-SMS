@@ -455,7 +455,7 @@ async function notifyByPermission(db, { orgId, permission, type, title, body, li
        WHERE u.organization_id = $1
          AND u.on_hold IS NOT TRUE
          AND (
-           u.account_type = 'Organization'
+           u.account_type::text = 'Manager'
            OR EXISTS (
              SELECT 1 FROM user_permissions up
              WHERE up.user_id = u.user_id

@@ -4,11 +4,12 @@ Allow: /legal/
 Allow: /common/publicDashboard
 
 # Sitemaps
-Sitemap: https://www.managira.com/sitemap.xml
-Sitemap: https://www.managira.com/sitemap-schools.xml
+Sitemap: https://managira.com/sitemap.xml
+Sitemap: https://managira.com/sitemap-schools.xml
 
 # Block access to admin and private areas
 Disallow: /admin/
+Allow: /account/service-plan
 Disallow: /account/
 Disallow: /enrollment/
 Disallow: /common/orgDashboard

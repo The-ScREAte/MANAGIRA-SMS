@@ -1987,22 +1987,28 @@
                 </div>
 
                 <!-- Starting number (visible when auto-generate is on) -->
+                <% 
+                  const configuredStudentIdStartNumber = Number(studentIdSettings && studentIdSettings.student_id_start_number);
+                  const savedStudentIdStartNumber = Number.isInteger(configuredStudentIdStartNumber) && configuredStudentIdStartNumber > 0
+                    ? configuredStudentIdStartNumber
+                    : (nextAvailableStudentIdNumber || (((studentIdSettings && studentIdSettings.student_id_counter) || 0) + 1));
+                %>
                 <div id="sidStartingRow" style="<%= studentIdSettings && studentIdSettings.student_id_auto_generate ? '' : 'display:none;' %>">
                   <label style="display:block; font-size:0.85rem; font-weight:600; color:#374151; margin-bottom:6px;" for="startingNumber">
                     Start numbering from
-                    <span style="font-weight:400; color:#94a3b8; font-size:0.78rem;">· counter is at <%= (studentIdSettings && studentIdSettings.student_id_counter) || 0 %>, next is <%= ((studentIdSettings && studentIdSettings.student_id_counter) || 0) + 1 %></span>
+                    <span style="font-weight:400; color:#94a3b8; font-size:0.78rem;">· counter is at <%= (studentIdSettings && studentIdSettings.student_id_counter) || 0 %>, next available is <%= nextAvailableStudentIdNumber || (((studentIdSettings && studentIdSettings.student_id_counter) || 0) + 1) %><% if (savedStudentIdStartNumber && savedStudentIdStartNumber !== (nextAvailableStudentIdNumber || (((studentIdSettings && studentIdSettings.student_id_counter) || 0) + 1))) { %>, saved start is <%= savedStudentIdStartNumber %><% } %></span>
                   </label>
                   <div style="display:flex; align-items:center; gap:10px;">
                     <input type="number" id="startingNumber" name="startingNumber" min="1" max="999999"
-                      value="<%= ((studentIdSettings && studentIdSettings.student_id_counter) || 0) + 1 %>"
+                      value="<%= savedStudentIdStartNumber %>"
                       oninput="updateSidNextPreview()"
                       class="form-input"
                       style="width:100px;" />
                     <span id="sidNextPreview" style="font-family:monospace; font-size:0.88rem; font-weight:700; color:#334155; letter-spacing:0.05em;">
-                      <%= ((studentIdSettings && studentIdSettings.student_id_prefix) || '') %><%= String(((studentIdSettings && studentIdSettings.student_id_counter) || 0) + 1).padStart(3, '0') %>
+                      <%= ((studentIdSettings && studentIdSettings.student_id_prefix) || '') %><%= String(savedStudentIdStartNumber).padStart(3, '0') %>
                     </span>
                   </div>
-                  <p style="margin:6px 0 0; font-size:0.78rem; color:#94a3b8;">To continue from an existing numbering system, set this to the next number you want to use.</p>
+                  <p style="margin:6px 0 0; font-size:0.78rem; color:#94a3b8;">The system suggests the first reusable number in your current range. Change this only if you are deliberately starting a different range.</p>
                 </div>
 
               </div>

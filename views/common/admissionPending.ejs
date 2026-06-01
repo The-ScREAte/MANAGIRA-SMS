@@ -210,9 +210,9 @@
   }
 
   #studentDetailsContainer .form-actions {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     gap: 12px;
-    flex-wrap: wrap;
     margin-top: 24px;
     padding-top: 24px;
     border-top: 1px solid var(--border);
@@ -383,24 +383,25 @@ async function loadStudentDetails(id) {
             </div>
           </div>
 
-          <div class="form-group future-enrollment-section">
-            <label>School Year:</label>
-            <select name="schoolYearId" id="schoolYearSelect" onchange="updateTermOptions(this)">
-              <option value="">Select School Year</option>
-              ${schoolYears.map(year => `
-                <option value="${year.school_year_id}" data-terms='${JSON.stringify(year.terms)}' ${year.school_year_id === student.school_year_id ? 'selected' : ''}>${year.year_label}</option>
-              `).join('')}
-            </select>
-          </div>
-
-          <div class="form-group future-enrollment-section">
-            <label>Term:</label>
-            <select name="termId" id="termSelect">
-              <option value="">Select Term</option>
-              ${(schoolYears.find(y => y.school_year_id === student.school_year_id)?.terms || []).map(term => `
-                <option value="${term.term_id}" ${term.term_id === student.term_id ? 'selected' : ''}>${term.term_name}</option>
-              `).join('')}
-            </select>
+          <div class="future-enrollment-section" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="form-group">
+              <label>School Year:</label>
+              <select name="schoolYearId" id="schoolYearSelect" onchange="updateTermOptions(this)">
+                <option value="">Select School Year</option>
+                ${schoolYears.map(year => `
+                  <option value="${year.school_year_id}" data-terms='${JSON.stringify(year.terms)}' ${year.school_year_id === student.school_year_id ? 'selected' : ''}>${year.year_label}</option>
+                `).join('')}
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Term:</label>
+              <select name="termId" id="termSelect">
+                <option value="">Select Term</option>
+                ${(schoolYears.find(y => y.school_year_id === student.school_year_id)?.terms || []).map(term => `
+                  <option value="${term.term_id}" ${term.term_id === student.term_id ? 'selected' : ''}>${term.term_name}</option>
+                `).join('')}
+              </select>
+            </div>
           </div>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
@@ -509,7 +510,7 @@ async function loadStudentDetails(id) {
 function toggleEnrollmentFields() {
   const selected = document.querySelector('input[name="enrollmentType"]:checked');
   document.querySelectorAll('.future-enrollment-section').forEach(section => {
-    section.style.display = (!selected || selected.value === "current") ? "none" : "block";
+    section.style.display = (!selected || selected.value === "current") ? "none" : "";
   });
 }
 

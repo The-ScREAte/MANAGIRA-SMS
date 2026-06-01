@@ -29,9 +29,21 @@
       }
 
       .es-container {
-        max-width: 860px;
+        max-width: 1180px;
         margin: 0 auto;
         padding: 12px 24px 24px;
+      }
+
+      .es-overview-grid {
+        display: grid;
+        grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
+        gap: 20px;
+        align-items: start;
+        margin-bottom: 20px;
+      }
+
+      .es-overview-grid > .es-card {
+        margin-bottom: 0;
       }
 
       .es-top-bar {
@@ -110,10 +122,15 @@
       .es-card {
         background: white;
         border: 1px solid var(--border);
-        border-radius: 12px;
+        border-radius: 16px;
         padding: 24px;
         margin-bottom: 20px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+      }
+
+      .es-card--sticky {
+        position: sticky;
+        top: 16px;
       }
 
       .es-section-title {
@@ -121,17 +138,19 @@
         font-weight: 700;
         color: var(--text);
         margin: 0 0 16px;
-        padding-bottom: 10px;
+        padding-bottom: 12px;
         border-bottom: 2px solid var(--border);
         display: flex;
         align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
         gap: 8px;
       }
 
       .es-form-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 16px;
+        gap: 18px 16px;
       }
 
       .es-field {
@@ -201,17 +220,60 @@
         accent-color: var(--primary);
       }
 
+      .es-subject-note {
+        margin: 0 0 12px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        font-size: 13px;
+        line-height: 1.5;
+        display: none;
+      }
+
+      .es-subject-note.is-info {
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        color: #1d4ed8;
+      }
+
+      .es-subject-note.is-success {
+        background: #ecfdf5;
+        border: 1px solid #a7f3d0;
+        color: #047857;
+      }
+
+      .es-subject-note.is-warning {
+        background: #fff7ed;
+        border: 1px solid #fdba74;
+        color: #c2410c;
+      }
+
+      .es-subject-note.is-error {
+        background: #fef2f2;
+        border: 1px solid #fca5a5;
+        color: #b91c1c;
+      }
+
+      .es-subject-empty {
+        width: 100%;
+        padding: 12px 14px;
+        border: 1px dashed var(--border);
+        border-radius: 10px;
+        background: #f8fafc;
+        color: #64748b;
+        font-size: 13px;
+      }
+
       /* Guardian section */
       .es-guardian-entry {
         padding: 16px;
         background: #f8fafc;
         border: 1px solid var(--border);
-        border-radius: 8px;
+        border-radius: 12px;
         margin-bottom: 12px;
       }
 
       .es-guardian-entry .es-form-grid {
-        grid-template-columns: 1fr 1fr 1fr;
+        grid-template-columns: 1fr 1fr;
       }
 
       .es-add-guardian-btn {
@@ -232,30 +294,91 @@
       /* Image section */
       .es-image-section {
         display: flex;
-        align-items: center;
-        gap: 20px;
-        padding: 16px;
-        background: #f8fafc;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 18px;
+        padding: 18px;
+        background: linear-gradient(180deg, #fbfdff 0%, #f8fafc 100%);
         border: 1px solid var(--border);
-        border-radius: 8px;
+        border-radius: 14px;
       }
 
       .es-student-img {
-        width: 80px;
-        height: 80px;
+        width: 112px;
+        height: 112px;
         border-radius: 50%;
         object-fit: cover;
-        border: 3px solid var(--border);
+        border: 4px solid #ffffff;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
+        align-self: center;
       }
 
       .es-image-info {
         flex: 1;
+        display: grid;
+        gap: 14px;
       }
 
       .es-image-info p {
         margin: 0 0 6px;
         font-size: 13px;
         color: var(--text-muted);
+      }
+
+      .es-profile-summary {
+        display: grid;
+        gap: 8px;
+        text-align: center;
+      }
+
+      .es-profile-eyebrow {
+        margin: 0;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+      }
+
+      .es-profile-name {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--text);
+        line-height: 1.15;
+      }
+
+      .es-profile-chip-row {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .es-profile-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 12px;
+        border-radius: 999px;
+        border: 1px solid color-mix(in srgb, var(--primary) 18%, #dbe3ea);
+        background: color-mix(in srgb, var(--primary) 8%, white);
+        color: var(--primary);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        font-family: 'SFMono-Regular', Consolas, monospace;
+      }
+
+      .es-upload-panel {
+        display: grid;
+        gap: 8px;
+        padding-top: 14px;
+        border-top: 1px solid var(--border);
+      }
+
+      .es-upload-input {
+        font-size: 13px;
+        width: 100%;
       }
 
       .es-delete-image-btn {
@@ -394,11 +517,52 @@
 
       @media (max-width: 768px) {
         .es-container { padding: 16px; }
+        .es-overview-grid { grid-template-columns: 1fr; }
         .es-form-grid { grid-template-columns: 1fr; }
         .es-guardian-entry .es-form-grid { grid-template-columns: 1fr; }
         .es-top-bar { flex-direction: column; gap: 8px; text-align: center; }
-        .es-image-section { flex-direction: column; text-align: center; }
+        .es-card--sticky { position: static; }
+        .es-image-section { text-align: center; }
         .es-action-row { width: 100%; }
+      }
+
+      .es-id-widget {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+        position: static !important;
+        top: auto !important;
+        margin-top: 0 !important;
+        padding: 4px 8px !important;
+        border: 1px solid color-mix(in srgb, var(--primary) 14%, #dbe3ea) !important;
+        border-radius: 999px !important;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06) !important;
+        transform: none !important;
+      }
+      .es-id-label {
+        display: inline-flex !important;
+        align-items: center !important;
+        position: static !important;
+        top: auto !important;
+        margin-top: 0 !important;
+        line-height: 1 !important;
+        color: #1e293b !important;
+      }
+      .es-id-input {
+        width: 6.8ch !important;
+        min-width: 6.8ch !important;
+        max-width: 10ch !important;
+        position: static !important;
+        top: auto !important;
+        height: 1.45rem !important;
+        line-height: 1.1 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        margin-top: 0 !important;
+        border-bottom: 1.5px solid color-mix(in srgb, var(--primary) 42%, #cbd5e1) !important;
+        background: transparent !important;
+        transform: none !important;
       }
     </style>
     <script>
@@ -471,6 +635,148 @@
           });
         })();
 
+        function normalizeSubjectCarryoverName(value) {
+          return String(value || '')
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        }
+
+        function escapeSubjectHtml(value) {
+          return String(value || '').replace(/[&<>"']/g, function(match) {
+            return ({
+              '&': '&amp;',
+              '<': '&lt;',
+              '>': '&gt;',
+              '"': '&quot;',
+              "'": '&#039;'
+            })[match];
+          });
+        }
+
+        function getSelectedSubjectNames() {
+          return Array.from(document.querySelectorAll('#esSubjectsCheckboxGroup input[name="subjects[]"]:checked'))
+            .map(function(node) { return node.getAttribute('data-subject-name') || ''; })
+            .filter(Boolean);
+        }
+
+        function setSubjectChangeNote(message, tone) {
+          const note = document.getElementById('esSubjectChangeNote');
+          if (!note) return;
+          if (!message) {
+            note.textContent = '';
+            note.className = 'es-subject-note';
+            note.style.display = 'none';
+            return;
+          }
+          note.textContent = message;
+          note.className = 'es-subject-note is-' + (tone || 'info');
+          note.style.display = 'block';
+        }
+
+        function renderSubjectOptions(subjects, selectedSubjectNames) {
+          const group = document.getElementById('esSubjectsCheckboxGroup');
+          if (!group) return { matchedNames: [], unmatchedNames: [] };
+
+          const selectedKeys = new Set((selectedSubjectNames || []).map(normalizeSubjectCarryoverName));
+          const matchedNames = [];
+          const availableKeys = new Set();
+
+          if (!Array.isArray(subjects) || !subjects.length) {
+            group.innerHTML = '<div class="es-subject-empty">No subjects are available for this class yet.</div>';
+            return {
+              matchedNames: [],
+              unmatchedNames: selectedSubjectNames || [],
+            };
+          }
+
+          const markup = subjects.map(function(subject) {
+            const subjectName = String(subject.subject_name || '');
+            const subjectKey = normalizeSubjectCarryoverName(subjectName);
+            const checked = selectedKeys.has(subjectKey);
+            availableKeys.add(subjectKey);
+            if (checked) matchedNames.push(subjectName);
+            return '<label class="es-checkbox-item">' +
+              '<input type="checkbox" name="subjects[]" value="' + escapeSubjectHtml(subject.subject_id) + '" data-subject-name="' + escapeSubjectHtml(subjectName) + '"' + (checked ? ' checked' : '') + '>' +
+              escapeSubjectHtml(subjectName) +
+            '</label>';
+          });
+
+          group.innerHTML = markup.join('');
+
+          const unmatchedNames = (selectedSubjectNames || []).filter(function(subjectName) {
+            return !availableKeys.has(normalizeSubjectCarryoverName(subjectName));
+          });
+
+          return {
+            matchedNames: matchedNames,
+            unmatchedNames: unmatchedNames,
+          };
+        }
+
+        async function reloadSubjectsForClass(classId, keepExistingSubjects) {
+          const group = document.getElementById('esSubjectsCheckboxGroup');
+          const keepInput = document.getElementById('esKeepExistingSubjectsOnClassChange');
+          if (!group || !keepInput) return;
+
+          const selectedSubjectNames = keepExistingSubjects ? getSelectedSubjectNames() : [];
+          keepInput.value = keepExistingSubjects ? 'true' : 'false';
+          setSubjectChangeNote('Loading subjects for the selected class…', 'info');
+
+          try {
+            const response = await fetch('/common/getSubjectsForClass?classId=' + encodeURIComponent(classId), {
+              headers: { 'X-Requested-With': 'XMLHttpRequest' },
+              credentials: 'same-origin'
+            });
+            const payload = await response.json();
+            const subjects = Array.isArray(payload) ? payload : [];
+            const outcome = renderSubjectOptions(subjects, selectedSubjectNames);
+
+            if (keepExistingSubjects) {
+              if (outcome.unmatchedNames.length) {
+                setSubjectChangeNote(
+                  'Some previous subjects are not available in this class: ' + outcome.unmatchedNames.join(', ') + '.',
+                  'warning'
+                );
+              } else if (outcome.matchedNames.length) {
+                setSubjectChangeNote('Matched previous subjects in the new class.', 'success');
+              } else {
+                setSubjectChangeNote('No previous subjects matched the new class.', 'warning');
+              }
+            } else if (!subjects.length) {
+              setSubjectChangeNote('No subjects are available for this class yet.', 'info');
+            } else {
+              setSubjectChangeNote('Previous subjects were not carried into the new class.', 'info');
+            }
+          } catch (error) {
+            setSubjectChangeNote('Failed to load subjects for the selected class. You can still save, and matching subjects will be carried on the server if needed.', 'error');
+          }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+          const classSelect = document.getElementById('esClassSelect');
+          const keepInput = document.getElementById('esKeepExistingSubjectsOnClassChange');
+          if (!classSelect || !keepInput) return;
+
+          let renderedClassId = classSelect.value || '';
+
+          classSelect.addEventListener('change', async function() {
+            const newClassId = this.value || '';
+            if (!newClassId || newClassId === renderedClassId) {
+              return;
+            }
+
+            const keepExistingSubjects = window.confirm(
+              'Do you want this student enrolled in the same subjects as before? Click OK for Yes or Cancel for No.'
+            );
+
+            await reloadSubjectsForClass(newClassId, keepExistingSubjects);
+            renderedClassId = newClassId;
+          });
+        });
+
         function addGuardian() {
             const container = document.getElementById("guardiansContainer");
             const count = container.querySelectorAll('.es-guardian-entry').length;
@@ -507,9 +813,11 @@
   %>
 
   <form action="/common/editStudent/<%= student.student_id %>" method="POST" enctype="multipart/form-data" onsubmit="confirmUpdate(event)">
+    <input type="hidden" name="keepExistingSubjectsOnClassChange" id="esKeepExistingSubjectsOnClassChange" value="">
+    <div class="es-overview-grid">
     
     <!-- Student Image -->
-    <div class="es-card">
+    <div class="es-card es-card--sticky">
       <h3 class="es-section-title">📷 Student Photo</h3>
       <div class="es-image-section">
         <% var imgUrl = '/images/profilePlaceholder.png'; %>
@@ -522,14 +830,25 @@
         <% } %>
         <img src="<%= imgUrl %>" alt="Student" class="es-student-img">
         <div class="es-image-info">
+          <div class="es-profile-summary">
+            <p class="es-profile-eyebrow">Student profile</p>
+            <p class="es-profile-name"><%= student.first_name %> <%= student.last_name %></p>
+            <% if (_displayId) { %>
+            <div class="es-profile-chip-row">
+              <span class="es-profile-chip">ID <%= _displayId %></span>
+            </div>
+            <% } %>
+          </div>
+          <div class="es-upload-panel">
           <p style="font-weight: 600; color: #334155;">Current Photo</p>
           <p>Upload a new image to replace this one</p>
-          <input type="file" name="studentImage" accept="image/*" style="font-size: 13px;">
+          <input type="file" name="studentImage" accept="image/*" class="es-upload-input">
           <% if (student.image_url && student.image_url !== 'profilePlaceholder.png') { %>
             <a href="/common/deleteStudentImage/<%= student.student_id %>" 
                onclick="return confirmDelete('Are you sure you want to delete this image?')" 
                class="es-delete-image-btn">🗑 Delete Image</a>
           <% } %>
+          </div>
         </div>
       </div>
     </div>
@@ -585,7 +904,7 @@
         </div>
         <div class="es-field">
           <label>Class *</label>
-          <select name="classId" required>
+          <select name="classId" id="esClassSelect" required>
             <% classes.forEach(cls => { %>
               <option value="<%= cls.class_id %>" <%= cls.class_id === student.class_id ? 'selected' : '' %>><%= cls.class_name %></option>
             <% }); %>
@@ -593,14 +912,16 @@
         </div>
       </div>
     </div>
+    </div>
 
     <!-- Subjects -->
     <div class="es-card">
       <h3 class="es-section-title">📚 Subjects</h3>
-      <div class="es-checkbox-group">
+      <div class="es-subject-note" id="esSubjectChangeNote"></div>
+      <div class="es-checkbox-group" id="esSubjectsCheckboxGroup">
         <% subjects.forEach(subject => { %>
           <label class="es-checkbox-item">
-            <input type="checkbox" name="subjects[]" value="<%= subject.subject_id %>" 
+            <input type="checkbox" name="subjects[]" value="<%= subject.subject_id %>" data-subject-name="<%= subject.subject_name %>"
                    <%= studentSubjects.includes(subject.subject_id) ? 'checked' : '' %>>
             <%= subject.subject_name %>
           </label>

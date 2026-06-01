@@ -1919,7 +1919,7 @@
                     else if (netOut === 0) st = 'paid';
                     else if (Number(s.total_paid||0) > 0 || credit > 0) st = 'partial';
                   %>
-                    <tr class="fin-click-row" onclick="openStudentDrawer(<%= s.student_id %>)" title="Open student billing detail" data-text="<%= ((s.first_name||'') + ' ' + (s.last_name||'') + ' ' + (s.class_name||'')).toLowerCase() %>" data-class="<%= s.class_id || '' %>" data-status="<%= st %>" data-debt="<%= netOut > 0 ? 'has-debt' : 'clear' %>" data-credit="<%= credit > 0 ? 'has-credit' : 'no-credit' %>">
+                    <tr class="fin-click-row" onclick="openStudentDrawer(<%= s.student_id %>)" title="Open student billing detail" data-text="<%= ((s.first_name||'') + ' ' + (s.last_name||'') + ' ' + (s.class_name||'') + ' ' + (s.display_student_id||'')).toLowerCase() %>" data-class="<%= s.class_id || '' %>" data-status="<%= st %>" data-debt="<%= netOut > 0 ? 'has-debt' : 'clear' %>" data-credit="<%= credit > 0 ? 'has-credit' : 'no-credit' %>">
                       <td>
                         <div class="fin-student-main">
                           <div class="fin-student-avatar">
@@ -1927,7 +1927,7 @@
                           </div>
                           <div class="fin-student-copy">
                             <strong class="fin-student-name"><%= s.first_name %> <%= s.last_name %></strong>
-                            <div class="fin-student-meta">ID #<%= s.student_id %></div>
+                            <div class="fin-student-meta">ID <%= s.display_student_id_text || ('#' + s.student_id) %></div>
                           </div>
                         </div>
                       </td>

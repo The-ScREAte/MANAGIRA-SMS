@@ -605,6 +605,71 @@
   }
   .as-modal-select:focus { border-color: var(--primary); background: #fff; }
 
+  .as-modal-field {
+    margin-bottom: 14px;
+  }
+  .as-modal-input {
+    width: 100%;
+    height: 40px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: 0 10px;
+    font-size: 14px;
+    color: #0f172a;
+    background: #f9fafb;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.15s;
+  }
+  .as-modal-input:focus { border-color: var(--primary); background: #fff; }
+  .as-modal-input.is-error,
+  .as-modal-select.is-error {
+    border-color: #ef4444;
+    background: #fff1f2;
+  }
+  .as-modal-id-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .as-modal-id-prefix {
+    flex: 0 0 auto;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 10px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    background: #f8fafc;
+    font-size: 13px;
+    font-weight: 700;
+    color: #334155;
+    white-space: nowrap;
+  }
+  .as-modal-id-prefix strong {
+    color: #0f172a;
+  }
+  .as-modal-id-input {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    letter-spacing: 0.03em;
+  }
+  .as-modal-hint {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+  .as-modal-inline-error {
+    display: none;
+    margin-top: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #b91c1c;
+  }
+  .as-modal-inline-error.visible {
+    display: block;
+  }
+
   .as-modal-footer {
     padding: 14px 20px;
     border-top: 1px solid var(--border);
@@ -896,12 +961,16 @@
           const initials = (s.first_name[0] || '') + (s.last_name[0] || '');
           const detailsHref = `/common/studentDetails?studentId=${s.student_id}${termId ? '&termId='+termId : ''}${s.class_id ? '&classId='+s.class_id : ''}`;
           const isGrad = s.graduated === true || s.graduated === 'true';
+          const displayIdText = (studentIdSettings && studentIdSettings.use_custom_student_id) ? s.display_student_id : ('#' + s.display_student_id);
         %>
         <tr
           data-id="<%= s.student_id %>"
           data-name="<%= (s.first_name + ' ' + s.last_name).toLowerCase() %>"
+          data-search-id="<%= String(s.display_student_id || '').toLowerCase() %>"
           data-class-id="<%= s.class_id || '' %>"
           data-gender="<%= s.gender || '' %>"
+          data-school-year-id="<%= s.last_school_year_id || '' %>"
+          data-display-id="<%= s.display_student_id || '' %>"
           data-status="<%= isGrad ? 'graduated' : 'active' %>">
 
           <td style="padding:11px 6px 11px 14px;">
@@ -919,24 +988,16 @@
             </div>
           </td>
 
-          <td><span class="as-id-badge">#<%= s.student_id %></span></td>
+          <td><span class="as-id-badge js-student-display-id"><%= displayIdText %></span></td>
 
           <td>
-            <% if (s.class_name) { %>
-            <%= s.class_name %>
-            <% } else { %>
-            <span class="as-class-blank">—</span>
-            <% } %>
+            <span class="js-student-class-value <%= s.class_name ? '' : 'as-class-blank' %>"><%= s.class_name || '—' %></span>
           </td>
 
           <td><%= s.gender || '—' %></td>
 
           <td>
-            <% if (s.last_school_year) { %>
-            <span class="as-syear-curr"><%= s.last_school_year %><% if (s.in_current_year) { %><span class="as-syear-label">Current</span><% } %></span>
-            <% } else { %>
-            <span class="as-syear-none">—</span>
-            <% } %>
+            <span class="js-student-year-value <%= s.last_school_year ? 'as-syear-curr' : 'as-syear-none' %>"><% if (s.last_school_year) { %><%= s.last_school_year %><% if (s.in_current_year) { %><span class="as-syear-label">Current</span><% } %><% } else { %>—<% } %></span>
           </td>
 
           <td>
@@ -957,9 +1018,14 @@
                 data-student-name="<%= s.first_name %> <%= s.last_name %>"
                 data-class-id="<%= s.class_id || '' %>"
                 data-class-name="<%= s.class_name || '' %>"
+                data-school-year-id="<%= s.last_school_year_id || '' %>"
+                data-school-year-label="<%= s.last_school_year || '' %>"
+                data-year-current="<%= s.in_current_year ? 'true' : 'false' %>"
+                data-display-id="<%= s.display_student_id || '' %>"
+                data-editable-id="<%= s.editable_student_id || '' %>"
                 data-image="<%= (s.image_url && s.image_url !== 'profilePlaceholder.png') ? s.image_url : '' %>"
                 data-initials="<%= initials %>"
-                title="Change class">
+                title="Edit student">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                 Edit
               </button>
@@ -976,12 +1042,16 @@
         const initials = (s.first_name[0] || '') + (s.last_name[0] || '');
         const detailsHref = `/common/studentDetails?studentId=${s.student_id}${termId ? '&termId='+termId : ''}${s.class_id ? '&classId='+s.class_id : ''}`;
         const isGrad = s.graduated === true || s.graduated === 'true';
+        const displayIdText = (studentIdSettings && studentIdSettings.use_custom_student_id) ? s.display_student_id : ('#' + s.display_student_id);
       %>
       <div class="as-card"
         data-id="<%= s.student_id %>"
         data-name="<%= (s.first_name + ' ' + s.last_name).toLowerCase() %>"
+        data-search-id="<%= String(s.display_student_id || '').toLowerCase() %>"
         data-class-id="<%= s.class_id || '' %>"
         data-gender="<%= s.gender || '' %>"
+        data-school-year-id="<%= s.last_school_year_id || '' %>"
+        data-display-id="<%= s.display_student_id || '' %>"
         data-status="<%= isGrad ? 'graduated' : 'active' %>">
         <div class="as-card-top">
           <input type="checkbox" class="as-cb as-card-cb" data-id="<%= s.student_id %>" style="margin-right:2px;">
@@ -992,7 +1062,7 @@
           <% } %>
           <div class="as-card-info">
             <a href="<%= detailsHref %>" class="as-card-name"><%= s.first_name %> <%= s.last_name %></a>
-            <div class="as-card-sub">ID: #<%= s.student_id %> &nbsp;·&nbsp; <%= s.gender || 'N/A' %></div>
+            <div class="as-card-sub">ID: <span class="js-student-display-id"><%= displayIdText %></span> &nbsp;·&nbsp; <%= s.gender || 'N/A' %></div>
           </div>
           <span class="as-badge <%= isGrad ? 'graduated' : 'active' %>" style="flex-shrink:0">
             <span class="as-badge-dot"></span>
@@ -1002,11 +1072,11 @@
         <div class="as-card-meta">
           <div class="as-card-meta-item">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-            <%= s.class_name || 'No class' %>
+            <span class="js-student-class-value"><%= s.class_name || 'No class' %></span>
           </div>
           <div class="as-card-meta-item">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-            <% if (s.last_school_year) { %><%= s.last_school_year %><% if (s.in_current_year) { %> <span class="as-syear-label">Current</span><% } %><% } else { %>No year<% } %>
+            <span class="js-student-year-value"><% if (s.last_school_year) { %><%= s.last_school_year %><% if (s.in_current_year) { %> <span class="as-syear-label">Current</span><% } %><% } else { %>No year<% } %></span>
           </div>
         </div>
         <div class="as-card-actions">
@@ -1019,10 +1089,15 @@
             data-student-name="<%= s.first_name %> <%= s.last_name %>"
             data-class-id="<%= s.class_id || '' %>"
             data-class-name="<%= s.class_name || '' %>"
+            data-school-year-id="<%= s.last_school_year_id || '' %>"
+            data-school-year-label="<%= s.last_school_year || '' %>"
+            data-year-current="<%= s.in_current_year ? 'true' : 'false' %>"
+            data-display-id="<%= s.display_student_id || '' %>"
+            data-editable-id="<%= s.editable_student_id || '' %>"
             data-image="<%= (s.image_url && s.image_url !== 'profilePlaceholder.png') ? s.image_url : '' %>"
             data-initials="<%= initials %>">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-            Edit Class
+            Edit Student
           </button>
         </div>
       </div>
@@ -1039,32 +1114,62 @@
   </div><!-- end .as-table-wrap -->
 </div><!-- end .as-wrapper -->
 
-<!-- ── Edit Class Modal (single student) ─────────────────── -->
+<!-- ── Edit Student Modal (single student) ───────────────── -->
 <div class="as-modal-overlay" id="asModalOverlay" role="dialog" aria-modal="true" aria-labelledby="asModalTitle">
   <div class="as-modal">
     <div class="as-modal-header">
-      <h2 id="asModalTitle">Change Class</h2>
+      <h2 id="asModalTitle">Edit Student</h2>
       <button class="as-modal-close" id="asModalClose" aria-label="Close">&times;</button>
     </div>
 
-    <!-- Step 1: Pick class -->
+    <!-- Step 1: Pick changes -->
     <div id="asModalStep1">
       <div class="as-modal-body">
         <div class="as-modal-student-info" id="asModalStudentInfo"></div>
-        <label class="as-modal-label" for="asModalClassSelect">Assign to Class</label>
-        <select class="as-modal-select" id="asModalClassSelect">
-          <option value="">— Select class —</option>
-          <% classes.forEach(cls => { %>
-          <option value="<%= cls.class_id %>"><%= cls.class_name %></option>
-          <% }); %>
-        </select>
+        <div class="as-modal-field">
+          <label class="as-modal-label" for="asModalClassSelect">Assign to Class</label>
+          <select class="as-modal-select" id="asModalClassSelect">
+            <option value="">— Select class —</option>
+            <% classes.forEach(cls => { %>
+            <option value="<%= cls.class_id %>"><%= cls.class_name %></option>
+            <% }); %>
+          </select>
+        </div>
+        <div class="as-modal-field">
+          <label class="as-modal-label" for="asModalYearSelect">Assign School Year</label>
+          <select class="as-modal-select" id="asModalYearSelect">
+            <option value="">— Select school year —</option>
+            <% schoolYears.forEach(sy => { %>
+            <option value="<%= sy.id %>"><%= sy.year_label %><% if (sy.current) { %> (Current)<% } %></option>
+            <% }); %>
+          </select>
+        </div>
+        <% if (studentIdSettings && studentIdSettings.use_custom_student_id) { %>
+        <div class="as-modal-field">
+          <label class="as-modal-label" for="asModalStudentIdInput">Student ID</label>
+          <div class="as-modal-id-row">
+            <% if (studentIdSettings.student_id_prefix) { %>
+            <span class="as-modal-id-prefix">ID: <strong><%= studentIdSettings.student_id_prefix %></strong></span>
+            <% } %>
+            <input type="text"
+              class="as-modal-input as-modal-id-input"
+              id="asModalStudentIdInput"
+              inputmode="numeric"
+              maxlength="10"
+              placeholder="<%= String(nextAvailableStudentIdNumber || 1).padStart(3, '0') %>"
+              autocomplete="off">
+          </div>
+          <div class="as-modal-hint">Numbers only. Clear this field to remove a manual override and fall back to the system ID.</div>
+          <div class="as-modal-inline-error" id="asModalStudentIdMsg">INUSED</div>
+        </div>
+        <% } %>
         <div class="as-modal-msg" id="asModalMsg"></div>
       </div>
       <div class="as-modal-footer">
         <button class="as-modal-cancel" id="asModalCancel">Cancel</button>
         <button class="as-modal-save" id="asModalNext">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" style="width:14px;height:14px"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-          Review Change
+          Review Changes
         </button>
       </div>
     </div>
@@ -1077,7 +1182,7 @@
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" style="width:22px;height:22px"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z"/></svg>
           </div>
           <div class="as-confirm-text">
-            <div class="as-confirm-title">Confirm Class Change</div>
+            <div class="as-confirm-title">Review Student Changes</div>
             <div class="as-confirm-detail" id="asConfirmDetail"></div>
           </div>
         </div>
@@ -1182,6 +1287,11 @@
 (function () {
   'use strict';
 
+  var studentIdConfig = {
+    enabled: <%- JSON.stringify(Boolean(studentIdSettings && studentIdSettings.use_custom_student_id)) %>,
+    prefix: <%- JSON.stringify((studentIdSettings && studentIdSettings.student_id_prefix) || '') %>,
+  };
+
   /* ── Helpers ─────────────────────────────────────────── */
   function escHtml(str) {
     return String(str || '')
@@ -1190,6 +1300,103 @@
   }
   function pill(text, type) {
     return '<span class="as-change-pill ' + type + '">' + escHtml(text) + '</span>';
+  }
+  function normalizeNumericStudentIdValue(value) {
+    return String(value || '').replace(/\D/g, '').slice(0, 10);
+  }
+  function buildDisplayStudentId(studentIdValue, systemStudentId) {
+    if (!studentIdConfig.enabled) {
+      return '#' + String(systemStudentId || '');
+    }
+    var numericValue = normalizeNumericStudentIdValue(studentIdValue);
+    if (numericValue) {
+      return studentIdConfig.prefix + numericValue;
+    }
+    var systemIdText = String(systemStudentId || '').trim();
+    if (!systemIdText) return studentIdConfig.prefix;
+    return studentIdConfig.prefix + systemIdText.padStart(Math.max(3, systemIdText.length), '0');
+  }
+  function setStudentDisplayId(studentId, displayId, editableId) {
+    var row = document.querySelector('#asTableBody tr[data-id="' + studentId + '"]');
+    var card = document.querySelector('#asCardList .as-card[data-id="' + studentId + '"]');
+    [row, card].forEach(function(node) {
+      if (!node) return;
+      node.dataset.searchId = String(displayId || '').toLowerCase();
+      node.dataset.displayId = displayId || '';
+      var badge = node.querySelector('.js-student-display-id');
+      if (badge) badge.textContent = displayId || '';
+      var editBtn = node.querySelector('.js-edit-class');
+      if (editBtn) {
+        editBtn.dataset.displayId = displayId || '';
+        if (editableId !== undefined) {
+          editBtn.dataset.editableId = editableId || '';
+        }
+      }
+    });
+  }
+  function setStudentClassValue(studentId, classId, className) {
+    var row = document.querySelector('#asTableBody tr[data-id="' + studentId + '"]');
+    var card = document.querySelector('#asCardList .as-card[data-id="' + studentId + '"]');
+    if (row) {
+      row.dataset.classId = classId || '';
+      var rowValue = row.querySelector('.js-student-class-value');
+      if (rowValue) {
+        rowValue.textContent = className || '—';
+        rowValue.classList.toggle('as-class-blank', !className);
+      }
+      var rowBtn = row.querySelector('.js-edit-class');
+      if (rowBtn) {
+        rowBtn.dataset.classId = classId || '';
+        rowBtn.dataset.className = className || '';
+      }
+    }
+    if (card) {
+      card.dataset.classId = classId || '';
+      var cardValue = card.querySelector('.js-student-class-value');
+      if (cardValue) {
+        cardValue.textContent = className || 'No class';
+      }
+      var cardBtn = card.querySelector('.js-edit-class');
+      if (cardBtn) {
+        cardBtn.dataset.classId = classId || '';
+        cardBtn.dataset.className = className || '';
+      }
+    }
+  }
+  function setStudentYearValue(studentId, schoolYearId, yearLabel, yearIsCurrent) {
+    var row = document.querySelector('#asTableBody tr[data-id="' + studentId + '"]');
+    var card = document.querySelector('#asCardList .as-card[data-id="' + studentId + '"]');
+    if (row) {
+      row.dataset.schoolYearId = schoolYearId || '';
+      var rowValue = row.querySelector('.js-student-year-value');
+      if (rowValue) {
+        rowValue.className = 'js-student-year-value ' + (yearLabel ? 'as-syear-curr' : 'as-syear-none');
+        rowValue.innerHTML = yearLabel
+          ? escHtml(yearLabel) + (yearIsCurrent ? '<span class="as-syear-label">Current</span>' : '')
+          : '—';
+      }
+      var rowBtn = row.querySelector('.js-edit-class');
+      if (rowBtn) {
+        rowBtn.dataset.schoolYearId = schoolYearId || '';
+        rowBtn.dataset.schoolYearLabel = yearLabel || '';
+        rowBtn.dataset.yearCurrent = yearIsCurrent ? 'true' : 'false';
+      }
+    }
+    if (card) {
+      card.dataset.schoolYearId = schoolYearId || '';
+      var cardValue = card.querySelector('.js-student-year-value');
+      if (cardValue) {
+        cardValue.innerHTML = yearLabel
+          ? escHtml(yearLabel) + (yearIsCurrent ? ' <span class="as-syear-label">Current</span>' : '')
+          : 'No year';
+      }
+      var cardBtn = card.querySelector('.js-edit-class');
+      if (cardBtn) {
+        cardBtn.dataset.schoolYearId = schoolYearId || '';
+        cardBtn.dataset.schoolYearLabel = yearLabel || '';
+        cardBtn.dataset.yearCurrent = yearIsCurrent ? 'true' : 'false';
+      }
+    }
   }
 
   /* ── Filters ─────────────────────────────────────────── */
@@ -1219,7 +1426,7 @@
     var s = filters.search.trim().toLowerCase(), clsId = filters.classId,
         gen = filters.gender.toLowerCase(), stat = filters.status, visible = 0;
     function match(el) {
-      if (s && (el.dataset.name||'').indexOf(s)===-1 && String(el.dataset.id||'').indexOf(s)===-1) return false;
+      if (s && (el.dataset.name||'').indexOf(s)===-1 && (el.dataset.searchId||'').indexOf(s)===-1 && String(el.dataset.id||'').indexOf(s)===-1) return false;
       if (clsId && (el.dataset.classId||'') !== clsId) return false;
       if (gen   && (el.dataset.gender||'').toLowerCase() !== gen)  return false;
       if (stat  && (el.dataset.status||'') !== stat) return false;
@@ -1311,6 +1518,9 @@
   var modalBack   = document.getElementById('asModalBack');
   var modalSave   = document.getElementById('asModalSave');
   var modalSelect = document.getElementById('asModalClassSelect');
+  var modalYearSelect = document.getElementById('asModalYearSelect');
+  var modalStudentIdInput = document.getElementById('asModalStudentIdInput');
+  var modalStudentIdMsg = document.getElementById('asModalStudentIdMsg');
   var modalMsg    = document.getElementById('asModalMsg');
   var modalMsg2   = document.getElementById('asModalMsg2');
   var modalInfo   = document.getElementById('asModalStudentInfo');
@@ -1318,13 +1528,70 @@
   var step2       = document.getElementById('asModalStep2');
   var confirmDetail = document.getElementById('asConfirmDetail');
   var changeArrow   = document.getElementById('asChangeArrow');
-  var _sid=null, _row=null, _card=null, _oldClassName='', _oldClassId='';
+  var _sid=null, _row=null, _card=null, _oldClassName='', _oldClassId='', _oldSchoolYearId='', _oldSchoolYearLabel='', _oldDisplayId='', _oldEditableId='', _studentIdToken=0, _studentIdTimer=null, _carryExistingSubjects=null, _carryExistingSubjectsClassId='';
+
+  function clearStudentIdInlineState() {
+    if (!modalStudentIdInput || !modalStudentIdMsg) return;
+    modalStudentIdInput.classList.remove('is-error');
+    modalStudentIdMsg.classList.remove('visible');
+  }
+  function checkStudentIdAvailability() {
+    if (!modalStudentIdInput || !_sid) return;
+    var currentValue = normalizeNumericStudentIdValue(modalStudentIdInput.value);
+    modalStudentIdInput.value = currentValue;
+    clearTimeout(_studentIdTimer);
+
+    if (!currentValue || currentValue === _oldEditableId) {
+      clearStudentIdInlineState();
+      return;
+    }
+
+    _studentIdTimer = setTimeout(function() {
+      var token = String(++_studentIdToken);
+      modalStudentIdInput.dataset.requestToken = token;
+      fetch('/common/check-student-id?id=' + encodeURIComponent(studentIdConfig.prefix + currentValue) + '&num=' + encodeURIComponent(currentValue) + '&exclude=' + encodeURIComponent(_sid))
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
+          if (modalStudentIdInput.dataset.requestToken !== token) return;
+          var taken = !!(data && data.taken);
+          modalStudentIdInput.classList.toggle('is-error', taken);
+          modalStudentIdMsg.classList.toggle('visible', taken);
+        })
+        .catch(function() {
+          if (modalStudentIdInput.dataset.requestToken !== token) return;
+          clearStudentIdInlineState();
+        });
+    }, 250);
+  }
+
+  function askSubjectCarryoverPreference(targetLabel) {
+    return window.confirm('Do you want ' + targetLabel + ' enrolled in the same subjects as before? Click OK for Yes or Cancel for No.');
+  }
+
+  function describeSubjectCarryoverChoice(keepExistingSubjects) {
+    return keepExistingSubjects ? 'Keep matching previous subjects' : 'Do not carry previous subjects';
+  }
+
+  function joinSubjectCarryoverMessages(data) {
+    return [data && data.subjectCarryoverMessage, data && data.subjectCarryoverWarning]
+      .filter(Boolean)
+      .join(' ');
+  }
 
   function openModal(btn) {
     _sid = btn.dataset.studentId;
     var name=btn.dataset.studentName, classId=btn.dataset.classId,
-        className=btn.dataset.className, img=btn.dataset.image, initials=btn.dataset.initials;
-    _oldClassId=classId||''; _oldClassName=className||'—';
+        className=btn.dataset.className, img=btn.dataset.image, initials=btn.dataset.initials,
+        schoolYearId=btn.dataset.schoolYearId, schoolYearLabel=btn.dataset.schoolYearLabel,
+        displayId=btn.dataset.displayId, editableId=btn.dataset.editableId;
+    _oldClassId=classId||'';
+    _oldClassName=className||'—';
+    _oldSchoolYearId=schoolYearId||'';
+    _oldSchoolYearLabel=schoolYearLabel||'—';
+    _oldDisplayId=displayId||buildDisplayStudentId('', _sid);
+    _oldEditableId=editableId||'';
+    _carryExistingSubjects = null;
+    _carryExistingSubjectsClassId = '';
     _row  = document.querySelector('#asTableBody tr[data-id="'+_sid+'"]');
     _card = document.querySelector('#asCardList .as-card[data-id="'+_sid+'"]');
     var avatarHtml = img
@@ -1332,9 +1599,20 @@
       : '<div class="as-avatar-placeholder" style="width:38px;height:38px;font-size:13px">'+escHtml(initials)+'</div>';
     modalInfo.innerHTML = avatarHtml +
       '<div><div class="as-modal-student-name">'+escHtml(name)+'</div>'+
-      '<div class="as-modal-student-meta">Current class: '+escHtml(_oldClassName)+'</div></div>';
+      '<div class="as-modal-student-meta">Current ID: '+escHtml(_oldDisplayId)+' &nbsp;·&nbsp; Class: '+escHtml(_oldClassName)+' &nbsp;·&nbsp; School year: '+escHtml(_oldSchoolYearLabel)+'</div></div>';
     modalSelect.value = classId||'';
+    if (modalYearSelect) {
+      modalYearSelect.value = schoolYearId||'';
+      modalYearSelect.classList.remove('is-error');
+    }
+    if (modalStudentIdInput) {
+      modalStudentIdInput.value = editableId || '';
+      modalStudentIdInput.classList.remove('is-error');
+      clearStudentIdInlineState();
+    }
+    modalSelect.classList.remove('is-error');
     modalMsg.textContent=''; modalMsg.className='as-modal-msg';
+    modalMsg2.textContent=''; modalMsg2.className='as-modal-msg';
     modalSave.disabled=false;
     step1.style.display=''; step2.style.display='none';
     overlay.classList.add('open');
@@ -1344,15 +1622,51 @@
     overlay.classList.remove('open'); _sid=_row=_card=null;
   }
   function showStep2() {
-    var newClassId = modalSelect.value;
-    if (!newClassId) {
-      modalMsg.textContent='Please select a class.'; modalMsg.className='as-modal-msg error'; return;
+    var newClassId = modalSelect.value || '';
+    var newClassName = newClassId ? modalSelect.options[modalSelect.selectedIndex].text : '—';
+    var newSchoolYearId = modalYearSelect ? (modalYearSelect.value || '') : '';
+    var newSchoolYearLabel = newSchoolYearId && modalYearSelect
+      ? modalYearSelect.options[modalYearSelect.selectedIndex].text.replace(/\s*\(Current\)\s*$/,'')
+      : '—';
+    var newStudentIdValue = modalStudentIdInput ? normalizeNumericStudentIdValue(modalStudentIdInput.value) : '';
+    if (modalStudentIdInput) modalStudentIdInput.value = newStudentIdValue;
+    var hasClassChange = newClassId !== _oldClassId;
+    var hasYearChange = newSchoolYearId !== _oldSchoolYearId;
+    var hasIdChange = !!modalStudentIdInput && newStudentIdValue !== _oldEditableId;
+
+    if (!hasClassChange && !hasYearChange && !hasIdChange) {
+      modalMsg.textContent='Make at least one change before saving.'; modalMsg.className='as-modal-msg error'; return;
     }
-    var newClassName = modalSelect.options[modalSelect.selectedIndex].text;
-    confirmDetail.textContent = 'You are about to move this student to a new class. This will take effect immediately across all class rosters.';
-    changeArrow.innerHTML =
-      '<div class="as-change-row"><span class="as-change-label">From class:</span>'+pill(_oldClassName,'from')+'</div>'+
-      '<div class="as-change-row"><span class="as-change-label">To class:</span>'+pill(newClassName,'to')+'</div>';
+    if (modalStudentIdInput && modalStudentIdInput.classList.contains('is-error')) {
+      modalMsg.textContent='This student ID is already in use.'; modalMsg.className='as-modal-msg error'; return;
+    }
+    if (hasClassChange && _carryExistingSubjectsClassId !== newClassId) {
+      _carryExistingSubjects = askSubjectCarryoverPreference('this student');
+      _carryExistingSubjectsClassId = newClassId;
+    }
+
+    var summary = [];
+    if (hasClassChange) {
+      summary.push(
+        '<div class="as-change-row"><span class="as-change-label">Class:</span>'+pill(_oldClassName,'from')+'<span style="color:#94a3b8;">→</span>'+pill(newClassName,'to')+'</div>'
+      );
+      summary.push(
+        '<div class="as-change-row"><span class="as-change-label">Subjects:</span>'+pill(describeSubjectCarryoverChoice(!!_carryExistingSubjects), _carryExistingSubjects ? 'to' : 'from')+'</div>'
+      );
+    }
+    if (hasYearChange) {
+      summary.push(
+        '<div class="as-change-row"><span class="as-change-label">School year:</span>'+pill(_oldSchoolYearLabel,'from')+'<span style="color:#94a3b8;">→</span>'+pill(newSchoolYearLabel,'year')+'</div>'
+      );
+    }
+    if (hasIdChange) {
+      summary.push(
+        '<div class="as-change-row"><span class="as-change-label">Student ID:</span>'+pill(_oldDisplayId,'from')+'<span style="color:#94a3b8;">→</span>'+pill(buildDisplayStudentId(newStudentIdValue, _sid),'to')+'</div>'
+      );
+    }
+
+    confirmDetail.textContent = 'Review the changes below before saving them to this student.';
+    changeArrow.innerHTML = summary.join('');
     modalMsg2.textContent=''; modalMsg2.className='as-modal-msg';
     modalSave.disabled=false;
     step1.style.display='none'; step2.style.display='';
@@ -1364,31 +1678,53 @@
   modalBack.addEventListener('click', function(){ step2.style.display='none'; step1.style.display=''; });
 
   modalSave.addEventListener('click', function(){
-    var newClassId = modalSelect.value;
+    var newClassId = modalSelect.value || '';
+    var newSchoolYearId = modalYearSelect ? (modalYearSelect.value || '') : '';
+    var newStudentIdValue = modalStudentIdInput ? normalizeNumericStudentIdValue(modalStudentIdInput.value) : '';
+    var hasClassChange = newClassId !== _oldClassId;
+    var hasYearChange = !!newSchoolYearId && newSchoolYearId !== _oldSchoolYearId;
+    var hasIdChange = !!modalStudentIdInput && newStudentIdValue !== _oldEditableId;
+
+    if (!hasClassChange && !hasYearChange && !hasIdChange) {
+      modalMsg2.textContent='No changes to save.'; modalMsg2.className='as-modal-msg error'; return;
+    }
+
     modalSave.disabled=true;
     modalMsg2.textContent='Saving…'; modalMsg2.className='as-modal-msg';
-    fetch('/common/students/'+_sid+'/change-class', {
+    var payload = {};
+    if (hasClassChange) payload.classId = newClassId;
+    if (hasYearChange) payload.schoolYearId = newSchoolYearId;
+    if (hasIdChange) payload.customStudentId = newStudentIdValue;
+    if (hasClassChange) payload.keepExistingSubjects = !!_carryExistingSubjects;
+
+    fetch('/common/students/'+_sid+'/update-details', {
       method:'POST',
       headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},
       credentials:'same-origin',
-      body:JSON.stringify({classId:newClassId})
+      body:JSON.stringify(payload)
     }).then(function(r){ return r.json(); }).then(function(data){
       if (data.success) {
-        var n = data.className;
-        if (_row) {
-          _row.dataset.classId=newClassId;
-          var cells=_row.cells; if(cells[3]) cells[3].textContent=n;
-          var eb=_row.querySelector('.js-edit-class'); if(eb){eb.dataset.classId=newClassId;eb.dataset.className=n;}
+        if (hasClassChange) {
+          setStudentClassValue(_sid, data.classId || newClassId, data.className || '');
         }
-        if (_card) {
-          _card.dataset.classId=newClassId;
-          var mi=_card.querySelector('.as-card-meta-item:first-child'); if(mi) mi.lastChild.textContent=' '+n;
-          var eb=_card.querySelector('.js-edit-class'); if(eb){eb.dataset.classId=newClassId;eb.dataset.className=n;}
+        if (hasYearChange) {
+          setStudentYearValue(_sid, data.schoolYearId || newSchoolYearId, data.yearLabel || '', !!data.yearIsCurrent);
         }
-        modalMsg2.textContent='Class updated successfully!'; modalMsg2.className='as-modal-msg success';
+        setStudentDisplayId(_sid, data.displayStudentId || buildDisplayStudentId(newStudentIdValue, _sid), data.editableStudentId);
+        var singleCarryoverNotice = joinSubjectCarryoverMessages(data);
+        modalMsg2.textContent = singleCarryoverNotice
+          ? 'Student updated successfully! ' + singleCarryoverNotice
+          : 'Student updated successfully!';
+        modalMsg2.className='as-modal-msg success';
         setTimeout(closeModal, 900);
       } else {
-        modalMsg2.textContent=data.error||'Failed to update.'; modalMsg2.className='as-modal-msg error';
+        var msg = data.error || 'Failed to update.';
+        if (data.suggestion) msg += ' Try "' + data.suggestion + '".';
+        modalMsg2.textContent=msg; modalMsg2.className='as-modal-msg error';
+        if (modalStudentIdInput && data.suggestion) {
+          modalStudentIdInput.classList.add('is-error');
+          modalStudentIdMsg.classList.add('visible');
+        }
         modalSave.disabled=false;
       }
     }).catch(function(){
@@ -1397,6 +1733,11 @@
     });
   });
   document.addEventListener('click', function(e){ var b=e.target.closest('.js-edit-class'); if(b) openModal(b); });
+  if (modalStudentIdInput) {
+    modalStudentIdInput.addEventListener('input', checkStudentIdAvailability);
+    modalStudentIdInput.addEventListener('blur', checkStudentIdAvailability);
+  }
+  modalSelect.addEventListener('change', function(){ _carryExistingSubjects = null; _carryExistingSubjectsClassId = ''; });
 
   /* ── Bulk Edit Modal (2-step) ────────────────────────── */
   var bulkOverlay  = document.getElementById('asBulkOverlay');
@@ -1418,6 +1759,8 @@
   var chkYear  = document.getElementById('asBulkChkYear');
   var selClass = document.getElementById('asBulkClassSelect');
   var selYear  = document.getElementById('asBulkYearSelect');
+  var bulkKeepExistingSubjects = null;
+  var bulkKeepExistingSubjectsClassId = '';
 
   chkClass.addEventListener('change', function(){ selClass.disabled=!this.checked; if(this.checked) selClass.focus(); });
   chkYear.addEventListener('change',  function(){ selYear.disabled=!this.checked;  if(this.checked) selYear.focus(); });
@@ -1430,6 +1773,8 @@
     bulkSaveCnt.textContent  = n;
     chkClass.checked=false; selClass.disabled=true; selClass.value='';
     chkYear.checked=false;  selYear.disabled=true;  selYear.value='';
+    bulkKeepExistingSubjects = null;
+    bulkKeepExistingSubjectsClassId = '';
     bulkMsg.textContent=''; bulkMsg.className='as-modal-msg';
     bulkSave.disabled=false;
     bulkStep1.style.display=''; bulkStep2.style.display='none';
@@ -1449,11 +1794,16 @@
     if (chkYear.checked && !selYear.value) {
       bulkMsg.textContent='Please select a school year.'; bulkMsg.className='as-modal-msg error'; return;
     }
+    if (hasClass && bulkKeepExistingSubjectsClassId !== selClass.value) {
+      bulkKeepExistingSubjects = askSubjectCarryoverPreference('these students');
+      bulkKeepExistingSubjectsClassId = selClass.value;
+    }
     var n = selectedIds.size;
     bulkConfirmDetail.textContent = 'You are about to apply the following changes to '+n+' student'+(n===1?'':' s')+'. This will update the class roster immediately.';
     var summary = '';
     if (hasClass) {
       summary += '<div class="as-change-row"><span class="as-change-label">New class:</span>'+pill(selClass.options[selClass.selectedIndex].text,'to')+'</div>';
+      summary += '<div class="as-change-row"><span class="as-change-label">Subjects:</span>'+pill(describeSubjectCarryoverChoice(!!bulkKeepExistingSubjects), bulkKeepExistingSubjects ? 'to' : 'from')+'</div>';
     }
     if (hasYear) {
       summary += '<div class="as-change-row"><span class="as-change-label">School year:</span>'+pill(selYear.options[selYear.selectedIndex].text,'year')+'</div>';
@@ -1486,6 +1836,7 @@
     var payload = { studentIds: Array.from(selectedIds) };
     if (hasClass) payload.classId = selClass.value;
     if (hasYear)  payload.schoolYearId = selYear.value;
+    if (hasClass) payload.keepExistingSubjects = !!bulkKeepExistingSubjects;
     fetch('/common/students/bulk-update', {
       method:'POST',
       headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},
@@ -1497,23 +1848,14 @@
           var row  = document.querySelector('#asTableBody tr[data-id="'+id+'"]');
           var card = document.querySelector('#asCardList .as-card[data-id="'+id+'"]');
           if (hasClass && data.className) {
-            if (row) {
-              row.dataset.classId=selClass.value;
-              var c=row.cells; if(c[3]) c[3].textContent=data.className;
-              var eb=row.querySelector('.js-edit-class'); if(eb){eb.dataset.classId=selClass.value;eb.dataset.className=data.className;}
-            }
-            if (card) {
-              card.dataset.classId=selClass.value;
-              var mi=card.querySelector('.as-card-meta-item:first-child'); if(mi) mi.lastChild.textContent=' '+data.className;
-              var eb=card.querySelector('.js-edit-class'); if(eb){eb.dataset.classId=selClass.value;eb.dataset.className=data.className;}
-            }
+            setStudentClassValue(id, selClass.value, data.className);
           }
           if (hasYear && data.yearLabel) {
-            if (row) { var c=row.cells; if(c[4]) c[4].innerHTML='<span class="as-syear-curr">'+escHtml(data.yearLabel)+'</span>'; }
-            if (card) { var mi2=card.querySelector('.as-card-meta-item:nth-child(2)'); if(mi2) mi2.innerHTML=mi2.innerHTML.replace(/>[^<]+$/,'> '+escHtml(data.yearLabel)); }
+            setStudentYearValue(id, selYear.value, data.yearLabel, !!data.yearIsCurrent);
           }
         });
-        bulkMsg2.textContent=data.updated+' student'+(data.updated===1?'':' s')+' updated successfully!';
+          var bulkCarryoverNotice = joinSubjectCarryoverMessages(data);
+          bulkMsg2.textContent = data.updated+' student'+(data.updated===1?'':' s')+' updated successfully!'+(bulkCarryoverNotice ? ' ' + bulkCarryoverNotice : '');
         bulkMsg2.className='as-modal-msg success';
         setTimeout(function(){ closeBulkModal(); clearAllSelections(); }, 1100);
       } else {
@@ -1525,6 +1867,7 @@
       bulkSave.disabled=false;
     });
   });
+  selClass.addEventListener('change', function(){ bulkKeepExistingSubjects = null; bulkKeepExistingSubjectsClassId = ''; });
 
 })();
 </script>

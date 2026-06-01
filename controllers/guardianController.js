@@ -17,6 +17,7 @@ const {
   getGuardianPreferenceMap,
   setGuardianPreferences,
 } = require("../utils/emailPreferences");
+const { buildStudentDisplayId, getOrganizationStudentIdSettings } = require("../utils/studentIdDisplay");
 
 async function ensureGuardianReportReadSchema(db) {
   await db.query(
@@ -78,7 +79,7 @@ async function getGuardianUnreadReportSummary(db, guardianId, organizationId) {
 async function getGuardianApprovedStudents(db, guardianId, organizationId) {
   return db.query(
     `
-    SELECT DISTINCT s.student_id, s.first_name, s.last_name, s.image_url,
+    SELECT DISTINCT s.student_id, s.custom_student_id, s.first_name, s.last_name, s.image_url,
            c.class_name, c.class_id, 'approved' as status
     FROM students s
     LEFT JOIN classes c ON s.class_id = c.class_id
@@ -176,12 +177,17 @@ module.exports = {
 
       const guardian = guardianProfile.rows[0];
 
+      const studentIdSettings = await getOrganizationStudentIdSettings(db, organizationId);
       const kids = await getGuardianApprovedStudents(db, guardianId, organizationId);
       const pendingKids = await getGuardianPendingStudents(db, guardianId, organizationId);
       const inboxSummary = await getGuardianUnreadReportSummary(db, guardianId, organizationId);
 
       // Combine approved and pending students
-      const allChildren = [...kids.rows, ...pendingKids.rows];
+      const approvedChildren = kids.rows.map((child) => ({
+        ...child,
+        display_student_id: buildStudentDisplayId(child, studentIdSettings),
+      }));
+      const allChildren = [...approvedChildren, ...pendingKids.rows];
 
             return res.render("guardian/dashboard", {
         title: "Parent Portal",
@@ -475,7 +481,11 @@ module.exports = {
       );
 
       if (!studentResult.rows.length) return res.status(404).send("Student not found.");
-      const student = studentResult.rows[0];
+      const studentIdSettings = await getOrganizationStudentIdSettings(db, organizationId);
+      const student = {
+        ...studentResult.rows[0],
+        display_student_id: buildStudentDisplayId(studentResult.rows[0], studentIdSettings),
+      };
 
       // Subjects student is enrolled in
       const subjectsResult = await db.query(
@@ -1013,7 +1023,11 @@ module.exports = {
         return res.redirect('/guardian/dashboard');
       }
 
-      const student = studentResult.rows[0];
+      const studentIdSettings = await getOrganizationStudentIdSettings(db, organizationId);
+      const student = {
+        ...studentResult.rows[0],
+        display_student_id: buildStudentDisplayId(studentResult.rows[0], studentIdSettings),
+      };
       const classId = student.class_id;
 
       // Get term info

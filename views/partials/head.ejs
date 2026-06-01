@@ -12,7 +12,7 @@
     <meta name="keywords" content="<%- keywords %>">
   <% } %>
   <%
-    const _noindexPaths = ['/legal/help', '/legal/employment', '/legal/app-demo', '/legal/user-documentation', '/legal/donations', '/account/login'];
+    const _noindexPaths = ['/legal/help', '/legal/employment', '/legal/app-demo', '/legal/user-documentation', '/legal/donations', '/account/login', '/legal/about-us'];
     const _reqPath = req && req.path ? req.path : '';
     const _shouldNoindex = _noindexPaths.some(p => _reqPath === p || _reqPath.startsWith(p + '/'));
   %>

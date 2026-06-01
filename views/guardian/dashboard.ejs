@@ -314,6 +314,14 @@
     word-break: break-word;
   }
 
+  .child-student-id {
+    margin: 0 0 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    letter-spacing: 0.02em;
+  }
+
   .class-badge {
     background: #f1f5f9;
     padding: 5px 12px;
@@ -731,6 +739,9 @@
               />
               <div class="child-info">
                 <h3><%= child.first_name %> <%= child.last_name %></h3>
+                <% if (child.display_student_id) { %>
+                  <p class="child-student-id">ID: <%= child.display_student_id %></p>
+                <% } %>
                 <div>
                   <span class="class-badge"><%= child.class_name || 'No class assigned' %></span>
                   <% if (child.status === 'pending') { %>

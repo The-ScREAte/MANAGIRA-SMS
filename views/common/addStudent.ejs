@@ -717,6 +717,7 @@
         align-items: center;
         width: auto;
         flex: 0 0 auto;
+        margin-left: auto;
       }
 
       .bulk-import-btn,
@@ -724,19 +725,19 @@
       .add-form-btn,
       .save-form-btn {
         position: static;
-        height: 36px;
+        height: 32px;
         margin: 0;
-        padding: 0 12px;
+        padding: 0 10px;
         border: 1px solid transparent;
         border-radius: 10px;
         font-family: inherit;
-        font-size: 0.78rem;
+        font-size: 0.72rem;
         font-weight: 700;
         cursor: pointer;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 6px;
+        gap: 5px;
         white-space: nowrap;
         line-height: 1;
         vertical-align: middle;
@@ -827,7 +828,6 @@
         height: 14px;
         flex: 0 0 auto;
         display: block;
-        vertical-align: middle;
       }
 
       .action-btn-label {
@@ -1187,6 +1187,7 @@
       .clear-import-btn .action-btn-icon { opacity: 0.75; }
 
       .action-btn-icon { width: 14px; height: 14px; }
+      .action-btn-icon { width: 13px; height: 13px; }
 
       /* ── Workflow meta strip (under header) ────────────────────── */
       .workflow-meta {
@@ -1299,12 +1300,16 @@
         white-space: nowrap;
         flex-shrink: 0;
         margin-right: 6px;
+        line-height: 1;
       }
       .sid-id-label {
+        display: inline-flex;
+        align-items: center;
         font-size: 0.74rem;
         font-weight: 600;
         color: #64748b;
         white-space: nowrap;
+        line-height: 1;
       }
       .sid-id-label strong { color: #0f172a; }
       .sid-id-input {
@@ -1323,6 +1328,9 @@
         outline: none;
         padding: 0 !important;
         margin: 0 !important;
+        height: 1.2em !important;
+        line-height: 1.2 !important;
+        align-self: center;
         transition: border-color 0.15s, color 0.15s;
         text-align: left;
       }
@@ -1331,11 +1339,18 @@
       .sid-id-input::placeholder { color: #94a3b8; opacity: 1; }
       .sid-id-taken-msg {
         font-size: 0.7rem;
-        color: #ef4444;
-        font-weight: 500;
+        color: #b91c1c;
+        font-weight: 700;
         display: none;
       }
-      .sid-id-taken-msg.visible { display: inline; }
+      .sid-id-taken-msg.visible {
+        display: inline-flex;
+        align-items: center;
+      }
+      .sid-id-widget.sid-has-conflict {
+        border-color: #fca5a5;
+        background: #fef2f2;
+      }
 
       .student-form-card-body {
         padding: 14px 16px 16px;
@@ -1376,8 +1391,20 @@
       }
 
       /* ── Inputs — premium feel ─────────────────────────────────── */
-      .form-field-group { margin-bottom: 0; }
-      .form-field-row { gap: 10px; margin-bottom: 0; }
+      .form-field-group {
+        margin-bottom: 0;
+        display: flex;
+        flex-direction: column;
+        align-self: stretch;
+        min-width: 0;
+      }
+      .form-field-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px 12px;
+        margin-bottom: 0;
+        align-items: start;
+      }
       .form-label {
         font-size: 0.78rem;
         font-weight: 600;
@@ -1487,10 +1514,11 @@
         background: var(--surface-muted);
         border: 1px solid var(--line);
         border-radius: 12px;
-        gap: 8px;
-        flex-direction: column;
+        gap: 10px 12px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: start;
       }
-      .future-enrollment-section.is-visible { display: flex; }
+      .future-enrollment-section.is-visible { display: grid; }
 
       /* ── Subjects — progressive disclosure ─────────────────────── */
       .subjects-collapsible { margin-top: 0; }
@@ -1572,8 +1600,8 @@
       .guardians-section h4 { display: none; } /* moved into section title above */
 
       .guardian-mode-pills {
-        display: flex;
-        flex-direction: row;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 8px;
         margin-top: 0;
       }
@@ -1664,15 +1692,21 @@
         border-color: var(--line);
         padding: 14px;
         margin-top: 10px;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px 12px;
       }
       .guardian-row.selected {
         border-color: var(--brand);
         background: var(--brand-softer);
       }
       .guardian-row .form-field-group { margin-bottom: 0; }
+      .guardian-row .form-field-group:has(.guardian-search),
+      .guardian-row hr,
+      .guardian-row .guardian-meta,
+      .guardian-row .remove-guardian {
+        grid-column: 1 / -1;
+      }
       .guardian-row hr { margin: 4px 0; border-top: 1px dashed var(--line); }
       .guardian-row .remove-guardian {
         align-self: flex-start;
@@ -1769,7 +1803,7 @@
         .page-header-subtitle { font-size: 0.74rem; }
         .page-header-actions {
           width: 100%;
-          justify-content: flex-start;
+          justify-content: flex-end;
           flex-wrap: wrap;
           gap: 6px;
         }
@@ -1780,8 +1814,11 @@
         .save-form-btn {
           flex: 1 1 calc(50% - 6px);
           min-width: 0;
-          height: 38px;
-          padding: 0 10px;
+          height: 34px;
+          padding: 0 8px;
+        }
+        .future-enrollment-section {
+          grid-template-columns: 1fr;
         }
         .student-form,
         .student-form-card { width: 100%; max-width: 100%; }
@@ -1797,10 +1834,11 @@
         .add-form-btn,
         .save-form-btn {
           flex: 1 1 calc(50% - 6px);
-          font-size: 0.74rem;
-          height: 36px;
+          font-size: 0.72rem;
+          height: 34px;
+          padding: 0 8px;
         }
-        .action-btn-label { font-size: 0.74rem; }
+        .action-btn-label { font-size: 0.72rem; }
         .student-form-card-body { padding: 14px; }
         .form-header { padding: 12px 14px; }
         .form-field-row { grid-template-columns: 1fr; }
@@ -1819,6 +1857,108 @@
         align-items: center !important;
         justify-content: center !important;
         vertical-align: middle !important;
+      }
+
+      /* ── Add Student page balance fixes ───────────────────────── */
+      .form-header .sid-id-widget {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+        position: static !important;
+        top: auto !important;
+        margin-top: 0 !important;
+        padding: 4px 8px !important;
+        border: 1px solid color-mix(in srgb, var(--brand) 14%, var(--line)) !important;
+        border-radius: 999px !important;
+        background: linear-gradient(180deg, #ffffff 0%, var(--surface-muted) 100%) !important;
+        box-shadow: var(--shadow-sm) !important;
+        transform: none !important;
+      }
+      .form-header .sid-id-widget.sid-has-conflict {
+        border-color: #fca5a5 !important;
+        background: #fef2f2 !important;
+      }
+      .form-header .sid-id-label {
+        display: inline-flex !important;
+        align-items: center !important;
+        position: static !important;
+        top: auto !important;
+        margin-top: 0 !important;
+        line-height: 1 !important;
+        color: var(--brand-strong) !important;
+      }
+      .form-header .sid-id-input {
+        width: 6.8ch !important;
+        min-width: 6.8ch !important;
+        max-width: 10ch !important;
+        position: static !important;
+        top: auto !important;
+        height: 1.45rem !important;
+        line-height: 1.1 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        margin-top: 0 !important;
+        border-bottom: 1.5px solid color-mix(in srgb, var(--brand) 42%, var(--line-strong)) !important;
+        background: transparent !important;
+        transform: none !important;
+      }
+      .form-header .sid-id-widget.sid-has-conflict .sid-id-label,
+      .form-header .sid-id-widget.sid-has-conflict .sid-id-taken-msg,
+      .form-header .sid-id-widget.sid-has-conflict .sid-id-input {
+        color: #b91c1c !important;
+      }
+      .form-header .sid-id-widget.sid-has-conflict .sid-id-input {
+        border-bottom-color: #ef4444 !important;
+      }
+
+      .student-form-card-body .form-field-row {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 12px !important;
+        align-items: start !important;
+      }
+      .student-form-card-body .form-field-row > .form-field-group,
+      .guardians-container .guardian-row > .form-field-group {
+        display: grid !important;
+        align-content: start !important;
+        gap: 5px !important;
+        min-width: 0 !important;
+      }
+      .student-form-card-body .form-field-row > .form-field-group > .form-input,
+      .guardians-container .guardian-row > .form-field-group > .form-input {
+        width: 100% !important;
+        min-width: 0 !important;
+        min-height: 44px !important;
+        height: 44px !important;
+        margin: 0 !important;
+      }
+      .student-form-card-body input.form-input[type="date"],
+      .student-form-card-body select.form-input,
+      .guardians-container input.form-input:not([type="file"]),
+      .guardians-container select.form-input {
+        display: block !important;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        line-height: 44px !important;
+      }
+
+      .guardians-container .guardian-row {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 12px !important;
+        align-items: start !important;
+        margin-top: 0 !important;
+      }
+      .guardians-container .guardian-row hr,
+      .guardians-container .guardian-row .guardian-meta,
+      .guardians-container .guardian-row .remove-guardian,
+      .guardians-container .guardian-row .form-field-group:has(.guardian-search) {
+        grid-column: 1 / -1 !important;
+      }
+      .guardians-section,
+      .guardian-add-btn,
+      .guardians-container .guardian-row .remove-guardian {
+        margin-top: 0 !important;
       }
     </style>
   </head>
@@ -1885,11 +2025,17 @@
             <% if (studentIdSettings && studentIdSettings.use_custom_student_id) { %>
             <div class="sid-id-widget">
               <span class="sid-id-label">ID:<% if (studentIdSettings.student_id_prefix) { %> <strong><%= studentIdSettings.student_id_prefix %></strong><% } %></span>
+              <input type="hidden" name="customStudentIdMode___INDEX__" class="sid-id-mode"
+                value="<%= studentIdSettings.student_id_auto_generate ? 'auto' : 'manual' %>">
               <input type="text" name="customStudentId___INDEX__" class="sid-id-input"
-                placeholder="<%= studentIdSettings.student_id_auto_generate ? String((studentIdSettings.student_id_counter || 0) + 1).padStart(3, '0') : '001' %>"
+                placeholder="<%= studentIdSettings.student_id_auto_generate ? String(nextAvailableStudentIdNumber || ((studentIdSettings.student_id_counter || 0) + 1)).padStart(3, '0') : '001' %>"
                 data-prefix="<%= studentIdSettings.student_id_prefix || '' %>"
+                data-auto-generate="<%= studentIdSettings.student_id_auto_generate ? 'true' : 'false' %>"
                 inputmode="numeric"
+                pattern="[0-9]*"
+                maxlength="10"
                 autocomplete="off">
+              <span class="sid-id-taken-msg" aria-live="polite">INUSED</span>
             </div>
             <% } %>
             <span class="collapse-indicator" style="display: none;">Collapsed</span>
@@ -2097,6 +2243,14 @@
     </div> <!-- Closing student-management-system div -->
 
   
+    <script id="addStudentPageData" type="application/json"><%- JSON.stringify({
+      organizationId,
+      hasSaveSuccessMessage: Boolean(messages && messages.success && messages.success.length),
+      allSchoolYears: schoolYears,
+      studentIdAutoGenerateEnabled: Boolean(studentIdSettings && studentIdSettings.use_custom_student_id && studentIdSettings.student_id_auto_generate),
+      studentIdNextAvailableStart: Number(nextAvailableStudentIdNumber || (((studentIdSettings && studentIdSettings.student_id_counter) || 0) + 1))
+    }).replace(/</g, '\\u003c') %></script>
+
     <script>
       // Helper functions for guardian autocomplete
       function escapeHtml(str) {
@@ -2252,13 +2406,171 @@
           label.textContent = expanded ? "Hide Subjects" : "Show Subjects";
         }
       }
-      const organizationId = "<%= organizationId %>";
-      const hasSaveSuccessMessage = <%- JSON.stringify(Boolean(messages && messages.success && messages.success.length)) %>;
-      const allSchoolYears = <%- JSON.stringify(schoolYears) %>;
+      const addStudentPageData = JSON.parse(document.getElementById('addStudentPageData').textContent || '{}');
+      const organizationId = String(addStudentPageData.organizationId || '');
+      const hasSaveSuccessMessage = Boolean(addStudentPageData.hasSaveSuccessMessage);
+      const allSchoolYears = Array.isArray(addStudentPageData.allSchoolYears) ? addStudentPageData.allSchoolYears : [];
+      const studentIdAutoGenerateEnabled = Boolean(addStudentPageData.studentIdAutoGenerateEnabled);
+      const studentIdNextAvailableStart = Number(addStudentPageData.studentIdNextAvailableStart || 1);
       let studentIndex = 0;
       const LOCAL_DRAFT_KEY = `addStudentDraft_${organizationId || 'default'}`;
       let submitBypassCheck = false;
       let saveDraftTimer = null;
+
+      function getAllStudentIdInputs() {
+        return Array.from(document.querySelectorAll('.student-form .sid-id-input'));
+      }
+
+      function getStudentIdNumericValue(input) {
+        return String(input && input.value ? input.value : '').replace(/\D/g, '').trim();
+      }
+
+      function getNextStudentIdPreviewValue(excludeInput = null) {
+        const reservedNumbers = new Set();
+        getAllStudentIdInputs().forEach((input) => {
+          if (input === excludeInput) return;
+          const numericText = getStudentIdNumericValue(input);
+          const numericValue = numericText ? parseInt(numericText, 10) : null;
+          if (Number.isInteger(numericValue) && numericValue > 0) {
+            reservedNumbers.add(numericValue);
+          }
+        });
+
+        let candidate = Math.max(1, Number(studentIdNextAvailableStart) || 1);
+        while (reservedNumbers.has(candidate)) {
+          candidate += 1;
+        }
+        return String(candidate).padStart(3, '0');
+      }
+
+      function applyStudentIdConflictState(input) {
+        if (!input) return;
+        const widget = input.closest('.sid-id-widget');
+        const message = widget ? widget.querySelector('.sid-id-taken-msg') : null;
+        const taken = input.dataset.pageTaken === 'true' || input.dataset.dbTaken === 'true';
+        input.classList.toggle('sid-taken', taken);
+        input.setAttribute('aria-invalid', taken ? 'true' : 'false');
+        if (widget) widget.classList.toggle('sid-has-conflict', taken);
+        if (message) message.classList.toggle('visible', taken);
+      }
+
+      function refreshStudentIdPageConflicts() {
+        const counts = new Map();
+        getAllStudentIdInputs().forEach((input) => {
+          const numericText = getStudentIdNumericValue(input);
+          if (!numericText) return;
+          counts.set(numericText, (counts.get(numericText) || 0) + 1);
+        });
+
+        getAllStudentIdInputs().forEach((input) => {
+          const numericText = getStudentIdNumericValue(input);
+          input.dataset.pageTaken = numericText && (counts.get(numericText) || 0) > 1 ? 'true' : 'false';
+          applyStudentIdConflictState(input);
+        });
+      }
+
+      async function refreshStudentIdDbConflict(input) {
+        if (!input) return;
+        const numericText = getStudentIdNumericValue(input);
+        const requestToken = String(Number(input.dataset.sidRequestToken || 0) + 1);
+        input.dataset.sidRequestToken = requestToken;
+
+        if (!numericText) {
+          input.dataset.dbTaken = 'false';
+          applyStudentIdConflictState(input);
+          return;
+        }
+
+        try {
+          const fullId = (input.dataset.prefix || '') + numericText;
+          const response = await fetch('/common/check-student-id?id=' + encodeURIComponent(fullId) + '&num=' + encodeURIComponent(numericText));
+          const data = await response.json();
+          if (input.dataset.sidRequestToken !== requestToken) return;
+          input.dataset.dbTaken = data && data.taken ? 'true' : 'false';
+        } catch (error) {
+          if (input.dataset.sidRequestToken !== requestToken) return;
+          input.dataset.dbTaken = 'false';
+        }
+
+        applyStudentIdConflictState(input);
+      }
+
+      function refreshAllStudentIdConflictStates() {
+        refreshStudentIdPageConflicts();
+        getAllStudentIdInputs().forEach((input) => {
+          if (getStudentIdNumericValue(input)) {
+            refreshStudentIdDbConflict(input);
+          } else {
+            input.dataset.dbTaken = 'false';
+            applyStudentIdConflictState(input);
+          }
+        });
+      }
+
+      function setupStudentIdInput(formBlock) {
+        const sidInput = formBlock.querySelector('.sid-id-input');
+        if (!sidInput) return;
+
+        const sidModeInput = formBlock.querySelector('.sid-id-mode');
+        const syncStudentIdInputWidth = (input) => {
+          const basis = (input.value || input.placeholder || '').trim();
+          const chars = Math.max(6, Math.min(10, basis.length || 6));
+          input.style.width = (chars + 0.8) + 'ch';
+        };
+        const ensurePreviewValue = () => {
+          if (!studentIdAutoGenerateEnabled || !sidModeInput) return;
+          if (sidModeInput.value !== 'auto') return;
+          if (sidInput.value.trim()) return;
+          const previewValue = getNextStudentIdPreviewValue(sidInput);
+          sidInput.dataset.autoPreview = previewValue;
+          sidInput.value = previewValue;
+        };
+
+        let sidTimer;
+        sidInput.dataset.pageTaken = 'false';
+        sidInput.dataset.dbTaken = 'false';
+        ensurePreviewValue();
+        syncStudentIdInputWidth(sidInput);
+        refreshStudentIdPageConflicts();
+        sidTimer = setTimeout(() => {
+          refreshStudentIdDbConflict(sidInput);
+        }, 0);
+
+        sidInput.addEventListener('input', function() {
+          clearTimeout(sidTimer);
+          const digitsOnly = this.value.replace(/\D/g, '').slice(0, 10);
+          if (this.value !== digitsOnly) {
+            this.value = digitsOnly;
+          }
+          const val = this.value.trim();
+          if (sidModeInput) {
+            sidModeInput.value = studentIdAutoGenerateEnabled && !val ? 'auto' : 'manual';
+          }
+          syncStudentIdInputWidth(sidInput);
+          refreshStudentIdPageConflicts();
+          if (!val) {
+            sidInput.dataset.dbTaken = 'false';
+            applyStudentIdConflictState(sidInput);
+            return;
+          }
+          sidTimer = setTimeout(() => {
+            refreshStudentIdDbConflict(sidInput);
+          }, 250);
+        });
+
+        sidInput.addEventListener('blur', function() {
+          if (sidModeInput && sidModeInput.value === 'auto' && !this.value.trim()) {
+            ensurePreviewValue();
+          }
+          syncStudentIdInputWidth(sidInput);
+          refreshStudentIdPageConflicts();
+          sidTimer = setTimeout(() => {
+            refreshStudentIdDbConflict(sidInput);
+          }, 0);
+        });
+
+        refreshStudentIdPageConflicts();
+      }
     
       // ── Smart sanitization helpers (client-side) ──
       function sanitizePhoneClient(val) {
@@ -2301,8 +2613,6 @@
 
         if (missingSummary.length) {
           console.warn('[AddStudent Submit] Missing required fields before submit', missingSummary);
-        } else {
-          console.log('[AddStudent Submit] Required fields look populated for all forms');
         }
 
         if (!confirm("Are you sure you want to add all students?")) {
@@ -2492,6 +2802,8 @@
           }
         }
 
+        refreshAllStudentIdConflictStates();
+
         return true;
       }
 
@@ -2666,6 +2978,7 @@ function removeStudentForm(button) {
       setTimeout(() => {
         formBlock.remove();
         renumberStudentCards();
+        refreshAllStudentIdConflictStates();
         scheduleSaveDraft();
       }, 300);
     }
@@ -2704,35 +3017,8 @@ function addStudentForm() {
   renumberStudentCards();
   scheduleSaveDraft();
 
-  // Real-time student ID conflict check for this new form
-  const sidInput = div.querySelector('.sid-id-input');
-  if (sidInput) {
-    const syncStudentIdInputWidth = (input) => {
-      const basis = (input.value || input.placeholder || '').trim();
-      const chars = Math.max(3, Math.min(8, basis.length || 3));
-      input.style.width = (chars + 0.35) + 'ch';
-    };
-    const sidPrefix = sidInput.dataset.prefix || '';
-    let sidTimer;
-    syncStudentIdInputWidth(sidInput);
-    sidInput.addEventListener('input', function() {
-      clearTimeout(sidTimer);
-      syncStudentIdInputWidth(sidInput);
-      const val = this.value.trim();
-      if (!val) {
-        sidInput.classList.remove('sid-taken');
-        return;
-      }
-      sidTimer = setTimeout(async function() {
-        try {
-          const fullId = sidPrefix + val;
-          const r = await fetch('/common/check-student-id?id=' + encodeURIComponent(fullId) + '&num=' + encodeURIComponent(val));
-          const d = await r.json();
-          sidInput.classList.toggle('sid-taken', d.taken);
-        } catch(e) {}
-      }, 400);
-    });
-  }
+  setupStudentIdInput(div);
+  refreshStudentIdPageConflicts();
 }    
       function bindEnrollmentToggle(index) {
         const current = document.querySelector(`input[name="enrollmentType_${index}"][value="current"]`);
@@ -2742,7 +3028,7 @@ function addStudentForm() {
           const applyState = () => {
             const showFuture = !!future.checked;
             section.classList.toggle('is-visible', showFuture);
-            section.style.display = showFuture ? 'flex' : 'none';
+            section.style.display = showFuture ? 'grid' : 'none';
             const yearSel = section.querySelector('select[id^="schoolYear-"]');
             const termSel = section.querySelector('select[id^="term-"]');
             if (yearSel) yearSel.required = showFuture;
@@ -3176,7 +3462,6 @@ function addStudentForm() {
           const result = await response.json();
 
           if (result.success) {
-            console.log('Received students from server:', result.students);
             document.getElementById('progressText').textContent = `Found ${result.students.length} students! Generating forms...`;
             
             // Show warnings if any
@@ -3224,13 +3509,11 @@ function addStudentForm() {
               let delay = 0;
               studentsToAdd.forEach((studentData, index) => {
                 setTimeout(() => {
-                  console.log(`Creating form ${index + 1} of ${studentsToAdd.length} for:`, studentData);
                   addStudentFormWithData(studentData);
                   scheduleSaveDraft();
                   
                   // Show progress
                   if ((index + 1) % 10 === 0 || index === studentsToAdd.length - 1) {
-                    console.log(`Progress: ${index + 1}/${studentsToAdd.length} forms created`);
                   }
                   
                   // Alert when done
@@ -3271,7 +3554,6 @@ function addStudentForm() {
         const container = document.getElementById("studentFormsContainer");
         const block = reusableBlock || (container ? container.lastElementChild : null);
         if (!block || !block.classList || !block.classList.contains('student-form')) {
-          console.log('✗ Could not find newly added student-form block');
           return;
         }
 
@@ -3281,11 +3563,8 @@ function addStudentForm() {
         const cardElement = block;
 
         if (!studentData) {
-          console.log('✗ No student data provided');
           return;
         }
-
-        console.log(`Filling form ${currentIndex} with data:`, studentData);
         
         // Personal Information
         if (studentData.firstName) {
@@ -3293,15 +3572,11 @@ function addStudentForm() {
           const firstNameInput = cardElement.querySelector(selector);
           if (firstNameInput) {
             firstNameInput.value = studentData.firstName;
-            console.log('✓ Set firstName:', studentData.firstName);
           } else {
             // Try without specific index
             const altInput = cardElement.querySelector('input[name*="firstName"]');
             if (altInput) {
               altInput.value = studentData.firstName;
-              console.log('✓ Set firstName (alt):', studentData.firstName);
-            } else {
-              console.log('✗ Could not find firstName input');
             }
           }
         }
@@ -3310,12 +3585,10 @@ function addStudentForm() {
           const lastNameInput = cardElement.querySelector(`input[name="lastName___${currentIndex}"]`);
           if (lastNameInput) {
             lastNameInput.value = studentData.lastName;
-            console.log('✓ Set lastName:', studentData.lastName);
           } else {
             const altInput = cardElement.querySelector('input[name*="lastName"]');
             if (altInput) {
               altInput.value = studentData.lastName;
-              console.log('✓ Set lastName (alt):', studentData.lastName);
             }
           }
         }
@@ -3324,12 +3597,10 @@ function addStudentForm() {
           const dobInput = cardElement.querySelector(`input[name="dateOfBirth___${currentIndex}"]`);
           if (dobInput) {
             dobInput.value = studentData.dateOfBirth;
-            console.log('✓ Set DOB:', studentData.dateOfBirth);
           } else {
             const altInput = cardElement.querySelector('input[name*="dateOfBirth"]');
             if (altInput) {
               altInput.value = studentData.dateOfBirth;
-              console.log('✓ Set DOB (alt):', studentData.dateOfBirth);
             }
           }
         }
@@ -3338,12 +3609,10 @@ function addStudentForm() {
           const genderSelect = cardElement.querySelector(`select[name="gender___${currentIndex}"]`);
           if (genderSelect) {
             genderSelect.value = studentData.gender;
-            console.log('✓ Set gender:', studentData.gender);
           } else {
             const altSelect = cardElement.querySelector('select[name*="gender"]');
             if (altSelect) {
               altSelect.value = studentData.gender;
-              console.log('✓ Set gender (alt):', studentData.gender);
             }
           }
         }
@@ -3352,12 +3621,10 @@ function addStudentForm() {
           const hometownInput = cardElement.querySelector(`input[name="hometown___${currentIndex}"]`);
           if (hometownInput) {
             hometownInput.value = studentData.hometown;
-            console.log('✓ Set hometown:', studentData.hometown);
           } else {
             const altInput = cardElement.querySelector('input[name*="hometown"]');
             if (altInput) {
               altInput.value = studentData.hometown;
-              console.log('✓ Set hometown (alt):', studentData.hometown);
             }
           }
         }
@@ -3375,17 +3642,14 @@ function addStudentForm() {
             );
             if (match) {
               classSelect.value = match.value;
-              console.log('✓ Set class:', match.textContent);
               // Auto-load and preselect subjects (also makes the subjects container render)
               const preSubjects = studentData.subjects
                 ? studentData.subjects.split(',').map(s => s.trim()).filter(Boolean)
                 : [];
               loadSubjectsForClass(currentIndex, classSelect.value, preSubjects);
             } else {
-              console.log('✗ Could not find matching class for:', studentData.class, 'Available:', options.map(o => o.textContent));
             }
           } else {
-            console.log('✗ Could not find classId select');
           }
         }
         
@@ -3402,12 +3666,9 @@ function addStudentForm() {
             );
             if (match) {
               graduationSelect.value = match.value;
-              console.log('✓ Set graduation year:', match.textContent);
             } else {
-              console.log('✗ Could not find matching graduation year for:', studentData.graduationYear, 'Available:', options.map(o => o.textContent));
             }
           } else {
-            console.log('✗ Could not find graduationYearGroupId select');
           }
         }
         
@@ -3416,12 +3677,9 @@ function addStudentForm() {
           const guardian = studentData.guardian;
           
           if (guardian.existing && guardian.guardianId) {
-            console.log('✓ Guardian exists in database, selecting existing...');
-
             const existingBtn = cardElement.querySelector(".guardian-check-section button[onclick*=\"'existing'\"]")
               || cardElement.querySelector('button[onclick*="setGuardianMode"][onclick*="existing"]');
             if (!existingBtn) {
-              console.log('✗ Could not find existing guardian mode button');
               return;
             }
 
@@ -3455,11 +3713,9 @@ function addStudentForm() {
             }
           } else if (guardian.firstName || guardian.lastName || guardian.email || guardian.phone) {
             // New guardian - click "No, Add New" and fill form
-            console.log('✓ New guardian, auto-filling form...');
             const newBtn = cardElement.querySelector(".guardian-check-section button[onclick*=\"'new'\"]")
               || cardElement.querySelector('button[onclick*="setGuardianMode"][onclick*="new"]');
             if (!newBtn) {
-              console.log('✗ Could not find new guardian mode button');
               return;
             }
 

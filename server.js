@@ -20,7 +20,7 @@ const {
   globalErrorHandler,
 } = require("./middleware/errorMiddleware"); // Error handling middleware
 const fetchUnresolvedCount = require("./middleware/fetchUnresolvedCount");
-const fetchNotifCount = require("./middleware/fetchNotifCount");
+const { fetchNotifCount } = require("./middleware/fetchNotifCount");
 
 const upload = multer();
 const app = express();
@@ -459,6 +459,12 @@ app.use((req, res, next) => {
   res.locals.currentPath = req.path || "";
   res.locals.showFooterTopSection = false;
   res.locals.unresolvedCount = 0;
+
+  // Hide global header/footer when page is embedded inside the class dashboard workspace
+  if (req.query.embed === 'workspace') {
+    res.locals.hideGlobalHeader = true;
+    res.locals.hideGlobalFooter = true;
+  }
 
   // Compact UI flags — reduced headings + compact tables on authenticated app pages.
   // Excluded: legal pages, unauthenticated/public pages, organization dashboard,

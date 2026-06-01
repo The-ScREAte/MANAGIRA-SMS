@@ -1,0 +1,687 @@
+<style>
+  :root {
+    --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --primary:       var(--org-primary-color, #01535b);
+    --primary-dark:  color-mix(in srgb, var(--primary) 80%, black);
+    --primary-soft:  color-mix(in srgb, var(--primary) 8%, white);
+    --ink:    #0f2230;
+    --ink-2:  #374151;
+    --ink-3:  #6b7280;
+    --line:   #e5e9ec;
+    --bg:     #f4f6f8;
+    --card:   #ffffff;
+    --red:    #c0392b;
+    --red-mid:#e53935;
+    --red-bg: #fef2f2;
+    --red-line:#fcd5d3;
+    --green:  #047857;
+    --green-bg:#ecfdf5;
+  }
+
+  body { font-family: var(--font-family); background: var(--bg); color: var(--ink); }
+
+  /* ─────────────────────────── Layout ─────────────────────────── */
+  .fe-page {
+    max-width: 1060px;
+    margin: 0 auto;
+    padding: 20px 16px 64px;
+  }
+
+  /* ─────────────────────────── Header ─────────────────────────── */
+  .fe-header {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #b91c1c 0%, #7f1d1d 100%);
+    border-radius: 18px;
+    padding: 28px 32px 28px 28px;
+    color: #fff;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .fe-header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  }
+
+  .fe-header-left {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .fe-header-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .fe-header-icon svg { width: 22px; height: 22px; stroke: #fff; }
+
+  .fe-header-text h1 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin: 0 0 3px;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+
+  .fe-header-text p {
+    opacity: 0.82;
+    font-size: 0.83rem;
+    margin: 0;
+    line-height: 1.4;
+  }
+
+  .fe-badge {
+    position: relative;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.25);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.8rem;
+    padding: 6px 14px;
+    border-radius: 99px;
+    white-space: nowrap;
+    letter-spacing: 0.01em;
+    flex-shrink: 0;
+  }
+
+  /* ─────────────────────────── Instruction strip ─────────────── */
+  .fe-instruction {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    font-size: 0.84rem;
+    color: #78350f;
+    line-height: 1.5;
+  }
+
+  .fe-instruction svg { width: 16px; height: 16px; stroke: #d97706; flex-shrink: 0; margin-top: 1px; }
+
+  /* ─────────────────────────── Empty state ───────────────────── */
+  .fe-empty {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 64px 32px;
+    text-align: center;
+  }
+
+  .fe-empty-icon {
+    width: 68px;
+    height: 68px;
+    background: var(--green-bg);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 18px;
+    box-shadow: 0 0 0 8px rgba(4,120,87,0.07);
+  }
+
+  .fe-empty-icon svg { width: 30px; height: 30px; stroke: var(--green); }
+  .fe-empty h2 { font-size: 1.05rem; color: var(--ink); margin: 0 0 6px; font-weight: 700; }
+  .fe-empty p  { font-size: 0.86rem; color: var(--ink-3); margin: 0; max-width: 380px; margin-inline: auto; }
+
+  /* ─────────────────────────── Table card ────────────────────── */
+  .fe-card {
+    background: var(--card);
+    border-radius: 18px;
+    border: 1px solid var(--line);
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03);
+  }
+
+  .fe-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .fe-table th {
+    background: #f9fafb;
+    padding: 11px 18px;
+    text-align: left;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--ink-3);
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+
+  .fe-table td {
+    padding: 18px 18px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+
+  .fe-table tbody tr:last-child td { border-bottom: none; }
+
+  .fe-table tbody tr {
+    transition: background 0.15s ease;
+  }
+
+  .fe-table tbody tr:hover { background: #fafbfc; }
+
+  .fe-table tr.row-removing {
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    opacity: 0;
+    transform: translateX(20px);
+  }
+
+  /* ─────────────────────────── Person cell ───────────────────── */
+  .fe-user {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    min-width: 160px;
+  }
+
+  .fe-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--line);
+    display: block;
+    flex-shrink: 0;
+  }
+
+  .fe-user-name {
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: var(--ink);
+    line-height: 1.3;
+  }
+
+  .fe-user-role {
+    font-size: 0.75rem;
+    color: var(--ink-3);
+    margin-top: 2px;
+  }
+
+  /* ─────────────────────────── Email + edit cell ──────────────── */
+  .fe-email-cell { min-width: 300px; max-width: 420px; }
+
+  /* The failed address tag */
+  .fe-failed-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--red);
+    background: var(--red-bg);
+    border: 1px solid var(--red-line);
+    border-radius: 6px;
+    padding: 3px 8px 3px 6px;
+    margin-bottom: 10px;
+    word-break: break-all;
+    line-height: 1.4;
+  }
+
+  .fe-failed-tag svg { width: 11px; height: 11px; stroke: var(--red-mid); flex-shrink: 0; }
+
+  /* Edit area: full-width input, then button below */
+  .fe-edit-area {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .fe-input {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1.5px solid var(--line);
+    border-radius: 9px;
+    font-size: 0.875rem;
+    font-family: inherit;
+    color: var(--ink);
+    background: #fff;
+    box-sizing: border-box;
+    transition: border-color 0.18s, box-shadow 0.18s;
+  }
+
+  .fe-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent);
+  }
+
+  .fe-input.fe-input-error {
+    border-color: var(--red-mid);
+    box-shadow: 0 0 0 3px rgba(220,57,57,0.1);
+  }
+
+  .fe-input.fe-input-success {
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px rgba(4,120,87,0.1);
+  }
+
+  /* Live check status line */
+  .fe-check-status {
+    display: none;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+    min-height: 16px;
+  }
+
+  .fe-check-status.checking,
+  .fe-check-status.valid,
+  .fe-check-status.invalid { display: flex; }
+
+  .fe-check-status.checking { color: var(--ink-3); }
+  .fe-check-status.valid    { color: var(--green); }
+  .fe-check-status.invalid  { color: var(--red-mid); }
+  .fe-check-status svg { width: 11px; height: 11px; flex-shrink: 0; }
+
+  .fe-test-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 9px 18px;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 9px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    letter-spacing: 0.01em;
+    transition: background 0.15s, transform 0.12s, opacity 0.15s;
+    width: 100%;
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 30%, transparent);
+  }
+
+  .fe-test-btn:hover:not(:disabled) {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+  }
+
+  .fe-test-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .fe-test-btn svg { width: 13px; height: 13px; }
+
+  /* Inline feedback below button */
+  .fe-feedback {
+    font-size: 0.78rem;
+    padding: 7px 10px;
+    border-radius: 7px;
+    display: none;
+    line-height: 1.4;
+  }
+
+  .fe-feedback.show    { display: block; }
+  .fe-feedback.success { background: var(--green-bg); color: #065f46; }
+  .fe-feedback.error   { background: var(--red-bg);   color: #7f1d1d; }
+
+  /* ─────────────────────────── Reason pill ───────────────────── */
+  .fe-reason-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 9px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
+    border: 1px solid;
+  }
+
+  .fe-reason-pill.reason-suppressed,
+  .fe-reason-pill.reason-unknown        { background:#fef3c7; color:#92400e; border-color:#fde68a; }
+  .fe-reason-pill.reason-invalid_format { background:#fef2f2; color:#9b1c1c; border-color:#fecaca; }
+  .fe-reason-pill.reason-no_mx_records  { background:#fff7ed; color:#9a3412; border-color:#fed7aa; }
+  .fe-reason-pill.reason-smtp_hard_bounce { background:#fdf2f8; color:#86198f; border-color:#f0abfc; }
+
+  /* ─────────────────────────── Meta cells ────────────────────── */
+  .fe-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 26px;
+    height: 26px;
+    padding: 0 7px;
+    border-radius: 99px;
+    background: var(--red-bg);
+    color: var(--red);
+    border: 1px solid var(--red-line);
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+
+  .fe-date {
+    font-size: 0.82rem;
+    color: var(--ink-2);
+    white-space: nowrap;
+  }
+
+  /* ─────────────────────────── Mobile ────────────────────────── */
+  @media (max-width: 700px) {
+    .fe-header { padding: 20px 18px; border-radius: 14px; }
+    .fe-header-text h1 { font-size: 1.1rem; }
+    .fe-header-icon { display: none; }
+
+    .fe-table, .fe-table thead, .fe-table tbody,
+    .fe-table th,  .fe-table td,  .fe-table tr { display: block; }
+    .fe-table thead { display: none; }
+    .fe-table tbody tr {
+      margin-bottom: 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .fe-table tbody tr:last-child { margin-bottom: 0; }
+    .fe-table td { padding: 12px 14px; border-bottom: 1px solid var(--line); }
+    .fe-table td:last-child { border-bottom: none; }
+    .fe-card { border-radius: 14px; }
+    .fe-email-cell { min-width: unset; max-width: unset; }
+    .fe-table tbody tr:hover { background: transparent; }
+  }
+
+  @keyframes fe-spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+</style>
+
+<%- include('../partials/flash') %>
+
+<div class="fe-page">
+
+  <!-- ── Header ── -->
+  <div class="fe-header">
+    <div class="fe-header-left">
+      <div class="fe-header-icon">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      </div>
+      <div class="fe-header-text">
+        <h1>Email Issues</h1>
+        <p>Undeliverable addresses that need correction</p>
+      </div>
+    </div>
+    <div class="fe-badge">
+      <%= failures.length %> issue<%= failures.length !== 1 ? 's' : '' %>
+    </div>
+  </div>
+
+  <% if (failures.length === 0) { %>
+
+  <!-- ── Empty state ── -->
+  <div class="fe-empty">
+    <div class="fe-empty-icon">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <h2>All emails are working</h2>
+    <p>No undeliverable addresses on record. This page updates automatically when a delivery failure is detected.</p>
+  </div>
+
+  <% } else { %>
+
+  <!-- ── Instruction ── -->
+  <div class="fe-instruction">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <span>Type the corrected address in the field below and click <strong>Test &amp; Save</strong>. A test email is sent — if it goes through, the record clears automatically.</span>
+  </div>
+
+  <!-- ── Issues table ── -->
+  <div class="fe-card">
+    <table class="fe-table">
+      <thead>
+        <tr>
+          <th>Person</th>
+          <th>Failed Address &amp; Correction</th>
+          <th>Reason</th>
+          <th>Attempts</th>
+          <th>Last Failed</th>
+        </tr>
+      </thead>
+      <tbody id="failures-tbody">
+        <% failures.forEach(function(f) {
+          const avatarSrc = (f.image_url && f.image_url !== 'profilePlaceholder.png')
+            ? f.image_url : '/images/profilePlaceholder.png';
+          const displayRole = f.user_type === 'guardian' ? 'Guardian' : (f.account_type || 'Staff');
+          const reasonKey   = f.reason || 'unknown';
+          const reasonLabel = {
+            invalid_format:   'Invalid format',
+            no_mx_records:    'Domain unreachable',
+            suppressed:       'Previously failed',
+            smtp_hard_bounce: 'Hard bounce',
+            unknown:          'Unknown',
+          }[reasonKey] || reasonKey;
+          const lastFailed  = f.last_failed_at
+            ? new Date(f.last_failed_at).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
+            : '—';
+        %>
+        <tr id="row-<%= f.id %>">
+
+          <td>
+            <div class="fe-user">
+              <img src="<%= avatarSrc %>" alt="" class="fe-avatar"
+                   onerror="this.src='/images/profilePlaceholder.png'">
+              <div>
+                <div class="fe-user-name"><%= f.first_name %> <%= f.last_name %></div>
+                <div class="fe-user-role"><%= displayRole %></div>
+              </div>
+            </div>
+          </td>
+          <td class="fe-email-cell">
+            <div class="fe-failed-tag">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              <%= f.failed_email %>
+            </div>
+            <div class="fe-edit-area">
+              <input
+                class="fe-input"
+                id="email-<%= f.id %>"
+                type="email"
+                value="<%= f.failed_email %>"
+                data-original="<%= f.failed_email %>"
+                placeholder="Enter corrected email…"
+                autocomplete="off"
+                oninput="liveCheck(<%= f.id %>, this)"
+              >
+              <div class="fe-check-status" id="status-<%= f.id %>"></div>
+              <button
+                class="fe-test-btn"
+                onclick="testEmail(<%= f.id %>)"
+                id="btn-<%= f.id %>"
+                disabled
+              >
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                  <polyline points="22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+                Test &amp; Save
+              </button>
+              <div class="fe-feedback" id="fb-<%= f.id %>"></div>
+            </div>
+          </td>
+
+          <td><span class="fe-reason-pill reason-<%= reasonKey %>"><%= reasonLabel %></span></td>
+          <td><span class="fe-count-badge"><%= f.failure_count %></span></td>
+          <td><span class="fe-date"><%= lastFailed %></span></td>
+
+        </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+
+  <% } %>
+</div>
+
+<script>
+const _debounceTimers = {};
+const _lastChecked    = {};
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
+
+// Shared SVG icon strings
+const SVG_SPIN  = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" style="animation:fe-spin 0.7s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>`;
+const SVG_CHECK = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
+const SVG_X     = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+const SVG_SEND  = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" style="width:13px;height:13px"><polyline points="22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
+
+function setStatus(id, state, msg) {
+  const el  = document.getElementById('status-' + id);
+  const btn = document.getElementById('btn-' + id);
+  if (!el) return;
+  el.className = 'fe-check-status ' + (state || '');
+  const icon = { checking: SVG_SPIN, valid: SVG_CHECK, invalid: SVG_X }[state] || '';
+  el.innerHTML = state ? `${icon}<span>${msg || ''}</span>` : '';
+  if (btn) btn.disabled = (state !== 'valid');
+}
+
+function liveCheck(id, input) {
+  const email = input.value.trim();
+  const fb = document.getElementById('fb-' + id);
+  if (fb) { fb.className = 'fe-feedback'; fb.textContent = ''; }
+  input.classList.remove('fe-input-error', 'fe-input-success');
+
+  if (!email) { setStatus(id, '', ''); return; }
+
+  const original = (input.dataset.original || '').trim().toLowerCase();
+  if (email.toLowerCase() === original) {
+    setStatus(id, 'invalid', 'This is the failed address — please enter a new one');
+    return;
+  }
+
+  if (!EMAIL_RE.test(email)) {
+    setStatus(id, 'invalid', 'Invalid email format');
+    return;
+  }
+
+  if (_lastChecked[id] && _lastChecked[id].email === email) {
+    const c = _lastChecked[id];
+    setStatus(id, c.ok ? 'valid' : 'invalid', c.ok ? 'Looks good' : c.error);
+    return;
+  }
+
+  setStatus(id, 'checking', 'Checking…');
+  clearTimeout(_debounceTimers[id]);
+  _debounceTimers[id] = setTimeout(async () => {
+    try {
+      const resp = await fetch(
+        `/common/failedEmails/checkEmail?email=${encodeURIComponent(email)}&excludeFailureId=${id}`,
+        { credentials: 'same-origin' }
+      );
+      const data = await resp.json();
+      _lastChecked[id] = { email, ok: data.ok, error: data.error };
+      if (data.ok) {
+        input.classList.remove('fe-input-error');
+        setStatus(id, 'valid', 'Available — not used by anyone else');
+      } else {
+        input.classList.add('fe-input-error');
+        setStatus(id, 'invalid', data.error || 'Email not available');
+      }
+    } catch (_) {
+      setStatus(id, '', '');
+    }
+  }, 420);
+}
+
+async function testEmail(id) {
+  const input = document.getElementById('email-' + id);
+  const btn   = document.getElementById('btn-' + id);
+  const fb    = document.getElementById('fb-' + id);
+  const row   = document.getElementById('row-' + id);
+  const email = input.value.trim();
+
+  if (!email || !EMAIL_RE.test(email)) {
+    input.classList.add('fe-input-error');
+    setStatus(id, 'invalid', 'Please enter a valid email address');
+    return;
+  }
+
+  input.classList.remove('fe-input-error', 'fe-input-success');
+  btn.disabled = true;
+  btn.innerHTML = SVG_SPIN + ' Sending…';
+  if (fb) { fb.className = 'fe-feedback'; fb.textContent = ''; }
+
+  try {
+    const resp = await fetch(`/common/failedEmails/${id}/update`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await resp.json();
+
+    if (data.success) {
+      input.classList.add('fe-input-success');
+      setStatus(id, 'valid', 'Verified ✓');
+      if (fb) { fb.className = 'fe-feedback show success'; fb.textContent = '✓ ' + data.message; }
+      row.classList.add('row-removing');
+      setTimeout(() => { row.remove(); updateBadge(); }, 450);
+    } else {
+      input.classList.add('fe-input-error');
+      setStatus(id, 'invalid', data.error || 'Delivery failed');
+      if (fb) { fb.className = 'fe-feedback show error'; fb.textContent = '✗ ' + (data.error || 'Delivery failed — check the address and try again'); }
+      resetBtn(btn, id);
+    }
+  } catch (_) {
+    if (fb) { fb.className = 'fe-feedback show error'; fb.textContent = '✗ Network error — please try again'; }
+    resetBtn(btn, id);
+  }
+}
+
+function resetBtn(btn, id) {
+  const input = document.getElementById('email-' + id);
+  const email = input ? input.value.trim() : '';
+  btn.disabled = !email || !EMAIL_RE.test(email);
+  btn.innerHTML = SVG_SEND + ' Test &amp; Save';
+}
+
+function updateBadge() {
+  const remaining = document.querySelectorAll('#failures-tbody tr').length;
+  const badge = document.querySelector('.fe-badge');
+  if (badge) badge.textContent = remaining + ' issue' + (remaining !== 1 ? 's' : '');
+  if (remaining === 0) {
+    document.querySelector('.fe-card').outerHTML = `
+      <div class="fe-empty">
+        <div class="fe-empty-icon">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <h2>All emails are working</h2>
+        <p>No undeliverable addresses on record.</p>
+      </div>`;
+    const instr = document.querySelector('.fe-instruction');
+    if (instr) instr.remove();
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.fe-input[id^="email-"]').forEach(input => {
+    const id = parseInt(input.id.replace('email-', ''), 10);
+    if (id) liveCheck(id, input);
+  });
+});
+</script>

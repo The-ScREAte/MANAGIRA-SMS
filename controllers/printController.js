@@ -17,6 +17,7 @@ const ejs = require("ejs");
 const axios = require("axios");
 const { sendEmailSafely } = require("../utils/emailHelper");
 const { getOrganizationWebsiteInfo } = require("../utils/schoolWebsiteAccess");
+const { buildStudentDisplayId, getOrganizationStudentIdSettings } = require("../utils/studentIdDisplay");
 // Lightweight async wrapper to avoid dependency errors
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const organizationCache = {};
@@ -303,9 +304,10 @@ const printController = (db) => ({
         scoresResult,
         percentagesResult,
         subjectPositionsResult, // ✅ Add this
+        studentIdSettings,
       ] = await Promise.all([
         db.query(
-          `SELECT es.student_id, s.first_name, s.last_name, s.image_url, c.class_name
+          `SELECT es.student_id, s.custom_student_id, s.first_name, s.last_name, s.image_url, c.class_name
              FROM enrolled_students es
              JOIN students s ON es.student_id = s.student_id
              JOIN enrollments e ON es.enrollment_id = e.enrollment_id
@@ -360,6 +362,7 @@ const printController = (db) => ({
              WHERE class_id = $1 AND term_id = $2 AND organization_id = $3`,
           [parsedClassId, parsedTermId, organizationId]
         ),
+        getOrganizationStudentIdSettings(db, organizationId),
       ]);
 
       // Map scores for easy access
@@ -382,7 +385,10 @@ const printController = (db) => ({
           row.position || null;
       });
 
-      const students = studentsResult.rows;
+      const students = studentsResult.rows.map((student) => ({
+        ...student,
+        display_student_id: buildStudentDisplayId(student, studentIdSettings),
+      }));
       const allSubjects = subjectsResult.rows;
       const teacherRemarks = remarksResult.rows.filter(
         (r) => r.remark_type === "teacher"
@@ -1862,6 +1868,8 @@ students
         year_label: schoolYear,
       } = classDetailsResult.rows[0];
 
+      const studentIdSettings = await getOrganizationStudentIdSettings(db, organizationId);
+
       // Fetch subjects for the class
       const subjectsResult = await db.query(
         `
@@ -2056,7 +2064,7 @@ students
       // Fetch students enrolled in the class for the given term
       const enrolledStudentsResult = await db.query(
         `
-            SELECT es.student_id, s.first_name, s.last_name
+            SELECT es.student_id, s.first_name, s.last_name, s.custom_student_id
             FROM enrolled_students es
             JOIN students s ON es.student_id = s.student_id
             JOIN enrollments e ON es.enrollment_id = e.enrollment_id
@@ -2122,7 +2130,7 @@ students
         const averageScore = totalScore / studentScores.length;
 
         return {
-          studentId: student.student_id,
+          studentId: buildStudentDisplayId(student, studentIdSettings),
           name: `${student.first_name} ${student.last_name}`,
           scores: studentScores,
           totalScore: totalScore.toFixed(2),

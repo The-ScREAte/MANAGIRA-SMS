@@ -30,6 +30,7 @@ const {
 const { getOrgChargeCards } = require("../utils/orgChargeCards");
 const { ensurePaymentProviderSchema } = require("../utils/paymentProviderSchema");
 const { getActiveStripePublicKey, getStripeSettings, getStripePlatformCredentials, getStripeConnectAccountId, ensureStripeConnectAccountSchema } = require("../utils/stripeConfig");
+const { buildStudentDisplayId, getOrganizationStudentIdSettings } = require("../utils/studentIdDisplay");
 const {
   getPlatformFeeSettings,
   isPlatformFeeMethod,
@@ -1957,24 +1958,32 @@ async function loadStudentBilling(orgId, filters = {}) {
     return accumulator;
   }, {});
 
-  const students = await db.query(
-    `SELECT s.student_id, s.first_name, s.last_name, s.image_url, s.class_id,
-            c.class_name,
-            COALESCE(sc.amount,0) AS student_credit
-       FROM students s
-       LEFT JOIN classes c ON c.class_id = s.class_id
-       LEFT JOIN finance_student_credits sc ON sc.student_id = s.student_id AND sc.organization_id = s.organization_id
-      WHERE s.organization_id = $1
-      ORDER BY s.last_name, s.first_name
-      LIMIT 500`,
-    [orgId]
-  );
+  const [studentIdSettings, students] = await Promise.all([
+    getOrganizationStudentIdSettings(db, orgId),
+    db.query(
+      `SELECT s.student_id, s.custom_student_id, s.first_name, s.last_name, s.image_url, s.class_id,
+              c.class_name,
+              COALESCE(sc.amount,0) AS student_credit
+         FROM students s
+         LEFT JOIN classes c ON c.class_id = s.class_id
+         LEFT JOIN finance_student_credits sc ON sc.student_id = s.student_id AND sc.organization_id = s.organization_id
+        WHERE s.organization_id = $1
+        ORDER BY s.last_name, s.first_name
+        LIMIT 500`,
+      [orgId]
+    ),
+  ]);
   return students.rows.map((row) => {
     const totals = totalsByStudentId[String(row.student_id)] || { total_billed: 0, total_paid: 0, outstanding: 0 };
     const studentCredit = Number(row.student_credit || 0);
     const outstanding = Number(totals.outstanding || 0);
+    const displayStudentId = buildStudentDisplayId(row, studentIdSettings);
     return {
       ...row,
+      display_student_id: displayStudentId,
+      display_student_id_text: studentIdSettings.use_custom_student_id
+        ? displayStudentId
+        : (displayStudentId ? `#${displayStudentId}` : ''),
       total_billed: Number(totals.total_billed || 0),
       total_paid: Number(totals.total_paid || 0),
       outstanding,
