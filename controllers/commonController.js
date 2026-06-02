@@ -7535,19 +7535,18 @@ const commonController = {
       // Fetch students enrolled in the class for the current term
       const studentsResult = await db.query(
         `
-                SELECT s.student_id, s.first_name, s.last_name
+                SELECT DISTINCT s.student_id, s.first_name, s.last_name
                 FROM students s
                 JOIN enrolled_students es ON s.student_id = es.student_id
                 JOIN enrollments e ON es.enrollment_id = e.enrollment_id
-                JOIN student_subjects ss ON s.student_id = ss.student_id
                 WHERE es.class_id = $1
                   AND e.term_id = $2
                   AND e.organization_id = $3
-                  AND ss.subject_id = $4
+                  AND s.organization_id = $3
                   AND s.graduated = FALSE
                 ORDER BY s.last_name ASC, s.first_name ASC
             `,
-        [classId, currentTerm.term_id, organizationId, subjectId]
+        [classId, currentTerm.term_id, organizationId]
       );
 
       const students = studentsResult.rows;
