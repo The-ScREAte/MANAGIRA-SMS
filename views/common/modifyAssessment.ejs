@@ -441,6 +441,10 @@
           <input type="number" name="maxScore" value="<%= assessment.max_score %>" required>
         </div>
         <div class="form-group">
+          <label for="scaleBase">Scale Base (scaled score out of):</label>
+          <input type="number" name="scaleBase" value="<%= assessment.scale_base || 100 %>" min="1" required>
+        </div>
+        <div class="form-group">
           <label for="category">Category:</label>
           <select name="category" required>
             <option value="Class Assessment" <%= assessment.category === 'Class Assessment' ? 'selected' : '' %>>Class Assessment</option>

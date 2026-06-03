@@ -93,6 +93,22 @@
     .loading-overlay.active { display: flex; }
     .spinner { width: 50px; height: 50px; border: 4px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes dsFadeIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
+
+    .ds-col-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; align-items:start; }
+    @media (max-width: 760px) { .ds-col-grid { grid-template-columns:1fr; } }
+    /* Advanced DS compact styles */
+    .ds-adv-section-label { margin:0 0 8px;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted); }
+    .ds-adv-group { margin-bottom:3px; }
+    .ds-adv-masterrow { display:flex;align-items:center;justify-content:space-between;padding:6px 9px;background:#fff;border:1px solid var(--border);border-radius:7px;cursor:pointer; }
+    .ds-adv-lbl { display:flex;align-items:center;gap:7px;cursor:pointer;flex:1;font-size:0.85rem;font-weight:600; }
+    .ds-adv-sub { padding:5px 7px 3px 11px;border:1px solid var(--border);border-top:none;border-radius:0 0 7px 7px;background:#fdfdfd;margin-bottom:2px; }
+    .ds-adv-sub-lbl { display:flex;align-items:center;gap:6px;padding:3px 5px;border-radius:5px;cursor:pointer;font-size:0.82rem;color:#475569; }
+    .ds-adv-sub-lbl:hover { background:#f1f5f9; }
+    .ds-adv-flat-lbl { display:flex;align-items:center;gap:6px;padding:5px 8px;background:#fff;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:0.82rem;font-weight:500; }
+    .ds-adv-flat-lbl:hover { background:#f1f5f9; }
+    .ds-adv-grid { display:grid;grid-template-columns:1fr 1fr;gap:16px; }
+    @media (max-width:640px) { .ds-adv-grid { grid-template-columns:1fr; } }
 
     @media (max-width: 960px) { .class-layout { grid-template-columns: 1fr; } .class-button { display: inline-flex; width: auto; } }
     @media (max-width: 640px) {
@@ -119,6 +135,40 @@
       .remark-text { font-size: 0.9rem; }
       table { min-width: 580px; }
       th, td { padding: 7px 6px; font-size: 0.85rem; }
+    }
+
+    /* ── Collapsible cards ── */
+    .card-collapse-hdr {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+      gap: 8px;
+      width: 100%;
+    }
+    .card-collapse-hdr > h2,
+    .card-collapse-hdr > .section-title {
+      margin-bottom: 0;
+      flex: 1;
+    }
+    .card-collapse-hdr:hover { opacity: 0.8; }
+    .card-collapse-arrow {
+      font-size: 10px;
+      color: var(--muted);
+      transition: transform 0.22s;
+      flex-shrink: 0;
+    }
+    .collapsible-card.collapsed .card-collapse-arrow {
+      transform: rotate(-90deg);
+    }
+    .collapsible-card:not(.collapsed) .card-collapse-hdr {
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .collapsible-card.collapsed .card-collapse-body {
+      display: none;
     }
   </style>
 </head>
@@ -186,18 +236,13 @@
 
                 <div class="form-group"><label>Cut Off Point</label><input type="number" name="cutOffPoint" id="cutOffPoint" /></div>
                 <div class="form-group"><label>School Reopen Date</label><input type="date" name="schoolReopenDate" id="schoolReopenDate" /></div>
-                <div class="form-group" style="margin-bottom:6px;">
-                  <label style="margin-bottom:4px;">Activate Promotion</label>
-                  <div class="form-checkbox-group" style="display:flex;align-items:center;gap:8px;">
-                    <input type="checkbox" id="activatePromotion" name="activatePromotion" />
-                    <span>Active</span>
-                  </div>
-                </div>
+                <!-- Activate Promotion is managed in the Advanced section -->
+                <div style="display:none;"><input type="checkbox" id="activatePromotion" name="activatePromotion" /></div>
               </div>
 
-              <div style="display:flex;gap:10px;">
-                <button type="submit" class="btn">Save Status Settings</button>
-                <button type="button" class="btn btn-danger" id="cancelEditBtn" style="display:none;">Cancel</button>
+              <div style="display:flex;gap:8px;">
+                <button type="submit" class="btn" style="padding:6px 14px;font-size:0.82rem;font-weight:600;">Save Status Settings</button>
+                <button type="button" class="btn btn-danger" id="cancelEditBtn" style="display:none;padding:6px 14px;font-size:0.82rem;font-weight:600;margin-top:0;align-self:center;">Cancel</button>
               </div>
             </form>
           </div>
@@ -206,11 +251,26 @@
             <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px;">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
                 <div class="section-title" style="margin:0;">Current Settings</div>
-                <button type="button" class="btn" id="modifySettingsBtn">Modify Settings</button>
+                <button type="button" class="btn" id="modifySettingsBtn" style="padding:6px 14px;font-size:0.82rem;font-weight:600;">Modify Settings</button>
               </div>
               <div id="currentSettingsDisplay" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;"></div>
             </div>
           </div>
+
+          <!-- ── Advanced Display Settings Accordion ── -->
+          <div id="advancedDsAccordion" style="margin-top:14px;border:1px solid var(--border);border-radius:10px;overflow:hidden;">
+            <button type="button" id="advancedDsToggleBtn" onclick="toggleAdvancedDsPanel()" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#f8fafc;border:none;cursor:pointer;font-weight:600;font-size:0.85rem;color:var(--muted);letter-spacing:0.01em;">
+              <span style="display:flex;align-items:center;gap:7px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 1 1 4.93 19.07"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83"/></svg>
+                Advanced
+              </span>
+              <span id="advancedDsArrow" style="font-size:10px;transition:transform 0.2s;">▼</span>
+            </button>
+            <div id="advancedDsPanel" style="display:none;padding:14px 16px;background:#fff;border-top:1px solid var(--border);">
+              <!-- Populated by renderAdvancedDs(classId) -->
+            </div>
+          </div>
+          <!-- ── /Advanced Display Settings Accordion ── -->
 
           <div style="margin-top:20px;padding-top:20px;border-top:2px solid var(--border);">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
@@ -507,6 +567,10 @@
       scoreRemarksMap['<%= remark.class_id %>'].push(<%- JSON.stringify(remark) %>);
     <% }); %>
 
+    // ---- Display Settings data (must be defined before loadClassSettings is called) ----
+    const allDisplaySettingsMap = <%- JSON.stringify(allDisplaySettingsMap) %>;
+    const allAssessmentsByCategoryMap = <%- JSON.stringify(allAssessmentsByCategoryMap) %>;
+
     const classButtons = document.querySelectorAll('.class-button');
     const promotedSelect = document.getElementById('promotedClassSelect');
     const repeatedSelect = document.getElementById('repeatedClassSelect');
@@ -603,10 +667,6 @@
             <div style="font-size:0.85rem;color:var(--muted);margin-bottom:4px;">School Reopen Date</div>
             <div style="font-weight:600;color:var(--primary);">${data.school_reopen_date ? new Date(data.school_reopen_date).toLocaleDateString() : '-'}</div>
           </div>
-          <div style="padding:10px;background:#f8fafc;border-radius:8px;">
-            <div style="font-size:0.85rem;color:var(--muted);margin-bottom:4px;">Activate Promotion</div>
-            <div style="font-weight:600;color:var(--primary);">${data.activate_promotion ? 'Yes' : 'No'}</div>
-          </div>
         `;
       } else {
         // No settings - show form, hide overview
@@ -621,12 +681,23 @@
         activatePromotion.checked = false;
         reopenDate.value = '';
       }
+
+      // Reset the Advanced panel before re-rendering for the new class
+      // (clears any stale DOM from the previously selected class)
+      const _advPanel = document.getElementById('advancedDsPanel');
+      if (_advPanel) {
+        _advPanel.innerHTML = '';
+        _advPanel.dataset.classId = '';
+      }
+
+      // Render the Advanced display settings panel for the selected class
+      renderAdvancedDs(classId);
     }
 
     modifyBtn?.addEventListener('click', () => {
       formContainer.style.display = 'block';
       overviewContainer.style.display = 'none';
-      cancelBtn.style.display = 'inline-block';
+      cancelBtn.style.display = 'inline-flex';
     });
 
     cancelBtn?.addEventListener('click', () => {
@@ -1413,6 +1484,278 @@
     window.deleteTranscriptSignatureForClass = deleteTranscriptSignatureForClass;
     window.deleteEntireTranscriptSignature = deleteEntireTranscriptSignature;
     <% } %>
+
+    // ---- Advanced Display Settings (per-class, dynamic) ----
+    // Note: allDisplaySettingsMap and allAssessmentsByCategoryMap are defined earlier (before loadClassSettings)
+
+    function toggleAdvancedDsPanel() {
+      const panel = document.getElementById('advancedDsPanel');
+      const arrow = document.getElementById('advancedDsArrow');
+      if (!panel) return;
+      const isOpen = panel.style.display !== 'none';
+      panel.style.display = isOpen ? 'none' : 'block';
+      if (arrow) arrow.style.transform = isOpen ? '' : 'rotate(180deg)';
+    }
+    window.toggleAdvancedDsPanel = toggleAdvancedDsPanel;
+
+    function dsEsc(str) {
+      return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+    const _dsXIcon = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+
+    function buildMasterGroupHtml(cat, label, items, masterOn, itemsState) {
+      if (items.length === 0) {
+        return `<div class="ds-adv-group"><div class="ds-adv-masterrow" style="border-radius:7px;cursor:default;">
+          <label class="ds-adv-lbl" onclick="event.stopPropagation()">
+            <input type="checkbox" class="ds-adv-master" data-cat="${cat}" style="accent-color:var(--primary);cursor:pointer;" ${masterOn ? 'checked' : ''}>
+            <span>${dsEsc(label)}</span>
+          </label>
+        </div></div>`;
+      }
+      const subOpen = !masterOn;
+      const banner = !masterOn
+        ? `<div class="ds-master-off-banner" style="display:flex;align-items:center;gap:5px;margin-bottom:5px;padding:4px 8px;font-size:11px;color:#b91c1c;font-weight:600;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;">${_dsXIcon} Column disabled — all excluded</div>`
+        : '';
+      const itemsHtml = items.map(a => {
+        const checked = masterOn && itemsState[a.title] !== false;
+        return `<label class="ds-adv-sub-lbl" style="${!masterOn ? 'opacity:0.42;pointer-events:none;' : ''}">
+          <input type="checkbox" class="ds-adv-item" data-cat="${cat}" data-id="${dsEsc(a.title)}" style="accent-color:var(--primary);" ${checked ? 'checked' : ''} ${!masterOn ? 'disabled' : ''}>
+          ${dsEsc(a.title)}
+        </label>`;
+      }).join('');
+      return `<div class="ds-adv-group" data-cat="${cat}">
+        <div class="ds-adv-masterrow" onclick="dsAdvToggleSub(this.closest('.ds-adv-group'))" style="border-radius:${subOpen ? '7px 7px 0 0' : '7px'};">
+          <label class="ds-adv-lbl" onclick="event.stopPropagation()">
+            <input type="checkbox" class="ds-adv-master" data-cat="${cat}" style="accent-color:var(--primary);cursor:pointer;" ${masterOn ? 'checked' : ''}>
+            <span>${dsEsc(label)}</span>
+          </label>
+          <span class="ds-arrow" style="font-size:10px;color:var(--muted);transition:transform 0.2s;${subOpen ? 'transform:rotate(180deg)' : ''}">▼</span>
+        </div>
+        <div class="ds-adv-sub" style="display:${subOpen ? 'block' : 'none'};">
+          ${banner}${itemsHtml}
+        </div>
+      </div>`;
+    }
+
+    function renderAdvancedDs(classId) {
+      const panel = document.getElementById('advancedDsPanel');
+      if (!panel) return;
+      const ds = allDisplaySettingsMap[String(classId)];
+      if (!ds) { panel.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;margin:0;">No assessments found for this class.</p>'; return; }
+      const catMap = allAssessmentsByCategoryMap[String(classId)] || {};
+      const classItems = catMap['Class Assessment'] || [];
+      const examsItems = [...(catMap['Exams Assessment'] || []), ...(catMap['Exam Assessment'] || [])];
+      const otherItems = [...(catMap['Other'] || []), ...(catMap['Other Assessment'] || [])];
+
+      const flatCols = [['totalScore','Total Score'],['scaledScore','Scaled Score'],['totalPercentage','Total %'],['grade','Grade'],['position','Position'],['remarksCol','Remarks Col']];
+      const flatColsHtml = flatCols.map(([key,lbl]) => `
+        <label class="ds-adv-flat-lbl">
+          <input type="checkbox" class="ds-adv-col" data-key="${key}" style="accent-color:var(--primary);" ${ds.columns[key] ? 'checked' : ''}>
+          ${lbl}
+        </label>`).join('');
+
+      const secRows = [['teacherRemarks','💬','Teacher Remarks'],['conductRemarks','📋','Conduct Remarks'],['attitudeRemarks','🌟','Attitude Remarks'],['interestRemarks','🎯','Interest Remarks'],['gradeKey','🔑','Grade Key'],['attendance','📅','Attendance'],['promotion','🎓','Promotion']];
+      const secHtml = secRows.map(([key,icon,lbl]) => `
+        <label class="ds-adv-flat-lbl">
+          <input type="checkbox" class="ds-adv-sec" data-key="${key}" style="accent-color:var(--primary);" ${ds.sections[key] ? 'checked' : ''}>
+          <span style="font-size:13px;line-height:1;">${icon}</span> ${lbl}
+        </label>`).join('');
+
+      // Activate Promotion — stored in status_settings, synced to the hidden form checkbox
+      const statusData = (typeof statusSettingsMap !== 'undefined') ? statusSettingsMap[String(classId)] : null;
+      const activationOn = statusData ? !!statusData.activate_promotion : false;
+      const activatePromotionRow = `<label class="ds-adv-flat-lbl" style="border-color:#e2e8f0;background:#f0fdf4;">
+          <input type="checkbox" id="ds-adv-activatePromotion" style="accent-color:#16a34a;" ${activationOn ? 'checked' : ''}>
+          <span style="font-size:13px;line-height:1;">🚦</span> Activate Promotion
+        </label>`;
+
+      panel.dataset.classId = String(classId);
+      panel.innerHTML = `
+        <div class="ds-adv-grid">
+          <div>
+            <p class="ds-adv-section-label">Score Columns</p>
+            ${buildMasterGroupHtml('classScore','Class Score',classItems,ds.columns.classScore,ds.columns.classScore_items)}
+            ${buildMasterGroupHtml('examsScore','Exams Score',examsItems,ds.columns.examsScore,ds.columns.examsScore_items)}
+            ${buildMasterGroupHtml('otherScore','Other Score',otherItems,ds.columns.otherScore,ds.columns.otherScore_items)}
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:6px;">${flatColsHtml}</div>
+          </div>
+          <div>
+            <p class="ds-adv-section-label">Report Sections</p>
+            <div style="display:flex;flex-direction:column;gap:3px;">${activatePromotionRow}${secHtml}</div>
+          </div>
+        </div>
+        <div style="margin-top:12px;display:flex;align-items:center;gap:10px;">
+          <button type="button" id="advDsSaveBtn" class="btn" style="padding:7px 18px;font-size:0.85rem;">Save Advanced</button>
+          <span id="advDsSaveMsg" style="font-size:12px;color:#16a34a;font-weight:600;display:none;animation:dsFadeIn 0.3s ease;">✓ Saved</span>
+        </div>`;
+
+      // Wire master toggles
+      panel.querySelectorAll('.ds-adv-master').forEach(masterCb => {
+        masterCb.addEventListener('change', function() {
+          const group = this.closest('.ds-adv-group');
+          if (!group) return;
+          this.checked ? dsAdvMasterOn(group) : dsAdvMasterOff(group, true);
+        });
+      });
+
+      // Sync "Activate Promotion" in Advanced to the hidden form checkbox
+      const advActProm = document.getElementById('ds-adv-activatePromotion');
+      const hiddenActProm = document.getElementById('activatePromotion');
+      if (advActProm && hiddenActProm) {
+        advActProm.addEventListener('change', function() { hiddenActProm.checked = this.checked; });
+      }
+
+      // Wire save button
+      document.getElementById('advDsSaveBtn')?.addEventListener('click', async () => {
+        const ok = await saveAdvancedDisplaySettings(classIdField.value);
+        if (ok) {
+          // Sync in-memory statusSettingsMap so renderAdvancedDs reads correct state on next switch
+          const advAP = document.getElementById('ds-adv-activatePromotion');
+          if (advAP && statusSettingsMap[String(classIdField.value)]) {
+            statusSettingsMap[String(classIdField.value)].activate_promotion = advAP.checked;
+          }
+          const msg = document.getElementById('advDsSaveMsg');
+          msg.style.display = 'inline';
+          setTimeout(() => msg.style.display = 'none', 2500);
+        } else {
+          alert('Failed to save display settings.');
+        }
+      });
+    }
+
+    function dsAdvToggleSub(group) {
+      const sub = group.querySelector('.ds-adv-sub');
+      const row = group.querySelector('.ds-adv-masterrow');
+      const arrow = row?.querySelector('.ds-arrow');
+      if (!sub) return;
+      const isOpen = sub.style.display !== 'none';
+      sub.style.display = isOpen ? 'none' : 'block';
+      if (arrow) arrow.style.transform = isOpen ? '' : 'rotate(180deg)';
+      if (row) row.style.borderRadius = isOpen ? '7px' : '7px 7px 0 0';
+    }
+    window.dsAdvToggleSub = dsAdvToggleSub;
+
+    function dsAdvMasterOff(group, saveState) {
+      const sub = group.querySelector('.ds-adv-sub');
+      if (!sub) return;
+      if (saveState) {
+        const snap = {};
+        sub.querySelectorAll('.ds-adv-item').forEach(cb => { snap[cb.dataset.id] = cb.checked; });
+        sub.dataset.savedState = JSON.stringify(snap);
+      }
+      // Force open
+      if (sub.style.display === 'none') {
+        const row = group.querySelector('.ds-adv-masterrow');
+        sub.style.display = 'block';
+        if (row) { row.style.borderRadius = '7px 7px 0 0'; const a = row.querySelector('.ds-arrow'); if (a) a.style.transform = 'rotate(180deg)'; }
+      }
+      // Disable items
+      sub.querySelectorAll('.ds-adv-item').forEach(cb => {
+        cb.checked = false; cb.disabled = true;
+        const lbl = cb.closest('label'); if (lbl) { lbl.style.opacity = '0.42'; lbl.style.pointerEvents = 'none'; }
+      });
+      // Banner
+      let banner = sub.querySelector('.ds-master-off-banner');
+      if (!banner) {
+        banner = document.createElement('div'); banner.className = 'ds-master-off-banner';
+        banner.style.cssText = 'display:flex;align-items:center;gap:5px;margin-bottom:5px;padding:4px 8px;font-size:11px;color:#b91c1c;font-weight:600;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;';
+        banner.innerHTML = _dsXIcon + ' Column disabled — all excluded';
+        sub.insertBefore(banner, sub.firstChild);
+      } else { banner.style.display = 'flex'; }
+    }
+
+    function dsAdvMasterOn(group) {
+      const sub = group.querySelector('.ds-adv-sub');
+      if (!sub) return;
+      let snap = {}; try { snap = JSON.parse(sub.dataset.savedState || '{}'); } catch(e) {}
+      sub.querySelectorAll('.ds-adv-item').forEach(cb => {
+        cb.checked = snap.hasOwnProperty(cb.dataset.id) ? snap[cb.dataset.id] : true;
+        cb.disabled = false;
+        const lbl = cb.closest('label'); if (lbl) { lbl.style.opacity = ''; lbl.style.pointerEvents = ''; }
+      });
+      const banner = sub.querySelector('.ds-master-off-banner'); if (banner) banner.style.display = 'none';
+    }
+
+    async function saveAdvancedDisplaySettings(classId) {
+      const panel = document.getElementById('advancedDsPanel');
+      if (!panel) return false;
+      // Guard: only save if panel is showing data for the requested class
+      if (panel.dataset.classId && panel.dataset.classId !== String(classId)) {
+        console.warn('[DS] saveAdvancedDisplaySettings: panel classId mismatch, skipping');
+        return false;
+      }
+      const columns = {};
+      panel.querySelectorAll('.ds-adv-master').forEach(cb => { columns[cb.dataset.cat] = cb.checked; });
+      ['classScore','examsScore','otherScore'].forEach(cat => {
+        const items = {};
+        panel.querySelectorAll(`.ds-adv-item[data-cat="${cat}"]`).forEach(cb => { items[cb.dataset.id] = cb.checked; });
+        columns[cat + '_items'] = items;
+      });
+      panel.querySelectorAll('.ds-adv-col').forEach(cb => { columns[cb.dataset.key] = cb.checked; });
+      const sections = {};
+      panel.querySelectorAll('.ds-adv-sec').forEach(cb => { sections[cb.dataset.key] = cb.checked; });
+      const advActProm = document.getElementById('ds-adv-activatePromotion');
+      const activatePromValue = advActProm ? advActProm.checked : null;
+      try {
+        const apParam = activatePromValue !== null ? `&activatePromotion=${activatePromValue}` : '';
+        const resp = await fetch(`/print/saveDisplaySettings?classId=${encodeURIComponent(classId)}&termId=<%= termId %>${apParam}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ columns, sections }),
+        });
+        const result = await resp.json();
+        if (result.success) { allDisplaySettingsMap[String(classId)] = { columns, sections }; return true; }
+        return false;
+      } catch(e) { console.error(e); return false; }
+    }
+
+    // Intercept status settings form to also save advanced DS settings first
+    document.getElementById('statusSettingsForm')?.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      await saveAdvancedDisplaySettings(classIdField.value);
+      this.submit();
+    });
+
+    // ── Collapsible cards ──
+    (function initCardCollapse() {
+      const isLarge = window.innerWidth >= 960;
+      document.querySelectorAll('.card').forEach((card, index) => {
+        // First card = "Class-specific Status Settings" — keep open on large screens
+        const isStatusCard = index === 0;
+        const header = card.querySelector(':scope > h2, :scope > .section-title');
+        if (!header) return;
+
+        card.classList.add('collapsible-card');
+
+        // Arrow indicator
+        const arrow = document.createElement('span');
+        arrow.className = 'card-collapse-arrow';
+        arrow.textContent = '▼';
+
+        // Wrap header in clickable div
+        const hdr = document.createElement('div');
+        hdr.className = 'card-collapse-hdr';
+        header.parentNode.insertBefore(hdr, header);
+        hdr.appendChild(header);
+        hdr.appendChild(arrow);
+
+        // Wrap remaining card content in a collapsible body div
+        const body = document.createElement('div');
+        body.className = 'card-collapse-body';
+        while (hdr.nextSibling) {
+          body.appendChild(hdr.nextSibling);
+        }
+        card.appendChild(body);
+
+        // Toggle on click
+        hdr.addEventListener('click', () => card.classList.toggle('collapsed'));
+
+        // Initial state: large screen keeps status card open, all others collapsed everywhere
+        if (!isLarge || !isStatusCard) {
+          card.classList.add('collapsed');
+        }
+      });
+    })();
+
   </script>
   <% } %>
 </body>

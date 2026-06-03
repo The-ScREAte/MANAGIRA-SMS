@@ -492,8 +492,9 @@
                 Score Out Of: <%= assessment.max_score %>
               </th>
               <% }) %>
-              <th>Total Subject Score</th>
-              <th>Total Percentage</th>
+              <th style="white-space:normal;min-width:90px;">Total Subject Score<br><small style="font-weight:normal;opacity:.75;">Raw Score</small></th>
+              <th style="white-space:normal;min-width:90px;">Scaled Score<br><small style="font-weight:normal;opacity:.75;">/ Scale Base</small></th>
+              <th style="white-space:normal;min-width:90px;">Total Percentage</th>
               <th>Grade</th>
               <th>Position</th>
             </tr>
@@ -515,6 +516,11 @@
               <td>
                 <%= subject.totalScore !== null && subject.totalScore !==
                 undefined ? subject.totalScore.toFixed(2) : '-' %>
+              </td>
+              <td>
+                <% if (subject.totalPercentage !== null && subject.totalPercentage !== undefined) { %>
+                  <%= (subject.totalPercentage / 100 * subject.scaleBase).toFixed(2) %> / <%= subject.scaleBase %>
+                <% } else { %>-<% } %>
               </td>
               <td>
                 <%= subject.totalPercentage !== null && subject.totalPercentage

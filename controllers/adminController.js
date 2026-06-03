@@ -890,6 +890,64 @@ const adminController = {
         [id, merged]
       );
 
+      // Notify the contact owner (creator) by email — unless they added the note themselves
+      try {
+        const creatorId = ownership.rows[0].created_by_user_id;
+        if (creatorId && Number(creatorId) !== Number(userId)) {
+          const creatorRow = await db.query(
+            `SELECT first_name, last_name, email FROM users WHERE user_id = $1`,
+            [creatorId]
+          );
+          if (creatorRow.rows.length && creatorRow.rows[0].email) {
+            const creator = creatorRow.rows[0];
+            const creatorName = `${creator.first_name || ''} ${creator.last_name || ''}`.trim() || creator.email;
+
+            // Fetch the contact name for context
+            const contactRow = await db.query(
+              `SELECT contact_name FROM internal_contacts WHERE id = $1`,
+              [id]
+            );
+            const contactName = contactRow.rows[0]?.contact_name || `Contact #${id}`;
+
+            const html = renderCleanEmail({
+              title: "New Note on Your Contact",
+              greeting: `Hi <strong>${creatorName}</strong>,`,
+              paragraphs: [
+                `A new note has been added to one of your contacts by <strong>${authorLabel}</strong>.`,
+              ],
+              details: [
+                { label: "Contact", value: contactName },
+                { label: "Note", value: newNote },
+                { label: "Added by", value: authorLabel },
+                { label: "Date", value: stamp },
+              ],
+              note: "You are receiving this because you created this contact. Log in to Managira to view the full note history.",
+            });
+
+            const mailOptions = {
+              from: process.env.NOTIFY_EMAIL_USER,
+              to: creator.email,
+              subject: `New note on your contact: ${contactName}`,
+              html,
+              skipMxCheck: true,
+              attachments: [
+                {
+                  filename: "managira.png",
+                  path: require("path").join(__dirname, "../public/images/managira.png"),
+                  cid: "managira_logo",
+                },
+              ],
+            };
+
+            sendEmailInBackground(mailOptions, "Contact Note Notification");
+            console.log(`[ContactNote] Notification queued to ${creator.email} for contact #${id}`);
+          }
+        }
+      } catch (err) {
+        console.error("[ContactNote] Email notification error:", err.message);
+        // Email failure must never break the main flow
+      }
+
       req.flash("success", "Note added.");
       return res.redirect("/admin");
     } catch (error) {

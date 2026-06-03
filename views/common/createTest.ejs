@@ -671,6 +671,10 @@
                   <input type="number" name="maxScore[]" required />
                 </div>
                 <div class="form-group">
+                  <label>Scale Base (scaled score out of):</label>
+                  <input type="number" name="scaleBase[]" value="100" min="1" required />
+                </div>
+                <div class="form-group">
                   <label>Category:</label>
                   <select name="category[]" required>
                     <option value="Class Assessment">Class Assessment</option>
@@ -772,6 +776,10 @@
         <div class="form-group">
           <label>Score Out Of:</label>
           <input type="number" name="maxScore[]" required>
+        </div>
+        <div class="form-group">
+          <label>Scale Base (scaled score out of):</label>
+          <input type="number" name="scaleBase[]" value="100" min="1" required>
         </div>
         <div class="form-group">
           <label>Category:</label>
@@ -889,6 +897,7 @@
       const testNames = formData.getAll("testName[]");
       const testWeights = formData.getAll("testWeight[]");
       const maxScores = formData.getAll("maxScore[]");
+      const scaleBases = formData.getAll("scaleBase[]");
       const categories = formData.getAll("category[]");
 
       // Check if there's at least one test with data
@@ -922,6 +931,7 @@
           testName: testNames[i],
           testWeight: testWeights[i],
           maxScore: maxScores[i],
+          scaleBase: scaleBases[i] || '100',
           category: categories[i],
           isLocked: formData.get(`isLocked-${i + 1}`) ? "true" : "false",
           isActive: formData.get(`isActive-${i + 1}`) ? "true" : "false",

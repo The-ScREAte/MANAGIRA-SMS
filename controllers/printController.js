@@ -36,6 +36,9 @@ async function ensureSignatureMetaColumns(dbClient) {
     await dbClient.query(
       "ALTER TABLE report_settings ADD COLUMN IF NOT EXISTS signature_title TEXT"
     );
+    await dbClient.query(
+      "ALTER TABLE report_settings ADD COLUMN IF NOT EXISTS display_settings JSONB"
+    );
     ensuredSignatureMeta = true;
   } catch (err) {
     console.error("[ensureSignatureMetaColumns] Failed to add columns", err);
@@ -277,20 +280,6 @@ const printController = (db) => ({
       );
       const totalDays = totalDaysResult.rows[0]?.total_days || 0;
 
-      // Fetch max scores for each subject
-      const maxScoresResult = await db.query(
-        `SELECT subject_id, SUM(max_score) AS max_score
-                 FROM assessments
-                 WHERE class_id = $1 AND term_id = $2 AND organization_id = $3
-                 GROUP BY subject_id`,
-        [parsedClassId, parsedTermId, organizationId]
-      );
-
-      const maxScoresMap = maxScoresResult.rows.reduce((map, row) => {
-        map[row.subject_id] = row.max_score || 100;
-        return map;
-      }, {});
-
       // Fetch students, subjects, remarks, and scores
       const studentFilterId = parsedStudentId || null;
 
@@ -301,9 +290,9 @@ const printController = (db) => ({
         scoreRemarksResult,
         reportSettingsResult,
         attendanceResult,
-        scoresResult,
-        percentagesResult,
-        subjectPositionsResult, // ✅ Add this
+        indivScoresResult,
+        subjectPositionsResult,
+        allAssessmentsResult,
         studentIdSettings,
       ] = await Promise.all([
         db.query(
@@ -329,7 +318,7 @@ const printController = (db) => ({
           [organizationId, parsedClassId, parsedTermId]
         ),
         db.query(
-          "SELECT signature_image_path, signature_name, signature_title FROM report_settings WHERE class_id = $1 AND term_id = $2 AND organization_id = $3",
+          "SELECT signature_image_path, signature_name, signature_title, display_settings FROM report_settings WHERE class_id = $1 AND term_id = $2 AND organization_id = $3",
           [parsedClassId, parsedTermId, organizationId]
         ),
         db.query(
@@ -340,20 +329,9 @@ const printController = (db) => ({
           [parsedClassId, parsedTermId, organizationId]
         ),
         db.query(
-          `SELECT ar.student_id, ar.subject_id, a.category,
-                    SUM(ar.score) AS total_score
+          `SELECT ar.student_id, ar.assessment_id, COALESCE(ar.score, 0) AS score
              FROM assessment_results ar
-             JOIN assessments a ON a.assessment_id = ar.assessment_id
-             WHERE ar.class_id = $1
-               AND ar.term_id = $2
-               AND ar.organization_id = $3
-             GROUP BY ar.student_id, ar.subject_id, a.category`,
-          [parsedClassId, parsedTermId, organizationId]
-        ),
-        db.query(
-          `SELECT student_id, subject_id, total_percentage, grade
-             FROM assessment_results
-             WHERE class_id = $1 AND term_id = $2 AND organization_id = $3`,
+             WHERE ar.class_id = $1 AND ar.term_id = $2 AND ar.organization_id = $3`,
           [parsedClassId, parsedTermId, organizationId]
         ),
         db.query(
@@ -362,28 +340,106 @@ const printController = (db) => ({
              WHERE class_id = $1 AND term_id = $2 AND organization_id = $3`,
           [parsedClassId, parsedTermId, organizationId]
         ),
+        db.query(
+          `SELECT assessment_id, subject_id, title, category, max_score, COALESCE(scale_base, 100) AS scale_base
+             FROM assessments
+             WHERE class_id = $1 AND term_id = $2 AND organization_id = $3
+             ORDER BY category, assessment_id`,
+          [parsedClassId, parsedTermId, organizationId]
+        ),
         getOrganizationStudentIdSettings(db, organizationId),
       ]);
 
-      // Map scores for easy access
-      const scoresMap = scoresResult.rows.reduce((acc, row) => {
-        acc[`${row.student_id}_${row.subject_id}_${row.category}`] =
-          row.total_score || 0;
-        return acc;
-      }, {});
-
-      percentagesResult.rows.forEach((row) => {
-        scoresMap[`${row.student_id}_${row.subject_id}_total_percentage`] =
-          row.total_percentage || "-";
-        scoresMap[`${row.student_id}_${row.subject_id}_grade`] =
-          row.grade || "-";
+      // --- Build individual score lookup: studentId_assessmentId → score ---
+      const indivScoresMap = {};
+      indivScoresResult.rows.forEach((row) => {
+        indivScoresMap[`${row.student_id}_${row.assessment_id}`] = parseFloat(row.score) || 0;
       });
 
-      // ✅ Put this HERE, AFTER scoresMap is declared
+      // --- Build subject position lookup ---
+      const subjectPositionsMap = {};
       subjectPositionsResult.rows.forEach((row) => {
-        scoresMap[`${row.student_id}_${row.subject_id}_subject_position`] =
-          row.position || null;
+        subjectPositionsMap[`${row.student_id}_${row.subject_id}`] = row.position || null;
       });
+
+      // --- All assessments for this class+term ---
+      const allAssessments = allAssessmentsResult.rows;
+
+      // --- Scale base per subject (max scale_base across assessments for that subject) ---
+      const scaleBasesMap = {};
+      allAssessments.forEach((a) => {
+        const cur = scaleBasesMap[a.subject_id] || 0;
+        scaleBasesMap[a.subject_id] = Math.max(cur, parseInt(a.scale_base) || 100);
+      });
+
+      // --- Build display settings with defaults (undefined or null = ON) ---
+      const rawDS = reportSettingsResult.rows[0]?.display_settings || {};
+      const colVis = rawDS.columns || {};
+      const secVis = rawDS.sections || {};
+      const displaySettings = {
+        columns: {
+          classScore:      colVis.classScore      !== false,
+          examsScore:      colVis.examsScore      !== false,
+          otherScore:      colVis.otherScore      !== false,
+          totalScore:      colVis.totalScore      !== false,
+          scaledScore:     colVis.scaledScore     !== false,
+          totalPercentage: colVis.totalPercentage !== false,
+          grade:           colVis.grade           !== false,
+          position:        colVis.position        !== false,
+          remarksCol:      colVis.remarksCol      !== false,
+        },
+        sections: {
+          teacherRemarks:  secVis.teacherRemarks  !== false,
+          conductRemarks:  secVis.conductRemarks  !== false,
+          attitudeRemarks: secVis.attitudeRemarks !== false,
+          interestRemarks: secVis.interestRemarks !== false,
+          gradeKey:        secVis.gradeKey        !== false,
+          attendance:      secVis.attendance      !== false,
+          promotion:       secVis.promotion       !== false,
+        },
+      };
+
+      // --- Build enabled assessment ID sets per category (respects sub-item toggles) ---
+      const CLASS_CATS  = ['Class Assessment'];
+      const EXAMS_CATS  = ['Exams Assessment', 'Exam Assessment'];
+      const OTHER_CATS  = ['Other', 'Other Assessment'];
+
+      function buildEnabledSet(masterOn, items, categories) {
+        if (!masterOn) return new Set();
+        const result = new Set();
+        for (const a of allAssessments) {
+          if (!categories.includes(a.category)) continue;
+          // items keyed by title; absent/null = default ON, explicit false = OFF
+          if ((items[a.title] ?? true) !== false) result.add(a.assessment_id);
+        }
+        return result;
+      }
+
+      const enabledClassIds = buildEnabledSet(displaySettings.columns.classScore, colVis.classScore_items || {}, CLASS_CATS);
+      const enabledExamsIds = buildEnabledSet(displaySettings.columns.examsScore, colVis.examsScore_items || {}, EXAMS_CATS);
+      const enabledOtherIds = buildEnabledSet(displaySettings.columns.otherScore, colVis.otherScore_items || {}, OTHER_CATS);
+
+      // Helper: sum individual scores for enabled assessments
+      function getFilteredScore(studentId, subjectId, enabledIds) {
+        let total = 0;
+        for (const a of allAssessments) {
+          if (a.subject_id !== subjectId) continue;
+          if (!enabledIds.has(a.assessment_id)) continue;
+          total += indivScoresMap[`${studentId}_${a.assessment_id}`] || 0;
+        }
+        return total;
+      }
+
+      // Helper: sum max_scores for enabled assessments (to recalculate percentage)
+      function getFilteredMaxScore(subjectId, enabledIds) {
+        let total = 0;
+        for (const a of allAssessments) {
+          if (a.subject_id !== subjectId) continue;
+          if (!enabledIds.has(a.assessment_id)) continue;
+          total += parseFloat(a.max_score || 0);
+        }
+        return total;
+      }
 
       const students = studentsResult.rows.map((student) => ({
         ...student,
@@ -418,13 +474,6 @@ const printController = (db) => ({
         ])
       );
 
-      percentagesResult.rows.forEach((row) => {
-        scoresMap[`${row.student_id}_${row.subject_id}_total_percentage`] =
-          row.total_percentage || "-";
-        scoresMap[`${row.student_id}_${row.subject_id}_grade`] =
-          row.grade || "-";
-      });
-
       // Process students
       const getCategoryScore = (studentId, subjectId, categories) =>
         categories.reduce(
@@ -454,46 +503,43 @@ const printController = (db) => ({
           : "-";
 
         student.subjects = allSubjects.map((subject) => {
-          const maxScore = maxScoresMap[subject.subject_id] || 100;
-
-          const classScore = getCategoryScore(student.student_id, subject.subject_id, [
-            "Class Assessment",
-          ]);
-          const examsScore = getCategoryScore(student.student_id, subject.subject_id, [
-            "Exams Assessment",
-            "Exam Assessment",
-          ]);
-          const otherScore = getCategoryScore(student.student_id, subject.subject_id, [
-            "Other",
-            "Other Assessment",
-          ]);
+          const classScore = getFilteredScore(student.student_id, subject.subject_id, enabledClassIds);
+          const examsScore = getFilteredScore(student.student_id, subject.subject_id, enabledExamsIds);
+          const otherScore = getFilteredScore(student.student_id, subject.subject_id, enabledOtherIds);
 
           const totalScore = classScore + examsScore + otherScore;
-          const totalPercentage =
-            scoresMap[
-              `${student.student_id}_${subject.subject_id}_total_percentage`
-            ] || "-";
-          const grade =
-            scoresMap[`${student.student_id}_${subject.subject_id}_grade`] ||
-            "-";
 
-          const matchingRemark = scoreRemarks.find(
-            (rule) =>
-              parseFloat(totalPercentage) >= parseFloat(rule.fromPercentage) &&
-              parseFloat(totalPercentage) <= parseFloat(rule.toPercentage)
+          // Recalculate percentage from enabled max scores
+          const enabledAllIds = new Set([...enabledClassIds, ...enabledExamsIds, ...enabledOtherIds]);
+          const filteredMaxScore = getFilteredMaxScore(subject.subject_id, enabledAllIds);
+          const totalPercentage = filteredMaxScore > 0
+            ? parseFloat((totalScore / filteredMaxScore * 100).toFixed(2))
+            : 0;
+
+          // Recalculate grade from score remarks
+          const matchingGrade = scoreRemarks.find(
+            (r) => totalPercentage >= parseFloat(r.fromPercentage) && totalPercentage <= parseFloat(r.toPercentage)
           );
-          const remarks =
-            totalPercentage > 0
-              ? matchingRemark
-                ? matchingRemark.remark
-                : "-"
-              : "-";
+          const grade = totalScore > 0 ? (matchingGrade ? matchingGrade.remark : "-") : "-";
 
-          if (totalPercentage > 0) {
-            totalPercentageSum += parseFloat(totalPercentage);
+          // Recalculate remarks column
+          const matchingRemark = totalPercentage > 0 ? scoreRemarks.find(
+            (r) => totalPercentage >= parseFloat(r.fromPercentage) && totalPercentage <= parseFloat(r.toPercentage)
+          ) : null;
+          const remarks = totalScore > 0 ? (matchingRemark ? matchingRemark.remark : "-") : "-";
+
+          const scaleBase = scaleBasesMap[subject.subject_id] || 100;
+          const scaledScore = totalScore > 0
+            ? `${(totalPercentage / 100 * scaleBase).toFixed(2)} / ${scaleBase}` : "-";
+
+          if (totalScore > 0) {
+            totalPercentageSum += totalPercentage;
             subjectCount++;
           }
           totalScoreSum += totalScore;
+
+          // Subject position (from DB — reflects official full-score ranking)
+          const subjectPos = subjectPositionsMap[`${student.student_id}_${subject.subject_id}`];
 
           return {
             subject_name: subject.subject_name,
@@ -501,26 +547,13 @@ const printController = (db) => ({
             examsAssessmentScore: examsScore > 0 ? examsScore.toFixed(2) : "-",
             otherAssessmentScore: otherScore > 0 ? otherScore.toFixed(2) : "-",
             totalScore: totalScore > 0 ? totalScore.toFixed(2) : "-",
-            totalPercentage: totalPercentage > 0 ? `${totalPercentage} %` : "-",
+            scaledScore,
+            totalPercentage: totalScore > 0 ? `${totalPercentage} %` : "-",
             grade,
             remarks,
-
-            // ✅ NEW: Assign subject position
-            position:
-              totalScore > 0 &&
-              scoresMap[
-                `${student.student_id}_${subject.subject_id}_subject_position`
-              ]
-                ? `${
-                    scoresMap[
-                      `${student.student_id}_${subject.subject_id}_subject_position`
-                    ]
-                  }${getOrdinalSuffix(
-                    scoresMap[
-                      `${student.student_id}_${subject.subject_id}_subject_position`
-                    ]
-                  )}`
-                : "-",
+            position: totalScore > 0 && subjectPos
+              ? `${subjectPos}${getOrdinalSuffix(subjectPos)}`
+              : "-",
           };
         });
         
@@ -528,7 +561,7 @@ const printController = (db) => ({
         student.totalScoreSum = totalScoreSum;
         student.overallPercentage =
           subjectCount > 0
-            ? ((totalPercentageSum / (subjectCount * 100)) * 100).toFixed(2)
+            ? (totalPercentageSum / subjectCount).toFixed(2)
             : "0.00";
 
         student.attendance = {
@@ -642,16 +675,14 @@ students
         repeatedClass: repeatedClassName,
         activatePromotion: statusSettings.activate_promotion,
         remarks: {
-          // ✅ Pass remarks in an object for clarity
           teacher: teacherRemarks,
           conduct: conductRemarks,
           interest: interestRemarks,
           attitude: attitudeRemarks,
         },
-        promotedClass: promotedClassName,
-        repeatedClass: repeatedClassName,
-        promotedClassId,       // ✅ add this
-        repeatedClassId, 
+        promotedClassId,
+        repeatedClassId,
+        displaySettings,
         hasSchoolWebsite: websiteInfo.hasWebsite,
         schoolWebsiteHost: websiteInfo.websiteHost,
         reportYear: new Date().getFullYear(),
@@ -764,7 +795,7 @@ students
   
       // Fetch signature image for this class/term
       const reportSettingsResult = await db.query(
-        `SELECT signature_image_path, signature_name, signature_title FROM report_settings 
+        `SELECT signature_image_path, signature_name, signature_title, display_settings FROM report_settings 
          WHERE organization_id = $1 AND class_id = $2 AND term_id = $3`,
         [organizationId, parsedClassId, parsedTermId]
       );
@@ -775,7 +806,63 @@ students
       if (reportSettings && reportSettings.signature_image_path) {
         signatureImageUrl = await getFromS3(reportSettings.signature_image_path);
       }
-  
+
+      // Fetch display settings for ALL enrolled classes (for the dynamic per-class Advanced panel)
+      const enrolledClassIds = enrolledClasses.map(c => c.class_id);
+      const allClassDsResult = await db.query(
+        `SELECT class_id, display_settings FROM report_settings
+         WHERE organization_id = $1 AND term_id = $2 AND class_id = ANY($3::int[])`,
+        [organizationId, parsedTermId, enrolledClassIds]
+      );
+      const allDisplaySettingsMap = {};
+      enrolledClasses.forEach(cls => {
+        const row = allClassDsResult.rows.find(r => r.class_id === cls.class_id);
+        const raw = row?.display_settings || {};
+        const col = raw.columns || {};
+        const sec = raw.sections || {};
+        allDisplaySettingsMap[cls.class_id] = {
+          columns: {
+            classScore:       col.classScore       !== false,
+            classScore_items: col.classScore_items  || {},
+            examsScore:       col.examsScore        !== false,
+            examsScore_items: col.examsScore_items   || {},
+            otherScore:       col.otherScore        !== false,
+            otherScore_items: col.otherScore_items   || {},
+            totalScore:       col.totalScore        !== false,
+            scaledScore:      col.scaledScore       !== false,
+            totalPercentage:  col.totalPercentage   !== false,
+            grade:            col.grade             !== false,
+            position:         col.position          !== false,
+            remarksCol:       col.remarksCol        !== false,
+          },
+          sections: {
+            teacherRemarks:  sec.teacherRemarks  !== false,
+            conductRemarks:  sec.conductRemarks  !== false,
+            attitudeRemarks: sec.attitudeRemarks !== false,
+            interestRemarks: sec.interestRemarks !== false,
+            gradeKey:        sec.gradeKey        !== false,
+            attendance:      sec.attendance      !== false,
+            promotion:       sec.promotion       !== false,
+          },
+        };
+      });
+
+      // Fetch assessments for ALL enrolled classes (unique titles per class, for sub-toggle items)
+      const allClassAssessmentsResult = await db.query(
+        `SELECT class_id, title, category FROM assessments
+         WHERE term_id = $1 AND organization_id = $2 AND class_id = ANY($3::int[])
+         GROUP BY class_id, title, category
+         ORDER BY class_id, category, MIN(assessment_id)`,
+        [parsedTermId, organizationId, enrolledClassIds]
+      );
+      const allAssessmentsByCategoryMap = {};
+      allClassAssessmentsResult.rows.forEach(a => {
+        if (!allAssessmentsByCategoryMap[a.class_id]) allAssessmentsByCategoryMap[a.class_id] = {};
+        const key = a.category || 'Other';
+        if (!allAssessmentsByCategoryMap[a.class_id][key]) allAssessmentsByCategoryMap[a.class_id][key] = [];
+        allAssessmentsByCategoryMap[a.class_id][key].push({ title: a.title });
+      });
+
       // Fetch all signature groups for current term
       const signatureClassesResult = await db.query(
         `SELECT DISTINCT class_id, signature_image_path, signature_name, signature_title FROM report_settings 
@@ -877,7 +964,53 @@ students
           classes: setting.classes.map((id) => parseInt(id)),
         })
       );
-  
+
+      // Fetch assessments for this class+term grouped by category (for display settings UI)
+      // GROUP BY title+category so each assessment name appears only once (assessments are per-subject)
+      const assessmentsForSettingsResult = await db.query(
+        `SELECT title, category FROM assessments
+         WHERE class_id = $1 AND term_id = $2 AND organization_id = $3
+         GROUP BY title, category
+         ORDER BY category, MIN(assessment_id)`,
+        [parsedClassId, parsedTermId, organizationId]
+      );
+      const assessmentsByCategory = {};
+      assessmentsForSettingsResult.rows.forEach((a) => {
+        const key = a.category || 'Other';
+        if (!assessmentsByCategory[key]) assessmentsByCategory[key] = [];
+        assessmentsByCategory[key].push({ title: a.title });
+      });
+
+      // Build display settings with defaults for the settings UI
+      const rawDS2 = reportSettings?.display_settings || {};
+      const colVis2 = rawDS2.columns || {};
+      const secVis2 = rawDS2.sections || {};
+      const currentDisplaySettings = {
+        columns: {
+          classScore:      colVis2.classScore      !== false,
+          classScore_items: colVis2.classScore_items || {},
+          examsScore:      colVis2.examsScore      !== false,
+          examsScore_items: colVis2.examsScore_items || {},
+          otherScore:      colVis2.otherScore      !== false,
+          otherScore_items: colVis2.otherScore_items || {},
+          totalScore:      colVis2.totalScore      !== false,
+          scaledScore:     colVis2.scaledScore     !== false,
+          totalPercentage: colVis2.totalPercentage !== false,
+          grade:           colVis2.grade           !== false,
+          position:        colVis2.position        !== false,
+          remarksCol:      colVis2.remarksCol      !== false,
+        },
+        sections: {
+          teacherRemarks:  secVis2.teacherRemarks  !== false,
+          conductRemarks:  secVis2.conductRemarks  !== false,
+          attitudeRemarks: secVis2.attitudeRemarks !== false,
+          interestRemarks: secVis2.interestRemarks !== false,
+          gradeKey:        secVis2.gradeKey        !== false,
+          attendance:      secVis2.attendance      !== false,
+          promotion:       secVis2.promotion       !== false,
+        },
+      };
+
       res.render("print/reportSettings", {
         title: "Report Settings",
         statusSettings: {},
@@ -896,10 +1029,46 @@ students
         termId: parsedTermId,
         setupRequired: false,
         setupMessage: null,
+        assessmentsByCategory,
+        currentDisplaySettings,
+        allDisplaySettingsMap,
+        allAssessmentsByCategoryMap,
         messages: req.flash(),
       });
     } catch (error) {
             res.status(500).send("Failed to load report settings page.");
+    }
+  },
+
+  saveDisplaySettings: async (req, res) => {
+    const { classId, termId, activatePromotion } = req.query;
+    const organizationId = req.session.organizationId;
+    if (!organizationId || !classId || !termId)
+      return res.status(400).json({ error: 'Missing parameters' });
+    try {
+      const displaySettings = req.body;
+      await db.query(
+        `INSERT INTO report_settings (organization_id, class_id, term_id, display_settings)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (organization_id, class_id, term_id)
+         DO UPDATE SET display_settings = $4`,
+        [organizationId, parseInt(classId), parseInt(termId), JSON.stringify(displaySettings)]
+      );
+      // Also persist activate_promotion to status_settings if provided
+      if (activatePromotion !== undefined) {
+        const apBool = activatePromotion === 'true';
+        await db.query(
+          `INSERT INTO status_settings (organization_id, class_id, term_id, activate_promotion)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (organization_id, class_id)
+           DO UPDATE SET activate_promotion = $4`,
+          [organizationId, parseInt(classId), parseInt(termId), apBool]
+        );
+      }
+      res.json({ success: true });
+    } catch (err) {
+      console.error('[saveDisplaySettings]', err);
+      res.status(500).json({ error: 'Failed to save' });
     }
   },
 

@@ -5552,6 +5552,7 @@ const commonController = {
           totalPercentage: null,
           grade: null,
           position: null,
+          scaleBase: 100,
           assessments: [],
         });
       });
@@ -5560,7 +5561,7 @@ const commonController = {
       const assessmentsResult = await db.query(
         `
           SELECT DISTINCT ON (a.assessment_id) a.assessment_id, a.title, a.weight, ar.score, a.subject_id, a.max_score, a.category,
-                 ar.total_subject_score, ar.total_percentage, ar.grade
+                 ar.total_subject_score, ar.total_percentage, ar.grade, COALESCE(a.scale_base, 100) AS scale_base
           FROM assessments a
           LEFT JOIN assessment_results ar ON a.assessment_id = ar.assessment_id AND ar.student_id = $1
           WHERE a.subject_id IN (SELECT subject_id FROM subjects WHERE class_id = $2)
@@ -5584,6 +5585,9 @@ const commonController = {
           }
           if (assessment.grade) {
             subject.grade = assessment.grade;
+          }
+          if (assessment.scale_base) {
+            subject.scaleBase = parseInt(assessment.scale_base) || 100;
           }
         }
       });
@@ -8099,6 +8103,7 @@ const commonController = {
       const assessmentsResult = await db.query(
         `
                 SELECT assessment_id, title, weight, max_score, category,
+                       COALESCE(scale_base, 100) AS scale_base,
                        COALESCE(is_locked, FALSE) AS is_locked,
                        COALESCE(is_active, TRUE) AS is_active,
                        edit_window_start,
@@ -8199,6 +8204,9 @@ const commonController = {
 
       const employees = employeesResult.rows;
 
+      const scaleBase = assessments.length > 0 ? (assessments[0].scale_base || 100) : 100;
+      const maxPossibleScore = assessments.reduce((sum, a) => sum + parseFloat(a.max_score || 0), 0);
+
       // Render the assessment page
       res.render("common/assessment", {
         title: "Assessment",
@@ -8211,6 +8219,8 @@ const commonController = {
         hasEditableAssessments: assessments.some((assessmentRow) => assessmentRow.can_edit_scores),
         students,
         employees,
+        scaleBase,
+        maxPossibleScore,
         isEmbedded,
         messages: req.flash(),
         hideGlobalHeader: true,
@@ -8382,18 +8392,27 @@ const commonController = {
 
         for (let assessmentId in scores[studentId]) {
           let score = scores[studentId][assessmentId];
-          if (score === null || score === "") continue;
 
           const assessmentControl = assessmentControlMap.get(Number(assessmentId));
-          if (assessmentControl && assessmentControl.canEdit) {
-            const { max_score, category } = assessmentControl;
+          if (!assessmentControl || !assessmentControl.canEdit) continue;
 
-            totalScore += parseFloat(score);
-            maxTotalScore += parseFloat(max_score);
-
-            // Insert or update the score in the assessment_results table
+          if (score === null || score === "") {
+            // Score was cleared — delete the existing row so it doesn't reappear
             await db.query(
-              `
+              `DELETE FROM assessment_results WHERE student_id = $1 AND assessment_id = $2`,
+              [studentId, assessmentId]
+            );
+            continue;
+          }
+
+          const { max_score, category } = assessmentControl;
+
+          totalScore += parseFloat(score);
+          maxTotalScore += parseFloat(max_score);
+
+          // Insert or update the score in the assessment_results table
+          await db.query(
+            `
                             INSERT INTO assessment_results (student_id, assessment_id, score, subject_id, term_id, organization_id, class_id, category)
                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                             ON CONFLICT (student_id, assessment_id)
@@ -8405,24 +8424,23 @@ const commonController = {
                                 class_id = EXCLUDED.class_id,
                                 category = EXCLUDED.category
                         `,
-              [
-                studentId,
-                assessmentId,
-                score,
-                subjectId,
-                currentTermId,
-                organizationId,
-                classId,
-                category,
-              ]
-            );
+            [
+              studentId,
+              assessmentId,
+              score,
+              subjectId,
+              currentTermId,
+              organizationId,
+              classId,
+              category,
+            ]
+          );
 
-            // Update categoryScoresMap for each category
-            if (!categoryScoresMap[category]) {
-              categoryScoresMap[category] = 0;
-            }
-            categoryScoresMap[category] += parseFloat(score);
+          // Update categoryScoresMap for each category
+          if (!categoryScoresMap[category]) {
+            categoryScoresMap[category] = 0;
           }
+          categoryScoresMap[category] += parseFloat(score);
         }
 
         // Calculate total percentage based on the scores achieved vs. the maximum possible score
@@ -8728,6 +8746,7 @@ const commonController = {
       // Fetch assessment details for the group
       const assessmentQuery = `
                 SELECT title, weight, max_score, category,
+                       COALESCE(scale_base, 100) AS scale_base,
                        COALESCE(is_locked, FALSE) AS is_locked,
                        COALESCE(is_active, TRUE) AS is_active,
                        edit_window_start,
@@ -8813,6 +8832,7 @@ const commonController = {
       testWeight,
       maxScore,
       category,
+      scaleBase,
       classes = [],
       subjects = [],
       isLocked,
@@ -8918,6 +8938,8 @@ const commonController = {
         desiredAssignments.map((assignment) => [assignment.key, assignment])
       );
 
+      const parsedScaleBase = parseInt(scaleBase) > 0 ? parseInt(scaleBase) : 100;
+
       const updateAssessmentMetadata = async (assessmentId, assignment) => {
         await client.query(
           `
@@ -8931,7 +8953,8 @@ const commonController = {
                 is_locked = $7,
                 is_active = $8,
                 edit_window_start = $9,
-                edit_window_end = $10
+                edit_window_end = $10,
+                scale_base = $12
             WHERE assessment_id = $11
           `,
           [
@@ -8946,6 +8969,7 @@ const commonController = {
             parsedWindowStart,
             parsedWindowEnd,
             assessmentId,
+            parsedScaleBase,
           ]
         );
 
@@ -9165,9 +9189,9 @@ const commonController = {
         const insertQuery = `
                   INSERT INTO assessments (
                 group_id, title, weight, max_score, category, subject_id, organization_id, term_id, class_id,
-                is_locked, is_active, edit_window_start, edit_window_end
+                is_locked, is_active, edit_window_start, edit_window_end, scale_base
                   ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
                   )
                   ON CONFLICT ON CONSTRAINT unique_test_per_term_class_subject DO NOTHING
               `;
@@ -9185,6 +9209,7 @@ const commonController = {
           active,
           parsedWindowStart,
           parsedWindowEnd,
+          parsedScaleBase,
         ]);
       }
 
@@ -9206,7 +9231,8 @@ const commonController = {
                   is_locked = $5,
                   is_active = $6,
                   edit_window_start = $7,
-                  edit_window_end = $8
+                  edit_window_end = $8,
+                  scale_base = $10
               WHERE assessment_id = $9
             `,
             [
@@ -9219,6 +9245,7 @@ const commonController = {
               parsedWindowStart,
               parsedWindowEnd,
               staleAssessment.assessment_id,
+              parsedScaleBase,
             ]
           );
         }
@@ -9552,12 +9579,13 @@ const commonController = {
             const [, subj] = subject.split("-");
 
             // Insert the test while allowing duplicate names for different subjects or terms
+            const parsedScaleBase = parseInt(test.scaleBase) > 0 ? parseInt(test.scaleBase) : 100;
             const insertAssessmentQuery = `
                         INSERT INTO assessments (
                     group_id, title, weight, max_score, category, subject_id, organization_id, term_id, class_id,
-                    is_locked, is_active, edit_window_start, edit_window_end
+                    is_locked, is_active, edit_window_start, edit_window_end, scale_base
                         ) VALUES (
-                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
                         )
                         ON CONFLICT (class_id, subject_id, title, term_id) DO NOTHING
                     `;
@@ -9575,6 +9603,7 @@ const commonController = {
               active,
               parsedWindowStart,
               parsedWindowEnd,
+              parsedScaleBase,
             ]);
           }
         }
