@@ -10,12 +10,12 @@
 
 <style>
   :root {
-    --pg-bg:        #080d1a;
-    --pg-surface:   #10182d;
-    --pg-surface-2: #162038;
-    --pg-border:    rgba(255,255,255,.08);
-    --pg-text:      #e9eef8;
-    --pg-muted:     #8a93a8;
+    --pg-bg:        #0f1728;
+    --pg-surface:   #162238;
+    --pg-surface-2: #1b2942;
+    --pg-border:    rgba(255,255,255,.12);
+    --pg-text:      #f1f5ff;
+    --pg-muted:     #b6c2d9;
     --pg-teal:      #00D4AA;
     --pg-gold:      #F5C842;
     --pg-red:       #FF4D6D;
@@ -121,8 +121,8 @@
     display:flex;
     align-items:center;
     justify-content:flex-end;
-    gap:6px;
-    flex-wrap:wrap;
+    gap:8px;
+    flex-wrap:nowrap;
   }
 
   .pg-status {
@@ -135,18 +135,20 @@
   .pg-status.pending { background:rgba(138,147,168,.15);color:var(--pg-muted);  border:1px solid rgba(138,147,168,.3); }
 
   .pg-btn {
-    display:inline-flex; align-items:center; gap:6px;
-    padding:8px 13px; border-radius:9px;
-    font-size:.76rem; font-weight:700; cursor:pointer;
+    display:inline-flex; align-items:center; justify-content:center; gap:6px;
+    min-height:38px; padding:0 12px; border-radius:4px;
+    font-size:.82rem; font-weight:600; cursor:pointer;
     border:1px solid transparent; transition:all .15s;
     text-decoration:none;
     background:var(--pg-org);
     color:#fff;
+    white-space:nowrap;
   }
   .pg-btn.primary { background:var(--pg-org); color:#fff; }
-  .pg-btn.primary:hover { transform:translateY(-1px); box-shadow:none; background:var(--pg-org-hover); }
+  .pg-btn.primary:hover { transform:none; box-shadow:none; background:var(--pg-org-hover); }
   .pg-btn.ghost { background:var(--pg-org); color:#fff; border:1px solid transparent; }
   .pg-btn.ghost:hover { background:var(--pg-org-hover); }
+  .pg-btn.sm { min-height:32px; padding:0 10px; font-size:.74rem; }
   .pg-btn.danger { background:var(--pg-red); color:#fff; border-color:transparent; }
   .pg-btn.danger::before { content:'🗑'; font-size:.82em; }
   .pg-btn:disabled { opacity:.4; cursor:not-allowed; }
@@ -176,9 +178,10 @@
     background:var(--pg-bg); border:1px solid var(--pg-border); color:var(--pg-text);
     font-family:inherit; font-size:1rem;
   }
+  .pg-field input, .pg-field select { min-height:38px; border-radius:4px; font-size:.9rem; }
   .pg-field input:disabled { background:rgba(255,255,255,.04); color:var(--pg-text); }
   .pg-field input:focus, .pg-field select:focus { outline:none; border-color:var(--pg-teal); }
-  .pg-modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:18px; }
+  .pg-modal-actions { display:flex; gap:8px; justify-content:flex-end; flex-wrap:nowrap; margin-top:18px; overflow-x:auto; }
   .pg-recurring-panel {
     border:1px solid rgba(0,212,170,.22);
     background:rgba(0,212,170,.06);
@@ -341,12 +344,13 @@
     display:flex;
     gap:8px;
     align-items:center;
-    flex-wrap:wrap;
+    flex-wrap:nowrap;
     margin-top:10px;
+    overflow-x:auto;
   }
     .pg-modal-actions .pg-btn {
-      flex:1 1 0;
-      min-height:44px;
+      flex:0 0 auto;
+      min-height:38px;
       justify-content:center;
     }
   .pg-credit-toggle input {
@@ -398,19 +402,20 @@
     display:inline-flex;
     align-items:center;
     justify-content:center;
-    min-height:42px;
-    padding:10px 16px;
-    border-radius:999px;
+    min-height:38px;
+    padding:0 12px;
+    border-radius:4px;
     border:1px solid transparent;
     background:var(--pg-org);
     color:#fff;
-    font-size:.78rem;
-    font-weight:700;
+    font-size:.82rem;
+    font-weight:600;
     cursor:pointer;
     transition:transform .15s ease, box-shadow .15s ease, background .15s ease, color .15s ease;
+    white-space:nowrap;
   }
   .pgv2-apply-btn:hover:not(:disabled) {
-    transform:translateY(-1px);
+    transform:none;
     box-shadow:none;
     background:var(--pg-org-hover);
   }
@@ -713,17 +718,15 @@
       flex-wrap:wrap;
     }
     .pg-modal-actions {
-      flex-direction:column-reverse;
-      align-items:stretch;
+      flex-direction:row;
+      align-items:center;
+      flex-wrap:nowrap;
     }
-    .pg-modal-actions .pg-btn {
-      width:100%;
-      justify-content:center;
-    }
+    .pg-modal-actions .pg-btn { width:auto; }
     .pgv2-amount-wrap { grid-template-columns:1fr; }
     .pgv2-method-cards { grid-template-columns:1fr; }
     .pgv2-balance-top { align-items:stretch; }
-    .pgv2-apply-btn { width:100%; }
+    .pgv2-apply-btn { width:auto; }
     .pg-recurring-toolbar {
       grid-template-columns:1fr;
       align-items:stretch;
@@ -750,8 +753,9 @@
       gap:3px;
     }
     .pg-bill-actions {
-      flex-direction:column;
-      align-items:stretch;
+      flex-wrap:wrap;
+      align-items:flex-start;
+      overflow:visible;
     }
     .pg-bill-actions .pg-btn {
       width:100%;
@@ -863,7 +867,7 @@
                 <% } else { %>
                   <span class="pg-status paid">Paid</span>
                 <% } %>
-                <a href="/guardian/paygira/invoice/<%= a.assignment_id %>" target="_blank" class="pg-btn ghost" style="margin-left:6px;padding:7px 10px;font-size:.72rem;" title="View invoice">Invoice</a>
+                <a href="/guardian/paygira/invoice/<%= a.assignment_id %>" target="_blank" class="pg-btn ghost sm" title="View invoice">Invoice</a>
               </div>
             </div>
           <% }); } %>
