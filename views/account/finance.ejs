@@ -4493,3 +4493,40 @@ Regards,
     window.setPatchMultiSelectValues = setPatchMultiSelectValues;
   })();
 </script>
+
+<script>
+/* PayGira live stats — background poll every 15s, updates DOM without full reload */
+(function(){
+  var box = document.getElementById('finStatsLive');
+  if (!box) return;
+  var fmt = function(n){
+    try { return new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n||0)); }
+    catch(e){ return String(n||0); }
+  };
+  var busy = false;
+  function poll(){
+    if (busy || document.hidden) return;
+    busy = true;
+    fetch('/account/settings/finance/_stats.json', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){
+        if (!d) return;
+        var map = {
+          billed: d.billedTotal, collected: d.collectedTotal,
+          outstanding: d.outstandingTotal, overpayments: d.overpaymentsTotal
+        };
+        Object.keys(map).forEach(function(k){
+          var el = box.querySelector('[data-stat="'+k+'"]');
+          if (el && map[k] != null) el.textContent = fmt(map[k]);
+        });
+        var oc = box.querySelector('[data-stat="overdueCount"]');
+        if (oc && d.overdueCount != null) oc.textContent = d.overdueCount;
+      })
+      .catch(function(){})
+      .finally(function(){ busy = false; });
+  }
+  setTimeout(poll, 2000);
+  setInterval(poll, 15000);
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden) poll(); });
+})();
+</script>
