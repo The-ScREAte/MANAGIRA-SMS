@@ -81,6 +81,20 @@ const requireMyPaygiraAccess = async (req, res, next) => {
 	}
 };
 
+// Auto-invalidate PayGira cache after any state-changing finance request
+router.use((req, res, next) => {
+	if (req.method !== "GET" && req.method !== "HEAD" && /^\/(finance|my-paygira)(\/|$)/.test(req.path)) {
+		res.on("finish", () => {
+			try {
+				const orgId = req.session?.organizationId;
+				if (orgId && res.statusCode < 500) c.invalidateFinanceCache(orgId);
+			} catch (_) {}
+		});
+	}
+	next();
+});
+
+router.get("/finance/_stats.json", isAuthenticated, requireFinanceSettingsAccess, c.financeStatsJsonGet);
 router.get("/finance", isAuthenticated, requireFinanceSettingsAccess, c.financePageGet);
 router.get("/finance/arrears", isAuthenticated, requireFinanceSettingsAccess, c.financeArrearsPageGet);
 router.post("/finance/arrears/presets", isAuthenticated, requireFinanceSettingsAccess, c.arrearsPresetCreatePost);

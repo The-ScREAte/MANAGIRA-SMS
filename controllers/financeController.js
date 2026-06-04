@@ -3306,8 +3306,18 @@ module.exports = {
         term_id: req.query.term || ((!req.query.year && !req.query.term) ? (currentAcademic.termId || null) : null),
       };
       const overview = await cachedLoad(orgId, "overview", filters, () => loadOverviewStats(orgId, filters));
+      const t = overview?.totals || overview?.total_summary || overview || {};
+      const credits = overview?.credits || {};
       res.set("Cache-Control", "private, max-age=5, stale-while-revalidate=20");
-      res.json({ ok: true, overview, ts: Date.now() });
+      res.json({
+        ok: true,
+        billedTotal: Number(t.total_billed || 0),
+        collectedTotal: Number(t.total_collected || 0),
+        outstandingTotal: Number(t.outstanding || 0),
+        overpaymentsTotal: Number(credits.overpayments || overview?.overpayments || 0),
+        overdueCount: Number(t.overdue_count || 0),
+        ts: Date.now()
+      });
     } catch (e) {
       res.status(500).json({ error: "stats_failed" });
     }
