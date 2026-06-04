@@ -1321,25 +1321,25 @@
           <% } %>
         </form>
 
-        <div class="fin-stats">
+        <div class="fin-stats" id="finStatsLive">
           <div class="stat">
             <div class="label">Total Billed</div>
-            <div class="value"><%= fmt(billedTotal) %></div>
+            <div class="value" data-stat="billed"><%= fmt(billedTotal) %></div>
             <div class="sub">All assignments to date</div>
           </div>
           <div class="stat green">
             <div class="label">Total Collected</div>
-            <div class="value"><%= fmt(collectedTotal) %></div>
+            <div class="value" data-stat="collected"><%= fmt(collectedTotal) %></div>
             <div class="sub">Paid in full or partial</div>
           </div>
           <div class="stat red">
             <div class="label">Outstanding</div>
-            <div class="value"><%= fmt(outstandingTotal) %></div>
-            <div class="sub"><%= t.overdue_count || 0 %> overdue</div>
+            <div class="value" data-stat="outstanding"><%= fmt(outstandingTotal) %></div>
+            <div class="sub"><span data-stat="overdueCount"><%= t.overdue_count || 0 %></span> overdue</div>
           </div>
           <div class="stat gold">
             <div class="label">Overpayments</div>
-            <div class="value"><%= fmt(overpaymentsTotal) %></div>
+            <div class="value" data-stat="overpayments"><%= fmt(overpaymentsTotal) %></div>
             <div class="sub">Available credits</div>
           </div>
         </div>
