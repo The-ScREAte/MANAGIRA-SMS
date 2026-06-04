@@ -1429,9 +1429,11 @@
     <div class="as-pagebar-left">
       <span class="as-pagebar-label">Show per page</span>
       <select class="as-pagebar-select" id="asPageSizeSelect">
-        <option value="50" selected>50</option>
+        <option value="20" selected>20</option>
+        <option value="50">50</option>
         <option value="70">70</option>
         <option value="100">100</option>
+        <option value="200">200</option>
       </select>
     </div>
     <div class="as-pagebar-right">
@@ -1771,7 +1773,7 @@
   var pagePrevBtn = document.getElementById('asPagePrev');
   var pageNextBtn = document.getElementById('asPageNext');
   var pageInfo = document.getElementById('asPageInfo');
-  var pagination = { pageSize: 50, currentPage: 1, totalPages: 1 };
+  var pagination = { pageSize: 20, currentPage: 1, totalPages: 1 };
 
   // Mobile filter toggle
   var filterToggle = document.getElementById('asFilterToggle');
@@ -1842,7 +1844,7 @@
   if (pageSizeSelect) {
     pageSizeSelect.addEventListener('change', function() {
       var parsed = parseInt(this.value, 10);
-      pagination.pageSize = Number.isInteger(parsed) && parsed > 0 ? parsed : 50;
+      pagination.pageSize = Number.isInteger(parsed) && parsed > 0 ? parsed : 20;
       applyFilters(true);
     });
   }
