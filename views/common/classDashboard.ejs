@@ -3134,6 +3134,7 @@ main {
             </section>
 
             <div id="workspaceDynamicPanels"></div>
+            <div id="workspaceIframeCache" hidden></div>
           </div>
         </section>
 
@@ -3189,7 +3190,7 @@ main {
         basePath: <%- JSON.stringify(typeof classWorkspaceBasePath !== 'undefined' ? classWorkspaceBasePath : (`/common/classDashboard/${classId}`)) %>,
         initialRoute: <%- JSON.stringify(typeof initialWorkspaceRoute !== 'undefined' ? initialWorkspaceRoute : { panel: 'overview', itemId: '' }) %>,
         attendanceUrl: <%- JSON.stringify(`/common/attendanceCollection?classId=${classId}&termId=${currentTerm.term_id}&embed=workspace`) %>,
-        docsUrl: <%- JSON.stringify(`/documents?classId=${classId}`) %>,
+        docsUrl: <%- JSON.stringify(`/documents?classId=${classId}&embed=workspace`) %>,
         paygiraUrl: <%- JSON.stringify(`/account/settings/my-paygira?embed=workspace&classId=${classId}`) %>,
         students: <%- JSON.stringify(workspaceStudents) %>,
         subjects: <%- JSON.stringify(workspaceSubjects) %>,
@@ -3210,6 +3211,12 @@ main {
       function getWorkspaceDynamicPanelsRoot() {
         return document.getElementById('workspaceDynamicPanels');
       }
+
+      function getWorkspaceIframeCache() {
+        return document.getElementById('workspaceIframeCache');
+      }
+
+      var WS_IFRAME_CACHE_MAX = 5;
 
       function getWorkspaceTabBar() {
         return document.getElementById('workspaceTabBar');
@@ -3287,7 +3294,37 @@ main {
 
       function ensureWorkspaceFramePanel(tab) {
         var root = getWorkspaceDynamicPanelsRoot();
-        if (!root || document.getElementById(tab.panelId)) return;
+        if (!root) return;
+
+        var existing = document.getElementById(tab.panelId);
+        var cache = getWorkspaceIframeCache();
+
+        // Already in active panels — nothing to do
+        if (existing && (!cache || existing.parentNode !== cache)) return;
+
+        // Found in the cache — restore it instantly, refresh data in background
+        if (existing && cache && existing.parentNode === cache) {
+          var cachedIframe = existing.querySelector('.workspace-frame');
+          if (cachedIframe) {
+            if (cachedIframe.getAttribute('src') !== tab.iframeSrc) {
+              // URL changed (different student/term/etc) — load the new URL
+              cachedIframe.setAttribute('src', tab.iframeSrc);
+            } else {
+              // Same URL — show stale content immediately, silently reload in background
+              setTimeout(function() {
+                try { cachedIframe.contentWindow.location.reload(); } catch(e) {}
+              }, 300);
+            }
+          }
+          var cachedTitle = existing.querySelector('.workspace-frame-title');
+          if (cachedTitle) cachedTitle.textContent = tab.title;
+          var cachedSubtext = existing.querySelector('.workspace-frame-subtext');
+          if (cachedSubtext) cachedSubtext.textContent = tab.panelDescription || 'Focused work session';
+          root.appendChild(existing); // move from cache back to active panels
+          return;
+        }
+
+        // Not found anywhere — create a fresh iframe panel
         var panel = document.createElement('section');
         panel.className = 'workspace-panel workspace-frame-panel';
         panel.id = tab.panelId;
@@ -3312,11 +3349,25 @@ main {
         root.appendChild(panel);
       }
 
-      function removeWorkspaceDynamicPanel(tab) {
+      function removeWorkspaceDynamicPanel(tab, opts) {
         if (!tab || tab.type !== 'iframe') return;
         var panel = document.getElementById(tab.panelId);
-        if (panel && panel.parentNode) {
+        if (!panel || !panel.parentNode) return;
+        // opts.destroy = true forces a real DOM removal (used when rebuilding the panel structure)
+        if (opts && opts.destroy) {
           panel.parentNode.removeChild(panel);
+          return;
+        }
+        // Move to the keep-alive cache so the iframe stays loaded
+        var cache = getWorkspaceIframeCache();
+        if (cache) {
+          cache.appendChild(panel);
+          // Evict oldest entries when cache exceeds the limit
+          while (cache.children.length > WS_IFRAME_CACHE_MAX) {
+            cache.removeChild(cache.firstChild);
+          }
+        } else {
+          panel.parentNode.removeChild(panel); // fallback: destroy if cache div missing
         }
       }
 
@@ -3326,7 +3377,7 @@ main {
         if (!panel) return;
         var hasFrameHeader = Boolean(panel.querySelector('.workspace-frame-header'));
         if (hasFrameHeader === Boolean(tab.noFrameHeader)) {
-          removeWorkspaceDynamicPanel(tab);
+          removeWorkspaceDynamicPanel(tab, { destroy: true });
           ensureWorkspaceFramePanel(tab);
           panel = document.getElementById(tab.panelId);
           if (!panel) return;
@@ -3530,7 +3581,7 @@ main {
           routePath: workspaceContext.basePath + '/student/' + match.id,
           sidebarKey: 'students',
           type: 'iframe',
-          iframeSrc: '/common/studentDetails?studentId=' + encodeURIComponent(match.id) + '&termId=' + encodeURIComponent(workspaceContext.termId) + '&classId=' + encodeURIComponent(workspaceContext.classId),
+          iframeSrc: '/common/studentDetails?studentId=' + encodeURIComponent(match.id) + '&termId=' + encodeURIComponent(workspaceContext.termId) + '&classId=' + encodeURIComponent(workspaceContext.classId) + '&embed=workspace',
           panelDescription: 'Student workspace for ' + match.name + '.',
         };
       }

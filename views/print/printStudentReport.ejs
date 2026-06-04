@@ -145,7 +145,7 @@
 .remarks-signature-wrapper {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: flex-end;
     gap: 40px;
     width: 100%;
     margin-top: 20px;
@@ -383,18 +383,33 @@
 
         .promotion-table select {
             width: auto;
-            padding: 6px 10px;
-            border: 1px solid var(--org-primary-color);
-            background: white;
+            padding: 0;
+            border: none;
+            background: transparent;
+            -webkit-appearance: none;
+            appearance: none;
             font-size: 13px;
-            border-radius: 4px;
             cursor: pointer;
             color: var(--org-primary-color);
-            font-weight: 500;
+            font-weight: 600;
         }
 
-        .promotion-table select:hover {
-            background-color: var(--org-primary-light);
+        .promotion-select-wrapper {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            cursor: pointer;
+        }
+
+        .promotion-chevron {
+            font-size: 10px;
+            color: var(--org-primary-color);
+            pointer-events: none;
+            line-height: 1;
+        }
+
+        .promotion-table td {
+            padding: 4px 5px;
         }
 
         .grade-interpretation {
@@ -465,7 +480,7 @@
 
             body {
                 margin: 0;
-                padding: 0;
+                padding: 0 !important;
                 background: white;
             }
 
@@ -487,7 +502,9 @@
                 margin: 0 auto 0 auto !important;
                 padding: 10px 14px 12px 14px !important;
                 page-break-after: always;
+                break-after: page;
                 page-break-inside: avoid;
+                break-inside: avoid;
                 box-sizing: border-box;
                 display: block;
                 border: 1px solid #e5e5e5 !important;
@@ -500,6 +517,7 @@
 
             .student-report.last-report {
                 page-break-after: avoid !important;
+                break-after: avoid !important;
             }
 
             /* Hide watermark img in screen but show in print */
@@ -644,6 +662,9 @@
 
             /* Remarks section optimization */
             .remarks-signature-wrapper {
+                display: flex !important;
+                flex-direction: row !important;
+                align-items: flex-end !important;
                 margin-top: 15px;
                 padding-top: 12px;
                 border-top: 1px solid #e8e8e8;
@@ -712,6 +733,16 @@
                 border-top: 1.5px solid #333;
             }
 
+            /* Promotion row — plain text in print */
+            .promotion-table select {
+                font-size: 11px;
+                pointer-events: none;
+                color: #333;
+            }
+            .promotion-chevron {
+                display: none;
+            }
+
             /* Grade interpretation */
             .grade-interpretation {
                 border: 2px solid var(--primary);
@@ -724,6 +755,8 @@
                 page-break-inside: avoid;
                 background-color: var(--org-primary-light);
                 border-radius: 6px;
+                position: static;
+                top: 0;
             }
 
             .grade-interpretation h6 {
@@ -735,6 +768,11 @@
             .grade-interpretation-item {
                 font-size: 10px;
                 margin: 0 5px;
+            }
+
+            .report-card-footer {
+                margin-top: 10px;
+                padding-top: 6px;
             }
 
             /* Prevent orphan page breaks */
@@ -755,7 +793,7 @@
                 page-break-inside: avoid;
             }
         }
-        @media (max-width: 768px) {
+        @media screen and (max-width: 768px) {
     .header {
         flex-direction: column;
         text-align: center;
@@ -1570,7 +1608,7 @@
                             </tr>
                             <tr>
                                 <td>Student ID:</td>
-                                <td><%= student.student_id %></td>
+                                <td><%= student.display_student_id || student.student_id %></td>
                                 <td>School Year:</td>
                                 <td><%= schoolYearLabel %></td>
                             </tr>
@@ -1588,34 +1626,37 @@
                             <thead>
                                 <tr>
                                     <th>Subject</th>
-                                    <th>Class Score</th>
-                                    <th>Exams Score</th>
-                                    <th>Other Score</th>
-                                    <th>Total Score</th>
-                                    <th>Total Percentage</th>
-                                    <th>Grade</th>
-                                    <th>Position</th>
-                                    <th>Remarks</th>
+                                    <% if (displaySettings.columns.classScore) { %><th>Class Score</th><% } %>
+                                    <% if (displaySettings.columns.examsScore) { %><th>Exams Score</th><% } %>
+                                    <% if (displaySettings.columns.otherScore) { %><th>Other Score</th><% } %>
+                                    <% if (displaySettings.columns.totalScore) { %><th>Total Score</th><% } %>
+                                    <% if (displaySettings.columns.scaledScore) { %><th>Scaled Score</th><% } %>
+                                    <% if (displaySettings.columns.totalPercentage) { %><th>Total Percentage</th><% } %>
+                                    <% if (displaySettings.columns.grade) { %><th>Grade</th><% } %>
+                                    <% if (displaySettings.columns.position) { %><th>Position</th><% } %>
+                                    <% if (displaySettings.columns.remarksCol) { %><th>Remarks</th><% } %>
                                 </tr>
                             </thead>
                             <tbody>
                                 <% (student.subjects || []).forEach(subject => { %>
                                     <tr>
                                         <td><%= subject.subject_name %></td>
-                                        <td><%= subject.classAssessmentScore || '-' %></td>
-                                        <td><%= subject.examsAssessmentScore || '-' %></td>
-                                        <td><%= subject.otherAssessmentScore || '-' %></td>
-                                        <td><%= subject.totalScore || '-' %></td>
-                                        <td><%= subject.totalPercentage || '-' %></td>
-                                        <td><%= subject.grade || '-' %></td>
-                                        <td><%= subject.position || '-' %></td>
-                                        <td><%= subject.remarks || '-' %></td>
+                                        <% if (displaySettings.columns.classScore) { %><td><%= subject.classAssessmentScore || '-' %></td><% } %>
+                                        <% if (displaySettings.columns.examsScore) { %><td><%= subject.examsAssessmentScore || '-' %></td><% } %>
+                                        <% if (displaySettings.columns.otherScore) { %><td><%= subject.otherAssessmentScore || '-' %></td><% } %>
+                                        <% if (displaySettings.columns.totalScore) { %><td><%= subject.totalScore || '-' %></td><% } %>
+                                        <% if (displaySettings.columns.scaledScore) { %><td><%= subject.scaledScore || '-' %></td><% } %>
+                                        <% if (displaySettings.columns.totalPercentage) { %><td><%= subject.totalPercentage || '-' %></td><% } %>
+                                        <% if (displaySettings.columns.grade) { %><td><%= subject.grade || '-' %></td><% } %>
+                                        <% if (displaySettings.columns.position) { %><td><%= subject.position || '-' %></td><% } %>
+                                        <% if (displaySettings.columns.remarksCol) { %><td><%= subject.remarks || '-' %></td><% } %>
                                     </tr>
                                 <% }); %>
                             </tbody>
                         </table>
                     </div>
 
+                    <% if (displaySettings.sections.attendance) { %>
                     <div class="attendance-info">
                         <table class="promotion-table">
                             <tr>
@@ -1634,27 +1675,36 @@
                                   <%= formattedReopenDate %>
                                 </td>
                                                             </tr>
-                            <% if (activatePromotion) { %>
+                            <% if (activatePromotion && displaySettings.sections.promotion) { %>
                                 <tr>
                                     <td>
-                                        <select name="promotionStatus-<%= student.student_id %>" id="promotionStatus-<%= student.student_id %>" onchange="updateClass('<%= student.student_id %>')">
-                                            <option value="Promoted" <%= student.promotionStatus === 'Promoted' ? 'selected' : '' %>>Promoted To:</option>
-                                            <option value="Repeated" <%= student.promotionStatus === 'Repeated' ? 'selected' : '' %>>Repeated In:</option>
-                                        </select>
+                                        <span class="promotion-select-wrapper">
+                                            <select name="promotionStatus-<%= student.student_id %>" id="promotionStatus-<%= student.student_id %>" onchange="updateClass('<%= student.student_id %>')">
+                                                <option value="Promoted" <%= student.promotionStatus === 'Promoted' ? 'selected' : '' %>>Promoted To:</option>
+                                                <option value="Repeated" <%= student.promotionStatus === 'Repeated' ? 'selected' : '' %>>Repeated In:</option>
+                                            </select>
+                                            <span class="promotion-chevron">&#9662;</span>
+                                        </span>
                                     </td>
                                     <td id="promotionClass-<%= student.student_id %>" data-class-id="<%= student.promotionClassId || '' %>"><%= student.promotionClass %></td>
                                 </tr>
                             <% } %>
                         </table>
                     </div>
+                    <% } %>
 
-                 
+                    <% if (displaySettings.sections.conductRemarks || displaySettings.sections.attitudeRemarks || displaySettings.sections.interestRemarks || displaySettings.sections.teacherRemarks) { %>
                     <div class="remarks-signature-wrapper">
                         <!-- Remarks Section -->
                         <div class="remarks">
                             <h4 class="remarks-header">Academic Remarks</h4>
                             <div class="remarks-container">
-                                <% const remarkTypes = ['conductRemarks', 'attitudeRemarks', 'interestRemarks', 'teacherRemarks']; %>
+                                <% const remarkTypes = [
+                                  ...(displaySettings.sections.conductRemarks  ? ['conductRemarks']  : []),
+                                  ...(displaySettings.sections.attitudeRemarks ? ['attitudeRemarks'] : []),
+                                  ...(displaySettings.sections.interestRemarks ? ['interestRemarks'] : []),
+                                  ...(displaySettings.sections.teacherRemarks  ? ['teacherRemarks']  : []),
+                                ]; %>
                     
                                 <% remarkTypes.forEach((remarkType) => { %>
                                     <div class="remark-line">
@@ -1698,9 +1748,9 @@
                             <h3><%= signatureName || "Authorized" %></h3>
                         </div>
                     </div>
+                    <% } %>
                     
-                    
-                    
+                    <% if (displaySettings.sections.gradeKey && scoreRemarks && scoreRemarks.length > 0) { %>
                     <div class="grade-interpretation">
                         <h6>Interpretation of Grades:</h6>
                         <div class="grade-interpretation-content">
@@ -1709,6 +1759,7 @@
                             <% }); %>
                         </div>
                     </div>
+                    <% } %>
 
                     <div class="report-card-footer">
                         <div class="report-card-footer-left">

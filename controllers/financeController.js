@@ -30,6 +30,7 @@ const {
 const { getOrgChargeCards } = require("../utils/orgChargeCards");
 const { ensurePaymentProviderSchema } = require("../utils/paymentProviderSchema");
 const { getActiveStripePublicKey, getStripeSettings, getStripePlatformCredentials, getStripeConnectAccountId, ensureStripeConnectAccountSchema } = require("../utils/stripeConfig");
+const { buildStudentDisplayId, getOrganizationStudentIdSettings } = require("../utils/studentIdDisplay");
 const {
   getPlatformFeeSettings,
   isPlatformFeeMethod,
@@ -1988,24 +1989,32 @@ async function loadStudentBilling(orgId, filters = {}) {
     return accumulator;
   }, {});
 
-  const students = await db.query(
-    `SELECT s.student_id, s.first_name, s.last_name, s.image_url, s.class_id,
-            c.class_name,
-            COALESCE(sc.amount,0) AS student_credit
-       FROM students s
-       LEFT JOIN classes c ON c.class_id = s.class_id
-       LEFT JOIN finance_student_credits sc ON sc.student_id = s.student_id AND sc.organization_id = s.organization_id
-      WHERE s.organization_id = $1
-      ORDER BY s.last_name, s.first_name
-      LIMIT 500`,
-    [orgId]
-  );
+  const [studentIdSettings, students] = await Promise.all([
+    getOrganizationStudentIdSettings(db, orgId),
+    db.query(
+      `SELECT s.student_id, s.custom_student_id, s.first_name, s.last_name, s.image_url, s.class_id,
+              c.class_name,
+              COALESCE(sc.amount,0) AS student_credit
+         FROM students s
+         LEFT JOIN classes c ON c.class_id = s.class_id
+         LEFT JOIN finance_student_credits sc ON sc.student_id = s.student_id AND sc.organization_id = s.organization_id
+        WHERE s.organization_id = $1
+        ORDER BY s.last_name, s.first_name
+        LIMIT 500`,
+      [orgId]
+    ),
+  ]);
   return students.rows.map((row) => {
     const totals = totalsByStudentId[String(row.student_id)] || { total_billed: 0, total_paid: 0, outstanding: 0 };
     const studentCredit = Number(row.student_credit || 0);
     const outstanding = Number(totals.outstanding || 0);
+    const displayStudentId = buildStudentDisplayId(row, studentIdSettings);
     return {
       ...row,
+      display_student_id: displayStudentId,
+      display_student_id_text: studentIdSettings.use_custom_student_id
+        ? displayStudentId
+        : (displayStudentId ? `#${displayStudentId}` : ''),
       total_billed: Number(totals.total_billed || 0),
       total_paid: Number(totals.total_paid || 0),
       outstanding,
@@ -5316,94 +5325,129 @@ module.exports = {
     const guardianId = req.session.guardianId;
     if (!orgId || !guardianId) return res.redirect("/account/login");
     try {
-      await ensureFinanceSchema();
-      await ensureGuardianCardsSchema();
+      await Promise.all([ensureFinanceSchema(), ensureGuardianCardsSchema()]);
 
-      // Children linked to this guardian (covers both legacy guardians + guardian_students)
-      const kidsR = await database.query(
-        `SELECT DISTINCT s.student_id, s.first_name, s.last_name, s.image_url,
-                c.class_name
-           FROM students s
-           LEFT JOIN classes c ON c.class_id = s.class_id
-          WHERE s.organization_id = $1
-            AND (
-              EXISTS (SELECT 1 FROM guardians g
-                       WHERE g.student_id=s.student_id AND g.guardian_id=$2 AND g.organization_id=$1)
-              OR EXISTS (SELECT 1 FROM guardian_students gs
-                       WHERE gs.student_id=s.student_id AND gs.guardian_id=$2)
-            )
-          ORDER BY s.first_name`,
-        [orgId, guardianId]
-      );
+      // Org-level payment context (PSP + Stripe + currency display) is fully
+      // independent of student data, so kick it off in the background and only
+      // await it right before render. This overlaps it with the student queries.
+      const orgContextPromise = (async () => {
+        const [pspSettings, orgProfile] = await Promise.all([
+          loadPspSettings(orgId),
+          loadOrganizationProfile(orgId),
+        ]);
+        const [stripeRuntime, display] = await Promise.all([
+          resolveFinanceStripeRuntime(orgId, pspSettings, orgProfile),
+          buildFinanceDisplayContext(req, orgId, pspSettings, orgProfile.organization_country),
+        ]);
+        return { pspSettings, stripeRuntime, display };
+      })();
+
+      // Children, saved cards and the guardian header profile don't depend on
+      // each other — fetch them in a single round of parallel queries.
+      const [kidsR, cardsR, gp] = await Promise.all([
+        database.query(
+          `SELECT DISTINCT s.student_id, s.first_name, s.last_name, s.image_url,
+                  c.class_name
+             FROM students s
+             LEFT JOIN classes c ON c.class_id = s.class_id
+            WHERE s.organization_id = $1
+              AND (
+                EXISTS (SELECT 1 FROM guardians g
+                         WHERE g.student_id=s.student_id AND g.guardian_id=$2 AND g.organization_id=$1)
+                OR EXISTS (SELECT 1 FROM guardian_students gs
+                         WHERE gs.student_id=s.student_id AND gs.guardian_id=$2)
+              )
+            ORDER BY s.first_name`,
+          [orgId, guardianId]
+        ),
+        database.query(
+          `SELECT card_id, brand, last4, holder_name, exp_month, exp_year, is_default, student_id
+             FROM guardian_payment_methods
+            WHERE guardian_id=$1 AND organization_id=$2
+            ORDER BY is_default DESC, created_at DESC`,
+          [guardianId, orgId]
+        ),
+        database.query(
+          `SELECT first_name, last_name, image_url FROM guardian_profiles WHERE guardian_id=$1 AND organization_id=$2`,
+          [guardianId, orgId]
+        ),
+      ]);
+
       const children = kidsR.rows;
       const studentIds = children.map(c => c.student_id);
-      const studentCreditMap = await loadStudentCreditMap(database, orgId, studentIds);
+
+      // Student credit, bill assignments and recent payments all key off the
+      // same student-id list — run them concurrently instead of in series.
+      const [studentCreditMap, assignmentRowsR, paymentsR] = await Promise.all([
+        loadStudentCreditMap(database, orgId, studentIds),
+        studentIds.length
+          ? database.query(
+              `SELECT a.*, b.title AS bill_title, b.description AS bill_description,
+                      b.due_date, b.bill_type, b.recurrence, b.recurrence_end_date,
+                      b.term_id, b.exclude_non_school_days,
+                      tm.end_date AS term_end_date,
+                      b.accepts_card, b.accepts_cash, b.accepts_transfer,
+                      b.payment_destination,
+                      s.first_name, s.last_name, s.image_url, s.student_id
+                 FROM finance_bill_assignments a
+                 JOIN finance_bills b ON b.bill_id = a.bill_id
+                 JOIN students s ON s.student_id = a.student_id
+                 LEFT JOIN terms tm ON tm.term_id = b.term_id
+                WHERE a.organization_id = $1 AND a.student_id = ANY($2::int[])
+                        AND a.status <> 'cancelled'
+                        AND COALESCE(b.status, 'active') <> 'cancelled'
+                ORDER BY a.status, b.due_date NULLS LAST`,
+              [orgId, studentIds]
+            )
+          : Promise.resolve({ rows: [] }),
+        studentIds.length
+          ? database.query(
+              `SELECT p.payment_id, p.amount, p.method, p.received_at, p.reference,
+                      s.first_name, s.last_name, b.title AS bill_title
+                 FROM finance_payments p
+                 LEFT JOIN students s ON s.student_id = p.student_id
+                 LEFT JOIN finance_bills b ON b.bill_id = p.bill_id
+                WHERE p.organization_id=$1 AND p.student_id = ANY($2::int[])
+                ORDER BY p.received_at DESC LIMIT 15`,
+              [orgId, studentIds]
+            )
+          : Promise.resolve({ rows: [] }),
+      ]);
+
       const hydratedChildren = children.map((child) => ({
         ...child,
         student_credit: Number(studentCreditMap.get(String(child.student_id)) || 0),
       }));
 
-      // All bill assignments for those children
+      const payments = paymentsR.rows;
+
+      // Expand recurring schedules then attach per-occurrence payment data.
       let assignments = [];
-      let payments = [];
-      let occurrencePaymentsByAssignment = {};
-      if (studentIds.length) {
-        const r = await database.query(
-          `SELECT a.*, b.title AS bill_title, b.description AS bill_description,
-                  b.due_date, b.bill_type, b.recurrence, b.recurrence_end_date,
-                  b.term_id, b.exclude_non_school_days,
-                  tm.end_date AS term_end_date,
-                  b.accepts_card, b.accepts_cash, b.accepts_transfer,
-                  b.payment_destination,
-                  s.first_name, s.last_name, s.image_url, s.student_id
-             FROM finance_bill_assignments a
-             JOIN finance_bills b ON b.bill_id = a.bill_id
-             JOIN students s ON s.student_id = a.student_id
-             LEFT JOIN terms tm ON tm.term_id = b.term_id
-            WHERE a.organization_id = $1 AND a.student_id = ANY($2::int[])
-                    AND a.status <> 'cancelled'
-                    AND COALESCE(b.status, 'active') <> 'cancelled'
-            ORDER BY a.status, b.due_date NULLS LAST`,
-          [orgId, studentIds]
-        );
+      if (assignmentRowsR.rows.length) {
         const scheduleContext = createBillScheduleContextLoader(database, orgId);
         assignments = await Promise.all(
-          r.rows.map((row) => enrichScheduledAssignment(row, scheduleContext))
+          assignmentRowsR.rows.map((row) => enrichScheduledAssignment(row, scheduleContext))
         );
 
-        if (assignments.length) {
-          const assignmentIds = assignments.map((assignment) => assignment.assignment_id);
-          const occurrencePaymentsR = await database.query(
-            `SELECT assignment_id, occurrence_date::text AS occurrence_date, COALESCE(SUM(amount), 0) AS paid_amount
-               FROM finance_payments
-              WHERE organization_id=$1 AND assignment_id = ANY($2::int[]) AND occurrence_date IS NOT NULL
-              GROUP BY assignment_id, occurrence_date`,
-            [orgId, assignmentIds]
-          );
-          occurrencePaymentsByAssignment = occurrencePaymentsR.rows.reduce((accumulator, row) => {
-            const assignmentKey = String(row.assignment_id);
-            if (!accumulator[assignmentKey]) accumulator[assignmentKey] = {};
-            accumulator[assignmentKey][row.occurrence_date] = Number(row.paid_amount || 0);
-            return accumulator;
-          }, {});
-          assignments = assignments.map((assignment) => ({
-            ...assignment,
-            occurrence_payments: occurrencePaymentsByAssignment[String(assignment.assignment_id)] || {},
-            student_credit: Number(studentCreditMap.get(String(assignment.student_id)) || 0),
-          }));
-        }
-
-        const p = await database.query(
-          `SELECT p.payment_id, p.amount, p.method, p.received_at, p.reference,
-                  s.first_name, s.last_name, b.title AS bill_title
-             FROM finance_payments p
-             LEFT JOIN students s ON s.student_id = p.student_id
-             LEFT JOIN finance_bills b ON b.bill_id = p.bill_id
-            WHERE p.organization_id=$1 AND p.student_id = ANY($2::int[])
-            ORDER BY p.received_at DESC LIMIT 15`,
-          [orgId, studentIds]
+        const assignmentIds = assignments.map((assignment) => assignment.assignment_id);
+        const occurrencePaymentsR = await database.query(
+          `SELECT assignment_id, occurrence_date::text AS occurrence_date, COALESCE(SUM(amount), 0) AS paid_amount
+             FROM finance_payments
+            WHERE organization_id=$1 AND assignment_id = ANY($2::int[]) AND occurrence_date IS NOT NULL
+            GROUP BY assignment_id, occurrence_date`,
+          [orgId, assignmentIds]
         );
-        payments = p.rows;
+        const occurrencePaymentsByAssignment = occurrencePaymentsR.rows.reduce((accumulator, row) => {
+          const assignmentKey = String(row.assignment_id);
+          if (!accumulator[assignmentKey]) accumulator[assignmentKey] = {};
+          accumulator[assignmentKey][row.occurrence_date] = Number(row.paid_amount || 0);
+          return accumulator;
+        }, {});
+        assignments = assignments.map((assignment) => ({
+          ...assignment,
+          occurrence_payments: occurrencePaymentsByAssignment[String(assignment.assignment_id)] || {},
+          student_credit: Number(studentCreditMap.get(String(assignment.student_id)) || 0),
+        }));
       }
 
       const visibleAssignments = assignments.filter((assignment) => {
@@ -5415,15 +5459,6 @@ module.exports = {
         return outstandingAmount > 0;
       });
 
-      // Saved payment cards on file (last 4 only — never PAN)
-      const cardsR = await database.query(
-        `SELECT card_id, brand, last4, holder_name, exp_month, exp_year, is_default, student_id
-           FROM guardian_payment_methods
-          WHERE guardian_id=$1 AND organization_id=$2
-          ORDER BY is_default DESC, created_at DESC`,
-        [guardianId, orgId]
-      );
-
       // Aggregate per-student totals
       const totals = {
         billed:      assignments.reduce((sum, assignment) => sum + Number(assignment.scheduled_billed_total || 0), 0),
@@ -5433,20 +5468,11 @@ module.exports = {
       };
       totals.net_outstanding = Math.max(Number(totals.outstanding || 0) - Number(totals.credit || 0), 0);
 
-      // Guardian profile for header
-      const gp = await database.query(
-        `SELECT first_name, last_name, image_url FROM guardian_profiles WHERE guardian_id=$1 AND organization_id=$2`,
-        [guardianId, orgId]
-      );
-
       // Payment options available to this guardian (set by the school)
-      const pspSettings = await loadPspSettings(orgId);
+      const { pspSettings, stripeRuntime, display } = await orgContextPromise;
       const maskedPsp = maskPspSecrets(pspSettings);
-      const orgProfile = await loadOrganizationProfile(orgId);
-      const stripeRuntime = await resolveFinanceStripeRuntime(orgId, pspSettings, orgProfile);
       const allowedMethods = computeAllowedMethods(pspSettings, { stripeOn: stripeRuntime.stripeOn });
       const stripeCheckoutConfig = buildGuardianStripeCheckoutConfig(allowedMethods.stripeMethods);
-      const display = await buildFinanceDisplayContext(req, orgId, pspSettings, orgProfile.organization_country);
       allowedMethods.currency = display.financeCurrency.code;
       maskedPsp.currency = maskedPsp.currency || display.financeCurrency.code;
       if (!maskedPsp.stripe_publishable_key && stripeRuntime.publishableKey) {

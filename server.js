@@ -20,7 +20,7 @@ const {
   globalErrorHandler,
 } = require("./middleware/errorMiddleware"); // Error handling middleware
 const fetchUnresolvedCount = require("./middleware/fetchUnresolvedCount");
-const fetchNotifCount = require("./middleware/fetchNotifCount");
+const { fetchNotifCount } = require("./middleware/fetchNotifCount");
 
 const upload = multer();
 const app = express();
@@ -116,6 +116,15 @@ const attachSchoolContext = (req, org) => {
     req.hubDetails = null;
   }
 };
+
+// SEO host normalization: serve a single canonical root host.
+// Keeps Google from indexing both managira.com and www.managira.com as duplicates.
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV !== "production") return next();
+  const host = String(req.hostname || "").toLowerCase();
+  if (host !== "www.managira.com") return next();
+  return res.redirect(301, `https://managira.com${req.originalUrl || "/"}`);
+});
 
 // ── Levenshtein distance (used for "Did you mean?" subdomain suggestions) ─────
 function _levenshtein(a, b) {
@@ -460,6 +469,12 @@ app.use((req, res, next) => {
   res.locals.showFooterTopSection = false;
   res.locals.unresolvedCount = 0;
 
+  // Hide global header/footer when page is embedded inside the class dashboard workspace
+  if (req.query.embed === 'workspace') {
+    res.locals.hideGlobalHeader = true;
+    res.locals.hideGlobalFooter = true;
+  }
+
   // Compact UI flags — reduced headings + compact tables on authenticated app pages.
   // Excluded: legal pages, unauthenticated/public pages, organization dashboard,
   // and printable report card / merit sheet / transcript pages.
@@ -710,7 +725,7 @@ app.get("/", async (req, res) => {
       "Manage enrollment, classes, attendance, assessments, communication, billing, analytics, and reporting in one school platform.",
     keywords:
       "school management system, school management software, management system for schools, student information system, school ERP, school portal, enrollment management, class management, attendance tracking, assessment management, school billing, school reports, education management software, Managira",
-    canonicalUrl: "https://www.managira.com/",
+    canonicalUrl: "https://managira.com/",
     showFooterTopSection: true,
   };
 

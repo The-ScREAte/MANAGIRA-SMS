@@ -1,4 +1,5 @@
 const notifSvc = require("../utils/notificationService");
+const { userHasPermission, PERMISSIONS } = require('../middleware/permissionMiddleware');
 const enrollmentController = {
     // Enrollment page
     enrollmentGet: async (req, res, db) => {
@@ -584,75 +585,194 @@ const enrollmentController = {
           const likeQuery = `%${escapedQuery}%`;
 
           try {
+            // Resolve which result types the requesting user is permitted to see.
+            // We only run DB queries for types the user can actually navigate to,
+            // so no result ever links to a page they'd be bounced off.
+            const userId = req.session.user?.user_id || req.session.userId || null;
+            const userRole = req.session.userRole || req.session.user?.account_type || null;
+            const accountType = req.session.accountType || req.session.user?.account_type || null;
+            const userEmail = req.session.user?.email || null;
+            const userCtx = { userId, userRole, organizationId: orgId, accountType, userEmail };
+
+            const [canSeeStudents, canSeeEmployees] = await Promise.all([
+              userHasPermission(db, userCtx, PERMISSIONS.MANAGE_STUDENTS),
+              userHasPermission(db, userCtx, PERMISSIONS.MANAGE_EMPLOYEES),
+            ]);
+
+            // Teachers and supervisors are class-scoped: they only see students,
+            // guardians, and classes belonging to their assigned classes.
+            // Managers/admins (isManagerLikeRole) see everything.
+            const normalizedRole = String(userRole || accountType || '').trim().toLowerCase();
+            const isClassScoped = userId && (
+              normalizedRole === 'teacher' ||
+              normalizedRole === 'supervisor' ||
+              normalizedRole === 'superviser'
+            );
+
+            // assignedClassIds: null = no restriction; [] = teacher has no classes (return empty for class-gated types)
+            let assignedClassIds = null;
+            if (isClassScoped) {
+              const classResult = await db.query(
+                'SELECT class_id FROM user_classes WHERE user_id = $1',
+                [userId]
+              );
+              assignedClassIds = classResult.rows.map(r => r.class_id);
+            }
+
+            // Runs fn(classIds) when there's a restriction with classes assigned,
+            // returns empty immediately if teacher has no classes at all.
+            const withClassScope = (fn) => {
+              if (assignedClassIds === null) return fn(null);      // no restriction
+              if (assignedClassIds.length === 0) return Promise.resolve({ rows: [] }); // no assigned classes
+              return fn(assignedClassIds);
+            };
+
+            const empty = Promise.resolve({ rows: [] });
+
             const [studentsRes, employeesRes, guardiansRes, classesRes, subjectsRes, orgProfileRes] = await Promise.all([
-              db.query(
-                `
-                  SELECT 'student' AS type, s.student_id AS id, s.first_name, s.last_name, s.image_url,
-                     c.class_name, c.class_id, NULL::text AS account_type, NULL::text AS subject_name
-                  FROM students s
-                  LEFT JOIN classes c ON s.class_id = c.class_id AND c.organization_id = $2
-                  WHERE s.organization_id = $2
-                  AND (
-                    s.first_name ILIKE $1 ESCAPE '\\' OR s.last_name ILIKE $1 ESCAPE '\\'
-                    OR CONCAT(s.first_name, ' ', s.last_name) ILIKE $1 ESCAPE '\\'
+              canSeeStudents
+                ? withClassScope((classIds) =>
+                    classIds
+                      ? db.query(
+                          `
+                            SELECT 'student' AS type, s.student_id AS id, s.first_name, s.last_name, s.image_url,
+                               c.class_name, c.class_id, NULL::text AS account_type, NULL::text AS subject_name
+                            FROM students s
+                            LEFT JOIN classes c ON s.class_id = c.class_id AND c.organization_id = $2
+                            WHERE s.organization_id = $2
+                              AND s.class_id = ANY($3::int[])
+                              AND (
+                                s.first_name ILIKE $1 ESCAPE '\\' OR s.last_name ILIKE $1 ESCAPE '\\'
+                                OR CONCAT(s.first_name, ' ', s.last_name) ILIKE $1 ESCAPE '\\'
+                              )
+                            LIMIT 20
+                          `,
+                          [likeQuery, orgId, classIds]
+                        )
+                      : db.query(
+                          `
+                            SELECT 'student' AS type, s.student_id AS id, s.first_name, s.last_name, s.image_url,
+                               c.class_name, c.class_id, NULL::text AS account_type, NULL::text AS subject_name
+                            FROM students s
+                            LEFT JOIN classes c ON s.class_id = c.class_id AND c.organization_id = $2
+                            WHERE s.organization_id = $2
+                              AND (
+                                s.first_name ILIKE $1 ESCAPE '\\' OR s.last_name ILIKE $1 ESCAPE '\\'
+                                OR CONCAT(s.first_name, ' ', s.last_name) ILIKE $1 ESCAPE '\\'
+                              )
+                            LIMIT 20
+                          `,
+                          [likeQuery, orgId]
+                        )
                   )
-                  LIMIT 20
-                `,
-                [likeQuery, orgId]
-              ),
-              db.query(
-                `
-                  SELECT 'employee' AS type, u.user_id AS id, u.first_name, u.last_name,
-                     COALESCE(NULLIF(u.image_url, ''), 'profilePlaceholder.png') AS image_url,
-                     NULL::text AS class_name, NULL::int AS class_id, u.account_type, NULL::text AS subject_name
-                  FROM users u
-                  WHERE u.organization_id = $2
-                  AND (
-                    u.first_name ILIKE $1 ESCAPE '\\' OR u.last_name ILIKE $1 ESCAPE '\\'
-                    OR CONCAT(u.first_name, ' ', u.last_name) ILIKE $1 ESCAPE '\\'
+                : empty,
+
+              // Employees are not class-scoped — a teacher assigned to a class still
+              // shouldn't see other employees they have no business managing.
+              canSeeEmployees
+                ? db.query(
+                    `
+                      SELECT 'employee' AS type, u.user_id AS id, u.first_name, u.last_name,
+                         COALESCE(NULLIF(u.image_url, ''), 'profilePlaceholder.png') AS image_url,
+                         NULL::text AS class_name, NULL::int AS class_id, u.account_type, NULL::text AS subject_name
+                      FROM users u
+                      WHERE u.organization_id = $2
+                      AND (
+                        u.first_name ILIKE $1 ESCAPE '\\' OR u.last_name ILIKE $1 ESCAPE '\\'
+                        OR CONCAT(u.first_name, ' ', u.last_name) ILIKE $1 ESCAPE '\\'
+                      )
+                      LIMIT 20
+                    `,
+                    [likeQuery, orgId]
                   )
-                  LIMIT 20
-                `,
-                [likeQuery, orgId]
+                : empty,
+
+              // Guardians — only show if their linked student is in the teacher's class
+              withClassScope((classIds) =>
+                db.query(
+                  classIds
+                    ? `
+                        SELECT DISTINCT ON (
+                          LOWER(TRIM(COALESCE(g.first_name, ''))),
+                          LOWER(TRIM(COALESCE(g.last_name, ''))),
+                          LOWER(TRIM(COALESCE(g.email, ''))),
+                          REGEXP_REPLACE(COALESCE(g.phone, ''), '[^0-9]', '', 'g')
+                        )
+                           'guardian' AS type, g.guardian_id AS id, g.first_name, g.last_name, g.image_url,
+                           NULL::text AS class_name, NULL::int AS class_id, NULL::text AS account_type, NULL::text AS subject_name
+                        FROM guardians g
+                        INNER JOIN students s ON g.student_id = s.student_id
+                        WHERE g.organization_id = $2
+                          AND s.class_id = ANY($3::int[])
+                          AND (
+                            g.first_name ILIKE $1 ESCAPE '\\' OR g.last_name ILIKE $1 ESCAPE '\\'
+                            OR CONCAT(g.first_name, ' ', g.last_name) ILIKE $1 ESCAPE '\\'
+                          )
+                        ORDER BY
+                          LOWER(TRIM(COALESCE(g.first_name, ''))),
+                          LOWER(TRIM(COALESCE(g.last_name, ''))),
+                          LOWER(TRIM(COALESCE(g.email, ''))),
+                          REGEXP_REPLACE(COALESCE(g.phone, ''), '[^0-9]', '', 'g'),
+                          CASE WHEN COALESCE(g.image_url, '') <> '' AND g.image_url <> 'profilePlaceholder.png' THEN 0 ELSE 1 END,
+                          g.guardian_id DESC
+                        LIMIT 20
+                      `
+                    : `
+                        SELECT DISTINCT ON (
+                          LOWER(TRIM(COALESCE(g.first_name, ''))),
+                          LOWER(TRIM(COALESCE(g.last_name, ''))),
+                          LOWER(TRIM(COALESCE(g.email, ''))),
+                          REGEXP_REPLACE(COALESCE(g.phone, ''), '[^0-9]', '', 'g')
+                        )
+                           'guardian' AS type, g.guardian_id AS id, g.first_name, g.last_name, g.image_url,
+                           NULL::text AS class_name, NULL::int AS class_id, NULL::text AS account_type, NULL::text AS subject_name
+                        FROM guardians g
+                        WHERE g.organization_id = $2
+                          AND (
+                            g.first_name ILIKE $1 ESCAPE '\\' OR g.last_name ILIKE $1 ESCAPE '\\'
+                            OR CONCAT(g.first_name, ' ', g.last_name) ILIKE $1 ESCAPE '\\'
+                          )
+                        ORDER BY
+                          LOWER(TRIM(COALESCE(g.first_name, ''))),
+                          LOWER(TRIM(COALESCE(g.last_name, ''))),
+                          LOWER(TRIM(COALESCE(g.email, ''))),
+                          REGEXP_REPLACE(COALESCE(g.phone, ''), '[^0-9]', '', 'g'),
+                          CASE WHEN COALESCE(g.image_url, '') <> '' AND g.image_url <> 'profilePlaceholder.png' THEN 0 ELSE 1 END,
+                          g.guardian_id DESC
+                        LIMIT 20
+                      `,
+                  classIds ? [likeQuery, orgId, classIds] : [likeQuery, orgId]
+                )
               ),
-              db.query(
-                `
-                  SELECT DISTINCT ON (
-                    LOWER(TRIM(COALESCE(g.first_name, ''))),
-                    LOWER(TRIM(COALESCE(g.last_name, ''))),
-                    LOWER(TRIM(COALESCE(g.email, ''))),
-                    REGEXP_REPLACE(COALESCE(g.phone, ''), '[^0-9]', '', 'g')
-                  )
-                     'guardian' AS type, g.guardian_id AS id, g.first_name, g.last_name, g.image_url,
-                     NULL::text AS class_name, NULL::int AS class_id, NULL::text AS account_type, NULL::text AS subject_name
-                  FROM guardians g
-                  WHERE g.organization_id = $2
-                  AND (
-                    g.first_name ILIKE $1 ESCAPE '\\' OR g.last_name ILIKE $1 ESCAPE '\\'
-                    OR CONCAT(g.first_name, ' ', g.last_name) ILIKE $1 ESCAPE '\\'
-                  )
-                  ORDER BY
-                    LOWER(TRIM(COALESCE(g.first_name, ''))),
-                    LOWER(TRIM(COALESCE(g.last_name, ''))),
-                    LOWER(TRIM(COALESCE(g.email, ''))),
-                    REGEXP_REPLACE(COALESCE(g.phone, ''), '[^0-9]', '', 'g'),
-                    CASE WHEN COALESCE(g.image_url, '') <> '' AND g.image_url <> 'profilePlaceholder.png' THEN 0 ELSE 1 END,
-                    g.guardian_id DESC
-                  LIMIT 20
-                `,
-                [likeQuery, orgId]
+
+              // Classes — teachers only see classes they are assigned to
+              withClassScope((classIds) =>
+                classIds
+                  ? db.query(
+                      `
+                        SELECT 'class' AS type, c.class_id AS id, c.class_name AS first_name, '' AS last_name, NULL::text AS image_url,
+                           c.class_name, c.class_id, NULL::text AS account_type, NULL::text AS subject_name
+                        FROM classes c
+                        WHERE c.organization_id = $2
+                          AND c.class_id = ANY($3::int[])
+                          AND c.class_name ILIKE $1 ESCAPE '\\'
+                        LIMIT 20
+                      `,
+                      [likeQuery, orgId, classIds]
+                    )
+                  : db.query(
+                      `
+                        SELECT 'class' AS type, c.class_id AS id, c.class_name AS first_name, '' AS last_name, NULL::text AS image_url,
+                           c.class_name, c.class_id, NULL::text AS account_type, NULL::text AS subject_name
+                        FROM classes c
+                        WHERE c.organization_id = $2
+                          AND c.class_name ILIKE $1 ESCAPE '\\'
+                        LIMIT 20
+                      `,
+                      [likeQuery, orgId]
+                    )
               ),
-              db.query(
-                `
-                  SELECT 'class' AS type, c.class_id AS id, c.class_name AS first_name, '' AS last_name, NULL::text AS image_url,
-                     c.class_name, c.class_id, NULL::text AS account_type, NULL::text AS subject_name
-                  FROM classes c
-                  WHERE c.organization_id = $2
-                  AND c.class_name ILIKE $1 ESCAPE '\\'
-                  LIMIT 20
-                `,
-                [likeQuery, orgId]
-              ),
+
               db.query(
                 `
                   SELECT 'subject' AS type, s.subject_id AS id, s.subject_name AS first_name, '' AS last_name, NULL::text AS image_url,
@@ -664,6 +784,7 @@ const enrollmentController = {
                 `,
                 [likeQuery, orgId]
               ),
+
               db.query(
                 `
                   SELECT 'organization_profile' AS type, o.organization_id AS id,

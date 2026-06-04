@@ -162,6 +162,15 @@ module.exports = (db) => {
   router.get("/management", checkFeatureAccess, isAuthenticated, (req, res) =>
     commonController.management(req, res, db)
   );
+  router.get("/failedEmails", checkFeatureAccess, isAuthenticated, (req, res) =>
+    commonController.getFailedEmails(req, res, db)
+  );
+  router.get("/failedEmails/checkEmail", checkFeatureAccess, isAuthenticated, (req, res) =>
+    commonController.checkFailedEmail(req, res, db)
+  );
+  router.post("/failedEmails/:id/update", checkFeatureAccess, isAuthenticated, express.json(), (req, res) =>
+    commonController.updateFailedEmail(req, res, db)
+  );
   
   // Guardian management routes
   router.get("/guardians", checkFeatureAccess, isAuthenticated, (req, res) =>
@@ -192,6 +201,9 @@ module.exports = (db) => {
     commonController.classReportDetail(req, res, db)
   );
   
+  router.get("/check-student-id", isAuthenticated, (req, res) =>
+    commonController.checkStudentId(req, res, db)
+  );
   router.get("/editStudent", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) =>
     commonController.editStudentGet(req, res, db)
   );
@@ -588,6 +600,11 @@ module.exports = (db) => {
   // Change student class (AJAX)
   router.post("/students/:studentId/change-class", isAuthenticated, express.json(), requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) =>
     commonController.changeStudentClass(req, res, db)
+  );
+
+  // Update student details from the All Students list (AJAX)
+  router.post("/students/:studentId/update-details", isAuthenticated, express.json(), requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) =>
+    commonController.updateStudentListDetails(req, res, db)
   );
 
   // Bulk update students — change class and/or assign school year (AJAX)

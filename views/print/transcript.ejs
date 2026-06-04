@@ -13,8 +13,8 @@
       }
 
       .ctrl-btn {
-        padding: 10px 18px;
-        font-size: 14px;
+        padding: 8px 14px;
+        font-size: 12px;
         font-weight: 600;
         border-radius: 8px;
         border: none;
@@ -22,7 +22,7 @@
         transition: all 0.2s;
         display: inline-flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
         white-space: nowrap;
       }
 
@@ -53,9 +53,9 @@
       .transcript-controls {
         max-width: 900px;
         margin: 0 auto 24px;
-        padding: 16px 20px;
+        padding: 12px 14px;
         display: flex;
-        gap: 12px;
+        gap: 8px;
         flex-wrap: nowrap;
         justify-content: flex-start;
         align-items: center;
@@ -413,9 +413,9 @@
 
       .sig-tab {
         flex: 1;
-        padding: 10px;
+        padding: 8px;
         text-align: center;
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 600;
         cursor: pointer;
         background: #f8fafc;
@@ -454,8 +454,8 @@
       }
 
       .sig-upload-btn {
-        padding: 8px 20px;
-        font-size: 13px;
+        padding: 7px 16px;
+        font-size: 12px;
         font-weight: 600;
         border-radius: 6px;
         background: var(--primary);
@@ -492,8 +492,8 @@
       }
 
       .sig-clear-btn {
-        padding: 8px 20px;
-        font-size: 13px;
+        padding: 7px 16px;
+        font-size: 12px;
         font-weight: 600;
         border-radius: 6px;
         background: #f1f5f9;
@@ -506,8 +506,8 @@
       .sig-clear-btn:hover { background: #e2e8f0; }
 
       .sig-save-btn {
-        padding: 8px 20px;
-        font-size: 13px;
+        padding: 7px 16px;
+        font-size: 12px;
         font-weight: 600;
         border-radius: 6px;
         background: var(--primary);
@@ -794,8 +794,8 @@
         </div>
         <div id="emailStepStatus" style="font-size:12px;color:#e11d48;margin-bottom:12px;min-height:18px;"></div>
         <div style="display:flex;gap:10px;justify-content:flex-end;">
-          <button type="button" class="ctrl-btn ctrl-btn-back" style="padding:10px 18px;font-size:13px;" onclick="closeEmailStepModal()">Cancel</button>
-          <button type="button" class="ctrl-btn ctrl-btn-print" style="padding:10px 18px;font-size:13px;" onclick="proceedToPasswordStep()">Continue →</button>
+          <button type="button" class="ctrl-btn ctrl-btn-back" style="padding:8px 14px;font-size:12px;" onclick="closeEmailStepModal()">Cancel</button>
+          <button type="button" class="ctrl-btn ctrl-btn-print" style="padding:8px 14px;font-size:12px;" onclick="proceedToPasswordStep()">Continue →</button>
         </div>
       </div>
     </div>
@@ -811,8 +811,8 @@
         </div>
         <div id="passwordStatus" style="font-size:12px;color:#64748b;margin-bottom:12px;min-height:18px;"></div>
         <div style="display:flex;gap:10px;justify-content:flex-end;">
-          <button type="button" class="ctrl-btn ctrl-btn-back" style="padding:10px 18px;font-size:13px;background:#64748b;" onclick="backToEmailStep()">← Back</button>
-          <button type="button" class="ctrl-btn ctrl-btn-print" style="padding:10px 18px;font-size:13px;" onclick="sendTranscriptEmail()">Send Email</button>
+          <button type="button" class="ctrl-btn ctrl-btn-back" style="padding:8px 14px;font-size:12px;background:#64748b;" onclick="backToEmailStep()">← Back</button>
+          <button type="button" class="ctrl-btn ctrl-btn-print" style="padding:8px 14px;font-size:12px;" onclick="sendTranscriptEmail()">Send Email</button>
         </div>
       </div>
     </div>
@@ -824,9 +824,9 @@
         Manage all transcript signatures from the centralized Report Settings page. 
         You can create multiple signatures and assign them to different classes.
       </p>
-      <a href="/print/reportSettings?classId=<%= student.class_id %>&termId=<%= typeof termId !== 'undefined' ? termId : '' %>" 
+      <a href="/print/reportSettings" 
         data-no-spa
-         style="display:inline-block;background:var(--org-primary-color, #0f5a66);color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;transition:all 0.2s ease;box-shadow:0 4px 12px rgba(15,90,102,0.2);">
+         style="display:inline-block;background:var(--org-primary-color, #0f5a66);color:#fff;padding:9px 16px;border-radius:8px;text-decoration:none;font-weight:600;font-size:12px;transition:all 0.2s ease;box-shadow:0 4px 12px rgba(15,90,102,0.2);">
         🛠️ Manage Signatures in Report Settings
       </a>
     </div>

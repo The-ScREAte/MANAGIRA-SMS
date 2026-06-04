@@ -1922,6 +1922,137 @@
               <p class="text-muted-sm" style="margin-top:12px;">No day overrides yet.</p>
             <% } %>
           </div>
+
+          <!-- Student ID Settings card -->
+          <div class="card">
+            <h4>Student ID Settings</h4>
+            <small>Use your school's own ID format for students.</small>
+
+            <form action="/account/personalization/student-id" method="POST" style="margin-top:16px;">
+              <input type="hidden" name="redirectTo" value="/account/settings" />
+
+              <!-- Enable toggle -->
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                <div>
+                  <p style="margin:0; font-size:0.9rem; font-weight:600; color:#1e293b;">Custom student IDs</p>
+                  <p style="margin:2px 0 0; font-size:0.8rem; color:#64748b;">Assign IDs in your school's own format.</p>
+                </div>
+                <label style="position:relative; display:inline-flex; align-items:center; cursor:pointer; flex-shrink:0;">
+                  <input type="checkbox" id="useCustomStudentId" name="useCustomStudentId"
+                    <%= studentIdSettings && studentIdSettings.use_custom_student_id ? 'checked' : '' %>
+                    onchange="toggleSidPanel(this.checked)"
+                    style="position:absolute; opacity:0; width:0; height:0;" />
+                  <span id="sidToggleTrack" style="display:inline-block; width:44px; height:24px; background:<%= studentIdSettings && studentIdSettings.use_custom_student_id ? 'var(--primary, #01535b)' : '#cbd5e1' %>; border-radius:12px; transition:background 0.2s; position:relative;">
+                    <span id="sidToggleThumb" style="position:absolute; top:2px; left:<%= studentIdSettings && studentIdSettings.use_custom_student_id ? '22px' : '2px' %>; width:20px; height:20px; background:#fff; border-radius:50%; box-shadow:0 1px 3px rgba(0,0,0,0.2); transition:left 0.2s;"></span>
+                  </span>
+                </label>
+              </div>
+
+              <!-- Options panel -->
+              <div id="sidOptionsPanel" style="margin-top:18px;<%= studentIdSettings && studentIdSettings.use_custom_student_id ? '' : ' display:none;' %>">
+
+                <!-- Prefix -->
+                <div style="margin-bottom:16px;">
+                  <label style="display:block; font-size:0.85rem; font-weight:600; color:#374151; margin-bottom:6px;" for="studentIdPrefix">
+                    ID Prefix <span style="font-weight:400; color:#94a3b8; font-size:0.78rem;">(optional · max 10 chars)</span>
+                  </label>
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <input type="text" id="studentIdPrefix" name="studentIdPrefix" maxlength="10"
+                      placeholder="e.g. MGT"
+                      value="<%= (studentIdSettings && studentIdSettings.student_id_prefix) || '' %>"
+                      oninput="updateSidPreview()"
+                      class="form-input"
+                      style="width:110px; text-transform:uppercase; letter-spacing:0.05em;" />
+                    <span id="sidPreview" style="font-family:monospace; font-size:0.88rem; font-weight:700; color:#334155; letter-spacing:0.05em;">
+                      <%= ((studentIdSettings && studentIdSettings.student_id_prefix) || '') %>001
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Auto-generate toggle -->
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px;">
+                  <div>
+                    <p style="margin:0; font-size:0.9rem; font-weight:600; color:#1e293b;">Auto-generate IDs</p>
+                    <p style="margin:2px 0 0; font-size:0.8rem; color:#64748b;">IDs are assigned automatically. Staff can still edit them per student.</p>
+                  </div>
+                  <label style="position:relative; display:inline-flex; align-items:center; cursor:pointer; flex-shrink:0;">
+                    <input type="checkbox" name="studentIdAutoGenerate"
+                      <%= studentIdSettings && studentIdSettings.student_id_auto_generate ? 'checked' : '' %>
+                      onchange="var t=this.closest('label').querySelector('span:first-of-type'); var th=t.querySelector('span'); t.style.background=this.checked?'var(--primary, #01535b)':'#cbd5e1'; th.style.left=this.checked?'22px':'2px'; var sr=document.getElementById('sidStartingRow'); if(sr) sr.style.display=this.checked?'':'none';"
+                      style="position:absolute; opacity:0; width:0; height:0;" />
+                    <span style="display:inline-block; width:44px; height:24px; background:<%= studentIdSettings && studentIdSettings.student_id_auto_generate ? 'var(--primary, #01535b)' : '#cbd5e1' %>; border-radius:12px; transition:background 0.2s; position:relative;">
+                      <span style="position:absolute; top:2px; left:<%= studentIdSettings && studentIdSettings.student_id_auto_generate ? '22px' : '2px' %>; width:20px; height:20px; background:#fff; border-radius:50%; box-shadow:0 1px 3px rgba(0,0,0,0.2); transition:left 0.2s;"></span>
+                    </span>
+                  </label>
+                </div>
+
+                <!-- Starting number (visible when auto-generate is on) -->
+                <% 
+                  const configuredStudentIdStartNumber = Number(studentIdSettings && studentIdSettings.student_id_start_number);
+                  const savedStudentIdStartNumber = Number.isInteger(configuredStudentIdStartNumber) && configuredStudentIdStartNumber > 0
+                    ? configuredStudentIdStartNumber
+                    : (nextAvailableStudentIdNumber || (((studentIdSettings && studentIdSettings.student_id_counter) || 0) + 1));
+                %>
+                <div id="sidStartingRow" style="<%= studentIdSettings && studentIdSettings.student_id_auto_generate ? '' : 'display:none;' %>">
+                  <label style="display:block; font-size:0.85rem; font-weight:600; color:#374151; margin-bottom:6px;" for="startingNumber">
+                    Start numbering from
+                    <span style="font-weight:400; color:#94a3b8; font-size:0.78rem;">· counter is at <%= (studentIdSettings && studentIdSettings.student_id_counter) || 0 %>, next available is <%= nextAvailableStudentIdNumber || (((studentIdSettings && studentIdSettings.student_id_counter) || 0) + 1) %><% if (savedStudentIdStartNumber && savedStudentIdStartNumber !== (nextAvailableStudentIdNumber || (((studentIdSettings && studentIdSettings.student_id_counter) || 0) + 1))) { %>, saved start is <%= savedStudentIdStartNumber %><% } %></span>
+                  </label>
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <input type="number" id="startingNumber" name="startingNumber" min="1" max="999999"
+                      value="<%= savedStudentIdStartNumber %>"
+                      oninput="updateSidNextPreview()"
+                      class="form-input"
+                      style="width:100px;" />
+                    <span id="sidNextPreview" style="font-family:monospace; font-size:0.88rem; font-weight:700; color:#334155; letter-spacing:0.05em;">
+                      <%= ((studentIdSettings && studentIdSettings.student_id_prefix) || '') %><%= String(savedStudentIdStartNumber).padStart(3, '0') %>
+                    </span>
+                  </div>
+                  <p style="margin:6px 0 0; font-size:0.78rem; color:#94a3b8;">The system suggests the first reusable number in your current range. Change this only if you are deliberately starting a different range.</p>
+                </div>
+
+              </div>
+
+              <div class="form-actions" style="margin-top:18px;">
+                <button class="btn-primary btn-link" type="submit">Save</button>
+              </div>
+            </form>
+
+            <script>
+              (function () {
+                function toggleSidPanel(on) {
+                  var p = document.getElementById('sidOptionsPanel');
+                  var track = document.getElementById('sidToggleTrack');
+                  var thumb = document.getElementById('sidToggleThumb');
+                  if (p) p.style.display = on ? '' : 'none';
+                  if (track) track.style.background = on ? 'var(--primary, #01535b)' : '#cbd5e1';
+                  if (thumb) thumb.style.left = on ? '22px' : '2px';
+                }
+                function updateSidPreview() {
+                  var inp = document.getElementById('studentIdPrefix');
+                  var prev = document.getElementById('sidPreview');
+                  if (!inp || !prev) return;
+                  var val = inp.value.toUpperCase().replace(/[^A-Z0-9\-_]/g, '');
+                  inp.value = val;
+                  prev.textContent = val + '001';
+                  updateSidNextPreview();
+                }
+                function updateSidNextPreview() {
+                  var prefix = document.getElementById('studentIdPrefix');
+                  var numInp = document.getElementById('startingNumber');
+                  var nextPrev = document.getElementById('sidNextPreview');
+                  if (!nextPrev) return;
+                  var p = prefix ? prefix.value.toUpperCase().replace(/[^A-Z0-9\-_]/g, '') : '';
+                  var n = parseInt(numInp ? numInp.value : '1', 10) || 1;
+                  nextPrev.textContent = p + String(n).padStart(3, '0');
+                }
+                window.toggleSidPanel = toggleSidPanel;
+                window.updateSidPreview = updateSidPreview;
+                window.updateSidNextPreview = updateSidNextPreview;
+              })();
+            </script>
+          </div>
+
         </section>
         <% } %>
 

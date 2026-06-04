@@ -1049,9 +1049,12 @@
         });
       });
 
-      // And warm EVERY SPA route for this user type, one at a time on idle.
-      // This makes most clicks land on a cache hit and skip the spinner.
-      this._warmAllRoutes();
+      // NOTE: We intentionally do NOT warm *every* route for this user type.
+      // That background sweep fired a full server render for each route on
+      // first load and after every navigation, flooding the server and the
+      // browser's connection pool so the user's actual click had to queue
+      // behind it. Hover/mousedown + the priority + visible-link preloads
+      // already keep the common pages hot without the request storm.
     }
 
     /**

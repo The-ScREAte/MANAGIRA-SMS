@@ -545,7 +545,7 @@
           <div class="student-info-grid">
             <p><strong>Class:</strong> <%= enrolledClassForTerm || 'Not enrolled' %></p>
             <p><strong>Term:</strong> <%= termNameForPage %></p>
-            <p><strong>Student ID:</strong> <%= student.student_id %></p>
+            <p><strong>Student ID:</strong> <%= student.display_student_id || student.student_id %></p>
           </div>
         </div>
       </div>

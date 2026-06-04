@@ -730,7 +730,11 @@
 
           <div class="form-actions">
             <button type="button" class="btn-secondary" onclick="backToWelcome()">&#8592; Back</button>
+            <% if (!orgDetails.public_registration_price || Number(orgDetails.public_registration_price) === 0) { %>
+            <button type="button" class="btn-primary" onclick="submitFreeApplication()">Submit Application</button>
+            <% } else { %>
             <button type="button" class="btn-primary" onclick="continueToPayment()">Continue to Payment &#8594;</button>
+            <% } %>
           </div>
         </form>
       </div>
@@ -786,6 +790,22 @@
   <div id="loader" class="loader-container">
     <div class="loader-circle"></div>
     <div class="loader-text" id="loaderText">Processing&hellip;</div>
+  </div>
+</div>
+
+<!-- ── Free registration success (no payment required) ─────────────────── -->
+<div id="freeSuccessSection" style="display:none;">
+  <div class="reg-card" style="text-align:center;padding:48px 32px;">
+    <div style="width:72px;height:72px;background:#f0fdf4;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
+      <svg fill="none" stroke="#16a34a" stroke-width="2.5" viewBox="0 0 24 24" style="width:36px;height:36px;"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <h2 style="margin:0 0 10px;font-size:1.4rem;color:#14532d;">Application Submitted!</h2>
+    <p style="color:#374151;margin:0 0 6px;font-size:1rem;">Thank you — your application has been received successfully.</p>
+    <p style="color:#6b7280;font-size:.9rem;margin:0 0 28px;">No payment is required for this school. The admissions team will review and be in touch.</p>
+    <button type="button" onclick="window.location.reload()"
+       style="display:inline-block;background:#2563eb;color:#fff;padding:12px 28px;border-radius:8px;font-weight:600;border:none;cursor:pointer;font-size:.95rem;font-family:inherit;">
+      Submit Another Application
+    </button>
   </div>
 </div>
 
@@ -854,6 +874,13 @@
 
     // ─── Step 1: Submit registration, then open payment ──────────────────────
 
+    async function submitFreeApplication() {
+      const form = document.getElementById('registrationForm');
+      if (!form.checkValidity()) { form.reportValidity(); return; }
+      if (!confirm('Ready to submit your application? Click OK to confirm.')) return;
+      await continueToPayment();
+    }
+
     async function continueToPayment() {
       const form = document.getElementById('registrationForm');
       if (!form.checkValidity()) { form.reportValidity(); return; }
@@ -884,6 +911,13 @@
 
       hideLoader();
       document.getElementById('registrationFormSection').style.display = 'none';
+
+      // ── Free registration: no payment required ────────────────────────────
+      if (registrationData.skipPayment) {
+        document.getElementById('freeSuccessSection').style.display = 'block';
+        return;
+      }
+
       document.getElementById('paymentFormContainer').style.display = 'block';
 
       // Block if school hasn't set up their Stripe payout account

@@ -329,13 +329,22 @@
     color: #0f172a;
   }
   .as-syear-label {
-    font-size: 11px;
-    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
     color: #16a34a;
     background: #dcfce7;
-    border-radius: 4px;
-    padding: 1px 5px;
+    border-radius: 999px;
+    border: 1px solid #86efac;
+    vertical-align: middle;
     margin-left: 4px;
+  }
+  .as-syear-label svg {
+    width: 10px;
+    height: 10px;
+    stroke-width: 2.6;
   }
 
   /* ── Action buttons ──────────────────────── */
@@ -362,6 +371,14 @@
     font-family: inherit;
   }
   .as-btn svg { width: 12px; height: 12px; flex-shrink: 0; }
+  .as-btn.icon-only {
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
+    padding: 0;
+    gap: 0;
+    justify-content: center;
+  }
 
   .as-btn-view {
     border-color: var(--border);
@@ -398,14 +415,18 @@
     .as-card-list { display: block; }
 
     .as-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        'top top'
+        'meta actions';
       padding: 11px 14px;
       border-bottom: 1px solid #f1f5f9;
-      display: flex;
-      flex-direction: column;
       gap: 8px;
     }
     .as-card:last-child { border-bottom: none; }
     .as-card-top {
+      grid-area: top;
       display: flex;
       align-items: center;
       gap: 8px;
@@ -428,11 +449,14 @@
       margin-top: 1px;
     }
     .as-card-meta {
+      grid-area: meta;
       display: flex;
+      align-items: center;
       flex-wrap: wrap;
       gap: 4px 12px;
       font-size: 11.5px;
       color: #374151;
+      min-width: 0;
     }
     .as-card-meta-item {
       display: flex;
@@ -441,10 +465,66 @@
     }
     .as-card-meta-item svg { width: 11px; height: 11px; color: var(--muted); }
     .as-card-actions {
+      grid-area: actions;
       display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+      margin-left: auto;
+      align-self: center;
+    }
+    .as-card-actions .as-btn { justify-content: center; }
+    .as-card-actions .as-btn.icon-only {
+      flex: 0 0 auto;
+      width: 26px;
+      min-width: 26px;
+      height: 26px;
+      border-radius: 7px;
+    }
+    .as-card-actions .as-btn.icon-only svg {
+      width: 11px;
+      height: 11px;
+    }
+    .as-card-meta .as-syear-label {
+      width: 14px;
+      height: 14px;
+      margin-left: 3px;
+    }
+    .as-card-meta .as-syear-label svg {
+      width: 9px;
+      height: 9px;
+    }
+  }
+
+  @media (max-width: 520px) {
+    .as-card {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        'top top'
+        'meta actions';
       gap: 6px;
     }
-    .as-card-actions .as-btn { flex: 1; justify-content: center; }
+    .as-card-meta {
+      gap: 4px 8px;
+      font-size: 10.5px;
+    }
+    .as-card-meta-item svg {
+      width: 10px;
+      height: 10px;
+    }
+    .as-card-actions {
+      gap: 5px;
+    }
+    .as-card-actions .as-btn.icon-only {
+      width: 24px;
+      min-width: 24px;
+      height: 24px;
+      border-radius: 6px;
+    }
+    .as-card-actions .as-btn.icon-only svg {
+      width: 10px;
+      height: 10px;
+    }
   }
 
   /* ── Mobile filter toggle ───────────────── */
@@ -499,10 +579,12 @@
     position: fixed;
     inset: 0;
     background: rgba(15,23,42,0.5);
-    z-index: 9000;
+    z-index: 12000;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
+    padding: calc(var(--as-header-offset, 78px) + env(safe-area-inset-top)) 12px 16px;
+    overflow-y: auto;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.2s ease;
@@ -517,11 +599,15 @@
     border-radius: 16px;
     width: 100%;
     max-width: 440px;
-    margin: 16px;
+    margin: 0;
     box-shadow: 0 20px 60px rgba(15,23,42,0.2);
     overflow: hidden;
+    max-height: calc(100dvh - var(--as-header-offset, 78px) - 24px - env(safe-area-inset-top));
     transform: translateY(12px);
     transition: transform 0.2s ease;
+  }
+  .as-modal.as-modal-bulk {
+    max-width: 520px;
   }
   .as-modal-overlay.open .as-modal {
     transform: translateY(0);
@@ -553,7 +639,9 @@
   .as-modal-close:hover { background: #f1f5f9; color: #0f172a; }
 
   .as-modal-body {
-    padding: 20px;
+    padding: 18px;
+    overflow-y: auto;
+    max-height: calc(100dvh - var(--as-header-offset, 78px) - 180px - env(safe-area-inset-top));
   }
   .as-modal-student-info {
     display: flex;
@@ -605,21 +693,88 @@
   }
   .as-modal-select:focus { border-color: var(--primary); background: #fff; }
 
+  .as-modal-field {
+    margin-bottom: 14px;
+  }
+  .as-modal-input {
+    width: 100%;
+    height: 40px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: 0 10px;
+    font-size: 14px;
+    color: #0f172a;
+    background: #f9fafb;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.15s;
+  }
+  .as-modal-input:focus { border-color: var(--primary); background: #fff; }
+  .as-modal-input.is-error,
+  .as-modal-select.is-error {
+    border-color: #ef4444;
+    background: #fff1f2;
+  }
+  .as-modal-id-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .as-modal-id-prefix {
+    flex: 0 0 auto;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 10px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    background: #f8fafc;
+    font-size: 13px;
+    font-weight: 700;
+    color: #334155;
+    white-space: nowrap;
+  }
+  .as-modal-id-prefix strong {
+    color: #0f172a;
+  }
+  .as-modal-id-input {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    letter-spacing: 0.03em;
+  }
+  .as-modal-hint {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+  .as-modal-inline-error {
+    display: none;
+    margin-top: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #b91c1c;
+  }
+  .as-modal-inline-error.visible {
+    display: block;
+  }
+
   .as-modal-footer {
-    padding: 14px 20px;
+    padding: 12px 16px;
     border-top: 1px solid var(--border);
     display: flex;
     justify-content: flex-end;
-    gap: 10px;
+    gap: 8px;
+    flex-wrap: nowrap;
   }
 
   .as-modal-cancel {
-    padding: 9px 18px;
+    height: 36px;
+    padding: 0 14px;
     border-radius: 8px;
     border: 1px solid var(--border);
     background: #f1f5f9;
     color: #374151;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     cursor: pointer;
     font-family: inherit;
@@ -628,12 +783,13 @@
   .as-modal-cancel:hover { background: #e2e8f0; }
 
   .as-modal-save {
-    padding: 9px 20px;
+    height: 36px;
+    padding: 0 15px;
     border-radius: 8px;
     border: none;
     background: var(--primary);
     color: #fff;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
     cursor: pointer;
     font-family: inherit;
@@ -644,6 +800,19 @@
   }
   .as-modal-save:hover { background: var(--primary-hover); }
   .as-modal-save:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  #asBulkStep1 .as-modal-footer,
+  #asBulkStep2 .as-modal-footer {
+    justify-content: stretch;
+  }
+  #asBulkStep1 .as-modal-cancel,
+  #asBulkStep1 .as-modal-save,
+  #asBulkStep2 .as-modal-cancel,
+  #asBulkStep2 .as-modal-save {
+    flex: 1 1 0;
+    min-width: 0;
+    justify-content: center;
+  }
 
   .as-modal-msg {
     font-size: 12.5px;
@@ -709,18 +878,25 @@
   .as-bulk-btn-edit:hover { background: #f0fdf4; }
   .as-bulk-btn-clear { background: rgba(255,255,255,0.18); color: #fff; border: 1px solid rgba(255,255,255,0.3); }
   .as-bulk-btn-clear:hover { background: rgba(255,255,255,0.28); }
+  .as-bulk-btn-clear.icon-only {
+    width: 30px;
+    min-width: 30px;
+    height: 30px;
+    padding: 0;
+    justify-content: center;
+  }
 
   /* ── Bulk modal fields ───────────────────── */
-  .as-bfield { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+  .as-bfield { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
   .as-bfield-row { display: flex; align-items: center; gap: 10px; }
   .as-bfield-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--primary); flex-shrink: 0; cursor: pointer; }
-  .as-bfield-row label { font-size: 13px; font-weight: 700; color: #0f172a; cursor: pointer; }
+  .as-bfield-row label { font-size: 12px; font-weight: 700; color: #0f172a; cursor: pointer; }
   .as-bfield-select {
-    width: 100%; height: 40px;
+    width: 100%; height: 36px;
     border: 1.5px solid var(--border);
     border-radius: 8px;
     padding: 0 10px;
-    font-size: 14px;
+    font-size: 12.5px;
     color: #0f172a;
     background: #f9fafb;
     outline: none;
@@ -729,32 +905,235 @@
   }
   .as-bfield-select:focus { border-color: var(--primary); background: #fff; }
   .as-bfield-select:disabled { opacity: 0.38; cursor: not-allowed; }
+  .as-pagebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: #fff;
+    flex-wrap: wrap;
+  }
+  .as-pagebar-left,
+  .as-pagebar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .as-pagebar-label {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  .as-pagebar-select {
+    height: 32px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0 10px;
+    font-size: 13px;
+    font-weight: 700;
+    background: #fff;
+    color: #0f172a;
+  }
+  .as-page-btn {
+    border: 1px solid var(--border);
+    background: #fff;
+    color: #0f172a;
+    border-radius: 8px;
+    height: 32px;
+    min-width: 32px;
+    padding: 0 10px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .as-page-btn:disabled {
+    opacity: .42;
+    cursor: not-allowed;
+  }
+  .as-page-info {
+    font-size: 13px;
+    color: #0f172a;
+    font-weight: 800;
+    min-width: 54px;
+    text-align: center;
+  }
+  .as-bulk-id-list {
+    display: grid;
+    gap: 7px;
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 7px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #f8fafc;
+  }
+  .as-bulk-id-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(120px, 150px);
+    gap: 8px;
+    align-items: center;
+  }
+  .as-bulk-id-name {
+    font-size: 12px;
+    color: #0f172a;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .as-bulk-id-current {
+    font-size: 10.5px;
+    color: #64748b;
+    font-weight: 600;
+    margin-left: 4px;
+  }
+  .as-bulk-id-input {
+    width: 100%;
+    height: 32px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: 0 8px;
+    background: #fff;
+    font-size: 12px;
+    font-family: inherit;
+  }
+  .as-bulk-id-input:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+  .as-bulk-id-input.is-error {
+    border-color: #dc2626;
+    background: #fef2f2;
+    color: #991b1b;
+  }
+  .as-bulk-id-error {
+    display: none;
+    font-size: 10px;
+    color: #b91c1c;
+    font-weight: 700;
+    margin-top: 3px;
+  }
+
+  .as-bulk-intro {
+    font-size: 11.5px;
+    color: var(--muted);
+    margin: 0 0 12px;
+    line-height: 1.35;
+  }
+  .as-bulk-id-error.visible { display: block; }
 
   /* ── Bulk summary pill ───────────────────── */
   .as-bulk-pill {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 14px;
+    gap: 8px;
+    padding: 8px 12px;
     background: #f8fafc;
     border: 1px solid var(--border);
     border-radius: 8px;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
   }
   .as-bulk-pill-num {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 32px; height: 32px;
-    padding: 0 8px;
+    min-width: 30px; height: 30px;
+    padding: 0 6px;
     border-radius: 999px;
     background: var(--primary);
     color: #fff;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 800;
     flex-shrink: 0;
   }
-  .as-bulk-pill-text { font-size: 13px; color: #374151; font-weight: 600; }
+  .as-bulk-pill-text { font-size: 12px; color: #374151; font-weight: 600; }
+
+  @media (max-width: 768px) {
+    .as-modal-overlay {
+      padding: calc(var(--as-header-offset, 70px) + env(safe-area-inset-top)) 8px 12px;
+    }
+    .as-modal {
+      border-radius: 12px;
+    }
+    .as-modal-header {
+      padding: 14px 14px 10px;
+    }
+    .as-modal-header h2 {
+      font-size: 14px;
+    }
+    .as-modal-body {
+      padding: 12px;
+      max-height: calc(100dvh - var(--as-header-offset, 70px) - 148px - env(safe-area-inset-top));
+    }
+    .as-modal-footer {
+      padding: 10px 12px;
+    }
+    .as-modal-cancel,
+    .as-modal-save {
+      height: 34px;
+      font-size: 11.5px;
+      padding: 0 12px;
+    }
+    #asBulkStep1 .as-modal-cancel,
+    #asBulkStep1 .as-modal-save,
+    #asBulkStep2 .as-modal-cancel,
+    #asBulkStep2 .as-modal-save {
+      font-size: 11px;
+      padding: 0 8px;
+      gap: 4px;
+    }
+    .as-bulk-id-row {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 6px;
+    }
+    .as-bulk-id-name {
+      white-space: normal;
+      line-height: 1.3;
+    }
+    .as-bulk-id-list {
+      max-height: 42vh;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .as-modal-header h2 {
+      font-size: 13px;
+    }
+    .as-bulk-pill {
+      padding: 7px 10px;
+      gap: 7px;
+    }
+    .as-bulk-pill-num {
+      min-width: 28px;
+      height: 28px;
+      font-size: 11px;
+    }
+    .as-bulk-pill-text {
+      font-size: 11px;
+    }
+    .as-bulk-intro,
+    .as-modal-hint {
+      font-size: 10.5px;
+    }
+    .as-bfield-row label {
+      font-size: 11.5px;
+    }
+    .as-bfield-select,
+    .as-bulk-id-input {
+      font-size: 11.5px;
+    }
+    #asBulkStep1 .as-modal-cancel,
+    #asBulkStep1 .as-modal-save,
+    #asBulkStep2 .as-modal-cancel,
+    #asBulkStep2 .as-modal-save {
+      font-size: 10px;
+      padding: 0 6px;
+    }
+  }
 
   /* ── Confirm step banner ─────────────────────────────── */
   .as-confirm-banner {
@@ -865,9 +1244,8 @@
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
         Edit Selected
       </button>
-      <button class="as-bulk-btn as-bulk-btn-clear" id="asBulkClearBtn">
+      <button class="as-bulk-btn as-bulk-btn-clear icon-only" id="asBulkClearBtn" aria-label="Clear selection" title="Clear selection">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-        Clear
       </button>
     </div>
   </div>
@@ -896,12 +1274,16 @@
           const initials = (s.first_name[0] || '') + (s.last_name[0] || '');
           const detailsHref = `/common/studentDetails?studentId=${s.student_id}${termId ? '&termId='+termId : ''}${s.class_id ? '&classId='+s.class_id : ''}`;
           const isGrad = s.graduated === true || s.graduated === 'true';
+          const displayIdText = (studentIdSettings && studentIdSettings.use_custom_student_id) ? s.display_student_id : ('#' + s.display_student_id);
         %>
         <tr
           data-id="<%= s.student_id %>"
           data-name="<%= (s.first_name + ' ' + s.last_name).toLowerCase() %>"
+          data-search-id="<%= String(s.display_student_id || '').toLowerCase() %>"
           data-class-id="<%= s.class_id || '' %>"
           data-gender="<%= s.gender || '' %>"
+          data-school-year-id="<%= s.last_school_year_id || '' %>"
+          data-display-id="<%= s.display_student_id || '' %>"
           data-status="<%= isGrad ? 'graduated' : 'active' %>">
 
           <td style="padding:11px 6px 11px 14px;">
@@ -919,24 +1301,16 @@
             </div>
           </td>
 
-          <td><span class="as-id-badge">#<%= s.student_id %></span></td>
+          <td><span class="as-id-badge js-student-display-id"><%= displayIdText %></span></td>
 
           <td>
-            <% if (s.class_name) { %>
-            <%= s.class_name %>
-            <% } else { %>
-            <span class="as-class-blank">—</span>
-            <% } %>
+            <span class="js-student-class-value <%= s.class_name ? '' : 'as-class-blank' %>"><%= s.class_name || '—' %></span>
           </td>
 
           <td><%= s.gender || '—' %></td>
 
           <td>
-            <% if (s.last_school_year) { %>
-            <span class="as-syear-curr"><%= s.last_school_year %><% if (s.in_current_year) { %><span class="as-syear-label">Current</span><% } %></span>
-            <% } else { %>
-            <span class="as-syear-none">—</span>
-            <% } %>
+            <span class="js-student-year-value <%= s.last_school_year ? 'as-syear-curr' : 'as-syear-none' %>"><% if (s.last_school_year) { %><%= s.last_school_year %><% if (s.in_current_year) { %><span class="as-syear-label" title="Current year" aria-label="Current year"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></span><% } %><% } else { %>—<% } %></span>
           </td>
 
           <td>
@@ -948,20 +1322,24 @@
 
           <td>
             <div class="as-actions">
-              <a href="<%= detailsHref %>" class="as-btn as-btn-view" title="View details">
+              <a href="<%= detailsHref %>" class="as-btn as-btn-view icon-only" title="View student" aria-label="View student">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                View
               </a>
-              <button class="as-btn as-btn-edit js-edit-class"
+              <button class="as-btn as-btn-edit js-edit-class icon-only"
                 data-student-id="<%= s.student_id %>"
                 data-student-name="<%= s.first_name %> <%= s.last_name %>"
                 data-class-id="<%= s.class_id || '' %>"
                 data-class-name="<%= s.class_name || '' %>"
+                data-school-year-id="<%= s.last_school_year_id || '' %>"
+                data-school-year-label="<%= s.last_school_year || '' %>"
+                data-year-current="<%= s.in_current_year ? 'true' : 'false' %>"
+                data-display-id="<%= s.display_student_id || '' %>"
+                data-editable-id="<%= s.editable_student_id || '' %>"
                 data-image="<%= (s.image_url && s.image_url !== 'profilePlaceholder.png') ? s.image_url : '' %>"
                 data-initials="<%= initials %>"
-                title="Change class">
+                title="Edit student"
+                aria-label="Edit student">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                Edit
               </button>
             </div>
           </td>
@@ -976,12 +1354,16 @@
         const initials = (s.first_name[0] || '') + (s.last_name[0] || '');
         const detailsHref = `/common/studentDetails?studentId=${s.student_id}${termId ? '&termId='+termId : ''}${s.class_id ? '&classId='+s.class_id : ''}`;
         const isGrad = s.graduated === true || s.graduated === 'true';
+        const displayIdText = (studentIdSettings && studentIdSettings.use_custom_student_id) ? s.display_student_id : ('#' + s.display_student_id);
       %>
       <div class="as-card"
         data-id="<%= s.student_id %>"
         data-name="<%= (s.first_name + ' ' + s.last_name).toLowerCase() %>"
+        data-search-id="<%= String(s.display_student_id || '').toLowerCase() %>"
         data-class-id="<%= s.class_id || '' %>"
         data-gender="<%= s.gender || '' %>"
+        data-school-year-id="<%= s.last_school_year_id || '' %>"
+        data-display-id="<%= s.display_student_id || '' %>"
         data-status="<%= isGrad ? 'graduated' : 'active' %>">
         <div class="as-card-top">
           <input type="checkbox" class="as-cb as-card-cb" data-id="<%= s.student_id %>" style="margin-right:2px;">
@@ -992,7 +1374,7 @@
           <% } %>
           <div class="as-card-info">
             <a href="<%= detailsHref %>" class="as-card-name"><%= s.first_name %> <%= s.last_name %></a>
-            <div class="as-card-sub">ID: #<%= s.student_id %> &nbsp;·&nbsp; <%= s.gender || 'N/A' %></div>
+            <div class="as-card-sub">ID: <span class="js-student-display-id"><%= displayIdText %></span> &nbsp;·&nbsp; <%= s.gender || 'N/A' %></div>
           </div>
           <span class="as-badge <%= isGrad ? 'graduated' : 'active' %>" style="flex-shrink:0">
             <span class="as-badge-dot"></span>
@@ -1002,27 +1384,32 @@
         <div class="as-card-meta">
           <div class="as-card-meta-item">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-            <%= s.class_name || 'No class' %>
+            <span class="js-student-class-value"><%= s.class_name || 'No class' %></span>
           </div>
           <div class="as-card-meta-item">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-            <% if (s.last_school_year) { %><%= s.last_school_year %><% if (s.in_current_year) { %> <span class="as-syear-label">Current</span><% } %><% } else { %>No year<% } %>
+            <span class="js-student-year-value"><% if (s.last_school_year) { %><%= s.last_school_year %><% if (s.in_current_year) { %> <span class="as-syear-label" title="Current year" aria-label="Current year"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></span><% } %><% } else { %>No year<% } %></span>
           </div>
         </div>
         <div class="as-card-actions">
-          <a href="<%= detailsHref %>" class="as-btn as-btn-view">
+          <a href="<%= detailsHref %>" class="as-btn as-btn-view icon-only" title="View student" aria-label="View student">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-            View Details
           </a>
-          <button class="as-btn as-btn-edit js-edit-class"
+          <button class="as-btn as-btn-edit js-edit-class icon-only"
             data-student-id="<%= s.student_id %>"
             data-student-name="<%= s.first_name %> <%= s.last_name %>"
             data-class-id="<%= s.class_id || '' %>"
             data-class-name="<%= s.class_name || '' %>"
+            data-school-year-id="<%= s.last_school_year_id || '' %>"
+            data-school-year-label="<%= s.last_school_year || '' %>"
+            data-year-current="<%= s.in_current_year ? 'true' : 'false' %>"
+            data-display-id="<%= s.display_student_id || '' %>"
+            data-editable-id="<%= s.editable_student_id || '' %>"
             data-image="<%= (s.image_url && s.image_url !== 'profilePlaceholder.png') ? s.image_url : '' %>"
-            data-initials="<%= initials %>">
+            data-initials="<%= initials %>"
+            title="Edit student"
+            aria-label="Edit student">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-            Edit Class
           </button>
         </div>
       </div>
@@ -1037,34 +1424,80 @@
     </div>
 
   </div><!-- end .as-table-wrap -->
+
+  <div class="as-pagebar" id="asPageBar" aria-label="Students pagination">
+    <div class="as-pagebar-left">
+      <span class="as-pagebar-label">Show per page</span>
+      <select class="as-pagebar-select" id="asPageSizeSelect">
+        <option value="50" selected>50</option>
+        <option value="70">70</option>
+        <option value="100">100</option>
+      </select>
+    </div>
+    <div class="as-pagebar-right">
+      <button type="button" class="as-page-btn" id="asPagePrev">Prev</button>
+      <span class="as-page-info" id="asPageInfo">1/1</span>
+      <button type="button" class="as-page-btn" id="asPageNext">Next</button>
+    </div>
+  </div>
 </div><!-- end .as-wrapper -->
 
-<!-- ── Edit Class Modal (single student) ─────────────────── -->
+<!-- ── Edit Student Modal (single student) ───────────────── -->
 <div class="as-modal-overlay" id="asModalOverlay" role="dialog" aria-modal="true" aria-labelledby="asModalTitle">
   <div class="as-modal">
     <div class="as-modal-header">
-      <h2 id="asModalTitle">Change Class</h2>
+      <h2 id="asModalTitle">Edit Student</h2>
       <button class="as-modal-close" id="asModalClose" aria-label="Close">&times;</button>
     </div>
 
-    <!-- Step 1: Pick class -->
+    <!-- Step 1: Pick changes -->
     <div id="asModalStep1">
       <div class="as-modal-body">
         <div class="as-modal-student-info" id="asModalStudentInfo"></div>
-        <label class="as-modal-label" for="asModalClassSelect">Assign to Class</label>
-        <select class="as-modal-select" id="asModalClassSelect">
-          <option value="">— Select class —</option>
-          <% classes.forEach(cls => { %>
-          <option value="<%= cls.class_id %>"><%= cls.class_name %></option>
-          <% }); %>
-        </select>
+        <div class="as-modal-field">
+          <label class="as-modal-label" for="asModalClassSelect">Assign to Class</label>
+          <select class="as-modal-select" id="asModalClassSelect">
+            <option value="">— Select class —</option>
+            <% classes.forEach(cls => { %>
+            <option value="<%= cls.class_id %>"><%= cls.class_name %></option>
+            <% }); %>
+          </select>
+        </div>
+        <div class="as-modal-field">
+          <label class="as-modal-label" for="asModalYearSelect">Assign School Year</label>
+          <select class="as-modal-select" id="asModalYearSelect">
+            <option value="">— Select school year —</option>
+            <% schoolYears.forEach(sy => { %>
+            <option value="<%= sy.id %>"><%= sy.year_label %><% if (sy.current) { %> (Current)<% } %></option>
+            <% }); %>
+          </select>
+        </div>
+        <% if (studentIdSettings && studentIdSettings.use_custom_student_id) { %>
+        <div class="as-modal-field">
+          <label class="as-modal-label" for="asModalStudentIdInput">Student ID</label>
+          <div class="as-modal-id-row">
+            <% if (studentIdSettings.student_id_prefix) { %>
+            <span class="as-modal-id-prefix">ID: <strong><%= studentIdSettings.student_id_prefix %></strong></span>
+            <% } %>
+            <input type="text"
+              class="as-modal-input as-modal-id-input"
+              id="asModalStudentIdInput"
+              inputmode="numeric"
+              maxlength="10"
+              placeholder="<%= String(nextAvailableStudentIdNumber || 1).padStart(3, '0') %>"
+              autocomplete="off">
+          </div>
+          <div class="as-modal-hint">Numbers only. Clear this field to remove a manual override and fall back to the system ID.</div>
+          <div class="as-modal-inline-error" id="asModalStudentIdMsg">INUSED</div>
+        </div>
+        <% } %>
         <div class="as-modal-msg" id="asModalMsg"></div>
       </div>
       <div class="as-modal-footer">
         <button class="as-modal-cancel" id="asModalCancel">Cancel</button>
         <button class="as-modal-save" id="asModalNext">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" style="width:14px;height:14px"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-          Review Change
+          Review Changes
         </button>
       </div>
     </div>
@@ -1077,7 +1510,7 @@
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" style="width:22px;height:22px"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z"/></svg>
           </div>
           <div class="as-confirm-text">
-            <div class="as-confirm-title">Confirm Class Change</div>
+            <div class="as-confirm-title">Review Student Changes</div>
             <div class="as-confirm-detail" id="asConfirmDetail"></div>
           </div>
         </div>
@@ -1100,7 +1533,7 @@
 
 <!-- ── Bulk Edit Modal ────────────────────────────────────── -->
 <div class="as-modal-overlay" id="asBulkOverlay" role="dialog" aria-modal="true" aria-labelledby="asBulkModalTitle">
-  <div class="as-modal" style="max-width:480px;">
+  <div class="as-modal as-modal-bulk">
     <div class="as-modal-header">
       <h2 id="asBulkModalTitle">Bulk Edit Students</h2>
       <button class="as-modal-close" id="asBulkClose" aria-label="Close">&times;</button>
@@ -1113,7 +1546,7 @@
           <div class="as-bulk-pill-num" id="asBulkPillNum">0</div>
           <div class="as-bulk-pill-text" id="asBulkPillText">students selected</div>
         </div>
-        <p style="font-size:12.5px;color:var(--muted);margin:0 0 14px;">Tick the fields you want to change. Unticked fields stay as-is.</p>
+        <p class="as-bulk-intro">Choose what to update. Unchecked fields stay the same.</p>
         <div class="as-bfield">
           <div class="as-bfield-row">
             <input type="checkbox" id="asBulkChkClass" class="as-bulk-field-chk">
@@ -1138,6 +1571,19 @@
             <% }); %>
           </select>
         </div>
+        <% if (studentIdSettings && studentIdSettings.use_custom_student_id) { %>
+        <div class="as-bfield">
+          <div class="as-bfield-row">
+            <input type="checkbox" id="asBulkChkStudentId" class="as-bulk-field-chk">
+            <label for="asBulkChkStudentId">Edit Student IDs</label>
+          </div>
+          <input type="text" class="as-bfield-select" id="asBulkStudentIdSearch" placeholder="Search selected students by name..." style="display:none;" autocomplete="off">
+          <div class="as-modal-hint" style="margin-top:2px;">
+            Numbers only. Leave blank to remove manual ID.
+          </div>
+          <div class="as-bulk-id-list" id="asBulkStudentIdList" style="display:none;"></div>
+        </div>
+        <% } %>
         <div class="as-modal-msg" id="asBulkMsg"></div>
       </div>
       <div class="as-modal-footer">
@@ -1182,6 +1628,11 @@
 (function () {
   'use strict';
 
+  var studentIdConfig = {
+    enabled: <%- JSON.stringify(Boolean(studentIdSettings && studentIdSettings.use_custom_student_id)) %>,
+    prefix: <%- JSON.stringify((studentIdSettings && studentIdSettings.student_id_prefix) || '') %>,
+  };
+
   /* ── Helpers ─────────────────────────────────────────── */
   function escHtml(str) {
     return String(str || '')
@@ -1190,6 +1641,121 @@
   }
   function pill(text, type) {
     return '<span class="as-change-pill ' + type + '">' + escHtml(text) + '</span>';
+  }
+  function normalizeNumericStudentIdValue(value) {
+    return String(value || '').replace(/\D/g, '').slice(0, 10);
+  }
+  function buildDisplayStudentId(studentIdValue, systemStudentId) {
+    if (!studentIdConfig.enabled) {
+      return '#' + String(systemStudentId || '');
+    }
+    var numericValue = normalizeNumericStudentIdValue(studentIdValue);
+    if (numericValue) {
+      return studentIdConfig.prefix + numericValue;
+    }
+    var systemIdText = String(systemStudentId || '').trim();
+    if (!systemIdText) return studentIdConfig.prefix;
+    return studentIdConfig.prefix + systemIdText.padStart(Math.max(3, systemIdText.length), '0');
+  }
+  function setStudentDisplayId(studentId, displayId, editableId) {
+    var row = document.querySelector('#asTableBody tr[data-id="' + studentId + '"]');
+    var card = document.querySelector('#asCardList .as-card[data-id="' + studentId + '"]');
+    [row, card].forEach(function(node) {
+      if (!node) return;
+      node.dataset.searchId = String(displayId || '').toLowerCase();
+      node.dataset.displayId = displayId || '';
+      var badge = node.querySelector('.js-student-display-id');
+      if (badge) badge.textContent = displayId || '';
+      var editBtn = node.querySelector('.js-edit-class');
+      if (editBtn) {
+        editBtn.dataset.displayId = displayId || '';
+        if (editableId !== undefined) {
+          editBtn.dataset.editableId = editableId || '';
+        }
+      }
+    });
+  }
+  function setStudentClassValue(studentId, classId, className) {
+    var row = document.querySelector('#asTableBody tr[data-id="' + studentId + '"]');
+    var card = document.querySelector('#asCardList .as-card[data-id="' + studentId + '"]');
+    if (row) {
+      row.dataset.classId = classId || '';
+      var rowValue = row.querySelector('.js-student-class-value');
+      if (rowValue) {
+        rowValue.textContent = className || '—';
+        rowValue.classList.toggle('as-class-blank', !className);
+      }
+      var rowBtn = row.querySelector('.js-edit-class');
+      if (rowBtn) {
+        rowBtn.dataset.classId = classId || '';
+        rowBtn.dataset.className = className || '';
+      }
+    }
+    if (card) {
+      card.dataset.classId = classId || '';
+      var cardValue = card.querySelector('.js-student-class-value');
+      if (cardValue) {
+        cardValue.textContent = className || 'No class';
+      }
+      var cardBtn = card.querySelector('.js-edit-class');
+      if (cardBtn) {
+        cardBtn.dataset.classId = classId || '';
+        cardBtn.dataset.className = className || '';
+      }
+    }
+  }
+  function setStudentYearValue(studentId, schoolYearId, yearLabel, yearIsCurrent) {
+    var row = document.querySelector('#asTableBody tr[data-id="' + studentId + '"]');
+    var card = document.querySelector('#asCardList .as-card[data-id="' + studentId + '"]');
+    if (row) {
+      row.dataset.schoolYearId = schoolYearId || '';
+      var rowValue = row.querySelector('.js-student-year-value');
+      if (rowValue) {
+        rowValue.className = 'js-student-year-value ' + (yearLabel ? 'as-syear-curr' : 'as-syear-none');
+        rowValue.innerHTML = yearLabel
+          ? escHtml(yearLabel) + (yearIsCurrent ? '<span class="as-syear-label" title="Current year" aria-label="Current year"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></span>' : '')
+          : '—';
+      }
+      var rowBtn = row.querySelector('.js-edit-class');
+      if (rowBtn) {
+        rowBtn.dataset.schoolYearId = schoolYearId || '';
+        rowBtn.dataset.schoolYearLabel = yearLabel || '';
+        rowBtn.dataset.yearCurrent = yearIsCurrent ? 'true' : 'false';
+      }
+    }
+    if (card) {
+      card.dataset.schoolYearId = schoolYearId || '';
+      var cardValue = card.querySelector('.js-student-year-value');
+      if (cardValue) {
+        cardValue.innerHTML = yearLabel
+          ? escHtml(yearLabel) + (yearIsCurrent ? ' <span class="as-syear-label" title="Current year" aria-label="Current year"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></span>' : '')
+          : 'No year';
+      }
+      var cardBtn = card.querySelector('.js-edit-class');
+      if (cardBtn) {
+        cardBtn.dataset.schoolYearId = schoolYearId || '';
+        cardBtn.dataset.schoolYearLabel = yearLabel || '';
+        cardBtn.dataset.yearCurrent = yearIsCurrent ? 'true' : 'false';
+      }
+    }
+  }
+
+  function updateModalHeaderOffset() {
+    var selectors = ['header', '#header', '.header', '.navbar', '.top-nav', '.main-header'];
+    var maxBottom = 0;
+    selectors.forEach(function(selector) {
+      var el = document.querySelector(selector);
+      if (!el) return;
+      var style = window.getComputedStyle(el);
+      if (style.position !== 'fixed' && style.position !== 'sticky') return;
+      var rect = el.getBoundingClientRect();
+      if (!rect || rect.height <= 0) return;
+      if (rect.bottom > maxBottom) maxBottom = rect.bottom;
+    });
+
+    // Keep a stable minimum offset so modal content is never pinned to the top edge.
+    var offset = Math.max(64, Math.ceil(maxBottom) + 8);
+    document.documentElement.style.setProperty('--as-header-offset', String(offset) + 'px');
   }
 
   /* ── Filters ─────────────────────────────────────────── */
@@ -1201,6 +1767,11 @@
   var resetBtn     = document.getElementById('asFilterReset');
   var visibleCount = document.getElementById('asVisibleCount');
   var emptyState   = document.getElementById('asEmpty');
+  var pageSizeSelect = document.getElementById('asPageSizeSelect');
+  var pagePrevBtn = document.getElementById('asPagePrev');
+  var pageNextBtn = document.getElementById('asPageNext');
+  var pageInfo = document.getElementById('asPageInfo');
+  var pagination = { pageSize: 50, currentPage: 1, totalPages: 1 };
 
   // Mobile filter toggle
   var filterToggle = document.getElementById('asFilterToggle');
@@ -1215,32 +1786,80 @@
   function getVisibleRows()  { return Array.from(document.querySelectorAll('#asTableBody tr:not(.as-row-hidden)')); }
   function getVisibleCards() { return Array.from(document.querySelectorAll('#asCardList .as-card:not(.as-row-hidden)')); }
 
-  function applyFilters() {
+  function renderCurrentPage(filteredRows) {
+    var total = filteredRows.length;
+    pagination.totalPages = Math.max(1, Math.ceil(total / pagination.pageSize));
+    if (pagination.currentPage > pagination.totalPages) pagination.currentPage = pagination.totalPages;
+    if (pagination.currentPage < 1) pagination.currentPage = 1;
+
+    var start = (pagination.currentPage - 1) * pagination.pageSize;
+    var end = start + pagination.pageSize;
+    var pageRows = filteredRows.slice(start, end);
+    var pageIds = new Set(pageRows.map(function(tr){ return String(tr.dataset.id || ''); }));
+
+    Array.from(document.querySelectorAll('#asTableBody tr')).forEach(function(tr){
+      tr.classList.toggle('as-row-hidden', !pageIds.has(String(tr.dataset.id || '')));
+    });
+    Array.from(document.querySelectorAll('#asCardList .as-card')).forEach(function(card){
+      card.classList.toggle('as-row-hidden', !pageIds.has(String(card.dataset.id || '')));
+    });
+
+    var pageCount = pageRows.length;
+    visibleCount.textContent = pageCount;
+    emptyState.style.display = total === 0 ? 'block' : 'none';
+
+    if (pageInfo) pageInfo.textContent = pagination.currentPage + '/' + pagination.totalPages;
+    if (pagePrevBtn) pagePrevBtn.disabled = pagination.currentPage <= 1 || total === 0;
+    if (pageNextBtn) pageNextBtn.disabled = pagination.currentPage >= pagination.totalPages || total === 0;
+  }
+
+  function applyFilters(resetPage) {
+    if (resetPage === undefined) resetPage = true;
+    if (resetPage) pagination.currentPage = 1;
+
     var s = filters.search.trim().toLowerCase(), clsId = filters.classId,
-        gen = filters.gender.toLowerCase(), stat = filters.status, visible = 0;
+        gen = filters.gender.toLowerCase(), stat = filters.status;
     function match(el) {
-      if (s && (el.dataset.name||'').indexOf(s)===-1 && String(el.dataset.id||'').indexOf(s)===-1) return false;
+      if (s && (el.dataset.name||'').indexOf(s)===-1 && (el.dataset.searchId||'').indexOf(s)===-1 && String(el.dataset.id||'').indexOf(s)===-1) return false;
       if (clsId && (el.dataset.classId||'') !== clsId) return false;
       if (gen   && (el.dataset.gender||'').toLowerCase() !== gen)  return false;
       if (stat  && (el.dataset.status||'') !== stat) return false;
       return true;
     }
-    document.querySelectorAll('#asTableBody tr').forEach(function(tr){
-      var show = match(tr); tr.classList.toggle('as-row-hidden',!show); if(show) visible++;
-    });
-    document.querySelectorAll('#asCardList .as-card').forEach(function(c){ c.classList.toggle('as-row-hidden',!match(c)); });
-    visibleCount.textContent = visible;
-    emptyState.style.display = visible===0 ? 'block' : 'none';
+
+    var filteredRows = Array.from(document.querySelectorAll('#asTableBody tr')).filter(function(tr){ return match(tr); });
+    renderCurrentPage(filteredRows);
     syncSelectAll();
   }
-  searchInput.addEventListener('input',   function(){ filters.search  = this.value; applyFilters(); });
-  filterClass.addEventListener('change',  function(){ filters.classId = this.value; applyFilters(); });
-  filterGender.addEventListener('change', function(){ filters.gender  = this.value; applyFilters(); });
-  filterStatus.addEventListener('change', function(){ filters.status  = this.value; applyFilters(); });
+  searchInput.addEventListener('input',   function(){ filters.search  = this.value; applyFilters(true); });
+  filterClass.addEventListener('change',  function(){ filters.classId = this.value; applyFilters(true); });
+  filterGender.addEventListener('change', function(){ filters.gender  = this.value; applyFilters(true); });
+  filterStatus.addEventListener('change', function(){ filters.status  = this.value; applyFilters(true); });
   resetBtn.addEventListener('click', function(){
     searchInput.value=filterClass.value=filterGender.value=filterStatus.value='';
-    filters={search:'',classId:'',gender:'',status:''}; applyFilters();
+    filters={search:'',classId:'',gender:'',status:''}; applyFilters(true);
   });
+  if (pageSizeSelect) {
+    pageSizeSelect.addEventListener('change', function() {
+      var parsed = parseInt(this.value, 10);
+      pagination.pageSize = Number.isInteger(parsed) && parsed > 0 ? parsed : 50;
+      applyFilters(true);
+    });
+  }
+  if (pagePrevBtn) {
+    pagePrevBtn.addEventListener('click', function() {
+      if (pagination.currentPage <= 1) return;
+      pagination.currentPage -= 1;
+      applyFilters(false);
+    });
+  }
+  if (pageNextBtn) {
+    pageNextBtn.addEventListener('click', function() {
+      if (pagination.currentPage >= pagination.totalPages) return;
+      pagination.currentPage += 1;
+      applyFilters(false);
+    });
+  }
 
   /* ── Selection ───────────────────────────────────────── */
   var selectedIds = new Set();
@@ -1311,6 +1930,9 @@
   var modalBack   = document.getElementById('asModalBack');
   var modalSave   = document.getElementById('asModalSave');
   var modalSelect = document.getElementById('asModalClassSelect');
+  var modalYearSelect = document.getElementById('asModalYearSelect');
+  var modalStudentIdInput = document.getElementById('asModalStudentIdInput');
+  var modalStudentIdMsg = document.getElementById('asModalStudentIdMsg');
   var modalMsg    = document.getElementById('asModalMsg');
   var modalMsg2   = document.getElementById('asModalMsg2');
   var modalInfo   = document.getElementById('asModalStudentInfo');
@@ -1318,13 +1940,71 @@
   var step2       = document.getElementById('asModalStep2');
   var confirmDetail = document.getElementById('asConfirmDetail');
   var changeArrow   = document.getElementById('asChangeArrow');
-  var _sid=null, _row=null, _card=null, _oldClassName='', _oldClassId='';
+  var _sid=null, _row=null, _card=null, _oldClassName='', _oldClassId='', _oldSchoolYearId='', _oldSchoolYearLabel='', _oldDisplayId='', _oldEditableId='', _studentIdToken=0, _studentIdTimer=null, _carryExistingSubjects=null, _carryExistingSubjectsClassId='';
+
+  function clearStudentIdInlineState() {
+    if (!modalStudentIdInput || !modalStudentIdMsg) return;
+    modalStudentIdInput.classList.remove('is-error');
+    modalStudentIdMsg.classList.remove('visible');
+  }
+  function checkStudentIdAvailability() {
+    if (!modalStudentIdInput || !_sid) return;
+    var currentValue = normalizeNumericStudentIdValue(modalStudentIdInput.value);
+    modalStudentIdInput.value = currentValue;
+    clearTimeout(_studentIdTimer);
+
+    if (!currentValue || currentValue === _oldEditableId) {
+      clearStudentIdInlineState();
+      return;
+    }
+
+    _studentIdTimer = setTimeout(function() {
+      var token = String(++_studentIdToken);
+      modalStudentIdInput.dataset.requestToken = token;
+      fetch('/common/check-student-id?id=' + encodeURIComponent(studentIdConfig.prefix + currentValue) + '&num=' + encodeURIComponent(currentValue) + '&exclude=' + encodeURIComponent(_sid))
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
+          if (modalStudentIdInput.dataset.requestToken !== token) return;
+          var taken = !!(data && data.taken);
+          modalStudentIdInput.classList.toggle('is-error', taken);
+          modalStudentIdMsg.classList.toggle('visible', taken);
+        })
+        .catch(function() {
+          if (modalStudentIdInput.dataset.requestToken !== token) return;
+          clearStudentIdInlineState();
+        });
+    }, 250);
+  }
+
+  function askSubjectCarryoverPreference(targetLabel) {
+    return window.confirm('Do you want ' + targetLabel + ' enrolled in the same subjects as before? Click OK for Yes or Cancel for No.');
+  }
+
+  function describeSubjectCarryoverChoice(keepExistingSubjects) {
+    return keepExistingSubjects ? 'Keep matching previous subjects' : 'Do not carry previous subjects';
+  }
+
+  function joinSubjectCarryoverMessages(data) {
+    return [data && data.subjectCarryoverMessage, data && data.subjectCarryoverWarning]
+      .filter(Boolean)
+      .join(' ');
+  }
 
   function openModal(btn) {
+    updateModalHeaderOffset();
     _sid = btn.dataset.studentId;
     var name=btn.dataset.studentName, classId=btn.dataset.classId,
-        className=btn.dataset.className, img=btn.dataset.image, initials=btn.dataset.initials;
-    _oldClassId=classId||''; _oldClassName=className||'—';
+        className=btn.dataset.className, img=btn.dataset.image, initials=btn.dataset.initials,
+        schoolYearId=btn.dataset.schoolYearId, schoolYearLabel=btn.dataset.schoolYearLabel,
+        displayId=btn.dataset.displayId, editableId=btn.dataset.editableId;
+    _oldClassId=classId||'';
+    _oldClassName=className||'—';
+    _oldSchoolYearId=schoolYearId||'';
+    _oldSchoolYearLabel=schoolYearLabel||'—';
+    _oldDisplayId=displayId||buildDisplayStudentId('', _sid);
+    _oldEditableId=editableId||'';
+    _carryExistingSubjects = null;
+    _carryExistingSubjectsClassId = '';
     _row  = document.querySelector('#asTableBody tr[data-id="'+_sid+'"]');
     _card = document.querySelector('#asCardList .as-card[data-id="'+_sid+'"]');
     var avatarHtml = img
@@ -1332,9 +2012,20 @@
       : '<div class="as-avatar-placeholder" style="width:38px;height:38px;font-size:13px">'+escHtml(initials)+'</div>';
     modalInfo.innerHTML = avatarHtml +
       '<div><div class="as-modal-student-name">'+escHtml(name)+'</div>'+
-      '<div class="as-modal-student-meta">Current class: '+escHtml(_oldClassName)+'</div></div>';
+      '<div class="as-modal-student-meta">Current ID: '+escHtml(_oldDisplayId)+' &nbsp;·&nbsp; Class: '+escHtml(_oldClassName)+' &nbsp;·&nbsp; School year: '+escHtml(_oldSchoolYearLabel)+'</div></div>';
     modalSelect.value = classId||'';
+    if (modalYearSelect) {
+      modalYearSelect.value = schoolYearId||'';
+      modalYearSelect.classList.remove('is-error');
+    }
+    if (modalStudentIdInput) {
+      modalStudentIdInput.value = editableId || '';
+      modalStudentIdInput.classList.remove('is-error');
+      clearStudentIdInlineState();
+    }
+    modalSelect.classList.remove('is-error');
     modalMsg.textContent=''; modalMsg.className='as-modal-msg';
+    modalMsg2.textContent=''; modalMsg2.className='as-modal-msg';
     modalSave.disabled=false;
     step1.style.display=''; step2.style.display='none';
     overlay.classList.add('open');
@@ -1344,15 +2035,51 @@
     overlay.classList.remove('open'); _sid=_row=_card=null;
   }
   function showStep2() {
-    var newClassId = modalSelect.value;
-    if (!newClassId) {
-      modalMsg.textContent='Please select a class.'; modalMsg.className='as-modal-msg error'; return;
+    var newClassId = modalSelect.value || '';
+    var newClassName = newClassId ? modalSelect.options[modalSelect.selectedIndex].text : '—';
+    var newSchoolYearId = modalYearSelect ? (modalYearSelect.value || '') : '';
+    var newSchoolYearLabel = newSchoolYearId && modalYearSelect
+      ? modalYearSelect.options[modalYearSelect.selectedIndex].text.replace(/\s*\(Current\)\s*$/,'')
+      : '—';
+    var newStudentIdValue = modalStudentIdInput ? normalizeNumericStudentIdValue(modalStudentIdInput.value) : '';
+    if (modalStudentIdInput) modalStudentIdInput.value = newStudentIdValue;
+    var hasClassChange = newClassId !== _oldClassId;
+    var hasYearChange = newSchoolYearId !== _oldSchoolYearId;
+    var hasIdChange = !!modalStudentIdInput && newStudentIdValue !== _oldEditableId;
+
+    if (!hasClassChange && !hasYearChange && !hasIdChange) {
+      modalMsg.textContent='Make at least one change before saving.'; modalMsg.className='as-modal-msg error'; return;
     }
-    var newClassName = modalSelect.options[modalSelect.selectedIndex].text;
-    confirmDetail.textContent = 'You are about to move this student to a new class. This will take effect immediately across all class rosters.';
-    changeArrow.innerHTML =
-      '<div class="as-change-row"><span class="as-change-label">From class:</span>'+pill(_oldClassName,'from')+'</div>'+
-      '<div class="as-change-row"><span class="as-change-label">To class:</span>'+pill(newClassName,'to')+'</div>';
+    if (modalStudentIdInput && modalStudentIdInput.classList.contains('is-error')) {
+      modalMsg.textContent='This student ID is already in use.'; modalMsg.className='as-modal-msg error'; return;
+    }
+    if (hasClassChange && _carryExistingSubjectsClassId !== newClassId) {
+      _carryExistingSubjects = askSubjectCarryoverPreference('this student');
+      _carryExistingSubjectsClassId = newClassId;
+    }
+
+    var summary = [];
+    if (hasClassChange) {
+      summary.push(
+        '<div class="as-change-row"><span class="as-change-label">Class:</span>'+pill(_oldClassName,'from')+'<span style="color:#94a3b8;">→</span>'+pill(newClassName,'to')+'</div>'
+      );
+      summary.push(
+        '<div class="as-change-row"><span class="as-change-label">Subjects:</span>'+pill(describeSubjectCarryoverChoice(!!_carryExistingSubjects), _carryExistingSubjects ? 'to' : 'from')+'</div>'
+      );
+    }
+    if (hasYearChange) {
+      summary.push(
+        '<div class="as-change-row"><span class="as-change-label">School year:</span>'+pill(_oldSchoolYearLabel,'from')+'<span style="color:#94a3b8;">→</span>'+pill(newSchoolYearLabel,'year')+'</div>'
+      );
+    }
+    if (hasIdChange) {
+      summary.push(
+        '<div class="as-change-row"><span class="as-change-label">Student ID:</span>'+pill(_oldDisplayId,'from')+'<span style="color:#94a3b8;">→</span>'+pill(buildDisplayStudentId(newStudentIdValue, _sid),'to')+'</div>'
+      );
+    }
+
+    confirmDetail.textContent = 'Review the changes below before saving them to this student.';
+    changeArrow.innerHTML = summary.join('');
     modalMsg2.textContent=''; modalMsg2.className='as-modal-msg';
     modalSave.disabled=false;
     step1.style.display='none'; step2.style.display='';
@@ -1364,31 +2091,53 @@
   modalBack.addEventListener('click', function(){ step2.style.display='none'; step1.style.display=''; });
 
   modalSave.addEventListener('click', function(){
-    var newClassId = modalSelect.value;
+    var newClassId = modalSelect.value || '';
+    var newSchoolYearId = modalYearSelect ? (modalYearSelect.value || '') : '';
+    var newStudentIdValue = modalStudentIdInput ? normalizeNumericStudentIdValue(modalStudentIdInput.value) : '';
+    var hasClassChange = newClassId !== _oldClassId;
+    var hasYearChange = !!newSchoolYearId && newSchoolYearId !== _oldSchoolYearId;
+    var hasIdChange = !!modalStudentIdInput && newStudentIdValue !== _oldEditableId;
+
+    if (!hasClassChange && !hasYearChange && !hasIdChange) {
+      modalMsg2.textContent='No changes to save.'; modalMsg2.className='as-modal-msg error'; return;
+    }
+
     modalSave.disabled=true;
     modalMsg2.textContent='Saving…'; modalMsg2.className='as-modal-msg';
-    fetch('/common/students/'+_sid+'/change-class', {
+    var payload = {};
+    if (hasClassChange) payload.classId = newClassId;
+    if (hasYearChange) payload.schoolYearId = newSchoolYearId;
+    if (hasIdChange) payload.customStudentId = newStudentIdValue;
+    if (hasClassChange) payload.keepExistingSubjects = !!_carryExistingSubjects;
+
+    fetch('/common/students/'+_sid+'/update-details', {
       method:'POST',
       headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},
       credentials:'same-origin',
-      body:JSON.stringify({classId:newClassId})
+      body:JSON.stringify(payload)
     }).then(function(r){ return r.json(); }).then(function(data){
       if (data.success) {
-        var n = data.className;
-        if (_row) {
-          _row.dataset.classId=newClassId;
-          var cells=_row.cells; if(cells[3]) cells[3].textContent=n;
-          var eb=_row.querySelector('.js-edit-class'); if(eb){eb.dataset.classId=newClassId;eb.dataset.className=n;}
+        if (hasClassChange) {
+          setStudentClassValue(_sid, data.classId || newClassId, data.className || '');
         }
-        if (_card) {
-          _card.dataset.classId=newClassId;
-          var mi=_card.querySelector('.as-card-meta-item:first-child'); if(mi) mi.lastChild.textContent=' '+n;
-          var eb=_card.querySelector('.js-edit-class'); if(eb){eb.dataset.classId=newClassId;eb.dataset.className=n;}
+        if (hasYearChange) {
+          setStudentYearValue(_sid, data.schoolYearId || newSchoolYearId, data.yearLabel || '', !!data.yearIsCurrent);
         }
-        modalMsg2.textContent='Class updated successfully!'; modalMsg2.className='as-modal-msg success';
+        setStudentDisplayId(_sid, data.displayStudentId || buildDisplayStudentId(newStudentIdValue, _sid), data.editableStudentId);
+        var singleCarryoverNotice = joinSubjectCarryoverMessages(data);
+        modalMsg2.textContent = singleCarryoverNotice
+          ? 'Student updated successfully! ' + singleCarryoverNotice
+          : 'Student updated successfully!';
+        modalMsg2.className='as-modal-msg success';
         setTimeout(closeModal, 900);
       } else {
-        modalMsg2.textContent=data.error||'Failed to update.'; modalMsg2.className='as-modal-msg error';
+        var msg = data.error || 'Failed to update.';
+        if (data.suggestion) msg += ' Try "' + data.suggestion + '".';
+        modalMsg2.textContent=msg; modalMsg2.className='as-modal-msg error';
+        if (modalStudentIdInput && data.suggestion) {
+          modalStudentIdInput.classList.add('is-error');
+          modalStudentIdMsg.classList.add('visible');
+        }
         modalSave.disabled=false;
       }
     }).catch(function(){
@@ -1397,6 +2146,11 @@
     });
   });
   document.addEventListener('click', function(e){ var b=e.target.closest('.js-edit-class'); if(b) openModal(b); });
+  if (modalStudentIdInput) {
+    modalStudentIdInput.addEventListener('input', checkStudentIdAvailability);
+    modalStudentIdInput.addEventListener('blur', checkStudentIdAvailability);
+  }
+  modalSelect.addEventListener('change', function(){ _carryExistingSubjects = null; _carryExistingSubjectsClassId = ''; });
 
   /* ── Bulk Edit Modal (2-step) ────────────────────────── */
   var bulkOverlay  = document.getElementById('asBulkOverlay');
@@ -1416,20 +2170,194 @@
   var bulkChangeSummary = document.getElementById('asBulkChangeSummary');
   var chkClass = document.getElementById('asBulkChkClass');
   var chkYear  = document.getElementById('asBulkChkYear');
+  var chkStudentId = document.getElementById('asBulkChkStudentId');
+  var bulkStudentIdSearch = document.getElementById('asBulkStudentIdSearch');
   var selClass = document.getElementById('asBulkClassSelect');
   var selYear  = document.getElementById('asBulkYearSelect');
+  var bulkStudentIdList = document.getElementById('asBulkStudentIdList');
+  var bulkKeepExistingSubjects = null;
+  var bulkKeepExistingSubjectsClassId = '';
+  var bulkIdTimers = new Map();
+  var bulkIdRequestTokens = new Map();
 
   chkClass.addEventListener('change', function(){ selClass.disabled=!this.checked; if(this.checked) selClass.focus(); });
   chkYear.addEventListener('change',  function(){ selYear.disabled=!this.checked;  if(this.checked) selYear.focus(); });
+  if (chkStudentId) {
+    chkStudentId.addEventListener('change', function(){
+      if (!bulkStudentIdList) return;
+      bulkStudentIdList.style.display = this.checked ? 'grid' : 'none';
+      if (bulkStudentIdSearch) bulkStudentIdSearch.style.display = this.checked ? 'block' : 'none';
+      if (!this.checked) return;
+      var firstInput = bulkStudentIdList.querySelector('.as-bulk-id-input');
+      if (firstInput) firstInput.focus();
+    });
+  }
+
+  function setBulkStudentIdError(input, message) {
+    if (!input) return;
+    var row = input.closest('.as-bulk-id-row');
+    var errorLabel = row ? row.querySelector('.as-bulk-id-error') : null;
+    var hasMessage = !!String(message || '').trim();
+    input.classList.toggle('is-error', hasMessage);
+    input.dataset.error = hasMessage ? String(message) : '';
+    if (errorLabel) {
+      errorLabel.textContent = hasMessage ? String(message) : '';
+      errorLabel.classList.toggle('visible', hasMessage);
+    }
+  }
+
+  function validateBulkStudentIdDuplicates() {
+    if (!bulkStudentIdList) return;
+    var inputs = Array.from(bulkStudentIdList.querySelectorAll('.as-bulk-id-input'));
+    var grouped = new Map();
+    inputs.forEach(function(input) {
+      var value = normalizeNumericStudentIdValue(input.value);
+      input.value = value;
+      if (!value) return;
+      if (!grouped.has(value)) grouped.set(value, []);
+      grouped.get(value).push(input);
+    });
+
+    inputs.forEach(function(input) {
+      if ((input.dataset.error || '').startsWith('Duplicate')) {
+        setBulkStudentIdError(input, '');
+      }
+    });
+
+    grouped.forEach(function(inputGroup) {
+      if (inputGroup.length <= 1) return;
+      inputGroup.forEach(function(input) {
+        setBulkStudentIdError(input, 'Duplicate in new changes');
+      });
+    });
+  }
+
+  function checkBulkStudentIdAgainstOrg(input) {
+    if (!input) return;
+    var value = normalizeNumericStudentIdValue(input.value);
+    input.value = value;
+    validateBulkStudentIdDuplicates();
+
+    if (!value) {
+      if (!((input.dataset.error || '').startsWith('Duplicate'))) setBulkStudentIdError(input, '');
+      return;
+    }
+    if ((input.dataset.error || '').startsWith('Duplicate')) return;
+
+    var original = normalizeNumericStudentIdValue(input.dataset.original || '');
+    if (value === original) {
+      setBulkStudentIdError(input, '');
+      return;
+    }
+
+    var studentId = String(input.dataset.studentId || '');
+    if (!studentId) return;
+    if (bulkIdTimers.has(studentId)) {
+      clearTimeout(bulkIdTimers.get(studentId));
+      bulkIdTimers.delete(studentId);
+    }
+
+    var timeoutId = setTimeout(function() {
+      var token = (bulkIdRequestTokens.get(studentId) || 0) + 1;
+      bulkIdRequestTokens.set(studentId, token);
+      fetch('/common/check-student-id?id=' + encodeURIComponent(studentIdConfig.prefix + value) + '&num=' + encodeURIComponent(value) + '&exclude=' + encodeURIComponent(studentId))
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
+          if (bulkIdRequestTokens.get(studentId) !== token) return;
+          if ((input.dataset.error || '').startsWith('Duplicate')) return;
+          if (data && data.taken) {
+            setBulkStudentIdError(input, 'Already in this organization');
+          } else {
+            setBulkStudentIdError(input, '');
+          }
+        })
+        .catch(function() {
+          if (bulkIdRequestTokens.get(studentId) !== token) return;
+        });
+    }, 220);
+
+    bulkIdTimers.set(studentId, timeoutId);
+  }
+
+  function applyBulkStudentIdSearchFilter() {
+    if (!bulkStudentIdList || !bulkStudentIdSearch) return;
+    var query = String(bulkStudentIdSearch.value || '').trim().toLowerCase();
+    Array.from(bulkStudentIdList.querySelectorAll('.as-bulk-id-row')).forEach(function(row) {
+      var name = String(row.dataset.studentName || '').toLowerCase();
+      var show = !query || name.indexOf(query) !== -1;
+      row.style.display = show ? 'grid' : 'none';
+    });
+  }
+
+  function buildBulkStudentIdList() {
+    if (!bulkStudentIdList) return;
+    var selectedRows = Array.from(selectedIds)
+      .map(function(id) {
+        var row = document.querySelector('#asTableBody tr[data-id="' + id + '"]');
+        if (!row) return null;
+        var editBtn = row.querySelector('.js-edit-class');
+        return {
+          id: String(id),
+          name: editBtn ? String(editBtn.dataset.studentName || '').trim() : ('Student #' + id),
+          displayId: editBtn ? String(editBtn.dataset.displayId || '') : '',
+          editableId: editBtn ? normalizeNumericStudentIdValue(editBtn.dataset.editableId || '') : '',
+        };
+      })
+      .filter(Boolean)
+      .sort(function(a, b) { return a.name.localeCompare(b.name); });
+
+    bulkStudentIdList.innerHTML = selectedRows.map(function(studentRow) {
+      return '' +
+        '<div class="as-bulk-id-row" data-student-id="' + escHtml(studentRow.id) + '" data-student-name="' + escHtml(studentRow.name.toLowerCase()) + '">' +
+          '<div class="as-bulk-id-name">' + escHtml(studentRow.name) +
+            '<span class="as-bulk-id-current">(' + escHtml(studentRow.displayId || 'No ID') + ')</span>' +
+          '</div>' +
+          '<div>' +
+            '<input type="text" class="as-bulk-id-input" inputmode="numeric" maxlength="10" ' +
+              'data-student-id="' + escHtml(studentRow.id) + '" data-original="' + escHtml(studentRow.editableId || '') + '" ' +
+              'value="' + escHtml(studentRow.editableId || '') + '" placeholder="000">' +
+            '<div class="as-bulk-id-error"></div>' +
+          '</div>' +
+        '</div>';
+    }).join('');
+
+    bulkStudentIdList.querySelectorAll('.as-bulk-id-input').forEach(function(input) {
+      input.addEventListener('input', function() {
+        input.value = normalizeNumericStudentIdValue(input.value);
+        checkBulkStudentIdAgainstOrg(input);
+      });
+      input.addEventListener('blur', function() {
+        checkBulkStudentIdAgainstOrg(input);
+      });
+    });
+
+    if (bulkStudentIdSearch) {
+      bulkStudentIdSearch.value = '';
+    }
+    applyBulkStudentIdSearchFilter();
+    validateBulkStudentIdDuplicates();
+  }
 
   function openBulkModal() {
     if (!selectedIds.size) return;
+    updateModalHeaderOffset();
     var n = selectedIds.size;
     bulkPillNum.textContent  = n;
     bulkPillText.textContent = n===1 ? 'student selected' : 'students selected';
     bulkSaveCnt.textContent  = n;
     chkClass.checked=false; selClass.disabled=true; selClass.value='';
     chkYear.checked=false;  selYear.disabled=true;  selYear.value='';
+    if (chkStudentId) chkStudentId.checked = false;
+    if (bulkStudentIdList) {
+      buildBulkStudentIdList();
+      bulkStudentIdList.style.display = 'none';
+    }
+    if (bulkStudentIdSearch) {
+      bulkStudentIdSearch.style.display = 'none';
+      bulkStudentIdSearch.value = '';
+    }
+    bulkKeepExistingSubjects = null;
+    bulkKeepExistingSubjectsClassId = '';
     bulkMsg.textContent=''; bulkMsg.className='as-modal-msg';
     bulkSave.disabled=false;
     bulkStep1.style.display=''; bulkStep2.style.display='none';
@@ -1440,7 +2368,8 @@
   function showBulkStep2() {
     var hasClass = chkClass.checked && selClass.value;
     var hasYear  = chkYear.checked  && selYear.value;
-    if (!hasClass && !hasYear) {
+    var hasStudentId = !!(chkStudentId && chkStudentId.checked);
+    if (!hasClass && !hasYear && !hasStudentId) {
       bulkMsg.textContent='Tick at least one field and choose a value.'; bulkMsg.className='as-modal-msg error'; return;
     }
     if (chkClass.checked && !selClass.value) {
@@ -1449,14 +2378,61 @@
     if (chkYear.checked && !selYear.value) {
       bulkMsg.textContent='Please select a school year.'; bulkMsg.className='as-modal-msg error'; return;
     }
+    var studentIdChangesCount = 0;
+    if (hasStudentId) {
+      var enteredValues = [];
+      var duplicateValues = new Set();
+      var seenValues = new Set();
+      var idInputs = Array.from(bulkStudentIdList ? bulkStudentIdList.querySelectorAll('.as-bulk-id-input') : []);
+      idInputs.forEach(function(input) {
+        var cleaned = normalizeNumericStudentIdValue(input.value);
+        input.value = cleaned;
+        var original = normalizeNumericStudentIdValue(input.dataset.original || '');
+        if (cleaned !== original) studentIdChangesCount += 1;
+        if (cleaned && cleaned !== original) {
+          enteredValues.push(cleaned);
+        }
+      });
+      enteredValues.forEach(function(value) {
+        if (seenValues.has(value)) duplicateValues.add(value);
+        seenValues.add(value);
+      });
+      if (duplicateValues.size) {
+        bulkMsg.textContent='Duplicate student IDs entered: ' + Array.from(duplicateValues).join(', ');
+        bulkMsg.className='as-modal-msg error';
+        return;
+      }
+      if (!hasClass && !hasYear && studentIdChangesCount === 0) {
+        bulkMsg.textContent='No student ID changes detected. Edit at least one ID before continuing.';
+        bulkMsg.className='as-modal-msg error';
+        return;
+      }
+
+      var hasLiveErrors = idInputs.some(function(input) {
+        return !!String(input.dataset.error || '').trim();
+      });
+      if (hasLiveErrors) {
+        bulkMsg.textContent='Please fix highlighted Student ID errors before continuing.';
+        bulkMsg.className='as-modal-msg error';
+        return;
+      }
+    }
+    if (hasClass && bulkKeepExistingSubjectsClassId !== selClass.value) {
+      bulkKeepExistingSubjects = askSubjectCarryoverPreference('these students');
+      bulkKeepExistingSubjectsClassId = selClass.value;
+    }
     var n = selectedIds.size;
     bulkConfirmDetail.textContent = 'You are about to apply the following changes to '+n+' student'+(n===1?'':' s')+'. This will update the class roster immediately.';
     var summary = '';
     if (hasClass) {
       summary += '<div class="as-change-row"><span class="as-change-label">New class:</span>'+pill(selClass.options[selClass.selectedIndex].text,'to')+'</div>';
+      summary += '<div class="as-change-row"><span class="as-change-label">Subjects:</span>'+pill(describeSubjectCarryoverChoice(!!bulkKeepExistingSubjects), bulkKeepExistingSubjects ? 'to' : 'from')+'</div>';
     }
     if (hasYear) {
       summary += '<div class="as-change-row"><span class="as-change-label">School year:</span>'+pill(selYear.options[selYear.selectedIndex].text,'year')+'</div>';
+    }
+    if (hasStudentId) {
+      summary += '<div class="as-change-row"><span class="as-change-label">Student IDs:</span>'+pill(studentIdChangesCount + ' student(s) edited','to')+'</div>';
     }
     summary += '<div class="as-change-row" style="margin-top:8px;"><span class="as-change-label">Students:</span>'+
       '<span style="font-size:13px;font-weight:700;color:#374151;">'+n+' selected</span></div>';
@@ -1481,11 +2457,26 @@
   bulkSave.addEventListener('click', function(){
     var hasClass = chkClass.checked && selClass.value;
     var hasYear  = chkYear.checked  && selYear.value;
+    var hasStudentId = !!(chkStudentId && chkStudentId.checked);
     bulkSave.disabled=true;
     bulkMsg2.textContent='Applying changes…'; bulkMsg2.className='as-modal-msg';
     var payload = { studentIds: Array.from(selectedIds) };
     if (hasClass) payload.classId = selClass.value;
     if (hasYear)  payload.schoolYearId = selYear.value;
+    if (hasClass) payload.keepExistingSubjects = !!bulkKeepExistingSubjects;
+    if (hasStudentId) {
+      var customStudentIds = {};
+      Array.from(bulkStudentIdList ? bulkStudentIdList.querySelectorAll('.as-bulk-id-input') : []).forEach(function(input) {
+        var cleaned = normalizeNumericStudentIdValue(input.value);
+        var original = normalizeNumericStudentIdValue(input.dataset.original || '');
+        if (cleaned !== original) {
+          customStudentIds[String(input.dataset.studentId)] = cleaned;
+        }
+      });
+      if (Object.keys(customStudentIds).length) {
+        payload.customStudentIds = customStudentIds;
+      }
+    }
     fetch('/common/students/bulk-update', {
       method:'POST',
       headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},
@@ -1494,26 +2485,19 @@
     }).then(function(r){ return r.json(); }).then(function(data){
       if (data.success) {
         selectedIds.forEach(function(id){
-          var row  = document.querySelector('#asTableBody tr[data-id="'+id+'"]');
-          var card = document.querySelector('#asCardList .as-card[data-id="'+id+'"]');
-          if (hasClass && data.className) {
-            if (row) {
-              row.dataset.classId=selClass.value;
-              var c=row.cells; if(c[3]) c[3].textContent=data.className;
-              var eb=row.querySelector('.js-edit-class'); if(eb){eb.dataset.classId=selClass.value;eb.dataset.className=data.className;}
+            if (hasClass && data.className) {
+              setStudentClassValue(id, selClass.value, data.className);
             }
-            if (card) {
-              card.dataset.classId=selClass.value;
-              var mi=card.querySelector('.as-card-meta-item:first-child'); if(mi) mi.lastChild.textContent=' '+data.className;
-              var eb=card.querySelector('.js-edit-class'); if(eb){eb.dataset.classId=selClass.value;eb.dataset.className=data.className;}
+            if (hasYear && data.yearLabel) {
+              setStudentYearValue(id, selYear.value, data.yearLabel, !!data.yearIsCurrent);
             }
-          }
-          if (hasYear && data.yearLabel) {
-            if (row) { var c=row.cells; if(c[4]) c[4].innerHTML='<span class="as-syear-curr">'+escHtml(data.yearLabel)+'</span>'; }
-            if (card) { var mi2=card.querySelector('.as-card-meta-item:nth-child(2)'); if(mi2) mi2.innerHTML=mi2.innerHTML.replace(/>[^<]+$/,'> '+escHtml(data.yearLabel)); }
-          }
+            if (data.updatedStudentIds && data.updatedStudentIds[String(id)]) {
+              var updatedIdData = data.updatedStudentIds[String(id)];
+              setStudentDisplayId(id, updatedIdData.displayStudentId, updatedIdData.editableStudentId);
+            }
         });
-        bulkMsg2.textContent=data.updated+' student'+(data.updated===1?'':' s')+' updated successfully!';
+        var bulkCarryoverNotice = joinSubjectCarryoverMessages(data);
+        bulkMsg2.textContent = data.updated+' student'+(data.updated===1?'':' s')+' updated successfully!'+(bulkCarryoverNotice ? ' ' + bulkCarryoverNotice : '');
         bulkMsg2.className='as-modal-msg success';
         setTimeout(function(){ closeBulkModal(); clearAllSelections(); }, 1100);
       } else {
@@ -1525,6 +2509,15 @@
       bulkSave.disabled=false;
     });
   });
+  selClass.addEventListener('change', function(){ bulkKeepExistingSubjects = null; bulkKeepExistingSubjectsClassId = ''; });
+  if (bulkStudentIdSearch) {
+    bulkStudentIdSearch.addEventListener('input', applyBulkStudentIdSearchFilter);
+  }
+
+  window.addEventListener('resize', updateModalHeaderOffset);
+  updateModalHeaderOffset();
+
+  applyFilters(true);
 
 })();
 </script>

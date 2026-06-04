@@ -90,9 +90,10 @@
   }
 
   .gd-actions {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(2, auto);
+    justify-content: start;
     gap: 8px;
-    flex-wrap: wrap;
   }
 
   .gd-btn {
@@ -695,12 +696,40 @@
     .gd-students-grid { grid-template-columns: 1fr; }
     .gd-top-bar { flex-direction: column; gap: 8px; text-align: center; }
   }
+
+  /* ── compact size polish ── */
+  .gd-page { padding: 16px; }
+  .gd-top-bar h1 { font-size: 16px; }
+  .gd-back-btn { padding: 5px 10px; font-size: 12px; }
+  .gd-card { padding: 16px; margin-bottom: 14px; }
+  .gd-avatar { width: 72px; height: 72px; }
+  .gd-name { font-size: 16px; margin: 0 0 8px; }
+  .gd-info-grid { padding: 10px; gap: 6px 16px; margin-bottom: 10px; }
+  .gd-info-item { font-size: 12px; }
+  .gd-btn { padding: 6px 12px; font-size: 12px; }
+  .gd-section-title { font-size: 14px; margin-bottom: 12px; }
+  .gd-badge { font-size: 11px; padding: 2px 8px; }
+  .gd-student-card { padding: 12px; }
+  .gd-student-avatar { width: 38px; height: 38px; }
+  .gd-student-name { font-size: 13px; }
+  .gd-student-class { font-size: 12px; }
+  .gd-student-rel { font-size: 11px; }
+  .gd-students-grid { gap: 12px; }
+  .gd-portal-title { font-size: 14px; }
+  .gd-portal-info { padding: 10px; margin-bottom: 8px; }
+  .gd-portal-info p { font-size: 12px; margin: 4px 0; }
+  .gd-portal-note { font-size: 12px; }
+  .gd-edit-form h3 { font-size: 14px; }
+  .gd-field label { font-size: 11px; }
+  .gd-field input { font-size: 13px; padding: 7px 10px; }
 </style>
 
 <div class="gd-page">
   <div class="gd-top-bar">
     <h1>Guardian Details</h1>
+    <% if (typeof hideGlobalHeader === 'undefined' || !hideGlobalHeader) { %>
     <a href="/common/guardians" class="gd-back-btn">← Back to Guardians</a>
+    <% } %>
   </div>
 
   <!-- Profile Card -->

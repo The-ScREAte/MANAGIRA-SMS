@@ -297,7 +297,7 @@
     border: 1px solid #ccc;
     border-radius: 6px;
     outline: none;
-    font-size: 16px;
+    font-size: 0.82rem;
     transition: border-color 0.2s ease;
     display: block;
     box-sizing: border-box;
@@ -324,11 +324,12 @@
 
   .search-result-title {
     font-weight: 600;
+    font-size: 0.82rem;
     color: #111827;
   }
 
   .search-result-subtitle {
-    font-size: 0.9rem;
+    font-size: 0.72rem;
     color: #6b7280;
   }
 
@@ -640,9 +641,9 @@
     border: 1px solid #d1d5db;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     width: 100%;
-    min-width: 280px;
+    min-width: 260px;
     z-index: 11025;
-    max-height: 400px;
+    max-height: 320px;
     overflow-y: auto;
     border-radius: 8px;
   }
@@ -652,9 +653,9 @@
   }
 
   .search-result-item {
-    padding: 12px 16px;
+    padding: 6px 12px;
     cursor: pointer;
-    font-size: 1rem;
+    font-size: 0.82rem;
     display: flex;
     align-items: center;
   }
@@ -672,11 +673,12 @@
   }
 
   .search-result-item img {
-    width: 45px;
-    height: 45px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
-    margin-right: 5px;
+    margin-right: 8px;
     object-fit: cover;
+    flex-shrink: 0;
   }
 
   /* 🔹 Hamburger Menu */
@@ -1821,13 +1823,30 @@
         }
       });
 
-      searchInput.addEventListener("input", async (event) => {
+      let _searchDebounceTimer = null;
+      let _searchAbortController = null;
+
+      searchInput.addEventListener("input", (event) => {
         const query = event.target.value.trim();
 
-        if (query.length > 0) {
+        clearTimeout(_searchDebounceTimer);
+        if (_searchAbortController) {
+          _searchAbortController.abort();
+          _searchAbortController = null;
+        }
+
+        if (query.length < 2) {
+          searchResults.innerHTML = "";
+          searchResults.style.display = "none";
+          return;
+        }
+
+        _searchDebounceTimer = setTimeout(async () => {
+          _searchAbortController = new AbortController();
           try {
             const response = await fetch(
-              `/enrollment/searchUsers?query=${encodeURIComponent(query)}`
+              `/enrollment/searchUsers?query=${encodeURIComponent(query)}`,
+              { signal: _searchAbortController.signal }
             );
             const payload = await response.json();
             const items = Array.isArray(payload.results) ? payload.results : [];
@@ -1898,12 +1917,11 @@
               searchResults.style.display = "block";
             }
           } catch (error) {
-            console.error("Error fetching search results:", error);
+            if (error.name !== "AbortError") {
+              console.error("Error fetching search results:", error);
+            }
           }
-        } else {
-          searchResults.innerHTML = "";
-          searchResults.style.display = "none";
-        }
+        }, 260);
       });
 
       document.addEventListener("click", (e) => {
@@ -2193,7 +2211,9 @@
 (function () {
   'use strict';
 
-  // Type → { icon SVG path, bg colour }
+  // Roles that can access /common/failedEmails — used to gate email-failure notification links
+  const _EMAIL_ISSUE_ROLES = new Set(['organization','admin','mini admin','supervisor','superviser','manager']);
+  const _CURRENT_ROLE = '<%= (typeof session !== "undefined" && session && (session.userRole || session.accountType || "")).toLowerCase().replace(/[^a-z ]/g,"") %>';
   const TYPE_META = {
     guardian_report_new:        { bg: '#fef3c7', stroke: '#d97706', icon: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>' },
     guardian_reply:             { bg: '#fef3c7', stroke: '#d97706', icon: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>' },
@@ -2278,7 +2298,12 @@
       const m = getMeta(n.type);
       const isRead = n.is_read === true || n.is_read === 't' || n.is_read === 'true';
       const cls = isRead ? 'notif-item notif-item--read' : 'notif-item notif-item--unread';
-      const href = n.link || '';
+      // For email-delivery-failed, always use /common/failedEmails if the user has access
+      // (covers old notifications that were stored without a link).
+      // For all other types, use whatever link is on the notification.
+      const href = (n.type === 'email_delivery_failed')
+        ? (_EMAIL_ISSUE_ROLES.has(_CURRENT_ROLE) ? '/common/failedEmails' : '')
+        : (n.link || '');
       const hrefAttr = href ? `href="${escapeHtml(href)}"` : 'role="button"';
       return `
         <a class="${cls}" ${hrefAttr} data-notif-id="${n.id}" data-link="${escapeHtml(href)}"${href ? '' : ' style="cursor:default;"'}>
@@ -2442,6 +2467,11 @@
 
   // Poll for new notifications every 60 s while page is active
   setInterval(refreshCount, 60000);
+
+  // Fetch count immediately on page load so the badge never waits for the
+  // 60-second poll interval. The server-side render may be stale (cached) or
+  // zero; this corrects it within ~100 ms without blocking page load.
+  refreshCount();
 
   // Re-run count after SPA navigation
   window.addEventListener('spa:pageLoaded', refreshCount);

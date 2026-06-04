@@ -222,7 +222,7 @@ function normalizeFailureNotification(raw) {
     recipientId,
     title: firstNonEmpty(raw.title) || "Email delivery failed",
     body: firstNonEmpty(raw.body) || "",
-    link: firstNonEmpty(raw.link) || null,
+    link: firstNonEmpty(raw.link) || '/common/failedEmails',
     refId: Number.isInteger(refId) && refId > 0 ? refId : null,
     dedupeHours: Number.isInteger(dedupeHours) && dedupeHours > 0 ? Math.min(dedupeHours, 72) : 12,
   };
@@ -318,6 +318,165 @@ async function notifyEmailFailure(db, { recipient, reason, failureNotification }
     });
   } catch (error) {
     console.warn(`[Email][Notify] Failed to create delivery notification: ${error?.message || "unknown error"}`);
+  }
+
+  // Record failure and fan-out targeted notifications to managers/supervisors.
+  // Run in background — never let this block the caller.
+  _recordAndFanOutEmailFailure(db, notification.orgId, recipient, reason, notification).catch(() => {});
+}
+
+// ── email_delivery_failures table ────────────────────────────────────────────
+
+let _failuresSchemaReady = false;
+async function _ensureEmailFailuresSchema(db) {
+  if (_failuresSchemaReady) return;
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS email_delivery_failures (
+        id           SERIAL PRIMARY KEY,
+        organization_id INTEGER NOT NULL,
+        user_id      INTEGER NOT NULL,
+        user_type    TEXT NOT NULL DEFAULT 'staff',
+        failed_email TEXT NOT NULL,
+        reason       TEXT NOT NULL DEFAULT 'unknown',
+        failure_count INTEGER NOT NULL DEFAULT 1,
+        first_failed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        last_failed_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (organization_id, user_id, user_type)
+      )
+    `);
+    _failuresSchemaReady = true;
+  } catch (_) { /* non-fatal */ }
+}
+
+/**
+ * Look up which staff member or guardian owns `email` in `orgId`.
+ * Returns { userId, userType } or null if not found.
+ */
+async function _findUserByEmail(db, email, orgId) {
+  const addr = String(email || "").trim().toLowerCase();
+  if (!addr || !orgId) return null;
+  try {
+    const staffRes = await db.query(
+      `SELECT user_id FROM users WHERE LOWER(email) = $1 AND organization_id = $2 LIMIT 1`,
+      [addr, orgId]
+    );
+    if (staffRes.rows.length > 0) return { userId: staffRes.rows[0].user_id, userType: 'staff' };
+
+    const guardRes = await db.query(
+      `SELECT guardian_id AS user_id FROM guardians WHERE LOWER(email) = $1 AND organization_id = $2 LIMIT 1`,
+      [addr, orgId]
+    );
+    if (guardRes.rows.length > 0) return { userId: guardRes.rows[0].user_id, userType: 'guardian' };
+  } catch (_) { /* non-fatal */ }
+  return null;
+}
+
+/**
+ * Upsert a row into email_delivery_failures.
+ * Exported so the /failedEmails controller can clear rows on successful re-test.
+ */
+async function recordEmailDeliveryFailure(db, orgId, email, reason, userId, userType) {
+  if (!db || !orgId || !userId) return;
+  try {
+    await _ensureEmailFailuresSchema(db);
+    await db.query(
+      `INSERT INTO email_delivery_failures
+         (organization_id, user_id, user_type, failed_email, reason, failure_count, last_failed_at)
+       VALUES ($1, $2, $3, $4, $5, 1, CURRENT_TIMESTAMP)
+       ON CONFLICT (organization_id, user_id, user_type) DO UPDATE SET
+         failed_email  = EXCLUDED.failed_email,
+         reason        = EXCLUDED.reason,
+         failure_count = email_delivery_failures.failure_count + 1,
+         last_failed_at = CURRENT_TIMESTAMP`,
+      [orgId, userId, userType || 'staff', String(email || '').toLowerCase(), String(reason || 'unknown').slice(0, 64)]
+    );
+  } catch (_) { /* non-fatal */ }
+}
+
+/**
+ * After recording the failure, send targeted "Incorrect Email Detected"
+ * notifications to the affected user + every manager/supervisor in the org.
+ */
+async function _recordAndFanOutEmailFailure(db, orgId, email, reason, notification) {
+  if (!db || !orgId) return;
+  const notificationService = _getNotificationService();
+  if (!notificationService) return;
+
+  // Find the affected user
+  const found = await _findUserByEmail(db, email, orgId);
+  if (!found) return; // Can't link to a user — nothing to record
+
+  const { userId, userType } = found;
+
+  // Persist the failure record
+  await recordEmailDeliveryFailure(db, orgId, email, reason, userId, userType);
+
+  // Build fan-out notification payload
+  const title = 'Incorrect Email Detected';
+  const safeEmail = String(email || '').slice(0, 120);
+  const reasonText = getFailureReasonText(reason);
+  const body = `The email address "${safeEmail}" could not be delivered. ${reasonText}`;
+  const link = '/common/failedEmails';
+  const dedupeHours = 12;
+
+  // Collect recipient IDs: affected user + all managers + all supervisors
+  const recipientRows = [];
+
+  // The affected user themselves (staff only — guardians don't see the management panel)
+  if (userType === 'staff') {
+    recipientRows.push({ recipientType: 'staff', recipientId: userId });
+  }
+
+  // All managers and supervisors in the org
+  try {
+    const mgrRes = await db.query(
+      `SELECT user_id FROM users
+       WHERE organization_id = $1
+         AND LOWER(account_type) IN ('organization','admin','mini admin','supervisor','superviser','manager')
+         AND (deleted = false OR deleted IS NULL)
+       LIMIT 30`,
+      [orgId]
+    );
+    for (const row of mgrRes.rows) {
+      if (row.user_id !== userId) { // don't double-notify the affected user
+        recipientRows.push({ recipientType: 'staff', recipientId: row.user_id });
+      }
+    }
+  } catch (_) { /* non-fatal */ }
+
+  // Deduplicate by recipientId
+  const seen = new Set();
+  const unique = recipientRows.filter(r => {
+    const k = `${r.recipientType}:${r.recipientId}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+
+  // Create one notification per recipient (with per-recipient deduplication)
+  for (const { recipientType, recipientId } of unique) {
+    try {
+      const existing = await db.query(
+        `SELECT 1 FROM notifications
+         WHERE organization_id = $1 AND recipient_type = $2 AND recipient_id = $3
+           AND type = 'email_delivery_failed' AND title = $4
+           AND created_at >= NOW() - ($5::int * INTERVAL '1 hour')
+         LIMIT 1`,
+        [orgId, recipientType, recipientId, title, dedupeHours]
+      );
+      if (existing.rows.length > 0) continue;
+
+      await notificationService.createNotification(db, {
+        orgId,
+        recipientType,
+        recipientId,
+        type: 'email_delivery_failed',
+        title,
+        body,
+        link,
+      });
+    } catch (_) { /* non-fatal per-recipient */ }
   }
 }
 
@@ -720,6 +879,7 @@ module.exports = {
   sendEmailInBackground,
   renderCleanEmail,
   escapeHtml,
+  recordEmailDeliveryFailure,
   isEmailSuppressed: (email) => {
     const db = _getDb();
     return db ? isEmailSuppressed(db, email) : Promise.resolve(false);

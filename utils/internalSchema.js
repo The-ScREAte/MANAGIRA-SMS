@@ -108,6 +108,20 @@ async function ensureInternalWorkerSchema(db) {
       CREATE INDEX IF NOT EXISTS idx_users_org_chart_position ON users(supervisor_user_id, org_chart_position)
     `);
 
+    // Track who has added a note to each contact so they can be notified on replies.
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS internal_contact_note_contributors (
+        contact_id INTEGER NOT NULL REFERENCES internal_contacts(id) ON DELETE CASCADE,
+        user_id    INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+        first_noted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (contact_id, user_id)
+      )
+    `);
+    await db.query(`
+      CREATE INDEX IF NOT EXISTS idx_icnc_contact
+        ON internal_contact_note_contributors(contact_id)
+    `);
+
     schemaReady = true;
   })();
 

@@ -114,6 +114,9 @@ router.post("/personalization/font", checkFeatureAccess, isAuthenticated, requir
 router.post("/personalization/theme", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), (req, res) =>
   themeController.updateThemePost(req, res)
 );
+router.post("/personalization/student-id", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), (req, res) =>
+  accountController.updateStudentIdSettingsPost(req, res, db)
+);
 router.post(
   "/personalization/nickname",
   isAuthenticated,

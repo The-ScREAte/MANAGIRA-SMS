@@ -555,6 +555,14 @@
           </button>
         </li>
         <% } %>
+        <% if (canSeeEmailIssues) { %>
+        <li>
+          <button class="nav-link" data-section="email-issues">
+            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
+            <span>Email Issues<% if (failedEmailCount > 0) { %> <span style="display:inline-block;background:#dc2626;color:#fff;font-size:0.7rem;font-weight:700;border-radius:20px;padding:0 6px;vertical-align:middle;line-height:1.6"><%=failedEmailCount%></span><% } %></span>
+          </button>
+        </li>
+        <% } %>
       </ul>
     </nav>
 
@@ -1438,6 +1446,34 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
               </svg>
               Open Docs/Sheets
+            </a>
+          </div>
+        </div>
+      </section>
+      <% } %>
+
+      <% if (canSeeEmailIssues) { %>
+      <section id="email-issues" class="management-section">
+        <div class="section-header">
+          <h1>Email Issues</h1>
+          <p>Users with undeliverable email addresses that require correction</p>
+        </div>
+        <div class="section-content">
+          <div class="section-card">
+            <h2>Incorrect Email Addresses</h2>
+            <p>
+              <% if (failedEmailCount > 0) { %>
+                <span style="color:#dc2626;font-weight:600;"><%=failedEmailCount%> user<%= failedEmailCount !== 1 ? 's have' : ' has' %> an undeliverable email address.</span>
+                Review and correct them below. Once a test email goes through the record is cleared automatically.
+              <% } else { %>
+                No email delivery failures on record. This section updates automatically when a failure is detected.
+              <% } %>
+            </p>
+            <a href="/common/failedEmails" class="action-btn" data-no-spa>
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" style="width:16px;height:16px">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+              </svg>
+              View &amp; Fix Email Issues<% if (failedEmailCount > 0) { %> (<%=failedEmailCount%>)<% } %>
             </a>
           </div>
         </div>

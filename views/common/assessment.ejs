@@ -635,8 +635,9 @@ input[type="number"]:focus {
                   Score Out Of: <%= assessment.max_score %>
                 </th>
                 <% }); %>
-                <th>Total Subject Score</th>
-                <th>Total Percentage</th>
+                <th style="white-space:normal;min-width:90px;">Total Subject Score<br><small style="font-weight:normal;opacity:.75;">Raw Score</small></th>
+                <th style="white-space:normal;min-width:90px;">Scaled Score<br><small style="font-weight:normal;opacity:.75;">/ <%= scaleBase %></small></th>
+                <th style="white-space:normal;min-width:90px;">Total Percentage</th>
                 <th>Grade</th>
                 <th>Position</th>
               </tr>
@@ -676,6 +677,11 @@ input[type="number"]:focus {
                   <%= student.total_subject_score !== undefined &&
                   student.total_subject_score !== null ?
                   parseFloat(student.total_subject_score).toFixed(2) : '-' %>
+                </td>
+                <td>
+                  <% if (student.total_percentage !== undefined && student.total_percentage !== null) { %>
+                    <%= (parseFloat(student.total_percentage) / 100 * scaleBase).toFixed(2) %> / <%= scaleBase %>
+                  <% } else { %>-<% } %>
                 </td>
                 <td>
                   <%= student.total_percentage !== undefined &&

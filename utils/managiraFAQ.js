@@ -411,7 +411,7 @@ const managiraFAQ = [
     id: 57,
     category: "Student Management",
     question: "Can I transfer a student between classes?",
-    answer: "Yes. From the student's profile, you can change their class assignment. This moves the student to a different class while preserving all their academic records and history.",
+    answer: "Yes. From the student's profile or student management pages, you can change the student's class assignment. Managira preserves the student's academic history and can also help carry matching subjects into the new class when you choose to keep existing subjects.",
     keywords: ["transfer student", "move student", "change class", "switch class", "reassign student", "different class"]
   },
   {
@@ -799,6 +799,27 @@ const managiraFAQ = [
     question: "How secure is PayGira and its online payment process?",
     answer: "PayGira uses authenticated school and guardian sessions, organization-scoped data access, role-based permissions, and audited finance records. Where a school enables Stripe, online card and wallet payments are handled through Stripe's secure payment flows, and payment confirmations are finalized through verified payment-intent and webhook processing. Sensitive actions such as collection sign-off require password verification, and payment views show masked card details instead of full card numbers.",
     keywords: ["paygira security", "secure payments", "stripe security", "payment security", "masked card", "webhook", "payment intent", "password verification"]
+  },
+  {
+    id: 110,
+    category: "Student Management",
+    question: "How do I set up my school to use custom student IDs?",
+    answer: "Open Settings and go to the Student ID Settings card. Turn on Custom student IDs if you want your school to use its own format, add an optional prefix such as MGT, then decide whether IDs should be auto-generated. If auto-generation is on, choose the starting number and save. The system shows a preview like MGT001 and uses that format across student management pages.",
+    keywords: ["set up student id", "student id settings", "custom student id", "custom student ids", "school student id format", "student id in settings", "use custom student ids", "prefix", "auto generate id", "starting number", "student id setup", "how to use student id"]
+  },
+  {
+    id: 111,
+    category: "Student Management",
+    question: "How does Managira choose the next student ID automatically?",
+    answer: "When automatic student IDs are enabled, Managira checks the IDs already used in your organization and suggests the next reusable number instead of only moving forward. For example, if 010 is free but 011 already exists, the system suggests 010 first. Staff can still edit the number per student, and duplicate IDs are flagged while adding or updating student records.",
+    keywords: ["next student id", "next available student id", "auto fill student id", "auto student id", "reuse missing id", "gap filling", "student id counter", "student id duplicate", "inused", "suggest next id", "010 011"]
+  },
+  {
+    id: 112,
+    category: "Student Management",
+    question: "What happens to subjects when I move a student to another class?",
+    answer: "When you change a student's class from student management pages, Managira can keep the student's subjects. The system asks whether to keep existing subjects, then tries to match each old subject to a subject with the same name in the new class. Matching subjects are enrolled automatically, while subjects that do not exist in the new class are skipped and reported so staff can review them.",
+    keywords: ["change class subjects", "student subjects removed", "keep subjects when changing class", "move student subjects", "class change subject carryover", "transfer subjects", "same subject name", "skipped subjects", "student class change"]
   }
 ];
 

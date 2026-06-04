@@ -34,22 +34,24 @@
 <style>
   /* ==== PayGira — luxury fintech — full responsive ==== */
   :root {
-    --fin-bg: #080d1a;
-    --fin-bg-2: #0f1623;
-    --fin-card: #141e30;
-    --fin-card-2: #0e1626;
+    --fin-bg: #0f1728;
+    --fin-bg-2: #162238;
+    --fin-card: #1a2740;
+    --fin-card-2: #1e2d49;
     --fin-teal: #00D4AA;
     --fin-teal-soft: rgba(0,212,170,.11);
     --fin-teal-glow: rgba(0,212,170,.22);
     --fin-gold: #F5C842;
     --fin-red: #FF4D6D;
     --fin-purple: #7B61FF;
-    --fin-text: #EEF2FF;
-    --fin-muted: #7a849a;
+    --fin-text: #f1f5ff;
+    --fin-muted: #b5c2d8;
     --fin-border: #1a2840;
     --fin-border-hi: rgba(0,212,170,.18);
     --fin-success: #00E096;
     --fin-warn: #FFB547;
+    --fin-org: var(--org-primary-color, #01535b);
+    --fin-org-hover: var(--org-primary-hover, #014a51);
     --fin-r: 18px;
     --fin-r-sm: 12px;
     --fin-r-xs: 8px;
@@ -164,8 +166,8 @@
   /* ── Cards ────────────────────────────────────────────────────── */
   .fin-card {
     background:linear-gradient(160deg,var(--fin-card) 0%,var(--fin-card-2) 100%);
-    border:1px solid var(--fin-border); border-radius:var(--fin-r); padding:24px;
-    box-shadow:0 20px 60px -30px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.03);
+    border:1px solid var(--fin-border); border-radius:var(--fin-r); padding:20px;
+    box-shadow:none;
     position:relative; overflow:hidden;
   }
   .fin-card::before {
@@ -178,10 +180,10 @@
   .stat {
     position:relative; overflow:hidden;
     background:linear-gradient(155deg,var(--fin-card) 0%,var(--fin-card-2) 100%);
-    border:1px solid var(--fin-border); border-radius:var(--fin-r); padding:20px;
+    border:1px solid var(--fin-border); border-radius:var(--fin-r); padding:16px;
     transition:transform .2s ease, border-color .2s ease, box-shadow .2s ease; cursor:default;
   }
-  .stat:hover { transform:translateY(-2px); border-color:var(--fin-border-hi); box-shadow:0 14px 40px -18px rgba(0,0,0,.6),0 0 24px -10px rgba(0,212,170,.09); }
+  .stat:hover { transform:none; border-color:var(--fin-border-hi); box-shadow:none; }
   .stat::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(255,255,255,.07),transparent); }
   .stat::after  { content:''; position:absolute; inset:0; background:radial-gradient(75% 60% at 100% 0%,rgba(0,212,170,.08),transparent 60%); pointer-events:none; }
   .stat .label  { font-size:.68rem; letter-spacing:.14em; text-transform:uppercase; color:var(--fin-muted); margin-bottom:10px; font-weight:600; }
@@ -196,32 +198,46 @@
 
   /* ── Action bar ───────────────────────────────────────────────── */
   .fin-actions {
-    display:flex; gap:8px; flex-wrap:wrap; margin-bottom:22px;
+    display:flex; gap:8px; flex-wrap:nowrap; margin-bottom:22px;
     padding:12px 14px;
     background:linear-gradient(90deg,var(--fin-card-2),var(--fin-card));
     border:1px solid var(--fin-border); border-radius:var(--fin-r-sm);
+    overflow-x:auto;
   }
 
   /* ── Buttons ──────────────────────────────────────────────────── */
   .fin-btn {
-    display:inline-flex; align-items:center; gap:7px; padding:10px 17px;
-    border-radius:10px; font-size:.86rem; font-weight:600; cursor:pointer;
-    border:1px solid var(--fin-border); background:rgba(255,255,255,.04);
-    color:var(--fin-text); transition:all .17s ease; text-decoration:none;
+    display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:0 12px;
+    border-radius:4px; font-size:.82rem; font-weight:600; cursor:pointer;
+    border:1px solid transparent; background:var(--fin-org);
+    color:#fff; transition:all .17s ease; text-decoration:none;
     white-space:nowrap; position:relative; overflow:hidden;
+    min-height:38px;
+    appearance:none;
+    -webkit-appearance:none;
   }
   .fin-btn::after { content:''; display:none; }
-  .fin-btn:hover { transform:none; border-color:var(--fin-border); color:var(--fin-text); box-shadow:none; }
+  .fin-btn:hover { transform:none; border-color:transparent; background:var(--fin-org-hover); color:#fff; box-shadow:none; }
   .fin-btn:active { transform:translateY(0); }
-  .fin-btn.primary {
-    background:linear-gradient(135deg,var(--fin-teal) 0%,#00a07d 100%);
-    border-color:transparent; color:#001810; font-weight:700;
-    box-shadow:0 8px 28px -10px rgba(0,212,170,.55);
+  .fin-btn.ghost {
+    background:var(--fin-org);
+    border-color:transparent;
+    color:#fff;
   }
-  .fin-btn.primary:hover { color:#001810; filter:none; box-shadow:0 8px 28px -10px rgba(0,212,170,.55); }
-  .fin-btn.danger { color:var(--fin-red); border-color:rgba(255,77,109,.22); }
-  .fin-btn.danger:hover { background:transparent; }
-  .fin-btn.sm { padding:6px 11px; font-size:.78rem; border-radius:8px; }
+  .fin-btn.ghost:hover { background:var(--fin-org-hover); }
+  .fin-btn.primary {
+    background:var(--fin-org);
+    border-color:transparent;
+    color:#fff;
+    font-weight:700;
+    box-shadow:none;
+  }
+  .fin-btn.primary:hover { color:#fff; filter:none; box-shadow:none; background:var(--fin-org-hover); }
+  .fin-btn.danger { background:var(--fin-red); color:#fff; border-color:transparent; }
+  .fin-btn.danger::before { content:'🗑'; font-size:.82em; }
+  .fin-btn.danger:hover { background:#e11d48; color:#fff; }
+  .fin-btn.sm { min-height:34px; padding:0 10px; font-size:.78rem; border-radius:4px; font-weight:600; }
+  .fin-btn.tiny { min-height:30px; padding:0 8px; font-size:.74rem; border-radius:4px; font-weight:600; }
 
   /* ── Two-col layout ───────────────────────────────────────────── */
   .fin-two { display:grid; grid-template-columns:1.6fr 1fr; gap:18px; }
@@ -261,7 +277,7 @@
   .fin-table thead { background:linear-gradient(180deg, rgba(20,33,58,.96), rgba(12,21,38,.98)) !important; }
   .fin-table th {
     text-align:left;
-    padding:13px 15px;
+    padding:11px 12px;
     font-weight:700;
     color:#d8e3f7 !important;
     background:rgba(16,27,46,.98) !important;
@@ -272,7 +288,7 @@
     white-space:nowrap;
   }
   .fin-table td {
-    padding:13px 15px;
+    padding:11px 12px;
     color:var(--fin-text) !important;
     background:rgba(9,17,31,.98) !important;
     border-bottom:1px solid rgba(33,49,78,.75);
@@ -340,28 +356,29 @@
     white-space:nowrap; display:flex; align-items:center; gap:8px; justify-content:flex-end;
   }
   .fin-icon-btn {
-    width:34px; height:34px; padding:0;
+    width:38px; height:38px; padding:0;
     display:inline-flex; align-items:center; justify-content:center;
-    border-radius:10px;
-    background:linear-gradient(180deg, rgba(14,22,38,.98), rgba(9,17,31,.98));
-    border:1px solid rgba(58,82,120,.55);
-    color:#dbe7ff !important;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.03);
+    border-radius:4px;
+    background:var(--fin-org);
+    border:1px solid transparent;
+    color:#fff !important;
+    box-shadow:none;
   }
   .fin-icon-btn:hover {
     transform:none;
-    background:linear-gradient(180deg, rgba(14,22,38,.98), rgba(9,17,31,.98));
-    border-color:rgba(58,82,120,.55) !important;
-    color:#dbe7ff !important;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.03);
+    background:var(--fin-org-hover);
+    border-color:transparent !important;
+    color:#fff !important;
+    box-shadow:none;
   }
   .fin-icon-btn svg {
     width:15px; height:15px;
     stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round;
   }
   .fin-icon-btn.danger {
-    color:var(--fin-red);
-    border-color:rgba(255,77,109,.35);
+    background:var(--fin-red);
+    color:#fff;
+    border-color:transparent;
   }
   .fin-method-pill {
     display:inline-flex; align-items:center; justify-content:center;
@@ -420,6 +437,9 @@
     border-radius:var(--fin-r-xs); color:var(--fin-text); font-size:.91rem; font-family:inherit;
     transition:border-color .15s ease,box-shadow .15s ease;
     -webkit-appearance:none; appearance:none;
+  }
+  .fin-field input:not([type=checkbox]):not([type=radio]), .fin-field select {
+    min-height:38px;
   }
   .fin-field select {
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237a849a' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
@@ -544,10 +564,11 @@
   }
   .fin-selection-tools {
     display:flex;
-    gap:10px;
+    gap:8px;
     align-items:end;
-    flex-wrap:wrap;
+    flex-wrap:nowrap;
     margin-bottom:8px;
+    overflow-x:auto;
   }
   .fin-selection-tools .fin-field {
     flex:1;
@@ -610,8 +631,9 @@
 
   /* ── Chip picker (classes / students multi-select) ───────────── */
   .fin-picker-actions {
-    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    display:flex; align-items:center; gap:8px; flex-wrap:nowrap;
     margin:8px 0 10px;
+    overflow-x:auto;
   }
   .fin-picker-count {
     margin-left:auto; color:var(--fin-teal); font-size:.78rem;
@@ -704,11 +726,11 @@
     white-space:nowrap;
   }
   .fin-report-filters .fin-field select {
-    padding:6px 8px; font-size:.82rem;
+    min-height:38px; padding:8px 10px; font-size:.9rem;
   }
   .fin-report-filters .fin-btn {
     flex-shrink:0; white-space:nowrap;
-    padding:6px 10px; font-size:.9rem; line-height:1;
+    min-height:38px; padding:0 12px; font-size:.82rem; line-height:1;
   }
   .fin-report-filters .fin-filter-icon {
     flex-shrink:0; line-height:1;
@@ -727,12 +749,82 @@
     gap:14px;
     align-items:end;
   }
+  .fin-context-actions {
+    display:flex;
+    gap:8px;
+    flex-wrap:nowrap;
+    align-items:stretch;
+    justify-content:flex-start;
+    overflow-x:auto;
+  }
+  .fin-context-actions .fin-btn {
+    flex:1 1 0;
+    text-align:center;
+  }
+  .fin-context-actions > .fin-btn {
+    background:var(--fin-org) !important;
+    border-color:transparent !important;
+    color:#fff !important;
+  }
+  .fin-context-actions > .fin-btn:hover {
+    background:var(--fin-org-hover) !important;
+    border-color:transparent !important;
+  }
+  .fin-bill-context-form {
+    margin-bottom:12px !important;
+  }
+  .fin-bill-context-row {
+    grid-template-columns:minmax(0, 1fr) minmax(0, 1fr) minmax(320px, .9fr);
+    gap:12px;
+    align-items:end;
+  }
+  .fin-bill-context-row .fin-field {
+    margin:0;
+  }
+  .fin-bill-context-row .fin-field label {
+    font-size:.66rem;
+    margin-bottom:5px;
+  }
+  .fin-bill-context-row .fin-field select {
+    min-height:38px;
+    padding:9px 12px;
+    padding-right:34px;
+    font-size:.9rem;
+  }
+  .fin-bill-context-row .fin-context-actions {
+    flex-wrap:nowrap;
+    gap:8px;
+  }
+  .fin-bill-context-row .fin-context-actions .fin-btn {
+    min-height:38px;
+    padding:9px 12px;
+  }
+  .fin-bill-context-note {
+    display:block;
+    color:var(--fin-muted);
+    font-size:.72rem;
+    line-height:1.45;
+  }
+  @media (max-width:1200px) {
+    .fin-bill-context-row {
+      grid-template-columns:1fr 1fr;
+    }
+    .fin-bill-context-row .fin-field.fin-context-actions {
+      grid-column:1 / -1;
+    }
+  }
   .fin-student-context-actions {
     display:flex;
-    gap:10px;
-    flex-wrap:wrap;
-    align-items:flex-end;
+    gap:8px;
+    flex-wrap:nowrap;
+    align-items:stretch;
     justify-content:flex-start;
+    overflow-x:auto;
+  }
+  .fin-student-context-actions .fin-btn {
+    flex:1 1 0;
+    text-align:center;
+    justify-content:center;
   }
   .fin-student-context-note {
     display:block;
@@ -979,7 +1071,7 @@
   .arrears-pill:hover { border-color:var(--fin-border-hi); }
   .arrears-toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between; }
   .arrears-toolbar-left, .arrears-toolbar-right { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
-  .arrears-filter-actions { display:flex; gap:10px; align-items:flex-end; }
+  .arrears-filter-actions { display:flex; gap:8px; align-items:flex-end; flex-wrap:nowrap; overflow-x:auto; }
   .arrears-filter-actions .fin-btn { min-width:108px; justify-content:center; }
   .arrears-sticky-bar { position:sticky; bottom:12px; z-index:7; }
   .arrears-status { display:inline-flex; align-items:center; justify-content:center; min-width:102px; padding:6px 10px; border-radius:999px; font-size:.73rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; }
@@ -1120,9 +1212,14 @@
     .fin-page-head h1 { font-size:1.4rem; }
     .fin-report-filters .fin-field label { display:none; }
     .fin-report-filters .fin-field select { margin-top:0; }
-    .fin-actions { flex-direction:row; flex-wrap:nowrap; overflow-x:auto; padding:8px 10px; scrollbar-width:none; }
+    .fin-actions { flex-direction:row; flex-wrap:wrap; overflow:visible; padding:8px 10px; scrollbar-width:none; }
     .fin-actions::-webkit-scrollbar { display:none; }
     .fin-actions .fin-btn { flex-shrink:0; }
+    .fin-context-actions,
+    .fin-student-context-actions,
+    .fin-selection-tools,
+    .fin-picker-actions,
+    .arrears-filter-actions { flex-wrap:wrap; overflow:visible; }
     .fin-col-md  { display:none !important; }
     .fin-modal   { padding:0; align-items:flex-end; }
     .fin-modal-content { max-height:96vh; border-radius:18px 18px 0 0; padding:20px 14px; animation:none; }
@@ -1231,6 +1328,338 @@
   @media (max-width:600px) {
     .fin-analytics-grid { grid-template-columns:1fr; }
   }
+
+  /* ============================================================
+     PayGira — Targeted visual fixes based on screenshot audit
+     ============================================================ */
+
+  /* Icon action buttons: neutral for edit/reminder, red for delete */
+  .fin-icon-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.1);
+    color: #b5c2d8 !important;
+    box-shadow: none;
+    transition: background .15s, border-color .15s;
+  }
+  .fin-icon-btn:hover {
+    background: rgba(255,255,255,.12);
+    border-color: rgba(255,255,255,.18) !important;
+    color: #f1f5ff !important;
+    transform: none;
+    box-shadow: none;
+  }
+  .fin-icon-btn.danger {
+    background: rgba(255,77,109,.12);
+    border: 1px solid rgba(255,77,109,.3);
+    color: #FF4D6D !important;
+  }
+  .fin-icon-btn.danger:hover {
+    background: rgba(255,77,109,.22);
+    border-color: rgba(255,77,109,.5) !important;
+    color: #ff6b87 !important;
+  }
+  .fin-icon-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+  .fin-btn.danger::before { content: ''; display: none; }
+
+  /* Arrears row action buttons: compact inline */
+  .arrears-toolbar-right .fin-btn.sm,
+  .arrears-toolbar-right .fin-btn {
+    min-height: 30px;
+    padding: 0 10px;
+    font-size: .75rem;
+    border-radius: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    width: auto !important;
+  }
+  .arrears-toolbar-right {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  /* Payment submit button sizing */
+  .fin-acc-body .fin-btn.primary[type="submit"] {
+    min-height: 38px;
+    width: auto;
+    padding: 0 20px;
+    align-self: flex-start;
+  }
+  #assignSel ~ * .fin-btn.primary,
+  form[action*="finance/payments"] .fin-btn.primary {
+    max-width: 220px;
+  }
+
+  /* Context action buttons align with selects */
+  .fin-context-actions .fin-btn,
+  .fin-student-context-actions .fin-btn,
+  .fin-bill-context-row .fin-context-actions .fin-btn {
+    min-height: 38px;
+    height: 38px;
+    padding: 0 14px;
+    font-size: .82rem;
+    flex: 0 0 auto;
+    align-self: flex-end;
+  }
+
+  /* Save General Settings compact size */
+  .fin-acc-body .fin-btn.primary[type="submit"],
+  .fin-acc-body button.fin-btn.primary {
+    width: auto;
+    min-width: 180px;
+    padding: 0 20px;
+    min-height: 38px;
+    align-self: flex-start;
+  }
+
+  /* Subscription rows visual structure */
+  [style*="border-radius:14px"][style*="background:var(--fin-card-2)"] {
+    border-left: 3px solid rgba(0,212,170,.4) !important;
+    padding: 14px 16px !important;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+  }
+
+  /* Lift table row surfaces for readability */
+  .fin-table td {
+    background: rgba(22,34,56,.95) !important;
+    border-bottom: 1px solid rgba(42,60,95,.8) !important;
+  }
+  .fin-table tbody tr:hover td {
+    background: rgba(30,46,74,.95) !important;
+  }
+  .fin-table th {
+    background: rgba(14,24,42,.98) !important;
+    border-bottom: 1px solid rgba(42,60,95,.8) !important;
+  }
+
+  /* Smooth stat border transition */
+  .stat {
+    transition: border-color .2s ease;
+  }
+
+  /* Arrears section action buttons compact inline */
+  .arrears-toolbar .arrears-toolbar-right > .fin-btn {
+    min-height: 34px;
+    padding: 0 14px;
+    font-size: .8rem;
+    flex-shrink: 0;
+    width: auto !important;
+  }
+
+  /* Arrears sticky action bar visible surface */
+  .arrears-sticky-bar.fin-actions {
+    background: rgba(22,34,56,.96) !important;
+    border: 1px solid rgba(42,60,95,.9) !important;
+    border-radius: 10px;
+    padding: 10px 16px;
+    backdrop-filter: none;
+  }
+
+  /* Filter action row button alignment */
+  .arrears-filter-actions .fin-btn {
+    min-height: 46px;
+    padding: 0 18px;
+    font-size: .86rem;
+  }
+
+  /* Section header action buttons compact */
+  .section-head .fin-btn,
+  .arrears-toolbar .fin-btn:not(.sm) {
+    min-height: 34px;
+    height: 34px;
+    padding: 0 12px;
+    font-size: .78rem;
+  }
+
+  /* ============================================================
+     PayGira - Button alignment fix
+     ============================================================ */
+
+  /* Core fix: all inputs and selects get a fixed height */
+  .fin-field input:not([type=checkbox]):not([type=radio]),
+  .fin-field select {
+    height: 42px;
+    min-height: 42px;
+    max-height: 42px;
+    box-sizing: border-box;
+    padding: 0 13px;
+  }
+  .fin-field select {
+    padding-right: 32px;
+  }
+
+  /* All action buttons next to dropdowns match that height */
+  .fin-btn {
+    height: 42px;
+    min-height: 42px;
+    max-height: 42px;
+    box-sizing: border-box;
+    padding: 0 16px;
+    width: auto !important;
+    flex-shrink: 0;
+    align-self: flex-end;
+  }
+
+  /* .sm and .tiny keep their own proportional heights */
+  .fin-btn.sm {
+    height: 34px;
+    min-height: 34px;
+    max-height: 34px;
+    padding: 0 12px;
+  }
+  .fin-btn.tiny {
+    height: 30px;
+    min-height: 30px;
+    max-height: 30px;
+    padding: 0 9px;
+  }
+
+  /* Fix 1: Overview Analytics filter row */
+  .fin-report-filters {
+    align-items: flex-end;
+    padding: 12px 14px;
+  }
+  .fin-report-filters .fin-field {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+  .fin-report-filters .fin-btn {
+    height: 42px;
+    min-height: 42px;
+    align-self: flex-end;
+    flex-shrink: 0;
+    width: auto !important;
+  }
+  .fin-report-filters .fin-field select {
+    height: 42px;
+    min-height: 42px;
+  }
+
+  /* Fix 2: Overview year/term filter row icon buttons */
+  .fin-report-filters a.fin-btn.fin-filter-icon,
+  .fin-report-filters .fin-filter-icon.fin-btn {
+    height: 42px;
+    min-height: 42px;
+    width: 42px !important;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    align-self: flex-end;
+    flex-shrink: 0;
+  }
+
+  /* Fix 3: Bill Management context actions */
+  .fin-bill-context-row {
+    align-items: flex-end;
+  }
+  .fin-bill-context-row .fin-context-actions {
+    align-items: flex-end;
+    align-self: flex-end;
+    height: 42px;
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow: visible;
+  }
+  .fin-bill-context-row .fin-context-actions .fin-btn {
+    height: 42px;
+    min-height: 42px;
+    padding: 0 14px;
+    width: auto !important;
+    flex: 0 0 auto;
+  }
+  .fin-bill-context-row .fin-field select {
+    height: 42px;
+    min-height: 42px;
+  }
+
+  /* Fix 4 top: Org-Wide Bills context actions */
+  .fin-student-context-grid {
+    align-items: flex-end;
+  }
+  .fin-student-context-actions {
+    align-items: flex-end;
+    height: 42px;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+  .fin-student-context-actions .fin-btn {
+    height: 42px;
+    min-height: 42px;
+    padding: 0 14px;
+    flex: 0 0 auto;
+    width: auto !important;
+  }
+  .fin-student-context-grid .fin-field select {
+    height: 42px;
+    min-height: 42px;
+  }
+  .fin-student-context-grid .fin-field label {
+    white-space: nowrap;
+  }
+
+  /* Fix 4 bottom: Org-Wide Bills filter row reset button */
+  .fin-report-filters.fin-student-filter-grid {
+    align-items: flex-end;
+  }
+  .fin-report-filters.fin-student-filter-grid .fin-field.fin-filter-action {
+    align-items: flex-end;
+    justify-content: flex-end;
+    height: 42px;
+  }
+  .fin-report-filters.fin-student-filter-grid .fin-btn {
+    height: 42px;
+    min-height: 42px;
+    width: auto !important;
+    padding: 0 16px;
+  }
+  .fin-report-filters.fin-student-filter-grid .fin-field select,
+  .fin-report-filters.fin-student-filter-grid .fin-field input {
+    height: 42px;
+    min-height: 42px;
+  }
+
+  /* Icon action buttons in table rows - keep neutral and small */
+  .fin-icon-btn {
+    width: 32px !important;
+    height: 32px !important;
+    min-height: 32px;
+    max-height: 32px;
+    border-radius: 4px;
+    background: rgba(255,255,255,.05);
+    border: 1px solid rgba(255,255,255,.09);
+    color: #b5c2d8 !important;
+    box-shadow: none;
+  }
+  .fin-icon-btn:hover {
+    background: rgba(255,255,255,.11);
+    border-color: rgba(255,255,255,.16) !important;
+    color: #f1f5ff !important;
+    transform: none;
+    box-shadow: none;
+  }
+  .fin-icon-btn.danger {
+    background: rgba(255,77,109,.1);
+    border-color: rgba(255,77,109,.28) !important;
+    color: #FF4D6D !important;
+  }
+  .fin-icon-btn.danger:hover {
+    background: rgba(255,77,109,.2);
+    border-color: rgba(255,77,109,.45) !important;
+  }
+  .fin-icon-btn svg { width: 14px; height: 14px; }
+  .fin-btn.danger::before { content:''; display:none; }
+
+  /* End alignment fix */
 </style>
 
 <div class="fin-shell">
@@ -1721,9 +2150,9 @@
 
         <div class="fin-card">
           <div class="section-head"><h2>All Bills</h2><span class="fin-section-count"><%= bills.length %> bill<%= bills.length === 1 ? '' : 's' %></span></div>
-          <form method="GET" action="/account/settings/finance" class="fin-form" style="margin-bottom:16px;">
+          <form method="GET" action="/account/settings/finance" class="fin-form fin-bill-context-form">
             <input type="hidden" name="section" value="bills">
-            <div class="fin-row" style="align-items:end;">
+            <div class="fin-row fin-bill-context-row">
               <div class="fin-field">
                 <label>School Year</label>
                 <select name="billYear" id="billListYearFilter">
@@ -1738,12 +2167,12 @@
                   <% (refs.terms || []).forEach(t => { %><option value="<%= t.term_id %>" data-school-year-id="<%= t.school_year_id || '' %>" <%= String(billTermFilter) === String(t.term_id) ? 'selected' : '' %>><%= t.name %><%= t.current ? ' (current)' : '' %></option><% }) %>
                 </select>
               </div>
-              <div class="fin-field" style="align-self:end;display:flex;gap:10px;flex-wrap:wrap;">
-                <button type="submit" class="fin-btn">Apply Context</button>
+              <div class="fin-field fin-context-actions" style="align-self:end;">
+                <button type="submit" class="fin-btn ghost">Apply Context</button>
                 <a class="fin-btn ghost" href="/account/settings/finance?section=bills">Use current term</a>
               </div>
             </div>
-            <small style="color:var(--fin-muted);font-size:.74rem;">Bills default to the current academic context here. Switch year or term to review a different billing period.</small>
+            <small class="fin-bill-context-note">Bills default to the current academic context here. Switch year or term to review a different billing period.</small>
           </form>
           <% if (!bills.length) { %>
             <div class="empty-state"><div class="ico">📋</div><h3>No bills created yet</h3><p>Use the form above to create your first bill.</p></div>
@@ -1838,8 +2267,8 @@
                 </div>
                 <div class="fin-field">
                   <label>Context Actions</label>
-                  <div class="fin-student-context-actions">
-                    <button type="submit" class="fin-btn">Apply Context</button>
+                  <div class="fin-student-context-actions fin-context-actions">
+                    <button type="submit" class="fin-btn ghost">Apply Context</button>
                     <a class="fin-btn ghost" href="/account/settings/finance?section=students">Use current term</a>
                   </div>
                 </div>
@@ -1919,7 +2348,7 @@
                     else if (netOut === 0) st = 'paid';
                     else if (Number(s.total_paid||0) > 0 || credit > 0) st = 'partial';
                   %>
-                    <tr class="fin-click-row" onclick="openStudentDrawer(<%= s.student_id %>)" title="Open student billing detail" data-text="<%= ((s.first_name||'') + ' ' + (s.last_name||'') + ' ' + (s.class_name||'')).toLowerCase() %>" data-class="<%= s.class_id || '' %>" data-status="<%= st %>" data-debt="<%= netOut > 0 ? 'has-debt' : 'clear' %>" data-credit="<%= credit > 0 ? 'has-credit' : 'no-credit' %>">
+                    <tr class="fin-click-row" onclick="openStudentDrawer(<%= s.student_id %>)" title="Open student billing detail" data-text="<%= ((s.first_name||'') + ' ' + (s.last_name||'') + ' ' + (s.class_name||'') + ' ' + (s.display_student_id||'')).toLowerCase() %>" data-class="<%= s.class_id || '' %>" data-status="<%= st %>" data-debt="<%= netOut > 0 ? 'has-debt' : 'clear' %>" data-credit="<%= credit > 0 ? 'has-credit' : 'no-credit' %>">
                       <td>
                         <div class="fin-student-main">
                           <div class="fin-student-avatar">
@@ -1927,7 +2356,7 @@
                           </div>
                           <div class="fin-student-copy">
                             <strong class="fin-student-name"><%= s.first_name %> <%= s.last_name %></strong>
-                            <div class="fin-student-meta">ID #<%= s.student_id %></div>
+                            <div class="fin-student-meta">ID <%= s.display_student_id_text || ('#' + s.student_id) %></div>
                           </div>
                         </div>
                       </td>

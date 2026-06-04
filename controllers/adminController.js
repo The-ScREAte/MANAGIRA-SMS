@@ -890,6 +890,86 @@ const adminController = {
         [id, merged]
       );
 
+      // Record current user as a contributor, then notify everyone who should know
+      try {
+        // 1. Stamp the current user as a contributor (idempotent)
+        await db.query(
+          `INSERT INTO internal_contact_note_contributors (contact_id, user_id)
+           VALUES ($1, $2)
+           ON CONFLICT (contact_id, user_id) DO NOTHING`,
+          [id, Number(userId)]
+        );
+
+        // 2. Collect creator + all previous contributors, excluding the current user
+        const creatorId = ownership.rows[0].created_by_user_id;
+        const recipientRows = await db.query(
+          `SELECT DISTINCT u.user_id, u.first_name, u.last_name, u.email
+           FROM users u
+           WHERE u.email IS NOT NULL
+             AND u.user_id != $1
+             AND (
+               u.user_id = $2
+               OR EXISTS (
+                 SELECT 1 FROM internal_contact_note_contributors c
+                 WHERE c.contact_id = $3 AND c.user_id = u.user_id
+               )
+             )`,
+          [Number(userId), creatorId, id]
+        );
+
+        if (recipientRows.rows.length) {
+          const contactRow = await db.query(
+            `SELECT contact_name FROM internal_contacts WHERE id = $1`,
+            [id]
+          );
+          const contactName = contactRow.rows[0]?.contact_name || `Contact #${id}`;
+
+          for (const recipient of recipientRows.rows) {
+            const recipientName = `${recipient.first_name || ''} ${recipient.last_name || ''}`.trim() || recipient.email;
+            const isCreator = creatorId && Number(recipient.user_id) === Number(creatorId);
+            const roleNote = isCreator
+              ? 'You are receiving this because you created this contact.'
+              : 'You are receiving this because you previously contributed a note on this contact.';
+
+            const html = renderCleanEmail({
+              title: "New Note on Your Contact",
+              greeting: `Hi <strong>${recipientName}</strong>,`,
+              paragraphs: [
+                `A new note has been added to contact <strong>${contactName}</strong> by <strong>${authorLabel}</strong>.`,
+              ],
+              details: [
+                { label: "Contact", value: contactName },
+                { label: "Note", value: newNote },
+                { label: "Added by", value: authorLabel },
+                { label: "Date", value: stamp },
+              ],
+              note: `${roleNote} Log in to Managira to view the full note history.`,
+            });
+
+            const mailOptions = {
+              from: process.env.NOTIFY_EMAIL_USER,
+              to: recipient.email,
+              subject: `New note on contact: ${contactName}`,
+              html,
+              skipMxCheck: true,
+              attachments: [
+                {
+                  filename: "managira.png",
+                  path: require("path").join(__dirname, "../public/images/managira.png"),
+                  cid: "managira_logo",
+                },
+              ],
+            };
+
+            sendEmailInBackground(mailOptions, "Contact Note Notification");
+            console.log(`[ContactNote] Notification queued to ${recipient.email} (contact #${id})`);
+          }
+        }
+      } catch (err) {
+        console.error("[ContactNote] Email notification error:", err.message);
+        // Email failure must never break the main flow
+      }
+
       req.flash("success", "Note added.");
       return res.redirect("/admin");
     } catch (error) {

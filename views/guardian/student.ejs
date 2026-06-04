@@ -50,6 +50,13 @@
     font-size: 0.9rem;
   }
 
+  .student-meta .student-id-text {
+    margin-top: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    opacity: 0.96;
+  }
+
   .content-card {
     background: white;
     border: 1px solid var(--guardian-border, #e2e8f0);
@@ -273,6 +280,7 @@
       <div class="student-meta">
         <div class="class-name"><%= student.class_name || 'No class assigned' %></div>
         <div class="grad-group">Graduation Group: <%= (student.grad_year_group_name || 'N/A') %></div>
+        <div class="student-id-text">Student ID: <%= student.display_student_id || student.student_id %></div>
       </div>
     </div>
   </div>

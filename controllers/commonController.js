@@ -8,7 +8,7 @@ require("dotenv").config(); // Load environment variables from .env file
 const { uploadToS3, deleteFromS3 } = require("../middleware/s3Upload");
 const axios = require("axios");
 const he = require("he");
-const { buildFailureNotification, sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require("../utils/emailHelper");
+const { buildFailureNotification, sendEmailSafely, sendEmailInBackground, renderCleanEmail, recordEmailDeliveryFailure } = require("../utils/emailHelper");
 const { isEmailEnabledForRecipient } = require("../utils/emailPreferences");
 const { getPaystackSettings } = require("../utils/paystackConfig");
 const {
@@ -66,6 +66,7 @@ const {
   normalizeFeedbackArea,
   normalizeFeedbackPriority,
 } = require("../utils/userFeedback");
+const { buildStudentDisplayId } = require("../utils/studentIdDisplay");
 
 async function getActivePaystackConfig(dbClient) {
   const settings = await getPaystackSettings(dbClient);
@@ -78,6 +79,7 @@ async function getActivePaystackConfig(dbClient) {
 
 let publicRegistrationSchemaReady = false;
 let guardianPaymentMethodSchemaReady = false;
+let studentIdSettingsSchemaReady = false;
 
 function roundCurrencyAmount(value) {
   return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
@@ -109,6 +111,17 @@ async function convertAmountBetweenCurrencies(amount, fromCurrency, toCurrency) 
 
   const amountInUsd = numericAmount / usdToFromRate;
   return roundCurrencyAmount(amountInUsd * usdToToRate);
+}
+
+async function ensureStudentIdSettingsSchema(dbClient) {
+  if (studentIdSettingsSchemaReady) return;
+
+  await dbClient.query(`
+    ALTER TABLE organizations
+      ADD COLUMN IF NOT EXISTS student_id_start_number INTEGER DEFAULT NULL
+  `);
+
+  studentIdSettingsSchemaReady = true;
 }
 
 async function ensurePublicRegistrationSchema(dbClient) {
@@ -169,6 +182,363 @@ async function ensureGuardianPaymentMethodsSchema(dbClient) {
 
 function normalizeGuardianPhoneForLookup(value) {
   return String(value || '').trim().replace(/[^\d+]/g, '');
+}
+
+async function getOccupiedStudentIdNumbers(dbClient, organizationId, excludeStudentId = null) {
+  const params = [organizationId];
+  let exclusionClause = '';
+
+  if (Number.isInteger(Number(excludeStudentId)) && Number(excludeStudentId) > 0) {
+    params.push(Number(excludeStudentId));
+    exclusionClause = ' AND student_id <> $2';
+  }
+
+  const result = await dbClient.query(
+    `SELECT DISTINCT occupied_number::int AS occupied_number
+       FROM (
+         SELECT student_id AS occupied_number
+           FROM students
+          WHERE organization_id = $1
+            AND student_id IS NOT NULL
+            AND student_id > 0
+            ${exclusionClause}
+         UNION
+         SELECT NULLIF(REGEXP_REPLACE(COALESCE(custom_student_id, ''), '\\D', '', 'g'), '')::int AS occupied_number
+           FROM students
+          WHERE organization_id = $1
+            AND NULLIF(REGEXP_REPLACE(COALESCE(custom_student_id, ''), '\\D', '', 'g'), '') IS NOT NULL
+            ${exclusionClause}
+       ) occupied_numbers
+      WHERE occupied_number IS NOT NULL
+        AND occupied_number > 0
+      ORDER BY occupied_number ASC`,
+    params
+  );
+
+  return result.rows
+    .map((row) => Number(row.occupied_number) || 0)
+    .filter((number) => Number.isInteger(number) && number > 0);
+}
+
+function getFirstAvailableStudentIdNumber(occupiedNumbers = [], startingNumber = 1, reservedNumbers = []) {
+  const usedNumbers = new Set();
+
+  [...occupiedNumbers, ...reservedNumbers].forEach((number) => {
+    const parsed = Number(number);
+    if (Number.isInteger(parsed) && parsed > 0) {
+      usedNumbers.add(parsed);
+    }
+  });
+
+  let candidate = Math.max(1, Number(startingNumber) || 1);
+  while (usedNumbers.has(candidate)) {
+    candidate += 1;
+  }
+
+  return candidate;
+}
+
+function getStudentIdSearchStart(occupiedNumbers = [], currentCounter = 0, configuredStartNumber = null) {
+  const validOccupiedNumbers = occupiedNumbers.filter((number) => Number.isInteger(number) && number > 0);
+  const explicitStartNumber = Number(configuredStartNumber);
+
+  if (Number.isInteger(explicitStartNumber) && explicitStartNumber > 0) {
+    return explicitStartNumber;
+  }
+
+  const configuredNextNumber = Math.max(1, Number(currentCounter) || 0) + 1;
+
+  if (validOccupiedNumbers.length === 0) {
+    return configuredNextNumber;
+  }
+
+  const minOccupiedNumber = Math.min(...validOccupiedNumbers);
+  if (
+    configuredNextNumber < minOccupiedNumber &&
+    configuredNextNumber >= Math.max(1, minOccupiedNumber - 1)
+  ) {
+    return configuredNextNumber;
+  }
+
+  return minOccupiedNumber;
+}
+
+async function getNextSuggestedStudentIdNumber(dbClient, organizationId, currentCounter = 0, reservedNumbers = [], excludeStudentId = null, configuredStartNumber = null) {
+  const occupiedNumbers = await getOccupiedStudentIdNumbers(dbClient, organizationId, excludeStudentId);
+  const searchStart = getStudentIdSearchStart(occupiedNumbers, currentCounter, configuredStartNumber);
+  return getFirstAvailableStudentIdNumber(occupiedNumbers, searchStart, reservedNumbers);
+}
+
+function getStudentIdEditorValue(student = {}, studentIdSettings = {}) {
+  const prefix = studentIdSettings && studentIdSettings.use_custom_student_id
+    ? String(studentIdSettings.student_id_prefix || '')
+    : '';
+  const customStudentId = String(student.custom_student_id || '').trim();
+
+  if (customStudentId) {
+    const withoutPrefix = prefix && customStudentId.toUpperCase().startsWith(prefix.toUpperCase())
+      ? customStudentId.slice(prefix.length)
+      : customStudentId;
+    const digitsOnly = withoutPrefix.replace(/\D/g, '').trim();
+    if (digitsOnly) {
+      return digitsOnly;
+    }
+  }
+
+  const systemStudentId = Number(student.student_id);
+  if (!Number.isInteger(systemStudentId) || systemStudentId <= 0) {
+    return '';
+  }
+
+  const systemIdText = String(systemStudentId);
+  return systemIdText.padStart(Math.max(3, systemIdText.length), '0');
+}
+
+function normalizeSubjectCarryoverKey(subjectName = '') {
+  return String(subjectName || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function getStudentAssignedSubjects(dbClient, organizationId, studentId) {
+  const result = await dbClient.query(
+    `SELECT ss.subject_id, s.subject_name
+       FROM student_subjects ss
+       INNER JOIN subjects s ON s.subject_id = ss.subject_id
+      WHERE ss.student_id = $1 AND ss.organization_id = $2
+      ORDER BY s.subject_name ASC`,
+    [studentId, organizationId]
+  );
+
+  return result.rows;
+}
+
+async function getClassSubjectsForCarryover(dbClient, organizationId, classId) {
+  const result = await dbClient.query(
+    `SELECT subject_id, subject_name
+       FROM subjects
+      WHERE class_id = $1 AND organization_id = $2
+      ORDER BY subject_name ASC`,
+    [classId, organizationId]
+  );
+
+  return result.rows;
+}
+
+function mapSubjectsForNewClass(previousSubjects = [], targetClassSubjects = []) {
+  const targetSubjectsByKey = new Map();
+  targetClassSubjects.forEach((subject) => {
+    const key = normalizeSubjectCarryoverKey(subject.subject_name);
+    if (key && !targetSubjectsByKey.has(key)) {
+      targetSubjectsByKey.set(key, subject);
+    }
+  });
+
+  const matchedSubjects = [];
+  const unmatchedSubjectNames = [];
+  const usedSubjectIds = new Set();
+
+  previousSubjects.forEach((subject) => {
+    const key = normalizeSubjectCarryoverKey(subject.subject_name);
+    const matched = key ? targetSubjectsByKey.get(key) : null;
+
+    if (matched && !usedSubjectIds.has(matched.subject_id)) {
+      usedSubjectIds.add(matched.subject_id);
+      matchedSubjects.push(matched);
+      return;
+    }
+
+    if (subject && subject.subject_name) {
+      unmatchedSubjectNames.push(subject.subject_name);
+    }
+  });
+
+  return {
+    matchedSubjects,
+    unmatchedSubjectNames,
+  };
+}
+
+async function replaceStudentSubjects(dbClient, organizationId, studentId, subjectIds = []) {
+  await dbClient.query(
+    `DELETE FROM student_subjects WHERE student_id = $1 AND organization_id = $2`,
+    [studentId, organizationId]
+  );
+
+  for (const subjectId of subjectIds) {
+    await dbClient.query(
+      `INSERT INTO student_subjects (student_id, subject_id, organization_id)
+       VALUES ($1, $2, $3)`,
+      [studentId, subjectId, organizationId]
+    );
+  }
+}
+
+async function carryStudentSubjectsToClass(dbClient, {
+  organizationId,
+  studentId,
+  newClassId,
+  keepExistingSubjects = false,
+}) {
+  if (!Number.isInteger(Number(studentId)) || !Number.isInteger(Number(newClassId))) {
+    return {
+      keptSubjects: false,
+      assignedSubjectIds: [],
+      matchedSubjectNames: [],
+      unmatchedSubjectNames: [],
+    };
+  }
+
+  const previousSubjects = await getStudentAssignedSubjects(dbClient, organizationId, Number(studentId));
+
+  if (!keepExistingSubjects) {
+    await replaceStudentSubjects(dbClient, organizationId, Number(studentId), []);
+    return {
+      keptSubjects: false,
+      assignedSubjectIds: [],
+      matchedSubjectNames: [],
+      unmatchedSubjectNames: previousSubjects.map((subject) => subject.subject_name).filter(Boolean),
+    };
+  }
+
+  const targetClassSubjects = await getClassSubjectsForCarryover(dbClient, organizationId, Number(newClassId));
+  const { matchedSubjects, unmatchedSubjectNames } = mapSubjectsForNewClass(previousSubjects, targetClassSubjects);
+  const assignedSubjectIds = matchedSubjects.map((subject) => subject.subject_id);
+
+  await replaceStudentSubjects(dbClient, organizationId, Number(studentId), assignedSubjectIds);
+
+  return {
+    keptSubjects: true,
+    assignedSubjectIds,
+    matchedSubjectNames: matchedSubjects.map((subject) => subject.subject_name),
+    unmatchedSubjectNames,
+  };
+}
+
+function buildSubjectCarryoverNotice(carryoverResult = {}, clearMessage = 'Previous subjects were not carried into the new class.') {
+  const matchedSubjectNames = Array.isArray(carryoverResult.matchedSubjectNames)
+    ? carryoverResult.matchedSubjectNames.filter(Boolean)
+    : [];
+  const unmatchedSubjectNames = Array.isArray(carryoverResult.unmatchedSubjectNames)
+    ? carryoverResult.unmatchedSubjectNames.filter(Boolean)
+    : [];
+
+  if (!carryoverResult.keptSubjects) {
+    return {
+      message: clearMessage,
+      skippedMessage: unmatchedSubjectNames.length
+        ? `Subjects not added to this class: ${unmatchedSubjectNames.join(', ')}.`
+        : '',
+    };
+  }
+
+  if (!matchedSubjectNames.length && !unmatchedSubjectNames.length) {
+    return { message: '', skippedMessage: '' };
+  }
+
+  return {
+    message: matchedSubjectNames.length
+      ? `Moved matching subjects into the new class: ${matchedSubjectNames.join(', ')}.`
+      : 'No previous subjects matched the new class.',
+    skippedMessage: unmatchedSubjectNames.length
+      ? `Subjects not added to this class: ${unmatchedSubjectNames.join(', ')}.`
+      : '',
+  };
+}
+
+function parseKeepExistingSubjectsPreference(value, defaultValue = true) {
+  if (value === undefined || value === null || value === '') {
+    return defaultValue;
+  }
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  const normalized = String(value).trim().toLowerCase();
+  if (['true', '1', 'yes', 'y', 'keep', 'carry'].includes(normalized)) {
+    return true;
+  }
+  if (['false', '0', 'no', 'n', 'clear', 'reset'].includes(normalized)) {
+    return false;
+  }
+
+  return defaultValue;
+}
+
+function summarizeSubjectNames(subjectNames = [], maxNames = 8) {
+  const uniqueNames = [...new Set((subjectNames || []).filter(Boolean))];
+  if (!uniqueNames.length) {
+    return '';
+  }
+  if (uniqueNames.length <= maxNames) {
+    return uniqueNames.join(', ');
+  }
+
+  const visibleNames = uniqueNames.slice(0, maxNames).join(', ');
+  return `${visibleNames}, and ${uniqueNames.length - maxNames} more`;
+}
+
+function buildBulkSubjectCarryoverNotice(results = [], keepExistingSubjects = false) {
+  const matchedSubjectNames = [];
+  const unmatchedSubjectNames = [];
+
+  results.forEach((result) => {
+    if (Array.isArray(result && result.matchedSubjectNames)) {
+      matchedSubjectNames.push(...result.matchedSubjectNames);
+    }
+    if (Array.isArray(result && result.unmatchedSubjectNames)) {
+      unmatchedSubjectNames.push(...result.unmatchedSubjectNames);
+    }
+  });
+
+  const matchedSummary = summarizeSubjectNames(matchedSubjectNames);
+  const unmatchedSummary = summarizeSubjectNames(unmatchedSubjectNames);
+
+  if (!keepExistingSubjects) {
+    return {
+      message: 'Previous subjects were not carried into the new class for the selected students.',
+      skippedMessage: unmatchedSummary ? `Subjects not added to this class: ${unmatchedSummary}.` : '',
+    };
+  }
+
+  return {
+    message: matchedSummary
+      ? `Moved matching subjects into the new class where available: ${matchedSummary}.`
+      : 'No previous subjects matched the new class for the selected students.',
+    skippedMessage: unmatchedSummary ? `Subjects not added to this class: ${unmatchedSummary}.` : '',
+  };
+}
+
+async function isStudentIdTaken(dbClient, organizationId, customId, numericStudentId = null, excludeStudentId = null) {
+  const params = [organizationId];
+  let query = `SELECT 1 FROM students WHERE organization_id = $1`;
+
+  if (Number.isInteger(Number(excludeStudentId)) && Number(excludeStudentId) > 0) {
+    params.push(Number(excludeStudentId));
+    query += ` AND student_id <> $2`;
+  }
+
+  const conditions = [];
+  if (customId) {
+    params.push(customId);
+    conditions.push(`custom_student_id = $${params.length}`);
+  }
+  if (Number.isInteger(Number(numericStudentId)) && Number(numericStudentId) > 0) {
+    params.push(Number(numericStudentId));
+    conditions.push(`student_id = $${params.length}`);
+  }
+
+  if (!conditions.length) {
+    return false;
+  }
+
+  query += ` AND (${conditions.join(' OR ')}) LIMIT 1`;
+  const result = await dbClient.query(query, params);
+  return result.rows.length > 0;
 }
 
 async function ensureGuardianPortalProfileAndAccount(dbClient, options = {}) {
@@ -1868,10 +2238,9 @@ const commonController = {
           : items;
 
       // Render the school website page
-      const canonicalUrl =
-        process.env.NODE_ENV === "production" && orgDetails?.nickname
-          ? `https://${orgDetails.nickname}.managira.com/`
-          : `${baseSiteUrl}/common/publicDashboard?organizationId=${organizationId}`;
+      const canonicalUrl = req.schoolDetails?.nickname
+        ? `https://${req.schoolDetails.nickname}.managira.com/`
+        : `${baseSiteUrl}/common/publicDashboard?organizationId=${organizationId}`;
 
       const flashMessages = req.flash();
       const publicErrorMessages = (flashMessages.error || []).filter(
@@ -1889,7 +2258,7 @@ const commonController = {
 
       const seoDescription = aboutusPlain
         ? `${aboutusPlain}`
-        : `Official website and public portal for ${orgDetails?.organization_name || "School"}${orgDetails?.nickname ? ` (${orgDetails.nickname})` : ""} on Managira. View announcements, events, registration updates, and school information.`;
+        : `${orgDetails?.organization_name || "School"} - school management portal on Managira. View class information, announcements, and school updates.`;
 
       // Build rich keyword list: full name, every word, every partial combination,
       // nickname variations, and common school search terms — maximises chances of
@@ -1968,7 +2337,7 @@ const commonController = {
             ...(orgDetails.email ? { email: orgDetails.email } : {}),
             sameAs: [
               canonicalUrl,
-              `https://www.managira.com/legal/directory`,
+              `https://managira.com/legal/directory`,
             ],
             potentialAction: {
               "@type": "SearchAction",
@@ -2147,6 +2516,23 @@ const commonController = {
       );
       const currentTerm = currentTermResult.rows[0];
 
+      // Fetch org student ID settings
+      await ensureStudentIdSettingsSchema(db);
+      const orgIdSettingsResult = await db.query(
+        `SELECT use_custom_student_id, student_id_prefix, student_id_auto_generate, student_id_counter, student_id_start_number
+         FROM organizations WHERE organization_id = $1`,
+        [organizationId]
+      );
+      const studentIdSettings = orgIdSettingsResult.rows[0] || {};
+      const nextAvailableStudentIdNumber = await getNextSuggestedStudentIdNumber(
+        db,
+        organizationId,
+        studentIdSettings.student_id_counter || 0,
+        [],
+        null,
+        studentIdSettings.student_id_start_number || null
+      );
+
       res.render("common/addStudent", {
         title: "Add New Student",
         classes: classResult.rows,
@@ -2154,6 +2540,8 @@ const commonController = {
         subjects: subjectResult.rows,
         schoolYears,
         currentTerm,
+        studentIdSettings,
+        nextAvailableStudentIdNumber,
         messages: req.flash(),
         organizationId: req.session.organizationId,
       });
@@ -2169,6 +2557,15 @@ const commonController = {
     const body = req.body;
     const uploadedFiles = Array.isArray(req.files) ? req.files : [];
     const allowDuplicateSave = String(body.allowDuplicateSave || 'false') === 'true';
+
+    // Fetch org student ID settings once before processing students
+    await ensureStudentIdSettingsSchema(db);
+    const orgIdSettingsResult = await db.query(
+      `SELECT use_custom_student_id, student_id_prefix, student_id_auto_generate, student_id_counter, student_id_start_number
+       FROM organizations WHERE organization_id = $1`,
+      [organizationId]
+    );
+    const idSettings = orgIdSettingsResult.rows[0] || {};
 
     const indexes = [];
     const studentFieldPattern = /^(?:firstName|lastName|dateOfBirth|gender|classId|graduationYearGroupId|hometown|height|enrollmentType|schoolYearId|termId)_(\d+)$/;
@@ -2227,6 +2624,8 @@ const commonController = {
           enrollmentType: getStudentField('enrollmentType'),
           schoolYearId: getStudentField('schoolYearId'),
           termId: getStudentField('termId'),
+          customStudentId: getStudentField('customStudentId'),
+          customStudentIdMode: getStudentField('customStudentIdMode'),
           subjects: body[`subjects_${index}`] || [],
           guardians: [],
         };
@@ -2313,10 +2712,100 @@ const commonController = {
 
         // Use imageUrl as usual in your INSERT query:
         currentPhaseForLog = 'insertStudent';
+
+        // Resolve custom student ID for this student
+        let resolvedCustomId = null;
+        if (idSettings.use_custom_student_id) {
+          const prefix = idSettings.student_id_prefix || '';
+          const rawManual = student.customStudentId ? String(student.customStudentId).trim() : '';
+          const customIdMode = String(student.customStudentIdMode || '').trim().toLowerCase();
+          // Strip prefix from manual input to avoid doubling (e.g. user types "MGI042" when prefix is "MGI")
+          const manualOverride = rawManual
+            ? (prefix && rawManual.toUpperCase().startsWith(prefix.toUpperCase())
+                ? rawManual.slice(prefix.length)
+                : rawManual)
+            : '';
+          const manualNumericRaw = manualOverride.replace(/\D/g, '');
+          const manualNumericValue = manualNumericRaw ? parseInt(manualNumericRaw, 10) : null;
+          const useAutoGeneratedId = idSettings.student_id_auto_generate && (
+            customIdMode === 'auto' || (!customIdMode && !manualOverride)
+          );
+
+          if (useAutoGeneratedId) {
+            const lockedIdSettingsResult = await client.query(
+              `SELECT student_id_counter, student_id_start_number
+                 FROM organizations
+                WHERE organization_id = $1
+                FOR UPDATE`,
+              [organizationId]
+            );
+            const lockedIdSettings = lockedIdSettingsResult.rows[0] || {};
+
+            const nextStudentIdNumber = await getNextSuggestedStudentIdNumber(
+              client,
+              organizationId,
+              lockedIdSettings.student_id_counter || idSettings.student_id_counter || 0,
+              [],
+              null,
+              lockedIdSettings.student_id_start_number || idSettings.student_id_start_number || null
+            );
+            resolvedCustomId = prefix + String(nextStudentIdNumber).padStart(3, '0');
+
+            await client.query(
+              `UPDATE organizations
+                  SET student_id_counter = GREATEST(COALESCE(student_id_counter, 0), $1)
+                WHERE organization_id = $2`,
+              [nextStudentIdNumber, organizationId]
+            );
+          } else if (manualOverride) {
+            resolvedCustomId = prefix + manualOverride;
+            // Check if manually specified ID is already taken by either a
+            // custom ID or a system student_id-derived display ID.
+            const manualConflictParams = [organizationId, resolvedCustomId];
+            let manualConflictQuery = `
+              SELECT 1
+                FROM students
+               WHERE organization_id = $1
+                 AND custom_student_id = $2
+               LIMIT 1`;
+            if (Number.isInteger(manualNumericValue)) {
+              manualConflictParams.push(manualNumericValue);
+              manualConflictQuery = `
+                SELECT 1
+                  FROM students
+                 WHERE organization_id = $1
+                   AND (custom_student_id = $2 OR student_id = $3)
+                 LIMIT 1`;
+            }
+            const idConflict = await client.query(manualConflictQuery, manualConflictParams);
+            if (idConflict.rows.length > 0) {
+              // Find next available ID starting from +1 and suggest it
+              const numPart = manualNumericValue || 0;
+              const padLen = manualNumericRaw.length || 3;
+              let suggestion = null;
+              for (let n = numPart + 1; n < numPart + 1000; n++) {
+                const candidate = prefix + String(n).padStart(padLen, '0');
+                const check = await client.query(
+                  `SELECT 1
+                     FROM students
+                    WHERE organization_id = $1
+                      AND (custom_student_id = $2 OR student_id = $3)
+                    LIMIT 1`,
+                  [organizationId, candidate, n]
+                );
+                if (check.rows.length === 0) { suggestion = candidate; break; }
+              }
+              throw new Error(
+                `ID "${resolvedCustomId}" is already taken.${suggestion ? ` Next available: "${suggestion}".` : ''}`
+              );
+            }
+          }
+        }
+
         const studentInsert = await client.query(
           `INSERT INTO students 
-          (first_name, last_name, date_of_birth, height, hometown, class_id, image_url, graduation_year_group_id, gender, created_by, organization_id)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+          (first_name, last_name, date_of_birth, height, hometown, class_id, image_url, graduation_year_group_id, gender, created_by, organization_id, custom_student_id)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
           RETURNING student_id`,
           [
             student.firstName,
@@ -2325,11 +2814,12 @@ const commonController = {
             student.height,
             student.hometown,
             student.classId,
-            imageUrl, // ✅ Use uploaded image if present
+            imageUrl,
             student.graduationYearGroupId || null,
             student.gender,
             createdBy,
             organizationId,
+            resolvedCustomId,
           ]
         );
 
@@ -3236,11 +3726,6 @@ const commonController = {
       req.query.organizationId ||
       (req.schoolDetails && req.schoolDetails.organization_id);
 
-    console.log('[Public Register] Starting registration...');
-    console.log('[Public Register] Organization ID:', organizationId);
-    console.log('[Public Register] Body fields:', Object.keys(body));
-    console.log('[Public Register] Files:', files ? Object.keys(files) : 'None');
-
     try {
       if (
         !body.firstName ||
@@ -3249,28 +3734,20 @@ const commonController = {
         !body.gender ||
         !body.classId
       ) {
-        console.log('[Public Register] ❌ Missing required fields');
         return res
           .status(400)
           .json({ success: false, error: "Missing required fields." });
       }
-
-      console.log('[Public Register] ✅ All required fields present');
-
-      console.log('[Public Register] Fetching organization details...');
       const orgResult = await db.query(
         `SELECT public_registration_price, public_registration_currency FROM organizations WHERE organization_id = $1`,
         [organizationId]
       );
 
       if (orgResult.rows.length === 0) {
-        console.log('[Public Register] ❌ Organization not found');
         return res
           .status(400)
           .json({ success: false, error: "Organization not found." });
       }
-
-      console.log('[Public Register] ✅ Organization found');
 
       const {
         public_registration_price: amount,
@@ -3278,37 +3755,27 @@ const commonController = {
       } = orgResult.rows[0];
 
       // Upload student image to S3 if provided
-      console.log('[Public Register] Handling student image...');
       let imageUrl = "profilePlaceholder.png";
       if (files && files.studentImage && files.studentImage[0]) {
         const file = files.studentImage[0];
         const s3Key = `images/studentimages/${organizationId}/${file.originalname}`;
-        console.log('[Public Register] Uploading student image to S3:', s3Key);
         imageUrl = await uploadToS3(file, s3Key);
-        console.log('[Public Register] ✅ Student image uploaded:', imageUrl);
-      } else {
-        console.log('[Public Register] No student image, using placeholder');
       }
 
       // Handle guardian image upload if new guardian
-      console.log('[Public Register] Handling guardian image...');
       let guardianImageUrl = null;
       if (files && files.guardianImage0 && files.guardianImage0[0]) {
         const guardianFile = files.guardianImage0[0];
         const s3Key = `images/guardians/${organizationId}/${guardianFile.originalname}`;
-        console.log('[Public Register] Uploading guardian image to S3:', s3Key);
         guardianImageUrl = await uploadToS3(guardianFile, s3Key);
-        console.log('[Public Register] ✅ Guardian image uploaded:', guardianImageUrl);
-      } else {
-        console.log('[Public Register] No guardian image provided');
       }
 
       // Insert pending student record right away
-      console.log('[Public Register] Inserting pending student...');
+      const isFreeRegistration = !(parseFloat(amount) > 0);
       const insertResult = await db.query(
         `INSERT INTO pending_students 
         (first_name, last_name, date_of_birth, gender, hometown, class_id, image_url, enrollment_type, school_year_id, term_id, graduation_year_group_id, organization_id, stripe_payment_verified, payment_pending, submitted_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, false, true, NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
         RETURNING pending_id`,
         [
           body.firstName,
@@ -3323,18 +3790,16 @@ const commonController = {
           body.termId,
           body.graduationYearGroupId,
           organizationId,
+          isFreeRegistration,   // stripe_payment_verified: true when no payment needed
+          !isFreeRegistration,  // payment_pending: false when no payment needed
         ]
       );
 
       const pendingStudentId = insertResult.rows[0].pending_id;
-      console.log('[Public Register] ✅ Pending student created, ID:', pendingStudentId);
 
       // Check if using existing guardian or creating new
-      console.log('[Public Register] Handling guardians...');
-      console.log('[Public Register] Existing guardian ID:', body.existingGuardianId);
       if (body.existingGuardianId) {
         // Fetch existing guardian's info and create a record in pending_guardians
-        console.log('[Public Register] Fetching existing guardian info...');
         const existingGuardian = await db.query(
           `SELECT first_name, last_name, phone, email, hometown, image_url
            FROM guardian_profiles
@@ -3344,7 +3809,6 @@ const commonController = {
 
         if (existingGuardian.rows.length > 0) {
           const g = existingGuardian.rows[0];
-          console.log('[Public Register] ✅ Existing guardian found:', g.first_name, g.last_name);
           await db.query(
             `INSERT INTO pending_guardians (pending_id, first_name, last_name, phone, email, hometown)
              VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -3357,17 +3821,11 @@ const commonController = {
               g.hometown,
             ]
           );
-          console.log('[Public Register] ✅ Existing guardian linked to pending student');
-        } else {
-          console.log('[Public Register] ❌ Existing guardian not found');
         }
       } else {
         // Save new guardian with image
-        console.log('[Public Register] Creating new guardian(s)...');
         const guardians = extractGuardians(body);
-        console.log('[Public Register] Guardians extracted:', guardians.length);
         for (const guardian of guardians) {
-          console.log('[Public Register] Inserting guardian:', guardian.firstName, guardian.lastName);
           await db.query(
             `INSERT INTO pending_guardians (pending_id, first_name, last_name, phone, email, hometown)
              VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -3380,16 +3838,13 @@ const commonController = {
               guardian.hometown,
             ]
           );
-          console.log('[Public Register] ✅ Guardian inserted');
         }
       }
 
       // Save subjects
-      console.log('[Public Register] Saving subjects...');
       const subjects = Array.isArray(body.subjects)
         ? body.subjects
         : [body.subjects];
-      console.log('[Public Register] Subjects count:', subjects.length);
       for (const subjectId of subjects) {
         if (subjectId) {
           await db.query(
@@ -3398,12 +3853,10 @@ const commonController = {
           );
         }
       }
-      console.log('[Public Register] ✅ Subjects saved');
 
       // Save pending student ID in session
       req.session.pendingStudentId = pendingStudentId;
       req.session.publicRegistrationExistingGuardianId = body.existingGuardianId || null;
-      console.log('[Public Register] ✅ Session updated with pending student ID');
 
       // Send admission received confirmation to guardian
       const guardianEmail = body.guardianEmail0 || body.existingGuardianEmail || null;
@@ -3428,15 +3881,12 @@ const commonController = {
       }).catch(err => console.error('[Notif] admission_pending failed:', err.message));
 
       // Send response for payment initiation
-      console.log('[Public Register] ✅✅✅ SUCCESS! Returning response:', { success: true, amount, currency, pendingStudentId });
-      const payload = { success: true, amount, currency, pendingStudentId };
+      const skipPayment = isFreeRegistration;
+      const payload = { success: true, amount, currency, pendingStudentId, skipPayment };
       return req.session.save
         ? req.session.save(() => res.json(payload))
         : res.json(payload);
     } catch (err) {
-      console.error('[Public Register] ❌❌❌ ERROR OCCURRED:', err.message);
-      console.error('[Public Register] Error stack:', err.stack);
-      console.error('[Public Register] Error details:', err);
       res
         .status(500)
         .json({ success: false, error: "Failed to save pending student." });
@@ -3445,10 +3895,6 @@ const commonController = {
 
   initializePayment: async (req, res, db) => {
     const { subaccountCode, amount } = req.body;
-
-    console.log('[Initialize Payment] Starting payment initialization...');
-    console.log('[Initialize Payment] Subaccount code:', subaccountCode);
-    console.log('[Initialize Payment] Amount:', amount);
 
     // ✅ Determine BASE_URL dynamically with dual-domain support
     const requestOrigin = `${req.protocol}://${req.get("host")}`;
@@ -3461,13 +3907,9 @@ const commonController = {
         ? configuredProdBaseUrl
         : process.env.BASE_URL_LOCAL || "http://localhost:4000");
 
-    console.log('[Initialize Payment] BASE_URL:', BASE_URL || configuredProdBaseUrl);
-
     const pendingStudentId = req.session.pendingStudentId;
-    console.log('[Initialize Payment] Pending student ID from session:', pendingStudentId);
 
     if (!pendingStudentId) {
-      console.log('[Initialize Payment] ❌ Missing pending student ID');
       return res
         .status(400)
         .json({ success: false, error: "Missing pending student ID." });
@@ -3485,7 +3927,6 @@ const commonController = {
       );
 
       if (studentResult.rows.length === 0) {
-        console.log('[Initialize Payment] ❌ Pending student not found');
         return res
           .status(400)
           .json({ success: false, error: "Pending student not found." });
@@ -3496,31 +3937,22 @@ const commonController = {
         first_name,
         last_name,
       } = studentResult.rows[0];
-      console.log('[Initialize Payment] ✅ Student found:', first_name, last_name, 'Org ID:', organizationId);
 
-      // ✅ Fetch currency
-      console.log('[Initialize Payment] Fetching organization currency...');
       const orgResult = await db.query(
         `SELECT public_registration_currency, organization_name FROM organizations WHERE organization_id = $1`,
         [organizationId]
       );
       const currency = normalizeCurrencyCode(orgResult.rows[0]?.public_registration_currency) || "GHS";
       const organizationName = orgResult.rows[0]?.organization_name || "School";
-      console.log('[Initialize Payment] Currency:', currency);
 
-      // ✅ Fetch primary guardian email
-      console.log('[Initialize Payment] Fetching guardian email...');
       const guardianResult = await db.query(
         `SELECT email, first_name FROM pending_guardians WHERE pending_id = $1 LIMIT 1`,
         [pendingStudentId]
       );
       const primaryGuardian = guardianResult.rows[0];
       const guardianEmail = primaryGuardian?.email || null;
-      console.log('[Initialize Payment] Guardian email:', guardianEmail);
 
-      // ✅ Generate unique reference
       const paymentReference = `REG-${organizationId}-${pendingStudentId}-${Date.now()}`;
-      console.log('[Initialize Payment] Payment reference:', paymentReference);
 
       const requestedAmount = roundCurrencyAmount(parseFloat(amount));
       if (!(requestedAmount > 0)) {
@@ -3534,12 +3966,9 @@ const commonController = {
         stripeChargeCurrency
       );
       const amountInMinorUnit = Math.round(stripeChargeAmount * 100);
-      console.log('[Initialize Payment] Amount in minor unit:', amountInMinorUnit);
       if (!(amountInMinorUnit > 0)) {
         return res.status(400).json({ success: false, error: "Invalid registration amount." });
       }
-      console.log('[Initialize Payment] Stripe charge currency:', stripeChargeCurrency);
-      console.log('[Initialize Payment] Stripe charge amount:', stripeChargeAmount);
 
       const metadata = {
         flow: 'public_registration',
@@ -3557,7 +3986,6 @@ const commonController = {
         stripe_charge_currency: stripeChargeCurrency,
       };
 
-      console.log('[Initialize Payment] Creating Stripe Checkout session...');
       const session = await stripe.checkout.sessions.create({
         mode: 'payment',
         success_url: `${BASE_URL}/common/paymentCallback?session_id={CHECKOUT_SESSION_ID}&pendingStudentId=${pendingStudentId}&organizationId=${organizationId}`,
@@ -3627,9 +4055,6 @@ const commonController = {
         provider: 'stripe',
       });
     } catch (error) {
-      console.error('[Initialize Payment] ❌❌❌ ERROR:', error.message);
-      console.error('[Initialize Payment] Error stack:', error.stack);
-      console.error('[Initialize Payment] Error response:', error.response?.data);
       res.status(500).json({
         success: false,
         error: error.response?.data?.message || "Payment initialization failed",
@@ -3722,16 +4147,6 @@ const commonController = {
         ? Math.round(amountInMinorUnit * (platformFeePercent / 100))
         : 0;
 
-      console.log('[CreatePaymentIntent]', {
-        student: `${first_name} ${last_name}`,
-        amountInMinorUnit,
-        stripeChargeCurrency,
-        platformFeePercent,
-        applicationFeeAmount,
-        schoolReceives: amountInMinorUnit - applicationFeeAmount,
-        stripeConnectAccountId: stripeConnectAccountId || '(none – funds stay on platform)',
-      });
-
       // 6. Build metadata
       const metadata = {
         flow: 'public_registration_inline',
@@ -3801,8 +4216,9 @@ const commonController = {
         schoolReceives: ((amountInMinorUnit - applicationFeeAmount) / 100).toFixed(2),
       });
     } catch (error) {
-      console.error('[CreatePaymentIntent] Error:', error.message);
-      return res.status(500).json({ success: false, error: 'Payment initialization failed. Please try again.' });
+      const stripeMessage = error?.raw?.message || error?.message || '';
+      const errorMessage = stripeMessage || 'Payment initialization failed. Please try again.';
+      return res.status(500).json({ success: false, error: errorMessage });
     }
   },
 
@@ -5135,6 +5551,7 @@ const commonController = {
           totalPercentage: null,
           grade: null,
           position: null,
+          scaleBase: 100,
           assessments: [],
         });
       });
@@ -5143,7 +5560,7 @@ const commonController = {
       const assessmentsResult = await db.query(
         `
           SELECT DISTINCT ON (a.assessment_id) a.assessment_id, a.title, a.weight, ar.score, a.subject_id, a.max_score, a.category,
-                 ar.total_subject_score, ar.total_percentage, ar.grade
+                 ar.total_subject_score, ar.total_percentage, ar.grade, COALESCE(a.scale_base, 100) AS scale_base
           FROM assessments a
           LEFT JOIN assessment_results ar ON a.assessment_id = ar.assessment_id AND ar.student_id = $1
           WHERE a.subject_id IN (SELECT subject_id FROM subjects WHERE class_id = $2)
@@ -5167,6 +5584,9 @@ const commonController = {
           }
           if (assessment.grade) {
             subject.grade = assessment.grade;
+          }
+          if (assessment.scale_base) {
+            subject.scaleBase = parseInt(assessment.scale_base) || 100;
           }
         }
       });
@@ -5281,9 +5701,17 @@ const commonController = {
 
       const termNameForPage = termResult.rows[0]?.term_name || "Unknown";
 
+      // Fetch student ID settings for display
+      const sidSettingsResult = await db.query(
+        `SELECT use_custom_student_id, student_id_prefix FROM organizations WHERE organization_id = $1`,
+        [organizationId]
+      );
+      const studentIdSettings = sidSettingsResult.rows[0] || {};
+
       res.render("common/studentDetails", {
         title: "Student Details",
         student,
+        studentIdSettings,
         guardians,
         subjects,
         uniqueAssessments,
@@ -5453,8 +5881,17 @@ const commonController = {
       );
 
       // ✅ Ensure term is always defined
+      // Fetch org student ID settings for the edit form
+      const editOrgIdSettingsResult = await db.query(
+        `SELECT use_custom_student_id, student_id_prefix, student_id_auto_generate
+         FROM organizations WHERE organization_id = $1`,
+        [organizationId]
+      );
+      const studentIdSettings = editOrgIdSettingsResult.rows[0] || {};
+
       res.render("common/editStudent", {
         title: "Edit Student",
+        hideGlobalHeader: true,
         student,
         classes: classResult.rows,
         graduationYearGroups: graduationYearGroups.rows,
@@ -5462,6 +5899,7 @@ const commonController = {
         studentGuardians: guardians.rows,
         studentSubjects: studentSubjects.rows.map((row) => row.subject_id),
         currentTerm, // ✅ Fix: Now always defined
+        studentIdSettings,
         messages: req.flash(),
       });
     } catch (error) {
@@ -5472,6 +5910,7 @@ const commonController = {
   },
 
   editStudentPost: async (req, res, db) => {
+    const client = await db.connect();
     try {
       const { studentId } = req.params;
       const sessionOrganizationId = req.session.organizationId;
@@ -5484,7 +5923,12 @@ const commonController = {
         classId,
         graduationYearGroupId,
         gender,
+        customStudentId,
       } = req.body;
+      const keepExistingSubjectsOnClassChange = parseKeepExistingSubjectsPreference(
+        req.body && req.body.keepExistingSubjectsOnClassChange,
+        true
+      );
 
       if (!sessionOrganizationId) {
         req.flash("error", "Unauthorized.");
@@ -5495,7 +5939,7 @@ const commonController = {
       // caller's organization. Without this, a hostile or buggy client
       // could overwrite or cascade-delete (student_subjects/guardians)
       // rows in a foreign organization.
-      const ownership = await db.query(
+      const ownership = await client.query(
         `SELECT 1 FROM students WHERE student_id = $1 AND organization_id = $2`,
         [studentId, sessionOrganizationId]
       );
@@ -5507,7 +5951,7 @@ const commonController = {
       // Tenant boundary on referenced ids supplied by the client.
       let safeClassId = null;
       if (classId) {
-        const classCheck = await db.query(
+        const classCheck = await client.query(
           `SELECT class_id FROM classes WHERE class_id = $1 AND organization_id = $2`,
           [classId, sessionOrganizationId]
         );
@@ -5520,7 +5964,7 @@ const commonController = {
 
       let safeGraduationYearGroupId = null;
       if (graduationYearGroupId) {
-        const gygCheck = await db.query(
+        const gygCheck = await client.query(
           `SELECT id FROM graduation_year_groups WHERE id = $1 AND organization_id = $2`,
           [graduationYearGroupId, sessionOrganizationId]
         );
@@ -5539,13 +5983,6 @@ const commonController = {
       const normalizedSubjectIds = [...new Set(
         subjectsInput.map(v => Number(v)).filter(v => Number.isInteger(v) && v > 0)
       )];
-      const ownedSubjectsRes = normalizedSubjectIds.length
-        ? await db.query(
-            `SELECT subject_id FROM subjects WHERE subject_id = ANY($1::int[]) AND organization_id = $2`,
-            [normalizedSubjectIds, sessionOrganizationId]
-          )
-        : { rows: [] };
-      const subjects = ownedSubjectsRes.rows.map(r => r.subject_id);
 
       const guardiansRaw = req.body.guardians;
       const guardians = Array.isArray(guardiansRaw)
@@ -5560,10 +5997,18 @@ const commonController = {
         imageUrl = await uploadToS3(req.file, s3Key);
       }
 
-      await db.query("BEGIN"); // Start a database transaction
+      const editOrgIdSettingsResult = await client.query(
+        `SELECT use_custom_student_id, student_id_prefix
+           FROM organizations
+          WHERE organization_id = $1`,
+        [sessionOrganizationId]
+      );
+      const editStudentIdSettings = editOrgIdSettingsResult.rows[0] || {};
+
+      await client.query("BEGIN");
 
       // Fetch old class info before update (for class-change notification)
-      const oldStudentResult = await db.query(
+      const oldStudentResult = await client.query(
         `SELECT s.class_id, c.class_name AS old_class_name
          FROM students s LEFT JOIN classes c ON c.class_id = s.class_id
          WHERE s.student_id = $1 AND s.organization_id = $2`,
@@ -5571,6 +6016,77 @@ const commonController = {
       );
       const oldClassId = oldStudentResult.rows[0]?.class_id;
       const oldClassName = oldStudentResult.rows[0]?.old_class_name;
+      const effectiveClassId = safeClassId || oldClassId || null;
+      const hasClassChange = !!safeClassId && String(safeClassId) !== String(oldClassId || '');
+      const submittedSubjectsRes = normalizedSubjectIds.length
+        ? await client.query(
+            `SELECT subject_id, subject_name, class_id
+               FROM subjects
+              WHERE subject_id = ANY($1::int[]) AND organization_id = $2`,
+            [normalizedSubjectIds, sessionOrganizationId]
+          )
+        : { rows: [] };
+      const validSubjectRows = effectiveClassId
+        ? submittedSubjectsRes.rows.filter((row) => String(row.class_id) === String(effectiveClassId))
+        : [];
+      const invalidSubmittedSubjectNames = submittedSubjectsRes.rows
+        .filter((row) => !effectiveClassId || String(row.class_id) !== String(effectiveClassId))
+        .map((row) => row.subject_name)
+        .filter(Boolean);
+      let subjectIdsToPersist = validSubjectRows.map((row) => row.subject_id);
+      let subjectCarryoverNotice = { message: '', skippedMessage: '' };
+
+      // Validate custom student ID uniqueness (exclude current student)
+      const rawCustomId = (customStudentId || '').trim();
+      const editPrefix = editStudentIdSettings.use_custom_student_id
+        ? (editStudentIdSettings.student_id_prefix || '')
+        : '';
+      const normalizedCustomId = rawCustomId
+        ? (editPrefix && rawCustomId.toUpperCase().startsWith(editPrefix.toUpperCase())
+            ? rawCustomId
+            : editPrefix + rawCustomId)
+        : '';
+      const rawCustomNumeric = rawCustomId.replace(/\D/g, '');
+      const customNumericValue = rawCustomNumeric ? parseInt(rawCustomNumeric, 10) : null;
+      if (normalizedCustomId) {
+        const conflictParams = [sessionOrganizationId, studentId, normalizedCustomId];
+        const conflictClauses = ['custom_student_id = $3'];
+        if (Number.isInteger(customNumericValue)) {
+          conflictParams.push(customNumericValue);
+          conflictClauses.push('student_id = $4');
+        }
+        const idConflict = await client.query(
+          `SELECT 1
+             FROM students
+            WHERE organization_id = $1
+              AND student_id <> $2
+              AND (${conflictClauses.join(' OR ')})
+            LIMIT 1`,
+          conflictParams
+        );
+        if (idConflict.rows.length > 0) {
+          await client.query('ROLLBACK');
+          // Find next available suggestion
+          const numPart = customNumericValue || 0;
+          const padLen = rawCustomNumeric.length || 3;
+          let suggestion = null;
+          for (let n = numPart + 1; n < numPart + 1000; n++) {
+            const candidate = editPrefix + String(n).padStart(padLen, '0');
+            const check = await client.query(
+              `SELECT 1
+                 FROM students
+                WHERE organization_id = $1
+                  AND student_id <> $2
+                  AND (custom_student_id = $3 OR student_id = $4)
+                LIMIT 1`,
+              [sessionOrganizationId, studentId, candidate, n]
+            );
+            if (check.rows.length === 0) { suggestion = candidate; break; }
+          }
+          req.flash('error', `ID "${normalizedCustomId}" is already taken.${suggestion ? ` Try "${suggestion}" instead.` : ''}`);
+          return res.redirect('/common/editStudent?studentId=' + studentId);
+        }
+      }
 
       // Update student details
       const updateStudentQuery = `
@@ -5583,11 +6099,12 @@ const commonController = {
                 class_id = $6, 
                 graduation_year_group_id = $7, 
                 gender = $8, 
-                image_url = COALESCE($9, image_url)
+                image_url = COALESCE($9, image_url),
+                custom_student_id = $12
             WHERE student_id = $10 
             AND organization_id = $11;
         `;
-      await db.query(updateStudentQuery, [
+      await client.query(updateStudentQuery, [
         firstName,
         lastName,
         dateOfBirth,
@@ -5599,28 +6116,45 @@ const commonController = {
         imageUrl,
         studentId,
         sessionOrganizationId,
+        normalizedCustomId || null,
       ]);
 
-      // Update subjects (org-scoped delete prevents cross-org cascade)
-      await db.query(
-        `DELETE FROM student_subjects WHERE student_id = $1 AND organization_id = $2;`,
-        [studentId, sessionOrganizationId]
-      );
-      for (const subjectId of subjects) {
-        await db.query(
-          `INSERT INTO student_subjects (student_id, subject_id, organization_id) VALUES ($1, $2, $3);`,
-          [studentId, subjectId, sessionOrganizationId]
-        );
+      if (hasClassChange && keepExistingSubjectsOnClassChange && subjectIdsToPersist.length === 0) {
+        const carryoverResult = await carryStudentSubjectsToClass(client, {
+          organizationId: sessionOrganizationId,
+          studentId: Number(studentId),
+          newClassId: Number(effectiveClassId),
+          keepExistingSubjects: true,
+        });
+        subjectIdsToPersist = carryoverResult.assignedSubjectIds;
+        subjectCarryoverNotice = buildSubjectCarryoverNotice(carryoverResult);
+      } else {
+        await replaceStudentSubjects(client, sessionOrganizationId, Number(studentId), subjectIdsToPersist);
+
+        if (hasClassChange && !keepExistingSubjectsOnClassChange && subjectIdsToPersist.length === 0) {
+          subjectCarryoverNotice = buildSubjectCarryoverNotice(
+            {
+              keptSubjects: false,
+              unmatchedSubjectNames: invalidSubmittedSubjectNames,
+            },
+            'Previous subjects were not carried into the new class.'
+          );
+        } else if (invalidSubmittedSubjectNames.length) {
+          subjectCarryoverNotice = {
+            message: subjectCarryoverNotice.message,
+            skippedMessage: `Subjects not added to this class: ${summarizeSubjectNames(invalidSubmittedSubjectNames)}.`,
+          };
+        }
       }
 
       // Update guardians (legacy table) - org-scoped delete
-      await db.query(
+      await client.query(
         `DELETE FROM guardians WHERE student_id = $1 AND organization_id = $2;`,
         [studentId, sessionOrganizationId]
       );
       if (Array.isArray(guardians)) {
         for (const guardian of guardians) {
-          await db.query(
+          await client.query(
             `
                     INSERT INTO guardians (first_name, last_name, address, phone, email, hometown, student_id, organization_id)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
@@ -5639,11 +6173,11 @@ const commonController = {
         }
       }
 
-      await db.query("COMMIT"); // Commit the transaction
+      await client.query("COMMIT");
 
       // Notify guardians if class changed
       if (safeClassId && String(safeClassId) !== String(oldClassId)) {
-        const newClassResult = await db.query(
+        const newClassResult = await client.query(
           `SELECT class_name FROM classes WHERE class_id = $1 AND organization_id = $2`,
           [safeClassId, sessionOrganizationId]
         );
@@ -5659,16 +6193,21 @@ const commonController = {
         }
       }
 
-      req.flash("success", "Student updated successfully.");
+      const successMessages = ["Student updated successfully."];
+      if (subjectCarryoverNotice.message) successMessages.push(subjectCarryoverNotice.message);
+      if (subjectCarryoverNotice.skippedMessage) successMessages.push(subjectCarryoverNotice.skippedMessage);
+      req.flash("success", successMessages.join(' '));
       res.redirect("/common/editStudent?studentId=" + studentId);
     } catch (error) {
-      await db.query("ROLLBACK"); // Rollback the transaction in case of an error
+      await client.query("ROLLBACK").catch(() => {});
       // ...removed error log for clean background operation...
 
       // Ensure `studentId` is referenced in error handling
       const studentIdFallback = req.params.studentId || "unknown";
       req.flash("error", "Failed to update student.");
       res.redirect("/common/editStudent?studentId=" + studentIdFallback);
+    } finally {
+      client.release();
     }
   },
 
@@ -7562,6 +8101,7 @@ const commonController = {
       const assessmentsResult = await db.query(
         `
                 SELECT assessment_id, title, weight, max_score, category,
+                       COALESCE(scale_base, 100) AS scale_base,
                        COALESCE(is_locked, FALSE) AS is_locked,
                        COALESCE(is_active, TRUE) AS is_active,
                        edit_window_start,
@@ -7662,6 +8202,9 @@ const commonController = {
 
       const employees = employeesResult.rows;
 
+      const scaleBase = assessments.length > 0 ? (assessments[0].scale_base || 100) : 100;
+      const maxPossibleScore = assessments.reduce((sum, a) => sum + parseFloat(a.max_score || 0), 0);
+
       // Render the assessment page
       res.render("common/assessment", {
         title: "Assessment",
@@ -7674,6 +8217,8 @@ const commonController = {
         hasEditableAssessments: assessments.some((assessmentRow) => assessmentRow.can_edit_scores),
         students,
         employees,
+        scaleBase,
+        maxPossibleScore,
         isEmbedded,
         messages: req.flash(),
         hideGlobalHeader: true,
@@ -7845,18 +8390,27 @@ const commonController = {
 
         for (let assessmentId in scores[studentId]) {
           let score = scores[studentId][assessmentId];
-          if (score === null || score === "") continue;
 
           const assessmentControl = assessmentControlMap.get(Number(assessmentId));
-          if (assessmentControl && assessmentControl.canEdit) {
-            const { max_score, category } = assessmentControl;
+          if (!assessmentControl || !assessmentControl.canEdit) continue;
 
-            totalScore += parseFloat(score);
-            maxTotalScore += parseFloat(max_score);
-
-            // Insert or update the score in the assessment_results table
+          if (score === null || score === "") {
+            // Score was cleared — delete the existing row so it doesn't reappear
             await db.query(
-              `
+              `DELETE FROM assessment_results WHERE student_id = $1 AND assessment_id = $2`,
+              [studentId, assessmentId]
+            );
+            continue;
+          }
+
+          const { max_score, category } = assessmentControl;
+
+          totalScore += parseFloat(score);
+          maxTotalScore += parseFloat(max_score);
+
+          // Insert or update the score in the assessment_results table
+          await db.query(
+            `
                             INSERT INTO assessment_results (student_id, assessment_id, score, subject_id, term_id, organization_id, class_id, category)
                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                             ON CONFLICT (student_id, assessment_id)
@@ -7868,24 +8422,23 @@ const commonController = {
                                 class_id = EXCLUDED.class_id,
                                 category = EXCLUDED.category
                         `,
-              [
-                studentId,
-                assessmentId,
-                score,
-                subjectId,
-                currentTermId,
-                organizationId,
-                classId,
-                category,
-              ]
-            );
+            [
+              studentId,
+              assessmentId,
+              score,
+              subjectId,
+              currentTermId,
+              organizationId,
+              classId,
+              category,
+            ]
+          );
 
-            // Update categoryScoresMap for each category
-            if (!categoryScoresMap[category]) {
-              categoryScoresMap[category] = 0;
-            }
-            categoryScoresMap[category] += parseFloat(score);
+          // Update categoryScoresMap for each category
+          if (!categoryScoresMap[category]) {
+            categoryScoresMap[category] = 0;
           }
+          categoryScoresMap[category] += parseFloat(score);
         }
 
         // Calculate total percentage based on the scores achieved vs. the maximum possible score
@@ -8191,6 +8744,7 @@ const commonController = {
       // Fetch assessment details for the group
       const assessmentQuery = `
                 SELECT title, weight, max_score, category,
+                       COALESCE(scale_base, 100) AS scale_base,
                        COALESCE(is_locked, FALSE) AS is_locked,
                        COALESCE(is_active, TRUE) AS is_active,
                        edit_window_start,
@@ -8276,6 +8830,7 @@ const commonController = {
       testWeight,
       maxScore,
       category,
+      scaleBase,
       classes = [],
       subjects = [],
       isLocked,
@@ -8381,6 +8936,8 @@ const commonController = {
         desiredAssignments.map((assignment) => [assignment.key, assignment])
       );
 
+      const parsedScaleBase = parseInt(scaleBase) > 0 ? parseInt(scaleBase) : 100;
+
       const updateAssessmentMetadata = async (assessmentId, assignment) => {
         await client.query(
           `
@@ -8394,7 +8951,8 @@ const commonController = {
                 is_locked = $7,
                 is_active = $8,
                 edit_window_start = $9,
-                edit_window_end = $10
+                edit_window_end = $10,
+                scale_base = $12
             WHERE assessment_id = $11
           `,
           [
@@ -8409,6 +8967,7 @@ const commonController = {
             parsedWindowStart,
             parsedWindowEnd,
             assessmentId,
+            parsedScaleBase,
           ]
         );
 
@@ -8628,9 +9187,9 @@ const commonController = {
         const insertQuery = `
                   INSERT INTO assessments (
                 group_id, title, weight, max_score, category, subject_id, organization_id, term_id, class_id,
-                is_locked, is_active, edit_window_start, edit_window_end
+                is_locked, is_active, edit_window_start, edit_window_end, scale_base
                   ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
                   )
                   ON CONFLICT ON CONSTRAINT unique_test_per_term_class_subject DO NOTHING
               `;
@@ -8648,6 +9207,7 @@ const commonController = {
           active,
           parsedWindowStart,
           parsedWindowEnd,
+          parsedScaleBase,
         ]);
       }
 
@@ -8669,7 +9229,8 @@ const commonController = {
                   is_locked = $5,
                   is_active = $6,
                   edit_window_start = $7,
-                  edit_window_end = $8
+                  edit_window_end = $8,
+                  scale_base = $10
               WHERE assessment_id = $9
             `,
             [
@@ -8682,6 +9243,7 @@ const commonController = {
               parsedWindowStart,
               parsedWindowEnd,
               staleAssessment.assessment_id,
+              parsedScaleBase,
             ]
           );
         }
@@ -9015,12 +9577,13 @@ const commonController = {
             const [, subj] = subject.split("-");
 
             // Insert the test while allowing duplicate names for different subjects or terms
+            const parsedScaleBase = parseInt(test.scaleBase) > 0 ? parseInt(test.scaleBase) : 100;
             const insertAssessmentQuery = `
                         INSERT INTO assessments (
                     group_id, title, weight, max_score, category, subject_id, organization_id, term_id, class_id,
-                    is_locked, is_active, edit_window_start, edit_window_end
+                    is_locked, is_active, edit_window_start, edit_window_end, scale_base
                         ) VALUES (
-                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
                         )
                         ON CONFLICT (class_id, subject_id, title, term_id) DO NOTHING
                     `;
@@ -9038,6 +9601,7 @@ const commonController = {
               active,
               parsedWindowStart,
               parsedWindowEnd,
+              parsedScaleBase,
             ]);
           }
         }
@@ -11049,14 +11613,297 @@ const commonController = {
         PERMISSIONS.MANAGE_EMPLOYEES
       );
 
+      // Email Issues — count failures visible to managers/supervisors
+      const roleStr = String(
+        req.session.userRole || req.session.user?.account_type || req.session.accountType || ''
+      ).trim().toLowerCase();
+      const canSeeEmailIssues = ['organization', 'admin', 'mini admin', 'supervisor', 'superviser', 'manager'].includes(roleStr);
+      let failedEmailCount = 0;
+      if (canSeeEmailIssues) {
+        try {
+          const countRes = await db.query(
+            `SELECT COUNT(*) FROM email_delivery_failures WHERE organization_id = $1`,
+            [req.session.organizationId]
+          );
+          failedEmailCount = parseInt(countRes.rows[0].count, 10) || 0;
+        } catch (_) { /* table may not exist yet */ }
+      }
+
       res.render("common/managementTools", {
         title: "Management Tools",
         organizationId: req.session.organizationId,
         currentTerm: currentTerm,
         canManageEmployees,
+        canSeeEmailIssues,
+        failedEmailCount,
       });
     } catch (error) {
             res.status(500).send("Failed to load management data");
+    }
+  },
+
+  // ── Email Issues ────────────────────────────────────────────────────────────
+
+  getFailedEmails: async (req, res, db) => {
+    try {
+      const orgId = req.session.organizationId;
+      if (!orgId) return res.status(401).send('Unauthorized');
+
+      // Only managers and supervisors may access this page
+      const role = String(
+        req.session.userRole || req.session.user?.account_type || req.session.accountType || ''
+      ).trim().toLowerCase();
+      const allowed = ['organization', 'admin', 'mini admin', 'supervisor', 'superviser', 'manager'].includes(role);
+      if (!allowed) return res.status(403).render('403', { title: 'Access Denied' });
+
+      // Ensure the table exists (auto-create on first visit)
+      try {
+        await db.query(`
+          CREATE TABLE IF NOT EXISTS email_delivery_failures (
+            id              SERIAL PRIMARY KEY,
+            organization_id INTEGER NOT NULL,
+            user_id         INTEGER NOT NULL,
+            user_type       TEXT NOT NULL DEFAULT 'staff',
+            failed_email    TEXT NOT NULL,
+            reason          TEXT NOT NULL DEFAULT 'unknown',
+            failure_count   INTEGER NOT NULL DEFAULT 1,
+            first_failed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            last_failed_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (organization_id, user_id, user_type)
+          )
+        `);
+      } catch (_) { /* already exists or no permission — handled below */ }
+
+      let rows = [];
+      try {
+        const result = await db.query(
+          `WITH grouped_failures AS (
+             SELECT
+               LOWER(TRIM(failed_email)) AS email_key,
+               MAX(id) AS id,
+               SUM(failure_count)::int AS failure_count,
+               MIN(first_failed_at) AS first_failed_at,
+               MAX(last_failed_at) AS last_failed_at
+             FROM email_delivery_failures
+             WHERE organization_id = $1
+             GROUP BY LOWER(TRIM(failed_email))
+           )
+           SELECT
+             f.id, f.user_id, f.user_type, f.failed_email, f.reason,
+             grouped.failure_count, grouped.first_failed_at, grouped.last_failed_at,
+             COALESCE(u.first_name, g.first_name, '') AS first_name,
+             COALESCE(u.last_name,  g.last_name,  '') AS last_name,
+             COALESCE(NULLIF(u.image_url,''), NULLIF(g.image_url,''), 'profilePlaceholder.png') AS image_url,
+             COALESCE(u.account_type::text, 'guardian') AS account_type
+           FROM grouped_failures grouped
+           JOIN email_delivery_failures f ON f.id = grouped.id
+           LEFT JOIN users    u ON f.user_type = 'staff'    AND u.user_id     = f.user_id AND u.organization_id = f.organization_id
+           LEFT JOIN guardians g ON f.user_type = 'guardian' AND g.guardian_id = f.user_id AND g.organization_id = f.organization_id
+           ORDER BY grouped.last_failed_at DESC`,
+          [orgId]
+        );
+        rows = result.rows;
+      } catch (queryErr) {
+        // Table may not exist yet — treat as empty
+        console.warn('[failedEmails] table not ready yet, showing empty state:', queryErr.message);
+      }
+
+      res.render('common/failedEmails', {
+        title: 'Email Issues',
+        failures: rows,
+        messages: req.flash(),
+      });
+    } catch (err) {
+      console.error('[failedEmails] getFailedEmails error:', err.message);
+      // Render an empty page rather than a hard error
+      res.render('common/failedEmails', {
+        title: 'Email Issues',
+        failures: [],
+        messages: {},
+      });
+    }
+  },
+
+  checkFailedEmail: async (req, res, db) => {
+    try {
+      const orgId = req.session.organizationId;
+      if (!orgId) return res.status(401).json({ ok: false, error: 'Unauthorized' });
+
+      const email = String(req.query.email || '').trim().toLowerCase();
+      const excludeFailureId = parseInt(req.query.excludeFailureId, 10) || null;
+
+      // 1 — format check
+      if (!email) return res.json({ ok: false, error: 'Email is required.' });
+      if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(email)) {
+        return res.json({ ok: false, error: 'Invalid email format.' });
+      }
+
+      // 2 — duplicate check: same email already used by another user in this org
+      //     (we exclude the failure record's own current user from the conflict check)
+      let excludeUserId = null;
+      let excludeUserType = null;
+      if (excludeFailureId) {
+        const fRow = await db.query(
+          `SELECT user_id, user_type FROM email_delivery_failures WHERE id = $1 AND organization_id = $2 LIMIT 1`,
+          [excludeFailureId, orgId]
+        );
+        if (fRow.rows.length > 0) {
+          excludeUserId   = fRow.rows[0].user_id;
+          excludeUserType = fRow.rows[0].user_type;
+        }
+      }
+
+      // Check users table
+      const staffConflict = await db.query(
+        `SELECT user_id, first_name, last_name, account_type::text AS account_type
+         FROM users
+         WHERE LOWER(email) = $1
+           AND organization_id = $2
+           AND ($3::int IS NULL OR NOT (user_id = $3 AND $4 = 'staff'))
+         LIMIT 1`,
+        [email, orgId, excludeUserId, excludeUserType]
+      );
+      if (staffConflict.rows.length > 0) {
+        const u = staffConflict.rows[0];
+        return res.json({
+          ok: false,
+          error: `Already used by ${u.first_name} ${u.last_name} (${u.account_type}) in this organisation.`,
+        });
+      }
+
+      // Check guardians table
+      const guardianConflict = await db.query(
+        `SELECT guardian_id, first_name, last_name
+         FROM guardians
+         WHERE LOWER(email) = $1
+           AND organization_id = $2
+           AND ($3::int IS NULL OR NOT (guardian_id = $3 AND $4 = 'guardian'))
+         LIMIT 1`,
+        [email, orgId, excludeUserId, excludeUserType]
+      );
+      if (guardianConflict.rows.length > 0) {
+        const g = guardianConflict.rows[0];
+        return res.json({
+          ok: false,
+          error: `Already used by ${g.first_name} ${g.last_name} (Guardian) in this organisation.`,
+        });
+      }
+
+      return res.json({ ok: true });
+    } catch (err) {
+      console.error('[failedEmails] checkFailedEmail error:', err.message);
+      return res.json({ ok: true }); // fail open — don't block the UI on a DB error
+    }
+  },
+
+  updateFailedEmail: async (req, res, db) => {
+    try {
+      const orgId = req.session.organizationId;
+      if (!orgId) return res.status(401).json({ success: false, error: 'Unauthorized' });
+
+      const role = String(
+        req.session.userRole || req.session.user?.account_type || req.session.accountType || ''
+      ).trim().toLowerCase();
+      const allowed = ['organization', 'admin', 'mini admin', 'supervisor', 'superviser', 'manager'].includes(role);
+      if (!allowed) return res.status(403).json({ success: false, error: 'Access denied' });
+
+      const failureId = parseInt(req.params.id, 10);
+      const newEmail = String(req.body.email || '').trim().toLowerCase();
+
+      if (!newEmail || !/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(newEmail)) {
+        return res.json({ success: false, error: 'Please enter a valid email address.' });
+      }
+
+      // Fetch the failure record (scoped to this org)
+      const failResult = await db.query(
+        `SELECT * FROM email_delivery_failures WHERE id = $1 AND organization_id = $2 LIMIT 1`,
+        [failureId, orgId]
+      );
+      if (failResult.rows.length === 0) {
+        return res.json({ success: false, error: 'Record not found.' });
+      }
+      const failure = failResult.rows[0];
+
+      // Server-side duplicate check — reject if another user already owns this email
+      const dupStaff = await db.query(
+        `SELECT user_id FROM users WHERE LOWER(email) = $1 AND organization_id = $2
+         AND NOT (user_id = $3 AND $4 = 'staff') LIMIT 1`,
+        [newEmail, orgId, failure.user_id, failure.user_type]
+      );
+      if (dupStaff.rows.length > 0) {
+        return res.json({ success: false, error: 'That email address is already in use by another staff member in this organisation.' });
+      }
+      const dupGuardian = await db.query(
+        `SELECT guardian_id FROM guardians WHERE LOWER(email) = $1 AND organization_id = $2
+         AND NOT (guardian_id = $3 AND $4 = 'guardian') LIMIT 1`,
+        [newEmail, orgId, failure.user_id, failure.user_type]
+      );
+      if (dupGuardian.rows.length > 0) {
+        return res.json({ success: false, error: 'That email address is already in use by another guardian in this organisation.' });
+      }
+
+      // Update the email on the user record
+      if (failure.user_type === 'staff') {
+        await db.query(
+          `UPDATE users SET email = $1 WHERE user_id = $2 AND organization_id = $3`,
+          [newEmail, failure.user_id, orgId]
+        );
+      } else {
+        await db.query(
+          `UPDATE guardians SET email = $1 WHERE guardian_id = $2 AND organization_id = $3`,
+          [newEmail, failure.user_id, orgId]
+        );
+      }
+
+      // Remove the new address from the suppression list so it can receive mail
+      const { unsuppressEmail } = require('../utils/emailSuppression');
+      await unsuppressEmail(db, newEmail);
+      await unsuppressEmail(db, failure.failed_email);
+
+      // Get user's name for the test email
+      let displayName = 'User';
+      if (failure.user_type === 'staff') {
+        const nameRes = await db.query(`SELECT first_name, last_name FROM users WHERE user_id = $1`, [failure.user_id]);
+        if (nameRes.rows.length > 0) displayName = `${nameRes.rows[0].first_name} ${nameRes.rows[0].last_name}`.trim();
+      } else {
+        const nameRes = await db.query(`SELECT first_name, last_name FROM guardians WHERE guardian_id = $1`, [failure.user_id]);
+        if (nameRes.rows.length > 0) displayName = `${nameRes.rows[0].first_name} ${nameRes.rows[0].last_name}`.trim();
+      }
+
+      // Send a test email — no failureNotification to avoid recursion
+      const html = renderCleanEmail({
+        title: 'Email Address Verified',
+        greeting: `Hello ${displayName},`,
+        paragraphs: [
+          'Your email address has been successfully updated in Managira.',
+          'This message confirms that your new address is working correctly.',
+        ],
+        noReply: true,
+      });
+
+      const sent = await sendEmailSafely({
+        to: newEmail,
+        subject: 'Managira — Email Address Verified',
+        html,
+        skipMxCheck: false,
+        // No failureNotification — test failure stays silent
+      }, 'EmailIssues-Test');
+
+      if (sent) {
+        // Test succeeded — clear the failure record
+        await db.query(
+          `DELETE FROM email_delivery_failures WHERE id = $1 AND organization_id = $2`,
+          [failureId, orgId]
+        );
+        return res.json({ success: true, message: 'Email updated and verified. Record cleared.' });
+      } else {
+        // Test failed — update the failure record with the new (still-broken) address
+        await recordEmailDeliveryFailure(db, orgId, newEmail, 'smtp_hard_bounce', failure.user_id, failure.user_type);
+        return res.json({ success: false, error: 'Email address saved but test delivery failed. The address may still be incorrect.' });
+      }
+    } catch (err) {
+      console.error('[failedEmails] updateFailedEmail error:', err.message);
+      return res.status(500).json({ success: false, error: 'Server error. Please try again.' });
     }
   },
 
@@ -13095,10 +13942,12 @@ const commonController = {
         return res.redirect("/common/orgDashboard");
       }
 
-      const [studentsResult, classesResult, schoolYearsResult] = await Promise.all([
+      await ensureStudentIdSettingsSchema(db);
+      const [studentsResult, classesResult, schoolYearsResult, orgIdSettingsResult] = await Promise.all([
         db.query(
           `SELECT
               s.student_id,
+              s.custom_student_id,
               s.first_name,
               s.last_name,
               s.gender,
@@ -13108,13 +13957,14 @@ const commonController = {
               c.class_name,
               c.class_id,
               g.name AS grad_year_group_name,
+              last_sy.id AS last_school_year_id,
               last_sy.year_label AS last_school_year,
               last_sy.is_current AS in_current_year
             FROM students s
             LEFT JOIN classes c ON s.class_id = c.class_id
             LEFT JOIN graduation_year_groups g ON s.graduation_year_group_id = g.id
             LEFT JOIN LATERAL (
-              SELECT sy.year_label, sy.current AS is_current
+              SELECT sy.id, sy.year_label, sy.current AS is_current
               FROM enrolled_students es
               JOIN enrollments e ON es.enrollment_id = e.enrollment_id
               JOIN school_years sy ON e.school_year_id = sy.id
@@ -13135,13 +13985,37 @@ const commonController = {
           `SELECT id, year_label, current FROM school_years WHERE organization_id = $1 ORDER BY id DESC`,
           [organizationId]
         ),
+        db.query(
+          `SELECT use_custom_student_id, student_id_prefix, student_id_auto_generate, student_id_counter, student_id_start_number
+             FROM organizations WHERE organization_id = $1`,
+          [organizationId]
+        ),
       ]);
+
+      const studentIdSettings = orgIdSettingsResult.rows[0] || {};
+      const nextAvailableStudentIdNumber = studentIdSettings.use_custom_student_id
+        ? await getNextSuggestedStudentIdNumber(
+            db,
+            organizationId,
+            studentIdSettings.student_id_counter || 0,
+            [],
+            null,
+            studentIdSettings.student_id_start_number || null
+          )
+        : null;
+      const students = studentsResult.rows.map((student) => ({
+        ...student,
+        display_student_id: buildStudentDisplayId(student, studentIdSettings),
+        editable_student_id: getStudentIdEditorValue(student, studentIdSettings),
+      }));
 
       res.render("common/allStudents", {
         title: "All Students",
-        students: studentsResult.rows,
+        students,
         classes: classesResult.rows,
         schoolYears: schoolYearsResult.rows,
+        studentIdSettings,
+        nextAvailableStudentIdNumber,
         messages: req.flash(),
       });
     } catch (error) {
@@ -13151,39 +14025,45 @@ const commonController = {
 
   // Change student class (AJAX — used from All Students list)
   changeStudentClass: async (req, res, db) => {
+    const client = await db.connect();
     try {
       const organizationId = req.session.organizationId;
       const { studentId } = req.params;
       const { classId } = req.body;
+      const keepExistingSubjects = parseKeepExistingSubjectsPreference(req.body && req.body.keepExistingSubjects, true);
 
       if (!organizationId) return res.status(401).json({ success: false, error: "Unauthorized" });
       if (!classId) return res.status(400).json({ success: false, error: "classId is required" });
 
+      await client.query("BEGIN");
+
       // Verify student belongs to this org
-      const studentCheck = await db.query(
+      const studentCheck = await client.query(
         `SELECT student_id FROM students WHERE student_id = $1 AND organization_id = $2`,
         [studentId, organizationId]
       );
       if (!studentCheck.rows.length) {
+        await client.query("ROLLBACK");
         return res.status(404).json({ success: false, error: "Student not found" });
       }
 
       // Verify class belongs to this org
-      const classCheck = await db.query(
+      const classCheck = await client.query(
         `SELECT class_id, class_name FROM classes WHERE class_id = $1 AND organization_id = $2`,
         [classId, organizationId]
       );
       if (!classCheck.rows.length) {
+        await client.query("ROLLBACK");
         return res.status(400).json({ success: false, error: "Class not found" });
       }
 
-      await db.query(
+      await client.query(
         `UPDATE students SET class_id = $1 WHERE student_id = $2 AND organization_id = $3`,
         [classId, studentId, organizationId]
       );
 
       // Also sync enrolled_students.class_id for the current school year so class rosters stay in sync
-      await db.query(
+      await client.query(
         `UPDATE enrolled_students es
          SET class_id = $1
          FROM enrollments e
@@ -13195,9 +14075,259 @@ const commonController = {
         [classId, studentId, organizationId]
       );
 
-      return res.json({ success: true, className: classCheck.rows[0].class_name });
+      const carryoverResult = await carryStudentSubjectsToClass(client, {
+        organizationId,
+        studentId: Number(studentId),
+        newClassId: Number(classId),
+        keepExistingSubjects,
+      });
+      const subjectCarryoverNotice = buildSubjectCarryoverNotice(carryoverResult);
+
+      await client.query("COMMIT");
+      return res.json({
+        success: true,
+        className: classCheck.rows[0].class_name,
+        subjectCarryoverMessage: subjectCarryoverNotice.message,
+        subjectCarryoverWarning: subjectCarryoverNotice.skippedMessage,
+      });
     } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
       return res.status(500).json({ success: false, error: "Failed to update class" });
+    } finally {
+      client.release();
+    }
+  },
+
+  updateStudentListDetails: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    const studentId = parseInt(req.params.studentId, 10);
+
+    await ensureStudentIdSettingsSchema(db);
+
+    if (!organizationId) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
+    }
+    if (!Number.isInteger(studentId) || studentId <= 0) {
+      return res.status(400).json({ success: false, error: "Invalid student" });
+    }
+
+    const hasStudentIdChange = Object.prototype.hasOwnProperty.call(req.body || {}, 'customStudentId');
+    const rawClassId = req.body.classId;
+    const rawSchoolYearId = req.body.schoolYearId;
+    const keepExistingSubjects = parseKeepExistingSubjectsPreference(req.body && req.body.keepExistingSubjects, true);
+
+    const client = await db.connect();
+    try {
+      await client.query("BEGIN");
+
+      const studentResult = await client.query(
+        `SELECT s.student_id, s.class_id, s.custom_student_id, c.class_name
+           FROM students s
+           LEFT JOIN classes c ON c.class_id = s.class_id
+          WHERE s.student_id = $1 AND s.organization_id = $2
+          FOR UPDATE OF s`,
+        [studentId, organizationId]
+      );
+      if (!studentResult.rows.length) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ success: false, error: "Student not found" });
+      }
+
+      const studentRow = studentResult.rows[0];
+      const idSettingsResult = await client.query(
+        `SELECT use_custom_student_id, student_id_prefix, student_id_counter, student_id_start_number
+           FROM organizations
+          WHERE organization_id = $1
+          FOR UPDATE`,
+        [organizationId]
+      );
+      const idSettings = idSettingsResult.rows[0] || {};
+
+      let safeClassId = null;
+      let newClassName = studentRow.class_name || null;
+      const hasRequestedClassId = rawClassId !== undefined && String(rawClassId).trim() !== '';
+      if (hasRequestedClassId) {
+        const classCheck = await client.query(
+          `SELECT class_id, class_name FROM classes WHERE class_id = $1 AND organization_id = $2`,
+          [parseInt(rawClassId, 10), organizationId]
+        );
+        if (!classCheck.rows.length) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({ success: false, error: "Class not found" });
+        }
+        safeClassId = classCheck.rows[0].class_id;
+        newClassName = classCheck.rows[0].class_name;
+      }
+
+      const hasClassChange = hasRequestedClassId
+        && Number.isInteger(Number(safeClassId))
+        && Number(safeClassId) !== Number(studentRow.class_id || 0);
+      let subjectCarryoverNotice = { message: '', skippedMessage: '' };
+
+      if (hasClassChange) {
+        await client.query(
+          `UPDATE students SET class_id = $1 WHERE student_id = $2 AND organization_id = $3`,
+          [safeClassId, studentId, organizationId]
+        );
+
+        await client.query(
+          `UPDATE enrolled_students es
+              SET class_id = $1
+             FROM enrollments e
+             INNER JOIN school_years sy ON e.school_year_id = sy.id
+            WHERE es.enrollment_id = e.enrollment_id
+              AND es.student_id = $2
+              AND e.organization_id = $3
+              AND sy.current = TRUE`,
+          [safeClassId, studentId, organizationId]
+        );
+
+        const carryoverResult = await carryStudentSubjectsToClass(client, {
+          organizationId,
+          studentId,
+          newClassId: safeClassId,
+          keepExistingSubjects,
+        });
+        subjectCarryoverNotice = buildSubjectCarryoverNotice(carryoverResult);
+      }
+
+      let safeSchoolYearId = null;
+      let newYearLabel = null;
+      let newYearIsCurrent = false;
+      if (rawSchoolYearId !== undefined && String(rawSchoolYearId).trim() !== '') {
+        const schoolYearCheck = await client.query(
+          `SELECT id, year_label, current
+             FROM school_years
+            WHERE id = $1 AND organization_id = $2`,
+          [parseInt(rawSchoolYearId, 10), organizationId]
+        );
+        if (!schoolYearCheck.rows.length) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({ success: false, error: "School year not found" });
+        }
+
+        safeSchoolYearId = schoolYearCheck.rows[0].id;
+        newYearLabel = schoolYearCheck.rows[0].year_label;
+        newYearIsCurrent = Boolean(schoolYearCheck.rows[0].current);
+
+        let enrollmentId;
+        const enrollmentResult = await client.query(
+          `SELECT enrollment_id
+             FROM enrollments
+            WHERE school_year_id = $1 AND organization_id = $2
+            ORDER BY enrollment_id DESC
+            LIMIT 1`,
+          [safeSchoolYearId, organizationId]
+        );
+
+        if (enrollmentResult.rows.length) {
+          enrollmentId = enrollmentResult.rows[0].enrollment_id;
+        } else {
+          const newEnrollmentResult = await client.query(
+            `INSERT INTO enrollments (school_year_id, organization_id)
+             VALUES ($1, $2)
+             RETURNING enrollment_id`,
+            [safeSchoolYearId, organizationId]
+          );
+          enrollmentId = newEnrollmentResult.rows[0].enrollment_id;
+        }
+
+        await client.query(
+          `DELETE FROM enrolled_students es
+            USING enrollments e
+           WHERE es.enrollment_id = e.enrollment_id
+             AND e.school_year_id = $1
+             AND e.organization_id = $2
+             AND es.student_id = $3`,
+          [safeSchoolYearId, organizationId, studentId]
+        );
+
+        const effectiveClassId = hasClassChange ? safeClassId : (studentRow.class_id || null);
+        await client.query(
+          `INSERT INTO enrolled_students (enrollment_id, student_id, class_id)
+           VALUES ($1, $2, $3)`,
+          [enrollmentId, studentId, effectiveClassId]
+        );
+      }
+
+      if (hasStudentIdChange && idSettings.use_custom_student_id) {
+        const prefix = String(idSettings.student_id_prefix || '');
+        const rawStudentIdInput = String(req.body.customStudentId || '').trim();
+        const withoutPrefix = prefix && rawStudentIdInput.toUpperCase().startsWith(prefix.toUpperCase())
+          ? rawStudentIdInput.slice(prefix.length)
+          : rawStudentIdInput;
+        const digitsOnly = withoutPrefix.replace(/\D/g, '').slice(0, 10);
+
+        if (withoutPrefix && !digitsOnly) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({ success: false, error: "Student ID must contain numbers only" });
+        }
+
+        let resolvedCustomId = null;
+        if (digitsOnly) {
+          const numericStudentId = parseInt(digitsOnly, 10);
+          resolvedCustomId = prefix + digitsOnly;
+          const taken = await isStudentIdTaken(
+            client,
+            organizationId,
+            resolvedCustomId,
+            numericStudentId,
+            studentId
+          );
+
+          if (taken) {
+            const suggestionNumber = await getNextSuggestedStudentIdNumber(
+              client,
+              organizationId,
+              idSettings.student_id_counter || 0,
+              [],
+              studentId,
+              idSettings.student_id_start_number || null
+            );
+            const suggestion = prefix + String(suggestionNumber).padStart(Math.max(3, digitsOnly.length || 3), '0');
+            await client.query("ROLLBACK");
+            return res.status(409).json({
+              success: false,
+              error: `ID "${resolvedCustomId}" is already INUSED.`,
+              suggestion,
+            });
+          }
+        }
+
+        await client.query(
+          `UPDATE students
+              SET custom_student_id = $1
+            WHERE student_id = $2 AND organization_id = $3`,
+          [resolvedCustomId, studentId, organizationId]
+        );
+      }
+
+      const refreshedStudentResult = await client.query(
+        `SELECT student_id, class_id, custom_student_id
+           FROM students
+          WHERE student_id = $1 AND organization_id = $2`,
+        [studentId, organizationId]
+      );
+      const refreshedStudent = refreshedStudentResult.rows[0] || studentRow;
+
+      await client.query("COMMIT");
+      return res.json({
+        success: true,
+        classId: refreshedStudent.class_id || null,
+        className: newClassName,
+        schoolYearId: safeSchoolYearId,
+        yearLabel: newYearLabel,
+        yearIsCurrent: newYearIsCurrent,
+        displayStudentId: buildStudentDisplayId(refreshedStudent, idSettings),
+        editableStudentId: getStudentIdEditorValue(refreshedStudent, idSettings),
+        subjectCarryoverMessage: subjectCarryoverNotice.message,
+        subjectCarryoverWarning: subjectCarryoverNotice.skippedMessage,
+      });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      return res.status(500).json({ success: false, error: error.message || "Failed to update student" });
+    } finally {
+      client.release();
     }
   },
 
@@ -13207,18 +14337,39 @@ const commonController = {
       const organizationId = req.session.organizationId;
       if (!organizationId) return res.status(401).json({ success: false, error: "Unauthorized" });
 
-      const { studentIds, classId, schoolYearId } = req.body;
+      await ensureStudentIdSettingsSchema(db);
+
+      const { studentIds, classId, schoolYearId, customStudentIds } = req.body;
+      const keepExistingSubjects = parseKeepExistingSubjectsPreference(req.body && req.body.keepExistingSubjects, true);
+      const hasStudentIdPayload = customStudentIds && typeof customStudentIds === 'object' && !Array.isArray(customStudentIds);
 
       if (!Array.isArray(studentIds) || studentIds.length === 0)
         return res.status(400).json({ success: false, error: "No students selected" });
-      if (!classId && !schoolYearId)
-        return res.status(400).json({ success: false, error: "Nothing to update — select a class or school year" });
+      if (!classId && !schoolYearId && !hasStudentIdPayload)
+        return res.status(400).json({ success: false, error: "Nothing to update — select a class, school year, or student ID edits" });
 
       // Sanitize to positive integers
       const safeIds = [...new Set(
         studentIds.map(id => parseInt(id, 10)).filter(id => Number.isInteger(id) && id > 0)
       )];
       if (!safeIds.length) return res.status(400).json({ success: false, error: "Invalid student IDs" });
+
+      let sanitizedStudentIdUpdates = new Map();
+      if (hasStudentIdPayload) {
+        const incomingIds = Object.entries(customStudentIds).reduce((accumulator, [studentId, rawValue]) => {
+          const parsedStudentId = parseInt(studentId, 10);
+          if (!Number.isInteger(parsedStudentId) || parsedStudentId <= 0) return accumulator;
+          if (!safeIds.includes(parsedStudentId)) return accumulator;
+          const digitsOnly = String(rawValue == null ? '' : rawValue).replace(/\D/g, '').slice(0, 10);
+          accumulator.set(parsedStudentId, digitsOnly);
+          return accumulator;
+        }, new Map());
+
+        if (!incomingIds.size) {
+          return res.status(400).json({ success: false, error: "No valid student ID changes were provided" });
+        }
+        sanitizedStudentIdUpdates = incomingIds;
+      }
 
       // Verify all students belong to this org
       const ownershipCheck = await db.query(
@@ -13232,8 +14383,107 @@ const commonController = {
       try {
         await client.query("BEGIN");
 
+        const idSettingsResult = await client.query(
+          `SELECT use_custom_student_id, student_id_prefix, student_id_counter, student_id_start_number
+             FROM organizations
+            WHERE organization_id = $1
+            FOR UPDATE`,
+          [organizationId]
+        );
+        const idSettings = idSettingsResult.rows[0] || {};
+
+        if (sanitizedStudentIdUpdates.size && !idSettings.use_custom_student_id) {
+          throw new Error("Custom student IDs are disabled for your organization");
+        }
+
+        const studentsSnapshotResult = await client.query(
+          `SELECT student_id, custom_student_id
+             FROM students
+            WHERE student_id = ANY($1::int[]) AND organization_id = $2
+            FOR UPDATE`,
+          [safeIds, organizationId]
+        );
+        const studentsSnapshotById = studentsSnapshotResult.rows.reduce((accumulator, row) => {
+          accumulator.set(Number(row.student_id), row);
+          return accumulator;
+        }, new Map());
+
+        const prefix = String(idSettings.student_id_prefix || '').trim();
+        const resolvedStudentIdUpdates = new Map();
+        if (sanitizedStudentIdUpdates.size) {
+          const seenResolved = new Set();
+
+          for (const [currentStudentId, digitsOnly] of sanitizedStudentIdUpdates.entries()) {
+            const currentStudent = studentsSnapshotById.get(Number(currentStudentId));
+            if (!currentStudent) {
+              throw new Error("One or more students could not be loaded for ID updates");
+            }
+
+            const resolvedCustomId = digitsOnly ? `${prefix}${digitsOnly}` : null;
+            resolvedStudentIdUpdates.set(Number(currentStudentId), {
+              digitsOnly,
+              resolvedCustomId,
+            });
+
+            if (!resolvedCustomId) continue;
+            if (seenResolved.has(resolvedCustomId)) {
+              throw new Error(`Duplicate student ID "${resolvedCustomId}" was entered in bulk edit`);
+            }
+            seenResolved.add(resolvedCustomId);
+
+            const numericStudentId = /^\d+$/.test(digitsOnly) ? parseInt(digitsOnly, 10) : null;
+            const conflictParams = [organizationId, Number(currentStudentId), resolvedCustomId];
+            let conflictQuery = `
+              SELECT 1
+                FROM students
+               WHERE organization_id = $1
+                 AND student_id != $2
+                 AND (custom_student_id = $3`;
+            if (digitsOnly && digitsOnly !== resolvedCustomId) {
+              conflictParams.push(digitsOnly);
+              conflictQuery += ` OR custom_student_id = $${conflictParams.length}`;
+            }
+            if (Number.isInteger(numericStudentId)) {
+              conflictParams.push(numericStudentId);
+              conflictQuery += ` OR student_id = $${conflictParams.length}`;
+            }
+            conflictQuery += `)
+               LIMIT 1`;
+
+            const conflictResult = await client.query(conflictQuery, conflictParams);
+            if (conflictResult.rows.length) {
+              throw new Error(`Student ID "${resolvedCustomId}" is already INUSED`);
+            }
+          }
+
+          for (const [currentStudentId, updateDetails] of resolvedStudentIdUpdates.entries()) {
+            await client.query(
+              `UPDATE students
+                  SET custom_student_id = $1
+                WHERE student_id = $2 AND organization_id = $3`,
+              [updateDetails.resolvedCustomId, Number(currentStudentId), organizationId]
+            );
+          }
+
+          const maxNumericIdInBulk = Array.from(resolvedStudentIdUpdates.values()).reduce((maxValue, updateDetails) => {
+            const numericValue = parseInt(updateDetails.digitsOnly, 10);
+            if (!Number.isInteger(numericValue)) return maxValue;
+            return Math.max(maxValue, numericValue);
+          }, 0);
+          if (maxNumericIdInBulk > Number(idSettings.student_id_counter || 0)) {
+            await client.query(
+              `UPDATE organizations
+                  SET student_id_counter = $1
+                WHERE organization_id = $2`,
+              [maxNumericIdInBulk, organizationId]
+            );
+            idSettings.student_id_counter = maxNumericIdInBulk;
+          }
+        }
+
         let safeClassId = null;
         let newClassName = null;
+        let subjectCarryoverNotice = { message: '', skippedMessage: '' };
         if (classId) {
           const classCheck = await client.query(
             `SELECT class_id, class_name FROM classes WHERE class_id = $1 AND organization_id = $2`,
@@ -13260,17 +14510,31 @@ const commonController = {
                AND sy.current = TRUE`,
             [safeClassId, safeIds, organizationId]
           );
+
+          const carryoverResults = [];
+          for (const currentStudentId of safeIds) {
+            const carryoverResult = await carryStudentSubjectsToClass(client, {
+              organizationId,
+              studentId: currentStudentId,
+              newClassId: safeClassId,
+              keepExistingSubjects,
+            });
+            carryoverResults.push(carryoverResult);
+          }
+          subjectCarryoverNotice = buildBulkSubjectCarryoverNotice(carryoverResults, keepExistingSubjects);
         }
 
         let newYearLabel = null;
+        let newYearIsCurrent = false;
         if (schoolYearId) {
           const syCheck = await client.query(
-            `SELECT id, year_label FROM school_years WHERE id = $1 AND organization_id = $2`,
+            `SELECT id, year_label, current FROM school_years WHERE id = $1 AND organization_id = $2`,
             [parseInt(schoolYearId, 10), organizationId]
           );
           if (!syCheck.rows.length) throw new Error("Selected school year does not belong to your organisation");
           const safeSyId = syCheck.rows[0].id;
           newYearLabel = syCheck.rows[0].year_label;
+          newYearIsCurrent = Boolean(syCheck.rows[0].current);
 
           // Find or create a single enrollment record for this school year + org
           let enrollmentId;
@@ -13316,11 +14580,34 @@ const commonController = {
         }
 
         await client.query("COMMIT");
+
+        let updatedStudentIds = {};
+        if (resolvedStudentIdUpdates && resolvedStudentIdUpdates.size) {
+          const refreshedStudentsResult = await db.query(
+            `SELECT student_id, custom_student_id
+               FROM students
+              WHERE organization_id = $1 AND student_id = ANY($2::int[])`,
+            [organizationId, Array.from(resolvedStudentIdUpdates.keys())]
+          );
+          updatedStudentIds = refreshedStudentsResult.rows.reduce((accumulator, studentRow) => {
+            const studentKey = String(studentRow.student_id);
+            accumulator[studentKey] = {
+              displayStudentId: buildStudentDisplayId(studentRow, idSettings),
+              editableStudentId: getStudentIdEditorValue(studentRow, idSettings),
+            };
+            return accumulator;
+          }, {});
+        }
+
         return res.json({
           success: true,
           updated: safeIds.length,
           className: newClassName,
           yearLabel: newYearLabel,
+          yearIsCurrent: newYearIsCurrent,
+          updatedStudentIds,
+          subjectCarryoverMessage: subjectCarryoverNotice.message,
+          subjectCarryoverWarning: subjectCarryoverNotice.skippedMessage,
         });
       } catch (err) {
         await client.query("ROLLBACK");
@@ -13624,6 +14911,49 @@ const commonController = {
       return res.status(500).json({ error: "Failed to save changes." });
     } finally {
       client.release();
+    }
+  },
+
+  // GET /common/check-student-id?id=MGI042&exclude=5
+  // Returns { taken: true|false }
+  checkStudentId: async (req, res, db) => {
+    try {
+      const organizationId = req.session.organizationId;
+      if (!organizationId) return res.status(401).json({ error: "Unauthorized" });
+      const customId = (req.query.id || "").trim();
+      if (!customId) return res.json({ taken: false });
+      // numOnly is the bare number the user typed (e.g. "222").
+      // customId is the full display ID (e.g. "MIS222"). We check both
+      // custom IDs and system student_ids because some pages derive the display
+      // ID from student_id when custom_student_id is null.
+      const rawNumOnly = (req.query.num || "").trim();
+      const trailingDigits = customId.match(/(\d+)$/);
+      const numOnly = rawNumOnly || (trailingDigits ? trailingDigits[1] : "");
+      const numericStudentId = /^\d+$/.test(numOnly) ? parseInt(numOnly, 10) : null;
+      const excludeStudentId = parseInt(req.query.exclude) || null;
+      const params = [organizationId];
+      let query = `SELECT 1 FROM students WHERE organization_id = $1`;
+      if (excludeStudentId) {
+        params.push(excludeStudentId);
+        query += ` AND student_id != $2`;
+      }
+      const conditions = [];
+      params.push(customId);
+      conditions.push(`custom_student_id = $${params.length}`);
+      if (numOnly && numOnly !== customId) {
+        params.push(numOnly);
+        conditions.push(`custom_student_id = $${params.length}`);
+      }
+      if (Number.isInteger(numericStudentId)) {
+        params.push(numericStudentId);
+        conditions.push(`student_id = $${params.length}`);
+      }
+      query += ` AND (${conditions.join(' OR ')}) LIMIT 1`;
+      const result = await db.query(query, params);
+      return res.json({ taken: result.rows.length > 0 });
+    } catch (err) {
+      console.error('[checkStudentId]', err.message);
+      return res.status(500).json({ error: "Server error" });
     }
   },
 };

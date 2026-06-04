@@ -129,6 +129,8 @@ const transcriptController = (db) => ({
                 signatureName,
                 signatureTitle,
                 official: req.query.official === 'true',
+                hideGlobalHeader: true,
+                hideGlobalFooter: true,
             });
         } catch (error) {
                         res.status(500).send('Failed to generate transcript.');

@@ -71,6 +71,93 @@ function normalizeLoginReturnPath(returnTo) {
   }
 }
 
+let studentIdSettingsSchemaReady = false;
+
+async function ensureStudentIdSettingsSchema(dbClient) {
+  if (studentIdSettingsSchemaReady) return;
+
+  await dbClient.query(`
+    ALTER TABLE organizations
+      ADD COLUMN IF NOT EXISTS student_id_start_number INTEGER DEFAULT NULL
+  `);
+
+  studentIdSettingsSchemaReady = true;
+}
+
+async function getOccupiedStudentIdNumbers(dbClient, organizationId) {
+  const result = await dbClient.query(
+    `SELECT DISTINCT occupied_number::int AS occupied_number
+       FROM (
+         SELECT student_id AS occupied_number
+           FROM students
+          WHERE organization_id = $1
+            AND student_id IS NOT NULL
+            AND student_id > 0
+         UNION
+         SELECT NULLIF(REGEXP_REPLACE(COALESCE(custom_student_id, ''), '\\D', '', 'g'), '')::int AS occupied_number
+           FROM students
+          WHERE organization_id = $1
+            AND NULLIF(REGEXP_REPLACE(COALESCE(custom_student_id, ''), '\\D', '', 'g'), '') IS NOT NULL
+       ) occupied_numbers
+      WHERE occupied_number IS NOT NULL
+        AND occupied_number > 0
+      ORDER BY occupied_number ASC`,
+    [organizationId]
+  );
+
+  return result.rows
+    .map((row) => Number(row.occupied_number) || 0)
+    .filter((number) => Number.isInteger(number) && number > 0);
+}
+
+function getFirstAvailableStudentIdNumber(occupiedNumbers = [], startingNumber = 1) {
+  const usedNumbers = new Set();
+  occupiedNumbers.forEach((number) => {
+    const parsed = Number(number);
+    if (Number.isInteger(parsed) && parsed > 0) {
+      usedNumbers.add(parsed);
+    }
+  });
+
+  let candidate = Math.max(1, Number(startingNumber) || 1);
+  while (usedNumbers.has(candidate)) {
+    candidate += 1;
+  }
+
+  return candidate;
+}
+
+function getStudentIdSearchStart(occupiedNumbers = [], currentCounter = 0, configuredStartNumber = null) {
+  const validOccupiedNumbers = occupiedNumbers.filter((number) => Number.isInteger(number) && number > 0);
+  const explicitStartNumber = Number(configuredStartNumber);
+
+  if (Number.isInteger(explicitStartNumber) && explicitStartNumber > 0) {
+    return explicitStartNumber;
+  }
+
+  const configuredNextNumber = Math.max(1, Number(currentCounter) || 0) + 1;
+
+  if (validOccupiedNumbers.length === 0) {
+    return configuredNextNumber;
+  }
+
+  const minOccupiedNumber = Math.min(...validOccupiedNumbers);
+  if (
+    configuredNextNumber < minOccupiedNumber &&
+    configuredNextNumber >= Math.max(1, minOccupiedNumber - 1)
+  ) {
+    return configuredNextNumber;
+  }
+
+  return minOccupiedNumber;
+}
+
+async function getNextSuggestedStudentIdNumber(dbClient, organizationId, currentCounter = 0, configuredStartNumber = null) {
+  const occupiedNumbers = await getOccupiedStudentIdNumbers(dbClient, organizationId);
+  const searchStart = getStudentIdSearchStart(occupiedNumbers, currentCounter, configuredStartNumber);
+  return getFirstAvailableStudentIdNumber(occupiedNumbers, searchStart);
+}
+
 const LOGIN_REDIRECT_PERMISSION_RULES = [
   {
     pattern: /^\/common\/(manageEmployees|createEmployee|modifyEmployee|deleteEmployee|toggleHoldEmployee)(?:$|[/?#])/i,
@@ -5781,6 +5868,47 @@ const accountController = {
     }
   },
 
+  updateStudentIdSettingsPost: async (req, res, db) => {
+    try {
+      const orgId = req.session.organizationId;
+      if (!orgId) {
+        req.flash("error", "Unauthorized.");
+        return res.redirect("/account/login");
+      }
+
+      await ensureStudentIdSettingsSchema(db);
+
+      const useCustom = req.body.useCustomStudentId === "on";
+      const autoGenerate = req.body.studentIdAutoGenerate === "on";
+
+      // Sanitize prefix: only alphanumeric, dash, underscore — max 10 chars
+      const rawPrefix = (req.body.studentIdPrefix || "").trim();
+      const safePrefix = rawPrefix.replace(/[^A-Za-z0-9\-_]/g, "").toUpperCase().slice(0, 10) || null;
+
+      // Starting number: school can set the floor the auto-number search should respect.
+      const rawStarting = parseInt(req.body.startingNumber, 10);
+      const safeStartingNumber = Number.isInteger(rawStarting) && rawStarting >= 1 ? rawStarting : null;
+
+      await db.query(
+        `UPDATE organizations
+         SET use_custom_student_id   = $1,
+             student_id_prefix        = $2,
+             student_id_auto_generate = $3,
+             student_id_start_number  = $5
+             ${safeStartingNumber !== null ? ', student_id_counter = GREATEST(COALESCE(student_id_counter, 0), $5 - 1)' : ''}
+         WHERE organization_id = $4`,
+        [useCustom, safePrefix, autoGenerate, orgId, safeStartingNumber]
+      );
+
+      const redirectTo = req.body.redirectTo || "/account/settings";
+      req.flash("success", "Student ID settings updated.");
+      return res.redirect(redirectTo);
+    } catch (err) {
+      req.flash("error", "Failed to update student ID settings.");
+      return res.redirect(req.body.redirectTo || "/account/settings");
+    }
+  },
+
   personalizationLogoPost: async (req, res) => {
     const { file } = req;
 
@@ -7007,6 +7135,27 @@ const accountController = {
 
       const orgRow = orgResult.rows[0] || {};
       const isHubMember = Boolean(orgRow.is_hub_member && orgRow.hub_id);
+
+      // Fetch student ID settings for the Student ID Settings card
+      let studentIdSettings = {};
+      if (orgId) {
+        await ensureStudentIdSettingsSchema(db);
+        const sidResult = await db.query(
+          `SELECT use_custom_student_id, student_id_prefix, student_id_auto_generate, student_id_counter, student_id_start_number
+           FROM organizations WHERE organization_id = $1`,
+          [orgId]
+        );
+        studentIdSettings = sidResult.rows[0] || {};
+      }
+      const nextAvailableStudentIdNumber = orgId
+        ? await getNextSuggestedStudentIdNumber(
+            db,
+            orgId,
+            studentIdSettings.student_id_counter || 0,
+            studentIdSettings.student_id_start_number || null
+          )
+        : null;
+
       let paystackCustomerCode = orgRow.paystack_customer_code || '';
       const stripeCustomerId = orgRow.stripe_customer_id || null;
       const activeSystemProvider = await getActivePaymentProvider();
@@ -7335,6 +7484,8 @@ const accountController = {
         feedbackTypeOptions: FEEDBACK_TYPE_OPTIONS,
         feedbackAreaOptions: FEEDBACK_AREA_OPTIONS,
         feedbackPriorityOptions: FEEDBACK_PRIORITY_OPTIONS,
+        studentIdSettings,
+        nextAvailableStudentIdNumber,
         messages: req.flash(),
       });
     } catch (error) {
