@@ -329,13 +329,22 @@
     color: #0f172a;
   }
   .as-syear-label {
-    font-size: 11px;
-    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
     color: #16a34a;
     background: #dcfce7;
-    border-radius: 4px;
-    padding: 1px 5px;
+    border-radius: 999px;
+    border: 1px solid #86efac;
+    vertical-align: middle;
     margin-left: 4px;
+  }
+  .as-syear-label svg {
+    width: 10px;
+    height: 10px;
+    stroke-width: 2.6;
   }
 
   /* ── Action buttons ──────────────────────── */
@@ -362,6 +371,14 @@
     font-family: inherit;
   }
   .as-btn svg { width: 12px; height: 12px; flex-shrink: 0; }
+  .as-btn.icon-only {
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
+    padding: 0;
+    gap: 0;
+    justify-content: center;
+  }
 
   .as-btn-view {
     border-color: var(--border);
@@ -398,14 +415,18 @@
     .as-card-list { display: block; }
 
     .as-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        'top top'
+        'meta actions';
       padding: 11px 14px;
       border-bottom: 1px solid #f1f5f9;
-      display: flex;
-      flex-direction: column;
       gap: 8px;
     }
     .as-card:last-child { border-bottom: none; }
     .as-card-top {
+      grid-area: top;
       display: flex;
       align-items: center;
       gap: 8px;
@@ -428,11 +449,14 @@
       margin-top: 1px;
     }
     .as-card-meta {
+      grid-area: meta;
       display: flex;
+      align-items: center;
       flex-wrap: wrap;
       gap: 4px 12px;
       font-size: 11.5px;
       color: #374151;
+      min-width: 0;
     }
     .as-card-meta-item {
       display: flex;
@@ -441,10 +465,66 @@
     }
     .as-card-meta-item svg { width: 11px; height: 11px; color: var(--muted); }
     .as-card-actions {
+      grid-area: actions;
       display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+      margin-left: auto;
+      align-self: center;
+    }
+    .as-card-actions .as-btn { justify-content: center; }
+    .as-card-actions .as-btn.icon-only {
+      flex: 0 0 auto;
+      width: 26px;
+      min-width: 26px;
+      height: 26px;
+      border-radius: 7px;
+    }
+    .as-card-actions .as-btn.icon-only svg {
+      width: 11px;
+      height: 11px;
+    }
+    .as-card-meta .as-syear-label {
+      width: 14px;
+      height: 14px;
+      margin-left: 3px;
+    }
+    .as-card-meta .as-syear-label svg {
+      width: 9px;
+      height: 9px;
+    }
+  }
+
+  @media (max-width: 520px) {
+    .as-card {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        'top top'
+        'meta actions';
       gap: 6px;
     }
-    .as-card-actions .as-btn { flex: 1; justify-content: center; }
+    .as-card-meta {
+      gap: 4px 8px;
+      font-size: 10.5px;
+    }
+    .as-card-meta-item svg {
+      width: 10px;
+      height: 10px;
+    }
+    .as-card-actions {
+      gap: 5px;
+    }
+    .as-card-actions .as-btn.icon-only {
+      width: 24px;
+      min-width: 24px;
+      height: 24px;
+      border-radius: 6px;
+    }
+    .as-card-actions .as-btn.icon-only svg {
+      width: 10px;
+      height: 10px;
+    }
   }
 
   /* ── Mobile filter toggle ───────────────── */
@@ -1230,7 +1310,7 @@
           <td><%= s.gender || '—' %></td>
 
           <td>
-            <span class="js-student-year-value <%= s.last_school_year ? 'as-syear-curr' : 'as-syear-none' %>"><% if (s.last_school_year) { %><%= s.last_school_year %><% if (s.in_current_year) { %><span class="as-syear-label">Current</span><% } %><% } else { %>—<% } %></span>
+            <span class="js-student-year-value <%= s.last_school_year ? 'as-syear-curr' : 'as-syear-none' %>"><% if (s.last_school_year) { %><%= s.last_school_year %><% if (s.in_current_year) { %><span class="as-syear-label" title="Current year" aria-label="Current year"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></span><% } %><% } else { %>—<% } %></span>
           </td>
 
           <td>
@@ -1242,11 +1322,10 @@
 
           <td>
             <div class="as-actions">
-              <a href="<%= detailsHref %>" class="as-btn as-btn-view" title="View details">
+              <a href="<%= detailsHref %>" class="as-btn as-btn-view icon-only" title="View student" aria-label="View student">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                View
               </a>
-              <button class="as-btn as-btn-edit js-edit-class"
+              <button class="as-btn as-btn-edit js-edit-class icon-only"
                 data-student-id="<%= s.student_id %>"
                 data-student-name="<%= s.first_name %> <%= s.last_name %>"
                 data-class-id="<%= s.class_id || '' %>"
@@ -1258,9 +1337,9 @@
                 data-editable-id="<%= s.editable_student_id || '' %>"
                 data-image="<%= (s.image_url && s.image_url !== 'profilePlaceholder.png') ? s.image_url : '' %>"
                 data-initials="<%= initials %>"
-                title="Edit student">
+                title="Edit student"
+                aria-label="Edit student">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                Edit
               </button>
             </div>
           </td>
@@ -1309,15 +1388,14 @@
           </div>
           <div class="as-card-meta-item">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-            <span class="js-student-year-value"><% if (s.last_school_year) { %><%= s.last_school_year %><% if (s.in_current_year) { %> <span class="as-syear-label">Current</span><% } %><% } else { %>No year<% } %></span>
+            <span class="js-student-year-value"><% if (s.last_school_year) { %><%= s.last_school_year %><% if (s.in_current_year) { %> <span class="as-syear-label" title="Current year" aria-label="Current year"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></span><% } %><% } else { %>No year<% } %></span>
           </div>
         </div>
         <div class="as-card-actions">
-          <a href="<%= detailsHref %>" class="as-btn as-btn-view">
+          <a href="<%= detailsHref %>" class="as-btn as-btn-view icon-only" title="View student" aria-label="View student">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-            View Details
           </a>
-          <button class="as-btn as-btn-edit js-edit-class"
+          <button class="as-btn as-btn-edit js-edit-class icon-only"
             data-student-id="<%= s.student_id %>"
             data-student-name="<%= s.first_name %> <%= s.last_name %>"
             data-class-id="<%= s.class_id || '' %>"
@@ -1328,9 +1406,10 @@
             data-display-id="<%= s.display_student_id || '' %>"
             data-editable-id="<%= s.editable_student_id || '' %>"
             data-image="<%= (s.image_url && s.image_url !== 'profilePlaceholder.png') ? s.image_url : '' %>"
-            data-initials="<%= initials %>">
+            data-initials="<%= initials %>"
+            title="Edit student"
+            aria-label="Edit student">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-            Edit Student
           </button>
         </div>
       </div>
@@ -1634,7 +1713,7 @@
       if (rowValue) {
         rowValue.className = 'js-student-year-value ' + (yearLabel ? 'as-syear-curr' : 'as-syear-none');
         rowValue.innerHTML = yearLabel
-          ? escHtml(yearLabel) + (yearIsCurrent ? '<span class="as-syear-label">Current</span>' : '')
+          ? escHtml(yearLabel) + (yearIsCurrent ? '<span class="as-syear-label" title="Current year" aria-label="Current year"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></span>' : '')
           : '—';
       }
       var rowBtn = row.querySelector('.js-edit-class');
@@ -1649,7 +1728,7 @@
       var cardValue = card.querySelector('.js-student-year-value');
       if (cardValue) {
         cardValue.innerHTML = yearLabel
-          ? escHtml(yearLabel) + (yearIsCurrent ? ' <span class="as-syear-label">Current</span>' : '')
+          ? escHtml(yearLabel) + (yearIsCurrent ? ' <span class="as-syear-label" title="Current year" aria-label="Current year"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></span>' : '')
           : 'No year';
       }
       var cardBtn = card.querySelector('.js-edit-class');
