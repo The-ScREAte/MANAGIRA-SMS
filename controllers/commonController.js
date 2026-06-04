@@ -14338,19 +14338,39 @@ const commonController = {
       const organizationId = req.session.organizationId;
       if (!organizationId) return res.status(401).json({ success: false, error: "Unauthorized" });
 
-      const { studentIds, classId, schoolYearId } = req.body;
+      await ensureStudentIdSettingsSchema(db);
+
+      const { studentIds, classId, schoolYearId, customStudentIds } = req.body;
       const keepExistingSubjects = parseKeepExistingSubjectsPreference(req.body && req.body.keepExistingSubjects, true);
+      const hasStudentIdPayload = customStudentIds && typeof customStudentIds === 'object' && !Array.isArray(customStudentIds);
 
       if (!Array.isArray(studentIds) || studentIds.length === 0)
         return res.status(400).json({ success: false, error: "No students selected" });
-      if (!classId && !schoolYearId)
-        return res.status(400).json({ success: false, error: "Nothing to update — select a class or school year" });
+      if (!classId && !schoolYearId && !hasStudentIdPayload)
+        return res.status(400).json({ success: false, error: "Nothing to update — select a class, school year, or student ID edits" });
 
       // Sanitize to positive integers
       const safeIds = [...new Set(
         studentIds.map(id => parseInt(id, 10)).filter(id => Number.isInteger(id) && id > 0)
       )];
       if (!safeIds.length) return res.status(400).json({ success: false, error: "Invalid student IDs" });
+
+      let sanitizedStudentIdUpdates = new Map();
+      if (hasStudentIdPayload) {
+        const incomingIds = Object.entries(customStudentIds).reduce((accumulator, [studentId, rawValue]) => {
+          const parsedStudentId = parseInt(studentId, 10);
+          if (!Number.isInteger(parsedStudentId) || parsedStudentId <= 0) return accumulator;
+          if (!safeIds.includes(parsedStudentId)) return accumulator;
+          const digitsOnly = String(rawValue == null ? '' : rawValue).replace(/\D/g, '').slice(0, 10);
+          accumulator.set(parsedStudentId, digitsOnly);
+          return accumulator;
+        }, new Map());
+
+        if (!incomingIds.size) {
+          return res.status(400).json({ success: false, error: "No valid student ID changes were provided" });
+        }
+        sanitizedStudentIdUpdates = incomingIds;
+      }
 
       // Verify all students belong to this org
       const ownershipCheck = await db.query(
@@ -14363,6 +14383,104 @@ const commonController = {
       const client = await db.connect();
       try {
         await client.query("BEGIN");
+
+        const idSettingsResult = await client.query(
+          `SELECT use_custom_student_id, student_id_prefix, student_id_counter, student_id_start_number
+             FROM organizations
+            WHERE organization_id = $1
+            FOR UPDATE`,
+          [organizationId]
+        );
+        const idSettings = idSettingsResult.rows[0] || {};
+
+        if (sanitizedStudentIdUpdates.size && !idSettings.use_custom_student_id) {
+          throw new Error("Custom student IDs are disabled for your organization");
+        }
+
+        const studentsSnapshotResult = await client.query(
+          `SELECT student_id, custom_student_id
+             FROM students
+            WHERE student_id = ANY($1::int[]) AND organization_id = $2
+            FOR UPDATE`,
+          [safeIds, organizationId]
+        );
+        const studentsSnapshotById = studentsSnapshotResult.rows.reduce((accumulator, row) => {
+          accumulator.set(Number(row.student_id), row);
+          return accumulator;
+        }, new Map());
+
+        const prefix = String(idSettings.student_id_prefix || '').trim();
+        const resolvedStudentIdUpdates = new Map();
+        if (sanitizedStudentIdUpdates.size) {
+          const seenResolved = new Set();
+
+          for (const [currentStudentId, digitsOnly] of sanitizedStudentIdUpdates.entries()) {
+            const currentStudent = studentsSnapshotById.get(Number(currentStudentId));
+            if (!currentStudent) {
+              throw new Error("One or more students could not be loaded for ID updates");
+            }
+
+            const resolvedCustomId = digitsOnly ? `${prefix}${digitsOnly}` : null;
+            resolvedStudentIdUpdates.set(Number(currentStudentId), {
+              digitsOnly,
+              resolvedCustomId,
+            });
+
+            if (!resolvedCustomId) continue;
+            if (seenResolved.has(resolvedCustomId)) {
+              throw new Error(`Duplicate student ID "${resolvedCustomId}" was entered in bulk edit`);
+            }
+            seenResolved.add(resolvedCustomId);
+
+            const numericStudentId = /^\d+$/.test(digitsOnly) ? parseInt(digitsOnly, 10) : null;
+            const conflictParams = [organizationId, Number(currentStudentId), resolvedCustomId];
+            let conflictQuery = `
+              SELECT 1
+                FROM students
+               WHERE organization_id = $1
+                 AND student_id != $2
+                 AND (custom_student_id = $3`;
+            if (digitsOnly && digitsOnly !== resolvedCustomId) {
+              conflictParams.push(digitsOnly);
+              conflictQuery += ` OR custom_student_id = $${conflictParams.length}`;
+            }
+            if (Number.isInteger(numericStudentId)) {
+              conflictParams.push(numericStudentId);
+              conflictQuery += ` OR student_id = $${conflictParams.length}`;
+            }
+            conflictQuery += `)
+               LIMIT 1`;
+
+            const conflictResult = await client.query(conflictQuery, conflictParams);
+            if (conflictResult.rows.length) {
+              throw new Error(`Student ID "${resolvedCustomId}" is already INUSED`);
+            }
+          }
+
+          for (const [currentStudentId, updateDetails] of resolvedStudentIdUpdates.entries()) {
+            await client.query(
+              `UPDATE students
+                  SET custom_student_id = $1
+                WHERE student_id = $2 AND organization_id = $3`,
+              [updateDetails.resolvedCustomId, Number(currentStudentId), organizationId]
+            );
+          }
+
+          const maxNumericIdInBulk = Array.from(resolvedStudentIdUpdates.values()).reduce((maxValue, updateDetails) => {
+            const numericValue = parseInt(updateDetails.digitsOnly, 10);
+            if (!Number.isInteger(numericValue)) return maxValue;
+            return Math.max(maxValue, numericValue);
+          }, 0);
+          if (maxNumericIdInBulk > Number(idSettings.student_id_counter || 0)) {
+            await client.query(
+              `UPDATE organizations
+                  SET student_id_counter = $1
+                WHERE organization_id = $2`,
+              [maxNumericIdInBulk, organizationId]
+            );
+            idSettings.student_id_counter = maxNumericIdInBulk;
+          }
+        }
 
         let safeClassId = null;
         let newClassName = null;
@@ -14463,12 +14581,32 @@ const commonController = {
         }
 
         await client.query("COMMIT");
+
+        let updatedStudentIds = {};
+        if (resolvedStudentIdUpdates && resolvedStudentIdUpdates.size) {
+          const refreshedStudentsResult = await db.query(
+            `SELECT student_id, custom_student_id
+               FROM students
+              WHERE organization_id = $1 AND student_id = ANY($2::int[])`,
+            [organizationId, Array.from(resolvedStudentIdUpdates.keys())]
+          );
+          updatedStudentIds = refreshedStudentsResult.rows.reduce((accumulator, studentRow) => {
+            const studentKey = String(studentRow.student_id);
+            accumulator[studentKey] = {
+              displayStudentId: buildStudentDisplayId(studentRow, idSettings),
+              editableStudentId: getStudentIdEditorValue(studentRow, idSettings),
+            };
+            return accumulator;
+          }, {});
+        }
+
         return res.json({
           success: true,
           updated: safeIds.length,
           className: newClassName,
           yearLabel: newYearLabel,
           yearIsCurrent: newYearIsCurrent,
+          updatedStudentIds,
           subjectCarryoverMessage: subjectCarryoverNotice.message,
           subjectCarryoverWarning: subjectCarryoverNotice.skippedMessage,
         });
