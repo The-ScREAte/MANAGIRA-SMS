@@ -19,6 +19,8 @@
     --pg-teal:      #00D4AA;
     --pg-gold:      #F5C842;
     --pg-red:       #FF4D6D;
+    --pg-org:       var(--org-primary-color, #01535b);
+    --pg-org-hover: var(--org-primary-hover, #014a51);
   }
 
   .pg-wrap {
@@ -136,13 +138,17 @@
     display:inline-flex; align-items:center; gap:6px;
     padding:8px 13px; border-radius:9px;
     font-size:.76rem; font-weight:700; cursor:pointer;
-    border:none; transition:all .15s;
+    border:1px solid transparent; transition:all .15s;
     text-decoration:none;
+    background:var(--pg-org);
+    color:#fff;
   }
-  .pg-btn.primary { background:linear-gradient(135deg, var(--pg-teal), #00b693); color:#062018; }
-  .pg-btn.primary:hover { transform:translateY(-1px); box-shadow:0 6px 16px rgba(0,212,170,.3); }
-  .pg-btn.ghost { background:transparent; color:var(--pg-text); border:1px solid var(--pg-border); }
-  .pg-btn.ghost:hover { background:rgba(255,255,255,.05); }
+  .pg-btn.primary { background:var(--pg-org); color:#fff; }
+  .pg-btn.primary:hover { transform:translateY(-1px); box-shadow:none; background:var(--pg-org-hover); }
+  .pg-btn.ghost { background:var(--pg-org); color:#fff; border:1px solid transparent; }
+  .pg-btn.ghost:hover { background:var(--pg-org-hover); }
+  .pg-btn.danger { background:var(--pg-red); color:#fff; border-color:transparent; }
+  .pg-btn.danger::before { content:'🗑'; font-size:.82em; }
   .pg-btn:disabled { opacity:.4; cursor:not-allowed; }
 
   .pg-flash { padding:12px 18px; border-radius:12px; margin-bottom:18px; font-weight:600; font-size:.9rem; }
@@ -395,9 +401,9 @@
     min-height:42px;
     padding:10px 16px;
     border-radius:999px;
-    border:1px solid rgba(0,212,170,.26);
-    background:rgba(0,212,170,.08);
-    color:var(--pg-teal);
+    border:1px solid transparent;
+    background:var(--pg-org);
+    color:#fff;
     font-size:.78rem;
     font-weight:700;
     cursor:pointer;
@@ -405,7 +411,8 @@
   }
   .pgv2-apply-btn:hover:not(:disabled) {
     transform:translateY(-1px);
-    box-shadow:0 12px 24px rgba(0,0,0,.18);
+    box-shadow:none;
+    background:var(--pg-org-hover);
   }
   .pgv2-apply-btn:disabled {
     opacity:.45;
@@ -413,8 +420,8 @@
   }
   .pgv2-apply-btn.is-applied {
     border-color:transparent;
-    background:linear-gradient(135deg, var(--pg-teal), #00b693);
-    color:#062018;
+    background:var(--pg-org);
+    color:#fff;
   }
   .pgv2-balance-hint {
     color:var(--pg-muted);
