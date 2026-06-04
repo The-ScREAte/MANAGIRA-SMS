@@ -2,14 +2,10 @@ User-agent: *
 Allow: /
 Allow: /legal/
 Allow: /common/publicDashboard
-
-# Sitemaps
-Sitemap: https://managira.com/sitemap.xml
-Sitemap: https://managira.com/sitemap-schools.xml
+Allow: /account/service-plan
 
 # Block access to admin and private areas
 Disallow: /admin/
-Allow: /account/service-plan
 Disallow: /account/
 Disallow: /enrollment/
 Disallow: /common/orgDashboard
@@ -19,3 +15,7 @@ Disallow: /print/
 Disallow: /promotion/
 Disallow: /stats/
 Disallow: /transcript/
+
+# Sitemaps
+Sitemap: https://managira.com/sitemap.xml
+Sitemap: https://managira.com/sitemap-schools.xml

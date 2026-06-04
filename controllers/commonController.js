@@ -2238,10 +2238,9 @@ const commonController = {
           : items;
 
       // Render the school website page
-      const canonicalUrl =
-        process.env.NODE_ENV === "production" && orgDetails?.nickname
-          ? `https://${orgDetails.nickname}.managira.com/`
-          : `${baseSiteUrl}/common/publicDashboard?organizationId=${organizationId}`;
+      const canonicalUrl = req.schoolDetails?.nickname
+        ? `https://${req.schoolDetails.nickname}.managira.com/`
+        : `${baseSiteUrl}/common/publicDashboard?organizationId=${organizationId}`;
 
       const flashMessages = req.flash();
       const publicErrorMessages = (flashMessages.error || []).filter(
@@ -2259,7 +2258,7 @@ const commonController = {
 
       const seoDescription = aboutusPlain
         ? `${aboutusPlain}`
-        : `Official website and public portal for ${orgDetails?.organization_name || "School"}${orgDetails?.nickname ? ` (${orgDetails.nickname})` : ""} on Managira. View announcements, events, registration updates, and school information.`;
+        : `${orgDetails?.organization_name || "School"} - school management portal on Managira. View class information, announcements, and school updates.`;
 
       // Build rich keyword list: full name, every word, every partial combination,
       // nickname variations, and common school search terms — maximises chances of
