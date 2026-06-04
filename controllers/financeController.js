@@ -3288,6 +3288,31 @@ async function auditStaffCollection(req, result) {
 module.exports = {
   ensureFinanceSchema,
   isFinanceAdmin,
+  invalidateFinanceCache,
+
+  // Lightweight JSON endpoint for background stat-refresh on the Finance page.
+  // The dashboard polls this every ~15s to update headline numbers without a
+  // full page reload. Cached for 10s so heavy SQL doesn't fire on every poll.
+  financeStatsJsonGet: async (req, res) => {
+    try {
+      if (!(await isFinanceAdmin(req))) return res.status(403).json({ error: "forbidden" });
+      const orgId = req.session.organizationId;
+      if (!orgId) return res.status(401).json({ error: "no_org" });
+      await ensureFinanceSchema();
+      const refs = await cachedLoad(orgId, "refs", null, () => loadClassesAndStudents(orgId));
+      const currentAcademic = getCurrentAcademicContext(refs);
+      const filters = {
+        school_year_id: req.query.year || currentAcademic.schoolYearId || null,
+        term_id: req.query.term || ((!req.query.year && !req.query.term) ? (currentAcademic.termId || null) : null),
+      };
+      const overview = await cachedLoad(orgId, "overview", filters, () => loadOverviewStats(orgId, filters));
+      res.set("Cache-Control", "private, max-age=5, stale-while-revalidate=20");
+      res.json({ ok: true, overview, ts: Date.now() });
+    } catch (e) {
+      res.status(500).json({ error: "stats_failed" });
+    }
+  },
+
 
   financeArrearsPageGet: async (req, res) => {
     req.query = { ...(req.query || {}), section: "arrears" };
