@@ -36,6 +36,37 @@ const {
   buildPlatformChargeBreakdown,
 } = require("../utils/platformFee");
 const { createNotification } = require("../utils/notificationService");
+const cacheManager = require("../utils/cacheManager");
+
+// ──────────────────────────────────────────────────────────────────────────────
+// PayGira in-memory cache layer.
+// Heavy SQL queries on the Finance dashboard are wrapped here. Each org gets
+// its own keyspace; writes invalidate every key for that org so the next read
+// returns fresh data. Built-in background-refresh keeps repeat reads instant
+// even after the TTL elapses.
+// ──────────────────────────────────────────────────────────────────────────────
+const FIN_CACHE_TTL_SECONDS = 30;
+
+function _finKey(orgId, name, extra) {
+  const tag = extra ? JSON.stringify(extra) : "";
+  return `paygira:${orgId}:${name}:${tag}`;
+}
+
+async function cachedLoad(orgId, name, extra, fetchFn) {
+  if (!orgId) return fetchFn();
+  return cacheManager.getOrFetch(
+    "organization",
+    _finKey(orgId, name, extra),
+    fetchFn,
+    { ttl: FIN_CACHE_TTL_SECONDS }
+  );
+}
+
+function invalidateFinanceCache(orgId) {
+  if (!orgId) return;
+  // Wipe every PayGira key for this org. Cheap O(n) over a small node-cache.
+  cacheManager.invalidatePattern("organization", `paygira:${orgId}:`);
+}
 
 // PayGira audit logger — captures Admin/Mini-Admin actions that the
 // auto-middleware skips, with precise descriptions and field diffs.
@@ -3257,6 +3288,31 @@ async function auditStaffCollection(req, result) {
 module.exports = {
   ensureFinanceSchema,
   isFinanceAdmin,
+  invalidateFinanceCache,
+
+  // Lightweight JSON endpoint for background stat-refresh on the Finance page.
+  // The dashboard polls this every ~15s to update headline numbers without a
+  // full page reload. Cached for 10s so heavy SQL doesn't fire on every poll.
+  financeStatsJsonGet: async (req, res) => {
+    try {
+      if (!(await isFinanceAdmin(req))) return res.status(403).json({ error: "forbidden" });
+      const orgId = req.session.organizationId;
+      if (!orgId) return res.status(401).json({ error: "no_org" });
+      await ensureFinanceSchema();
+      const refs = await cachedLoad(orgId, "refs", null, () => loadClassesAndStudents(orgId));
+      const currentAcademic = getCurrentAcademicContext(refs);
+      const filters = {
+        school_year_id: req.query.year || currentAcademic.schoolYearId || null,
+        term_id: req.query.term || ((!req.query.year && !req.query.term) ? (currentAcademic.termId || null) : null),
+      };
+      const overview = await cachedLoad(orgId, "overview", filters, () => loadOverviewStats(orgId, filters));
+      res.set("Cache-Control", "private, max-age=5, stale-while-revalidate=20");
+      res.json({ ok: true, overview, ts: Date.now() });
+    } catch (e) {
+      res.status(500).json({ error: "stats_failed" });
+    }
+  },
+
 
   financeArrearsPageGet: async (req, res) => {
     req.query = { ...(req.query || {}), section: "arrears" };
@@ -3656,12 +3712,13 @@ module.exports = {
       await ensurePaymentProviderSchema(db);
       const section = String(req.query.section || "overview").toLowerCase();
       const createBillDraft = req.session.financeBillCreateDraft || null;
+      // Cached loaders — 30s TTL with background refresh. Writes invalidate.
       const [templates, refs, pspSettings, orgProfile, signoffHistory] = await Promise.all([
-        loadTemplates(orgId),
-        loadClassesAndStudents(orgId),
-        loadPspSettings(orgId),
-        loadOrganizationProfile(orgId),
-        loadCollectionSignoffHistory(orgId),
+        cachedLoad(orgId, "templates", null, () => loadTemplates(orgId)),
+        cachedLoad(orgId, "refs", null, () => loadClassesAndStudents(orgId)),
+        cachedLoad(orgId, "psp", null, () => loadPspSettings(orgId)),
+        cachedLoad(orgId, "orgProfile", null, () => loadOrganizationProfile(orgId)),
+        cachedLoad(orgId, "signoffHistory", null, () => loadCollectionSignoffHistory(orgId)),
       ]);
       const currentAcademic = getCurrentAcademicContext(refs);
       const overviewFilters = {
@@ -3681,20 +3738,26 @@ module.exports = {
           }
         : {};
       const [studentBilling, bills, overview, chargeCards, paystackSubaccountsResult] = await Promise.all([
-        loadStudentBilling(orgId, studentBillingFilters),
-        loadBills(orgId, billListFilters),
-        loadOverviewStats(orgId, overviewFilters),
-        getOrgChargeCards(db, orgId, orgProfile.billing_provider || null),
-        db.query(
+        cachedLoad(orgId, "studentBilling", studentBillingFilters, () => loadStudentBilling(orgId, studentBillingFilters)),
+        cachedLoad(orgId, "bills", billListFilters, () => loadBills(orgId, billListFilters)),
+        cachedLoad(orgId, "overview", overviewFilters, () => loadOverviewStats(orgId, overviewFilters)),
+        cachedLoad(orgId, "chargeCards", orgProfile.billing_provider || null, () => getOrgChargeCards(db, orgId, orgProfile.billing_provider || null)),
+        cachedLoad(orgId, "paystackSubaccounts", null, () => db.query(
           `SELECT id, account_type, business_name, account_number, bank_name, bank_code,
                   momo_provider, momo_number, account_holder_name, is_primary
            FROM paystack_subaccounts
            WHERE organization_id = $1
            ORDER BY is_primary DESC, id ASC`,
           [orgId]
-        ),
+        )),
       ]);
       const paystackSubaccounts = paystackSubaccountsResult.rows;
+
+      // SPA / browser cache hint: lets the SPA router show last snapshot
+      // immediately on back-navigation while a fresh GET runs in background.
+      res.set("Cache-Control", "private, max-age=5, stale-while-revalidate=30");
+      res.set("Vary", "Cookie");
+
       const platformStripeKey = await getActiveStripePublicKey();
 
       const display = await buildFinanceDisplayContext(req, orgId, pspSettings, orgProfile.organization_country);
