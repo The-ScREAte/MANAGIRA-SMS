@@ -36,6 +36,37 @@ const {
   buildPlatformChargeBreakdown,
 } = require("../utils/platformFee");
 const { createNotification } = require("../utils/notificationService");
+const cacheManager = require("../utils/cacheManager");
+
+// ──────────────────────────────────────────────────────────────────────────────
+// PayGira in-memory cache layer.
+// Heavy SQL queries on the Finance dashboard are wrapped here. Each org gets
+// its own keyspace; writes invalidate every key for that org so the next read
+// returns fresh data. Built-in background-refresh keeps repeat reads instant
+// even after the TTL elapses.
+// ──────────────────────────────────────────────────────────────────────────────
+const FIN_CACHE_TTL_SECONDS = 30;
+
+function _finKey(orgId, name, extra) {
+  const tag = extra ? JSON.stringify(extra) : "";
+  return `paygira:${orgId}:${name}:${tag}`;
+}
+
+async function cachedLoad(orgId, name, extra, fetchFn) {
+  if (!orgId) return fetchFn();
+  return cacheManager.getOrFetch(
+    "organization",
+    _finKey(orgId, name, extra),
+    fetchFn,
+    { ttl: FIN_CACHE_TTL_SECONDS }
+  );
+}
+
+function invalidateFinanceCache(orgId) {
+  if (!orgId) return;
+  // Wipe every PayGira key for this org. Cheap O(n) over a small node-cache.
+  cacheManager.invalidatePattern("organization", `paygira:${orgId}:`);
+}
 
 // PayGira audit logger — captures Admin/Mini-Admin actions that the
 // auto-middleware skips, with precise descriptions and field diffs.
