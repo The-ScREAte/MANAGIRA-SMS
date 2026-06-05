@@ -46,7 +46,7 @@ const cacheManager = require("../utils/cacheManager");
 // returns fresh data. Built-in background-refresh keeps repeat reads instant
 // even after the TTL elapses.
 // ──────────────────────────────────────────────────────────────────────────────
-const FIN_CACHE_TTL_SECONDS = 30;
+const FIN_CACHE_TTL_SECONDS = 60;
 
 function _finKey(orgId, name, extra) {
   const tag = extra ? JSON.stringify(extra) : "";
@@ -3731,13 +3731,19 @@ module.exports = {
       await ensurePaymentProviderSchema(db);
       const section = String(req.query.section || "overview").toLowerCase();
       const createBillDraft = req.session.financeBillCreateDraft || null;
-      // Cached loaders — 30s TTL with background refresh. Writes invalidate.
-      const [templates, refs, pspSettings, orgProfile, signoffHistory] = await Promise.all([
+      // Cached loaders — 60s TTL with background refresh. Writes invalidate.
+      // Only fetch what the current section actually renders to keep TTFB tight.
+      const needsBills = section === 'overview' || section === 'bills' || section === 'subscriptions' || section === 'payments';
+      const needsStudentBilling = section === 'students';
+      const needsSignoffHistory = section === 'payments';
+      const needsPaystackSubs = section === 'settings';
+      const needsChargeCards = section === 'settings' || section === 'overview';
+
+      const [templates, refs, pspSettings, orgProfile] = await Promise.all([
         cachedLoad(orgId, "templates", null, () => loadTemplates(orgId)),
         cachedLoad(orgId, "refs", null, () => loadClassesAndStudents(orgId)),
         cachedLoad(orgId, "psp", null, () => loadPspSettings(orgId)),
         cachedLoad(orgId, "orgProfile", null, () => loadOrganizationProfile(orgId)),
-        cachedLoad(orgId, "signoffHistory", null, () => loadCollectionSignoffHistory(orgId)),
       ]);
       const currentAcademic = getCurrentAcademicContext(refs);
       const overviewFilters = {
@@ -3756,19 +3762,30 @@ module.exports = {
             term_id: req.query.studentTerm || ((!req.query.studentYear && !req.query.studentTerm) ? (currentAcademic.termId || null) : null),
           }
         : {};
-      const [studentBilling, bills, overview, chargeCards, paystackSubaccountsResult] = await Promise.all([
-        cachedLoad(orgId, "studentBilling", studentBillingFilters, () => loadStudentBilling(orgId, studentBillingFilters)),
-        cachedLoad(orgId, "bills", billListFilters, () => loadBills(orgId, billListFilters)),
+      const [studentBilling, bills, overview, chargeCards, paystackSubaccountsResult, signoffHistory] = await Promise.all([
+        needsStudentBilling
+          ? cachedLoad(orgId, "studentBilling", studentBillingFilters, () => loadStudentBilling(orgId, studentBillingFilters))
+          : Promise.resolve([]),
+        needsBills
+          ? cachedLoad(orgId, "bills", billListFilters, () => loadBills(orgId, billListFilters))
+          : Promise.resolve([]),
         cachedLoad(orgId, "overview", overviewFilters, () => loadOverviewStats(orgId, overviewFilters)),
-        cachedLoad(orgId, "chargeCards", orgProfile.billing_provider || null, () => getOrgChargeCards(db, orgId, orgProfile.billing_provider || null)),
-        cachedLoad(orgId, "paystackSubaccounts", null, () => db.query(
-          `SELECT id, account_type, business_name, account_number, bank_name, bank_code,
-                  momo_provider, momo_number, account_holder_name, is_primary
-           FROM paystack_subaccounts
-           WHERE organization_id = $1
-           ORDER BY is_primary DESC, id ASC`,
-          [orgId]
-        )),
+        needsChargeCards
+          ? cachedLoad(orgId, "chargeCards", orgProfile.billing_provider || null, () => getOrgChargeCards(db, orgId, orgProfile.billing_provider || null))
+          : Promise.resolve([]),
+        needsPaystackSubs
+          ? cachedLoad(orgId, "paystackSubaccounts", null, () => db.query(
+              `SELECT id, account_type, business_name, account_number, bank_name, bank_code,
+                      momo_provider, momo_number, account_holder_name, is_primary
+                 FROM paystack_subaccounts
+                WHERE organization_id = $1
+                ORDER BY is_primary DESC, id ASC`,
+              [orgId]
+            ))
+          : Promise.resolve({ rows: [] }),
+        needsSignoffHistory
+          ? cachedLoad(orgId, "signoffHistory", null, () => loadCollectionSignoffHistory(orgId))
+          : Promise.resolve([]),
       ]);
       const paystackSubaccounts = paystackSubaccountsResult.rows;
 
