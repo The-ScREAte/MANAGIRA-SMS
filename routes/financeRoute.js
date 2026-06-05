@@ -94,6 +94,7 @@ router.use((req, res, next) => {
 	next();
 });
 
+router.get("/finance/_version.json", isAuthenticated, c.financeVersionJsonGet);
 router.get("/finance/_stats.json", isAuthenticated, requireFinanceSettingsAccess, c.financeStatsJsonGet);
 router.get("/finance", isAuthenticated, requireFinanceSettingsAccess, c.financePageGet);
 router.get("/finance/arrears", isAuthenticated, requireFinanceSettingsAccess, c.financeArrearsPageGet);

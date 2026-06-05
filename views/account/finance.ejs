@@ -4962,3 +4962,56 @@ Regards,
   document.addEventListener('visibilitychange', function(){ if (!document.hidden) poll(); });
 })();
 </script>
+
+<script>
+/* PayGira silent live-sync — polls a tiny version endpoint; when it changes
+   (because somebody POSTed and cache was invalidated) we soft-reload the
+   current SPA route in the background so the user always sees fresh data
+   without ever hitting hard refresh. */
+(function(){
+  var KEY = '__paygira_v';
+  var lastV = null;
+  var busy = false;
+  var INTERVAL = 8000;
+
+  function softReload(){
+    var path = window.location.pathname + window.location.search;
+    if (window.spaRouter && typeof window.spaRouter.navigate === 'function') {
+      try { window.spaRouter.navigate(path); return; } catch(_) {}
+    }
+    // Fallback: fetch and swap the finance shell only
+    fetch(path, { credentials:'same-origin', headers:{ 'X-Silent-Reload':'1' } })
+      .then(function(r){ return r.ok ? r.text() : null; })
+      .then(function(html){
+        if (!html) return;
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        var fresh = doc.querySelector('.fin-shell');
+        var current = document.querySelector('.fin-shell');
+        if (fresh && current) current.replaceWith(fresh);
+      }).catch(function(){});
+  }
+
+  function poll(){
+    if (busy || document.hidden) return;
+    busy = true;
+    fetch('/account/settings/finance/_version.json', { credentials:'same-origin', cache:'no-store' })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){
+        if (!d || typeof d.v !== 'number') return;
+        if (lastV === null) { lastV = d.v; return; }
+        if (d.v > lastV) {
+          lastV = d.v;
+          softReload();
+        }
+      })
+      .catch(function(){})
+      .finally(function(){ busy = false; });
+  }
+
+  setTimeout(poll, 1500);
+  var timer = setInterval(poll, INTERVAL);
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden) poll(); });
+  if (Array.isArray(window.__spaCleanup)) window.__spaCleanup.push(function(){ clearInterval(timer); });
+})();
+</script>
+

@@ -63,10 +63,26 @@ async function cachedLoad(orgId, name, extra, fetchFn) {
   );
 }
 
+// Per-org version counter — bumped on every cache invalidation. The PayGira
+// UI polls /finance/_version.json and triggers a silent SPA soft-reload when
+// the version increases, so users always see fresh data without hard refresh.
+const _finVersions = new Map();
+function getFinanceVersion(orgId) {
+  if (!orgId) return 0;
+  return _finVersions.get(String(orgId)) || 0;
+}
+function bumpFinanceVersion(orgId) {
+  if (!orgId) return 0;
+  const key = String(orgId);
+  const next = (_finVersions.get(key) || 0) + 1;
+  _finVersions.set(key, next);
+  return next;
+}
 function invalidateFinanceCache(orgId) {
   if (!orgId) return;
   // Wipe every PayGira key for this org. Cheap O(n) over a small node-cache.
   cacheManager.invalidatePattern("organization", `paygira:${orgId}:`);
+  bumpFinanceVersion(orgId);
 }
 
 // PayGira audit logger — captures Admin/Mini-Admin actions that the
@@ -3298,6 +3314,18 @@ module.exports = {
   ensureFinanceSchema,
   isFinanceAdmin,
   invalidateFinanceCache,
+
+  // Ultra-cheap version probe — clients poll this every few seconds. When the
+  // returned `v` increases, the page silently soft-reloads via the SPA router.
+  financeVersionJsonGet: (req, res) => {
+    try {
+      const orgId = req.session?.organizationId;
+      res.set("Cache-Control", "no-store");
+      res.json({ v: getFinanceVersion(orgId), ts: Date.now() });
+    } catch (_) {
+      res.json({ v: 0, ts: Date.now() });
+    }
+  },
 
   // Lightweight JSON endpoint for background stat-refresh on the Finance page.
   // The dashboard polls this every ~15s to update headline numbers without a
