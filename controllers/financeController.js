@@ -46,7 +46,7 @@ const cacheManager = require("../utils/cacheManager");
 // returns fresh data. Built-in background-refresh keeps repeat reads instant
 // even after the TTL elapses.
 // ──────────────────────────────────────────────────────────────────────────────
-const FIN_CACHE_TTL_SECONDS = 30;
+const FIN_CACHE_TTL_SECONDS = 60;
 
 function _finKey(orgId, name, extra) {
   const tag = extra ? JSON.stringify(extra) : "";
