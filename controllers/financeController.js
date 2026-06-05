@@ -3315,6 +3315,18 @@ module.exports = {
   isFinanceAdmin,
   invalidateFinanceCache,
 
+  // Ultra-cheap version probe — clients poll this every few seconds. When the
+  // returned `v` increases, the page silently soft-reloads via the SPA router.
+  financeVersionJsonGet: (req, res) => {
+    try {
+      const orgId = req.session?.organizationId;
+      res.set("Cache-Control", "no-store");
+      res.json({ v: getFinanceVersion(orgId), ts: Date.now() });
+    } catch (_) {
+      res.json({ v: 0, ts: Date.now() });
+    }
+  },
+
   // Lightweight JSON endpoint for background stat-refresh on the Finance page.
   // The dashboard polls this every ~15s to update headline numbers without a
   // full page reload. Cached for 10s so heavy SQL doesn't fire on every poll.
