@@ -96,6 +96,8 @@ router.use((req, res, next) => {
 
 router.get("/finance/_version.json", isAuthenticated, c.financeVersionJsonGet);
 router.get("/finance/_stats.json", isAuthenticated, requireFinanceSettingsAccess, c.financeStatsJsonGet);
+router.get("/finance/_overview-section", isAuthenticated, requireFinanceSettingsAccess, c.financeOverviewFragmentGet);
+router.get("/finance/_overview-detail-section", isAuthenticated, requireFinanceSettingsAccess, c.financeOverviewDetailFragmentGet);
 router.get("/finance", isAuthenticated, requireFinanceSettingsAccess, c.financePageGet);
 router.get("/finance/arrears", isAuthenticated, requireFinanceSettingsAccess, c.financeArrearsPageGet);
 router.post("/finance/arrears/presets", isAuthenticated, requireFinanceSettingsAccess, c.arrearsPresetCreatePost);

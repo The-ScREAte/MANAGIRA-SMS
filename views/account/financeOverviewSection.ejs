@@ -1,0 +1,35 @@
+<%
+  const ovYear = (typeof selectedYear !== 'undefined' && selectedYear) || '';
+  const ovTerm = (typeof selectedTerm !== 'undefined' && selectedTerm) || '';
+%>
+<form method="GET" action="/account/settings/finance" class="fin-report-filters" style="margin:0 0 18px;">
+  <input type="hidden" name="section" value="overview">
+  <div class="fin-field">
+    <label>Year</label>
+    <select name="year" id="finOverviewYear">
+      <option value="">All years</option>
+      <% (refs.years || []).forEach(y => { %>
+        <option value="<%= y.school_year_id %>" <%= String(ovYear) === String(y.school_year_id) ? 'selected' : '' %>><%= y.name %><%= y.current ? ' (current)' : '' %></option>
+      <% }) %>
+    </select>
+  </div>
+  <div class="fin-field">
+    <label>Term</label>
+    <select name="term" id="finOverviewTerm" data-year-required-label="Select year first">
+      <option value="">All terms</option>
+      <% (refs.terms || []).forEach(tm => { %>
+        <option value="<%= tm.term_id %>" data-school-year-id="<%= tm.school_year_id || '' %>" data-current="<%= tm.current ? 'true' : 'false' %>" <%= String(ovTerm) === String(tm.term_id) ? 'selected' : '' %>><%= tm.name %><%= tm.current ? ' (current)' : '' %></option>
+      <% }) %>
+    </select>
+  </div>
+  <% if (ovYear || ovTerm) { %>
+  <a href="/account/settings/finance?section=overview" class="fin-btn fin-filter-icon" title="Reset filters">↺</a>
+  <span class="fin-filter-icon" title="Results are filtered" style="color:var(--fin-teal);font-size:1rem;">⦿</span>
+  <% } %>
+</form>
+
+<div id="finOverviewDetailMount" data-src="/account/settings/finance/_overview-detail-section" aria-busy="true">
+  <div class="fin-card" style="margin-bottom:20px;">
+    <div class="activity-empty">Loading overview details...</div>
+  </div>
+</div>

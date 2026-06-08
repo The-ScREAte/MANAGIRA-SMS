@@ -1722,223 +1722,20 @@
       <% } %>
 
       <% if (sec === 'overview') { %>
-        <%
-          const ovYear = (overview && overview.filters && overview.filters.school_year_id) || '';
-          const ovTerm = (overview && overview.filters && overview.filters.term_id) || '';
-        %>
-        <!-- Term / Year filter -->
-        <form method="GET" action="/account/settings/finance" class="fin-report-filters" style="margin:0 0 18px;">
-          <input type="hidden" name="section" value="overview">
-          <div class="fin-field">
-            <label>Year</label>
-            <select name="year" id="finOverviewYear">
-              <option value="">All years</option>
-              <% (refs.years || []).forEach(y => { %>
-                <option value="<%= y.school_year_id %>" <%= String(ovYear) === String(y.school_year_id) ? 'selected' : '' %>><%= y.name %><%= y.current ? ' (current)' : '' %></option>
-              <% }) %>
-            </select>
-          </div>
-          <div class="fin-field">
-            <label>Term</label>
-            <select name="term" id="finOverviewTerm" data-year-required-label="Select year first">
-              <option value="">All terms</option>
-              <% (refs.terms || []).forEach(tm => { %>
-                <option value="<%= tm.term_id %>" data-school-year-id="<%= tm.school_year_id || '' %>" data-current="<%= tm.current ? 'true' : 'false' %>" <%= String(ovTerm) === String(tm.term_id) ? 'selected' : '' %>><%= tm.name %><%= tm.current ? ' (current)' : '' %></option>
-              <% }) %>
-            </select>
-          </div>
-          <% if (ovYear || ovTerm) { %>
-          <a href="/account/settings/finance?section=overview" class="fin-btn fin-filter-icon" title="Reset filters">↺</a>
-          <span class="fin-filter-icon" title="Results are filtered" style="color:var(--fin-teal);font-size:1rem;">⦿</span>
-          <% } %>
-        </form>
-
-        <div class="fin-stats" id="finStatsLive">
-          <div class="stat">
-            <div class="label">Total Billed</div>
-            <div class="value" data-stat="billed"><%= fmt(billedTotal) %></div>
-            <div class="sub">All assignments to date</div>
-          </div>
-          <div class="stat green">
-            <div class="label">Total Collected</div>
-            <div class="value" data-stat="collected"><%= fmt(collectedTotal) %></div>
-            <div class="sub">Paid in full or partial</div>
-          </div>
-          <div class="stat red">
-            <div class="label">Outstanding</div>
-            <div class="value" data-stat="outstanding"><%= fmt(outstandingTotal) %></div>
-            <div class="sub"><span data-stat="overdueCount"><%= t.overdue_count || 0 %></span> overdue</div>
-          </div>
-          <div class="stat gold">
-            <div class="label">Overpayments</div>
-            <div class="value" data-stat="overpayments"><%= fmt(overpaymentsTotal) %></div>
-            <div class="sub">Available credits</div>
+        <div id="finOverviewSectionMount" data-src="/account/settings/finance/_overview-section" aria-busy="true">
+          <div class="fin-card" style="margin-bottom:20px;">
+            <div class="activity-empty">Loading overview...</div>
           </div>
         </div>
-
-        <div class="fin-two">
-          <div class="fin-card">
-            <div class="section-head"><h2>Quick Snapshot</h2></div>
-            <div class="fin-table-wrap">
-              <table class="fin-table">
-                <thead><tr><th>Bill</th><th>Status</th><th class="num">Amount</th><th class="num">Paid</th></tr></thead>
-                <tbody>
-                  <% (bills.slice(0,8)).forEach(b => { %>
-                    <tr>
-                      <td><%= b.title %></td>
-                      <td><span class="badge <%= b.status %>"><%= b.status %></span></td>
-                      <td class="num"><%= fmt(b.total_amount) %></td>
-                      <td class="num"><%= fmt(b.total_paid) %></td>
-                    </tr>
-                  <% }) %>
-                  <% if (!bills.length) { %>
-                    <tr><td colspan="4" style="text-align:center; color:var(--fin-muted); padding:30px;">No bills yet — create your first bill.</td></tr>
-                  <% } %>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="fin-card">
-            <div class="section-head"><h2>Recent Activity</h2></div>
-            <div class="activity">
-              <% if (overview.recent && overview.recent.length) { overview.recent.forEach(r => { %>
-                <div class="activity-item">
-                  <div class="avatar"><%= ((r.first_name||'?').charAt(0) + (r.last_name||'').charAt(0)).toUpperCase() %></div>
-                  <div style="min-width:0;flex:1;">
-                    <div class="who"><%= (r.first_name||'') + ' ' + (r.last_name||'') %></div>
-                    <div class="meta"><%= r.bill_title || 'Payment' %> · <%= r.method %> · <%= new Date(r.received_at).toLocaleString() %></div>
-                  </div>
-                  <div class="amt">+<%= fmt(r.amount) %></div>
-                </div>
-              <% }) } else { %>
-                <div class="activity-empty">No payments recorded yet.<br><br>Record one to see live activity here.</div>
-              <% } %>
-            </div>
-          </div>
-        </div>
-
-        <div class="fin-card" style="margin-top:20px;">
-          <div class="section-head">
-            <h2>Overview Analytics</h2>
-            <span class="fin-section-count"><%= bills.length %> bill<%= bills.length === 1 ? '' : 's' %></span>
-          </div>
-
-          <div class="fin-report-filters">
-            <div class="fin-field">
-              <label>Search</label>
-              <input type="text" id="rptStudent" oninput="finRunReportFilter()" placeholder="Bill...">
-            </div>
-            <div class="fin-field">
-              <label>Year</label>
-              <select id="rptYear" onchange="finRunReportFilter()">
-                <option value="">Any year</option>
-                <% (refs.years||[]).forEach(y => { %><option value="<%= y.school_year_id %>"><%= y.name %></option><% }) %>
-              </select>
-            </div>
-            <div class="fin-field">
-              <label>Term</label>
-              <select id="rptTerm" onchange="finRunReportFilter()">
-                <option value="">Any term</option>
-                <% (refs.terms||[]).forEach(t => { %><option value="<%= t.term_id %>"><%= t.name %></option><% }) %>
-              </select>
-            </div>
-            <div class="fin-field">
-              <label>Status</label>
-              <select id="rptStatus" onchange="finRunReportFilter()">
-                <option value="">All</option>
-                <option value="paid">Paid</option>
-                <option value="partial">Partial</option>
-                <option value="pending">Pending</option>
-                <option value="overdue">Overdue</option>
-                <option value="draft">Draft</option>
-              </select>
-            </div>
-            <div class="fin-field" style="display:flex;align-items:flex-end;">
-              <button type="button" class="fin-btn" onclick="finResetReportFilter()">Reset</button>
-            </div>
-          </div>
-
-          <div class="fin-analytics-grid">
-            <div style="background:var(--fin-card-2);border:1px solid var(--fin-border);border-radius:14px;padding:20px;text-align:center;">
-              <%
-                const chartPaid = billedTotal > 0 ? Math.round((collectedTotal/billedTotal)*100) : 0;
-                const chartOut  = 100 - chartPaid;
-                const dashPaid = chartPaid;
-                const dashOut  = 100 - dashPaid;
-              %>
-              <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;margin-bottom:14px;">Collection vs Outstanding</div>
-              <svg viewBox="0 0 36 36" style="width:160px;height:160px;transform:rotate(-90deg);">
-                <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--fin-border)" stroke-width="3"/>
-                <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--fin-success)" stroke-width="3" stroke-dasharray="<%= dashPaid %> <%= dashOut %>" stroke-linecap="round"/>
-                <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--fin-red)" stroke-width="3" stroke-dasharray="<%= dashOut %> <%= dashPaid %>" stroke-dashoffset="<%= -dashPaid %>" stroke-linecap="round"/>
-              </svg>
-              <div style="display:flex;justify-content:center;gap:18px;margin-top:10px;font-size:.82rem;">
-                <span style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:50%;background:var(--fin-success);display:inline-block;"></span>Collected <%= chartPaid %>%</span>
-                <span style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:50%;background:var(--fin-red);display:inline-block;"></span>Outstanding <%= chartOut %>%</span>
-              </div>
-            </div>
-            <div style="background:var(--fin-card-2);border:1px solid var(--fin-border);border-radius:14px;padding:20px;">
-              <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;margin-bottom:14px;">Bill Status Breakdown</div>
-              <%
-                const stMap = {paid:0,pending:0,overdue:0,partial:0,draft:0,cancelled:0};
-                bills.forEach(b => { if(stMap[b.status]!==undefined) stMap[b.status]++; else stMap[b.status]=(stMap[b.status]||0)+1; });
-                const totalBills = bills.length || 1;
-              %>
-              <% [['paid','var(--fin-success)'],['pending','var(--fin-red)'],['overdue','var(--fin-red)'],['partial','var(--fin-success)'],['draft','var(--fin-muted)']].forEach(([s,col]) => { const n = stMap[s]||0; const pct = Math.round((n/totalBills)*100); %>
-              <div style="margin-bottom:10px;">
-                <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:4px;">
-                  <span style="text-transform:capitalize;color:var(--fin-text);"><%= s %></span>
-                  <span style="font-family:'JetBrains Mono',monospace;color:<%= col %>;"><%= n %> (<%= pct %>%)</span>
-                </div>
-                <div style="height:6px;background:var(--fin-border);border-radius:99px;overflow:hidden;">
-                  <div style="height:100%;width:<%= pct %>%;background:<%= col %>;border-radius:99px;"></div>
-                </div>
-              </div>
-              <% }) %>
-            </div>
-          </div>
-
-          <div class="fin-table-wrap" style="margin-top:24px;">
-            <table class="fin-table" id="reportBillsTable">
-              <thead><tr>
-                <th>Bill</th>
-                <th class="fin-col-md">Year</th>
-                <th class="fin-col-md">Term</th>
-                <th>Status</th>
-                <th class="num">Amount</th>
-                <th class="num fin-col-lg">Paid</th>
-                <th class="num">Outstanding</th>
-                <th class="fin-col-md">Due</th>
-              </tr></thead>
-              <tbody>
-                <% bills.forEach(b => {
-                  const out = Math.max(Number(b.total_amount||0) - Number(b.total_paid||0), 0);
-                %>
-                  <tr data-status="<%= b.status %>" data-year="<%= b.school_year_id || '' %>" data-term="<%= b.term_id || '' %>" data-text="<%= ((b.title || '') + ' ' + (b.description || '')).toLowerCase() %>">
-                    <td><strong class="fin-bill-title" style="font-size:.88rem;"><%= b.title %></strong></td>
-                    <td class="fin-col-md fin-date-muted"><%= b.year_label || '—' %></td>
-                    <td class="fin-col-md fin-date-muted"><%= b.term_name || '—' %></td>
-                    <td><span class="badge <%= b.status %>"><%= b.status %></span></td>
-                    <td class="num fin-money-neutral"><%= fmt(b.total_amount) %></td>
-                    <td class="num fin-col-lg fin-money-positive"><%= fmt(b.total_paid) %></td>
-                    <td class="num <%= out > 0 ? 'fin-money-negative' : 'fin-money-neutral' %>"><%= fmt(out) %></td>
-                    <td class="fin-col-md fin-date-muted"><%= b.due_date ? new Date(b.due_date).toLocaleDateString() : '—' %></td>
-                  </tr>
-                <% }) %>
-                <% if (!bills.length) { %>
-                  <tr><td colspan="8" style="text-align:center;color:var(--fin-muted);padding:30px;">No bills to report on.</td></tr>
-                <% } %>
-              </tbody>
-            </table>
-            <div id="reportEmpty" style="display:none;text-align:center;color:var(--fin-muted);padding:24px;">No bills match your filters.</div>
-          </div>
-        </div>
+        <noscript>
+          <%- include('account/financeOverviewSection', { refs: refs, selectedYear: (overview && overview.filters && overview.filters.school_year_id) || '', selectedTerm: (overview && overview.filters && overview.filters.term_id) || '' }) %>
+          <%- include('account/financeOverviewDetailSection', { overview: overview, bills: bills, refs: refs, formatMoney: formatMoney, financeCurrency: financeCurrency }) %>
+        </noscript>
       <% } %>
 
       <% if (sec === 'bills') { %>
         <% const billPage = (billPagination && billPagination.page) || 1; %>
-        <% const billPageSize = (billPagination && billPagination.pageSize) || bills.length || 60; %>
+        <% const billPageSize = (billPagination && billPagination.pageSize) || bills.length || 20; %>
         <div class="fin-card fin-accordion" id="acc-create-bill" style="margin-bottom:20px;">
           <button type="button" class="fin-acc-head" onclick="finToggleAcc('acc-create-bill')">
             <span><span class="fin-acc-ico">➕</span> <strong>Create New Bill</strong></span>
@@ -2257,7 +2054,7 @@
 
       <% if (sec === 'students') { %>
         <% const studentPage = (studentBillingPagination && studentBillingPagination.page) || 1; %>
-        <% const studentPageSize = (studentBillingPagination && studentBillingPagination.pageSize) || studentBilling.length || 80; %>
+        <% const studentPageSize = (studentBillingPagination && studentBillingPagination.pageSize) || studentBilling.length || 25; %>
         <% const studentNetOutstanding = (student) => Number(student.net_outstanding || Math.max(Number(student.outstanding || 0) - Number(student.student_credit || 0), 0)); %>
         <% const studentsWithDebt = (studentBilling || []).filter(s => studentNetOutstanding(s) > 0); %>
         <% const totalNetOutstanding = studentsWithDebt.reduce((sum, s) => sum + studentNetOutstanding(s), 0); %>
@@ -2506,7 +2303,7 @@
                       <td class="num" style="color:var(--fin-success);"><%= fmt(r.amount) %></td>
                       <td>
                         <div class="fin-actions-cell" style="justify-content:flex-start;">
-                          <form method="POST" action="/account/settings/finance/payments/<%= r.payment_id %>/delete" style="margin:0;" onsubmit="return confirm('Delete this payment and recalculate balances? This cannot be undone.');">
+                          <form method="POST" action="/account/settings/finance/payments/<%= r.payment_id %>/delete" style="margin:0;" onsubmit="return confirm('Delete this payment? Audit logs will be saved, balances will be recalculated, and the affected student or bill may return to unpaid or partial status.');">
                             <button type="submit" class="fin-btn danger sm" style="min-width:130px;">Correct / Delete</button>
                           </form>
                         </div>
@@ -2520,7 +2317,9 @@
         </div>
 
         <div class="fin-card" style="margin-top:20px;">
-          <div class="section-head"><h2>Collection Sign-Off History</h2><span class="fin-section-count"><%= (signoffHistory || []).length %> record<%= (signoffHistory || []).length === 1 ? '' : 's' %></span></div>
+          <% const signoffPage = (signoffHistoryPagination && signoffHistoryPagination.page) || 1; %>
+          <% const signoffPageSize = (signoffHistoryPagination && signoffHistoryPagination.pageSize) || (signoffHistory || []).length || 20; %>
+          <div class="section-head"><h2>Collection Sign-Off History</h2><span class="fin-section-count"><%= (signoffHistory || []).length %> record<%= (signoffHistory || []).length === 1 ? '' : 's' %><% if (signoffHistoryPagination && signoffHistoryPagination.hasMore) { %> · page <%= signoffPage %><% } %></span></div>
           <% if (!(signoffHistory || []).length) { %>
             <div class="empty-state"><div class="ico">✍</div><h3>No sign-offs yet</h3><p>Teacher and manager sign-offs will appear here after collections are fully settled.</p></div>
           <% } else { %>
@@ -2537,7 +2336,19 @@
                   <% (signoffHistory || []).forEach(function(row) { const scopeLabel = row.occurrence_date ? new Date(row.occurrence_date).toLocaleDateString() : 'Whole bill'; const classLabel = Number(row.class_id || 0) > 0 ? (row.class_name || 'Class scope') : 'All assigned students'; const signerLabel = (row.signed_by_name || (((row.signer_first_name || '') + ' ' + (row.signer_last_name || '')).trim()) || 'Staff') + (row.signer_role ? (' · ' + row.signer_role) : ''); const searchText = [row.bill_title, scopeLabel, classLabel, signerLabel, row.occurrence_date || '', row.signer_role || ''].join(' ').toLowerCase(); %>
                     <tr data-text="<%= searchText %>">
                       <td><%= row.signed_at ? new Date(row.signed_at).toLocaleString() : '—' %></td>
-                      <td><strong><%= row.bill_title || 'Bill' %></strong></td>
+                      <td>
+                        <strong><%= row.bill_title || 'Bill' %></strong>
+                        <% if (Number(row.reopened_count || 0) > 0) { %>
+                          <div style="margin-top:6px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <span class="badge" style="background:rgba(251,191,36,.18); color:#fbbf24; border-color:rgba(251,191,36,.36);">
+                              Reopened for correction × <%= Number(row.reopened_count || 0) %>
+                            </span>
+                            <% if (row.last_reopened_at) { %>
+                              <small style="color:var(--fin-muted);">Last reopen: <%= new Date(row.last_reopened_at).toLocaleString() %></small>
+                            <% } %>
+                          </div>
+                        <% } %>
+                      </td>
                       <td><%= scopeLabel %></td>
                       <td><%= classLabel %></td>
                       <td><%= signerLabel %></td>
@@ -2546,8 +2357,8 @@
                       <td>
                         <div class="fin-actions-cell" style="justify-content:flex-start;">
                           <a class="fin-btn sm" style="min-width:108px; text-decoration:none;" href="/account/settings/finance/signoffs/<%= row.signoff_id %>/report" target="_blank" rel="noopener">View Report</a>
-                          <form method="POST" action="/account/settings/finance/signoffs/<%= row.signoff_id %>/unsign" style="margin:0;" onsubmit="return confirm('Remove this sign-off so payment corrections can be made?');">
-                            <button type="submit" class="fin-btn danger sm" style="min-width:90px;">Unsign</button>
+                          <form method="POST" action="/account/settings/finance/signoffs/<%= row.signoff_id %>/unsign" style="margin:0;" onsubmit="return confirm('Reopen this sign-off for correction? Audit logs will be saved, the history lock will be removed, and the collection will return to class PayGira so it can be signed off again after corrections.');">
+                            <button type="submit" class="fin-btn danger sm" style="min-width:120px;">Reopen Sign-Off</button>
                           </form>
                         </div>
                       </td>
@@ -2557,6 +2368,14 @@
               </table>
               <div id="signoffHistoryEmpty" style="display:none;text-align:center;color:var(--fin-muted);padding:24px;">No sign-offs match your search.</div>
             </div>
+            <% if (signoffHistoryPagination && signoffHistoryPagination.hasMore) { %>
+              <form method="GET" action="/account/settings/finance" style="margin-top:14px; display:flex; justify-content:center;">
+                <input type="hidden" name="section" value="payments">
+                <input type="hidden" name="signoffPage" value="<%= signoffHistoryPagination.nextPage %>">
+                <input type="hidden" name="signoffPageSize" value="<%= signoffPageSize %>">
+                <button type="submit" class="fin-btn ghost">Load more sign-offs</button>
+              </form>
+            <% } %>
           <% } %>
         </div>
       <% } %>
@@ -4199,9 +4018,13 @@ Regards,
     });
   });
 
-  var overviewYearSelect = document.getElementById('finOverviewYear');
-  var overviewTermSelect = document.getElementById('finOverviewTerm');
-  if (overviewYearSelect && overviewTermSelect) {
+  window.bindOverviewFilters = function () {
+    var overviewYearSelect = document.getElementById('finOverviewYear');
+    var overviewTermSelect = document.getElementById('finOverviewTerm');
+    if (!overviewYearSelect || !overviewTermSelect) return;
+    if (overviewYearSelect.dataset.boundOverviewFilter === 'true') return;
+    overviewYearSelect.dataset.boundOverviewFilter = 'true';
+    overviewTermSelect.dataset.boundOverviewFilter = 'true';
     window.syncSingleTermSelect(overviewYearSelect, overviewTermSelect, { keepBlankWhenYearChanges: false });
     overviewYearSelect.addEventListener('change', function () {
       window.syncSingleTermSelect(overviewYearSelect, overviewTermSelect, { keepBlankWhenYearChanges: true });
@@ -4210,7 +4033,8 @@ Regards,
     overviewTermSelect.addEventListener('change', function () {
       overviewTermSelect.form && overviewTermSelect.form.submit();
     });
-  }
+  };
+  window.bindOverviewFilters();
 
   var billListYearFilter = document.getElementById('billListYearFilter');
   var billListTermFilter = document.getElementById('billListTermFilter');
@@ -4972,10 +4796,87 @@ Regards,
 </script>
 
 <script>
+/* PayGira overview fragment loading — render shell fast, then hydrate overview cards/tables */
+(function(){
+  var mount = document.getElementById('finOverviewSectionMount');
+  if (!mount || typeof fetch !== 'function') return;
+
+  function buildOverviewUrl() {
+    var base = mount.getAttribute('data-src') || '/account/settings/finance/_overview-section';
+    var params = new URLSearchParams(window.location.search || '');
+    params.set('section', 'overview');
+    return base + '?' + params.toString();
+  }
+
+  function bindOverviewUi() {
+    if (typeof window.bindOverviewFilters === 'function') window.bindOverviewFilters();
+  }
+
+  function loadOverviewDetails() {
+    var detailMount = document.getElementById('finOverviewDetailMount');
+    if (!detailMount) return;
+    var base = detailMount.getAttribute('data-src') || '/account/settings/finance/_overview-detail-section';
+    var params = new URLSearchParams(window.location.search || '');
+    params.set('section', 'overview');
+    detailMount.setAttribute('aria-busy', 'true');
+    fetch(base + '?' + params.toString(), {
+      credentials: 'same-origin',
+      headers: { 'Accept': 'text/html', 'X-Silent-Reload': '1' },
+      cache: 'default'
+    })
+      .then(function (response) {
+        if (!response.ok) throw new Error('overview_detail_fragment_failed');
+        return response.text();
+      })
+      .then(function (html) {
+        detailMount.innerHTML = html;
+        detailMount.setAttribute('aria-busy', 'false');
+        if (typeof window.finRunReportFilter === 'function') window.finRunReportFilter();
+      })
+      .catch(function () {
+        detailMount.setAttribute('aria-busy', 'false');
+        detailMount.innerHTML = '<div class="fin-card"><div class="activity-empty">Unable to load overview details right now. Please refresh.</div></div>';
+      });
+  }
+
+  function loadOverview() {
+    mount.setAttribute('aria-busy', 'true');
+    fetch(buildOverviewUrl(), {
+      credentials: 'same-origin',
+      headers: { 'Accept': 'text/html', 'X-Silent-Reload': '1' },
+      cache: 'default'
+    })
+      .then(function (response) {
+        if (!response.ok) throw new Error('overview_fragment_failed');
+        return response.text();
+      })
+      .then(function (html) {
+        mount.innerHTML = html;
+        mount.setAttribute('aria-busy', 'false');
+        bindOverviewUi();
+        loadOverviewDetails();
+      })
+      .catch(function () {
+        mount.setAttribute('aria-busy', 'false');
+        mount.innerHTML = '<div class="fin-card"><div class="activity-empty">Unable to load overview right now. Please refresh.</div></div>';
+      });
+  }
+
+  loadOverview();
+})();
+</script>
+
+<script>
 /* PayGira live stats — background poll every 15s, updates DOM without full reload */
 (function(){
-  var box = document.getElementById('finStatsLive');
-  if (!box) return;
+  function buildStatsUrl() {
+    var params = new URLSearchParams(window.location.search || '');
+    var next = new URLSearchParams();
+    if (params.get('year')) next.set('year', params.get('year'));
+    if (params.get('term')) next.set('term', params.get('term'));
+    var qs = next.toString();
+    return '/account/settings/finance/_stats.json' + (qs ? ('?' + qs) : '');
+  }
   var fmt = function(n){
     try { return new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n||0)); }
     catch(e){ return String(n||0); }
@@ -4983,8 +4884,10 @@ Regards,
   var busy = false;
   function poll(){
     if (busy || document.hidden) return;
+    var box = document.getElementById('finStatsLive');
+    if (!box) return;
     busy = true;
-    fetch('/account/settings/finance/_stats.json', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+    fetch(buildStatsUrl(), { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(d){
         if (!d) return;
@@ -5056,6 +4959,68 @@ Regards,
   setTimeout(poll, 1500);
   var timer = setInterval(poll, INTERVAL);
   document.addEventListener('visibilitychange', function(){ if (!document.hidden) poll(); });
+  if (Array.isArray(window.__spaCleanup)) window.__spaCleanup.push(function(){ clearInterval(timer); });
+})();
+</script>
+
+<script>
+/* PayGira section warming — after the current page settles, warm the other
+   finance sections in the background so tab switches reuse both browser and
+   server cache instead of waiting for a cold load. */
+(function(){
+  var navLinks = Array.prototype.slice.call(document.querySelectorAll('.fin-side a[href*="/account/settings/finance"]'));
+  if (!navLinks.length || typeof fetch !== 'function') return;
+
+  var currentPath = window.location.pathname + window.location.search;
+  var warmed = new Set();
+  var queue = navLinks
+    .map(function(link){ return link.getAttribute('href'); })
+    .filter(function(href){ return href && href !== currentPath; });
+
+  function warmPath(path) {
+    if (!path || warmed.has(path) || document.hidden) return Promise.resolve();
+    warmed.add(path);
+    return fetch(path, {
+      credentials: 'same-origin',
+      headers: { 'X-Silent-Reload': '1', 'Accept': 'text/html' },
+      cache: 'default'
+    }).catch(function(){
+      warmed.delete(path);
+    });
+  }
+
+  function warmAll() {
+    return queue.reduce(function(chain, path){
+      return chain.then(function(){ return warmPath(path); });
+    }, Promise.resolve());
+  }
+
+  function scheduleWarm() {
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(function(){ warmAll(); }, { timeout: 6000 });
+      return;
+    }
+    setTimeout(warmAll, 2500);
+  }
+
+  navLinks.forEach(function(link){
+    link.addEventListener('mouseenter', function(){ warmPath(link.getAttribute('href')); }, { passive: true });
+    link.addEventListener('focus', function(){ warmPath(link.getAttribute('href')); }, { passive: true });
+  });
+
+  scheduleWarm();
+  var timer = setInterval(function(){
+    warmed.clear();
+    scheduleWarm();
+  }, 45000);
+
+  document.addEventListener('visibilitychange', function(){
+    if (!document.hidden) {
+      warmed.clear();
+      scheduleWarm();
+    }
+  });
+
   if (Array.isArray(window.__spaCleanup)) window.__spaCleanup.push(function(){ clearInterval(timer); });
 })();
 </script>
