@@ -38,6 +38,7 @@ const compression = require("compression");
 const { setCacheHeaders, preloadCache } = require("./middleware/cacheMiddleware");
 const { createRequestLatencyMonitor } = require("./middleware/requestLatencyMonitor");
 const financeController = require("./controllers/financeController");
+const { commonController } = require("./controllers/commonController");
 const {
   createOrganizationActivityLogMiddleware,
   ensureOrganizationActivityLogSchema,
@@ -115,6 +116,30 @@ const attachSchoolContext = (req, org) => {
     req.isHubMember = false;
     req.hubDetails = null;
   }
+};
+
+const escapeXml = (value) => String(value || "")
+  .replace(/&/g, "&amp;")
+  .replace(/</g, "&lt;")
+  .replace(/>/g, "&gt;")
+  .replace(/"/g, "&quot;")
+  .replace(/'/g, "&apos;");
+
+const organizationHasSchoolWebsiteFeature = async (org) => {
+  const planIdToCheck = org?.is_hub_member && org?.hub_plan_id ? org.hub_plan_id : org?.plan_id;
+  if (!planIdToCheck) return false;
+
+  const { rows } = await db.query(
+    `SELECT 1
+       FROM plan_features pf
+       JOIN features f ON f.id = pf.feature_id
+      WHERE pf.plan_id = $1
+        AND LOWER(TRIM(f.feature_name)) = 'school website'
+      LIMIT 1`,
+    [planIdToCheck]
+  );
+
+  return rows.length > 0;
 };
 
 // SEO host normalization: serve a single canonical root host.
@@ -340,9 +365,22 @@ app.get("/robots.txt", (req, res, next) => {
   res.send(
 `User-agent: *
 Allow: /
+Disallow: /account/
+Disallow: /admin/
+Disallow: /api/
+Disallow: /common/save-order
+Disallow: /documents/
+Disallow: /enrollment/
+Disallow: /guardian/
+Disallow: /hub/
+Disallow: /notifications/
+Disallow: /print/
+Disallow: /promotion/
+Disallow: /stats/
+Disallow: /transcript/
 
 Sitemap: ${schoolSitemap}
-Sitemap: https://www.managira.com/sitemap-schools.xml`
+Sitemap: https://managira.com/sitemap-schools.xml`
   );
 });
 
@@ -356,9 +394,8 @@ app.get("/sitemap.xml", async (req, res, next) => {
   if (isRootHost || !req.schoolDetails) return next(); // serve static file
 
   const nickname = req.schoolDetails.nickname;
-  const orgName = req.schoolDetails.organization_name || nickname;
   const today = new Date().toISOString().split("T")[0];
-  const schoolUrl = `https://${nickname}.managira.com/`;
+  const schoolUrl = `https://${escapeXml(nickname)}.managira.com/`;
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
@@ -646,6 +683,29 @@ app.use("/guardian", guardianRoute);
 app.use("/documents", documentRoute);
 app.use("/hub", require("./routes/hubRoute")); // Hub routes
 
+app.get("/school-index.json", async (req, res, next) => {
+  if (!req.schoolDetails) return next();
+
+  try {
+    const canonicalUrl = `https://${req.schoolDetails.nickname}.managira.com/`;
+    const hasWebsiteFeature = await organizationHasSchoolWebsiteFeature(req.schoolDetails);
+
+    res.setHeader("Cache-Control", "public, max-age=300");
+    return res.json({
+      ok: true,
+      indexable: hasWebsiteFeature,
+      status: hasWebsiteFeature ? 200 : 403,
+      school: req.schoolDetails.organization_name || req.schoolDetails.nickname,
+      nickname: req.schoolDetails.nickname,
+      canonicalUrl,
+      sitemap: `${canonicalUrl}sitemap.xml`,
+      robots: `${canonicalUrl}robots.txt`,
+    });
+  } catch (error) {
+    return res.status(500).json({ ok: false, error: "Unable to check school indexing status." });
+  }
+});
+
 // Notification bell: count badge for all authenticated pages
 app.use("/common", fetchNotifCount);
 app.use("/guardian", fetchNotifCount);
@@ -672,12 +732,22 @@ app.get("/health", (req, res) => {
 app.get("/sitemap-schools.xml", async (req, res) => {
   try {
     const result = await db.query(
-      `SELECT organization_id, nickname, updated_at
-       FROM organizations
-       WHERE deleted = false
-         AND nickname IS NOT NULL
-         AND nickname <> ''
-       ORDER BY organization_name ASC
+      `SELECT o.organization_id, o.nickname, o.updated_at
+       FROM organizations o
+       LEFT JOIN managira_hubs mh ON o.hub_id = mh.hub_id
+       WHERE o.deleted = false
+         AND o.nickname IS NOT NULL
+         AND o.nickname <> ''
+         AND COALESCE(mh.on_hold, false) = false
+         AND EXISTS (
+           SELECT 1
+           FROM plan_features pf
+           JOIN features f ON f.id = pf.feature_id
+           WHERE pf.plan_id = COALESCE(mh.plan_id, o.plan_id)
+             AND LOWER(TRIM(f.feature_name)) = 'school website'
+           LIMIT 1
+         )
+       ORDER BY o.organization_name ASC
        LIMIT 5000`
     );
 
@@ -687,7 +757,7 @@ app.get("/sitemap-schools.xml", async (req, res) => {
         ? new Date(org.updated_at).toISOString().split("T")[0]
         : today;
       return `  <url>
-    <loc>https://${org.nickname}.managira.com/</loc>
+    <loc>https://${escapeXml(org.nickname)}.managira.com/</loc>
     <lastmod>${lastmod}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
@@ -739,8 +809,8 @@ app.get("/", async (req, res) => {
 
   // ✅ Case 2: Production subdomain (e.g. myschool.managira.com)
   if (isProduction && req.schoolDetails) {
-  // ...removed log for clean background operation...
-    return res.redirect(301, "/common/publicDashboard");
+    req.organizationId = req.schoolDetails.organization_id;
+    return commonController.publicDashboardContent(req, res, db);
   }
 
   // ✅ Case 3: Render default domain for web service

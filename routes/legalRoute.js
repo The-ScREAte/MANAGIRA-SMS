@@ -64,5 +64,5 @@ router.post('/user-documentation/api/media', isAuthenticated, ensureAdmin, s3Upl
 
 router.get('/user-documentation', documentationController.renderDocumentationIndex);
 router.get('/user-documentation/:slug', documentationController.renderDocumentationArticle);
-// router.get('/directory', legalController.directory); // Temporarily disabled
+router.get('/directory', legalController.directory);
 module.exports = router;
