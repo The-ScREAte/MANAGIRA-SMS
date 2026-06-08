@@ -365,9 +365,22 @@ app.get("/robots.txt", (req, res, next) => {
   res.send(
 `User-agent: *
 Allow: /
+Disallow: /account/
+Disallow: /admin/
+Disallow: /api/
+Disallow: /common/save-order
+Disallow: /documents/
+Disallow: /enrollment/
+Disallow: /guardian/
+Disallow: /hub/
+Disallow: /notifications/
+Disallow: /print/
+Disallow: /promotion/
+Disallow: /stats/
+Disallow: /transcript/
 
 Sitemap: ${schoolSitemap}
-Sitemap: https://www.managira.com/sitemap-schools.xml`
+Sitemap: https://managira.com/sitemap-schools.xml`
   );
 });
 
@@ -381,9 +394,8 @@ app.get("/sitemap.xml", async (req, res, next) => {
   if (isRootHost || !req.schoolDetails) return next(); // serve static file
 
   const nickname = req.schoolDetails.nickname;
-  const orgName = req.schoolDetails.organization_name || nickname;
   const today = new Date().toISOString().split("T")[0];
-  const schoolUrl = `https://${nickname}.managira.com/`;
+  const schoolUrl = `https://${escapeXml(nickname)}.managira.com/`;
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
