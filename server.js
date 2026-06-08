@@ -809,8 +809,8 @@ app.get("/", async (req, res) => {
 
   // ✅ Case 2: Production subdomain (e.g. myschool.managira.com)
   if (isProduction && req.schoolDetails) {
-  // ...removed log for clean background operation...
-    return res.redirect(301, "/common/publicDashboard");
+    req.organizationId = req.schoolDetails.organization_id;
+    return commonController.publicDashboardContent(req, res, db);
   }
 
   // ✅ Case 3: Render default domain for web service
