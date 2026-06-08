@@ -38,6 +38,7 @@ const compression = require("compression");
 const { setCacheHeaders, preloadCache } = require("./middleware/cacheMiddleware");
 const { createRequestLatencyMonitor } = require("./middleware/requestLatencyMonitor");
 const financeController = require("./controllers/financeController");
+const { commonController } = require("./controllers/commonController");
 const {
   createOrganizationActivityLogMiddleware,
   ensureOrganizationActivityLogSchema,
@@ -115,6 +116,30 @@ const attachSchoolContext = (req, org) => {
     req.isHubMember = false;
     req.hubDetails = null;
   }
+};
+
+const escapeXml = (value) => String(value || "")
+  .replace(/&/g, "&amp;")
+  .replace(/</g, "&lt;")
+  .replace(/>/g, "&gt;")
+  .replace(/"/g, "&quot;")
+  .replace(/'/g, "&apos;");
+
+const organizationHasSchoolWebsiteFeature = async (org) => {
+  const planIdToCheck = org?.is_hub_member && org?.hub_plan_id ? org.hub_plan_id : org?.plan_id;
+  if (!planIdToCheck) return false;
+
+  const { rows } = await db.query(
+    `SELECT 1
+       FROM plan_features pf
+       JOIN features f ON f.id = pf.feature_id
+      WHERE pf.plan_id = $1
+        AND LOWER(TRIM(f.feature_name)) = 'school website'
+      LIMIT 1`,
+    [planIdToCheck]
+  );
+
+  return rows.length > 0;
 };
 
 // SEO host normalization: serve a single canonical root host.
