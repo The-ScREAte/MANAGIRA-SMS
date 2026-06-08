@@ -732,12 +732,22 @@ app.get("/health", (req, res) => {
 app.get("/sitemap-schools.xml", async (req, res) => {
   try {
     const result = await db.query(
-      `SELECT organization_id, nickname, updated_at
-       FROM organizations
-       WHERE deleted = false
-         AND nickname IS NOT NULL
-         AND nickname <> ''
-       ORDER BY organization_name ASC
+      `SELECT o.organization_id, o.nickname, o.updated_at
+       FROM organizations o
+       LEFT JOIN managira_hubs mh ON o.hub_id = mh.hub_id
+       WHERE o.deleted = false
+         AND o.nickname IS NOT NULL
+         AND o.nickname <> ''
+         AND COALESCE(mh.on_hold, false) = false
+         AND EXISTS (
+           SELECT 1
+           FROM plan_features pf
+           JOIN features f ON f.id = pf.feature_id
+           WHERE pf.plan_id = COALESCE(mh.plan_id, o.plan_id)
+             AND LOWER(TRIM(f.feature_name)) = 'school website'
+           LIMIT 1
+         )
+       ORDER BY o.organization_name ASC
        LIMIT 5000`
     );
 
@@ -747,7 +757,7 @@ app.get("/sitemap-schools.xml", async (req, res) => {
         ? new Date(org.updated_at).toISOString().split("T")[0]
         : today;
       return `  <url>
-    <loc>https://${org.nickname}.managira.com/</loc>
+    <loc>https://${escapeXml(org.nickname)}.managira.com/</loc>
     <lastmod>${lastmod}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
