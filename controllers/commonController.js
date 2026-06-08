@@ -2335,10 +2335,7 @@ const commonController = {
             } : {}),
             ...(orgDetails.organization_phone ? { telephone: orgDetails.organization_phone } : {}),
             ...(orgDetails.email ? { email: orgDetails.email } : {}),
-            sameAs: [
-              canonicalUrl,
-              `https://managira.com/legal/directory`,
-            ],
+            sameAs: [canonicalUrl],
             potentialAction: {
               "@type": "SearchAction",
               target: `${canonicalUrl}?q={search_term_string}`,

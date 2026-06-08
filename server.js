@@ -228,7 +228,7 @@ const renderOrganizationNotFound = async (req, res, subdomain) => {
         <h1>Organization Not Found</h1>
         <p>The organization you're looking for doesn't exist on Managira or may have been removed.</p>
         ${suggestionHtml}
-        <a class="btn" href="https://managira.com/legal/directory">Browse All Organizations</a>
+        <a class="btn" href="${backToHomeUrl}">Visit Managira Home</a>
         <a class="home-link" href="${backToHomeUrl}">← Back to Managira Home</a>
       </div>
     </body>
@@ -784,8 +784,6 @@ app.get("/test-flash", (req, res) => {
 });
 
 // Home route
-// Directory shortcut route for SEO (/directory -> /legal/directory)
-app.get("/directory", (req, res) => res.redirect(301, "/legal/directory"));
 app.get("/", async (req, res) => {
   const isProduction = process.env.NODE_ENV === "production";
   const isRenderDomain = req.hostname && req.hostname.endsWith(".onrender.com");

@@ -689,12 +689,12 @@ const legalController = {
                     {
                         '@type': 'CollectionPage',
                         name: 'Managira School Directory',
-                        url: 'https://managira.com/legal/directory',
+                        url: 'https://managira.com/',
                         description: 'Find schools on Managira by school name, nickname, or public URL.',
                         keywords: 'school management system, school management software, school directory, school portal, school ERP, education management software',
                         potentialAction: {
                             '@type': 'SearchAction',
-                            target: 'https://managira.com/legal/directory?q={search_term_string}',
+                            target: 'https://managira.com/?q={search_term_string}',
                             'query-input': 'required name=search_term_string'
                         }
                     },
@@ -722,7 +722,7 @@ const legalController = {
                 title: 'School Directory | School Management System | Managira',
                 description: 'School directory on Managira. Find schools by full school name, nickname, or URL. Discover school websites, portals, and public updates.',
                 keywords: 'school management system, school management software, management system for schools, school directory, school portal, school website, school ERP software, find school by name, school nickname search, school URL search, education management software, schools on managira',
-                canonicalUrl: 'https://managira.com/legal/directory',
+                canonicalUrl: 'https://managira.com/',
                 organizations: orgs,
                 structuredData,
                 showFooterTopSection: true

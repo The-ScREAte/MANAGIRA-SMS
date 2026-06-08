@@ -106,7 +106,6 @@ Only GET links are listed here so you can click and navigate directly.
 - [http://localhost:4000/hub/settings](http://localhost:4000/hub/settings)
 - [http://localhost:4000/hub/setup-password](http://localhost:4000/hub/setup-password)
 - [http://localhost:4000/legal/about-us](http://localhost:4000/legal/about-us)
-- [http://localhost:4000/legal/directory](http://localhost:4000/legal/directory)
 - [http://localhost:4000/legal/donations](http://localhost:4000/legal/donations)
 - [http://localhost:4000/legal/employment](http://localhost:4000/legal/employment)
 - [http://localhost:4000/legal/faq](http://localhost:4000/legal/faq)

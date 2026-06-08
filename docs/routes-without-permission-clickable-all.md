@@ -216,7 +216,6 @@ Format: METHOD | Clickable URL | Source route file
 - GET | [http://localhost:4000/hub/setup-password](http://localhost:4000/hub/setup-password) | hubRoute.js
 - POST | [http://localhost:4000/hub/setup-password](http://localhost:4000/hub/setup-password) | hubRoute.js
 - GET | [http://localhost:4000/legal/about-us](http://localhost:4000/legal/about-us) | legalRoute.js
-- GET | [http://localhost:4000/legal/directory](http://localhost:4000/legal/directory) | legalRoute.js
 - GET | [http://localhost:4000/legal/donations](http://localhost:4000/legal/donations) | legalRoute.js
 - GET | [http://localhost:4000/legal/employment](http://localhost:4000/legal/employment) | legalRoute.js
 - GET | [http://localhost:4000/legal/faq](http://localhost:4000/legal/faq) | legalRoute.js
