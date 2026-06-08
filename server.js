@@ -683,6 +683,29 @@ app.use("/guardian", guardianRoute);
 app.use("/documents", documentRoute);
 app.use("/hub", require("./routes/hubRoute")); // Hub routes
 
+app.get("/school-index.json", async (req, res, next) => {
+  if (!req.schoolDetails) return next();
+
+  try {
+    const canonicalUrl = `https://${req.schoolDetails.nickname}.managira.com/`;
+    const hasWebsiteFeature = await organizationHasSchoolWebsiteFeature(req.schoolDetails);
+
+    res.setHeader("Cache-Control", "public, max-age=300");
+    return res.json({
+      ok: true,
+      indexable: hasWebsiteFeature,
+      status: hasWebsiteFeature ? 200 : 403,
+      school: req.schoolDetails.organization_name || req.schoolDetails.nickname,
+      nickname: req.schoolDetails.nickname,
+      canonicalUrl,
+      sitemap: `${canonicalUrl}sitemap.xml`,
+      robots: `${canonicalUrl}robots.txt`,
+    });
+  } catch (error) {
+    return res.status(500).json({ ok: false, error: "Unable to check school indexing status." });
+  }
+});
+
 // Notification bell: count badge for all authenticated pages
 app.use("/common", fetchNotifCount);
 app.use("/guardian", fetchNotifCount);
