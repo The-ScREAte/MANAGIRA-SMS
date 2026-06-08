@@ -88,6 +88,36 @@ function isAdminSideManager(accountType) {
   return accountType === 'Admin' || accountType === 'Mini Admin';
 }
 
+function hasStripeWebhookSecretConfigured() {
+  return Boolean(
+    String(process.env.STRIPE_FINANCE_WEBHOOK_SECRET || "").trim() ||
+    String(process.env.STRIPE_CONNECT_WEBHOOK_SECRET || "").trim() ||
+    String(process.env.STRIPE_WEBHOOK_SECRET || "").trim()
+  );
+}
+
+function resolveStripeModeReadiness(modeInput, settings) {
+  const mode = normalizeStripeMode(modeInput);
+  const isLive = mode === "live";
+  const activeSecretKey = String(isLive ? settings.liveSecretKey : settings.testSecretKey || "").trim();
+  const activePublicKey = String(isLive ? settings.livePublicKey : settings.testPublicKey || "").trim();
+  const connectSecretKey = String(
+    isLive
+      ? (process.env.STRIPE_CONNECT_LIVE_SECRET_KEY || process.env.STRIPE_CONNECT_SECRET_KEY || "")
+      : (process.env.STRIPE_CONNECT_TEST_SECRET_KEY || process.env.STRIPE_CONNECT_SECRET_KEY || "")
+  ).trim();
+  const fullSecretPrefix = isLive ? "sk_live_" : "sk_test_";
+  const fullPlatformSecret = [connectSecretKey, activeSecretKey].find((key) => key.startsWith(fullSecretPrefix)) || "";
+
+  return {
+    mode,
+    activeSecretKey,
+    activePublicKey,
+    fullPlatformSecret,
+    hasWebhookSecret: hasStripeWebhookSecretConfigured(),
+  };
+}
+
 function formatAdminSideRoleShort(accountType) {
   switch ((accountType || '').trim()) {
     case 'Internal Worker':
@@ -2835,6 +2865,12 @@ const adminController = {
       const { stripe_mode } = req.body;
       const settings = await getStripeSettings(db);
       const mode = normalizeStripeMode(stripe_mode);
+      const readiness = resolveStripeModeReadiness(mode, settings);
+
+      if (!readiness.activeSecretKey || !readiness.activePublicKey) {
+        req.flash("error", `${mode.toUpperCase()} Stripe mode requires both ${mode} secret and ${mode} publishable keys.`);
+        return res.redirect("/admin/servicePricing");
+      }
 
       if (mode === "live" && (!settings.liveSecretKey || !settings.livePublicKey)) {
         req.flash("error", "Live Stripe mode requires both live secret and live publishable keys.");
@@ -2843,6 +2879,22 @@ const adminController = {
 
       if (mode === "test" && (!settings.testSecretKey || !settings.testPublicKey)) {
         req.flash("error", "Test Stripe mode requires both test secret and test publishable keys.");
+        return res.redirect("/admin/servicePricing");
+      }
+
+      if (!readiness.fullPlatformSecret) {
+        req.flash(
+          "error",
+          `${mode.toUpperCase()} Stripe mode requires a full platform secret key (${mode === "live" ? "sk_live_" : "sk_test_"}) for Connect and destination-charge flows. Add STRIPE_CONNECT_${mode.toUpperCase()}_SECRET_KEY or a full ${mode} secret key.`
+        );
+        return res.redirect("/admin/servicePricing");
+      }
+
+      if (mode === "live" && !readiness.hasWebhookSecret) {
+        req.flash(
+          "error",
+          "Live Stripe mode requires a webhook secret. Set STRIPE_CONNECT_WEBHOOK_SECRET (preferred) or STRIPE_WEBHOOK_SECRET before switching to LIVE."
+        );
         return res.redirect("/admin/servicePricing");
       }
 

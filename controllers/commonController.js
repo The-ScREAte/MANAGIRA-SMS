@@ -3694,6 +3694,16 @@ const commonController = {
         [organizationId]
       ).catch(() => ({ rows: [] }));
       const stripeConnectAccountId = getStripeConnectAccountId(stripeConnectRow.rows[0] || {}, stripeSettings.mode) || null;
+      let hasPayoutAccount = false;
+      if (stripeConnectAccountId) {
+        try {
+          const stripePlatform = await getStripePlatformClient(db);
+          const connectAccount = await stripePlatform.accounts.retrieve(stripeConnectAccountId);
+          hasPayoutAccount = Boolean(connectAccount?.charges_enabled);
+        } catch (_) {
+          hasPayoutAccount = false;
+        }
+      }
 
       res.render("common/publicRegisterStudent", {
         title: "Public Student Registration",
@@ -3708,7 +3718,7 @@ const commonController = {
         fallbackCard,
         publishableKey: paystackConfig.publicKey,
         stripePublishableKey,
-        hasPayoutAccount: Boolean(stripeConnectAccountId),
+        hasPayoutAccount,
         stripeConnectAccountId,
         messages: req.flash(),
       });
@@ -4123,6 +4133,15 @@ const commonController = {
         });
       }
 
+      const connectedAccount = await stripe.accounts.retrieve(stripeConnectAccountId).catch(() => null);
+      if (!connectedAccount || !connectedAccount.charges_enabled) {
+        return res.status(400).json({
+          success: false,
+          error: 'This school has not completed their payment setup yet. Please contact the school directly.',
+          code: 'CONNECT_ACCOUNT_NOT_READY',
+        });
+      }
+
       // 3. Get guardian email
       const guardianResult = await db.query(
         `SELECT email, first_name FROM pending_guardians WHERE pending_id = $1 LIMIT 1`,
@@ -4223,6 +4242,10 @@ const commonController = {
   },
 
   paymentCallback: async (req, res, db) => {
+        async function getPreferredStripeClient() {
+          return getStripePlatformClient(db);
+        }
+
     const stripeSessionId = String(req.query.session_id || '').trim();
     // Payment Element redirect returns payment_intent instead of session_id
     const paymentIntentIdFromQuery = String(req.query.payment_intent || '').trim();
@@ -4237,7 +4260,7 @@ const commonController = {
       try {
         await ensurePublicRegistrationSchema(db);
 
-        const stripe = await getStripeClient(db);
+        const stripe = await getPreferredStripeClient();
         const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentIdFromQuery, {
           expand: ['payment_method'],
         });
@@ -4273,7 +4296,7 @@ const commonController = {
         }
 
         if (paymentIntent.status !== 'succeeded') {
-          req.flash('error', `Payment status: ${paymentIntent.status}. Please try again.`);
+          req.flash('error', 'Your payment is not complete yet. Please try again in a moment or contact the school if this continues.');
           return res.redirect(registrationRedirect);
         }
 
@@ -4367,10 +4390,13 @@ const commonController = {
             ? `https://${orgDetails.nickname}.managira.com/common/publicDashboard?success=1`
             : `/common/publicDashboard?organizationId=${organizationId}&success=1`;
         return res.redirect(successRedirect);
-      } catch (err) {
-        console.error('[Payment Callback] Payment Element error:', err.message);
-        req.flash('error', 'Error verifying payment. Please contact support.');
-        return res.redirect(`/common/publicDashboard?organizationId=${organizationId || ''}`);
+      } catch (error) {
+        const knownCode = String(error?.code || '').trim().toUpperCase();
+        const safeMessage =
+          knownCode === 'NO_PAYOUT_ACCOUNT' || knownCode === 'CONNECT_ACCOUNT_NOT_READY'
+            ? (error?.message || 'Online payment is not available yet for this school. Please contact the school directly.')
+            : 'We could not start payment right now. Please try again in a moment. If this continues, contact the school directly.';
+        return res.status(500).json({ success: false, error: safeMessage });
       }
     }
 
@@ -4441,7 +4467,7 @@ const commonController = {
           return res.redirect(successRedirect);
         }
 
-        const stripe = await getStripeClient(db);
+        const stripe = await getPreferredStripeClient();
         const checkoutSession = await stripe.checkout.sessions.retrieve(stripeSessionId, {
           expand: ['payment_intent.payment_method'],
         });

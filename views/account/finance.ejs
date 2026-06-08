@@ -1937,6 +1937,8 @@
       <% } %>
 
       <% if (sec === 'bills') { %>
+        <% const billPage = (billPagination && billPagination.page) || 1; %>
+        <% const billPageSize = (billPagination && billPagination.pageSize) || bills.length || 60; %>
         <div class="fin-card fin-accordion" id="acc-create-bill" style="margin-bottom:20px;">
           <button type="button" class="fin-acc-head" onclick="finToggleAcc('acc-create-bill')">
             <span><span class="fin-acc-ico">➕</span> <strong>Create New Bill</strong></span>
@@ -2152,7 +2154,10 @@
         </div>
 
         <div class="fin-card">
-          <div class="section-head"><h2>All Bills</h2><span class="fin-section-count"><%= bills.length %> bill<%= bills.length === 1 ? '' : 's' %></span></div>
+          <div class="section-head">
+            <h2>All Bills</h2>
+            <span class="fin-section-count"><%= bills.length %> bill<%= bills.length === 1 ? '' : 's' %><% if (billPagination && billPagination.hasMore) { %> · page <%= billPage %><% } %></span>
+          </div>
           <form method="GET" action="/account/settings/finance" class="fin-form fin-bill-context-form">
             <input type="hidden" name="section" value="bills">
             <div class="fin-row fin-bill-context-row">
@@ -2236,18 +2241,33 @@
                 </tbody>
               </table>
             </div>
+            <% if (billPagination && billPagination.hasMore) { %>
+              <form method="GET" action="/account/settings/finance" style="margin-top:14px; display:flex; justify-content:center;">
+                <input type="hidden" name="section" value="bills">
+                <input type="hidden" name="billYear" value="<%= billYearFilter %>">
+                <input type="hidden" name="billTerm" value="<%= billTermFilter %>">
+                <input type="hidden" name="billPage" value="<%= billPagination.nextPage %>">
+                <input type="hidden" name="billPageSize" value="<%= billPageSize %>">
+                <button type="submit" class="fin-btn ghost">Load more bills</button>
+              </form>
+            <% } %>
           <% } %>
         </div>
       <% } %>
 
       <% if (sec === 'students') { %>
+        <% const studentPage = (studentBillingPagination && studentBillingPagination.page) || 1; %>
+        <% const studentPageSize = (studentBillingPagination && studentBillingPagination.pageSize) || studentBilling.length || 80; %>
         <% const studentNetOutstanding = (student) => Number(student.net_outstanding || Math.max(Number(student.outstanding || 0) - Number(student.student_credit || 0), 0)); %>
         <% const studentsWithDebt = (studentBilling || []).filter(s => studentNetOutstanding(s) > 0); %>
         <% const totalNetOutstanding = studentsWithDebt.reduce((sum, s) => sum + studentNetOutstanding(s), 0); %>
         <% const studentsWithCredit = (studentBilling || []).filter(s => Number(s.student_credit || 0) > 0); %>
         <% const totalStudentCredit = studentsWithCredit.reduce((sum, s) => sum + Number(s.student_credit || 0), 0); %>
         <div class="fin-card">
-          <div class="section-head"><h2>Org-Wide Bills</h2><span class="fin-section-count"><%= studentBilling.length %> students</span></div>
+          <div class="section-head">
+            <h2>Org-Wide Bills</h2>
+            <span class="fin-section-count"><%= studentBilling.length %> students<% if (studentBillingPagination && studentBillingPagination.hasMore) { %> · page <%= studentPage %><% } %></span>
+          </div>
           <% if (!studentBilling.length) { %>
             <div class="empty-state"><div class="ico">👨‍👩‍👧</div><h3>No students yet</h3></div>
           <% } else { %>
@@ -2375,6 +2395,16 @@
                 </tbody>
               </table>
             </div>
+            <% if (studentBillingPagination && studentBillingPagination.hasMore) { %>
+              <form method="GET" action="/account/settings/finance" style="margin-top:14px; display:flex; justify-content:center;">
+                <input type="hidden" name="section" value="students">
+                <input type="hidden" name="studentYear" value="<%= studentYearFilter %>">
+                <input type="hidden" name="studentTerm" value="<%= studentTermFilter %>">
+                <input type="hidden" name="studentPage" value="<%= studentBillingPagination.nextPage %>">
+                <input type="hidden" name="studentPageSize" value="<%= studentPageSize %>">
+                <button type="submit" class="fin-btn ghost">Load more students</button>
+              </form>
+            <% } %>
           <% } %>
         </div>
       <% } %>
@@ -2465,7 +2495,7 @@
           <% } else { %>
             <div class="fin-table-wrap">
               <table class="fin-table">
-                <thead><tr><th>Date</th><th>Student</th><th>Bill</th><th>Method</th><th class="num">Amount</th></tr></thead>
+                <thead><tr><th>Date</th><th>Student</th><th>Bill</th><th>Method</th><th class="num">Amount</th><th>Actions</th></tr></thead>
                 <tbody>
                   <% overview.recent.forEach(r => { %>
                     <tr>
@@ -2474,6 +2504,13 @@
                       <td><%= r.bill_title || '—' %></td>
                       <td><span class="badge active"><%= r.method %></span></td>
                       <td class="num" style="color:var(--fin-success);"><%= fmt(r.amount) %></td>
+                      <td>
+                        <div class="fin-actions-cell" style="justify-content:flex-start;">
+                          <form method="POST" action="/account/settings/finance/payments/<%= r.payment_id %>/delete" style="margin:0;" onsubmit="return confirm('Delete this payment and recalculate balances? This cannot be undone.');">
+                            <button type="submit" class="fin-btn danger sm" style="min-width:130px;">Correct / Delete</button>
+                          </form>
+                        </div>
+                      </td>
                     </tr>
                   <% }) %>
                 </tbody>
@@ -2495,7 +2532,7 @@
             </div>
             <div class="fin-table-wrap">
               <table class="fin-table" id="signoffHistoryTable">
-                <thead><tr><th>Signed At</th><th>Bill</th><th>Scope</th><th>Class</th><th>Signed By</th><th class="num">Students</th><th class="num">Collected</th></tr></thead>
+                <thead><tr><th>Signed At</th><th>Bill</th><th>Scope</th><th>Class</th><th>Signed By</th><th class="num">Students</th><th class="num">Collected</th><th>Actions</th></tr></thead>
                 <tbody>
                   <% (signoffHistory || []).forEach(function(row) { const scopeLabel = row.occurrence_date ? new Date(row.occurrence_date).toLocaleDateString() : 'Whole bill'; const classLabel = Number(row.class_id || 0) > 0 ? (row.class_name || 'Class scope') : 'All assigned students'; const signerLabel = (row.signed_by_name || (((row.signer_first_name || '') + ' ' + (row.signer_last_name || '')).trim()) || 'Staff') + (row.signer_role ? (' · ' + row.signer_role) : ''); const searchText = [row.bill_title, scopeLabel, classLabel, signerLabel, row.occurrence_date || '', row.signer_role || ''].join(' ').toLowerCase(); %>
                     <tr data-text="<%= searchText %>">
@@ -2506,6 +2543,14 @@
                       <td><%= signerLabel %></td>
                       <td class="num"><%= row.student_count || 0 %></td>
                       <td class="num fin-money-positive"><%= fmt(row.total_collected || 0) %></td>
+                      <td>
+                        <div class="fin-actions-cell" style="justify-content:flex-start;">
+                          <a class="fin-btn sm" style="min-width:108px; text-decoration:none;" href="/account/settings/finance/signoffs/<%= row.signoff_id %>/report" target="_blank" rel="noopener">View Report</a>
+                          <form method="POST" action="/account/settings/finance/signoffs/<%= row.signoff_id %>/unsign" style="margin:0;" onsubmit="return confirm('Remove this sign-off so payment corrections can be made?');">
+                            <button type="submit" class="fin-btn danger sm" style="min-width:90px;">Unsign</button>
+                          </form>
+                        </div>
+                      </td>
                     </tr>
                   <% }) %>
                 </tbody>

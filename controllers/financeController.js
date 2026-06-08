@@ -29,7 +29,7 @@ const {
 } = require("../utils/currencyLocalization");
 const { getOrgChargeCards } = require("../utils/orgChargeCards");
 const { ensurePaymentProviderSchema } = require("../utils/paymentProviderSchema");
-const { getActiveStripePublicKey, getStripeSettings, getStripePlatformCredentials, getStripeConnectAccountId, ensureStripeConnectAccountSchema } = require("../utils/stripeConfig");
+const { getActiveStripePublicKey, getStripeSettings, getStripePlatformClient, getStripePlatformCredentials, getStripeConnectAccountId, ensureStripeConnectAccountSchema } = require("../utils/stripeConfig");
 const { buildStudentDisplayId, getOrganizationStudentIdSettings } = require("../utils/studentIdDisplay");
 const {
   getPlatformFeeSettings,
@@ -53,14 +53,17 @@ function _finKey(orgId, name, extra) {
   return `paygira:${orgId}:${name}:${tag}`;
 }
 
-async function cachedLoad(orgId, name, extra, fetchFn) {
-  if (!orgId) return fetchFn();
+async function cachedLoad(orgId, name, extra, loader) {
   return cacheManager.getOrFetch(
     "organization",
     _finKey(orgId, name, extra),
-    fetchFn,
+    loader,
     { ttl: FIN_CACHE_TTL_SECONDS }
   );
+}
+
+function money(value) {
+  return formatCurrencyAmount(value, "USD", "en-US");
 }
 
 // Per-org version counter — bumped on every cache invalidation. The PayGira
@@ -80,414 +83,69 @@ function bumpFinanceVersion(orgId) {
 }
 function invalidateFinanceCache(orgId) {
   if (!orgId) return;
-  // Wipe every PayGira key for this org. Cheap O(n) over a small node-cache.
   cacheManager.invalidatePattern("organization", `paygira:${orgId}:`);
   bumpFinanceVersion(orgId);
 }
 
-// PayGira audit logger — captures Admin/Mini-Admin actions that the
-// auto-middleware skips, with precise descriptions and field diffs.
-async function logPaygira(req, payload) {
-  try {
-    const organizationId = req.session?.organizationId;
-    if (!organizationId) return;
-    const sess = req.session || {};
-    const user = sess.user || {};
-    const guardian = sess.guardian || {};
-    const userId =
-      user.user_id || sess.userId ||
-      guardian.guardian_id || sess.guardianId || null;
-    const userName =
-      payload.userName ||
-      [user.first_name, user.last_name].filter(Boolean).join(" ").trim() ||
-      [guardian.first_name, guardian.last_name].filter(Boolean).join(" ").trim() ||
-      sess.userName || sess.email || "PayGira User";
-    const userRole =
-      payload.userRole ||
-      sess.accountType || sess.userRole ||
-      (sess.guardianId || guardian.guardian_id ? "Guardian" : "Staff");
-    await logOrganizationActivity({
-      organizationId,
-      userId,
-      userName,
-      userRole,
-      actionType: payload.actionType || "Updated",
-      moduleName: payload.moduleName || "PayGira",
-      pagePath: req.originalUrl || req.path,
-      recordType: payload.recordType || "Bill",
-      recordId: payload.recordId != null ? String(payload.recordId) : null,
-      recordLabel: payload.recordLabel || null,
-      description: payload.description || "PayGira action.",
-      changedFields: Array.isArray(payload.changedFields) ? payload.changedFields : [],
-      ipAddress: req.ip,
-    });
-  } catch (err) {
-    console.error("[paygira-log]", err.message || err);
-  }
+function parsePositiveInt(value, fallback, min = 1, max = Number.MAX_SAFE_INTEGER) {
+  const parsed = parseInt(value, 10);
+  if (!Number.isInteger(parsed)) return fallback;
+  return Math.min(Math.max(parsed, min), max);
 }
 
-let _schemaReady = false;
+let _financeSchemaReady = false;
 async function ensureFinanceSchema() {
-  if (_schemaReady) return;
-  const sqlPath = path.join(__dirname, "..", "database", "migrations", "2026-05-14_create_finance_billing_system.sql");
-  try {
-    const sql = fs.readFileSync(sqlPath, "utf8");
-    await db.query(sql);
-    await db.query(`ALTER TABLE finance_bills ADD COLUMN IF NOT EXISTS recurrence_end_date DATE`);
-    await db.query(`ALTER TABLE finance_bills ADD COLUMN IF NOT EXISTS exclude_non_school_days BOOLEAN NOT NULL DEFAULT FALSE`);
-    await db.query(`ALTER TABLE finance_bills ADD COLUMN IF NOT EXISTS target_class_ids INT[]`);
-    await db.query(`ALTER TABLE finance_bills ADD COLUMN IF NOT EXISTS target_student_ids INT[]`);
-    await db.query(`ALTER TABLE finance_payments ADD COLUMN IF NOT EXISTS occurrence_date DATE`);
-    await db.query(`ALTER TABLE finance_payments ADD COLUMN IF NOT EXISTS platform_fee_percentage NUMERIC(5,2) NOT NULL DEFAULT 0`);
-    await db.query(`ALTER TABLE finance_payments ADD COLUMN IF NOT EXISTS platform_fee_amount NUMERIC(14,2) NOT NULL DEFAULT 0`);
-    await db.query(`ALTER TABLE finance_payments ADD COLUMN IF NOT EXISTS tax_amount NUMERIC(14,2) NOT NULL DEFAULT 0`);
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS finance_pending_stripe_payments (
-        payment_intent_id VARCHAR(255) PRIMARY KEY,
-        organization_id INT NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE,
-        guardian_id INT NOT NULL,
-        assignment_id INT NOT NULL REFERENCES finance_bill_assignments(assignment_id) ON DELETE CASCADE,
-        bill_id INT REFERENCES finance_bills(bill_id) ON DELETE SET NULL,
-        student_id INT REFERENCES students(student_id) ON DELETE SET NULL,
-        requested_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
-        total_external_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
-        credit_applied_expected NUMERIC(14,2) NOT NULL DEFAULT 0,
-        platform_fee_percentage NUMERIC(5,2) NOT NULL DEFAULT 0,
-        platform_fee_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
-        tax_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
-        charged_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
-        currency VARCHAR(12) NOT NULL DEFAULT 'USD',
-        selected_occurrence_dates JSONB NOT NULL DEFAULT '[]'::jsonb,
-        payment_entries JSONB NOT NULL DEFAULT '[]'::jsonb,
-        status VARCHAR(24) NOT NULL DEFAULT 'pending',
-        stripe_method_type VARCHAR(80),
-        last_error TEXT,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        processed_at TIMESTAMPTZ
-      )
-    `);
-    await db.query(
-      `CREATE INDEX IF NOT EXISTS idx_finance_pending_stripe_org_status ON finance_pending_stripe_payments (organization_id, status, created_at DESC)`
-    );
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS finance_collection_signoffs (
-        signoff_id SERIAL PRIMARY KEY,
-        organization_id INT NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE,
-        bill_id INT NOT NULL REFERENCES finance_bills(bill_id) ON DELETE CASCADE,
-        class_id INT NOT NULL DEFAULT 0,
-        occurrence_date DATE,
-        scope_key VARCHAR(40) NOT NULL,
-        signed_by_user_id INT REFERENCES users(user_id) ON DELETE SET NULL,
-        signed_by_name VARCHAR(160) NOT NULL,
-        signer_role VARCHAR(80),
-        student_count INT NOT NULL DEFAULT 0,
-        total_collected NUMERIC(14,2) NOT NULL DEFAULT 0,
-        signed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        UNIQUE (organization_id, bill_id, class_id, scope_key)
-      )
-    `);
-    await db.query(
-      `CREATE INDEX IF NOT EXISTS idx_finance_collection_signoffs_bill_scope ON finance_collection_signoffs (organization_id, bill_id, class_id, scope_key)`
-    );
-    await db.query(
-      `CREATE INDEX IF NOT EXISTS idx_finance_collection_signoffs_signed_at ON finance_collection_signoffs (organization_id, signed_at DESC)`
-    );
-  } catch (e) {
-    console.error("[financeSchema]", e.message);
-  }
-  _schemaReady = true;
+  if (_financeSchemaReady) return;
+  await ensurePspSettingsTable().catch(() => null);
+  await ensureSignoffCorrectionSchema().catch(() => null);
+  _financeSchemaReady = true;
 }
 
-let _assigneeColReady = false;
-async function ensureAssigneeColumn() {
-  if (_assigneeColReady) return;
-  try {
-    await db.query(`ALTER TABLE finance_bills ADD COLUMN IF NOT EXISTS assignee_id INT REFERENCES users(user_id) ON DELETE SET NULL`);
-    await db.query(`ALTER TABLE finance_bills ADD COLUMN IF NOT EXISTS payment_destination VARCHAR(20) DEFAULT 'stripe'`);
-    // Junction table for multiple collectors per bill
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS finance_bill_collectors (
-        id              SERIAL PRIMARY KEY,
-        bill_id         INT NOT NULL REFERENCES finance_bills(bill_id) ON DELETE CASCADE,
-        user_id         INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-        organization_id INT NOT NULL,
-        created_at      TIMESTAMP DEFAULT NOW(),
-        UNIQUE(bill_id, user_id)
-      )
-    `);
-    // Backfill existing single assignees into the junction table
-    await db.query(`
-      INSERT INTO finance_bill_collectors (bill_id, user_id, organization_id)
-      SELECT bill_id, assignee_id, organization_id
-      FROM finance_bills
-      WHERE assignee_id IS NOT NULL
-      ON CONFLICT (bill_id, user_id) DO NOTHING
-    `);
-    // Add occurrence_date to finance_payments if not already present
-    await db.query(`ALTER TABLE finance_payments ADD COLUMN IF NOT EXISTS occurrence_date DATE`);
-  } catch (_) { /* already exists */ }
-  _assigneeColReady = true;
+async function ensureSignoffCorrectionSchema() {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS finance_collection_signoff_corrections (
+      correction_id SERIAL PRIMARY KEY,
+      organization_id INT NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE,
+      bill_id INT NOT NULL REFERENCES finance_bills(bill_id) ON DELETE CASCADE,
+      class_id INT NOT NULL DEFAULT 0,
+      scope_key VARCHAR(40) NOT NULL,
+      occurrence_date DATE,
+      reopened_signoff_id INT,
+      reopened_by_user_id INT,
+      reopened_by_name VARCHAR(180),
+      note TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `).catch(() => null);
+
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS idx_finance_signoff_corrections_org_scope
+    ON finance_collection_signoff_corrections(organization_id, bill_id, class_id, scope_key, occurrence_date, created_at DESC)
+  `).catch(() => null);
 }
 
 async function isFinanceAdmin(req) {
-  const t = String(req.session?.userRole || req.session?.accountType || req.session?.user?.account_type || "").trim().toLowerCase();
-  // Org owner + platform admins always have access.
-  if (["organization", "admin", "mini admin", "super admin"].includes(t)) return true;
-  // Manager, Supervisor, Teacher — allowed if explicitly granted the PayGira permission.
-  if (["manager", "supervisor", "teacher"].includes(t)) {
-    return userHasPermission(db, {
-      userId: req.session.user?.user_id || req.session.userId || null,
-      userRole: req.session.userRole || null,
-      organizationId: req.session.organizationId || null,
-      accountType: req.session.accountType || req.session.user?.account_type || null,
-      userEmail: req.session.user?.email || null,
-    }, "manage_paygira");
-  }
-  return false;
-}
-
-function money(n) {
-  const v = Number(n || 0);
-  return v.toFixed(2);
-}
-
-function buildFinancePaymentChargeBreakdown(amount, method, platformFeePercentage, taxAmount = 0) {
-  return buildPlatformChargeBreakdown(amount, {
-    platformFeePercentage,
-    applyPlatformFee: isPlatformFeeMethod(method),
-    taxAmount,
-  });
-}
-
-const DEFAULT_FINANCE_CURRENCY = "USD";
-const FALLBACK_FINANCE_CURRENCIES = [
-  "USD", "EUR", "GBP", "GHS", "NGN", "KES", "ZAR", "UGX", "TZS", "RWF",
-  "XAF", "XOF", "EGP", "MAD", "BWP", "ZMW", "CAD", "AUD", "NZD", "JPY",
-  "CNY", "INR", "AED", "SAR", "BRL", "MXN", "CHF", "SEK", "NOK", "DKK",
-];
-const COUNTRY_TO_CURRENCY = {
-  GH: "GHS", GHANA: "GHS",
-  NG: "NGN", NIGERIA: "NGN",
-  KE: "KES", KENYA: "KES",
-  ZA: "ZAR", "SOUTH AFRICA": "ZAR",
-  UG: "UGX", UGANDA: "UGX",
-  TZ: "TZS", TANZANIA: "TZS",
-  RW: "RWF", RWANDA: "RWF",
-  CM: "XAF", CAMEROON: "XAF",
-  SN: "XOF", SENEGAL: "XOF",
-  CI: "XOF", "COTE DIVOIRE": "XOF", "COTE D'IVOIRE": "XOF", "IVORY COAST": "XOF",
-  EG: "EGP", EGYPT: "EGP",
-  MA: "MAD", MOROCCO: "MAD",
-  BW: "BWP", BOTSWANA: "BWP",
-  ZM: "ZMW", ZAMBIA: "ZMW",
-  US: "USD", USA: "USD", "UNITED STATES": "USD",
-  GB: "GBP", UK: "GBP", "UNITED KINGDOM": "GBP", ENGLAND: "GBP",
-  EU: "EUR", FRANCE: "EUR", GERMANY: "EUR", ITALY: "EUR", SPAIN: "EUR",
-  IE: "EUR", IRELAND: "EUR", NL: "EUR", NETHERLANDS: "EUR",
-  CA: "CAD", CANADA: "CAD",
-  AU: "AUD", AUSTRALIA: "AUD",
-  NZ: "NZD", "NEW ZEALAND": "NZD",
-  IN: "INR", INDIA: "INR",
-  CN: "CNY", CHINA: "CNY",
-  JP: "JPY", JAPAN: "JPY",
-  AE: "AED", UAE: "AED", "UNITED ARAB EMIRATES": "AED",
-  SA: "SAR", "SAUDI ARABIA": "SAR",
-  BR: "BRL", BRAZIL: "BRL",
-  MX: "MXN", MEXICO: "MXN",
-  CH: "CHF", SWITZERLAND: "CHF",
-  SE: "SEK", SWEDEN: "SEK",
-  NO: "NOK", NORWAY: "NOK",
-  DK: "DKK", DENMARK: "DKK",
-};
-
-let _financeCurrencyOptions = null;
-let _financeCountryOptions = null;
-
-function getCurrencyDisplayName(code) {
   try {
-    const label = new Intl.DisplayNames(["en"], { type: "currency" }).of(code);
-    return label || code;
-  } catch (_) {
-    return code;
-  }
-}
-
-function getFinanceCurrencyOptions() {
-  if (_financeCurrencyOptions) return _financeCurrencyOptions;
-  let codes = [];
-  try {
-    if (typeof Intl.supportedValuesOf === "function") {
-      codes = Intl.supportedValuesOf("currency");
-    }
-  } catch (_) {
-  }
-  if (!Array.isArray(codes) || !codes.length) codes = FALLBACK_FINANCE_CURRENCIES.slice();
-  const unique = Array.from(new Set(codes.map(normalizeCurrencyCode).filter(Boolean)));
-  _financeCurrencyOptions = unique
-    .map((code) => ({ code, name: getCurrencyDisplayName(code) }))
-    .sort((a, b) => a.code.localeCompare(b.code));
-  return _financeCurrencyOptions;
-}
-
-function getFinanceCountryOptions() {
-  if (_financeCountryOptions) return _financeCountryOptions;
-  _financeCountryOptions = getHolidayCountryOptions();
-  return _financeCountryOptions;
-}
-
-function normalizeCountryValue(rawCountry) {
-  return String(rawCountry || "")
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function resolveCountryName(rawCountry, fallbackCode) {
-  const options = getFinanceCountryOptions();
-  const normalizedCountry = normalizeCountryValue(rawCountry);
-  if (normalizedCountry) {
-    const byName = options.find((option) => normalizeCountryValue(option.name) === normalizedCountry);
-    if (byName) return byName.name;
-  }
-  const normalizedCode = String(fallbackCode || "").trim().toUpperCase();
-  if (normalizedCode) {
-    const byCode = options.find((option) => String(option.code || "").trim().toUpperCase() === normalizedCode);
-    if (byCode) return byCode.name;
-  }
-  if (rawCountry) return String(rawCountry).trim();
-  return "";
-}
-
-function isSupportedFinanceCurrency(code) {
-  const normalized = normalizeCurrencyCode(code);
-  if (!normalized) return false;
-  return getFinanceCurrencyOptions().some((option) => option.code === normalized);
-}
-
-function resolveCurrencyFromCountry(rawCountry) {
-  const normalized = String(rawCountry || "")
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  return COUNTRY_TO_CURRENCY[normalized] || null;
-}
-
-async function loadOrganizationProfile(orgId) {
-  if (!orgId) return {};
-  try {
-    await ensureStripeConnectAccountSchema(db);
-    const stripeSettings = await getStripeSettings(db).catch(() => ({ mode: 'test' }));
-    const result = await db.query(
-      `SELECT organization_name, organization_country, billing_provider, stripe_customer_id, stripe_connect_account_id, stripe_connect_account_id_test, stripe_connect_account_id_live
-         FROM organizations
-        WHERE organization_id = $1
-        LIMIT 1`,
-      [orgId]
-    );
-    const row = result.rows[0] || {};
-    return {
-      ...row,
-      stripe_connect_account_id: getStripeConnectAccountId(row, stripeSettings.mode) || "",
+    const database = req?.app?.get ? req.app.get("db") : db;
+    const userRole = req?.session?.userRole || req?.session?.user?.account_type || null;
+    const accountType = req?.session?.accountType || req?.session?.user?.account_type || null;
+    const permissionContext = {
+      userId: req?.session?.user?.user_id || req?.session?.userId || null,
+      userRole,
+      organizationId: req?.session?.organizationId,
+      accountType,
+      userEmail: req?.session?.user?.email || req?.session?.email || null,
     };
+
+    const canManageBilling = await userHasPermission(database, permissionContext, "MANAGE_BILLING");
+    const canManagePaygira = await userHasPermission(database, permissionContext, "MANAGE_PAYGIRA");
+    return Boolean(canManageBilling || canManagePaygira);
   } catch (_) {
-    return {};
+    return false;
   }
-}
-
-async function resolveFinanceCurrency(req, orgId, pspSettings, orgCountry) {
-  const savedCurrency = normalizeCurrencyCode(pspSettings && pspSettings.currency);
-  if (savedCurrency && isSupportedFinanceCurrency(savedCurrency)) {
-    const usdToCurrencyRate = await getUsdRate(savedCurrency);
-    return {
-      code: savedCurrency,
-      locale: getLocaleForCurrency(savedCurrency),
-      source: "saved",
-      sourceLabel: "Saved organization currency",
-      autoSelected: false,
-      countryHint: orgCountry || null,
-      usdToCurrencyRate: usdToCurrencyRate && usdToCurrencyRate > 0 ? usdToCurrencyRate : null,
-    };
-  }
-
-  try {
-    const detected = await getCurrencyProfileForRequest(req);
-    const detectedCurrency = normalizeCurrencyCode(detected && detected.userCurrency);
-    const usableDetection = detectedCurrency && isSupportedFinanceCurrency(detectedCurrency)
-      && !(detected.detectionSource === "fallback" && detectedCurrency === DEFAULT_FINANCE_CURRENCY);
-    if (usableDetection) {
-      const usdToCurrencyRate = await getUsdRate(detectedCurrency);
-      return {
-        code: detectedCurrency,
-        locale: getLocaleForCurrency(detectedCurrency),
-        source: "location",
-        sourceLabel: detected.countryCode
-          ? `Auto-selected from your detected country (${detected.countryCode})`
-          : "Auto-selected from your current location",
-        autoSelected: true,
-        countryHint: detected.countryCode || null,
-        usdToCurrencyRate: usdToCurrencyRate && usdToCurrencyRate > 0 ? usdToCurrencyRate : null,
-      };
-    }
-  } catch (_) {
-  }
-
-  const fallbackOrgCountry = orgCountry || (await loadOrganizationProfile(orgId)).organization_country || null;
-  const orgCurrency = resolveCurrencyFromCountry(fallbackOrgCountry);
-  if (orgCurrency && isSupportedFinanceCurrency(orgCurrency)) {
-    const usdToCurrencyRate = await getUsdRate(orgCurrency);
-    return {
-      code: orgCurrency,
-      locale: getLocaleForCurrency(orgCurrency),
-      source: "organization-country",
-      sourceLabel: fallbackOrgCountry
-        ? `Auto-selected from your organization country (${fallbackOrgCountry})`
-        : "Auto-selected from organization country",
-      autoSelected: true,
-      countryHint: fallbackOrgCountry,
-      usdToCurrencyRate: usdToCurrencyRate && usdToCurrencyRate > 0 ? usdToCurrencyRate : null,
-    };
-  }
-
-  return {
-    code: DEFAULT_FINANCE_CURRENCY,
-    locale: getLocaleForCurrency(DEFAULT_FINANCE_CURRENCY),
-    source: "fallback",
-    sourceLabel: "Defaulted to USD",
-    autoSelected: true,
-    countryHint: null,
-    usdToCurrencyRate: 1,
-  };
-}
-
-async function buildFinanceDisplayContext(req, orgId, pspSettingsArg, orgCountryArg) {
-  const pspSettings = pspSettingsArg || await loadPspSettings(orgId);
-  const financeCurrency = await resolveFinanceCurrency(req, orgId, pspSettings, orgCountryArg);
-  const formatMoney = (value) => formatCurrencyAmount(value, financeCurrency.code, financeCurrency.locale);
-  const formatUsdEquivalent = (value) => {
-    const amount = Number(value || 0);
-    if (!Number.isFinite(amount) || amount <= 0) return null;
-    if (financeCurrency.code === DEFAULT_FINANCE_CURRENCY) return null;
-    const rate = Number(financeCurrency.usdToCurrencyRate || 0);
-    if (!rate || rate <= 0) return null;
-    return formatCurrencyAmount(amount / rate, DEFAULT_FINANCE_CURRENCY, getLocaleForCurrency(DEFAULT_FINANCE_CURRENCY));
-  };
-  return {
-    financeCurrency,
-    currencyOptions: getFinanceCurrencyOptions(),
-    formatMoney,
-    formatUsdEquivalent,
-  };
 }
 
 function parseMultiValue(rawValue) {
-  if (Array.isArray(rawValue)) {
-    return rawValue.map((value) => String(value || "").trim()).filter(Boolean);
-  }
   if (rawValue === undefined || rawValue === null || rawValue === "") return [];
   return String(rawValue)
     .split(",")
@@ -523,6 +181,137 @@ function normalizeIdArray(rawValue) {
       .map((value) => parseInt(value, 10))
       .filter((value) => Number.isInteger(value) && value > 0)
   )].sort((left, right) => left - right);
+}
+
+const FINANCE_CURRENCY_OPTIONS = [
+  { code: "USD", name: "US Dollar" },
+  { code: "GHS", name: "Ghana Cedi" },
+  { code: "EUR", name: "Euro" },
+  { code: "GBP", name: "British Pound" },
+  { code: "NGN", name: "Nigerian Naira" },
+  { code: "KES", name: "Kenyan Shilling" },
+  { code: "ZAR", name: "South African Rand" },
+  { code: "CAD", name: "Canadian Dollar" },
+  { code: "AUD", name: "Australian Dollar" },
+  { code: "INR", name: "Indian Rupee" },
+];
+
+const COUNTRY_TO_FINANCE_CURRENCY = {
+  US: "USD",
+  GH: "GHS",
+  GB: "GBP",
+  IE: "EUR",
+  FR: "EUR",
+  DE: "EUR",
+  IT: "EUR",
+  ES: "EUR",
+  PT: "EUR",
+  NL: "EUR",
+  NG: "NGN",
+  KE: "KES",
+  ZA: "ZAR",
+  CA: "CAD",
+  AU: "AUD",
+  IN: "INR",
+};
+
+function isSupportedFinanceCurrency(rawCode) {
+  const normalized = normalizeCurrencyCode(rawCode);
+  if (!normalized) return false;
+  return FINANCE_CURRENCY_OPTIONS.some((option) => option.code === normalized);
+}
+
+function getFinanceCountryOptions() {
+  return getHolidayCountryOptions();
+}
+
+function resolveCountryName(rawCountry, fallbackCountryCode = null) {
+  const options = getFinanceCountryOptions();
+  const byCode = new Map(options.map((option) => [String(option.code || "").toUpperCase(), option.name]));
+  const byName = new Map(options.map((option) => [String(option.name || "").trim().toLowerCase(), option.name]));
+
+  const normalizedInput = String(rawCountry || "").trim();
+  if (normalizedInput) {
+    const asCode = normalizedInput.toUpperCase();
+    if (byCode.has(asCode)) return byCode.get(asCode);
+    const asName = normalizedInput.toLowerCase();
+    if (byName.has(asName)) return byName.get(asName);
+  }
+
+  const fallbackCode = String(fallbackCountryCode || "").trim().toUpperCase();
+  if (fallbackCode && byCode.has(fallbackCode)) return byCode.get(fallbackCode);
+  return "";
+}
+
+async function withTimeout(promise, timeoutMs, fallbackValue = null) {
+  let timer = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((resolve) => {
+        timer = setTimeout(() => resolve(fallbackValue), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+async function buildFinanceDisplayContext(req, orgId, pspSettingsInput = null, orgCountryInput = null) {
+  const pspSettings = pspSettingsInput && Object.keys(pspSettingsInput).length
+    ? pspSettingsInput
+    : await loadPspSettings(orgId).catch(() => ({}));
+
+  const savedCurrency = normalizeCurrencyCode(pspSettings?.currency);
+  const requestProfile = (!savedCurrency)
+    ? await withTimeout(getCurrencyProfileForRequest(req).catch(() => null), 250, null)
+    : null;
+  const requestCurrency = normalizeCurrencyCode(requestProfile?.userCurrency);
+  const requestCountryCode = String(requestProfile?.countryCode || "").trim().toUpperCase();
+
+  let selectedCurrency = "USD";
+  let sourceLabel = "Using USD fallback currency.";
+
+  if (savedCurrency && isSupportedFinanceCurrency(savedCurrency)) {
+    selectedCurrency = savedCurrency;
+    sourceLabel = `Using saved school currency (${savedCurrency}).`;
+  } else if (requestCurrency && isSupportedFinanceCurrency(requestCurrency)) {
+    selectedCurrency = requestCurrency;
+    sourceLabel = "Using your detected regional currency. Save settings to lock this currency.";
+  } else {
+    const fallbackFromCountry = COUNTRY_TO_FINANCE_CURRENCY[requestCountryCode] || null;
+    if (fallbackFromCountry && isSupportedFinanceCurrency(fallbackFromCountry)) {
+      selectedCurrency = fallbackFromCountry;
+      sourceLabel = "Using country-based currency fallback. Save settings to lock this currency.";
+    }
+  }
+
+  const locale = getLocaleForCurrency(selectedCurrency);
+  const usdToCurrencyRate = selectedCurrency === "USD"
+    ? 1
+    : await withTimeout(getUsdRate(selectedCurrency).catch(() => null), 250, null);
+  const normalizedUsdRate = Number.isFinite(Number(usdToCurrencyRate)) && Number(usdToCurrencyRate) > 0
+    ? Number(usdToCurrencyRate)
+    : (selectedCurrency === "USD" ? 1 : null);
+
+  return {
+    financeCurrency: {
+      code: selectedCurrency,
+      locale,
+      countryHint: resolveCountryName(orgCountryInput, requestCountryCode),
+      sourceLabel,
+      usdToCurrencyRate: normalizedUsdRate,
+    },
+    currencyOptions: FINANCE_CURRENCY_OPTIONS,
+    formatMoney: (value) => formatCurrencyAmount(value, selectedCurrency, locale),
+    formatUsdEquivalent: (value) => {
+      if (!normalizedUsdRate || selectedCurrency === "USD") return null;
+      const amount = Number(value || 0);
+      if (!Number.isFinite(amount)) return null;
+      const usdAmount = amount / normalizedUsdRate;
+      return `~ ${formatCurrencyAmount(usdAmount, "USD", "en-US")}`;
+    },
+  };
 }
 
 function normalizeArrearsFilters(rawFilters = {}) {
@@ -1306,30 +1095,55 @@ async function loadOverviewStats(orgId, filters = {}) {
   const yr = filters.school_year_id ? parseInt(filters.school_year_id, 10) : null;
   const tm = filters.term_id        ? parseInt(filters.term_id, 10)        : null;
 
-  // We must join through finance_bills to filter by year/term (those live on bill, not assignment).
-  const where = ['a.organization_id = $1'];
-  const params = [orgId];
-  let i = 2;
-  if (yr) { where.push(`b.school_year_id = $${i++}`); params.push(yr); }
-  if (tm) { where.push(`b.term_id        = $${i++}`); params.push(tm); }
-  const whereSql = where.join(' AND ');
+  const oneTimeWhere = ['a.organization_id = $1', `COALESCE(b.bill_type, 'one_time') <> 'recurring'`];
+  const recurringWhere = ['a.organization_id = $1', `COALESCE(b.bill_type, 'one_time') = 'recurring'`];
+  const oneTimeParams = [orgId];
+  const recurringParams = [orgId];
+  let oneTimeIndex = 2;
+  let recurringIndex = 2;
+  if (yr) {
+    oneTimeWhere.push(`b.school_year_id = $${oneTimeIndex++}`);
+    recurringWhere.push(`b.school_year_id = $${recurringIndex++}`);
+    oneTimeParams.push(yr);
+    recurringParams.push(yr);
+  }
+  if (tm) {
+    oneTimeWhere.push(`b.term_id = $${oneTimeIndex++}`);
+    recurringWhere.push(`b.term_id = $${recurringIndex++}`);
+    oneTimeParams.push(tm);
+    recurringParams.push(tm);
+  }
 
-  const totalsRows = await db.query(
-    `SELECT a.amount, a.amount_paid, a.late_fee_applied, a.status,
-            b.bill_type, b.recurrence, b.due_date, b.recurrence_end_date,
-            b.term_id, b.exclude_non_school_days,
-            tm.end_date AS term_end_date
-       FROM finance_bill_assignments a
-       JOIN finance_bills b ON b.bill_id = a.bill_id
-       LEFT JOIN terms tm ON tm.term_id = b.term_id
-      WHERE ${whereSql}`,
-    params
-  );
+  const [oneTimeTotals, recurringTotals] = await Promise.all([
+    db.query(
+      `SELECT COALESCE(SUM(a.amount), 0)::numeric AS total_billed,
+              COALESCE(SUM(a.amount_paid), 0)::numeric AS total_collected,
+              COALESCE(SUM(GREATEST(a.amount + a.late_fee_applied - a.amount_paid, 0)), 0)::numeric AS outstanding,
+              COUNT(*) FILTER (WHERE a.status = 'overdue')::int AS overdue_count,
+              COUNT(*)::int AS total_assignments
+         FROM finance_bill_assignments a
+         JOIN finance_bills b ON b.bill_id = a.bill_id
+        WHERE ${oneTimeWhere.join(' AND ')}`,
+      oneTimeParams
+    ),
+    db.query(
+      `SELECT a.amount, a.amount_paid, a.late_fee_applied, a.status,
+              b.bill_type, b.recurrence, b.due_date, b.recurrence_end_date,
+              b.term_id, b.exclude_non_school_days,
+              tm.end_date AS term_end_date
+         FROM finance_bill_assignments a
+         JOIN finance_bills b ON b.bill_id = a.bill_id
+         LEFT JOIN terms tm ON tm.term_id = b.term_id
+        WHERE ${recurringWhere.join(' AND ')}`,
+      recurringParams
+    ),
+  ]);
+
   const scheduleContext = createBillScheduleContextLoader(db, orgId);
-  const scheduledRows = await Promise.all(
-    totalsRows.rows.map((row) => enrichScheduledAssignment(row, scheduleContext))
+  const recurringRows = await Promise.all(
+    recurringTotals.rows.map((row) => enrichScheduledAssignment(row, scheduleContext))
   );
-  const totalSummary = scheduledRows.reduce((accumulator, assignment) => {
+  const recurringSummary = recurringRows.reduce((accumulator, assignment) => {
     accumulator.total_billed += Number(assignment.scheduled_billed_total || 0);
     accumulator.total_collected += Number(assignment.amount_paid || 0);
     accumulator.outstanding += Number(assignment.scheduled_outstanding_total || 0);
@@ -1343,6 +1157,14 @@ async function loadOverviewStats(orgId, filters = {}) {
     overdue_count: 0,
     total_assignments: 0,
   });
+
+  const totalSummary = {
+    total_billed: Number(oneTimeTotals.rows[0]?.total_billed || 0) + recurringSummary.total_billed,
+    total_collected: Number(oneTimeTotals.rows[0]?.total_collected || 0) + recurringSummary.total_collected,
+    outstanding: Number(oneTimeTotals.rows[0]?.outstanding || 0) + recurringSummary.outstanding,
+    overdue_count: Number(oneTimeTotals.rows[0]?.overdue_count || 0) + recurringSummary.overdue_count,
+    total_assignments: Number(oneTimeTotals.rows[0]?.total_assignments || 0) + recurringSummary.total_assignments,
+  };
 
   const credits = await db.query(
     `SELECT COALESCE(SUM(amount),0)::numeric AS overpayments
@@ -1367,15 +1189,54 @@ async function loadOverviewStats(orgId, filters = {}) {
     rParams
   );
 
+  const billWhere = ['organization_id = $1'];
+  const billParams = [orgId];
+  let billIndex = 2;
+  if (yr) { billWhere.push(`school_year_id = $${billIndex++}`); billParams.push(yr); }
+  if (tm) { billWhere.push(`term_id = $${billIndex++}`); billParams.push(tm); }
+  const billSummary = await db.query(
+    `SELECT COUNT(*)::int AS total_bill_count,
+            COUNT(*) FILTER (WHERE COALESCE(status, 'active') = 'paid')::int AS paid_count,
+            COUNT(*) FILTER (WHERE COALESCE(status, 'active') = 'pending')::int AS pending_count,
+            COUNT(*) FILTER (WHERE COALESCE(status, 'active') = 'overdue')::int AS overdue_count,
+            COUNT(*) FILTER (WHERE COALESCE(status, 'active') = 'partial')::int AS partial_count,
+            COUNT(*) FILTER (WHERE COALESCE(status, 'active') = 'draft')::int AS draft_count,
+            COUNT(*) FILTER (WHERE COALESCE(status, 'active') = 'cancelled')::int AS cancelled_count
+       FROM finance_bills
+      WHERE ${billWhere.join(' AND ')}`,
+    billParams
+  ).catch(() => ({ rows: [{}] }));
+  const billSummaryRow = billSummary.rows[0] || {};
+
   return {
     totals: totalSummary,
     overpayments: credits.rows[0]?.overpayments || 0,
     recent: recent.rows,
+    billCount: Number(billSummaryRow.total_bill_count || 0),
+    billStatusBreakdown: {
+      paid: Number(billSummaryRow.paid_count || 0),
+      pending: Number(billSummaryRow.pending_count || 0),
+      overdue: Number(billSummaryRow.overdue_count || 0),
+      partial: Number(billSummaryRow.partial_count || 0),
+      draft: Number(billSummaryRow.draft_count || 0),
+      cancelled: Number(billSummaryRow.cancelled_count || 0),
+    },
     filters: { school_year_id: yr, term_id: tm },
   };
 }
 
+async function loadOverviewBillsSnapshot(orgId, filters = {}) {
+  return loadBills(orgId, {
+    ...filters,
+    page: 1,
+    pageSize: parsePositiveInt(filters.pageSize, 20, 8, 40),
+  });
+}
+
 async function loadBills(orgId, filters = {}) {
+  const page = parsePositiveInt(filters.page, 1, 1, 1000000);
+  const pageSize = parsePositiveInt(filters.pageSize, 20, 10, 100);
+  const offset = (page - 1) * pageSize;
   const schoolYearId = parseInt(filters.school_year_id, 10);
   const termId = parseInt(filters.term_id, 10);
   const where = ['b.organization_id = $1'];
@@ -1391,6 +1252,10 @@ async function loadBills(orgId, filters = {}) {
     params.push(termId);
   }
 
+  const limitParam = nextParamIndex++;
+  const offsetParam = nextParamIndex++;
+  const pagedParams = [...params, pageSize + 1, offset];
+
   const r = await db.query(
     `SELECT b.*,
             (SELECT COUNT(*) FROM finance_bill_assignments a WHERE a.bill_id = b.bill_id) AS assigned_count,
@@ -1405,8 +1270,9 @@ async function loadBills(orgId, filters = {}) {
        LEFT JOIN school_years sy ON sy.id      = b.school_year_id
        LEFT JOIN terms        tm ON tm.term_id = b.term_id
       WHERE ${where.join(' AND ')}
-      ORDER BY b.created_at DESC LIMIT 200`,
-    params
+      ORDER BY b.created_at DESC
+      LIMIT $${limitParam} OFFSET $${offsetParam}`,
+    pagedParams
   ).catch(async () => {
     // Fallback if year/term columns are missing on legacy schemas
     return db.query(
@@ -1418,11 +1284,14 @@ async function loadBills(orgId, filters = {}) {
          FROM finance_bills b
          LEFT JOIN users u ON u.user_id = b.assignee_id
         WHERE ${where.join(' AND ')}
-        ORDER BY b.created_at DESC LIMIT 200`,
-      params
+        ORDER BY b.created_at DESC
+        LIMIT $${limitParam} OFFSET $${offsetParam}`,
+      pagedParams
     );
   });
-  const billIds = r.rows.map((row) => row.bill_id);
+  const hasMore = r.rows.length > pageSize;
+  const visibleRows = hasMore ? r.rows.slice(0, pageSize) : r.rows;
+  const billIds = visibleRows.map((row) => row.bill_id);
   const collectorIdsByBillId = new Map();
   if (billIds.length) {
     const collectorsR = await db.query(
@@ -1454,7 +1323,7 @@ async function loadBills(orgId, filters = {}) {
       assignmentsR.rows.map((row) => enrichScheduledAssignment(row, scheduleContext))
     );
   }
-  return applyScheduledBillRollups(r.rows, assignments).map((bill) => ({
+  const rows = applyScheduledBillRollups(visibleRows, assignments).map((bill) => ({
     ...bill,
     assignee_ids: normalizeIdArray([
       ...(collectorIdsByBillId.get(String(bill.bill_id)) || []),
@@ -1463,6 +1332,16 @@ async function loadBills(orgId, filters = {}) {
     target_class_ids: normalizeIdArray(bill.target_class_ids),
     target_student_ids: normalizeIdArray(bill.target_student_ids),
   }));
+
+  return {
+    rows,
+    pagination: {
+      page,
+      pageSize,
+      hasMore,
+      nextPage: hasMore ? page + 1 : null,
+    },
+  };
 }
 
 async function ensurePspSettingsTable() {
@@ -1473,6 +1352,118 @@ async function ensurePspSettingsTable() {
       updated_at TIMESTAMPTZ DEFAULT now()
     )
   `).catch(() => null);
+}
+
+async function loadOrganizationProfile(orgId) {
+  let stripeMode = 'test';
+  try {
+    const stripeSettings = await getStripeSettings(db);
+    stripeMode = stripeSettings.mode || 'test';
+  } catch (_) {
+    stripeMode = 'test';
+  }
+
+  let row = null;
+  const primary = await db.query(
+    `SELECT organization_id,
+            organization_name,
+            organization_country,
+            billing_provider,
+            stripe_connect_account_id,
+            stripe_connect_account_id_test,
+            stripe_connect_account_id_live
+       FROM organizations
+      WHERE organization_id = $1
+      LIMIT 1`,
+    [orgId]
+  ).catch(() => null);
+
+  if (primary && primary.rows && primary.rows[0]) {
+    row = primary.rows[0];
+  } else {
+    const fallback = await db.query(
+      `SELECT organization_id,
+              organization_name,
+              organization_country,
+              billing_provider,
+              stripe_connect_account_id
+         FROM organizations
+        WHERE organization_id = $1
+        LIMIT 1`,
+      [orgId]
+    ).catch(() => ({ rows: [] }));
+    row = fallback.rows[0] || null;
+  }
+
+  if (!row) {
+    return {
+      organization_id: orgId,
+      organization_name: '',
+      organization_country: '',
+      billing_provider: null,
+      stripe_connect_account_id: '',
+    };
+  }
+
+  return {
+    organization_id: row.organization_id || orgId,
+    organization_name: row.organization_name || '',
+    organization_country: row.organization_country || '',
+    billing_provider: row.billing_provider || null,
+    stripe_connect_account_id: getStripeConnectAccountId(row, stripeMode) || String(row.stripe_connect_account_id || '').trim(),
+  };
+}
+
+let _assigneeSchemaReady = false;
+async function ensureAssigneeColumn() {
+  if (_assigneeSchemaReady) return;
+
+  await db.query(`
+    ALTER TABLE finance_bills
+    ADD COLUMN IF NOT EXISTS assignee_id INT REFERENCES users(user_id) ON DELETE SET NULL
+  `).catch(() => null);
+
+  await db.query(`
+    ALTER TABLE finance_bills
+    ADD COLUMN IF NOT EXISTS target_class_ids INT[]
+  `).catch(() => null);
+
+  await db.query(`
+    ALTER TABLE finance_bills
+    ADD COLUMN IF NOT EXISTS target_student_ids INT[]
+  `).catch(() => null);
+
+  await db.query(`
+    ALTER TABLE finance_bills
+    ADD COLUMN IF NOT EXISTS payment_destination VARCHAR(20) NOT NULL DEFAULT 'stripe'
+  `).catch(() => null);
+
+  await db.query(`
+    ALTER TABLE finance_bills
+    ADD COLUMN IF NOT EXISTS exclude_non_school_days BOOLEAN NOT NULL DEFAULT FALSE
+  `).catch(() => null);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS finance_bill_collectors (
+      bill_id INT NOT NULL REFERENCES finance_bills(bill_id) ON DELETE CASCADE,
+      user_id INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+      organization_id INT NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (bill_id, user_id)
+    )
+  `).catch(() => null);
+
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS idx_finance_bill_collectors_org
+    ON finance_bill_collectors(organization_id)
+  `).catch(() => null);
+
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS idx_finance_bill_collectors_user
+    ON finance_bill_collectors(user_id)
+  `).catch(() => null);
+
+  _assigneeSchemaReady = true;
 }
 
 async function loadPspSettings(orgId) {
@@ -1951,6 +1942,9 @@ async function finalizePendingGuardianStripePayment(database, paymentIntentId) {
 }
 
 async function loadStudentBilling(orgId, filters = {}) {
+  const page = parsePositiveInt(filters.page, 1, 1, 1000000);
+  const pageSize = parsePositiveInt(filters.pageSize, 25, 15, 120);
+  const offset = (page - 1) * pageSize;
   const schoolYearId = parseInt(filters.school_year_id, 10);
   const termId = parseInt(filters.term_id, 10);
   const assignmentWhere = [
@@ -1970,6 +1964,40 @@ async function loadStudentBilling(orgId, filters = {}) {
     params.push(termId);
   }
 
+  const [studentIdSettings, students] = await Promise.all([
+    getOrganizationStudentIdSettings(db, orgId),
+    db.query(
+      `SELECT s.student_id, s.custom_student_id, s.first_name, s.last_name, s.image_url, s.class_id,
+              c.class_name,
+              COALESCE(sc.amount,0) AS student_credit
+         FROM students s
+         LEFT JOIN classes c ON c.class_id = s.class_id
+         LEFT JOIN finance_student_credits sc ON sc.student_id = s.student_id AND sc.organization_id = s.organization_id
+        WHERE s.organization_id = $1
+        ORDER BY s.last_name, s.first_name
+        LIMIT $2 OFFSET $3`,
+      [orgId, pageSize + 1, offset]
+    ),
+  ]);
+
+  const hasMore = students.rows.length > pageSize;
+  const visibleStudents = hasMore ? students.rows.slice(0, pageSize) : students.rows;
+  const studentIds = visibleStudents.map((row) => Number(row.student_id)).filter((value) => Number.isInteger(value) && value > 0);
+
+  if (!studentIds.length) {
+    return {
+      rows: [],
+      pagination: {
+        page,
+        pageSize,
+        hasMore,
+        nextPage: hasMore ? page + 1 : null,
+      },
+    };
+  }
+
+  const studentFilterParam = nextParamIndex++;
+
   const assignmentRows = await db.query(
     `SELECT a.student_id, a.amount, a.amount_paid, a.late_fee_applied,
             b.bill_type, b.recurrence, b.due_date, b.recurrence_end_date,
@@ -1978,8 +2006,9 @@ async function loadStudentBilling(orgId, filters = {}) {
        FROM finance_bill_assignments a
        JOIN finance_bills b ON b.bill_id = a.bill_id
        LEFT JOIN terms tm ON tm.term_id = b.term_id
-      WHERE ${assignmentWhere.join(' AND ')}`,
-    params
+      WHERE ${assignmentWhere.join(' AND ')}
+        AND a.student_id = ANY($${studentFilterParam}::int[])`,
+    [...params, studentIds]
   );
   const scheduleContext = createBillScheduleContextLoader(db, orgId);
   const scheduledAssignments = await Promise.all(
@@ -2005,22 +2034,7 @@ async function loadStudentBilling(orgId, filters = {}) {
     return accumulator;
   }, {});
 
-  const [studentIdSettings, students] = await Promise.all([
-    getOrganizationStudentIdSettings(db, orgId),
-    db.query(
-      `SELECT s.student_id, s.custom_student_id, s.first_name, s.last_name, s.image_url, s.class_id,
-              c.class_name,
-              COALESCE(sc.amount,0) AS student_credit
-         FROM students s
-         LEFT JOIN classes c ON c.class_id = s.class_id
-         LEFT JOIN finance_student_credits sc ON sc.student_id = s.student_id AND sc.organization_id = s.organization_id
-        WHERE s.organization_id = $1
-        ORDER BY s.last_name, s.first_name
-        LIMIT 500`,
-      [orgId]
-    ),
-  ]);
-  return students.rows.map((row) => {
+  const rows = visibleStudents.map((row) => {
     const totals = totalsByStudentId[String(row.student_id)] || { total_billed: 0, total_paid: 0, outstanding: 0 };
     const studentCredit = Number(row.student_credit || 0);
     const outstanding = Number(totals.outstanding || 0);
@@ -2038,6 +2052,16 @@ async function loadStudentBilling(orgId, filters = {}) {
       net_outstanding: Math.max(outstanding - studentCredit, 0),
     };
   });
+
+  return {
+    rows,
+    pagination: {
+      page,
+      pageSize,
+      hasMore,
+      nextPage: hasMore ? page + 1 : null,
+    },
+  };
 }
 
 async function loadStudentCreditMap(database, orgId, studentIds) {
@@ -2108,19 +2132,28 @@ async function loadTemplates(orgId) {
   return r.rows;
 }
 
-async function loadClassesAndStudents(orgId) {
-  const classes = await db.query(
-    `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY class_name`,
-    [orgId]
-  );
-  const students = await db.query(
-    `SELECT s.student_id, s.first_name, s.last_name, s.image_url, s.class_id, c.class_name
-       FROM students s
-       LEFT JOIN classes c ON c.class_id = s.class_id
-      WHERE s.organization_id = $1
-      ORDER BY s.last_name, s.first_name`,
-    [orgId]
-  );
+async function loadClassesAndStudents(orgId, options = {}) {
+  const includeClasses = options.includeClasses !== false;
+  const includeStudents = options.includeStudents !== false;
+  const includeEmployees = options.includeEmployees !== false;
+  const includeEnrollmentLinks = options.includeEnrollmentLinks !== false;
+
+  const classes = includeClasses
+    ? await db.query(
+        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY class_name`,
+        [orgId]
+      )
+    : { rows: [] };
+  const students = includeStudents
+    ? await db.query(
+        `SELECT s.student_id, s.first_name, s.last_name, s.image_url, s.class_id, c.class_name
+           FROM students s
+           LEFT JOIN classes c ON c.class_id = s.class_id
+          WHERE s.organization_id = $1
+          ORDER BY s.last_name, s.first_name`,
+        [orgId]
+      )
+    : { rows: [] };
   // school_years uses columns: id, year_label
   const years = await db.query(
     `SELECT id AS school_year_id, year_label AS name, current
@@ -2136,35 +2169,41 @@ async function loadClassesAndStudents(orgId) {
       ORDER BY current DESC NULLS LAST, start_date DESC NULLS LAST, term_id DESC`,
     [orgId]
   ).catch(() => ({ rows: [] }));
-  const enrolledClassLinks = await db.query(
-    `SELECT DISTINCT ec.class_id, e.school_year_id, e.term_id
-       FROM enrollments e
-       JOIN enrolled_classes ec ON ec.enrollment_id = e.enrollment_id
-      WHERE e.organization_id = $1`,
-    [orgId]
-  ).catch(() => ({ rows: [] }));
-  const enrolledStudentLinks = await db.query(
-    `SELECT DISTINCT es.student_id, e.school_year_id, e.term_id
-       FROM enrollments e
-       JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id
-      WHERE e.organization_id = $1`,
-    [orgId]
-  ).catch(() => ({ rows: [] }));
-  const employees = await db.query(
-    `SELECT u.user_id,
-            u.first_name,
-            u.last_name,
-            u.account_type,
-            ARRAY_REMOVE(ARRAY_AGG(DISTINCT uc.class_id), NULL) AS class_ids
-       FROM users u
-       LEFT JOIN user_classes uc ON uc.user_id = u.user_id
-      WHERE u.organization_id = $1
-        AND u.account_type IN ('Manager','Supervisor','Teacher')
-        AND (u.on_hold IS NULL OR u.on_hold = false)
-      GROUP BY u.user_id, u.first_name, u.last_name, u.account_type
-      ORDER BY u.last_name, u.first_name`,
-    [orgId]
-  ).catch(() => ({ rows: [] }));
+  const enrolledClassLinks = includeEnrollmentLinks && includeClasses
+    ? await db.query(
+        `SELECT DISTINCT ec.class_id, e.school_year_id, e.term_id
+           FROM enrollments e
+           JOIN enrolled_classes ec ON ec.enrollment_id = e.enrollment_id
+          WHERE e.organization_id = $1`,
+        [orgId]
+      ).catch(() => ({ rows: [] }))
+    : { rows: [] };
+  const enrolledStudentLinks = includeEnrollmentLinks && includeStudents
+    ? await db.query(
+        `SELECT DISTINCT es.student_id, e.school_year_id, e.term_id
+           FROM enrollments e
+           JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id
+          WHERE e.organization_id = $1`,
+        [orgId]
+      ).catch(() => ({ rows: [] }))
+    : { rows: [] };
+  const employees = includeEmployees
+    ? await db.query(
+        `SELECT u.user_id,
+                u.first_name,
+                u.last_name,
+                u.account_type,
+                ARRAY_REMOVE(ARRAY_AGG(DISTINCT uc.class_id), NULL) AS class_ids
+           FROM users u
+           LEFT JOIN user_classes uc ON uc.user_id = u.user_id
+          WHERE u.organization_id = $1
+            AND u.account_type IN ('Manager','Supervisor','Teacher')
+            AND (u.on_hold IS NULL OR u.on_hold = false)
+          GROUP BY u.user_id, u.first_name, u.last_name, u.account_type
+          ORDER BY u.last_name, u.first_name`,
+        [orgId]
+      ).catch(() => ({ rows: [] }))
+    : { rows: [] };
   const classMap = new Map();
   const studentMap = new Map();
   enrolledClassLinks.rows.forEach((row) => {
@@ -2659,6 +2698,22 @@ async function getScheduledBilledAmount(row, getCalendarContext) {
 
 async function enrichScheduledAssignment(row, getCalendarContext) {
   const normalizedDueDate = normalizeOccurrenceDate(row?.due_date) || null;
+  const amount = Number(row?.amount || 0);
+  const amountPaid = Number(row?.amount_paid || 0);
+  const lateFeeApplied = Number(row?.late_fee_applied || 0);
+
+  if (!isRecurringBill(row)) {
+    return {
+      ...row,
+      due_date: normalizedDueDate,
+      recurrence_end_date: null,
+      scheduled_occurrences: normalizedDueDate ? 1 : 0,
+      scheduled_occurrence_dates: normalizedDueDate ? [normalizedDueDate] : [],
+      scheduled_billed_total: amount,
+      scheduled_outstanding_total: Math.max(amount + lateFeeApplied - amountPaid, 0),
+    };
+  }
+
   const scheduleEnd = getRecurringScheduleEnd(row);
   const scheduledOccurrenceDates = await getScheduledOccurrenceDates({
     ...row,
@@ -2666,9 +2721,7 @@ async function enrichScheduledAssignment(row, getCalendarContext) {
     recurrence_end_date: scheduleEnd,
   }, getCalendarContext);
   const scheduledCount = Math.max(scheduledOccurrenceDates.length, 1);
-  const scheduledBilledTotal = Number(row?.amount || 0) * scheduledCount;
-  const amountPaid = Number(row?.amount_paid || 0);
-  const lateFeeApplied = Number(row?.late_fee_applied || 0);
+  const scheduledBilledTotal = amount * scheduledCount;
   return {
     ...row,
     due_date: normalizedDueDate,
@@ -2769,7 +2822,11 @@ async function loadCollectionSignoffs(orgId, billIds) {
   return result.rows;
 }
 
-async function loadCollectionSignoffHistory(orgId) {
+async function loadCollectionSignoffHistory(orgId, filters = {}) {
+  await ensureSignoffCorrectionSchema();
+  const page = parsePositiveInt(filters.page, 1, 1, 1000000);
+  const pageSize = parsePositiveInt(filters.pageSize, 20, 10, 100);
+  const offset = (page - 1) * pageSize;
   const result = await db.query(
     `SELECT h.signoff_id, h.bill_id, h.class_id,
             h.occurrence_date::text AS occurrence_date,
@@ -2778,17 +2835,41 @@ async function loadCollectionSignoffHistory(orgId) {
             b.title AS bill_title,
             c.class_name,
             u.first_name AS signer_first_name,
-            u.last_name AS signer_last_name
+            u.last_name AS signer_last_name,
+            COALESCE(corr.reopened_count, 0) AS reopened_count,
+            corr.last_reopened_at
        FROM finance_collection_signoffs h
        JOIN finance_bills b ON b.bill_id = h.bill_id
        LEFT JOIN classes c ON c.class_id = NULLIF(h.class_id, 0)
        LEFT JOIN users u ON u.user_id = h.signed_by_user_id
+       LEFT JOIN LATERAL (
+         SELECT COUNT(*)::int AS reopened_count,
+                MAX(created_at) AS last_reopened_at
+           FROM finance_collection_signoff_corrections corr
+          WHERE corr.organization_id = h.organization_id
+            AND corr.bill_id = h.bill_id
+            AND COALESCE(corr.class_id, 0) = COALESCE(NULLIF(h.class_id, 0), 0)
+            AND corr.scope_key = h.scope_key
+            AND (
+              (corr.occurrence_date IS NULL AND h.occurrence_date IS NULL)
+              OR corr.occurrence_date = h.occurrence_date::date
+            )
+       ) corr ON TRUE
       WHERE h.organization_id = $1
       ORDER BY h.signed_at DESC
-      LIMIT 200`,
-    [orgId]
+      LIMIT $2 OFFSET $3`,
+    [orgId, pageSize + 1, offset]
   ).catch(() => ({ rows: [] }));
-  return result.rows;
+  const hasMore = result.rows.length > pageSize;
+  return {
+    rows: hasMore ? result.rows.slice(0, pageSize) : result.rows,
+    pagination: {
+      page,
+      pageSize,
+      hasMore,
+      nextPage: hasMore ? page + 1 : null,
+    },
+  };
 }
 
 async function resolveScheduleValidationContext(database, orgId, schedule) {
@@ -3360,6 +3441,80 @@ module.exports = {
     }
   },
 
+  financeOverviewFragmentGet: async (req, res) => {
+    try {
+      if (!(await isFinanceAdmin(req))) return res.status(403).send("Access denied.");
+      const orgId = req.session.organizationId;
+      if (!orgId) return res.status(401).send("Unauthorized.");
+
+      await ensureFinanceSchema();
+      await ensureAssigneeColumn();
+
+      const refs = await cachedLoad(orgId, "refs", "lite", () => loadClassesAndStudents(orgId, {
+        includeClasses: false,
+        includeStudents: false,
+        includeEmployees: false,
+        includeEnrollmentLinks: false,
+      }));
+      return res.render("account/financeOverviewSection", {
+        refs,
+        selectedYear: req.query.year || "",
+        selectedTerm: req.query.term || "",
+      });
+    } catch (error) {
+      console.error("[financeOverviewFragmentGet]", error);
+      return res.status(500).send('<div class="fin-card"><div class="activity-empty">Unable to load overview right now. Please refresh.</div></div>');
+    }
+  },
+
+  financeOverviewDetailFragmentGet: async (req, res) => {
+    try {
+      if (!(await isFinanceAdmin(req))) return res.status(403).send("Access denied.");
+      const orgId = req.session.organizationId;
+      if (!orgId) return res.status(401).send("Unauthorized.");
+
+      await ensureFinanceSchema();
+      await ensureAssigneeColumn();
+
+      const refs = await cachedLoad(orgId, "refs", "lite", () => loadClassesAndStudents(orgId, {
+        includeClasses: false,
+        includeStudents: false,
+        includeEmployees: false,
+        includeEnrollmentLinks: false,
+      }));
+      const currentAcademic = getCurrentAcademicContext(refs);
+      const overviewFilters = {
+        school_year_id: req.query.year || currentAcademic.schoolYearId || null,
+        term_id: req.query.term || ((!req.query.year && !req.query.term) ? (currentAcademic.termId || null) : null),
+      };
+      const billFilters = {
+        school_year_id: overviewFilters.school_year_id,
+        term_id: overviewFilters.term_id,
+        page: 1,
+        pageSize: 20,
+      };
+
+      const [overview, billsResult, pspSettings, orgProfile] = await Promise.all([
+        cachedLoad(orgId, "overview", overviewFilters, () => loadOverviewStats(orgId, overviewFilters)),
+        cachedLoad(orgId, "overviewBills", billFilters, () => loadOverviewBillsSnapshot(orgId, billFilters)),
+        cachedLoad(orgId, "psp", null, () => loadPspSettings(orgId)),
+        cachedLoad(orgId, "orgProfile", null, () => loadOrganizationProfile(orgId)),
+      ]);
+
+      const display = await buildFinanceDisplayContext(req, orgId, pspSettings, orgProfile.organization_country);
+      return res.render("account/financeOverviewDetailSection", {
+        overview,
+        bills: Array.isArray(billsResult?.rows) ? billsResult.rows : [],
+        refs,
+        formatMoney: display.formatMoney,
+        financeCurrency: display.financeCurrency,
+      });
+    } catch (error) {
+      console.error("[financeOverviewDetailFragmentGet]", error);
+      return res.status(500).send('<div class="fin-card"><div class="activity-empty">Unable to load overview details right now. Please refresh.</div></div>');
+    }
+  },
+
 
   financeArrearsPageGet: async (req, res) => {
     req.query = { ...(req.query || {}), section: "arrears" };
@@ -3759,62 +3914,102 @@ module.exports = {
       await ensurePaymentProviderSchema(db);
       const section = String(req.query.section || "overview").toLowerCase();
       const createBillDraft = req.session.financeBillCreateDraft || null;
-      // Cached loaders — 60s TTL with background refresh. Writes invalidate.
-      // Only fetch what the current section actually renders to keep TTFB tight.
-      const needsBills = section === 'overview' || section === 'bills' || section === 'subscriptions' || section === 'payments';
-      const needsStudentBilling = section === 'students';
-      const needsSignoffHistory = section === 'payments';
-      const needsPaystackSubs = section === 'settings';
-      const needsChargeCards = section === 'settings' || section === 'overview';
+      const sectionsUsingBills = new Set(["bills", "subscriptions"]);
+      const needsBills = sectionsUsingBills.has(section);
+      const needsStudentBilling = section === "students";
+      const needsSignoffHistory = section === "payments";
+      const needsPaystackSubaccounts = section === "settings";
+      const needsChargeCards = section === "settings";
+      const needsOverview = section === "payments";
+      const needsTemplates = section === "templates";
+      const needsHeavyRefs = new Set(["bills", "students"]).has(section);
+      const refsMode = needsHeavyRefs ? "heavy" : "lite";
+      const refsLoaderOptions = needsHeavyRefs
+        ? { includeClasses: true, includeStudents: true, includeEmployees: true, includeEnrollmentLinks: true }
+        : { includeClasses: false, includeStudents: false, includeEmployees: false, includeEnrollmentLinks: false };
+      const signoffHistoryFilters = needsSignoffHistory
+        ? {
+            page: req.query.signoffPage,
+            pageSize: req.query.signoffPageSize,
+          }
+        : {};
 
-      const [templates, refs, pspSettings, orgProfile] = await Promise.all([
-        cachedLoad(orgId, "templates", null, () => loadTemplates(orgId)),
-        cachedLoad(orgId, "refs", null, () => loadClassesAndStudents(orgId)),
+      // Cached loaders — 60s TTL with background refresh. Writes invalidate.
+      const [templates, refs, pspSettings, orgProfile, signoffHistoryResult] = await Promise.all([
+        needsTemplates
+          ? cachedLoad(orgId, "templates", null, () => loadTemplates(orgId))
+          : Promise.resolve([]),
+        cachedLoad(orgId, "refs", refsMode, () => loadClassesAndStudents(orgId, refsLoaderOptions)),
         cachedLoad(orgId, "psp", null, () => loadPspSettings(orgId)),
         cachedLoad(orgId, "orgProfile", null, () => loadOrganizationProfile(orgId)),
+        needsSignoffHistory
+          ? cachedLoad(orgId, "signoffHistory", signoffHistoryFilters, () => loadCollectionSignoffHistory(orgId, signoffHistoryFilters))
+          : Promise.resolve({ rows: [], pagination: { page: 1, pageSize: 20, hasMore: false, nextPage: null } }),
       ]);
       const currentAcademic = getCurrentAcademicContext(refs);
       const overviewFilters = {
         school_year_id: req.query.year || currentAcademic.schoolYearId || null,
         term_id: req.query.term || ((!req.query.year && !req.query.term) ? (currentAcademic.termId || null) : null),
       };
-      const billListFilters = section === "bills"
+      const billListFilters = needsBills
         ? {
             school_year_id: req.query.billYear || currentAcademic.schoolYearId || null,
             term_id: req.query.billTerm || ((!req.query.billYear && !req.query.billTerm) ? (currentAcademic.termId || null) : null),
+            page: req.query.billPage,
+            pageSize: req.query.billPageSize,
           }
         : {};
-      const studentBillingFilters = section === "students"
+      const studentBillingFilters = needsStudentBilling
         ? {
             school_year_id: req.query.studentYear || currentAcademic.schoolYearId || null,
             term_id: req.query.studentTerm || ((!req.query.studentYear && !req.query.studentTerm) ? (currentAcademic.termId || null) : null),
+            page: req.query.studentPage,
+            pageSize: req.query.studentPageSize,
           }
         : {};
-      const [studentBilling, bills, overview, chargeCards, paystackSubaccountsResult, signoffHistory] = await Promise.all([
+      const [studentBillingResult, billsResult, overview, chargeCards, paystackSubaccountsResult] = await Promise.all([
         needsStudentBilling
           ? cachedLoad(orgId, "studentBilling", studentBillingFilters, () => loadStudentBilling(orgId, studentBillingFilters))
-          : Promise.resolve([]),
+          : Promise.resolve({ rows: [], pagination: { page: 1, pageSize: 80, hasMore: false, nextPage: null } }),
         needsBills
           ? cachedLoad(orgId, "bills", billListFilters, () => loadBills(orgId, billListFilters))
-          : Promise.resolve([]),
-        cachedLoad(orgId, "overview", overviewFilters, () => loadOverviewStats(orgId, overviewFilters)),
+          : Promise.resolve({ rows: [], pagination: { page: 1, pageSize: 60, hasMore: false, nextPage: null } }),
+        needsOverview
+          ? cachedLoad(orgId, "overview", overviewFilters, () => loadOverviewStats(orgId, overviewFilters))
+          : Promise.resolve({
+              totals: {
+                total_billed: 0,
+                total_collected: 0,
+                outstanding: 0,
+                overdue_count: 0,
+                total_assignments: 0,
+              },
+              overpayments: 0,
+              recent: [],
+              billCount: 0,
+              billStatusBreakdown: { paid: 0, pending: 0, overdue: 0, partial: 0, draft: 0, cancelled: 0 },
+              filters: { school_year_id: null, term_id: null },
+            }),
         needsChargeCards
           ? cachedLoad(orgId, "chargeCards", orgProfile.billing_provider || null, () => getOrgChargeCards(db, orgId, orgProfile.billing_provider || null))
           : Promise.resolve([]),
-        needsPaystackSubs
+        needsPaystackSubaccounts
           ? cachedLoad(orgId, "paystackSubaccounts", null, () => db.query(
               `SELECT id, account_type, business_name, account_number, bank_name, bank_code,
                       momo_provider, momo_number, account_holder_name, is_primary
-                 FROM paystack_subaccounts
-                WHERE organization_id = $1
-                ORDER BY is_primary DESC, id ASC`,
+               FROM paystack_subaccounts
+               WHERE organization_id = $1
+               ORDER BY is_primary DESC, id ASC`,
               [orgId]
             ))
           : Promise.resolve({ rows: [] }),
-        needsSignoffHistory
-          ? cachedLoad(orgId, "signoffHistory", null, () => loadCollectionSignoffHistory(orgId))
-          : Promise.resolve([]),
       ]);
+      const bills = Array.isArray(billsResult?.rows) ? billsResult.rows : [];
+      const studentBilling = Array.isArray(studentBillingResult?.rows) ? studentBillingResult.rows : [];
+      const signoffHistory = Array.isArray(signoffHistoryResult?.rows) ? signoffHistoryResult.rows : [];
+      const billPagination = billsResult?.pagination || { page: 1, pageSize: 60, hasMore: false, nextPage: null };
+      const studentBillingPagination = studentBillingResult?.pagination || { page: 1, pageSize: 80, hasMore: false, nextPage: null };
+      const signoffHistoryPagination = signoffHistoryResult?.pagination || { page: 1, pageSize: 20, hasMore: false, nextPage: null };
       const paystackSubaccounts = paystackSubaccountsResult.rows;
 
       // SPA / browser cache hint: lets the SPA router show last snapshot
@@ -3833,7 +4028,7 @@ module.exports = {
         await ensureArrearsSchema();
         const defaultArrearsSchoolYears = req.query.schoolYearIds || currentAcademic.schoolYearId || null;
         const defaultArrearsTerms = req.query.termIds || ((!req.query.schoolYearIds && !req.query.termIds) ? (currentAcademic.termId || null) : null);
-        const loadedArrears = await loadArrearsManagementData(orgId, {
+        const arrearsFilters = {
           schoolYearIds: defaultArrearsSchoolYears,
           termIds: defaultArrearsTerms,
           classIds: req.query.classIds,
@@ -3845,7 +4040,8 @@ module.exports = {
           paymentMethodFilter: req.query.paymentMethodFilter,
           emailStatusFilter: req.query.emailStatusFilter,
           search: req.query.search,
-        });
+        };
+        const loadedArrears = await cachedLoad(orgId, "arrearsData", arrearsFilters, () => loadArrearsManagementData(orgId, arrearsFilters));
         arrearsData = {
           ...loadedArrears,
           queryString: buildArrearsQueryString(loadedArrears.filters),
@@ -3863,8 +4059,10 @@ module.exports = {
             })),
           })),
         };
-        arrearsReports = await loadArrearsReports(orgId);
-        arrearsPresets = await loadArrearsPresets(orgId);
+        [arrearsReports, arrearsPresets] = await Promise.all([
+          cachedLoad(orgId, "arrearsReports", null, () => loadArrearsReports(orgId)),
+          cachedLoad(orgId, "arrearsPresets", null, () => loadArrearsPresets(orgId)),
+        ]);
       }
 
       // Mask sensitive secrets before sending to view
@@ -3881,6 +4079,7 @@ module.exports = {
       res.render("account/finance", {
         title: "Finance & Billing",
         section,
+        lazyOverview: section === "overview",
         overview,
         bills,
         studentBilling,
@@ -3893,6 +4092,7 @@ module.exports = {
         countryOptions: getFinanceCountryOptions(),
         financeCountry,
         signoffHistory,
+        signoffHistoryPagination,
         arrearsData,
         arrearsReports,
         arrearsPresets,
@@ -3903,7 +4103,9 @@ module.exports = {
         platformStripeKey,
         createBillDraft,
         billListFilters,
+        billPagination,
         studentBillingFilters,
+        studentBillingPagination,
         formatMoney: display.formatMoney,
         formatUsdEquivalent: display.formatUsdEquivalent,
         stripeCatalog: STRIPE_METHOD_CATALOG,
@@ -4290,6 +4492,490 @@ module.exports = {
     }
     res.redirect("/account/settings/finance?section=payments");
   },
+
+  paymentDeletePost: async (req, res) => {
+    if (!(await isFinanceAdmin(req))) return res.redirect("/account/settings");
+    const orgId = req.session.organizationId;
+    const paymentId = parseInt(req.params.id, 10);
+    const correctionNote = String(req.body.correction_note || '').trim();
+    if (!Number.isInteger(paymentId) || paymentId <= 0) {
+      req.flash("error", "Invalid payment selected.");
+      return res.redirect("/account/settings/finance?section=payments");
+    }
+
+    let client;
+    try {
+      client = await db.connect();
+      await client.query("BEGIN");
+
+      const paymentResult = await client.query(
+        `SELECT p.payment_id, p.organization_id, p.assignment_id, p.bill_id, p.student_id,
+                p.amount, p.method, p.reference, p.notes, p.occurrence_date::text AS occurrence_date,
+                p.received_at,
+                a.amount AS assignment_amount,
+                a.late_fee_applied,
+                a.amount_paid AS assignment_amount_paid,
+                b.title AS bill_title,
+                b.bill_type,
+                b.recurrence,
+                b.due_date,
+                b.recurrence_end_date,
+                b.term_id,
+                b.exclude_non_school_days,
+                tm.end_date AS term_end_date,
+                s.first_name,
+                s.last_name
+           FROM finance_payments p
+           LEFT JOIN finance_bill_assignments a ON a.assignment_id = p.assignment_id
+           LEFT JOIN finance_bills b ON b.bill_id = p.bill_id
+           LEFT JOIN terms tm ON tm.term_id = b.term_id
+           LEFT JOIN students s ON s.student_id = p.student_id
+          WHERE p.payment_id = $1 AND p.organization_id = $2
+          LIMIT 1
+          FOR UPDATE`,
+        [paymentId, orgId]
+      );
+
+      if (!paymentResult.rows.length) {
+        throw new PaygiraRequestError("Payment not found.", 404);
+      }
+
+      const payment = paymentResult.rows[0];
+      const occurrenceScope = normalizeOccurrenceDate(payment.occurrence_date);
+
+      if (payment.bill_id) {
+        const signoffLock = await client.query(
+          `SELECT signoff_id, scope_key
+             FROM finance_collection_signoffs
+            WHERE organization_id = $1
+              AND bill_id = $2
+              AND (scope_key = 'bill' OR ($3::text IS NOT NULL AND scope_key = $3::text))
+            ORDER BY signed_at DESC
+            LIMIT 1`,
+          [orgId, payment.bill_id, occurrenceScope]
+        );
+        if (signoffLock.rows.length) {
+          throw new PaygiraRequestError("This payment belongs to a signed-off scope. Un-sign that scope first, then retry.", 400);
+        }
+      }
+
+      let assignmentUpdate = null;
+      let creditBefore = 0;
+      let creditAfter = 0;
+      if (payment.assignment_id) {
+        const totalsBeforeResult = await client.query(
+          `SELECT COALESCE(SUM(amount), 0) AS total_paid
+             FROM finance_payments
+            WHERE organization_id = $1 AND assignment_id = $2`,
+          [orgId, payment.assignment_id]
+        );
+        const totalPaidBeforeDelete = Number(totalsBeforeResult.rows[0]?.total_paid || 0);
+        const totalPaidAfterDelete = Math.max(totalPaidBeforeDelete - Number(payment.amount || 0), 0);
+        const isRecurring = String(payment.bill_type || '').toLowerCase() === 'recurring';
+
+        if (payment.student_id) {
+          creditBefore = await getStudentCreditBalance(client, orgId, payment.student_id, { forUpdate: true });
+        }
+
+        const assignmentScheduleContext = createBillScheduleContextLoader(client, orgId);
+        const scheduledDue = isRecurring
+          ? await getScheduledBilledAmount({
+              amount: payment.assignment_amount,
+              bill_type: payment.bill_type,
+              recurrence: payment.recurrence,
+              due_date: payment.due_date,
+              recurrence_end_date: payment.recurrence_end_date,
+              term_id: payment.term_id,
+              term_end_date: payment.term_end_date,
+              exclude_non_school_days: payment.exclude_non_school_days,
+            }, assignmentScheduleContext)
+          : Number(payment.assignment_amount || 0);
+        const totalDue = Number(scheduledDue || 0) + Number(payment.late_fee_applied || 0);
+
+        let creditAdjustment = 0;
+        if (String(payment.method || '').toLowerCase() === 'credit') {
+          creditAdjustment += Number(payment.amount || 0);
+        }
+        if (!isRecurring) {
+          const overBefore = Math.max(totalPaidBeforeDelete - totalDue, 0);
+          const overAfter = Math.max(totalPaidAfterDelete - totalDue, 0);
+          creditAdjustment -= Math.max(overBefore - overAfter, 0);
+        }
+
+        if (creditBefore + creditAdjustment < -0.000001) {
+          throw new PaygiraRequestError(
+            "Cannot delete this payment because linked overpayment credit has already been used. Reverse related credit usage first.",
+            400
+          );
+        }
+
+        const appliedToAssignment = Math.min(totalPaidAfterDelete, totalDue);
+        const newStatus = isRecurring
+          ? (appliedToAssignment >= totalDue
+              ? 'paid'
+              : (appliedToAssignment > 0
+                ? 'partial'
+                : recalcAssignmentStatus(payment.assignment_amount, payment.late_fee_applied, appliedToAssignment, payment.due_date)))
+          : recalcAssignmentStatus(payment.assignment_amount, payment.late_fee_applied, appliedToAssignment, payment.due_date);
+
+        assignmentUpdate = {
+          amountPaid: appliedToAssignment,
+          status: newStatus,
+        };
+
+        creditAfter = payment.student_id
+          ? await setStudentCreditBalance(client, orgId, payment.student_id, creditBefore + creditAdjustment)
+          : creditBefore;
+      }
+
+      await client.query(
+        `DELETE FROM finance_payments WHERE payment_id = $1 AND organization_id = $2`,
+        [paymentId, orgId]
+      );
+
+      if (payment.assignment_id && assignmentUpdate) {
+        await client.query(
+          `UPDATE finance_bill_assignments
+              SET amount_paid = $1, status = $2, updated_at = now()
+            WHERE assignment_id = $3 AND organization_id = $4`,
+          [assignmentUpdate.amountPaid, assignmentUpdate.status, payment.assignment_id, orgId]
+        );
+      }
+
+      await client.query("COMMIT");
+
+      const studentLabel = [payment.first_name, payment.last_name].filter(Boolean).join(' ').trim() || `Student #${payment.student_id || 'N/A'}`;
+      const display = await buildFinanceDisplayContext(req, orgId);
+      await logPaygira(req, {
+        actionType: "Deleted Payment",
+        recordType: "Payment",
+        recordId: paymentId,
+        recordLabel: `${studentLabel} — ${payment.bill_title || 'Bill payment'}`,
+        description: `Deleted payment ${display.formatMoney(payment.amount || 0)} (${payment.method || 'unknown'}) for ${studentLabel}${payment.bill_title ? ` on "${payment.bill_title}"` : ''}.${correctionNote ? ` Note: ${correctionNote}` : ''}`,
+        changedFields: [
+          { field: "Amount", value: display.formatMoney(payment.amount || 0) },
+          { field: "Method", value: String(payment.method || '—') },
+          { field: "Reference", value: payment.reference || '—' },
+          ...(payment.assignment_id && assignmentUpdate ? [{ field: "Assignment Status", value: assignmentUpdate.status }] : []),
+          ...(payment.student_id ? [{ field: "Credit Balance", value: `${display.formatMoney(creditBefore)} -> ${display.formatMoney(creditAfter)}` }] : []),
+        ],
+      });
+
+      req.flash(
+        "success",
+        `Payment deleted. Audit logs were saved, and the affected record was recalculated to ${assignmentUpdate ? assignmentUpdate.status : 'the correct'} payment status.`
+      );
+    } catch (error) {
+      if (client) {
+        try { await client.query("ROLLBACK"); } catch (_) {}
+      }
+      console.error("[paymentDeletePost]", error);
+      req.flash("error", error instanceof PaygiraRequestError ? error.message : "Could not delete payment.");
+    } finally {
+      if (client) client.release();
+    }
+
+    res.redirect("/account/settings/finance?section=payments");
+  },
+
+  signoffUnsignPost: async (req, res) => {
+    if (!(await isFinanceAdmin(req))) return res.redirect("/account/settings");
+    const orgId = req.session.organizationId;
+    const signoffId = parseInt(req.params.id, 10);
+    if (!Number.isInteger(signoffId) || signoffId <= 0) {
+      req.flash("error", "Invalid sign-off selected.");
+      return res.redirect("/account/settings/finance?section=payments");
+    }
+
+    try {
+      await ensureSignoffCorrectionSchema();
+      const rowResult = await db.query(
+        `SELECT h.signoff_id, h.bill_id, h.class_id, h.occurrence_date::text AS occurrence_date,
+                h.scope_key, h.signed_by_name, h.signed_at, h.total_collected,
+                b.title AS bill_title
+           FROM finance_collection_signoffs h
+           JOIN finance_bills b ON b.bill_id = h.bill_id
+          WHERE h.signoff_id = $1 AND h.organization_id = $2
+          LIMIT 1`,
+        [signoffId, orgId]
+      );
+      if (!rowResult.rows.length) {
+        throw new PaygiraRequestError("Sign-off record not found.", 404);
+      }
+      const signoff = rowResult.rows[0];
+
+      const normalizedScope = String(signoff.scope_key || 'bill').trim() || 'bill';
+      const normalizedOccurrenceDate = normalizedScope === 'bill'
+        ? null
+        : normalizeOccurrenceDate(signoff.occurrence_date);
+      const reopenedByUserId = req.session.user?.user_id || req.session.userId || null;
+      const reopenedByName = [req.session.user?.first_name, req.session.user?.last_name].filter(Boolean).join(' ').trim()
+        || req.session.user?.email
+        || req.session.email
+        || 'Finance Admin';
+
+      await db.query(
+        `INSERT INTO finance_collection_signoff_corrections
+          (organization_id, bill_id, class_id, scope_key, occurrence_date, reopened_signoff_id, reopened_by_user_id, reopened_by_name, note)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          orgId,
+          signoff.bill_id,
+          normalizeSignoffClassId(signoff.class_id),
+          normalizedScope,
+          normalizedOccurrenceDate,
+          signoffId,
+          reopenedByUserId,
+          reopenedByName,
+          'Reopened for correction via PayGira sign-off history.',
+        ]
+      );
+
+      await db.query(
+        `DELETE FROM finance_collection_signoffs WHERE signoff_id = $1 AND organization_id = $2`,
+        [signoffId, orgId]
+      );
+
+      await logPaygira(req, {
+        actionType: "Unsigned",
+        recordType: "Collection Sign-Off",
+        recordId: signoffId,
+        recordLabel: signoff.bill_title || `Bill #${signoff.bill_id}`,
+        description: `Unsigned collection sign-off for ${signoff.bill_title || `bill #${signoff.bill_id}`} (${signoff.scope_key === 'bill' ? 'whole bill' : (signoff.occurrence_date || 'date scope')}).`,
+        changedFields: [
+          { field: "Signer", value: signoff.signed_by_name || 'Staff' },
+          { field: "Scope", value: signoff.scope_key === 'bill' ? 'Whole bill' : (signoff.occurrence_date || 'Date') },
+          { field: "Collected", value: Number(signoff.total_collected || 0).toFixed(2) },
+        ],
+      });
+
+      req.flash("success", "Sign-off reopened for correction. Audit logs were saved. The collection is back in class PayGira and can be signed off again after corrections.");
+    } catch (error) {
+      console.error("[signoffUnsignPost]", error);
+      req.flash("error", error instanceof PaygiraRequestError ? error.message : "Could not remove sign-off.");
+    }
+
+    res.redirect("/account/settings/finance?section=payments");
+  },
+
+  signoffReportGet: async (req, res) => {
+    if (!(await isFinanceAdmin(req))) return res.status(403).send("Access denied.");
+    const orgId = req.session.organizationId;
+    const signoffId = parseInt(req.params.id, 10);
+    if (!Number.isInteger(signoffId) || signoffId <= 0) return res.status(400).send("Invalid sign-off ID.");
+
+    const escapeHtml = (value) => String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+    try {
+      const signoffResult = await db.query(
+        `SELECT h.signoff_id, h.bill_id, h.class_id, h.occurrence_date::text AS occurrence_date,
+                h.scope_key, h.signed_by_name, h.signed_at, h.total_collected, h.student_count,
+                b.title AS bill_title,
+                o.organization_name, o.organization_address, o.organization_phone, o.email AS organization_email,
+                o.logo_path AS organization_logo,
+                c.class_name
+           FROM finance_collection_signoffs h
+           JOIN finance_bills b ON b.bill_id = h.bill_id
+           JOIN organizations o ON o.organization_id = h.organization_id
+           LEFT JOIN classes c ON c.class_id = NULLIF(h.class_id, 0)
+          WHERE h.signoff_id = $1 AND h.organization_id = $2
+          LIMIT 1`,
+        [signoffId, orgId]
+      );
+      if (!signoffResult.rows.length) return res.status(404).send("Sign-off not found.");
+      const signoff = signoffResult.rows[0];
+      const display = await buildFinanceDisplayContext(req, orgId);
+      const paygiraLogoUrl = '/images/managira.png';
+      const schoolLogoUrl = signoff.organization_logo
+        ? (String(signoff.organization_logo).startsWith('http')
+            ? String(signoff.organization_logo)
+            : `/uploads/${String(signoff.organization_logo).replace(/^\/+/, '')}`)
+        : '';
+
+      const scopeClassId = normalizeSignoffClassId(signoff.class_id);
+      const isOccurrenceScope = signoff.scope_key !== 'bill' && !!normalizeOccurrenceDate(signoff.occurrence_date);
+      const params = [orgId, signoff.bill_id, scopeClassId];
+      let dateSql = '';
+      if (isOccurrenceScope) {
+        params.push(normalizeOccurrenceDate(signoff.occurrence_date));
+        dateSql = ` AND p.occurrence_date = $4::date`;
+      }
+
+      const paymentsResult = await db.query(
+        `SELECT p.payment_id,
+                p.received_at,
+                p.occurrence_date::text AS occurrence_date,
+                p.amount,
+                p.method,
+                p.reference,
+                p.notes,
+                COALESCE(CONCAT_WS(' ', s.first_name, s.last_name), 'Unknown student') AS student_name,
+                COALESCE(c.class_name, 'No class') AS class_name,
+                COALESCE(CONCAT_WS(' ', u.first_name, u.last_name), 'System') AS received_by
+           FROM finance_payments p
+           LEFT JOIN students s ON s.student_id = p.student_id
+           LEFT JOIN finance_bills b ON b.bill_id = p.bill_id
+           LEFT JOIN classes c ON c.class_id = s.class_id
+           LEFT JOIN users u ON u.user_id = p.received_by
+          WHERE p.organization_id = $1
+            AND p.bill_id = $2
+            AND ${buildAcademicClassScopeClause({ studentAlias: 's', billAlias: 'b', classParamSql: '$3', orgParamSql: '$1' })}
+            ${dateSql}
+          ORDER BY p.received_at ASC`,
+        params
+      );
+
+      if (String(req.query.format || '').toLowerCase() === 'csv') {
+        const headerRows = [
+          ['Organization', signoff.organization_name || ''],
+          ['Sign-Off ID', String(signoff.signoff_id)],
+          ['Bill', signoff.bill_title || ''],
+          ['Scope', signoff.scope_key === 'bill' ? 'Whole bill' : (signoff.occurrence_date || 'Date scope')],
+          ['Class', scopeClassId > 0 ? (signoff.class_name || 'Class scope') : 'All assigned students'],
+          ['Signed By', signoff.signed_by_name || 'Staff'],
+          ['Signed At', signoff.signed_at ? new Date(signoff.signed_at).toISOString() : ''],
+          [''],
+        ];
+        const tableHeader = [['Payment ID', 'Date', 'Student', 'Class', 'Occurrence Date', 'Method', 'Reference', 'Amount', 'Collected By', 'Notes']];
+        const tableRows = paymentsResult.rows.map((row) => [
+          row.payment_id,
+          row.received_at ? new Date(row.received_at).toISOString() : '',
+          row.student_name,
+          row.class_name,
+          row.occurrence_date || '',
+          row.method || '',
+          row.reference || '',
+          Number(row.amount || 0).toFixed(2),
+          row.received_by || '',
+          row.notes || '',
+        ]);
+        const toCsvLine = (cells) => cells.map((cell) => `"${String(cell == null ? '' : cell).replace(/"/g, '""')}"`).join(',');
+        const csv = [...headerRows, ...tableHeader, ...tableRows].map(toCsvLine).join('\r\n');
+
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="signoff-${signoff.signoff_id}-payments.csv"`);
+        return res.send(csv);
+      }
+
+      const rowsHtml = paymentsResult.rows.map((row, index) => `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${escapeHtml(row.received_at ? new Date(row.received_at).toLocaleString() : '—')}</td>
+          <td>${escapeHtml(row.student_name || '—')}</td>
+          <td>${escapeHtml(row.class_name || '—')}</td>
+          <td>${escapeHtml(row.occurrence_date ? new Date(`${row.occurrence_date}T00:00:00`).toLocaleDateString() : '—')}</td>
+          <td>${escapeHtml(row.method || '—')}</td>
+          <td>${escapeHtml(row.reference || '—')}</td>
+          <td style="text-align:right;">${escapeHtml(display.formatMoney(row.amount || 0))}</td>
+          <td>${escapeHtml(row.received_by || 'System')}</td>
+          <td>${escapeHtml(row.notes || '—')}</td>
+        </tr>
+      `).join('');
+
+      return res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sign-Off Payments Report #${signoff.signoff_id}</title>
+  <style>
+    :root { color-scheme: light; }
+    body { font-family: Arial, sans-serif; margin: 0; color: #111827; background: #edf2f7; }
+    .page { max-width: 1120px; margin: 0 auto; padding: 28px; }
+    .sheet { background: #ffffff; border: 1px solid #dbe3ef; border-radius: 24px; padding: 28px; box-shadow: 0 20px 54px rgba(15, 23, 42, 0.08); }
+    h1 { margin: 0 0 6px; font-size: 28px; }
+    .meta { margin: 0 0 18px; color: #4b5563; font-size: 13px; }
+    .hero { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; margin-bottom: 20px; }
+    .brand-stack { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .logo-card { display: flex; align-items: center; justify-content: center; background: #fff; border: 1px solid #dbe3ef; border-radius: 16px; min-width: 108px; min-height: 72px; padding: 10px 14px; }
+    .logo-card img { display: block; max-height: 52px; max-width: 132px; object-fit: contain; }
+    .logo-card.fallback { font-size: 12px; color: #64748b; letter-spacing: 0.08em; text-transform: uppercase; }
+    .hero-note { background: linear-gradient(135deg, #f8fbff, #eef6ff); border: 1px solid #cfe1ff; border-radius: 16px; padding: 14px 16px; max-width: 320px; color: #23406a; font-size: 12px; line-height: 1.5; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px 20px; margin-bottom: 18px; }
+    .item strong { display: inline-block; min-width: 120px; color: #111827; }
+    .actions { margin: 0 0 18px; display: flex; gap: 10px; flex-wrap: wrap; }
+    .actions a { display: inline-block; padding: 9px 13px; border: 1px solid #d1d5db; border-radius: 999px; text-decoration: none; color: #111827; background: #fff; }
+    .actions a.primary { background: #0f1728; color: #fff; border-color: #0f1728; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; overflow: hidden; border-radius: 16px; }
+    th, td { border: 1px solid #e5e7eb; padding: 7px 8px; vertical-align: top; }
+    th { background: #f8fafc; text-align: left; }
+    .summary { margin: 10px 0 16px; font-size: 13px; color: #334155; }
+    @media (max-width: 760px) {
+      .page { padding: 16px; }
+      .sheet { padding: 18px; border-radius: 18px; }
+      .hero, .grid { display: block; }
+      .hero-note { max-width: none; margin-top: 14px; }
+      .item { margin-bottom: 8px; }
+      table { font-size: 11px; }
+    }
+    @media print {
+      body { background: #fff; }
+      .page { max-width: none; padding: 0; }
+      .sheet { box-shadow: none; border: 0; border-radius: 0; padding: 0; }
+      .actions { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+  <div class="sheet">
+  <div class="hero">
+    <div>
+      <div class="brand-stack">
+        <div class="logo-card">
+          <img src="${escapeHtml(paygiraLogoUrl)}" alt="PayGira by Managira" />
+        </div>
+        ${schoolLogoUrl ? `<div class="logo-card"><img src="${escapeHtml(schoolLogoUrl)}" alt="${escapeHtml(signoff.organization_name || 'School')} logo" /></div>` : `<div class="logo-card fallback">School Logo</div>`}
+      </div>
+      <h1>${escapeHtml(signoff.organization_name || 'School')}</h1>
+      <p class="meta">Collection Sign-Off Payments Report (Read-only audit copy)</p>
+    </div>
+    <div class="hero-note">
+      This report is a locked snapshot of the signed collection scope. If corrections are needed, reopen the sign-off from Finance, correct the payments, and sign it off again.
+    </div>
+  </div>
+  <div class="grid">
+    <div class="item"><strong>Sign-Off ID:</strong> ${escapeHtml(signoff.signoff_id)}</div>
+    <div class="item"><strong>Signed At:</strong> ${escapeHtml(signoff.signed_at ? new Date(signoff.signed_at).toLocaleString() : '—')}</div>
+    <div class="item"><strong>Bill:</strong> ${escapeHtml(signoff.bill_title || '—')}</div>
+    <div class="item"><strong>Scope:</strong> ${escapeHtml(signoff.scope_key === 'bill' ? 'Whole bill' : (signoff.occurrence_date || 'Date scope'))}</div>
+    <div class="item"><strong>Class:</strong> ${escapeHtml(scopeClassId > 0 ? (signoff.class_name || 'Class scope') : 'All assigned students')}</div>
+    <div class="item"><strong>Signed By:</strong> ${escapeHtml(signoff.signed_by_name || 'Staff')}</div>
+    <div class="item"><strong>Students:</strong> ${escapeHtml(signoff.student_count || 0)}</div>
+    <div class="item"><strong>Collected at sign-off:</strong> ${escapeHtml(display.formatMoney(signoff.total_collected || 0))}</div>
+    <div class="item"><strong>Address:</strong> ${escapeHtml(signoff.organization_address || '—')}</div>
+    <div class="item"><strong>Contact:</strong> ${escapeHtml(signoff.organization_phone || signoff.organization_email || '—')}</div>
+  </div>
+  <div class="actions">
+    <a class="primary" href="/account/settings/finance/signoffs/${signoff.signoff_id}/report?format=csv">Download CSV</a>
+    <a href="javascript:window.print()">Print</a>
+  </div>
+  <div class="summary"><strong>Payments in this sign-off scope:</strong> ${paymentsResult.rows.length} row(s).</div>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>Date</th><th>Student</th><th>Class</th><th>Occurrence</th><th>Method</th><th>Reference</th><th>Amount</th><th>Collected By</th><th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rowsHtml || '<tr><td colspan="10" style="text-align:center;color:#6b7280;">No payments were found for this sign-off scope.</td></tr>'}
+    </tbody>
+  </table>
+  </div>
+  </div>
+</body>
+</html>`);
+    } catch (error) {
+      console.error('[signoffReportGet]', error);
+      return res.status(500).send('Could not build sign-off report.');
+    }
+  },
+
   assignmentsJsonGet: async (req, res) => {
     if (!(await isFinanceAdmin(req))) return res.status(403).json([]);
     const orgId = req.session.organizationId;
@@ -4820,96 +5506,107 @@ module.exports = {
       const scopeClassId = normalizeSignoffClassId(viewClassId);
       await ensureFinanceSchema();
       await ensureAssigneeColumn();
+      const orgContextPromise = Promise.all([
+        cachedLoad(orgId, "psp", null, () => loadPspSettings(orgId)),
+        cachedLoad(orgId, "orgProfile", null, () => loadOrganizationProfile(orgId)),
+      ]);
+      const staffCacheKey = { userId, viewClassId: viewClassId || null };
+      const staffDataPromise = cachedLoad(orgId, "staffMyPaygiraData", staffCacheKey, async () => {
+        const [billsR, assignmentsR] = await Promise.all([
+          db.query(
+            `SELECT b.*, tm.end_date AS term_end_date, COUNT(a.assignment_id) AS assigned_count
+               FROM finance_bills b
+               JOIN finance_bill_assignments a ON a.bill_id = b.bill_id AND a.organization_id = $1
+               JOIN students s ON s.student_id = a.student_id
+               LEFT JOIN terms tm ON tm.term_id = b.term_id
+              WHERE b.organization_id = $1
+                AND COALESCE(b.status, 'active') <> 'cancelled'
+                AND a.status <> 'cancelled'
+                AND (b.assignee_id = $2
+                     OR EXISTS (SELECT 1 FROM finance_bill_collectors c WHERE c.bill_id = b.bill_id AND c.user_id = $2))
+                AND ${buildAcademicClassScopeClause({ studentAlias: 's', billAlias: 'b', classParamSql: '$3', orgParamSql: '$1' })}
+              GROUP BY b.bill_id, tm.end_date
+              ORDER BY b.due_date NULLS LAST, b.created_at DESC`,
+            [orgId, userId, scopeClassId]
+          ),
+          db.query(
+            `SELECT a.*, b.title AS bill_title, b.due_date, b.bill_type, b.recurrence, b.recurrence_end_date,
+                    b.term_id, b.exclude_non_school_days,
+                    tm.end_date AS term_end_date,
+                    s.first_name, s.last_name, s.image_url, s.class_id, c.class_name
+               FROM finance_bill_assignments a
+               JOIN finance_bills b ON b.bill_id = a.bill_id
+               JOIN students s ON s.student_id = a.student_id
+               LEFT JOIN classes c ON c.class_id = s.class_id
+               LEFT JOIN terms tm ON tm.term_id = b.term_id
+              WHERE a.organization_id = $1
+                AND a.status <> 'cancelled'
+                AND COALESCE(b.status, 'active') <> 'cancelled'
+                AND (b.assignee_id = $2
+                     OR EXISTS (SELECT 1 FROM finance_bill_collectors c WHERE c.bill_id = b.bill_id AND c.user_id = $2))
+                AND ${buildAcademicClassScopeClause({ studentAlias: 's', billAlias: 'b', classParamSql: '$3', orgParamSql: '$1' })}
+              ORDER BY a.status DESC, b.due_date NULLS LAST, s.last_name`,
+            [orgId, userId, scopeClassId]
+          ),
+        ]);
 
-      // All bills assigned to me as collector/overseer (via junction table OR legacy assignee_id)
-      const billsR = await db.query(
-        `SELECT b.*, tm.end_date AS term_end_date, COUNT(a.assignment_id) AS assigned_count
-           FROM finance_bills b
-           JOIN finance_bill_assignments a ON a.bill_id = b.bill_id AND a.organization_id = $1
-           JOIN students s ON s.student_id = a.student_id
-           LEFT JOIN terms tm ON tm.term_id = b.term_id
-          WHERE b.organization_id = $1
-            AND COALESCE(b.status, 'active') <> 'cancelled'
-            AND a.status <> 'cancelled'
-            AND (b.assignee_id = $2
-                 OR EXISTS (SELECT 1 FROM finance_bill_collectors c WHERE c.bill_id = b.bill_id AND c.user_id = $2))
-            AND ${buildAcademicClassScopeClause({ studentAlias: 's', billAlias: 'b', classParamSql: '$3', orgParamSql: '$1' })}
-          GROUP BY b.bill_id, tm.end_date
-          ORDER BY b.due_date NULLS LAST, b.created_at DESC`,
-        [orgId, userId, scopeClassId]
-      );
+        const scheduleContext = createBillScheduleContextLoader(db, orgId);
+        const allAssignments = await Promise.all(
+          assignmentsR.rows.map((row) => enrichScheduledAssignment(row, scheduleContext))
+        );
+        const signoffRows = await loadCollectionSignoffs(
+          orgId,
+          billsR.rows.map((row) => Number(row.bill_id)).filter(Boolean)
+        );
+        const signoffsByBillId = signoffRows.reduce((accumulator, row) => {
+          const billKey = String(row.bill_id || "");
+          if (!billKey) return accumulator;
+          if (!accumulator[billKey]) accumulator[billKey] = [];
+          accumulator[billKey].push(row);
+          return accumulator;
+        }, {});
 
-      // All outstanding per-student assignments under my bills
-      const assignmentsR = await db.query(
-        `SELECT a.*, b.title AS bill_title, b.due_date, b.bill_type, b.recurrence, b.recurrence_end_date,
-                b.term_id, b.exclude_non_school_days,
-                tm.end_date AS term_end_date,
-                s.first_name, s.last_name, s.image_url, s.class_id, c.class_name
-           FROM finance_bill_assignments a
-           JOIN finance_bills b ON b.bill_id = a.bill_id
-           JOIN students s ON s.student_id = a.student_id
-           LEFT JOIN classes c ON c.class_id = s.class_id
-           LEFT JOIN terms tm ON tm.term_id = b.term_id
-          WHERE a.organization_id = $1
-            AND a.status <> 'cancelled'
-            AND COALESCE(b.status, 'active') <> 'cancelled'
-            AND (b.assignee_id = $2
-                 OR EXISTS (SELECT 1 FROM finance_bill_collectors c WHERE c.bill_id = b.bill_id AND c.user_id = $2))
-            AND ${buildAcademicClassScopeClause({ studentAlias: 's', billAlias: 'b', classParamSql: '$3', orgParamSql: '$1' })}
-          ORDER BY a.status DESC, b.due_date NULLS LAST, s.last_name`,
-        [orgId, userId, scopeClassId]
-      );
-      const scheduleContext = createBillScheduleContextLoader(db, orgId);
-      const allAssignments = await Promise.all(
-        assignmentsR.rows.map((row) => enrichScheduledAssignment(row, scheduleContext))
-      );
-      const signoffRows = await loadCollectionSignoffs(
-        orgId,
-        billsR.rows.map((row) => Number(row.bill_id)).filter(Boolean)
-      );
-      const signoffsByBillId = signoffRows.reduce((accumulator, row) => {
-        const billKey = String(row.bill_id || "");
-        if (!billKey) return accumulator;
-        if (!accumulator[billKey]) accumulator[billKey] = [];
-        accumulator[billKey].push(row);
-        return accumulator;
-      }, {});
+        const assignments = allAssignments.filter((assignment) => {
+          if (String(assignment.bill_type || '').toLowerCase() === 'recurring') return true;
+          return !getCurrentViewBillSignoff(signoffsByBillId[String(assignment.bill_id)] || [], viewClassId);
+        });
 
-      const assignments = allAssignments.filter((assignment) => {
-        if (String(assignment.bill_type || '').toLowerCase() === 'recurring') return true;
-        return !getCurrentViewBillSignoff(signoffsByBillId[String(assignment.bill_id)] || [], viewClassId);
+        const visibleBillIds = new Set(assignments.map((assignment) => String(assignment.bill_id)));
+        const bills = applyScheduledBillRollups(billsR.rows, assignments)
+          .map((bill) => ({
+            ...bill,
+            signed_off: !!getCurrentViewBillSignoff(signoffsByBillId[String(bill.bill_id)] || [], viewClassId),
+            signed_off_dates: getCurrentViewSignedOffDates(signoffsByBillId[String(bill.bill_id)] || [], viewClassId),
+          }))
+          .filter((bill) => visibleBillIds.has(String(bill.bill_id)) && !bill.signed_off);
+
+        const stats = {
+          bills: bills.length,
+          students: assignments.length,
+          billed: assignments.reduce((sum, assignment) => sum + Number(assignment.scheduled_billed_total || 0), 0),
+          collected: assignments.reduce((sum, assignment) => sum + Number(assignment.amount_paid || 0), 0),
+          outstanding: assignments.reduce((sum, assignment) => sum + Number(assignment.scheduled_outstanding_total || 0), 0),
+        };
+
+        return { bills, assignments, stats };
       });
 
-      const visibleBillIds = new Set(assignments.map((assignment) => String(assignment.bill_id)));
-      const bills = applyScheduledBillRollups(billsR.rows, assignments)
-        .map((bill) => ({
-          ...bill,
-          signed_off: !!getCurrentViewBillSignoff(signoffsByBillId[String(bill.bill_id)] || [], viewClassId),
-          signed_off_dates: getCurrentViewSignedOffDates(signoffsByBillId[String(bill.bill_id)] || [], viewClassId),
-        }))
-        .filter((bill) => visibleBillIds.has(String(bill.bill_id)) && !bill.signed_off);
-
-      // Aggregate totals across my assigned bills
-      const stats = {
-        bills:        bills.length,
-        students:     assignments.length,
-        billed:       assignments.reduce((sum, assignment) => sum + Number(assignment.scheduled_billed_total || 0), 0),
-        collected:    assignments.reduce((sum, assignment) => sum + Number(assignment.amount_paid || 0), 0),
-        outstanding:  assignments.reduce((sum, assignment) => sum + Number(assignment.scheduled_outstanding_total || 0), 0),
-      };
-
-      const pspSettings = await loadPspSettings(orgId);
-      const orgProfile = await loadOrganizationProfile(orgId);
-      const stripeRuntime = await resolveFinanceStripeRuntime(orgId, pspSettings, orgProfile);
+      const [staffData, [pspSettings, orgProfile]] = await Promise.all([
+        staffDataPromise,
+        orgContextPromise,
+      ]);
+      const [stripeRuntime, display] = await Promise.all([
+        resolveFinanceStripeRuntime(orgId, pspSettings, orgProfile),
+        buildFinanceDisplayContext(req, orgId, pspSettings, orgProfile.organization_country),
+      ]);
       const allowedMethods = computeAllowedMethods(pspSettings, { stripeOn: stripeRuntime.stripeOn });
-      const display = await buildFinanceDisplayContext(req, orgId, pspSettings, orgProfile.organization_country);
       allowedMethods.currency = display.financeCurrency.code;
 
       res.render("account/myPaygira", {
         title: "My PayGira",
-        bills,
-        assignments,
-        stats,
+        bills: staffData.bills,
+        assignments: staffData.assignments,
+        stats: staffData.stats,
         allowedMethods,
         financeCurrency: display.financeCurrency,
         formatMoney: display.formatMoney,
@@ -5377,8 +6074,8 @@ module.exports = {
       // await it right before render. This overlaps it with the student queries.
       const orgContextPromise = (async () => {
         const [pspSettings, orgProfile] = await Promise.all([
-          loadPspSettings(orgId),
-          loadOrganizationProfile(orgId),
+          cachedLoad(orgId, "psp", null, () => loadPspSettings(orgId)),
+          cachedLoad(orgId, "orgProfile", null, () => loadOrganizationProfile(orgId)),
         ]);
         const [stripeRuntime, display] = await Promise.all([
           resolveFinanceStripeRuntime(orgId, pspSettings, orgProfile),
@@ -5387,131 +6084,138 @@ module.exports = {
         return { pspSettings, stripeRuntime, display };
       })();
 
-      // Children, saved cards and the guardian header profile don't depend on
-      // each other — fetch them in a single round of parallel queries.
-      const [kidsR, cardsR, gp] = await Promise.all([
-        database.query(
-          `SELECT DISTINCT s.student_id, s.first_name, s.last_name, s.image_url,
-                  c.class_name
-             FROM students s
-             LEFT JOIN classes c ON c.class_id = s.class_id
-            WHERE s.organization_id = $1
-              AND (
-                EXISTS (SELECT 1 FROM guardians g
-                         WHERE g.student_id=s.student_id AND g.guardian_id=$2 AND g.organization_id=$1)
-                OR EXISTS (SELECT 1 FROM guardian_students gs
-                         WHERE gs.student_id=s.student_id AND gs.guardian_id=$2)
-              )
-            ORDER BY s.first_name`,
-          [orgId, guardianId]
-        ),
-        database.query(
+      const guardianCacheKey = { guardianId };
+      const [cardsR, guardianData] = await Promise.all([
+        cachedLoad(orgId, "guardianCards", guardianCacheKey, () => database.query(
           `SELECT card_id, brand, last4, holder_name, exp_month, exp_year, is_default, student_id
              FROM guardian_payment_methods
             WHERE guardian_id=$1 AND organization_id=$2
             ORDER BY is_default DESC, created_at DESC`,
           [guardianId, orgId]
-        ),
-        database.query(
-          `SELECT first_name, last_name, image_url FROM guardian_profiles WHERE guardian_id=$1 AND organization_id=$2`,
-          [guardianId, orgId]
-        ),
+        )),
+        cachedLoad(orgId, "guardianPaygiraData", guardianCacheKey, async () => {
+          const [kidsR, gp] = await Promise.all([
+            database.query(
+              `SELECT DISTINCT s.student_id, s.first_name, s.last_name, s.image_url,
+                      c.class_name
+                 FROM students s
+                 LEFT JOIN classes c ON c.class_id = s.class_id
+                WHERE s.organization_id = $1
+                  AND (
+                    EXISTS (SELECT 1 FROM guardians g
+                             WHERE g.student_id=s.student_id AND g.guardian_id=$2 AND g.organization_id=$1)
+                    OR EXISTS (SELECT 1 FROM guardian_students gs
+                             WHERE gs.student_id=s.student_id AND gs.guardian_id=$2)
+                  )
+                ORDER BY s.first_name`,
+              [orgId, guardianId]
+            ),
+            database.query(
+              `SELECT first_name, last_name, image_url FROM guardian_profiles WHERE guardian_id=$1 AND organization_id=$2`,
+              [guardianId, orgId]
+            ),
+          ]);
+
+          const children = kidsR.rows;
+          const studentIds = children.map(c => c.student_id);
+
+          const [studentCreditMap, assignmentRowsR, paymentsR] = await Promise.all([
+            loadStudentCreditMap(database, orgId, studentIds),
+            studentIds.length
+              ? database.query(
+                  `SELECT a.*, b.title AS bill_title, b.description AS bill_description,
+                          b.due_date, b.bill_type, b.recurrence, b.recurrence_end_date,
+                          b.term_id, b.exclude_non_school_days,
+                          tm.end_date AS term_end_date,
+                          b.accepts_card, b.accepts_cash, b.accepts_transfer,
+                          b.payment_destination,
+                          s.first_name, s.last_name, s.image_url, s.student_id
+                     FROM finance_bill_assignments a
+                     JOIN finance_bills b ON b.bill_id = a.bill_id
+                     JOIN students s ON s.student_id = a.student_id
+                     LEFT JOIN terms tm ON tm.term_id = b.term_id
+                    WHERE a.organization_id = $1 AND a.student_id = ANY($2::int[])
+                            AND a.status <> 'cancelled'
+                            AND COALESCE(b.status, 'active') <> 'cancelled'
+                    ORDER BY a.status, b.due_date NULLS LAST`,
+                  [orgId, studentIds]
+                )
+              : Promise.resolve({ rows: [] }),
+            studentIds.length
+              ? database.query(
+                  `SELECT p.payment_id, p.amount, p.method, p.received_at, p.reference,
+                          s.first_name, s.last_name, b.title AS bill_title
+                     FROM finance_payments p
+                     LEFT JOIN students s ON s.student_id = p.student_id
+                     LEFT JOIN finance_bills b ON b.bill_id = p.bill_id
+                    WHERE p.organization_id=$1 AND p.student_id = ANY($2::int[])
+                    ORDER BY p.received_at DESC LIMIT 15`,
+                  [orgId, studentIds]
+                )
+              : Promise.resolve({ rows: [] }),
+          ]);
+
+          const hydratedChildren = children.map((child) => ({
+            ...child,
+            student_credit: Number(studentCreditMap.get(String(child.student_id)) || 0),
+          }));
+
+          const payments = paymentsR.rows;
+
+          let assignments = [];
+          if (assignmentRowsR.rows.length) {
+            const scheduleContext = createBillScheduleContextLoader(database, orgId);
+            assignments = await Promise.all(
+              assignmentRowsR.rows.map((row) => enrichScheduledAssignment(row, scheduleContext))
+            );
+
+            const assignmentIds = assignments.map((assignment) => assignment.assignment_id);
+            const occurrencePaymentsR = await database.query(
+              `SELECT assignment_id, occurrence_date::text AS occurrence_date, COALESCE(SUM(amount), 0) AS paid_amount
+                 FROM finance_payments
+                WHERE organization_id=$1 AND assignment_id = ANY($2::int[]) AND occurrence_date IS NOT NULL
+                GROUP BY assignment_id, occurrence_date`,
+              [orgId, assignmentIds]
+            );
+            const occurrencePaymentsByAssignment = occurrencePaymentsR.rows.reduce((accumulator, row) => {
+              const assignmentKey = String(row.assignment_id);
+              if (!accumulator[assignmentKey]) accumulator[assignmentKey] = {};
+              accumulator[assignmentKey][row.occurrence_date] = Number(row.paid_amount || 0);
+              return accumulator;
+            }, {});
+            assignments = assignments.map((assignment) => ({
+              ...assignment,
+              occurrence_payments: occurrencePaymentsByAssignment[String(assignment.assignment_id)] || {},
+              student_credit: Number(studentCreditMap.get(String(assignment.student_id)) || 0),
+            }));
+          }
+
+          const visibleAssignments = assignments.filter((assignment) => {
+            const outstandingAmount = Number(
+              assignment.scheduled_outstanding_total != null
+                ? assignment.scheduled_outstanding_total
+                : Math.max(Number(assignment.amount || 0) + Number(assignment.late_fee_applied || 0) - Number(assignment.amount_paid || 0), 0)
+            );
+            return outstandingAmount > 0;
+          });
+
+          const totals = {
+            billed: assignments.reduce((sum, assignment) => sum + Number(assignment.scheduled_billed_total || 0), 0),
+            paid: assignments.reduce((sum, assignment) => sum + Number(assignment.amount_paid || 0), 0),
+            outstanding: assignments.reduce((sum, assignment) => sum + Number(assignment.scheduled_outstanding_total || 0), 0),
+            credit: hydratedChildren.reduce((sum, child) => sum + Number(child.student_credit || 0), 0),
+          };
+          totals.net_outstanding = Math.max(Number(totals.outstanding || 0) - Number(totals.credit || 0), 0);
+
+          return {
+            guardian: gp.rows[0] || {},
+            children: hydratedChildren,
+            assignments: visibleAssignments,
+            payments,
+            totals,
+          };
+        }),
       ]);
-
-      const children = kidsR.rows;
-      const studentIds = children.map(c => c.student_id);
-
-      // Student credit, bill assignments and recent payments all key off the
-      // same student-id list — run them concurrently instead of in series.
-      const [studentCreditMap, assignmentRowsR, paymentsR] = await Promise.all([
-        loadStudentCreditMap(database, orgId, studentIds),
-        studentIds.length
-          ? database.query(
-              `SELECT a.*, b.title AS bill_title, b.description AS bill_description,
-                      b.due_date, b.bill_type, b.recurrence, b.recurrence_end_date,
-                      b.term_id, b.exclude_non_school_days,
-                      tm.end_date AS term_end_date,
-                      b.accepts_card, b.accepts_cash, b.accepts_transfer,
-                      b.payment_destination,
-                      s.first_name, s.last_name, s.image_url, s.student_id
-                 FROM finance_bill_assignments a
-                 JOIN finance_bills b ON b.bill_id = a.bill_id
-                 JOIN students s ON s.student_id = a.student_id
-                 LEFT JOIN terms tm ON tm.term_id = b.term_id
-                WHERE a.organization_id = $1 AND a.student_id = ANY($2::int[])
-                        AND a.status <> 'cancelled'
-                        AND COALESCE(b.status, 'active') <> 'cancelled'
-                ORDER BY a.status, b.due_date NULLS LAST`,
-              [orgId, studentIds]
-            )
-          : Promise.resolve({ rows: [] }),
-        studentIds.length
-          ? database.query(
-              `SELECT p.payment_id, p.amount, p.method, p.received_at, p.reference,
-                      s.first_name, s.last_name, b.title AS bill_title
-                 FROM finance_payments p
-                 LEFT JOIN students s ON s.student_id = p.student_id
-                 LEFT JOIN finance_bills b ON b.bill_id = p.bill_id
-                WHERE p.organization_id=$1 AND p.student_id = ANY($2::int[])
-                ORDER BY p.received_at DESC LIMIT 15`,
-              [orgId, studentIds]
-            )
-          : Promise.resolve({ rows: [] }),
-      ]);
-
-      const hydratedChildren = children.map((child) => ({
-        ...child,
-        student_credit: Number(studentCreditMap.get(String(child.student_id)) || 0),
-      }));
-
-      const payments = paymentsR.rows;
-
-      // Expand recurring schedules then attach per-occurrence payment data.
-      let assignments = [];
-      if (assignmentRowsR.rows.length) {
-        const scheduleContext = createBillScheduleContextLoader(database, orgId);
-        assignments = await Promise.all(
-          assignmentRowsR.rows.map((row) => enrichScheduledAssignment(row, scheduleContext))
-        );
-
-        const assignmentIds = assignments.map((assignment) => assignment.assignment_id);
-        const occurrencePaymentsR = await database.query(
-          `SELECT assignment_id, occurrence_date::text AS occurrence_date, COALESCE(SUM(amount), 0) AS paid_amount
-             FROM finance_payments
-            WHERE organization_id=$1 AND assignment_id = ANY($2::int[]) AND occurrence_date IS NOT NULL
-            GROUP BY assignment_id, occurrence_date`,
-          [orgId, assignmentIds]
-        );
-        const occurrencePaymentsByAssignment = occurrencePaymentsR.rows.reduce((accumulator, row) => {
-          const assignmentKey = String(row.assignment_id);
-          if (!accumulator[assignmentKey]) accumulator[assignmentKey] = {};
-          accumulator[assignmentKey][row.occurrence_date] = Number(row.paid_amount || 0);
-          return accumulator;
-        }, {});
-        assignments = assignments.map((assignment) => ({
-          ...assignment,
-          occurrence_payments: occurrencePaymentsByAssignment[String(assignment.assignment_id)] || {},
-          student_credit: Number(studentCreditMap.get(String(assignment.student_id)) || 0),
-        }));
-      }
-
-      const visibleAssignments = assignments.filter((assignment) => {
-        const outstandingAmount = Number(
-          assignment.scheduled_outstanding_total != null
-            ? assignment.scheduled_outstanding_total
-            : Math.max(Number(assignment.amount || 0) + Number(assignment.late_fee_applied || 0) - Number(assignment.amount_paid || 0), 0)
-        );
-        return outstandingAmount > 0;
-      });
-
-      // Aggregate per-student totals
-      const totals = {
-        billed:      assignments.reduce((sum, assignment) => sum + Number(assignment.scheduled_billed_total || 0), 0),
-        paid:        assignments.reduce((sum, assignment) => sum + Number(assignment.amount_paid || 0), 0),
-        outstanding: assignments.reduce((sum, assignment) => sum + Number(assignment.scheduled_outstanding_total || 0), 0),
-        credit:      hydratedChildren.reduce((sum, child) => sum + Number(child.student_credit || 0), 0),
-      };
-      totals.net_outstanding = Math.max(Number(totals.outstanding || 0) - Number(totals.credit || 0), 0);
 
       // Payment options available to this guardian (set by the school)
       const { pspSettings, stripeRuntime, display } = await orgContextPromise;
@@ -5524,18 +6228,32 @@ module.exports = {
         maskedPsp.stripe_publishable_key = stripeRuntime.publishableKey;
       }
 
+      // Check charges_enabled on connected Stripe account so guardian sees
+      // a clear message when the school hasn't completed their payout setup.
+      let stripeAccountReady = true; // default: ready (school direct-Stripe or no Stripe)
+      if (stripeRuntime.stripeOn && stripeRuntime.useConnectedDestinationCharge && stripeRuntime.connectedAccountId) {
+        try {
+          const platformClient = await getStripePlatformClient(database);
+          const connectedAccount = await platformClient.accounts.retrieve(stripeRuntime.connectedAccountId);
+          stripeAccountReady = Boolean(connectedAccount?.charges_enabled);
+        } catch (_) {
+          stripeAccountReady = false;
+        }
+      }
+
       res.render("guardian/paygira", {
         title: "PayGira — Pay Bills",
-        guardian: gp.rows[0] || {},
-        children: hydratedChildren,
-        assignments: visibleAssignments,
-        payments,
+        guardian: guardianData.guardian,
+        children: guardianData.children,
+        assignments: guardianData.assignments,
+        payments: guardianData.payments,
         cards: cardsR.rows,
-        totals,
+        totals: guardianData.totals,
         pspSettings: maskedPsp,
         allowedMethods,
         stripeCatalog: STRIPE_METHOD_CATALOG,
         stripeCheckoutConfig,
+        stripeAccountReady,
         financeCurrency: display.financeCurrency,
         formatMoney: display.formatMoney,
         money,
@@ -5777,23 +6495,47 @@ module.exports = {
     let event = null;
 
     try {
-      const secretRows = await database.query(
-        `SELECT organization_id,
-                data->>'stripe_webhook_secret' AS stripe_webhook_secret,
-                data->>'stripe_secret_key' AS stripe_secret_key
-           FROM finance_psp_settings
-          WHERE COALESCE(data->>'stripe_webhook_secret', '') <> ''
-            AND COALESCE(data->>'stripe_secret_key', '') <> ''`
-      );
-
       let lastError = null;
-      for (const row of secretRows.rows) {
-        try {
-          const stripe = getSchoolStripeClient({ stripe_secret_key: row.stripe_secret_key });
-          event = stripe.webhooks.constructEvent(req.body, sig, row.stripe_webhook_secret);
-          break;
-        } catch (error) {
-          lastError = error;
+
+      // 1) Verify platform-level destination charge webhooks first
+      const platformSecrets = [
+        process.env.STRIPE_FINANCE_WEBHOOK_SECRET,
+        process.env.STRIPE_CONNECT_WEBHOOK_SECRET,
+        process.env.STRIPE_WEBHOOK_SECRET,
+      ].filter(Boolean);
+      if (platformSecrets.length) {
+        const platformStripe = await getStripePlatformClient(database).catch(() => null);
+        if (platformStripe) {
+          for (const webhookSecret of platformSecrets) {
+            try {
+              event = platformStripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+              break;
+            } catch (error) {
+              lastError = error;
+            }
+          }
+        }
+      }
+
+      // 2) Fallback to school-level Stripe secrets for direct-charge schools
+      if (!event) {
+        const secretRows = await database.query(
+          `SELECT organization_id,
+                  data->>'stripe_webhook_secret' AS stripe_webhook_secret,
+                  data->>'stripe_secret_key' AS stripe_secret_key
+             FROM finance_psp_settings
+            WHERE COALESCE(data->>'stripe_webhook_secret', '') <> ''
+              AND COALESCE(data->>'stripe_secret_key', '') <> ''`
+        );
+
+        for (const row of secretRows.rows) {
+          try {
+            const stripe = getSchoolStripeClient({ stripe_secret_key: row.stripe_secret_key });
+            event = stripe.webhooks.constructEvent(req.body, sig, row.stripe_webhook_secret);
+            break;
+          } catch (error) {
+            lastError = error;
+          }
         }
       }
 
@@ -6127,6 +6869,7 @@ module.exports = {
         await addStudentCredit(client, orgId, row.student_id, creditCreated);
       }
       await client.query("COMMIT");
+      invalidateFinanceCache(orgId);
 
       const display = await buildFinanceDisplayContext(req, orgId);
       if (isRecurringBill) {

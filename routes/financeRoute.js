@@ -120,7 +120,12 @@ router.post("/finance/bills/:id/reminder", isAuthenticated, requireFinanceSettin
 
 // Payments
 router.post("/finance/payments", isAuthenticated, requireFinanceSettingsAccess, c.paymentRecordPost);
+router.post("/finance/payments/:id/delete", isAuthenticated, requireFinanceSettingsAccess, c.paymentDeletePost);
 router.get("/finance/_assignments.json", isAuthenticated, requireFinanceSettingsAccess, c.assignmentsJsonGet);
+
+// Sign-off corrections and read-only reports
+router.post("/finance/signoffs/:id/unsign", isAuthenticated, requireFinanceSettingsAccess, c.signoffUnsignPost);
+router.get("/finance/signoffs/:id/report", isAuthenticated, requireFinanceSettingsAccess, c.signoffReportGet);
 
 // Overdue sweep
 router.post("/finance/sweep-overdue", isAuthenticated, requireFinanceSettingsAccess, c.overdueSweepPost);
