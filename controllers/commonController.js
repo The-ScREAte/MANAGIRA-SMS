@@ -3722,6 +3722,7 @@ const commonController = {
         publishableKey: paystackConfig.publicKey,
         stripePublishableKey,
         hasPayoutAccount,
+        payoutProvider,
         stripeConnectAccountId,
         messages: req.flash(),
       });
