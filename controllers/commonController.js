@@ -3691,8 +3691,12 @@ const commonController = {
         [organizationId]
       ).catch(() => ({ rows: [] }));
       const stripeConnectAccountId = getStripeConnectAccountId(stripeConnectRow.rows[0] || {}, stripeSettings.mode) || null;
+      // Unified payout readiness — Stripe Connect OR Paystack subaccount counts.
+      const { resolveSchoolPayoutDestination } = require("../utils/payoutDestination");
+      const payoutContext = await resolveSchoolPayoutDestination(organizationId, db).catch(() => null);
       let hasPayoutAccount = false;
-      if (stripeConnectAccountId) {
+      let payoutProvider = payoutContext?.provider || null;
+      if (payoutProvider === 'stripe' && stripeConnectAccountId) {
         try {
           const stripePlatform = await getStripePlatformClient(db);
           const connectAccount = await stripePlatform.accounts.retrieve(stripeConnectAccountId);
@@ -3700,6 +3704,8 @@ const commonController = {
         } catch (_) {
           hasPayoutAccount = false;
         }
+      } else if (payoutProvider === 'paystack') {
+        hasPayoutAccount = Boolean(payoutContext?.paystack?.available);
       }
 
       res.render("common/publicRegisterStudent", {
@@ -3716,6 +3722,7 @@ const commonController = {
         publishableKey: paystackConfig.publicKey,
         stripePublishableKey,
         hasPayoutAccount,
+        payoutProvider,
         stripeConnectAccountId,
         messages: req.flash(),
       });

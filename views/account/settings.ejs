@@ -2654,6 +2654,120 @@
         <div class="pm-panel" id="pm-payout-panel" role="tabpanel" aria-labelledby="pm-tab-payout">
           <p class="modal-helper">Bank accounts and cards where parents send payments to your school.</p>
 
+          <%# ── Unified Payout Provider Selector ─────────────────────── %>
+          <% const _pc = typeof payoutContext !== 'undefined' ? payoutContext : null; %>
+          <% const _pcs = (typeof paystackCountries !== 'undefined' && Array.isArray(paystackCountries)) ? paystackCountries : []; %>
+          <% const _pref = _pc && _pc.preference ? _pc.preference : 'auto'; %>
+          <% const _stripeReady = _pc && _pc.stripe && _pc.stripe.available; %>
+          <% const _paystackReady = _pc && _pc.paystack && _pc.paystack.available; %>
+          <% const _country = _pc && _pc.country ? _pc.country : ''; %>
+          <% const _paystackCountrySupported = _pc && _pc.paystack && _pc.paystack.countrySupported; %>
+          <div id="payout-pref-card" style="border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;background:#fff;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+              <div>
+                <div style="font-weight:700;font-size:.95rem;color:#0f172a;">Where should parent payments go?</div>
+                <div style="font-size:.78rem;color:var(--muted,#64748b);margin-top:2px;">Used by Paygira <strong>and</strong> Public Registration. One setting, everywhere.</div>
+              </div>
+              <span id="payout-pref-status" style="font-size:.75rem;padding:3px 9px;border-radius:999px;<%= (_pc && _pc.ready) ? 'background:#dcfce7;color:#15803d;' : 'background:#fef3c7;color:#92400e;' %>">
+                <%= (_pc && _pc.ready) ? ('Ready · ' + (_pc.provider || '').toUpperCase()) : 'Not configured' %>
+              </span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">
+              <label style="display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px solid var(--border);border-radius:10px;cursor:pointer;<%= (_pref==='stripe'||_pref==='both') ? 'background:#f0f9ff;border-color:#7dd3fc;' : '' %>">
+                <input type="checkbox" class="payout-pref-toggle" data-provider="stripe" <%= (_pref==='stripe'||_pref==='both'||(_pref==='auto'&&_stripeReady)) ? 'checked' : '' %> style="margin-top:3px;">
+                <div style="flex:1;min-width:0;">
+                  <div style="font-weight:700;font-size:.88rem;">Stripe Connect</div>
+                  <div style="font-size:.75rem;color:var(--muted,#64748b);margin-top:2px;">Cards, Apple Pay, Google Pay · 40+ countries</div>
+                  <div style="font-size:.72rem;margin-top:4px;<%= _stripeReady ? 'color:#15803d;' : 'color:#92400e;' %>">
+                    <%= _stripeReady ? '✓ Connected' : '⚠ Not connected' %>
+                  </div>
+                  <a href="/account/stripe-connect/onboard" style="display:inline-block;margin-top:6px;font-size:.75rem;color:#635bff;text-decoration:none;">
+                    <%= _stripeReady ? 'Manage on Stripe' : 'Connect with Stripe →' %>
+                  </a>
+                </div>
+              </label>
+              <label style="display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px solid var(--border);border-radius:10px;cursor:pointer;<%= (_pref==='paystack'||_pref==='both') ? 'background:#f0fdf4;border-color:#86efac;' : '' %><%= !_paystackCountrySupported ? 'opacity:.55;' : '' %>" title="<%= _paystackCountrySupported ? '' : 'Paystack is not available in your country yet.' %>">
+                <input type="checkbox" class="payout-pref-toggle" data-provider="paystack" <%= (_pref==='paystack'||_pref==='both'||(_pref==='auto'&&_paystackReady)) ? 'checked' : '' %> <%= !_paystackCountrySupported ? 'disabled' : '' %> style="margin-top:3px;">
+                <div style="flex:1;min-width:0;">
+                  <div style="font-weight:700;font-size:.88rem;">Paystack</div>
+                  <div style="font-size:.75rem;color:var(--muted,#64748b);margin-top:2px;">
+                    Bank · Mobile Money · Cards
+                  </div>
+                  <div style="font-size:.7rem;color:var(--muted,#64748b);margin-top:3px;">
+                    Live in:
+                    <% _pcs.slice(0,8).forEach(function(c,i){ %><span style="display:inline-block;padding:1px 5px;margin:0 2px 2px 0;background:#f1f5f9;border-radius:4px;font-weight:600;color:#334155;"><%= c.iso_code %></span><% }) %>
+                  </div>
+                  <div style="font-size:.72rem;margin-top:4px;<%= _paystackReady ? 'color:#15803d;' : 'color:#92400e;' %>">
+                    <%= _paystackReady ? '✓ Configured' : (_paystackCountrySupported ? '⚠ Not configured' : '— Country not supported') %>
+                  </div>
+                  <% if (_paystackCountrySupported) { %>
+                  <button type="button" id="paystack-configure-btn" style="margin-top:6px;font-size:.75rem;background:none;border:none;color:#0d9488;cursor:pointer;padding:0;text-decoration:underline;">
+                    <%= _paystackReady ? 'Edit accounts' : 'Configure Paystack →' %>
+                  </button>
+                  <% } %>
+                </div>
+              </label>
+            </div>
+            <p id="payout-pref-feedback" style="margin:10px 0 0;font-size:.75rem;color:var(--muted,#64748b);min-height:1em;"></p>
+          </div>
+
+          <script>
+            (function(){
+              const toggles = document.querySelectorAll('.payout-pref-toggle');
+              const fb = document.getElementById('payout-pref-feedback');
+              const status = document.getElementById('payout-pref-status');
+              let saving = false;
+              function currentPref(){
+                const on = Array.from(toggles).filter(t => t.checked && !t.disabled).map(t => t.dataset.provider);
+                if (on.length === 2) return 'both';
+                if (on.length === 1) return on[0];
+                return '';
+              }
+              async function save(){
+                if (saving) return;
+                saving = true;
+                fb.textContent = 'Saving…';
+                fb.style.color = '#64748b';
+                try {
+                  const res = await fetch('/account/settings/payout-preference', {
+                    method:'POST',
+                    headers:{'Content-Type':'application/x-www-form-urlencoded'},
+                    body: 'preference=' + encodeURIComponent(currentPref()),
+                  });
+                  const data = await res.json();
+                  if (!data.success) throw new Error(data.message || 'Save failed');
+                  const p = data.payout || {};
+                  fb.textContent = '✓ Saved · used by Paygira and Public Registration.';
+                  fb.style.color = '#15803d';
+                  if (status) {
+                    if (p.ready) {
+                      status.textContent = 'Ready · ' + String(p.provider || '').toUpperCase();
+                      status.style.background = '#dcfce7'; status.style.color = '#15803d';
+                    } else {
+                      status.textContent = 'Not configured';
+                      status.style.background = '#fef3c7'; status.style.color = '#92400e';
+                    }
+                  }
+                } catch(e){
+                  fb.textContent = 'Could not save: ' + e.message;
+                  fb.style.color = '#dc2626';
+                } finally { saving = false; }
+              }
+              toggles.forEach(t => t.addEventListener('change', save));
+              const cfgBtn = document.getElementById('paystack-configure-btn');
+              if (cfgBtn) cfgBtn.addEventListener('click', function(){
+                const wrap = document.getElementById('payout-form-wrap');
+                const addRow = document.getElementById('payout-add-row');
+                if (wrap) wrap.style.display = 'block';
+                if (addRow) addRow.style.display = 'none';
+                const sel = document.getElementById('sa-type');
+                if (sel && !sel.value) sel.focus();
+                wrap && wrap.scrollIntoView({behavior:'smooth', block:'center'});
+              });
+            })();
+          </script>
+
+
           <!-- ── Stripe Connect banner ──────────────────────────── -->
           <% const _connectId = typeof stripeConnectAccountId !== 'undefined' ? stripeConnectAccountId : null; %>
           <% if (_connectId) { %>
