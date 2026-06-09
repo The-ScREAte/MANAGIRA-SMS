@@ -330,6 +330,14 @@ router.post("/paystack/stripe-bank-account", isAuthenticated, requirePermission(
 // Utility API: Paystack banks
 router.get('/paystack-banks', isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) => accountController.listPaystackBanks(req, res));
 
+// Unified Payout Destination (Stripe Connect + Paystack)
+router.get('/settings/payout-context.json', isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
+  accountController.getPayoutContextJson(req, res)
+);
+router.post('/settings/payout-preference', isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
+  accountController.updatePayoutPreferencePost(req, res)
+);
+
 // Subscription Plan Management Routes
 router.get("/update-plan", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.updatePlanGet(req, res, db)
