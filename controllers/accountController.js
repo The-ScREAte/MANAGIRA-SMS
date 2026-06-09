@@ -10241,12 +10241,54 @@ const accountController = {
   },
 };
 
+// ─── Unified Payout Destination (Stripe Connect + Paystack) ───────────────
+const {
+  resolveSchoolPayoutDestination,
+  invalidatePayoutCache,
+  fetchPaystackCountries,
+} = require("../utils/payoutDestination");
+
+accountController.getPayoutContextJson = async (req, res) => {
+  const orgId = req.session.organizationId;
+  if (!orgId) return res.status(401).json({ success: false });
+  try {
+    const [ctx, paystackCountries] = await Promise.all([
+      resolveSchoolPayoutDestination(orgId, db, { fresh: true }),
+      fetchPaystackCountries(),
+    ]);
+    return res.json({ success: true, payout: ctx, paystackCountries });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+accountController.updatePayoutPreferencePost = async (req, res) => {
+  const orgId = req.session.organizationId;
+  if (!orgId) return res.status(401).json({ success: false });
+  const raw = String(req.body?.preference || "").trim().toLowerCase();
+  const allowed = ["stripe", "paystack", "both", ""]; // "" = clear (auto)
+  if (!allowed.includes(raw)) {
+    return res.status(400).json({ success: false, message: "Invalid preference." });
+  }
+  try {
+    await db.query(
+      `ALTER TABLE organizations ADD COLUMN IF NOT EXISTS payout_provider_pref VARCHAR(16)`
+    );
+    await db.query(
+      `UPDATE organizations SET payout_provider_pref = $1 WHERE organization_id = $2`,
+      [raw || null, orgId]
+    );
+    invalidatePayoutCache(orgId);
+    const ctx = await resolveSchoolPayoutDestination(orgId, db, { fresh: true });
+    return res.json({ success: true, payout: ctx });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 accountController.sendBrandedReceiptEmail = sendBrandedReceiptEmail;
-
 accountController.sendRegistrationSuccessEmail = sendRegistrationSuccessEmail;
-
 accountController.sendInvoiceEmail = sendInvoiceEmail;
-
 accountController.sendCancellationEmail = sendCancellationEmail;
 
 module.exports = accountController;
