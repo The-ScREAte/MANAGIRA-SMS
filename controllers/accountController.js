@@ -7486,6 +7486,12 @@ const accountController = {
         feedbackPriorityOptions: FEEDBACK_PRIORITY_OPTIONS,
         studentIdSettings,
         nextAvailableStudentIdNumber,
+        payoutContext: await require("../utils/payoutDestination")
+          .resolveSchoolPayoutDestination(orgId, db, { fresh: true })
+          .catch(() => null),
+        paystackCountries: await require("../utils/payoutDestination")
+          .fetchPaystackCountries()
+          .catch(() => []),
         messages: req.flash(),
       });
     } catch (error) {
