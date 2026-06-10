@@ -50,6 +50,7 @@ const { getStripeClient, getStripePlatformClient, getStripePlatformCredentials, 
 const { getUsdRate, normalizeCurrencyCode } = require("../utils/currencyLocalization");
 const { getPlatformFeeSettings } = require("../utils/platformFee");
 const { ensurePaymentProviderSchema } = require("../utils/paymentProviderSchema");
+const { resolveSchoolPayoutDestination } = require("../utils/payoutDestination");
 const { triggerAbsenceAlertsForStudents, broadcastEventAnnouncement, notifyGuardiansOnClassChange, notifyTeacherOnReassignment, notifyTeachersOnAssessmentControl, resolveAssignmentNames, notifyEmployeeOnHoldChange, notifyGuardianAdmissionReceived, notifyGuardianOnStaffReply } = require("../utils/notificationDigestService");
 const notifSvc = require("../utils/notificationService");
 const {
@@ -3555,7 +3556,8 @@ const commonController = {
         `SELECT organization_id, organization_name, registration_description,
               public_registration_enabled, registration_start_date,
               registration_end_date, public_registration_price,
-              public_registration_currency, logo, aboutus, motto
+              public_registration_currency, logo, aboutus, motto,
+              theme_color, font_style
         FROM organizations
         WHERE organization_id = $1`,
         [organizationId]
@@ -3604,7 +3606,7 @@ const commonController = {
       const currentTerm = terms.find((term) => term.current) || null;
 
       const paystackSubaccountsResult = await db.query(
-        `SELECT id, business_name, account_number, account_type, bank_code, subaccount_code FROM paystack_subaccounts WHERE organization_id = $1`,
+        `SELECT id, business_name, account_number, account_type, bank_code, bank_name, momo_number, momo_provider, account_holder_name, subaccount_code, is_primary FROM paystack_subaccounts WHERE organization_id = $1 AND account_type != 'stripe_card' ORDER BY is_primary DESC, id ASC`,
         [organizationId]
       );
       const paystackSubaccounts = paystackSubaccountsResult.rows;
@@ -3695,18 +3697,26 @@ const commonController = {
       const { resolveSchoolPayoutDestination } = require("../utils/payoutDestination");
       const payoutContext = await resolveSchoolPayoutDestination(organizationId, db).catch(() => null);
       let hasPayoutAccount = false;
+      let stripePayoutReady = false;
+      let paystackPayoutReady = Boolean(payoutContext?.paystack?.available);
       let payoutProvider = payoutContext?.provider || null;
-      if (payoutProvider === 'stripe' && stripeConnectAccountId) {
+      if (stripeConnectAccountId) {
         try {
           const stripePlatform = await getStripePlatformClient(db);
           const connectAccount = await stripePlatform.accounts.retrieve(stripeConnectAccountId);
-          hasPayoutAccount = Boolean(connectAccount?.charges_enabled);
+          stripePayoutReady = Boolean(connectAccount?.charges_enabled);
         } catch (_) {
-          hasPayoutAccount = false;
+          stripePayoutReady = false;
         }
-      } else if (payoutProvider === 'paystack') {
-        hasPayoutAccount = Boolean(payoutContext?.paystack?.available);
       }
+      const stripeSelectable = Boolean(
+        stripePublishableKey && (
+          stripePayoutReady ||
+          Boolean(payoutContext?.stripe?.available) ||
+          Boolean(stripeConnectAccountId)
+        )
+      );
+      hasPayoutAccount = Boolean(stripeSelectable || paystackPayoutReady);
 
       res.render("common/publicRegisterStudent", {
         title: "Public Student Registration",
@@ -3722,6 +3732,9 @@ const commonController = {
         publishableKey: paystackConfig.publicKey,
         stripePublishableKey,
         hasPayoutAccount,
+        stripePayoutReady,
+        stripeSelectable,
+        paystackPayoutReady,
         payoutProvider,
         stripeConnectAccountId,
         messages: req.flash(),
@@ -4081,7 +4094,16 @@ const commonController = {
   //   Parent → Managira platform → School connected account
   // Platform fee is pulled from app_settings (set in admin service pricing).
   createPaymentIntent: async (req, res, db) => {
-    const { amount } = req.body;
+    const { amount, payoutAccountId } = req.body;
+    const requestOrigin = `${req.protocol}://${req.get("host")}`;
+    const configuredProdBaseUrl =
+      process.env.BASE_URL_PRODUCTION ||
+      process.env.BASE_URL_PRODUCTION_FALLBACK ||
+      "https://managira.com";
+    const BASE_URL = requestOrigin ||
+      (process.env.NODE_ENV === "production"
+        ? configuredProdBaseUrl
+        : process.env.BASE_URL_LOCAL || "http://localhost:4000");
     const pendingStudentId = req.session.pendingStudentId;
 
     if (!pendingStudentId) {
@@ -4090,20 +4112,6 @@ const commonController = {
 
     try {
       await ensurePublicRegistrationSchema(db);
-
-      const platformStripe = await getStripePlatformCredentials(db);
-      if (platformStripe.issue) {
-        return res.status(500).json({
-          success: false,
-          error: `${platformStripe.issue} Update Stripe mode or keys in Admin Service Pricing.`,
-          code: 'STRIPE_PLATFORM_NOT_CONFIGURED',
-        });
-      }
-
-      // Use the platform client (full sk_ key) that matches the active admin mode.
-      // It must match the key used to create the connected account, otherwise
-      // Stripe returns "No such destination".
-      const stripe = await getStripePlatformClient(db);
 
       // 1. Get pending student
       const studentResult = await db.query(
@@ -4125,24 +4133,32 @@ const commonController = {
       const orgRow = orgResult.rows[0];
       const currency = normalizeCurrencyCode(orgRow?.public_registration_currency) || 'GHS';
       const organizationName = orgRow?.organization_name || 'School';
-      const stripeConnectAccountId = getStripeConnectAccountId(orgRow || {}, platformStripe.mode) || null;
+      const payoutContext = await resolveSchoolPayoutDestination(organizationId, db, { fresh: true }).catch(() => null);
+      const hasStripeOption = Boolean(payoutContext?.stripe?.available);
+      const hasPaystackOption = Boolean(payoutContext?.paystack?.available);
+      if (hasStripeOption && hasPaystackOption && !payoutAccountId) {
+        return res.status(400).json({
+          success: false,
+          error: 'Choose Stripe or a Paystack payout account before continuing.',
+          code: 'PAYOUT_PROVIDER_SELECTION_REQUIRED',
+        });
+      }
+      const selectedIsStripe = String(payoutAccountId || '').toLowerCase() === 'stripe';
+      const selectedIsPaystack = Boolean(payoutAccountId && !selectedIsStripe);
+      let payoutProvider = payoutContext?.provider || null;
+      if (selectedIsStripe) payoutProvider = 'stripe';
+      if (selectedIsPaystack) payoutProvider = 'paystack';
 
-      // BLOCK payment if school has not connected their Stripe account yet.
-      // Without a connected account the money has nowhere to go — do not proceed.
-      if (!stripeConnectAccountId) {
+      let platformStripe = null;
+      let stripe = null;
+      let stripeConnectAccountId = null;
+
+      // BLOCK payment if the school has no ready payout account at all.
+      if (!payoutContext?.ready) {
         return res.status(400).json({
           success: false,
           error: 'Online payment is not available for this school yet. The school has not set up their payout account. Please contact the school directly.',
           code: 'NO_PAYOUT_ACCOUNT',
-        });
-      }
-
-      const connectedAccount = await stripe.accounts.retrieve(stripeConnectAccountId).catch(() => null);
-      if (!connectedAccount || !connectedAccount.charges_enabled) {
-        return res.status(400).json({
-          success: false,
-          error: 'This school has not completed their payment setup yet. Please contact the school directly.',
-          code: 'CONNECT_ACCOUNT_NOT_READY',
         });
       }
 
@@ -4159,6 +4175,142 @@ const commonController = {
       if (!(requestedAmount > 0)) {
         return res.status(400).json({ success: false, error: 'Invalid registration amount.' });
       }
+      const paymentReference = `PR-${organizationId}-${pendingStudentId}-${Date.now()}`;
+
+      if (payoutProvider === 'stripe') {
+        platformStripe = await getStripePlatformCredentials(db);
+        if (platformStripe.issue) {
+          return res.status(500).json({
+            success: false,
+            error: `${platformStripe.issue} Update Stripe mode or keys in Admin Service Pricing.`,
+            code: 'STRIPE_PLATFORM_NOT_CONFIGURED',
+          });
+        }
+        // Use the platform client (full sk_ key) that matches the active admin mode.
+        stripe = await getStripePlatformClient(db);
+        stripeConnectAccountId = getStripeConnectAccountId(orgRow || {}, platformStripe.mode) || null;
+      }
+
+      if (payoutProvider === 'paystack') {
+        // Resolve which specific payout account to use
+        let subaccountCodeToUse = payoutContext?.paystack?.subaccountCode || null;
+        let selectedPaystackAccountType = payoutContext?.paystack?.accountType || null;
+        if (payoutAccountId && payoutAccountId !== 'stripe') {
+          const acctRow = await db.query(
+            `SELECT subaccount_code, account_type FROM paystack_subaccounts WHERE id=$1 AND organization_id=$2`,
+            [parseInt(payoutAccountId, 10), organizationId]
+          );
+          if (acctRow.rows.length) {
+            if (acctRow.rows[0].subaccount_code) {
+              subaccountCodeToUse = acctRow.rows[0].subaccount_code;
+            }
+            selectedPaystackAccountType = acctRow.rows[0].account_type || selectedPaystackAccountType;
+          }
+        }
+
+        const paystackChannels =
+          selectedPaystackAccountType === 'mobile_money'
+            ? ['mobile_money']
+            : (selectedPaystackAccountType === 'bank' ? ['bank_transfer'] : undefined);
+
+        const paystackConfig = await getActivePaystackConfig(db);
+        if (!paystackConfig.secretKey) {
+          return res.status(500).json({
+            success: false,
+            error: 'Paystack is not configured for this school yet.',
+            code: 'PAYSTACK_NOT_CONFIGURED',
+          });
+        }
+
+        if (!subaccountCodeToUse) {
+          return res.status(400).json({
+            success: false,
+            error: 'This school has not saved a valid Paystack payout account yet.',
+            code: 'NO_PAYOUT_ACCOUNT',
+          });
+        }
+
+        if (!guardianEmail) {
+          return res.status(400).json({
+            success: false,
+            error: 'A guardian email is required for Paystack checkout.',
+            code: 'GUARDIAN_EMAIL_REQUIRED',
+          });
+        }
+
+        const paystackReference = paymentReference;
+        const paystackAmount = Math.round(requestedAmount * 100);
+        const paystackCallbackUrl = `${BASE_URL}/common/paymentCallback?reference=${encodeURIComponent(paystackReference)}&pendingStudentId=${encodeURIComponent(pendingStudentId)}&organizationId=${encodeURIComponent(organizationId)}`;
+        const paystackMetadata = {
+          flow: 'public_registration_inline',
+          pending_student_id: String(pendingStudentId),
+          organization_id: String(organizationId),
+          student_name: `${first_name} ${last_name}`,
+          guardian_name: primaryGuardian?.first_name || 'Guardian',
+          existing_guardian_id: req.session.publicRegistrationExistingGuardianId
+            ? String(req.session.publicRegistrationExistingGuardianId) : '',
+          registration_amount: requestedAmount.toFixed(2),
+          registration_currency: currency,
+          payout_provider: 'paystack',
+          payout_subaccount_code: subaccountCodeToUse || '',
+          payout_account_id: payoutAccountId ? String(payoutAccountId) : '',
+          paystack_reference: paystackReference,
+        };
+
+        const paystackResponse = await axios.post(
+          'https://api.paystack.co/transaction/initialize',
+          {
+            email: guardianEmail,
+            amount: paystackAmount,
+            reference: paystackReference,
+            callback_url: paystackCallbackUrl,
+            currency: currency.toUpperCase(),
+            ...(subaccountCodeToUse && subaccountCodeToUse.startsWith('ACCT_') ? { subaccount: subaccountCodeToUse } : {}),
+            ...(Array.isArray(paystackChannels) && paystackChannels.length ? { channels: paystackChannels } : {}),
+            metadata: paystackMetadata,
+          },
+          {
+            headers: { Authorization: `Bearer ${paystackConfig.secretKey}` },
+          }
+        );
+
+        const paystackInit = paystackResponse.data?.data || {};
+
+        await db.query(
+          `INSERT INTO public_registration_payments (
+            organization_id, pending_student_id, student_name, student_email,
+            amount, currency, payment_provider, stripe_session_id,
+            subaccount_code, status, metadata, paystack_reference
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+          ON CONFLICT DO NOTHING`,
+          [
+            organizationId,
+            pendingStudentId,
+            `${first_name} ${last_name}`,
+            guardianEmail,
+            requestedAmount,
+            currency,
+            'paystack',
+            null,
+            subaccountCodeToUse || null,
+            'pending',
+            JSON.stringify(paystackMetadata),
+            paystackReference,
+          ]
+        );
+
+        return res.json({
+          success: true,
+          provider: 'paystack',
+          payment_url: paystackInit.authorization_url,
+          authorization_url: paystackInit.authorization_url,
+          reference: paystackReference,
+          paystack_reference: paystackReference,
+          access_code: paystackInit.access_code,
+          callback_url: paystackCallbackUrl,
+        });
+      }
+
       const stripeChargeCurrency = normalizeCurrencyCode(getStripeChargeCurrency()) || currency;
       const stripeChargeAmount = await convertAmountBetweenCurrencies(requestedAmount, currency, stripeChargeCurrency);
       const amountInMinorUnit = Math.round(stripeChargeAmount * 100);

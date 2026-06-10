@@ -2191,7 +2191,7 @@
                 <% } %>
                 <% const _primaryPayout = paystackSubaccounts && paystackSubaccounts.find(a => a.is_primary); %>
                 <% if (_primaryPayout) { %>
-                  &nbsp;&middot;&nbsp;<%= _primaryPayout.account_type === 'bank' ? '🏦' : '💳' %> <%= _primaryPayout.bank_name || _primaryPayout.business_name || 'Payout account' %>
+                  &nbsp;&middot;&nbsp;<% if (_primaryPayout.account_type === 'mobile_money') { %>📱 MoMo<% } else if (_primaryPayout.account_type === 'bank') { %>🏦 Bank<% } else { %>💳 Card<% } %> &middot; Paystack Payout Account
                 <% } %>
               </div>
               <button class="btn-primary btn-link btn-inline" id="open-payment-modal" type="button">Manage Payment Methods</button>
@@ -2654,7 +2654,7 @@
         <div class="pm-panel" id="pm-payout-panel" role="tabpanel" aria-labelledby="pm-tab-payout">
           <p class="modal-helper">Bank accounts and cards where parents send payments to your school.</p>
 
-          <%# ── Unified Payout Provider Selector ─────────────────────── %>
+          <%# ── Unified Payout Provider Selector ──────────────────────── %>
           <% const _pc = typeof payoutContext !== 'undefined' ? payoutContext : null; %>
           <% const _pcs = (typeof paystackCountries !== 'undefined' && Array.isArray(paystackCountries)) ? paystackCountries : []; %>
           <% const _pref = _pc && _pc.preference ? _pc.preference : 'auto'; %>
@@ -2662,51 +2662,66 @@
           <% const _paystackReady = _pc && _pc.paystack && _pc.paystack.available; %>
           <% const _country = _pc && _pc.country ? _pc.country : ''; %>
           <% const _paystackCountrySupported = _pc && _pc.paystack && _pc.paystack.countrySupported; %>
+          <% const _connectId = typeof stripeConnectAccountId !== 'undefined' ? stripeConnectAccountId : null; %>
+
           <div id="payout-pref-card" style="border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;background:#fff;">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
               <div>
                 <div style="font-weight:700;font-size:.95rem;color:#0f172a;">Where should parent payments go?</div>
                 <div style="font-size:.78rem;color:var(--muted,#64748b);margin-top:2px;">Used by Paygira <strong>and</strong> Public Registration. One setting, everywhere.</div>
               </div>
-              <span id="payout-pref-status" style="font-size:.75rem;padding:3px 9px;border-radius:999px;<%= (_pc && _pc.ready) ? 'background:#dcfce7;color:#15803d;' : 'background:#fef3c7;color:#92400e;' %>">
-                <%= (_pc && _pc.ready) ? ('Ready · ' + (_pc.provider || '').toUpperCase()) : 'Not configured' %>
+              <span id="payout-pref-status" style="font-size:.75rem;padding:3px 9px;border-radius:999px;<%= (_stripeReady || _paystackReady) ? 'background:#dcfce7;color:#15803d;' : 'background:#fef3c7;color:#92400e;' %>">
+                <% if (_stripeReady || _paystackReady) { %>
+                  Ready &middot; <%= [_stripeReady ? 'STRIPE' : null, _paystackReady ? 'PAYSTACK' : null].filter(Boolean).join(' + ') %>
+                <% } else { %>Not configured<% } %>
               </span>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">
-              <label style="display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px solid var(--border);border-radius:10px;cursor:pointer;<%= (_pref==='stripe'||_pref==='both') ? 'background:#f0f9ff;border-color:#7dd3fc;' : '' %>">
-                <input type="checkbox" class="payout-pref-toggle" data-provider="stripe" <%= (_pref==='stripe'||_pref==='both'||(_pref==='auto'&&_stripeReady)) ? 'checked' : '' %> style="margin-top:3px;">
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;">
+
+              <%# ── Stripe Connect card ── %>
+              <label style="display:flex;gap:10px;align-items:flex-start;padding:14px;border:1px solid <%= (_pref==='stripe'||_pref==='both') ? '#7dd3fc' : 'var(--border)' %>;border-radius:10px;cursor:<%= _stripeReady ? 'pointer' : 'not-allowed' %>;background:<%= (_pref==='stripe'||_pref==='both') ? '#f0f9ff' : '#fff' %>;<%= !_stripeReady ? 'opacity:.6;' : '' %>">
+                <input type="checkbox" class="payout-pref-toggle" data-provider="stripe" <%= (_pref==='stripe'||_pref==='both'||(_pref==='auto'&&_stripeReady)) ? 'checked' : '' %> <%= !_stripeReady ? 'disabled' : '' %> style="margin-top:3px;flex-shrink:0;cursor:<%= _stripeReady ? 'pointer' : 'not-allowed' %>">
                 <div style="flex:1;min-width:0;">
                   <div style="font-weight:700;font-size:.88rem;">Stripe Connect</div>
-                  <div style="font-size:.75rem;color:var(--muted,#64748b);margin-top:2px;">Cards, Apple Pay, Google Pay · 40+ countries</div>
-                  <div style="font-size:.72rem;margin-top:4px;<%= _stripeReady ? 'color:#15803d;' : 'color:#92400e;' %>">
-                    <%= _stripeReady ? '✓ Connected' : '⚠ Not connected' %>
+                  <div style="font-size:.75rem;color:var(--muted,#64748b);margin-top:2px;">Cards, Apple Pay, Google Pay &middot; 40+ countries</div>
+                  <div style="font-size:.72rem;margin-top:5px;<%= _stripeReady ? 'color:#15803d;' : 'color:#92400e;' %>">
+                    <%= _stripeReady ? '&#10003; Connected' : '&#9888; Not connected' %>
                   </div>
-                  <a href="/account/stripe-connect/onboard" style="display:inline-block;margin-top:6px;font-size:.75rem;color:#635bff;text-decoration:none;">
-                    <%= _stripeReady ? 'Manage on Stripe' : 'Connect with Stripe →' %>
+                  <% if (_connectId) { %>
+                  <div style="font-size:.68rem;color:#475569;margin-top:2px;font-family:'JetBrains Mono',Consolas,monospace;word-break:break-all;"><%= _connectId %></div>
+                  <% } %>
+                  <a href="/account/stripe-connect/onboard" style="display:inline-flex;align-items:center;gap:5px;margin-top:9px;font-size:.78rem;font-weight:600;color:#635bff;text-decoration:none;padding:6px 11px;border:1px solid #c7d2fe;border-radius:7px;background:#f5f3ff;white-space:nowrap;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    <%= _stripeReady ? 'Manage on Stripe' : 'Connect with Stripe' %>
                   </a>
                 </div>
               </label>
-              <label style="display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px solid var(--border);border-radius:10px;cursor:pointer;<%= (_pref==='paystack'||_pref==='both') ? 'background:#f0fdf4;border-color:#86efac;' : '' %><%= !_paystackCountrySupported ? 'opacity:.55;' : '' %>" title="<%= _paystackCountrySupported ? '' : 'Paystack is not available in your country yet.' %>">
-                <input type="checkbox" class="payout-pref-toggle" data-provider="paystack" <%= (_pref==='paystack'||_pref==='both'||(_pref==='auto'&&_paystackReady)) ? 'checked' : '' %> <%= !_paystackCountrySupported ? 'disabled' : '' %> style="margin-top:3px;">
+
+              <%# ── Paystack card ── %>
+              <label style="display:flex;gap:10px;align-items:flex-start;padding:14px;border:1px solid <%= (_pref==='paystack'||_pref==='both') ? '#86efac' : 'var(--border)' %>;border-radius:10px;cursor:<%= _paystackReady ? 'pointer' : 'not-allowed' %>;background:<%= (_pref==='paystack'||_pref==='both') ? '#f0fdf4' : '#fff' %>;<%= !_paystackReady ? 'opacity:.6;' : '' %>">
+                <input type="checkbox" class="payout-pref-toggle" data-provider="paystack" <%= (_pref==='paystack'||_pref==='both'||(_pref==='auto'&&_paystackReady)) ? 'checked' : '' %> <%= !_paystackReady ? 'disabled' : '' %> style="margin-top:3px;flex-shrink:0;cursor:<%= _paystackReady ? 'pointer' : 'not-allowed' %>">
                 <div style="flex:1;min-width:0;">
                   <div style="font-weight:700;font-size:.88rem;">Paystack</div>
-                  <div style="font-size:.75rem;color:var(--muted,#64748b);margin-top:2px;">
-                    Bank · Mobile Money · Cards
+                  <div style="font-size:.75rem;color:var(--muted,#64748b);margin-top:2px;">Bank &middot; Mobile Money &middot; Cards</div>
+                  <% if (_pcs.length) { %>
+                  <div style="font-size:.7rem;color:var(--muted,#64748b);margin-top:4px;">
+                    Live in: <% _pcs.slice(0,8).forEach(function(c){ %><span style="display:inline-block;padding:1px 5px;margin:0 2px 2px 0;background:#f1f5f9;border-radius:4px;font-weight:600;color:#334155;font-size:.68rem;"><%= c.iso_code %></span><% }); %>
                   </div>
-                  <div style="font-size:.7rem;color:var(--muted,#64748b);margin-top:3px;">
-                    Live in:
-                    <% _pcs.slice(0,8).forEach(function(c,i){ %><span style="display:inline-block;padding:1px 5px;margin:0 2px 2px 0;background:#f1f5f9;border-radius:4px;font-weight:600;color:#334155;"><%= c.iso_code %></span><% }) %>
-                  </div>
-                  <div style="font-size:.72rem;margin-top:4px;<%= _paystackReady ? 'color:#15803d;' : 'color:#92400e;' %>">
-                    <%= _paystackReady ? '✓ Configured' : (_paystackCountrySupported ? '⚠ Not configured' : '— Country not supported') %>
-                  </div>
-                  <% if (_paystackCountrySupported) { %>
-                  <button type="button" id="paystack-configure-btn" style="margin-top:6px;font-size:.75rem;background:none;border:none;color:#0d9488;cursor:pointer;padding:0;text-decoration:underline;">
-                    <%= _paystackReady ? 'Edit accounts' : 'Configure Paystack →' %>
-                  </button>
                   <% } %>
+                  <div style="font-size:.72rem;margin-top:5px;<%= _paystackReady ? 'color:#15803d;' : 'color:#92400e;' %>">
+                    <%= _paystackReady ? '&#10003; Configured' : '&#9888; Not configured' %>
+                  </div>
+                  <% if (!_paystackCountrySupported && _country) { %>
+                  <div style="font-size:.68rem;color:#b45309;margin-top:3px;"><%= _country %> is not yet live on Paystack &mdash; you can still add an account for future use.</div>
+                  <% } %>
+                  <button type="button" id="paystack-configure-btn" style="display:inline-flex;align-items:center;gap:5px;margin-top:9px;font-size:.78rem;font-weight:600;color:#0d9488;padding:6px 11px;border:1px solid #99f6e4;border-radius:7px;background:#f0fdfa;cursor:pointer;white-space:nowrap;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                    <%= _paystackReady ? 'Edit Accounts' : 'Add Payout Account' %>
+                  </button>
                 </div>
               </label>
+
             </div>
             <p id="payout-pref-feedback" style="margin:10px 0 0;font-size:.75rem;color:var(--muted,#64748b);min-height:1em;"></p>
           </div>
@@ -2718,7 +2733,7 @@
               const status = document.getElementById('payout-pref-status');
               let saving = false;
               function currentPref(){
-                const on = Array.from(toggles).filter(t => t.checked && !t.disabled).map(t => t.dataset.provider);
+                const on = Array.from(toggles).filter(t => t.checked).map(t => t.dataset.provider);
                 if (on.length === 2) return 'both';
                 if (on.length === 1) return on[0];
                 return '';
@@ -2737,11 +2752,11 @@
                   const data = await res.json();
                   if (!data.success) throw new Error(data.message || 'Save failed');
                   const p = data.payout || {};
-                  fb.textContent = '✓ Saved · used by Paygira and Public Registration.';
+                  fb.textContent = '\u2713 Saved · used by Paygira and Public Registration.';
                   fb.style.color = '#15803d';
                   if (status) {
                     if (p.ready) {
-                      status.textContent = 'Ready · ' + String(p.provider || '').toUpperCase();
+                      status.textContent = 'Ready \u00b7 ' + String(p.provider || '').toUpperCase();
                       status.style.background = '#dcfce7'; status.style.color = '#15803d';
                     } else {
                       status.textContent = 'Not configured';
@@ -2755,55 +2770,18 @@
               }
               toggles.forEach(t => t.addEventListener('change', save));
               const cfgBtn = document.getElementById('paystack-configure-btn');
-              if (cfgBtn) cfgBtn.addEventListener('click', function(){
+              if (cfgBtn) cfgBtn.addEventListener('click', function(e){
+                e.preventDefault();
                 const wrap = document.getElementById('payout-form-wrap');
                 const addRow = document.getElementById('payout-add-row');
-                if (wrap) wrap.style.display = 'block';
-                if (addRow) addRow.style.display = 'none';
+                if (wrap) { wrap.style.display = 'block'; }
+                if (addRow) { addRow.style.display = 'none'; }
                 const sel = document.getElementById('sa-type');
                 if (sel && !sel.value) sel.focus();
-                wrap && wrap.scrollIntoView({behavior:'smooth', block:'center'});
+                if (wrap) wrap.scrollIntoView({behavior:'smooth', block:'center'});
               });
             })();
           </script>
-
-
-          <!-- ── Stripe Connect banner ──────────────────────────── -->
-          <% const _connectId = typeof stripeConnectAccountId !== 'undefined' ? stripeConnectAccountId : null; %>
-          <% if (_connectId) { %>
-          <div style="display:flex;align-items:center;gap:12px;background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:14px 16px;margin-bottom:16px;">
-            <span style="font-size:1.3rem;flex-shrink:0;">✅</span>
-            <div style="flex:1;min-width:0;">
-              <div style="font-weight:700;font-size:.9rem;color:#15803d;">Stripe Payout Account Connected</div>
-              <div style="font-size:.78rem;color:#166534;margin-top:2px;word-break:break-all;"><%= _connectId %></div>
-              <div style="font-size:.78rem;color:#4b5563;margin-top:4px;">Registration payments from parents will be transferred to your connected Stripe account automatically.</div>
-            </div>
-            <a href="/account/stripe-connect/onboard" style="flex-shrink:0;font-size:.8rem;padding:6px 12px;background:#fff;border:1px solid #86efac;border-radius:7px;color:#15803d;text-decoration:none;white-space:nowrap;">Update / Re-onboard</a>
-          </div>
-          <% } else { %>
-          <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:16px 18px;margin-bottom:16px;">
-            <div style="display:flex;align-items:flex-start;gap:12px;">
-              <span style="font-size:1.3rem;flex-shrink:0;">🏦</span>
-              <div style="flex:1;">
-                <div style="font-weight:700;font-size:.92rem;color:#92400e;">Connect Your School's Stripe Account</div>
-                <div style="font-size:.83rem;color:#78350f;margin-top:4px;line-height:1.5;">
-                  To receive registration payments from parents directly into your school's bank account, you need to connect a Stripe account.<br>
-                  <strong>Without this, payments can only be made by cash and recorded — online payments won't go through.</strong>
-                </div>
-                <div style="margin-top:12px;">
-                  <a href="/account/stripe-connect/onboard"
-                     style="display:inline-flex;align-items:center;gap:8px;background:#635bff;color:#fff;border:none;padding:9px 18px;border-radius:8px;font-size:.88rem;font-weight:600;text-decoration:none;cursor:pointer;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
-                    Connect with Stripe
-                  </a>
-                </div>
-                <div style="font-size:.75rem;color:#92400e;margin-top:10px;">
-                  You'll be taken to Stripe's secure onboarding. You'll need your bank details and business info ready.
-                </div>
-              </div>
-            </div>
-          </div>
-          <% } %>
 
           <% if (paystackSubaccounts && paystackSubaccounts.length) { %>
           <ul style="list-style:none;padding:0;margin:0 0 16px;display:flex;flex-direction:column;gap:8px;" id="payout-accounts-list">
@@ -2811,12 +2789,14 @@
             <li style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface,#f9fafb);">
               <div>
                 <strong style="font-size:.9rem;">
-                  <%= account.account_type === 'stripe_card' ? '💳 Card' : '🏦 Bank Account' %>
+                  <% if (account.account_type === 'stripe_card') { %>💳 Card<% } else { %>🏦 Paystack Payout Account<% if (account.account_type === 'mobile_money') { %> <span style="background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:4px;font-size:.7rem;font-weight:700;">MoMo</span><% } %><% } %>
                   <% if (account.is_primary) { %><span style="margin-left:6px;background:#e7faf1;color:#0f5132;padding:1px 7px;border-radius:5px;font-size:.72rem;font-weight:600;">Primary</span><% } %>
                 </strong>
                 <div style="color:var(--muted);font-size:.82rem;margin-top:3px;">
                   <% if (account.account_type === 'bank') { %>
                     <%= account.bank_name || 'Bank' %> &middot; Acc: <%= account.account_number || '—' %>
+                  <% } else if (account.account_type === 'mobile_money') { %>
+                    <%= account.momo_provider || 'Mobile Money' %><% if (account.momo_number) { %> &middot; <%= account.momo_number %><% } %>
                   <% } else if (account.account_type === 'stripe_card') { %>
                     Stripe card &middot; <%= account.business_name || '' %>
                   <% } else { %>
@@ -2840,7 +2820,7 @@
           <!-- Payout account form (hidden by default, shown when Add / Edit clicked) -->
           <div id="payout-form-wrap" style="display:none;border-top:1px solid var(--border);padding-top:16px;margin-top:8px;">
             <h4 style="margin:0 0 12px;font-size:.95rem;" id="payout-form-heading">Add Payout Account</h4>
-            <form id="school-account-form" autocomplete="off">
+            <form id="school-account-form" autocomplete="off" novalidate>
               <input type="hidden" id="sa-id" name="id" />
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                 <div class="field-group">
@@ -2848,6 +2828,7 @@
                   <select id="sa-type" name="account_type" class="form-select" required>
                     <option value="">— Choose —</option>
                     <option value="bank">Bank Account</option>
+                    <option value="mobile_money">Mobile Money</option>
                     <% if (typeof stripePublishableKey !== 'undefined' && stripePublishableKey) { %>
                     <option value="stripe_card">Debit / Credit Card</option>
                     <% } %>
@@ -2880,6 +2861,28 @@
                 </div>
               </div>
 
+              <div id="sa-momo-fields" style="display:none;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
+                <div class="field-group">
+                  <label class="form-label">Mobile Money Provider</label>
+                  <select id="sa-momo-provider" name="momo_provider" class="form-select">
+                    <option value="">Select provider</option>
+                    <option value="mtn">MTN Mobile Money</option>
+                    <option value="vodafone">Vodafone Cash</option>
+                    <option value="airtel_tigo">AirtelTigo Money</option>
+                    <option value="orange">Orange Money</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div class="field-group">
+                  <label class="form-label">Mobile Money Number</label>
+                  <input id="sa-momo-number" name="momo_number" type="text" class="form-input" placeholder="Enter wallet number" />
+                </div>
+                <div class="field-group">
+                  <label class="form-label">Account Holder Name</label>
+                  <input id="sa-momo-holder" name="account_holder_name" type="text" class="form-input" placeholder="Name on wallet" />
+                </div>
+              </div>
+
               <% if (typeof stripePublishableKey !== 'undefined' && stripePublishableKey) { %>
               <!-- Stripe card fields -->
               <div id="sa-stripe-card-fields" style="display:none;margin-top:12px;">
@@ -2892,10 +2895,11 @@
               <% } %>
 
               <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;align-items:center;">
-                <button type="submit" class="btn-primary btn-link">Save Account</button>
+                <button type="submit" class="btn-primary btn-link" id="sa-submit-btn">Save Account</button>
                 <button type="button" class="btn-link" id="sa-reset">Cancel</button>
                 <button type="button" class="btn-danger btn-link" id="sa-delete" style="display:none;">Delete Account</button>
               </div>
+              <div id="sa-status" style="margin-top:10px;font-size:.82rem;min-height:1.2em;"></div>
             </form>
           </div>
 
@@ -3044,6 +3048,7 @@
         const schoolAccountDelete = document.getElementById("sa-delete");
         const schoolAccountType = document.getElementById("sa-type");
         const schoolAccountBankFields = document.getElementById("sa-bank-fields");
+        const schoolAccountMomoFields = document.getElementById("sa-momo-fields");
         const schoolAccountStripeCardFields = document.getElementById("sa-stripe-card-fields");
         let saStripeElements = null; // holds { stripe, elements, cardElement }
         const schoolAccountId = document.getElementById("sa-id");
@@ -3051,6 +3056,9 @@
         const schoolAccountNumber = document.getElementById("sa-account-number");
         const schoolAccountHolder = document.getElementById("sa-account-holder");
         const schoolAccountBankNameInput = document.getElementById("sa-bank-name-input");
+        const schoolAccountMomoProvider = document.getElementById("sa-momo-provider");
+        const schoolAccountMomoNumber = document.getElementById("sa-momo-number");
+        const schoolAccountMomoHolder = document.getElementById("sa-momo-holder");
         const schoolAccountRoutingNumber = document.getElementById("sa-routing-number");
         const schoolAccountBankCountry = document.getElementById("sa-bank-country");
         const schoolAccountBankCurrency = document.getElementById("sa-bank-currency");
@@ -3396,13 +3404,14 @@
           const addRow = document.getElementById("payout-add-row");
           if (wrap) wrap.style.display = "block";
           if (addRow) addRow.style.display = "none";
+          resetSchoolAccountForm();
         }
 
         function hidePayoutForm() {
           const wrap = document.getElementById("payout-form-wrap");
           const addRow = document.getElementById("payout-add-row");
           if (wrap) wrap.style.display = "none";
-          if (addRow) addRow.style.display = "";
+          if (addRow) addRow.style.display = "none";
           resetSchoolAccountForm();
         }
 
@@ -3918,9 +3927,13 @@
           }
           const type = schoolAccountType.value;
           const isBank = type === "bank";
+          const isMomo = type === "mobile_money";
           const isStripeCard = type === "stripe_card";
 
           schoolAccountBankFields.style.display = isBank ? "grid" : "none";
+          if (schoolAccountMomoFields) {
+            schoolAccountMomoFields.style.display = isMomo ? "grid" : "none";
+          }
           if (schoolAccountStripeCardFields) {
             schoolAccountStripeCardFields.style.display = isStripeCard ? "block" : "none";
           }
@@ -3951,11 +3964,25 @@
               schoolAccountNumber.removeAttribute("required");
             }
           }
+          if (schoolAccountMomoNumber) {
+            if (isMomo) {
+              schoolAccountMomoNumber.setAttribute("required", "required");
+            } else {
+              schoolAccountMomoNumber.removeAttribute("required");
+            }
+          }
           if (schoolAccountHolder) {
             if (isBank) {
               schoolAccountHolder.setAttribute("required", "required");
             } else {
               schoolAccountHolder.removeAttribute("required");
+            }
+          }
+          if (schoolAccountMomoHolder) {
+            if (isMomo) {
+              schoolAccountMomoHolder.setAttribute("required", "required");
+            } else {
+              schoolAccountMomoHolder.removeAttribute("required");
             }
           }
           if (schoolAccountBankNameInput) {
@@ -4022,6 +4049,10 @@
                   if (schoolAccountHolder) schoolAccountHolder.value = account.account_holder_name || "";
                   if (schoolAccountBankNameInput) schoolAccountBankNameInput.value = account.bank_name || "";
                   // routing_number, country, currency not stored — leave as defaults
+                } else if (account.account_type === "mobile_money") {
+                  if (schoolAccountMomoNumber) schoolAccountMomoNumber.value = account.momo_number || "";
+                  if (schoolAccountMomoProvider) schoolAccountMomoProvider.value = account.momo_provider || "";
+                  if (schoolAccountMomoHolder) schoolAccountMomoHolder.value = account.account_holder_name || "";
                 }
                 // stripe_card accounts: card details come from Stripe; no local fields to fill
 
@@ -4083,13 +4114,32 @@
           });
         }
 
-        if (schoolAccountForm) {
+        function saSetStatus(msg, ok) {
+          const el = document.getElementById("sa-status");
+          if (!el) return;
+          el.textContent = msg;
+          el.style.color = ok ? "#15803d" : "#dc2626";
+        }
+        function saSetBusy(busy) {
+          const btn = document.getElementById("sa-submit-btn");
+          if (btn) { btn.disabled = busy; btn.textContent = busy ? "Saving…" : "Save Account"; }
+        }
+
+                if (schoolAccountForm) {
           schoolAccountForm.addEventListener("submit", async (event) => {
             event.preventDefault();
-            requestPassword(null, async () => {
+            saSetStatus("", true);
+            saSetBusy(true);
+            (async () => {
               const formData = new FormData(schoolAccountForm);
               const payload = Object.fromEntries(formData.entries());
               const isEditing = payload.id && payload.id !== "";
+
+              // JS validation (form has novalidate — we validate here instead)
+              if (!payload.account_type) { saSetStatus("Please select an account type.", false); saSetBusy(false); return; }
+              if (!payload.business_name || !payload.business_name.trim()) { saSetStatus("Business name is required.", false); saSetBusy(false); return; }
+              if (payload.account_type === "bank" && !payload.account_number) { saSetStatus("Account number is required.", false); saSetBusy(false); return; }
+              if (payload.account_type === "mobile_money" && !payload.momo_number) { saSetStatus("Mobile money number is required.", false); saSetBusy(false); return; }
 
               // ─── Bank account via Paystack (direct) ────────────────────────
               if (payload.account_type === "bank") {
@@ -4109,10 +4159,30 @@
                 try {
                   const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
                   const data = await res.json();
-                  if (data.success) { window.location.reload(); }
-                  else { alert(data.message || "Failed to save bank account."); }
+                  if (data.success) { saSetStatus("✓ Account saved.", true); saSetBusy(false); setTimeout(() => window.location.reload(), 800); }
+                  else { saSetStatus(data.message || "Failed to save bank account.", false); saSetBusy(false); }
                 } catch (err) {
-                  alert(err.message || "Unable to save bank account. Try again.");
+                  saSetStatus(err.message || "Unable to save bank account. Try again.", false); saSetBusy(false);
+                }
+                return;
+              }
+
+              if (payload.account_type === "mobile_money") {
+                const momoProvider = document.getElementById("sa-momo-provider");
+                const momoNumber = document.getElementById("sa-momo-number");
+                const momoHolder = document.getElementById("sa-momo-holder");
+                payload.momo_provider = momoProvider ? momoProvider.value : "";
+                payload.momo_number = momoNumber ? momoNumber.value : "";
+                payload.account_holder_name = momoHolder ? momoHolder.value : payload.account_holder_name;
+                const url = isEditing ? "/account/paystack" : "/account/add-paystack-subaccount";
+                const method = isEditing ? "PUT" : "POST";
+                try {
+                  const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+                  const data = await res.json();
+                  if (data.success) { saSetStatus("✓ Account saved.", true); saSetBusy(false); setTimeout(() => window.location.reload(), 800); }
+                  else { saSetStatus(data.message || "Failed to save mobile money account.", false); saSetBusy(false); }
+                } catch (err) {
+                  saSetStatus(err.message || "Unable to save mobile money account. Try again.", false); saSetBusy(false);
                 }
                 return;
               }
@@ -4157,14 +4227,15 @@
                   const saveData = await saveRes.json();
                   if (!saveRes.ok || !saveData.success) throw new Error(saveData.message || "Failed to save card.");
 
-                  window.location.reload();
+                  saSetStatus("✓ Card saved.", true); saSetBusy(false); setTimeout(() => window.location.reload(), 800);
                 } catch (err) {
+                  saSetBusy(false);
                   if (errEl) errEl.textContent = err.message || "Error saving Stripe card.";
                   else alert(err.message || "Error saving Stripe card.");
                 }
                 return;
               }
-            });
+            })();
           });
         }
 

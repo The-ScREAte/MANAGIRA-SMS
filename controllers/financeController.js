@@ -6,6 +6,7 @@ const fs = require("fs");
 const path = require("path");
 const PDFDocument = require("pdfkit");
 const Stripe = require("stripe");
+const axios = require("axios");
 const bcrypt = require("bcryptjs");
 const db = require("../config/db");
 const { userHasPermission } = require("../middleware/permissionMiddleware");
@@ -31,6 +32,8 @@ const { getOrgChargeCards } = require("../utils/orgChargeCards");
 const { ensurePaymentProviderSchema } = require("../utils/paymentProviderSchema");
 const { getActiveStripePublicKey, getStripeSettings, getStripePlatformClient, getStripePlatformCredentials, getStripeConnectAccountId, ensureStripeConnectAccountSchema } = require("../utils/stripeConfig");
 const { buildStudentDisplayId, getOrganizationStudentIdSettings } = require("../utils/studentIdDisplay");
+const { getPaystackSettings } = require("../utils/paystackConfig");
+const { resolveSchoolPayoutDestination } = require("../utils/payoutDestination");
 const {
   getPlatformFeeSettings,
   isPlatformFeeMethod,
@@ -64,6 +67,23 @@ async function cachedLoad(orgId, name, extra, loader) {
 
 function money(value) {
   return formatCurrencyAmount(value, "USD", "en-US");
+}
+
+function buildFinancePaymentChargeBreakdown(baseAmount, method, platformFeePercentage = 0, taxAmount = 0) {
+  return buildPlatformChargeBreakdown(baseAmount, {
+    applyPlatformFee: isPlatformFeeMethod(method),
+    platformFeePercentage,
+    taxAmount,
+  });
+}
+
+async function getActivePaystackConfig(dbClient = db) {
+  const settings = await getPaystackSettings(dbClient);
+  return {
+    secretKey: settings.activeSecretKey || process.env.PAYSTACK_SECRET_KEY || "",
+    publicKey: settings.activePublicKey || process.env.PAYSTACK_PUBLIC_KEY || "",
+    mode: settings.mode,
+  };
 }
 
 // Per-org version counter — bumped on every cache invalidation. The PayGira
@@ -3460,6 +3480,7 @@ module.exports = {
         refs,
         selectedYear: req.query.year || "",
         selectedTerm: req.query.term || "",
+        layout: false,
       });
     } catch (error) {
       console.error("[financeOverviewFragmentGet]", error);
@@ -3508,6 +3529,7 @@ module.exports = {
         refs,
         formatMoney: display.formatMoney,
         financeCurrency: display.financeCurrency,
+        layout: false,
       });
     } catch (error) {
       console.error("[financeOverviewDetailFragmentGet]", error);
@@ -6081,11 +6103,11 @@ module.exports = {
           resolveFinanceStripeRuntime(orgId, pspSettings, orgProfile),
           buildFinanceDisplayContext(req, orgId, pspSettings, orgProfile.organization_country),
         ]);
-        return { pspSettings, stripeRuntime, display };
+        return { pspSettings, orgProfile, stripeRuntime, display };
       })();
 
       const guardianCacheKey = { guardianId };
-      const [cardsR, guardianData] = await Promise.all([
+      const [cardsR, guardianData, payoutAccountsR] = await Promise.all([
         cachedLoad(orgId, "guardianCards", guardianCacheKey, () => database.query(
           `SELECT card_id, brand, last4, holder_name, exp_month, exp_year, is_default, student_id
              FROM guardian_payment_methods
@@ -6215,10 +6237,17 @@ module.exports = {
             totals,
           };
         }),
+        database.query(
+          `SELECT id, account_type, business_name, account_number, bank_name, momo_number, momo_provider, account_holder_name, subaccount_code, is_primary
+             FROM paystack_subaccounts
+            WHERE organization_id=$1 AND account_type != 'stripe_card'
+            ORDER BY is_primary DESC, id ASC`,
+          [orgId]
+        ).catch(() => ({ rows: [] })),
       ]);
 
       // Payment options available to this guardian (set by the school)
-      const { pspSettings, stripeRuntime, display } = await orgContextPromise;
+      const { pspSettings, orgProfile, stripeRuntime, display } = await orgContextPromise;
       const maskedPsp = maskPspSecrets(pspSettings);
       const allowedMethods = computeAllowedMethods(pspSettings, { stripeOn: stripeRuntime.stripeOn });
       const stripeCheckoutConfig = buildGuardianStripeCheckoutConfig(allowedMethods.stripeMethods);
@@ -6257,6 +6286,10 @@ module.exports = {
         financeCurrency: display.financeCurrency,
         formatMoney: display.formatMoney,
         money,
+        schoolName: orgProfile.organization_name || '',
+        payoutAccounts: payoutAccountsR.rows || [],
+        stripePayoutReady: stripeAccountReady && stripeRuntime.stripeOn,
+        stripeSelectable: stripeRuntime.stripeOn,
         messages: req.flash ? req.flash() : {},
         req,
       });
@@ -6288,10 +6321,42 @@ module.exports = {
 
       const pspSettings = await loadPspSettings(orgId);
       const orgProfile = await loadOrganizationProfile(orgId);
+      const payoutContext = await resolveSchoolPayoutDestination(orgId, db, { fresh: true }).catch(() => null);
       const stripeRuntime = await resolveFinanceStripeRuntime(orgId, pspSettings, orgProfile);
       const allowedMethods = computeAllowedMethods(pspSettings, { stripeOn: stripeRuntime.stripeOn });
-      if (!allowedMethods.stripeOn) {
-        return res.status(400).json({ success: false, message: 'Stripe is not configured for this school.' });
+
+      // Resolve which specific payout account to use
+      // payout_account_id: DB id of paystack_subaccounts row; 'stripe' = use Stripe Connect
+      const requestedAccountId = req.body?.payout_account_id;
+      let payoutProvider = payoutContext?.provider || null;
+      let explicitSubaccountCode = null;
+      if (requestedAccountId && requestedAccountId !== 'stripe') {
+        const requestedAccountNumericId = parseInt(requestedAccountId, 10);
+        if (Number.isFinite(requestedAccountNumericId)) {
+          const acctRow = await database.query(
+            `SELECT subaccount_code, account_type FROM paystack_subaccounts WHERE id=$1 AND organization_id=$2`,
+            [requestedAccountNumericId, orgId]
+          );
+          if (acctRow.rows.length) {
+            explicitSubaccountCode = acctRow.rows[0].subaccount_code;
+            payoutProvider = 'paystack'; // force paystack when specific account selected
+          }
+        }
+      } else if (requestedAccountId === 'stripe') {
+        payoutProvider = 'stripe';
+      }
+
+      // If Stripe was selected/preferred but runtime is unusable, fall back to Paystack when available.
+      if (payoutProvider === 'stripe' && !stripeRuntime?.stripeOn) {
+        const fallbackSubaccount = explicitSubaccountCode || payoutContext?.paystack?.subaccountCode || null;
+        if (fallbackSubaccount) {
+          payoutProvider = 'paystack';
+          explicitSubaccountCode = fallbackSubaccount;
+        }
+      }
+
+      if (!payoutContext?.ready && !explicitSubaccountCode && requestedAccountId !== 'stripe') {
+        return res.status(400).json({ success: false, message: 'This school has not set up a payout account yet.' });
       }
 
       const plan = await buildGuardianPaygiraPaymentPlan({
@@ -6318,15 +6383,113 @@ module.exports = {
       const display = await buildFinanceDisplayContext(req, orgId, pspSettings, orgProfile.organization_country);
       const currencyCode = String(display.financeCurrency.code || 'USD').toLowerCase();
       const stripeCheckoutConfig = buildGuardianStripeCheckoutConfig(allowedMethods.stripeMethods);
-      const stripe = getFinanceStripeClient(stripeRuntime);
 
-      // ── Stripe Customer: get or create so we can attach payment methods ────
       const gpRow = await client.query(
         `SELECT first_name, last_name, email, stripe_customer_id
            FROM guardian_profiles WHERE guardian_id=$1 AND organization_id=$2`,
         [guardianId, orgId]
       );
       const guardianProfile = gpRow.rows[0] || {};
+
+      if (payoutProvider === 'paystack') {
+        const subaccountCodeToUse = explicitSubaccountCode || payoutContext?.paystack?.subaccountCode || null;
+        const paystackConfig = await getActivePaystackConfig(database);
+        if (!paystackConfig.secretKey) {
+          return res.status(500).json({ success: false, message: 'Paystack is not configured for this school.' });
+        }
+        if (!subaccountCodeToUse) {
+          return res.status(400).json({ success: false, message: 'This school has not saved a valid Paystack payout account yet.' });
+        }
+        if (!guardianProfile.email) {
+          return res.status(400).json({ success: false, message: 'A guardian email is required for Paystack checkout.' });
+        }
+
+        const paymentReference = `PG-${orgId}-${guardianId}-${plan.row.assignment_id}-${Date.now()}`;
+        const paystackCurrencyMap = {
+          gh: 'GHS',
+          ng: 'NGN',
+          za: 'ZAR',
+          ke: 'KES',
+          eg: 'EGP',
+        };
+        const orgCountryIso = String(orgProfile.organization_country || payoutContext?.country || '').trim().toLowerCase().slice(0, 2);
+        const preferredPaystackCurrency = paystackCurrencyMap[orgCountryIso] || 'GHS';
+        req.session.guardianPaygiraPaystackPending = {
+          assignment_id: String(plan.row.assignment_id),
+          amount: String(req.body?.amount || ''),
+          occurrence_date: String(req.body?.occurrence_date || ''),
+          occurrence_dates: String(req.body?.occurrence_dates || ''),
+          apply_credit: Boolean(req.body?.apply_credit),
+          payment_reference: paymentReference,
+        };
+
+        const paystackCallbackUrl = `${req.protocol}://${req.get('host')}/guardian/paygira/stripe-return?reference=${encodeURIComponent(paymentReference)}&organizationId=${encodeURIComponent(orgId)}&guardianId=${encodeURIComponent(guardianId)}`;
+        const paystackBasePayload = {
+          email: guardianProfile.email,
+          amount: Math.round(chargeBreakdown.totalChargedAmount * 100),
+          reference: paymentReference,
+          callback_url: paystackCallbackUrl,
+          ...(subaccountCodeToUse && subaccountCodeToUse.startsWith('ACCT_') ? { subaccount: subaccountCodeToUse } : {}),
+          metadata: {
+            flow: 'guardian_paygira',
+            organization_id: String(orgId),
+            guardian_id: String(guardianId),
+            assignment_id: String(plan.row.assignment_id),
+            bill_id: String(plan.row.bill_id),
+            student_id: String(plan.row.student_id),
+            payout_provider: 'paystack',
+            payout_subaccount_code: subaccountCodeToUse || '',
+            payout_account_id: requestedAccountId ? String(requestedAccountId) : '',
+          },
+        };
+
+        let paystackResponse;
+        try {
+          paystackResponse = await axios.post(
+            'https://api.paystack.co/transaction/initialize',
+            {
+              ...paystackBasePayload,
+              currency: preferredPaystackCurrency,
+            },
+            { headers: { Authorization: `Bearer ${paystackConfig.secretKey}` } }
+          );
+        } catch (paystackErr) {
+          const code = String(paystackErr?.response?.data?.code || '').toLowerCase();
+          if (code === 'unsupported_currency' && preferredPaystackCurrency !== 'GHS') {
+            paystackResponse = await axios.post(
+              'https://api.paystack.co/transaction/initialize',
+              {
+                ...paystackBasePayload,
+                currency: 'GHS',
+              },
+              { headers: { Authorization: `Bearer ${paystackConfig.secretKey}` } }
+            );
+          } else {
+            throw paystackErr;
+          }
+        }
+
+        const paystackInit = paystackResponse.data?.data || {};
+        const payload = {
+          success: true,
+          provider: 'paystack',
+          authorizationUrl: paystackInit.authorization_url,
+          payment_url: paystackInit.authorization_url,
+          reference: paymentReference,
+          callbackUrl: paystackCallbackUrl,
+          amountDue: Math.round(chargeBreakdown.totalChargedAmount * 100),
+          amountApplied: Math.round(plan.totalExternalAmount * 100),
+          platformFeeAmount: Math.round(chargeBreakdown.platformFeeAmount * 100),
+          currency: String(paystackResponse?.data?.data?.currency || preferredPaystackCurrency).toUpperCase(),
+        };
+
+        return req.session.save
+          ? req.session.save(() => res.json(payload))
+          : res.json(payload);
+      }
+
+      const stripe = getFinanceStripeClient(stripeRuntime);
+
       let stripeCustomerId = guardianProfile.stripe_customer_id || null;
       if (!stripeCustomerId) {
         try {
@@ -6343,11 +6506,9 @@ module.exports = {
           );
         } catch (custErr) {
           console.error('[guardianPaygiraStripeIntentPost] Stripe Customer creation failed:', custErr.message);
-          // Non-fatal — continue without customer (card won't be saved for reuse)
         }
       }
 
-      // ── Saved card: look up Stripe PM id if the guardian chose a saved card ─
       const savedCardId = req.body?.saved_card_id ? parseInt(req.body.saved_card_id, 10) : null;
       let savedPaymentMethodId = null;
       if (savedCardId) {
@@ -6389,6 +6550,7 @@ module.exports = {
           piParams.application_fee_amount = applicationFeeAmount;
         }
       }
+
       const paymentIntent = await stripe.paymentIntents.create(piParams);
 
       await upsertPendingGuardianStripePayment(client, {
@@ -6434,7 +6596,8 @@ module.exports = {
         return res.status(error.status || 400).json({ success: false, message: error.message });
       }
       console.error('[guardianPaygiraStripeIntentPost]', error);
-      return res.status(500).json({ success: false, message: 'Unable to initialize Stripe payment.' });
+      const upstreamMessage = error?.response?.data?.message || error?.message;
+      return res.status(500).json({ success: false, message: upstreamMessage || 'Unable to initialize Stripe payment.' });
     } finally {
       if (client && shouldReleaseClient) client.release();
     }
@@ -6449,6 +6612,48 @@ module.exports = {
     const paymentIntentId = String(
       req.query.payment_intent || req.session.guardianPaygiraStripeIntentId || ''
     ).trim();
+    const paystackReference = String(
+      req.query.reference || req.session.guardianPaygiraPaystackPending?.payment_reference || ''
+    ).trim();
+
+    if (paystackReference && !paymentIntentId) {
+      try {
+        const paystackConfig = await getActivePaystackConfig(database);
+        if (!paystackConfig.secretKey) {
+          req.flash && req.flash('error', 'Paystack is not configured for this school.');
+          return res.redirect('/guardian/paygira');
+        }
+
+        const verification = await axios.get(
+          `https://api.paystack.co/transaction/verify/${encodeURIComponent(paystackReference)}`,
+          { headers: { Authorization: `Bearer ${paystackConfig.secretKey}` } }
+        );
+
+        const paymentStatus = String(verification.data?.data?.status || '').toLowerCase();
+        if (paymentStatus !== 'success') {
+          req.flash && req.flash('error', 'Paystack payment was not completed.');
+          return res.redirect('/guardian/paygira');
+        }
+
+        const pending = req.session.guardianPaygiraPaystackPending || {};
+        req.session.guardianPaygiraPaystackPending = null;
+        req.body = {
+          assignment_id: pending.assignment_id,
+          amount: pending.amount,
+          occurrence_date: pending.occurrence_date,
+          occurrence_dates: pending.occurrence_dates,
+          apply_credit: pending.apply_credit,
+          method: 'paystack',
+          payment_reference: paystackReference,
+        };
+
+        return financeController.guardianPaygiraPayPost(req, res, dbArg);
+      } catch (error) {
+        console.error('[guardianPaygiraStripeReturnGet][paystack]', error);
+        req.flash && req.flash('error', 'Paystack payment could not be finalized.');
+        return res.redirect('/guardian/paygira');
+      }
+    }
 
     if (!paymentIntentId) {
       req.flash && req.flash('error', 'Stripe did not return a valid payment session.');
@@ -6605,7 +6810,7 @@ module.exports = {
     const orgId = req.session.organizationId;
     const guardianId = req.session.guardianId;
     if (!orgId || !guardianId) return res.redirect("/account/login");
-    const { assignment_id, amount, card_id, method, occurrence_date, occurrence_dates, apply_credit } = req.body;
+    const { assignment_id, amount, card_id, method, occurrence_date, occurrence_dates, apply_credit, payment_reference } = req.body;
     let client;
     let shouldReleaseClient = false;
     try {
@@ -6749,6 +6954,7 @@ module.exports = {
         const ok =
           (payMethod === 'card'          && row.accepts_card && allow.stripeOn) ||
           (payMethod === 'stripe'        && row.accepts_card && allow.stripeOn) ||
+          (payMethod === 'paystack'      && row.accepts_card) ||
           (payMethod === 'bank_transfer' && row.accepts_transfer && allow.bankOn) ||
           (payMethod === 'mobile_money'  && allow.momoOn) ||
           (payMethod === 'other');
@@ -6798,6 +7004,9 @@ module.exports = {
       }
 
       if (totalExternalAmount > 0) {
+        if (payMethod === 'paystack' && payment_reference) {
+          reference = payment_reference;
+        }
         if (isRecurringBill) {
           for (const entry of paymentEntries) {
             if (!(Number(entry.externalAmount || 0) > 0)) continue;
@@ -6942,89 +7151,6 @@ module.exports = {
       if (client && shouldReleaseClient) client.release();
     }
     res.redirect("/guardian/paygira");
-  },
-
-  // ===================================================================
-  //  GUARDIAN — Saved Payment Cards (PayGira wallet)
-  //  IMPORTANT: we never store a raw PAN. Only brand, last4, holder, exp.
-  //  Replace the storage layer with a tokenized PSP (Stripe) in prod.
-  // ===================================================================
-  guardianCardAddPost: async (req, res, dbArg) => {
-    const database = dbArg || db;
-    const orgId = req.session.organizationId;
-    const guardianId = req.session.guardianId;
-    if (!orgId || !guardianId) return res.redirect("/account/login");
-    try {
-      await ensureGuardianCardsSchema();
-      const { card_number, holder_name, exp_month, exp_year, brand, child_student_id, set_default } = req.body;
-      const digits = String(card_number || "").replace(/\D/g, "");
-      if (digits.length < 12 || digits.length > 19) {
-        req.flash && req.flash("error", "Invalid card number.");
-        return res.redirect("/guardian/settings#cards");
-      }
-      const last4 = digits.slice(-4);
-      const inferredBrand = (brand && String(brand).trim()) || inferCardBrand(digits);
-      const mm = parseInt(exp_month, 10) || null;
-      const yy = parseInt(exp_year, 10) || null;
-      const childId = parseInt(child_student_id, 10) || null;
-
-      // If child specified, verify this guardian is linked to that student
-      if (childId) {
-        const own = await database.query(
-          `SELECT 1 FROM students s
-            WHERE s.student_id=$1 AND s.organization_id=$2
-              AND (
-                EXISTS (SELECT 1 FROM guardians g
-                         WHERE g.student_id=s.student_id AND g.guardian_id=$3 AND g.organization_id=$2)
-                OR EXISTS (SELECT 1 FROM guardian_students gs
-                         WHERE gs.student_id=s.student_id AND gs.guardian_id=$3)
-              )
-            LIMIT 1`,
-          [childId, orgId, guardianId]
-        );
-        if (!own.rows.length) {
-          req.flash && req.flash("error", "Selected child is not linked to your account.");
-          return res.redirect("/guardian/settings#cards");
-        }
-      }
-
-      // Make this card default if it's the first one or user asked for it
-      const existing = await database.query(
-        `SELECT COUNT(*)::int AS n FROM guardian_payment_methods WHERE guardian_id=$1 AND organization_id=$2`,
-        [guardianId, orgId]
-      );
-      const makeDefault = !!set_default || existing.rows[0].n === 0;
-      if (makeDefault) {
-        await database.query(
-          `UPDATE guardian_payment_methods SET is_default=false
-            WHERE guardian_id=$1 AND organization_id=$2`,
-          [guardianId, orgId]
-        );
-      }
-      await database.query(
-        `INSERT INTO guardian_payment_methods
-          (guardian_id, organization_id, brand, last4, holder_name, exp_month, exp_year, is_default, student_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-        [guardianId, orgId, inferredBrand, last4, holder_name || null, mm, yy, makeDefault, childId]
-      );
-      req.flash && req.flash("success", `Card •••• ${last4} added securely.`);
-      await logPaygira(req, {
-        actionType: "Saved Card",
-        recordType: "Payment Method",
-        recordId: null,
-        recordLabel: `${inferredBrand} •••• ${last4}`,
-        description: `Guardian added saved card ${inferredBrand} •••• ${last4}${makeDefault ? ' (default)' : ''}.`,
-        changedFields: [
-          { field: "Brand", value: inferredBrand },
-          { field: "Last 4", value: last4 },
-          { field: "Default", value: makeDefault ? 'Yes' : 'No' },
-        ],
-      });
-    } catch (e) {
-      console.error("[guardianCardAddPost]", e);
-      req.flash && req.flash("error", "Could not save card: " + e.message);
-    }
-    res.redirect("/guardian/settings#cards");
   },
 
   guardianCardDeletePost: async (req, res, dbArg) => {

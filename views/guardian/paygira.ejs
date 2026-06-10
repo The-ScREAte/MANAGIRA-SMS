@@ -537,6 +537,64 @@
     gap:8px;
     margin-top:10px;
   }
+  .pg-payout-route {
+    border:1px solid rgba(255,255,255,.08);
+    background:rgba(255,255,255,.03);
+    border-radius:14px;
+    padding:12px;
+    display:grid;
+    gap:8px;
+  }
+  .pg-payout-route-title {
+    font-size:.74rem;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    color:var(--pg-muted);
+    font-weight:700;
+  }
+  .pg-payout-route-copy {
+    color:var(--pg-muted);
+    font-size:.76rem;
+    line-height:1.45;
+  }
+  .pg-payout-grid {
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  .pg-payout-card {
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:8px 12px;
+    border:1px solid var(--pg-border);
+    border-radius:10px;
+    cursor:pointer;
+    font-size:.8rem;
+    user-select:none;
+    transition:border-color .15s ease, background .15s ease, transform .15s ease;
+    background:rgba(255,255,255,.01);
+  }
+  .pg-payout-card:hover {
+    border-color:rgba(0,212,170,.28);
+    transform:translateY(-1px);
+  }
+  .pg-payout-card.is-selected {
+    border-color:var(--pg-teal);
+    background:rgba(0,212,170,.14);
+  }
+  .pg-payout-card input[type="radio"] {
+    margin:0;
+    flex-shrink:0;
+  }
+  .pg-payout-redirect {
+    color:#9de7d6;
+    font-size:.75rem;
+    line-height:1.45;
+  }
+  .pg-payout-redirect[hidden] {
+    display:none !important;
+  }
   .pg-method-chip {
     display:inline-flex;
     align-items:center;
@@ -935,30 +993,24 @@
 
 <div class="pg-modal-bg" id="pgPayModal">
   <div class="pg-modal">
-    <h3 style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-      Pay Bill
-      <span class="paygira-secure-badge" style="padding:4px 10px;font-size:.62rem;">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
-        </svg>
-        Secure
-      </span>
-    </h3>
+    <h3>Pay Bill</h3>
     <form action="/guardian/paygira/pay" method="POST" id="pgPayForm">
       <input type="hidden" name="assignment_id" id="pgPayAssignment">
       <input type="hidden" name="occurrence_date" id="pgOccurrenceDate">
       <input type="hidden" name="occurrence_dates" id="pgOccurrenceDates">
       <input type="hidden" name="saved_card_id" id="pgSavedCardId" value="">
-      <div class="pg-form-grid" style="margin-bottom:14px;">
-        <div class="pg-field">
-          <label>Bill</label>
-          <input type="text" id="pgPayBillName" disabled>
-        </div>
-        <div class="pg-field">
-          <label>Student</label>
-          <input type="text" id="pgPayStudent" disabled>
-        </div>
-      </div>
+
+      <%# ── Payout account selector ── %>
+      <%
+        const _pgAccounts = (typeof payoutAccounts !== 'undefined' ? payoutAccounts : []);
+        const _pgStripe = (typeof stripeSelectable !== 'undefined' && stripeSelectable);
+        const _pgShowSelector = (_pgAccounts.length + (_pgStripe ? 1 : 0)) > 1;
+      %>
+      <% if (!_pgShowSelector && _pgAccounts.length === 1) { %>
+      <input type="hidden" name="payout_account_id" value="<%= _pgAccounts[0].id %>">
+      <% } else if (!_pgShowSelector && _pgStripe) { %>
+      <input type="hidden" name="payout_account_id" value="stripe">
+      <% } %>
 
       <div id="pgCreditField" hidden style="margin-bottom:14px;">
         <div class="pgv2-balance-card">
@@ -989,24 +1041,10 @@
         <small class="pg-pay-hint" id="pgRecurringHint"></small>
       </div>
 
-      <div class="pgv2-amount-wrap" style="margin-bottom:14px;">
+      <div class="pgv2-amount-wrap" style="margin-bottom:14px;grid-template-columns:1fr;">
         <div class="pg-field">
           <label>Amount (<%= currencyCode %>)</label>
           <input type="number" step="0.01" min="0.01" name="amount" id="pgPayAmount" required placeholder="0.00">
-        </div>
-        <div class="pgv2-breakdown" id="pgBreakdown" hidden>
-          <div class="pgv2-brow">
-            <span>Total due</span>
-            <span class="pgv2-mono" id="pgBreakdownTotal"></span>
-          </div>
-          <div class="pgv2-brow is-credit" id="pgBreakdownCreditRow" hidden>
-            <span>Balance applied</span>
-            <span class="pgv2-mono" id="pgBreakdownCredit"></span>
-          </div>
-          <div class="pgv2-brow is-charge" id="pgBreakdownChargeRow" hidden>
-            <span>Charged now</span>
-            <span class="pgv2-mono" id="pgBreakdownCharge"></span>
-          </div>
         </div>
       </div>
 
@@ -1014,11 +1052,42 @@
       <div style="margin-bottom:14px;">
         <span class="pgv2-section-label">Pay with</span>
         <div class="pgv2-method-cards" id="pgMethodCards"></div>
-        <div class="pgv2-balance-hint" id="pgMethodHint" style="margin-top:8px;"></div>
+        <div class="pgv2-balance-hint" id="pgMethodHint" style="margin-top:8px;display:none;"></div>
       </div>
 
       <div class="pg-payment-shell pg-stripe-shell" id="pgStripeShell" hidden>
-        <div class="pg-method-chip-list" id="pgStripeMethodChips"></div>
+        <% if (_pgShowSelector) { %>
+        <div class="pg-payout-route" id="pgPayoutRoute">
+          <div class="pg-payout-route-title">Online Payment Route</div>
+          <div class="pg-payout-route-copy">Choose how you want to pay. Stripe shows card and wallet fields below. Paystack routes you to secure checkout.</div>
+          <div class="pg-payout-grid" id="pg-payout-selector">
+            <% _pgAccounts.forEach(function(acct, i) { %>
+            <%
+              var acctIcon = acct.account_type === 'mobile_money' ? '📱' : '🏦';
+              var acctLabel = acct.account_type === 'mobile_money'
+                ? (acct.momo_provider || 'MoMo') + (acct.momo_number ? ' ···' + String(acct.momo_number).slice(-4) : '')
+                : (acct.bank_name || acct.business_name || 'Bank') + (acct.account_number ? ' ···' + String(acct.account_number).slice(-4) : '');
+            %>
+            <label class="pg-payout-card">
+              <input type="radio" name="payout_account_id" value="<%= acct.id %>"
+                     <%= (!_pgStripe && (i === 0 || acct.is_primary)) ? 'checked' : '' %>
+                     style="accent-color:#0d9488;">
+              <span><%= acctIcon %> <%= acctLabel %></span>
+            </label>
+            <% }); %>
+            <% if (_pgStripe) { %>
+            <label class="pg-payout-card">
+              <input type="radio" name="payout_account_id" value="stripe"
+                     <%= (_pgAccounts.length === 0) ? 'checked' : '' %>
+                     style="accent-color:#635bff;">
+              <span>💳 Card / Wallet (Stripe)</span>
+            </label>
+            <% } %>
+          </div>
+          <div class="pg-payout-redirect" id="pgPayoutRedirectNote" hidden>You will be redirected to a secure platform to complete this payment.</div>
+        </div>
+        <% } %>
+        <div class="pg-method-chip-list" id="pgStripeMethodChips" style="display:none;"></div>
         <div id="pgSavedCardsSection" style="display:none;margin-top:12px;">
           <div class="pg-stripe-box-title" style="margin-bottom:8px;">Saved cards</div>
           <div id="pgSavedCardChips" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
@@ -1051,6 +1120,11 @@
         <button type="button" class="pg-btn ghost" onclick="closePgPay()">Cancel</button>
         <button type="submit" class="pg-btn primary" id="pgSubmitBtn">Submit Payment</button>
       </div>
+      <% if (schoolName) { %>
+      <p style="text-align:center;font-size:.78rem;color:#6b7280;margin-top:10px;">
+        Payment processed by <strong><%= schoolName %></strong>
+      </p>
+      <% } %>
     </form>
   </div>
 </div>
@@ -1071,6 +1145,7 @@
     var stripeMode = <%- JSON.stringify((pspSettings && pspSettings.stripe_mode) || 'test') %>;
     var stripeEnabled = Boolean(allowedMethods && allowedMethods.stripeOn && stripePublishableKey && window.Stripe);
     var stripeAccountReady = <%- JSON.stringify(typeof stripeAccountReady !== 'undefined' ? stripeAccountReady : true) %>;
+    var paystackPayoutReady = <%= (payoutAccounts && payoutAccounts.length) ? 'true' : 'false' %>;
     var stripe = (stripeEnabled && stripeAccountReady) ? window.Stripe(stripePublishableKey) : null;
     var stripeCurrency = String((allowedMethods && allowedMethods.currency) || <%- JSON.stringify(currencyCode) %> || 'USD').toLowerCase();
     var savedCards = <%- JSON.stringify((cards || []).filter(function(c){ return c.external_payment_method_id; })) %>;
@@ -1108,6 +1183,7 @@
     var stripePaymentElementHost = document.getElementById('pgStripePaymentElement');
     var expressCheckoutHost = document.getElementById('pgExpressCheckoutElement');
     var stripeError = document.getElementById('pgStripeError');
+    var payoutRedirectNote = document.getElementById('pgPayoutRedirectNote');
     var offlineShell = document.getElementById('pgOfflineShell');
     var offlineTitle = document.getElementById('pgOfflineTitle');
     var offlineDetails = document.getElementById('pgOfflineDetails');
@@ -1292,6 +1368,25 @@
       return String(methodSelect.value || '') === 'stripe';
     }
 
+    function getSelectedPayoutAccountId() {
+      var selected = document.querySelector('input[name="payout_account_id"]:checked') || document.querySelector('input[name="payout_account_id"]');
+      return selected ? String(selected.value || '') : '';
+    }
+
+    function isPayoutSelectionRequired() {
+      return document.querySelectorAll('input[name="payout_account_id"]').length > 1;
+    }
+
+    function hasSelectedPayoutAccount() {
+      return Boolean(document.querySelector('input[name="payout_account_id"]:checked'));
+    }
+
+    function isPaystackOnlineSelected() {
+      if (!isStripeFlowSelected()) return false;
+      var payoutId = getSelectedPayoutAccountId();
+      return payoutId && payoutId !== 'stripe';
+    }
+
     function setStripeError(message) {
       if (!stripeError) return;
       stripeError.textContent = message || '';
@@ -1328,7 +1423,7 @@
     }
 
     function ensureStripeElements() {
-      if (!stripeEnabled || !isStripeFlowSelected()) return;
+      if (!stripeEnabled || !stripe || !isStripeFlowSelected()) return;
       var amountMinor = currentChargeMinor();
       if (!(amountMinor > 0)) {
         destroyStripeElements();
@@ -1377,11 +1472,13 @@
 
     function getMethodOptions(record) {
       var options = [];
-      if (stripeEnabled && stripeAccountReady && record && record.accepts_card) {
+      if ((paystackPayoutReady || (stripeEnabled && stripeAccountReady)) && record && record.accepts_card) {
         options.push({
           value: 'stripe',
-          label: 'Card / Apple Pay / Google Pay',
-          hint: 'Pay securely with a debit or credit card. Apple Pay and Google Pay appear automatically on supported devices.'
+          label: paystackPayoutReady ? 'Card / Mobile Money / Wallet' : 'Card / Apple Pay / Google Pay',
+          hint: paystackPayoutReady
+            ? 'Pay securely online. You may be redirected to Paystack for card or mobile money checkout based on your school payout setup.'
+            : 'Pay securely with a debit or credit card. Apple Pay and Google Pay appear automatically on supported devices.'
         });
       }
       if (allowedMethods && allowedMethods.bankOn && record && record.accepts_transfer) {
@@ -1429,6 +1526,15 @@
       var fullyCovered = usingCredit && charge === 0;
 
       if (isStripeFlowSelected()) {
+        if (isPayoutSelectionRequired() && !hasSelectedPayoutAccount()) {
+          submitButton.textContent = 'Choose Stripe or Paystack to continue';
+          submitButton.disabled = true;
+          return;
+        }
+        if (isPaystackOnlineSelected()) {
+          submitButton.textContent = charge > 0 ? ('Click Pay to continue (' + formatMoney(charge / 100) + ')') : 'Click Pay to continue';
+          return;
+        }
         if (fullyCovered) {
           submitButton.textContent = 'Apply Balance — No Card Charge';
           return;
@@ -1453,16 +1559,39 @@
       var isBankTransfer = selectedMethod === 'bank_transfer';
       stripeShell.hidden = !isStripe;
       offlineShell.hidden = !isBankTransfer;
+      if (payoutRedirectNote) payoutRedirectNote.hidden = true;
 
       if (isStripe) {
-        methodHint.textContent = 'Stripe will show the online payment methods your school enabled. Apple Pay and Google Pay only appear on supported devices and verified domains.';
-        if (stripeIntro) {
-          stripeIntro.textContent = 'Pay online with Stripe using the methods your school enabled for PayGira.';
+        if (isPayoutSelectionRequired() && !hasSelectedPayoutAccount()) {
+          methodHint.style.display = '';
+          methodHint.textContent = 'Choose Stripe or Paystack above to continue.';
+          destroyStripeElements();
+          updateSubmitButton();
+          return;
         }
-        renderStripeMethodChips();
-        renderSavedCardSection();
-        if (!selectedSavedCardId) ensureStripeElements();
+        if (isPaystackOnlineSelected()) {
+          methodHint.style.display = '';
+          methodHint.textContent = 'Click Pay to continue to Paystack checkout.';
+          if (payoutRedirectNote) payoutRedirectNote.hidden = false;
+          var savedCardsSection = document.getElementById('pgSavedCardsSection');
+          if (savedCardsSection) savedCardsSection.style.display = 'none';
+          var newCardSection = document.getElementById('pgNewCardSection');
+          if (newCardSection) newCardSection.style.display = 'none';
+          destroyStripeElements();
+        } else {
+          methodHint.style.display = '';
+          methodHint.textContent = 'Enter card details below to pay with Stripe.';
+          if (stripeIntro) {
+            stripeIntro.textContent = 'Pay online with Stripe using the methods your school enabled for PayGira.';
+          }
+          renderStripeMethodChips();
+          renderSavedCardSection();
+          var newCardSectionForStripe = document.getElementById('pgNewCardSection');
+          if (newCardSectionForStripe) newCardSectionForStripe.style.display = '';
+          if (!selectedSavedCardId) ensureStripeElements();
+        }
       } else {
+        methodHint.style.display = '';
         methodHint.textContent = getMethodOptions(activeRecord).filter(function(option) {
           return option.value === selectedMethod;
         }).map(function(option) {
@@ -1709,7 +1838,7 @@
       };
       if (pgv2Cards) {
         if (!options.length) {
-          var noMethodMsg = (stripeEnabled && !stripeAccountReady)
+          var noMethodMsg = (!paystackPayoutReady && stripeEnabled && !stripeAccountReady)
             ? '<div style="background:#fff5f5;border:1px solid #fca5a5;border-radius:8px;padding:12px 14px;font-size:.83rem;color:#7f1d1d;"><strong>Online card payments are not available.</strong><br>This school has not completed their online payment setup. Please contact the school to arrange payment by cash or bank transfer.</div>'
             : '<div style="color:var(--pg-muted);font-size:.82rem;padding:10px 0;">No payment methods available for this bill.</div>';
           pgv2Cards.innerHTML = noMethodMsg;
@@ -1743,6 +1872,11 @@
     }
 
     async function createStripeIntent() {
+      if (isPayoutSelectionRequired() && !hasSelectedPayoutAccount()) {
+        throw new Error('Choose where to pay first: Stripe or a Paystack payout account.');
+      }
+      var selectedPayoutAccount = (document.querySelector('input[name="payout_account_id"]:checked') || document.querySelector('input[name="payout_account_id"]'));
+      var payoutAccountId = selectedPayoutAccount ? selectedPayoutAccount.value : undefined;
       var response = await fetch('/guardian/paygira/stripe-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1753,17 +1887,24 @@
           occurrence_dates: occurrenceDatesInput.value,
           apply_credit: applyCreditCheckbox && applyCreditCheckbox.checked,
           saved_card_id: selectedSavedCardId || undefined,
+          payout_account_id: payoutAccountId,
         })
       });
       var data = await response.json();
       if (!response.ok || !data.success) {
         throw new Error(data.message || 'Unable to initialize Stripe payment.');
       }
+
+      if (data.provider === 'paystack' && data.authorizationUrl) {
+        window.location.href = data.authorizationUrl;
+        return data;
+      }
+
       return data;
     }
 
     async function handleStripeConfirmation() {
-      if (!stripeEnabled || !stripe || !isStripeFlowSelected()) return;
+      if (!isStripeFlowSelected()) return;
       if (!(currentChargeMinor() > 0)) {
         bypassStripeSubmit = true;
         payForm.submit();
@@ -1775,6 +1916,14 @@
       try {
         setStripeError('');
         var intentData = await createStripeIntent();
+
+        if (intentData && intentData.provider === 'paystack') {
+          return;
+        }
+
+        if (!stripeEnabled || !stripe) {
+          throw new Error('Stripe is not available for this school. Select a Paystack payout account and try again.');
+        }
 
         if (intentData.isSavedCard) {
           var savedConfirm = await stripe.confirmPayment({
@@ -1826,8 +1975,10 @@
       payForm.reset();
       stripeBusy = false;
       document.getElementById('pgPayAssignment').value = record.assignment_id;
-      document.getElementById('pgPayBillName').value = record.bill_title;
-      document.getElementById('pgPayStudent').value = record.student_name;
+      var billNameInput = document.getElementById('pgPayBillName');
+      if (billNameInput) billNameInput.value = record.bill_title;
+      var studentInput = document.getElementById('pgPayStudent');
+      if (studentInput) studentInput.value = record.student_name;
       renderMethodOptions(record);
       if (String(record.bill_type || '') === 'recurring') {
         renderRecurringPanel(record);
@@ -1837,8 +1988,25 @@
         amountInput.max = Number(record.balance || 0).toFixed(2);
       }
       syncCreditPanel({ setAmount: false });
+      // Highlight the initially selected payout account card
+      pgSyncPayoutCards();
       payModal.classList.add('open');
     };
+
+    // Keep payout account radio cards visually in sync
+    function pgSyncPayoutCards() {
+      document.querySelectorAll('#pg-payout-selector .pg-payout-card').forEach(function(lbl) {
+        var radio = lbl.querySelector('input[type="radio"]');
+        if (!radio) return;
+        lbl.classList.toggle('is-selected', !!radio.checked);
+      });
+    }
+    document.querySelectorAll('#pg-payout-selector input[type="radio"]').forEach(function(r) {
+      r.addEventListener('change', function() {
+        pgSyncPayoutCards();
+        syncPaymentMode();
+      });
+    });
 
     window.closePgPay = function() {
       activeRecord = null;

@@ -46,6 +46,18 @@
 </head>
 <body>
 <%
+  const _mLabels = {
+    stripe: 'Card / Wallet', card: 'Card / Wallet', paystack: 'Card / Mobile Money',
+    bank_transfer: 'Bank Transfer', mobile_money: 'Mobile Money',
+    cash: 'Cash', credit: 'Balance Credit', other: 'Other'
+  };
+  const _mProviders = { stripe: 'Stripe', card: 'Stripe', paystack: 'Paystack' };
+  function fmtPayMethod(m) {
+    const key = String(m || '').toLowerCase();
+    return { label: _mLabels[key] || m || '—', provider: _mProviders[key] || null };
+  }
+%>
+<%
   const moneyFmt = typeof formatMoney === 'function'
     ? formatMoney
     : function(v){ return Number(v||0).toFixed(2); };
@@ -123,7 +135,8 @@
           <% const paymentTotal = Number(p.amount || 0) + paymentCharges; %>
           <tr>
             <td><%= new Date(p.received_at).toLocaleString() %></td>
-            <td><%= p.method %></td>
+            <% const _ipm = fmtPayMethod(p.method); const _ipmBg = _ipm.provider === 'Paystack' ? 'rgba(80,140,233,.12)' : 'rgba(99,91,255,.1)'; const _ipmColor = _ipm.provider === 'Paystack' ? '#1d4ed8' : '#4338ca'; %>
+            <td><%= _ipm.label %><% if (_ipm.provider) { %> <span style="padding:1px 6px;border-radius:5px;font-size:.62rem;font-weight:700;vertical-align:middle;background:<%= _ipmBg %>;color:<%= _ipmColor %>"><%= _ipm.provider %></span><% } %></td>
             <td style="color:#5a6378;font-size:.8rem;"><%= p.reference || '—' %></td>
             <td class="amt"><%= moneyFmt(p.amount) %></td>
             <td class="amt">

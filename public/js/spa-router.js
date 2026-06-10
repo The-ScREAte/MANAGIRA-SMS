@@ -259,6 +259,9 @@
         }
       }, 200), { passive: true });
 
+      // Guard against duplicated footers after mixed SPA/full navigations.
+      this._dedupeFooters();
+
       // 7. Preload priority pages after idle
       if ('requestIdleCallback' in window) {
         requestIdleCallback(() => this._preloadPriorityPages(), { timeout: 2000 });
@@ -926,6 +929,17 @@
       if (newFooter && currentFooter) {
         currentFooter.innerHTML = newFooter.innerHTML;
       }
+      this._dedupeFooters();
+    }
+
+    _dedupeFooters() {
+      const footers = Array.from(document.querySelectorAll('footer'));
+      if (footers.length <= 1) return;
+
+      const keep = footers.find((el) => el.classList && el.classList.contains('managira-footer')) || footers[0];
+      footers.forEach((footer) => {
+        if (footer !== keep) footer.remove();
+      });
     }
 
     // ── Event Dispatch ────────────────────────────────────────────────

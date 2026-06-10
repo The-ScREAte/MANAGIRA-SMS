@@ -34,6 +34,18 @@
 </head>
 <body>
 <%
+  const _mLabels = {
+    stripe: 'Card / Wallet', card: 'Card / Wallet', paystack: 'Card / Mobile Money',
+    bank_transfer: 'Bank Transfer', mobile_money: 'Mobile Money',
+    cash: 'Cash', credit: 'Balance Credit', other: 'Other'
+  };
+  const _mProviders = { stripe: 'Stripe', card: 'Stripe', paystack: 'Paystack' };
+  function fmtPayMethod(m) {
+    const key = String(m || '').toLowerCase();
+    return { label: _mLabels[key] || m || '—', provider: _mProviders[key] || null };
+  }
+%>
+<%
   const moneyFmt = typeof formatMoney === 'function'
     ? formatMoney
     : function(v){ return Number(v||0).toFixed(2); };
@@ -64,7 +76,8 @@
     <div><div class="k">Student</div><div class="v"><%= payment.first_name %> <%= payment.last_name %></div></div>
     <div><div class="k">Class</div><div class="v"><%= payment.class_name || '—' %></div></div>
     <div><div class="k">Bill</div><div class="v"><%= payment.bill_title || '—' %></div></div>
-    <div><div class="k">Method</div><div class="v"><%= payment.method %></div></div>
+    <% const _pm = fmtPayMethod(payment.method); const _pmBg = _pm.provider === 'Paystack' ? 'rgba(80,140,233,.12)' : 'rgba(99,91,255,.1)'; const _pmColor = _pm.provider === 'Paystack' ? '#1d4ed8' : '#4338ca'; %>
+    <div><div class="k">Method</div><div class="v"><%= _pm.label %><% if (_pm.provider) { %> <span style="padding:2px 7px;border-radius:6px;font-size:.62rem;font-weight:700;vertical-align:middle;background:<%= _pmBg %>;color:<%= _pmColor %>"><%= _pm.provider %></span><% } %></div></div>
     <div><div class="k">Date</div><div class="v"><%= new Date(payment.received_at).toLocaleString() %></div></div>
     <div><div class="k">Reference</div><div class="v" style="font-family:'JetBrains Mono',Consolas,monospace;font-size:.78rem;"><%= payment.reference || '—' %></div></div>
   </div>

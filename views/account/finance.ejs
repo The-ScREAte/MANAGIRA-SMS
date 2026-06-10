@@ -1728,8 +1728,8 @@
           </div>
         </div>
         <noscript>
-          <%- include('account/financeOverviewSection', { refs: refs, selectedYear: (overview && overview.filters && overview.filters.school_year_id) || '', selectedTerm: (overview && overview.filters && overview.filters.term_id) || '' }) %>
-          <%- include('account/financeOverviewDetailSection', { overview: overview, bills: bills, refs: refs, formatMoney: formatMoney, financeCurrency: financeCurrency }) %>
+          <%- include('financeOverviewSection', { refs: refs, selectedYear: (overview && overview.filters && overview.filters.school_year_id) || '', selectedTerm: (overview && overview.filters && overview.filters.term_id) || '' }) %>
+          <%- include('financeOverviewDetailSection', { overview: overview, bills: bills, refs: refs, formatMoney: formatMoney, financeCurrency: financeCurrency }) %>
         </noscript>
       <% } %>
 
@@ -4295,6 +4295,49 @@ Regards,
     input.addEventListener('blur', submitFallback);
   });
 
+</script>
+
+<script>
+(function () {
+  function isFinanceOverviewPage() {
+    try {
+      var path = String(window.location.pathname || '');
+      if (path !== '/account/settings/finance') return false;
+      var params = new URLSearchParams(window.location.search || '');
+      var section = String(params.get('section') || 'overview').toLowerCase();
+      return section === 'overview';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function removeDuplicateFooterBars() {
+    if (!isFinanceOverviewPage()) return;
+    var bars = Array.prototype.slice.call(document.querySelectorAll('.footer-bottom-section'));
+    if (bars.length <= 1) return;
+
+    bars.slice(0, -1).forEach(function (bar) {
+      var parentFooter = bar.closest('footer');
+      if (parentFooter && parentFooter.querySelectorAll('.footer-bottom-section').length === 1) {
+        parentFooter.remove();
+        return;
+      }
+      bar.remove();
+    });
+  }
+
+  function runFooterCleanup() {
+    removeDuplicateFooterBars();
+    setTimeout(removeDuplicateFooterBars, 80);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', runFooterCleanup);
+  } else {
+    runFooterCleanup();
+  }
+  window.addEventListener('spa:pageLoaded', runFooterCleanup);
+})();
 </script>
 
 <!-- Edit Bill Modal -->

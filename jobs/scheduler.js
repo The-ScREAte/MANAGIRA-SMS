@@ -27,8 +27,7 @@ if (shouldRunScheduler) {
     }
   });
 } else {
-  // Keep local/dev logs clean and avoid missed-execution warnings when machine sleeps.
-  console.log('[Billing Scheduler] Disabled outside production. Set ENABLE_BILLING_SCHEDULER=true to enable.');
+  // Scheduler disabled in dev — set ENABLE_BILLING_SCHEDULER=true to enable.
 }
 
 if (shouldRunNotifications) {
@@ -58,7 +57,7 @@ if (shouldRunNotifications) {
     }
   });
 } else {
-  console.log('[Notification Scheduler] Disabled outside production. Set ENABLE_NOTIFICATION_SCHEDULER=true to enable.');
+  // Notifications disabled in dev — set ENABLE_NOTIFICATION_SCHEDULER=true to enable.
 }
 
 if (shouldRunAdminEmailScheduler) {
@@ -75,7 +74,7 @@ if (shouldRunAdminEmailScheduler) {
     }
   });
 } else {
-  console.log('[Admin Email Scheduler] Disabled outside production. Set ENABLE_ADMIN_EMAIL_SCHEDULER=true to enable.');
+  // Admin email scheduler disabled in dev — set ENABLE_ADMIN_EMAIL_SCHEDULER=true to enable.
 }
 
 if (shouldRunActivityLogRetention) {
@@ -93,5 +92,5 @@ if (shouldRunActivityLogRetention) {
     }
   });
 } else {
-  console.log('[Activity Log Retention] Disabled outside production. Set ENABLE_ACTIVITY_LOG_RETENTION=true to enable.');
+  // Activity log retention disabled in dev — set ENABLE_ACTIVITY_LOG_RETENTION=true to enable.
 }

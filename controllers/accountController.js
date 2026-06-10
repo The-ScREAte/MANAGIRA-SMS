@@ -8869,323 +8869,146 @@ const accountController = {
     const orgId = req.session.organizationId;
 
     try {
-      if (!(await getActivePaystackSecretKey())) {
-        return res.status(500).json({
-          success: false,
-          message: "Paystack secret key is not configured.",
-        });
-      }
-
       if (!account_type || !business_name) {
-        return res.status(400).json({
-          success: false,
-          message: "Account type and business name are required",
-        });
+        return res.status(400).json({ success: false, message: "Account type and business name are required." });
       }
 
-      // Validate fields based on account type
-      if (account_type === "bank") {
-        if (!account_number || !bank_code || !bank_name) {
-          return res.status(400).json({
-            success: false,
-            message:
-              "Account number, bank code, and bank name are required for bank accounts",
-          });
-        }
-      } else if (account_type === "mobile_money") {
-        if (!momo_number || !momo_provider || !account_holder_name) {
-          return res.status(400).json({
-            success: false,
-            message:
-              "Mobile money number, provider, and account holder name are required for mobile money accounts",
-          });
-        }
+      // Validate required fields per type
+      if (account_type === "bank" && (!account_number || !bank_name)) {
+        return res.status(400).json({ success: false, message: "Account number and bank name are required for bank accounts." });
+      }
+      if (account_type === "mobile_money" && (!momo_number || !momo_provider)) {
+        return res.status(400).json({ success: false, message: "Mobile money number and provider are required." });
       }
 
-      // Check if organization already has this account type
-
-      const existingResult = await db.query(
-        `SELECT * FROM paystack_subaccounts WHERE organization_id = $1 AND account_type = $2`,
-
-        [orgId, account_type]
-      );
-
-      if (existingResult.rows.length > 0) {
-        return res.status(400).json({
-          success: false,
-          message: `A ${account_type} account already exists. Please edit the existing one or delete it first.`,
-        });
+      // Allow multiple accounts of the same type but prevent exact duplicates
+      const dupCheck = account_type === "bank"
+        ? await db.query(`SELECT id FROM paystack_subaccounts WHERE organization_id=$1 AND account_type='bank' AND account_number=$2`, [orgId, account_number])
+        : account_type === "mobile_money"
+          ? await db.query(`SELECT id FROM paystack_subaccounts WHERE organization_id=$1 AND account_type='mobile_money' AND momo_number=$2`, [orgId, momo_number])
+          : { rows: [] };
+      if (dupCheck.rows.length > 0) {
+        return res.status(400).json({ success: false, message: "This account is already saved. Edit the existing entry instead." });
       }
 
-      const paystackHeaders = {
-        headers: {
-          Authorization: `Bearer ${await getActivePaystackSecretKey()}`,
-          "Content-Type": "application/json",
-        },
-      };
-      const currency = "GHS";
+      // Determine if this will be the first account (→ set as primary)
+      const existingCount = (await db.query(`SELECT COUNT(*) FROM paystack_subaccounts WHERE organization_id=$1`, [orgId])).rows[0].count;
+      const isPrimary = Number(existingCount) === 0;
+
+      // Get org details for dynamic currency
+      const orgRow = (await db.query(`SELECT organization_country, organization_name FROM organizations WHERE organization_id=$1`, [orgId])).rows[0] || {};
+      const countryToCurrency = { GH: 'GHS', NG: 'NGN', KE: 'KES', ZA: 'ZAR', CI: 'XOF', EG: 'EGP', TZ: 'TZS', UG: 'UGX', RW: 'RWF' };
+      const orgCountryCode = String(orgRow.organization_country || 'GH').toUpperCase().slice(0, 2);
+      const currency = countryToCurrency[orgCountryCode] || 'GHS';
+
+      // Try to get Paystack secret key — if unavailable, save locally
+      const secretKey = await getActivePaystackSecretKey().catch(() => null);
+      const paystackHeaders = secretKey
+        ? { headers: { Authorization: `Bearer ${secretKey}`, 'Content-Type': 'application/json' } }
+        : null;
 
       if (account_type === "bank") {
-        // Ghana: Use Transfer Recipients (visible in Paystack dashboard under Transfers > Recipients)
-                // Check if this is the first account of this type
+        let subaccountCode = null;
+        let resolvedBankCode = bank_code || '';
 
-        const existingOfTypeResult = await db.query(
-          `SELECT * FROM paystack_subaccounts WHERE organization_id = $1 AND account_type = $2`,
+        if (paystackHeaders) {
+          // Resolve bank code from Paystack bank list
+          try {
+            const countryParam = { GHS: 'ghana', NGN: 'nigeria', KES: 'kenya', ZAR: 'south africa', XOF: 'ivory coast' }[currency] || 'ghana';
+            const banksResp = await axios.get(`https://api.paystack.co/bank?country=${encodeURIComponent(countryParam)}&perPage=200`, paystackHeaders);
+            const banks = banksResp.data?.data || [];
+            const match = banks.find(b => String(b.code).toLowerCase() === String(bank_code || '').toLowerCase())
+              || banks.find(b => String(bank_name || '').toLowerCase().includes(String(b.name || '').toLowerCase().slice(0, 5)));
+            if (match) resolvedBankCode = match.code;
+          } catch (_) { /* use provided code */ }
 
-          [orgId, account_type]
-        );
-
-        const isFirstOfType = existingOfTypeResult.rows.length === 0;
-
-        // Get Ghana bank list from Paystack to resolve code if needed
-
-        let resolvedBankCode = bank_code;
-
-        try {
-          const banksResp = await axios.get(
-            `https://api.paystack.co/bank?country=ghana`,
-            paystackHeaders
-          );
-          const banks = banksResp.data?.data || [];
-
-          // Match by exact code first, else by name includes
-          const match =
-            banks.find(
-              (b) =>
-                String(b.code).toLowerCase() === String(bank_code).toLowerCase()
-            ) ||
-            banks.find((b) =>
-              (bank_name || "")
-                .toLowerCase()
-                .includes(String(b.name).toLowerCase())
-            );
-          if (match) {
-            resolvedBankCode = match.code;
-          }
-        } catch (e) {
-          // Failed to fetch banks, use provided code as-is
-        }
-
-        // Create Paystack Transfer Recipient for Ghana bank
-
-        const recipientPayload = {
-          type: "ghipss",
-          name: business_name,
-
-          account_number,
-
-          bank_code: resolvedBankCode,
-          currency,
-        };
-
-        const recipientResp = await axios.post(
-          "https://api.paystack.co/transferrecipient",
-          recipientPayload,
-          paystackHeaders
-        );
-        if (
-          !recipientResp.data?.status ||
-          !recipientResp.data?.data?.recipient_code
-        ) {
-          throw new Error(
-            recipientResp.data?.message || "Failed to create bank recipient"
-          );
-        }
-
-        const recipientCode = recipientResp.data.data.recipient_code;
-
-        // Save to local database (store recipient_code in subaccount_code column for compatibility)
-
-        await db.query(
-          `INSERT INTO paystack_subaccounts (
-
-            organization_id, account_type, business_name, account_number, 
-
-            bank_code, bank_name, subaccount_code, is_primary
-
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-
-          [
-            orgId,
-
-            account_type,
-
-            business_name,
-
-            account_number,
-
-            resolvedBankCode,
-
-            bank_name,
-
-            recipientCode,
-            isFirstOfType,
-          ]
-        );
-
-                return res.json({
-          success: true,
-          message: "Bank account connected via Paystack (Recipient)",
-          recipient_code: recipientCode,
-        });
-      } else if (account_type === "mobile_money") {
-        // Ghana MoMo: Use Transfer Recipients with type 'mobile_money'
-
-                if (!momo_number || !momo_provider || !account_holder_name) {
-          return res.status(400).json({
-            success: false,
-            message:
-              "Mobile money number, provider, and account holder name are required.",
-          });
-        }
-
-        // Check if this is the first account of this type
-
-        const existingOfTypeResult = await db.query(
-          `SELECT * FROM paystack_subaccounts WHERE organization_id = $1 AND account_type = $2`,
-
-          [orgId, account_type]
-        );
-
-        const isFirstOfType = existingOfTypeResult.rows.length === 0;
-
-        // Map to Paystack provider codes
-        let providerCode = "MTN";
-        const prov = String(momo_provider || "").toLowerCase();
-        if (prov.includes("vod")) providerCode = "VODAFONE";
-        else if (prov.includes("airtel") || prov.includes("tigo"))
-          providerCode = "AIRTEL_TIGO";
-
-        const recipientPayload = {
-          type: "mobile_money",
-          name: account_holder_name || business_name,
-
-          account_number: momo_number,
-
-          bank_code: providerCode,
-          currency,
-        };
-
-        const recipientResp = await axios.post(
-          "https://api.paystack.co/transferrecipient",
-          recipientPayload,
-          paystackHeaders
-        );
-        if (
-          !recipientResp.data?.status ||
-          !recipientResp.data?.data?.recipient_code
-        ) {
-          throw new Error(
-            recipientResp.data?.message || "Failed to create MoMo recipient"
-          );
-        }
-
-        const recipientCode = recipientResp.data.data.recipient_code;
-
-        await db.query(
-          `INSERT INTO paystack_subaccounts (
-
-            organization_id, account_type, business_name, momo_number, 
-
-            momo_provider, account_holder_name, subaccount_code, is_primary
-
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-
-          [
-            orgId,
-
-            account_type,
-
-            business_name,
-
-            momo_number,
-
-            momo_provider,
-
-            account_holder_name,
-
-            recipientCode,
-            isFirstOfType,
-          ]
-        );
-
-                return res.json({
-          success: true,
-          message: "Mobile Money account connected via Paystack (Recipient)",
-          recipient_code: recipientCode,
-        });
-      }
-    } catch (error) {
-      const message = error.response?.data?.message || error.message;
-
-            // If Paystack rejects the bank details, create a local entry instead
-      if (
-        message.includes("Account details are invalid") ||
-        message.includes("Invalid")
-      ) {
-                try {
-          // Create local bank account entry (similar to mobile money)
-          const isFirstAccount =
-            (
-              await db.query(
-                `SELECT * FROM paystack_subaccounts WHERE organization_id = $1`,
-                [orgId]
-              )
-            ).rows.length === 0;
-
-          const localSubaccountCode = `SUBACCT_bank_${orgId}_${Date.now()}`;
-
-          await db.query(
-            `INSERT INTO paystack_subaccounts (
-
-              organization_id, account_type, business_name, account_number, 
-
-              bank_code, bank_name, subaccount_code, is_primary
-
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-
-            [
-              orgId,
-
-              account_type,
-
+          // Try Paystack Subaccount (for split payments — best option)
+          try {
+            const subResp = await axios.post('https://api.paystack.co/subaccount', {
               business_name,
-
+              settlement_bank: resolvedBankCode,
               account_number,
+              percentage_charge: 100,
+              currency,
+            }, paystackHeaders);
+            if (subResp.data?.status && subResp.data?.data?.subaccount_code) {
+              subaccountCode = subResp.data.data.subaccount_code;
+            }
+          } catch (_) { /* fall through to Transfer Recipient */ }
 
-              bank_code,
-
-              bank_name,
-
-              localSubaccountCode,
-              isFirstAccount,
-            ]
-          );
-
-                    return res.json({
-            success: true,
-            message:
-              "Bank account saved locally (Paystack integration pending)",
-          });
-        } catch (localError) {
-                    return res.status(500).json({
-            success: false,
-            message: "Failed to save bank account",
-          });
+          // Fallback: Transfer Recipient (for payout-only, not split payments)
+          if (!subaccountCode) {
+            try {
+              const rcpResp = await axios.post('https://api.paystack.co/transferrecipient', {
+                type: 'ghipss',
+                name: business_name,
+                account_number,
+                bank_code: resolvedBankCode,
+                currency,
+              }, paystackHeaders);
+              if (rcpResp.data?.status && rcpResp.data?.data?.recipient_code) {
+                subaccountCode = rcpResp.data.data.recipient_code;
+              }
+            } catch (_) { /* fall through to local */ }
+          }
         }
+
+        // Final fallback: local code
+        if (!subaccountCode) {
+          subaccountCode = `LOCAL_bank_${orgId}_${Date.now()}`;
+        }
+
+        await db.query(
+          `INSERT INTO paystack_subaccounts
+            (organization_id, account_type, business_name, account_number, bank_code, bank_name, subaccount_code, is_primary)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+          [orgId, 'bank', business_name, account_number, resolvedBankCode, bank_name, subaccountCode, isPrimary]
+        );
+        return res.json({ success: true, message: "Bank account saved.", subaccount_code: subaccountCode });
       }
 
-      if (message.includes("already exists")) {
-        return res.status(400).json({
-          success: false,
-          message: "This account is already registered with Paystack",
-        });
+      if (account_type === "mobile_money") {
+        let subaccountCode = null;
+
+        if (paystackHeaders) {
+          // Map provider to Paystack bank_code
+          const prov = String(momo_provider || '').toLowerCase();
+          let provCode = 'MTN';
+          if (prov.includes('vod')) provCode = 'VODAFONE';
+          else if (prov.includes('airtel') || prov.includes('tigo')) provCode = 'AIRTEL_TIGO';
+          else if (prov.includes('orange')) provCode = 'ORANGE';
+
+          try {
+            const rcpResp = await axios.post('https://api.paystack.co/transferrecipient', {
+              type: 'mobile_money',
+              name: account_holder_name || business_name,
+              account_number: momo_number,
+              bank_code: provCode,
+              currency,
+            }, paystackHeaders);
+            if (rcpResp.data?.status && rcpResp.data?.data?.recipient_code) {
+              subaccountCode = rcpResp.data.data.recipient_code;
+            }
+          } catch (_) { /* fall through to local */ }
+        }
+
+        if (!subaccountCode) {
+          subaccountCode = `LOCAL_momo_${orgId}_${Date.now()}`;
+        }
+
+        await db.query(
+          `INSERT INTO paystack_subaccounts
+            (organization_id, account_type, business_name, momo_number, momo_provider, account_holder_name, subaccount_code, is_primary)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+          [orgId, 'mobile_money', business_name, momo_number, momo_provider, account_holder_name || '', subaccountCode, isPrimary]
+        );
+        return res.json({ success: true, message: "Mobile Money account saved.", subaccount_code: subaccountCode });
       }
 
-      return res.status(500).json({
-        success: false,
-        message: `Failed to connect account: ${message}`,
-      });
+      return res.status(400).json({ success: false, message: `Account type "${account_type}" is not supported.` });
+    } catch (error) {
+      console.error('[addPaystackSubaccountPost]', error.response?.data || error.message);
+      return res.status(500).json({ success: false, message: error.response?.data?.message || error.message || 'Failed to save account.' });
     }
   },
 

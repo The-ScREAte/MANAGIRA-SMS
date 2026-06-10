@@ -1,9 +1,17 @@
 const express = require("express");
+const https = require("https");
 const session = require("express-session");
 const multer = require("multer");
 const flash = require("connect-flash");
 const path = require("path");
 require("dotenv").config();
+
+// Dev-only TLS workaround for local machines missing CA roots.
+// Set ALLOW_INSECURE_SSL=false to disable this behavior.
+if (process.env.NODE_ENV !== "production" && process.env.ALLOW_INSECURE_SSL !== "false") {
+  https.globalAgent.options.rejectUnauthorized = false;
+}
+
 const passport = require("passport");
 const db = require("./config/db");
 require("./config/passport")(passport);
@@ -847,7 +855,7 @@ if (shouldRunScheduledHolds) {
     await applyScheduledHolds();
   });
 } else {
-  console.log("[Scheduled Holds] Disabled outside production. Set ENABLE_SCHEDULED_HOLDS_CRON=true to enable.");
+  // Scheduled holds cron disabled in dev — set ENABLE_SCHEDULED_HOLDS_CRON=true to enable.
 }
 
 const { ensurePermissionsSchema } = require('./middleware/permissionMiddleware');

@@ -4,11 +4,18 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Public Student Registration</title>
+<%
+  const _prThemeColor = (orgDetails && orgDetails.theme_color)
+    || (typeof themeColor !== 'undefined' ? themeColor : '')
+    || '#2563eb';
+  const _prFontFamily = (orgDetails && orgDetails.font_style)
+    || (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter');
+%>
 <style>
   :root {
-    --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
-    --pr-blue: #2563eb;
-    --pr-blue-dark: #1d4ed8;
+    --font-family: "<%= String(_prFontFamily).trim() %>", sans-serif;
+    --pr-blue: <%= _prThemeColor %>;
+    --pr-blue-dark: <%= _prThemeColor %>;
     --pr-green: #10b981;
     --pr-green-dark: #059669;
     --pr-radius: 12px;
@@ -773,6 +780,48 @@
       </div>
 
       <div id="stripeElementsWrapper" style="display:none;">
+        <%# ── Payout account selector ── %>
+        <%
+          var _prAccounts = (typeof paystackSubaccounts !== 'undefined' ? paystackSubaccounts : []);
+          var _prStripe = (typeof stripeSelectable !== 'undefined' && stripeSelectable);
+          var _prShowSelector = (_prAccounts.length + (_prStripe ? 1 : 0)) > 1;
+        %>
+        <% if (_prShowSelector) { %>
+        <div id="pr-payout-selector" style="margin-bottom:16px;">
+          <div style="font-size:.78rem;font-weight:600;color:#475569;margin-bottom:6px;">Pay to</div>
+          <% if (_prStripe && _prAccounts.length) { %>
+          <div style="font-size:.75rem;color:#64748b;margin:-2px 0 8px;">Choose where this online payment should go.</div>
+          <% } %>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            <% _prAccounts.forEach(function(acct, i) { %>
+            <%
+              var pIcon = acct.account_type === 'mobile_money' ? '📱' : '🏦';
+              var pLabel = acct.account_type === 'mobile_money'
+                ? 'Pay with MoMo · ' + (acct.momo_provider || 'Provider') + (acct.momo_number ? ' ···' + String(acct.momo_number).slice(-4) : '')
+                : 'Pay to Bank · ' + (acct.bank_name || acct.business_name || 'Bank') + (acct.account_number ? ' ···' + String(acct.account_number).slice(-4) : '');
+            %>
+            <label id="pr-acct-lbl-<%= acct.id %>" style="display:flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid <%= (!_prStripe && (i===0||acct.is_primary))?'#0d9488':'#e2e8f0' %>;border-radius:8px;cursor:pointer;font-size:.82rem;background:<%= (!_prStripe && (i===0||acct.is_primary))?'#f0fdfa':'' %>;">
+              <input type="radio" name="prPayoutAccount" value="<%= acct.id %>" <%= (!_prStripe && (i===0||acct.is_primary))?'checked':'' %> onchange="prSyncPayoutCards()" style="accent-color:#0d9488;">
+              <span><%= pIcon %> <%= pLabel %></span>
+            </label>
+            <% }); %>
+            <% if (_prStripe) { %>
+            <label id="pr-acct-lbl-stripe" style="display:flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;font-size:.82rem;">
+              <input type="radio" name="prPayoutAccount" value="stripe" onchange="prSyncPayoutCards()" style="accent-color:#635bff;">
+              <span>💳 Pay with Card / Wallet (Stripe)</span>
+            </label>
+            <% } %>
+          </div>
+        </div>
+        <% } %>
+        <% if (!_prShowSelector && _prAccounts.length === 1) { %>
+        <input type="hidden" name="prPayoutAccount" value="<%= _prAccounts[0].id %>">
+        <% } else if (!_prShowSelector && _prAccounts.length > 1) { %>
+        <input type="hidden" name="prPayoutAccount" value="<%= (_prAccounts.find(function(a){ return a.is_primary; }) || _prAccounts[0]).id %>">
+        <% } else if (!_prShowSelector && _prStripe) { %>
+        <input type="hidden" name="prPayoutAccount" value="stripe">
+        <% } %>
+
         <div id="express-checkout-element" style="margin-bottom:12px;"></div>
         <div id="express-checkout-divider" style="display:none;text-align:center;margin:10px 0;color:#94a3b8;font-size:.82rem;">&mdash;&mdash; or pay with card &mdash;&mdash;</div>
         <div id="payment-element" style="margin-bottom:18px;"></div>
@@ -780,6 +829,9 @@
         <button type="button" id="payNowBtn" onclick="payNow()">
           Pay <%= orgDetails.public_registration_currency %> <%= orgDetails.public_registration_price %>
         </button>
+        <p style="text-align:center;font-size:.78rem;color:#6b7280;margin-top:8px;">
+          Payment processed by <strong><%= orgDetails.organization_name %></strong>
+        </p>
       </div>
 
       <div id="stripeInitError" style="display:none;color:#dc2626;padding:16px;border:1px solid #fca5a5;border-radius:8px;background:#fff1f2;font-size:.9rem;line-height:1.5;"></div>
@@ -819,6 +871,10 @@
     const REGISTRATION_AMOUNT    = '<%= orgDetails.public_registration_price %>';
     const REGISTRATION_CURRENCY  = '<%= orgDetails.public_registration_currency %>';
     const HAS_PAYOUT_ACCOUNT     = <%= hasPayoutAccount ? 'true' : 'false' %>;
+    const STRIPE_SELECTABLE      = <%= (typeof stripeSelectable !== 'undefined' && stripeSelectable) ? 'true' : 'false' %>;
+    const STRIPE_PAYOUT_READY    = <%= (typeof stripePayoutReady !== 'undefined' && stripePayoutReady) ? 'true' : 'false' %>;
+    const PAYSTACK_PAYOUT_READY  = <%= (typeof paystackPayoutReady !== 'undefined' && paystackPayoutReady) ? 'true' : 'false' %>;
+    const PAYOUT_PROVIDER        = <%- JSON.stringify(payoutProvider || '') %>;
 
     let guardianCount         = 1;
     let stripeInstance        = null;
@@ -929,7 +985,8 @@
         return;
       }
 
-      await initStripePaymentElement(registrationData.amount);
+      document.getElementById('stripeLoadingMsg').style.display = 'none';
+      document.getElementById('stripeElementsWrapper').style.display = 'block';
     }
 
     // ─── Step 2: Init Stripe Payment Element ─────────────────────────────────
@@ -939,9 +996,25 @@
       const wrapper    = document.getElementById('stripeElementsWrapper');
       const initError  = document.getElementById('stripeInitError');
 
-      if (!STRIPE_PUBLISHABLE_KEY) {
+      var payoutOptionsCount = document.querySelectorAll('input[name="prPayoutAccount"]').length;
+      var selectedPayoutInput = payoutOptionsCount > 1
+        ? document.querySelector('input[name="prPayoutAccount"]:checked')
+        : (document.querySelector('input[name="prPayoutAccount"]:checked') || document.querySelector('input[name="prPayoutAccount"]'));
+      var selectedPayoutAccountId = selectedPayoutInput ? selectedPayoutInput.value : undefined;
+      var selectedIsStripe = String(selectedPayoutAccountId || '').toLowerCase() === 'stripe';
+
+      if (payoutOptionsCount > 1 && !document.querySelector('input[name="prPayoutAccount"]:checked')) {
         loadingMsg.style.display = 'none';
-        initError.textContent    = 'Online payment is not configured. Please contact the school.';
+        wrapper.style.display = 'block';
+        initError.textContent = 'Choose Stripe or a Paystack payout account to continue.';
+        initError.style.display = 'block';
+        paymentElementMounted = false;
+        return;
+      }
+
+      if (selectedIsStripe && (!STRIPE_PUBLISHABLE_KEY || !STRIPE_PAYOUT_READY)) {
+        loadingMsg.style.display = 'none';
+        initError.textContent    = 'Stripe checkout is not ready for this school yet. Choose a Paystack payout account or contact the school.';
         initError.style.display  = 'block';
         return;
       }
@@ -950,9 +1023,15 @@
         const res = await fetch('/common/createPaymentIntent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount: amount || REGISTRATION_AMOUNT, organizationId: ORG_ID }),
+          body: JSON.stringify({ amount: amount || REGISTRATION_AMOUNT, organizationId: ORG_ID, payoutAccountId: selectedPayoutAccountId }),
         });
         const data = await res.json();
+
+        if (data.provider === 'paystack' && data.authorization_url) {
+          loadingMsg.textContent = 'Redirecting you to Paystack…';
+          window.location.href = data.authorization_url;
+          return;
+        }
 
         if (!data.success || !data.clientSecret) {
           throw new Error(data.error || 'Could not create payment session.');
@@ -1026,8 +1105,25 @@
       // On success Stripe redirects automatically
     }
 
-    function payNow() {
-      if (!paymentElementMounted) { alert('Payment form is not ready. Please wait a moment.'); return; }
+    function prSyncPayoutCards() {
+      document.querySelectorAll('#pr-payout-selector label').forEach(function(lbl) {
+        var radio = lbl.querySelector('input[type="radio"]');
+        if (!radio) return;
+        lbl.style.borderColor = radio.checked ? '#0d9488' : '#e2e8f0';
+        lbl.style.background  = radio.checked ? '#f0fdfa' : '';
+      });
+    }
+
+    async function payNow() {
+      var payoutOptionsCount = document.querySelectorAll('input[name="prPayoutAccount"]').length;
+      if (payoutOptionsCount > 1 && !document.querySelector('input[name="prPayoutAccount"]:checked')) {
+        alert('Choose Stripe or a Paystack payout account first.');
+        return;
+      }
+      if (!paymentElementMounted) {
+        await initStripePaymentElement(REGISTRATION_AMOUNT);
+        if (!paymentElementMounted) return;
+      }
       const returnUrl = window.location.origin + '/common/paymentCallback?organizationId=' + ORG_ID;
       handleStripeConfirm(returnUrl);
     }

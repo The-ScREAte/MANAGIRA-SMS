@@ -51,5 +51,5 @@ if (process.env.NODE_ENV === "production" && BASE_URL && KEEP_ALIVE_ENABLED) {
     `[Keep-Alive] 🔄 Self-ping scheduler started (every ${pingIntervalMinutes} minute${pingIntervalMinutes === 1 ? "" : "s"}; Render sleep=${RENDER_SLEEP_MINUTES}m, wake-before=${WAKE_BEFORE_MINUTES}m)`
   );
 } else {
-  console.log("[Keep-Alive] ⏸️ Disabled (not production, missing base URL, or KEEP_ALIVE_ENABLED=false)");
+  // Keep-alive disabled in dev.
 }
