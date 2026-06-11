@@ -237,27 +237,34 @@
       margin: 1.4em 0;
       text-align: center;
     }
+    .article-content figure.doc-image {
+      display: inline-block;
+      max-width: 100%;
+    }
+    .article-content figure.doc-image img {
+      display: block;
+      width: 100%;
+      height: auto;
+      margin: 0;
+    }
     .article-content figcaption {
       font-size: 0.84rem;
       color: var(--text-muted);
       margin-top: 6px;
       font-style: italic;
     }
-    .article-content iframe {
-      max-width: 100%;
-      border-radius: 8px;
-      margin: 1em 0;
-    }
-    /* Responsive video embed */
     .article-content figure.doc-video {
       position: relative;
+      width: 100%;
+      max-width: 100%;
       padding-bottom: 56.25%;
       height: 0;
       overflow: hidden;
       border-radius: 10px;
       margin: 1.4em 0;
     }
-    .article-content figure.doc-video iframe {
+    .article-content figure.doc-video iframe,
+    .article-content figure.doc-video video {
       position: absolute;
       inset: 0;
       width: 100%;
@@ -265,6 +272,11 @@
       border: none;
       margin: 0;
       border-radius: 10px;
+    }
+    .article-content iframe {
+      max-width: 100%;
+      border-radius: 8px;
+      margin: 1em 0;
     }
     /* Attachment card */
     .article-content .doc-attachment-card {
@@ -551,6 +563,55 @@
     .ep-editor blockquote { border-left: 3px solid #01535b; padding-left: 12px; color: #475569; margin: 0.5em 0; font-style: italic; }
     .ep-editor a { color: #01535b; }
     .ep-editor code { font-family: monospace; background: #f1f5f9; padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+    .ep-editor figure.doc-image {
+      display: inline-block;
+      max-width: 100%;
+      position: relative;
+    }
+    .ep-editor figure.doc-image img {
+      display: block;
+      width: 100%;
+      height: auto;
+      margin: 0;
+    }
+    .ep-editor figure.doc-video {
+      position: relative;
+      width: 100%;
+      max-width: 100%;
+      padding-bottom: 56.25%;
+      height: 0;
+      overflow: hidden;
+    }
+    .ep-editor figure.doc-video iframe,
+    .ep-editor figure.doc-video video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      margin: 0;
+    }
+    .ep-editor figure.doc-media.ep-media-resizable {
+      box-sizing: border-box;
+      outline: 1px dashed transparent;
+    }
+    .ep-editor figure.doc-media.ep-media-resizable:hover {
+      outline-color: rgba(1, 83, 91, 0.22);
+    }
+    .ep-media-resize-handle {
+      position: absolute;
+      right: 4px;
+      bottom: 4px;
+      width: 15px;
+      height: 15px;
+      border-right: 2px solid #01535b;
+      border-bottom: 2px solid #01535b;
+      border-radius: 3px;
+      background: linear-gradient(135deg, transparent 0 42%, rgba(1, 83, 91, 0.18) 42% 100%);
+      cursor: nwse-resize;
+      z-index: 2;
+      opacity: 0.9;
+    }
 
     .edit-panel__foot {
       padding: 16px 22px;
@@ -1117,6 +1178,7 @@
 
   function openEdit() {
     epError.style.display = 'none';
+    setupEditorMediaResize(epEditor);
     editOverlay.classList.add('is-open');
     epEditor.focus();
   }
@@ -1173,6 +1235,83 @@
       _epSavedRange = null;
     }
     document.execCommand('insertHTML', false, html);
+    setupEditorMediaResize(epEditor);
+  }
+
+  function setupEditorMediaResize(container) {
+    if (!container) return;
+
+    container.querySelectorAll('figure.doc-media').forEach(function (figure) {
+      if (figure.dataset.mediaResizable === 'true') return;
+      figure.dataset.mediaResizable = 'true';
+      figure.classList.add('ep-media-resizable');
+
+      if (!figure.querySelector('.ep-media-resize-handle')) {
+        const handle = document.createElement('span');
+        handle.className = 'ep-media-resize-handle';
+        handle.setAttribute('contenteditable', 'false');
+        handle.setAttribute('aria-hidden', 'true');
+        handle.title = 'Drag to resize';
+        figure.appendChild(handle);
+      }
+    });
+
+    if (container.dataset.resizeBound === 'true') return;
+    container.dataset.resizeBound = 'true';
+
+    let resizeState = null;
+
+    container.addEventListener('mousedown', function (event) {
+      const handle = event.target.closest('.ep-media-resize-handle');
+      if (!handle || !container.contains(handle)) return;
+
+      const figure = handle.closest('figure.doc-media');
+      if (!figure) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      const rect = figure.getBoundingClientRect();
+      resizeState = {
+        figure,
+        startX: event.clientX,
+        startWidth: rect.width || figure.offsetWidth || 320,
+        minWidth: figure.classList.contains('doc-video') ? 260 : 180,
+        maxWidth: Math.max(figure.parentElement ? figure.parentElement.clientWidth : container.clientWidth, 320),
+      };
+
+      figure.classList.add('is-resizing');
+
+      const onMove = function (moveEvent) {
+        if (!resizeState) return;
+        const delta = moveEvent.clientX - resizeState.startX;
+        const nextWidth = Math.min(resizeState.maxWidth, Math.max(resizeState.minWidth, Math.round(resizeState.startWidth + delta)));
+        resizeState.figure.style.width = `${nextWidth}px`;
+      };
+
+      const endResize = function () {
+        if (!resizeState) return;
+        resizeState.figure.classList.remove('is-resizing');
+        resizeState = null;
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', endResize);
+      };
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', endResize, { once: true });
+    });
+  }
+
+  function getCleanEditorHtml() {
+    const clone = epEditor.cloneNode(true);
+    clone.querySelectorAll('.ep-media-resize-handle').forEach(function (handle) {
+      handle.remove();
+    });
+    clone.querySelectorAll('figure.doc-media').forEach(function (figure) {
+      figure.removeAttribute('data-media-resizable');
+      figure.classList.remove('ep-media-resizable', 'is-resizing');
+    });
+    return clone.innerHTML;
   }
 
   function epEsc(s) {
@@ -1330,7 +1469,7 @@
       status:   document.getElementById('epStatus').value,
       tags:     document.getElementById('epTags').value.split(',').map(function(t){ return t.trim(); }).filter(Boolean),
       seoDescription: document.getElementById('epSeo').value.trim(),
-      contentHtml: epEditor.innerHTML,
+      contentHtml: getCleanEditorHtml(),
     };
 
     try {

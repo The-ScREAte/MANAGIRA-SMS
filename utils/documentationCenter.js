@@ -562,14 +562,14 @@ function compactAttributes(attributes) {
 function sanitizeArticleContent(html) {
   const cleanHtml = sanitizeHtml(String(html || ''), {
     allowedTags: [
-      'h2', 'h3', 'h4', 'p', 'strong', 'em', 'u', 's', 'ul', 'ol', 'li', 'blockquote',
+      'h2', 'h3', 'h4', 'p', 'strong', 'em', 'b', 'i', 'u', 's', 'ul', 'ol', 'li', 'blockquote',
       'code', 'pre', 'a', 'img', 'figure', 'figcaption', 'iframe', 'video', 'source',
       'div', 'span', 'hr', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'br', 'mark'
     ],
     allowedAttributes: {
       a: ['href', 'target', 'rel', 'title', 'class'],
       img: ['src', 'alt', 'title', 'class', 'data-caption'],
-      figure: ['class'],
+      figure: ['class', 'style'],
       figcaption: ['class'],
       iframe: ['src', 'allow', 'allowfullscreen', 'frameborder', 'title', 'loading', 'class'],
       video: ['src', 'controls', 'playsinline', 'preload', 'poster', 'class'],
@@ -583,6 +583,12 @@ function sanitizeArticleContent(html) {
       td: ['colspan', 'rowspan'],
       hr: ['class'],
       mark: ['class'],
+    },
+    allowedStyles: {
+      figure: {
+        width: [/^\d+(?:\.\d+)?(?:px|%)$/],
+        'max-width': [/^\d+(?:\.\d+)?(?:px|%)$/],
+      },
     },
     allowedClasses: {
       div: ['doc-callout', 'doc-callout--info', 'doc-callout--warning', 'doc-callout--tip'],
@@ -604,6 +610,8 @@ function sanitizeArticleContent(html) {
       a: ['http', 'https', 'mailto', 'tel'],
     },
     transformTags: {
+      b: 'strong',
+      i: 'em',
       a: (tagName, attribs) => {
         const href = collapseWhitespace(attribs.href || '');
         if (!href) {
