@@ -49,7 +49,7 @@
     h1 {
       color: var(--primary);
       font-size: 2.2rem;
-      margin: 0 0 8px;
+      margin: 0 0 4px;
       letter-spacing: -0.01em;
     }
     .subtitle {
@@ -71,22 +71,29 @@
       position: relative;
       margin: 0 0 10px;
     }
-    .search-wrap svg.search-ico {
+    .search-wrap .search-ico {
       position: absolute;
-      left: 13px;
+      left: 16px;
       top: 50%;
-      transform: translateY(-50%);
-      color: #94a3b8;
+      transform: translateY(calc(-50% - 6px));
+      width: 20px;
+      height: 20px;
       pointer-events: none;
-      width: 17px;
-      height: 17px;
+      color: #8ea0b9;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.1;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
     #helpSearch {
       width: 100%;
-      padding: 10px 42px 10px 42px;
+      height: 56px;
+      padding: 0 46px 0 58px;
       border: 1px solid var(--border);
       border-radius: 10px;
       font-size: 0.92rem;
+      line-height: 1.2;
       font-family: inherit;
       background: #fff;
       box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
@@ -99,13 +106,13 @@
     }
     #helpSearchClear {
       position: absolute;
-      right: 10px;
+      right: 12px;
       top: 50%;
       transform: translateY(-50%);
       background: #f1f5f9;
       border: none;
-      width: 24px;
-      height: 24px;
+      width: 26px;
+      height: 26px;
       border-radius: 50%;
       cursor: pointer;
       color: #64748b;
@@ -120,9 +127,11 @@
     .search-meta {
       font-size: 0.82rem;
       color: #64748b;
-      padding: 0 4px 8px;
-      min-height: 18px;
+      padding: 0;
+      margin: 0;
+      min-height: 0;
     }
+    .search-meta:empty { display: none; }
 
     /* Results */
     .results-block { margin-bottom: 28px; }
@@ -285,6 +294,7 @@
       border-radius: 12px;
       box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
       overflow: hidden;
+      margin-bottom: 26px;
     }
     .contact-collapse[open] { box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06); }
     .contact-summary {
@@ -331,47 +341,60 @@
 
     @media (max-width: 768px) {
       main { padding: 100px 0 40px; }
-      .help-hero { margin: 20px 12px 40px; }
+      .help-hero { margin: 20px 12px 20px; }
       h1 { font-size: 1.8rem; }
       .legal-section { margin: 0 12px 20px; padding: 20px 18px; }
-      .contact-collapse { margin: 0 12px; }
+      .contact-collapse { margin: 0 12px 20px; }
       .help-links { grid-template-columns: 1fr 1fr; gap: 12px; }
     }
     @media (max-width: 480px) {
       main { padding: 110px 0 32px; }
-      .help-hero { margin: 30px 8px 40px; }
+      .help-hero { margin: 18px 8px 14px; }
       h1 { font-size: 1.35rem; }
       .subtitle { font-size: 0.88rem; }
       .legal-section { margin: 0 8px 20px; padding: 16px 14px; border-radius: 10px; }
-      .contact-collapse { margin: 0 8px; border-radius: 10px; }
+      .contact-collapse { margin: 0 8px 18px; border-radius: 10px; }
       .help-links { grid-template-columns: 1fr 1fr; gap: 10px; }
-      .help-link { padding: 16px 10px; }
+      .help-link { padding: 10px 8px; gap: 6px; border-radius: 10px; }
+      .help-link svg { width: 18px; height: 18px; }
+      .help-link span { font-size: 0.8rem; }
+      .result-card { padding: 11px 12px; border-radius: 10px; }
+      .result-card-title { font-size: 0.9rem; }
+      .result-meta-line { font-size: 0.8rem; }
       .contact-summary { padding: 16px 14px; }
       .contact-form { padding: 4px 14px 18px; }
       input, textarea { font-size: 16px; }
-      #helpSearch { font-size: 16px; }
+      #helpSearch {
+        font-size: 16px;
+        height: 52px;
+        padding-left: 52px;
+      }
+      .search-wrap .search-ico {
+        left: 14px;
+        width: 19px;
+        height: 19px;
+      }
     }
   </style>
 </head>
 <body>
   <main>
     <div class="help-hero">
-      <span class="eyebrow">Help Center</span>
       <h1>How can we help?</h1>
-      <p class="subtitle">Search across our documentation, guides, and FAQs — or send us a message.</p>
+      <p class="subtitle">Search anything Managira related.</p>
     </div>
 
     <div class="legal-section">
       <!-- SMART SEARCH -->
       <div class="search-wrap">
-        <svg class="search-ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="11" cy="11" r="8"></circle>
-          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        <svg class="search-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <circle cx="11" cy="11" r="7"></circle>
+          <line x1="16.65" y1="16.65" x2="21" y2="21"></line>
         </svg>
-        <input type="search" id="helpSearch" placeholder="Search documentation, FAQs, guides…" autocomplete="off" />
+        <input type="search" id="helpSearch" placeholder="Search anything Managira related…" autocomplete="off" />
         <button type="button" id="helpSearchClear" aria-label="Clear search">×</button>
       </div>
-      <div class="search-meta" id="searchMeta">Try: “register a school”, “report cards”, “bulk import”, “guardian portal”</div>
+      <div class="search-meta" id="searchMeta"></div>
 
       <div id="searchResults" style="display:none;">
         <div class="results-block" id="docResultsBlock" style="display:none;">
@@ -624,7 +647,7 @@
       if (trimmed.length === 0) {
         wrap.style.display = 'none';
         def.style.display  = '';
-        meta.textContent   = 'Try: "register a school", "report cards", "bulk import", "guardian portal"';
+        meta.textContent   = '';
         clearBtn.style.display = 'none';
         if (_liveAbort) { _liveAbort.abort(); _liveAbort = null; }
         return;
