@@ -588,18 +588,23 @@
       const newTitle = doc.querySelector('title');
       if (newTitle) document.title = newTitle.textContent;
 
-      // 2. Update page-specific styles
-      this._updateStyles(doc);
-
       const shouldFade = !this._skipFade;
       this._skipFade = false;
 
-      // 3. Fade out current content (skipped for cache hits)
+      // 2. Fade out current content (skipped for cache hits).
+      //    Keep OLD page-specific styles in place during fade-out so the
+      //    outgoing page does not visually break before it disappears.
       if (shouldFade) {
         currentMain.style.transition = `opacity ${CONFIG.TRANSITION_MS}ms ease`;
         currentMain.style.opacity = '0';
         await this._wait(CONFIG.TRANSITION_MS);
       }
+
+      // 3. Attach NEW page-specific styles BEFORE injecting new markup,
+      //    then remove the previous SPA-injected styles. This guarantees
+      //    new content paints with its own CSS already mounted and avoids
+      //    the brief unstyled flash some org pages were showing.
+      this._updateStyles(doc);
 
       // 4. Swap content
       currentMain.innerHTML = newMain.innerHTML;
