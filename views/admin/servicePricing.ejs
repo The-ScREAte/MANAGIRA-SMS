@@ -1002,7 +1002,108 @@
           justify-content: center;
         }
       }
+
+      /* ================================================================
+         COMPACT PRO RESTYLE — small text, tight spacing, flat clean cards.
+         Appended last so it wins the cascade without touching structure.
+         ================================================================ */
+      body { font-size: 13px; line-height: 1.5; background:#f7f9fb; color:#1f2a30; }
+
+      .admin-header {
+        background:#01535b;
+        padding:14px 16px 12px;
+        box-shadow:none;
+        border-bottom:1px solid rgba(255,255,255,0.06);
+      }
+      .admin-header h1 { font-size:1.05rem; font-weight:600; letter-spacing:.2px; }
+      .admin-header p, .admin-header small { font-size:12px; opacity:.85; }
+
+      .container {
+        width: calc(100% - 24px);
+        margin: 16px auto;
+        padding: 0 12px;
+        gap: 12px;
+      }
+
+      .form-container, .card, .panel, .section-card, .gateway-strategy-card {
+        padding: 14px 16px !important;
+        border-radius: 8px !important;
+        box-shadow: 0 1px 2px rgba(15,23,42,0.04) !important;
+        border: 1px solid #e4e9ee !important;
+        background: #fff !important;
+      }
+
+      h1 { font-size: 1.05rem; }
+      h2 { font-size: .95rem; margin: 0 0 8px; font-weight:600; color:#0f172a; }
+      h3 { font-size: .85rem; margin: 0 0 6px; font-weight:600; color:#0f172a; }
+      h4, h5, h6 { font-size: .8rem; margin: 0 0 4px; font-weight:600; color:#334155; }
+      p, li, label, span, td, th, div { font-size: 13px; }
+      small, .muted, .note, .hint, .gateway-strategy-note,
+      .collapsed-card-copy, .stripe-test-card-note, .stripe-platform-status {
+        font-size: 12px !important;
+        line-height: 1.45 !important;
+      }
+
+      label { color:#475569; font-weight:500; }
+      input[type="text"], input[type="number"], input[type="email"],
+      input[type="password"], input[type="search"], select, textarea {
+        font-size: 13px !important;
+        padding: 6px 9px !important;
+        border-radius: 6px !important;
+        border: 1px solid #d4dce3 !important;
+        background:#fff !important;
+        box-shadow:none !important;
+        min-height: 32px;
+      }
+      input:focus, select:focus, textarea:focus {
+        outline: none !important;
+        border-color:#01535b !important;
+        box-shadow: 0 0 0 2px rgba(1,83,91,0.12) !important;
+      }
+
+      button, .btn, .button, input[type="submit"], input[type="button"] {
+        font-size: 12px !important;
+        padding: 6px 12px !important;
+        border-radius: 6px !important;
+        font-weight: 500 !important;
+        line-height: 1.3 !important;
+        min-height: 30px !important;
+        letter-spacing: .1px;
+        box-shadow:none !important;
+      }
+      .btn-primary, button[type="submit"], .save-btn, .student-tier-save-all {
+        background:#01535b !important;
+        color:#fff !important;
+        border:1px solid #01535b !important;
+      }
+      .btn-primary:hover, button[type="submit"]:hover {
+        background:#013f45 !important;
+        border-color:#013f45 !important;
+      }
+      .btn-secondary, .cancel-btn { background:#f1f5f9 !important; color:#334155 !important; border:1px solid #d4dce3 !important; }
+      .btn-danger, .delete-btn { background:#fff !important; color:#b91c1c !important; border:1px solid #fecaca !important; }
+      .btn-danger:hover { background:#fef2f2 !important; }
+
+      table { font-size: 12px; }
+      table th { font-size: 11px; text-transform: uppercase; letter-spacing:.4px; color:#64748b; font-weight:600; padding:8px 10px; }
+      table td { padding: 8px 10px; border-top:1px solid #eef1f4; }
+
+      .badge, .tag, .pill, .status-badge {
+        font-size: 11px !important;
+        padding: 2px 8px !important;
+        border-radius: 999px !important;
+        font-weight: 500 !important;
+      }
+
+      /* tighter vertical rhythm */
+      .form-group, .field, .row, .stack { margin-bottom: 10px !important; }
+      hr { margin: 12px 0; border:0; border-top:1px solid #eef1f4; }
+
+      @media (max-width: 900px) {
+        .container { grid-template-columns: 1fr; }
+      }
     </style>
+
   </head>
   <body>
     <%- include('../partials/flash') %>
