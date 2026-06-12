@@ -1102,6 +1102,15 @@
       @media (max-width: 900px) {
         .container { grid-template-columns: 1fr; }
       }
+
+      /* Prevent iOS auto-zoom on input focus (inputs must be >=16px on small screens) */
+      @media (max-width: 768px) {
+        input[type="text"], input[type="number"], input[type="email"],
+        input[type="password"], input[type="search"], input[type="tel"],
+        input[type="url"], input[type="date"], select, textarea {
+          font-size: 16px !important;
+        }
+      }
     </style>
 
   </head>
