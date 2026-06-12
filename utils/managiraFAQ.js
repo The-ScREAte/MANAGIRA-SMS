@@ -43,13 +43,6 @@ const managiraFAQ = [
     answer: "You can reach our support team through the 'Get Help' page on the platform, or email us directly at info@managira.com. We also have a YouTube channel with step-by-step video tutorials for common tasks.",
     keywords: ["contact", "support", "help", "email", "youtube", "tutorials", "reach us", "customer service", "assistance", "talk to someone", "phone", "call"]
   },
-  {
-    id: 7,
-    category: "Getting Started",
-    question: "What if I have a feature request?",
-    answer: "We welcome your feedback! You can submit feature requests directly to managirainfo@gmail.com. We also send out periodic surveys to gather suggestions from our community. Many of our most popular features have come from user feedback.",
-    keywords: ["feature request", "feedback", "suggestions", "survey", "managirainfo@gmail.com", "request", "idea", "suggest", "improvement", "new feature", "wish list"]
-  },
 
   // Educators & Admins
   {
@@ -93,15 +86,8 @@ const managiraFAQ = [
     id: 18,
     category: "Hub Management & Government Institutions",
     question: "What is a Managira Hub?",
-    answer: "A Managira Hub is a centralised management layer designed for government education departments, school districts, and educational bodies that oversee multiple schools. Hubs provide a single dashboard to monitor performance, manage staff, coordinate operations, and maintain oversight across all member institutions.",
-    keywords: ["hub", "government", "education department", "school district", "multiple schools", "centralised", "oversight", "network", "group of schools", "manage schools"]
-  },
-  {
-    id: 19,
-    category: "Hub Management & Government Institutions",
-    question: "Who typically uses Hubs?",
-    answer: "Hubs are used by government education ministries, regional education offices, school district administrators, and private education groups that manage networks of schools. Any organisation responsible for overseeing multiple educational institutions can benefit from the Hub system.",
-    keywords: ["hub users", "government", "ministries", "education offices", "school districts", "networks", "who uses hubs", "ministry"]
+    answer: "A Managira Hub is a centralised management layer for education ministries, school districts, dioceses, private school groups, and other bodies that oversee multiple schools. It provides a single dashboard for monitoring performance, coordinating operations, managing staff oversight, and handling shared administration across member institutions.",
+    keywords: ["hub", "government", "education department", "school district", "multiple schools", "centralised", "oversight", "network", "group of schools", "manage schools", "hub users", "ministries", "education offices"]
   },
   {
     id: 21,
@@ -134,18 +120,11 @@ const managiraFAQ = [
     keywords: ["payment methods", "stripe", "paystack", "credit card", "wallet", "bank transfer", "how to pay", "accepted payments", "debit card", "school payments", "paygira"]
   },
   {
-    id: 27,
-    category: "Billing & Subscription",
-    question: "Is there a discount for annual billing?",
-    answer: "Please visit our pricing page or contact our sales team at managirainfo@gmail.com for information about annual billing options and available discounts for larger institutions.",
-    keywords: ["discount", "annual billing", "pricing", "sales", "yearly", "bulk discount", "cheaper", "save money"]
-  },
-  {
     id: 28,
     category: "Billing & Subscription",
-    question: "How much does Managira cost?",
-    answer: "Managira offers flexible pricing plans based on the size and needs of your institution. Every school starts with a free trial for a full academic term. Visit our pricing page or contact managirainfo@gmail.com for detailed pricing information.",
-    keywords: ["how much", "cost", "price", "pricing", "expensive", "affordable", "rate", "fee", "charges", "subscription cost"]
+    question: "How does Managira pricing work?",
+    answer: "Managira offers flexible pricing based on the size and needs of your institution. Every school starts with a free trial for a full academic term, and annual billing options or volume pricing may be available for larger organisations. For a formal quote, visit the pricing page or contact managirainfo@gmail.com.",
+    keywords: ["how much", "cost", "price", "pricing", "expensive", "affordable", "rate", "fee", "charges", "subscription cost", "discount", "annual billing", "sales", "yearly", "bulk discount", "save money"]
   },
   {
     id: 29,
@@ -160,8 +139,8 @@ const managiraFAQ = [
     id: 30,
     category: "Parents & Guardians",
     question: "How do parents access their child's information?",
-    answer: "Parents and guardians can access their child's school information through the dedicated Guardian Portal. Schools provide login credentials, and once logged in, parents can view grades, attendance records, report cards, and school announcements — all in real time.",
-    keywords: ["parents", "guardians", "access", "guardian portal", "grades", "attendance", "report cards", "child info", "kid grades", "my child", "son", "daughter", "view grades"]
+    answer: "Parents and guardians access their child's information through the Guardian Portal, which is Managira's secure parent-facing area. Schools provide login credentials, and once signed in, guardians can view grades, attendance, report cards, announcements, and other updates in real time.",
+    keywords: ["parents", "guardians", "access", "guardian portal", "grades", "attendance", "report cards", "child info", "kid grades", "my child", "son", "daughter", "view grades", "parent portal", "guardian login", "parent login"]
   },
   {
     id: 32,
@@ -169,13 +148,6 @@ const managiraFAQ = [
     question: "Can parents submit reports or concerns?",
     answer: "Yes. The Guardian Portal includes a reporting feature where parents can submit concerns, questions, or feedback directly to the school. Schools can review and respond to these reports through their admin dashboard.",
     keywords: ["parent reports", "concerns", "feedback", "guardian portal", "reporting", "complaint", "issue", "problem", "worry"]
-  },
-  {
-    id: 34,
-    category: "Parents & Guardians",
-    question: "What is the Guardian Portal?",
-    answer: "The Guardian Portal is a dedicated section of Managira designed for parents and guardians. It provides a secure login where parents can view their child's grades, attendance, report cards, school announcements, and submit reports or concerns to the school.",
-    keywords: ["guardian portal", "parent portal", "parent login", "guardian login", "parent dashboard", "guardian dashboard", "parent access"]
   },
 
   // Security & Access
@@ -196,16 +168,9 @@ const managiraFAQ = [
   {
     id: 39,
     category: "Security & Access",
-    question: "What should I do if I forget my password?",
-    answer: "Click the 'Forgot Password' link on the login page. You'll receive an email with a secure link to reset your password. The reset link expires after a set period for security purposes. If you don't receive the email, check your spam folder or contact your school administrator.",
-    keywords: ["forget password", "forgot password", "login page", "reset link", "email", "can't login", "locked out", "password reset", "lost password", "change password"]
-  },
-  {
-    id: 40,
-    category: "Security & Access",
-    question: "How do I change my password?",
-    answer: "You can change your password from the Account Settings page after logging in. If you've forgotten your current password, use the 'Forgot Password' link on the login page to receive a reset email.",
-    keywords: ["change password", "update password", "new password", "modify password", "password settings", "account settings"]
+    question: "How do I reset or change my password?",
+    answer: "If you know your current password, you can change it from Account Settings after signing in. If you've forgotten it, use the 'Forgot Password' link on the login page to receive a secure reset email. This reset flow is available for school users, guardians, and hub administrators. If the email does not arrive, check your spam folder first and then contact your school administrator or support team.",
+    keywords: ["forget password", "forgot password", "login page", "reset link", "email", "can't login", "locked out", "password reset", "lost password", "change password", "update password", "new password", "modify password", "password settings", "account settings", "guardian password", "hub password", "parent password", "all accounts"]
   },
 
   // Technical & Platform
@@ -222,13 +187,6 @@ const managiraFAQ = [
     question: "Can I export my data from Managira?",
     answer: "Yes. Managira supports data export in multiple formats. You can download student records, attendance data, grade reports, and other information as CSV or PDF files. This ensures you always have full ownership and portability of your data.",
     keywords: ["export", "data", "CSV", "PDF", "download", "portability", "backup", "save data", "extract"]
-  },
-  {
-    id: 43,
-    category: "Technical & Platform",
-    question: "Does Managira have a public-facing school website?",
-    answer: "Yes. Every school on Managira gets a customisable public dashboard that serves as a school website. You can publish announcements, display school information, showcase events, and enable online enrollment — all branded with your school's logo and colours.",
-    keywords: ["public website", "school website", "dashboard", "announcements", "enrollment", "branding", "website", "web page", "online presence", "site"]
   },
   {
     id: 44,
@@ -337,15 +295,6 @@ const managiraFAQ = [
     keywords: ["create employee", "new employee", "add staff", "add teacher", "hire employee", "employee account", "invite teacher", "onboard staff"]
   },
 
-  // Donations
-  {
-    id: 68,
-    category: "Donations",
-    question: "Does Managira accept donations?",
-    answer: "Yes. Managira accepts donations to support the continued development of the platform and to help make educational technology accessible to more schools. You can make a donation through the Donations page on our website.",
-    keywords: ["donations", "donate", "contribute", "support", "give", "fund", "sponsor", "charity", "help fund"]
-  },
-
   // Account Management
   {
     id: 69,
@@ -367,31 +316,6 @@ const managiraFAQ = [
     question: "Can multiple staff members manage the same school?",
     answer: "Yes. You can create multiple employee accounts with different roles and permissions. Managers have full access, while Teachers and Supervisors have access based on their assigned permissions. This allows collaborative school management.",
     keywords: ["multiple staff", "multiple users", "shared access", "team management", "collaborative", "many admins", "several managers"]
-  },
-
-  // Password Reset
-  {
-    id: 80,
-    category: "Account Management",
-    question: "How do I reset my password if I forgot it?",
-    answer: "Click 'Forgot Password' on the login page and enter your email address. Managira supports password reset for all account types — school administrators, staff users, guardians, and hub administrators. You'll receive a reset link via email that's valid for 1 hour. Click the link to set a new password.",
-    keywords: ["forgot password", "forget password", "reset password", "lost password", "can't login", "password recovery", "change password", "new password", "locked out"]
-  },
-  {
-    id: 81,
-    category: "Account Management",
-    question: "Can guardians and hub admins reset their passwords?",
-    answer: "Yes! All account types can reset passwords using the same 'Forgot Password' flow. Whether you're a school user, organisation admin, guardian, or hub administrator, simply enter your registered email on the forgot password page and you'll receive a reset link.",
-    keywords: ["guardian password", "hub password", "parent password", "all accounts", "password reset all", "universal reset", "any account type"]
-  },
-
-  // User Documentation topics
-  {
-    id: 84,
-    category: "User Documentation",
-    question: "Where can I find the Managira user documentation?",
-    answer: "The full Managira User Documentation is available at /legal/user-documentation. It covers everything from getting started, setting up your organization, roles and permissions, student management, attendance tracking, assessments, report cards, promotions, admissions, school websites, and troubleshooting. You can also find a link to it on the FAQ page and in the footer of every page.",
-    keywords: ["user documentation", "documentation", "user guide", "manual", "help guide", "how to use managira", "docs", "user docs", "guide", "tutorial", "instructions"]
   },
   {
     id: 110,

@@ -15,6 +15,7 @@ const {
   setDocumentationArticleStatus,
   updateDocumentationArticle,
 } = require('../utils/documentationCenter');
+const managiraFAQ = require('../utils/managiraFAQ');
 const db = require('../config/db');
 const { uploadToS3, deleteFromS3 } = require('../middleware/s3Upload');
 
@@ -71,6 +72,63 @@ function buildDocumentationBootstrap(pageData, isAdmin) {
     articleIndex: pageData.index,
     availableTopics: pageData.availableTopics,
   };
+}
+
+function buildHelpKnowledge() {
+  if (!Array.isArray(managiraFAQ)) {
+    return [];
+  }
+
+  return managiraFAQ.map((item) => ({
+    id: item.id,
+    category: item.category,
+    question: item.question,
+    answer: item.answer,
+    keywords: item.keywords || [],
+  }));
+}
+
+function buildDocumentationSearchResources(resources = []) {
+  const mappedResources = Array.isArray(resources)
+    ? resources.map((resource) => ({
+        title: resource.title,
+        subtitle: resource.subtitle || resource.description || '',
+        url: resource.url,
+        external: Boolean(resource.external),
+        keywords: [resource.key, resource.type, resource.title, resource.subtitle, resource.description].filter(Boolean),
+      }))
+    : [];
+
+  return mappedResources.concat([
+    {
+      title: 'User Documentation Hub',
+      subtitle: 'Browse all Managira guides in one place',
+      url: '/legal/user-documentation',
+      external: false,
+      keywords: ['documentation hub', 'all guides', 'resources', 'docs'],
+    },
+    {
+      title: 'FAQ',
+      subtitle: 'Browse frequently asked questions',
+      url: '/legal/faq',
+      external: false,
+      keywords: ['faq', 'questions', 'answers', 'help'],
+    },
+    {
+      title: 'Request a Demo',
+      subtitle: 'Schedule a personalised live demo',
+      url: '/legal/request-demo',
+      external: false,
+      keywords: ['demo', 'request', 'sales', 'live demo', 'schedule', 'book'],
+    },
+    {
+      title: 'Interactive App Demo',
+      subtitle: 'Explore the visual product tour',
+      url: '/legal/app-demo',
+      external: false,
+      keywords: ['app demo', 'product tour', 'preview', 'see app', 'try'],
+    },
+  ]);
 }
 
 function matchStaticResources(query) {
@@ -154,6 +212,8 @@ async function renderDocumentationArticle(req, res) {
       docsTree: pageData.tree,
       featuredArticles: pageData.featuredArticles,
       quickStartResources: pageData.quickStartResources,
+      helpKnowledge: buildHelpKnowledge(),
+      documentationSearchResources: buildDocumentationSearchResources(pageData.quickStartResources),
       selectedArticle: null,
       selectedSlug: null,
       availableTopics: pageData.availableTopics,
@@ -189,6 +249,8 @@ async function renderDocumentationArticle(req, res) {
     docsTree: pageData.tree,
     featuredArticles: pageData.featuredArticles,
     quickStartResources: pageData.quickStartResources,
+    helpKnowledge: buildHelpKnowledge(),
+    documentationSearchResources: buildDocumentationSearchResources(pageData.quickStartResources),
     selectedArticle,
     selectedSlug: requestedSlug,
     availableTopics: pageData.availableTopics,

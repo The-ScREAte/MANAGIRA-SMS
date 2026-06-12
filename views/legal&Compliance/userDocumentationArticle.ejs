@@ -51,6 +51,14 @@
     .article-back:hover { text-decoration: underline; }
     .article-back svg { flex-shrink: 0; }
 
+    .article-breadcrumb-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
     .article-breadcrumb {
       display: flex;
       flex-wrap: wrap;
@@ -58,7 +66,8 @@
       gap: 6px;
       font-size: 0.82rem;
       color: var(--text-muted);
-      margin-bottom: 20px;
+      margin-bottom: 0;
+      min-width: 0;
     }
     .article-breadcrumb a {
       color: var(--primary);
@@ -67,6 +76,186 @@
     }
     .article-breadcrumb a:hover { text-decoration: underline; }
     .article-breadcrumb span { color: #cbd5e1; }
+    .article-breadcrumb-label {
+      color: var(--text-muted) !important;
+      white-space: nowrap;
+    }
+
+    /* ── In-article search ─────────────────────── */
+    .article-search-panel {
+      flex: 0 0 auto;
+      width: min(290px, 100%);
+      min-width: 220px;
+    }
+    .article-search-toggle {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: #fff;
+      color: #8ea0b9;
+      cursor: pointer;
+      transition: border-color 0.2s, box-shadow 0.2s, color 0.2s;
+      flex-shrink: 0;
+    }
+    .article-search-toggle:hover,
+    .article-search-toggle.is-open {
+      color: var(--primary);
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(1, 83, 91, 0.08);
+    }
+    .article-search-wrap {
+      position: relative;
+      margin-bottom: 0;
+    }
+    .article-search-ico {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      pointer-events: none;
+      color: #8ea0b9;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.1;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .article-search-input {
+      width: 100%;
+      height: 40px;
+      padding: 0 38px 0 38px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 0.86rem;
+      line-height: 1.2;
+      font-family: inherit;
+      background: #fff;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .article-search-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(1, 83, 91, 0.08);
+    }
+    .article-search-clear {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 22px;
+      height: 22px;
+      border: none;
+      border-radius: 50%;
+      background: #f1f5f9;
+      color: #64748b;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+    }
+    .article-search-clear:hover { background: #e2e8f0; color: #0f172a; }
+    .article-search-meta {
+      font-size: 0.82rem;
+      color: #64748b;
+      min-height: 0;
+      margin-top: 8px;
+    }
+    .article-search-meta:empty { display: none; }
+    .article-search-results {
+      display: none;
+      margin-top: 14px;
+    }
+    .article-search-results.is-visible { display: block; }
+    .article-results-block { margin-bottom: 22px; }
+    .article-results-block:last-child { margin-bottom: 0; }
+    .article-results-block h2 {
+      font-size: 0.78rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--primary);
+      margin: 0 0 10px;
+      font-weight: 700;
+    }
+    .article-result-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .article-result-card:hover {
+      border-color: var(--primary);
+      box-shadow: 0 4px 14px rgba(1, 83, 91, 0.08);
+    }
+    .article-result-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .article-result-type {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: 999px;
+      line-height: 1.6;
+      flex-shrink: 0;
+    }
+    .article-result-type--article { background: #e6f4f5; color: #01535b; }
+    .article-result-type--doc { background: #fef6e0; color: #92400e; }
+    .article-result-type--faq { background: #ede9fe; color: #4f46e5; }
+    .article-result-title {
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: var(--text);
+      text-decoration: none;
+      line-height: 1.35;
+    }
+    .article-result-title:hover { color: var(--primary); }
+    .article-result-meta {
+      font-size: 0.84rem;
+      color: #64748b;
+      margin: 0;
+      line-height: 1.55;
+    }
+    .article-result-meta mark {
+      background: #fef3c7;
+      color: inherit;
+      padding: 0 2px;
+      border-radius: 2px;
+    }
+    .article-result-cta {
+      color: var(--primary);
+      font-weight: 600;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .article-result-cta:hover { text-decoration: underline; }
+    .article-search-empty {
+      text-align: center;
+      padding: 22px 16px;
+      background: #fff;
+      border: 1px dashed #cbd5e1;
+      border-radius: 12px;
+      color: #64748b;
+      font-size: 0.9rem;
+    }
+    .article-search-empty strong {
+      display: block;
+      color: #0f172a;
+      margin-bottom: 4px;
+    }
 
     /* ── Header card ────────────────────────────── */
     .article-header {
@@ -93,12 +282,12 @@
     }
 
     .article-title {
-      font-size: clamp(1.25rem, 3.5vw, 1.75rem);
+      font-size: clamp(1.15rem, 3.1vw, 1.55rem);
       font-weight: 800;
       color: #0f172a;
       line-height: 1.2;
       letter-spacing: -0.01em;
-      margin-bottom: 14px;
+      margin-bottom: 10px;
     }
 
     .article-meta-row {
@@ -109,21 +298,21 @@
       margin-top: 12px;
     }
     .article-meta-date {
-      font-size: 0.8rem;
+      font-size: 0.74rem;
       color: var(--text-muted);
       padding-right: 8px;
       border-right: 1px solid #e2e8f0;
       margin-right: 2px;
     }
     .article-tag {
-      font-size: 0.72rem;
+      font-size: 0.64rem;
       font-weight: 600;
-      padding: 3px 9px;
+      padding: 2px 7px;
       border-radius: 999px;
       background: #f1f5f9;
       color: #475569;
       border: 1px solid #e2e8f0;
-      max-width: 110px;
+      max-width: 92px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -170,6 +359,23 @@
     .article-content h3 { font-size: 1.12rem; }
     .article-content h4 { font-size: 1rem; }
     .article-content p { margin: 0 0 1.1em; }
+    .article-content h1 p,
+    .article-content h2 p,
+    .article-content h3 p,
+    .article-content h4 p {
+      margin: 0;
+      font: inherit;
+      color: inherit;
+      line-height: inherit;
+    }
+    .article-content h1 span,
+    .article-content h2 span,
+    .article-content h3 span,
+    .article-content h4 span {
+      font: inherit;
+      color: inherit;
+      line-height: inherit;
+    }
     .article-content a { color: var(--primary); text-decoration: underline; }
     .article-content a:hover { color: #014048; }
     .article-content ul,
@@ -300,22 +506,22 @@
       background: #fff;
       border: 1px solid var(--border);
       border-radius: 14px;
-      padding: 22px 28px;
+      padding: 16px 18px;
       margin-bottom: 22px;
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: 14px;
+      gap: 10px;
     }
     .article-helpful__label {
-      font-size: 0.95rem;
+      font-size: 0.86rem;
       font-weight: 700;
       color: #0f172a;
     }
     .article-helpful__label small {
       display: block;
-      font-size: 0.8rem;
+      font-size: 0.72rem;
       font-weight: 400;
       color: var(--text-muted);
       margin-top: 2px;
@@ -328,12 +534,12 @@
       display: flex;
       align-items: center;
       gap: 6px;
-      padding: 9px 18px;
+      padding: 7px 12px;
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 999px;
       background: #fff;
       cursor: pointer;
-      font-size: 0.9rem;
+      font-size: 0.8rem;
       font-weight: 600;
       font-family: inherit;
       color: #374151;
@@ -344,13 +550,13 @@
     .helpful-btn.voted-no  { border-color: #dc2626; background: #fef2f2; color: #dc2626; }
     .helpful-btn:disabled  { opacity: 0.55; cursor: not-allowed; }
     .helpful-count {
-      font-size: 0.8rem;
+      font-size: 0.72rem;
       font-weight: 400;
       opacity: 0.7;
     }
     .helpful-thankyou {
       display: none;
-      font-size: 0.9rem;
+      font-size: 0.82rem;
       font-weight: 600;
       color: var(--primary);
     }
@@ -751,25 +957,141 @@
     /* ── Responsive ─────────────────────────────── */
     @media (max-width: 768px) {
       .article-page   { padding: 22px 14px 50px; }
+      .article-breadcrumb-row {
+        align-items: center;
+        gap: 8px;
+        flex-wrap: nowrap;
+      }
+      .article-breadcrumb {
+        flex: 1 1 auto;
+        flex-wrap: nowrap;
+        gap: 3px;
+        overflow: hidden;
+        white-space: nowrap;
+        font-size: 0.68rem;
+        line-height: 1.2;
+      }
+      .article-breadcrumb-label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .article-search-panel {
+        width: auto;
+        min-width: 0;
+        position: relative;
+      }
+      .article-search-toggle { display: inline-flex; }
+      .article-search-wrap {
+        display: none;
+        position: absolute;
+        top: 50%;
+        right: 0;
+        transform: translateY(-50%);
+        width: min(78vw, 280px);
+        z-index: 30;
+      }
+      .article-search-panel.is-mobile-open .article-search-wrap { display: block; }
+      .article-search-panel.is-mobile-open .article-search-toggle {
+        color: var(--primary);
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(1, 83, 91, 0.08);
+      }
+      .article-search-panel.is-mobile-open .article-search-meta {
+        display: block;
+        position: absolute;
+        top: calc(100% + 6px);
+        right: 0;
+        width: min(78vw, 280px);
+        padding-top: 6px;
+        z-index: 30;
+      }
+      .article-search-meta {
+        display: none;
+        margin-top: 0;
+      }
       .article-header { padding: 20px 18px 16px; }
-      .article-body   { padding: 20px 16px 16px; }
-      .article-helpful { padding: 16px 16px; }
+      .article-title  { font-size: 1.1rem; }
+      .article-meta-date { font-size: 0.68rem; }
+      .article-tag {
+        font-size: 0.58rem;
+        padding: 1px 6px;
+        max-width: 78px;
+      }
+      .article-body   { padding: 18px 14px 14px; }
+      .article-content {
+        font-size: 0.9rem;
+        line-height: 1.65;
+      }
+      .article-content h2 {
+        font-size: 1rem;
+        margin: 1.3em 0 0.55em;
+      }
+      .article-content h3 {
+        font-size: 0.9rem;
+        margin: 1.15em 0 0.45em;
+      }
+      .article-content ul,
+      .article-content ol {
+        padding-left: 1.25em;
+      }
+      .article-content blockquote {
+        padding: 10px 12px;
+        border-left-width: 2px;
+      }
+      .article-helpful { padding: 13px 14px; }
     }
     @media (max-width: 480px) {
       .article-page   { padding: 16px 12px 36px; }
       .article-back   { font-size: 0.82rem; margin-bottom: 14px; }
+      .article-breadcrumb-row { gap: 8px; }
+      .article-breadcrumb { font-size: 0.62rem; }
+      .article-search-toggle {
+        width: 32px;
+        height: 32px;
+      }
+      .article-search-wrap,
+      .article-search-panel.is-mobile-open .article-search-meta {
+        width: min(82vw, 250px);
+      }
       .article-header { padding: 16px 14px 12px; border-radius: 10px; }
-      .article-body   { padding: 16px 14px; border-radius: 10px; }
-      .article-helpful { flex-direction: column; align-items: flex-start; padding: 14px 14px; border-radius: 10px; }
-      .article-title  { font-size: 1.2rem; }
-      .article-content { font-size: 0.94rem; line-height: 1.7; }
-      .article-content h2 { font-size: 1.08rem; }
-      .article-content h3 { font-size: 0.98rem; }
+      .article-body   { padding: 14px 12px; border-radius: 10px; }
+      .article-helpful {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 11px 12px;
+        border-radius: 10px;
+        gap: 8px;
+      }
+      .article-title  { font-size: 1rem; }
+      .article-meta-date { font-size: 0.64rem; }
+      .article-tag {
+        font-size: 0.54rem;
+        padding: 1px 5px;
+        max-width: 72px;
+      }
+      .article-content { font-size: 0.86rem; line-height: 1.6; }
+      .article-content h2 { font-size: 0.94rem; }
+      .article-content h3 { font-size: 0.84rem; }
       .article-content pre { padding: 12px 14px; font-size: 0.82rem; border-radius: 8px; }
       .article-content blockquote { padding: 10px 14px; }
       .article-content table { font-size: 0.84rem; }
       .article-content th,
       .article-content td  { padding: 8px 10px; }
+      .article-helpful__label { font-size: 0.8rem; }
+      .article-helpful__label small { font-size: 0.67rem; }
+      .article-helpful__btns {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 7px;
+      }
+      .helpful-btn {
+        justify-content: center;
+        padding: 7px 8px;
+        font-size: 0.72rem;
+      }
+      .helpful-count { font-size: 0.65rem; }
+      .helpful-thankyou { font-size: 0.74rem; }
     }
   </style>
 </head>
@@ -851,15 +1173,52 @@
     <% } %>
 
     <!-- Breadcrumb -->
-    <% if (article.breadcrumb && article.breadcrumb.length > 1) { %>
-    <nav class="article-breadcrumb" aria-label="Breadcrumb">
-      <a href="/legal/user-documentation">Docs</a>
-      <% article.breadcrumb.slice(0, -1).forEach(function(crumb) { %>
-        <span>/</span>
-        <span><%= crumb %></span>
-      <% }); %>
-    </nav>
-    <% } %>
+    <div class="article-breadcrumb-row">
+      <% if (article.breadcrumb && article.breadcrumb.length > 1) { %>
+      <nav class="article-breadcrumb" aria-label="Breadcrumb">
+        <a href="/legal/user-documentation">Docs</a>
+        <% article.breadcrumb.slice(0, -1).forEach(function(crumb) { %>
+          <span>/</span>
+          <span><%= crumb %></span>
+        <% }); %>
+      </nav>
+      <% } else { %>
+      <div></div>
+      <% } %>
+
+      <section class="article-search-panel" aria-label="Search documentation and help">
+        <button type="button" class="article-search-toggle" id="articleSearchToggle" aria-label="Open search" aria-expanded="false" aria-controls="articleHelpSearch">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+            <circle cx="11" cy="11" r="7"></circle>
+            <line x1="16.65" y1="16.65" x2="21" y2="21"></line>
+          </svg>
+        </button>
+        <div class="article-search-wrap">
+          <svg class="article-search-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <circle cx="11" cy="11" r="7"></circle>
+            <line x1="16.65" y1="16.65" x2="21" y2="21"></line>
+          </svg>
+          <input type="search" id="articleHelpSearch" class="article-search-input" placeholder="Search anything Managira related…" autocomplete="off">
+          <button type="button" id="articleHelpSearchClear" class="article-search-clear" aria-label="Clear search">×</button>
+        </div>
+        <div class="article-search-meta" id="articleSearchMeta"></div>
+      </section>
+    </div>
+
+    <div class="article-search-results" id="articleSearchResults">
+      <div class="article-results-block" id="articleDocResultsBlock" style="display:none;">
+        <h2>Documentation &amp; Guides</h2>
+        <div id="articleDocResults"></div>
+      </div>
+      <div class="article-results-block" id="articleFaqResultsBlock" style="display:none;">
+        <h2>From the FAQ</h2>
+        <div id="articleFaqResults"></div>
+      </div>
+      <div id="articleEmptyResultsBlock" class="article-search-empty" style="display:none;">
+        <strong>No matches found.</strong>
+        Try a different keyword, or use a broader phrase.
+      </div>
+    </div>
 
     <!-- Article header -->
     <div class="article-header">
@@ -1078,6 +1437,358 @@
 <% } %>
 
 <script>
+(function () {
+  const KNOWLEDGE = <%- JSON.stringify(typeof helpKnowledge !== 'undefined' ? helpKnowledge : []) %>;
+  const DOCS = <%- JSON.stringify(typeof documentationSearchResources !== 'undefined' ? documentationSearchResources : []) %>;
+
+  const input = document.getElementById('articleHelpSearch');
+  const clearBtn = document.getElementById('articleHelpSearchClear');
+  const toggleBtn = document.getElementById('articleSearchToggle');
+  const searchPanel = toggleBtn ? toggleBtn.closest('.article-search-panel') : null;
+  const meta = document.getElementById('articleSearchMeta');
+  const wrap = document.getElementById('articleSearchResults');
+  const docBlock = document.getElementById('articleDocResultsBlock');
+  const faqBlock = document.getElementById('articleFaqResultsBlock');
+  const emptyBlock = document.getElementById('articleEmptyResultsBlock');
+  const docOut = document.getElementById('articleDocResults');
+  const faqOut = document.getElementById('articleFaqResults');
+
+  if (!input || !clearBtn || !meta || !wrap || !docBlock || !faqBlock || !emptyBlock || !docOut || !faqOut) {
+    return;
+  }
+
+  function isMobileSearchMode() {
+    return Boolean(toggleBtn) && window.matchMedia('(max-width: 768px)').matches;
+  }
+
+  function setMobileSearchOpen(isOpen) {
+    if (!toggleBtn || !searchPanel) {
+      return;
+    }
+
+    searchPanel.classList.toggle('is-mobile-open', isOpen);
+    toggleBtn.classList.toggle('is-open', isOpen);
+    toggleBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  }
+
+  const SYNONYMS = {
+    'sign up': ['register', 'registration', 'signup', 'create account', 'enroll'],
+    'register': ['sign up', 'signup', 'create account'],
+    'login': ['sign in', 'log in', 'access account'],
+    'password': ['credentials', 'reset password', 'forgot password'],
+    'student': ['students', 'pupil', 'learner', 'kid', 'child'],
+    'parent': ['parents', 'guardian', 'guardians', 'family'],
+    'guardian': ['parent', 'family', 'guardian portal'],
+    'report': ['report card', 'reports', 'merit sheet', 'transcript', 'result'],
+    'grade': ['grades', 'marks', 'score', 'results', 'assessment'],
+    'attendance': ['present', 'absent', 'roll call', 'register'],
+    'fee': ['fees', 'payment', 'billing', 'subscription', 'invoice'],
+    'class': ['classes', 'classroom', 'grade level'],
+    'demo': ['demo', 'preview', 'walkthrough', 'tour'],
+    'doc': ['documentation', 'guide', 'manual', 'help', 'tutorial'],
+    'bulk': ['import', 'csv', 'spreadsheet', 'mass upload'],
+    'hub': ['hubs', 'district', 'government', 'multi school'],
+    'theme': ['color', 'branding', 'logo', 'personalization', 'personalisation'],
+  };
+
+  function expandTokens(query) {
+    const normalized = String(query || '').toLowerCase().trim();
+    const base = normalized.split(/\s+/).filter(Boolean);
+    const expanded = new Set(base);
+
+    if (normalized) {
+      expanded.add(normalized);
+    }
+
+    Object.keys(SYNONYMS).forEach(function (key) {
+      if (normalized.includes(key)) {
+        SYNONYMS[key].forEach(function (value) { expanded.add(value); });
+      }
+    });
+
+    base.forEach(function (token) {
+      if (SYNONYMS[token]) {
+        SYNONYMS[token].forEach(function (value) { expanded.add(value); });
+      }
+      if (token.length > 3 && token.endsWith('s')) {
+        expanded.add(token.slice(0, -1));
+      }
+    });
+
+    return Array.from(expanded);
+  }
+
+  function scoreItem(haystack, tokens) {
+    const text = String(haystack || '').toLowerCase();
+    let score = 0;
+    tokens.forEach(function (token) {
+      if (!token) return;
+      if (text.includes(token)) {
+        score += token.includes(' ') ? 6 : 3;
+      }
+    });
+    return score;
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, function (char) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char];
+    });
+  }
+
+  function highlight(text, tokens, max) {
+    const source = String(text || '');
+    if (!source) return '';
+
+    const limit = max || 220;
+    let snippet = source;
+    let firstIndex = -1;
+
+    tokens.forEach(function (token) {
+      if (!token) return;
+      const index = source.toLowerCase().indexOf(token);
+      if (index !== -1 && (firstIndex === -1 || index < firstIndex)) {
+        firstIndex = index;
+      }
+    });
+
+    if (firstIndex > 80) {
+      const start = Math.max(0, firstIndex - 60);
+      snippet = (start > 0 ? '… ' : '') + source.slice(start, start + limit);
+    } else {
+      snippet = source.slice(0, limit);
+    }
+
+    if (source.length > snippet.length + (firstIndex > 80 ? 60 : 0)) {
+      snippet += '…';
+    }
+
+    tokens
+      .filter(Boolean)
+      .sort(function (left, right) { return right.length - left.length; })
+      .forEach(function (token) {
+        if (token.length < 2) return;
+        const pattern = new RegExp('(' + token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+        snippet = snippet.replace(pattern, '<mark>$1</mark>');
+      });
+
+    return snippet;
+  }
+
+  function search(query) {
+    const tokens = expandTokens(query);
+
+    const docHits = DOCS.map(function (item) {
+      const haystack = [item.title, item.subtitle, Array.isArray(item.keywords) ? item.keywords.join(' ') : ''].join(' ');
+      return { item: item, score: scoreItem(haystack, tokens) };
+    })
+      .filter(function (entry) { return entry.score > 0; })
+      .sort(function (left, right) { return right.score - left.score; })
+      .slice(0, 6);
+
+    const faqHits = KNOWLEDGE.map(function (item) {
+      const haystack = [item.question, item.answer, Array.isArray(item.keywords) ? item.keywords.join(' ') : '', item.category].join(' ');
+      return { item: item, score: (scoreItem(item.question, tokens) * 2) + scoreItem(haystack, tokens) };
+    })
+      .filter(function (entry) { return entry.score > 0; })
+      .sort(function (left, right) { return right.score - left.score; })
+      .slice(0, 8);
+
+    return { docHits: docHits, faqHits: faqHits, tokens: tokens };
+  }
+
+  function renderDocCards(hits, tokens) {
+    if (!hits.length) {
+      docBlock.style.display = 'none';
+      docOut.innerHTML = '';
+      return;
+    }
+
+    docBlock.style.display = '';
+    docOut.innerHTML = hits.map(function (hit) {
+      const item = hit.item || hit;
+      const isArticle = Boolean(item.isArticle);
+      const typeClass = isArticle ? 'article-result-type--article' : 'article-result-type--doc';
+      const typeLabel = isArticle ? 'Article' : 'Doc';
+      const extAttr = item.external ? ' target="_blank" rel="noopener"' : '';
+      const cta = isArticle ? 'Read article →' : (item.external ? 'Open ↗' : 'Open →');
+      const snippet = highlight(item.subtitle || item.breadcrumb || '', tokens);
+      return '<div class="article-result-card">'
+        + '<div class="article-result-row">'
+        + '<span class="article-result-type ' + typeClass + '">' + typeLabel + '</span>'
+        + '<a class="article-result-title" href="' + escapeHtml(item.url) + '"' + extAttr + '>' + escapeHtml(item.title) + '</a>'
+        + '</div>'
+        + '<p class="article-result-meta">' + (snippet ? snippet + ' · ' : '') + '<a class="article-result-cta" href="' + escapeHtml(item.url) + '"' + extAttr + '>' + cta + '</a></p>'
+        + '</div>';
+    }).join('');
+  }
+
+  let liveAbort = null;
+  let debounce = null;
+
+  function render(query) {
+    const trimmed = String(query || '').trim();
+    if (!trimmed) {
+      wrap.classList.remove('is-visible');
+      meta.textContent = '';
+      clearBtn.style.display = 'none';
+      docBlock.style.display = 'none';
+      faqBlock.style.display = 'none';
+      emptyBlock.style.display = 'none';
+      docOut.innerHTML = '';
+      faqOut.innerHTML = '';
+      if (liveAbort) {
+        liveAbort.abort();
+        liveAbort = null;
+      }
+      if (isMobileSearchMode()) {
+        setMobileSearchOpen(false);
+      }
+      return;
+    }
+
+    wrap.classList.add('is-visible');
+    clearBtn.style.display = 'flex';
+    if (isMobileSearchMode()) {
+      setMobileSearchOpen(true);
+    }
+
+    const result = search(trimmed);
+    const docHits = result.docHits;
+    const faqHits = result.faqHits;
+    const tokens = result.tokens;
+
+    if (faqHits.length) {
+      faqBlock.style.display = '';
+      faqOut.innerHTML = faqHits.map(function (hit) {
+        const faqUrl = '/legal/faq?q=' + encodeURIComponent(hit.item.question);
+        const snippet = highlight(hit.item.answer, tokens);
+        return '<div class="article-result-card">'
+          + '<div class="article-result-row">'
+          + '<span class="article-result-type article-result-type--faq">FAQ</span>'
+          + '<a class="article-result-title" href="' + faqUrl + '">' + escapeHtml(hit.item.question) + '</a>'
+          + '</div>'
+          + '<p class="article-result-meta">' + (snippet ? snippet + ' · ' : '') + '<a class="article-result-cta" href="' + faqUrl + '">Read full answer →</a></p>'
+          + '</div>';
+      }).join('');
+    } else {
+      faqBlock.style.display = 'none';
+      faqOut.innerHTML = '';
+    }
+
+    renderDocCards(docHits, tokens);
+
+    const localTotal = docHits.length + faqHits.length;
+    meta.textContent = localTotal === 0
+      ? 'Searching "' + trimmed + '"…'
+      : localTotal + ' result' + (localTotal === 1 ? '' : 's') + ' for "' + trimmed + '"';
+    emptyBlock.style.display = localTotal === 0 ? '' : 'none';
+
+    if (liveAbort) {
+      liveAbort.abort();
+    }
+    if (trimmed.length < 2) {
+      return;
+    }
+
+    liveAbort = new AbortController();
+    const capturedQuery = trimmed;
+    const capturedTokens = tokens;
+    const capturedFaqCount = faqHits.length;
+
+    fetch('/legal/user-documentation/api/search?q=' + encodeURIComponent(trimmed), {
+      signal: liveAbort.signal,
+      headers: { Accept: 'application/json' }
+    })
+      .then(function (response) { return response.json(); })
+      .then(function (data) {
+        if (!data.success || !Array.isArray(data.articles)) {
+          return;
+        }
+
+        liveAbort = null;
+        const articleHits = data.articles.map(function (article) {
+          return {
+            item: {
+              isArticle: true,
+              title: article.title,
+              subtitle: article.seoDescription || article.excerpt || '',
+              url: '/legal/user-documentation/' + article.slug,
+              external: false,
+              breadcrumb: [article.topic, article.subtopic].filter(Boolean).join(' / '),
+            }
+          };
+        });
+
+        const combined = articleHits.concat(docHits.filter(function (hit) {
+          return hit.item && hit.item.external;
+        }));
+
+        renderDocCards(combined, capturedTokens);
+
+        const total = combined.length + capturedFaqCount;
+        meta.textContent = total === 0
+          ? 'No matches for "' + capturedQuery + '".'
+          : total + ' result' + (total === 1 ? '' : 's') + ' for "' + capturedQuery + '"';
+        emptyBlock.style.display = total === 0 ? '' : 'none';
+      })
+      .catch(function (error) {
+        if (error.name !== 'AbortError') {
+          console.warn('Documentation search error:', error);
+        }
+      });
+  }
+
+  input.addEventListener('input', function (event) {
+    clearTimeout(debounce);
+    debounce = setTimeout(function () {
+      render(event.target.value);
+    }, 120);
+  });
+
+  if (toggleBtn && searchPanel) {
+    toggleBtn.addEventListener('click', function () {
+      if (!isMobileSearchMode()) {
+        input.focus();
+        return;
+      }
+
+      const shouldOpen = !searchPanel.classList.contains('is-mobile-open');
+      setMobileSearchOpen(shouldOpen);
+      if (shouldOpen) {
+        setTimeout(function () { input.focus(); }, 0);
+      }
+    });
+
+    document.addEventListener('click', function (event) {
+      if (!isMobileSearchMode() || !searchPanel.classList.contains('is-mobile-open')) {
+        return;
+      }
+
+      if (!searchPanel.contains(event.target) && !wrap.contains(event.target)) {
+        if (!input.value.trim()) {
+          setMobileSearchOpen(false);
+        }
+      }
+    });
+
+    window.addEventListener('resize', function () {
+      if (!isMobileSearchMode()) {
+        setMobileSearchOpen(false);
+      }
+    });
+  }
+
+  clearBtn.addEventListener('click', function () {
+    input.value = '';
+    if (isMobileSearchMode()) {
+      setMobileSearchOpen(true);
+    }
+    input.focus();
+    render('');
+  });
+})();
+
 (function () {
   // ── Helpful vote widget ──────────────────────────
   const widget      = document.getElementById('helpfulWidget');
