@@ -850,32 +850,38 @@
     // ── Style Management ──────────────────────────────────────────────
 
     _updateStyles(doc) {
-      // Remove previous page-specific styles
-      document.querySelectorAll('style[data-spa-style]').forEach(s => s.remove());
-
-      // Get styles from the new page's body (page-specific inline styles)
+      // Collect ALL new page-specific styles first (body inline + head page-specific).
+      const newStyleNodes = [];
       const newBody = doc.querySelector('body');
       if (newBody) {
         newBody.querySelectorAll('style').forEach(styleTag => {
-          const newStyle = document.createElement('style');
-          newStyle.textContent = styleTag.textContent;
-          newStyle.setAttribute('data-spa-style', 'true');
-          document.head.appendChild(newStyle);
+          const s = document.createElement('style');
+          s.textContent = styleTag.textContent;
+          s.setAttribute('data-spa-style', 'true');
+          newStyleNodes.push(s);
         });
       }
-
-      // Also check for styles in head that are page-specific
       doc.querySelectorAll('head style').forEach(styleTag => {
-        // Skip only turbo-progress-bar styles (these are global)
         const content = styleTag.textContent;
-        if (content.includes('turbo-progress-bar')) return;
-        
-        const newStyle = document.createElement('style');
-        newStyle.textContent = content;
-        newStyle.setAttribute('data-spa-style', 'true');
-        document.head.appendChild(newStyle);
+        if (content.includes('turbo-progress-bar')) return; // global, skip
+        const s = document.createElement('style');
+        s.textContent = content;
+        s.setAttribute('data-spa-style', 'true');
+        newStyleNodes.push(s);
       });
+
+      // Snapshot of previously-injected SPA styles BEFORE we attach new ones.
+      const previousStyles = Array.from(
+        document.querySelectorAll('style[data-spa-style]')
+      );
+
+      // Attach new styles first so the new content paints with CSS in place.
+      newStyleNodes.forEach(s => document.head.appendChild(s));
+
+      // Then drop the old ones — no unstyled flash, no double-cascade for long.
+      previousStyles.forEach(s => s.remove());
     }
+
 
     // ── Meta Tags ─────────────────────────────────────────────────────
 
