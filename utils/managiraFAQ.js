@@ -67,32 +67,11 @@ const managiraFAQ = [
     keywords: ["teachers", "administrators", "update", "student information", "grades", "attendance", "personal details", "role-based", "edit student", "modify", "change"]
   },
   {
-    id: 10,
-    category: "Educators & Admins",
-    question: "Can I track teacher performance or workload?",
-    answer: "Administrators can view detailed metrics for each teacher, including how many classes they manage, tests and assessments they've created, grades they've entered, and attendance they've recorded. This helps school leaders distribute workload fairly and recognise top-performing staff.",
-    keywords: ["track", "teacher performance", "workload", "administrators", "class assignments", "test creation", "metrics", "monitor", "evaluate"]
-  },
-  {
-    id: 11,
-    category: "Educators & Admins",
-    question: "Can I generate report cards or merit sheets?",
-    answer: "Absolutely. Managira includes a powerful report generator that creates professional terminal reports and merit sheets automatically from your recorded grades and assessments. You can customise the layout, add school branding, and print or download reports in bulk.",
-    keywords: ["generate", "report cards", "merit sheets", "report generator", "terminal reports", "print", "download", "results", "academic report"]
-  },
-  {
     id: 12,
     category: "Educators & Admins",
     question: "Can I customise the portal with my school's logo and colours?",
     answer: "Yes. Under the Personalisation settings, you can upload your school logo, set your brand colours and fonts, and customise your public-facing school website. This ensures Managira looks and feels like your own platform.",
     keywords: ["customise", "customize", "portal", "school logo", "colours", "colors", "branding", "personalisation", "personalization", "fonts", "theme", "appearance", "look"]
-  },
-  {
-    id: 13,
-    category: "Educators & Admins",
-    question: "How does the enrollment system work?",
-    answer: "Schools can create public enrollment forms that parents and guardians fill out online to apply for admission. Applications are reviewed and approved by school administrators. You can also manually add students or bulk-import from spreadsheets.",
-    keywords: ["enrollment", "enrolment", "admission", "application", "public form", "parents", "import", "spreadsheets", "apply", "register student", "new student", "accept", "admit"]
   },
   {
     id: 14,
@@ -102,25 +81,11 @@ const managiraFAQ = [
     keywords: ["training", "new users", "onboarding", "documentation", "tutorials", "youtube", "learn", "how to use", "guide", "instructions"]
   },
   {
-    id: 15,
-    category: "Educators & Admins",
-    question: "How are announcements delivered?",
-    answer: "Announcements are published to dashboards across the platform, ensuring that administrators, teachers, and staff see important updates as soon as they log in. Schools can also display announcements on their public-facing website for parents and the wider community.",
-    keywords: ["announcements", "dashboards", "communication", "public website", "news", "updates", "notice", "notify", "broadcast", "message", "inform"]
-  },
-  {
     id: 16,
     category: "Educators & Admins",
     question: "Is there an analytics dashboard?",
     answer: "Yes. Managira's analytics dashboard provides visual insights into student performance trends, attendance statistics, class comparisons, and operational metrics. Leaders can use this data to make informed decisions about curriculum, staffing, and resource allocation.",
     keywords: ["analytics", "dashboard", "student performance", "attendance stats", "insights", "data-driven", "statistics", "charts", "graphs", "metrics", "data"]
-  },
-  {
-    id: 17,
-    category: "Educators & Admins",
-    question: "Can I manage school years and terms?",
-    answer: "Yes. Managira supports full academic year management — you can register school years, define terms, close terms to lock in grades, and promote students to the next year. The system maintains a complete historical record of every academic period.",
-    keywords: ["school years", "terms", "academic year", "promotion", "grades", "historical record", "semester", "quarter", "period", "close term", "open term"]
   },
 
   // Hub Management & Government Institutions
@@ -139,32 +104,11 @@ const managiraFAQ = [
     keywords: ["hub users", "government", "ministries", "education offices", "school districts", "networks", "who uses hubs", "ministry"]
   },
   {
-    id: 20,
-    category: "Hub Management & Government Institutions",
-    question: "How do I set up a Hub?",
-    answer: "Hubs are created by Managira administrators. Once your Hub is set up, you receive a dedicated login and dashboard. From there, you can invite schools to join your network, set organisation limits, and begin monitoring your member institutions.",
-    keywords: ["hub setup", "create hub", "dedicated login", "invite schools", "organisation limits", "start hub", "new hub"]
-  },
-  {
     id: 21,
     category: "Hub Management & Government Institutions",
     question: "Can a Hub control billing for member schools?",
     answer: "Yes. When a school joins a Hub, billing is managed centrally by the Hub operator. Member schools no longer see individual billing options — all subscription management is handled at the Hub level, simplifying financial administration.",
     keywords: ["hub billing", "centralised billing", "subscription", "member schools", "financial", "hub payment", "pay for schools"]
-  },
-  {
-    id: 22,
-    category: "Hub Management & Government Institutions",
-    question: "Can I invite existing schools to join my Hub?",
-    answer: "Yes. Hub operators can send invitations to existing Managira schools as well as new institutions. Schools receive an email invitation and can accept to join the Hub network while retaining all their existing data and settings.",
-    keywords: ["invite schools", "existing schools", "join hub", "email invitation", "retain data", "add school to hub", "connect school"]
-  },
-  {
-    id: 23,
-    category: "Hub Management & Government Institutions",
-    question: "What data can Hub operators see?",
-    answer: "Hub operators can view aggregated statistics across all member schools — including total students, staff counts, class numbers, and performance trends. They can also see individual school details, but day-to-day data entry remains the responsibility of each school's own administrators and teachers.",
-    keywords: ["hub data", "aggregated statistics", "students", "staff", "performance", "oversight", "hub view", "hub dashboard", "hub reports"]
   },
 
   // Billing & Subscription
@@ -220,25 +164,11 @@ const managiraFAQ = [
     keywords: ["parents", "guardians", "access", "guardian portal", "grades", "attendance", "report cards", "child info", "kid grades", "my child", "son", "daughter", "view grades"]
   },
   {
-    id: 31,
-    category: "Parents & Guardians",
-    question: "How do parents or guardians register their children?",
-    answer: "Schools can enable a public enrollment form on their Managira-powered website. Parents fill out the application online, and school administrators review and approve each submission. Schools can also register students directly on behalf of parents.",
-    keywords: ["parents", "guardians", "register children", "public application", "enrollment", "school admins", "enroll child", "add child", "new student", "apply for school"]
-  },
-  {
     id: 32,
     category: "Parents & Guardians",
     question: "Can parents submit reports or concerns?",
     answer: "Yes. The Guardian Portal includes a reporting feature where parents can submit concerns, questions, or feedback directly to the school. Schools can review and respond to these reports through their admin dashboard.",
     keywords: ["parent reports", "concerns", "feedback", "guardian portal", "reporting", "complaint", "issue", "problem", "worry"]
-  },
-  {
-    id: 33,
-    category: "Parents & Guardians",
-    question: "How can parents stay updated on school activities?",
-    answer: "Managira keeps parents informed through the public school website, dashboard announcements, and the Guardian Portal. Parents can see real-time updates on events, grades, and achievements without needing to visit the school in person.",
-    keywords: ["parents", "stay updated", "notifications", "announcements", "public website", "real-time", "events", "activities", "informed", "news"]
   },
   {
     id: 34,
@@ -262,20 +192,6 @@ const managiraFAQ = [
     question: "Is Managira compliant with data protection regulations?",
     answer: "Yes. Managira adheres to international data protection standards including GDPR (EU), FERPA (US), and applicable national data protection laws. We take compliance seriously to ensure your institution meets its regulatory obligations.",
     keywords: ["compliant", "GDPR", "FERPA", "data protection", "regulations", "privacy", "legal", "law", "compliant"]
-  },
-  {
-    id: 37,
-    category: "Security & Access",
-    question: "Can I control who sees what information?",
-    answer: "Absolutely. Administrators have full control over roles and permissions. You can define exactly which staff members can access, edit, or manage specific types of data — from student records to financial information. This ensures privacy and security at every level.",
-    keywords: ["control", "information", "administrators", "roles", "permissions", "access", "edit", "restrict", "limit", "who can see", "privacy"]
-  },
-  {
-    id: 38,
-    category: "Security & Access",
-    question: "How long is student data retained?",
-    answer: "Student records are retained for as long as your school's account remains active on Managira. If a school discontinues use, data can be exported and then archived or permanently deleted in accordance with your institution's policies and applicable legal requirements.",
-    keywords: ["student data", "retained", "school account", "active", "archived", "deleted", "policies", "how long kept", "data storage", "retention"]
   },
   {
     id: 39,
@@ -320,76 +236,6 @@ const managiraFAQ = [
     question: "What should I do if I encounter a technical issue?",
     answer: "Visit our Get Help page to submit a support request, or email info@managira.com directly. Please include details about the issue, your browser, and any error messages you see. Our support team typically responds within 24 hours.",
     keywords: ["technical issue", "support team", "help", "info@managira.com", "support request", "bug", "error", "problem", "not working", "broken", "issue"]
-  },
-  {
-    id: 45,
-    category: "Technical & Platform",
-    question: "Can I use Managira for academic transcript generation?",
-    answer: "Yes. Managira includes a transcript generation feature that compiles a student's complete academic history across all enrolled terms and years. Transcripts can be printed or downloaded as professional PDF documents.",
-    keywords: ["transcript", "academic history", "PDF", "print", "download", "generation", "academic record", "student history"]
-  },
-  {
-    id: 46,
-    category: "Security & Access",
-    question: "How do staff roles and permissions work for organizations?",
-    answer: "Organizations use role-based access with secure server-side checks. Managers have full organization-level access. Teachers and Supervisors can be given specific permissions based on their job. Access is enforced on protected routes in addition to UI visibility, so users cannot rely on direct URL access to bypass restrictions.",
-    keywords: ["roles", "permissions", "rbac", "organization roles", "teacher permissions", "supervisor permissions", "access control", "server-side", "who can do what", "staff access"]
-  },
-  {
-    id: 47,
-    category: "Security & Access",
-    question: "What are the default permissions for Teacher and Supervisor roles?",
-    answer: "By default, Teacher includes: Manage Assessments and Mark Attendance. Supervisor includes: Manage Students, Manage Guardians, Manage Assessments, Mark Attendance, Manage Reports, Approve Admissions, Publish Events & Announcements, Manage Classes & Subjects, Generate Transcripts, and Manage Promotions. These defaults are applied automatically when staff are created or updated.",
-    keywords: ["default permissions", "teacher default", "supervisor default", "manage assessments", "mark attendance", "manage students", "manage guardians", "manage reports", "what can teachers do", "what can supervisors do"]
-  },
-  {
-    id: 48,
-    category: "Security & Access",
-    question: "Can we assign extra permissions to specific teachers or supervisors?",
-    answer: "Yes. During Create Employee and Modify Employee, organizations can add optional extra permissions for individual staff members. This allows selective delegation (for example, granting additional responsibilities to a specific teacher) without changing the staff member's base role.",
-    keywords: ["assign permissions", "extra permissions", "create employee", "modify employee", "delegate access", "teacher extra access", "supervisor access", "additional permissions", "grant access"]
-  },
-  {
-    id: 49,
-    category: "Security & Access",
-    question: "Where are assigned permissions saved?",
-    answer: "Assigned permissions are stored in the database in a dedicated user_permissions table scoped by organization. This means permissions persist across sessions and are enforced consistently by the backend.",
-    keywords: ["saved permissions", "database", "user_permissions", "persistent permissions", "organization scoped", "stored"]
-  },
-  {
-    id: 50,
-    category: "Security & Access",
-    question: "Can non-manager staff grant high-risk permissions?",
-    answer: "No. High-risk permissions such as employee management and organization settings are restricted. Non-manager users cannot assign Manager role and cannot grant high-risk permissions, even if they attempt to submit them manually.",
-    keywords: ["high risk permissions", "manager only", "grant restrictions", "secure delegation", "manage employees", "manage settings", "restricted"]
-  },
-  {
-    id: 51,
-    category: "Security & Access",
-    question: "How can organizations review who has which permissions?",
-    answer: "Use the Manage Employees page to review staff records. The page now shows each employee's assigned permissions so administrators can quickly audit access and update permissions when responsibilities change.",
-    keywords: ["manage employees", "permission audit", "view permissions", "staff access review", "security review", "check permissions", "who has access"]
-  },
-  {
-    id: 52,
-    category: "Security & Access",
-    question: "Which organization actions are now protected by explicit permission checks?",
-    answer: "Permission checks now protect key organization actions, including employee management, admissions approval workflows, event/announcement publishing, school-year and term management, class/subject setup, transcript generation routes, promotion workflows, and billing/settings operations. Sensitive attendance and student archive actions are also protected by authentication and explicit permissions.",
-    keywords: ["protected routes", "secure endpoints", "employee management security", "attendance security", "archive students", "authorization", "what is protected"]
-  },
-  {
-    id: 53,
-    category: "Security & Access",
-    question: "Which granular permissions are available now?",
-    answer: "Available granular permissions include admissions approval, events/announcements publishing, school-year and term management, class/subject setup, transcript generation, promotion approval, and billing/settings delegation. Organizations can combine these with role defaults and optional extras per staff member.",
-    keywords: ["granular permissions", "available permissions", "custom permissions", "granular access", "admissions approval", "announcement publishing", "term management", "transcript permission", "billing delegation", "list of permissions"]
-  },
-  {
-    id: 54,
-    category: "Technical & Platform",
-    question: "Does Managira support collaborative files and spreadsheets with formulas?",
-    answer: "Yes. Managira includes Files for rich-text documents and spreadsheets. You can assign files to classes and teachers, auto-save edits, select ranges of cells, use basic formulas like SUM, AVERAGE, COUNT, MIN, and MAX, and expand sheets by adding more rows and columns whenever needed.",
-    keywords: ["files", "documents", "spreadsheets", "sheet", "cells", "formula", "sum", "average", "count", "min", "max", "add rows", "add columns", "auto save", "assign files", "collaborative", "shared files"]
   },
 
   // Student Management
@@ -523,66 +369,6 @@ const managiraFAQ = [
     keywords: ["multiple staff", "multiple users", "shared access", "team management", "collaborative", "many admins", "several managers"]
   },
 
-  // Promotion System
-  {
-    id: 72,
-    category: "Promotions",
-    question: "How does student promotion work in Managira?",
-    answer: "Managira automates student promotions based on academic performance. In Report Settings, you set a cut-off point (e.g. 50%), a 'Promoted To' class, and a 'Repeated In' class. When student reports are generated, the system automatically calculates whether each student meets the cut-off. Students who pass are marked for promotion to the next class; those who don't are marked to repeat. You can then apply promotions instantly with the 'Apply Now' button, which moves all students to their new classes in one click.",
-    keywords: ["promotion", "promote", "advance", "next class", "next grade", "cut off", "cutoff", "pass", "fail", "repeat", "move students", "apply now", "automatic promotion", "promoted to", "repeated in"]
-  },
-  {
-    id: 73,
-    category: "Promotions",
-    question: "Can I promote students instantly without scheduling?",
-    answer: "Yes! Use the 'Apply Now' button on the Promotion page. This immediately enrolls all students into their promoted or repeated classes based on their report scores. No need to wait for a scheduled job — promotions happen in real-time with one click.",
-    keywords: ["apply now", "instant promotion", "immediate", "one click", "quick promote", "no schedule", "promote now", "fast promotion"]
-  },
-  {
-    id: 74,
-    category: "Promotions",
-    question: "How do I set promotion cut-off points?",
-    answer: "Go to Report Settings for the relevant class and term. You'll find fields to set the minimum passing percentage (cut-off point), the class students are promoted to if they pass, and the class they repeat if they don't meet the cut-off. These settings are used automatically when generating student reports.",
-    keywords: ["cut off", "cutoff", "passing grade", "minimum score", "promotion settings", "report settings", "pass mark", "threshold"]
-  },
-  {
-    id: 75,
-    category: "Promotions",
-    question: "Can I reverse a promotion that was already applied?",
-    answer: "Yes. On the Promotion page, you can reverse promotions that have already been applied. This will move students back to their original classes. You can also delete reversed promotions to clean up the records.",
-    keywords: ["reverse promotion", "undo promotion", "cancel promotion", "move back", "wrong promotion", "fix promotion", "revert"]
-  },
-
-  // Term & Semester Management
-  {
-    id: 76,
-    category: "Term Management",
-    question: "How do terms and semesters work in Managira?",
-    answer: "Each school year contains one or more terms (or semesters). You define the name, start date, and end date for each term when registering a school year. The system validates that term dates don't overlap and that each term's start date comes before its end date. One term is always set as 'current', which controls what appears on dashboards, attendance, and assessments.",
-    keywords: ["term", "semester", "school year", "academic year", "current term", "term dates", "set current", "quarters", "periods"]
-  },
-  {
-    id: 77,
-    category: "Term Management",
-    question: "What happens if I set the wrong term as current?",
-    answer: "Managira includes a smart warning system. If you try to set a term as 'current' that doesn't align with today's date, you'll see a confirmation prompt like: 'Based on today's date, it looks like you should be in Term 2, but you are selecting Term 3. Do you want to proceed?' This helps prevent accidental misconfiguration while still allowing you to view historical records.",
-    keywords: ["wrong term", "smart warning", "term warning", "accidental", "set current", "current term", "date mismatch", "confirmation", "prompt"]
-  },
-  {
-    id: 78,
-    category: "Term Management",
-    question: "Can term dates overlap?",
-    answer: "No. Managira validates all term dates when you create or update a school year. If any two terms have overlapping date ranges, the system will display an error and prevent saving. This ensures clean academic periods with no conflicts in attendance or assessment records.",
-    keywords: ["overlap", "overlapping terms", "date conflict", "term dates", "validation", "date range", "duplicate dates"]
-  },
-  {
-    id: 79,
-    category: "Term Management",
-    question: "How do I switch to a new term or semester?",
-    answer: "Go to Manage Records, find the school year and term you want to activate, and click 'Set as Current'. The system will check if the selected term aligns with today's date and warn you if it doesn't. Once set, all dashboards, attendance, and assessments will reflect the new current term.",
-    keywords: ["switch term", "change term", "new semester", "activate term", "set as current", "next term", "advance term", "move to next term"]
-  },
-
   // Password Reset
   {
     id: 80,
@@ -599,22 +385,6 @@ const managiraFAQ = [
     keywords: ["guardian password", "hub password", "parent password", "all accounts", "password reset all", "universal reset", "any account type"]
   },
 
-  // Email System
-  {
-    id: 82,
-    category: "System & Performance",
-    question: "Why do some pages take long to load when emails are being sent?",
-    answer: "Managira processes all emails in the background, so page loads are never delayed by email sending. If you experience slow loading, it's not related to emails — it may be due to network connectivity or server load. All actions like approvals, password resets, and report emails complete instantly on your screen while emails are delivered separately in the background.",
-    keywords: ["slow loading", "email delay", "page slow", "email blocking", "performance", "speed", "loading time", "background email", "non-blocking"]
-  },
-  {
-    id: 83,
-    category: "System & Performance",
-    question: "What happens if an email fails to send?",
-    answer: "If an email fails to send (e.g., due to a temporary server issue), the action itself (like approving an application or resetting a password) still completes successfully. The email failure is logged for troubleshooting but does not affect the core operation. For report card emails, you can view email history and retry failed emails from the Email History page.",
-    keywords: ["email failed", "email error", "email not received", "email problem", "retry email", "email history", "email log", "delivery failure"]
-  },
-
   // User Documentation topics
   {
     id: 84,
@@ -624,202 +394,11 @@ const managiraFAQ = [
     keywords: ["user documentation", "documentation", "user guide", "manual", "help guide", "how to use managira", "docs", "user docs", "guide", "tutorial", "instructions"]
   },
   {
-    id: 85,
-    category: "User Documentation",
-    question: "How do I set up my school organization on Managira?",
-    answer: "To set up your organization: 1) Set up school years and terms. 2) Create classes using the naming structure that fits your school. 3) Create subjects. 4) Configure graduation years. 5) Activate the current school year and term. 6) Start enrollment to assign students to classes. 7) Invite staff through Employee Management and assign roles. 8) Set up your school website. Full details are in the User Documentation at /legal/user-documentation.",
-    keywords: ["setup organization", "set up school", "organization setup", "configure school", "first time setup", "initial setup", "onboard school", "school configuration", "how to setup"]
-  },
-  {
-    id: 86,
-    category: "User Documentation",
-    question: "What are the different service plans available on Managira?",
-    answer: "Managira offers three plans: 1) Starter Plan — core student, attendance, assessment, and reporting tools. 2) Professional Plan — adds parent/guardian portal access and official transcript capability. 3) Premium/Business Plan — adds school website, class-based analytics and merit sheets, document management, and included multi-school hub support. All plans include student profiles, assessment tracking, attendance, terminal reports, and organization dashboard with analytics. Visit /legal/user-documentation for the full plan comparison.",
-    keywords: ["plans", "pricing", "starter", "professional", "premium", "business plan", "service plan", "plan comparison", "which plan", "features comparison", "plan differences"]
-  },
-  {
-    id: 87,
-    category: "User Documentation",
-    question: "How does the school website feature work in Managira?",
-    answer: "The School Website gives each school a professional public presence. Schools can publish hero images, banners, image galleries, about sections, announcements, event information, and contact details. Authorized users manage content directly — uploading images, creating/updating/reordering sections, and publishing updates. When online admissions are enabled, the school website also acts as a public entry point for applications. This feature is available on the Premium/Business plan. See /legal/user-documentation for full details.",
-    keywords: ["school website", "public website", "website feature", "publish website", "school site", "web presence", "school page", "website setup", "online presence"]
-  },
-  {
-    id: 88,
-    category: "User Documentation",
-    question: "How does the admissions process work on Managira?",
-    answer: "Managira supports two admissions pathways: 1) Self Admission — parents/guardians apply through the school website by entering student and guardian details and making any required payment. Applications are stored as pending for review. 2) School Managed Admission — authorized users admit students through manual entry, bulk-assisted workflows, or image/document-based extraction. All pending admissions are reviewed and approved/rejected by authorized school users. See /legal/user-documentation for the complete admissions guide.",
-    keywords: ["admissions", "admission process", "enroll student", "enrollment process", "student admission", "apply for admission", "self admission", "school admission", "how to admit", "new student admission"]
-  },
-  {
-    id: 89,
-    category: "User Documentation",
-    question: "How do assessments and tests work in Managira?",
-    answer: "Managira lets schools build assessment structures matching their academic model — letter grades, percentages, or custom scoring. Authorized users create assessment structures per class and subject, deciding how many tests, exams, and assignments contribute to the final grade with weighted components. Assessment periods can be opened/closed per the school calendar. Teachers enter scores through simple forms, and results flow into report cards and the parent portal automatically. See /legal/user-documentation for details.",
-    keywords: ["assessments", "tests", "grading", "scoring", "exam", "assessment structure", "grade entry", "score entry", "weighted grades", "test setup", "how assessments work"]
-  },
-  {
-    id: 90,
-    category: "User Documentation",
-    question: "How does attendance tracking work in Managira?",
-    answer: "Teachers record attendance for assigned classes. The system captures each student's status and stores a full attendance history. Managers can access attendance for any class, while teachers can collect attendance only for classes where they are Main Teacher. School leaders can review summaries by class, grade, or across the school. Parents can view attendance through the parent portal. Attendance settings align with the school calendar to handle holidays and exam periods. See /legal/user-documentation for complete details.",
-    keywords: ["attendance tracking", "mark attendance", "attendance system", "roll call", "attendance record", "student attendance", "how attendance works", "attendance collection", "daily attendance"]
-  },
-  {
-    id: 91,
-    category: "User Documentation",
-    question: "How do I generate report cards in Managira?",
-    answer: "Schools can generate terminal report cards using recorded grades, attendance data, and teacher comments. Reports can be printed or shared digitally. School leaders can also access school-level reporting on enrollment, attendance, grade distribution, and academic indicators. Reports can be shared with parents through the parent portal or by email. All reports respect user roles and permissions. See /legal/user-documentation for full reporting guidance.",
-    keywords: ["report cards", "generate reports", "terminal reports", "student reports", "print report", "report generation", "how to generate report", "create report card", "merit sheet"]
-  },
-  {
-    id: 92,
-    category: "User Documentation",
-    question: "What common issues can I troubleshoot myself in Managira?",
-    answer: "Common issues and fixes: 1) Cannot mark attendance — confirm you are listed as the Main Teacher for that class. 2) Teacher cannot see a class — verify role assignments in user settings. 3) Report not generating — confirm all grades are entered and current term is correctly selected. 4) Parent cannot log in — use the Forgot Password option to reset access. 5) Feature is not visible — review your service plan or contact support. For more troubleshooting help, see /legal/user-documentation.",
-    keywords: ["troubleshooting", "common issues", "problems", "fix", "not working", "cannot", "error", "issue", "help fix", "broken", "bug", "something wrong"]
-  },
-  {
-    id: 93,
-    category: "User Documentation",
-    question: "How does promotion and graduation work in Managira?",
-    answer: "Schools can review student performance and apply promotion rules based on their own criteria including score thresholds and attendance expectations. Promotions can be applied immediately or scheduled after term closure. Authorized users can review, reverse, or correct actions. When students graduate or leave, records can be archived while preserving the full academic history. See /legal/user-documentation for the complete promotion and graduation guide.",
-    keywords: ["promotion", "graduation", "student progression", "promote students", "graduate students", "archive students", "next grade", "advancement", "how promotion works"]
-  },
-
-  // Email Notifications
-  {
-    id: 94,
-    category: "Email Notifications",
-    question: "What kinds of emails does Managira send?",
-    answer: "Managira sends several categories of emails: (1) Account & security — password reset, password set confirmations, account invitations. (2) Billing — payment receipts, new invoices, subscription cancellation, renewal-failed notices, scheduled-hold notices, student-tier-exceeded notices. (3) Onboarding — organization registration confirmation with Starter Pack, employee invites, guardian portal welcome. (4) Hub membership — invitations, joined notices, detachment requests, approvals, rejections, removals. (5) Admissions & enrollment — application received, approved, rejected, public registration payment confirmation. (6) Academic — assessment access updates, files assigned to a class, report cards, official transcripts, class change, teacher reassignment. (7) Communications — staff-to-guardian reports and replies, broadcasts of events and announcements. (8) Digests — weekly Saturday digests for parents, teachers, managers, and hubs. (9) Operations — support ticket created/responded/resolved/reopened, demo request received, employment application updates.",
-    keywords: ["emails", "email types", "notifications", "what emails", "managira sends", "email categories", "list emails", "email list"]
-  },
-  {
-    id: 95,
-    category: "Email Notifications",
-    question: "Which weekly digests does Managira send?",
-    answer: "Managira sends four weekly digests every Saturday: (1) Weekly Parent Digest to guardians — summarizes their children's progress for the week. (2) Weekly Teacher Digest to teachers — summarizes their assigned classes and subjects. (3) Weekly Leadership Report to managers and supervisors — covers at-risk students and school metrics. (4) Weekly Hub Overview to hub administrators — cross-organization summary across all member schools. There is no monthly digest.",
-    keywords: ["weekly digest", "digests", "saturday digest", "weekly report", "leadership report", "parent digest", "teacher digest", "hub digest", "monthly digest"]
-  },
-  {
-    id: 96,
-    category: "Email Notifications",
-    question: "Which emails go to guardians (parent portal users)?",
-    answer: "Guardians receive: welcome / password setup, additional-student-added notice, admission application received, public registration payment confirmation, admission approved or rejected, attendance alerts when a child is absent multiple times in a week, the weekly Saturday parent digest, class-change notices, staff reports about their child and replies, report cards (with PDF), official transcripts when shared, and broadcasts of events and announcements that are public-visible. All guardian-portal logins are protected by the guardian password setup/reset flow.",
-    keywords: ["guardian emails", "parent emails", "parent notifications", "what guardians receive", "parent portal emails", "guardian notifications"]
-  },
-  {
-    id: 97,
-    category: "Email Notifications",
-    question: "Which emails go to teachers, managers, and supervisors?",
-    answer: "Teachers receive: weekly teaching digest, assignment-changed notices, assessment lock/unlock and access updates, files assigned to their class, broadcasts of events and announcements, and copies of guardian reports for students they class-teach. Managers and supervisors receive: weekly leadership report, broadcasts of events and announcements, and copies of guardian reports and replies as fallback recipients. All staff also receive role-agnostic emails: invitation to set password, password-set confirmation, password reset, and on-hold or reactivation notices.",
-    keywords: ["teacher emails", "manager emails", "supervisor emails", "staff notifications", "what staff receive", "teacher notifications"]
-  },
-  {
-    id: 98,
-    category: "Email Notifications",
-    question: "Which Managira emails cannot be turned off?",
-    answer: "Transactional and legal-of-record emails are always sent and cannot be silenced. These include: password reset request and confirmation, all invitation and password-set emails (employee, guardian, hub), organization registration confirmation, all billing emails (payment receipt, invoice, subscription cancellation, renewal-failed, scheduled hold), all support ticket emails (created, responded, resolved, reopened), demo request received, employment application confirmations and decisions, transcript share, public registration payment confirmation, admission approval and rejection, and all hub-membership decision emails (invite, welcome, joined, detachment approved/rejected, removed). User-toggleable emails are limited to digests, broadcasts, and routine staff/guardian notifications.",
-    keywords: ["forced emails", "cannot disable", "always sent", "must-send emails", "transactional emails", "required emails", "mandatory emails"]
-  },
-  {
-    id: 99,
-    category: "Email Notifications",
-    question: "How do I choose which emails I receive?",
-    answer: "Each user can opt out of optional (non-transactional) emails from their own settings page. Organization users (Manager, Supervisor, Teacher, Cashier) open Account Settings and select the Notifications tab to toggle items like the weekly digest, broadcasts, guardian-report alerts, and assignment-change notices. Parents/guardians open the Parent Portal Settings page and use the Email Notifications section to toggle the weekly parent digest, attendance alerts, class-change notices, broadcasts, report-card delivery, and staff replies. Hub administrators manage their preferences from the hub admin settings. Choices save instantly, are per-user, and only affect optional emails — security, billing, and other transactional emails are always sent.",
-    keywords: ["opt out", "unsubscribe", "email preferences", "turn off emails", "notification settings", "stop receiving", "manage emails", "email opt-in", "notifications tab"]
-  },
-  {
-    id: 100,
-    category: "PayGira & School Payments",
-    question: "What is PayGira?",
-    answer: "PayGira is Managira's school billing and collection workspace. Schools use it to create bills, assign collectors, receive parent payments, track balances, and keep a full history of collections, invoices, receipts, and sign-offs.",
-    keywords: ["paygira", "what is paygira", "school billing", "school collections", "fees", "bills", "finance workspace", "payment workspace"]
-  },
-  {
-    id: 101,
-    category: "PayGira & School Payments",
-    question: "What can schools use PayGira for?",
-    answer: "Schools can use PayGira for one-time and recurring school bills such as tuition, levies, transport, feeding, examination fees, club charges, and other approved charges. Managira's payment setup can also support online public registration and admission payments when the school has completed its payout and online payment configuration.",
-    keywords: ["use paygira for", "tuition", "school fees", "levies", "transport", "feeding", "exam fees", "recurring bills", "registration payment", "admission payment"]
-  },
-  {
-    id: 102,
-    category: "PayGira & School Payments",
-    question: "Who can use PayGira?",
-    answer: "Finance administrators and other authorised school officials set up payment settings, payout destinations, bill templates, and bills. Teachers, class teachers, supervisors, and managers who are assigned as collectors or overseers can use My PayGira to collect or monitor payments for their bills. Parents and guardians use the Guardian Portal to view and pay bills linked to their children.",
-    keywords: ["who uses paygira", "parents", "guardians", "teachers", "class teachers", "supervisors", "managers", "school officials", "collectors"]
-  },
-  {
-    id: 103,
-    category: "PayGira & School Payments",
-    question: "How does a school set up PayGira?",
-    answer: "A school first configures its payment settings and payout destination, then creates bills, chooses who each bill applies to, enables accepted payment methods, and optionally assigns staff collectors or overseers. Once the setup is complete, parents can see eligible bills in the Guardian Portal and assigned staff can work from their own My PayGira collection view.",
-    keywords: ["set up paygira", "setup paygira", "payment settings", "payout destination", "assign collectors", "create bills", "bill setup", "finance setup"]
-  },
-  {
-    id: 104,
-    category: "PayGira & School Payments",
-    question: "How do parents and guardians pay through PayGira?",
-    answer: "In the Guardian Portal, parents can open PayGira, review each child's billed, paid, outstanding, and available credit amounts, and then pay the selected bill or recurring dates. If the school has enabled Stripe and the bill accepts online payments, parents can pay online by card or supported wallets. If the school has enabled bank transfer, that option can also appear. Payment history, invoices, and receipts remain available in the portal.",
-    keywords: ["guardian paygira", "parent payment", "guardian portal payments", "pay bills", "card payment", "stripe payment", "wallet payment", "bank transfer", "invoice", "receipt"]
-  },
-  {
-    id: 105,
-    category: "PayGira & School Payments",
-    question: "How do teachers, supervisors, and managers use My PayGira?",
-    answer: "Assigned teachers, class teachers, supervisors, managers, and finance administrators can use My PayGira to record collections for the bills under their responsibility. They can record one payment at a time or use bulk collection for multiple students. When staff record a collection, the student's balance is updated immediately and the school can keep follow-up records in finance history.",
-    keywords: ["my paygira", "staff collection", "teacher collect payment", "supervisor collect payment", "manager collect payment", "bulk collection", "record collection"]
-  },
-  {
-    id: 106,
-    category: "PayGira & School Payments",
-    question: "How does PayGira sign-off work?",
-    answer: "A bill or recurring date can only be signed off after it is fully settled for the relevant scope. During sign-off, the staff member enters the name to record on the sign-off and confirms with a password. The sign-off is then saved in finance history with the signer, student count, and total collected, and the fully settled collection is removed from the active collection drawer.",
-    keywords: ["paygira sign off", "collection sign off", "signoff", "sign off payment", "fully settled", "password verification", "finance history"]
-  },
-  {
-    id: 107,
-    category: "PayGira & School Payments",
-    question: "Can PayGira handle recurring bills, part-payments, and student credit?",
-    answer: "Yes. PayGira supports one-time bills and recurring bills. Recurring collections can be managed date by date, and each selected due date is tracked separately. The system also supports partial payments, outstanding balances, late fees where applicable, and student credit balances that can be applied to reduce what still needs to be paid.",
-    keywords: ["recurring bills", "partial payment", "part payment", "student credit", "late fee", "date by date billing", "outstanding balance"]
-  },
-  {
-    id: 108,
-    category: "PayGira & School Payments",
-    question: "What records does PayGira keep after payment?",
-    answer: "PayGira keeps invoices, receipts, payment history, balance changes, and sign-off history. Guardians can review recent payment activity in the Guardian Portal, while school finance teams can review payment records and collection sign-off history inside the finance workspace.",
-    keywords: ["payment history", "receipts", "invoices", "finance records", "sign-off history", "guardian payment history", "audit trail"]
-  },
-  {
-    id: 109,
-    category: "PayGira & School Payments",
-    question: "How secure is PayGira and its online payment process?",
-    answer: "PayGira uses authenticated school and guardian sessions, organization-scoped data access, role-based permissions, and audited finance records. Where a school enables Stripe, online card and wallet payments are handled through Stripe's secure payment flows, and payment confirmations are finalized through verified payment-intent and webhook processing. Sensitive actions such as collection sign-off require password verification, and payment views show masked card details instead of full card numbers.",
-    keywords: ["paygira security", "secure payments", "stripe security", "payment security", "masked card", "webhook", "payment intent", "password verification"]
-  },
-  {
     id: 110,
     category: "Student Management",
     question: "How do I set up my school to use custom student IDs?",
     answer: "Open Settings and go to the Student ID Settings card. Turn on Custom student IDs if you want your school to use its own format, add an optional prefix such as MGT, then decide whether IDs should be auto-generated. If auto-generation is on, choose the starting number and save. The system shows a preview like MGT001 and uses that format across student management pages.",
     keywords: ["set up student id", "student id settings", "custom student id", "custom student ids", "school student id format", "student id in settings", "use custom student ids", "prefix", "auto generate id", "starting number", "student id setup", "how to use student id"]
-  },
-  {
-    id: 111,
-    category: "Student Management",
-    question: "How does Managira choose the next student ID automatically?",
-    answer: "When automatic student IDs are enabled, Managira checks the IDs already used in your organization and suggests the next reusable number instead of only moving forward. For example, if 010 is free but 011 already exists, the system suggests 010 first. Staff can still edit the number per student, and duplicate IDs are flagged while adding or updating student records.",
-    keywords: ["next student id", "next available student id", "auto fill student id", "auto student id", "reuse missing id", "gap filling", "student id counter", "student id duplicate", "inused", "suggest next id", "010 011"]
-  },
-  {
-    id: 112,
-    category: "Student Management",
-    question: "What happens to subjects when I move a student to another class?",
-    answer: "When you change a student's class from student management pages, Managira can keep the student's subjects. The system asks whether to keep existing subjects, then tries to match each old subject to a subject with the same name in the new class. Matching subjects are enrolled automatically, while subjects that do not exist in the new class are skipped and reported so staff can review them.",
-    keywords: ["change class subjects", "student subjects removed", "keep subjects when changing class", "move student subjects", "class change subject carryover", "transfer subjects", "same subject name", "skipped subjects", "student class change"]
   }
 ];
 

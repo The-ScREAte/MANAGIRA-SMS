@@ -36,6 +36,15 @@
     margin: 0 auto;
   }
 
+  /* Override global chatbot FAQ styles leaking into the public FAQ page. */
+  main#faq-page .faq-category,
+  main#faq-page .faq-category h2,
+  main#faq-page .faq-question,
+  main#faq-page .faq-answer {
+    text-transform: none !important;
+    letter-spacing: normal !important;
+  }
+
   .page-header {
     text-align: center;
     margin-bottom: 32px;
@@ -195,7 +204,7 @@
 </style>
 </head>
 <body>
-  <main>
+  <main id="faq-page">
     <div class="page-header">
       <h1>Frequently Asked Questions</h1>
       <p>Find answers to common questions about Managira</p>

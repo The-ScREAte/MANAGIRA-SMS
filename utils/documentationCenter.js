@@ -513,6 +513,334 @@ const DEFAULT_ARTICLES = [
   },
 ];
 
+const CANONICAL_ARTICLE_SYNC = [
+  {
+    slug: 'create-school-years-classes-terms-and-set-the-current-term',
+    title: 'Create school years, terms, and set the current term',
+    topic: 'School Setup',
+    subtopic: 'Academic Calendar',
+    status: 'active',
+    featured: true,
+    tags: ['school year', 'term', 'current term', 'semester', 'overlap validation'],
+    seoDescription: 'Create academic years and terms, validate term ranges, and make sure the correct term is active before using school workflows.',
+    contentHtml: `
+      <h2>Overview</h2>
+      <p>Every attendance record, assessment, report card, and promotion is tied to a specific school year and term. Before using those workflows, create your academic calendar and set the correct current term.</p>
+      <h2>Creating a school year</h2>
+      <ol>
+        <li>Open <strong>Management Tools → School Year</strong>.</li>
+        <li>Click <strong>Add School Year</strong> and enter the label, start date, and end date.</li>
+        <li>Save the new school year.</li>
+      </ol>
+      <h2>Adding terms</h2>
+      <ol>
+        <li>Open the school year and click <strong>Add Term</strong>.</li>
+        <li>Enter the term name with its start and end dates.</li>
+        <li>Repeat for each term in that year.</li>
+      </ol>
+      <div class="doc-callout doc-callout--warning"><strong>Warning — overlap validation:</strong> Managira blocks any term whose date range overlaps another term in the same school year. If the save fails, review all existing term dates and correct the conflict before trying again.</div>
+      <h2>Setting the current term</h2>
+      <p>Only one term can be active at a time. The current term controls which term is pre-selected when staff mark attendance, enter grades, and generate reports.</p>
+      <ol>
+        <li>Locate the target term in the list.</li>
+        <li>Click <strong>Set as Current Term</strong>.</li>
+        <li>Confirm the switch.</li>
+      </ol>
+      <div class="doc-callout doc-callout--warning"><strong>Wrong-term warning:</strong> If a staff member starts working while the wrong term is active, Managira shows a warning prompt naming the current term before continuing. Treat that prompt as a signal to return to school-year settings and correct the active term.</div>
+      <h2>Switching to a new term</h2>
+      <ol>
+        <li>Close the previous term if your workflow requires term closure.</li>
+        <li>Open the new term and choose <strong>Set as Current Term</strong>.</li>
+        <li>Confirm the change and recheck attendance, assessments, and reports.</li>
+      </ol>
+      <div class="doc-callout doc-callout--tip"><strong>Tip:</strong> Verify the active term before bulk attendance, report generation, or promotion work. Those workflows are much harder to clean up after data is saved under the wrong term.</div>
+    `,
+  },
+  {
+    slug: 'create-and-manage-employee-accounts-and-permissions',
+    title: 'Create and manage employee accounts and permissions',
+    topic: 'Staff & Permissions',
+    subtopic: 'Employee Access',
+    status: 'active',
+    featured: false,
+    tags: ['employees', 'permissions', 'roles', 'staff access', 'granular permissions'],
+    seoDescription: 'Create employee accounts, understand role defaults, review granular permissions, and manage staff access safely.',
+    contentHtml: `
+      <h2>Overview</h2>
+      <p>Managira uses role-based access control. Each staff member has a base role, and administrators can add or remove granular permissions based on job responsibility.</p>
+      <h2>Base roles and default access</h2>
+      <table>
+        <thead><tr><th>Role</th><th>Typical default access</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Teacher</strong></td><td>Mark attendance, enter scores for assigned classes, and view student details relevant to their teaching work.</td></tr>
+          <tr><td><strong>Supervisor</strong></td><td>All Teacher actions plus broader oversight such as class management and report visibility where assigned.</td></tr>
+          <tr><td><strong>Manager</strong></td><td>School-wide operational access including broader student, staff, and reporting workflows.</td></tr>
+          <tr><td><strong>Admin</strong></td><td>Full organisation access including billing, settings, and permission administration.</td></tr>
+        </tbody>
+      </table>
+      <h2>Granting extra permissions</h2>
+      <ol>
+        <li>Go to <strong>Management → Manage Employees</strong>.</li>
+        <li>Open the employee record.</li>
+        <li>Use the <strong>Permissions</strong> section to enable or disable additional access.</li>
+        <li>Save the employee record.</li>
+      </ol>
+      <div class="doc-callout doc-callout--warning"><strong>High-risk permissions:</strong> Only Admin-level users should grant access for employee management, organisation settings, billing control, reversal workflows, or other sensitive actions. Non-manager staff must not be allowed to escalate permissions for other users.</div>
+      <h2>Where permissions are stored</h2>
+      <p>Permissions are stored per employee in the organisation-scoped staff access records. This means permissions persist between sessions and remain enforceable even if a user tries to reach a route directly.</p>
+      <h2>Reviewing permissions</h2>
+      <ol>
+        <li>Open <strong>Manage Employees</strong>.</li>
+        <li>Review the role and permissions shown for each staff member.</li>
+        <li>Open individual records when you need a detailed access audit.</li>
+      </ol>
+      <h2>Granular permissions commonly reviewed</h2>
+      <ul>
+        <li>Attendance marking and attendance editing</li>
+        <li>Assessment creation and grade entry</li>
+        <li>Student record editing and archiving</li>
+        <li>Class and subject management</li>
+        <li>Admissions approval</li>
+        <li>Report and transcript generation</li>
+        <li>Announcements and events publishing</li>
+        <li>Promotion approval and reversal</li>
+        <li>PayGira collection handling and sign-off</li>
+        <li>Billing and organisation settings</li>
+      </ul>
+      <h2>Actions protected by permission checks</h2>
+      <p>Protected organisation actions include employee management, admissions approval, event publishing, term management, class and subject setup, transcript generation, promotion workflows, billing operations, and other sensitive record changes.</p>
+      <div class="doc-callout doc-callout--tip"><strong>Tip:</strong> Review staff permissions at the start of every term. Role drift is common when responsibilities change during the year.</div>
+    `,
+  },
+  {
+    slug: 'set-up-paygira-bills-collections-and-guardian-payments',
+    title: 'Set up PayGira bills, collections, and guardian payments',
+    topic: 'PayGira & Payments',
+    subtopic: 'Finance Workflow',
+    status: 'active',
+    featured: true,
+    tags: ['paygira', 'finance', 'bills', 'guardian payments', 'my paygira', 'sign-off'],
+    seoDescription: 'Configure PayGira, create bills, record collections, handle sign-off, and manage guardian payments securely.',
+    contentHtml: `
+      <h2>Overview</h2>
+      <p>PayGira is Managira's school payments workflow. Schools use it to create bills, accept guardian payments, record manual collections, manage partial payments and credit, and keep a full audit trail.</p>
+      <h2>1 — Initial setup</h2>
+      <ol>
+        <li>Open the <strong>Finance</strong> workspace.</li>
+        <li>Configure payment settings, payout destination, and supported payment options.</li>
+        <li>Verify the payout route before accepting online payments.</li>
+      </ol>
+      <div class="doc-callout doc-callout--tip"><strong>Tip:</strong> Guardian online payments stay unavailable until payout setup is completed successfully.</div>
+      <h2>2 — Creating bills</h2>
+      <ol>
+        <li>Create the bill or bill template.</li>
+        <li>Choose the affected students, classes, or groups.</li>
+        <li>Set due dates and whether partial payments are allowed.</li>
+        <li>Publish the bill.</li>
+      </ol>
+      <h2>3 — Collector roles and My PayGira</h2>
+      <p>Staff assigned collection responsibilities can use <strong>My PayGira</strong> to record in-person collections, including one-by-one and bulk collection workflows.</p>
+      <h2>4 — Guardian payments</h2>
+      <ol>
+        <li>Guardians open PayGira in the Guardian Portal.</li>
+        <li>They review outstanding bills and choose a supported payment method.</li>
+        <li>Successful payments immediately update balances and generate invoice/receipt records.</li>
+      </ol>
+      <h2>5 — Sign-off process</h2>
+      <p>Once a bill scope is fully settled, authorised staff can sign it off. Sign-off locks the collection batch and records who finalised it, when, and for what total amount.</p>
+      <div class="doc-callout doc-callout--warning"><strong>Permission required:</strong> Sign-off should be restricted to trusted finance users because it finalises the collection batch and reduces the chance of silent edits later.</div>
+      <h2>6 — Recurring bills, partial payments, and credit</h2>
+      <ul>
+        <li><strong>Recurring bills:</strong> Use recurring schedules for repeating charges.</li>
+        <li><strong>Partial payments:</strong> Allow instalments while preserving the student's running balance.</li>
+        <li><strong>Student credit:</strong> Overpayments or adjustments can remain as credit and reduce future bills.</li>
+      </ul>
+      <h2>7 — Records kept after payment</h2>
+      <ul>
+        <li>Payment amount, date, and method</li>
+        <li>Collection staff member for manual collections</li>
+        <li>Gateway reference or payment identifier for online payments</li>
+        <li>Invoice and receipt history</li>
+        <li>Balance and sign-off history</li>
+      </ul>
+      <h2>8 — Security</h2>
+      <p>PayGira relies on authenticated sessions, role-based permissions, audited finance records, and secure external payment flows where online payments are enabled. Sensitive actions such as sign-off should always remain permission-protected.</p>
+    `,
+  },
+  {
+    slug: 'promote-students-and-manage-graduation',
+    title: 'Promote students, reverse promotions, and manage graduation',
+    topic: 'Students & Admissions',
+    subtopic: 'Promotions',
+    status: 'active',
+    featured: false,
+    tags: ['promotions', 'graduation', 'cut-off', 'archive'],
+    seoDescription: 'Set promotion cut-offs, apply promotions, reverse mistakes, and manage graduation or archiving at year end.',
+    contentHtml: `
+      <h2>Overview</h2>
+      <p>Use the promotion workflow when moving students into the next class, keeping students back, or graduating final-year students out of active class lists.</p>
+      <h2>Setting promotion cut-offs</h2>
+      <ol>
+        <li>Open <strong>Management → Promotions</strong>.</li>
+        <li>Set the minimum score or promotion threshold for the relevant class.</li>
+        <li>Save before applying any promotion batch.</li>
+      </ol>
+      <h2>Using Apply Now</h2>
+      <ol>
+        <li>Review the eligible students list.</li>
+        <li>Click <strong>Apply Now</strong> to process the visible promotion batch.</li>
+        <li>Confirm the move after checking the target class mapping.</li>
+      </ol>
+      <h2>Graduation and archiving</h2>
+      <p>Final-year students should be marked as graduated rather than promoted. Students leaving without graduation should be archived so their academic history remains available while they disappear from active lists.</p>
+      <h2>Reversing or deleting promotions</h2>
+      <p>If a promotion was applied incorrectly, use the promotion history view to reverse it. This restores the previous class placement, but any later edits made in the destination class may still need manual review.</p>
+      <div class="doc-callout doc-callout--warning"><strong>Warning:</strong> Reversing promotions should be limited to trusted users because it changes live student placement and can affect reports, attendance, and class membership.</div>
+    `,
+  },
+  {
+    slug: 'email-notifications-reference',
+    title: 'Email notifications reference — all emails Managira sends',
+    topic: 'Communication & Website',
+    subtopic: 'Email Notifications',
+    status: 'active',
+    featured: false,
+    tags: ['email', 'notifications', 'digest', 'transactional'],
+    seoDescription: 'Reference for transactional emails, toggleable notifications, weekly digests, and role-based email delivery.',
+    contentHtml: `
+      <h2>Overview</h2>
+      <p>Managira sends both transactional emails and optional notification emails. This reference explains what each category includes and who receives it.</p>
+      <h2>Transactional emails (always sent)</h2>
+      <ul>
+        <li>Password reset and account-access emails</li>
+        <li>Payment confirmations and invoice-related emails</li>
+        <li>Support ticket responses</li>
+        <li>Invitation and onboarding emails</li>
+        <li>Hub invitation and membership decision emails</li>
+      </ul>
+      <h2>Toggleable notification emails</h2>
+      <ul>
+        <li>Announcements and event notifications</li>
+        <li>Attendance and grade alerts</li>
+        <li>Bill-created and reminder notifications</li>
+        <li>Routine guardian or staff update notifications</li>
+      </ul>
+      <h2>Weekly digests</h2>
+      <p>Weekly digests vary by role:</p>
+      <ul>
+        <li><strong>Guardians:</strong> attendance, grades, and outstanding balances</li>
+        <li><strong>Teachers:</strong> assigned class and grading summary</li>
+        <li><strong>Managers / Supervisors:</strong> school-wide operational summary</li>
+        <li><strong>Admins / Hubs:</strong> broader oversight metrics and exceptions</li>
+      </ul>
+      <h2>Emails by role</h2>
+      <p>Guardians mainly receive student- and payment-related emails. Teachers, supervisors, and managers receive work-related notifications. Admins receive those plus operational and billing summaries where relevant.</p>
+      <h2>Managing preferences</h2>
+      <p>Optional notification categories can be toggled from account settings. Transactional emails cannot be turned off because they are required for security, billing, or workflow completion.</p>
+    `,
+  },
+  {
+    slug: 'configure-custom-student-ids',
+    title: 'Configure custom student IDs and auto-generation',
+    topic: 'Students & Admissions',
+    subtopic: 'Student ID Configuration',
+    status: 'active',
+    featured: false,
+    tags: ['student ID', 'custom ID', 'prefix', 'auto-generation'],
+    seoDescription: 'Configure custom student ID format, prefixes, numbering, and how Managira generates the next student ID.',
+    contentHtml: `
+      <h2>Overview</h2>
+      <p>You can allow Managira to generate student IDs automatically or define your own format with a prefix, starting number, and padded sequence.</p>
+      <h2>Setting up the format</h2>
+      <ol>
+        <li>Open <strong>School Settings → Student ID</strong>.</li>
+        <li>Enable custom student IDs if your school wants its own format.</li>
+        <li>Enter an optional prefix and choose the starting number.</li>
+        <li>Save and review the preview format before creating the next student.</li>
+      </ol>
+      <h2>Auto-generation logic</h2>
+      <p>When auto-generation is enabled, Managira uses the configured prefix and sequence rules to create the next student ID at the point the student record is created or approved.</p>
+      <h2>Manual override</h2>
+      <p>Staff can still type a manual student ID when editing or creating a student, but duplicate IDs within the same organisation are blocked.</p>
+      <div class="doc-callout doc-callout--warning"><strong>Warning:</strong> Changing the format does not rename existing student IDs. Only new records use the updated format.</div>
+    `,
+  },
+  {
+    slug: 'transfer-a-student-between-classes-and-subject-matching',
+    title: 'Transfer a student between classes and subject matching',
+    topic: 'Students & Admissions',
+    subtopic: 'Class Transfers',
+    status: 'active',
+    featured: false,
+    tags: ['class transfer', 'subjects', 'subject matching', 'student move'],
+    seoDescription: 'Understand how Managira handles subject matching, history preservation, and manual follow-up after class transfers.',
+    contentHtml: `
+      <h2>Overview</h2>
+      <p>When you transfer a student to another class, Managira preserves the student's historical records and checks whether subjects from the old class match subjects in the new class.</p>
+      <h2>Transfer steps</h2>
+      <ol>
+        <li>Open the student profile.</li>
+        <li>Choose <strong>Transfer Class</strong>.</li>
+        <li>Select the destination class and confirm the transfer date.</li>
+      </ol>
+      <h2>What happens to subjects</h2>
+      <ul>
+        <li>Matching subject names in the destination class can carry over automatically.</li>
+        <li>Subjects that do not exist in the destination class are not kept as active enrollments.</li>
+        <li>Subjects available only in the new class may still require manual enrollment.</li>
+      </ul>
+      <h2>What is preserved</h2>
+      <ul>
+        <li>Past grades and attendance history</li>
+        <li>Guardian links and student profile details</li>
+        <li>Historical transcript data</li>
+      </ul>
+      <div class="doc-callout doc-callout--tip"><strong>Tip:</strong> For mid-term transfers, review reports and subject enrollment immediately after the move so later grade entry happens in the correct class and subject combination.</div>
+    `,
+  },
+  {
+    slug: 'troubleshooting-common-issues',
+    title: 'Troubleshooting common issues in Managira',
+    topic: 'Getting Started',
+    subtopic: 'Troubleshooting',
+    status: 'active',
+    featured: false,
+    tags: ['troubleshooting', 'attendance', 'reports', 'login', 'plan features'],
+    seoDescription: 'Troubleshoot attendance issues, missing classes, report problems, login trouble, and plan-gated features in Managira.',
+    contentHtml: `
+      <h2>Overview</h2>
+      <p>This guide covers the most common issues schools can resolve without waiting for support.</p>
+      <h2>Attendance problems</h2>
+      <ul>
+        <li>If attendance is saving under the wrong period, verify the current term.</li>
+        <li>If a class does not appear, check class assignment, enrollment, and permissions.</li>
+      </ul>
+      <h2>Class or subject visibility problems</h2>
+      <ul>
+        <li>Confirm the class belongs to the active school year.</li>
+        <li>Check that the subject is assigned to the class and the student is enrolled correctly.</li>
+      </ul>
+      <h2>Report generation problems</h2>
+      <ul>
+        <li>Check that grades are entered and the grading system is configured.</li>
+        <li>Confirm the selected term is correct before generating the report.</li>
+      </ul>
+      <h2>Login issues</h2>
+      <ul>
+        <li>Use the forgot-password flow first.</li>
+        <li>Verify that the user is logging in on the correct school or guardian URL.</li>
+      </ul>
+      <h2>Plan-gated feature issues</h2>
+      <ul>
+        <li>If a feature is hidden or locked, confirm the current subscription plan and billing status.</li>
+        <li>If the plan should include the feature, contact support for review.</li>
+      </ul>
+      <h2>When to contact support</h2>
+      <p>If the issue still persists after the checks above, contact <strong>info@managira.com</strong> or use the <a href="/legal/help">Help Center</a>.</p>
+    `,
+  },
+];
+
 let schemaReady = false;
 let schemaPromise = null;
 
@@ -911,6 +1239,39 @@ async function seedDefaultArticles(database) {
   }
 }
 
+async function syncCanonicalDocumentationArticles(database) {
+  for (const article of CANONICAL_ARTICLE_SYNC) {
+    await database.query(
+      `INSERT INTO documentation_articles (
+         slug, title, topic, subtopic, status, featured, tags, seo_description, content_html, media, created_by
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       ON CONFLICT (slug) DO UPDATE SET
+         title = EXCLUDED.title,
+         topic = EXCLUDED.topic,
+         subtopic = EXCLUDED.subtopic,
+         status = EXCLUDED.status,
+         featured = EXCLUDED.featured,
+         tags = EXCLUDED.tags,
+         seo_description = EXCLUDED.seo_description,
+         content_html = EXCLUDED.content_html,
+         updated_at = NOW()`,
+      [
+        article.slug,
+        article.title,
+        article.topic,
+        article.subtopic || null,
+        article.status || 'active',
+        Boolean(article.featured),
+        article.tags || [],
+        article.seoDescription || null,
+        sanitizeArticleContent(article.contentHtml || ''),
+        JSON.stringify(article.media || []),
+        null,
+      ]
+    );
+  }
+}
+
 async function ensureDocumentationSchema(database = db) {
   if (schemaReady) {
     return;
@@ -1069,6 +1430,8 @@ async function ensureDocumentationSchema(database = db) {
     if (Number(countResult.rows[0] && countResult.rows[0].total) === 0) {
       await seedDefaultArticles(database);
     }
+
+    await syncCanonicalDocumentationArticles(database);
 
     schemaReady = true;
   })();
