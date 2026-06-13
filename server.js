@@ -682,6 +682,8 @@ app.use("/admin", adminRoute);
 app.use("/common", commonRoute);
 app.use("/print", printRoute);
 app.use("/legal", legalRoute);
+// Short-URL alias so the path Google has been trying (/directory) resolves with a 301 to the canonical page.
+app.get("/directory", (req, res) => res.redirect(301, "/legal/directory"));
 app.use("/enrollment", enrollmentRoutes);
 app.use("/transcript", transcriptRoutes(db));
 app.use("/stats", statsRoutes);
