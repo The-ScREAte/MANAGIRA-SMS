@@ -1,6 +1,7 @@
 User-agent: *
 Allow: /
 Allow: /legal/
+Allow: /directory
 Allow: /common/publicDashboard
 Allow: /account/service-plan
 
