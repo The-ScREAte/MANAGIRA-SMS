@@ -27,6 +27,7 @@ const upload = multer({
 
 
 router.get('/about-us', legalController.aboutUs);
+router.get('/directory', legalController.directory);
 router.get('/faq', legalController.faq);
 router.get('/help', legalController.getHelp);
 router.post('/help', legalController.postHelp);
