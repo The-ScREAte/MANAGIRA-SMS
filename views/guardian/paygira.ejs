@@ -854,11 +854,19 @@
       <div class="pg-flash error"><%= messages.error[0] %></div>
     <% } %>
 
-    <% if (typeof stripeAccountReady !== 'undefined' && !stripeAccountReady && allowedMethods && allowedMethods.stripeOn) { %>
+    <%
+      // Online payment is available when either Stripe is ready OR a Paystack payout account is configured.
+      var _pgStripeOnlineReady = (typeof stripeAccountReady !== 'undefined') && stripeAccountReady && allowedMethods && allowedMethods.stripeOn;
+      var _pgPaystackOnlineReady = Boolean(payoutAccounts && payoutAccounts.length);
+      var _pgOnlinePaymentReady = _pgStripeOnlineReady || _pgPaystackOnlineReady;
+      // Only warn when the school meant to accept online payment (Stripe turned on) but no provider is ready.
+      var _pgOnlineIntended = allowedMethods && allowedMethods.stripeOn;
+    %>
+    <% if (_pgOnlineIntended && !_pgOnlinePaymentReady) { %>
     <div style="background:#fff5f5;border:1px solid #fca5a5;border-radius:10px;padding:14px 16px;margin-bottom:16px;display:flex;align-items:flex-start;gap:12px;">
       <span style="font-size:1.2rem;flex-shrink:0;">⚠️</span>
       <div>
-        <div style="font-weight:700;font-size:.9rem;color:#b91c1c;">Online card payments are not available yet.</div>
+        <div style="font-weight:700;font-size:.9rem;color:#b91c1c;">Online payments are not available yet.</div>
         <div style="font-size:.83rem;color:#7f1d1d;margin-top:3px;line-height:1.5;">This school has not completed their online payment setup. Please contact the school directly to arrange payment by cash or bank transfer.</div>
       </div>
     </div>
@@ -1064,15 +1072,21 @@
             <% _pgAccounts.forEach(function(acct, i) { %>
             <%
               var acctIcon = acct.account_type === 'mobile_money' ? '📱' : '🏦';
-              var acctLabel = acct.account_type === 'mobile_money'
-                ? (acct.momo_provider || 'MoMo') + (acct.momo_number ? ' ···' + String(acct.momo_number).slice(-4) : '')
-                : (acct.bank_name || acct.business_name || 'Bank') + (acct.account_number ? ' ···' + String(acct.account_number).slice(-4) : '');
+              var acctName = acct.account_type === 'mobile_money'
+                ? (acct.business_name || acct.account_holder_name || acct.momo_provider || 'Mobile Money')
+                : (acct.business_name || acct.bank_name || 'Bank Account');
+              var acctSub = acct.account_type === 'mobile_money'
+                ? ((acct.momo_provider ? String(acct.momo_provider).toUpperCase() : 'MoMo') + (acct.momo_number ? ' · ···' + String(acct.momo_number).slice(-4) : ''))
+                : ((acct.bank_name || '') + (acct.account_number ? ' · ···' + String(acct.account_number).slice(-4) : ''));
             %>
             <label class="pg-payout-card">
               <input type="radio" name="payout_account_id" value="<%= acct.id %>"
                      <%= (!_pgStripe && (i === 0 || acct.is_primary)) ? 'checked' : '' %>
                      style="accent-color:#0d9488;">
-              <span><%= acctIcon %> <%= acctLabel %></span>
+              <span style="display:flex;flex-direction:column;gap:2px;">
+                <span><%= acctIcon %> <%= acctName %></span>
+                <% if (acctSub) { %><small style="color:#64748b;font-size:.72rem;"><%= acctSub %></small><% } %>
+              </span>
             </label>
             <% }); %>
             <% if (_pgStripe) { %>
@@ -1116,6 +1130,12 @@
         <div class="pg-offline-details" id="pgOfflineDetails"></div>
       </div>
 
+      <div id="pgFeeBreakdown" style="display:none;margin:10px 0 0;border:1px solid #e5e7eb;border-radius:9px;padding:10px 12px;background:#f8fafc;font-size:.82rem;color:#334155;">
+        <div style="display:flex;justify-content:space-between;gap:12px;"><span>Subtotal</span><strong id="pgFbSubtotal">—</strong></div>
+        <div id="pgFbFeeRow" style="display:flex;justify-content:space-between;gap:12px;margin-top:6px;"><span>Service fee (<span id="pgFbPercent">0</span>%)</span><strong id="pgFbFee">—</strong></div>
+        <div style="display:flex;justify-content:space-between;gap:12px;margin-top:6px;padding-top:6px;border-top:1px dashed #cbd5e1;"><span>Total</span><strong id="pgFbTotal">—</strong></div>
+      </div>
+
       <div class="pg-modal-actions" style="margin-top:20px;">
         <button type="button" class="pg-btn ghost" onclick="closePgPay()">Cancel</button>
         <button type="submit" class="pg-btn primary" id="pgSubmitBtn">Submit Payment</button>
@@ -1146,6 +1166,9 @@
     var stripeEnabled = Boolean(allowedMethods && allowedMethods.stripeOn && stripePublishableKey && window.Stripe);
     var stripeAccountReady = <%- JSON.stringify(typeof stripeAccountReady !== 'undefined' ? stripeAccountReady : true) %>;
     var paystackPayoutReady = <%= (payoutAccounts && payoutAccounts.length) ? 'true' : 'false' %>;
+    var payoutAccountsData = <%- JSON.stringify((payoutAccounts || []).map(function(a){ return { id: String(a.id), type: a.account_type, momoProvider: a.momo_provider || null }; })) %>;
+    var PG_PLATFORM_FEE_PERCENT = <%= Number(typeof platformFeePercentage !== 'undefined' ? platformFeePercentage : 0) %>;
+    var PG_PLATFORM_FEE_BEARER = <%- JSON.stringify(typeof platformFeeBearer !== 'undefined' ? platformFeeBearer : 'parent') %>;
     var stripe = (stripeEnabled && stripeAccountReady) ? window.Stripe(stripePublishableKey) : null;
     var stripeCurrency = String((allowedMethods && allowedMethods.currency) || <%- JSON.stringify(currencyCode) %> || 'USD').toLowerCase();
     var savedCards = <%- JSON.stringify((cards || []).filter(function(c){ return c.external_payment_method_id; })) %>;
@@ -1187,6 +1210,12 @@
     var offlineShell = document.getElementById('pgOfflineShell');
     var offlineTitle = document.getElementById('pgOfflineTitle');
     var offlineDetails = document.getElementById('pgOfflineDetails');
+    var feeBreakdown = document.getElementById('pgFeeBreakdown');
+    var feeSubtotal = document.getElementById('pgFbSubtotal');
+    var feePercent = document.getElementById('pgFbPercent');
+    var feeValue = document.getElementById('pgFbFee');
+    var feeTotal = document.getElementById('pgFbTotal');
+    var feeRow = document.getElementById('pgFbFeeRow');
 
     function escapeHtml(value) {
       return String(value == null ? '' : value)
@@ -1208,6 +1237,47 @@
       } catch (_) {
         return <%- JSON.stringify(currencyCode) %> + ' ' + Number(value || 0).toFixed(2);
       }
+    }
+
+    function renderFeeBreakdown(breakdown) {
+      if (!breakdown || !feeBreakdown || !feeSubtotal || !feePercent || !feeValue || !feeTotal || !feeRow) return;
+      feeSubtotal.textContent = formatMoney(breakdown.subtotalAmount || 0);
+      feePercent.textContent = Number(breakdown.platformFeePercentage || 0).toFixed(2);
+      feeValue.textContent = formatMoney(breakdown.platformFeeAmount || 0);
+      feeTotal.textContent = formatMoney(breakdown.totalChargedAmount || 0);
+      feeRow.style.display = String(breakdown.platformFeeBearer || 'parent') === 'parent' ? 'flex' : 'none';
+      feeBreakdown.style.display = '';
+    }
+
+    // The platform service fee only applies to online (card/momo/wallet) payments.
+    function pgOnlineMethodSelected() {
+      return String(methodSelect.value || '') === 'stripe';
+    }
+
+    function computeLocalBreakdown() {
+      var subtotal = Math.max(Number(amountInput.value || 0), 0);
+      var pct = pgOnlineMethodSelected() ? Number(PG_PLATFORM_FEE_PERCENT || 0) : 0;
+      var fee = pct > 0 ? Math.round(subtotal * (pct / 100) * 100) / 100 : 0;
+      var bearer = String(PG_PLATFORM_FEE_BEARER || 'parent') === 'school' ? 'school' : 'parent';
+      var total = bearer === 'parent' ? Math.round((subtotal + fee) * 100) / 100 : subtotal;
+      return {
+        subtotalAmount: subtotal,
+        platformFeePercentage: pct,
+        platformFeeAmount: fee,
+        platformFeeBearer: bearer,
+        totalChargedAmount: total,
+      };
+    }
+
+    // Show the fee/total preview as soon as the modal opens (and whenever amount or method changes).
+    function refreshFeeBreakdown() {
+      if (!feeBreakdown) return;
+      var subtotal = Math.max(Number(amountInput.value || 0), 0);
+      if (!pgOnlineMethodSelected() || !(subtotal > 0)) {
+        feeBreakdown.style.display = 'none';
+        return;
+      }
+      renderFeeBreakdown(computeLocalBreakdown());
     }
 
     function recurStepDays(recurrence) {
@@ -1470,12 +1540,59 @@
       expressCheckoutElement.mount('#pgExpressCheckoutElement');
     }
 
+    function getStripeMethodSummary() {
+      // Build from the methods the school actually enabled in Stripe.
+      var parts = [];
+      var selectedIds = Array.isArray(stripeCheckoutConfig.selectedIds) ? stripeCheckoutConfig.selectedIds : [];
+      selectedIds.forEach(function(id) {
+        var match = stripeCatalog.find(function(entry) { return entry.id === id; });
+        parts.push(match ? match.label : String(id).replace(/_/g, ' '));
+      });
+      if (!parts.length) parts.push('Card');
+      var wallets = (stripeCheckoutConfig && stripeCheckoutConfig.expressWallets) || {};
+      if (wallets.applePay && wallets.applePay !== 'never') parts.push('Apple Pay');
+      if (wallets.googlePay && wallets.googlePay !== 'never') parts.push('Google Pay');
+      var seen = {};
+      parts = parts.filter(function(p) { var k = String(p).toLowerCase(); if (seen[k]) return false; seen[k] = 1; return true; });
+      return parts.join(' · ');
+    }
+
+    function getSelectedPayoutAccountData() {
+      var sel = document.querySelector('input[name="payout_account_id"]:checked')
+             || document.querySelector('input[name="payout_account_id"]');
+      var val = sel ? String(sel.value || '') : '';
+      if (!val || val === 'stripe') return null;
+      return payoutAccountsData.find(function(a) { return String(a.id) === val; }) || null;
+    }
+
+    // Returns { icon, label, desc } for the single online payment card, reflecting
+    // the actual provider and the selected payout account's method.
+    function getOnlineMethodMeta() {
+      if (paystackPayoutReady) {
+        var acct = getSelectedPayoutAccountData();
+        if (acct && acct.type === 'mobile_money') {
+          var provider = acct.momoProvider ? String(acct.momoProvider).toUpperCase() : '';
+          return { icon: '📱', label: 'Mobile Money', desc: provider ? (provider + ' Mobile Money') : 'Mobile Money' };
+        }
+        if (acct) {
+          return { icon: '🏦', label: 'Bank Transfer', desc: 'Pay directly to the school bank account' };
+        }
+        // No specific account selected yet — show the combined Paystack methods.
+        return { icon: '💳', label: 'Card / Mobile Money / Bank', desc: 'Card · Mobile Money · Bank' };
+      }
+      // Stripe provider
+      return { icon: '💳', label: 'Card / Apple Pay / Google Pay', desc: getStripeMethodSummary() };
+    }
+
     function getMethodOptions(record) {
       var options = [];
       if ((paystackPayoutReady || (stripeEnabled && stripeAccountReady)) && record && record.accepts_card) {
+        var onlineMeta = getOnlineMethodMeta();
         options.push({
           value: 'stripe',
-          label: paystackPayoutReady ? 'Card / Mobile Money / Wallet' : 'Card / Apple Pay / Google Pay',
+          label: onlineMeta.label,
+          desc: onlineMeta.desc,
+          icon: onlineMeta.icon,
           hint: paystackPayoutReady
             ? 'Pay securely online. You may be redirected to Paystack for card or mobile money checkout based on your school payout setup.'
             : 'Pay securely with a debit or credit card. Apple Pay and Google Pay appear automatically on supported devices.'
@@ -1508,6 +1625,7 @@
     }
 
     function updateSubmitButton() {
+      refreshFeeBreakdown();
       if (stripeBusy) {
         submitButton.textContent = 'Processing…';
         submitButton.disabled = true;
@@ -1847,12 +1965,14 @@
         } else {
           pgv2Cards.innerHTML = options.map(function(option) {
             var meta = METHOD_META[option.value] || { icon: '💰', desc: '' };
+            var iconText = option.icon || meta.icon;
+            var descText = option.desc || meta.desc || '';
             var isSelected = option.value === selectedValue;
             return '<button type="button" class="pgv2-method-card' + (isSelected ? ' is-selected' : '') + '" data-pgv2-method="' + escapeHtml(option.value) + '">'
-              + '<div class="pgv2-method-ico">' + meta.icon + '</div>'
+              + '<div class="pgv2-method-ico">' + iconText + '</div>'
               + '<div class="pgv2-method-copy">'
               + '<span class="pgv2-method-name">' + escapeHtml(option.label) + '</span>'
-              + '<span class="pgv2-method-subdesc">' + escapeHtml(meta.desc) + '</span>'
+              + '<span class="pgv2-method-subdesc">' + escapeHtml(descText) + '</span>'
               + '</div></button>';
           }).join('');
           pgv2Cards.querySelectorAll('.pgv2-method-card').forEach(function(card) {
@@ -1895,6 +2015,10 @@
         throw new Error(data.message || 'Unable to initialize Stripe payment.');
       }
 
+      if (data && data.charge_breakdown) {
+        renderFeeBreakdown(data.charge_breakdown);
+      }
+
       if (data.provider === 'paystack' && data.authorizationUrl) {
         window.location.href = data.authorizationUrl;
         return data;
@@ -1916,6 +2040,9 @@
       try {
         setStripeError('');
         var intentData = await createStripeIntent();
+        if (intentData && intentData.charge_breakdown) {
+          renderFeeBreakdown(intentData.charge_breakdown);
+        }
 
         if (intentData && intentData.provider === 'paystack') {
           return;
@@ -2004,7 +2131,8 @@
     document.querySelectorAll('#pg-payout-selector input[type="radio"]').forEach(function(r) {
       r.addEventListener('change', function() {
         pgSyncPayoutCards();
-        syncPaymentMode();
+        if (activeRecord) renderMethodOptions(activeRecord);
+        else syncPaymentMode();
       });
     });
 

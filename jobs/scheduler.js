@@ -10,12 +10,24 @@ const {
 } = require('../utils/notificationDigestService');
 const { runAdminEmailCampaignSweep } = require('../utils/adminEmailCampaignRunner');
 const { purgeOldActivityLogs } = require('../utils/activityLog');
+const { retryPendingPaystackPayouts } = require('../utils/paystackPayout');
+const { getPaystackSettings } = require('../utils/paystackConfig');
 
 const shouldRunScheduler = process.env.NODE_ENV === 'production' || process.env.ENABLE_BILLING_SCHEDULER === 'true';
 const shouldRunNotifications = process.env.NODE_ENV === 'production' || process.env.ENABLE_NOTIFICATION_SCHEDULER === 'true';
 const shouldRunAdminEmailScheduler = process.env.NODE_ENV === 'production' || process.env.ENABLE_ADMIN_EMAIL_SCHEDULER === 'true';
 const shouldRunActivityLogRetention = process.env.NODE_ENV === 'production' || process.env.ENABLE_ACTIVITY_LOG_RETENTION === 'true';
 const ACTIVITY_LOG_RETENTION_DAYS = Number(process.env.ACTIVITY_LOG_RETENTION_DAYS) || 1095; // ~3 years
+
+// Resolve the active Paystack secret key for the current mode (test/live).
+async function resolveActivePaystackSecret() {
+  try {
+    const settings = await getPaystackSettings();
+    return settings.activeSecretKey || process.env.PAYSTACK_SECRET_KEY || '';
+  } catch (_) {
+    return process.env.PAYSTACK_SECRET_KEY || '';
+  }
+}
 
 if (shouldRunScheduler) {
   // Schedule to run every minute for dynamic billing
@@ -93,4 +105,20 @@ if (shouldRunActivityLogRetention) {
   });
 } else {
   // Activity log retention disabled in dev — set ENABLE_ACTIVITY_LOG_RETENTION=true to enable.
+}
+
+if (shouldRunScheduler) {
+  // Every 3 minutes: retry + reconcile Paystack school payouts (settlements for
+  // mobile-money / bank-recipient / local accounts that are not split at charge
+  // time). Handles charges whose balance had not settled when first attempted.
+  cron.schedule('*/3 * * * *', async () => {
+    try {
+      const summary = await retryPendingPaystackPayouts(undefined, resolveActivePaystackSecret);
+      if (summary.processed > 0) {
+        console.log(`[Paystack Payout] Sweep complete. processed=${summary.processed}, settled=${summary.settled}`);
+      }
+    } catch (error) {
+      console.error('[Paystack Payout] Sweep failed:', error.message);
+    }
+  });
 }

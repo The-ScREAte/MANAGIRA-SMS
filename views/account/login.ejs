@@ -44,7 +44,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 20px 20px;
+      padding: 12px 20px;
       width: 100%;
     }
 
@@ -58,7 +58,7 @@
       background: var(--bg-card);
       border-radius: 14px;
       box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
-      padding: 28px 26px;
+      padding: 22px 26px;
       border: 1px solid var(--border);
     }
 
@@ -76,11 +76,17 @@
 
     .login-header p {
       color: var(--text-secondary);
-      font-size: 0.9rem;
+      font-size: 0.85rem;
     }
 
     .form-group {
+      width: 100%;
       margin-bottom: 16px;
+    }
+
+    #loginForm input[type="email"].form-input {
+      width: 100%;
+      max-width: 100%;
     }
 
     .form-label {
@@ -92,8 +98,16 @@
     }
 
     .form-input {
+      display: block;
       width: 100%;
-      padding: 14px 16px;
+      min-width: 0;
+      max-width: 100%;
+      box-sizing: border-box;
+      padding: 5px 16px;
+      height: 36px;
+      line-height: 1.2;
+      -webkit-appearance: none;
+      appearance: none;
       border: 2px solid var(--border);
       border-radius: 10px;
       font-size: 1rem;
@@ -116,15 +130,21 @@
 
     .password-input-wrapper {
       position: relative;
+      width: 100%;
     }
 
     .password-input-wrapper .form-input {
-      padding-right: 45px;
+      width: 100%;
+      padding-right: 38px;
+    }
+
+    .password-input-wrapper .form-input:focus {
+      box-shadow: none;
     }
 
     .password-toggle-btn {
       position: absolute;
-      right: 16px;
+      right: 12px;
       top: 50%;
       transform: translateY(-50%);
       background: transparent;
@@ -276,7 +296,7 @@
 
     @media (max-width: 768px) {
       .page-wrapper {
-        padding: 50px 16px 12px;
+        padding: 30px 16px 10px;
       }
       .login-container {
         margin-top: 0;
@@ -284,7 +304,7 @@
         padding: 0;
       }
       .login-card {
-        padding: 28px 22px;
+        padding: 22px 22px;
       }
       .login-header h1 {
         font-size: 1.5rem;
@@ -296,32 +316,33 @@
 
     @media (max-width: 480px) {
       .page-wrapper {
-        padding: 40px 12px 8px;
+        padding: 22px 12px 8px;
       }
       .login-container {
         margin-top: 0;
         padding-top: 0;
       }
       .login-card {
-        padding: 24px 18px;
+        padding: 20px 18px;
         border-radius: 12px;
       }
       .login-header h1 {
-        font-size: 1.35rem;
+        font-size: 1.1rem;
       }
       .login-header p {
-        font-size: 0.85rem;
+        font-size: 0.8rem;
       }
       .form-label {
-        font-size: 0.85rem;
+        font-size: 0.8rem;
       }
       .form-input {
-        padding: 12px 14px;
-        font-size: 16px; /* prevents iOS zoom */
+        padding: 3px 10px;
+        font-size: 14px;
+        height: 32px;
       }
       .btn-primary {
-        padding: 12px 20px;
-        font-size: 0.95rem;
+        padding: 8px 16px;
+        font-size: 0.85rem;
       }
       .button-row {
         flex-direction: column;
@@ -375,7 +396,7 @@
               required 
               autocomplete="current-password"
             />
-            <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('password', this)" aria-label="Show password">
+            <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('password', this)" onmousedown="event.preventDefault()" aria-label="Show password">
               <i class="fa-solid fa-eye fa-fw" aria-hidden="true"></i>
             </button>
           </div>
@@ -442,12 +463,12 @@
     function togglePasswordVisibility(inputId, button) {
       const input = document.getElementById(inputId);
       const icon = button.querySelector('i');
-      const isVisible = input.type === 'text';
-      
-      input.type = isVisible ? 'password' : 'text';
+      const isPassword = input.type === 'password';
+
+      input.type = isPassword ? 'text' : 'password';
       icon.classList.remove('fa-eye', 'fa-eye-slash');
-      icon.classList.add(isVisible ? 'fa-eye' : 'fa-eye-slash');
-      button.setAttribute('aria-label', isVisible ? 'Show password' : 'Hide password');
+      icon.classList.add(isPassword ? 'fa-eye-slash' : 'fa-eye');
+      button.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
     }
 
     clearCompletedRegistrationDraft();

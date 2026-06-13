@@ -228,6 +228,12 @@ router.post("/settings/security/password", isAuthenticated, (req, res) =>
   accountController.updateSecurityPasswordPost(req, res, db)
 );
 router.post(
+  "/settings/platform-fee-bearer",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_BILLING),
+  (req, res) => accountController.updatePlatformFeeBearerPost(req, res, db)
+);
+router.post(
   "/settings/calendar/profile",
   isAuthenticated,
   requirePermission(PERMISSIONS.MANAGE_SETTINGS),

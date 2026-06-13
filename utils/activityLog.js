@@ -790,7 +790,7 @@ async function getActivityLogFilterOptions(database, organizationId) {
 async function getOrganizationActivityLogs(database, options) {
   const organizationId = Number(options.organizationId);
   const page = Math.max(1, Number(options.page) || 1);
-  const pageSize = Math.min(100, Math.max(10, Number(options.pageSize) || 25));
+  const pageSize = Math.min(200, Math.max(10, Number(options.pageSize) || 20));
   const offset = (page - 1) * pageSize;
   const filters = options.filters || {};
 

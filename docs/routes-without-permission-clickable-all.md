@@ -128,7 +128,7 @@ Format: METHOD | Clickable URL | Source route file
 - POST | [http://localhost:4000/common/guardianRemoveStudent](http://localhost:4000/common/guardianRemoveStudent) | commonRoute.js
 - POST | [http://localhost:4000/common/guardianRequestPasswordReset](http://localhost:4000/common/guardianRequestPasswordReset) | commonRoute.js
 - GET | [http://localhost:4000/common/guardians](http://localhost:4000/common/guardians) | commonRoute.js
-- POST | [http://localhost:4000/common/initializePayment](http://localhost:4000/common/initializePayment) | commonRoute.js
+- POST | [http://localhost:4000/common/createPaymentIntent](http://localhost:4000/common/createPaymentIntent) | commonRoute.js
 - GET | [http://localhost:4000/common/manageAssessment](http://localhost:4000/common/manageAssessment) | commonRoute.js
 - GET | [http://localhost:4000/common/management](http://localhost:4000/common/management) | commonRoute.js
 - GET | [http://localhost:4000/common/modifyAssessment](http://localhost:4000/common/modifyAssessment) | commonRoute.js

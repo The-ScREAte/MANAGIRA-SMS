@@ -1484,7 +1484,7 @@
 </div>
 
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
+  (function initManagementMenu() {
     const navLinks = document.querySelectorAll('.nav-link');
     const sections = document.querySelectorAll('.management-section');
     const navToggle = document.getElementById('management-nav-toggle');
@@ -1508,6 +1508,13 @@
 
     // Only initialize if elements exist
     if (!navToggle || !nav || !overlay) return;
+
+    // Bind once per DOM instance. The SPA re-executes page scripts and
+    // re-dispatches DOMContentLoaded on every navigation; without this guard
+    // the toggle accumulates duplicate handlers and the menu opens then
+    // immediately closes ("doesn't open").
+    if (navToggle.dataset.spaMenuBound === '1') return;
+    navToggle.dataset.spaMenuBound = '1';
 
     syncToggleLabel(document.querySelector('.nav-link.active'));
 
@@ -1574,5 +1581,5 @@
         setNavOpen(false);
       }
     });
-  });
+  })();
 </script>

@@ -235,6 +235,7 @@
     }
 </style>
 
+<main>
 <div class="close-graduation-year-group-container">
     <h1>Close Graduation Year Group</h1>
 
@@ -285,43 +286,53 @@
 
 <!-- JavaScript -->
 <script>
-    // Confirmation dialog for form submission
-    function confirmAction(message) {
-        return confirm(message);
-    }
+    // Wrapped in an IIFE so top-level declarations never leak to the global
+    // scope. This keeps the page safe to re-run on every SPA navigation
+    // (re-declaring a top-level `const` would throw on the second visit).
+    // `confirmAction` is exposed on `window` because it is referenced by the
+    // inline form `onsubmit` attribute.
+    (function () {
+        // Confirmation dialog for form submission
+        window.confirmAction = function (message) {
+            return confirm(message);
+        };
 
-    // Toggle visibility for groups (accordion behavior - close others when one opens)
-    const toggleIcons = document.querySelectorAll('.toggle-icon');
-    toggleIcons.forEach(icon => {
-        icon.addEventListener('click', () => {
-            const targetId = icon.getAttribute('data-target');
-            const targetElement = document.getElementById(targetId);
-            const submitButton = targetElement.nextElementSibling;
-            const isCurrentlyHidden = targetElement.classList.contains('hidden');
+        // Toggle visibility for groups (accordion behavior - close others when one opens)
+        const toggleIcons = document.querySelectorAll('.toggle-icon');
+        toggleIcons.forEach(icon => {
+            icon.addEventListener('click', () => {
+                const targetId = icon.getAttribute('data-target');
+                const targetElement = document.getElementById(targetId);
+                if (!targetElement) return;
+                const submitButton = targetElement.nextElementSibling;
+                const isCurrentlyHidden = targetElement.classList.contains('hidden');
 
-            // Close all other groups first
-            toggleIcons.forEach(otherIcon => {
-                const otherId = otherIcon.getAttribute('data-target');
-                const otherElement = document.getElementById(otherId);
-                const otherButton = otherElement.nextElementSibling;
-                
-                if (otherId !== targetId) {
-                    otherElement.classList.add('hidden');
-                    otherButton.classList.add('hidden');
-                    otherIcon.textContent = '+';
+                // Close all other groups first
+                toggleIcons.forEach(otherIcon => {
+                    const otherId = otherIcon.getAttribute('data-target');
+                    const otherElement = document.getElementById(otherId);
+                    if (!otherElement) return;
+                    const otherButton = otherElement.nextElementSibling;
+
+                    if (otherId !== targetId) {
+                        otherElement.classList.add('hidden');
+                        if (otherButton) otherButton.classList.add('hidden');
+                        otherIcon.textContent = '+';
+                    }
+                });
+
+                // Toggle the clicked group
+                if (isCurrentlyHidden) {
+                    targetElement.classList.remove('hidden');
+                    if (submitButton) submitButton.classList.remove('hidden');
+                    icon.textContent = '−';
+                } else {
+                    targetElement.classList.add('hidden');
+                    if (submitButton) submitButton.classList.add('hidden');
+                    icon.textContent = '+';
                 }
             });
-
-            // Toggle the clicked group
-            if (isCurrentlyHidden) {
-                targetElement.classList.remove('hidden');
-                submitButton.classList.remove('hidden');
-                icon.textContent = '−';
-            } else {
-                targetElement.classList.add('hidden');
-                submitButton.classList.add('hidden');
-                icon.textContent = '+';
-            }
         });
-    });
+    })();
 </script>
+</main>

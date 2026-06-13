@@ -211,6 +211,7 @@ const {
 } = require("../utils/freeTrial");
 const { getPaystackSettings } = require("../utils/paystackConfig");
 const { isPaystackEnabled } = require("../utils/paystackEnabled");
+const { settleFromPaystackTransaction } = require("../utils/paystackPayout");
 const {
   getPaymentProvider,
   providerSupportsPaystack,
@@ -232,6 +233,8 @@ const {
 const { ensurePaymentProviderSchema, ensureStripeSubaccountSchema } = require("../utils/paymentProviderSchema");
 const {
   getPlatformFeeSettings,
+  normalizePlatformFeeBearer,
+  upsertOrgPlatformFeeBearer,
   buildPlatformChargeBreakdown,
 } = require("../utils/platformFee");
 const {
@@ -423,6 +426,7 @@ async function buildRegistrationChargeContext(registrationDetails, promoCode, tr
   const platformFeeSettings = await getPlatformFeeSettings(db);
   let chargeBreakdown = buildPlatformChargeBreakdown(finalAmount, {
     platformFeePercentage: platformFeeSettings.percentage,
+    bearer: "parent",
     applyPlatformFee: true,
   });
   let amountDue = Math.round(chargeBreakdown.totalChargedAmount * 100);
@@ -462,6 +466,7 @@ async function buildRegistrationChargeContext(registrationDetails, promoCode, tr
     amountDue = 0;
     chargeBreakdown = buildPlatformChargeBreakdown(0, {
       platformFeePercentage: 0,
+      bearer: "parent",
       applyPlatformFee: false,
     });
 
@@ -1887,6 +1892,7 @@ const accountController = {
       const platformFeeSettings = await getPlatformFeeSettings(db);
       const stripeChargeBreakdown = buildPlatformChargeBreakdown(stripeChargeBase, {
         platformFeePercentage: isTrialCheckout ? 0 : platformFeeSettings.percentage,
+        bearer: "parent",
         applyPlatformFee: !isTrialCheckout,
       });
 
@@ -2898,6 +2904,30 @@ const accountController = {
           const subscription = event.data;
                     // Subscription creation is handled in the payment flow
 
+          break;
+        }
+
+        case "charge.success": {
+          // Reliable catch-all settlement: even if the parent closes the browser
+          // before the redirect callback runs, settle the school's share for
+          // PayGira / public-registration charges that were not split at charge
+          // time. Idempotent — safe alongside the inline callback settlement.
+          try {
+            const charge = event.data || {};
+            const flow = String(charge.metadata?.flow || "");
+            if (flow === "guardian_paygira" || flow === "public_registration_inline") {
+              const secretKey = await getActivePaystackSecretKey().catch(
+                () => process.env.PAYSTACK_SECRET_KEY || ""
+              );
+              await settleFromPaystackTransaction(db, {
+                txn: charge,
+                context: flow === "guardian_paygira" ? "guardian_paygira" : "public_registration",
+                secretKey,
+              });
+            }
+          } catch (settleErr) {
+            console.error("[Paystack Webhook] charge.success auto-settle failed:", settleErr.message);
+          }
           break;
         }
 
@@ -5417,6 +5447,31 @@ const accountController = {
     }
   },
 
+  updatePlatformFeeBearerPost: async (req, res, db) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) {
+      req.flash("error", "You must be signed in as a school administrator.");
+      return res.redirect("/account/settings");
+    }
+
+    try {
+      const bearer = normalizePlatformFeeBearer(req.body?.platform_fee_bearer);
+      await upsertOrgPlatformFeeBearer(orgId, bearer, db);
+
+      req.flash(
+        "success",
+        bearer === "parent"
+          ? "Saved. Platform service fees will be charged to parents on top of tuition."
+          : "Saved. Platform service fees will be absorbed from the school's portion."
+      );
+      return res.redirect("/account/settings#platform-fee-bearer-card");
+    } catch (error) {
+      console.error("[updatePlatformFeeBearerPost]", error);
+      req.flash("error", "Failed to update platform fee preference. Please try again.");
+      return res.redirect("/account/settings#platform-fee-bearer-card");
+    }
+  },
+
   updateProfileNamePost: async (req, res, db) => {
     if (!req.session.user || !req.session.organizationId) {
       req.flash("error", "You must be logged in.");
@@ -7036,11 +7091,12 @@ const accountController = {
       }
 
       const stripeSettings = await getStripeSettings(db).catch(() => ({ mode: 'test' }));
+      const platformFeeSettings = await getPlatformFeeSettings(db).catch(() => ({ percentage: 0 }));
       await ensureStripeConnectAccountSchema(db);
 
       const orgResult = orgId
         ? await db.query(
-            `SELECT organization_name, logo, logo_path, image_url, font_style, nickname, nickname_display, role, email, paystack_customer_code, stripe_customer_id, billing_provider, first_name, last_name, organization_phone, is_hub_member, hub_id, stripe_connect_account_id, stripe_connect_account_id_test, stripe_connect_account_id_live
+            `SELECT organization_name, logo, logo_path, image_url, font_style, nickname, nickname_display, role, email, paystack_customer_code, stripe_customer_id, billing_provider, first_name, last_name, organization_phone, is_hub_member, hub_id, stripe_connect_account_id, stripe_connect_account_id_test, stripe_connect_account_id_live, platform_fee_bearer
              FROM organizations 
              WHERE organization_id = $1`,
             [orgId]
@@ -7489,6 +7545,7 @@ const accountController = {
         payoutContext: await require("../utils/payoutDestination")
           .resolveSchoolPayoutDestination(orgId, db, { fresh: true })
           .catch(() => null),
+        platformFeePercentage: Number(platformFeeSettings.percentage || 0),
         paystackCountries: await require("../utils/payoutDestination")
           .fetchPaystackCountries()
           .catch(() => []),
@@ -9015,8 +9072,20 @@ const accountController = {
   deletePaystackSubaccount: async (req, res) => {
     try {
       const { id } = req.params;
+      const orgId = req.session.organizationId;
 
-      await db.query(`DELETE FROM paystack_subaccounts WHERE id = $1`, [id]);
+      if (!orgId) {
+        return res.status(401).json({ success: false, message: "Not authenticated." });
+      }
+
+      const result = await db.query(
+        `DELETE FROM paystack_subaccounts WHERE id = $1 AND organization_id = $2`,
+        [id, orgId]
+      );
+
+      if (result.rowCount === 0) {
+        return res.status(404).json({ success: false, message: "Account not found." });
+      }
 
       res.json({ success: true });
     } catch (err) {
@@ -9027,6 +9096,11 @@ const accountController = {
   getPaystackSubaccountById: async (req, res) => {
     try {
       const { id } = req.params;
+      const orgId = req.session.organizationId;
+
+      if (!orgId) {
+        return res.status(401).json({ success: false, message: "Not authenticated." });
+      }
 
       const result = await db.query(
         `SELECT id, organization_id, account_type, business_name, 
@@ -9039,9 +9113,9 @@ const accountController = {
 
          FROM paystack_subaccounts
 
-         WHERE id = $1`,
+         WHERE id = $1 AND organization_id = $2`,
 
-        [id]
+        [id, orgId]
       );
 
       if (result.rows.length === 0) {
@@ -10095,21 +10169,29 @@ accountController.updatePayoutPreferencePost = async (req, res) => {
   const orgId = req.session.organizationId;
   if (!orgId) return res.status(401).json({ success: false });
   const raw = String(req.body?.preference || "").trim().toLowerCase();
-  const allowed = ["stripe", "paystack", "both", ""]; // "" = clear (auto)
+  const allowed = ["stripe", "paystack"];
   if (!allowed.includes(raw)) {
-    return res.status(400).json({ success: false, message: "Invalid preference." });
+    return res.status(400).json({ success: false, message: "Select exactly one payout provider: Stripe or Paystack." });
   }
   try {
+    const ctx = await resolveSchoolPayoutDestination(orgId, db, { fresh: true });
+    if (raw === "stripe" && !ctx?.stripe?.available) {
+      return res.status(400).json({ success: false, message: "Stripe is not ready for this school yet." });
+    }
+    if (raw === "paystack" && !ctx?.paystack?.available) {
+      return res.status(400).json({ success: false, message: "Paystack is not ready for this school yet." });
+    }
+
     await db.query(
       `ALTER TABLE organizations ADD COLUMN IF NOT EXISTS payout_provider_pref VARCHAR(16)`
     );
     await db.query(
       `UPDATE organizations SET payout_provider_pref = $1 WHERE organization_id = $2`,
-      [raw || null, orgId]
+      [raw, orgId]
     );
     invalidatePayoutCache(orgId);
-    const ctx = await resolveSchoolPayoutDestination(orgId, db, { fresh: true });
-    return res.json({ success: true, payout: ctx });
+    const nextCtx = await resolveSchoolPayoutDestination(orgId, db, { fresh: true });
+    return res.json({ success: true, payout: nextCtx });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }

@@ -796,13 +796,19 @@
             <% _prAccounts.forEach(function(acct, i) { %>
             <%
               var pIcon = acct.account_type === 'mobile_money' ? '📱' : '🏦';
-              var pLabel = acct.account_type === 'mobile_money'
-                ? 'Pay with MoMo · ' + (acct.momo_provider || 'Provider') + (acct.momo_number ? ' ···' + String(acct.momo_number).slice(-4) : '')
-                : 'Pay to Bank · ' + (acct.bank_name || acct.business_name || 'Bank') + (acct.account_number ? ' ···' + String(acct.account_number).slice(-4) : '');
+              var pName = acct.account_type === 'mobile_money'
+                ? (acct.business_name || acct.account_holder_name || acct.momo_provider || 'Mobile Money')
+                : (acct.business_name || acct.bank_name || 'Bank Account');
+              var pSub = acct.account_type === 'mobile_money'
+                ? ((acct.momo_provider ? String(acct.momo_provider).toUpperCase() : 'MoMo') + (acct.momo_number ? ' · ···' + String(acct.momo_number).slice(-4) : ''))
+                : ((acct.bank_name || '') + (acct.account_number ? ' · ···' + String(acct.account_number).slice(-4) : ''));
             %>
             <label id="pr-acct-lbl-<%= acct.id %>" style="display:flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid <%= (!_prStripe && (i===0||acct.is_primary))?'#0d9488':'#e2e8f0' %>;border-radius:8px;cursor:pointer;font-size:.82rem;background:<%= (!_prStripe && (i===0||acct.is_primary))?'#f0fdfa':'' %>;">
               <input type="radio" name="prPayoutAccount" value="<%= acct.id %>" <%= (!_prStripe && (i===0||acct.is_primary))?'checked':'' %> onchange="prSyncPayoutCards()" style="accent-color:#0d9488;">
-              <span><%= pIcon %> <%= pLabel %></span>
+              <span style="display:flex;flex-direction:column;gap:2px;">
+                <span><%= pIcon %> <%= pName %></span>
+                <% if (pSub) { %><small style="color:#64748b;font-size:.72rem;"><%= pSub %></small><% } %>
+              </span>
             </label>
             <% }); %>
             <% if (_prStripe) { %>
@@ -829,6 +835,11 @@
         <button type="button" id="payNowBtn" onclick="payNow()">
           Pay <%= orgDetails.public_registration_currency %> <%= orgDetails.public_registration_price %>
         </button>
+        <div id="feeBreakdown" style="display:none;margin:10px 0 0;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;background:#f8fafc;font-size:.84rem;color:#334155;">
+          <div style="display:flex;justify-content:space-between;gap:12px;"><span>Subtotal</span><strong id="fbSubtotal">—</strong></div>
+          <div id="fbFeeRow" style="display:flex;justify-content:space-between;gap:12px;margin-top:6px;"><span>Service fee (<span id="fbPercent">0</span>%)</span><strong id="fbFee">—</strong></div>
+          <div style="display:flex;justify-content:space-between;gap:12px;margin-top:6px;padding-top:6px;border-top:1px dashed #cbd5e1;"><span>Total</span><strong id="fbTotal">—</strong></div>
+        </div>
         <p style="text-align:center;font-size:.78rem;color:#6b7280;margin-top:8px;">
           Payment processed by <strong><%= orgDetails.organization_name %></strong>
         </p>
@@ -875,11 +886,64 @@
     const STRIPE_PAYOUT_READY    = <%= (typeof stripePayoutReady !== 'undefined' && stripePayoutReady) ? 'true' : 'false' %>;
     const PAYSTACK_PAYOUT_READY  = <%= (typeof paystackPayoutReady !== 'undefined' && paystackPayoutReady) ? 'true' : 'false' %>;
     const PAYOUT_PROVIDER        = <%- JSON.stringify(payoutProvider || '') %>;
+    const PR_PLATFORM_FEE_PERCENT = <%= Number(typeof platformFeePercentage !== 'undefined' ? platformFeePercentage : 0) %>;
+    const PR_PLATFORM_FEE_BEARER  = <%- JSON.stringify(typeof platformFeeBearer !== 'undefined' ? platformFeeBearer : 'parent') %>;
 
     let guardianCount         = 1;
     let stripeInstance        = null;
     let stripeElements        = null;
     let paymentElementMounted = false;
+
+    function formatBreakdownAmount(value, currencyCode) {
+      const amount = Number(value || 0);
+      try {
+        return new Intl.NumberFormat(undefined, {
+          style: 'currency',
+          currency: currencyCode || REGISTRATION_CURRENCY,
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }).format(amount);
+      } catch (_) {
+        return (currencyCode || REGISTRATION_CURRENCY) + ' ' + amount.toFixed(2);
+      }
+    }
+
+    function renderBreakdown(b, currencyCode) {
+      if (!b) return;
+      var panel = document.getElementById('feeBreakdown');
+      var subtotal = document.getElementById('fbSubtotal');
+      var fee = document.getElementById('fbFee');
+      var percent = document.getElementById('fbPercent');
+      var total = document.getElementById('fbTotal');
+      var feeRow = document.getElementById('fbFeeRow');
+      if (!panel || !subtotal || !fee || !percent || !total || !feeRow) return;
+
+      subtotal.textContent = formatBreakdownAmount(b.subtotalAmount, currencyCode);
+      fee.textContent = formatBreakdownAmount(b.platformFeeAmount, currencyCode);
+      percent.textContent = Number(b.platformFeePercentage || 0).toFixed(2);
+      total.textContent = formatBreakdownAmount(b.totalChargedAmount, currencyCode);
+      feeRow.style.display = String(b.platformFeeBearer || 'parent') === 'parent' ? 'flex' : 'none';
+      panel.style.display = '';
+    }
+
+    // Show an immediate fee/total preview when the payment step opens, before the
+    // payment session is created. The authoritative server breakdown replaces this
+    // once the PaymentIntent / Paystack session is initialised.
+    function showLocalFeeBreakdown() {
+      var subtotal = Number(REGISTRATION_AMOUNT || 0);
+      if (!(subtotal > 0)) return;
+      var pct = Number(PR_PLATFORM_FEE_PERCENT || 0);
+      var fee = pct > 0 ? Math.round(subtotal * (pct / 100) * 100) / 100 : 0;
+      var bearer = String(PR_PLATFORM_FEE_BEARER || 'parent') === 'school' ? 'school' : 'parent';
+      var total = bearer === 'parent' ? Math.round((subtotal + fee) * 100) / 100 : subtotal;
+      renderBreakdown({
+        subtotalAmount: subtotal,
+        platformFeePercentage: pct,
+        platformFeeAmount: fee,
+        platformFeeBearer: bearer,
+        totalChargedAmount: total,
+      }, REGISTRATION_CURRENCY);
+    }
 
     // ─── Navigation ──────────────────────────────────────────────────────────
 
@@ -976,6 +1040,9 @@
 
       document.getElementById('paymentFormContainer').style.display = 'block';
 
+      // Show the service fee / total preview as soon as the payment step opens.
+      showLocalFeeBreakdown();
+
       // Block if school hasn't set up their Stripe payout account
       if (!HAS_PAYOUT_ACCOUNT) {
         document.getElementById('stripeLoadingMsg').style.display = 'none';
@@ -1026,6 +1093,10 @@
           body: JSON.stringify({ amount: amount || REGISTRATION_AMOUNT, organizationId: ORG_ID, payoutAccountId: selectedPayoutAccountId }),
         });
         const data = await res.json();
+
+        if (data && data.charge_breakdown) {
+          renderBreakdown(data.charge_breakdown, REGISTRATION_CURRENCY);
+        }
 
         if (data.provider === 'paystack' && data.authorization_url) {
           loadingMsg.textContent = 'Redirecting you to Paystack…';

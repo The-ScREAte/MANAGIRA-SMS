@@ -5,7 +5,7 @@
 // Strategy
 //   1. School sets payout pref in Settings → Billing → Payment Method → Payout
 //      Accounts (column: organizations.payout_provider_pref).
-//      Values: 'stripe' | 'paystack' | 'both' | NULL (auto-detect).
+//      Values: 'stripe' | 'paystack'.
 //   2. Resolver returns the active provider + destination id + readiness.
 //   3. Paystack countries are fetched LIVE from the org's active Paystack
 //      account (api.paystack.co/country) and cached 24h so the UI only
@@ -93,7 +93,7 @@ async function isPaystackSupportedCountry(iso) {
  * @returns {Promise<{
  *   provider: 'stripe'|'paystack'|null,
  *   ready: boolean,
- *   preference: 'stripe'|'paystack'|'both'|null,
+ *   preference: 'stripe'|'paystack'|null,
  *   country: string,
  *   stripe:   { accountId: string, chargesEnabled: boolean, available: boolean },
  *   paystack: { subaccountCode: string, accountType: string, available: boolean, countrySupported: boolean },
@@ -121,7 +121,10 @@ async function resolveSchoolPayoutDestination(orgId, db = defaultDb, opts = {}) 
   )).rows[0] || {};
 
   const country = normalizeCountryIso(orgRow.organization_country);
-  const preference = orgRow.payout_provider_pref || null;
+  const rawPreference = String(orgRow.payout_provider_pref || '').trim().toLowerCase();
+  const preference = rawPreference === 'stripe' || rawPreference === 'paystack'
+    ? rawPreference
+    : null;
 
   const stripeAccountId =
     String(orgRow.stripe_connect_account_id_live || '').trim() ||
@@ -150,16 +153,10 @@ async function resolveSchoolPayoutDestination(orgId, db = defaultDb, opts = {}) 
   let reason = '';
   const pref = preference;
 
-  if (pref === 'paystack' && paystackAvailable) {
-    provider = 'paystack';
-  } else if (pref === 'stripe' && stripeAvailable) {
-    provider = 'stripe';
-  } else if (pref === 'both') {
-    // Both selected → prefer Paystack when the school is in a Paystack country,
-    // otherwise Stripe.
-    if (paystackAvailable && paystackCountrySupported) provider = 'paystack';
-    else if (stripeAvailable) provider = 'stripe';
-    else if (paystackAvailable) provider = 'paystack';
+  if (pref === 'paystack') {
+    provider = paystackAvailable ? 'paystack' : null;
+  } else if (pref === 'stripe') {
+    provider = stripeAvailable ? 'stripe' : null;
   } else {
     // NULL / auto — keep legacy behaviour: Stripe wins when present.
     if (stripeAvailable) provider = 'stripe';

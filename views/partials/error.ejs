@@ -14,7 +14,7 @@
                 <div class="error-details">
                     <h1 class="status"><%= status %></h1>
                     <p class="message"><%= message %></p>
-                    <a href="<%= (session && (session.userId || session.organizationId)) ? '/common/orgDashboard' : '/' %>" class="home-link">Return to Home</a>
+                    <a href="<%= (locals.session && (locals.session.userId || locals.session.organizationId)) ? '/common/orgDashboard' : '/' %>" class="home-link">Return to Home</a>
                 </div>
             </main>
         </div>

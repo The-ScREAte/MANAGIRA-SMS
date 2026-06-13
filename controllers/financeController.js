@@ -34,8 +34,10 @@ const { getActiveStripePublicKey, getStripeSettings, getStripePlatformClient, ge
 const { buildStudentDisplayId, getOrganizationStudentIdSettings } = require("../utils/studentIdDisplay");
 const { getPaystackSettings } = require("../utils/paystackConfig");
 const { resolveSchoolPayoutDestination } = require("../utils/payoutDestination");
+const { settleFromPaystackTransaction } = require("../utils/paystackPayout");
 const {
   getPlatformFeeSettings,
+  getOrgPlatformFeeBearer,
   isPlatformFeeMethod,
   buildPlatformChargeBreakdown,
 } = require("../utils/platformFee");
@@ -69,11 +71,12 @@ function money(value) {
   return formatCurrencyAmount(value, "USD", "en-US");
 }
 
-function buildFinancePaymentChargeBreakdown(baseAmount, method, platformFeePercentage = 0, taxAmount = 0) {
+function buildFinancePaymentChargeBreakdown(baseAmount, method, platformFeePercentage = 0, taxAmount = 0, bearer = 'parent') {
   return buildPlatformChargeBreakdown(baseAmount, {
     applyPlatformFee: isPlatformFeeMethod(method),
     platformFeePercentage,
     taxAmount,
+    bearer,
   });
 }
 
@@ -920,20 +923,7 @@ async function resolveFinanceStripeRuntime(orgId, pspSettings, orgProfileInput) 
   const orgProfile = orgProfileInput && Object.keys(orgProfileInput).length
     ? orgProfileInput
     : await loadOrganizationProfile(orgId);
-  const schoolPublishableKey = String(pspSettings?.stripe_publishable_key || '').trim();
-  const schoolSecretKey = String(pspSettings?.stripe_secret_key || '').trim();
   const connectedAccountId = String(orgProfile?.stripe_connect_account_id || '').trim();
-  const hasSchoolStripeConfig = Boolean(schoolPublishableKey && schoolSecretKey);
-
-  if (hasSchoolStripeConfig) {
-    return {
-      stripeOn: true,
-      publishableKey: schoolPublishableKey,
-      secretKey: schoolSecretKey,
-      connectedAccountId,
-      useConnectedDestinationCharge: false,
-    };
-  }
 
   const platformCredentials = await resolvePlatformStripeCredentials();
   const canUseConnectedStripe = Boolean(
@@ -962,7 +952,9 @@ function getFinanceStripeClient(stripeRuntime) {
 // Given a school's PSP settings, return the methods parents/staff are allowed to use.
 function computeAllowedMethods(pspSettings, options = {}) {
   const s = pspSettings || {};
-  const stripeOn = !!(s.stripe_publishable_key && s.stripe_secret_key) || !!options.stripeOn;
+  const stripeOn = typeof options.stripeOn === 'boolean'
+    ? options.stripeOn
+    : !!(s.stripe_publishable_key && s.stripe_secret_key);
   // Selected stripe methods – default to ['card'] if Stripe is on but no list saved
   let stripeMethods = [];
   if (stripeOn) {
@@ -1655,6 +1647,7 @@ async function upsertPendingGuardianStripePayment(client, payload) {
       credit_applied_expected,
       platform_fee_percentage,
       platform_fee_amount,
+      platform_fee_bearer,
       tax_amount,
       charged_amount,
       currency,
@@ -1666,7 +1659,7 @@ async function upsertPendingGuardianStripePayment(client, payload) {
       updated_at,
       processed_at
     ) VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb,$16::jsonb,$17,$18,$19,NOW(),$20
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb,$17::jsonb,$18,$19,$20,NOW(),$21
     )
     ON CONFLICT (payment_intent_id) DO UPDATE SET
       requested_amount = EXCLUDED.requested_amount,
@@ -1674,6 +1667,7 @@ async function upsertPendingGuardianStripePayment(client, payload) {
       credit_applied_expected = EXCLUDED.credit_applied_expected,
       platform_fee_percentage = EXCLUDED.platform_fee_percentage,
       platform_fee_amount = EXCLUDED.platform_fee_amount,
+      platform_fee_bearer = EXCLUDED.platform_fee_bearer,
       tax_amount = EXCLUDED.tax_amount,
       charged_amount = EXCLUDED.charged_amount,
       currency = EXCLUDED.currency,
@@ -1696,6 +1690,7 @@ async function upsertPendingGuardianStripePayment(client, payload) {
       payload.creditAppliedExpected,
       payload.platformFeePercentage,
       payload.platformFeeAmount,
+      payload.platformFeeBearer || 'parent',
       payload.taxAmount,
       payload.chargedAmount,
       payload.currency,
@@ -1851,6 +1846,7 @@ async function finalizePendingGuardianStripePayment(database, paymentIntentId) {
     const totalExternalAmount = effectiveEntries.reduce((sum, entry) => sum + Number(entry.externalAmount || 0), 0);
     const payMethod = resolveStripeFinanceMethod(paymentIntent);
     const platformFeePercentage = Number(pending.platform_fee_percentage || 0);
+    const platformFeeBearer = String(pending.platform_fee_bearer || 'parent').toLowerCase() === 'school' ? 'school' : 'parent';
     let totalPlatformFeeAmount = 0;
 
     if (creditApplied > 0) {
@@ -1858,8 +1854,8 @@ async function finalizePendingGuardianStripePayment(database, paymentIntentId) {
         if (!(Number(entry.creditAmount || 0) > 0)) continue;
         await client.query(
           `INSERT INTO finance_payments
-            (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, occurrence_date)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+            (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, occurrence_date, platform_fee_bearer)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
           [
             pending.organization_id,
             row.assignment_id,
@@ -1870,6 +1866,7 @@ async function finalizePendingGuardianStripePayment(database, paymentIntentId) {
             'STUDENT-CREDIT',
             `${entry.notes || `Guardian portal payment by guardian #${pending.guardian_id}`} using available student credit`,
             entry.occurrenceDate || null,
+            platformFeeBearer,
           ]
         );
       }
@@ -1879,12 +1876,12 @@ async function finalizePendingGuardianStripePayment(database, paymentIntentId) {
     if (totalExternalAmount > 0) {
       for (const entry of effectiveEntries) {
         if (!(Number(entry.externalAmount || 0) > 0)) continue;
-        const chargeBreakdown = buildFinancePaymentChargeBreakdown(entry.externalAmount, payMethod, platformFeePercentage);
+        const chargeBreakdown = buildFinancePaymentChargeBreakdown(entry.externalAmount, payMethod, platformFeePercentage, 0, platformFeeBearer);
         totalPlatformFeeAmount += chargeBreakdown.platformFeeAmount;
         await client.query(
           `INSERT INTO finance_payments
-            (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, occurrence_date, platform_fee_percentage, platform_fee_amount, tax_amount)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+            (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, occurrence_date, platform_fee_percentage, platform_fee_amount, platform_fee_bearer, tax_amount)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
           [
             pending.organization_id,
             row.assignment_id,
@@ -1897,6 +1894,7 @@ async function finalizePendingGuardianStripePayment(database, paymentIntentId) {
             entry.occurrenceDate || null,
             chargeBreakdown.platformFeePercentage,
             chargeBreakdown.platformFeeAmount,
+            platformFeeBearer,
             chargeBreakdown.taxAmount,
           ]
         );
@@ -3241,12 +3239,13 @@ async function collectStaffPaygiraPayment({
   }
 
   const { percentage: platformFeePercentage } = await getPlatformFeeSettings(client);
-  const chargeBreakdown = buildFinancePaymentChargeBreakdown(amt, requested, platformFeePercentage);
+  const platformFeeBearer = await getOrgPlatformFeeBearer(orgId, client);
+  const chargeBreakdown = buildFinancePaymentChargeBreakdown(amt, requested, platformFeePercentage, 0, platformFeeBearer);
 
   const paymentInsert = await client.query(
     `INSERT INTO finance_payments
-      (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, received_by, occurrence_date, platform_fee_percentage, platform_fee_amount, tax_amount)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+      (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, received_by, occurrence_date, platform_fee_percentage, platform_fee_amount, platform_fee_bearer, tax_amount)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
      RETURNING payment_id, received_at`,
     [
       orgId,
@@ -3261,6 +3260,7 @@ async function collectStaffPaygiraPayment({
       occDateVal,
       chargeBreakdown.platformFeePercentage,
       chargeBreakdown.platformFeeAmount,
+      platformFeeBearer,
       chargeBreakdown.taxAmount,
     ]
   );
@@ -4448,17 +4448,19 @@ module.exports = {
       if (amt <= 0) { req.flash("error", "Enter a valid amount."); return res.redirect("/account/settings/finance?section=bills"); }
       const normalizedMethod = String(method || 'cash').toLowerCase();
       const { percentage: platformFeePercentage } = await getPlatformFeeSettings(db);
-      const chargeBreakdown = buildFinancePaymentChargeBreakdown(amt, normalizedMethod, platformFeePercentage);
+      const platformFeeBearer = await getOrgPlatformFeeBearer(orgId, db);
+      const chargeBreakdown = buildFinancePaymentChargeBreakdown(amt, normalizedMethod, platformFeePercentage, 0, platformFeeBearer);
 
       await db.query(
         `INSERT INTO finance_payments
-          (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, received_by, platform_fee_percentage, platform_fee_amount, tax_amount)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+          (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, received_by, platform_fee_percentage, platform_fee_amount, platform_fee_bearer, tax_amount)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
         [orgId, row.assignment_id, row.bill_id, row.student_id, amt,
           normalizedMethod, reference || null, notes || null,
           req.session.user?.user_id || null,
           chargeBreakdown.platformFeePercentage,
           chargeBreakdown.platformFeeAmount,
+          platformFeeBearer,
           chargeBreakdown.taxAmount]
       );
       const newPaid = Number(row.amount_paid) + amt;
@@ -6270,6 +6272,30 @@ module.exports = {
         }
       }
 
+      // Restrict the payer's selectable route to the school's chosen payout provider.
+      let _pgPayoutProvider = null;
+      try {
+        const { resolveSchoolPayoutDestination } = require("../utils/payoutDestination");
+        const _pgPayoutCtx = await resolveSchoolPayoutDestination(orgId, database).catch(() => null);
+        _pgPayoutProvider = _pgPayoutCtx?.provider || null;
+      } catch (_) { _pgPayoutProvider = null; }
+      let _pgPayoutAccounts = payoutAccountsR.rows || [];
+      let _pgStripeSelectable = stripeRuntime.stripeOn;
+      if (_pgPayoutProvider === 'stripe') {
+        _pgPayoutAccounts = [];
+      } else if (_pgPayoutProvider === 'paystack') {
+        _pgStripeSelectable = false;
+      }
+
+      // Platform fee info so the pay modal can preview the service fee before submitting.
+      let _pgPlatformFeePercent = 0;
+      let _pgPlatformFeeBearer = 'parent';
+      try {
+        const { percentage } = await getPlatformFeeSettings(database);
+        _pgPlatformFeePercent = Number(percentage || 0);
+        _pgPlatformFeeBearer = await getOrgPlatformFeeBearer(orgId, database);
+      } catch (_) { /* defaults */ }
+
       res.render("guardian/paygira", {
         title: "PayGira — Pay Bills",
         guardian: guardianData.guardian,
@@ -6287,9 +6313,11 @@ module.exports = {
         formatMoney: display.formatMoney,
         money,
         schoolName: orgProfile.organization_name || '',
-        payoutAccounts: payoutAccountsR.rows || [],
+        payoutAccounts: _pgPayoutAccounts,
         stripePayoutReady: stripeAccountReady && stripeRuntime.stripeOn,
-        stripeSelectable: stripeRuntime.stripeOn,
+        stripeSelectable: _pgStripeSelectable,
+        platformFeePercentage: _pgPlatformFeePercent,
+        platformFeeBearer: _pgPlatformFeeBearer,
         messages: req.flash ? req.flash() : {},
         req,
       });
@@ -6328,9 +6356,28 @@ module.exports = {
       // Resolve which specific payout account to use
       // payout_account_id: DB id of paystack_subaccounts row; 'stripe' = use Stripe Connect
       const requestedAccountId = req.body?.payout_account_id;
+      const requestedIsStripe = String(requestedAccountId || '').trim().toLowerCase() === 'stripe';
+      const requestedIsPaystack = Boolean(requestedAccountId && !requestedIsStripe);
+      const preferredProvider = String(payoutContext?.preference || '').trim().toLowerCase();
+
+      if (preferredProvider === 'stripe' && requestedIsPaystack) {
+        return res.status(400).json({
+          success: false,
+          message: 'This school currently has Stripe as the active payout provider.',
+        });
+      }
+      if (preferredProvider === 'paystack' && requestedIsStripe) {
+        return res.status(400).json({
+          success: false,
+          message: 'This school currently has Paystack as the active payout provider.',
+        });
+      }
+
       let payoutProvider = payoutContext?.provider || null;
       let explicitSubaccountCode = null;
-      if (requestedAccountId && requestedAccountId !== 'stripe') {
+      if (preferredProvider === 'stripe' || preferredProvider === 'paystack') {
+        payoutProvider = preferredProvider;
+      } else if (requestedAccountId && requestedAccountId !== 'stripe') {
         const requestedAccountNumericId = parseInt(requestedAccountId, 10);
         if (Number.isFinite(requestedAccountNumericId)) {
           const acctRow = await database.query(
@@ -6346,13 +6393,25 @@ module.exports = {
         payoutProvider = 'stripe';
       }
 
-      // If Stripe was selected/preferred but runtime is unusable, fall back to Paystack when available.
-      if (payoutProvider === 'stripe' && !stripeRuntime?.stripeOn) {
-        const fallbackSubaccount = explicitSubaccountCode || payoutContext?.paystack?.subaccountCode || null;
-        if (fallbackSubaccount) {
-          payoutProvider = 'paystack';
-          explicitSubaccountCode = fallbackSubaccount;
+      if (payoutProvider === 'paystack' && requestedAccountId && requestedAccountId !== 'stripe') {
+        const requestedAccountNumericId = parseInt(requestedAccountId, 10);
+        if (Number.isFinite(requestedAccountNumericId)) {
+          const acctRow = await database.query(
+            `SELECT subaccount_code, account_type FROM paystack_subaccounts WHERE id=$1 AND organization_id=$2`,
+            [requestedAccountNumericId, orgId]
+          );
+          if (acctRow.rows.length) {
+            explicitSubaccountCode = acctRow.rows[0].subaccount_code;
+          }
         }
+      }
+
+      // When Stripe is the selected/preferred provider, do not auto-fallback.
+      if (payoutProvider === 'stripe' && !stripeRuntime?.stripeOn) {
+        return res.status(400).json({
+          success: false,
+          message: 'Stripe is currently the active payout provider for this school, but Stripe is not ready yet.',
+        });
       }
 
       if (!payoutContext?.ready && !explicitSubaccountCode && requestedAccountId !== 'stripe') {
@@ -6379,7 +6438,12 @@ module.exports = {
       }
 
       const { percentage: platformFeePercentage } = await getPlatformFeeSettings(client);
-      const chargeBreakdown = buildFinancePaymentChargeBreakdown(plan.totalExternalAmount, 'stripe', platformFeePercentage);
+      const platformFeeBearer = await getOrgPlatformFeeBearer(orgId, client);
+      const chargeBreakdown = buildPlatformChargeBreakdown(plan.totalExternalAmount, {
+        platformFeePercentage,
+        bearer: platformFeeBearer,
+        applyPlatformFee: isPlatformFeeMethod('stripe'),
+      });
       const display = await buildFinanceDisplayContext(req, orgId, pspSettings, orgProfile.organization_country);
       const currencyCode = String(display.financeCurrency.code || 'USD').toLowerCase();
       const stripeCheckoutConfig = buildGuardianStripeCheckoutConfig(allowedMethods.stripeMethods);
@@ -6405,6 +6469,8 @@ module.exports = {
         }
 
         const paymentReference = `PG-${orgId}-${guardianId}-${plan.row.assignment_id}-${Date.now()}`;
+        const useSubaccount = Boolean(subaccountCodeToUse && subaccountCodeToUse.startsWith('ACCT_'));
+        const platformFeeMinor = Math.round(chargeBreakdown.platformFeeAmount * 100);
         const paystackCurrencyMap = {
           gh: 'GHS',
           ng: 'NGN',
@@ -6429,7 +6495,13 @@ module.exports = {
           amount: Math.round(chargeBreakdown.totalChargedAmount * 100),
           reference: paymentReference,
           callback_url: paystackCallbackUrl,
-          ...(subaccountCodeToUse && subaccountCodeToUse.startsWith('ACCT_') ? { subaccount: subaccountCodeToUse } : {}),
+          ...(useSubaccount
+            ? {
+                subaccount: subaccountCodeToUse,
+                transaction_charge: platformFeeMinor,
+                bearer: 'account',
+              }
+            : {}),
           metadata: {
             flow: 'guardian_paygira',
             organization_id: String(orgId),
@@ -6440,6 +6512,9 @@ module.exports = {
             payout_provider: 'paystack',
             payout_subaccount_code: subaccountCodeToUse || '',
             payout_account_id: requestedAccountId ? String(requestedAccountId) : '',
+            platform_fee_bearer: platformFeeBearer,
+            platform_fee_amount: String(chargeBreakdown.platformFeeAmount),
+            platform_fee_percentage: String(chargeBreakdown.platformFeePercentage),
           },
         };
 
@@ -6480,12 +6555,20 @@ module.exports = {
           amountDue: Math.round(chargeBreakdown.totalChargedAmount * 100),
           amountApplied: Math.round(plan.totalExternalAmount * 100),
           platformFeeAmount: Math.round(chargeBreakdown.platformFeeAmount * 100),
+          charge_breakdown: chargeBreakdown,
           currency: String(paystackResponse?.data?.data?.currency || preferredPaystackCurrency).toUpperCase(),
         };
 
         return req.session.save
           ? req.session.save(() => res.json(payload))
           : res.json(payload);
+      }
+
+      if (!stripeRuntime.useConnectedDestinationCharge || !stripeRuntime.connectedAccountId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Stripe Connect is not configured for this organization. Contact the school administrator.',
+        });
       }
 
       const stripe = getFinanceStripeClient(stripeRuntime);
@@ -6529,6 +6612,7 @@ module.exports = {
         currency: currencyCode,
         ...(stripeCustomerId ? { customer: stripeCustomerId } : {}),
         automatic_payment_methods: { enabled: true, allow_redirects: 'always' },
+        transfer_data: { destination: stripeRuntime.connectedAccountId },
         ...(savedPaymentMethodId
           ? { payment_method: savedPaymentMethodId }
           : { setup_future_usage: 'on_session' }
@@ -6540,15 +6624,15 @@ module.exports = {
           assignment_id: String(plan.row.assignment_id),
           bill_id: String(plan.row.bill_id),
           student_id: String(plan.row.student_id),
+          platform_fee_bearer: platformFeeBearer,
+          platform_fee_amount: String(chargeBreakdown.platformFeeAmount),
+          platform_fee_percentage: String(chargeBreakdown.platformFeePercentage),
         },
         description: `PayGira ${plan.row.bill_title || 'Bill'} · Assignment ${plan.row.assignment_id}`,
       };
-      if (stripeRuntime.useConnectedDestinationCharge && stripeRuntime.connectedAccountId) {
-        piParams.transfer_data = { destination: stripeRuntime.connectedAccountId };
-        const applicationFeeAmount = Math.round(Number(chargeBreakdown.platformFeeAmount || 0) * 100);
-        if (applicationFeeAmount > 0) {
-          piParams.application_fee_amount = applicationFeeAmount;
-        }
+      const applicationFeeAmount = Math.round(Number(chargeBreakdown.platformFeeAmount || 0) * 100);
+      if (applicationFeeAmount > 0) {
+        piParams.application_fee_amount = applicationFeeAmount;
       }
 
       const paymentIntent = await stripe.paymentIntents.create(piParams);
@@ -6565,6 +6649,7 @@ module.exports = {
         creditAppliedExpected: plan.creditApplied,
         platformFeePercentage: chargeBreakdown.platformFeePercentage,
         platformFeeAmount: chargeBreakdown.platformFeeAmount,
+        platformFeeBearer,
         taxAmount: chargeBreakdown.taxAmount,
         chargedAmount: chargeBreakdown.totalChargedAmount,
         currency: String(display.financeCurrency.code || 'USD').toUpperCase(),
@@ -6581,6 +6666,7 @@ module.exports = {
         amountDue: Math.round(chargeBreakdown.totalChargedAmount * 100),
         amountApplied: Math.round(plan.totalExternalAmount * 100),
         platformFeeAmount: Math.round(chargeBreakdown.platformFeeAmount * 100),
+        charge_breakdown: chargeBreakdown,
         currency: String(display.financeCurrency.code || 'USD').toUpperCase(),
         returnUrl: `${req.protocol}://${req.get('host')}/guardian/paygira/stripe-return`,
         paymentMethodOrder: stripeCheckoutConfig.paymentMethodOrder,
@@ -6635,6 +6721,25 @@ module.exports = {
           return res.redirect('/guardian/paygira');
         }
 
+        // Auto-settle the school's share when the charge was not split at charge
+        // time (mobile money / bank-recipient / local accounts). No-op for ACCT_.
+        try {
+          await settleFromPaystackTransaction(database, {
+            txn: verification.data?.data || null,
+            context: 'guardian_paygira',
+            secretKey: paystackConfig.secretKey,
+          });
+        } catch (settleErr) {
+          console.error('[guardianPaygiraStripeReturnGet][paystack] auto-settle failed (will retry on schedule):', settleErr.message);
+        }
+
+        const paystackData = verification.data?.data || {};
+        const paystackMeta = paystackData.metadata || {};
+        const normalizedBearer = String(paystackMeta.platform_fee_bearer || '').toLowerCase() === 'school'
+          ? 'school'
+          : 'parent';
+        const metadataFeePercentage = Number(paystackMeta.platform_fee_percentage || 0);
+
         const pending = req.session.guardianPaygiraPaystackPending || {};
         req.session.guardianPaygiraPaystackPending = null;
         req.body = {
@@ -6645,6 +6750,8 @@ module.exports = {
           apply_credit: pending.apply_credit,
           method: 'paystack',
           payment_reference: paystackReference,
+          platform_fee_bearer: normalizedBearer,
+          platform_fee_percentage: Number.isFinite(metadataFeePercentage) ? metadataFeePercentage : undefined,
         };
 
         return financeController.guardianPaygiraPayPost(req, res, dbArg);
@@ -6978,6 +7085,19 @@ module.exports = {
       }
 
       const { percentage: platformFeePercentage } = await getPlatformFeeSettings(client);
+      const defaultPlatformFeeBearer = await getOrgPlatformFeeBearer(orgId, client);
+      const paystackMetaBearer = String(req.body?.platform_fee_bearer || '').toLowerCase() === 'school'
+        ? 'school'
+        : 'parent';
+      const platformFeeBearer =
+        payMethod === 'paystack' && payment_reference
+          ? paystackMetaBearer
+          : defaultPlatformFeeBearer;
+      const paystackMetaFeePercentage = Number(req.body?.platform_fee_percentage);
+      const effectivePlatformFeePercentage =
+        payMethod === 'paystack' && payment_reference && Number.isFinite(paystackMetaFeePercentage)
+          ? paystackMetaFeePercentage
+          : platformFeePercentage;
       let totalPlatformFeeAmount = 0;
 
       if (creditApplied > 0) {
@@ -6985,8 +7105,8 @@ module.exports = {
           if (!(Number(entry.creditAmount || 0) > 0)) continue;
           await client.query(
             `INSERT INTO finance_payments
-              (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, occurrence_date)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+              (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, occurrence_date, platform_fee_bearer)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
             [
               orgId,
               row.assignment_id,
@@ -6997,6 +7117,7 @@ module.exports = {
               'STUDENT-CREDIT',
               `${entry.notes} using available student credit`,
               entry.occurrenceDate || null,
+              platformFeeBearer,
             ]
           );
         }
@@ -7010,12 +7131,12 @@ module.exports = {
         if (isRecurringBill) {
           for (const entry of paymentEntries) {
             if (!(Number(entry.externalAmount || 0) > 0)) continue;
-            const chargeBreakdown = buildFinancePaymentChargeBreakdown(entry.externalAmount, payMethod, platformFeePercentage);
+            const chargeBreakdown = buildFinancePaymentChargeBreakdown(entry.externalAmount, payMethod, effectivePlatformFeePercentage, 0, platformFeeBearer);
             totalPlatformFeeAmount += chargeBreakdown.platformFeeAmount;
             await client.query(
               `INSERT INTO finance_payments
-                (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, occurrence_date, platform_fee_percentage, platform_fee_amount, tax_amount)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+                (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, occurrence_date, platform_fee_percentage, platform_fee_amount, platform_fee_bearer, tax_amount)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
               [
                 orgId,
                 row.assignment_id,
@@ -7028,17 +7149,18 @@ module.exports = {
                 entry.occurrenceDate || null,
                 chargeBreakdown.platformFeePercentage,
                 chargeBreakdown.platformFeeAmount,
+                platformFeeBearer,
                 chargeBreakdown.taxAmount,
               ]
             );
           }
         } else {
-          const chargeBreakdown = buildFinancePaymentChargeBreakdown(totalExternalAmount, payMethod, platformFeePercentage);
+          const chargeBreakdown = buildFinancePaymentChargeBreakdown(totalExternalAmount, payMethod, effectivePlatformFeePercentage, 0, platformFeeBearer);
           totalPlatformFeeAmount += chargeBreakdown.platformFeeAmount;
           await client.query(
             `INSERT INTO finance_payments
-              (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, occurrence_date, platform_fee_percentage, platform_fee_amount, tax_amount)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+              (organization_id, assignment_id, bill_id, student_id, amount, method, reference, notes, occurrence_date, platform_fee_percentage, platform_fee_amount, platform_fee_bearer, tax_amount)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
             [
               orgId,
               row.assignment_id,
@@ -7051,6 +7173,7 @@ module.exports = {
               normalizeOccurrenceDate(occurrence_date),
               chargeBreakdown.platformFeePercentage,
               chargeBreakdown.platformFeeAmount,
+              platformFeeBearer,
               chargeBreakdown.taxAmount,
             ]
           );
@@ -7268,6 +7391,7 @@ module.exports = {
         `SELECT amount, method, reference, received_at,
                 COALESCE(platform_fee_percentage, 0) AS platform_fee_percentage,
                 COALESCE(platform_fee_amount, 0) AS platform_fee_amount,
+                COALESCE(platform_fee_bearer, 'parent') AS platform_fee_bearer,
                 COALESCE(tax_amount, 0) AS tax_amount
            FROM finance_payments
           WHERE assignment_id=$1 AND organization_id=$2

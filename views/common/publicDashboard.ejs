@@ -4746,6 +4746,7 @@ body[data-pd-theme] .gallery-card .caption{
           currentIndex = newIndex;
         }
 
+        if (!prevBtn || !nextBtn) return;
         prevBtn.addEventListener("click", () => showSlide(currentIndex - 1));
         nextBtn.addEventListener("click", () => showSlide(currentIndex + 1));
 
@@ -4843,10 +4844,12 @@ body[data-pd-theme] .gallery-card .caption{
         const modalCaption = document.getElementById("modalCaption");
         const closeButton = document.querySelector(".close-button");
 
+        if (!modal || !closeButton) return;
+
         function openModal(imageSrc, captionText) {
           modal.style.display = "flex"; // Show modal
           modalImage.src = imageSrc;
-          modalCaption.textContent = captionText || "No caption available"; // Default if missing
+          if (modalCaption) modalCaption.textContent = captionText || "No caption available";
         }
 
         function closeModal() {

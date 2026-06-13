@@ -1479,6 +1479,41 @@
         .feedback-actions-row .btn-primary {
           width: 100%;
         }
+
+        .settings-main h1 {
+          font-size: 20px;
+        }
+
+        .settings-main p.lead {
+          font-size: 13px;
+          margin-bottom: 16px;
+        }
+
+        .card h4 {
+          font-size: 14.5px;
+        }
+
+        .card small {
+          font-size: 12px;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .settings-main h1 {
+          font-size: 17px;
+        }
+
+        .settings-main p.lead {
+          font-size: 12px;
+        }
+
+        .card h4 {
+          font-size: 13.5px;
+        }
+
+        .settings-nav-header h3 {
+          font-size: 15px;
+        }
       }
     </style>
     <link rel="stylesheet" href="/css/workspace-shell.css" />
@@ -2197,6 +2232,47 @@
               <button class="btn-primary btn-link btn-inline" id="open-payment-modal" type="button">Manage Payment Methods</button>
             </div>
           </div>
+
+          <section class="card" id="platform-fee-bearer-card">
+            <h4>Platform Service Fee</h4>
+            <small>
+              A <strong><%= Number(platformFeePercentage || 0).toFixed(2) %>%</strong> platform service fee applies to all digital wallet transactions.
+              Select how this fee should be handled &mdash; who to bill.
+            </small>
+            <form action="/account/settings/platform-fee-bearer" method="POST" style="margin-top:14px; display:flex; flex-direction:column; gap:12px;" onsubmit="return confirm('Confirm: update who is billed the platform service fee? This applies to all future digital wallet transactions.');">
+              <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
+                <input
+                  type="radio"
+                  name="platform_fee_bearer"
+                  value="parent"
+                  <%= (org.platform_fee_bearer || 'parent') === 'parent' ? 'checked' : '' %>
+                  style="margin-top:2px;"
+                />
+                <span style="display:flex; flex-direction:column; gap:3px;">
+                  <strong style="font-size:0.95rem;">Individual making payment</strong>
+                  <small class="text-muted-sm">The service fee is added on top of the bill. The person making the payment covers it, and the school receives the full amount.</small>
+                </span>
+              </label>
+
+              <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
+                <input
+                  type="radio"
+                  name="platform_fee_bearer"
+                  value="school"
+                  <%= org.platform_fee_bearer === 'school' ? 'checked' : '' %>
+                  style="margin-top:2px;"
+                />
+                <span style="display:flex; flex-direction:column; gap:3px;">
+                  <strong style="font-size:0.95rem;">School Payment</strong>
+                  <small class="text-muted-sm">The school covers the service fee. The payer is charged the quoted amount only, and the fee is deducted from the school's portion.</small>
+                </span>
+              </label>
+
+              <div class="content-row" style="justify-content:flex-end; margin-top:4px;">
+                <button type="submit" class="btn-primary btn-link btn-inline">Save preference</button>
+              </div>
+            </form>
+          </section>
           <% } %>
 
           <% if (!isHubMember) { %>
@@ -2657,7 +2733,8 @@
           <%# ── Unified Payout Provider Selector ──────────────────────── %>
           <% const _pc = typeof payoutContext !== 'undefined' ? payoutContext : null; %>
           <% const _pcs = (typeof paystackCountries !== 'undefined' && Array.isArray(paystackCountries)) ? paystackCountries : []; %>
-          <% const _pref = _pc && _pc.preference ? _pc.preference : 'auto'; %>
+          <% const _prefRaw = _pc && _pc.preference ? String(_pc.preference).toLowerCase() : ''; %>
+          <% const _pref = (_prefRaw === 'stripe' || _prefRaw === 'paystack') ? _prefRaw : ''; %>
           <% const _stripeReady = _pc && _pc.stripe && _pc.stripe.available; %>
           <% const _paystackReady = _pc && _pc.paystack && _pc.paystack.available; %>
           <% const _country = _pc && _pc.country ? _pc.country : ''; %>
@@ -2671,8 +2748,10 @@
                 <div style="font-size:.78rem;color:var(--muted,#64748b);margin-top:2px;">Used by Paygira <strong>and</strong> Public Registration. One setting, everywhere.</div>
               </div>
               <span id="payout-pref-status" style="font-size:.75rem;padding:3px 9px;border-radius:999px;<%= (_stripeReady || _paystackReady) ? 'background:#dcfce7;color:#15803d;' : 'background:#fef3c7;color:#92400e;' %>">
-                <% if (_stripeReady || _paystackReady) { %>
-                  Ready &middot; <%= [_stripeReady ? 'STRIPE' : null, _paystackReady ? 'PAYSTACK' : null].filter(Boolean).join(' + ') %>
+                <% if (_pref) { %>
+                  Active &middot; <%= _pref.toUpperCase() %>
+                <% } else if (_stripeReady || _paystackReady) { %>
+                  Ready
                 <% } else { %>Not configured<% } %>
               </span>
             </div>
@@ -2680,13 +2759,13 @@
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;">
 
               <%# ── Stripe Connect card ── %>
-              <label style="display:flex;gap:10px;align-items:flex-start;padding:14px;border:1px solid <%= (_pref==='stripe'||_pref==='both') ? '#7dd3fc' : 'var(--border)' %>;border-radius:10px;cursor:<%= _stripeReady ? 'pointer' : 'not-allowed' %>;background:<%= (_pref==='stripe'||_pref==='both') ? '#f0f9ff' : '#fff' %>;<%= !_stripeReady ? 'opacity:.6;' : '' %>">
-                <input type="checkbox" class="payout-pref-toggle" data-provider="stripe" <%= (_pref==='stripe'||_pref==='both'||(_pref==='auto'&&_stripeReady)) ? 'checked' : '' %> <%= !_stripeReady ? 'disabled' : '' %> style="margin-top:3px;flex-shrink:0;cursor:<%= _stripeReady ? 'pointer' : 'not-allowed' %>">
+              <label style="display:flex;gap:10px;align-items:flex-start;padding:14px;border:1px solid <%= (_pref==='stripe') ? '#7dd3fc' : 'var(--border)' %>;border-radius:10px;cursor:<%= _stripeReady ? 'pointer' : 'not-allowed' %>;background:<%= (_pref==='stripe') ? '#f0f9ff' : '#fff' %>;<%= !_stripeReady ? 'opacity:.6;' : '' %>">
+                <input type="radio" name="payout_pref_provider" class="payout-pref-toggle" data-provider="stripe" <%= (_pref==='stripe') ? 'checked' : '' %> <%= !_stripeReady ? 'disabled' : '' %> style="margin-top:3px;flex-shrink:0;cursor:<%= _stripeReady ? 'pointer' : 'not-allowed' %>">
                 <div style="flex:1;min-width:0;">
                   <div style="font-weight:700;font-size:.88rem;">Stripe Connect</div>
                   <div style="font-size:.75rem;color:var(--muted,#64748b);margin-top:2px;">Cards, Apple Pay, Google Pay &middot; 40+ countries</div>
                   <div style="font-size:.72rem;margin-top:5px;<%= _stripeReady ? 'color:#15803d;' : 'color:#92400e;' %>">
-                    <%= _stripeReady ? '&#10003; Connected' : '&#9888; Not connected' %>
+                    <%= _stripeReady ? 'Connected' : 'Not connected' %>
                   </div>
                   <% if (_connectId) { %>
                   <div style="font-size:.68rem;color:#475569;margin-top:2px;font-family:'JetBrains Mono',Consolas,monospace;word-break:break-all;"><%= _connectId %></div>
@@ -2699,8 +2778,8 @@
               </label>
 
               <%# ── Paystack card ── %>
-              <label style="display:flex;gap:10px;align-items:flex-start;padding:14px;border:1px solid <%= (_pref==='paystack'||_pref==='both') ? '#86efac' : 'var(--border)' %>;border-radius:10px;cursor:<%= _paystackReady ? 'pointer' : 'not-allowed' %>;background:<%= (_pref==='paystack'||_pref==='both') ? '#f0fdf4' : '#fff' %>;<%= !_paystackReady ? 'opacity:.6;' : '' %>">
-                <input type="checkbox" class="payout-pref-toggle" data-provider="paystack" <%= (_pref==='paystack'||_pref==='both'||(_pref==='auto'&&_paystackReady)) ? 'checked' : '' %> <%= !_paystackReady ? 'disabled' : '' %> style="margin-top:3px;flex-shrink:0;cursor:<%= _paystackReady ? 'pointer' : 'not-allowed' %>">
+              <label style="display:flex;gap:10px;align-items:flex-start;padding:14px;border:1px solid <%= (_pref==='paystack') ? '#86efac' : 'var(--border)' %>;border-radius:10px;cursor:<%= _paystackReady ? 'pointer' : 'not-allowed' %>;background:<%= (_pref==='paystack') ? '#f0fdf4' : '#fff' %>;<%= !_paystackReady ? 'opacity:.6;' : '' %>">
+                <input type="radio" name="payout_pref_provider" class="payout-pref-toggle" data-provider="paystack" <%= (_pref==='paystack') ? 'checked' : '' %> <%= !_paystackReady ? 'disabled' : '' %> style="margin-top:3px;flex-shrink:0;cursor:<%= _paystackReady ? 'pointer' : 'not-allowed' %>">
                 <div style="flex:1;min-width:0;">
                   <div style="font-weight:700;font-size:.88rem;">Paystack</div>
                   <div style="font-size:.75rem;color:var(--muted,#64748b);margin-top:2px;">Bank &middot; Mobile Money &middot; Cards</div>
@@ -2710,7 +2789,7 @@
                   </div>
                   <% } %>
                   <div style="font-size:.72rem;margin-top:5px;<%= _paystackReady ? 'color:#15803d;' : 'color:#92400e;' %>">
-                    <%= _paystackReady ? '&#10003; Configured' : '&#9888; Not configured' %>
+                    <%= _paystackReady ? 'Configured' : 'Not configured' %>
                   </div>
                   <% if (!_paystackCountrySupported && _country) { %>
                   <div style="font-size:.68rem;color:#b45309;margin-top:3px;"><%= _country %> is not yet live on Paystack &mdash; you can still add an account for future use.</div>
@@ -2733,13 +2812,19 @@
               const status = document.getElementById('payout-pref-status');
               let saving = false;
               function currentPref(){
-                const on = Array.from(toggles).filter(t => t.checked).map(t => t.dataset.provider);
-                if (on.length === 2) return 'both';
-                if (on.length === 1) return on[0];
-                return '';
+                const selected = Array.from(toggles).find(t => t.checked);
+                return selected ? String(selected.dataset.provider || '').trim().toLowerCase() : '';
+              }
+              let lastPref = currentPref();
+              function restorePref(){
+                toggles.forEach(t => { t.checked = (String(t.dataset.provider || '').toLowerCase() === lastPref); });
               }
               async function save(){
                 if (saving) return;
+                const pref = currentPref();
+                const labelMap = { stripe: 'Stripe Connect', paystack: 'Paystack' };
+                const ok = window.confirm('Route all parent payments through ' + (labelMap[pref] || pref || 'this provider') + '? This applies to Paygira and Public Registration.');
+                if (!ok) { restorePref(); return; }
                 saving = true;
                 fb.textContent = 'Saving…';
                 fb.style.color = '#64748b';
@@ -2751,6 +2836,7 @@
                   });
                   const data = await res.json();
                   if (!data.success) throw new Error(data.message || 'Save failed');
+                  lastPref = pref;
                   const p = data.payout || {};
                   fb.textContent = '\u2713 Saved · used by Paygira and Public Registration.';
                   fb.style.color = '#15803d';
@@ -2784,35 +2870,54 @@
           </script>
 
           <% if (paystackSubaccounts && paystackSubaccounts.length) { %>
-          <ul style="list-style:none;padding:0;margin:0 0 16px;display:flex;flex-direction:column;gap:8px;" id="payout-accounts-list">
-            <% paystackSubaccounts.forEach(function(account) { %>
-            <li style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface,#f9fafb);">
-              <div>
-                <strong style="font-size:.9rem;">
-                  <% if (account.account_type === 'stripe_card') { %>💳 Card<% } else { %>🏦 Paystack Payout Account<% if (account.account_type === 'mobile_money') { %> <span style="background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:4px;font-size:.7rem;font-weight:700;">MoMo</span><% } %><% } %>
-                  <% if (account.is_primary) { %><span style="margin-left:6px;background:#e7faf1;color:#0f5132;padding:1px 7px;border-radius:5px;font-size:.72rem;font-weight:600;">Primary</span><% } %>
-                </strong>
-                <div style="color:var(--muted);font-size:.82rem;margin-top:3px;">
-                  <% if (account.account_type === 'bank') { %>
-                    <%= account.bank_name || 'Bank' %> &middot; Acc: <%= account.account_number || '—' %>
-                  <% } else if (account.account_type === 'mobile_money') { %>
-                    <%= account.momo_provider || 'Mobile Money' %><% if (account.momo_number) { %> &middot; <%= account.momo_number %><% } %>
-                  <% } else if (account.account_type === 'stripe_card') { %>
-                    Stripe card &middot; <%= account.business_name || '' %>
-                  <% } else { %>
-                    <%= account.business_name || '' %>
-                  <% } %>
-                </div>
-              </div>
-              <div style="display:flex;gap:8px;flex-shrink:0;">
-                <% if (!account.is_primary) { %>
-                <button type="button" class="btn-link set-school-primary" data-id="<%= account.id %>" data-type="<%= account.account_type %>" style="font-size:.8rem;">Set Primary</button>
-                <% } %>
-                <button type="button" class="btn-link edit-school-account" data-id="<%= account.id %>" style="font-size:.8rem;">Edit</button>
-              </div>
-            </li>
+          <%
+            const _payoutGroups = [
+              { label: 'Cards', match: function(a){ return a.account_type === 'stripe_card'; } },
+              { label: 'Mobile Money', match: function(a){ return a.account_type === 'mobile_money'; } },
+              { label: 'Bank Accounts', match: function(a){ return a.account_type !== 'stripe_card' && a.account_type !== 'mobile_money'; } },
+            ];
+          %>
+          <div id="payout-accounts-list" style="display:flex;flex-direction:column;gap:16px;margin:0 0 16px;">
+            <% _payoutGroups.forEach(function(group) {
+                 const _groupItems = paystackSubaccounts
+                   .filter(group.match)
+                   .slice()
+                   .sort(function(a, b){ return (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0); });
+                 if (!_groupItems.length) return; %>
+            <div>
+              <div style="font-size:.74rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted,#64748b);margin-bottom:6px;"><%= group.label %></div>
+              <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px;">
+                <% _groupItems.forEach(function(account) { %>
+                <li style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface,#f9fafb);">
+                  <div>
+                    <strong style="font-size:.9rem;">
+                      <% if (account.account_type === 'stripe_card') { %>💳 Card<% } else { %>🏦 Paystack Payout Account<% if (account.account_type === 'mobile_money') { %> <span style="background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:4px;font-size:.7rem;font-weight:700;">MoMo</span><% } %><% } %>
+                      <% if (account.is_primary) { %><span style="margin-left:6px;background:#e7faf1;color:#0f5132;padding:1px 7px;border-radius:5px;font-size:.72rem;font-weight:600;">Primary</span><% } %>
+                    </strong>
+                    <div style="color:var(--muted);font-size:.82rem;margin-top:3px;">
+                      <% if (account.account_type === 'bank') { %>
+                        <%= account.bank_name || 'Bank' %> &middot; Acc: <%= account.account_number || '—' %>
+                      <% } else if (account.account_type === 'mobile_money') { %>
+                        <%= account.momo_provider || 'Mobile Money' %><% if (account.momo_number) { %> &middot; <%= account.momo_number %><% } %>
+                      <% } else if (account.account_type === 'stripe_card') { %>
+                        Stripe card &middot; <%= account.business_name || '' %>
+                      <% } else { %>
+                        <%= account.business_name || '' %>
+                      <% } %>
+                    </div>
+                  </div>
+                  <div style="display:flex;gap:8px;flex-shrink:0;">
+                    <% if (!account.is_primary) { %>
+                    <button type="button" class="btn-link set-school-primary" data-id="<%= account.id %>" data-type="<%= account.account_type %>" style="font-size:.8rem;">Set Primary</button>
+                    <% } %>
+                    <button type="button" class="btn-link edit-school-account" data-id="<%= account.id %>" style="font-size:.8rem;">Edit</button>
+                  </div>
+                </li>
+                <% }) %>
+              </ul>
+            </div>
             <% }) %>
-          </ul>
+          </div>
           <% } else { %>
           <%# 'No payout accounts set up yet.' message and Add Payout Account button hidden — Stripe Connect is the only payout method %>
           <% } %>
@@ -3326,6 +3431,11 @@
 
         navLinks.forEach((btn) => {
           if (!btn.dataset.target) return; // external link (e.g. Finance) — let browser navigate
+          // Bind once per element. The SPA re-runs this init on every
+          // navigation; without this guard each nav button accumulates
+          // duplicate click handlers and the menu misbehaves.
+          if (btn.dataset.spaMenuBound === "1") return;
+          btn.dataset.spaMenuBound = "1";
           btn.addEventListener("click", () => {
             showSection(btn.dataset.target);
             closeNav();
@@ -3350,23 +3460,27 @@
           updateFeedbackMessageCounter();
         }
 
-        if (navHeader) {
+        if (navHeader && navHeader.dataset.spaMenuBound !== "1") {
+          navHeader.dataset.spaMenuBound = "1";
           navHeader.addEventListener("click", () => {
             openNav();
           });
         }
 
-        document.addEventListener("click", (event) => {
-          if (window.innerWidth > 960 || !navPanel || !navPanel.classList.contains("open")) {
-            return;
-          }
-
-          if (navPanel.contains(event.target)) {
-            return;
-          }
-
-          closeNav();
-        });
+        if (!window.__settingsOutsideCloseBound) {
+          window.__settingsOutsideCloseBound = true;
+          document.addEventListener("click", (event) => {
+            // Query live so it keeps working after SPA content swaps.
+            const panel = document.querySelector(".settings-nav");
+            if (window.innerWidth > 960 || !panel || !panel.classList.contains("open")) {
+              return;
+            }
+            if (panel.contains(event.target)) {
+              return;
+            }
+            panel.classList.remove("open");
+          });
+        }
 
         window.addEventListener("resize", () => {
           if (window.innerWidth > 960) {

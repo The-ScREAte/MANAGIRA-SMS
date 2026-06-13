@@ -114,10 +114,6 @@ module.exports = (db) => {
     commonController.searchGuardiansPublic(req, res, db)
   );
 
-  router.post("/initializePayment", (req, res) =>
-    commonController.initializePayment(req, res, db)
-  );
-
   router.post("/createPaymentIntent", (req, res) =>
     commonController.createPaymentIntent(req, res, db)
   );

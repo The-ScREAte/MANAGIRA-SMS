@@ -270,6 +270,31 @@
     scrollbar-color:var(--fin-border) transparent;
   }
   .fin-table-wrap::-webkit-scrollbar { height:4px; } .fin-table-wrap::-webkit-scrollbar-thumb { background:var(--fin-border); border-radius:99px; }
+  /* Scrollable, paginated tables */
+  .fin-table-wrap.fin-scroll { max-height:560px; overflow-y:auto; }
+  .fin-table-wrap.fin-scroll thead th { position:sticky; top:0; z-index:2; }
+  .fin-pagebar {
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    margin-top:12px; padding:9px 12px;
+    border:1px solid var(--fin-border); border-radius:var(--fin-r-sm);
+    background:var(--fin-card-2); flex-wrap:wrap;
+  }
+  .fin-pagebar[hidden] { display:none; }
+  .fin-pagebar-left, .fin-pagebar-right { display:flex; align-items:center; gap:8px; }
+  .fin-pagebar-label { font-size:.78rem; color:var(--fin-muted); font-weight:700; }
+  .fin-pagebar-select {
+    height:32px; border:1px solid var(--fin-border); border-radius:8px;
+    padding:0 8px; font-size:.84rem; font-weight:700;
+    background:var(--fin-card-2); color:var(--fin-text); cursor:pointer;
+  }
+  .fin-page-btn {
+    border:1px solid var(--fin-border); background:var(--fin-card-2); color:var(--fin-text);
+    border-radius:8px; height:32px; min-width:44px; padding:0 12px;
+    font-size:.82rem; font-weight:700; cursor:pointer; transition:border-color .15s, color .15s;
+  }
+  .fin-page-btn:hover:not(:disabled) { border-color:var(--fin-teal); color:var(--fin-teal); }
+  .fin-page-btn:disabled { opacity:.4; cursor:not-allowed; }
+  .fin-page-info { font-size:.82rem; color:var(--fin-text); font-weight:700; min-width:48px; text-align:center; }
   .fin-table {
     width:100%;
     border-collapse:separate;
@@ -2154,7 +2179,7 @@
                 <button type="button" class="fin-btn" onclick="finResetOrgWideFilter()">Reset</button>
               </div>
             </div>
-            <div class="fin-table-wrap">
+            <div class="fin-table-wrap fin-scroll" id="finStudentsWrap">
               <table class="fin-table fin-student-table">
                 <thead><tr><th>Student</th><th>Class</th><th class="num">Billed</th><th class="num">Paid</th><th class="num">Credit</th><th class="num">Outstanding</th><th class="num">Net Due</th><th>Status</th></tr></thead>
                 <tbody>
@@ -2192,13 +2217,27 @@
                 </tbody>
               </table>
             </div>
+            <div class="fin-pagebar" id="finStudentsPagebar" hidden>
+              <div class="fin-pagebar-left">
+                <span class="fin-pagebar-label">Show per page</span>
+                <select class="fin-pagebar-select" data-fin-pagesize>
+                  <option value="20">20</option><option value="50">50</option><option value="70">70</option><option value="100">100</option><option value="200">200</option>
+                </select>
+              </div>
+              <div class="fin-pagebar-right">
+                <button type="button" class="fin-page-btn" data-fin-prev>Prev</button>
+                <span class="fin-page-info" data-fin-info>1/1</span>
+                <button type="button" class="fin-page-btn" data-fin-next>Next</button>
+              </div>
+            </div>
             <% if (studentBillingPagination && studentBillingPagination.hasMore) { %>
+              <% const nextStudentPageSize = Number(studentPageSize) * Number(studentBillingPagination.nextPage || (studentPage + 1)); %>
               <form method="GET" action="/account/settings/finance" style="margin-top:14px; display:flex; justify-content:center;">
                 <input type="hidden" name="section" value="students">
                 <input type="hidden" name="studentYear" value="<%= studentYearFilter %>">
                 <input type="hidden" name="studentTerm" value="<%= studentTermFilter %>">
-                <input type="hidden" name="studentPage" value="<%= studentBillingPagination.nextPage %>">
-                <input type="hidden" name="studentPageSize" value="<%= studentPageSize %>">
+                <input type="hidden" name="studentPage" value="1">
+                <input type="hidden" name="studentPageSize" value="<%= nextStudentPageSize %>">
                 <button type="submit" class="fin-btn ghost">Load more students</button>
               </form>
             <% } %>
@@ -2290,7 +2329,7 @@
           <% if (!overview.recent.length) { %>
             <div class="empty-state"><div class="ico">💰</div><h3>No payments recorded yet</h3></div>
           <% } else { %>
-            <div class="fin-table-wrap">
+            <div class="fin-table-wrap fin-scroll" id="finPaymentsWrap">
               <table class="fin-table">
                 <thead><tr><th>Date</th><th>Student</th><th>Bill</th><th>Method</th><th class="num">Amount</th><th>Actions</th></tr></thead>
                 <tbody>
@@ -2312,6 +2351,19 @@
                   <% }) %>
                 </tbody>
               </table>
+            </div>
+            <div class="fin-pagebar" id="finPaymentsPagebar" hidden>
+              <div class="fin-pagebar-left">
+                <span class="fin-pagebar-label">Show per page</span>
+                <select class="fin-pagebar-select" data-fin-pagesize>
+                  <option value="20">20</option><option value="50">50</option><option value="70">70</option><option value="100">100</option><option value="200">200</option>
+                </select>
+              </div>
+              <div class="fin-pagebar-right">
+                <button type="button" class="fin-page-btn" data-fin-prev>Prev</button>
+                <span class="fin-page-info" data-fin-info>1/1</span>
+                <button type="button" class="fin-page-btn" data-fin-next>Next</button>
+              </div>
             </div>
           <% } %>
         </div>
@@ -2746,7 +2798,7 @@
             </div>
 
             <% if (arrears.students.length) { %>
-              <div class="fin-table-wrap">
+              <div class="fin-table-wrap fin-scroll" id="finArrearsWrap">
                 <table class="fin-table arrears-report-table" id="arrearsTable">
                   <thead>
                     <tr>
@@ -2839,6 +2891,19 @@
                     <% }) %>
                   </tbody>
                 </table>
+              </div>
+              <div class="fin-pagebar" id="finArrearsPagebar" hidden>
+                <div class="fin-pagebar-left">
+                  <span class="fin-pagebar-label">Show per page</span>
+                  <select class="fin-pagebar-select" data-fin-pagesize>
+                    <option value="20">20</option><option value="50">50</option><option value="70">70</option><option value="100">100</option><option value="200">200</option>
+                  </select>
+                </div>
+                <div class="fin-pagebar-right">
+                  <button type="button" class="fin-page-btn" data-fin-prev>Prev</button>
+                  <span class="fin-page-info" data-fin-info>1/1</span>
+                  <button type="button" class="fin-page-btn" data-fin-next>Next</button>
+                </div>
               </div>
             <% } else { %>
               <div class="empty-state">
@@ -3785,8 +3850,10 @@ Regards,
       if (st && status !== st) ok = false;
       if (debt && debtState !== debt) ok = false;
       if (credit && creditState !== credit) ok = false;
-      r.style.display = ok ? '' : 'none';
+      r.dataset.finFiltered = ok ? '' : '1';
+      if (!window.finStudentsPager) r.style.display = ok ? '' : 'none';
     });
+    if (window.finStudentsPager) window.finStudentsPager.reset();
   }
   function finResetOrgWideFilter() {
     ['orgStudentSearch','orgClassFilter','orgStatusFilter','orgDebtFilter','orgCreditFilter'].forEach(function(id) {
@@ -4294,6 +4361,109 @@ Regards,
     input.addEventListener('change', submitFallback);
     input.addEventListener('blur', submitFallback);
   });
+
+  // ===== Client-side table pagination (audit-log style) =====
+  function finBuildPager(opts) {
+    var bar = opts.bar;
+    if (!bar) return null;
+    var sizeSel = bar.querySelector('[data-fin-pagesize]');
+    var prevBtn = bar.querySelector('[data-fin-prev]');
+    var nextBtn = bar.querySelector('[data-fin-next]');
+    var info = bar.querySelector('[data-fin-info]');
+    var state = { size: sizeSel ? (Number(sizeSel.value) || 20) : 20, page: 1 };
+    function render() {
+      var items = opts.getItems();
+      var visible = items.filter(function(it) { return opts.isVisible ? opts.isVisible(it.main) : true; });
+      var total = visible.length;
+      var totalPages = Math.max(1, Math.ceil(total / state.size));
+      if (state.page > totalPages) state.page = totalPages;
+      if (state.page < 1) state.page = 1;
+      var start = (state.page - 1) * state.size;
+      var end = start + state.size;
+      items.forEach(function(it) {
+        it.main.style.display = 'none';
+        (it.extras || []).forEach(function(ex) { ex.style.display = 'none'; });
+      });
+      visible.slice(start, end).forEach(function(it) { it.main.style.display = ''; });
+      if (info) info.textContent = state.page + '/' + totalPages;
+      if (prevBtn) prevBtn.disabled = state.page <= 1;
+      if (nextBtn) nextBtn.disabled = state.page >= totalPages;
+      // Show the bar whenever there is data so the page-size control stays reachable.
+      bar.hidden = total === 0;
+    }
+    function scrollTop() { if (opts.wrap) opts.wrap.scrollTop = 0; }
+    if (sizeSel) sizeSel.addEventListener('change', function() {
+      state.size = Number(sizeSel.value) || 20;
+      state.page = 1;
+      render();
+      scrollTop();
+    });
+    if (prevBtn) prevBtn.addEventListener('click', function() {
+      if (state.page > 1) { state.page -= 1; render(); scrollTop(); }
+    });
+    if (nextBtn) nextBtn.addEventListener('click', function() {
+      state.page += 1; render(); scrollTop();
+    });
+    render();
+    return { refresh: render, reset: function() { state.page = 1; render(); } };
+  }
+
+  (function initFinPagers() {
+    // Org-Wide Bills (students)
+    var studentsTable = document.querySelector('.fin-student-table');
+    var studentsBar = document.getElementById('finStudentsPagebar');
+    if (studentsTable && studentsBar) {
+      var sBody = studentsTable.querySelector('tbody');
+      window.finStudentsPager = finBuildPager({
+        bar: studentsBar,
+        wrap: document.getElementById('finStudentsWrap'),
+        getItems: function() {
+          return Array.prototype.map.call(sBody.querySelectorAll(':scope > tr'), function(tr) {
+            return { main: tr, extras: [] };
+          });
+        },
+        isVisible: function(tr) { return tr.dataset.finFiltered !== '1'; }
+      });
+    }
+
+    // Payment History
+    var paymentsWrap = document.getElementById('finPaymentsWrap');
+    var paymentsBar = document.getElementById('finPaymentsPagebar');
+    if (paymentsWrap && paymentsBar) {
+      var pBody = paymentsWrap.querySelector('tbody');
+      window.finPaymentsPager = finBuildPager({
+        bar: paymentsBar,
+        wrap: paymentsWrap,
+        getItems: function() {
+          return Array.prototype.map.call(pBody.querySelectorAll(':scope > tr'), function(tr) {
+            return { main: tr, extras: [] };
+          });
+        }
+      });
+    }
+
+    // Defaulters & Arrears (main row + its detail row)
+    var arrearsTable = document.getElementById('arrearsTable');
+    var arrearsBar = document.getElementById('finArrearsPagebar');
+    if (arrearsTable && arrearsBar) {
+      var aBody = arrearsTable.querySelector('tbody');
+      window.finArrearsPager = finBuildPager({
+        bar: arrearsBar,
+        wrap: document.getElementById('finArrearsWrap'),
+        getItems: function() {
+          var items = [];
+          Array.prototype.forEach.call(aBody.querySelectorAll(':scope > tr'), function(tr) {
+            if (tr.id && tr.id.indexOf('arrears-detail-') === 0) {
+              if (items.length) items[items.length - 1].extras.push(tr);
+            } else {
+              items.push({ main: tr, extras: [] });
+            }
+          });
+          return items;
+        }
+      });
+    }
+  })();
 
 </script>
 

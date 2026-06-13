@@ -26,14 +26,18 @@
   const pager = (typeof pagination !== 'undefined' && pagination)
     ? pagination
     : { page: 1, totalPages: 1, total: 0, hasPrevious: false, hasNext: false };
+  const pageSizeOptions = [20, 50, 70, 100, 200];
+  const currentPageSize = pageSizeOptions.includes(Number(pager.pageSize)) ? Number(pager.pageSize) : 20;
   const currentLogs = (typeof logs !== 'undefined' && Array.isArray(logs)) ? logs : [];
   const activeCount = ['startDate','endDate','user','action','module','role','search']
     .filter(k => currentFilters[k]).length;
-  const queryForPage = (pageNumber) => {
+  const queryForPage = (pageNumber, pageSizeOverride) => {
     const params = new URLSearchParams();
     Object.entries(currentFilters).forEach(([key, value]) => {
       if (value) params.set(key, value);
     });
+    const sizeToUse = Number(pageSizeOverride) || currentPageSize;
+    if (sizeToUse) params.set('pageSize', String(sizeToUse));
     params.set('page', String(pageNumber));
     return `/common/activityLogs?${params.toString()}`;
   };
@@ -124,10 +128,15 @@
     display: flex; justify-content: space-between; gap: 10px;
     align-items: center; padding: 6px 12px;
     border-bottom: 1px solid var(--border);
-    color: #9ca3af; font-size: 0.7rem;
+    color: #8d98a6; font-size: 0.76rem;
   }
-  .logs-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .logs-list { list-style: none; margin: 0; padding: 0; min-width: 860px; }
+  .logs-scroll {
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    max-height: min(68vh, 640px);
+    overscroll-behavior: contain;
+  }
+  .logs-list { list-style: none; margin: 0; padding: 0; min-width: 980px; }
   .logs-list li { margin: 0; padding: 0; }
   .logs-head, .log-item {
     display: grid;
@@ -137,14 +146,14 @@
   .logs-head {
     position: sticky; top: 0; z-index: 1;
     background: #f4f6f8; border-bottom: 2px solid var(--border);
-    font-size: 0.6rem; font-weight: 700; color: #a0aec0;
+    font-size: 0.65rem; font-weight: 700; color: #9aa8ba;
     text-transform: uppercase; letter-spacing: 0.08em;
     padding: 6px 16px; align-items: center;
   }
   .log-item {
     border-top: 1px solid #f0f2f5;
     font-family: 'SFMono-Regular', 'Consolas', 'Liberation Mono', monospace;
-    font-size: 0.695rem; line-height: 1.4; color: #374151;
+    font-size: 0.75rem; line-height: 1.45; color: #334155;
   }
   /* Very faint stripe — odd rows plain white, even rows barely tinted */
   .log-item:nth-child(odd)  { background: #ffffff; }
@@ -153,19 +162,19 @@
   .log-cell { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   /* Timestamp */
-  .log-stamp { color: #b0bac6; font-variant-numeric: tabular-nums; font-size: 0.67rem; }
+  .log-stamp { color: #a7b2c0; font-variant-numeric: tabular-nums; font-size: 0.76rem; }
 
   /* Action — plain bold text, no badge box */
   .log-action {
     font-family: 'SFMono-Regular', 'Consolas', 'Liberation Mono', monospace;
-    font-size: 0.6rem; font-weight: 700;
+    font-size: 0.7rem; font-weight: 700;
     text-transform: uppercase; letter-spacing: 0.07em;
     color: #64748b;
   }
 
   /* User column — single line */
   .log-user { font-weight: 600; color: #1e293b; }
-  .log-role { color: #b0bac6; font-size: 0.62rem; }
+  .log-role { color: #a4afbd; font-size: 0.7rem; }
   .log-role::before { content: ' · '; color: #dde1e7; }
 
   /* Module */
@@ -178,12 +187,61 @@
   .log-desc { color: #a0adb8; }
 
   .empty-state { padding: 28px 16px; text-align: center; color: var(--muted); font-size: 0.85rem; }
-  .pagination {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 10px 12px; border-top: 1px solid var(--border);
-    font-size: 0.78rem;
+  .as-pagebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 0;
+    padding: 10px 12px;
+    border-top: 1px solid var(--border);
+    background: #fff;
+    flex-wrap: wrap;
   }
-  .pagination-links { display: flex; gap: 6px; }
+  .as-pagebar-left,
+  .as-pagebar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .as-pagebar-label {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  .as-pagebar-select {
+    height: 32px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0 10px;
+    font-size: 14px;
+    font-weight: 700;
+    background: #fff;
+    color: #0f172a;
+  }
+  .as-page-btn {
+    border: 1px solid var(--border);
+    background: #fff;
+    color: #0f172a;
+    border-radius: 8px;
+    height: 32px;
+    min-width: 32px;
+    padding: 0 10px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .as-page-btn:disabled {
+    opacity: 0.42;
+    cursor: not-allowed;
+  }
+  .as-page-info {
+    font-size: 14px;
+    color: #0f172a;
+    font-weight: 800;
+    min-width: 54px;
+    text-align: center;
+  }
 
   @media (max-width: 900px) {
     .filters-toggle { display: flex; }
@@ -211,7 +269,7 @@
     font: inherit; cursor: pointer; text-align: left;
     width: 100%; display: block;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    color: #94a3b8; font-size: 0.7rem;
+    color: #94a3b8; font-size: 0.76rem;
     text-decoration: underline dotted #d1d5db;
     text-underline-offset: 2px;
     box-shadow: none !important; outline: none;
@@ -266,24 +324,17 @@
     background: #fff;
   }
 
-  /* Mobile card layout */
+  /* Mobile compact table layout */
   @media (max-width: 640px) {
-    .logs-scroll { overflow-x: unset; }
-    .logs-list { min-width: unset; }
-    .logs-head { display: none; }
-    .log-item {
-      display: flex; flex-wrap: wrap; align-items: baseline;
-      gap: 2px 6px; padding: 7px 12px;
-      border-top: 1px solid #f0f2f4;
+    .logs-scroll { max-height: 62vh; }
+    .logs-list { min-width: 940px; }
+    .logs-head, .log-item {
+      padding-left: 12px;
+      padding-right: 12px;
     }
-    .log-cell { display: none; }
-    .log-cell.log-action-cell { display: block; order: 1; }
-    .log-cell.log-module      { display: block; order: 2; font-size: 0.64rem; color: #9ca3af; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .log-cell.log-user-cell   { display: block; order: 3; flex-basis: 100%; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .log-cell.log-record      { display: block; order: 4; font-size: 0.63rem; color: #b0b8c4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .log-cell.log-stamp       { display: block; order: 5; flex-basis: 100%; font-size: 0.61rem; color: #c4cdd6; margin-top: 1px; }
-    .log-cell.log-desc        { display: block; order: 6; flex-basis: 100%; overflow: hidden; }
-    .log-desc-btn { font-size: 0.64rem; }
+    .logs-head { font-size: 0.68rem; }
+    .log-item { font-size: 0.78rem; }
+    .log-desc-btn { font-size: 0.72rem; }
   }
 </style>
 
@@ -411,15 +462,19 @@
         </ul>
       </div>
 
-      <div class="pagination">
-        <span>Page <strong><%= pager.page %></strong> of <strong><%= pager.totalPages %></strong></span>
-        <div class="pagination-links">
-          <% if (pager.hasPrevious) { %>
-            <a class="btn-sm-secondary" href="<%= queryForPage(pager.page - 1) %>">Previous</a>
-          <% } %>
-          <% if (pager.hasNext) { %>
-            <a class="btn-sm-secondary" href="<%= queryForPage(pager.page + 1) %>">Next</a>
-          <% } %>
+      <div class="as-pagebar" id="asPageBar" aria-label="Activity logs pagination">
+        <div class="as-pagebar-left">
+          <span class="as-pagebar-label">Show per page</span>
+          <select class="as-pagebar-select" id="asPageSizeSelect">
+            <% pageSizeOptions.forEach((size) => { %>
+              <option value="<%= size %>" <%= currentPageSize === size ? 'selected' : '' %>><%= size %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="as-pagebar-right">
+          <button type="button" class="as-page-btn" id="asPagePrev" <%= pager.hasPrevious ? '' : 'disabled' %>>Prev</button>
+          <span class="as-page-info" id="asPageInfo"><%= pager.page %>/<%= pager.totalPages %></span>
+          <button type="button" class="as-page-btn" id="asPageNext" <%= pager.hasNext ? '' : 'disabled' %>>Next</button>
         </div>
       </div>
     <% } %>
@@ -480,6 +535,39 @@
         toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
         const actionLabel = document.getElementById('filtersToggleAction');
         if (actionLabel) actionLabel.textContent = open ? 'hide' : 'show';
+      });
+    }
+
+    // Pagination controls
+    const pageSizeSelect = document.getElementById('asPageSizeSelect');
+    const prevBtn = document.getElementById('asPagePrev');
+    const nextBtn = document.getElementById('asPageNext');
+    const currentPage = <%= pager.page %>;
+    const totalPages = <%= pager.totalPages %>;
+
+    if (pageSizeSelect) {
+      pageSizeSelect.addEventListener('change', function () {
+        const selectedSize = Number(pageSizeSelect.value) || <%= currentPageSize %>;
+        const url = new URL(window.location.href);
+        url.searchParams.set('page', '1');
+        url.searchParams.set('pageSize', String(selectedSize));
+        window.location.href = url.pathname + '?' + url.searchParams.toString();
+      });
+    }
+
+    if (prevBtn) {
+      prevBtn.addEventListener('click', function () {
+        if (currentPage > 1) {
+          window.location.href = <%- JSON.stringify(queryForPage(Math.max(1, pager.page - 1))) %>;
+        }
+      });
+    }
+
+    if (nextBtn) {
+      nextBtn.addEventListener('click', function () {
+        if (currentPage < totalPages) {
+          window.location.href = <%- JSON.stringify(queryForPage(Math.min(pager.totalPages, pager.page + 1))) %>;
+        }
       });
     }
   });

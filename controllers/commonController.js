@@ -48,9 +48,14 @@ const {
 const { hasGuardianPortalFeature } = require("../utils/guardianPortalAccess");
 const { getStripeClient, getStripePlatformClient, getStripePlatformCredentials, getStripeChargeCurrency, getStripeSettings, getActiveStripePublicKey, getStripeConnectAccountId, ensureStripeConnectAccountSchema } = require("../utils/stripeConfig");
 const { getUsdRate, normalizeCurrencyCode } = require("../utils/currencyLocalization");
-const { getPlatformFeeSettings } = require("../utils/platformFee");
+const {
+  getPlatformFeeSettings,
+  getOrgPlatformFeeBearer,
+  buildPlatformChargeBreakdown,
+} = require("../utils/platformFee");
 const { ensurePaymentProviderSchema } = require("../utils/paymentProviderSchema");
 const { resolveSchoolPayoutDestination } = require("../utils/payoutDestination");
+const { settleFromPaystackTransaction } = require("../utils/paystackPayout");
 const { triggerAbsenceAlertsForStudents, broadcastEventAnnouncement, notifyGuardiansOnClassChange, notifyTeacherOnReassignment, notifyTeachersOnAssessmentControl, resolveAssignmentNames, notifyEmployeeOnHoldChange, notifyGuardianAdmissionReceived, notifyGuardianOnStaffReply } = require("../utils/notificationDigestService");
 const notifSvc = require("../utils/notificationService");
 const {
@@ -3718,6 +3723,19 @@ const commonController = {
       );
       hasPayoutAccount = Boolean(stripeSelectable || paystackPayoutReady);
 
+      // Restrict the payer's selectable route to the school's chosen payout provider.
+      let _prSelectablePaystack = paystackSubaccounts;
+      let _prStripeSelectable = stripeSelectable;
+      if (payoutProvider === 'stripe') {
+        _prSelectablePaystack = [];
+      } else if (payoutProvider === 'paystack') {
+        _prStripeSelectable = false;
+      }
+
+      // Platform service fee preview (shown immediately on the payment step).
+      const { percentage: platformFeePercentage } = await getPlatformFeeSettings(db).catch(() => ({ percentage: 0 }));
+      const platformFeeBearer = await getOrgPlatformFeeBearer(organizationId, db).catch(() => 'parent');
+
       res.render("common/publicRegisterStudent", {
         title: "Public Student Registration",
         classes: classResult.rows,
@@ -3727,16 +3745,18 @@ const commonController = {
         currentTerm,
         organizationId,
         orgDetails,
-        paystackSubaccounts,
+        paystackSubaccounts: _prSelectablePaystack,
         fallbackCard,
         publishableKey: paystackConfig.publicKey,
         stripePublishableKey,
         hasPayoutAccount,
         stripePayoutReady,
-        stripeSelectable,
+        stripeSelectable: _prStripeSelectable,
         paystackPayoutReady,
         payoutProvider,
         stripeConnectAccountId,
+        platformFeePercentage,
+        platformFeeBearer,
         messages: req.flash(),
       });
     } catch (err) {
@@ -3920,175 +3940,6 @@ const commonController = {
     }
   },
 
-  initializePayment: async (req, res, db) => {
-    const { subaccountCode, amount } = req.body;
-
-    // ✅ Determine BASE_URL dynamically with dual-domain support
-    const requestOrigin = `${req.protocol}://${req.get("host")}`;
-    const configuredProdBaseUrl =
-      process.env.BASE_URL_PRODUCTION ||
-      process.env.BASE_URL_PRODUCTION_FALLBACK ||
-      "https://managira.com";
-    const BASE_URL = requestOrigin ||
-      (process.env.NODE_ENV === "production"
-        ? configuredProdBaseUrl
-        : process.env.BASE_URL_LOCAL || "http://localhost:4000");
-
-    const pendingStudentId = req.session.pendingStudentId;
-
-    if (!pendingStudentId) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Missing pending student ID." });
-    }
-
-    try {
-      await ensurePublicRegistrationSchema(db);
-      const stripe = await getStripeClient(db);
-
-      // ✅ Fetch organization ID with fallback
-      console.log('[Initialize Payment] Fetching pending student details...');
-      const studentResult = await db.query(
-        `SELECT organization_id, first_name, last_name FROM pending_students WHERE pending_id = $1`,
-        [pendingStudentId]
-      );
-
-      if (studentResult.rows.length === 0) {
-        return res
-          .status(400)
-          .json({ success: false, error: "Pending student not found." });
-      }
-
-      const {
-        organization_id: organizationId,
-        first_name,
-        last_name,
-      } = studentResult.rows[0];
-
-      const orgResult = await db.query(
-        `SELECT public_registration_currency, organization_name FROM organizations WHERE organization_id = $1`,
-        [organizationId]
-      );
-      const currency = normalizeCurrencyCode(orgResult.rows[0]?.public_registration_currency) || "GHS";
-      const organizationName = orgResult.rows[0]?.organization_name || "School";
-
-      const guardianResult = await db.query(
-        `SELECT email, first_name FROM pending_guardians WHERE pending_id = $1 LIMIT 1`,
-        [pendingStudentId]
-      );
-      const primaryGuardian = guardianResult.rows[0];
-      const guardianEmail = primaryGuardian?.email || null;
-
-      const paymentReference = `REG-${organizationId}-${pendingStudentId}-${Date.now()}`;
-
-      const requestedAmount = roundCurrencyAmount(parseFloat(amount));
-      if (!(requestedAmount > 0)) {
-        return res.status(400).json({ success: false, error: "Invalid registration amount." });
-      }
-
-      const stripeChargeCurrency = normalizeCurrencyCode(getStripeChargeCurrency()) || currency;
-      const stripeChargeAmount = await convertAmountBetweenCurrencies(
-        requestedAmount,
-        currency,
-        stripeChargeCurrency
-      );
-      const amountInMinorUnit = Math.round(stripeChargeAmount * 100);
-      if (!(amountInMinorUnit > 0)) {
-        return res.status(400).json({ success: false, error: "Invalid registration amount." });
-      }
-
-      const metadata = {
-        flow: 'public_registration',
-        pending_student_id: String(pendingStudentId),
-        organization_id: String(organizationId),
-        student_name: `${first_name} ${last_name}`,
-        guardian_name: primaryGuardian?.first_name || 'Guardian',
-        existing_guardian_id: req.session.publicRegistrationExistingGuardianId
-          ? String(req.session.publicRegistrationExistingGuardianId)
-          : '',
-        payout_subaccount_code: String(subaccountCode || ''),
-        registration_amount: requestedAmount.toFixed(2),
-        registration_currency: currency,
-        stripe_charge_amount: stripeChargeAmount.toFixed(2),
-        stripe_charge_currency: stripeChargeCurrency,
-      };
-
-      const session = await stripe.checkout.sessions.create({
-        mode: 'payment',
-        success_url: `${BASE_URL}/common/paymentCallback?session_id={CHECKOUT_SESSION_ID}&pendingStudentId=${pendingStudentId}&organizationId=${organizationId}`,
-        cancel_url: `${BASE_URL}/common/paymentCallback?cancelled=1&pendingStudentId=${pendingStudentId}&organizationId=${organizationId}`,
-        billing_address_collection: 'auto',
-        customer_email: guardianEmail || undefined,
-        client_reference_id: String(pendingStudentId),
-        metadata,
-        line_items: [
-          {
-            quantity: 1,
-            price_data: {
-              currency: stripeChargeCurrency.toLowerCase(),
-              unit_amount: amountInMinorUnit,
-              product_data: {
-                name: `${organizationName} Registration Fee`,
-                description:
-                  stripeChargeCurrency === currency
-                    ? `Public student registration for ${first_name} ${last_name}`
-                    : `Public student registration for ${first_name} ${last_name} (${requestedAmount.toFixed(2)} ${currency})`,
-              },
-            },
-          },
-        ],
-        payment_intent_data: {
-          description: `Public registration for ${first_name} ${last_name} · ${organizationName}`,
-          metadata,
-          setup_future_usage: 'off_session',
-        },
-      });
-
-      await db.query(
-        `INSERT INTO public_registration_payments (
-          organization_id,
-          pending_student_id,
-          student_name,
-          student_email,
-          amount,
-          currency,
-          payment_provider,
-          stripe_session_id,
-          subaccount_code,
-          status,
-          metadata
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-        ON CONFLICT DO NOTHING`,
-        [
-          organizationId,
-          pendingStudentId,
-          `${first_name} ${last_name}`,
-          guardianEmail,
-          requestedAmount,
-          currency,
-          'stripe',
-          session.id,
-          subaccountCode || null,
-          'pending',
-          JSON.stringify(metadata),
-        ]
-      );
-
-      return res.json({
-        success: true,
-        payment_url: session.url,
-        reference: paymentReference,
-        checkout_session_id: session.id,
-        provider: 'stripe',
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        error: error.response?.data?.message || "Payment initialization failed",
-      });
-    }
-  },
-
   // ─── Inline Stripe Payment Element (Stripe Connect destination charge) ────────
   // Creates a PaymentIntent with transfer_data so money flows:
   //   Parent → Managira platform → School connected account
@@ -4134,20 +3985,32 @@ const commonController = {
       const currency = normalizeCurrencyCode(orgRow?.public_registration_currency) || 'GHS';
       const organizationName = orgRow?.organization_name || 'School';
       const payoutContext = await resolveSchoolPayoutDestination(organizationId, db, { fresh: true }).catch(() => null);
-      const hasStripeOption = Boolean(payoutContext?.stripe?.available);
-      const hasPaystackOption = Boolean(payoutContext?.paystack?.available);
-      if (hasStripeOption && hasPaystackOption && !payoutAccountId) {
-        return res.status(400).json({
-          success: false,
-          error: 'Choose Stripe or a Paystack payout account before continuing.',
-          code: 'PAYOUT_PROVIDER_SELECTION_REQUIRED',
-        });
-      }
       const selectedIsStripe = String(payoutAccountId || '').toLowerCase() === 'stripe';
       const selectedIsPaystack = Boolean(payoutAccountId && !selectedIsStripe);
+      const preferredProvider = String(payoutContext?.preference || '').trim().toLowerCase();
+
+      if (preferredProvider === 'stripe' && selectedIsPaystack) {
+        return res.status(400).json({
+          success: false,
+          error: 'This school currently has Stripe as the active payout provider.',
+          code: 'PAYOUT_PROVIDER_LOCKED',
+        });
+      }
+      if (preferredProvider === 'paystack' && selectedIsStripe) {
+        return res.status(400).json({
+          success: false,
+          error: 'This school currently has Paystack as the active payout provider.',
+          code: 'PAYOUT_PROVIDER_LOCKED',
+        });
+      }
+
       let payoutProvider = payoutContext?.provider || null;
-      if (selectedIsStripe) payoutProvider = 'stripe';
-      if (selectedIsPaystack) payoutProvider = 'paystack';
+      if (preferredProvider === 'stripe' || preferredProvider === 'paystack') {
+        payoutProvider = preferredProvider;
+      } else {
+        if (selectedIsStripe) payoutProvider = 'stripe';
+        if (selectedIsPaystack) payoutProvider = 'paystack';
+      }
 
       let platformStripe = null;
       let stripe = null;
@@ -4190,6 +4053,13 @@ const commonController = {
         stripe = await getStripePlatformClient(db);
         stripeConnectAccountId = getStripeConnectAccountId(orgRow || {}, platformStripe.mode) || null;
       }
+
+      const { percentage: platformFeePercentage } = await getPlatformFeeSettings(db).catch(() => ({ percentage: 0 }));
+      const platformFeeBearer = await getOrgPlatformFeeBearer(organizationId, db).catch(() => 'parent');
+      const chargeBreakdown = buildPlatformChargeBreakdown(requestedAmount, {
+        platformFeePercentage,
+        bearer: platformFeeBearer,
+      });
 
       if (payoutProvider === 'paystack') {
         // Resolve which specific payout account to use
@@ -4239,7 +4109,9 @@ const commonController = {
         }
 
         const paystackReference = paymentReference;
-        const paystackAmount = Math.round(requestedAmount * 100);
+        const paystackAmount = Math.round(chargeBreakdown.totalChargedAmount * 100);
+        const useSubaccount = Boolean(subaccountCodeToUse && subaccountCodeToUse.startsWith('ACCT_'));
+        const platformFeeMinor = Math.round(chargeBreakdown.platformFeeAmount * 100);
         const paystackCallbackUrl = `${BASE_URL}/common/paymentCallback?reference=${encodeURIComponent(paystackReference)}&pendingStudentId=${encodeURIComponent(pendingStudentId)}&organizationId=${encodeURIComponent(organizationId)}`;
         const paystackMetadata = {
           flow: 'public_registration_inline',
@@ -4255,6 +4127,9 @@ const commonController = {
           payout_subaccount_code: subaccountCodeToUse || '',
           payout_account_id: payoutAccountId ? String(payoutAccountId) : '',
           paystack_reference: paystackReference,
+          platform_fee_bearer: platformFeeBearer,
+          platform_fee_amount: String(chargeBreakdown.platformFeeAmount),
+          platform_fee_percentage: String(chargeBreakdown.platformFeePercentage),
         };
 
         const paystackResponse = await axios.post(
@@ -4265,7 +4140,13 @@ const commonController = {
             reference: paystackReference,
             callback_url: paystackCallbackUrl,
             currency: currency.toUpperCase(),
-            ...(subaccountCodeToUse && subaccountCodeToUse.startsWith('ACCT_') ? { subaccount: subaccountCodeToUse } : {}),
+            ...(useSubaccount
+              ? {
+                  subaccount: subaccountCodeToUse,
+                  transaction_charge: platformFeeMinor,
+                  bearer: 'account',
+                }
+              : {}),
             ...(Array.isArray(paystackChannels) && paystackChannels.length ? { channels: paystackChannels } : {}),
             metadata: paystackMetadata,
           },
@@ -4288,7 +4169,7 @@ const commonController = {
             pendingStudentId,
             `${first_name} ${last_name}`,
             guardianEmail,
-            requestedAmount,
+            chargeBreakdown.totalChargedAmount,
             currency,
             'paystack',
             null,
@@ -4308,19 +4189,32 @@ const commonController = {
           paystack_reference: paystackReference,
           access_code: paystackInit.access_code,
           callback_url: paystackCallbackUrl,
+          charge_breakdown: chargeBreakdown,
+        });
+      }
+
+      if (!stripeConnectAccountId) {
+        return res.status(400).json({
+          success: false,
+          error: 'This organization is not configured to accept payments. Stripe Connect is required.',
         });
       }
 
       const stripeChargeCurrency = normalizeCurrencyCode(getStripeChargeCurrency()) || currency;
-      const stripeChargeAmount = await convertAmountBetweenCurrencies(requestedAmount, currency, stripeChargeCurrency);
+      const stripeChargeAmount = await convertAmountBetweenCurrencies(
+        chargeBreakdown.totalChargedAmount,
+        currency,
+        stripeChargeCurrency
+      );
       const amountInMinorUnit = Math.round(stripeChargeAmount * 100);
-
-      // 5. Platform fee from admin service pricing (app_settings key: platform_fee_percentage)
-      const feeSettings = await getPlatformFeeSettings(db).catch(() => ({ percentage: 0 }));
-      const platformFeePercent = feeSettings.percentage || 0;
-      const applicationFeeAmount = platformFeePercent > 0
-        ? Math.round(amountInMinorUnit * (platformFeePercent / 100))
+      const platformFeeInStripeCurrency = chargeBreakdown.platformFeeAmount > 0
+        ? await convertAmountBetweenCurrencies(
+            chargeBreakdown.platformFeeAmount,
+            currency,
+            stripeChargeCurrency
+          )
         : 0;
+      const applicationFeeAmount = Math.round(platformFeeInStripeCurrency * 100);
 
       // 6. Build metadata
       const metadata = {
@@ -4335,8 +4229,10 @@ const commonController = {
         registration_currency: currency,
         stripe_charge_amount: stripeChargeAmount.toFixed(2),
         stripe_charge_currency: stripeChargeCurrency,
-        platform_fee_percent: String(platformFeePercent),
+        platform_fee_percent: String(chargeBreakdown.platformFeePercentage),
         application_fee_amount: String(applicationFeeAmount),
+        platform_fee_bearer: platformFeeBearer,
+        platform_fee_amount: String(chargeBreakdown.platformFeeAmount),
         stripe_connect_account_id: stripeConnectAccountId || '',
       };
 
@@ -4348,13 +4244,11 @@ const commonController = {
         metadata,
         automatic_payment_methods: { enabled: true, allow_redirects: 'always' },
         ...(guardianEmail ? { receipt_email: guardianEmail } : {}),
+        transfer_data: { destination: stripeConnectAccountId },
       };
 
-      if (stripeConnectAccountId) {
-        paymentIntentParams.transfer_data = { destination: stripeConnectAccountId };
-        if (applicationFeeAmount > 0) {
-          paymentIntentParams.application_fee_amount = applicationFeeAmount;
-        }
+      if (applicationFeeAmount > 0) {
+        paymentIntentParams.application_fee_amount = applicationFeeAmount;
       }
 
       // 8. Create PaymentIntent
@@ -4371,7 +4265,7 @@ const commonController = {
         [
           organizationId, pendingStudentId,
           `${first_name} ${last_name}`, guardianEmail,
-          requestedAmount, currency, 'stripe',
+          chargeBreakdown.totalChargedAmount, currency, 'stripe',
           paymentIntent.id,
           null, // subaccount_code — Stripe Connect ID is not a Paystack subaccount; FK would reject it
           'pending',
@@ -4384,11 +4278,12 @@ const commonController = {
         success: true,
         clientSecret: paymentIntent.client_secret,
         publishableKey: platformStripe.publicKey,
-        amount: requestedAmount,
+        amount: chargeBreakdown.totalChargedAmount,
         currency,
         paymentIntentId: paymentIntent.id,
-        platformFeePercent,
-        schoolReceives: ((amountInMinorUnit - applicationFeeAmount) / 100).toFixed(2),
+        platformFeePercent: chargeBreakdown.platformFeePercentage,
+        schoolReceives: chargeBreakdown.schoolReceivesAmount.toFixed(2),
+        charge_breakdown: chargeBreakdown,
       });
     } catch (error) {
       const stripeMessage = error?.raw?.message || error?.message || '';
@@ -4841,7 +4736,19 @@ const commonController = {
           [reference]
         );
 
-        // ✅ Fetch guardian details
+        // Auto-settle the school's share when this charge was NOT split at
+        // charge time (mobile money / bank-recipient / local accounts). For
+        // ACCT_ subaccounts this is a no-op (already settled by Paystack split).
+        try {
+          await settleFromPaystackTransaction(db, {
+            txn: result.data?.data || null,
+            context: 'public_registration',
+            secretKey: paystackConfig.secretKey,
+          });
+        } catch (settleErr) {
+          console.error('[Payment Callback] Auto-settle failed (will retry on schedule):', settleErr.message);
+        }
+
         const guardianResult = await db.query(
           `SELECT email, first_name FROM pending_guardians WHERE pending_id = $1 LIMIT 1`,
           [paystackPendingStudentId]
@@ -14829,11 +14736,14 @@ const commonController = {
         role: String(req.query.role || "").trim(),
         search: String(req.query.search || "").trim(),
       };
+      const allowedPageSizes = [20, 50, 70, 100, 200];
+      const requestedPageSize = Math.max(1, Number(req.query.pageSize) || 20);
+      const pageSize = allowedPageSizes.includes(requestedPageSize) ? requestedPageSize : 20;
       const page = Math.max(1, Number(req.query.page) || 1);
       const logsBundle = await getOrganizationActivityLogs(db, {
         organizationId,
         page,
-        pageSize: 25,
+        pageSize,
         filters,
       });
       const filterOptions = await getActivityLogFilterOptions(db, organizationId);

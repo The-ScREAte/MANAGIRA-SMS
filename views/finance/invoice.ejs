@@ -131,7 +131,9 @@
       <thead><tr><th>Date</th><th>Method</th><th>Reference</th><th class="amt">Applied</th><th class="amt">Charges</th><th class="amt">Total</th></tr></thead>
       <tbody>
         <% payments.forEach(p => { %>
-          <% const paymentCharges = Number(p.platform_fee_amount || 0) + Number(p.tax_amount || 0); %>
+          <% const _pBearer = String(p.platform_fee_bearer || 'parent').toLowerCase() === 'school' ? 'school' : 'parent'; %>
+          <% const _pPayerFee = _pBearer === 'parent' ? Number(p.platform_fee_amount || 0) : 0; %>
+          <% const paymentCharges = _pPayerFee + Number(p.tax_amount || 0); %>
           <% const paymentTotal = Number(p.amount || 0) + paymentCharges; %>
           <tr>
             <td><%= new Date(p.received_at).toLocaleString() %></td>
@@ -143,8 +145,8 @@
               <%= paymentCharges > 0 ? moneyFmt(paymentCharges) : '—' %>
               <% if (paymentCharges > 0) { %>
                 <div style="color:#5a6378;font-size:.72rem;margin-top:4px;line-height:1.45;">
-                  <% if (Number(p.platform_fee_amount || 0) > 0) { %>
-                    <div>Fee <%= moneyFmt(p.platform_fee_amount) %></div>
+                  <% if (_pPayerFee > 0) { %>
+                    <div>Fee <%= moneyFmt(_pPayerFee) %></div>
                   <% } %>
                   <% if (Number(p.tax_amount || 0) > 0) { %>
                     <div>Tax <%= moneyFmt(p.tax_amount) %></div>

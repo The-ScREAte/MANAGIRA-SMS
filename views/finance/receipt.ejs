@@ -55,8 +55,11 @@
   <%
     const platformFeePercentage = Number(payment.platform_fee_percentage || 0);
     const platformFeeAmount = Number(payment.platform_fee_amount || 0);
+    const platformFeeBearer = String(payment.platform_fee_bearer || 'parent').toLowerCase() === 'school' ? 'school' : 'parent';
     const taxAmount = Number(payment.tax_amount || 0);
-    const totalChargedAmount = Number(payment.amount || 0) + platformFeeAmount + taxAmount;
+    // The payer only paid the fee when the bill-payer bears it; for school-borne fees it is deducted from the school.
+    const payerPaidFee = platformFeeBearer === 'parent' ? platformFeeAmount : 0;
+    const totalChargedAmount = Number(payment.amount || 0) + payerPaidFee + taxAmount;
   %>
   <div class="head">
     <div class="org">
@@ -88,13 +91,15 @@
        var bal   = Math.max(total - paid, 0);
   %>
     <div class="row"><div>Applied to bill</div><div class="v"><%= moneyFmt(payment.amount) %></div></div>
-    <% if (platformFeeAmount > 0) { %>
-      <div class="row"><div>Platform fee<%= platformFeePercentage > 0 ? ` (${Number(platformFeePercentage).toFixed(2).replace(/\.00$/, '')}%)` : '' %></div><div class="v"><%= moneyFmt(platformFeeAmount) %></div></div>
+    <% if (payerPaidFee > 0) { %>
+      <div class="row"><div>Platform fee<%= platformFeePercentage > 0 ? ` (${Number(platformFeePercentage).toFixed(2).replace(/\.00$/, '')}%)` : '' %></div><div class="v"><%= moneyFmt(payerPaidFee) %></div></div>
+    <% } else if (platformFeeAmount > 0) { %>
+      <div class="row" style="color:#5a6378;"><div>Platform fee<%= platformFeePercentage > 0 ? ` (${Number(platformFeePercentage).toFixed(2).replace(/\.00$/, '')}%)` : '' %> — covered by school</div><div class="v">—</div></div>
     <% } %>
     <% if (taxAmount > 0) { %>
       <div class="row"><div>Taxes</div><div class="v"><%= moneyFmt(taxAmount) %></div></div>
     <% } %>
-    <% if (platformFeeAmount > 0 || taxAmount > 0) { %>
+    <% if (payerPaidFee > 0 || taxAmount > 0) { %>
       <div class="row" style="font-weight:800;"><div>Total charged</div><div class="v"><%= moneyFmt(totalChargedAmount) %></div></div>
     <% } %>
     <div class="row"><div>Total billed</div><div class="v"><%= moneyFmt(total) %></div></div>

@@ -320,15 +320,19 @@
   <script>
     // Hide or show the welcome message or orgDashboardSection based on schoolYear and currentTerm
     document.addEventListener('DOMContentLoaded', () => {
+      const orgDashboardSection = document.getElementById('orgDashboardSection');
+      const welcomeMessage = document.getElementById('welcomeMessage');
+      if (!orgDashboardSection || !welcomeMessage) return;
+
       const schoolYear = JSON.parse('<%- JSON.stringify(schoolYear) %>');
       const currentTerm = JSON.parse('<%- JSON.stringify(currentTerm) %>');
 
       if (!schoolYear || !currentTerm) {
-        document.getElementById('orgDashboardSection').style.display = 'none';
-        document.getElementById('welcomeMessage').style.display = 'block';
+        orgDashboardSection.style.display = 'none';
+        welcomeMessage.style.display = 'block';
       } else {
-        document.getElementById('orgDashboardSection').style.display = 'block';
-        document.getElementById('welcomeMessage').style.display = 'none';
+        orgDashboardSection.style.display = 'block';
+        welcomeMessage.style.display = 'none';
       }
     });
 
