@@ -276,6 +276,7 @@
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
     box-sizing: border-box;
     transition: all 0.3s ease;
+    overflow: visible;
   }
 
   .image-content-form:hover {
@@ -406,6 +407,8 @@
     align-items: center;
     gap: 10px;
     margin-top: 8px;
+    position: relative;
+    z-index: 2;
   }
 
   .form-action-row > button[type="submit"] {
@@ -417,6 +420,7 @@
   .action-menu {
     position: relative;
     flex: 0 0 auto;
+    z-index: 3;
   }
 
   .action-menu-toggle {
@@ -450,7 +454,7 @@
     position: absolute;
     bottom: calc(100% + 8px);
     right: 0;
-    z-index: 40;
+    z-index: 9999;
     background: #ffffff;
     border: 1px solid var(--border);
     border-radius: 10px;
@@ -684,6 +688,7 @@
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
     box-sizing: border-box;
     transition: all 0.3s ease;
+    overflow: visible;
   }
 
   .text-content-form:hover {
