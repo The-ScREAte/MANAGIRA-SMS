@@ -2174,6 +2174,8 @@ students
         return res.status(404).send("Organization not found.");
       }
 
+      const studentIdSettings = await getOrganizationStudentIdSettings(db, organizationId);
+
       const logoUrl = organization.logo_path
         ? `https://${process.env.S3_BUCKET_NAME}.s3.amazonaws.com/${organization.logo_path}`
         : null;
@@ -2332,6 +2334,7 @@ students
         meritSheet: meritSheetData,
       });
     } catch (error) {
+            console.error('[generateMeritSheet] Failed:', error);
             res.status(500).send("Failed to generate merit sheet.");
     }
   },

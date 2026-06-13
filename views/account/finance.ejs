@@ -3,6 +3,7 @@
   const sec = (rawSec === 'reports' || rawSec === 'templates') ? 'overview' : rawSec;
   const currentCurrency = (typeof financeCurrency !== 'undefined' && financeCurrency && financeCurrency.code) ? financeCurrency.code : 'USD';
   const profilePlaceholder = '/images/profilePlaceholder.png';
+  const resolveAvatar = (u) => (u && String(u).trim() && String(u).trim() !== 'profilePlaceholder.png') ? u : profilePlaceholder;
   const fmt = (n) => typeof formatMoney === 'function'
     ? formatMoney(n)
     : (currentCurrency + ' ' + Number(n||0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
@@ -19,6 +20,7 @@
   const createBillDraftState = (typeof createBillDraft !== 'undefined' && createBillDraft) ? createBillDraft : null;
   const collectionDestinationOptionsSafe = (typeof collectionDestinationOptions !== 'undefined' && Array.isArray(collectionDestinationOptions)) ? collectionDestinationOptions : [];
   const defaultCollectionDestinationSafe = (typeof defaultCollectionDestination !== 'undefined' && defaultCollectionDestination) ? defaultCollectionDestination : '';
+  const paymentProviderSafe = (typeof paymentProvider !== 'undefined' && paymentProvider) ? String(paymentProvider).toLowerCase() : '';
   const openCreateBillForm = sec === 'bills' && (Boolean(createBillDraftState) || (typeof messages !== 'undefined' && messages && messages.error && messages.error.length));
   const formatCollectorOptionLabel = (employee) => {
     const fullName = [employee && employee.first_name, employee && employee.last_name].filter(Boolean).join(' ').trim() || 'Unnamed staff';
@@ -482,6 +484,8 @@
   .fin-check  { display:inline-flex; align-items:center; gap:8px; color:var(--fin-text); font-size:.88rem; cursor:pointer; }
   .fin-check input[type=checkbox] { width:16px; height:16px; border-radius:4px; accent-color:var(--fin-teal); cursor:pointer; }
   .fin-check input { width:auto; }
+  .fin-check-list { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:8px 16px; max-height:180px; overflow-y:auto; padding:10px 12px; border:1px solid var(--fin-border); border-radius:10px; background:var(--fin-surface, #fff); }
+  .fin-check-list .fin-check { font-size:.84rem; }
   .fin-check-all {
     padding:6px 12px; border-radius:8px;
     background:rgba(0,212,170,.08); border:1px solid rgba(0,212,170,.25);
@@ -607,6 +611,13 @@
     min-height:140px;
     padding:6px;
     background-image:none !important;
+    resize:vertical;
+    overflow:auto;
+  }
+  /* Allow every native multi-select to be dragged taller by the user */
+  .fin-field select[multiple] {
+    resize:vertical;
+    overflow:auto;
   }
   .fin-multi-select option {
     padding:9px 10px;
@@ -1778,7 +1789,7 @@
                 <label>Amount (<%= currentCurrency %>) *</label>
                 <input name="amount" type="number" step="0.01" min="0" required placeholder="500.00">
                 <% if (currentCurrency !== 'USD' && fmtUsdEquivalent(500)) { %>
-                  <small style="color:var(--fin-muted);font-size:.72rem;">Approx. USD equivalent is shown for reference when your org currency is not USD.</small>
+                  <small style="color:var(--fin-muted);font-size:.72rem;">≈ USD shown for reference.</small>
                 <% } %>
               </div>
             </div>
@@ -1875,7 +1886,7 @@
                          data-search="<%= ((s.first_name||'') + ' ' + (s.last_name||'') + ' ' + (s.class_name||'')).toLowerCase() %>">
                     <input type="checkbox" name="target_student_ids" value="<%= s.student_id %>" onchange="finChipChanged(this,'studentCount')">
                     <span class="fin-chip-avatar">
-                      <img src="<%= s.image_url || profilePlaceholder %>" alt="<%= s.first_name %> <%= s.last_name %>" onerror="this.onerror=null;this.src='<%= profilePlaceholder %>';">
+                      <img src="<%= resolveAvatar(s.image_url) %>" alt="<%= s.first_name %> <%= s.last_name %>" onerror="this.onerror=null;this.src='<%= profilePlaceholder %>';">
                     </span>
                     <span class="fin-chip-text">
                       <strong><%= s.first_name %> <%= s.last_name %></strong>
@@ -1906,7 +1917,7 @@
                   <option value="">— Select term —</option>
                   <% (refs.terms || []).forEach(t => { %><option value="<%= t.term_id %>" data-school-year-id="<%= t.school_year_id || '' %>" data-current="<%= t.current ? 'true' : 'false' %>" data-start-date="<%= t.start_date ? new Date(t.start_date).toISOString().slice(0,10) : '' %>" data-end-date="<%= t.end_date ? new Date(t.end_date).toISOString().slice(0,10) : '' %>" <%= t.current ? 'selected' : '' %>><%= t.name %><%= t.current ? ' (current)' : '' %></option><% }) %>
                 </select>
-                <small style="color:var(--fin-muted);font-size:.74rem;">Assignments only go to students enrolled in this exact school year and term.</small>
+                <small style="color:var(--fin-muted);font-size:.74rem;">Only students enrolled in this year &amp; term are billed.</small>
               </div>
             </div>
             <div class="fin-row">
@@ -1917,7 +1928,7 @@
               <div class="fin-field">
                 <label>End Date</label>
                 <input name="recurrence_end_date" id="billCreateEndDate" type="date">
-                <small style="color:var(--fin-muted);font-size:.72rem;">Recurring schedules use this as the last bill date. If you leave it blank, the selected term end date is used when available.</small>
+                <small style="color:var(--fin-muted);font-size:.72rem;">Last recurring bill date. Blank = term end.</small>
               </div>
             </div>
             <div class="fin-field">
@@ -1925,11 +1936,11 @@
               <div class="fin-checks">
                 <label class="fin-check"><input type="checkbox" name="exclude_non_school_days" id="billCreateExcludeNonSchoolDays"> Do not include weekends and holidays</label>
               </div>
-              <small style="color:var(--fin-muted);font-size:.72rem;">Uses the attendance calendar settings for the selected term, including weekend days and public holidays. If you extend the end date, the bill dates are recalculated after excluded days are removed.</small>
+              <small style="color:var(--fin-muted);font-size:.72rem;">Skips weekends &amp; holidays from the term calendar.</small>
             </div>
             <div class="fin-field">
-              <label>Collectors / Overseers <span style="color:var(--fin-muted);font-weight:400;font-size:.75em;">(hold Ctrl / ⌘ to pick multiple)</span></label>
-              <select name="assignee_ids[]" multiple size="4" style="min-height:90px;">
+              <label>Collectors / Overseers <span style="color:var(--fin-muted);font-weight:400;font-size:.75em;">(hold Ctrl / ⌘ to pick multiple · drag the corner to resize)</span></label>
+              <select name="assignee_ids[]" class="fin-multi-select" multiple size="4" style="min-height:90px;">
                 <% (refs.employees || []).forEach(function(e) { %>
                   <option value="<%= e.user_id %>"><%= formatCollectorOptionLabel(e) %></option>
                 <% }) %>
@@ -1937,29 +1948,42 @@
               <small style="color:var(--fin-muted);font-size:.72rem;">Leave empty for no specific collector.</small>
             </div>
             <div class="fin-field">
-              <label>Collection Destination *</label>
+              <label>Collection Destination</label>
               <% const selectedCreateDestination = collectionDestinationOptionsSafe.some(function(option) { return String(option.value) === String((createBillDraftState && createBillDraftState.payment_destination) || ''); })
                 ? String((createBillDraftState && createBillDraftState.payment_destination) || '')
                 : String(defaultCollectionDestinationSafe || ''); %>
-              <select name="payment_destination" required>
+              <select name="payment_destination">
                 <% if (collectionDestinationOptionsSafe.length) { %>
                   <% collectionDestinationOptionsSafe.forEach(function(option) { %>
                     <option value="<%= option.value %>" <%= selectedCreateDestination === String(option.value) ? 'selected' : '' %>><%= option.label %></option>
                   <% }) %>
                 <% } else { %>
-                  <option value="">No payout account configured</option>
+                  <option value="cash">Cash (collect manually)</option>
                 <% } %>
               </select>
-              <small style="color:var(--fin-muted);font-size:.74rem;">This comes from the primary payout account in Account Settings.</small>
+              <small style="color:var(--fin-muted);font-size:.74rem;">Optional — only activated payout accounts are listed. Choose Cash to collect manually.</small>
             </div>
             <div class="fin-field">
               <label>Payment Methods Accepted (visible to parent)</label>
+              <% const createIsStripe = paymentProviderSafe === 'stripe';
+                 const createIsPaystack = paymentProviderSafe === 'paystack';
+                 const createCardOn = createIsPaystack ? true : !!(allowedMethods && allowedMethods.stripeOn);
+                 const createTransferOn = createIsStripe ? false : !!(allowedMethods && (allowedMethods.bankOn || allowedMethods.momoOn) || createIsPaystack);
+                 const createCardLabel = createIsPaystack ? '💳 Card (Paystack)' : '💳 Card / Stripe';
+                 const createTransferLabel = createIsPaystack ? '📱 Mobile Money / Bank' : '🏦 Bank / Mobile Money'; %>
               <div class="fin-checks">
                 <label class="fin-check fin-check-all"><input type="checkbox" id="payAll" onchange="finTogglePayAll(this)" checked> <strong>All methods</strong></label>
-                <label class="fin-check"><input type="checkbox" class="pay-method" name="accepts_card" checked <%= !(allowedMethods && allowedMethods.stripeOn) ? 'disabled' : '' %>> 💳 Card / Stripe <%= !(allowedMethods && allowedMethods.stripeOn) ? '(off — set Stripe keys)' : '' %></label>
+                <% if (createCardOn) { %>
+                <label class="fin-check"><input type="checkbox" class="pay-method" name="accepts_card" checked> <%= createCardLabel %></label>
+                <% } %>
                 <label class="fin-check"><input type="checkbox" class="pay-method" name="accepts_cash" checked> 💵 Cash</label>
-                <label class="fin-check"><input type="checkbox" class="pay-method" name="accepts_transfer" checked <%= (!(allowedMethods && allowedMethods.bankOn) && !(allowedMethods && allowedMethods.momoOn)) ? 'disabled' : '' %>> 🏦 Bank / Mobile Money <%= (!(allowedMethods && allowedMethods.bankOn) && !(allowedMethods && allowedMethods.momoOn)) ? '(off — set details)' : '' %></label>
+                <% if (createTransferOn) { %>
+                <label class="fin-check"><input type="checkbox" class="pay-method" name="accepts_transfer" checked> <%= createTransferLabel %></label>
+                <% } %>
               </div>
+              <% if (!createCardOn && !createTransferOn) { %>
+                <small style="color:var(--fin-muted);font-size:.72rem;">Activate Stripe, bank, or mobile money under Payment Settings to offer online methods.</small>
+              <% } %>
             </div>
             <div class="fin-field">
               <label>Notify Parents</label>
@@ -2197,7 +2221,7 @@
                       <td>
                         <div class="fin-student-main">
                           <div class="fin-student-avatar">
-                            <img src="<%= s.image_url || profilePlaceholder %>" alt="<%= s.first_name %> <%= s.last_name %>" onerror="this.onerror=null;this.src='<%= profilePlaceholder %>';">
+                            <img src="<%= resolveAvatar(s.image_url) %>" alt="<%= s.first_name %> <%= s.last_name %>" onerror="this.onerror=null;this.src='<%= profilePlaceholder %>';">
                           </div>
                           <div class="fin-student-copy">
                             <strong class="fin-student-name"><%= s.first_name %> <%= s.last_name %></strong>
@@ -2819,7 +2843,7 @@
                         <td>
                           <div class="arrears-student-cell">
                             <div class="arrears-avatar">
-                              <img src="<%= student.image_url || profilePlaceholder %>" alt="<%= student.student_name %>" style="width:100%;height:100%;object-fit:cover;" onerror="this.onerror=null;this.src='<%= profilePlaceholder %>';">
+                              <img src="<%= resolveAvatar(student.image_url) %>" alt="<%= student.student_name %>" style="width:100%;height:100%;object-fit:cover;" onerror="this.onerror=null;this.src='<%= profilePlaceholder %>';">
                             </div>
                             <div class="arrears-meta">
                               <strong><%= student.student_name %></strong>
@@ -3111,6 +3135,8 @@ Regards,
         String(today.getDate()).padStart(2, '0')
       ].join('-');
     }
+    // Expose globally so SPA re-executed scripts and cross-scope handlers can always reach it.
+    window.getLocalTodayIso = getLocalTodayIso;
     function splitDataIds(value) {
       return String(value || '')
         .split(',')
@@ -3318,15 +3344,22 @@ Regards,
     }
 
     function syncEditBillCollectorSummary() {
-      var select = document.getElementById('ebl-assignee');
+      var group = document.getElementById('ebl-assignee');
       var summary = document.getElementById('ebl-assignee_summary');
-      if (!select || !summary) return;
-      var selectedCount = Array.prototype.filter.call(select.options, function(option) {
-        return option.selected;
-      }).length;
+      if (!group || !summary) return;
+      var selectedCount = group.querySelectorAll('.ebl-assignee-check:checked').length;
       summary.textContent = selectedCount
         ? (selectedCount + ' collector' + (selectedCount === 1 ? '' : 's') + ' selected.')
         : 'Leave empty if unassigned.';
+    }
+
+    function setEditBillAssignees(values) {
+      var group = document.getElementById('ebl-assignee');
+      if (!group) return;
+      var wanted = Array.isArray(values) ? values.map(function(value) { return String(value); }) : [];
+      Array.prototype.forEach.call(group.querySelectorAll('.ebl-assignee-check'), function(input) {
+        input.checked = wanted.indexOf(String(input.value || '')) !== -1;
+      });
     }
 
     function setMultiSelectValues(selectId, values) {
@@ -3464,7 +3497,7 @@ Regards,
       setVal('ebl-recurrence_end_date', bill.recurrence_end_date || '');
       setVal('ebl-late_fee', bill.late_fee_amount || 0);
       setVal('ebl-late_days', bill.late_fee_after_days || 7);
-      setMultiSelectValues('ebl-assignee', (Array.isArray(bill.assignee_ids) && bill.assignee_ids.length) ? bill.assignee_ids : (bill.assignee_id ? [bill.assignee_id] : []));
+      setEditBillAssignees((Array.isArray(bill.assignee_ids) && bill.assignee_ids.length) ? bill.assignee_ids : (bill.assignee_id ? [bill.assignee_id] : []));
       setVal('ebl-bill_type', bill.bill_type || 'one_time');
       setVal('ebl-recurrence', bill.recurrence || '');
       setChk('ebl-exclude_non_school_days', bill.exclude_non_school_days);
@@ -3556,7 +3589,8 @@ Regards,
       var outstanding  = bills.reduce((a,b) => a + Number(b.balance != null ? b.balance : Math.max(Number(b.amount||0) + Number(b.late_fee_applied||0) - Number(b.amount_paid||0), 0)), 0);
       var netDue       = Math.max(outstanding - Number(credit || 0), 0);
       var initials     = ((s.first_name||'?')[0] + (s.last_name||'')[0]).toUpperCase();
-      var avatarHtml = '<img src="' + (s.image_url || profilePlaceholderSrc) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.onerror=null;this.src=\'' + profilePlaceholderSrc + '\';">';
+      var avatarSrc = (s.image_url && String(s.image_url).trim() && String(s.image_url).trim() !== 'profilePlaceholder.png') ? s.image_url : profilePlaceholderSrc;
+      var avatarHtml = '<img src="' + avatarSrc + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.onerror=null;this.src=\'' + profilePlaceholderSrc + '\';">';
 
       var billRows = bills.map(function(b) {
         var bal = Number(b.balance != null ? b.balance : Math.max(Number(b.amount||0) + Number(b.late_fee_applied||0) - Number(b.amount_paid||0), 0));
@@ -4219,7 +4253,6 @@ Regards,
   ['ebl-target_class_ids', 'ebl-target_student_ids'].forEach(function(id) {
     if (typeof enableEditBillToggleMultiSelect === 'function') enableEditBillToggleMultiSelect(id);
   });
-  if (typeof enableEditBillToggleMultiSelect === 'function') enableEditBillToggleMultiSelect('ebl-assignee');
   var editBillAssigneeSelect = document.getElementById('ebl-assignee');
   if (editBillAssigneeSelect && typeof syncEditBillCollectorSummary === 'function') {
     editBillAssigneeSelect.addEventListener('change', syncEditBillCollectorSummary);
@@ -4560,7 +4593,7 @@ Regards,
         <div class="fin-checks">
           <label class="fin-check"><input type="checkbox" id="ebl-exclude_non_school_days" name="exclude_non_school_days"> Do not include weekends and holidays</label>
         </div>
-        <small style="color:var(--fin-muted);font-size:.74rem;">Uses the attendance calendar settings for the bill term when the schedule is recurring. If you extend the end date, the bill dates are recalculated after excluded days are removed.</small>
+        <small style="color:var(--fin-muted);font-size:.74rem;">Skips weekends &amp; holidays from the term calendar.</small>
       </div>
 
       <div class="fin-row">
@@ -4645,11 +4678,11 @@ Regards,
 
       <div class="fin-field">
         <label>Collectors / Overseers</label>
-        <select id="ebl-assignee" name="assignee_ids[]" class="fin-multi-select" multiple size="5" style="min-height:120px;">
+        <div id="ebl-assignee" class="fin-check-list">
           <% (refs.employees || []).forEach(function(e) { %>
-            <option value="<%= e.user_id %>"><%= formatCollectorOptionLabel(e) %></option>
+            <label class="fin-check"><input type="checkbox" class="ebl-assignee-check" name="assignee_ids[]" value="<%= e.user_id %>"> <%= formatCollectorOptionLabel(e) %></label>
           <% }) %>
-        </select>
+        </div>
         <small id="ebl-assignee_summary" style="display:block;color:var(--fin-muted);font-size:.72rem;margin-top:6px;">Leave empty if nobody should be assigned.</small>
       </div>
 
@@ -4662,19 +4695,29 @@ Regards,
                 <option value="<%= option.value %>" <%= String(defaultCollectionDestinationSafe || '') === String(option.value) ? 'selected' : '' %>><%= option.label %></option>
               <% }) %>
             <% } else { %>
-              <option value="">No payout account configured</option>
+              <option value="cash">Cash (collect manually)</option>
             <% } %>
           </select>
-          <small style="color:var(--fin-muted);font-size:.72rem;">Uses the primary payout account from Account Settings.</small>
+          <small style="color:var(--fin-muted);font-size:.72rem;">Optional — only activated payout accounts are listed.</small>
         </div>
 
         <div class="fin-field">
           <label>Payment Methods Accepted</label>
+          <% const editIsStripe = paymentProviderSafe === 'stripe';
+             const editIsPaystack = paymentProviderSafe === 'paystack';
+             const editCardOn = editIsPaystack ? true : !!(allowedMethods && allowedMethods.stripeOn);
+             const editTransferOn = editIsStripe ? false : !!(allowedMethods && (allowedMethods.bankOn || allowedMethods.momoOn) || editIsPaystack);
+             const editCardLabel = editIsPaystack ? 'Card (Paystack)' : 'Card / Stripe';
+             const editTransferLabel = editIsPaystack ? 'Mobile Money / Bank' : 'Bank / Mobile Money'; %>
           <div class="fin-checks">
             <label class="fin-check fin-check-all"><input type="checkbox" id="ebl-payAll"> <strong>All methods</strong></label>
-            <label class="fin-check"><input type="checkbox" class="ebl-pay-method" id="ebl-accepts_card" name="accepts_card"> Card / Stripe</label>
+            <% if (editCardOn) { %>
+            <label class="fin-check"><input type="checkbox" class="ebl-pay-method" id="ebl-accepts_card" name="accepts_card"> <%= editCardLabel %></label>
+            <% } %>
             <label class="fin-check"><input type="checkbox" class="ebl-pay-method" id="ebl-accepts_cash" name="accepts_cash"> Cash</label>
-            <label class="fin-check"><input type="checkbox" class="ebl-pay-method" id="ebl-accepts_transfer" name="accepts_transfer"> Bank / Mobile Money</label>
+            <% if (editTransferOn) { %>
+            <label class="fin-check"><input type="checkbox" class="ebl-pay-method" id="ebl-accepts_transfer" name="accepts_transfer"> <%= editTransferLabel %></label>
+            <% } %>
           </div>
         </div>
       </div>
@@ -5009,10 +5052,31 @@ Regards,
 </script>
 
 <script>
-/* PayGira overview fragment loading — render shell fast, then hydrate overview cards/tables */
+/* PayGira overview fragment loading — render shell fast, then hydrate overview cards/tables.
+   Uses stale-while-revalidate caching: show last cached fragment instantly, then refresh in background. */
 (function(){
   var mount = document.getElementById('finOverviewSectionMount');
   if (!mount || typeof fetch !== 'function') return;
+
+  var CACHE_PREFIX = 'finOverviewCache:';
+
+  function cacheKey(url) {
+    return CACHE_PREFIX + url;
+  }
+  function readCache(url) {
+    try {
+      var raw = sessionStorage.getItem(cacheKey(url));
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed.html !== 'string') return null;
+      return parsed; // { html, ts }
+    } catch (e) { return null; }
+  }
+  function writeCache(url, html) {
+    try {
+      sessionStorage.setItem(cacheKey(url), JSON.stringify({ html: html, ts: Date.now() }));
+    } catch (e) { /* storage full or unavailable — ignore */ }
+  }
 
   function buildOverviewUrl() {
     var base = mount.getAttribute('data-src') || '/account/settings/finance/_overview-section';
@@ -5025,14 +5089,34 @@ Regards,
     if (typeof window.bindOverviewFilters === 'function') window.bindOverviewFilters();
   }
 
-  function loadOverviewDetails() {
-    var detailMount = document.getElementById('finOverviewDetailMount');
-    if (!detailMount) return;
+  function buildDetailUrl(detailMount) {
     var base = detailMount.getAttribute('data-src') || '/account/settings/finance/_overview-detail-section';
     var params = new URLSearchParams(window.location.search || '');
     params.set('section', 'overview');
-    detailMount.setAttribute('aria-busy', 'true');
-    fetch(base + '?' + params.toString(), {
+    return base + '?' + params.toString();
+  }
+
+  function renderDetail(detailMount, html) {
+    if (detailMount.innerHTML !== html) detailMount.innerHTML = html;
+    detailMount.setAttribute('aria-busy', 'false');
+    if (typeof window.finRunReportFilter === 'function') window.finRunReportFilter();
+  }
+
+  function loadOverviewDetails() {
+    var detailMount = document.getElementById('finOverviewDetailMount');
+    if (!detailMount) return;
+    var url = buildDetailUrl(detailMount);
+
+    var cached = readCache(url);
+    var hadCache = false;
+    if (cached) {
+      hadCache = true;
+      renderDetail(detailMount, cached.html); // instant paint from cache
+    } else {
+      detailMount.setAttribute('aria-busy', 'true');
+    }
+
+    fetch(url, {
       credentials: 'same-origin',
       headers: { 'Accept': 'text/html', 'X-Silent-Reload': '1' },
       cache: 'default'
@@ -5042,19 +5126,36 @@ Regards,
         return response.text();
       })
       .then(function (html) {
-        detailMount.innerHTML = html;
-        detailMount.setAttribute('aria-busy', 'false');
-        if (typeof window.finRunReportFilter === 'function') window.finRunReportFilter();
+        writeCache(url, html);
+        renderDetail(detailMount, html); // background refresh
       })
       .catch(function () {
+        if (hadCache) return; // keep showing cached content on failure
         detailMount.setAttribute('aria-busy', 'false');
         detailMount.innerHTML = '<div class="fin-card"><div class="activity-empty">Unable to load overview details right now. Please refresh.</div></div>';
       });
   }
 
+  function renderOverview(html) {
+    if (mount.innerHTML !== html) mount.innerHTML = html;
+    mount.setAttribute('aria-busy', 'false');
+    bindOverviewUi();
+    loadOverviewDetails();
+  }
+
   function loadOverview() {
-    mount.setAttribute('aria-busy', 'true');
-    fetch(buildOverviewUrl(), {
+    var url = buildOverviewUrl();
+
+    var cached = readCache(url);
+    var hadCache = false;
+    if (cached) {
+      hadCache = true;
+      renderOverview(cached.html); // instant paint from cache, no spinner
+    } else {
+      mount.setAttribute('aria-busy', 'true');
+    }
+
+    fetch(url, {
       credentials: 'same-origin',
       headers: { 'Accept': 'text/html', 'X-Silent-Reload': '1' },
       cache: 'default'
@@ -5064,12 +5165,11 @@ Regards,
         return response.text();
       })
       .then(function (html) {
-        mount.innerHTML = html;
-        mount.setAttribute('aria-busy', 'false');
-        bindOverviewUi();
-        loadOverviewDetails();
+        writeCache(url, html);
+        renderOverview(html); // background refresh with fresh data
       })
       .catch(function () {
+        if (hadCache) return; // keep showing cached content on failure
         mount.setAttribute('aria-busy', 'false');
         mount.innerHTML = '<div class="fin-card"><div class="activity-empty">Unable to load overview right now. Please refresh.</div></div>';
       });

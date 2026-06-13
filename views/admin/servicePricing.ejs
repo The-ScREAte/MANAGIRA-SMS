@@ -188,8 +188,9 @@
       }
       .manage-plans-grid {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
         gap: 18px;
+        align-items: start;
       }
       .manage-plan-card {
         background: linear-gradient(180deg, #ffffff 0%, #f8fbfc 100%);
@@ -374,10 +375,211 @@
       .student-tiers-body {
         padding-top: 18px;
       }
+      /* ---- Manage Plans body ---- */
+      .manage-plan-body > p {
+        margin: 0 0 12px;
+      }
+      .manage-plan-body > p > strong {
+        display: block;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #64748b;
+        margin-bottom: 6px;
+      }
+      .plan-description {
+        width: 100%;
+        margin: 0;
+        padding: 9px 11px;
+        border-radius: 9px;
+        border: 1px solid #dbe9ec;
+        background: #f9fbfc;
+        font-size: 13.5px;
+        box-sizing: border-box;
+      }
+      .plan-description:focus {
+        outline: none;
+        border-color: #01535b;
+        background: #fff;
+        box-shadow: 0 0 0 3px rgba(1, 83, 91, 0.1);
+      }
+      .feature-list {
+        list-style: none;
+        padding: 0;
+        margin: 0 0 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .feature-list li {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border: 1px solid #e7f0f2;
+        border-radius: 9px;
+        background: #fbfdfe;
+        font-size: 13px;
+        color: #1f2937;
+        transition: border-color 0.15s, background 0.15s;
+      }
+      .feature-list li:hover {
+        border-color: #c9dde1;
+        background: #f4fafb;
+      }
+      .feature-list:empty::after {
+        content: "No features attached yet.";
+        display: block;
+        padding: 12px;
+        text-align: center;
+        color: #94a3b8;
+        font-size: 12.5px;
+        font-style: italic;
+        border: 1px dashed #dbe9ec;
+        border-radius: 9px;
+      }
+      .manage-plan-total {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px;
+        margin: 0 0 14px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #eef9f1 0%, #e6f6ee 100%);
+        border: 1px solid #c7ead4;
+      }
+      .manage-plan-total .total-label {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #15803d;
+      }
+      .manage-plan-total .total-value {
+        font-size: 1.05rem;
+        font-weight: 800;
+        color: #0f5132;
+      }
+      .feature-input {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 14px;
+      }
+      .feature-input .feature-select {
+        flex: 1 1 auto;
+        width: auto;
+        margin: 0;
+        padding: 9px 11px;
+        font-size: 13px;
+        border-radius: 9px;
+      }
+      .action-icon {
+        cursor: pointer;
+        user-select: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        flex: 0 0 30px;
+        font-size: 18px;
+        line-height: 1;
+        border-radius: 8px;
+        background: #eaf7ff;
+        color: #01535b;
+        transition: background 0.15s, color 0.15s, transform 0.1s;
+      }
+      .action-icon:hover {
+        background: #b6e0fe;
+        color: #0e7c86;
+      }
+      .action-icon:active {
+        transform: scale(0.92);
+      }
+      .action-icon.add-feature {
+        background: #e6f6ee;
+        color: #0f5132;
+      }
+      .action-icon.add-feature:hover {
+        background: #cdebda;
+      }
+      .action-icon.remove-feature {
+        background: #fdeceb;
+        color: #b42318;
+      }
+      .action-icon.remove-feature:hover {
+        background: #fad7d4;
+      }
+      .feature-list .feature-name {
+        font-weight: 600;
+        color: #1f2937;
+      }
+      .feature-list .feature-meta {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        white-space: nowrap;
+      }
+      .feature-list .feature-price {
+        font-size: 12.5px;
+        font-weight: 700;
+        color: #0e7c86;
+        background: #eaf7ff;
+        padding: 2px 8px;
+        border-radius: 999px;
+      }
+      .feature-list .feature-local {
+        font-size: 11.5px;
+        color: #94a3b8;
+      }
       .plan-actions {
         display: flex;
-        gap: 10px;
-        margin-top: 10px;
+        align-items: center;
+        gap: 12px;
+        margin-top: 4px;
+        padding-top: 14px;
+        border-top: 1px solid #eef3f4;
+      }
+      .plan-actions .update-btn {
+        width: auto;
+        margin: 0;
+        padding: 9px 22px;
+        background: #01535b;
+        color: #fff;
+        border: none;
+        border-radius: 9px;
+        font-size: 13.5px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.15s, transform 0.1s;
+      }
+      .plan-actions .update-btn:hover {
+        background: #0e7c86;
+        transform: translateY(-1px);
+      }
+      .plan-actions label,
+      .plan-actions .toggle-status {
+        margin: 0;
+      }
+      .plan-actions .plan-active-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin: 0;
+        font-size: 13px;
+        font-weight: 600;
+        color: #334155;
+        cursor: pointer;
+      }
+      .plan-actions .toggle-status {
+        width: 18px;
+        height: 18px;
+        accent-color: #01535b;
+        cursor: pointer;
       }
       .action-btn {
         padding: 10px 16px;
@@ -397,33 +599,6 @@
       }
       .toggle-btn {
         background: #27ae60;
-      }
-      .feature-list {
-        list-style: none;
-        padding: 0;
-      }
-      .feature-list li {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 7px 0;
-        border-bottom: 1px solid #f0f0f0;
-      }
-      .feature-list li:last-child {
-        border-bottom: none;
-      }
-      .action-icon {
-        cursor: pointer;
-        font-size: 18px;
-        padding: 6px 12px;
-        border-radius: 5px;
-        background: #eaf7ff;
-        color: #01535b;
-        transition: background 0.2s, color 0.2s;
-      }
-      .action-icon:hover {
-        background: #b6e0fe;
-        color: #0e7c86;
       }
       .notice {
         background-color: #e7f3fe;
@@ -617,8 +792,9 @@
       }
       .student-tier-grid {
         display: grid;
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
         gap: 18px;
+        align-items: start;
       }
       .student-tier-plan {
         border: 1px solid #dbe9ec;
@@ -688,7 +864,7 @@
       }
       .student-tier-form {
         display: grid;
-        grid-template-columns: minmax(220px, 1.5fr) minmax(160px, 1fr) auto;
+        grid-template-columns: minmax(160px, 1.3fr) minmax(120px, 1fr) auto;
         align-items: end;
         gap: 12px;
         width: 100%;
@@ -713,21 +889,22 @@
         flex-wrap: wrap;
       }
       .student-tier-mini-input {
-        width: 96px;
+        width: 72px;
         min-width: 0;
-        padding: 8px 10px;
+        padding: 6px 8px;
         margin-bottom: 0;
         border: 1px solid #d1d5db;
         border-radius: 8px;
-        font-size: 13px;
+        font-size: 12.5px;
         text-align: center;
         background: #fff;
       }
       .student-tier-range .student-tier-mini-input {
-        flex: 1 1 100px;
+        flex: 0 0 72px;
       }
       .student-tier-price .student-tier-mini-input {
-        flex: 1 1 110px;
+        flex: 0 0 84px;
+        width: 84px;
       }
       .student-tier-text-muted {
         color: #6b7280;
@@ -1496,22 +1673,30 @@
                   <ul class="feature-list">
                     <% plan.features.slice().sort((a, b) => a.feature_name.localeCompare(b.feature_name)).forEach(feature => { %>
                       <li>
-                        <%= feature.feature_name %> (<%= feature.priceUsdDisplay || ('$' + feature.price_usd) %>)
-                        <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
-                          <span style="font-size:12px;color:#6b7280;">≈ <%= feature.localizedPriceDisplay %></span>
-                        <% } %>
-                        <span
-                          class="action-icon remove-feature"
-                          data-planid="<%= plan.plan_id %>"
-                          data-featureid="<%= feature.id %>"
-                        >-</span>
+                        <span class="feature-name"><%= feature.feature_name %></span>
+                        <span class="feature-meta">
+                          <span class="feature-price"><%= feature.priceUsdDisplay || ('$' + feature.price_usd) %></span>
+                          <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
+                            <span class="feature-local">≈ <%= feature.localizedPriceDisplay %></span>
+                          <% } %>
+                          <span
+                            class="action-icon remove-feature"
+                            data-planid="<%= plan.plan_id %>"
+                            data-featureid="<%= feature.id %>"
+                          >-</span>
+                        </span>
                       </li>
                     <% }) %>
                   </ul>
-                  <p><strong>Total Cost: <%= plan.totalUsdDisplay || ('$' + plan.total_cost) %></strong></p>
-                  <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
-                    <p style="margin-top:-8px;color:#6b7280;font-size:13px;">≈ <%= plan.localizedTotalDisplay %></p>
-                  <% } %>
+                  <div class="manage-plan-total">
+                    <span class="total-label">Total Cost</span>
+                    <span class="total-value">
+                      <%= plan.totalUsdDisplay || ('$' + plan.total_cost) %>
+                      <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
+                        <span style="display:block;font-size:12px;font-weight:600;color:#15803d;">≈ <%= plan.localizedTotalDisplay %></span>
+                      <% } %>
+                    </span>
+                  </div>
                   <div class="feature-input">
                     <select class="feature-select" data-planid="<%= plan.plan_id %>">
                       <% features.slice().sort((a, b) => a.feature_name.localeCompare(b.feature_name)).forEach(feature => { %>
@@ -1531,12 +1716,14 @@
                     <button class="update-btn" data-planid="<%= plan.plan_id %>">
                       Update
                     </button>
-                    <input
-                      type="checkbox"
-                      class="toggle-status"
-                      data-planid="<%= plan.plan_id %>"
-                      <% if (plan.is_active) { %>checked<% } %>
-                    /> Active
+                    <label class="plan-active-toggle">
+                      <input
+                        type="checkbox"
+                        class="toggle-status"
+                        data-planid="<%= plan.plan_id %>"
+                        <% if (plan.is_active) { %>checked<% } %>
+                      /> Active
+                    </label>
                   </div>
                 </div>
               </section>

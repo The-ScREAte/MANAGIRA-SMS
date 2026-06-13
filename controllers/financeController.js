@@ -989,25 +989,31 @@ function mapPayoutAccountTypeToCollectionDestination(accountType) {
   return null;
 }
 
-function buildCollectionDestinationLabel(account, stripeRuntime) {
-  const destination = mapPayoutAccountTypeToCollectionDestination(account && account.account_type);
-  if (destination === 'stripe') {
-    if (stripeRuntime && stripeRuntime.connectedAccountId) return 'Stripe Payout Account';
-    return 'Stripe';
+function buildCollectionDestinationLabel(account) {
+  const type = String(account && account.account_type || '').trim().toLowerCase();
+  const primaryTag = account && account.is_primary ? ' (Primary)' : '';
+  if (type === 'mobile_money') {
+    const who = (account.momo_provider || account.business_name || account.account_holder_name || '').toString().trim();
+    return `Mobile Money${who ? ' — ' + who : ''}${primaryTag}`;
   }
-  if (destination === 'bank') {
-    return account && (account.bank_name || account.business_name)
-      ? `Bank Account — ${account.bank_name || account.business_name}`
-      : 'Bank Account';
+  if (type === 'bank') {
+    const who = (account.bank_name || account.business_name || '').toString().trim();
+    return `Bank Account${who ? ' — ' + who : ''}${primaryTag}`;
   }
-  if (destination === 'momo') {
-    return account && (account.momo_provider || account.business_name)
-      ? `Mobile Money — ${account.momo_provider || account.business_name}`
-      : 'Mobile Money';
+  if (type === 'stripe_card') {
+    return `Stripe Payout Account${primaryTag}`;
   }
-  return '';
+  return (account && account.business_name) ? account.business_name : 'Payout Account';
 }
 
+// Builds the Collection Destination options for a bill.
+// Only surfaces accounts for the school's ACTIVE payout provider:
+//   • Paystack active  → list every Paystack payout account (each mobile money /
+//     bank account individually) by its DB id, never Stripe.
+//   • Stripe active    → list Stripe, never Paystack accounts.
+//   • No preference    → show whatever is configured.
+// Cash is always offered. Option values match the guardian-side `payout_account_id`
+// convention: numeric id for a Paystack account, 'stripe', or 'cash'.
 async function resolveBillCollectionDestinations(database, orgId, orgProfileInput = null, pspSettingsInput = null) {
   const orgProfile = orgProfileInput && Object.keys(orgProfileInput).length
     ? orgProfileInput
@@ -1017,36 +1023,64 @@ async function resolveBillCollectionDestinations(database, orgId, orgProfileInpu
     : await loadPspSettings(orgId).catch(() => ({}));
   const stripeRuntime = await resolveFinanceStripeRuntime(orgId, pspSettings, orgProfile);
   const connectedAccountId = String(orgProfile?.stripe_connect_account_id || '').trim();
+  const payoutContext = await resolveSchoolPayoutDestination(orgId, database).catch(() => null);
+  const preference = String(payoutContext?.preference || '').trim().toLowerCase(); // 'stripe' | 'paystack' | ''
+  const activeProvider = String(payoutContext?.provider || '').trim().toLowerCase(); // resolved provider
+
   const payoutAccounts = (await database.query(
-    `SELECT id, account_type, business_name, bank_name, momo_provider, is_primary
+    `SELECT id, account_type, business_name, bank_name, momo_provider, account_holder_name, is_primary
        FROM paystack_subaccounts
       WHERE organization_id = $1
       ORDER BY is_primary DESC, id ASC`,
     [orgId]
   )).rows;
 
-  const primaryPayoutAccount = payoutAccounts.find((account) => account.is_primary) || payoutAccounts[0] || null;
+  // Paystack payout rows are mobile money / bank accounts. stripe_card rows belong to Stripe.
+  const paystackAccounts = payoutAccounts.filter((account) => {
+    const type = String(account.account_type || '').trim().toLowerCase();
+    return type === 'mobile_money' || type === 'bank';
+  });
+  const hasStripe = Boolean(connectedAccountId)
+    || Boolean(stripeRuntime && stripeRuntime.stripeOn)
+    || payoutAccounts.some((account) => String(account.account_type || '').trim().toLowerCase() === 'stripe_card');
+
+  // Decide which provider's accounts to surface. Explicit preference wins, then the
+  // resolved active provider, otherwise show everything that's configured.
+  let showPaystack;
+  let showStripe;
+  if (preference === 'paystack') { showPaystack = true; showStripe = false; }
+  else if (preference === 'stripe') { showPaystack = false; showStripe = true; }
+  else if (activeProvider === 'paystack') { showPaystack = true; showStripe = false; }
+  else if (activeProvider === 'stripe') { showPaystack = false; showStripe = true; }
+  else { showPaystack = paystackAccounts.length > 0; showStripe = hasStripe; }
+
+  const primaryPaystack = paystackAccounts.find((account) => account.is_primary) || paystackAccounts[0] || null;
   const options = [];
 
-  if (primaryPayoutAccount) {
-    const value = mapPayoutAccountTypeToCollectionDestination(primaryPayoutAccount.account_type);
-    if (value) {
-      options.push({
-        value,
-        label: buildCollectionDestinationLabel(primaryPayoutAccount, stripeRuntime),
-      });
-    }
-  } else if (connectedAccountId || (stripeRuntime && stripeRuntime.stripeOn)) {
-    options.push({
-      value: 'stripe',
-      label: connectedAccountId ? 'Stripe Payout Account' : 'Stripe',
+  if (showPaystack) {
+    paystackAccounts.forEach((account) => {
+      options.push({ value: String(account.id), label: buildCollectionDestinationLabel(account) });
     });
   }
+  if (showStripe) {
+    options.push({ value: 'stripe', label: connectedAccountId ? 'Stripe Payout Account' : 'Stripe' });
+  }
+  // Cash is always available — payout accounts are optional.
+  options.push({ value: 'cash', label: 'Cash (collect manually)' });
 
-  return {
-    options,
-    defaultValue: options[0] ? options[0].value : '',
-  };
+  let defaultValue = 'cash';
+  if (showPaystack && primaryPaystack) defaultValue = String(primaryPaystack.id);
+  else if (showStripe) defaultValue = 'stripe';
+
+  // Active provider for the bill UI: explicit preference, else resolved provider,
+  // else infer from what is shown.
+  let provider = preference || activeProvider || '';
+  if (!provider) {
+    if (showStripe && !showPaystack) provider = 'stripe';
+    else if (showPaystack && !showStripe) provider = 'paystack';
+  }
+
+  return { options, defaultValue, provider, hasPaystack: paystackAccounts.length > 0, hasStripe };
 }
 
 function maskPspSecrets(p) {
@@ -1091,9 +1125,7 @@ function buildFinanceBillCreateDraft(body = {}) {
     assignee_ids: normalizeFinanceDraftArray(rawAssigneeIds),
     target_class_ids: normalizeFinanceDraftArray(body.target_class_ids),
     target_student_ids: normalizeFinanceDraftArray(body.target_student_ids),
-    payment_destination: ['stripe', 'cash', 'bank', 'momo'].includes(String(body.payment_destination || '').trim())
-      ? String(body.payment_destination).trim()
-      : 'stripe',
+    payment_destination: String(body.payment_destination || '').trim() || 'cash',
     accepts_card: Object.prototype.hasOwnProperty.call(body, 'accepts_card') ? Boolean(parseBoolean(body.accepts_card)) : true,
     accepts_cash: Object.prototype.hasOwnProperty.call(body, 'accepts_cash') ? Boolean(parseBoolean(body.accepts_cash)) : true,
     accepts_transfer: Object.prototype.hasOwnProperty.call(body, 'accepts_transfer') ? Boolean(parseBoolean(body.accepts_transfer)) : true,
@@ -3392,6 +3424,34 @@ async function notifyGuardiansOfStaffCollection(display, result) {
   }
 }
 
+// Wrapper that records a PayGira action into the organization activity log.
+// Never throws — logging failures must not block a save.
+async function logPaygira(req, opts = {}) {
+  try {
+    const sessionUser = req.session?.user || {};
+    const firstName = req.session?.firstName || sessionUser.first_name || "";
+    const lastName = req.session?.lastName || sessionUser.last_name || "";
+    const fullName = `${firstName} ${lastName}`.trim();
+    await logOrganizationActivity({
+      organizationId: req.session?.organizationId,
+      userId: req.session?.userId || sessionUser.user_id || null,
+      userName: fullName || sessionUser.email || "Unknown User",
+      userRole: req.session?.userRole || sessionUser.account_type || null,
+      actionType: opts.actionType || "Updated",
+      moduleName: "PayGira",
+      pagePath: "/account/settings/finance",
+      recordType: opts.recordType || null,
+      recordId: opts.recordId != null && opts.recordId !== "" ? String(opts.recordId) : null,
+      recordLabel: opts.recordLabel || null,
+      description: opts.description || "Updated a PayGira record.",
+      changedFields: Array.isArray(opts.changedFields) ? opts.changedFields : [],
+      ipAddress: req.ip,
+    });
+  } catch (err) {
+    console.error("[logPaygira] failed:", err.message || err);
+  }
+}
+
 async function auditStaffCollection(req, result) {
   try {
     await logPaygira(req, {
@@ -3703,20 +3763,156 @@ module.exports = {
       const report = await loadArrearsReportById(orgId, parseInt(req.params.id, 10));
       if (!report) return res.status(404).send("Report not found.");
       const display = await buildFinanceDisplayContext(req, orgId);
+
+      const orgRow = await db.query(
+        `SELECT organization_name, organization_address, organization_phone, email AS organization_email, logo_path
+           FROM organizations WHERE organization_id = $1 LIMIT 1`,
+        [orgId]
+      ).then((r) => (r.rows && r.rows[0]) || {}).catch(() => ({}));
+
+      const esc = (val) => String(val == null ? '' : val)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+      const schoolName = orgRow.organization_name || 'Your School';
+      const schoolLogoUrl = orgRow.logo_path
+        ? (String(orgRow.logo_path).startsWith('http')
+            ? String(orgRow.logo_path)
+            : `/uploads/${String(orgRow.logo_path).replace(/^\/+/, '')}`)
+        : '';
+      const contactBits = [orgRow.organization_address, orgRow.organization_phone, orgRow.organization_email]
+        .filter((v) => v && String(v).trim())
+        .map((v) => esc(v))
+        .join(' &nbsp;•&nbsp; ');
+
       const snapshot = report.snapshot || {};
       const students = snapshot.students || [];
-      const rows = students.map((student) => `
+      const statusBadge = (status) => {
+        const s = String(status || 'overdue').toLowerCase();
+        const cls = s.includes('partial') ? 'partial' : (s.includes('paid') ? 'paid' : 'overdue');
+        return `<span class="badge badge-${cls}">${esc(status || 'overdue')}</span>`;
+      };
+      const rows = students.map((student, i) => `
         <tr>
-          <td>${student.student_name}</td>
-          <td>${student.class_name || '—'}</td>
-          <td>${student.guardian_name || 'No guardian'}</td>
-          <td>${student.guardian_email || student.guardian_phone || 'No contact'}</td>
-          <td>${display.formatMoney(student.total_billed || 0)}</td>
-          <td>${display.formatMoney(student.total_paid || 0)}</td>
-          <td>${display.formatMoney(student.outstanding || 0)}</td>
-          <td>${student.primary_status || 'overdue'}</td>
+          <td class="num">${i + 1}</td>
+          <td><span class="strong">${esc(student.student_name)}</span></td>
+          <td>${esc(student.class_name || '—')}</td>
+          <td>${esc(student.guardian_name || 'No guardian')}</td>
+          <td>${esc(student.guardian_email || student.guardian_phone || 'No contact')}</td>
+          <td class="money">${display.formatMoney(student.total_billed || 0)}</td>
+          <td class="money">${display.formatMoney(student.total_paid || 0)}</td>
+          <td class="money outstanding">${display.formatMoney(student.outstanding || 0)}</td>
+          <td>${statusBadge(student.primary_status)}</td>
         </tr>`).join("");
-      res.send(`<!DOCTYPE html><html><head><title>${report.title}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px;font-size:12px}th{background:#f5f5f5;text-align:left}</style></head><body><h1>${report.title}</h1><p>Generated ${new Date(report.created_at).toLocaleString()}</p><p>Total Outstanding: ${display.formatMoney(report.total_outstanding || 0)}</p><table><thead><tr><th>Student</th><th>Class</th><th>Guardian</th><th>Contact</th><th>Billed</th><th>Paid</th><th>Outstanding</th><th>Status</th></tr></thead><tbody>${rows || '<tr><td colspan="8">No records.</td></tr>'}</tbody></table></body></html>`);
+
+      const logoBlock = schoolLogoUrl
+        ? `<img src="${esc(schoolLogoUrl)}" alt="${esc(schoolName)}" class="school-logo" onerror="this.style.display='none'">`
+        : `<div class="school-logo school-logo-fallback">${esc(schoolName.charAt(0).toUpperCase())}</div>`;
+
+      res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${esc(report.title)} — ${esc(schoolName)}</title>
+  <style>
+    :root { --ink:#0f172a; --muted:#64748b; --brand:#01535b; --line:#e6eef0; }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; margin:0; padding:28px; color:var(--ink); background:#f4f7f8; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .sheet { max-width:1040px; margin:0 auto; background:#fff; border:1px solid var(--line); border-radius:16px; box-shadow:0 10px 30px rgba(1,83,91,.06); overflow:hidden; }
+    .report-header { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; padding:26px 30px; background:linear-gradient(135deg,#f8fcfd 0%,#eef6f7 100%); border-bottom:1px solid var(--line); }
+    .school-id { display:flex; gap:14px; align-items:center; }
+    .school-logo { width:58px; height:58px; border-radius:12px; object-fit:cover; border:1px solid var(--line); background:#fff; }
+    .school-logo-fallback { display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:800; color:#fff; background:linear-gradient(135deg,#01535b,#0e7c86); border:none; }
+    .school-name { margin:0; font-size:1.3rem; font-weight:800; color:var(--brand); }
+    .school-contact { margin:4px 0 0; font-size:12px; color:var(--muted); }
+    .report-meta { text-align:right; }
+    .report-meta h2 { margin:0; font-size:1rem; color:var(--ink); font-weight:700; }
+    .report-meta .stamp { margin:4px 0 0; font-size:12px; color:var(--muted); }
+    .report-actions { padding:16px 30px 0; display:flex; gap:10px; }
+    .btn { display:inline-flex; align-items:center; gap:6px; padding:9px 16px; border-radius:9px; border:1px solid var(--line); background:#fff; color:var(--brand); font-size:13px; font-weight:700; cursor:pointer; text-decoration:none; }
+    .btn-primary { background:var(--brand); color:#fff; border-color:var(--brand); }
+    .summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; padding:20px 30px; }
+    .card { padding:16px 18px; border:1px solid var(--line); border-radius:12px; background:#fbfdfe; }
+    .card .label { font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); }
+    .card .value { margin-top:6px; font-size:1.45rem; font-weight:800; color:var(--brand); }
+    .card.danger .value { color:#b42318; }
+    .table-wrap { padding:6px 30px 26px; overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:12.5px; }
+    thead th { background:#f1f7f8; color:#334155; text-align:left; padding:11px 10px; font-size:11px; letter-spacing:.03em; text-transform:uppercase; border-bottom:2px solid var(--line); white-space:nowrap; }
+    tbody td { padding:10px; border-bottom:1px solid #eef3f4; vertical-align:middle; }
+    tbody tr:hover { background:#f8fbfc; }
+    td.num { color:var(--muted); width:34px; }
+    td.money { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+    td.outstanding { font-weight:800; color:#b42318; }
+    .strong { font-weight:700; }
+    .badge { display:inline-block; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:700; text-transform:capitalize; }
+    .badge-overdue { background:#fdeceb; color:#b42318; }
+    .badge-partial { background:#fff7e6; color:#8a4b00; }
+    .badge-paid { background:#e6f6ee; color:#0f5132; }
+    .empty { text-align:center; color:var(--muted); padding:30px; font-style:italic; }
+    .report-footer { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; padding:18px 30px; border-top:1px solid var(--line); background:#fbfdfe; }
+    .powered { display:flex; align-items:center; gap:9px; font-size:12px; color:var(--muted); }
+    .powered img { height:22px; width:auto; }
+    .powered .brand-name { font-weight:800; color:var(--brand); }
+    .footer-note { font-size:11px; color:#94a3b8; text-align:right; }
+    @media print { body { background:#fff; padding:0; } .sheet { border:none; box-shadow:none; border-radius:0; } .report-actions { display:none; } }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+    <header class="report-header">
+      <div class="school-id">
+        ${logoBlock}
+        <div>
+          <h1 class="school-name">${esc(schoolName)}</h1>
+          ${contactBits ? `<p class="school-contact">${contactBits}</p>` : ''}
+        </div>
+      </div>
+      <div class="report-meta">
+        <h2>${esc(report.title)}</h2>
+        <p class="stamp">Generated ${esc(new Date(report.created_at).toLocaleString())}</p>
+      </div>
+    </header>
+    <div class="report-actions">
+      <button type="button" class="btn btn-primary" onclick="window.print()">🖨️ Print / Save PDF</button>
+      <a class="btn" href="/account/settings/finance/arrears/reports/${esc(report.report_id)}/download?format=csv">⬇️ Download CSV</a>
+    </div>
+    <section class="summary">
+      <div class="card danger">
+        <div class="label">Total Outstanding</div>
+        <div class="value">${display.formatMoney(report.total_outstanding || 0)}</div>
+      </div>
+      <div class="card">
+        <div class="label">Students in Arrears</div>
+        <div class="value">${students.length}</div>
+      </div>
+    </section>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Student</th><th>Class</th><th>Guardian</th><th>Contact</th>
+            <th style="text-align:right;">Billed</th><th style="text-align:right;">Paid</th><th style="text-align:right;">Outstanding</th><th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows || '<tr><td colspan="9" class="empty">No records in this report.</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+    <footer class="report-footer">
+      <div class="powered">
+        <img src="/images/managira.png" alt="Managira" onerror="this.style.display='none'">
+        <span>Powered by <span class="brand-name">Managira</span> — School Management, simplified.</span>
+      </div>
+      <div class="footer-note">
+        This arrears report was generated for ${esc(schoolName)}.<br>Confidential — for internal use only.
+      </div>
+    </footer>
+  </div>
+</body>
+</html>`);
     } catch (error) {
       console.error("[arrearsReportViewGet]", error);
       res.status(500).send("Could not load arrears report.");
@@ -4122,6 +4318,7 @@ module.exports = {
         paystackSubaccounts,
         collectionDestinationOptions: collectionDestinations.options,
         defaultCollectionDestination: collectionDestinations.defaultValue,
+        paymentProvider: collectionDestinations.provider || '',
         platformStripeKey,
         createBillDraft,
         billListFilters,
@@ -4224,14 +4421,30 @@ module.exports = {
         )];
       })();
       const assignee_id = assigneeList[0] || null; // primary (legacy column)
+      // Server-side validation — never persist a bill that is missing required fields.
+      if (!String(title || '').trim()) {
+        throw new PaygiraRequestError('Bill title is required.');
+      }
+      if (!(Number(amount) > 0)) {
+        throw new PaygiraRequestError('Enter a bill amount greater than zero.');
+      }
+      if (!school_year_id || !term_id) {
+        throw new PaygiraRequestError('Select a school year and term for this bill.');
+      }
+      if (!due_date) {
+        throw new PaygiraRequestError('Select a start / first date for this bill.');
+      }
+      if (String(applies_to) === 'classes' && !normalizeIdArray(target_class_ids).length) {
+        throw new PaygiraRequestError('Choose one or more classes for this bill.');
+      }
+      if (String(applies_to) === 'students' && !normalizeIdArray(target_student_ids).length) {
+        throw new PaygiraRequestError('Choose one or more students for this bill.');
+      }
       const collectionDestinations = await resolveBillCollectionDestinations(client, orgId);
       const allowedDestinationValues = new Set(collectionDestinations.options.map((option) => option.value));
       const destination = allowedDestinationValues.has(String(payment_destination || '').trim())
         ? String(payment_destination).trim()
-        : collectionDestinations.defaultValue;
-      if (!destination) {
-        throw new PaygiraRequestError('Set a primary payout account in Account Settings before creating a bill.');
-      }
+        : (collectionDestinations.defaultValue || 'cash');
 
       const resolvedBillType = ['one_time','recurring','installment'].includes(String(bill_type))
         ? String(bill_type)
@@ -5082,14 +5295,19 @@ module.exports = {
         return res.redirect("/account/settings/finance?section=bills");
       }
 
+      // Server-side validation — block saving an edit that clears required fields.
+      if (title != null && !String(title).trim()) {
+        throw new PaygiraRequestError('Bill title cannot be empty.');
+      }
+      if (!(newAmount > 0)) {
+        throw new PaygiraRequestError('Enter a bill amount greater than zero.');
+      }
+
       const collectionDestinations = await resolveBillCollectionDestinations(client, orgId);
       const allowedDestinationValues = new Set(collectionDestinations.options.map((option) => option.value));
       const validDest = allowedDestinationValues.has(requestedDestination)
         ? requestedDestination
-        : collectionDestinations.defaultValue;
-      if (!validDest) {
-        throw new PaygiraRequestError('Set a primary payout account in Account Settings before updating this bill.');
-      }
+        : (collectionDestinations.defaultValue || before.payment_destination || 'cash');
 
       const requestedBillType = validType || before.bill_type || 'one_time';
       const requestedRecurrence = requestedBillType === 'recurring'

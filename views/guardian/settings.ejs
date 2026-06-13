@@ -1031,9 +1031,11 @@
             </div>
           </form>
 
+          <% if (Array.isArray(allowedFeatures) && allowedFeatures.includes('PayGira')) { %>
           <div class="paygira-link-wrap">
             <a href="/guardian/paygira" class="paygira-link">Go to PayGira to pay a bill →</a>
           </div>
+          <% } %>
         </div>
       </details>
     </div>

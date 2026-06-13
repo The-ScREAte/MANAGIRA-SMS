@@ -4,6 +4,7 @@ const { isGuardianAuthenticated } = require("../middleware/guardianAuthMiddlewar
 const guardianController = require("../controllers/guardianController");
 const financeController = require("../controllers/financeController");
 const { upload } = require("../middleware/s3Upload");
+const { hasPaygiraFeature } = require("../utils/paygiraAccess");
 
 module.exports = (db) => {
   router.get("/dashboard", isGuardianAuthenticated, (req, res) =>
@@ -92,22 +93,38 @@ module.exports = (db) => {
   );
 
   // ===== PayGira (parent-facing payments) =====
-  router.get("/paygira", isGuardianAuthenticated, (req, res) =>
+  // PayGira is a premium plan add-on. A guardian only sees/uses it when their
+  // school's plan includes the "PayGira" feature.
+  const requireGuardianPaygira = async (req, res, next) => {
+    try {
+      const enabled = await hasPaygiraFeature(db, req.session?.organizationId);
+      if (enabled) return next();
+    } catch (err) {
+      console.error("[requireGuardianPaygira]", err.message || err);
+    }
+    if (req.xhr || /\.json$/.test(req.path) || req.path.includes("/pay") || req.path.includes("/stripe-intent")) {
+      return res.status(403).json({ error: "PayGira is not enabled for this school." });
+    }
+    req.flash("error", "PayGira is not available for this school.");
+    return res.redirect("/guardian/dashboard");
+  };
+
+  router.get("/paygira", isGuardianAuthenticated, requireGuardianPaygira, (req, res) =>
     financeController.guardianPaygiraGet(req, res, db)
   );
-  router.post("/paygira/stripe-intent", isGuardianAuthenticated, (req, res) =>
+  router.post("/paygira/stripe-intent", isGuardianAuthenticated, requireGuardianPaygira, (req, res) =>
     financeController.guardianPaygiraStripeIntentPost(req, res, db)
   );
-  router.get("/paygira/stripe-return", isGuardianAuthenticated, (req, res) =>
+  router.get("/paygira/stripe-return", isGuardianAuthenticated, requireGuardianPaygira, (req, res) =>
     financeController.guardianPaygiraStripeReturnGet(req, res, db)
   );
-  router.post("/paygira/pay", isGuardianAuthenticated, (req, res) =>
+  router.post("/paygira/pay", isGuardianAuthenticated, requireGuardianPaygira, (req, res) =>
     financeController.guardianPaygiraPayPost(req, res, db)
   );
-  router.get("/paygira/invoice/:assignmentId", isGuardianAuthenticated, (req, res) =>
+  router.get("/paygira/invoice/:assignmentId", isGuardianAuthenticated, requireGuardianPaygira, (req, res) =>
     financeController.invoiceGet(req, res, db)
   );
-  router.get("/paygira/receipt/:paymentId", isGuardianAuthenticated, (req, res) =>
+  router.get("/paygira/receipt/:paymentId", isGuardianAuthenticated, requireGuardianPaygira, (req, res) =>
     financeController.receiptGet(req, res, db)
   );
 

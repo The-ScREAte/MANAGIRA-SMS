@@ -94,6 +94,39 @@ router.use((req, res, next) => {
 	next();
 });
 
+// PayGira is a premium plan add-on. Only organizations whose plan includes the
+// "PayGira" feature can reach any of these routes. Platform admins (no org) and
+// users whose plan grants PayGira pass through; everyone else is redirected.
+const requirePaygiraFeature = (req, res, next) => {
+	const accountType = String(req.session?.accountType || "").trim().toLowerCase();
+	const role = String(req.session?.userRole || "").trim().toLowerCase();
+	const adminSet = new Set(["admin", "mini admin", "internal worker"]);
+	if (adminSet.has(accountType) || adminSet.has(role)) {
+		return next();
+	}
+
+	const allowed = Array.isArray(req.session?.allowedFeatures)
+		? req.session.allowedFeatures
+		: (Array.isArray(res.locals?.allowedFeatures) ? res.locals.allowedFeatures : []);
+	if (allowed.includes("PayGira")) {
+		return next();
+	}
+
+	// Background/SPA fragment and JSON requests get a clean 403 instead of an
+	// HTML redirect so the client can handle it gracefully.
+	const isFragment = req.path.includes("/_") || /\.json$/.test(req.path) || req.xhr;
+	if (isFragment) {
+		return res.status(403).json({ error: "PayGira is not enabled on your plan." });
+	}
+
+	req.flash("error", "PayGira is not included in your current plan.");
+	return res.redirect("/account/settings?section=profile");
+};
+
+router.use("/finance", requirePaygiraFeature);
+router.use("/my-paygira", requirePaygiraFeature);
+
+
 router.get("/finance/_version.json", isAuthenticated, c.financeVersionJsonGet);
 router.get("/finance/_stats.json", isAuthenticated, requireFinanceSettingsAccess, c.financeStatsJsonGet);
 router.get("/finance/_overview-section", isAuthenticated, requireFinanceSettingsAccess, c.financeOverviewFragmentGet);
