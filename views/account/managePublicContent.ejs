@@ -2532,6 +2532,17 @@
                 const dropdown = menu.querySelector('.action-menu-dropdown');
                 if (toggle) toggle.setAttribute('aria-expanded', 'false');
                 if (dropdown) dropdown.hidden = true;
+                if (dropdown) {
+                  dropdown.style.removeProperty('position');
+                  dropdown.style.removeProperty('top');
+                  dropdown.style.removeProperty('left');
+                  dropdown.style.removeProperty('right');
+                  dropdown.style.removeProperty('bottom');
+                  dropdown.style.removeProperty('z-index');
+                  dropdown.style.removeProperty('max-height');
+                  dropdown.style.removeProperty('overflow-y');
+                  dropdown.style.removeProperty('min-width');
+                }
               });
             }
 
@@ -2546,6 +2557,29 @@
                 const isOpen = !dropdown.hidden;
                 closeActionMenus(menu);
                 dropdown.hidden = isOpen;
+                if (!isOpen) {
+                  dropdown.style.position = 'fixed';
+                  dropdown.style.zIndex = '10050';
+                  dropdown.style.maxHeight = 'calc(100vh - 16px)';
+                  dropdown.style.overflowY = 'auto';
+
+                  const toggleRect = toggle.getBoundingClientRect();
+                  const dropdownRect = dropdown.getBoundingClientRect();
+                  const spaceAbove = toggleRect.top;
+                  const spaceBelow = window.innerHeight - toggleRect.bottom;
+                  const top = spaceAbove > dropdownRect.height + 12
+                    ? Math.max(8, toggleRect.top - dropdownRect.height - 8)
+                    : Math.min(window.innerHeight - dropdownRect.height - 8, toggleRect.bottom + 8);
+                  const left = Math.min(
+                    window.innerWidth - dropdownRect.width - 8,
+                    Math.max(8, toggleRect.right - dropdownRect.width)
+                  );
+
+                  dropdown.style.top = `${Math.max(8, top)}px`;
+                  dropdown.style.left = `${Math.max(8, left)}px`;
+                  dropdown.style.right = 'auto';
+                  dropdown.style.bottom = 'auto';
+                }
                 toggle.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
                 return;
               }
