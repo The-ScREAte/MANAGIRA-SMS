@@ -7254,9 +7254,21 @@ const commonController = {
   setPasswordGet: async (req, res, db) => {
     const { token, type } = req.query;
 
+    const renderInvalid = (reason) =>
+      res.status(400).render("common/setPassword", {
+        title: "Invite Link Problem",
+        invalid: true,
+        reason,
+        user: null,
+        token: "",
+        type: type || "",
+        messages: req.flash(),
+      });
+
     if (!token) {
-      req.flash("error", "Invalid or missing token.");
-      return res.redirect("/account/login");
+      return renderInvalid(
+        "This invite link is missing its security token. Please open the full link directly from your invite email."
+      );
     }
 
     try {
@@ -7268,8 +7280,9 @@ const commonController = {
       const tokenRow = tokenResult.rows[0] || null;
 
       if (tokenRow && new Date(tokenRow.expires_at) < new Date()) {
-        req.flash("error", "Token has expired. Please request a new password reset.");
-        return res.redirect("/account/login");
+        return renderInvalid(
+          "This invite link has expired. Please ask your administrator to resend the invite."
+        );
       }
 
       const resetTokenUserId = tokenRow ? String(tokenRow.user_id || "") : "";
@@ -7288,8 +7301,9 @@ const commonController = {
         );
 
         if (guardianResult.rows.length === 0) {
-          req.flash("error", "Guardian not found.");
-          return res.redirect("/account/login");
+          return renderInvalid(
+            "We couldn't find the account for this invite link. Please ask your administrator to resend the invite."
+          );
         }
 
         const guardian = guardianResult.rows[0];
@@ -7322,8 +7336,9 @@ const commonController = {
       );
 
       if (result.rows.length === 0) {
-        req.flash("error", "Invalid or expired token.");
-        return res.redirect("/account/login");
+        return renderInvalid(
+          "This invite link is invalid, has expired, or has already been used. If you have already set your password, please log in."
+        );
       }
 
       const user = result.rows[0];
@@ -13970,15 +13985,14 @@ const commonController = {
           ...(isNewAccount
             ? [`You can log in using your email <strong>${he.encode(contactEmail)}</strong> or phone number <strong>${he.encode(contactPhone)}</strong> with your new password.`]
             : []),
-          ...(isNewAccount
-            ? [`For general updates and other activities from Managira, you are also welcome to follow us on LinkedIn here: <a href="${linkedinUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;">linkedin.com/company/managira</a>.`]
-            : []),
           ...(!isNewAccount ? ["If you did not request this reset, please ignore this email."] : []),
         ],
         cta: {
           text: isNewAccount ? 'Set Password' : 'Reset Password',
           url: he.encode(resetLink),
         },
+        followManagira: isNewAccount,
+        linkedinUrl,
         note: 'This link will expire in 24 hours.',
       });
 
@@ -15077,13 +15091,14 @@ async function sendInviteEmail(
     paragraphs: [
       `${he.encode(organizationName)} is inviting you to join their institution. Accept this invitation to set your password.`,
       ...(assignmentDetails.length ? ["Here are your initial assignments:"] : []),
-      `For broader updates and other activities from Managira, you can follow us on LinkedIn here: <a href="${linkedinUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;">linkedin.com/company/managira</a>.`,
     ],
     details: assignmentDetails.length ? assignmentDetails : undefined,
     cta: {
       text: "Accept Invite & Set Password",
       url: he.encode(link),
     },
+    followManagira: true,
+    linkedinUrl,
     note: 'This link will expire in 3 days. For help, visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
   });
   const mailOptions = {
@@ -15163,12 +15178,13 @@ const sendGuardianWelcomeEmail = async (guardianEmail, guardianFirstName, guardi
       paragraphs: [
         `Great news! <strong>${he.encode(studentName)}</strong> has been registered at ${he.encode(organizationName)}, and you've been added as their guardian.`,
         "To monitor your child's academic progress, grades, and connect with teachers, please set up your Parent Portal password.",
-        `For general updates and other activities from Managira, you are also welcome to follow us on LinkedIn here: <a href="${linkedinUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;">linkedin.com/company/managira</a>.`,
       ],
       details: [
         { label: "Login Email", value: he.encode(guardianEmail) },
       ],
       cta: { text: "Set My Password", url: he.encode(setupLink) },
+      followManagira: true,
+      linkedinUrl,
       note: `This password setup link will expire in 24 hours. If you have any questions, please contact ${he.encode(organizationName)} directly.`,
     });
 

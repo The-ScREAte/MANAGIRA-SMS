@@ -357,6 +357,34 @@
       transform: translateY(-1px);
       box-shadow: 0 3px 8px rgba(0,0,0,0.15);
     }
+    .submit-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    .submit-btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.85;
+      transform: none;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.12);
+    }
+    .submit-btn-spinner {
+      display: none;
+      width: 18px;
+      height: 18px;
+      border: 2.5px solid rgba(255,255,255,0.45);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: submit-btn-spin 0.7s linear infinite;
+      flex: 0 0 auto;
+    }
+    .submit-btn.is-loading .submit-btn-spinner {
+      display: inline-block;
+    }
+    @keyframes submit-btn-spin {
+      to { transform: rotate(360deg); }
+    }
 
     /* Three-dot menu for removing test forms */
     .test-name-with-menu {
@@ -737,7 +765,10 @@
           <div class="add-remove-btn-row">
             <a href="javascript:void(0)" class="add-test-link" onclick="addTestForm()">+ Add Another Form</a>
           </div>
-          <button type="submit" class="submit-btn">Add Tests</button>
+          <button type="submit" class="submit-btn" id="submitTestsBtn">
+            <span class="submit-btn-spinner" aria-hidden="true"></span>
+            <span class="submit-btn-label">Add Tests</span>
+          </button>
         </form>
       </main>
     </div>
@@ -890,6 +921,18 @@
 
     async function handleFormSubmit(event) {
       event.preventDefault();
+      const submitBtn = document.getElementById("submitTestsBtn");
+      const submitLabel = submitBtn ? submitBtn.querySelector(".submit-btn-label") : null;
+
+      function setSubmitting(isSubmitting) {
+        if (!submitBtn) return;
+        submitBtn.classList.toggle("is-loading", isSubmitting);
+        submitBtn.disabled = isSubmitting;
+        if (submitLabel) {
+          submitLabel.textContent = isSubmitting ? "Adding Tests..." : "Add Tests";
+        }
+      }
+
       const formData = new FormData(document.getElementById("addTestForm"));
       const organizationId = formData.get("organizationId");
       const termId = formData.get("termId");
@@ -944,6 +987,7 @@
       }
 
       try {
+        setSubmitting(true);
         const response = await fetch(`/common/createTest?organizationId=${organizationId}&termId=${termId}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -959,6 +1003,8 @@
       } catch (err) {
         console.error(err);
         alert("An unexpected error occurred.");
+      } finally {
+        setSubmitting(false);
       }
     }
 

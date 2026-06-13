@@ -495,6 +495,8 @@ function renderCleanEmail({
   actionUrl = "",
   actionText = "",
   noReply = true,
+  followManagira = false,
+  linkedinUrl = "https://www.linkedin.com/company/managira",
   year = new Date().getFullYear(),
 }) {
   const normalizedParagraphs = [
@@ -539,6 +541,10 @@ function renderCleanEmail({
        </div>`
     : "";
 
+  const followManagiraHtml = followManagira
+    ? `<p style="margin:14px 0 0;font-size:13px;color:#475569;">Follow <a href="${linkedinUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;">Managira on LinkedIn</a> for broader updates.</p>`
+    : "";
+
   const normalizedWebsiteUrl = String(schoolWebsiteUrl || "").trim();
   const normalizedWebsiteHost = String(schoolWebsiteHost || "").trim();
   const websiteLabel = normalizedWebsiteHost || normalizedWebsiteUrl.replace(/^https?:\/\//i, "");
@@ -563,6 +569,7 @@ function renderCleanEmail({
             .join("")}
           ${detailsHtml}
           ${ctaHtml}
+          ${followManagiraHtml}
           ${note ? `<p style="margin:14px 0 0;font-size:13px;color:#475569;">${note}</p>` : ""}
           ${schoolWebsiteHtml}
           ${noReply ? `<p style="margin:18px 0 0;font-size:12px;color:#b91c1c;font-weight:700;">THIS IS A NO-REPLY MESSAGE. PLEASE DO NOT REPLY TO THIS EMAIL.</p>` : ""}

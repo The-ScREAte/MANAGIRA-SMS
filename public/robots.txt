@@ -1,11 +1,12 @@
 User-agent: *
 Allow: /
 Allow: /legal/
-Allow: /directory
 Allow: /common/publicDashboard
 Allow: /account/service-plan
 
 # Block access to admin and private areas
+Disallow: /directory
+Disallow: /legal/directory
 Disallow: /admin/
 Disallow: /account/
 Disallow: /enrollment/

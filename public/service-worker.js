@@ -3,11 +3,16 @@
 // Rules:
 //   • Only intercepts same-origin GET requests
 //   • NEVER intercepts: POST, /api/, auth routes (login, logout, register, set-password …)
-//   • Caches static assets (CSS, JS, images, fonts) with cache-first strategy
+//   • Caches static assets (CSS, JS, images, fonts) with a stale-while-revalidate
+//     strategy so a fresh copy is always fetched in the background and the cache
+//     self-heals after a deploy (no more permanently-stale old code)
 //   • All other requests (HTML pages, etc.) pass straight to the network
 // ─────────────────────────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'managira-static-v1';
+// Bump this version on every deploy that ships new front-end assets. Changing it
+// causes the activate handler to purge ALL previous caches, guaranteeing users
+// stop being served old cached code.
+const CACHE_NAME = 'managira-static-v2';
 
 // File extensions that get cache-first treatment
 const STATIC_EXT = /\.(css|js|png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot)(\?.*)?$/i;
@@ -74,24 +79,30 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
 
   if (STATIC_EXT.test(url.pathname)) {
-    // Cache-first for static assets:
-    // 1. Return cached copy instantly if available
-    // 2. Otherwise fetch from network, store a copy, return response
+    // Stale-while-revalidate for static assets:
+    // 1. Return cached copy instantly if available (fast first paint)
+    // 2. ALWAYS fetch from network in the background to refresh the cache so the
+    //    next load gets the latest deployed asset — this prevents old code from
+    //    being served indefinitely after a deploy.
     event.respondWith(
       caches.match(request).then((cached) => {
-        if (cached) return cached;
+        const networkFetch = fetch(request)
+          .then((response) => {
+            // Only cache valid responses
+            if (response && response.ok && response.status === 200) {
+              const clone = response.clone();
+              caches
+                .open(CACHE_NAME)
+                .then((cache) => cache.put(request, clone))
+                .catch(() => {}); // silently ignore cache write errors
+            }
+            return response;
+          })
+          .catch(() => cached); // offline: fall back to cache if we have it
 
-        return fetch(request).then((response) => {
-          // Only cache valid responses
-          if (response && response.ok && response.status === 200) {
-            const clone = response.clone();
-            caches
-              .open(CACHE_NAME)
-              .then((cache) => cache.put(request, clone))
-              .catch(() => {}); // silently ignore cache write errors
-          }
-          return response;
-        });
+        // Serve cache immediately when present, but keep the network fetch alive
+        // so the cache is updated for next time.
+        return cached || networkFetch;
       })
     );
     return;

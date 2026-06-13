@@ -28,13 +28,14 @@ const sendEmploymentApplicantConfirmationEmail = async ({
         paragraphs: [
             `Thank you for applying for the <strong>${selectedJob.title}</strong> role at Managira.`,
             'Your application has been received successfully, and our team will review it.',
-            `We post other activities and updates on LinkedIn as well. Follow Managira here: <a href="${linkedinUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;">linkedin.com/company/managira</a>.`,
         ],
         details: [
             { label: 'Application ID', value: applicationId ? `#${applicationId}` : 'Submitted' },
             { label: 'Position', value: selectedJob.title },
             { label: 'Location', value: location },
         ],
+        followManagira: true,
+        linkedinUrl,
     });
 
     sendEmailInBackground(

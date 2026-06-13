@@ -27,7 +27,8 @@ const upload = multer({
 
 
 router.get('/about-us', legalController.aboutUs);
-router.get('/directory', legalController.directory);
+// Disabled: School Directory page is hidden (not shown in production for now).
+// router.get('/directory', legalController.directory);
 router.get('/faq', legalController.faq);
 router.get('/help', legalController.getHelp);
 router.post('/help', legalController.postHelp);

@@ -3814,13 +3814,14 @@ const adminController = {
           `As a next step, please schedule an interview at a time that works for you using the link below:`,
           `<a href="${calendlyUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;word-break:break-all;">${calendlyUrl}</a>`,
           "If you have any questions in the meantime, please feel free to reply to this email.",
-          `For ongoing updates about Managira and our team, you are welcome to follow us on LinkedIn at <a href="${linkedinUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;">linkedin.com/company/managira</a>.`,
         ],
         details: [
           { label: "Position", value: he.encode(application.job_title) },
           { label: "Application Status", value: "Approved for Next Stage" },
         ],
         cta: { url: calendlyUrl, text: "Book Your Interview" },
+        followManagira: true,
+        linkedinUrl,
         noReply: false,
       });
 
