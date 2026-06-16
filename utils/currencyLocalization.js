@@ -26,6 +26,63 @@ const CURRENCY_LOCALE_MAP = {
   INR: "en-IN",
 };
 
+const COUNTRY_CURRENCY_MAP = {
+  US: "USD",
+  CA: "CAD",
+  GB: "GBP",
+  IE: "EUR",
+  FR: "EUR",
+  DE: "EUR",
+  ES: "EUR",
+  IT: "EUR",
+  PT: "EUR",
+  NL: "EUR",
+  BE: "EUR",
+  CH: "CHF",
+  SE: "SEK",
+  NO: "NOK",
+  DK: "DKK",
+  FI: "EUR",
+  PL: "PLN",
+  AT: "EUR",
+  GR: "EUR",
+  CZ: "CZK",
+  RO: "RON",
+  HU: "HUF",
+  UA: "UAH",
+  TR: "TRY",
+  RU: "RUB",
+  GH: "GHS",
+  NG: "NGN",
+  KE: "KES",
+  ZA: "ZAR",
+  IN: "INR",
+  AU: "AUD",
+  NZ: "NZD",
+  SG: "SGD",
+  AE: "AED",
+  SA: "SAR",
+  QA: "QAR",
+  PK: "PKR",
+  BD: "BDT",
+  ID: "IDR",
+  PH: "PHP",
+  MY: "MYR",
+  TH: "THB",
+  VN: "VND",
+  IL: "ILS",
+  HK: "HKD",
+  JP: "JPY",
+  KR: "KRW",
+  CN: "CNY",
+  BR: "BRL",
+  AR: "ARS",
+  CL: "CLP",
+  CO: "COP",
+  PE: "PEN",
+  MX: "MXN",
+};
+
 function roundTo2(value) {
   return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
 }
@@ -54,6 +111,12 @@ function getLocaleForCurrency(currencyCode) {
   return CURRENCY_LOCALE_MAP[normalized] || "en-US";
 }
 
+function getCurrencyForCountry(countryCode) {
+  const code = String(countryCode || "").trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(code)) return null;
+  return COUNTRY_CURRENCY_MAP[code] || null;
+}
+
 async function fetchGeoFromIp(ip) {
   const now = Date.now();
   if (geoCache.has(ip)) {
@@ -70,8 +133,10 @@ async function fetchGeoFromIp(ip) {
   });
 
   const payload = response?.data || {};
-  const detectedCurrency = normalizeCurrencyCode(payload.currency);
   const detectedCountry = String(payload.country_code || "").toUpperCase() || null;
+  const detectedCurrency =
+    normalizeCurrencyCode(payload.currency) ||
+    normalizeCurrencyCode(getCurrencyForCountry(detectedCountry));
 
   const value = {
     countryCode: detectedCountry,
@@ -109,9 +174,10 @@ async function detectCurrencyForRequest(req) {
   }
 
   const countryCode = getHeaderCountry(req);
+  const currencyFromCountry = normalizeCurrencyCode(getCurrencyForCountry(countryCode));
   return {
     countryCode,
-    currencyCode: FALLBACK_CURRENCY,
+    currencyCode: currencyFromCountry || FALLBACK_CURRENCY,
     source: countryCode ? "request-header" : "fallback",
   };
 }
