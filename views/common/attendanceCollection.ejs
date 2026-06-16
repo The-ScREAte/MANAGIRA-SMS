@@ -204,6 +204,36 @@
 
         .cal-pill.cal-pill-muted:hover {
             background: #e9eff5;
+
+        }
+
+        .sort-toggle-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            padding: 0;
+            border: none;
+            background: transparent;
+            color: var(--primary);
+            cursor: pointer;
+            opacity: 0.78;
+        }
+
+        .sort-toggle-btn:hover,
+        .sort-toggle-btn:focus,
+        .sort-toggle-btn:active,
+        .sort-toggle-btn:focus-visible {
+            background: transparent !important;
+            box-shadow: none !important;
+            outline: none;
+            color: var(--primary);
+        }
+
+        .sort-toggle-btn svg {
+            width: 10px;
+            height: 10px;
         }
 
         .cal-pill-popover {
@@ -1078,10 +1108,10 @@
         <div class="filter-inner-container">
             <label>
                 Sort by name:
-                <select id="nameSort">
-                    <option value="asc">A → Z</option>
-                    <option value="desc">Z → A</option>
-                </select>
+                <button type="button" class="sort-toggle-btn" id="nameSortToggle" data-sort-direction="asc" aria-label="Sort names Z to A">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg>
+                </button>
+                <input type="hidden" id="nameSort" value="asc">
             </label>
 
             <label>
@@ -1124,7 +1154,7 @@
             <table class="attendance-sheet">
                 <thead>
                     <tr>
-                        <th class="student-name">Student Name</th>
+                        <th class="student-name">Student Name <button type="button" class="sort-toggle-btn" id="attendanceHeaderSortToggle" data-sort-direction="asc" aria-label="Sort names Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
                         <% displayDates.forEach(date => { %>
                             <% const isToday = date === todayKey; %>
                             <% const dateMeta = (dateMetaMap && dateMetaMap[date]) ? dateMetaMap[date] : { countable: true }; %>
@@ -1357,6 +1387,25 @@
             const termId = '<%= termId %>';
             const calendarRulesContent = document.getElementById('calendarRulesContent');
             const attendanceSummaryWrapper = document.getElementById('attendanceSummaryWrapper');
+            const nameSortToggle = document.getElementById('nameSortToggle');
+            const attendanceHeaderSortToggle = document.getElementById('attendanceHeaderSortToggle');
+            const nameSortInput = document.getElementById('nameSort');
+
+            syncAttendanceSortToggle();
+            if (nameSortToggle && nameSortInput) {
+                nameSortToggle.addEventListener('click', function() {
+                    nameSortInput.value = nameSortInput.value === 'asc' ? 'desc' : 'asc';
+                    syncAttendanceSortToggle();
+                    applyFilters();
+                });
+            }
+            if (attendanceHeaderSortToggle && nameSortInput) {
+                attendanceHeaderSortToggle.addEventListener('click', function() {
+                    nameSortInput.value = nameSortInput.value === 'asc' ? 'desc' : 'asc';
+                    syncAttendanceSortToggle();
+                    applyFilters();
+                });
+            }
 
             if (attendanceSummaryWrapper && window.matchMedia('(min-width: 769px)').matches) {
                 attendanceSummaryWrapper.classList.remove('collapsed-mobile');
@@ -1523,8 +1572,20 @@
             
             document.addEventListener('DOMContentLoaded', () => {
                 const tbody = document.querySelector('.attendance-sheet tbody');
+                originalRows.length = 0;
                 originalRows.push(...tbody.querySelectorAll('tr'));
             });
+
+            function syncAttendanceSortToggle() {
+                const sortInput = document.getElementById('nameSort');
+                const toggles = [document.getElementById('nameSortToggle'), document.getElementById('attendanceHeaderSortToggle')].filter(Boolean);
+                if (!sortInput || !toggles.length) return;
+                const direction = sortInput.value === 'desc' ? 'desc' : 'asc';
+                toggles.forEach(function(toggle) {
+                    toggle.setAttribute('data-sort-direction', direction);
+                    toggle.setAttribute('aria-label', direction === 'asc' ? 'Sort names Z to A' : 'Sort names A to Z');
+                });
+            }
             
             function applyFilters() {
                 const sort = document.getElementById('nameSort').value;

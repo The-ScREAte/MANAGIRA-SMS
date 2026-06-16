@@ -178,6 +178,36 @@ body {
   color: #e2e8f0;
 }
 
+.table-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 6px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--primary);
+  cursor: pointer;
+  opacity: 0.78;
+}
+
+.table-sort-btn:hover,
+.table-sort-btn:focus,
+.table-sort-btn:active,
+.table-sort-btn:focus-visible {
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none;
+  color: var(--primary);
+}
+
+.table-sort-btn svg {
+  width: 10px;
+  height: 10px;
+}
+
 .assessment-status.is-editable {
   color: #22c55e;
   font-weight: 700;
@@ -625,7 +655,12 @@ input[type="number"]:focus {
               <tr>
                 <th>#</th>
                 <!-- Added column for numbering -->
-                <th>Student Name</th>
+                <th>
+                  Student Name
+                  <button type="button" class="table-sort-btn" id="assessmentStudentSort" data-sort-direction="asc" aria-label="Sort students Z to A">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg>
+                  </button>
+                </th>
                 <% assessments.forEach(function(assessment) { %>
                 <th>
                   <%= assessment.title %> (<%= assessment.weight %>%)<br />
@@ -655,10 +690,11 @@ input[type="number"]:focus {
               k != 11) { return "st"; } if (j == 2 && k != 12) { return "nd"; }
               if (j == 3 && k != 13) { return "rd"; } return "th"; } %> <%
               students.forEach(function(student, index) { %>
-              <tr>
+              <% const assessmentStudentName = [student.first_name, student.last_name].filter(Boolean).join(' ').trim(); %>
+              <tr data-student-name="<%= assessmentStudentName.toLowerCase() %>">
                 <td><%= index + 1 %></td>
                 <!-- Numbering each row -->
-                <td><%= student.first_name %> <%= student.last_name %></td>
+                <td><%= assessmentStudentName %></td>
                 <% assessments.forEach(function(assessment) { %>
                 <td>
                   <input
@@ -728,6 +764,42 @@ input[type="number"]:focus {
         metaToggle.addEventListener("click", () => {
           const isOpen = metaToggle.getAttribute("aria-expanded") === "true";
           setMetaOpen(!isOpen);
+        });
+      }
+
+      function syncAssessmentSortLabel(button) {
+        if (!button) return;
+        var direction = button.getAttribute("data-sort-direction") === "desc" ? "desc" : "asc";
+        button.setAttribute("aria-label", direction === "asc" ? "Sort students Z to A" : "Sort students A to Z");
+      }
+
+      function sortAssessmentRows(direction) {
+        var tbody = document.getElementById("students-table-body");
+        if (!tbody) return;
+        var rows = Array.prototype.slice.call(tbody.querySelectorAll("tr[data-student-name]"));
+        rows.sort(function(a, b) {
+          var nameA = a.getAttribute("data-student-name") || "";
+          var nameB = b.getAttribute("data-student-name") || "";
+          return direction === "desc"
+            ? nameB.localeCompare(nameA, undefined, { sensitivity: "base" })
+            : nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+        });
+        rows.forEach(function(row, index) {
+          var indexCell = row.querySelector("td");
+          if (indexCell) indexCell.textContent = String(index + 1);
+          tbody.appendChild(row);
+        });
+      }
+
+      const assessmentSortButton = document.getElementById("assessmentStudentSort");
+      if (assessmentSortButton) {
+        syncAssessmentSortLabel(assessmentSortButton);
+        sortAssessmentRows(assessmentSortButton.getAttribute("data-sort-direction") || "asc");
+        assessmentSortButton.addEventListener("click", function() {
+          var nextDirection = assessmentSortButton.getAttribute("data-sort-direction") === "asc" ? "desc" : "asc";
+          assessmentSortButton.setAttribute("data-sort-direction", nextDirection);
+          syncAssessmentSortLabel(assessmentSortButton);
+          sortAssessmentRows(nextDirection);
         });
       }
 

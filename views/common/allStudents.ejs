@@ -211,6 +211,30 @@
     top: 0;
     z-index: 1;
   }
+  .as-sort-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    margin-left: 6px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--primary);
+    cursor: pointer;
+    opacity: 0.78;
+  }
+  .as-sort-btn:hover,
+  .as-sort-btn:focus,
+  .as-sort-btn:active,
+  .as-sort-btn:focus-visible {
+    background: transparent !important;
+    box-shadow: none !important;
+    outline: none;
+    color: var(--primary);
+  }
+  .as-sort-btn svg { width: 10px; height: 10px; }
 
   /* Column widths */
   .as-table .col-check   { width: 44px; }
@@ -1260,12 +1284,12 @@
           <th class="col-check" style="padding:11px 6px 11px 14px;">
             <input type="checkbox" class="as-cb" id="asSelectAll" title="Select all visible">
           </th>
-          <th class="col-student">Student</th>
-          <th class="col-id">ID</th>
-          <th class="col-class">Class</th>
-          <th class="col-gender">Gender</th>
-          <th class="col-syear">School Year</th>
-          <th class="col-status">Status</th>
+          <th class="col-student">Student <button type="button" class="as-sort-btn" id="asStudentSortToggle" data-sort-key="name" data-sort-label="students" data-sort-direction="asc" aria-label="Sort students descending"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 1 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 1 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
+          <th class="col-id">ID <button type="button" class="as-sort-btn" data-sort-key="displayId" data-sort-label="student IDs" data-sort-direction="asc" aria-label="Sort student IDs descending"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 1 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 1 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
+          <th class="col-class">Class <button type="button" class="as-sort-btn" data-sort-key="className" data-sort-label="classes" data-sort-direction="asc" aria-label="Sort classes descending"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 1 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 1 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
+          <th class="col-gender">Gender <button type="button" class="as-sort-btn" data-sort-key="gender" data-sort-label="genders" data-sort-direction="asc" aria-label="Sort genders descending"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 1 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 1 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
+          <th class="col-syear">School Year <button type="button" class="as-sort-btn" data-sort-key="schoolYear" data-sort-label="school years" data-sort-direction="asc" aria-label="Sort school years descending"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 1 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 1 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
+          <th class="col-status">Status <button type="button" class="as-sort-btn" data-sort-key="status" data-sort-label="statuses" data-sort-direction="asc" aria-label="Sort statuses descending"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 1 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 1 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
           <th class="col-actions">Actions</th>
         </tr>
       </thead>
@@ -1281,9 +1305,11 @@
           data-name="<%= (s.first_name + ' ' + s.last_name).toLowerCase() %>"
           data-search-id="<%= String(s.display_student_id || '').toLowerCase() %>"
           data-class-id="<%= s.class_id || '' %>"
-          data-gender="<%= s.gender || '' %>"
+          data-class-name="<%= String(s.class_name || '').toLowerCase() %>"
+          data-gender="<%= String(s.gender || '').toLowerCase() %>"
           data-school-year-id="<%= s.last_school_year_id || '' %>"
-          data-display-id="<%= s.display_student_id || '' %>"
+          data-school-year-label="<%= String(s.last_school_year || '').toLowerCase() %>"
+          data-display-id="<%= String(s.display_student_id || '').toLowerCase() %>"
           data-status="<%= isGrad ? 'graduated' : 'active' %>">
 
           <td style="padding:11px 6px 11px 14px;">
@@ -1773,7 +1799,9 @@
   var pagePrevBtn = document.getElementById('asPagePrev');
   var pageNextBtn = document.getElementById('asPageNext');
   var pageInfo = document.getElementById('asPageInfo');
+  var studentSortButtons = Array.from(document.querySelectorAll('.as-sort-btn[data-sort-key]'));
   var pagination = { pageSize: 20, currentPage: 1, totalPages: 1 };
+  var sortState = { key: 'name', direction: 'asc' };
 
   // Mobile filter toggle
   var filterToggle = document.getElementById('asFilterToggle');
@@ -1788,6 +1816,51 @@
   function getVisibleRows()  { return Array.from(document.querySelectorAll('#asTableBody tr:not(.as-row-hidden)')); }
   function getVisibleCards() { return Array.from(document.querySelectorAll('#asCardList .as-card:not(.as-row-hidden)')); }
 
+  function syncAllStudentsSortToggle() {
+    studentSortButtons.forEach(function(button) {
+      var isActive = button.getAttribute('data-sort-key') === sortState.key;
+      var direction = isActive ? sortState.direction : 'asc';
+      var label = button.getAttribute('data-sort-label') || 'items';
+      button.setAttribute('data-sort-direction', direction);
+      button.setAttribute('aria-label', direction === 'asc' ? 'Sort ' + label + ' descending' : 'Sort ' + label + ' ascending');
+    });
+  }
+
+  function getStudentSortValue(node) {
+    switch (sortState.key) {
+      case 'displayId':
+        return String(node.dataset.displayId || '');
+      case 'className':
+        return String(node.dataset.className || '');
+      case 'gender':
+        return String(node.dataset.gender || '');
+      case 'schoolYear':
+        return String(node.dataset.schoolYearLabel || node.dataset.schoolYearId || '');
+      case 'status':
+        return String(node.dataset.status || '');
+      case 'name':
+      default:
+        return String(node.dataset.name || '');
+    }
+  }
+
+  function compareStudentNodes(left, right) {
+    var valueA = getStudentSortValue(left);
+    var valueB = getStudentSortValue(right);
+    var emptyA = !valueA;
+    var emptyB = !valueB;
+
+    if (emptyA && !emptyB) return 1;
+    if (!emptyA && emptyB) return -1;
+
+    var comparison = valueA.localeCompare(valueB, undefined, { sensitivity: 'base', numeric: true });
+    if (comparison === 0 && sortState.key !== 'name') {
+      comparison = String(left.dataset.name || '').localeCompare(String(right.dataset.name || ''), undefined, { sensitivity: 'base', numeric: true });
+    }
+
+    return sortState.direction === 'desc' ? comparison * -1 : comparison;
+  }
+
   function renderCurrentPage(filteredRows) {
     var total = filteredRows.length;
     pagination.totalPages = Math.max(1, Math.ceil(total / pagination.pageSize));
@@ -1798,6 +1871,14 @@
     var end = start + pagination.pageSize;
     var pageRows = filteredRows.slice(start, end);
     var pageIds = new Set(pageRows.map(function(tr){ return String(tr.dataset.id || ''); }));
+    var tableBody = document.getElementById('asTableBody');
+    var cardList = document.getElementById('asCardList');
+
+    pageRows.forEach(function(tr) {
+      if (tableBody) tableBody.appendChild(tr);
+      var card = cardList ? cardList.querySelector('.as-card[data-id="' + String(tr.dataset.id || '') + '"]') : null;
+      if (card && cardList) cardList.appendChild(card);
+    });
 
     Array.from(document.querySelectorAll('#asTableBody tr')).forEach(function(tr){
       tr.classList.toggle('as-row-hidden', !pageIds.has(String(tr.dataset.id || '')));
@@ -1829,9 +1910,25 @@
       return true;
     }
 
-    var filteredRows = Array.from(document.querySelectorAll('#asTableBody tr')).filter(function(tr){ return match(tr); });
+    var filteredRows = Array.from(document.querySelectorAll('#asTableBody tr')).filter(function(tr){ return match(tr); }).sort(compareStudentNodes);
     renderCurrentPage(filteredRows);
     syncSelectAll();
+  }
+  if (studentSortButtons.length) {
+    syncAllStudentsSortToggle();
+    studentSortButtons.forEach(function(button) {
+      button.addEventListener('click', function() {
+        var key = button.getAttribute('data-sort-key') || 'name';
+        if (sortState.key === key) {
+          sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+        } else {
+          sortState.key = key;
+          sortState.direction = 'asc';
+        }
+        syncAllStudentsSortToggle();
+        applyFilters(true);
+      });
+    });
   }
   searchInput.addEventListener('input',   function(){ filters.search  = this.value; applyFilters(true); });
   filterClass.addEventListener('change',  function(){ filters.classId = this.value; applyFilters(true); });

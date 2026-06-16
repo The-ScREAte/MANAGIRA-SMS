@@ -74,27 +74,56 @@ const transcriptController = (db) => ({
             }
 
                         // Fetch total percentage and grade for each subject for ended semesters
-            const scoresQuery = `
-                                SELECT sub.subject_name,
-                                             MAX(ar.total_percentage) AS total_percentage,
-                                             MAX(ar.grade) AS grade,
-                                             t.term_name,
-                                             t.start_date,
-                                             t.end_date,
-                                             sy.year_label
-                FROM assessment_results ar
-                JOIN assessments a ON ar.assessment_id = a.assessment_id
-                JOIN subjects sub ON a.subject_id = sub.subject_id
-                JOIN terms t ON ar.term_id = t.term_id
-                JOIN school_years sy ON t.school_year_id = sy.id
-                WHERE ar.student_id = $1 AND ar.organization_id = $2
-                                    AND (
-                                        t.current = FALSE
-                                        OR (t.end_date IS NOT NULL AND t.end_date < CURRENT_DATE)
-                                    )
-                                GROUP BY sub.subject_name, t.term_name, t.start_date, t.end_date, sy.year_label
-                                ORDER BY COALESCE(t.end_date, t.start_date), t.start_date, sub.subject_name;
-            `;
+                        const scoresQuery = `
+                                                                SELECT sub.subject_name,
+                                                                                         MAX(ar.total_percentage) AS total_percentage,
+                                                                                         MAX(
+                                                                                             COALESCE(
+                                                                                                 ar.grade,
+                                                                                                 (
+                                                                                                     SELECT COALESCE(NULLIF(sr.grade_label, ''),
+                                                                                                         CASE
+                                                                                                             WHEN ar.total_percentage >= 90 THEN 'A'
+                                                                                                             WHEN ar.total_percentage >= 80 THEN 'B'
+                                                                                                             WHEN ar.total_percentage >= 70 THEN 'C'
+                                                                                                             ELSE 'D'
+                                                                                                         END
+                                                                                                     )
+                                                                                                     FROM score_remarks sr
+                                                                                                     WHERE sr.organization_id = ar.organization_id
+                                                                                                         AND sr.class_id = ar.class_id
+                                                                                                         AND sr.term_id = ar.term_id
+                                                                                                         AND ar.total_percentage IS NOT NULL
+                                                                                                         AND ar.total_percentage::numeric BETWEEN sr.from_percentage AND sr.to_percentage
+                                                                                                     ORDER BY sr.from_percentage DESC
+                                                                                                     LIMIT 1
+                                                                                                 ),
+                                                                                                 CASE
+                                                                                                     WHEN ar.total_percentage IS NULL THEN NULL
+                                                                                                     WHEN ar.total_percentage >= 90 THEN 'A'
+                                                                                                     WHEN ar.total_percentage >= 80 THEN 'B'
+                                                                                                     WHEN ar.total_percentage >= 70 THEN 'C'
+                                                                                                     ELSE 'D'
+                                                                                                 END
+                                                                                             )
+                                                                                         ) AS grade,
+                                                                                         t.term_name,
+                                                                                         t.start_date,
+                                                                                         t.end_date,
+                                                                                         sy.year_label
+                                FROM assessment_results ar
+                                JOIN assessments a ON ar.assessment_id = a.assessment_id
+                                JOIN subjects sub ON a.subject_id = sub.subject_id
+                                JOIN terms t ON ar.term_id = t.term_id
+                                JOIN school_years sy ON t.school_year_id = sy.id
+                                WHERE ar.student_id = $1 AND ar.organization_id = $2
+                                                                        AND (
+                                                                                t.current = FALSE
+                                                                                OR (t.end_date IS NOT NULL AND t.end_date < CURRENT_DATE)
+                                                                        )
+                                                                GROUP BY sub.subject_name, t.term_name, t.start_date, t.end_date, sy.year_label
+                                                                ORDER BY COALESCE(t.end_date, t.start_date), t.start_date, sub.subject_name;
+                        `;
             const scoresResult = await db.query(scoresQuery, [studentId, organizationId]);
             const scores = scoresResult.rows;
 
@@ -282,27 +311,56 @@ const transcriptController = (db) => ({
             const fullStudentResult = await db.query(fullStudentQuery, [studentId, organizationId]);
             const fullStudent = fullStudentResult.rows[0];
 
-            const scoresQuery = `
-                                SELECT sub.subject_name,
-                                             MAX(ar.total_percentage) AS total_percentage,
-                                             MAX(ar.grade) AS grade,
-                                             t.term_name,
-                                             t.start_date,
-                                             t.end_date,
-                                             sy.year_label
-                FROM assessment_results ar
-                JOIN assessments a ON ar.assessment_id = a.assessment_id
-                JOIN subjects sub ON a.subject_id = sub.subject_id
-                JOIN terms t ON ar.term_id = t.term_id
-                JOIN school_years sy ON t.school_year_id = sy.id
-                WHERE ar.student_id = $1 AND ar.organization_id = $2
-                                    AND (
-                                        t.current = FALSE
-                                        OR (t.end_date IS NOT NULL AND t.end_date < CURRENT_DATE)
-                                    )
-                                GROUP BY sub.subject_name, t.term_name, t.start_date, t.end_date, sy.year_label
-                                ORDER BY COALESCE(t.end_date, t.start_date), t.start_date, sub.subject_name
-            `;
+                        const scoresQuery = `
+                                                                SELECT sub.subject_name,
+                                                                                         MAX(ar.total_percentage) AS total_percentage,
+                                                                                         MAX(
+                                                                                             COALESCE(
+                                                                                                 ar.grade,
+                                                                                                 (
+                                                                                                     SELECT COALESCE(NULLIF(sr.grade_label, ''),
+                                                                                                         CASE
+                                                                                                             WHEN ar.total_percentage >= 90 THEN 'A'
+                                                                                                             WHEN ar.total_percentage >= 80 THEN 'B'
+                                                                                                             WHEN ar.total_percentage >= 70 THEN 'C'
+                                                                                                             ELSE 'D'
+                                                                                                         END
+                                                                                                     )
+                                                                                                     FROM score_remarks sr
+                                                                                                     WHERE sr.organization_id = ar.organization_id
+                                                                                                         AND sr.class_id = ar.class_id
+                                                                                                         AND sr.term_id = ar.term_id
+                                                                                                         AND ar.total_percentage IS NOT NULL
+                                                                                                         AND ar.total_percentage::numeric BETWEEN sr.from_percentage AND sr.to_percentage
+                                                                                                     ORDER BY sr.from_percentage DESC
+                                                                                                     LIMIT 1
+                                                                                                 ),
+                                                                                                 CASE
+                                                                                                     WHEN ar.total_percentage IS NULL THEN NULL
+                                                                                                     WHEN ar.total_percentage >= 90 THEN 'A'
+                                                                                                     WHEN ar.total_percentage >= 80 THEN 'B'
+                                                                                                     WHEN ar.total_percentage >= 70 THEN 'C'
+                                                                                                     ELSE 'D'
+                                                                                                 END
+                                                                                             )
+                                                                                         ) AS grade,
+                                                                                         t.term_name,
+                                                                                         t.start_date,
+                                                                                         t.end_date,
+                                                                                         sy.year_label
+                                FROM assessment_results ar
+                                JOIN assessments a ON ar.assessment_id = a.assessment_id
+                                JOIN subjects sub ON a.subject_id = sub.subject_id
+                                JOIN terms t ON ar.term_id = t.term_id
+                                JOIN school_years sy ON t.school_year_id = sy.id
+                                WHERE ar.student_id = $1 AND ar.organization_id = $2
+                                                                        AND (
+                                                                                t.current = FALSE
+                                                                                OR (t.end_date IS NOT NULL AND t.end_date < CURRENT_DATE)
+                                                                        )
+                                                                GROUP BY sub.subject_name, t.term_name, t.start_date, t.end_date, sy.year_label
+                                                                ORDER BY COALESCE(t.end_date, t.start_date), t.start_date, sub.subject_name
+                        `;
             const scoresResult = await db.query(scoresQuery, [studentId, organizationId]);
             const scores = scoresResult.rows;
 

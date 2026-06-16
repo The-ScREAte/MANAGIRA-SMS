@@ -460,6 +460,10 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='score_remarks' AND column_name='class_id') THEN
         ALTER TABLE score_remarks ADD COLUMN class_id INT REFERENCES classes(class_id) ON DELETE CASCADE;
     END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='score_remarks' AND column_name='grade_label') THEN
+        ALTER TABLE score_remarks ADD COLUMN grade_label TEXT;
+    END IF;
 END $$;
 
 ALTER TABLE students ADD COLUMN graduation_year_group_id INT REFERENCES graduation_year_groups(id) ON DELETE SET NULL;

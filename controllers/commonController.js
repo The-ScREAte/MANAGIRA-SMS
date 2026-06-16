@@ -1449,12 +1449,52 @@ async function notifyTeachersForAssessmentControl({
   );
 }
 
-function calculateGrade(percentage) {
-  if (percentage >= 90) return "A";
-  if (percentage >= 80) return "B";
-  if (percentage >= 70) return "C";
-  if (percentage >= 60) return "D";
-  return "F";
+let scoreRemarkGradeSchemaReady = false;
+
+async function ensureScoreRemarkGradeSchema(dbClient) {
+  if (scoreRemarkGradeSchemaReady) return;
+  await dbClient.query(
+    "ALTER TABLE score_remarks ADD COLUMN IF NOT EXISTS grade_label TEXT"
+  );
+  scoreRemarkGradeSchemaReady = true;
+}
+
+function getDefaultGradeLabel(percentage) {
+  const value = Number(percentage);
+  if (!Number.isFinite(value)) return "-";
+  if (value >= 90) return "A";
+  if (value >= 80) return "B";
+  if (value >= 70) return "C";
+  return "D";
+}
+
+async function getGradeLabelFromScoreRemark(
+  dbClient,
+  organizationId,
+  classId,
+  termId,
+  percentage
+) {
+  if (percentage === null || percentage === undefined || Number.isNaN(percentage)) {
+    return "-";
+  }
+
+  await ensureScoreRemarkGradeSchema(dbClient);
+
+  const remarkResult = await dbClient.query(
+    `SELECT grade_label
+     FROM score_remarks
+     WHERE organization_id = $1
+       AND class_id = $2
+       AND term_id = $3
+       AND $4::numeric BETWEEN from_percentage AND to_percentage
+     ORDER BY from_percentage DESC
+     LIMIT 1`,
+    [organizationId, classId, termId, percentage]
+  );
+
+  const configuredLabel = String(remarkResult.rows[0]?.grade_label || "").trim();
+  return configuredLabel || getDefaultGradeLabel(percentage);
 }
 
 const commonController = {
@@ -5649,7 +5689,37 @@ const commonController = {
       const assessmentsResult = await db.query(
         `
           SELECT DISTINCT ON (a.assessment_id) a.assessment_id, a.title, a.weight, ar.score, a.subject_id, a.max_score, a.category,
-                 ar.total_subject_score, ar.total_percentage, ar.grade, COALESCE(a.scale_base, 100) AS scale_base
+                 ar.total_subject_score,
+                 ar.total_percentage,
+                 COALESCE(
+                   ar.grade,
+                   (
+                     SELECT COALESCE(NULLIF(sr.grade_label, ''),
+                       CASE
+                         WHEN ar.total_percentage >= 90 THEN 'A'
+                         WHEN ar.total_percentage >= 80 THEN 'B'
+                         WHEN ar.total_percentage >= 70 THEN 'C'
+                         ELSE 'D'
+                       END
+                     )
+                     FROM score_remarks sr
+                     WHERE sr.organization_id = $3
+                       AND sr.class_id = $2
+                       AND sr.term_id = $4
+                       AND ar.total_percentage IS NOT NULL
+                       AND ar.total_percentage::numeric BETWEEN sr.from_percentage AND sr.to_percentage
+                     ORDER BY sr.from_percentage DESC
+                     LIMIT 1
+                   ),
+                   CASE
+                     WHEN ar.total_percentage IS NULL THEN NULL
+                     WHEN ar.total_percentage >= 90 THEN 'A'
+                     WHEN ar.total_percentage >= 80 THEN 'B'
+                     WHEN ar.total_percentage >= 70 THEN 'C'
+                     ELSE 'D'
+                   END
+                 ) AS grade,
+                 COALESCE(a.scale_base, 100) AS scale_base
           FROM assessments a
           LEFT JOIN assessment_results ar ON a.assessment_id = ar.assessment_id AND ar.student_id = $1
           WHERE a.subject_id IN (SELECT subject_id FROM subjects WHERE class_id = $2)
@@ -8128,6 +8198,7 @@ const commonController = {
 
     try {
       await ensureAssessmentControlSchema(db);
+      await ensureScoreRemarkGradeSchema(db);
       const organizationId = req.session.organizationId;
 
       // Validate `organizationId`
@@ -8236,7 +8307,39 @@ const commonController = {
       // Fetch scores and positions for the students in this subject
       const resultsResult = await db.query(
         `
-                SELECT ar.assessment_id, ar.student_id, ar.score, ar.total_subject_score, ar.total_percentage, ar.grade,
+                SELECT ar.assessment_id,
+                       ar.student_id,
+                       ar.score,
+                       ar.total_subject_score,
+                       ar.total_percentage,
+                       COALESCE(
+                         ar.grade,
+                         (
+                           SELECT COALESCE(NULLIF(sr.grade_label, ''),
+                             CASE
+                               WHEN ar.total_percentage >= 90 THEN 'A'
+                               WHEN ar.total_percentage >= 80 THEN 'B'
+                               WHEN ar.total_percentage >= 70 THEN 'C'
+                               ELSE 'D'
+                             END
+                           )
+                           FROM score_remarks sr
+                           WHERE sr.organization_id = $3
+                             AND sr.class_id = $2
+                             AND sr.term_id = $4
+                             AND ar.total_percentage IS NOT NULL
+                             AND ar.total_percentage::numeric BETWEEN sr.from_percentage AND sr.to_percentage
+                           ORDER BY sr.from_percentage DESC
+                           LIMIT 1
+                         ),
+                         CASE
+                           WHEN ar.total_percentage IS NULL THEN NULL
+                           WHEN ar.total_percentage >= 90 THEN 'A'
+                           WHEN ar.total_percentage >= 80 THEN 'B'
+                           WHEN ar.total_percentage >= 70 THEN 'C'
+                           ELSE 'D'
+                         END
+                       ) AS grade,
                        sp.position
                 FROM assessment_results ar
                 LEFT JOIN student_positions sp
@@ -8551,7 +8654,15 @@ const commonController = {
 
         // Calculate grade
         const grade =
-          totalPercentage !== null ? this.calculateGrade(totalPercentage) : "-";
+          totalPercentage !== null
+            ? await getGradeLabelFromScoreRemark(
+                db,
+                organizationId,
+                classId,
+                currentTermId,
+                totalPercentage
+              )
+            : "-";
 
         // Save total_subject_score, total_percentage, and grade in assessment_results table
         await db.query(
@@ -8626,11 +8737,7 @@ const commonController = {
 
   calculateGrade: function (totalPercentage) {
     if (totalPercentage === "-" || isNaN(totalPercentage)) return "-";
-    if (totalPercentage >= 90) return "A";
-    if (totalPercentage >= 80) return "B";
-    if (totalPercentage >= 70) return "C";
-    if (totalPercentage >= 60) return "D";
-    return "F";
+    return getDefaultGradeLabel(totalPercentage);
   },
 
   calculateTotalPercentage: (scores, assessments) => {
@@ -8662,11 +8769,7 @@ const commonController = {
 
   calculateGrade: (totalPercentage) => {
     if (totalPercentage === "-" || isNaN(totalPercentage)) return "-";
-    if (totalPercentage >= 90) return "A";
-    if (totalPercentage >= 80) return "B";
-    if (totalPercentage >= 70) return "C";
-    if (totalPercentage >= 60) return "D";
-    return "F";
+    return getDefaultGradeLabel(totalPercentage);
   },
 
   getAssessments: async (req, res, db) => {
@@ -9015,6 +9118,7 @@ const commonController = {
 
     try {
       await ensureAssessmentControlSchema(client);
+      await ensureScoreRemarkGradeSchema(client);
       await client.query("BEGIN"); // Start transaction
 
       const existingAssessmentsResult = await client.query(
@@ -9098,17 +9202,6 @@ const commonController = {
         );
       };
 
-      const calculateGradeForPercentage = (totalPercentage) => {
-        if (totalPercentage === null || totalPercentage === undefined || Number.isNaN(totalPercentage)) {
-          return "-";
-        }
-        if (totalPercentage >= 90) return "A";
-        if (totalPercentage >= 80) return "B";
-        if (totalPercentage >= 70) return "C";
-        if (totalPercentage >= 60) return "D";
-        return "F";
-      };
-
       const recalculateAssignmentSummaries = async (assignment) => {
         await client.query(
           `
@@ -9175,7 +9268,13 @@ const commonController = {
         for (const [studentId, summary] of studentSummaryMap.entries()) {
           const totalPercentage =
             summary.maxTotalScore > 0 ? (summary.totalScore / summary.maxTotalScore) * 100 : null;
-          const grade = calculateGradeForPercentage(totalPercentage);
+          const grade = await getGradeLabelFromScoreRemark(
+            client,
+            organizationId,
+            assignment.classId,
+            termId,
+            totalPercentage
+          );
 
           await client.query(
             `

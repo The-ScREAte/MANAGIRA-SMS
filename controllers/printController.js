@@ -45,6 +45,136 @@ async function ensureSignatureMetaColumns(dbClient) {
   }
 }
 
+let ensuredScoreRemarkGradeColumn = false;
+async function ensureScoreRemarkGradeColumn(dbClient) {
+  if (ensuredScoreRemarkGradeColumn) return;
+  try {
+    await dbClient.query(
+      "ALTER TABLE score_remarks ADD COLUMN IF NOT EXISTS grade_label TEXT"
+    );
+    ensuredScoreRemarkGradeColumn = true;
+  } catch (err) {
+    console.error("[ensureScoreRemarkGradeColumn] Failed to add column", err);
+  }
+}
+
+let ensuredScoreRemarkDefaultStateTable = false;
+async function ensureScoreRemarkDefaultStateTable(dbClient) {
+  if (ensuredScoreRemarkDefaultStateTable) return;
+  await dbClient.query(`
+    CREATE TABLE IF NOT EXISTS score_remark_default_state (
+      organization_id INT NOT NULL,
+      class_id INT NOT NULL,
+      term_id INT NOT NULL,
+      defaults_suppressed BOOLEAN NOT NULL DEFAULT FALSE,
+      PRIMARY KEY (organization_id, class_id, term_id)
+    )
+  `);
+  ensuredScoreRemarkDefaultStateTable = true;
+}
+
+function getDefaultGradeLabel(percentage) {
+  const value = Number(percentage);
+  if (!Number.isFinite(value)) return "-";
+  if (value >= 90) return "A";
+  if (value >= 80) return "B";
+  if (value >= 70) return "C";
+  return "D";
+}
+
+function resolveGradeLabelFromRule(rule, percentage) {
+  const configured = String(rule?.gradeLabel || "").trim();
+  if (configured) return configured;
+  return getDefaultGradeLabel(percentage);
+}
+
+function getDefaultScoreRemark(percentage) {
+  const value = Number(percentage);
+  if (!Number.isFinite(value)) return "No Remark";
+  if (value >= 90) return "Excellent";
+  if (value >= 80) return "Very Good";
+  if (value >= 70) return "Good";
+  return "Needs Improvement";
+}
+
+function buildDefaultScoreRemarkRows() {
+  const ranges = [
+    { from: 90, to: 100 },
+    { from: 80, to: 89 },
+    { from: 70, to: 79 },
+    { from: 0, to: 69 },
+  ];
+
+  return ranges.map((r) => ({
+    from: r.from,
+    to: r.to,
+    gradeLabel: getDefaultGradeLabel((r.from + r.to) / 2),
+    remark: getDefaultScoreRemark((r.from + r.to) / 2),
+  }));
+}
+
+async function setDefaultsSuppressedState(dbClient, organizationId, classId, termId, suppressed) {
+  await ensureScoreRemarkDefaultStateTable(dbClient);
+  await dbClient.query(
+    `
+      INSERT INTO score_remark_default_state (organization_id, class_id, term_id, defaults_suppressed)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (organization_id, class_id, term_id)
+      DO UPDATE SET defaults_suppressed = EXCLUDED.defaults_suppressed
+    `,
+    [organizationId, classId, termId, suppressed]
+  );
+}
+
+async function seedDefaultRowsIfEmpty(dbClient, organizationId, classId, termId) {
+  const existingResult = await dbClient.query(
+    `
+      SELECT COUNT(*)::int AS count
+      FROM score_remarks
+      WHERE organization_id = $1 AND class_id = $2 AND term_id = $3
+    `,
+    [organizationId, classId, termId]
+  );
+
+  const existingCount = Number(existingResult.rows[0]?.count || 0);
+  if (existingCount > 0) {
+    await setDefaultsSuppressedState(dbClient, organizationId, classId, termId, false);
+    return;
+  }
+
+  const defaults = buildDefaultScoreRemarkRows();
+  for (const row of defaults) {
+    await dbClient.query(
+      `
+        INSERT INTO score_remarks (organization_id, class_id, term_id, remark, grade_label, from_percentage, to_percentage)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        ON CONFLICT (organization_id, class_id, remark)
+        DO UPDATE SET
+          term_id = EXCLUDED.term_id,
+          grade_label = EXCLUDED.grade_label,
+          from_percentage = EXCLUDED.from_percentage,
+          to_percentage = EXCLUDED.to_percentage
+      `,
+      [organizationId, classId, termId, row.remark, row.gradeLabel, row.from, row.to]
+    );
+  }
+
+  await setDefaultsSuppressedState(dbClient, organizationId, classId, termId, false);
+}
+
+async function getClassScoreRemarksRows(dbClient, organizationId, classId, termId) {
+  const rowsResult = await dbClient.query(
+    `
+      SELECT *
+      FROM score_remarks
+      WHERE organization_id = $1 AND class_id = $2 AND term_id = $3
+      ORDER BY from_percentage ASC, id ASC
+    `,
+    [organizationId, classId, termId]
+  );
+  return rowsResult.rows;
+}
+
 // Helper functions for S3 actions
 async function uploadToS3(key, file) {
   const command = new PutObjectCommand({
@@ -146,6 +276,7 @@ const printController = (db) => ({
     const { classId, termId, studentId } = req.query;
     const organizationId = req.session.organizationId;
     await ensureSignatureMetaColumns(db);
+    await ensureScoreRemarkGradeColumn(db);
     // Validate inputs
     if (!organizationId) {
       return res.status(400).send("Organization ID is not set in session.");
@@ -314,7 +445,13 @@ const printController = (db) => ({
           [organizationId]
         ),
         db.query(
-          'SELECT from_percentage AS "fromPercentage", to_percentage AS "toPercentage", remark FROM score_remarks WHERE organization_id = $1 AND class_id = $2 AND term_id = $3',
+          `SELECT
+             from_percentage AS "fromPercentage",
+             to_percentage AS "toPercentage",
+             remark,
+             grade_label AS "gradeLabel"
+           FROM score_remarks
+           WHERE organization_id = $1 AND class_id = $2 AND term_id = $3`,
           [organizationId, parsedClassId, parsedTermId]
         ),
         db.query(
@@ -520,7 +657,11 @@ const printController = (db) => ({
           const matchingGrade = scoreRemarks.find(
             (r) => totalPercentage >= parseFloat(r.fromPercentage) && totalPercentage <= parseFloat(r.toPercentage)
           );
-          const grade = totalScore > 0 ? (matchingGrade ? matchingGrade.remark : "-") : "-";
+          const grade = totalScore > 0
+            ? (matchingGrade
+                ? resolveGradeLabelFromRule(matchingGrade, totalPercentage)
+                : getDefaultGradeLabel(totalPercentage))
+            : "-";
 
           // Recalculate remarks column
           const matchingRemark = totalPercentage > 0 ? scoreRemarks.find(
@@ -696,6 +837,8 @@ students
     const { classId, termId } = req.query;
     const organizationId = req.session.organizationId;
     await ensureSignatureMetaColumns(db);
+    await ensureScoreRemarkGradeColumn(db);
+    await ensureScoreRemarkDefaultStateTable(db);
 
     try {
       const organizationClassesResult = await db.query(
@@ -792,6 +935,19 @@ students
         [organizationId, parsedTermId]
       );
       const scoreRemarks = scoreRemarksResult.rows || [];
+
+      const defaultsStateResult = await db.query(
+        `
+          SELECT class_id, defaults_suppressed
+          FROM score_remark_default_state
+          WHERE organization_id = $1 AND term_id = $2
+        `,
+        [organizationId, parsedTermId]
+      );
+      const defaultsSuppressedMap = {};
+      defaultsStateResult.rows.forEach((row) => {
+        defaultsSuppressedMap[String(row.class_id)] = !!row.defaults_suppressed;
+      });
   
       // Fetch signature image for this class/term
       const reportSettingsResult = await db.query(
@@ -1017,6 +1173,7 @@ students
         groupedStatusSettings,
         remarks,
         scoreRemarks,
+        defaultsSuppressedMap,
         availableClasses,
         signatureImageUrl,
         signatureName,
@@ -1320,12 +1477,14 @@ students
   },
 
   saveScoreRemarks: async (req, res) => {
-    const { remark, from_percentage, to_percentage, classId } = req.body;
+    await ensureScoreRemarkGradeColumn(db);
+    const { remark, grade_label, from_percentage, to_percentage, classId, entryType } = req.body;
     const organizationId = req.session.organizationId;
     const termId = req.body.termId;
 
     console.log("[saveScoreRemarks] incoming", {
       remark,
+      grade_label,
       from_percentage,
       to_percentage,
       termId,
@@ -1352,9 +1511,18 @@ students
         return res.redirect(`/print/reportSettings?termId=${termId}`);
       }
 
-      if (!remark || remark.trim() === "") {
+      const normalizedRemark = String(remark || "").trim();
+      const normalizedGradeLabelInput = String(grade_label || "").trim();
+
+      if (entryType === "remark" && !normalizedRemark) {
         console.error("[saveScoreRemarks] Missing remark");
         req.flash("error", "Remark text is required.");
+        return res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
+      }
+
+      if (entryType === "grade" && !normalizedGradeLabelInput) {
+        console.error("[saveScoreRemarks] Missing grade label");
+        req.flash("error", "Grade label is required.");
         return res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
       }
 
@@ -1379,22 +1547,49 @@ students
         return res.redirect(`/print/reportSettings?classId=${parsedClassId}&termId=${parsedTermId}`);
       }
 
-      // Insert or update for the selected class
+      // Insert or update by (org,class,term,range) so grade and remark can be saved independently.
       console.log("[saveScoreRemarks] Saving for class:", parsedClassId);
-      await db.query(
+      const existingRowResult = await db.query(
         `
-          INSERT INTO score_remarks (organization_id, class_id, term_id, remark, from_percentage, to_percentage)
-          VALUES ($1, $2, $3, $4, $5, $6)
-          ON CONFLICT (organization_id, class_id, remark) DO UPDATE
-          SET term_id = EXCLUDED.term_id,
-              from_percentage = EXCLUDED.from_percentage,
-              to_percentage = EXCLUDED.to_percentage
+          SELECT id, remark, grade_label
+          FROM score_remarks
+          WHERE organization_id = $1
+            AND class_id = $2
+            AND term_id = $3
+            AND from_percentage = $4
+            AND to_percentage = $5
+          ORDER BY id DESC
+          LIMIT 1
         `,
-        [organizationId, parsedClassId, parsedTermId, remark, fromPct, toPct]
+        [organizationId, parsedClassId, parsedTermId, fromPct, toPct]
       );
 
+      const existingRow = existingRowResult.rows[0] || null;
+      const normalizedGradeLabel = normalizedGradeLabelInput || existingRow?.grade_label || getDefaultGradeLabel((fromPct + toPct) / 2);
+      const finalRemark = normalizedRemark || existingRow?.remark || "No Remark";
+
+      if (existingRow) {
+        await db.query(
+          `
+            UPDATE score_remarks
+            SET remark = $1,
+                grade_label = $2
+            WHERE id = $3
+          `,
+          [finalRemark, normalizedGradeLabel, existingRow.id]
+        );
+      } else {
+        await db.query(
+          `
+            INSERT INTO score_remarks (organization_id, class_id, term_id, remark, grade_label, from_percentage, to_percentage)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+          `,
+          [organizationId, parsedClassId, parsedTermId, finalRemark, normalizedGradeLabel, fromPct, toPct]
+        );
+      }
+
       console.log("[saveScoreRemarks] Successfully saved");
-      req.flash("success", "Score remark saved successfully.");
+      req.flash("success", entryType === "grade" ? "Grade mapping saved successfully." : "Score remark saved successfully.");
       res.redirect(`/print/reportSettings?classId=${parsedClassId}&termId=${parsedTermId}`);
     } catch (error) {
       console.error("[saveScoreRemarks] error", error);
@@ -1406,6 +1601,7 @@ students
   deleteScoreRemark: async (req, res) => {
     const { id } = req.params;
     const { termId, classId } = req.query;
+    const organizationId = req.session.organizationId;
 
     try {
       if (!termId) {
@@ -1413,7 +1609,29 @@ students
         return res.redirect("/print/reportSettings");
       }
 
-      await db.query("DELETE FROM score_remarks WHERE id = $1", [id]);
+      const parsedTermId = parseInt(termId, 10);
+
+      await db.query(
+        "DELETE FROM score_remarks WHERE id = $1 AND organization_id = $2",
+        [id, organizationId]
+      );
+
+      if (classId && !Number.isNaN(Number(classId))) {
+        const parsedClassId = Number(classId);
+        const remainingRows = await getClassScoreRemarksRows(
+          db,
+          organizationId,
+          parsedClassId,
+          parsedTermId
+        );
+        await setDefaultsSuppressedState(
+          db,
+          organizationId,
+          parsedClassId,
+          parsedTermId,
+          remainingRows.length === 0
+        );
+      }
 
       req.flash("success", "Score remark deleted successfully.");
       res.redirect(`/print/reportSettings?classId=${classId || ""}&termId=${termId}`);
@@ -1424,7 +1642,20 @@ students
   },
 
   saveScoreRemarksAjax: async (req, res) => {
-    const { remark, from_percentage, to_percentage, termId, selectedClasses } = req.body;
+    await ensureScoreRemarkGradeColumn(db);
+    await ensureScoreRemarkDefaultStateTable(db);
+    const {
+      remark,
+      grade_label,
+      from_percentage,
+      to_percentage,
+      termId,
+      selectedClasses,
+      entryType,
+      rowId,
+      materializeDefaults,
+      action,
+    } = req.body;
     const organizationId = req.session.organizationId;
 
     console.log("[saveScoreRemarksAjax] incoming", {
@@ -1449,13 +1680,22 @@ students
         return res.json({ success: false, message: "Please select at least one class." });
       }
 
-      if (!remark || remark.trim() === "") {
+      const normalizedRemark = String(remark || "").trim();
+      const normalizedGradeLabelInput = String(grade_label || "").trim();
+
+      if (action !== "deleteDefault" && entryType === "remark" && !normalizedRemark) {
         return res.json({ success: false, message: "Remark text is required." });
+      }
+
+      if (action !== "deleteDefault" && entryType === "grade" && !normalizedGradeLabelInput) {
+        return res.json({ success: false, message: "Grade label is required." });
       }
 
       const parsedTermId = parseInt(termId, 10);
       const fromPct = parseFloat(from_percentage);
       const toPct = parseFloat(to_percentage);
+      const parsedRowId = Number(rowId);
+      const shouldMaterializeDefaults = !!materializeDefaults;
 
       if (
         Number.isNaN(fromPct) ||
@@ -1468,28 +1708,190 @@ students
       }
 
       const savedRemarks = [];
+      const classRowsMap = {};
+
+      // Edit mode: update one specific row by id and preserve the other field when omitted.
+      if (Number.isInteger(parsedRowId) && parsedRowId > 0) {
+        const editableRowResult = await db.query(
+          `
+            SELECT id, class_id, term_id, remark, grade_label, from_percentage, to_percentage
+            FROM score_remarks
+            WHERE id = $1 AND organization_id = $2
+            LIMIT 1
+          `,
+          [parsedRowId, organizationId]
+        );
+
+        if (!editableRowResult.rows.length) {
+          return res.json({ success: false, message: "Could not find the record to edit." });
+        }
+
+        const editableRow = editableRowResult.rows[0];
+        const targetClassId = Number(editableRow.class_id);
+        const finalFromPct = Number.isNaN(fromPct) ? Number(editableRow.from_percentage) : fromPct;
+        const finalToPct = Number.isNaN(toPct) ? Number(editableRow.to_percentage) : toPct;
+
+        if (
+          Number.isNaN(finalFromPct) ||
+          Number.isNaN(finalToPct) ||
+          finalFromPct < 0 ||
+          finalToPct > 100 ||
+          finalFromPct > finalToPct
+        ) {
+          return res.json({ success: false, message: "Provide a valid percentage range (0-100, from <= to)." });
+        }
+
+        const finalGradeLabel = normalizedGradeLabelInput || editableRow.grade_label || getDefaultGradeLabel((finalFromPct + finalToPct) / 2);
+        const finalRemark = normalizedRemark || editableRow.remark || "No Remark";
+
+        const editedResult = await db.query(
+          `
+            UPDATE score_remarks
+            SET from_percentage = $1,
+                to_percentage = $2,
+                remark = $3,
+                grade_label = $4,
+                term_id = $5,
+                class_id = $6
+            WHERE id = $7
+            RETURNING *
+          `,
+          [finalFromPct, finalToPct, finalRemark, finalGradeLabel, parsedTermId, targetClassId, parsedRowId]
+        );
+
+        await setDefaultsSuppressedState(
+          db,
+          organizationId,
+          targetClassId,
+          parsedTermId,
+          false
+        );
+
+        classRowsMap[String(targetClassId)] = await getClassScoreRemarksRows(
+          db,
+          organizationId,
+          targetClassId,
+          parsedTermId
+        );
+
+        return res.json({
+          success: true,
+          savedRemarks: editedResult.rows,
+          classRowsMap,
+          message: entryType === "grade" ? "Grade mapping updated successfully." : "Score remark updated successfully.",
+        });
+      }
 
       for (const classId of selectedClasses) {
         const parsedClassId = parseInt(classId, 10);
-        
-        const result = await db.query(
+
+        if (shouldMaterializeDefaults) {
+          await seedDefaultRowsIfEmpty(db, organizationId, parsedClassId, parsedTermId);
+        }
+
+        if (action === "deleteDefault") {
+          await db.query(
+            `
+              DELETE FROM score_remarks
+              WHERE ctid IN (
+                SELECT ctid
+                FROM score_remarks
+                WHERE organization_id = $1
+                  AND class_id = $2
+                  AND term_id = $3
+                  AND from_percentage = $4
+                  AND to_percentage = $5
+                LIMIT 1
+              )
+            `,
+            [organizationId, parsedClassId, parsedTermId, fromPct, toPct]
+          );
+
+          const remainingRows = await getClassScoreRemarksRows(
+            db,
+            organizationId,
+            parsedClassId,
+            parsedTermId
+          );
+          await setDefaultsSuppressedState(
+            db,
+            organizationId,
+            parsedClassId,
+            parsedTermId,
+            remainingRows.length === 0
+          );
+          classRowsMap[String(parsedClassId)] = remainingRows;
+          continue;
+        }
+
+        const existingRowResult = await db.query(
           `
-            INSERT INTO score_remarks (organization_id, class_id, term_id, remark, from_percentage, to_percentage)
-            VALUES ($1, $2, $3, $4, $5, $6)
-            ON CONFLICT (organization_id, class_id, remark) DO UPDATE
-            SET term_id = EXCLUDED.term_id,
-                from_percentage = EXCLUDED.from_percentage,
-                to_percentage = EXCLUDED.to_percentage
-            RETURNING *
+            SELECT id, remark, grade_label
+            FROM score_remarks
+            WHERE organization_id = $1
+              AND class_id = $2
+              AND term_id = $3
+              AND from_percentage = $4
+              AND to_percentage = $5
+            ORDER BY id DESC
+            LIMIT 1
           `,
-          [organizationId, parsedClassId, parsedTermId, remark, fromPct, toPct]
+          [organizationId, parsedClassId, parsedTermId, fromPct, toPct]
         );
 
+        const existingRow = existingRowResult.rows[0] || null;
+        const normalizedGradeLabel = normalizedGradeLabelInput || existingRow?.grade_label || getDefaultGradeLabel((fromPct + toPct) / 2);
+        const finalRemark = normalizedRemark || existingRow?.remark || "No Remark";
+
+        let result;
+        if (existingRow) {
+          result = await db.query(
+            `
+              UPDATE score_remarks
+              SET remark = $1,
+                  grade_label = $2
+              WHERE id = $3
+              RETURNING *
+            `,
+            [finalRemark, normalizedGradeLabel, existingRow.id]
+          );
+        } else {
+          result = await db.query(
+            `
+              INSERT INTO score_remarks (organization_id, class_id, term_id, remark, grade_label, from_percentage, to_percentage)
+              VALUES ($1, $2, $3, $4, $5, $6, $7)
+              RETURNING *
+            `,
+            [organizationId, parsedClassId, parsedTermId, finalRemark, normalizedGradeLabel, fromPct, toPct]
+          );
+        }
+
         savedRemarks.push(result.rows[0]);
+        await setDefaultsSuppressedState(
+          db,
+          organizationId,
+          parsedClassId,
+          parsedTermId,
+          false
+        );
+        classRowsMap[String(parsedClassId)] = await getClassScoreRemarksRows(
+          db,
+          organizationId,
+          parsedClassId,
+          parsedTermId
+        );
       }
 
       console.log("[saveScoreRemarksAjax] Successfully saved");
-      res.json({ success: true, savedRemarks });
+      res.json({
+        success: true,
+        savedRemarks,
+        classRowsMap,
+        message:
+          action === "deleteDefault"
+            ? (entryType === "grade" ? "Default grade mapping deleted successfully." : "Default score remark deleted successfully.")
+            : (entryType === "grade" ? "Grade mapping saved successfully." : "Score remark saved successfully."),
+      });
     } catch (error) {
       console.error("[saveScoreRemarksAjax] error", error);
       res.json({ success: false, message: "Failed to save score remark." });
@@ -2248,7 +2650,40 @@ students
 
       const scoresResult = await db.query(
         `
-            SELECT ar.student_id, a.subject_id, ar.score, a.title AS assessment_title, ar.grade, a.weight
+            SELECT
+              ar.student_id,
+              a.subject_id,
+              ar.score,
+              a.title AS assessment_title,
+              COALESCE(
+                ar.grade,
+                (
+                  SELECT COALESCE(NULLIF(sr.grade_label, ''),
+                    CASE
+                      WHEN ar.total_percentage >= 90 THEN 'A'
+                      WHEN ar.total_percentage >= 80 THEN 'B'
+                      WHEN ar.total_percentage >= 70 THEN 'C'
+                      ELSE 'D'
+                    END
+                  )
+                  FROM score_remarks sr
+                  WHERE sr.organization_id = $3
+                    AND sr.class_id = $1
+                    AND sr.term_id = $2
+                    AND ar.total_percentage IS NOT NULL
+                    AND ar.total_percentage::numeric BETWEEN sr.from_percentage AND sr.to_percentage
+                  ORDER BY sr.from_percentage DESC
+                  LIMIT 1
+                ),
+                CASE
+                  WHEN ar.total_percentage IS NULL THEN NULL
+                  WHEN ar.total_percentage >= 90 THEN 'A'
+                  WHEN ar.total_percentage >= 80 THEN 'B'
+                  WHEN ar.total_percentage >= 70 THEN 'C'
+                  ELSE 'D'
+                END
+              ) AS grade,
+              a.weight
             FROM assessment_results ar
             JOIN assessments a ON ar.assessment_id = a.assessment_id
             WHERE ar.class_id = $1 AND ar.term_id = $2 AND ar.organization_id = $3

@@ -317,6 +317,18 @@
     border-bottom:1px solid rgba(58,82,120,.45);
     white-space:nowrap;
   }
+  .fin-sort-btn {
+    display:inline-flex; align-items:center; justify-content:center;
+    width:16px; height:16px; margin-left:6px; padding:0; border:none;
+    background:transparent; color:#d8e3f7; cursor:pointer; opacity:.78;
+  }
+  .fin-sort-btn:hover,
+  .fin-sort-btn:focus,
+  .fin-sort-btn:active,
+  .fin-sort-btn:focus-visible {
+    background:transparent !important; box-shadow:none !important; outline:none; color:#d8e3f7;
+  }
+  .fin-sort-btn svg { width:10px; height:10px; }
   .fin-table td {
     padding:11px 12px;
     color:var(--fin-text) !important;
@@ -2034,10 +2046,10 @@
             <div class="fin-table-wrap">
               <table class="fin-table fin-bills-table">
                 <thead><tr>
-                  <th>Bill</th>
+                  <th>Bill <button type="button" class="fin-sort-btn" data-fin-sort-index="0" data-fin-default="true" aria-label="Sort bills Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
                   <th class="fin-col-lg">Type</th>
                   <th class="fin-col-md">Assigned</th>
-                  <th class="fin-col-md">Assignee</th>
+                  <th class="fin-col-md">Assignee <button type="button" class="fin-sort-btn" data-fin-sort-index="3" aria-label="Sort assignees Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
                   <th class="fin-col-md">Due</th>
                   <th>Status</th>
                   <th class="num">Amount</th>
@@ -2205,7 +2217,7 @@
             </div>
             <div class="fin-table-wrap fin-scroll" id="finStudentsWrap">
               <table class="fin-table fin-student-table">
-                <thead><tr><th>Student</th><th>Class</th><th class="num">Billed</th><th class="num">Paid</th><th class="num">Credit</th><th class="num">Outstanding</th><th class="num">Net Due</th><th>Status</th></tr></thead>
+                <thead><tr><th>Student <button type="button" class="fin-sort-btn" data-fin-sort-index="0" data-fin-default="true" aria-label="Sort students Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th><th>Class <button type="button" class="fin-sort-btn" data-fin-sort-index="1" aria-label="Sort classes Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th><th class="num">Billed</th><th class="num">Paid</th><th class="num">Credit</th><th class="num">Outstanding</th><th class="num">Net Due</th><th>Status</th></tr></thead>
                 <tbody>
                   <% studentBilling.forEach(s => {
                     const out = Number(s.outstanding||0);
@@ -2355,7 +2367,7 @@
           <% } else { %>
             <div class="fin-table-wrap fin-scroll" id="finPaymentsWrap">
               <table class="fin-table">
-                <thead><tr><th>Date</th><th>Student</th><th>Bill</th><th>Method</th><th class="num">Amount</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Date</th><th>Student <button type="button" class="fin-sort-btn" data-fin-sort-index="1" data-fin-default="true" aria-label="Sort students Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th><th>Bill <button type="button" class="fin-sort-btn" data-fin-sort-index="2" aria-label="Sort bills Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th><th>Method</th><th class="num">Amount</th><th>Actions</th></tr></thead>
                 <tbody>
                   <% overview.recent.forEach(r => { %>
                     <tr>
@@ -2407,7 +2419,7 @@
             </div>
             <div class="fin-table-wrap">
               <table class="fin-table" id="signoffHistoryTable">
-                <thead><tr><th>Signed At</th><th>Bill</th><th>Scope</th><th>Class</th><th>Signed By</th><th class="num">Students</th><th class="num">Collected</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Signed At</th><th>Bill <button type="button" class="fin-sort-btn" data-fin-sort-index="1" data-fin-default="true" aria-label="Sort bills Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th><th>Scope</th><th>Class <button type="button" class="fin-sort-btn" data-fin-sort-index="3" aria-label="Sort classes Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th><th>Signed By <button type="button" class="fin-sort-btn" data-fin-sort-index="4" aria-label="Sort signers Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th><th class="num">Students</th><th class="num">Collected</th><th>Actions</th></tr></thead>
                 <tbody>
                   <% (signoffHistory || []).forEach(function(row) { const scopeLabel = row.occurrence_date ? new Date(row.occurrence_date).toLocaleDateString() : 'Whole bill'; const classLabel = Number(row.class_id || 0) > 0 ? (row.class_name || 'Class scope') : 'All assigned students'; const signerLabel = (row.signed_by_name || (((row.signer_first_name || '') + ' ' + (row.signer_last_name || '')).trim()) || 'Staff') + (row.signer_role ? (' · ' + row.signer_role) : ''); const searchText = [row.bill_title, scopeLabel, classLabel, signerLabel, row.occurrence_date || '', row.signer_role || ''].join(' ').toLowerCase(); %>
                     <tr data-text="<%= searchText %>">
@@ -2499,7 +2511,7 @@
           <% } else { %>
             <div class="fin-table-wrap">
               <table class="fin-table">
-                <thead><tr><th>Name</th><th>Type</th><th class="num">Amount</th><th></th></tr></thead>
+                <thead><tr><th>Name <button type="button" class="fin-sort-btn" data-fin-sort-index="0" data-fin-default="true" aria-label="Sort names Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th><th>Type</th><th class="num">Amount</th><th></th></tr></thead>
                 <tbody>
                   <% templates.forEach(t => { %>
                     <tr>
@@ -2827,8 +2839,8 @@
                   <thead>
                     <tr>
                       <th style="width:44px;"><input type="checkbox" id="arrearsSelectAll" onclick="toggleAllArrears(this)"></th>
-                      <th>Student</th>
-                      <th>Guardian</th>
+                      <th>Student <button type="button" class="fin-sort-btn" data-fin-sort-index="1" data-fin-default="true" aria-label="Sort students Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
+                      <th>Guardian <button type="button" class="fin-sort-btn" data-fin-sort-index="2" aria-label="Sort guardians Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
                       <th>Outstanding</th>
                       <th>Days Overdue</th>
                       <th>Status</th>
@@ -3117,6 +3129,51 @@ Regards,
         btn.addEventListener('click', function () {
           var open = wrapper.classList.toggle('open');
           btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+      });
+    })();
+    (function () {
+      function syncButtonState(button, direction, labelBase) {
+        if (!button) return;
+        button.setAttribute('data-sort-direction', direction);
+        button.setAttribute('aria-label', direction === 'asc' ? ('Sort ' + labelBase + ' Z to A') : ('Sort ' + labelBase + ' A to Z'));
+      }
+
+      function extractCellText(row, index) {
+        var cells = row.children || [];
+        var cell = cells[index];
+        return cell ? String(cell.textContent || '').trim().toLowerCase() : '';
+      }
+
+      function sortFinanceTable(button, direction) {
+        var table = button.closest('table');
+        if (!table) return;
+        var tbody = table.querySelector('tbody');
+        if (!tbody) return;
+        var index = parseInt(button.getAttribute('data-fin-sort-index'), 10);
+        if (!Number.isInteger(index)) return;
+        Array.from(tbody.querySelectorAll('tr'))
+          .sort(function(a, b) {
+            var valueA = extractCellText(a, index);
+            var valueB = extractCellText(b, index);
+            return direction === 'desc'
+              ? valueB.localeCompare(valueA, undefined, { sensitivity: 'base', numeric: true })
+              : valueA.localeCompare(valueB, undefined, { sensitivity: 'base', numeric: true });
+          })
+          .forEach(function(row) { tbody.appendChild(row); });
+      }
+
+      Array.from(document.querySelectorAll('.fin-sort-btn')).forEach(function(button) {
+        var labelBase = String((button.parentElement && button.parentElement.childNodes[0] && button.parentElement.childNodes[0].textContent) || 'items').trim().toLowerCase() || 'items';
+        syncButtonState(button, button.getAttribute('data-sort-direction') === 'desc' ? 'desc' : 'asc', labelBase);
+        if (button.getAttribute('data-fin-default') === 'true') {
+          sortFinanceTable(button, 'asc');
+        }
+        button.addEventListener('click', function(event) {
+          event.preventDefault();
+          var nextDirection = button.getAttribute('data-sort-direction') === 'asc' ? 'desc' : 'asc';
+          syncButtonState(button, nextDirection, labelBase);
+          sortFinanceTable(button, nextDirection);
         });
       });
     })();

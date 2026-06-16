@@ -1755,7 +1755,7 @@
                         <h6>Interpretation of Grades:</h6>
                         <div class="grade-interpretation-content">
                             <% scoreRemarks.forEach(function (remark) { %>
-                                <span class="grade-interpretation-item">  <%= - remark.fromPercentage %> to <%= remark.toPercentage %> = <%= remark.remark %></span>
+                                <span class="grade-interpretation-item"><%= remark.gradeLabel || '-' %> (<%= remark.fromPercentage %> to <%= remark.toPercentage %>) = <%= remark.remark || '-' %></span>
                             <% }); %>
                         </div>
                     </div>

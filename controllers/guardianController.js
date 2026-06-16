@@ -282,7 +282,36 @@ module.exports = {
       const assessmentsResult = await db.query(
         `
           SELECT DISTINCT ON (a.assessment_id) a.assessment_id, a.title, a.weight, ar.score, a.subject_id, a.max_score, a.category,
-                 ar.total_subject_score, ar.total_percentage, ar.grade
+                 ar.total_subject_score,
+                 ar.total_percentage,
+                 COALESCE(
+                   ar.grade,
+                   (
+                     SELECT COALESCE(NULLIF(sr.grade_label, ''),
+                       CASE
+                         WHEN ar.total_percentage >= 90 THEN 'A'
+                         WHEN ar.total_percentage >= 80 THEN 'B'
+                         WHEN ar.total_percentage >= 70 THEN 'C'
+                         ELSE 'D'
+                       END
+                     )
+                     FROM score_remarks sr
+                     WHERE sr.organization_id = $3
+                       AND sr.class_id = $2
+                       AND sr.term_id = $4
+                       AND ar.total_percentage IS NOT NULL
+                       AND ar.total_percentage::numeric BETWEEN sr.from_percentage AND sr.to_percentage
+                     ORDER BY sr.from_percentage DESC
+                     LIMIT 1
+                   ),
+                   CASE
+                     WHEN ar.total_percentage IS NULL THEN NULL
+                     WHEN ar.total_percentage >= 90 THEN 'A'
+                     WHEN ar.total_percentage >= 80 THEN 'B'
+                     WHEN ar.total_percentage >= 70 THEN 'C'
+                     ELSE 'D'
+                   END
+                 ) AS grade
           FROM assessments a
           LEFT JOIN assessment_results ar ON a.assessment_id = ar.assessment_id AND ar.student_id = $1
           WHERE a.subject_id IN (SELECT subject_id FROM subjects WHERE class_id = $2)
@@ -517,7 +546,37 @@ module.exports = {
         `
         SELECT DISTINCT ON (a.assessment_id)
           a.assessment_id, a.title, a.weight, a.max_score, a.category, a.subject_id,
-          ar.score, ar.total_subject_score, ar.total_percentage, ar.grade
+          ar.score,
+          ar.total_subject_score,
+          ar.total_percentage,
+          COALESCE(
+            ar.grade,
+            (
+              SELECT COALESCE(NULLIF(sr.grade_label, ''),
+                CASE
+                  WHEN ar.total_percentage >= 90 THEN 'A'
+                  WHEN ar.total_percentage >= 80 THEN 'B'
+                  WHEN ar.total_percentage >= 70 THEN 'C'
+                  ELSE 'D'
+                END
+              )
+              FROM score_remarks sr
+              WHERE sr.organization_id = $2
+                AND sr.class_id = a.class_id
+                AND sr.term_id = $3
+                AND ar.total_percentage IS NOT NULL
+                AND ar.total_percentage::numeric BETWEEN sr.from_percentage AND sr.to_percentage
+              ORDER BY sr.from_percentage DESC
+              LIMIT 1
+            ),
+            CASE
+              WHEN ar.total_percentage IS NULL THEN NULL
+              WHEN ar.total_percentage >= 90 THEN 'A'
+              WHEN ar.total_percentage >= 80 THEN 'B'
+              WHEN ar.total_percentage >= 70 THEN 'C'
+              ELSE 'D'
+            END
+          ) AS grade
         FROM assessments a
         LEFT JOIN assessment_results ar
           ON a.assessment_id = ar.assessment_id AND ar.student_id = $1
@@ -1104,7 +1163,36 @@ module.exports = {
       const assessmentsResult = await db.query(
         `SELECT DISTINCT ON (a.assessment_id) 
            a.assessment_id, a.title, a.weight, ar.score, a.subject_id, a.max_score, a.category,
-           ar.total_subject_score, ar.total_percentage, ar.grade
+           ar.total_subject_score,
+           ar.total_percentage,
+           COALESCE(
+             ar.grade,
+             (
+               SELECT COALESCE(NULLIF(sr.grade_label, ''),
+                 CASE
+                   WHEN ar.total_percentage >= 90 THEN 'A'
+                   WHEN ar.total_percentage >= 80 THEN 'B'
+                   WHEN ar.total_percentage >= 70 THEN 'C'
+                   ELSE 'D'
+                 END
+               )
+               FROM score_remarks sr
+               WHERE sr.organization_id = $3
+                 AND sr.class_id = a.class_id
+                 AND sr.term_id = $2
+                 AND ar.total_percentage IS NOT NULL
+                 AND ar.total_percentage::numeric BETWEEN sr.from_percentage AND sr.to_percentage
+               ORDER BY sr.from_percentage DESC
+               LIMIT 1
+             ),
+             CASE
+               WHEN ar.total_percentage IS NULL THEN NULL
+               WHEN ar.total_percentage >= 90 THEN 'A'
+               WHEN ar.total_percentage >= 80 THEN 'B'
+               WHEN ar.total_percentage >= 70 THEN 'C'
+               ELSE 'D'
+             END
+           ) AS grade
          FROM assessments a
          LEFT JOIN assessment_results ar ON a.assessment_id = ar.assessment_id AND ar.student_id = $1
          WHERE a.subject_id IN (SELECT subject_id FROM student_subjects WHERE student_id = $1 AND organization_id = $3)

@@ -804,15 +804,16 @@
   <div class="gd-card">
     <h3 class="gd-section-title">
       👨‍👩‍👧‍👦 Linked Students
+      <button type="button" class="gd-sort-btn" id="guardianLinkedStudentsSortToggle" data-sort-direction="asc" aria-label="Sort linked students Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button>
       <span class="gd-badge"><%= students.length %></span>
     </h3>
 
     <% if (!students.length) { %>
       <div class="gd-empty">No students linked to this guardian.</div>
     <% } else { %>
-      <div class="gd-students-grid">
+      <div class="gd-students-grid" id="guardianLinkedStudentsGrid">
         <% students.forEach(student => { %>
-          <div class="gd-student-card">
+          <div class="gd-student-card" data-student-name="<%= (student.first_name + ' ' + student.last_name).toLowerCase() %>">
             <div class="gd-student-top">
               <img src="<%= student.image_url && student.image_url !== 'profilePlaceholder.png' ? student.image_url : '/images/profilePlaceholder.png' %>" 
                    alt="Student" class="gd-student-avatar">
@@ -915,6 +916,34 @@
 </div>
 
 <script>
+  (function() {
+    const style = document.createElement('style');
+    style.textContent = '.gd-sort-btn{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;margin-left:6px;padding:0;border:none;background:transparent;color:currentColor;cursor:pointer;opacity:.78}.gd-sort-btn:hover,.gd-sort-btn:focus,.gd-sort-btn:active,.gd-sort-btn:focus-visible{background:transparent !important;box-shadow:none !important;outline:none;color:currentColor}.gd-sort-btn svg{width:10px;height:10px}';
+    document.head.appendChild(style);
+    const toggle = document.getElementById('guardianLinkedStudentsSortToggle');
+    const grid = document.getElementById('guardianLinkedStudentsGrid');
+    if (!toggle || !grid) return;
+    function sync() {
+      const direction = toggle.getAttribute('data-sort-direction') === 'desc' ? 'desc' : 'asc';
+      toggle.setAttribute('aria-label', direction === 'asc' ? 'Sort linked students Z to A' : 'Sort linked students A to Z');
+    }
+    function sortCards() {
+      const direction = toggle.getAttribute('data-sort-direction') === 'desc' ? 'desc' : 'asc';
+      Array.from(grid.querySelectorAll('.gd-student-card'))
+        .sort((a, b) => direction === 'desc'
+          ? String(b.dataset.studentName || '').localeCompare(String(a.dataset.studentName || ''), undefined, { sensitivity: 'base' })
+          : String(a.dataset.studentName || '').localeCompare(String(b.dataset.studentName || ''), undefined, { sensitivity: 'base' }))
+        .forEach(card => grid.appendChild(card));
+    }
+    sync();
+    sortCards();
+    toggle.addEventListener('click', function() {
+      toggle.setAttribute('data-sort-direction', toggle.getAttribute('data-sort-direction') === 'asc' ? 'desc' : 'asc');
+      sync();
+      sortCards();
+    });
+  })();
+
   function toggleEditForm() {
     document.getElementById('editWrapper').classList.toggle('open');
   }

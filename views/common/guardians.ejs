@@ -19,7 +19,7 @@
           <thead style="background: var(--org-primary-color, #0f5a66); color: white;">
             <tr>
               <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 14px;">Photo</th>
-              <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 14px;">Name</th>
+              <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 14px;">Name <button type="button" class="guardian-sort-btn" id="guardianNameSortToggle" data-sort-direction="asc" aria-label="Sort guardians Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
               <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 14px;">Email</th>
               <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 14px;">Phone</th>
               <th style="padding: 16px 12px; text-align: center; font-weight: 600; font-size: 14px;">Students</th>
@@ -76,6 +76,30 @@
 </div>
 
 <style>
+  .guardian-sort-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    margin-left: 6px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: #ffffff;
+    cursor: pointer;
+    opacity: 0.82;
+  }
+  .guardian-sort-btn:hover,
+  .guardian-sort-btn:focus,
+  .guardian-sort-btn:active,
+  .guardian-sort-btn:focus-visible {
+    background: transparent !important;
+    box-shadow: none !important;
+    outline: none;
+    color: #ffffff;
+  }
+  .guardian-sort-btn svg { width: 10px; height: 10px; }
   /* Prevent global table styles (e.g., studentDetails.css) from washing out headers */
   .data-table thead th {
     background: var(--org-primary-color, #0f5a66);
@@ -107,6 +131,31 @@
 </style>
 
 <script>
+  (function() {
+    const toggle = document.getElementById('guardianNameSortToggle');
+    const body = document.getElementById('guardianTableBody');
+    if (!toggle || !body) return;
+    function sync() {
+      const direction = toggle.getAttribute('data-sort-direction') === 'desc' ? 'desc' : 'asc';
+      toggle.setAttribute('aria-label', direction === 'asc' ? 'Sort guardians Z to A' : 'Sort guardians A to Z');
+    }
+    function sortRows() {
+      const direction = toggle.getAttribute('data-sort-direction') === 'desc' ? 'desc' : 'asc';
+      Array.from(body.querySelectorAll('.guardian-row'))
+        .sort((a, b) => direction === 'desc'
+          ? String(b.dataset.name || '').localeCompare(String(a.dataset.name || ''), undefined, { sensitivity: 'base' })
+          : String(a.dataset.name || '').localeCompare(String(b.dataset.name || ''), undefined, { sensitivity: 'base' }))
+        .forEach(row => body.appendChild(row));
+    }
+    sync();
+    sortRows();
+    toggle.addEventListener('click', function() {
+      toggle.setAttribute('data-sort-direction', toggle.getAttribute('data-sort-direction') === 'asc' ? 'desc' : 'asc');
+      sync();
+      sortRows();
+    });
+  })();
+
   // Search functionality
   document.getElementById('searchGuardian').addEventListener('input', function(e) {
     const searchTerm = e.target.value.toLowerCase();

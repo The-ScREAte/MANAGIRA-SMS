@@ -75,6 +75,31 @@
     color: var(--text-secondary);
   }
 
+  .pending-sort-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    margin-left: 6px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--info);
+    cursor: pointer;
+    opacity: 0.78;
+  }
+  .pending-sort-btn:hover,
+  .pending-sort-btn:focus,
+  .pending-sort-btn:active,
+  .pending-sort-btn:focus-visible {
+    background: transparent !important;
+    box-shadow: none !important;
+    outline: none;
+    color: var(--info);
+  }
+  .pending-sort-btn svg { width: 10px; height: 10px; }
+
   .pending-table td {
     font-size: 0.95rem;
     color: var(--text-primary);
@@ -317,17 +342,22 @@
     <table class="pending-table">
       <thead>
         <tr>
-          <th>Student Name</th>
-          <th>Date of Birth</th>
-          <th>Gender</th>
-          <th>Class</th>
-          <th>Year Group</th>
+          <th>Student Name <button type="button" class="pending-sort-btn" id="pendingStudentSortToggle" data-sort-key="studentName" data-sort-label="students" data-sort-direction="asc" aria-label="Sort students descending"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 1 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 1 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
+          <th>Date of Birth <button type="button" class="pending-sort-btn" data-sort-key="dob" data-sort-label="birth dates" data-sort-direction="asc" aria-label="Sort birth dates descending"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 1 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 1 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
+          <th>Gender <button type="button" class="pending-sort-btn" data-sort-key="gender" data-sort-label="genders" data-sort-direction="asc" aria-label="Sort genders descending"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 1 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 1 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
+          <th>Class <button type="button" class="pending-sort-btn" data-sort-key="className" data-sort-label="classes" data-sort-direction="asc" aria-label="Sort classes descending"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 1 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 1 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
+          <th>Year Group <button type="button" class="pending-sort-btn" data-sort-key="yearGroup" data-sort-label="year groups" data-sort-direction="asc" aria-label="Sort year groups descending"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 1 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 1 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
           <th>Action</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody id="pendingStudentsBody">
         <% pendingStudents.forEach(student => { %>
-        <tr>
+        <tr
+          data-student-name="<%= (student.first_name + ' ' + student.last_name).toLowerCase() %>"
+          data-dob="<%= student.date_of_birth.toISOString().split('T')[0] %>"
+          data-gender="<%= String(student.gender || '').toLowerCase() %>"
+          data-class-name="<%= String(student.class_name || '').toLowerCase() %>"
+          data-year-group="<%= String(student.graduation_group || 'N/A').toLowerCase() %>">
           <td data-label="Name"><strong><%= student.first_name %> <%= student.last_name %></strong></td>
           <td data-label="DOB"><%= student.date_of_birth.toISOString().split('T')[0] %></td>
           <td data-label="Gender"><%= student.gender %></td>
@@ -345,6 +375,72 @@
 
 <script>
 let hasChanges = false;
+
+(function() {
+  const buttons = Array.from(document.querySelectorAll('.pending-sort-btn[data-sort-key]'));
+  const body = document.getElementById('pendingStudentsBody');
+  const state = { key: 'studentName', direction: 'asc' };
+  if (!buttons.length || !body) return;
+  function sync() {
+    buttons.forEach(function(button) {
+      const isActive = button.getAttribute('data-sort-key') === state.key;
+      const direction = isActive ? state.direction : 'asc';
+      const label = button.getAttribute('data-sort-label') || 'items';
+      button.setAttribute('data-sort-direction', direction);
+      button.setAttribute('aria-label', direction === 'asc' ? 'Sort ' + label + ' descending' : 'Sort ' + label + ' ascending');
+    });
+  }
+  function getValue(row) {
+    switch (state.key) {
+      case 'dob':
+        return String(row.dataset.dob || '');
+      case 'gender':
+        return String(row.dataset.gender || '');
+      case 'className':
+        return String(row.dataset.className || '');
+      case 'yearGroup':
+        return String(row.dataset.yearGroup || '');
+      case 'studentName':
+      default:
+        return String(row.dataset.studentName || '');
+    }
+  }
+  function sortRows() {
+    Array.from(body.querySelectorAll('tr[data-student-name]'))
+      .sort((a, b) => {
+        const valueA = getValue(a);
+        const valueB = getValue(b);
+        const emptyA = !valueA;
+        const emptyB = !valueB;
+
+        if (emptyA && !emptyB) return 1;
+        if (!emptyA && emptyB) return -1;
+
+        let comparison = valueA.localeCompare(valueB, undefined, { sensitivity: 'base', numeric: true });
+        if (comparison === 0 && state.key !== 'studentName') {
+          comparison = String(a.dataset.studentName || '').localeCompare(String(b.dataset.studentName || ''), undefined, { sensitivity: 'base', numeric: true });
+        }
+
+        return state.direction === 'desc' ? comparison * -1 : comparison;
+      })
+      .forEach(row => body.appendChild(row));
+  }
+  sync();
+  sortRows();
+  buttons.forEach(function(button) {
+    button.addEventListener('click', function() {
+      const key = button.getAttribute('data-sort-key') || 'studentName';
+      if (state.key === key) {
+        state.direction = state.direction === 'asc' ? 'desc' : 'asc';
+      } else {
+        state.key = key;
+        state.direction = 'asc';
+      }
+      sync();
+      sortRows();
+    });
+  });
+})();
 
 async function loadStudentDetails(id) {
   const container = document.getElementById('studentDetailsContainer');

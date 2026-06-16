@@ -2756,8 +2756,13 @@
             const regionName = String(formData.get('region_name') || '').trim();
             const isDefault = String(formData.get('config_is_default') || 'false') === 'true';
 
-            if (!selectedCountries.length || !regionName) {
-              setDynamicCreateConfigStatus(['Select at least one country and provide region name.'], true);
+            if (!regionName) {
+              setDynamicCreateConfigStatus(['Provide a region name.'], true);
+              return;
+            }
+
+            if (!selectedCountries.length && !isDefault) {
+              setDynamicCreateConfigStatus(['Select at least one country, or mark this config as the default fallback.'], true);
               return;
             }
 
@@ -2883,8 +2888,8 @@
                 .map((input) => String(input.value || '').trim().toUpperCase())
                 .filter((code) => code);
 
-              if (!selectedCountries.length) {
-                throw new Error('Select at least one country for this region.');
+              if (!selectedCountries.length && String(formData.get('existing_is_default') || 'false') !== 'true') {
+                throw new Error('Select at least one country for this region, or keep it as the default fallback.');
               }
 
               const conflicts = validateUniqueCountries(selectedCountries, regionId);
@@ -2944,8 +2949,8 @@
             .map((input) => String(input.value || '').trim().toUpperCase())
             .filter((code) => code);
 
-          if (!selectedCountries.length) {
-            throw new Error('Select at least one country for this region.');
+          if (!selectedCountries.length && String(formData.get('existing_is_default') || 'false') !== 'true') {
+            throw new Error('Select at least one country for this region, or keep it as the default fallback.');
           }
 
           const conflicts = validateUniqueCountries(selectedCountries, regionId);

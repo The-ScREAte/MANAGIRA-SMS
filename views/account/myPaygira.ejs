@@ -136,6 +136,12 @@
   .mp-student-list{ display:grid; gap:8px; }
   .mp-student-toolbar{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
   .mp-student-toolbar-actions{ display:flex; align-items:center; gap:8px; flex-wrap:nowrap; max-width:100%; overflow-x:auto; padding-bottom:2px; }
+  .mp-sort-toggle{ display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; padding:0; border:none; background:transparent; color:var(--fin-teal); cursor:pointer; opacity:.78; }
+  .mp-sort-toggle:hover,
+  .mp-sort-toggle:focus,
+  .mp-sort-toggle:active,
+  .mp-sort-toggle:focus-visible{ background:transparent !important; box-shadow:none !important; outline:none; color:var(--fin-teal); }
+  .mp-sort-toggle svg{ width:10px; height:10px; }
   .mp-signoff-hint{ font-size:.68rem; color:var(--fin-muted); font-weight:700; }
   .mp-bulk-toggle.is-active{ background:rgba(0,212,170,.12); border:1px solid rgba(0,212,170,.28); color:var(--fin-teal); }
   .mp-bulk-summary{ display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-wrap:nowrap; font-size:.72rem; color:var(--fin-muted); font-weight:700; margin-left:auto; overflow-x:auto; }
@@ -516,6 +522,7 @@
       selectedOccLabel: '',
       selectedOccDate: '',
       occFilter: 'all',
+      studentSortDirection: 'asc',
       bulkMode: false,
       bulkSelection: {},
       occurrenceCache: {},
@@ -697,6 +704,23 @@
 
     function fmt(dateValue) {
       try { return dateValue ? new Date(dateValue).toLocaleDateString() : '—'; } catch (_) { return '—'; }
+    }
+
+    function studentFullName(student) {
+      return [student && student.first_name, student && student.last_name].filter(Boolean).join(' ').trim() || 'Student';
+    }
+
+    function compareStudentNames(left, right) {
+      return studentFullName(left).localeCompare(studentFullName(right), undefined, { sensitivity: 'base' });
+    }
+
+    function getSortedBillStudents(bill) {
+      var items = (bill && bill.students ? bill.students.slice() : []);
+      items.sort(function(left, right) {
+        var result = compareStudentNames(left, right);
+        return state.studentSortDirection === 'desc' ? -result : result;
+      });
+      return items;
     }
 
     function isoDate(dateValue) {
@@ -1180,6 +1204,7 @@
         state.bulkSelection = {};
       }
       sanitizeBulkSelection(bill);
+      var sortedStudents = getSortedBillStudents(bill);
 
       document.getElementById('mpDrawerTitle').textContent = bill.title || 'Bill';
       document.getElementById('mpDrawerSub').innerHTML = '' +
@@ -1241,9 +1266,9 @@
             'Select a date above before collecting' +
           '</div>' +
           buildStudentToolbarHTML(bill) +
-          '<div class="mp-section-title"><span>Students</span><span class="ln"></span><span>' + (bill.students || []).length + '</span></div>' +
+          '<div class="mp-section-title"><span>Students</span><button type="button" class="mp-sort-toggle" id="mpStudentSortToggle" aria-label="Sort students Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button><span class="ln"></span><span>' + (bill.students || []).length + '</span></div>' +
           '<div class="mp-student-list">' +
-            (bill.students || []).map(function(student) { return studentRowHTML(bill, student); }).join('') +
+            sortedStudents.map(function(student) { return studentRowHTML(bill, student); }).join('') +
           '</div>' +
         '</div>';
 
@@ -1304,6 +1329,15 @@
             return;
           }
           openOccPopup();
+        };
+      }
+
+      var studentSortToggle = body.querySelector('#mpStudentSortToggle');
+      if (studentSortToggle) {
+        studentSortToggle.setAttribute('aria-label', state.studentSortDirection === 'asc' ? 'Sort students Z to A' : 'Sort students A to Z');
+        studentSortToggle.onclick = function() {
+          state.studentSortDirection = state.studentSortDirection === 'asc' ? 'desc' : 'asc';
+          renderDrawer(state.currentBillId, { preserveState: true });
         };
       }
 
@@ -1498,7 +1532,8 @@
     function openBulkReview() {
       var bill = currentBill();
       if (!bill) return;
-      var selectedStudents = getSelectedBulkStudents();
+      var selectedStudents = getSelectedBulkStudents().sort(compareStudentNames);
+      if (state.studentSortDirection === 'desc') selectedStudents.reverse();
       if (!selectedStudents.length) {
         showToast('error', 'Select at least one student first.');
         return;

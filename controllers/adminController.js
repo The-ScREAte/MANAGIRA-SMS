@@ -4836,7 +4836,36 @@ const adminController = {
       const assessmentsQuery = await db.query(
         `
                 SELECT ar.student_id, sub.subject_name, a.title AS assessment_title, 
-                       a.weight AS assessment_weight, ar.score, ar.grade
+                       a.weight AS assessment_weight,
+                       ar.score,
+                       COALESCE(
+                         ar.grade,
+                         (
+                           SELECT COALESCE(NULLIF(sr.grade_label, ''),
+                             CASE
+                               WHEN ar.total_percentage >= 90 THEN 'A'
+                               WHEN ar.total_percentage >= 80 THEN 'B'
+                               WHEN ar.total_percentage >= 70 THEN 'C'
+                               ELSE 'D'
+                             END
+                           )
+                           FROM score_remarks sr
+                           WHERE sr.organization_id = ar.organization_id
+                             AND sr.class_id = ar.class_id
+                             AND sr.term_id = ar.term_id
+                             AND ar.total_percentage IS NOT NULL
+                             AND ar.total_percentage::numeric BETWEEN sr.from_percentage AND sr.to_percentage
+                           ORDER BY sr.from_percentage DESC
+                           LIMIT 1
+                         ),
+                         CASE
+                           WHEN ar.total_percentage IS NULL THEN NULL
+                           WHEN ar.total_percentage >= 90 THEN 'A'
+                           WHEN ar.total_percentage >= 80 THEN 'B'
+                           WHEN ar.total_percentage >= 70 THEN 'C'
+                           ELSE 'D'
+                         END
+                       ) AS grade
                 FROM assessment_results ar
                 LEFT JOIN assessments a ON ar.assessment_id = a.assessment_id
                 LEFT JOIN subjects sub ON a.subject_id = sub.subject_id
@@ -5278,10 +5307,6 @@ const adminController = {
       if (!Number.isFinite(rate) || rate < 0 || rate > 100000) {
         return res.status(400).json({ ok: false, error: 'Per-student monthly rate must be between 0 and 100,000.' });
       }
-      if (base === 0 && rate === 0) {
-        return res.status(400).json({ ok: false, error: 'Both base price and per-student rate cannot be zero.' });
-      }
-
       const client = await db.connect();
       try {
         await client.query('BEGIN');

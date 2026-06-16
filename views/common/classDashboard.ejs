@@ -1868,6 +1868,7 @@ main {
   gap: 8px;
   margin-bottom: 4px;
 }
+.section-sort-spacer { margin-left: auto; }
 .section-count-pill {
   display: inline-flex;
   align-items: center;
@@ -1879,6 +1880,33 @@ main {
   color: var(--primary);
   font-size: 10px;
   font-weight: 700;
+}
+.section-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--primary);
+  cursor: pointer;
+  opacity: 0.78;
+}
+.section-sort-btn:hover,
+.section-sort-btn:focus,
+.section-sort-btn:active,
+.section-sort-btn:focus-visible {
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none;
+  color: var(--primary);
+}
+.section-sort-btn svg {
+  width: 10px;
+  height: 10px;
 }
 
 /* Students interactive rows */
@@ -3003,17 +3031,27 @@ main {
 
                 <div class="overview-split">
                   <div class="section-card students-overview-section">
+                    <% const sortedOverviewStudents = (students || []).slice().sort(function(a, b) {
+                      const nameA = [a.first_name, a.last_name].filter(Boolean).join(' ').trim();
+                      const nameB = [b.first_name, b.last_name].filter(Boolean).join(' ').trim();
+                      return nameA.localeCompare(nameB, undefined, { sensitivity: 'base' });
+                    }); %>
                     <div class="section-header-row">
                       <h2 class="section-title">Students</h2>
+                      <button type="button" class="section-sort-btn" id="classDashboardStudentSort" data-sort-direction="asc" aria-label="Sort students Z to A">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg>
+                      </button>
+                      <span class="section-sort-spacer"></span>
                       <span class="section-count-pill"><%= students.length %></span>
                     </div>
-                    <ul class="students-numbered-list">
+                    <ul class="students-numbered-list" id="classDashboardStudentsList">
                       <% if (students.length > 0) { %>
-                        <% students.forEach(function(student, i) { %>
-                          <li>
+                        <% sortedOverviewStudents.forEach(function(student, i) { %>
+                          <% const studentFullName = [student.first_name, student.last_name].filter(Boolean).join(' ').trim(); %>
+                          <li data-student-name="<%= studentFullName.toLowerCase() %>">
                             <button class="student-row" type="button" onclick="openStudentWorkspaceTab(<%= student.student_id %>)">
                               <span class="student-index"><%= i + 1 %></span>
-                              <span class="student-name"><%= student.first_name %> <%= student.last_name %></span>
+                              <span class="student-name"><%= studentFullName %></span>
                               <span class="student-arrow" aria-hidden="true">›</span>
                             </button>
                           </li>
@@ -3026,14 +3064,21 @@ main {
 
                   <% if (hasAssessmentFeature) { %>
                   <div class="section-card subjects-overview-section">
+                    <% const sortedOverviewSubjects = (subjects || []).slice().sort(function(a, b) {
+                      return String(a.subject_name || '').localeCompare(String(b.subject_name || ''), undefined, { sensitivity: 'base' });
+                    }); %>
                     <div class="section-header-row">
                       <h2 class="section-title">Subjects</h2>
+                      <button type="button" class="section-sort-btn" id="classDashboardSubjectSort" data-sort-direction="asc" aria-label="Sort subjects Z to A">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg>
+                      </button>
+                      <span class="section-sort-spacer"></span>
                       <span class="section-count-pill"><%= subjects.length %></span>
                     </div>
-                    <div class="subjects-card-grid">
+                    <div class="subjects-card-grid" id="classDashboardSubjectsList">
                       <% if (subjects.length > 0) { %>
-                        <% subjects.forEach(function(subject) { %>
-                          <button class="subject-card" type="button" onclick="openSubjectWorkspaceTab(<%= subject.subject_id %>)">
+                        <% sortedOverviewSubjects.forEach(function(subject) { %>
+                          <button class="subject-card" type="button" data-subject-name="<%= String(subject.subject_name || '').toLowerCase() %>" onclick="openSubjectWorkspaceTab(<%= subject.subject_id %>)">
                             <span class="subject-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v17H6.5A2.5 2.5 0 0 0 4 22.5"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H19"/></svg></span>
                             <span class="subject-text">
                               <strong><%= subject.subject_name %></strong>
@@ -4907,6 +4952,72 @@ main {
       }
       return trimmedColor;
     }
+
+    function syncClassDashboardSortLabel(button, noun) {
+      if (!button) return;
+      var direction = button.getAttribute('data-sort-direction') === 'desc' ? 'desc' : 'asc';
+      button.setAttribute('aria-label', direction === 'asc' ? 'Sort ' + noun + ' Z to A' : 'Sort ' + noun + ' A to Z');
+    }
+
+    function sortClassDashboardStudents(direction) {
+      var list = document.getElementById('classDashboardStudentsList');
+      if (!list) return;
+      var items = Array.prototype.slice.call(list.querySelectorAll('li[data-student-name]'));
+      items.sort(function(a, b) {
+        var nameA = a.getAttribute('data-student-name') || '';
+        var nameB = b.getAttribute('data-student-name') || '';
+        return direction === 'desc'
+          ? nameB.localeCompare(nameA, undefined, { sensitivity: 'base' })
+          : nameA.localeCompare(nameB, undefined, { sensitivity: 'base' });
+      });
+      items.forEach(function(item, index) {
+        var indexNode = item.querySelector('.student-index');
+        if (indexNode) indexNode.textContent = String(index + 1);
+        list.appendChild(item);
+      });
+    }
+
+    function sortClassDashboardSubjects(direction) {
+      var list = document.getElementById('classDashboardSubjectsList');
+      if (!list) return;
+      var items = Array.prototype.slice.call(list.querySelectorAll('[data-subject-name]'));
+      items.sort(function(a, b) {
+        var nameA = a.getAttribute('data-subject-name') || '';
+        var nameB = b.getAttribute('data-subject-name') || '';
+        return direction === 'desc'
+          ? nameB.localeCompare(nameA, undefined, { sensitivity: 'base' })
+          : nameA.localeCompare(nameB, undefined, { sensitivity: 'base' });
+      });
+      items.forEach(function(item) {
+        list.appendChild(item);
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      var studentButton = document.getElementById('classDashboardStudentSort');
+      if (studentButton) {
+        syncClassDashboardSortLabel(studentButton, 'students');
+        sortClassDashboardStudents(studentButton.getAttribute('data-sort-direction') || 'asc');
+        studentButton.addEventListener('click', function() {
+          var nextDirection = studentButton.getAttribute('data-sort-direction') === 'asc' ? 'desc' : 'asc';
+          studentButton.setAttribute('data-sort-direction', nextDirection);
+          syncClassDashboardSortLabel(studentButton, 'students');
+          sortClassDashboardStudents(nextDirection);
+        });
+      }
+
+      var subjectButton = document.getElementById('classDashboardSubjectSort');
+      if (subjectButton) {
+        syncClassDashboardSortLabel(subjectButton, 'subjects');
+        sortClassDashboardSubjects(subjectButton.getAttribute('data-sort-direction') || 'asc');
+        subjectButton.addEventListener('click', function() {
+          var nextDirection = subjectButton.getAttribute('data-sort-direction') === 'asc' ? 'desc' : 'asc';
+          subjectButton.setAttribute('data-sort-direction', nextDirection);
+          syncClassDashboardSortLabel(subjectButton, 'subjects');
+          sortClassDashboardSubjects(nextDirection);
+        });
+      }
+    });
 
     window.toggleClassScheduleModal = toggleClassScheduleModal;
     window.closeClassScheduleModal = closeClassScheduleModal;
