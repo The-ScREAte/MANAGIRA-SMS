@@ -325,10 +325,236 @@
       .settings-card.is-collapsed .settings-card-body {
         display: none;
       }
+      /* Dynamic Pricing (Beta) inline section */
+      .dynamic-pricing-section {
+        grid-column: 1 / -1;
+        border: 1px solid #f3d27a;
+        background: linear-gradient(135deg, #ffffff 0%, #fffdf4 100%);
+      }
+      .dynamic-pricing-section .top-section-header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 14px;
+        align-items: start;
+      }
+      .dynamic-pricing-section .top-section-heading {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .dp-status-pill {
+        display: inline-block;
+        font-size: 0.62rem;
+        font-weight: 800;
+        letter-spacing: 0.6px;
+        color: #7a5b00;
+        background: #fdeeb8;
+        border: 1px solid #f0d27a;
+        padding: 2px 8px;
+        border-radius: 999px;
+        vertical-align: middle;
+      }
+      .dynamic-pricing-body {
+        padding-top: 18px;
+      }
+      .dynamic-pricing-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+      .dynamic-card {
+        border: 1px solid #d8e6ea;
+        border-radius: 14px;
+        background: #fff;
+        padding: 16px;
+        box-shadow: 0 6px 18px rgba(7, 89, 100, 0.06);
+      }
+      .dynamic-card.is-collapsed .dynamic-card-body {
+        display: none;
+      }
+      .dynamic-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .dynamic-card-toggle {
+        width: auto;
+        margin: 0;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid #c9dde1;
+        background: #fff;
+        color: #01535b;
+        font-size: 12px;
+        font-weight: 700;
+        box-shadow: none;
+      }
+      .dynamic-card-toggle:hover {
+        background: #eaf7f8;
+        transform: none;
+      }
+      .dynamic-card h3 {
+        margin: 0 0 10px;
+        font-size: 1rem;
+        color: #01535b;
+      }
+      .dynamic-card h4 {
+        margin: 0 0 8px;
+        font-size: 0.95rem;
+        color: #0e5258;
+      }
+      .dynamic-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 10px;
+        align-items: end;
+      }
+      .dynamic-row > * {
+        margin: 0;
+      }
+      .dynamic-row > button {
+        align-self: end;
+      }
+      .dynamic-help {
+        font-size: 12.5px;
+        color: #6b7280;
+        margin: 0 0 12px;
+      }
+      .dynamic-table-wrap {
+        overflow-x: auto;
+        border: 1px solid #e5eef1;
+        border-radius: 10px;
+        background: #fff;
+      }
+      .dynamic-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .dynamic-table th,
+      .dynamic-table td {
+        border-bottom: 1px solid #ebf1f4;
+        padding: 8px 6px;
+        font-size: 12px;
+        text-align: left;
+        vertical-align: middle;
+      }
+      .dynamic-table th {
+        color: #4b5563;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        font-size: 11px;
+        background: #f8fbfc;
+      }
+      .dynamic-mini {
+        width: 100%;
+        min-width: 80px;
+        padding: 8px 10px;
+        margin: 0;
+        border: 1px solid #d2e3e7;
+        border-radius: 8px;
+        background: #fff;
+      }
+      .dynamic-select-multi {
+        min-height: 110px;
+      }
+      .dynamic-country-groups {
+        margin-top: 8px;
+        border: 1px solid #ebf1f4;
+        border-radius: 12px;
+        padding: 10px;
+        max-height: 360px;
+        overflow: auto;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 10px;
+      }
+      .dynamic-country-group {
+        margin-bottom: 0;
+        border: 1px solid #e7eff2;
+        border-radius: 10px;
+        background: #fcfeff;
+        padding: 10px;
+      }
+      .dynamic-country-group:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+      }
+      .dynamic-country-group-title {
+        margin: 0 0 6px;
+        color: #0e5258;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .dynamic-country-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 5px;
+      }
+      .dynamic-country-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12.5px;
+        padding: 4px 2px;
+      }
+      .dynamic-country-item input[type="checkbox"] {
+        margin: 0;
+      }
+      .dynamic-tier-preview-table td,
+      .dynamic-tier-preview-table th {
+        font-size: 11px;
+      }
+      .dynamic-preview {
+        margin-top: 10px;
+        padding: 12px 14px;
+        border-radius: 10px;
+        border: 1px solid #dbe9ec;
+        background: #f8fbfc;
+        font-size: 13px;
+      }
+      .dynamic-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .dynamic-actions button {
+        margin-top: 0;
+      }
+      .dynamic-muted {
+        font-size: 11px;
+        color: #6b7280;
+      }
+      .dynamic-region-metrics {
+        margin: 8px 0 10px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .dynamic-metric-pill {
+        display: inline-flex;
+        padding: 2px 8px;
+        border-radius: 999px;
+        border: 1px solid #d6e4ea;
+        background: #f8fbfc;
+        color: #475569;
+        font-size: 11px;
+        font-weight: 600;
+      }
+      @media (max-width: 900px) {
+        .dynamic-pricing-section .top-section-header {
+          grid-template-columns: 1fr;
+        }
+        .dynamic-pricing-section .top-section-header .dynamic-actions {
+          justify-content: flex-start;
+        }
+      }
       .settings-card.is-collapsed,
       .feature-pricing-card.is-collapsed,
       .manage-plans-section.is-collapsed,
-      .student-tiers-section.is-collapsed {
+      .student-tiers-section.is-collapsed,
+      .dynamic-pricing-section.is-collapsed {
         min-height: 148px;
         padding-top: 20px;
         padding-bottom: 18px;
@@ -339,7 +565,8 @@
       .settings-card.is-collapsed .settings-card-header,
       .feature-pricing-card.is-collapsed .feature-pricing-header,
       .manage-plans-section.is-collapsed .top-section-header,
-      .student-tiers-section.is-collapsed .top-section-header {
+      .student-tiers-section.is-collapsed .top-section-header,
+      .dynamic-pricing-section.is-collapsed .top-section-header {
         min-height: 100%;
         padding-bottom: 0;
         border-bottom: none;
@@ -367,12 +594,87 @@
       .settings-card-body {
         padding-top: 18px;
       }
+      .pricing-config-card .settings-card-heading {
+        font-size: 1.2rem;
+      }
+      .pricing-config-card .collapsed-card-copy {
+        font-size: 12px;
+        max-width: 28ch;
+      }
+      .pricing-config-card .settings-card-body {
+        padding-top: 12px;
+      }
+      .pricing-config-card .dynamic-mini {
+        min-width: 70px;
+        padding: 6px 8px;
+        font-size: 11px;
+        border-radius: 7px;
+      }
+      .pricing-config-card label,
+      .pricing-config-card .dynamic-help,
+      .pricing-config-card .dynamic-muted {
+        font-size: 11px;
+      }
+      .pricing-config-card .dynamic-country-item {
+        font-size: 11px;
+        gap: 5px;
+        padding: 2px 0;
+      }
+      .pricing-config-card .dynamic-country-group-title {
+        font-size: 11px;
+        margin-bottom: 4px;
+      }
+      .pricing-config-card .dynamic-country-groups {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 8px;
+        padding: 8px;
+      }
+      .pricing-config-card .dynamic-country-group {
+        padding: 8px;
+      }
+      .pricing-config-card .dynamic-table th,
+      .pricing-config-card .dynamic-table td {
+        font-size: 11px;
+        padding: 6px 5px;
+      }
+      .pricing-config-card .dynamic-table th {
+        font-size: 10px;
+      }
+      .pricing-config-section {
+        border-top: 1px solid #e8f1f4;
+        padding-top: 10px;
+        margin-top: 10px;
+      }
+      .pricing-config-section:first-of-type {
+        border-top: none;
+        padding-top: 0;
+        margin-top: 0;
+      }
+      .pricing-config-section-title {
+        margin: 0;
+        color: #0b5258;
+        font-size: 0.98rem;
+        font-weight: 600;
+      }
+      .pricing-create-section {
+        background: #f4faff;
+        border: 1px solid #d8eafc;
+        border-radius: 10px;
+        padding: 10px;
+      }
+      .pricing-create-header-copy {
+        margin: 2px 0 0;
+        font-size: 11px;
+        color: #5b6b7f;
+      }
       .manage-plans-section.is-collapsed .manage-plans-body,
-      .student-tiers-section.is-collapsed .student-tiers-body {
+      .student-tiers-section.is-collapsed .student-tiers-body,
+      .dynamic-pricing-section.is-collapsed .dynamic-pricing-body {
         display: none;
       }
       .manage-plans-body,
-      .student-tiers-body {
+      .student-tiers-body,
+      .dynamic-pricing-body {
         padding-top: 18px;
       }
       /* ---- Manage Plans body ---- */
@@ -1278,6 +1580,7 @@
 
       @media (max-width: 900px) {
         .container { grid-template-columns: 1fr; }
+        .dynamic-pricing-grid { grid-template-columns: 1fr; }
       }
 
       /* Prevent iOS auto-zoom on input focus (inputs must be >=16px on small screens) */
@@ -1336,31 +1639,6 @@
                 <option value="120" <% if (typeof freeTrialDays !== 'undefined' && freeTrialDays === '120') { %>selected<% } %>>120 Days</option>
               </select>
               <button type="submit">Save Free Trial Settings</button>
-            </form>
-          </div>
-        </div>
-
-        <div class="form-container settings-card is-collapsed" data-settings-card>
-          <div class="settings-card-header">
-            <div class="settings-card-heading-group">
-              <h2 class="settings-card-heading">Billing Interval</h2>
-              <p class="collapsed-card-copy">Set the default renewal cadence used across subscription billing.</p>
-            </div>
-            <button type="button" class="top-section-toggle" data-settings-toggle aria-expanded="false">Expand</button>
-          </div>
-          <div class="settings-card-body">
-            <form action="/admin/updateBillingInterval" method="POST" id="billing-interval-form">
-              <label for="billing_interval">Billing Interval:</label>
-              <select name="billing_interval" id="billing_interval">
-                <option value="5_minutes" <% if (typeof billingInterval !== 'undefined' && billingInterval === '5_minutes') { %>selected<% } %>>5 Minutes</option>
-                <option value="daily" <% if (typeof billingInterval !== 'undefined' && billingInterval === 'daily') { %>selected<% } %>>Daily</option>
-                <option value="weekly" <% if (typeof billingInterval !== 'undefined' && billingInterval === 'weekly') { %>selected<% } %>>Weekly</option>
-                <option value="monthly" <% if (typeof billingInterval === 'undefined' || billingInterval === 'monthly') { %>selected<% } %>>Monthly</option>
-                <option value="yearly" <% if (typeof billingInterval !== 'undefined' && billingInterval === 'yearly') { %>selected<% } %>>Yearly</option>
-                <option value="2_years" <% if (typeof billingInterval !== 'undefined' && billingInterval === '2_years') { %>selected<% } %>>2 Years</option>
-                <option value="3_years" <% if (typeof billingInterval !== 'undefined' && billingInterval === '3_years') { %>selected<% } %>>3 Years</option>
-              </select>
-              <button type="submit">Save Billing Interval</button>
             </form>
           </div>
         </div>
@@ -1534,72 +1812,6 @@
           </div>
         </div>
 
-        <div class="form-container settings-card is-collapsed" data-settings-card>
-          <div class="settings-card-header">
-            <div class="settings-card-heading-group">
-              <h2 class="settings-card-heading">💰 Billing Period Discounts</h2>
-              <p class="collapsed-card-copy">Set discounts for longer billing periods like yearly or multi-year plans.</p>
-            </div>
-            <button type="button" class="top-section-toggle" data-settings-toggle aria-expanded="false">Expand</button>
-          </div>
-          <div class="settings-card-body">
-            <p style="font-size:13px;color:#6b7280;margin-bottom:12px;">
-              Set discount percentages for each billing period. Users will see these options when choosing a plan.
-              Monthly cannot be disabled. Discounts are capped at 50%.
-            </p>
-            <table style="width:100%;border-collapse:collapse;font-size:14px;">
-              <thead>
-                <tr style="text-align:left;border-bottom:2px solid #e5e7eb;">
-                  <th style="padding:8px 6px;">Period</th>
-                  <th style="padding:8px 6px;">Months</th>
-                  <th style="padding:8px 6px;">Discount %</th>
-                  <th style="padding:8px 6px;">Active</th>
-                  <th style="padding:8px 6px;"></th>
-                </tr>
-              </thead>
-              <tbody>
-                <% (typeof billingPeriods !== 'undefined' ? billingPeriods : []).forEach(function(bp) { %>
-                  <tr data-period-key="<%= bp.period_key %>" style="border-bottom:1px solid #f0f0f0;">
-                    <td style="padding:8px 6px;font-weight:600;"><%= bp.label %></td>
-                    <td style="padding:8px 6px;"><%= bp.months %></td>
-                    <td style="padding:8px 6px;">
-                      <input
-                        type="number"
-                        class="bp-discount"
-                        data-key="<%= bp.period_key %>"
-                        value="<%= bp.discount_percentage %>"
-                        min="0"
-                        max="50"
-                        style="width:60px;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;"
-                        <% if (bp.period_key === 'monthly') { %>disabled title="Monthly is always 0% discount"<% } %>
-                      />
-                    </td>
-                    <td style="padding:8px 6px;">
-                      <input
-                        type="checkbox"
-                        class="bp-active"
-                        data-key="<%= bp.period_key %>"
-                        <% if (bp.is_active) { %>checked<% } %>
-                        <% if (bp.period_key === 'monthly') { %>disabled title="Monthly cannot be disabled"<% } %>
-                      />
-                    </td>
-                    <td style="padding:8px 6px;">
-                      <% if (bp.period_key !== 'monthly') { %>
-                        <button
-                          type="button"
-                          class="bp-save-btn"
-                          data-key="<%= bp.period_key %>"
-                          style="background:#2563eb;color:white;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;"
-                        >Save</button>
-                      <% } %>
-                    </td>
-                  </tr>
-                <% }) %>
-              </tbody>
-            </table>
-            <p class="bp-status-msg" style="margin-top:8px;font-size:13px;color:#059669;display:none;"></p>
-          </div>
-        </div>
         <div class="form-container feature-pricing-card is-collapsed" data-feature-pricing>
           <div class="feature-pricing-header">
             <div>
@@ -1731,6 +1943,7 @@
             </div>
           </div>
         </div>
+        <% if (false) { %>
         <div class="form-container student-tiers-section is-collapsed" data-student-tiers-section>
           <div class="top-section-header">
             <div>
@@ -1834,6 +2047,287 @@
             </div>
           </div>
         </div>
+        <% } %>
+
+        <% const dpRegions = Array.isArray(dynamicRegions) ? dynamicRegions : []; %>
+        <% const dpRegionCountries = Array.isArray(dynamicRegionCountries) ? dynamicRegionCountries : []; %>
+        <% const dpPrices = Array.isArray(dynamicPlanRegionPrices) ? dynamicPlanRegionPrices : []; %>
+        <% const dpCycles = Array.isArray(dynamicCycles) ? dynamicCycles : []; %>
+        <% const dpRegionStatsMap = {}; (Array.isArray(dynamicRegionStats) ? dynamicRegionStats : []).forEach((stat) => { dpRegionStatsMap[stat.region_id] = stat; }); %>
+        <% const dpCountryMap = {}; dpRegionCountries.forEach((rc) => { dpCountryMap[rc.country_code] = rc.region_id; }); %>
+
+        <div class="form-container settings-card is-collapsed" data-settings-card>
+          <div class="settings-card-header">
+            <div class="settings-card-heading-group">
+              <h2 class="settings-card-heading">Dynamic Billing Cycles</h2>
+              <p class="collapsed-card-copy">Manage cycle key, label, months and discount for the dynamic pricing model.</p>
+            </div>
+            <button type="button" class="top-section-toggle" data-settings-toggle aria-expanded="false">Expand</button>
+          </div>
+          <div class="settings-card-body">
+            <form class="dynamic-row" id="dynamic-create-cycle-form" style="margin-bottom:10px;">
+              <label>Key<input class="dynamic-mini" type="text" name="cycle_key" placeholder="quarterly" required /></label>
+              <label>Label<input class="dynamic-mini" type="text" name="label" placeholder="Quarterly" required /></label>
+              <label>Months<input class="dynamic-mini" type="number" name="months" min="1" value="1" required /></label>
+              <label>Discount %<input class="dynamic-mini" type="number" name="discount_percentage" min="0" max="50" value="0" /></label>
+              <label>Hint<input class="dynamic-mini" type="text" name="hint" /></label>
+              <label>Sort<input class="dynamic-mini" type="number" name="sort_order" value="0" /></label>
+              <button type="submit">Add Cycle</button>
+            </form>
+            <div class="dynamic-table-wrap">
+              <table class="dynamic-table">
+                <thead>
+                  <tr>
+                    <th>Key</th>
+                    <th>Label</th>
+                    <th>Months</th>
+                    <th>Discount %</th>
+                    <th>Hint</th>
+                    <th>Active</th>
+                    <th>Delete</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% dpCycles.forEach((cycle) => { %>
+                    <tr data-dynamic-cycle-row data-cycle-id="<%= cycle.id %>">
+                      <td><%= cycle.cycle_key %></td>
+                      <td><input class="dynamic-mini" type="text" name="label" value="<%= cycle.label %>" /></td>
+                      <td><input class="dynamic-mini" type="number" min="1" name="months" value="<%= cycle.months %>" /></td>
+                      <td><input class="dynamic-mini" type="number" min="0" max="50" name="discount_percentage" value="<%= cycle.discount_percentage %>" /></td>
+                      <td><input class="dynamic-mini" type="text" name="hint" value="<%= cycle.hint || '' %>" /></td>
+                      <td>
+                        <select class="dynamic-mini" name="is_active">
+                          <option value="true" <%= cycle.is_active ? 'selected' : '' %>>Yes</option>
+                          <option value="false" <%= !cycle.is_active ? 'selected' : '' %>>No</option>
+                        </select>
+                      </td>
+                      <td class="dynamic-actions">
+                        <button type="button" data-dynamic-delete-cycle>Delete</button>
+                      </td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+            <div class="dynamic-actions" style="margin-top:12px;">
+              <button type="button" id="dynamic-save-cycles">Save Billing Cycles</button>
+            </div>
+            <p id="dynamic-billing-status" class="dynamic-muted" style="margin-top:8px;"></p>
+          </div>
+        </div>
+
+        <div class="form-container settings-card pricing-config-card is-collapsed" data-settings-card>
+          <div class="settings-card-header">
+            <div class="settings-card-heading-group">
+              <h2 class="settings-card-heading">Country Pricing Config</h2>
+            </div>
+            <button type="button" class="top-section-toggle" data-settings-toggle aria-expanded="false">Expand</button>
+          </div>
+          <div class="settings-card-body">
+            <div class="pricing-config-section pricing-create-section">
+            <div class="dynamic-row" style="justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <div>
+                <h3 class="pricing-config-section-title">New Config</h3>
+                <p class="pricing-create-header-copy">Expand. Create pricing.</p>
+              </div>
+              <button type="button" data-create-inner-toggle aria-expanded="false">Expand</button>
+            </div>
+
+            <div data-create-inner-body style="display:none;">
+            <form class="dynamic-row" id="dynamic-create-config-form" style="margin-bottom:10px;align-items:flex-end;">
+              <label>Months Per Term
+                <input class="dynamic-mini" type="number" id="dynamic-term-months" min="1" value="<%= Math.max(1, Number(dynamicTermMonths || 3)) %>" />
+              </label>
+              <label style="min-width:220px;">Region Name
+                <input class="dynamic-mini" type="text" name="region_name" placeholder="Nigeria Pricing" required />
+              </label>
+              <label>Default Fallback
+                <select class="dynamic-mini" name="config_is_default">
+                  <option value="false" selected>No</option>
+                  <option value="true">Yes</option>
+                </select>
+              </label>
+            </form>
+
+            <label style="display:block;margin-top:8px;">Countries</label>
+            <div class="dynamic-country-groups" style="max-height:260px;overflow:auto;padding-right:4px;">
+              <% Object.entries(countriesByContinent || {}).forEach(([continent, countries]) => { %>
+                <div class="dynamic-country-group">
+                  <p class="dynamic-country-group-title"><%= continent %></p>
+                  <div class="dynamic-country-grid">
+                    <% countries.forEach((country) => { %>
+                      <label class="dynamic-country-item">
+                        <input type="checkbox" form="dynamic-create-config-form" name="config_country_codes[]" value="<%= country.code %>" />
+                        <span><%= country.name %> (<%= country.code %>)</span>
+                      </label>
+                    <% }) %>
+                  </div>
+                </div>
+              <% }) %>
+            </div>
+
+            <div class="dynamic-table-wrap">
+              <table class="dynamic-table">
+                <thead>
+                  <tr>
+                    <th>Plan</th>
+                    <th>Base USD / Month</th>
+                    <th>Free Students</th>
+                    <th>Per Student USD / Term</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% plans.forEach((plan) => { %>
+                    <% const defaultRegion = dpRegions.find((r) => r.is_default) || dpRegions[0] || null; %>
+                    <% const defaultPrice = defaultRegion ? dpPrices.find((p) => p.plan_id === plan.plan_id && p.region_id === defaultRegion.id) : null; %>
+                    <tr data-config-plan-id="<%= plan.plan_id %>" data-config-plan-name="<%= plan.plan_name %>">
+                      <td><%= plan.plan_name %></td>
+                      <td>
+                        <input
+                          class="dynamic-mini"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          name="cfg_base_price_usd_<%= plan.plan_id %>"
+                          value="<%= defaultPrice ? Number(defaultPrice.base_price_usd) : 0 %>"
+                        />
+                      </td>
+                      <td>
+                        <input
+                          class="dynamic-mini"
+                          type="number"
+                          step="1"
+                          min="0"
+                          name="cfg_free_student_threshold_<%= plan.plan_id %>"
+                          value="<%= defaultPrice ? Number(defaultPrice.free_student_threshold) : 50 %>"
+                        />
+                      </td>
+                      <td>
+                        <input
+                          class="dynamic-mini"
+                          type="number"
+                          step="0.0001"
+                          min="0"
+                          name="cfg_per_student_rate_usd_<%= plan.plan_id %>"
+                          value="<%= defaultPrice ? Number(defaultPrice.per_student_rate_usd) : 0 %>"
+                        />
+                      </td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="dynamic-actions" style="margin-top:12px;">
+              <button type="submit" form="dynamic-create-config-form" id="dynamic-create-config-submit">Save Country / Region Pricing</button>
+            </div>
+
+            <p id="dynamic-config-create-status" class="dynamic-muted" style="margin-top:8px;"></p>
+            </div>
+            </div>
+
+            <div class="pricing-config-section pricing-saved-section">
+            <h3 class="pricing-config-section-title">Saved Configs</h3>
+            <p class="dynamic-help">From DB. Expand, edit, save.</p>
+            <div class="dynamic-actions" style="margin:8px 0 10px;">
+              <button type="button" id="dynamic-save-all-saved-configs">Save All Saved Configs</button>
+            </div>
+            <p id="dynamic-saved-config-status" class="dynamic-muted" style="margin-bottom:8px;"></p>
+
+            <% dpRegions.forEach((region) => { %>
+              <% const regionCodes = dpRegionCountries.filter((rc) => rc.region_id === region.id).map((rc) => rc.country_code); %>
+              <form class="dynamic-existing-config-form" data-existing-region-id="<%= region.id %>" style="margin-top:14px;">
+                <div class="dynamic-row" style="margin-bottom:8px;align-items:center;justify-content:space-between;">
+                  <div>
+                    <strong><%= region.name %></strong>
+                    <span class="dynamic-muted" style="margin-left:8px;"><%= regionCodes.length %> countries</span>
+                    <% if (region.is_default) { %>
+                      <span class="dynamic-metric-pill" style="margin-left:8px;">Fallback Default</span>
+                    <% } %>
+                  </div>
+                  <div class="dynamic-actions" style="display:flex;gap:8px;align-items:center;">
+                    <button type="button" data-existing-toggle aria-expanded="false">Expand</button>
+                    <button type="button" data-existing-edit aria-label="Edit region pricing" title="Edit">&#9998;</button>
+                    <button type="submit" data-existing-save style="display:none;">Save Region Pricing</button>
+                    <% if (!region.is_default) { %>
+                      <button type="button" data-dynamic-delete-region="<%= region.id %>">Delete Region</button>
+                    <% } %>
+                  </div>
+                </div>
+
+                <div data-existing-body style="display:none;">
+                <div class="dynamic-row" style="margin-bottom:8px;align-items:flex-end;">
+                  <label>Months / Term
+                    <input class="dynamic-mini" type="number" min="1" name="existing_term_months" value="<%= Math.max(1, Number(region.term_months || dynamicTermMonths || 3)) %>" />
+                  </label>
+                  <label style="min-width:220px;">Region Name
+                    <input class="dynamic-mini" type="text" name="existing_region_name" value="<%= region.name %>" required />
+                  </label>
+                  <label>Default Fallback
+                    <select class="dynamic-mini" name="existing_is_default">
+                      <option value="false" <%= !region.is_default ? 'selected' : '' %>>No</option>
+                      <option value="true" <%= region.is_default ? 'selected' : '' %>>Yes</option>
+                    </select>
+                  </label>
+                  <label>Active
+                    <select class="dynamic-mini" name="existing_is_active">
+                      <option value="true" <%= region.is_active ? 'selected' : '' %>>Yes</option>
+                      <% if (!region.is_default) { %>
+                        <option value="false" <%= !region.is_active ? 'selected' : '' %>>No</option>
+                      <% } %>
+                    </select>
+                  </label>
+                </div>
+
+                <label style="display:block;margin-top:8px;">Countries</label>
+                <div class="dynamic-country-groups" style="max-height:180px;overflow:auto;padding-right:4px;margin-bottom:8px;">
+                  <% Object.entries(countriesByContinent || {}).forEach(([continent, countries]) => { %>
+                    <div class="dynamic-country-group">
+                      <p class="dynamic-country-group-title"><%= continent %></p>
+                      <div class="dynamic-country-grid">
+                        <% countries.forEach((country) => { %>
+                          <label class="dynamic-country-item">
+                            <input type="checkbox" name="existing_country_codes[]" value="<%= country.code %>" <%= regionCodes.includes(country.code) ? 'checked' : '' %> />
+                            <span><%= country.name %> (<%= country.code %>)</span>
+                          </label>
+                        <% }) %>
+                      </div>
+                    </div>
+                  <% }) %>
+                </div>
+
+                <div class="dynamic-table-wrap" style="margin-top:10px;">
+                  <table class="dynamic-table">
+                    <thead>
+                      <tr>
+                        <th>Plan</th>
+                        <th>Base USD / Month</th>
+                        <th>Free Students</th>
+                        <th>Per Student USD / Term</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <% plans.forEach((plan) => { %>
+                        <% const existingPrice = dpPrices.find((p) => p.plan_id === plan.plan_id && p.region_id === region.id); %>
+                        <tr data-existing-price-row data-plan-id="<%= plan.plan_id %>">
+                          <td><%= plan.plan_name %></td>
+                          <td><input class="dynamic-mini" type="number" step="0.01" min="0" name="existing_base_price_usd" value="<%= existingPrice ? Number(existingPrice.base_price_usd) : 0 %>" /></td>
+                          <td><input class="dynamic-mini" type="number" step="1" min="0" name="existing_free_student_threshold" value="<%= existingPrice ? Number(existingPrice.free_student_threshold) : 50 %>" /></td>
+                          <td><input class="dynamic-mini" type="number" step="0.0001" min="0" name="existing_per_student_rate_usd" value="<%= existingPrice ? Number(existingPrice.per_student_rate_usd) : 0 %>" /></td>
+                        </tr>
+                      <% }) %>
+                    </tbody>
+                  </table>
+                </div>
+
+                </div>
+                <hr style="margin:14px 0;" />
+              </form>
+            <% }) %>
+            </div>
+          </div>
+        </div>
+
     </div>
 
     <script>
@@ -1977,6 +2471,708 @@
             this.setAttribute("aria-expanded", String(!isCollapsed));
           });
         });
+
+        document.querySelectorAll('[data-create-inner-toggle]').forEach((button) => {
+          button.addEventListener('click', function () {
+            const cardBody = this.closest('.settings-card-body');
+            const innerBody = cardBody ? cardBody.querySelector('[data-create-inner-body]') : null;
+            if (!innerBody) return;
+            const expanded = this.getAttribute('aria-expanded') === 'true';
+            innerBody.style.display = expanded ? 'none' : '';
+            this.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+            this.textContent = expanded ? 'Expand' : 'Collapse';
+          });
+        });
+
+        document.querySelectorAll("[data-dynamic-section-toggle]").forEach((button) => {
+          button.addEventListener("click", function () {
+            const card = this.closest("[data-dynamic-section]");
+            const isCollapsed = card.classList.toggle("is-collapsed");
+            this.textContent = isCollapsed ? "Expand" : "Minimize";
+            this.setAttribute("aria-expanded", String(!isCollapsed));
+          });
+        });
+
+        document.querySelectorAll("[data-dynamic-card-toggle]").forEach((button) => {
+          button.addEventListener("click", function () {
+            const card = this.closest("[data-dynamic-card]");
+            if (!card) return;
+            const isCollapsed = card.classList.toggle("is-collapsed");
+            this.textContent = isCollapsed ? "Expand" : "Minimize";
+            this.setAttribute("aria-expanded", String(!isCollapsed));
+          });
+        });
+
+        async function dynamicPost(url, payload) {
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload || {}),
+          });
+          const data = await response.json().catch(() => ({ ok: false, error: 'Unexpected response.' }));
+          if (!response.ok || !data.ok) {
+            throw new Error(data.error || 'Request failed');
+          }
+          return data;
+        }
+
+        const dynamicBillingStatus = document.getElementById('dynamic-billing-status');
+        const dynamicConfigCreateStatus = document.getElementById('dynamic-config-create-status');
+        const dynamicSavedConfigStatus = document.getElementById('dynamic-saved-config-status');
+        const dynamicTermMonthsInput = document.getElementById('dynamic-term-months');
+        const dynamicSaveCyclesButton = document.getElementById('dynamic-save-cycles');
+        const dynamicSaveAllSavedConfigsButton = document.getElementById('dynamic-save-all-saved-configs');
+        const dynamicSaveAllConfigButton = document.getElementById('dynamic-save-all-config');
+        const dynamicPreviewForm = document.getElementById('dynamic-preview-form');
+        const dynamicPreviewOutput = document.getElementById('dynamic-preview-output');
+
+        function setDynamicStatus(lines, isError) {
+          if (!dynamicBillingStatus) return;
+          dynamicBillingStatus.innerHTML = Array.isArray(lines) ? lines.join('<br />') : String(lines || '');
+          dynamicBillingStatus.style.color = isError ? '#dc2626' : '#059669';
+        }
+
+        function setDynamicCreateConfigStatus(lines, isError) {
+          if (!dynamicConfigCreateStatus) return;
+          dynamicConfigCreateStatus.innerHTML = Array.isArray(lines) ? lines.join('<br />') : String(lines || '');
+          dynamicConfigCreateStatus.style.color = isError ? '#dc2626' : '#059669';
+        }
+
+        function setDynamicSavedConfigStatus(lines, isError) {
+          if (!dynamicSavedConfigStatus) return;
+          dynamicSavedConfigStatus.innerHTML = Array.isArray(lines) ? lines.join('<br />') : String(lines || '');
+          dynamicSavedConfigStatus.style.color = isError ? '#dc2626' : '#059669';
+        }
+
+        function validateUniqueCountries(selectedCountries, excludeRegionId) {
+          const selectedSet = new Set((selectedCountries || []).map((code) => String(code || '').trim().toUpperCase()).filter(Boolean));
+          const ownerByCountry = new Map();
+
+          document.querySelectorAll('.dynamic-existing-config-form').forEach((form) => {
+            const regionId = String(form.getAttribute('data-existing-region-id') || '');
+            if (excludeRegionId !== undefined && excludeRegionId !== null && String(excludeRegionId) === regionId) return;
+            const regionNameInput = form.querySelector('input[name="existing_region_name"]');
+            const regionName = String(regionNameInput ? regionNameInput.value : '').trim() || ('Region ' + regionId);
+            form.querySelectorAll('input[name="existing_country_codes[]"]:checked').forEach((input) => {
+              const code = String(input.value || '').trim().toUpperCase();
+              if (code && !ownerByCountry.has(code)) {
+                ownerByCountry.set(code, regionName);
+              }
+            });
+          });
+
+          const conflicts = [];
+          selectedSet.forEach((code) => {
+            const owner = ownerByCountry.get(code);
+            if (owner) {
+              conflicts.push(code + ' already assigned to ' + owner);
+            }
+          });
+          return conflicts;
+        }
+
+        function setExistingFormEditable(form, editable) {
+          const body = form.querySelector('[data-existing-body]');
+          const saveButton = form.querySelector('[data-existing-save]');
+          const editButton = form.querySelector('[data-existing-edit]');
+          form.setAttribute('data-editing', editable ? 'true' : 'false');
+          if (body) {
+            body.querySelectorAll('input, select, textarea').forEach((field) => {
+              field.disabled = !editable;
+            });
+          }
+          if (saveButton) {
+            saveButton.style.display = editable ? '' : 'none';
+            saveButton.disabled = !editable;
+          }
+          if (editButton) {
+            editButton.setAttribute('aria-pressed', editable ? 'true' : 'false');
+          }
+        }
+
+        function setExistingFormExpanded(form, expanded) {
+          const body = form.querySelector('[data-existing-body]');
+          const toggle = form.querySelector('[data-existing-toggle]');
+          if (body) {
+            body.style.display = expanded ? '' : 'none';
+          }
+          if (toggle) {
+            toggle.textContent = expanded ? 'Collapse' : 'Expand';
+            toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+          }
+        }
+
+        function updateConfigTierPreview() {
+          const createConfigForm = document.getElementById('dynamic-create-config-form');
+          if (!createConfigForm) return;
+          const reviewBox = document.getElementById('dynamic-config-review');
+          if (!reviewBox) return;
+          const regionNameInput = createConfigForm.querySelector('input[name="region_name"]');
+          const monthsDivider = Math.max(1, Number(dynamicTermMonthsInput ? dynamicTermMonthsInput.value : 3) || 3);
+          const regionName = String(regionNameInput ? regionNameInput.value : '').trim() || 'New Region';
+          const lines = [
+            '<strong>Region:</strong> ' + regionName,
+            '<strong>Months per term:</strong> ' + monthsDivider,
+          ];
+
+          createConfigForm.querySelectorAll('tr[data-config-plan-id]').forEach((row) => {
+            const planId = Number(row.getAttribute('data-config-plan-id'));
+            if (!Number.isInteger(planId)) return;
+            const planName = String(row.getAttribute('data-config-plan-name') || ('Plan ' + planId));
+
+            const base = Number((row.querySelector('input[name="cfg_base_price_usd_' + planId + '"]') || {}).value || 0);
+            const threshold = Math.max(0, Number((row.querySelector('input[name="cfg_free_student_threshold_' + planId + '"]') || {}).value || 0));
+            const rate = Math.max(0, Number((row.querySelector('input[name="cfg_per_student_rate_usd_' + planId + '"]') || {}).value || 0));
+            const termStudentCost = threshold * rate;
+            const monthlyExample = termStudentCost / monthsDivider;
+
+            lines.push(
+              '<strong>' + planName + '</strong>: base $' + base.toFixed(2)
+              + '/mo, free ' + threshold + ' students, rate $' + rate.toFixed(4)
+              + '/term, sample monthly from student add-on $' + monthlyExample.toFixed(2)
+            );
+          });
+
+          reviewBox.innerHTML = lines.join('<br />');
+        }
+
+        async function saveAllRegionForms() {
+          const forms = Array.from(document.querySelectorAll('.dynamic-region-form'));
+          for (const form of forms) {
+            const regionId = form.getAttribute('data-region-id');
+            const formData = new FormData(form);
+            const selectedCountries = Array.from(form.querySelectorAll('input[name="countryCodes[]"]:checked'))
+              .map((input) => input.value);
+
+            await dynamicPost('/admin/dynamicPricing/regions/' + regionId, {
+              name: String(formData.get('name') || '').trim(),
+              sort_order: Number(formData.get('sort_order') || 0),
+              is_active: String(formData.get('is_active')) === 'true',
+              countryCodes: selectedCountries,
+            });
+          }
+        }
+
+        async function saveAllPlanRegionPrices() {
+          const rows = Array.from(document.querySelectorAll('[data-dynamic-price-row]'));
+          for (const row of rows) {
+            const planId = Number(row.getAttribute('data-plan-id'));
+            const regionId = Number(row.getAttribute('data-region-id'));
+            const base = Number(row.querySelector('[name="base_price_usd"]').value || 0);
+            const threshold = Number(row.querySelector('[name="free_student_threshold"]').value || 0);
+            const rate = Number(row.querySelector('[name="per_student_rate_usd"]').value || 0);
+            await dynamicPost('/admin/dynamicPricing/planRegionPrices', {
+              plan_id: planId,
+              region_id: regionId,
+              base_price_usd: base,
+              free_student_threshold: threshold,
+              per_student_rate_usd: rate,
+            });
+          }
+        }
+
+        async function saveAllCycleRows() {
+          const cycleRows = Array.from(document.querySelectorAll('[data-dynamic-cycle-row]'));
+          for (const row of cycleRows) {
+            const cycleId = row.getAttribute('data-cycle-id');
+            if (!cycleId) continue;
+
+            await dynamicPost('/admin/dynamicPricing/cycles/' + cycleId, {
+              label: String(row.querySelector('[name="label"]').value || '').trim(),
+              months: Number(row.querySelector('[name="months"]').value || 1),
+              discount_percentage: Number(row.querySelector('[name="discount_percentage"]').value || 0),
+              hint: String(row.querySelector('[name="hint"]').value || '').trim(),
+              is_active: String(row.querySelector('[name="is_active"]').value) === 'true',
+            });
+          }
+        }
+
+        async function saveBillingSettings(options = {}) {
+          if (!dynamicTermMonthsInput) return;
+          const { reloadAfterSave = false } = options;
+
+          const months = Number(dynamicTermMonthsInput.value || 3);
+          await dynamicPost('/admin/dynamicPricing/termMonths', { months });
+
+          const periodRows = Array.from(document.querySelectorAll('[data-dynamic-period-key][data-cycle-id]'));
+          for (const row of periodRows) {
+            const key = row.getAttribute('data-dynamic-period-key');
+            if (key === 'monthly') continue;
+            const cycleId = row.getAttribute('data-cycle-id');
+            if (!cycleId) continue;
+            const discountInput = row.querySelector('[name="discount_percentage"]');
+            const activeInput = row.querySelector('[name="is_active"]');
+
+            await dynamicPost('/admin/dynamicPricing/cycles/' + cycleId, {
+              discount_percentage: Number(discountInput ? discountInput.value : 0),
+              is_active: Boolean(activeInput ? activeInput.checked : false),
+            });
+          }
+
+          if (dynamicBillingStatus) {
+            setDynamicStatus(['Billing settings: saved'], false);
+          }
+
+          if (reloadAfterSave) {
+            setTimeout(function () {
+              location.reload();
+            }, 400);
+          }
+        }
+
+        const createRegionForm = document.getElementById('dynamic-create-region-form');
+        if (createRegionForm) {
+          createRegionForm.addEventListener('submit', async function (event) {
+            event.preventDefault();
+            const formData = new FormData(createRegionForm);
+            try {
+              await dynamicPost('/admin/dynamicPricing/regions', {
+                name: String(formData.get('name') || '').trim(),
+                sort_order: Number(formData.get('sort_order') || 0),
+              });
+              location.reload();
+            } catch (error) {
+              alert(error.message || 'Failed to create region.');
+            }
+          });
+        }
+
+        const createConfigForm = document.getElementById('dynamic-create-config-form');
+        if (createConfigForm) {
+          createConfigForm.querySelectorAll('input').forEach((input) => {
+            input.addEventListener('input', updateConfigTierPreview);
+          });
+          if (dynamicTermMonthsInput) {
+            dynamicTermMonthsInput.addEventListener('input', updateConfigTierPreview);
+          }
+          updateConfigTierPreview();
+
+          createConfigForm.addEventListener('submit', async function (event) {
+            event.preventDefault();
+            const formData = new FormData(createConfigForm);
+            const selectedCountries = Array.from(createConfigForm.querySelectorAll('input[name="config_country_codes[]"]:checked'))
+              .map((input) => String(input.value || '').trim().toUpperCase())
+              .filter((code) => code);
+            const regionName = String(formData.get('region_name') || '').trim();
+            const isDefault = String(formData.get('config_is_default') || 'false') === 'true';
+
+            if (!selectedCountries.length || !regionName) {
+              setDynamicCreateConfigStatus(['Select at least one country and provide region name.'], true);
+              return;
+            }
+
+            const createConflicts = validateUniqueCountries(selectedCountries, null);
+            if (createConflicts.length) {
+              setDynamicCreateConfigStatus([
+                'Country assignment conflict detected:',
+                ...createConflicts,
+                'A country can only belong to one region at a time.'
+              ], true);
+              return;
+            }
+
+            const submitButton = document.getElementById('dynamic-create-config-submit')
+              || createConfigForm.querySelector('button[type="submit"]');
+            const oldButtonText = submitButton ? submitButton.textContent : '';
+            if (submitButton) {
+              submitButton.disabled = true;
+              submitButton.textContent = 'Creating...';
+            }
+            setDynamicCreateConfigStatus(['Creating region and prices...'], false);
+
+            try {
+              const termMonths = Math.max(1, Number(dynamicTermMonthsInput ? dynamicTermMonthsInput.value : 3) || 3);
+
+              const regionCreate = await dynamicPost('/admin/dynamicPricing/regions', {
+                name: regionName,
+                term_months: termMonths,
+                is_default: isDefault,
+              });
+
+              const regionId = Number(regionCreate?.region?.id);
+              if (!Number.isInteger(regionId)) {
+                throw new Error('Failed to get created region id.');
+              }
+
+              await dynamicPost('/admin/dynamicPricing/regions/' + regionId, {
+                name: regionName,
+                is_active: true,
+                is_default: isDefault,
+                term_months: termMonths,
+                countryCodes: selectedCountries,
+              });
+
+              const planRows = Array.from(createConfigForm.querySelectorAll('tbody tr[data-config-plan-id]'));
+              for (const row of planRows) {
+                const planId = Number(row.getAttribute('data-config-plan-id'));
+                if (!Number.isInteger(planId)) continue;
+
+                const baseInput = row.querySelector('input[name="cfg_base_price_usd_' + planId + '"]');
+                const thresholdInput = row.querySelector('input[name="cfg_free_student_threshold_' + planId + '"]');
+                const rateInput = row.querySelector('input[name="cfg_per_student_rate_usd_' + planId + '"]');
+
+                const base = Number(baseInput ? baseInput.value : 0);
+                const threshold = Number(thresholdInput ? thresholdInput.value : 50);
+                const rate = Number(rateInput ? rateInput.value : 0);
+
+                await dynamicPost('/admin/dynamicPricing/planRegionPrices', {
+                  plan_id: planId,
+                  region_id: regionId,
+                  base_price_usd: base,
+                  free_student_threshold: threshold,
+                  per_student_rate_usd: rate,
+                });
+              }
+
+              setDynamicCreateConfigStatus([
+                'Country pricing configuration created successfully.',
+                'Reloading to show new editable rows...'
+              ], false);
+
+              setTimeout(function () {
+                location.reload();
+              }, 450);
+            } catch (error) {
+              setDynamicCreateConfigStatus([error.message || 'Failed to create country configuration.'], true);
+            } finally {
+              if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.textContent = oldButtonText || 'Save Country / Region Pricing';
+              }
+            }
+          });
+        }
+
+        document.querySelectorAll('.dynamic-existing-config-form').forEach((form) => {
+          setExistingFormExpanded(form, false);
+          setExistingFormEditable(form, false);
+
+          const toggleButton = form.querySelector('[data-existing-toggle]');
+          if (toggleButton) {
+            toggleButton.addEventListener('click', function () {
+              const expanded = toggleButton.getAttribute('aria-expanded') === 'true';
+              setExistingFormExpanded(form, !expanded);
+            });
+          }
+
+          const editButton = form.querySelector('[data-existing-edit]');
+          if (editButton) {
+            editButton.addEventListener('click', function () {
+              const currentlyEditing = form.getAttribute('data-editing') === 'true';
+              const nextEditing = !currentlyEditing;
+              setExistingFormExpanded(form, true);
+              setExistingFormEditable(form, nextEditing);
+            });
+          }
+
+          form.addEventListener('submit', async function (event) {
+            event.preventDefault();
+            try {
+              if (form.getAttribute('data-editing') !== 'true') {
+                alert('Click the edit icon first to unlock this form.');
+                return;
+              }
+
+              const regionId = Number(form.getAttribute('data-existing-region-id'));
+              if (!Number.isInteger(regionId)) {
+                throw new Error('Missing region id.');
+              }
+
+              const formData = new FormData(form);
+              const selectedCountries = Array.from(form.querySelectorAll('input[name="existing_country_codes[]"]:checked'))
+                .map((input) => String(input.value || '').trim().toUpperCase())
+                .filter((code) => code);
+
+              if (!selectedCountries.length) {
+                throw new Error('Select at least one country for this region.');
+              }
+
+              const conflicts = validateUniqueCountries(selectedCountries, regionId);
+              if (conflicts.length) {
+                throw new Error('Country assignment conflict: ' + conflicts.join(', '));
+              }
+
+              const termMonths = Math.max(1, Number(formData.get('existing_term_months') || 3) || 3);
+              const isDefault = String(formData.get('existing_is_default') || 'false') === 'true';
+
+              await dynamicPost('/admin/dynamicPricing/regions/' + regionId, {
+                name: String(formData.get('existing_region_name') || '').trim(),
+                is_active: String(formData.get('existing_is_active')) === 'true',
+                is_default: isDefault,
+                term_months: termMonths,
+                countryCodes: selectedCountries,
+              });
+
+              const priceRows = Array.from(form.querySelectorAll('tr[data-existing-price-row]'));
+              for (const row of priceRows) {
+                const planId = Number(row.getAttribute('data-plan-id'));
+                if (!Number.isInteger(planId)) continue;
+                const base = Number((row.querySelector('input[name="existing_base_price_usd"]') || {}).value || 0);
+                const threshold = Number((row.querySelector('input[name="existing_free_student_threshold"]') || {}).value || 0);
+                const rate = Number((row.querySelector('input[name="existing_per_student_rate_usd"]') || {}).value || 0);
+
+                await dynamicPost('/admin/dynamicPricing/planRegionPrices', {
+                  plan_id: planId,
+                  region_id: regionId,
+                  base_price_usd: base,
+                  free_student_threshold: threshold,
+                  per_student_rate_usd: rate,
+                });
+              }
+
+              location.reload();
+            } catch (error) {
+              alert(error.message || 'Failed to save region pricing.');
+            }
+          });
+        });
+
+        async function saveExistingConfigForm(form, options = {}) {
+          const { reloadAfterSave = false, skipLocked = false } = options;
+          if (form.getAttribute('data-editing') !== 'true') {
+            if (skipLocked) return false;
+            throw new Error('Click the edit icon first to unlock this form.');
+          }
+
+          const regionId = Number(form.getAttribute('data-existing-region-id'));
+          if (!Number.isInteger(regionId)) {
+            throw new Error('Missing region id.');
+          }
+
+          const formData = new FormData(form);
+          const selectedCountries = Array.from(form.querySelectorAll('input[name="existing_country_codes[]"]:checked'))
+            .map((input) => String(input.value || '').trim().toUpperCase())
+            .filter((code) => code);
+
+          if (!selectedCountries.length) {
+            throw new Error('Select at least one country for this region.');
+          }
+
+          const conflicts = validateUniqueCountries(selectedCountries, regionId);
+          if (conflicts.length) {
+            throw new Error('Country assignment conflict: ' + conflicts.join(', '));
+          }
+
+          const termMonths = Math.max(1, Number(formData.get('existing_term_months') || 3) || 3);
+          const isDefault = String(formData.get('existing_is_default') || 'false') === 'true';
+
+          await dynamicPost('/admin/dynamicPricing/regions/' + regionId, {
+            name: String(formData.get('existing_region_name') || '').trim(),
+            is_active: String(formData.get('existing_is_active')) === 'true',
+            is_default: isDefault,
+            term_months: termMonths,
+            countryCodes: selectedCountries,
+          });
+
+          const priceRows = Array.from(form.querySelectorAll('tr[data-existing-price-row]'));
+          for (const row of priceRows) {
+            const planId = Number(row.getAttribute('data-plan-id'));
+            if (!Number.isInteger(planId)) continue;
+            const base = Number((row.querySelector('input[name="existing_base_price_usd"]') || {}).value || 0);
+            const threshold = Number((row.querySelector('input[name="existing_free_student_threshold"]') || {}).value || 0);
+            const rate = Number((row.querySelector('input[name="existing_per_student_rate_usd"]') || {}).value || 0);
+
+            await dynamicPost('/admin/dynamicPricing/planRegionPrices', {
+              plan_id: planId,
+              region_id: regionId,
+              base_price_usd: base,
+              free_student_threshold: threshold,
+              per_student_rate_usd: rate,
+            });
+          }
+
+          if (reloadAfterSave) {
+            location.reload();
+          }
+          return true;
+        }
+
+        if (dynamicSaveAllSavedConfigsButton) {
+          dynamicSaveAllSavedConfigsButton.addEventListener('click', async function () {
+            dynamicSaveAllSavedConfigsButton.disabled = true;
+            const oldText = dynamicSaveAllSavedConfigsButton.textContent;
+            dynamicSaveAllSavedConfigsButton.textContent = 'Saving...';
+            setDynamicSavedConfigStatus(['Saving all editable saved configs...'], false);
+
+            try {
+              const forms = Array.from(document.querySelectorAll('.dynamic-existing-config-form'));
+              let savedCount = 0;
+              for (const form of forms) {
+                const didSave = await saveExistingConfigForm(form, { reloadAfterSave: false, skipLocked: true });
+                if (didSave) savedCount += 1;
+              }
+
+              if (savedCount === 0) {
+                setDynamicSavedConfigStatus(['No editable saved configs to save. Click edit on the ones you want first.'], true);
+              } else {
+                setDynamicSavedConfigStatus(['Saved ' + savedCount + ' config(s). Reloading...'], false);
+                setTimeout(function () {
+                  location.reload();
+                }, 350);
+              }
+            } catch (error) {
+              setDynamicSavedConfigStatus([error.message || 'Failed to save all saved configs.'], true);
+            } finally {
+              dynamicSaveAllSavedConfigsButton.disabled = false;
+              dynamicSaveAllSavedConfigsButton.textContent = oldText;
+            }
+          });
+        }
+
+        document.querySelectorAll('[data-dynamic-delete-region]').forEach((button) => {
+          button.addEventListener('click', async function () {
+            const regionId = button.getAttribute('data-dynamic-delete-region');
+            if (!confirm('Delete this region? This will also remove mapped countries and plan prices for it.')) return;
+            try {
+              await dynamicPost('/admin/dynamicPricing/regions/' + regionId + '/delete', {});
+              location.reload();
+            } catch (error) {
+              alert(error.message || 'Failed to delete region.');
+            }
+          });
+        });
+
+        const createCycleForm = document.getElementById('dynamic-create-cycle-form');
+        if (createCycleForm) {
+          createCycleForm.addEventListener('submit', async function (event) {
+            event.preventDefault();
+            const formData = new FormData(createCycleForm);
+            const cycleKey = String(formData.get('cycle_key') || '').trim().toLowerCase();
+            try {
+              await dynamicPost('/admin/dynamicPricing/cycles', {
+                cycle_key: cycleKey,
+                label: String(formData.get('label') || '').trim(),
+                months: Number(formData.get('months') || 1),
+                discount_percentage: Number(formData.get('discount_percentage') || 0),
+                hint: String(formData.get('hint') || '').trim(),
+                sort_order: Number(formData.get('sort_order') || 0),
+              });
+              location.reload();
+            } catch (error) {
+              alert(error.message || 'Failed to create cycle.');
+            }
+          });
+        }
+
+        if (dynamicSaveCyclesButton) {
+          dynamicSaveCyclesButton.addEventListener('click', async function () {
+            dynamicSaveCyclesButton.disabled = true;
+            const oldText = dynamicSaveCyclesButton.textContent;
+            dynamicSaveCyclesButton.textContent = 'Saving cycles...';
+            setDynamicStatus(['Saving billing cycles...'], false);
+            try {
+              await saveAllCycleRows();
+              setDynamicStatus(['Billing cycles saved successfully.'], false);
+              setTimeout(function () {
+                location.reload();
+              }, 350);
+            } catch (error) {
+              setDynamicStatus(['Failed: ' + (error.message || 'Failed to save billing cycles.')], true);
+            } finally {
+              dynamicSaveCyclesButton.disabled = false;
+              dynamicSaveCyclesButton.textContent = oldText;
+            }
+          });
+        }
+
+        if (dynamicPreviewForm) {
+          dynamicPreviewForm.addEventListener('submit', async function (event) {
+            event.preventDefault();
+            const formData = new FormData(dynamicPreviewForm);
+            try {
+              const response = await dynamicPost('/admin/dynamicPricing/preview', {
+                plan_id: Number(formData.get('plan_id')),
+                country_code: String(formData.get('country_code') || '').trim(),
+                student_count: Number(formData.get('student_count') || 0),
+                cycle_key: String(formData.get('cycle_key') || '').trim(),
+              });
+
+              if (!dynamicPreviewOutput) return;
+              dynamicPreviewOutput.style.display = 'block';
+
+              if (!response.hasPrice) {
+                dynamicPreviewOutput.innerHTML = '<strong>No price configured.</strong> ' + (response.message || '');
+                return;
+              }
+
+              const monthly = response.monthly || {};
+              const cycle = response.cycleBreakdown || null;
+              const monthsPerTerm = Math.max(1, Number(monthly.termDivider || monthly.termMonths || dynamicTermMonthsInput?.value || 1));
+              const monthlyTotal = Number(monthly.monthlyTotal || 0);
+              const perTermTotal = monthlyTotal * monthsPerTerm;
+              const lines = [
+                '<strong>Region:</strong> ' + (response.region ? response.region.name : 'Unknown'),
+                'Formula: monthly = base + (extra students × per_term_rate ÷ months_per_term)',
+                '<strong>Paid Per Term:</strong> $' + perTermTotal.toFixed(2),
+                '<strong>Paid Per Month:</strong> $' + monthlyTotal.toFixed(2),
+              ];
+
+              if (cycle) {
+                lines.push('<strong>Cycle total:</strong> $' + Number(cycle.finalTotal || 0).toFixed(2));
+                lines.push('Equivalent monthly: $' + Number(cycle.perMonthEquivalent || 0).toFixed(2));
+              }
+
+              dynamicPreviewOutput.innerHTML = lines.join('<br />');
+            } catch (error) {
+              if (dynamicPreviewOutput) {
+                dynamicPreviewOutput.style.display = 'block';
+                dynamicPreviewOutput.innerHTML = '<strong>Preview failed:</strong> ' + (error.message || 'Request failed');
+              }
+            }
+          });
+        }
+
+        document.querySelectorAll('[data-dynamic-delete-cycle]').forEach((button) => {
+          button.addEventListener('click', async function () {
+            const row = button.closest('[data-dynamic-cycle-row]');
+            if (!row) return;
+            const cycleId = row.getAttribute('data-cycle-id');
+            if (!confirm('Delete this cycle?')) return;
+            try {
+              await dynamicPost('/admin/dynamicPricing/cycles/' + cycleId + '/delete', {});
+              location.reload();
+            } catch (error) {
+              alert(error.message || 'Failed to delete cycle.');
+            }
+          });
+        });
+
+        if (dynamicSaveAllConfigButton) {
+          dynamicSaveAllConfigButton.addEventListener('click', async function () {
+            dynamicSaveAllConfigButton.disabled = true;
+            const oldText = dynamicSaveAllConfigButton.textContent;
+            dynamicSaveAllConfigButton.textContent = 'Saving everything...';
+            const statusLines = ['Starting save...'];
+            setDynamicStatus(statusLines, false);
+            try {
+              await saveAllRegionForms();
+              statusLines.push('Regions: saved');
+              setDynamicStatus(statusLines, false);
+
+              await saveAllPlanRegionPrices();
+              statusLines.push('Plan x Region matrix: saved');
+              setDynamicStatus(statusLines, false);
+
+              await saveAllCycleRows();
+              statusLines.push('Cycle rows: saved');
+              setDynamicStatus(statusLines, false);
+
+              await saveBillingSettings({ reloadAfterSave: false });
+              statusLines.push('Billing settings: saved');
+              statusLines.push('All dynamic pricing changes saved');
+              setDynamicStatus(statusLines, false);
+              setTimeout(function () {
+                location.reload();
+              }, 400);
+            } catch (error) {
+              statusLines.push('Failed: ' + (error.message || 'Failed to save all dynamic changes.'));
+              setDynamicStatus(statusLines, true);
+            } finally {
+              dynamicSaveAllConfigButton.disabled = false;
+              dynamicSaveAllConfigButton.textContent = oldText;
+            }
+          });
+        }
 
         // Recalculate All Plan Totals
         document.getElementById("recalculate-totals-btn").addEventListener("click", function () {
@@ -2170,40 +3366,6 @@
         }
       });
 
-      // Billing Period Discount Save Handlers
-      document.querySelectorAll('.bp-save-btn').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-          const key = this.dataset.key;
-          const row = document.querySelector('tr[data-period-key="' + key + '"]');
-          if (!row) return;
-          const discount = row.querySelector('.bp-discount').value;
-          const active = row.querySelector('.bp-active').checked;
-          const statusMsg = document.querySelector('.bp-status-msg');
-
-          fetch('/admin/updateBillingPeriod', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ period_key: key, discount_percentage: discount, is_active: String(active) })
-          })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-              if (data.success) {
-                statusMsg.textContent = key.replace(/_/g, ' ') + ' updated: ' + data.discount + '% discount, ' + (data.is_active ? 'active' : 'inactive');
-                statusMsg.style.color = '#059669';
-              } else {
-                statusMsg.textContent = 'Failed: ' + (data.message || 'Unknown error');
-                statusMsg.style.color = '#dc2626';
-              }
-              statusMsg.style.display = 'block';
-              setTimeout(function() { statusMsg.style.display = 'none'; }, 4000);
-            })
-            .catch(function() {
-              statusMsg.textContent = 'Network error. Please try again.';
-              statusMsg.style.color = '#dc2626';
-              statusMsg.style.display = 'block';
-            });
-        });
-      });
     </script>
   </body>
 </html>

@@ -179,6 +179,25 @@
         color: var(--text-muted);
       }
 
+      .free-students-badge {
+        display: inline-flex;
+        margin-top: 7px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        border: 1px solid #c9e6d7;
+        background: #eef9f3;
+        color: #1f6f46;
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .price-breakdown {
+        margin-top: 6px;
+        font-size: 12px;
+        color: #4b5563;
+        line-height: 1.45;
+      }
+
       .price-local {
         margin-top: 6px;
         font-size: 12px;
@@ -258,8 +277,30 @@
 
       /* ── Billing Period Cards (secondary) ── */
       .period-section {
-        margin-top: 16px;
-        padding: 0;
+        margin-top: 18px;
+        padding: 14px;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        background: #fff;
+      }
+
+      .school-size-notice {
+        margin-top: 12px;
+        padding: 12px 14px;
+        border: 1.5px solid #6fb98f;
+        border-radius: 12px;
+        background: linear-gradient(180deg, #ecfdf3 0%, #dcfce7 100%);
+        color: #14532d;
+        font-size: 13.5px;
+        font-weight: 600;
+        line-height: 1.5;
+        text-align: center;
+        box-shadow: 0 3px 10px rgba(16, 185, 129, 0.16);
+      }
+
+      .school-size-notice strong {
+        color: #065f46;
+        font-weight: 800;
       }
 
       .period-section h3 {
@@ -274,10 +315,10 @@
 
       .period-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 8px;
-        max-width: 720px;
-        margin: 0 auto;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 10px;
+        max-width: none;
+        margin: 0;
       }
 
       .period-card {
@@ -293,7 +334,7 @@
         cursor: pointer;
         transition: all 0.22s ease;
         text-align: center;
-        min-height: 60px;
+        min-height: 68px;
         font-family: var(--font-family);
       }
 
@@ -345,7 +386,11 @@
       }
 
       .form-actions {
-        margin-top: 14px;
+        margin-top: 18px;
+        padding: 14px;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        background: #fff;
         display: grid;
         gap: 8px;
       }
@@ -468,8 +513,11 @@
 
       /* ── Student Tier Picker ── */
       .tier-section {
-        margin-top: 16px;
-        padding: 0;
+        margin-top: 18px;
+        padding: 14px;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        background: #fff;
       }
       .tier-section h3 {
         margin: 0 0 8px;
@@ -482,10 +530,10 @@
       }
       .tier-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-        gap: 8px;
-        max-width: 800px;
-        margin: 0 auto;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 10px;
+        max-width: none;
+        margin: 0;
       }
       .tier-card {
         position: relative;
@@ -500,7 +548,7 @@
         cursor: pointer;
         transition: all 0.22s ease;
         text-align: center;
-        min-height: 60px;
+        min-height: 68px;
         font-family: var(--font-family);
       }
       .tier-card:hover {
@@ -585,6 +633,7 @@
 
         <section class="plan-grid">
         <% plans.forEach(plan => { if (plan.is_active) { %>
+        <% const dynamicMeta = (typeof dynamicPriceMetaByPlan !== 'undefined' && dynamicPriceMetaByPlan) ? dynamicPriceMetaByPlan[plan.plan_id] : null; %>
         <article
           class="plan-card"
           data-plan="<%= plan.plan_name %>"
@@ -592,6 +641,10 @@
           data-base-usd="<%= typeof plan.defaultDisplayUsd !== 'undefined' ? plan.defaultDisplayUsd : plan.total_price %>"
           data-base-local="<%= typeof plan.defaultDisplayLocal !== 'undefined' ? Number(plan.defaultDisplayLocal).toFixed(2) : ((currencyProfile && currencyProfile.usdToUserRate) ? (plan.total_price * currencyProfile.usdToUserRate).toFixed(2) : plan.total_price) %>"
           data-local-currency="<%= (currencyProfile && currencyProfile.userCurrency) ? currencyProfile.userCurrency : 'USD' %>"
+          data-price-base-component="<%= dynamicMeta ? Number(dynamicMeta.basePriceUsd || 0) : '' %>"
+          data-price-free-threshold="<%= dynamicMeta ? Number(dynamicMeta.freeStudentThreshold || 0) : '' %>"
+          data-price-per-student="<%= dynamicMeta ? Number(dynamicMeta.perStudentRateUsd || 0) : '' %>"
+          data-price-months-per-term="<%= dynamicMeta ? Number(dynamicMeta.monthsPerTerm || 1) : '' %>"
         >
           <div class="plan-name"><%= plan.plan_name %></div>
           <div class="plan-content">
@@ -630,36 +683,25 @@
             <% planIndex++; %>
           </div>
           <div class="plan-price">
-            <strong><%= plan.defaultPriceUsdDisplay || plan.priceUsdDisplay || ('$' + plan.total_price.toFixed(2)) %></strong>
+            <strong><%= plan.defaultLocalizedPriceDisplay || plan.localizedPriceDisplay || plan.defaultPriceUsdDisplay || plan.priceUsdDisplay || ('$' + plan.total_price.toFixed(2)) %></strong>
             <div class="price-caption">per month</div>
+            <% if (dynamicMeta) { %>
+              <div class="free-students-badge">First <%= Number(dynamicMeta.freeStudentThreshold || 0) %> students included</div>
+            <% } %>
             <% if (freeTrialEnabled && freeTrialLengthLabel) { %>
               <div class="price-after-trial">after trial ends</div>
             <% } %>
-            <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
-              <div class="price-local">
-                ≈ <%= plan.defaultLocalizedPriceDisplay || plan.localizedPriceDisplay %> / month
-              </div>
-            <% } %>
+            <div class="price-local"></div>
           </div>
         </article>
         <% }}); %>
         </section>
 
-        <!-- Student Count Tier Picker -->
-        <%
-          const stTiersByPlan = typeof studentTiersByPlan !== 'undefined' ? studentTiersByPlan : {};
-          const hasTiersData = Object.keys(stTiersByPlan).length > 0;
-        %>
-        <% if (hasTiersData) { %>
-        <div class="tier-section" id="tierSection" style="display:none;">
-          <h3>Select Approximate School Size</h3>
-          <div class="tier-grid" id="tierGrid" role="radiogroup" aria-label="Student count tier">
-            <!-- Populated dynamically by JS based on selected plan -->
-          </div>
-        </div>
-        <% } %>
         <input type="hidden" name="approx_student_count" id="approxStudentCount" value="" />
-        <input type="hidden" name="student_tier_id" id="selectedTierId" value="" />
+
+        <div class="school-size-notice" id="schoolSizeNotice" style="display:none;">
+          Extra charges of <strong id="schoolSizeRate">0</strong> per student per term/semester will incur once school size exceeds <strong id="schoolSizeThreshold">0</strong> students. First <strong id="schoolSizeFree">0</strong> students are free.
+        </div>
 
         <!-- Billing Period Cards -->
         <% if (typeof billingPeriods !== 'undefined' && billingPeriods.length > 1) { %>
@@ -728,93 +770,31 @@
         const periodBtns = document.querySelectorAll('.period-card');
         const periodInput = document.getElementById('billingPeriodInput');
         const periodHint = document.getElementById("billingPeriodHint");
+        const schoolSizeNotice = document.getElementById('schoolSizeNotice');
+        const schoolSizeRate = document.getElementById('schoolSizeRate');
+        const schoolSizeThreshold = document.getElementById('schoolSizeThreshold');
+        const schoolSizeFree = document.getElementById('schoolSizeFree');
         const isTrial = <%= freeTrialEnabled ? 'true' : 'false' %>;
         const trialLabel = <%- JSON.stringify(freeTrialLengthLabel || '') %>;
         let billingCycleSelected = false;
         const hasBillingCards = periodBtns.length > 0;
 
-        // Student tier data
-        const allTiersByPlan = <%- JSON.stringify(typeof studentTiersByPlan !== 'undefined' ? studentTiersByPlan : {}) %>;
-        const tierSection = document.getElementById('tierSection');
-        const tierGrid = document.getElementById('tierGrid');
-        const tierIdInput = document.getElementById('selectedTierId');
+        // Currency localization — display all prices in the visitor's local currency
+        // (detected from their location). Ghana visitors see GHS, others see their own.
+        var USER_CURRENCY = '<%= (currencyProfile && currencyProfile.userCurrency) ? currencyProfile.userCurrency : "USD" %>';
+        var USD_TO_USER = Number('<%= (currencyProfile && currencyProfile.usdToUserRate) ? currencyProfile.usdToUserRate : 1 %>') || 1;
+        var USER_LOCALE = '<%= (currencyProfile && currencyProfile.locale) ? currencyProfile.locale : "en-US" %>';
+        var _moneyFmt = null;
+        try {
+          _moneyFmt = new Intl.NumberFormat(USER_LOCALE, { style: 'currency', currency: USER_CURRENCY, minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        } catch (e) { _moneyFmt = null; }
+        function fmtLocal(usdAmount) {
+          var v = (Number(usdAmount) || 0) * USD_TO_USER;
+          if (_moneyFmt) { try { return _moneyFmt.format(v); } catch (e) {} }
+          return USER_CURRENCY + ' ' + v.toFixed(2);
+        }
+
         const approxInput = document.getElementById('approxStudentCount');
-        let tierSelected = false;
-        let currentPlanHasTiers = false;
-
-        function populateTierCards(planId) {
-          const tiers = allTiersByPlan[planId] || [];
-          currentPlanHasTiers = tiers.length > 0;
-          if (!tierSection || !tierGrid) return;
-          if (!currentPlanHasTiers) {
-            tierSection.style.display = 'none';
-            if (tierIdInput) tierIdInput.value = '';
-            if (approxInput) approxInput.value = '';
-            tierSelected = false;
-            updateAllPeriodPrices();
-            return;
-          }
-          tierSection.style.display = '';
-          tierGrid.innerHTML = '';
-          tierSelected = false;
-          if (tierIdInput) tierIdInput.value = '';
-          if (approxInput) approxInput.value = '';
-
-          tiers.forEach(function(tier) {
-            var card = document.createElement('div');
-            card.className = 'tier-card';
-            card.setAttribute('data-tier-id', tier.id);
-            card.setAttribute('data-tier-price', tier.computed_price_usd != null ? tier.computed_price_usd : tier.price_usd);
-            card.setAttribute('data-tier-min', tier.min_students);
-            card.setAttribute('data-tier-max', tier.max_students != null ? tier.max_students : '');
-            card.setAttribute('role', 'radio');
-            card.setAttribute('tabindex', '0');
-            card.setAttribute('aria-checked', 'false');
-            card.innerHTML =
-              '<div class="tier-card-range">' + tier.min_students + (tier.max_students != null ? ' – ' + tier.max_students : '+') + ' students</div>';
-            card.addEventListener('click', function() { selectTier(this); });
-            card.addEventListener('keydown', function(e) {
-              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectTier(this); }
-            });
-            tierGrid.appendChild(card);
-          });
-          updateAllPeriodPrices();
-          updateSubmitState();
-        }
-
-        function selectTier(card) {
-          var allTierCards = tierGrid.querySelectorAll('.tier-card');
-          allTierCards.forEach(function(c) {
-            c.classList.remove('active');
-            c.setAttribute('aria-checked', 'false');
-          });
-          card.classList.add('active');
-          card.setAttribute('aria-checked', 'true');
-          tierSelected = true;
-          if (tierIdInput) tierIdInput.value = card.getAttribute('data-tier-id');
-          if (approxInput) {
-            var min = parseInt(card.getAttribute('data-tier-min'), 10) || 0;
-            var maxAttr = card.getAttribute('data-tier-max');
-            var max = maxAttr !== '' ? parseInt(maxAttr, 10) : null;
-            approxInput.value = max !== null ? String(Math.round((min + max) / 2)) : String(min);
-          }
-
-          // Update plan card price to show tier price
-          var tierPrice = parseFloat(card.getAttribute('data-tier-price')) || 0;
-          var selectedCard = document.querySelector('.plan-card.selected');
-          if (selectedCard) {
-            selectedCard.setAttribute('data-base-usd', tierPrice);
-            var localRate = parseFloat(selectedCard.getAttribute('data-base-local')) / (parseFloat(selectedCard.getAttribute('data-original-base-usd') || selectedCard.getAttribute('data-base-usd')) || 1);
-            selectedCard.setAttribute('data-base-local', (tierPrice * (localRate || 1)).toFixed(2));
-            // Update the price display within the plan card
-            var priceStrong = selectedCard.querySelector('.plan-price strong');
-            var captionDiv = selectedCard.querySelector('.plan-price .price-caption');
-            if (priceStrong) priceStrong.textContent = '$' + tierPrice.toFixed(2);
-            if (captionDiv) captionDiv.textContent = 'per month';
-          }
-          updateAllPeriodPrices();
-          updateSubmitState();
-        }
 
         if (!form || !selectedPlanInput || !selectedPlanIdInput) {
           return;
@@ -839,8 +819,29 @@
           if (!proceedPlanButton) return;
           var planOk = !!(selectedPlanInput.value && selectedPlanInput.value.trim());
           var cycleOk = !hasBillingCards || billingCycleSelected;
-          var tierOk = !currentPlanHasTiers || tierSelected;
-          proceedPlanButton.disabled = !(planOk && cycleOk && tierOk);
+          proceedPlanButton.disabled = !(planOk && cycleOk);
+        }
+
+        function updateSchoolSizeNotice() {
+          if (!schoolSizeNotice || !schoolSizeRate || !schoolSizeThreshold || !schoolSizeFree) return;
+          var selectedCard = document.querySelector('.plan-card.selected');
+          if (!selectedCard) {
+            schoolSizeNotice.style.display = 'none';
+            return;
+          }
+
+          var threshold = parseInt(selectedCard.getAttribute('data-price-free-threshold'), 10);
+          var perStudentTermUsd = parseFloat(selectedCard.getAttribute('data-price-per-student')) || 0;
+
+          if (!Number.isInteger(threshold) || threshold < 0 || perStudentTermUsd <= 0) {
+            schoolSizeNotice.style.display = 'none';
+            return;
+          }
+
+          schoolSizeRate.textContent = fmtLocal(perStudentTermUsd);
+          schoolSizeThreshold.textContent = String(threshold);
+          schoolSizeFree.textContent = String(threshold);
+          schoolSizeNotice.style.display = '';
         }
 
         function getSelectedPlanBase() {
@@ -862,11 +863,6 @@
             var priceEl = card.querySelector('[data-period-price]');
             if (!priceEl) return;
 
-            if (currentPlanHasTiers && !tierSelected) {
-              priceEl.innerHTML = 'Select school size';
-              return;
-            }
-
             if (baseUsd <= 0) {
               priceEl.innerHTML = '';
               return;
@@ -879,24 +875,26 @@
             if (isTrial) {
               // Trial: just show what it will cost after trial
               if (months === 1) {
-                priceEl.innerHTML = '$' + baseUsd.toFixed(2) + '/mo';
+                priceEl.innerHTML = fmtLocal(baseUsd) + '/mo';
               } else if (discount > 0) {
-                priceEl.innerHTML = '<span class="period-price-strike">$' + raw.toFixed(2) + '</span> $' + final_.toFixed(2);
+                priceEl.innerHTML = '<span class="period-price-strike">' + fmtLocal(raw) + '</span> ' + fmtLocal(final_);
               } else {
-                priceEl.innerHTML = '$' + final_.toFixed(2) + ' total';
+                priceEl.innerHTML = fmtLocal(final_) + ' total';
               }
             } else {
               // Normal: show full price breakdown
               if (months === 1) {
-                priceEl.innerHTML = '$' + baseUsd.toFixed(2) + '/mo';
+                priceEl.innerHTML = fmtLocal(baseUsd) + '/mo';
               } else if (discount > 0) {
-                priceEl.innerHTML = '<span class="period-price-strike">$' + raw.toFixed(2) + '</span> $' + final_.toFixed(2)
-                  + '<span style="display:block;font-size:11px;color:#5f6b7a;margin-top:1px;">~$' + perMo.toFixed(2) + '/mo</span>';
+                priceEl.innerHTML = '<span class="period-price-strike">' + fmtLocal(raw) + '</span> ' + fmtLocal(final_)
+                  + '<span style="display:block;font-size:11px;color:#5f6b7a;margin-top:1px;">~' + fmtLocal(perMo) + '/mo</span>';
               } else {
-                priceEl.innerHTML = '$' + final_.toFixed(2) + ' (~$' + perMo.toFixed(2) + '/mo)';
+                priceEl.innerHTML = fmtLocal(final_) + ' (~' + fmtLocal(perMo) + '/mo)';
               }
             }
           });
+
+          updateDynamicBreakdown();
         }
 
         function updatePriceDisplay(activeCard) {
@@ -919,9 +917,9 @@
               var localCurrency = card.getAttribute('data-local-currency') || '';
 
               if (months === 1) {
-                priceStrong.textContent = '$' + baseUsd.toFixed(2);
+                priceStrong.textContent = fmtLocal(baseUsd);
                 if (captionDiv) captionDiv.textContent = 'per month';
-                if (localDiv) localDiv.textContent = '\u2248 ' + localCurrency + ' ' + baseLocal.toFixed(2) + ' / month';
+                if (localDiv) localDiv.textContent = '';
               } else {
                 var originalTotal = baseUsd * months;
                 var discountedTotal = discount > 0 ? originalTotal * (1 - discount / 100) : originalTotal;
@@ -930,15 +928,31 @@
                 if (discount > 0) localTotal = localTotal * (1 - discount / 100);
 
                 if (discount > 0) {
-                  priceStrong.innerHTML = '<span style="text-decoration:line-through;color:#9ca3af;font-size:0.82em;">$' + originalTotal.toFixed(2) + '</span> $' + discountedTotal.toFixed(2);
+                  priceStrong.innerHTML = '<span style="text-decoration:line-through;color:#9ca3af;font-size:0.82em;">' + fmtLocal(originalTotal) + '</span> ' + fmtLocal(discountedTotal);
                 } else {
-                  priceStrong.textContent = '$' + discountedTotal.toFixed(2);
+                  priceStrong.textContent = fmtLocal(discountedTotal);
                 }
-                if (captionDiv) captionDiv.textContent = 'for ' + suffix + ' (~$' + perMonth.toFixed(2) + '/mo)';
-                if (localDiv) localDiv.textContent = '\u2248 ' + localCurrency + ' ' + localTotal.toFixed(2) + ' total';
+                if (captionDiv) captionDiv.textContent = 'for ' + suffix + ' (~' + fmtLocal(perMonth) + '/mo)';
+                if (localDiv) localDiv.textContent = '';
               }
             });
           }
+
+          updateDynamicBreakdown();
+        }
+
+        function toUsdLabel(value) {
+          return '$' + (Number(value) || 0).toFixed(2);
+        }
+
+        function updateDynamicBreakdown() {
+          plans.forEach(function(card) {
+            var threshold = parseInt(card.getAttribute('data-price-free-threshold'), 10);
+            var badgeEl = card.querySelector('.free-students-badge');
+            if (badgeEl && Number.isInteger(threshold)) {
+              badgeEl.textContent = 'First ' + threshold + ' students included';
+            }
+          });
         }
 
         periodBtns.forEach(function(card) {
@@ -950,6 +964,8 @@
 
         // Initialize — no period pre-selected
         updateAllPeriodPrices();
+        updateDynamicBreakdown();
+        updateSchoolSizeNotice();
         // Remove initial active state so user must click
         periodBtns.forEach(function(c) { c.classList.remove('active'); c.setAttribute('aria-checked', 'false'); });
 
@@ -980,8 +996,7 @@
             planEl.setAttribute('data-base-local', planEl.getAttribute('data-original-base-local'));
           }
           syncSelectionFields(planEl);
-          var planId = planEl.getAttribute('data-plan-id');
-          populateTierCards(planId);
+          updateSchoolSizeNotice();
           updateSubmitState();
         };
 
@@ -1033,9 +1048,9 @@
             return;
           }
 
-          if (currentPlanHasTiers && (!tierIdInput || !tierIdInput.value || tierIdInput.value.trim() === '')) {
-            event.preventDefault();
-            alert("\u26a0\ufe0f Please select a student count tier for your school.");          }
+          if (approxInput) {
+            approxInput.value = '';
+          }
         });
 
         if (proceedPlanButton) {

@@ -1814,6 +1814,7 @@
     async function castVote(vote) {
       btnYes.disabled = true;
       btnNo.disabled  = true;
+      let saved = false;
       try {
         const res = await fetch('/legal/user-documentation/api/helpful', {
           method: 'POST',
@@ -1821,11 +1822,21 @@
           body: JSON.stringify({ articleId: Number(articleId), vote }),
         });
         const data = await res.json();
-        if (data.helpfulYes !== undefined) {
-          yesCount.textContent = '(' + data.helpfulYes + ')';
-          noCount.textContent  = '(' + data.helpfulNo  + ')';
+        if (res.ok && data && data.success) {
+          const helpfulYes = data.helpfulYes !== undefined ? data.helpfulYes : (data.counts && data.counts.helpfulYes);
+          const helpfulNo = data.helpfulNo !== undefined ? data.helpfulNo : (data.counts && data.counts.helpfulNo);
+          if (helpfulYes !== undefined && helpfulNo !== undefined) {
+            yesCount.textContent = '(' + helpfulYes + ')';
+            noCount.textContent  = '(' + helpfulNo + ')';
+          }
+          saved = true;
         }
       } catch (_) {}
+      if (!saved) {
+        btnYes.disabled = false;
+        btnNo.disabled  = false;
+        return;
+      }
       if (vote === 'yes') btnYes.classList.add('voted-yes');
       else                btnNo.classList.add('voted-no');
       localStorage.setItem(storageKey, vote);

@@ -903,7 +903,7 @@ function sanitizeArticleContent(html) {
       video: ['src', 'controls', 'playsinline', 'preload', 'poster', 'class'],
       source: ['src', 'type'],
       div: ['class', 'data-callout'],
-      span: ['class'],
+      span: ['class', 'style'],
       code: ['class'],
       pre: ['class'],
       table: ['class'],
@@ -916,6 +916,11 @@ function sanitizeArticleContent(html) {
       figure: {
         width: [/^\d+(?:\.\d+)?(?:px|%)$/],
         'max-width': [/^\d+(?:\.\d+)?(?:px|%)$/],
+      },
+      span: {
+        'font-weight': [/^(?:normal|bold|[1-9]00)$/i],
+        'font-style': [/^(?:normal|italic)$/i],
+        'text-decoration': [/^(?:none|underline|line-through)$/i],
       },
     },
     allowedClasses: {
@@ -995,7 +1000,24 @@ function sanitizeArticleContent(html) {
     },
   });
 
+  const normalizeHeadingLikeBodyText = (fullMatch, level, innerHtml) => {
+    const plain = stripHtml(innerHtml || '');
+    const wordCount = plain ? plain.split(/\s+/).filter(Boolean).length : 0;
+    // Headings are usually short labels. Long sentence-like headings are most
+    // often accidental formatting from contenteditable and should be paragraphs.
+    if (wordCount >= 14) {
+      return `<p>${innerHtml}</p>`;
+    }
+    return fullMatch;
+  };
+
   return cleanHtml
+    // If users accidentally wrap full blocks inside headings, flatten those wrappers
+    // so paragraph/list formatting and normal-weight text survive round-trips.
+    .replace(/<h([2-4])>\s*<(p|ul|ol|div|table|blockquote|pre)([^>]*)>([\s\S]*?)<\/\2>\s*<\/h\1>/gi, '<$2$3>$4</$2>')
+    .replace(/<h([2-4])>([\s\S]*?)<\/h\1>/gi, normalizeHeadingLikeBodyText)
+    .replace(/<h([2-4])>\s*<br\s*\/?>(?:\s|&nbsp;)*<\/h\1>/gi, '')
+    .replace(/<h([2-4])>\s*<\/h\1>/gi, '')
     .replace(/<p>\s*<\/p>/g, '')
     .replace(/<p>\s*(<br\s*\/?>)\s*<\/p>/g, '')
     .trim();
@@ -1736,13 +1758,56 @@ async function recordHelpfulVote(articleId, vote, fingerprintHash, options = {})
   await ensureDocumentationSchema(database);
   const normalizedVote = String(vote || '').trim().toLowerCase() === 'no' ? 'no' : 'yes';
 
-  await database.query(
-    `INSERT INTO documentation_article_feedback (article_id, fingerprint_hash, vote)
-     VALUES ($1, $2, $3)
-     ON CONFLICT (article_id, fingerprint_hash)
-     DO UPDATE SET vote = EXCLUDED.vote, updated_at = CURRENT_TIMESTAMP`,
-    [articleId, fingerprintHash, normalizedVote]
+  const feedbackColumnsResult = await database.query(
+    `SELECT column_name
+       FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'documentation_article_feedback'`
   );
+  const feedbackColumns = new Set((feedbackColumnsResult.rows || []).map((row) => row.column_name));
+  const hashColumn = feedbackColumns.has('fingerprint_hash') ? 'fingerprint_hash' : 'request_hash';
+
+  // Compatibility path for older DB schemas where feedback table used request_hash
+  // and did not have a unique constraint for ON CONFLICT.
+  const existing = await database.query(
+    `SELECT id
+       FROM documentation_article_feedback
+      WHERE article_id = $1 AND ${hashColumn} = $2
+      LIMIT 1`,
+    [articleId, fingerprintHash]
+  );
+
+  if (existing.rows[0]) {
+    if (feedbackColumns.has('updated_at')) {
+      await database.query(
+        `UPDATE documentation_article_feedback
+            SET vote = $1, updated_at = CURRENT_TIMESTAMP
+          WHERE id = $2`,
+        [normalizedVote, existing.rows[0].id]
+      );
+    } else {
+      await database.query(
+        `UPDATE documentation_article_feedback
+            SET vote = $1
+          WHERE id = $2`,
+        [normalizedVote, existing.rows[0].id]
+      );
+    }
+  } else {
+    if (feedbackColumns.has('user_agent')) {
+      await database.query(
+        `INSERT INTO documentation_article_feedback (article_id, ${hashColumn}, vote, user_agent)
+         VALUES ($1, $2, $3, $4)`,
+        [articleId, fingerprintHash, normalizedVote, 'docs-widget']
+      );
+    } else {
+      await database.query(
+        `INSERT INTO documentation_article_feedback (article_id, ${hashColumn}, vote)
+         VALUES ($1, $2, $3)`,
+        [articleId, fingerprintHash, normalizedVote]
+      );
+    }
+  }
 
   await database.query(
     `UPDATE documentation_articles

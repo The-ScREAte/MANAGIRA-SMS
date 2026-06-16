@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dynamic Pricing (Beta)</title>
+    <style>
+      :root {
+        --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
+        --teal: #01535b;
+        --teal-2: #0e7c86;
+        --line: #d8e3e6;
+        --muted: #6b7c80;
+      }
+      * { box-sizing: border-box; }
+      body { font-family: var(--font-family); background: #f4f7fa; color: #222; margin: 0; line-height: 1.55; }
+      .admin-header {
+        background: linear-gradient(90deg, var(--teal) 60%, var(--teal-2) 100%);
+        color: #fff; padding: 22px 24px; box-shadow: 0 2px 8px rgba(1,83,91,0.08);
+        display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+      }
+      .admin-header h1 { margin: 0; font-size: 1.6rem; font-weight: 700; letter-spacing: .4px; }
+      .back-link { color: #fff; text-decoration: none; font-size: .9rem; border: 1px solid rgba(255,255,255,.5); padding: 7px 14px; border-radius: 8px; }
+      .back-link:hover { background: rgba(255,255,255,.12); }
+      .wrap { max-width: 1180px; margin: 24px auto; padding: 0 20px; }
+      .beta-banner {
+        background: #fff8e1; border: 1px solid #f3d27a; color: #7a5b00;
+        padding: 14px 18px; border-radius: 10px; margin-bottom: 22px; font-size: .95rem;
+      }
+      .beta-banner strong { color: #6a4f00; }
+      .card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; margin-bottom: 22px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+      .card > h2 { margin: 0 0 4px; color: var(--teal); font-size: 1.2rem; }
+      .card > .sub { margin: 0 0 16px; color: var(--muted); font-size: .9rem; }
+      .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+      label { display: block; font-size: .78rem; color: var(--muted); margin-bottom: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: .3px; }
+      input[type=text], input[type=number], select {
+        font-family: inherit; font-size: .95rem; padding: 9px 11px; border: 1px solid var(--line);
+        border-radius: 8px; background: #fff; min-width: 120px;
+      }
+      input:focus, select:focus { outline: none; border-color: var(--teal-2); box-shadow: 0 0 0 3px rgba(14,124,134,.12); }
+      .btn { font-family: inherit; font-size: .9rem; font-weight: 600; padding: 9px 16px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; }
+      .btn-primary { background: var(--teal); color: #fff; }
+      .btn-primary:hover { background: var(--teal-2); }
+      .btn-ghost { background: #fff; color: var(--teal); border-color: var(--line); }
+      .btn-ghost:hover { background: #f0f6f7; }
+      .btn-danger { background: #fff; color: #b3261e; border-color: #f1c4c0; }
+      .btn-danger:hover { background: #fdeeec; }
+      .btn-sm { padding: 6px 11px; font-size: .82rem; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); font-size: .9rem; vertical-align: middle; }
+      th { color: var(--muted); font-size: .75rem; text-transform: uppercase; letter-spacing: .3px; }
+      .pill { display: inline-block; font-size: .72rem; font-weight: 700; padding: 2px 9px; border-radius: 999px; }
+      .pill-default { background: #e0f3f4; color: var(--teal); }
+      .pill-off { background: #f0eded; color: #8a8a8a; }
+      .region-block { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
+      .region-block h3 { margin: 0 0 2px; font-size: 1.02rem; }
+      .region-meta { color: var(--muted); font-size: .82rem; margin-bottom: 10px; }
+      .continent { border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px; }
+      .continent > summary { cursor: pointer; padding: 8px 12px; font-weight: 600; font-size: .88rem; color: var(--teal); display: flex; justify-content: space-between; align-items: center; }
+      .continent .country-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 4px 12px; padding: 8px 12px 12px; }
+      .country-opt { font-size: .85rem; display: flex; align-items: center; gap: 6px; }
+      .country-opt.assigned-elsewhere { color: #aab2b4; }
+      .country-opt small { color: #b08900; font-size: .72rem; }
+      .add-continent { font-size: .76rem; background: #eef6f7; border: 1px solid var(--line); color: var(--teal); border-radius: 6px; padding: 2px 8px; cursor: pointer; }
+      .matrix-plan { margin-bottom: 18px; }
+      .matrix-plan h3 { margin: 0 0 8px; font-size: 1.05rem; color: #1a1a1a; }
+      .matrix-input { width: 110px; min-width: 0; }
+      .preview-val { font-weight: 700; color: var(--teal); }
+      .muted { color: var(--muted); }
+      .flash { padding: 11px 16px; border-radius: 8px; margin-bottom: 16px; font-size: .92rem; }
+      .flash-error { background: #fdeeec; color: #b3261e; border: 1px solid #f1c4c0; }
+      .flash-success { background: #e6f6ec; color: #1b7a3d; border: 1px solid #b6e2c4; }
+      .toast { position: fixed; bottom: 22px; right: 22px; background: #1a1a1a; color: #fff; padding: 11px 18px; border-radius: 8px; font-size: .9rem; opacity: 0; transform: translateY(10px); transition: .25s; pointer-events: none; z-index: 50; }
+      .toast.show { opacity: 1; transform: translateY(0); }
+      .toast.err { background: #b3261e; }
+      .preview-box { background: #f7fbfb; border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; margin-top: 14px; }
+      .preview-box .line { display: flex; justify-content: space-between; padding: 4px 0; font-size: .92rem; }
+      .preview-box .line.total { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 10px; font-weight: 700; font-size: 1.05rem; color: var(--teal); }
+      .inline-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    </style>
+  </head>
+  <body>
+    <div class="admin-header">
+      <h1>Dynamic Pricing <span style="opacity:.7;font-weight:500;font-size:1rem;">(Beta)</span></h1>
+      <a class="back-link" href="/admin/servicePricing">&larr; Back to live pricing</a>
+    </div>
+
+    <div class="wrap">
+      <% if (messages && messages.error && messages.error.length) { %>
+        <div class="flash flash-error"><%= messages.error.join(' ') %></div>
+      <% } %>
+      <% if (messages && messages.success && messages.success.length) { %>
+        <div class="flash flash-success"><%= messages.success.join(' ') %></div>
+      <% } %>
+
+      <div class="beta-banner">
+        <strong>This is a beta system.</strong> Changes here do <strong>not</strong> affect what schools see or are billed.
+        The live system is the other tab. Use this to design and preview the new region-based pricing model safely.
+      </div>
+
+      <!-- ============ SECTION A: REGIONS ============ -->
+      <div class="card">
+        <h2>Regions</h2>
+        <p class="sub">Group countries into pricing regions. Any country not mapped to a region falls back to the default region.</p>
+
+        <div class="row" style="margin-bottom:18px;">
+          <div>
+            <label for="newRegionName">New region name</label>
+            <input type="text" id="newRegionName" placeholder="e.g. West Africa" />
+          </div>
+          <div>
+            <label for="newRegionSort">Sort</label>
+            <input type="number" id="newRegionSort" class="matrix-input" value="0" />
+          </div>
+          <button class="btn btn-primary" id="addRegionBtn">+ Add region</button>
+        </div>
+
+        <div id="regionsContainer"></div>
+      </div>
+
+      <!-- ============ SECTION B: PLAN x REGION MATRIX ============ -->
+      <div class="card">
+        <h2>Plan pricing by region</h2>
+        <p class="sub">Set the platform fee, free student threshold and per-student rate for each plan in each region. Preview shown at 200 students. Edits save when you leave a field.</p>
+        <div id="matrixContainer"></div>
+      </div>
+
+      <!-- ============ SECTION C: BILLING CYCLES ============ -->
+      <div class="card">
+        <h2>Billing cycles</h2>
+        <p class="sub">Defined independently from the live <code>billing_periods</code> table. A discount of 0% with a multi-month cycle simply means "pay over that many months".</p>
+
+        <div class="row" style="margin-bottom:16px;">
+          <div><label>Key</label><input type="text" id="cKey" placeholder="quarterly" class="matrix-input" /></div>
+          <div><label>Label</label><input type="text" id="cLabel" placeholder="Quarterly" class="matrix-input" /></div>
+          <div><label>Months</label><input type="number" id="cMonths" min="1" value="1" class="matrix-input" /></div>
+          <div><label>Discount %</label><input type="number" id="cDiscount" min="0" max="50" value="0" class="matrix-input" /></div>
+          <div><label>Hint</label><input type="text" id="cHint" placeholder="optional" /></div>
+          <div><label>Sort</label><input type="number" id="cSort" value="0" class="matrix-input" /></div>
+          <button class="btn btn-primary" id="addCycleBtn">+ Add cycle</button>
+        </div>
+
+        <table>
+          <thead>
+            <tr><th>Key</th><th>Label</th><th>Months</th><th>Discount</th><th>Hint</th><th>Active</th><th></th></tr>
+          </thead>
+          <tbody id="cyclesBody"></tbody>
+        </table>
+      </div>
+
+      <!-- ============ SECTION D: PREVIEW SIMULATOR ============ -->
+      <div class="card">
+        <h2>Customer preview simulator</h2>
+        <p class="sub">See exactly what a school in a given country would be quoted under this dynamic model.</p>
+
+        <div class="row">
+          <div>
+            <label for="pvCountry">Country</label>
+            <select id="pvCountry"><option value="">— Unmapped (uses default) —</option></select>
+          </div>
+          <div>
+            <label for="pvPlan">Plan</label>
+            <select id="pvPlan"></select>
+          </div>
+          <div>
+            <label for="pvStudents">Students</label>
+            <input type="number" id="pvStudents" min="0" value="200" class="matrix-input" />
+          </div>
+          <div>
+            <label for="pvCycle">Cycle</label>
+            <select id="pvCycle"></select>
+          </div>
+          <button class="btn btn-primary" id="previewBtn">Preview</button>
+        </div>
+
+        <div id="previewResult"></div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+      // ---- Server data ----------------------------------------------------
+      var REGIONS = <%- JSON.stringify(regions || []) %>;
+      var REGION_COUNTRIES = <%- JSON.stringify(regionCountries || []) %>;
+      var PLANS = <%- JSON.stringify(plans || []) %>;
+      var PRICES = <%- JSON.stringify(planRegionPrices || []) %>;
+      var CYCLES = <%- JSON.stringify(cycles || []) %>;
+      var COUNTRIES_BY_CONTINENT = <%- JSON.stringify(countriesByContinent || {}) %>;
+      var COUNTRY_NAME = <%- JSON.stringify(countryNameLookup || {}) %>;
+
+      // ---- Helpers --------------------------------------------------------
+      function $(id) { return document.getElementById(id); }
+      function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+      function money(n) { return '$' + (Number(n) || 0).toFixed(2); }
+      var toastTimer = null;
+      function toast(msg, isErr) {
+        var t = $('toast');
+        t.textContent = msg;
+        t.className = 'toast show' + (isErr ? ' err' : '');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { t.className = 'toast'; }, 2600);
+      }
+      async function api(url, body) {
+        var res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body || {}),
+        });
+        var data = await res.json().catch(function () { return { ok: false, error: 'Bad response' }; });
+        if (!res.ok || !data.ok) { throw new Error(data.error || 'Request failed'); }
+        return data;
+      }
+
+      // Client replica of computeDynamicMonthlyPrice (preview only)
+      function computeMonthly(base, threshold, rate, students) {
+        var extra = Math.max(0, (Number(students) || 0) - (Number(threshold) || 0));
+        return (Number(base) || 0) + extra * (Number(rate) || 0);
+      }
+
+      // country_code -> region name (for "already assigned" dimming)
+      function buildAssignedMap() {
+        var m = {};
+        REGION_COUNTRIES.forEach(function (rc) { m[rc.country_code] = rc.region_id; });
+        return m;
+      }
+      function regionName(id) {
+        var r = REGIONS.filter(function (x) { return x.id === id; })[0];
+        return r ? r.name : '';
+      }
+      function countriesForRegion(regionId) {
+        return REGION_COUNTRIES.filter(function (rc) { return rc.region_id === regionId; }).map(function (rc) { return rc.country_code; });
+      }
+
+      // ---- Section A: Regions --------------------------------------------
+      function renderRegions() {
+        var assigned = buildAssignedMap();
+        var c = $('regionsContainer');
+        c.innerHTML = '';
+        REGIONS.forEach(function (region) {
+          var mine = countriesForRegion(region.id);
+          var block = document.createElement('div');
+          block.className = 'region-block';
+
+          var head = '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">' +
+            '<div><h3>' + esc(region.name) +
+            (region.is_default ? ' <span class="pill pill-default">DEFAULT</span>' : '') +
+            (region.is_active ? '' : ' <span class="pill pill-off">INACTIVE</span>') + '</h3>' +
+            '<div class="region-meta">' + mine.length + ' country(ies) mapped' + '</div></div>' +
+            '<div class="inline-form">' +
+            '<button class="btn btn-ghost btn-sm" data-save="' + region.id + '">Save countries</button>' +
+            (region.is_default ? '' : '<button class="btn btn-danger btn-sm" data-del="' + region.id + '">Delete</button>') +
+            '</div></div>';
+
+          var picker = '<div data-picker="' + region.id + '" style="margin-top:10px;">';
+          Object.keys(COUNTRIES_BY_CONTINENT).forEach(function (cont) {
+            picker += '<details class="continent"><summary><span>' + esc(cont) + '</span>' +
+              '<span class="add-continent" data-continent="' + esc(cont) + '" data-region="' + region.id + '">+ Add entire continent</span></summary>' +
+              '<div class="country-grid">';
+            COUNTRIES_BY_CONTINENT[cont].forEach(function (co) {
+              var inMine = mine.indexOf(co.code) !== -1;
+              var elsewhere = assigned[co.code] != null && assigned[co.code] !== region.id;
+              picker += '<label class="country-opt' + (elsewhere ? ' assigned-elsewhere' : '') + '">' +
+                '<input type="checkbox" value="' + co.code + '"' + (inMine ? ' checked' : '') + ' />' +
+                esc(co.name) +
+                (elsewhere ? ' <small>(in ' + esc(regionName(assigned[co.code])) + ')</small>' : '') +
+                '</label>';
+            });
+            picker += '</div></details>';
+          });
+          picker += '</div>';
+
+          block.innerHTML = head + picker;
+          c.appendChild(block);
+        });
+
+        // wire continent "add all"
+        c.querySelectorAll('.add-continent').forEach(function (btn) {
+          btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            var cont = btn.getAttribute('data-continent');
+            var rid = btn.getAttribute('data-region');
+            var picker = c.querySelector('[data-picker="' + rid + '"]');
+            (COUNTRIES_BY_CONTINENT[cont] || []).forEach(function (co) {
+              var cb = picker.querySelector('input[value="' + co.code + '"]');
+              if (cb) cb.checked = true;
+            });
+          });
+        });
+
+        c.querySelectorAll('[data-save]').forEach(function (btn) {
+          btn.addEventListener('click', function () { saveRegionCountries(parseInt(btn.getAttribute('data-save'), 10)); });
+        });
+        c.querySelectorAll('[data-del]').forEach(function (btn) {
+          btn.addEventListener('click', function () { deleteRegion(parseInt(btn.getAttribute('data-del'), 10)); });
+        });
+      }
+
+      async function saveRegionCountries(regionId) {
+        var picker = $('regionsContainer').querySelector('[data-picker="' + regionId + '"]');
+        var codes = [];
+        picker.querySelectorAll('input[type=checkbox]:checked').forEach(function (cb) { codes.push(cb.value); });
+        try {
+          await api('/admin/dynamicPricing/regions/' + regionId, { countryCodes: codes });
+          // update local state: remove these codes from everywhere, then assign to this region
+          REGION_COUNTRIES = REGION_COUNTRIES.filter(function (rc) { return codes.indexOf(rc.country_code) === -1 && rc.region_id !== regionId; });
+          codes.forEach(function (code) { REGION_COUNTRIES.push({ region_id: regionId, country_code: code, country_name: COUNTRY_NAME[code] || code }); });
+          renderRegions();
+          toast('Countries saved for ' + regionName(regionId));
+        } catch (e) { toast(e.message, true); }
+      }
+
+      async function deleteRegion(regionId) {
+        if (!confirm('Delete this region? Its country mappings and plan prices will be removed.')) return;
+        try {
+          await api('/admin/dynamicPricing/regions/' + regionId + '/delete', {});
+          REGIONS = REGIONS.filter(function (r) { return r.id !== regionId; });
+          REGION_COUNTRIES = REGION_COUNTRIES.filter(function (rc) { return rc.region_id !== regionId; });
+          PRICES = PRICES.filter(function (p) { return p.region_id !== regionId; });
+          renderRegions(); renderMatrix(); renderPreviewSelects();
+          toast('Region deleted');
+        } catch (e) { toast(e.message, true); }
+      }
+
+      $('addRegionBtn').addEventListener('click', async function () {
+        var name = $('newRegionName').value.trim();
+        if (!name) { toast('Enter a region name', true); return; }
+        try {
+          var data = await api('/admin/dynamicPricing/regions', { name: name, sort_order: Number($('newRegionSort').value) || 0 });
+          REGIONS.push(data.region);
+          $('newRegionName').value = '';
+          renderRegions(); renderMatrix(); renderPreviewSelects();
+          toast('Region added');
+        } catch (e) { toast(e.message, true); }
+      });
+
+      // ---- Section B: Matrix ---------------------------------------------
+      function priceFor(planId, regionId) {
+        return PRICES.filter(function (p) { return p.plan_id === planId && p.region_id === regionId; })[0] || null;
+      }
+      function renderMatrix() {
+        var c = $('matrixContainer');
+        c.innerHTML = '';
+        if (!PLANS.length) { c.innerHTML = '<p class="muted">No plans found.</p>'; return; }
+        PLANS.forEach(function (plan) {
+          var wrap = document.createElement('div');
+          wrap.className = 'matrix-plan';
+          var rows = '';
+          REGIONS.forEach(function (region) {
+            var p = priceFor(plan.id, region.id);
+            var base = p ? p.base_price_usd : '';
+            var thr = p ? p.free_student_threshold : 50;
+            var rate = p ? p.per_student_rate_usd : '';
+            var preview = computeMonthly(base || 0, thr || 0, rate || 0, 200);
+            rows += '<tr data-plan="' + plan.id + '" data-region="' + region.id + '">' +
+              '<td>' + esc(region.name) + (region.is_default ? ' <span class="pill pill-default">DEFAULT</span>' : '') + '</td>' +
+              '<td><input type="number" step="0.01" min="0" class="matrix-input" data-f="base" value="' + (base === '' ? '' : Number(base).toFixed(2)) + '" placeholder="0.00" /></td>' +
+              '<td><input type="number" step="1" min="0" class="matrix-input" data-f="thr" value="' + (thr == null ? 50 : thr) + '" /></td>' +
+              '<td><input type="number" step="0.0001" min="0" class="matrix-input" data-f="rate" value="' + (rate === '' ? '' : Number(rate).toFixed(4)) + '" placeholder="0.0000" /></td>' +
+              '<td class="preview-val" data-preview>' + money(preview) + '/mo</td>' +
+              '</tr>';
+          });
+          wrap.innerHTML = '<h3>' + esc(plan.name) + (plan.is_active ? '' : ' <span class="pill pill-off">INACTIVE</span>') + '</h3>' +
+            '<table><thead><tr><th>Region</th><th>Platform fee ($)</th><th>Free threshold</th><th>Per-student rate ($)</th><th>@ 200 students</th></tr></thead><tbody>' + rows + '</tbody></table>';
+          c.appendChild(wrap);
+        });
+
+        c.querySelectorAll('tr[data-plan]').forEach(function (tr) {
+          tr.querySelectorAll('input').forEach(function (input) {
+            input.addEventListener('input', function () { updateRowPreview(tr); });
+            input.addEventListener('blur', function () { savePrice(tr); });
+          });
+        });
+      }
+      function rowVals(tr) {
+        return {
+          base: tr.querySelector('[data-f="base"]').value,
+          thr: tr.querySelector('[data-f="thr"]').value,
+          rate: tr.querySelector('[data-f="rate"]').value,
+        };
+      }
+      function updateRowPreview(tr) {
+        var v = rowVals(tr);
+        tr.querySelector('[data-preview]').textContent = money(computeMonthly(v.base || 0, v.thr || 0, v.rate || 0, 200)) + '/mo';
+      }
+      async function savePrice(tr) {
+        var planId = parseInt(tr.getAttribute('data-plan'), 10);
+        var regionId = parseInt(tr.getAttribute('data-region'), 10);
+        var v = rowVals(tr);
+        if (v.base === '' && v.rate === '') return; // nothing meaningful entered yet
+        try {
+          var data = await api('/admin/dynamicPricing/planRegionPrices', {
+            plan_id: planId, region_id: regionId,
+            base_price_usd: v.base || 0,
+            free_student_threshold: v.thr || 0,
+            per_student_rate_usd: v.rate || 0,
+          });
+          PRICES = PRICES.filter(function (p) { return !(p.plan_id === planId && p.region_id === regionId); });
+          PRICES.push(data.price);
+          toast('Saved');
+        } catch (e) { toast(e.message, true); }
+      }
+
+      // ---- Section C: Cycles ---------------------------------------------
+      function renderCycles() {
+        var b = $('cyclesBody');
+        b.innerHTML = '';
+        CYCLES.forEach(function (cy) {
+          var tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td><code>' + esc(cy.cycle_key) + '</code></td>' +
+            '<td><input type="text" class="matrix-input" data-f="label" value="' + esc(cy.label) + '" /></td>' +
+            '<td><input type="number" min="1" class="matrix-input" data-f="months" value="' + cy.months + '" style="width:70px;" /></td>' +
+            '<td><input type="number" min="0" max="50" class="matrix-input" data-f="discount_percentage" value="' + cy.discount_percentage + '" style="width:70px;" />%</td>' +
+            '<td><input type="text" data-f="hint" value="' + esc(cy.hint || '') + '" /></td>' +
+            '<td><input type="checkbox" data-f="is_active"' + (cy.is_active ? ' checked' : '') + ' /></td>' +
+            '<td class="inline-form"><button class="btn btn-ghost btn-sm" data-save>Save</button><button class="btn btn-danger btn-sm" data-del>Delete</button></td>';
+          tr.querySelector('[data-save]').addEventListener('click', function () { saveCycle(cy.id, tr); });
+          tr.querySelector('[data-del]').addEventListener('click', function () { deleteCycle(cy.id); });
+          b.appendChild(tr);
+        });
+      }
+      async function saveCycle(id, tr) {
+        try {
+          await api('/admin/dynamicPricing/cycles/' + id, {
+            label: tr.querySelector('[data-f="label"]').value,
+            months: tr.querySelector('[data-f="months"]').value,
+            discount_percentage: tr.querySelector('[data-f="discount_percentage"]').value,
+            hint: tr.querySelector('[data-f="hint"]').value,
+            is_active: tr.querySelector('[data-f="is_active"]').checked,
+          });
+          var cy = CYCLES.filter(function (x) { return x.id === id; })[0];
+          if (cy) {
+            cy.label = tr.querySelector('[data-f="label"]').value;
+            cy.months = parseInt(tr.querySelector('[data-f="months"]').value, 10);
+            cy.discount_percentage = parseInt(tr.querySelector('[data-f="discount_percentage"]').value, 10);
+            cy.hint = tr.querySelector('[data-f="hint"]').value;
+            cy.is_active = tr.querySelector('[data-f="is_active"]').checked;
+          }
+          renderPreviewSelects();
+          toast('Cycle saved');
+        } catch (e) { toast(e.message, true); }
+      }
+      async function deleteCycle(id) {
+        if (!confirm('Delete this billing cycle?')) return;
+        try {
+          await api('/admin/dynamicPricing/cycles/' + id + '/delete', {});
+          CYCLES = CYCLES.filter(function (x) { return x.id !== id; });
+          renderCycles(); renderPreviewSelects();
+          toast('Cycle deleted');
+        } catch (e) { toast(e.message, true); }
+      }
+      $('addCycleBtn').addEventListener('click', async function () {
+        try {
+          var data = await api('/admin/dynamicPricing/cycles', {
+            cycle_key: $('cKey').value, label: $('cLabel').value, months: $('cMonths').value,
+            discount_percentage: $('cDiscount').value, hint: $('cHint').value, sort_order: $('cSort').value,
+          });
+          CYCLES.push(data.cycle);
+          $('cKey').value = ''; $('cLabel').value = ''; $('cHint').value = '';
+          renderCycles(); renderPreviewSelects();
+          toast('Cycle added');
+        } catch (e) { toast(e.message, true); }
+      });
+
+      // ---- Section D: Preview --------------------------------------------
+      function renderPreviewSelects() {
+        var country = $('pvCountry');
+        var current = country.value;
+        country.innerHTML = '<option value="">— Unmapped (uses default) —</option>';
+        Object.keys(COUNTRIES_BY_CONTINENT).forEach(function (cont) {
+          var grp = document.createElement('optgroup');
+          grp.label = cont;
+          COUNTRIES_BY_CONTINENT[cont].forEach(function (co) {
+            var o = document.createElement('option');
+            o.value = co.code; o.textContent = co.name;
+            grp.appendChild(o);
+          });
+          country.appendChild(grp);
+        });
+        country.value = current;
+
+        var plan = $('pvPlan');
+        plan.innerHTML = '';
+        PLANS.forEach(function (p) {
+          var o = document.createElement('option'); o.value = p.id; o.textContent = p.name; plan.appendChild(o);
+        });
+
+        var cyc = $('pvCycle');
+        var curCyc = cyc.value;
+        cyc.innerHTML = '';
+        CYCLES.filter(function (c) { return c.is_active; }).forEach(function (c) {
+          var o = document.createElement('option'); o.value = c.cycle_key; o.textContent = c.label; cyc.appendChild(o);
+        });
+        cyc.value = curCyc;
+      }
+      $('previewBtn').addEventListener('click', async function () {
+        var out = $('previewResult');
+        try {
+          var data = await api('/admin/dynamicPricing/preview', {
+            plan_id: $('pvPlan').value,
+            country_code: $('pvCountry').value,
+            student_count: $('pvStudents').value,
+            cycle_key: $('pvCycle').value,
+          });
+          if (!data.hasPrice) {
+            out.innerHTML = '<div class="preview-box"><div class="muted">Region: <strong>' + esc(data.region.name) + '</strong></div><div style="margin-top:6px;">' + esc(data.message) + '</div></div>';
+            return;
+          }
+          var m = data.monthly;
+          var html = '<div class="preview-box">' +
+            '<div class="muted" style="margin-bottom:8px;">Region: <strong>' + esc(data.region.name) + '</strong>' + (data.region.is_default ? ' (default)' : '') + ' &middot; ' + data.studentCount + ' students</div>' +
+            '<div class="line"><span>Platform fee</span><span>' + money(m.basePrice) + '</span></div>' +
+            '<div class="line"><span>Students billed (' + m.extraStudents + ' over ' + m.threshold + ' free &times; ' + money(m.perStudentRate) + ')</span><span>' + money(m.studentCost) + '</span></div>' +
+            '<div class="line total"><span>Monthly total</span><span>' + money(m.monthlyTotal) + '</span></div>';
+          if (data.cycleBreakdown) {
+            var cb = data.cycleBreakdown;
+            html += '<div style="margin-top:14px;" class="muted">Billed as <strong>' + esc(data.cycle.label) + '</strong> (' + cb.months + ' month' + (cb.months > 1 ? 's' : '') + ', ' + cb.discountPercentage + '% off)</div>' +
+              '<div class="line"><span>Before discount</span><span>' + money(cb.rawTotal) + '</span></div>' +
+              (cb.savings > 0 ? '<div class="line"><span>Savings</span><span>-' + money(cb.savings) + '</span></div>' : '') +
+              '<div class="line total"><span>Charged total</span><span>' + money(cb.finalTotal) + '</span></div>' +
+              '<div class="line muted"><span>Per-month equivalent</span><span>' + money(cb.perMonthEquivalent) + '/mo</span></div>';
+          }
+          html += '</div>';
+          out.innerHTML = html;
+        } catch (e) { out.innerHTML = '<div class="preview-box flash-error" style="border:none;">' + esc(e.message) + '</div>'; }
+      });
+
+      // ---- Init -----------------------------------------------------------
+      // When embedded inside the Service Pricing card (iframe), hide the duplicate
+      // page header/back link so it reads as an inline section.
+      try {
+        if (window.self !== window.top) {
+          document.body.classList.add('embedded');
+          var hdr = document.querySelector('.admin-header');
+          if (hdr) hdr.style.display = 'none';
+          var wrap = document.querySelector('.wrap');
+          if (wrap) wrap.style.margin = '8px auto';
+        }
+      } catch (e) { /* cross-origin: ignore */ }
+
+      renderRegions();
+      renderMatrix();
+      renderCycles();
+      renderPreviewSelects();
+    </script>
+  </body>
+</html>

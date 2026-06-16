@@ -377,7 +377,12 @@ async function documentationHelpfulVote(req, res) {
     }
 
     const counts = await recordHelpfulVote(articleId, vote, createFeedbackFingerprint(req), { database: db });
-    return res.json({ success: true, counts });
+    return res.json({
+      success: true,
+      counts,
+      helpfulYes: counts.helpfulYes,
+      helpfulNo: counts.helpfulNo,
+    });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Unable to record article feedback.' });
   }

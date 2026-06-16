@@ -57,6 +57,43 @@ function computeTierMonthlyPrice(planBasePrice, tier) {
   return Number(tier?.price_usd || 0);
 }
 
+async function getActiveDynamicCycleByKey(dbClient, cycleKey) {
+  if (!cycleKey) return null;
+  const result = await dbClient.query(
+    "SELECT * FROM dynamic_billing_cycles WHERE cycle_key = $1 AND is_active = TRUE LIMIT 1",
+    [cycleKey]
+  );
+  return result.rows[0] || null;
+}
+
+async function getDynamicTermDivider(dbClient) {
+  try {
+    const result = await dbClient.query(
+      "SELECT value FROM app_settings WHERE key = 'dynamic_term_divider' LIMIT 1"
+    );
+    const parsed = parseInt(result.rows?.[0]?.value, 10);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
+  } catch (_) {
+    return 1;
+  }
+}
+
+async function getDynamicRegionTermMonths(dbClient, regionId, fallback = 1) {
+  if (!Number.isInteger(Number(regionId))) {
+    return Math.max(1, Number(fallback) || 1);
+  }
+  try {
+    const result = await dbClient.query(
+      'SELECT value FROM app_settings WHERE key = $1 LIMIT 1',
+      [`dynamic_region_term_months_${Number(regionId)}`]
+    );
+    const parsed = parseInt(result.rows?.[0]?.value, 10);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : Math.max(1, Number(fallback) || 1);
+  } catch (_) {
+    return Math.max(1, Number(fallback) || 1);
+  }
+}
+
 function normalizeLoginReturnPath(returnTo) {
   if (typeof returnTo !== "string") return "";
   const trimmed = returnTo.trim();
@@ -237,6 +274,12 @@ const {
   upsertOrgPlatformFeeBearer,
   buildPlatformChargeBreakdown,
 } = require("../utils/platformFee");
+const {
+  computeDynamicMonthlyPrice,
+  applyCycle,
+  getRegionForCountry,
+  getPlanRegionPrice,
+} = require("../utils/dynamicPricing");
 const {
   WEEKDAY_OPTIONS,
   parseBoolean,
@@ -1223,33 +1266,21 @@ const accountController = {
       const currencyProfile = await getCurrencyProfileForRequest(req);
 
       const plansResult = await db.query(`
-
             SELECT p.id AS plan_id, p.plan_name, p.description, p.is_active, p.plan_name AS category,
-
             COALESCE(JSON_AGG(json_build_object('feature_name', f.feature_name) ORDER BY f.feature_name)
-
             FILTER (WHERE f.id IS NOT NULL), '[]') AS features,
-
             COALESCE(SUM(f.price_usd), 0) AS total_price
-
             FROM plans p
-
             LEFT JOIN plan_features pf ON p.id = pf.plan_id
-
             LEFT JOIN features f ON pf.feature_id = f.id
-
             WHERE p.is_active = TRUE
-
             GROUP BY p.id
-
             ORDER BY p.id;
-
             `);
 
       const plans = plansResult.rows
         .map((plan) => ({
           ...plan,
-
           total_price: parseFloat(plan.total_price) || 0,
         }))
         .map((plan) => {
@@ -1273,39 +1304,104 @@ const accountController = {
       const premiumPlanName = null;
       const trialEligible = true;
 
-      // Fetch active billing periods for period selector
+      // Prefer dynamic billing cycles on live service-plan; fall back to legacy billing_periods.
       let billingPeriods = [];
       try {
-        const bpResult = await db.query('SELECT * FROM billing_periods WHERE is_active = TRUE ORDER BY sort_order');
-        billingPeriods = bpResult.rows || [];
+        const cyclesResult = await db.query(
+          "SELECT cycle_key AS period_key, label, months, discount_percentage, sort_order FROM dynamic_billing_cycles WHERE is_active = TRUE ORDER BY sort_order, months"
+        );
+        billingPeriods = cyclesResult.rows || [];
       } catch (err) {
-        billingPeriods = [{ period_key: 'monthly', label: 'Monthly', months: 1, discount_percentage: 0 }];
+      }
+      if (!billingPeriods.length) {
+        try {
+          const bpResult = await db.query('SELECT * FROM billing_periods WHERE is_active = TRUE ORDER BY sort_order');
+          billingPeriods = bpResult.rows || [];
+        } catch (err) {
+          billingPeriods = [{ period_key: 'monthly', label: 'Monthly', months: 1, discount_percentage: 0 }];
+        }
       }
 
-      // Fetch student count tiers per plan
+      const countryCode = currencyProfile?.countryCode || null;
+      const dynamicRegion = await getRegionForCountry(db, countryCode).catch(() => null);
+      const dynamicTermDivider = await getDynamicTermDivider(db);
+      const dynamicRegionTermMonths = dynamicRegion
+        ? await getDynamicRegionTermMonths(db, Number(dynamicRegion.id), dynamicTermDivider)
+        : dynamicTermDivider;
+
+      // Build student-size choices and default display from dynamic pricing rows.
       let studentTiersByPlan = {};
+      const dynamicPriceMetaByPlan = {};
       const lowestTierPriceByPlan = new Map();
-      try {
-        const tiersResult = await db.query('SELECT * FROM plan_student_tiers ORDER BY plan_id, sort_order, min_students');
-        const planBasePriceById = new Map(plans.map((plan) => [String(plan.plan_id), Number(plan.total_price || 0)]));
-        (tiersResult.rows || []).forEach(tier => {
-          if (!studentTiersByPlan[tier.plan_id]) studentTiersByPlan[tier.plan_id] = [];
-          const usd = computeTierMonthlyPrice(planBasePriceById.get(String(tier.plan_id)), tier);
-          const currentLowest = lowestTierPriceByPlan.get(String(tier.plan_id));
-          if (currentLowest == null || usd < currentLowest) {
-            lowestTierPriceByPlan.set(String(tier.plan_id), usd);
-          }
-          const loc = localizeUsdAmount(usd, currencyProfile);
-          studentTiersByPlan[tier.plan_id].push({
-            ...tier,
-            adjustment_percentage: tier.adjustment_percentage != null ? Number(tier.adjustment_percentage) : null,
-            computed_price_usd: usd,
-            priceUsdDisplay: formatCurrencyAmount(loc.amountUsd, "USD"),
-            localizedPriceDisplay: formatCurrencyAmount(loc.localizedAmount, loc.userCurrency, currencyProfile.locale),
+      let usedDynamicPricing = false;
+
+      if (dynamicRegion) {
+        await Promise.all(
+          plans.map(async (plan) => {
+            const row = await getPlanRegionPrice(db, plan.plan_id, dynamicRegion.id).catch(() => null);
+            if (!row) return;
+
+            usedDynamicPricing = true;
+            const threshold = Math.max(0, Number(row.free_student_threshold) || 0);
+            dynamicPriceMetaByPlan[plan.plan_id] = {
+              basePriceUsd: Number(row.base_price_usd || 0),
+              freeStudentThreshold: threshold,
+              perStudentRateUsd: Number(row.per_student_rate_usd || 0),
+              monthsPerTerm: dynamicRegionTermMonths,
+            };
+            const makeTier = (idSuffix, minStudents, maxStudents, sampleCount) => {
+              const monthly = computeDynamicMonthlyPrice(row, sampleCount, {
+                termDivider: dynamicRegionTermMonths,
+              });
+              const loc = localizeUsdAmount(monthly.monthlyTotal, currencyProfile);
+              return {
+                id: `dyn_${plan.plan_id}_${idSuffix}`,
+                plan_id: plan.plan_id,
+                min_students: minStudents,
+                max_students: maxStudents,
+                computed_price_usd: monthly.monthlyTotal,
+                priceUsdDisplay: formatCurrencyAmount(loc.amountUsd, "USD"),
+                localizedPriceDisplay: formatCurrencyAmount(loc.localizedAmount, loc.userCurrency, currencyProfile.locale),
+              };
+            };
+
+            const tiers = [
+              makeTier('a', 0, threshold, threshold),
+              makeTier('b', threshold + 1, threshold + 100, threshold + 100),
+              makeTier('c', threshold + 101, threshold + 300, threshold + 250),
+              makeTier('d', threshold + 301, null, threshold + 500),
+            ];
+
+            studentTiersByPlan[plan.plan_id] = tiers;
+            lowestTierPriceByPlan.set(String(plan.plan_id), Number(row.base_price_usd || 0));
+          })
+        );
+      }
+
+      // Legacy fallback if dynamic rows are not configured.
+      if (!usedDynamicPricing) {
+        try {
+          const tiersResult = await db.query('SELECT * FROM plan_student_tiers ORDER BY plan_id, sort_order, min_students');
+          const planBasePriceById = new Map(plans.map((plan) => [String(plan.plan_id), Number(plan.total_price || 0)]));
+          (tiersResult.rows || []).forEach(tier => {
+            if (!studentTiersByPlan[tier.plan_id]) studentTiersByPlan[tier.plan_id] = [];
+            const usd = computeTierMonthlyPrice(planBasePriceById.get(String(tier.plan_id)), tier);
+            const currentLowest = lowestTierPriceByPlan.get(String(tier.plan_id));
+            if (currentLowest == null || usd < currentLowest) {
+              lowestTierPriceByPlan.set(String(tier.plan_id), usd);
+            }
+            const loc = localizeUsdAmount(usd, currencyProfile);
+            studentTiersByPlan[tier.plan_id].push({
+              ...tier,
+              adjustment_percentage: tier.adjustment_percentage != null ? Number(tier.adjustment_percentage) : null,
+              computed_price_usd: usd,
+              priceUsdDisplay: formatCurrencyAmount(loc.amountUsd, "USD"),
+              localizedPriceDisplay: formatCurrencyAmount(loc.localizedAmount, loc.userCurrency, currencyProfile.locale),
+            });
           });
-        });
-      } catch (err) {
-        // Table may not exist yet
+        } catch (err) {
+          // Table may not exist yet
+        }
       }
 
       const plansWithDefaultDisplayPrice = plans.map((plan) => {
@@ -1340,6 +1436,9 @@ const accountController = {
         currencyProfile,
         billingPeriods,
         studentTiersByPlan,
+        dynamicPriceMetaByPlan,
+        dynamicPricingApplied: usedDynamicPricing,
+        dynamicPricingRegion: dynamicRegion,
         paystackChargeCurrency: "GHS",
 
         showFooterTopSection: true,
@@ -1359,11 +1458,9 @@ const accountController = {
 
       return res.redirect("/account/service-plan");
     }
-    // Fetch plan details from DB for price
-
+    // Fetch plan details from DB for fallback/base validation.
     const planQuery = await db.query(
       "SELECT id, total_cost FROM plans WHERE plan_name = $1 AND id = $2",
-
       [plan, plan_id]
     );
 
@@ -1374,18 +1471,51 @@ const accountController = {
     }
 
     let totalCost = Number(planQuery.rows[0].total_cost);
+    let monthlyPrice = totalCost;
     let selectedTierId = null;
     let approxCount = null;
+    let dynamicPricingApplied = false;
+    let dynamicRegionId = null;
+    let dynamicRegionName = null;
 
-    // If a student tier is selected, use its price instead
-    if (student_tier_id) {
+    const requestedCount = parseInt(approx_student_count, 10);
+    approxCount = Number.isInteger(requestedCount) && requestedCount >= 0 ? requestedCount : null;
+
+    // Dynamic pricing first: region + plan-region row + student count.
+    try {
+      const currencyProfile = await getCurrencyProfileForRequest(req);
+      const dynamicTermDivider = await getDynamicTermDivider(db);
+      const region = await getRegionForCountry(db, currencyProfile?.countryCode || null);
+      if (region) {
+        const row = await getPlanRegionPrice(db, Number(plan_id), region.id);
+        if (row) {
+          const dynamicRegionTermMonths = await getDynamicRegionTermMonths(db, Number(region.id), dynamicTermDivider);
+          const threshold = Math.max(0, Number(row.free_student_threshold) || 0);
+          const effectiveCount = approxCount != null ? approxCount : threshold;
+          const monthly = computeDynamicMonthlyPrice(row, effectiveCount, {
+            termDivider: dynamicRegionTermMonths,
+          });
+          monthlyPrice = Number(monthly?.monthlyTotal || 0);
+          dynamicPricingApplied = true;
+          dynamicRegionId = region.id;
+          dynamicRegionName = region.name;
+          selectedTierId = null;
+          approxCount = effectiveCount;
+        }
+      }
+    } catch (err) {
+      // Continue to legacy fallback.
+    }
+
+    // Legacy fallback: if no dynamic row applied, keep original tier behavior.
+    if (!dynamicPricingApplied && student_tier_id) {
       try {
         const tierQuery = await db.query(
           'SELECT id, price_usd, adjustment_percentage, plan_id FROM plan_student_tiers WHERE id = $1 AND plan_id = $2',
           [student_tier_id, plan_id]
         );
         if (tierQuery.rows.length > 0) {
-          totalCost = computeTierMonthlyPrice(totalCost, tierQuery.rows[0]);
+          monthlyPrice = computeTierMonthlyPrice(monthlyPrice, tierQuery.rows[0]);
           selectedTierId = tierQuery.rows[0].id;
           approxCount = parseInt(approx_student_count, 10) || null;
         }
@@ -1394,27 +1524,36 @@ const accountController = {
       }
     }
 
-    // Validate and fetch the billing period
+    // Validate and fetch the billing period (dynamic cycles first, then legacy billing_periods).
     const selectedPeriodKey = billing_period || 'monthly';
     let billingPeriodData = { period_key: 'monthly', months: 1, discount_percentage: 0, label: 'Monthly' };
     try {
-      const bpResult = await db.query(
-        'SELECT * FROM billing_periods WHERE period_key = $1 AND is_active = TRUE',
-        [selectedPeriodKey]
-      );
-      if (bpResult.rows.length > 0) {
-        billingPeriodData = bpResult.rows[0];
+      const dynamicCycle = await getActiveDynamicCycleByKey(db, selectedPeriodKey);
+      if (dynamicCycle) {
+        billingPeriodData = {
+          period_key: dynamicCycle.cycle_key,
+          label: dynamicCycle.label,
+          months: dynamicCycle.months,
+          discount_percentage: dynamicCycle.discount_percentage,
+        };
+      } else {
+        const bpResult = await db.query(
+          'SELECT * FROM billing_periods WHERE period_key = $1 AND is_active = TRUE',
+          [selectedPeriodKey]
+        );
+        if (bpResult.rows.length > 0) {
+          billingPeriodData = bpResult.rows[0];
+        }
       }
     } catch (err) {
       // fallback to monthly
     }
 
-    // Calculate discounted total for the period
-    const monthlyPrice = totalCost;
-    const periodMonths = billingPeriodData.months;
-    const discountPct = billingPeriodData.discount_percentage || 0;
-    const rawTotal = monthlyPrice * periodMonths;
-    const periodTotal = discountPct > 0 ? rawTotal * (1 - discountPct / 100) : rawTotal;
+    // Calculate cycle total.
+    const cycleBreakdown = applyCycle(monthlyPrice, billingPeriodData);
+    const periodMonths = Number(cycleBreakdown.months) || 1;
+    const discountPct = Number(cycleBreakdown.discountPercentage) || 0;
+    const periodTotal = Number(cycleBreakdown.finalTotal) || monthlyPrice;
 
     // Store the plan choice until registration is completed
     req.session.planSelection = {
@@ -1429,6 +1568,9 @@ const accountController = {
       trialRequested: parseTruthyFlag(req.body.trialRequested),
       selectedTierId,
       approxStudentCount: approxCount,
+      dynamicPricingApplied,
+      dynamicRegionId,
+      dynamicRegionName,
     };
 
     req.flash("success", "Plan selected. Please complete registration.");
@@ -1867,8 +2009,9 @@ const accountController = {
       }
       isTrialCheckout = freeTrialEnabled === "true" && !!freeTrialDays;
 
-      // Calculate amount based on free trial settings
-      const planMonthlyPrice = Number(planResult.rows[0].total_price) || 0;
+      // Calculate amount based on the already selected plan pricing from session
+      // (dynamic pricing and cycle discounts are resolved during servicePlanPost).
+      const planMonthlyPrice = Number(registrationDetails.monthlyPrice || planResult.rows[0].total_price || 0);
 
       // Use billing period from session (set during plan selection)
       const billingPeriodKey = registrationDetails.billingPeriodKey || 'monthly';
@@ -1876,11 +2019,12 @@ const accountController = {
       const billingPeriodDiscount = Number(registrationDetails.billingPeriodDiscount) || 0;
       const billingPeriodLabel = registrationDetails.billingPeriodLabel || 'Monthly';
 
-      // Calculate period-aware price
+      // Use the persisted cycle total from selection to avoid any drift.
       const rawPeriodTotal = planMonthlyPrice * billingPeriodMonths;
-      const planPrice = billingPeriodDiscount > 0
+      const computedPlanPrice = billingPeriodDiscount > 0
         ? rawPeriodTotal * (1 - billingPeriodDiscount / 100)
         : rawPeriodTotal;
+      const planPrice = Number(registrationDetails.totalCost || computedPlanPrice || 0);
 
       const localizedPlan = localizeUsdAmount(planPrice, currencyProfile);
       const ghsChargeBase =

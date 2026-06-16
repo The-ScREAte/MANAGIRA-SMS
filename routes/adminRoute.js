@@ -383,6 +383,20 @@ module.exports = (db) => {
     router.post('/deleteStudentTier', ensureAdmin, adminController.deleteStudentTier);
     router.get('/getStudentTiers', ensureAdmin, adminController.getStudentTiers);
 
+    // ============================================================
+    // Dynamic Pricing v2 (Beta) — parallel routes, isolated from the live system
+    // ============================================================
+    router.get('/dynamicPricing', ensureAdmin, adminController.dynamicPricingGet);
+    router.post('/dynamicPricing/regions', ensureAdmin, adminController.createRegion);
+    router.post('/dynamicPricing/regions/:id', ensureAdmin, adminController.updateRegion);
+    router.post('/dynamicPricing/regions/:id/delete', ensureAdmin, adminController.deleteRegion);
+    router.post('/dynamicPricing/planRegionPrices', ensureAdmin, adminController.upsertPlanRegionPrice);
+    router.post('/dynamicPricing/cycles', ensureAdmin, adminController.createDynamicCycle);
+    router.post('/dynamicPricing/cycles/:id', ensureAdmin, adminController.updateDynamicCycle);
+    router.post('/dynamicPricing/cycles/:id/delete', ensureAdmin, adminController.deleteDynamicCycle);
+    router.post('/dynamicPricing/termMonths', ensureAdmin, adminController.updateDynamicTermMonths);
+    router.post('/dynamicPricing/preview', ensureAdmin, adminController.previewDynamicPrice);
+
     router.post("/deleteFeature", ensureAdmin, adminController.deleteFeature);
 
     router.get('/data-export', ensureAdmin, adminController.dataExportPage);
