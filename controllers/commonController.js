@@ -2393,6 +2393,7 @@ const commonController = {
       const structuredData = structuredDataSchema;
 
       res.render("common/publicDashboard", {
+        layout: false,
         title: seoTitle,
         description: seoDescription,
         keywords: seoKeywords,

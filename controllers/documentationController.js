@@ -121,13 +121,6 @@ function buildDocumentationSearchResources(resources = []) {
       external: false,
       keywords: ['demo', 'request', 'sales', 'live demo', 'schedule', 'book'],
     },
-    {
-      title: 'Interactive App Demo',
-      subtitle: 'Explore the visual product tour',
-      url: '/legal/app-demo',
-      external: false,
-      keywords: ['app demo', 'product tour', 'preview', 'see app', 'try'],
-    },
   ]);
 }
 

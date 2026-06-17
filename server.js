@@ -739,31 +739,57 @@ app.get("/health", (req, res) => {
   });
 });
 
+const fetchSitemapOrganizations = async () => {
+  const result = await db.query(
+    `SELECT o.organization_id, o.nickname, o.updated_at
+       FROM organizations o
+       LEFT JOIN managira_hubs mh ON o.hub_id = mh.hub_id
+      WHERE o.deleted = false
+        AND o.nickname IS NOT NULL
+        AND o.nickname <> ''
+        AND COALESCE(mh.on_hold, false) = false
+      ORDER BY o.organization_name ASC
+      LIMIT 5000`
+  );
+  return result.rows;
+};
+
+// Sitemap index for school subdomain sitemaps. This is an extra discovery layer
+// that helps crawlers find each school sitemap quickly.
+app.get("/sitemap-schools-index.xml", async (req, res) => {
+  try {
+    const organizations = await fetchSitemapOrganizations();
+    const today = new Date().toISOString().split("T")[0];
+
+    const sitemapEntries = organizations.map((org) => {
+      const lastmod = org.updated_at
+        ? new Date(org.updated_at).toISOString().split("T")[0]
+        : today;
+
+      return `  <sitemap>\n    <loc>https://${escapeXml(org.nickname)}.managira.com/sitemap.xml</loc>\n    <lastmod>${lastmod}</lastmod>\n  </sitemap>`;
+    });
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${sitemapEntries.join("\n")}
+</sitemapindex>`;
+
+    res.setHeader("Content-Type", "application/xml");
+    res.setHeader("Cache-Control", "public, max-age=300");
+    res.send(xml);
+  } catch (err) {
+    console.error("[sitemap-schools-index] Error generating school sitemap index:", err.message);
+    res.status(500).send("<?xml version=\"1.0\" encoding=\"UTF-8\"?><sitemapindex xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\"></sitemapindex>");
+  }
+});
+
 // Dynamic sitemap for all school public pages
 app.get("/sitemap-schools.xml", async (req, res) => {
   try {
-    const result = await db.query(
-      `SELECT o.organization_id, o.nickname, o.updated_at
-       FROM organizations o
-       LEFT JOIN managira_hubs mh ON o.hub_id = mh.hub_id
-       WHERE o.deleted = false
-         AND o.nickname IS NOT NULL
-         AND o.nickname <> ''
-         AND COALESCE(mh.on_hold, false) = false
-         AND EXISTS (
-           SELECT 1
-           FROM plan_features pf
-           JOIN features f ON f.id = pf.feature_id
-           WHERE pf.plan_id = COALESCE(mh.plan_id, o.plan_id)
-             AND LOWER(TRIM(f.feature_name)) = 'school website'
-           LIMIT 1
-         )
-       ORDER BY o.organization_name ASC
-       LIMIT 5000`
-    );
+    const organizations = await fetchSitemapOrganizations();
 
     const today = new Date().toISOString().split("T")[0];
-    const urls = result.rows.map((org) => {
+    const urls = organizations.map((org) => {
       const lastmod = org.updated_at
         ? new Date(org.updated_at).toISOString().split("T")[0]
         : today;
@@ -781,7 +807,7 @@ ${urls.join("\n")}
 </urlset>`;
 
     res.setHeader("Content-Type", "application/xml");
-    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.setHeader("Cache-Control", "public, max-age=300");
     res.send(xml);
   } catch (err) {
     console.error("[sitemap-schools] Error generating school sitemap:", err.message);
