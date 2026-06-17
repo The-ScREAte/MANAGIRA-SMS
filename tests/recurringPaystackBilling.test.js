@@ -2,24 +2,23 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 
-// These tests exercise the Paystack runtime code path. The app-wide kill
-// switch (utils/paystackEnabled.js) defaults to OFF, so enable Paystack here
-// for the duration of this test file.
-process.env.PAYSTACK_ENABLED = 'true';
-
 const recurringModulePath = path.resolve(__dirname, '../jobs/recurringPaystackBilling.js');
 const dbModulePath = path.resolve(__dirname, '../config/db.js');
-const paystackConfigModulePath = path.resolve(__dirname, '../utils/paystackConfig.js');
+const stripeConfigModulePath = path.resolve(__dirname, '../utils/stripeConfig.js');
+const orgChargeCardsModulePath = path.resolve(__dirname, '../utils/orgChargeCards.js');
+const dynamicPricingModulePath = path.resolve(__dirname, '../utils/dynamicPricing.js');
+const paymentProviderSchemaModulePath = path.resolve(__dirname, '../utils/paymentProviderSchema.js');
 const emailHelperModulePath = path.resolve(__dirname, '../utils/emailHelper.js');
-const axiosModulePath = require.resolve('axios');
 const dotenvModulePath = require.resolve('dotenv');
 
 function withMockedModules(mocks) {
   const replacements = new Map([
     [dbModulePath, mocks.db],
-    [paystackConfigModulePath, mocks.paystackConfig],
+    [stripeConfigModulePath, mocks.stripeConfig],
+    [orgChargeCardsModulePath, mocks.orgChargeCards],
+    [dynamicPricingModulePath, mocks.dynamicPricing],
+    [paymentProviderSchemaModulePath, mocks.paymentProviderSchema],
     [emailHelperModulePath, mocks.emailHelper],
-    [axiosModulePath, mocks.axios],
     [dotenvModulePath, { config: () => ({ parsed: {} }) }],
   ]);
   const originals = new Map();
@@ -57,12 +56,11 @@ function createHarness(options = {}) {
   const emails = [];
   const charges = [];
   const orgsDueRows = options.orgsDueRows || [];
+  const upcomingOrgsRows = options.upcomingOrgsRows || [];
   const allOrgsRows = options.allOrgsRows || [];
   const orgChargeCardsRows = options.orgChargeCardsRows || [];
-  const planTotalCost = options.planTotalCost ?? 100;
-  const studentCount = options.studentCount ?? 0;
-  const billingPeriod = options.billingPeriod || { months: 1, discount_percentage: 0 };
-  const tiers = options.tiers || [];
+  const planTotalCost = Number(options.planTotalCost ?? 100);
+  const studentCount = Number(options.studentCount ?? 0);
   const failureAttemptsReturn = options.failureAttemptsReturn ?? 1;
 
   const db = {
@@ -88,61 +86,67 @@ function createHarness(options = {}) {
         return { rows: [] };
       }
 
+      if (sql.includes('CREATE TABLE IF NOT EXISTS billing_invoices')
+        || sql.includes('CREATE UNIQUE INDEX IF NOT EXISTS billing_invoices_unique_precharge_idx')) {
+        return { rows: [] };
+      }
+
       if (sql.includes("SELECT value FROM app_settings WHERE key = 'billing_interval'")) {
         return { rows: [{ value: 'monthly' }] };
+      }
+
+      if (sql.includes("SELECT value FROM app_settings WHERE key = 'dynamic_term_divider'")) {
+        return { rows: [{ value: '1' }] };
+      }
+
+      if (sql.includes('SELECT value FROM app_settings WHERE key = $1')) {
+        return { rows: [] };
+      }
+
+      if (sql.includes('FROM dynamic_billing_cycles')) {
+        return { rows: [] };
+      }
+
+      if (sql.includes('FROM organizations o') && sql.includes('JOIN payments p') && sql.includes("p.next_payment_end_date > NOW() + interval '23 hours'")) {
+        return { rows: upcomingOrgsRows };
       }
 
       if (sql.includes('FROM organizations o') && sql.includes('JOIN payments p')) {
         return { rows: orgsDueRows };
       }
 
-      if (sql.includes('FROM stored_cards') && sql.includes('fallback_order')) {
-        if (orgChargeCardsRows.length) {
-          return { rows: orgChargeCardsRows };
-        }
-
-        const fallbackRows = orgsDueRows
-          .filter((row) => row.authorization_code)
-          .map((row, index) => ({
-            id: index + 1,
-            authorization_code: row.authorization_code,
-            provider: row.billing_provider || 'paystack',
-            card_type: 'visa',
-            last4: String(index).padStart(4, '0'),
-            exp_month: '12',
-            exp_year: '30',
-            is_primary: index === 0,
-            fallback_order: index === 0 ? 0 : index,
-          }));
-
-        return { rows: fallbackRows };
-      }
-
       if (sql.includes('LEFT JOIN payments p ON o.organization_id = p.organization_id')) {
         return { rows: allOrgsRows };
-      }
-
-      if (sql.includes('SELECT total_cost FROM plans WHERE id = $1')) {
-        return { rows: [{ total_cost: planTotalCost }] };
       }
 
       if (sql.includes('SELECT COUNT(*) AS cnt FROM students WHERE organization_id = $1')) {
         return { rows: [{ cnt: String(studentCount) }] };
       }
 
-      if (sql.includes('FROM plan_student_tiers')) {
-        return { rows: tiers };
+      if (sql.includes('SELECT pg_try_advisory_lock')) {
+        return { rows: [{ locked: true }] };
       }
 
-      if (sql.includes('SELECT months, discount_percentage FROM billing_periods')) {
-        return { rows: [billingPeriod] };
+      if (sql.includes('SELECT pg_advisory_unlock')) {
+        return { rows: [{ pg_advisory_unlock: true }] };
       }
 
-      if (sql.includes('UPDATE organizations') && sql.includes('selected_student_tier_id = $1')) {
-        return { rows: [] };
+      if (sql.includes('FROM payments') && sql.includes('ORDER BY created_at DESC')) {
+        const orgId = Number(params[0]);
+        const org = orgsDueRows.find((row) => Number(row.organization_id) === orgId);
+        return {
+          rows: [{
+            status: 'active',
+            next_payment_end_date: org?.next_payment_end_date || new Date('2026-04-01T00:00:00Z'),
+          }],
+        };
       }
 
-      if (sql.includes('UPDATE organizations') && sql.includes('selected_student_tier_id = NULL')) {
+      if (sql.includes('INSERT INTO billing_invoices')) {
+        return { rows: [{ id: 1, email_sent_at: options.prechargeEmailSentAt || null }] };
+      }
+
+      if (sql.includes('UPDATE billing_invoices')) {
         return { rows: [] };
       }
 
@@ -158,27 +162,73 @@ function createHarness(options = {}) {
         return { rows: [{ failed_attempts: failureAttemptsReturn }] };
       }
 
-      if (sql.includes('UPDATE organizations SET student_tier_exceeded_notified = true')) {
-        return { rows: [] };
-      }
-
       throw new Error(`Unhandled query: ${sql}`);
     },
   };
 
-  const axios = {
-    async post(url, payload) {
-      charges.push({ url, payload });
-      if (options.chargeError) {
-        throw options.chargeError;
+  const stripeConfig = {
+    getStripeChargeCurrency() {
+      return 'usd';
+    },
+    async getStripeClient() {
+      if (options.stripeClientError) {
+        throw options.stripeClientError;
       }
-      return options.chargeResponse || { data: { status: true } };
+      return {
+        paymentIntents: {
+          create: async (payload) => {
+            charges.push({ payload });
+            if (options.chargeError) throw options.chargeError;
+            if (typeof options.chargeResolver === 'function') {
+              return options.chargeResolver(payload);
+            }
+            return { id: `pi_${charges.length}`, status: 'succeeded' };
+          },
+        },
+      };
     },
   };
 
-  const paystackConfig = {
-    async getPaystackSettings() {
-      return { activeSecretKey: 'test-secret' };
+  const orgChargeCards = {
+    async getOrgChargeCards() {
+      if (orgChargeCardsRows.length) return orgChargeCardsRows;
+      return orgsDueRows
+        .filter((row) => row.authorization_code)
+        .map((row, index) => ({
+          id: index + 1,
+          authorization_code: row.authorization_code,
+          provider: 'stripe',
+          card_type: 'visa',
+          last4: String(index + 1).padStart(4, '0'),
+          exp_month: '12',
+          exp_year: '30',
+          is_primary: index === 0,
+          fallback_order: index,
+        }));
+    },
+  };
+
+  const dynamicPricing = {
+    async getRegionForCountry() {
+      return { id: 1 };
+    },
+    async getPlanRegionPrice() {
+      return { effective_amount: planTotalCost };
+    },
+    computeDynamicMonthlyPrice() {
+      return { monthlyTotal: planTotalCost };
+    },
+    applyCycle(monthlyPrice, periodConfig = {}) {
+      const months = Number(periodConfig.months) || 1;
+      const discount = Number(periodConfig.discount_percentage) || 0;
+      const gross = Number(monthlyPrice || 0) * months;
+      return { months, finalTotal: gross * (1 - discount / 100) };
+    },
+  };
+
+  const paymentProviderSchema = {
+    async ensurePaymentProviderSchema() {
+      return undefined;
     },
   };
 
@@ -191,71 +241,64 @@ function createHarness(options = {}) {
     },
   };
 
-  return { queries, emails, charges, db, axios, paystackConfig, emailHelper };
+  return {
+    queries,
+    emails,
+    charges,
+    db,
+    stripeConfig,
+    orgChargeCards,
+    dynamicPricing,
+    paymentProviderSchema,
+    emailHelper,
+  };
 }
 
-test('recurring billing recalculates tier from live student count and resets failure tracking after a successful recharge', async () => {
-  const originalAdminEmail = process.env.ADMIN_EMAIL;
-  process.env.ADMIN_EMAIL = 'admin@example.com';
-
+test('recurring billing charges via stripe and resets failure tracking on success', async () => {
   const harness = createHarness({
     studentCount: 250,
-    planTotalCost: 100,
-    tiers: [
-      { id: 1, label: 'Small', min_students: 0, max_students: 100, price_usd: 100, adjustment_percentage: 0 },
-      { id: 2, label: 'Medium', min_students: 101, max_students: 300, price_usd: 150, adjustment_percentage: 50 },
-    ],
+    planTotalCost: 150,
+    prechargeEmailSentAt: new Date(),
     orgsDueRows: [
       {
         organization_id: 7,
         email: 'school@example.com',
         organization_name: 'School One',
         plan_id: 3,
-        authorization_code: 'AUTH_123',
+        authorization_code: 'pm_123',
+        stripe_customer_id: 'cus_123',
         next_payment_end_date: new Date('2026-04-01T00:00:00Z'),
         trial_active_until: null,
         billing_period_key: 'monthly',
         pending_plan_id: null,
         pending_plan_effective_date: null,
-        selected_student_tier_id: 1,
-        approx_student_count: 90,
-        tier_price_usd: 100,
-        tier_adjustment_percentage: 0,
-        tier_max_students: 100,
-        tier_label: 'Small',
-        student_tier_exceeded_notified: false,
       },
     ],
   });
 
   const loader = withMockedModules(harness);
-
   try {
     await loader.runRecurringBilling();
   } finally {
     loader.restore();
-    process.env.ADMIN_EMAIL = originalAdminEmail;
   }
 
-  const dueQuery = harness.queries.find((entry) => entry.sql.includes('JOIN payments p') && entry.sql.includes('WHERE'));
+  const dueQuery = harness.queries.find((entry) =>
+    entry.sql.includes('JOIN payments p')
+    && entry.sql.includes('COALESCE(p.failed_attempts, 0) < 4')
+  );
   assert.ok(dueQuery.sql.includes("COALESCE(p.failed_attempts, 0) < 4"));
   assert.ok(dueQuery.sql.includes("interval '4 days'"));
 
   assert.equal(harness.charges.length, 1);
-  assert.equal(harness.charges[0].url, 'https://api.paystack.co/transaction/charge_authorization');
   assert.equal(harness.charges[0].payload.amount, 15000);
-  assert.equal(harness.charges[0].payload.authorization_code, 'AUTH_123');
-
-  const orgTierUpdate = harness.queries.find((entry) => entry.sql.includes('SET selected_student_tier_id = $1'));
-  assert.deepEqual(orgTierUpdate.params, [2, 250, false, 7]);
+  assert.equal(harness.charges[0].payload.payment_method, 'pm_123');
 
   const paymentSuccessUpdate = harness.queries.find((entry) => entry.sql.includes("failed_attempts = 0"));
   assert.deepEqual(paymentSuccessUpdate.params, [150, 7]);
-
-  assert.equal(harness.emails.length, 0);
 });
 
-test('recurring billing puts the organization on hold after the fourth failed charge attempt', async () => {
+test('recurring billing puts organization on hold after the fourth failed charge attempt', async () => {
   const originalAdminEmail = process.env.ADMIN_EMAIL;
   process.env.ADMIN_EMAIL = 'admin@example.com';
 
@@ -263,33 +306,30 @@ test('recurring billing puts the organization on hold after the fourth failed ch
     studentCount: 40,
     planTotalCost: 80,
     failureAttemptsReturn: 4,
-    tiers: [],
-    chargeResponse: { data: { status: false, message: 'Card declined' } },
+    prechargeEmailSentAt: new Date(),
+    chargeResolver: async () => ({
+      id: 'pi_fail_11',
+      status: 'requires_payment_method',
+      last_payment_error: { message: 'Card declined' },
+    }),
     orgsDueRows: [
       {
         organization_id: 11,
         email: 'billing@example.com',
         organization_name: 'Retry Academy',
         plan_id: 5,
-        authorization_code: 'AUTH_FAIL',
+        authorization_code: 'pm_fail',
+        stripe_customer_id: 'cus_fail_11',
         next_payment_end_date: new Date('2026-04-01T00:00:00Z'),
         trial_active_until: null,
         billing_period_key: 'monthly',
         pending_plan_id: null,
         pending_plan_effective_date: null,
-        selected_student_tier_id: null,
-        approx_student_count: 40,
-        tier_price_usd: null,
-        tier_adjustment_percentage: null,
-        tier_max_students: null,
-        tier_label: null,
-        student_tier_exceeded_notified: false,
       },
     ],
   });
 
   const loader = withMockedModules(harness);
-
   try {
     await loader.runRecurringBilling();
   } finally {
@@ -316,32 +356,25 @@ test('recurring billing skips charging organizations whose trial is still active
   const harness = createHarness({
     studentCount: 60,
     planTotalCost: 80,
-    tiers: [],
+    prechargeEmailSentAt: new Date(),
     orgsDueRows: [
       {
         organization_id: 21,
         email: 'trial@example.com',
         organization_name: 'Trial School',
         plan_id: 9,
-        authorization_code: 'AUTH_TRIAL',
+        authorization_code: 'pm_trial',
+        stripe_customer_id: 'cus_trial_21',
         next_payment_end_date: new Date('2026-04-01T00:00:00Z'),
         trial_active_until: new Date('2099-01-01T00:00:00Z'),
         billing_period_key: 'monthly',
         pending_plan_id: null,
         pending_plan_effective_date: null,
-        selected_student_tier_id: null,
-        approx_student_count: 60,
-        tier_price_usd: null,
-        tier_adjustment_percentage: null,
-        tier_max_students: null,
-        tier_label: null,
-        student_tier_exceeded_notified: false,
       },
     ],
   });
 
   const loader = withMockedModules(harness);
-
   try {
     await loader.runRecurringBilling();
   } finally {
@@ -349,101 +382,34 @@ test('recurring billing skips charging organizations whose trial is still active
   }
 
   assert.equal(harness.charges.length, 0);
-  assert.equal(harness.emails.length, 0);
-
   const paymentUpdates = harness.queries.filter((entry) => entry.sql.includes('UPDATE payments'));
   assert.equal(paymentUpdates.length, 0);
 });
 
-test('recurring billing sends the growth notification when live student count exceeds the highest configured tier', async () => {
-  const harness = createHarness({
-    studentCount: 350,
-    planTotalCost: 100,
-    tiers: [
-      { id: 1, label: 'Small', min_students: 0, max_students: 100, price_usd: 100, adjustment_percentage: 0 },
-      { id: 2, label: 'Large', min_students: 101, max_students: 300, price_usd: 160, adjustment_percentage: 60 },
-    ],
-    orgsDueRows: [
-      {
-        organization_id: 31,
-        email: 'growth@example.com',
-        organization_name: 'Growth School',
-        plan_id: 12,
-        authorization_code: 'AUTH_GROWTH',
-        next_payment_end_date: new Date('2026-04-01T00:00:00Z'),
-        trial_active_until: null,
-        billing_period_key: 'monthly',
-        pending_plan_id: null,
-        pending_plan_effective_date: null,
-        selected_student_tier_id: 1,
-        approx_student_count: 80,
-        tier_price_usd: 100,
-        tier_adjustment_percentage: 0,
-        tier_max_students: 100,
-        tier_label: 'Small',
-        student_tier_exceeded_notified: false,
-      },
-    ],
-  });
-
-  const loader = withMockedModules(harness);
-
-  try {
-    await loader.runRecurringBilling();
-  } finally {
-    loader.restore();
-  }
-
-  assert.equal(harness.charges.length, 1);
-  assert.equal(harness.charges[0].payload.amount, 16000);
-
-  const growthEmail = harness.emails.find((entry) => entry.tag === 'StudentTierExceeded');
-  assert.ok(growthEmail);
-  assert.equal(growthEmail.payload.to, 'growth@example.com');
-  assert.match(growthEmail.payload.html, /350 students/);
-  assert.match(growthEmail.payload.html, /300 students/);
-
-  const notifiedUpdate = harness.queries.find((entry) =>
-    entry.sql.includes('UPDATE organizations SET student_tier_exceeded_notified = true')
-  );
-  assert.ok(notifiedUpdate);
-  assert.deepEqual(notifiedUpdate.params, [31]);
-});
-
 test('recurring billing tries fallback cards in order until one succeeds', async () => {
-  const originalAdminEmail = process.env.ADMIN_EMAIL;
-  process.env.ADMIN_EMAIL = 'admin@example.com';
-
   const harness = createHarness({
     studentCount: 120,
     planTotalCost: 100,
-    tiers: [],
+    prechargeEmailSentAt: new Date(),
     orgsDueRows: [
       {
         organization_id: 44,
         email: 'fallback@example.com',
         organization_name: 'Fallback School',
         plan_id: 2,
+        stripe_customer_id: 'cus_fallback_44',
         next_payment_end_date: new Date('2026-04-01T00:00:00Z'),
         trial_active_until: null,
-        billing_provider: 'paystack',
         billing_period_key: 'monthly',
         pending_plan_id: null,
         pending_plan_effective_date: null,
-        selected_student_tier_id: null,
-        approx_student_count: 120,
-        tier_price_usd: null,
-        tier_adjustment_percentage: null,
-        tier_max_students: null,
-        tier_label: null,
-        student_tier_exceeded_notified: false,
       },
     ],
     orgChargeCardsRows: [
       {
         id: 1,
-        authorization_code: 'AUTH_FAIL_FIRST',
-        provider: 'paystack',
+        authorization_code: 'pm_fail_first',
+        provider: 'stripe',
         card_type: 'visa',
         last4: '1111',
         exp_month: '12',
@@ -453,8 +419,8 @@ test('recurring billing tries fallback cards in order until one succeeds', async
       },
       {
         id: 2,
-        authorization_code: 'AUTH_SUCCESS_SECOND',
-        provider: 'paystack',
+        authorization_code: 'pm_success_second',
+        provider: 'stripe',
         card_type: 'mastercard',
         last4: '2222',
         exp_month: '11',
@@ -463,34 +429,66 @@ test('recurring billing tries fallback cards in order until one succeeds', async
         fallback_order: 1,
       },
     ],
+    chargeResolver: async (payload) => {
+      if (payload.payment_method === 'pm_fail_first') {
+        return {
+          id: 'pi_fail_first',
+          status: 'requires_payment_method',
+          last_payment_error: { message: 'Primary declined' },
+        };
+      }
+      return {
+        id: 'pi_success_second',
+        status: 'succeeded',
+      };
+    },
   });
 
-  harness.axios.post = async (url, payload) => {
-    harness.charges.push({ url, payload });
-    if (payload.authorization_code === 'AUTH_FAIL_FIRST') {
-      return { data: { status: false, message: 'Primary declined' } };
-    }
-    return { data: { status: true } };
-  };
-
   const loader = withMockedModules(harness);
-
   try {
     await loader.runRecurringBilling();
   } finally {
     loader.restore();
-    process.env.ADMIN_EMAIL = originalAdminEmail;
   }
 
   assert.equal(harness.charges.length, 2);
-  assert.equal(harness.charges[0].payload.authorization_code, 'AUTH_FAIL_FIRST');
-  assert.equal(harness.charges[1].payload.authorization_code, 'AUTH_SUCCESS_SECOND');
+  assert.equal(harness.charges[0].payload.payment_method, 'pm_fail_first');
+  assert.equal(harness.charges[1].payload.payment_method, 'pm_success_second');
 
   const paymentSuccessUpdate = harness.queries.find((entry) => entry.sql.includes("failed_attempts = 0"));
   assert.ok(paymentSuccessUpdate);
   assert.deepEqual(paymentSuccessUpdate.params, [100, 44]);
+});
 
-  const holdUpdate = harness.queries.find((entry) => entry.sql.includes('SET on_hold = true'));
-  assert.equal(holdUpdate, undefined);
-  assert.equal(harness.emails.length, 0);
+test('recurring billing creates upcoming precharge invoice and sends invoice email', async () => {
+  const harness = createHarness({
+    studentCount: 25,
+    planTotalCost: 65,
+    upcomingOrgsRows: [
+      {
+        organization_id: 63,
+        email: 'finance@example.com',
+        organization_name: 'Menis',
+        plan_id: 2,
+        organization_country: 'US',
+        next_payment_end_date: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        trial_active_until: null,
+        billing_period_key: 'monthly',
+      },
+    ],
+    orgsDueRows: [],
+  });
+
+  const loader = withMockedModules(harness);
+  try {
+    await loader.runRecurringBilling();
+  } finally {
+    loader.restore();
+  }
+
+  const invoiceInsert = harness.queries.find((entry) => entry.sql.includes('INSERT INTO billing_invoices'));
+  assert.ok(invoiceInsert);
+  assert.equal(harness.emails.length, 1);
+  assert.equal(harness.emails[0].tag, 'RecurringSubscriptionInvoice');
+  assert.equal(harness.emails[0].payload.to, 'finance@example.com');
 });
