@@ -134,7 +134,13 @@ const statsController = {
           (SELECT COUNT(*) FROM students WHERE organization_id = $1) AS total_students,
           (SELECT COUNT(*) FROM users WHERE organization_id = $1) AS total_employees,
           (SELECT COUNT(*) FROM classes WHERE organization_id = $1) AS total_classes,
-          (SELECT COUNT(*) FROM subjects WHERE organization_id = $1) AS total_subjects
+          (
+            SELECT COUNT(DISTINCT LOWER(TRIM(subject_name)))
+            FROM subjects
+            WHERE organization_id = $1
+              AND subject_name IS NOT NULL
+              AND TRIM(subject_name) <> ''
+          ) AS total_subjects
       `, [organizationId])).rows[0];
 
       const attendanceByClass = (await db.query(`

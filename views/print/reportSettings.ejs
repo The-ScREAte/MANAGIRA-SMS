@@ -303,7 +303,10 @@
                       <label>Apply To Classes:</label>
                       <div id="gradeClassCheckboxes" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;"></div>
                     </div>
-                    <button type="submit" class="btn" id="saveGradeMappingBtn">Save Grade Mapping</button>
+                    <div style="display:flex;gap:10px;align-items:center;">
+                      <button type="submit" class="btn" id="saveGradeMappingBtn">Save Grade Mapping</button>
+                      <button type="button" class="btn btn-secondary" id="cancelGradeMappingBtn">Cancel</button>
+                    </div>
                   </form>
                 </div>
 
@@ -337,7 +340,10 @@
                       <label>Apply To Classes:</label>
                       <div id="remarkClassCheckboxes" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;"></div>
                     </div>
-                    <button type="submit" class="btn" id="saveScoreRemarkBtn">Save Score Remark</button>
+                    <div style="display:flex;gap:10px;align-items:center;">
+                      <button type="submit" class="btn" id="saveScoreRemarkBtn">Save Score Remark</button>
+                      <button type="button" class="btn btn-secondary" id="cancelScoreRemarkBtn">Cancel</button>
+                    </div>
                   </form>
                 </div>
 
@@ -667,8 +673,17 @@
         .replace(/"/g, '&quot;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
+      const rangeKey = (fromPct, toPct) => `${Number(fromPct)}-${Number(toPct)}`;
 
       const isDefaultsSuppressed = !!defaultsSuppressedMap[String(classId)];
+      const savedGradeRangeKeys = new Set(gradeRows.map((row) => rangeKey(row.from_percentage, row.to_percentage)));
+      const savedRemarkRangeKeys = new Set(remarkRows.map((row) => rangeKey(row.from_percentage, row.to_percentage)));
+      const missingGradeDefaults = !isDefaultsSuppressed
+        ? defaultGradeMappings.filter((row) => !savedGradeRangeKeys.has(rangeKey(row.from_percentage, row.to_percentage)))
+        : [];
+      const missingRemarkDefaults = !isDefaultsSuppressed
+        ? defaultScoreRemarks.filter((row) => !savedRemarkRangeKeys.has(rangeKey(row.from_percentage, row.to_percentage)))
+        : [];
 
       if(gradeRows.length === 0 && !isDefaultsSuppressed){
         gradeListEl.innerHTML =
@@ -711,7 +726,12 @@
       } else if (gradeRows.length === 0 && isDefaultsSuppressed) {
         gradeListEl.innerHTML = '<p style="color:var(--muted);font-size:0.9rem;margin-top:10px;">No grade mapping saved for this class.</p>';
       } else {
-        gradeListEl.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;">' + gradeRows.map(row => `
+        gradeListEl.innerHTML =
+          (missingGradeDefaults.length > 0
+            ? '<div style="margin-bottom:8px;padding:8px 10px;border:1px dashed var(--border);border-radius:8px;background:#f8fafc;color:var(--muted);font-size:0.86rem;">Saved rules are shown below with remaining system defaults not yet saved for this class.</div>'
+            : '')
+          + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;">'
+          + gradeRows.map(row => `
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;background:#fff;">
             <div style="flex:1;min-width:0;">
               <div style="font-weight:700;color:var(--primary);margin-bottom:2px;">${row.grade_label || '-'}</div>
@@ -733,7 +753,26 @@
               </ul>
             </div>
           </div>
-        `).join('') + '</div>';
+        `).join('')
+          + missingGradeDefaults.map(row => `
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border:1px dashed #cbd5e1;border-radius:8px;background:#f8fafc;">
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;gap:6px;align-items:center;">
+                <div style="font-weight:700;color:var(--primary);">${row.grade_label}</div>
+                <span style="font-size:0.72rem;color:#64748b;background:#e2e8f0;padding:2px 6px;border-radius:999px;">Not Saved</span>
+              </div>
+              <div style="font-size:0.85rem;color:var(--muted);white-space:nowrap;">${row.from_percentage}% - ${row.to_percentage}%</div>
+            </div>
+            <div class="kebab-menu" style="flex-shrink:0;">
+              <div class="kebab" aria-label="More actions">⋮</div>
+              <ul>
+                <li><a href="javascript:void(0)" class="edit-grade-default" data-grade="${escAttr(row.grade_label)}" data-class-id="${classId}" data-from="${row.from_percentage}" data-to="${row.to_percentage}">Edit</a></li>
+                <li><a href="javascript:void(0)" class="delete-grade-default" data-class-id="${classId}" data-from="${row.from_percentage}" data-to="${row.to_percentage}">Delete</a></li>
+              </ul>
+            </div>
+          </div>
+        `).join('')
+          + '</div>';
       }
 
       if(remarkRows.length === 0 && !isDefaultsSuppressed){
@@ -777,7 +816,12 @@
       } else if (remarkRows.length === 0 && isDefaultsSuppressed) {
         remarksListEl.innerHTML = '<p style="color:var(--muted);font-size:0.9rem;margin-top:10px;">No score remark saved for this class.</p>';
       } else {
-        remarksListEl.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;">' + remarkRows.map(row => `
+        remarksListEl.innerHTML =
+          (missingRemarkDefaults.length > 0
+            ? '<div style="margin-bottom:8px;padding:8px 10px;border:1px dashed var(--border);border-radius:8px;background:#f8fafc;color:var(--muted);font-size:0.86rem;">Saved remarks are shown below with remaining system defaults not yet saved for this class.</div>'
+            : '')
+          + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;">'
+          + remarkRows.map(row => `
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;background:#fff;">
             <div style="flex:1;min-width:0;">
               <div style="font-weight:600;color:var(--primary);margin-bottom:2px;">${row.remark || '-'}</div>
@@ -799,7 +843,26 @@
               </ul>
             </div>
           </div>
-        `).join('') + '</div>';
+        `).join('')
+          + missingRemarkDefaults.map(row => `
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border:1px dashed #cbd5e1;border-radius:8px;background:#f8fafc;">
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;gap:6px;align-items:center;">
+                <div style="font-weight:600;color:var(--primary);">${row.remark}</div>
+                <span style="font-size:0.72rem;color:#64748b;background:#e2e8f0;padding:2px 6px;border-radius:999px;">Not Saved</span>
+              </div>
+              <div style="font-size:0.85rem;color:var(--muted);white-space:nowrap;">${row.from_percentage}% - ${row.to_percentage}%</div>
+            </div>
+            <div class="kebab-menu" style="flex-shrink:0;">
+              <div class="kebab" aria-label="More actions">⋮</div>
+              <ul>
+                <li><a href="javascript:void(0)" class="edit-score-default" data-class-id="${classId}" data-remark="${escAttr(row.remark)}" data-from="${row.from_percentage}" data-to="${row.to_percentage}">Edit</a></li>
+                <li><a href="javascript:void(0)" class="delete-score-default" data-class-id="${classId}" data-from="${row.from_percentage}" data-to="${row.to_percentage}">Delete</a></li>
+              </ul>
+            </div>
+          </div>
+        `).join('')
+          + '</div>';
       }
 
       // Re-bind kebab menus for dynamically added rows
@@ -1077,6 +1140,7 @@
     const gradeClassCheckboxes = document.getElementById('gradeClassCheckboxes');
     const editingGradeRowIdInput = document.getElementById('editingGradeRowId');
     const saveGradeMappingBtn = document.getElementById('saveGradeMappingBtn');
+    const cancelGradeMappingBtn = document.getElementById('cancelGradeMappingBtn');
 
     const toggleRemarkFormLink = document.getElementById('toggleRemarkForm');
     const remarkFormContainer = document.getElementById('remarkFormContainer');
@@ -1084,6 +1148,7 @@
     const remarkClassCheckboxes = document.getElementById('remarkClassCheckboxes');
     const editingRemarkRowIdInput = document.getElementById('editingRemarkRowId');
     const saveScoreRemarkBtn = document.getElementById('saveScoreRemarkBtn');
+    const cancelScoreRemarkBtn = document.getElementById('cancelScoreRemarkBtn');
 
     const enrolledClassesForScore = <%- JSON.stringify(enrolledClasses) %>;
     const buildClassCheckboxMarkup = (prefix) => enrolledClassesForScore
@@ -1161,6 +1226,22 @@
         resetRemarkEditMode();
         remarkClassCheckboxes.querySelectorAll('.score-class-checkbox').forEach(cb => { cb.disabled = false; });
       }
+    });
+
+    cancelGradeMappingBtn?.addEventListener('click', () => {
+      gradeForm.reset();
+      resetGradeEditMode();
+      gradeFormContainer.style.display = 'none';
+      toggleGradeFormLink.textContent = '+ Add Grade Rule';
+      gradeClassCheckboxes.querySelectorAll('.score-class-checkbox').forEach(cb => { cb.disabled = false; cb.checked = false; });
+    });
+
+    cancelScoreRemarkBtn?.addEventListener('click', () => {
+      remarkForm.reset();
+      resetRemarkEditMode();
+      remarkFormContainer.style.display = 'none';
+      toggleRemarkFormLink.textContent = '+ Add Score Remark';
+      remarkClassCheckboxes.querySelectorAll('.score-class-checkbox').forEach(cb => { cb.disabled = false; cb.checked = false; });
     });
 
     gradeForm?.addEventListener('submit', async (e) => {

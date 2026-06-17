@@ -127,23 +127,18 @@ async function setDefaultsSuppressedState(dbClient, organizationId, classId, ter
 }
 
 async function seedDefaultRowsIfEmpty(dbClient, organizationId, classId, termId) {
-  const existingResult = await dbClient.query(
-    `
-      SELECT COUNT(*)::int AS count
-      FROM score_remarks
-      WHERE organization_id = $1 AND class_id = $2 AND term_id = $3
-    `,
-    [organizationId, classId, termId]
+  const defaults = buildDefaultScoreRemarkRows();
+  const existingRows = await getClassScoreRemarksRows(dbClient, organizationId, classId, termId);
+  const existingRangeKeys = new Set(
+    existingRows.map((row) => `${Number(row.from_percentage)}-${Number(row.to_percentage)}`)
   );
 
-  const existingCount = Number(existingResult.rows[0]?.count || 0);
-  if (existingCount > 0) {
-    await setDefaultsSuppressedState(dbClient, organizationId, classId, termId, false);
-    return;
-  }
-
-  const defaults = buildDefaultScoreRemarkRows();
   for (const row of defaults) {
+    const rangeKey = `${Number(row.from)}-${Number(row.to)}`;
+    if (existingRangeKeys.has(rangeKey)) {
+      continue;
+    }
+
     await dbClient.query(
       `
         INSERT INTO score_remarks (organization_id, class_id, term_id, remark, grade_label, from_percentage, to_percentage)
@@ -160,6 +155,12 @@ async function seedDefaultRowsIfEmpty(dbClient, organizationId, classId, termId)
   }
 
   await setDefaultsSuppressedState(dbClient, organizationId, classId, termId, false);
+}
+
+function getDefaultRowForRange(fromPct, toPct) {
+  return buildDefaultScoreRemarkRows().find(
+    (row) => Number(row.from) === Number(fromPct) && Number(row.to) === Number(toPct)
+  ) || null;
 }
 
 async function getClassScoreRemarksRows(dbClient, organizationId, classId, termId) {
@@ -1840,8 +1841,9 @@ students
         );
 
         const existingRow = existingRowResult.rows[0] || null;
-        const normalizedGradeLabel = normalizedGradeLabelInput || existingRow?.grade_label || getDefaultGradeLabel((fromPct + toPct) / 2);
-        const finalRemark = normalizedRemark || existingRow?.remark || "No Remark";
+        const matchingDefaultRow = getDefaultRowForRange(fromPct, toPct);
+        const normalizedGradeLabel = normalizedGradeLabelInput || existingRow?.grade_label || matchingDefaultRow?.gradeLabel || getDefaultGradeLabel((fromPct + toPct) / 2);
+        const finalRemark = normalizedRemark || existingRow?.remark || matchingDefaultRow?.remark || getDefaultScoreRemark((fromPct + toPct) / 2);
 
         let result;
         if (existingRow) {

@@ -33,6 +33,7 @@ const globalErrorHandler = (err, req, res, next) => {
             title: `${status} Error`,
             message,
             status,
+            session: req.session || null,
             messages: res.locals.messages, // Include flash messages
         });
     } else if (req.accepts('json')) {
