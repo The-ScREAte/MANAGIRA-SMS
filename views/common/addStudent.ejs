@@ -3,7 +3,7 @@
   <html lang="en">
   <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Add New Students</title>
     <style>
       :root {
@@ -451,7 +451,7 @@
         padding: 10px 12px;
       }
 
-      @media (max-width: 768px) {
+      @media (max-width: 1024px), (hover: none) and (pointer: coarse) {
         .student-management-system {
           padding: 12px 16px 40px;
         }
@@ -502,7 +502,7 @@
 
         .collapsible-btn {
           font-size: 0.82rem;
-          padding: 9px 12px;
+          padding: 7px 10px;
         }
 
         .form-action-buttons {
@@ -557,14 +557,14 @@
         }
 
         .form-input {
-          padding: 7px 9px;
+          padding: 6px 8px;
           font-size: 16px;
         }
 
         .primary-button,
         .secondary-button {
           font-size: 0.86rem;
-          padding: 12px 20px;
+          padding: 8px 10px;
         }
 
         .collapsible-btn {
@@ -584,7 +584,7 @@
         .clear-import-btn,
         .add-form-btn,
         .save-form-btn {
-          padding: 9px 12px;
+          padding: 6px 8px;
           font-size: 0.8rem;
         }
 
@@ -1869,7 +1869,7 @@
         .student-form-card-body { padding: 14px; }
         .form-header { padding: 12px 14px; }
         .form-field-row { grid-template-columns: 1fr; }
-        .guardian-mode-pills { grid-template-columns: 1fr; }
+        .guardian-mode-pills { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
       }
 
       /* ── Submit button baseline fix (must be last — strips browser native submit styling) ── */
@@ -1986,6 +1986,210 @@
       .guardian-add-btn,
       .guardians-container .guardian-row .remove-guardian {
         margin-top: 0 !important;
+      }
+
+      /* Final small-screen compaction (must come last to override premium layer defaults) */
+      @media (max-width: 768px) {
+        .student-form-card-body {
+          padding: 10px !important;
+          gap: 8px !important;
+        }
+
+        .form-section + .form-section {
+          padding-top: 8px !important;
+        }
+
+        .form-field-row {
+          gap: 4px 6px !important;
+          margin-bottom: 0 !important;
+        }
+
+        .form-field-group {
+          margin-bottom: 2px !important;
+        }
+
+        .student-management-system h1,
+        .page-header-wrapper h1 {
+          font-size: 0.88rem !important;
+          line-height: 1.15 !important;
+        }
+
+        .page-header-subtitle {
+          font-size: 0.66rem !important;
+          line-height: 1.2 !important;
+        }
+
+        .student-form-label,
+        .student-form-number,
+        .collapse-indicator,
+        .sid-id-label,
+        .sid-id-taken-msg {
+          font-size: 0.66rem !important;
+        }
+
+        .form-section-title {
+          font-size: 0.64rem !important;
+          letter-spacing: 0.06em !important;
+        }
+
+        .form-section-hint,
+        .form-helper,
+        .future-term-helper {
+          font-size: 0.64rem !important;
+          line-height: 1.25 !important;
+        }
+
+        .form-label {
+          font-size: 0.7rem !important;
+          margin-bottom: 3px !important;
+        }
+
+        .form-input,
+        input.form-input,
+        select.form-input,
+        textarea.form-input {
+          font-size: 13px !important;
+        }
+
+        .form-input:focus,
+        input.form-input:focus,
+        select.form-input:focus,
+        textarea.form-input:focus {
+          font-size: 16px !important;
+        }
+
+        .form-input::placeholder,
+        input.form-input::placeholder,
+        textarea.form-input::placeholder {
+          font-size: 0.82em !important;
+        }
+
+        .bulk-import-btn,
+        .clear-import-btn,
+        .add-form-btn,
+        .save-form-btn,
+        button[type="submit"].save-form-btn {
+          height: 28px !important;
+          padding: 0 6px !important;
+          font-size: 0.64rem !important;
+          border-radius: 8px !important;
+        }
+
+        .action-btn-icon {
+          width: 11px !important;
+          height: 11px !important;
+        }
+
+        .action-btn-label {
+          font-size: 0.62rem !important;
+        }
+
+        .subjects-collapsible .collapsible-btn {
+          padding: 6px 8px !important;
+          font-size: 0.68rem !important;
+          border-radius: 8px !important;
+        }
+
+        .subjects-collapsible .subject-count-badge {
+          font-size: 0.62rem !important;
+          padding: 1px 6px !important;
+        }
+
+        .guardian-check-section {
+          margin-top: 2px !important;
+        }
+
+        .guardian-mode-pills {
+          display: flex !important;
+          flex-direction: row !important;
+          flex-wrap: nowrap !important;
+          gap: 6px !important;
+          align-items: stretch !important;
+        }
+
+        .guardian-mode-btn {
+          flex: 0 0 calc(50% - 3px) !important;
+          width: calc(50% - 3px) !important;
+          min-width: 0 !important;
+          padding: 6px 7px !important;
+          gap: 6px !important;
+          border-radius: 8px !important;
+        }
+
+        .guardian-mode-btn .gmb-icon {
+          width: 24px !important;
+          height: 24px !important;
+          border-radius: 6px !important;
+        }
+
+        .guardian-mode-btn .gmb-icon svg {
+          width: 12px !important;
+          height: 12px !important;
+        }
+
+        .guardian-mode-btn .gmb-title {
+          font-size: 0.64rem !important;
+        }
+
+        .guardian-mode-btn .gmb-sub {
+          font-size: 0.58rem !important;
+        }
+
+        .segmented-control .segmented-option {
+          font-size: 0.68rem !important;
+          padding: 6px 8px !important;
+        }
+
+        .guardian-add-btn,
+        .guardian-row .remove-guardian {
+          font-size: 0.66rem !important;
+          padding: 6px 8px !important;
+        }
+
+        .student-form-card-body .form-field-row > .form-field-group > .form-input,
+        .guardians-container .guardian-row > .form-field-group > .form-input {
+          min-height: 34px !important;
+          height: 34px !important;
+          padding: 0 5px !important;
+        }
+
+        .student-form-card-body input.form-input[type="date"],
+        .student-form-card-body select.form-input,
+        .guardians-container input.form-input:not([type="file"]),
+        .guardians-container select.form-input {
+          line-height: 34px !important;
+        }
+
+        .student-form-card-body select.form-input,
+        .guardians-container select.form-input,
+        select.form-input.form-select {
+          height: 34px !important;
+          line-height: 1.2 !important;
+          padding-top: 0 !important;
+          padding-bottom: 0 !important;
+          padding-left: 5px !important;
+          padding-right: 24px !important;
+          background-position: right 7px center !important;
+          background-size: 12px !important;
+        }
+
+        input[name^="hometown_"] {
+          height: 34px !important;
+          padding: 0 5px !important;
+        }
+
+        input[type="file"].form-input {
+          height: auto !important;
+          min-height: 0 !important;
+          padding: 5px 7px !important;
+          font-size: 0.72rem !important;
+        }
+
+        input[type="file"].form-input::-webkit-file-upload-button {
+          padding: 4px 8px !important;
+          font-size: 0.7rem !important;
+          margin-right: 8px !important;
+        }
       }
     </style>
   </head>
@@ -2184,14 +2388,12 @@
                   </select>
                 </div>
               </div>
-              <div class="form-helper">Choose the current placement class. Graduation group is used for cohort tracking.</div>
             </div>
 
             <!-- ── Section: Subjects (progressive disclosure) ───── -->
             <div class="form-section">
               <div class="form-section-header">
                 <h3 class="form-section-title">Subjects</h3>
-                <span class="form-section-hint">Loaded after class selection</span>
               </div>
               <div class="subjects-collapsible" id="subjectsCollapsible-__INDEX__">
                 <button type="button" class="collapsible-btn" onclick="toggleSubjectsCollapsible(__INDEX__)" aria-expanded="false">
