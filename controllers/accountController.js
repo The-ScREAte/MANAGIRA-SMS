@@ -48,15 +48,6 @@ function parseDateInput(value) {
   return parsed;
 }
 
-function computeTierMonthlyPrice(planBasePrice, tier) {
-  const basePrice = Number(planBasePrice || 0);
-  const adjustmentPercent = Number(tier?.adjustment_percentage);
-  if (Number.isFinite(adjustmentPercent)) {
-    return Math.max(0, basePrice * (1 + adjustmentPercent / 100));
-  }
-  return Number(tier?.price_usd || 0);
-}
-
 async function getOrganizationStudentCount(dbClient, organizationId) {
   if (!organizationId) return 0;
   const result = await dbClient.query(
@@ -73,16 +64,6 @@ async function getActivePlanBillingPeriods(dbClient) {
     );
     if (cyclesResult.rows?.length) {
       return cyclesResult.rows;
-    }
-  } catch (_) {
-  }
-
-  try {
-    const bpResult = await dbClient.query(
-      'SELECT * FROM billing_periods WHERE is_active = TRUE ORDER BY sort_order'
-    );
-    if (bpResult.rows?.length) {
-      return bpResult.rows;
     }
   } catch (_) {
   }
@@ -1077,6 +1058,179 @@ async function listStripeInvoices(stripe, stripeCustomerId, limit = 12) {
   }));
 }
 
+async function ensureBillingInvoicesSchema(dbClient) {
+  await dbClient.query(`
+    CREATE TABLE IF NOT EXISTS billing_invoices (
+      id BIGSERIAL PRIMARY KEY,
+      organization_id BIGINT NOT NULL,
+      invoice_number TEXT,
+      invoice_type TEXT NOT NULL DEFAULT 'precharge',
+      status TEXT NOT NULL DEFAULT 'issued',
+      amount_due NUMERIC(12, 2) NOT NULL DEFAULT 0,
+      currency TEXT NOT NULL DEFAULT 'USD',
+      billing_period_key TEXT,
+      scheduled_charge_at TIMESTAMPTZ,
+      email_sent_at TIMESTAMPTZ,
+      paid_at TIMESTAMPTZ,
+      failed_at TIMESTAMPTZ,
+      payment_intent_id TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+}
+
+async function listAppInvoices(dbClient, organizationId, limit = 12) {
+  await ensureBillingInvoicesSchema(dbClient);
+  const result = await dbClient.query(
+    `SELECT id, invoice_number, invoice_type, status, amount_due, currency,
+            billing_period_key, scheduled_charge_at, email_sent_at,
+            paid_at, failed_at, created_at
+     FROM billing_invoices
+     WHERE organization_id = $1
+     ORDER BY COALESCE(scheduled_charge_at, created_at) DESC
+     LIMIT $2`,
+    [organizationId, limit]
+  );
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    number: row.invoice_number,
+    type: row.invoice_type,
+    status: row.status,
+    amountDue: Number(row.amount_due || 0),
+    currency: String(row.currency || 'USD').toUpperCase(),
+    billingPeriodKey: row.billing_period_key,
+    scheduledChargeAt: row.scheduled_charge_at,
+    emailSentAt: row.email_sent_at,
+    paidAt: row.paid_at,
+    failedAt: row.failed_at,
+    createdAt: row.created_at,
+  }));
+}
+
+function formatInvoicePdfDate(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function titleCaseStatus(value) {
+  return String(value || "unknown")
+    .replace(/_/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
+async function generateAppInvoicePdfBuffer(payload) {
+  const {
+    invoice,
+    organization,
+    planName,
+    cycleLabel,
+    supportEmail,
+  } = payload;
+
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: "A4", margin: 48 });
+    const chunks = [];
+    doc.on("data", (chunk) => chunks.push(chunk));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+
+    const pageWidth = doc.page.width;
+    const contentWidth = pageWidth - 96;
+
+    const teal = "#00D4AA";
+    const deep = "#1a1f2e";
+    const muted = "#5a6378";
+    const border = "#e6e9f0";
+    const soft = "#f5f7fb";
+
+    const totalDue = Number(invoice.amount_due || 0);
+    const currencyCode = String(invoice.currency || "USD").toUpperCase();
+    const invoiceNumber = String(invoice.invoice_number || `INV-${invoice.id}`);
+    const status = String(invoice.status || "issued").toLowerCase();
+    const statusLabel = titleCaseStatus(status);
+
+    doc.roundedRect(48, 38, contentWidth, 700, 14).fill("#ffffff").strokeColor(border).lineWidth(1).stroke();
+
+    doc.rect(48, 38, contentWidth, 72).fill("#f5f6fa");
+    doc.moveTo(48, 108).lineTo(48 + contentWidth, 108).strokeColor(teal).lineWidth(2).stroke();
+
+    doc.fillColor(deep).font("Helvetica-Bold").fontSize(18).text(organization.organization_name || "School", 64, 58, { width: 320 });
+    doc.fillColor(muted).font("Helvetica").fontSize(9);
+    doc.text(organization.organization_address || "", 64, 82, { width: 320 });
+    doc.text([organization.organization_phone, organization.email].filter(Boolean).join(" · "), 64, 94, { width: 320 });
+
+    doc.fillColor(muted).font("Helvetica-Bold").fontSize(9).text("PayGira Invoice", 360, 56, { width: 180, align: "right" });
+    doc.fillColor(teal).font("Helvetica-Bold").fontSize(20).text(`${currencyCode} ${totalDue.toFixed(2)}`, 350, 70, { width: 190, align: "right" });
+    doc.fillColor(muted).font("Helvetica").fontSize(9).text(`#${invoiceNumber}`, 350, 94, { width: 190, align: "right" });
+
+    const statusBg = status === "paid" ? "#d6f7ec" : status === "failed" ? "#ffd8df" : "#e6e9f0";
+    const statusColor = status === "paid" ? "#00845f" : status === "failed" ? "#b1213e" : "#5a6378";
+    doc.roundedRect(452, 116, 88, 18, 9).fill(statusBg);
+    doc.fillColor(statusColor).font("Helvetica-Bold").fontSize(8).text(statusLabel.toUpperCase(), 452, 122, { width: 88, align: "center" });
+
+    let y = 150;
+    doc.roundedRect(48, y, 242, 72, 10).fill(soft);
+    doc.roundedRect(306, y, 242, 72, 10).fill(soft);
+
+    doc.fillColor(muted).font("Helvetica-Bold").fontSize(8).text("INVOICE TO", 62, y + 12);
+    doc.fillColor(deep).font("Helvetica-Bold").fontSize(11).text(organization.organization_name || "Organization", 62, y + 26);
+    doc.fillColor(muted).font("Helvetica").fontSize(9).text(organization.email || "-", 62, y + 42, { width: 215 });
+
+    doc.fillColor(muted).font("Helvetica-Bold").fontSize(8).text("BILL DETAILS", 320, y + 12);
+    doc.fillColor(deep).font("Helvetica").fontSize(10).text(`Plan: ${planName || "Platform Subscription"}`, 320, y + 26, { width: 215 });
+    doc.text(`Cycle: ${cycleLabel || "Monthly"}`, 320, y + 40, { width: 215 });
+    doc.text(`Charge date: ${formatInvoicePdfDate(invoice.scheduled_charge_at)}`, 320, y + 54, { width: 215 });
+
+    y += 96;
+    doc.roundedRect(48, y, contentWidth, 28, 6).fill(soft);
+    doc.fillColor(muted).font("Helvetica-Bold").fontSize(8);
+    doc.text("Description", 62, y + 10, { width: 300 });
+    doc.text("Amount", 430, y + 10, { width: 110, align: "right" });
+
+    y += 28;
+    doc.roundedRect(48, y, contentWidth, 58, 6).strokeColor(border).lineWidth(1).stroke();
+    doc.fillColor(deep).font("Helvetica").fontSize(10).text(`${planName || "Platform Subscription"} renewal invoice`, 62, y + 16, { width: 300 });
+    doc.fillColor(muted).font("Helvetica").fontSize(9).text("Auto-generated from your billing settings", 62, y + 32, { width: 300 });
+    doc.fillColor(deep).font("Helvetica-Bold").fontSize(11).text(`${currencyCode} ${totalDue.toFixed(2)}`, 430, y + 22, { width: 110, align: "right" });
+
+    y += 76;
+    doc.moveTo(320, y).lineTo(540, y).strokeColor(border).lineWidth(1).stroke();
+    doc.fillColor(muted).font("Helvetica").fontSize(10).text("Total Due", 320, y + 10, { width: 120 });
+    doc.fillColor(deep).font("Helvetica-Bold").fontSize(14).text(`${currencyCode} ${totalDue.toFixed(2)}`, 420, y + 8, { width: 120, align: "right" });
+
+    y += 48;
+    doc.roundedRect(48, y, contentWidth, 116, 8).fill(soft);
+    doc.fillColor(deep).font("Helvetica-Bold").fontSize(10).text("Payment Timeline", 62, y + 14);
+    doc.fillColor(muted).font("Helvetica").fontSize(9);
+    doc.text(`Issued: ${formatInvoicePdfDate(invoice.created_at)}`, 62, y + 34);
+    doc.text(`Invoice email sent: ${formatInvoicePdfDate(invoice.email_sent_at)}`, 62, y + 50);
+    doc.text(`Scheduled charge date: ${formatInvoicePdfDate(invoice.scheduled_charge_at)}`, 62, y + 66);
+    doc.text(`Paid at: ${formatInvoicePdfDate(invoice.paid_at)}`, 62, y + 82);
+    doc.text(`Failed at: ${formatInvoicePdfDate(invoice.failed_at)}`, 62, y + 98);
+
+    const footerY = doc.page.height - 58;
+    doc.moveTo(48, footerY - 10).lineTo(48 + contentWidth, footerY - 10).strokeColor(border).lineWidth(1).stroke();
+    doc.fillColor(muted).font("Helvetica").fontSize(8);
+    doc.text(`Need help? Contact ${supportEmail || "support@managira.com"}`, 48, footerY, { width: 270 });
+    doc.text(`Generated ${formatInvoicePdfDate(new Date())}`, 320, footerY, { width: 228, align: "right" });
+
+    doc.end();
+  });
+}
+
 async function buildChargeResponse(db, orgId, chargeResult) {
   if (chargeResult?.status && chargeResult?.data?.authorization) {
     const authorization = chargeResult.data.authorization;
@@ -1409,7 +1563,7 @@ const accountController = {
       const premiumPlanName = null;
       const trialEligible = true;
 
-      // Prefer dynamic billing cycles on live service-plan; fall back to legacy billing_periods.
+      // Use dynamic billing cycles on live service-plan.
       let billingPeriods = [];
       try {
         const cyclesResult = await db.query(
@@ -1419,12 +1573,7 @@ const accountController = {
       } catch (err) {
       }
       if (!billingPeriods.length) {
-        try {
-          const bpResult = await db.query('SELECT * FROM billing_periods WHERE is_active = TRUE ORDER BY sort_order');
-          billingPeriods = bpResult.rows || [];
-        } catch (err) {
-          billingPeriods = [{ period_key: 'monthly', label: 'Monthly', months: 1, discount_percentage: 0 }];
-        }
+        billingPeriods = [{ period_key: 'monthly', label: 'Monthly', months: 1, discount_percentage: 0 }];
       }
 
       const countryCode = currencyProfile?.countryCode || null;
@@ -1438,15 +1587,13 @@ const accountController = {
       let studentTiersByPlan = {};
       const dynamicPriceMetaByPlan = {};
       const lowestTierPriceByPlan = new Map();
-      let usedDynamicPricing = false;
+      const usedDynamicPricing = Boolean(dynamicRegion);
 
       if (dynamicRegion) {
         await Promise.all(
           plans.map(async (plan) => {
             const row = await getPlanRegionPrice(db, plan.plan_id, dynamicRegion.id).catch(() => null);
             if (!row) return;
-
-            usedDynamicPricing = true;
             const threshold = Math.max(0, Number(row.free_student_threshold) || 0);
             dynamicPriceMetaByPlan[plan.plan_id] = {
               basePriceUsd: Number(row.base_price_usd || 0),
@@ -1481,32 +1628,6 @@ const accountController = {
             lowestTierPriceByPlan.set(String(plan.plan_id), Number(row.base_price_usd || 0));
           })
         );
-      }
-
-      // Legacy fallback if dynamic rows are not configured.
-      if (!usedDynamicPricing) {
-        try {
-          const tiersResult = await db.query('SELECT * FROM plan_student_tiers ORDER BY plan_id, sort_order, min_students');
-          const planBasePriceById = new Map(plans.map((plan) => [String(plan.plan_id), Number(plan.total_price || 0)]));
-          (tiersResult.rows || []).forEach(tier => {
-            if (!studentTiersByPlan[tier.plan_id]) studentTiersByPlan[tier.plan_id] = [];
-            const usd = computeTierMonthlyPrice(planBasePriceById.get(String(tier.plan_id)), tier);
-            const currentLowest = lowestTierPriceByPlan.get(String(tier.plan_id));
-            if (currentLowest == null || usd < currentLowest) {
-              lowestTierPriceByPlan.set(String(tier.plan_id), usd);
-            }
-            const loc = localizeUsdAmount(usd, currencyProfile);
-            studentTiersByPlan[tier.plan_id].push({
-              ...tier,
-              adjustment_percentage: tier.adjustment_percentage != null ? Number(tier.adjustment_percentage) : null,
-              computed_price_usd: usd,
-              priceUsdDisplay: formatCurrencyAmount(loc.amountUsd, "USD"),
-              localizedPriceDisplay: formatCurrencyAmount(loc.localizedAmount, loc.userCurrency, currencyProfile.locale),
-            });
-          });
-        } catch (err) {
-          // Table may not exist yet
-        }
       }
 
       const plansWithDefaultDisplayPrice = plans.map((plan) => {
@@ -1557,7 +1678,7 @@ const accountController = {
   },
 
   servicePlanPost: async (req, res) => {
-    const { plan, plan_id, billing_period, student_tier_id, approx_student_count } = req.body;
+    const { plan, plan_id, billing_period, approx_student_count } = req.body;
     if (!plan || !plan_id) {
       req.flash("error", "Please select a plan.");
 
@@ -1609,27 +1730,10 @@ const accountController = {
         }
       }
     } catch (err) {
-      // Continue to legacy fallback.
+      // Continue with flat base plan fallback.
     }
 
-    // Legacy fallback: if no dynamic row applied, keep original tier behavior.
-    if (!dynamicPricingApplied && student_tier_id) {
-      try {
-        const tierQuery = await db.query(
-          'SELECT id, price_usd, adjustment_percentage, plan_id FROM plan_student_tiers WHERE id = $1 AND plan_id = $2',
-          [student_tier_id, plan_id]
-        );
-        if (tierQuery.rows.length > 0) {
-          monthlyPrice = computeTierMonthlyPrice(monthlyPrice, tierQuery.rows[0]);
-          selectedTierId = tierQuery.rows[0].id;
-          approxCount = parseInt(approx_student_count, 10) || null;
-        }
-      } catch (err) {
-        // fallback to plan total_cost
-      }
-    }
-
-    // Validate and fetch the billing period (dynamic cycles first, then legacy billing_periods).
+    // Validate and fetch the billing period from active dynamic cycles.
     const selectedPeriodKey = billing_period || 'monthly';
     let billingPeriodData = { period_key: 'monthly', months: 1, discount_percentage: 0, label: 'Monthly' };
     try {
@@ -1641,14 +1745,6 @@ const accountController = {
           months: dynamicCycle.months,
           discount_percentage: dynamicCycle.discount_percentage,
         };
-      } else {
-        const bpResult = await db.query(
-          'SELECT * FROM billing_periods WHERE period_key = $1 AND is_active = TRUE',
-          [selectedPeriodKey]
-        );
-        if (bpResult.rows.length > 0) {
-          billingPeriodData = bpResult.rows[0];
-        }
       }
     } catch (err) {
       // fallback to monthly
@@ -3180,42 +3276,9 @@ const accountController = {
           break;
         }
 
+        // Legacy Paystack subscription invoice flow is intentionally ignored.
+        // Subscription renewals are driven by in-app Stripe PaymentIntents.
         case "invoice.payment_failed": {
-          const invoice = event.data;
-
-          const customerCode = invoice.customer?.customer_code;
-
-          if (customerCode) {
-            // Find organization and email by customer code
-
-            const orgResult = await db.query(
-              "SELECT organization_id, organization_name, email, first_name, last_name FROM organizations WHERE paystack_customer_code = $1",
-
-              [customerCode]
-            );
-
-            if (orgResult.rows.length > 0) {
-              const {
-                organization_id,
-                organization_name,
-                email,
-              } = orgResult.rows[0];
-              // Update payment record
-
-              await db.query(
-                "UPDATE payments SET status = 'failed' WHERE organization_id = $1",
-                [organization_id]
-              );
-
-              if (email) {
-                await sendPaymentFailureEmail(email);
-              }
-              if (process.env.ADMIN_EMAIL) {
-                await sendPaymentFailureEmail(process.env.ADMIN_EMAIL);
-              }
-            }
-          }
-
           break;
         }
 
@@ -3305,188 +3368,13 @@ const accountController = {
 
     try {
       switch (event.type) {
-        case "invoice.created": {
-          const invoice = event.data.object;
-
-          const {
-            customer,
-
-            hosted_invoice_url,
-
-            due_date,
-
-            amount_due,
-
-            id: invoiceId,
-
-            subscription,
-          } = invoice;
-
-          // ✅ Retrieve the organization associated with this customer
-
-          const orgResult = await db.query(
-            "SELECT email, organization_name, plan_id FROM organizations WHERE stripe_customer_id = $1",
-
-            [customer]
-          );
-
-          if (orgResult.rows.length > 0) {
-            const { email, organization_name, plan_id } = orgResult.rows[0];
-
-            // ✅ Fetch the latest total_cost from the plans table
-
-            const planResult = await db.query(
-              "SELECT total_cost FROM plans WHERE id = $1",
-
-              [plan_id]
-            );
-
-            if (planResult.rows.length > 0) {
-              const newAmount = Math.round(planResult.rows[0].total_cost * 100); // Convert to cents
-
-              // ✅ Temporarily stop auto-advancing invoice
-
-              await stripe.invoices.update(invoiceId, { auto_advance: false });
-
-              // ✅ Update invoice with the latest plan price
-
-              await stripe.invoiceItems.create({
-                customer,
-
-                amount: newAmount,
-
-                currency: "ghs",
-
-                invoice: invoiceId,
-              });
-
-              // ✅ Finalize the invoice with the updated price
-
-              await stripe.invoices.finalizeInvoice(invoiceId);
-            }
-
-            // ✅ Send Invoice Email
-
-            await sendInvoiceEmail(email, organization_name, {
-              hosted_invoice_url,
-
-              due_date,
-
-              amount_due,
-            });
-          }
-
-          break;
-        }
-
-        case "invoice.payment_succeeded": {
-          const invoice = event.data.object;
-
-          const { customer, amount_paid, subscription } = invoice;
-
-          // ✅ Confirm the subscription remains active
-
-          await stripe.subscriptions.update(subscription, {
-            cancel_at_period_end: false, // Ensure it renews
-          });
-
-          // ✅ Update database
-
-          await db.query(
-            "UPDATE payments SET status = 'paid', amount_paid = $1, last_payment_date = NOW() WHERE stripe_subscription_id = $2",
-
-            [amount_paid, subscription]
-          );
-
-          break;
-        }
-
-        case "invoice.payment_failed": {
-          const invoice = event.data.object;
-
-          const { customer, subscription } = invoice;
-
-          // ✅ Retrieve organization details
-
-          const orgResult = await db.query(
-            "SELECT email, organization_id FROM organizations WHERE stripe_customer_id = $1",
-
-            [customer]
-          );
-
-          if (orgResult.rows.length > 0) {
-            const { email, organization_id } = orgResult.rows[0];
-
-            // ✅ Send payment failure email
-
-            await sendPaymentFailureEmail(email);
-
-            await sendPaymentFailureEmail(process.env.ADMIN_EMAIL);
-
-            // ✅ Track failed attempts
-
-            await db.query(
-              "UPDATE payments SET failed_attempts = failed_attempts + 1, last_failed_payment = NOW() WHERE stripe_subscription_id = $1",
-
-              [subscription]
-            );
-
-            // ✅ Check if failed attempts exceed 15 days
-
-            const failureCheck = await db.query(
-              "SELECT last_failed_payment FROM payments WHERE stripe_subscription_id = $1",
-
-              [subscription]
-            );
-
-            const lastFailedPayment = failureCheck.rows[0]?.last_failed_payment;
-
-            if (lastFailedPayment) {
-              const now = new Date();
-
-              const lastFailedDate = new Date(lastFailedPayment);
-
-              const differenceInDays =
-                (now - lastFailedDate) / (1000 * 60 * 60 * 24);
-
-              if (differenceInDays >= 15) {
-                // ✅ Deactivate the account after 15 days
-
-                await db.query(
-                  "UPDATE organizations SET on_hold = true WHERE organization_id = $1",
-
-                  [organization_id]
-                );
-              }
-            }
-          }
-
-          break;
-        }
-
+        // Legacy Stripe subscription invoice flows are intentionally ignored.
+        // Subscription renewals are driven by the in-app recurring job using
+        // Stripe PaymentIntents with dynamic pricing.
+        case "invoice.created":
+        case "invoice.payment_succeeded":
+        case "invoice.payment_failed":
         case "customer.subscription.deleted": {
-          const subscription = event.data.object;
-
-          const { customer } = subscription;
-
-          await db.query(
-            "UPDATE organizations SET on_hold = true WHERE stripe_customer_id = $1",
-
-            [customer]
-          );
-
-          const orgResult = await db.query(
-            "SELECT email, organization_name FROM organizations WHERE stripe_customer_id = $1",
-
-            [customer]
-          );
-
-          if (orgResult.rows.length > 0) {
-            const { email, organization_name } = orgResult.rows[0];
-
-            await sendCancellationEmail(organization_name, "Customer", email);
-          }
-
           break;
         }
       }
@@ -7518,6 +7406,7 @@ const accountController = {
       let paystackSubaccounts = [];
       let storedCardMethods = [];
       let stripeInvoices = [];
+      let appInvoices = [];
 
       if (orgId) {
         try {
@@ -7575,6 +7464,14 @@ const accountController = {
 
           stripeInvoices = await listStripeInvoices(stripe, stripeCustomerId, 12);
         } catch (_) {
+        }
+      }
+
+      if (orgId && !isHubMember) {
+        try {
+          appInvoices = await listAppInvoices(db, orgId, 12);
+        } catch (_) {
+          appInvoices = [];
         }
       }
 
@@ -7735,9 +7632,9 @@ const accountController = {
           const billingResult = await db.query(
             `SELECT p.billing_period_key, p.amount_paid, p.status, p.created_at,
                     p.is_trial, p.trial_starts_at, p.trial_ends_at, p.next_payment_end_date,
-                    bp.label AS period_label, bp.months AS period_months, bp.discount_percentage
+                    dbc.label AS period_label, dbc.months AS period_months, dbc.discount_percentage
              FROM payments p
-             LEFT JOIN billing_periods bp ON bp.period_key = p.billing_period_key
+             LEFT JOIN dynamic_billing_cycles dbc ON dbc.cycle_key = p.billing_period_key
              WHERE p.organization_id = $1 AND p.status IN ('active', 'completed')
              ORDER BY p.created_at DESC
              LIMIT 1`,
@@ -7747,7 +7644,7 @@ const accountController = {
             billingInfo = billingResult.rows[0];
           }
         } catch (e) {
-          // billing_periods table may not exist yet
+          // Dynamic cycle lookup can fail in partial environments.
           billingInfo = null;
         }
       }
@@ -7819,6 +7716,7 @@ const accountController = {
         defaultPaymentMethod,
         stripePublishableKey: await getActiveStripePublicKey(),
         stripeInvoices,
+        appInvoices,
         paystackSubaccounts,
         paystackCustomerCode,
         isHubMember,
@@ -7853,6 +7751,66 @@ const accountController = {
     } catch (error) {
             req.flash("error", "Unable to load settings page.");
       res.redirect("/common/orgDashboard");
+    }
+  },
+
+  appInvoicePdfGet: async (req, res, dbClient = db) => {
+    try {
+      await ensureBillingInvoicesSchema(dbClient);
+
+      const organizationId = req.session.organizationId;
+      const invoiceId = Number(req.params.invoiceId);
+      if (!organizationId || !Number.isInteger(invoiceId) || invoiceId <= 0) {
+        return res.status(400).send("Invalid invoice request.");
+      }
+
+      const invoiceResult = await dbClient.query(
+        `SELECT bi.*, o.organization_name, o.email, o.organization_phone, o.organization_address,
+                p.plan_name, dbc.label AS billing_cycle_label
+         FROM billing_invoices bi
+         JOIN organizations o ON o.organization_id = bi.organization_id
+         LEFT JOIN plans p ON p.id = o.plan_id
+         LEFT JOIN dynamic_billing_cycles dbc ON dbc.cycle_key = bi.billing_period_key
+         WHERE bi.id = $1
+           AND bi.organization_id = $2
+         LIMIT 1`,
+        [invoiceId, organizationId]
+      );
+
+      const invoice = invoiceResult.rows[0];
+      if (!invoice) {
+        return res.status(404).send("Invoice not found.");
+      }
+
+      const pdfBuffer = await generateAppInvoicePdfBuffer({
+        invoice,
+        organization: {
+          organization_name: invoice.organization_name,
+          email: invoice.email,
+          organization_phone: invoice.organization_phone,
+          organization_address: invoice.organization_address,
+        },
+        planName: invoice.plan_name || "Managira Platform",
+        cycleLabel: invoice.billing_cycle_label || invoice.billing_period_key || "Monthly",
+        supportEmail: process.env.NOTIFY_EMAIL_USER || "support@managira.com",
+      });
+
+      const safeNumber = String(invoice.invoice_number || `invoice-${invoice.id}`)
+        .replace(/[^a-zA-Z0-9_-]/g, "-")
+        .slice(0, 80);
+      const filename = `${safeNumber}.pdf`;
+      const shouldDownload = String(req.query.download || "") === "1";
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `${shouldDownload ? "attachment" : "inline"}; filename="${filename}"`
+      );
+      res.setHeader("Content-Length", String(pdfBuffer.length));
+      return res.send(pdfBuffer);
+    } catch (error) {
+      console.error("[appInvoicePdfGet] failed:", error?.message || error);
+      return res.status(500).send("Unable to generate invoice PDF.");
     }
   },
 
@@ -8540,12 +8498,6 @@ const accountController = {
         const dynamicCycle = await getActiveDynamicCycleByKey(db, periodKey);
         if (dynamicCycle) {
           periodMonths = Number(dynamicCycle.months) || 1;
-        } else {
-          const bpRes = await db.query(
-            'SELECT months FROM billing_periods WHERE period_key = $1',
-            [periodKey]
-          );
-          if (bpRes.rows.length > 0) periodMonths = bpRes.rows[0].months;
         }
       } catch (e) { /* fallback to 1 */ }
 
@@ -8573,66 +8525,37 @@ const accountController = {
 
         const authorizationCode = cardResult.rows[0].authorization_code;
         const cardProvider = cardResult.rows[0].provider || 'paystack';
-        // PAYSTACK_DISABLED: charge Stripe when the kill switch is off, even if
-        // the stored card was originally Paystack (it just won't be usable).
-        const useStripe = !isPaystackEnabled() || cardProvider === 'stripe';
+        const stripeChargeCurrency = getStripeChargeCurrency();
 
         try {
-          if (useStripe) {
-            const stripeChargeCurrency = getStripeChargeCurrency();
-            const chargeAmountStripeMinor = Math.round(proratedAmount * 100);
-            const orgStripeRow = await db.query(
-              'SELECT stripe_customer_id FROM organizations WHERE organization_id = $1',
-              [orgId]
-            );
-            const stripeCustomerId = orgStripeRow.rows[0]?.stripe_customer_id;
-            if (!stripeCustomerId || cardProvider !== 'stripe') {
-              req.flash("error", "Payment failed: please add a Stripe card before upgrading your plan.");
-              return res.redirect(redirectTo || "/account/update-plan");
-            }
-            const stripeClient = await getStripeClient(db);
-            const intent = await stripeClient.paymentIntents.create({
-              amount: chargeAmountStripeMinor,
-              currency: stripeChargeCurrency,
-              customer: stripeCustomerId,
-              payment_method: authorizationCode,
-              confirm: true,
-              off_session: true,
-              metadata: {
-                reason: 'Plan upgrade proration',
-                from_plan: String(currentPlanId),
-                to_plan: String(newPlanId),
-                prorated_days: String(remainingDays),
-              },
-            });
-            if (intent.status !== 'succeeded') {
-              req.flash("error", "Payment failed: " + (intent.last_payment_error?.message || "Unable to charge your card for the upgrade."));
-              return res.redirect(redirectTo || "/account/update-plan");
-            }
-          } else {
-            const chargeAmountPesewas = Math.round(proratedAmount * 100);
-            const paystackKey = await getActivePaystackSecretKey();
-            const chargeRes = await axios.post(
-              'https://api.paystack.co/transaction/charge_authorization',
-              {
-                email: orgEmail,
-                amount: chargeAmountPesewas,
-                authorization_code: authorizationCode,
-                currency: 'GHS',
-                metadata: {
-                  reason: 'Plan upgrade proration',
-                  from_plan: currentPlanId,
-                  to_plan: newPlanId,
-                  prorated_days: remainingDays,
-                },
-              },
-              { headers: { Authorization: `Bearer ${paystackKey}` } }
-            );
-
-            if (!chargeRes.data.status) {
-              req.flash("error", "Payment failed: " + (chargeRes.data.message || "Unable to charge your card for the upgrade."));
-              return res.redirect(redirectTo || "/account/update-plan");
-            }
+          const chargeAmountStripeMinor = Math.round(proratedAmount * 100);
+          const orgStripeRow = await db.query(
+            'SELECT stripe_customer_id FROM organizations WHERE organization_id = $1',
+            [orgId]
+          );
+          const stripeCustomerId = orgStripeRow.rows[0]?.stripe_customer_id;
+          if (!stripeCustomerId || cardProvider !== 'stripe') {
+            req.flash("error", "Payment failed: please add a Stripe card before upgrading your plan.");
+            return res.redirect(redirectTo || "/account/update-plan");
+          }
+          const stripeClient = await getStripeClient(db);
+          const intent = await stripeClient.paymentIntents.create({
+            amount: chargeAmountStripeMinor,
+            currency: stripeChargeCurrency,
+            customer: stripeCustomerId,
+            payment_method: authorizationCode,
+            confirm: true,
+            off_session: true,
+            metadata: {
+              reason: 'Plan upgrade proration',
+              from_plan: String(currentPlanId),
+              to_plan: String(newPlanId),
+              prorated_days: String(remainingDays),
+            },
+          });
+          if (intent.status !== 'succeeded') {
+            req.flash("error", "Payment failed: " + (intent.last_payment_error?.message || "Unable to charge your card for the upgrade."));
+            return res.redirect(redirectTo || "/account/update-plan");
           }
         } catch (chargeErr) {
           const errMsg = chargeErr?.response?.data?.message || chargeErr.message || 'Payment processing failed.';
@@ -8650,8 +8573,9 @@ const accountController = {
       invalidateOrganizationAccessCache(orgId);
       req.session.allowedFeatures = [];
 
+      const proratedCurrency = getStripeChargeCurrency().toUpperCase();
       const proratedMsg = proratedAmount > 0
-        ? ` A prorated charge of GHS ${proratedAmount.toFixed(2)} has been applied for the remaining ${remainingDays} day${remainingDays !== 1 ? 's' : ''} in your current billing period.`
+        ? ` A prorated charge of ${proratedCurrency} ${proratedAmount.toFixed(2)} has been applied for the remaining ${remainingDays} day${remainingDays !== 1 ? 's' : ''} in your current billing period.`
         : '';
       req.flash("success", `Your plan has been upgraded to ${newPlanName}.${proratedMsg}` + (billingPeriodChanged ? ' Billing cycle updated.' : ''));
 

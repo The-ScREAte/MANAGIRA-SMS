@@ -2593,11 +2593,28 @@
             </div>
           </div>
 
-          <% if (paymentProvider === 'stripe') { %>
+          <% if ((appInvoices && appInvoices.length) || paymentProvider === 'stripe') { %>
           <div class="card">
             <h4>Invoices</h4>
-            <small>Latest Stripe invoices and payment receipts for this subscription.</small>
-            <% if (stripeInvoices && stripeInvoices.length) { %>
+            <small>Upcoming invoices are generated 1 day before charge.<%= paymentProvider === 'stripe' ? ' Stripe receipts are listed below.' : '' %></small>
+            <% if (appInvoices && appInvoices.length) { %>
+            <ul class="billing-invoice-list">
+              <% appInvoices.forEach((invoice) => { %>
+              <% const invoiceNumber = invoice.number || ('Invoice #' + invoice.id); %>
+              <li class="billing-invoice-item">
+                <div class="billing-invoice-meta">
+                  <div class="billing-invoice-title"><%= invoiceNumber %></div>
+                  <div class="billing-invoice-copy"><%= (org && org.organization_name) ? org.organization_name : 'School' %></div>
+                </div>
+                <div class="billing-invoice-actions">
+                  <a class="btn-link btn-inline" href="/account/invoices/<%= invoice.id %>/pdf?download=1" rel="noopener noreferrer">Download</a>
+                </div>
+              </li>
+              <% }) %>
+            </ul>
+            <% } %>
+
+            <% if (paymentProvider === 'stripe' && stripeInvoices && stripeInvoices.length) { %>
             <ul class="billing-invoice-list">
               <% stripeInvoices.forEach((invoice) => { %>
               <li class="billing-invoice-item">
@@ -2627,8 +2644,8 @@
               </li>
               <% }) %>
             </ul>
-            <% } else { %>
-            <p class="billing-empty">No Stripe invoices found yet. New subscription invoices will appear here automatically.</p>
+            <% } else if ((!appInvoices || !appInvoices.length) && paymentProvider === 'stripe') { %>
+            <p class="billing-empty">No invoices found yet. Your next invoice will be generated and emailed 1 day before charge.</p>
             <% } %>
           </div>
           <% } %>
@@ -3816,6 +3833,7 @@
           planModalClose.addEventListener("click", () => closeModal(planModal));
         }
 
+
         if (paymentModal) {
           paymentModal.addEventListener("click", (event) => {
             if (event.target === paymentModal) {
@@ -4717,7 +4735,7 @@
 
             const summaryLine = pricingMode === 'dynamic'
               ? (extraStudents > 0
-                  ? `You have ${studentCount} students — ${extraStudents} above the free ${threshold}. Extra students are billed ${formatUsd(perStudentRateUsd)} per term (${formatUsd(termStudentCostUsd)} total per term), split across the term/semester. Region: ${regionName}.`
+                  ? `You have ${studentCount} students — ${extraStudents} above the free ${threshold}. Extra students are billed ${formatUsd(perStudentRateUsd)} per term, split across the term/semester. Region: ${regionName}.`
                   : `You have ${studentCount} students. First ${threshold} students are free on this plan. Region: ${regionName}.`)
               : `Region: ${regionName}. This plan is using flat monthly pricing because dynamic student pricing is not configured for your region yet.`;
 

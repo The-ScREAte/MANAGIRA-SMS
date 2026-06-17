@@ -206,6 +206,12 @@ router.post("/reset-password", (req, res) =>
 router.get("/settings", isAuthenticated, (req, res) =>
   accountController.settingsGet(req, res, db)
 );
+router.get(
+  "/invoices/:invoiceId/pdf",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_BILLING),
+  (req, res) => accountController.appInvoicePdfGet(req, res, db)
+);
 router.post("/settings/profile", isAuthenticated, (req, res) =>
   accountController.updateProfileNamePost(req, res, db)
 );

@@ -2106,6 +2106,7 @@ const commonController = {
           geo_lat,
           geo_lng,
           nickname,
+          nickname_display,
           font_style,
           theme_color,
           is_hub_member,
@@ -2299,26 +2300,49 @@ const commonController = {
         : null;
 
       const seoTitle = orgDetails?.organization_name
-        ? `${orgDetails.organization_name}${orgDetails?.nickname ? ` (${orgDetails.nickname})` : ""} | School Website | Managira`
-        : "School Public Portal | Managira";
+        ? `${orgDetails.organization_name}${orgDetails?.nickname_display ? ` (${orgDetails.nickname_display})` : (orgDetails?.nickname ? ` (${orgDetails.nickname})` : "")} | Official School Website`
+        : "Official School Website";
 
       const seoDescription = aboutusPlain
         ? `${aboutusPlain}`
-        : `${orgDetails?.organization_name || "School"} - school management portal on Managira. View class information, announcements, and school updates.`;
+        : `${orgDetails?.organization_name || "School"} official school website. View admissions, announcements, class information, and school updates.`;
 
       // Build rich keyword list: full name, every word, every partial combination,
       // nickname variations, and common school search terms — maximises chances of
       // appearing for partial name searches and minor spelling differences.
       const _orgName  = orgDetails?.organization_name || "";
       const _nickname = orgDetails?.nickname || "";
+      const _nicknameDisplay = orgDetails?.nickname_display || "";
       const _words    = _orgName.split(/\s+/).filter(Boolean);
+
+      const _acronym = _words
+        .map((w) => String(w || "").trim())
+        .filter(Boolean)
+        .map((w) => w[0])
+        .join("")
+        .toUpperCase();
+
+      const _nicknameVariants = new Set([
+        _nickname,
+        _nicknameDisplay,
+      ].filter(Boolean));
+      if (_nickname) {
+        _nicknameVariants.add(_nickname.replace(/i/g, "e"));
+        _nicknameVariants.add(_nickname.replace(/e/g, "i"));
+      }
 
       // All consecutive word subsequences (e.g. "SAM KORANCHIE", "KORANCHIE SOLID", etc.)
       const _nameVariants = new Set();
       _nameVariants.add(_orgName);
       _nameVariants.add(_orgName.toLowerCase());
       _nameVariants.add(_nickname);
+      _nameVariants.add(_nicknameDisplay);
+      _nameVariants.add(_acronym);
       _nameVariants.add(`${_nickname}.managira.com`);
+      _nicknameVariants.forEach((variant) => {
+        _nameVariants.add(variant);
+        _nameVariants.add(String(variant).toLowerCase());
+      });
       for (let i = 0; i < _words.length; i++) {
         for (let j = i + 1; j <= _words.length; j++) {
           _nameVariants.add(_words.slice(i, j).join(" "));
@@ -2335,8 +2359,11 @@ const commonController = {
         `${_orgName} Ghana`,
         `${_orgName} admissions`,
         `${_orgName} enrollment`,
+        `${_acronym} school`,
+        `${_acronym} Ghana`,
         `${_nickname} school`,
         `${_nickname} managira`,
+        `${_nicknameDisplay} school`,
         "school portal Ghana",
         "school website Ghana",
         "school management system",
@@ -2352,6 +2379,8 @@ const commonController = {
             name: orgDetails.organization_name,
             ...(orgDetails.nickname ? { alternateName: [
               orgDetails.nickname,
+              ...(orgDetails.nickname_display ? [orgDetails.nickname_display] : []),
+              ...(_acronym ? [_acronym] : []),
               `${orgDetails.nickname}.managira.com`,
               ...(orgDetails.organization_name || "").split(/\s+/).filter(w => w.length > 3)
             ]} : {}),

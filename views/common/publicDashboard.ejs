@@ -24,7 +24,7 @@
       <meta name="keywords" content="<%= keywords %>">
     <% } %>
     <meta name="robots" content="index, follow">
-    <meta name="author" content="Managira">
+    <meta name="author" content="<%= (orgDetails && (orgDetails.organization_name || orgDetails.nickname_display || orgDetails.nickname)) ? (orgDetails.organization_name || orgDetails.nickname_display || orgDetails.nickname) : 'School' %>">
     <% if (typeof canonicalUrl !== 'undefined' && canonicalUrl) { %>
       <link rel="canonical" href="<%= canonicalUrl %>">
     <% } %>
@@ -43,7 +43,7 @@
 
     <!-- Open Graph Meta Tags -->
     <meta property="og:type" content="website">
-    <meta property="og:site_name" content="Managira">
+    <meta property="og:site_name" content="<%= (orgDetails && (orgDetails.organization_name || orgDetails.nickname_display || orgDetails.nickname)) ? (orgDetails.organization_name || orgDetails.nickname_display || orgDetails.nickname) : 'School Website' %>">
     <meta property="og:title" content="<%= title %>">
     <% if (typeof description !== 'undefined' && description) { %>
       <meta property="og:description" content="<%= description %>">
@@ -52,15 +52,25 @@
       <meta property="og:url" content="<%= canonicalUrl %>">
     <% } %>
     <%
+      const _canonicalOrigin = (() => {
+        try {
+          return (typeof canonicalUrl !== 'undefined' && canonicalUrl)
+            ? new URL(canonicalUrl).origin
+            : 'https://www.managira.com';
+        } catch (_) {
+          return 'https://www.managira.com';
+        }
+      })();
+
       const _ogImage = (orgDetails && orgDetails.logo)
-        ? ((/^https?:\/\//i.test(orgDetails.logo)) ? orgDetails.logo : 'https://www.managira.com' + (orgDetails.logo.startsWith('/') ? '' : '/') + orgDetails.logo)
-        : 'https://www.managira.com/images/image.png';
+        ? ((/^https?:\/\//i.test(orgDetails.logo)) ? orgDetails.logo : _canonicalOrigin + (orgDetails.logo.startsWith('/') ? '' : '/') + orgDetails.logo)
+        : (_canonicalOrigin + '/images/image.png');
       const _ogImageWidth = (orgDetails && orgDetails.logo) ? '512' : '804';
       const _ogImageHeight = (orgDetails && orgDetails.logo) ? '512' : '461';
 
       const _sessionLogo = (session && session.logo) ? String(session.logo).trim() : '';
       const _orgLogo = (orgDetails && orgDetails.logo)
-        ? ((/^https?:\/\//i.test(orgDetails.logo)) ? orgDetails.logo : 'https://www.managira.com' + (orgDetails.logo.startsWith('/') ? '' : '/') + orgDetails.logo)
+        ? ((/^https?:\/\//i.test(orgDetails.logo)) ? orgDetails.logo : _canonicalOrigin + (orgDetails.logo.startsWith('/') ? '' : '/') + orgDetails.logo)
         : null;
       const _schoolIcon = _sessionLogo || _orgLogo;
     %>
@@ -4043,6 +4053,7 @@ body[data-pd-theme] .gallery-card .caption{
 
   </head>
   <body data-page="publicDashboard" data-pd-theme="<%= ({ amber: 'gold', rose: 'red', indigo: 'bold', slate: 'bold' }[String(publicDashboardTheme || 'classic').toLowerCase()] || publicDashboardTheme || 'classic') %>" data-pd-layout="<%= publicDashboardLayout || 'wireframe1' %>">
+    <%- include('../partials/header') %>
     <%- include('../partials/flash') %>
     <% if (req.query.success === '1') { %>
       <div class="alert alert-success">Registration and payment completed successfully!</div>
