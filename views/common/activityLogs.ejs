@@ -494,8 +494,9 @@
 
 <script>
   function initActivityLogsPage() {
-    if (window.__activityLogsPageInitialized) return;
-    window.__activityLogsPageInitialized = true;
+    const pageRoot = document.querySelector('.logs-page');
+    if (!pageRoot || pageRoot.dataset.activityLogsBound === 'true') return;
+    pageRoot.dataset.activityLogsBound = 'true';
 
     // Description modal
     const backdrop = document.getElementById('logModalBackdrop');
@@ -519,8 +520,10 @@
       modalClose.focus();
     }
     function closeModal() { backdrop.classList.remove('open'); }
-    document.querySelectorAll('.log-desc-btn').forEach(function(btn) {
-      btn.addEventListener('click', function() { openModal(btn); });
+    pageRoot.addEventListener('click', function(event) {
+      const btn = event.target.closest('.log-desc-btn');
+      if (!btn) return;
+      openModal(btn);
     });
     if (modalClose) modalClose.addEventListener('click', closeModal);
     backdrop.addEventListener('click', function(e) { if (e.target === backdrop) closeModal(); });
