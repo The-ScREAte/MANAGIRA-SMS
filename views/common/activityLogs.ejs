@@ -493,12 +493,17 @@
 </div>
 
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
+  function initActivityLogsPage() {
+    if (window.__activityLogsPageInitialized) return;
+    window.__activityLogsPageInitialized = true;
+
     // Description modal
     const backdrop = document.getElementById('logModalBackdrop');
     const modalText = document.getElementById('logModalText');
     const modalMeta = document.getElementById('logModalMeta');
     const modalClose = document.getElementById('logModalClose');
+    if (!backdrop || !modalText || !modalMeta || !modalClose) return;
+
     function openModal(btn) {
       modalText.textContent = btn.dataset.desc || '';
       const parts = [
@@ -570,5 +575,11 @@
         }
       });
     }
-  });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initActivityLogsPage, { once: true });
+  } else {
+    initActivityLogsPage();
+  }
 </script>

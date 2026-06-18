@@ -196,9 +196,8 @@
             <% if (currentTerm) { %>
             <div>
               <strong><%= currentTerm.term_name %>:</strong>
-              Start: <%= new
-              Date(currentTerm.start_date).toISOString().split('T')[0] %>, End:
-              <%= new Date(currentTerm.end_date).toISOString().split('T')[0] %>
+              Start: <%= (typeof formatDisplayDate === 'function' ? formatDisplayDate(currentTerm.start_date) : new Date(currentTerm.start_date).toLocaleDateString()) %>, End:
+              <%= (typeof formatDisplayDate === 'function' ? formatDisplayDate(currentTerm.end_date) : new Date(currentTerm.end_date).toLocaleDateString()) %>
             </div>
             <div>
               <% const today = new Date(); %> <% const daysUntilStart =
@@ -255,7 +254,7 @@
                   <li class="event-item" id="event-item-<%= eventIndex %>">
                     <div class="event-header" onclick="toggleEvent(<%= eventIndex %>)" style="cursor: pointer;">
                       <div class="event-title-row">
-                        <strong><%= event.name %></strong> - <%= new Date(event.event_date).toISOString().split('T')[0] %>
+                        <strong><%= event.name %></strong> - <%= (typeof formatDisplayDate === 'function' ? formatDisplayDate(event.event_date) : new Date(event.event_date).toLocaleDateString()) %>
                         <span class="event-toggle" title="Click to show/hide details">
                           <svg class="toggle-arrow" id="event-arrow-<%= eventIndex %>" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                             <polyline points="9 18 15 12 9 6"></polyline>

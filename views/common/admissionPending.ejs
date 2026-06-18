@@ -352,14 +352,15 @@
       </thead>
       <tbody id="pendingStudentsBody">
         <% pendingStudents.forEach(student => { %>
+        <% const pendingStudentDisplayName = (typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim()); %>
         <tr
-          data-student-name="<%= (student.first_name + ' ' + student.last_name).toLowerCase() %>"
+          data-student-name="<%= pendingStudentDisplayName.toLowerCase() %>"
           data-dob="<%= student.date_of_birth.toISOString().split('T')[0] %>"
           data-gender="<%= String(student.gender || '').toLowerCase() %>"
           data-class-name="<%= String(student.class_name || '').toLowerCase() %>"
           data-year-group="<%= String(student.graduation_group || 'N/A').toLowerCase() %>">
-          <td data-label="Name"><strong><%= student.first_name %> <%= student.last_name %></strong></td>
-          <td data-label="DOB"><%= student.date_of_birth.toISOString().split('T')[0] %></td>
+          <td data-label="Name"><strong><%= pendingStudentDisplayName %></strong></td>
+          <td data-label="DOB"><%= (typeof formatDisplayDate === 'function' ? formatDisplayDate(student.date_of_birth) : student.date_of_birth.toISOString().split('T')[0]) %></td>
           <td data-label="Gender"><%= student.gender %></td>
           <td data-label="Class"><%= student.class_name %></td>
           <td data-label="Year Group"><%= student.graduation_group || "N/A" %></td>

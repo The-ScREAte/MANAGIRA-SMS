@@ -266,7 +266,8 @@
 
 <div class="progress-container">
   <div class="progress-header">
-    <h1><%= student.first_name %> <%= student.last_name %> — Progress</h1>
+    <% const guardianStudentDisplayName = (typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim()); %>
+    <h1><%= guardianStudentDisplayName %> — Progress</h1>
     <div class="student-info-row">
       <% var img = '/images/profilePlaceholder.png'; %>
       <% if (student.image_url && student.image_url !== 'profilePlaceholder.png') { %>
@@ -276,7 +277,7 @@
           <% img = '/' + student.image_url; %>
         <% } %>
       <% } %>
-      <img src="<%= img %>" alt="<%= student.first_name %>" class="student-avatar" />
+      <img src="<%= img %>" alt="<%= guardianStudentDisplayName %>" class="student-avatar" />
       <div class="student-meta">
         <div class="class-name"><%= student.class_name || 'No class assigned' %></div>
         <div class="grad-group">Graduation Group: <%= (student.grad_year_group_name || 'N/A') %></div>
@@ -302,7 +303,7 @@
   <div class="content-card">
     <h3>👨‍🏫 Teachers</h3>
     <% if (mainTeacher) { %>
-      <p style="margin: 0; color: #475569;"><strong>Main Teacher:</strong> <%= mainTeacher.first_name %> <%= mainTeacher.last_name %> (<%= mainTeacher.email || 'no email' %>)</p>
+      <p style="margin: 0; color: #475569;"><strong>Main Teacher:</strong> <%= (typeof formatDisplayName === 'function' ? formatDisplayName(mainTeacher) : [mainTeacher.first_name, mainTeacher.last_name].filter(Boolean).join(' ').trim()) %> (<%= mainTeacher.email || 'no email' %>)</p>
     <% } else { %>
       <p style="margin: 0; color: #94a3b8;">No main teacher assigned.</p>
     <% } %>

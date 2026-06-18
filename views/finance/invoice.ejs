@@ -92,7 +92,7 @@
   <div class="grid">
     <div class="card">
       <div class="label">Billed To</div>
-      <div class="val"><%= assignment.first_name %> <%= assignment.last_name %></div>
+      <div class="val"><%= assignment.display_student_name || (typeof formatDisplayName === 'function' ? formatDisplayName(assignment) : [assignment.first_name, assignment.last_name].filter(Boolean).join(' ').trim()) %></div>
       <div style="font-size:.78rem;color:#5a6378;margin-top:3px;"><%= assignment.class_name || 'Unassigned class' %></div>
     </div>
     <div class="card">
@@ -100,7 +100,7 @@
       <div class="val"><%= assignment.bill_title %></div>
       <div style="font-size:.78rem;color:#5a6378;margin-top:3px;">
         <% if (assignment.bill_type === 'recurring') { %>Recurring · <%= assignment.recurrence || '' %><% } else { %><%= assignment.bill_type || 'One-time' %><% } %>
-        · Due <%= assignment.due_date ? new Date(assignment.due_date).toLocaleDateString() : '—' %>
+        · Due <%= assignment.due_date ? (typeof formatDisplayDate === 'function' ? formatDisplayDate(assignment.due_date) : new Date(assignment.due_date).toLocaleDateString()) : '—' %>
       </div>
     </div>
   </div>

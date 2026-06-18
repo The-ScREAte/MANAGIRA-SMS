@@ -29,7 +29,8 @@
           </thead>
           <tbody id="guardianTableBody">
             <% guardians.forEach((guardian, index) => { %>
-              <tr class="guardian-row" data-name="<%= guardian.first_name %> <%= guardian.last_name %>" 
+                <% const guardianDisplayName = (typeof formatDisplayName === 'function' ? formatDisplayName(guardian) : [guardian.first_name, guardian.last_name].filter(Boolean).join(' ').trim()); %>
+                <tr class="guardian-row" data-name="<%= guardianDisplayName %>" 
                   data-email="<%= guardian.email || '' %>" 
                   data-phone="<%= guardian.phone || '' %>"
                   style="border-bottom: 1px solid #e2e8f0; transition: background-color 0.2s; <%= index % 2 === 0 ? 'background: #f8fafc;' : 'background: white;' %>">
@@ -39,7 +40,7 @@
                        style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid #e2e8f0;">
                 </td>
                 <td style="padding: 14px 12px;">
-                  <strong style="color: #0f2d32; font-size: 15px;"><%= guardian.first_name %> <%= guardian.last_name || '' %></strong>
+                  <strong style="color: #0f2d32; font-size: 15px;"><%= guardianDisplayName %></strong>
                 </td>
                 <td style="padding: 14px 12px; color: #475569;">
                   <%= guardian.email || '-' %>

@@ -103,7 +103,7 @@
             <h3 class="report-subject"><%= report.subject %></h3>
             <div class="report-meta">
               <span><%= report.student_name %></span>
-              <span><%= new Date(report.created_at).toLocaleDateString() %></span>
+              <span><%= (typeof formatDisplayDate === 'function' ? formatDisplayDate(report.created_at) : new Date(report.created_at).toLocaleDateString()) %></span>
             </div>
           </div>
           <div class="report-right">
@@ -144,7 +144,7 @@
         <select name="student_id" id="modalStudentId" required>
           <option value="">-- Choose student --</option>
           <% students.forEach(function(s) { %>
-            <option value="<%= s.student_id %>"><%= s.first_name %> <%= s.last_name %><% if (s.class_name) { %> (<%= s.class_name %>)<% } %></option>
+            <option value="<%= s.student_id %>"><%= (s.display_name || (typeof formatDisplayName === 'function' ? formatDisplayName(s) : [s.first_name, s.last_name].filter(Boolean).join(' ').trim())) %><% if (s.class_name) { %> (<%= s.class_name %>)<% } %></option>
           <% }); %>
         </select>
       </div>

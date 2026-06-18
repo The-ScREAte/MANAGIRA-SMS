@@ -136,7 +136,7 @@
       </div>
 
       <div class="employee-details">
-        <h2><%= employee.first_name %> <%= employee.last_name %></h2>
+        <h2><%= (typeof formatDisplayName === 'function' ? formatDisplayName(employee) : [employee.first_name, employee.last_name].filter(Boolean).join(' ').trim()) %></h2>
         <p><strong>Email:</strong> <%= employee.email %></p>
         <p><strong>Role:</strong> <%= employee.account_type %></p>
       

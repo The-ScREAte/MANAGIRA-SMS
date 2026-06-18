@@ -192,8 +192,8 @@
         </div>
         <div class="card">
           <h2>🗓️ Dates</h2>
-          <div class="stat">Start: <%= new Date(term.start_date).toLocaleDateString() %></div>
-          <div class="stat">End: <%= new Date(term.end_date).toLocaleDateString() %></div>
+          <div class="stat">Start: <%= (typeof formatDisplayDate === 'function' ? formatDisplayDate(term.start_date) : new Date(term.start_date).toLocaleDateString()) %></div>
+          <div class="stat">End: <%= (typeof formatDisplayDate === 'function' ? formatDisplayDate(term.end_date) : new Date(term.end_date).toLocaleDateString()) %></div>
         </div>
         <div class="card">
           <h2>🏫 Classes</h2>

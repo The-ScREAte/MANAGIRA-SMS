@@ -667,12 +667,12 @@
     <div class="guardian-avatar-wrapper">
       <img 
         src="<%= guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? guardian.image_url : '/images/profilePlaceholder.png' %>" 
-        alt="<%= guardian.first_name %> <%= guardian.last_name %>"
+        alt="<%= guardianDisplayName %>"
         class="guardian-avatar"
       />
     </div>
     <div class="guardian-details">
-      <h1 class="guardian-name">Hello, <%= guardian.first_name %> <%= guardian.last_name || '' %>!</h1>
+      <h1 class="guardian-name">Hello, <%= guardianDisplayName %>!</h1>
       <p class="guardian-subtitle">Welcome to your Parent Portal Dashboard</p>
       
       <% const guardianDisplayName = (typeof formatDisplayName === 'function' ? formatDisplayName(guardian) : [guardian.first_name, guardian.last_name].filter(Boolean).join(' ').trim()); %>
@@ -735,11 +735,11 @@
             <div class="child-header">
               <img 
                 src="<%= child.image_url && child.image_url !== 'profilePlaceholder.png' ? child.image_url : '/images/profilePlaceholder.png' %>" 
-                alt="<%= child.first_name %> <%= child.last_name %>"
+                alt="<%= childDisplayName %>"
                 class="child-avatar"
               />
               <div class="child-info">
-                <h3><%= child.first_name %> <%= child.last_name %></h3>
+                <h3><%= childDisplayName %></h3>
                 <% if (child.display_student_id) { %>
                   <p class="child-student-id">ID: <%= child.display_student_id %></p>
                 <% } %>
@@ -761,7 +761,7 @@
                 <a href="/guardian/edit-pending-student?pendingId=<%= child.pending_id %>" class="edit-btn">
                   ✏️ Edit Application
                 </a>
-                <button onclick="withdrawApplication(<%= child.pending_id %>, '<%= child.first_name %> <%= child.last_name %>')" class="withdraw-btn">
+                <button onclick="withdrawApplication(<%= child.pending_id %>, '<%= childDisplayName.replace(/'/g, "\\'") %>')" class="withdraw-btn">
                   ❌ Withdraw
                 </button>
               </div>

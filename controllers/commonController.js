@@ -1507,6 +1507,7 @@ const commonController = {
     try {
       // Allow super admin org switch even if not an org user
       const organizationId = req.session.organizationId;
+      const orgNameDisplayFormat = req.session?.nameDisplayFormat;
       const currentUserRole = req.session.userRole;
       const url = req.url;
       const isSuperAdminSwitch = req.session.superAdminOrgSwitch;
@@ -1713,6 +1714,7 @@ const commonController = {
       const organizationId = isProduction
         ? school?.organization_id
         : req.session.organizationId;
+      const orgNameDisplayFormat = req.session?.nameDisplayFormat;
 
       if (!organizationId) {
         req.flash("error", "School not found.");
@@ -1851,6 +1853,8 @@ const commonController = {
                 json_agg(
                     json_build_object(
                         'user_id', u.user_id,
+                        'first_name', u.first_name,
+                        'last_name', u.last_name,
                         'name', u.first_name || ' ' || u.last_name,
                         'main', uc.main,
                         'on_hold', u.on_hold,
@@ -1896,6 +1900,8 @@ const commonController = {
                     json_agg(
                         json_build_object(
                             'user_id', u.user_id,
+                            'first_name', u.first_name,
+                            'last_name', u.last_name,
                             'name', u.first_name || ' ' || u.last_name,
                             'main', uc.main,
                             'on_hold', u.on_hold,
@@ -1918,6 +1924,21 @@ const commonController = {
         );
         classes = enrolledClassesResult.rows;
       }
+
+      classes = (classes || []).map((cls) => ({
+        ...cls,
+        employees: Array.isArray(cls.employees)
+          ? cls.employees
+              .filter(Boolean)
+              .map((employee) => ({
+                ...employee,
+                name:
+                  formatDisplayName(employee, orgNameDisplayFormat) ||
+                  employee.name ||
+                  [employee.first_name, employee.last_name].filter(Boolean).join(" ").trim(),
+              }))
+          : [],
+      }));
 
       // Events and announcements
       const eventsResult = await db.query(
@@ -7734,6 +7755,7 @@ const commonController = {
       }
 
       // Basic employee info (with class IDs)
+      const employeeNameSortExpression = buildNameSortExpression(req.session?.nameDisplayFormat, "u");
       const result = await db.query(
         `
           SELECT u.user_id, u.first_name, u.last_name, u.email, u.account_type, 
@@ -7742,7 +7764,7 @@ const commonController = {
           LEFT JOIN user_classes uc ON u.user_id = uc.user_id
           WHERE u.organization_id = $1
           GROUP BY u.user_id
-          ORDER BY u.first_name, u.last_name
+          ORDER BY ${employeeNameSortExpression}
         `,
         [req.session.organizationId]
       );

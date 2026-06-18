@@ -3966,7 +3966,7 @@ main {
                   '<span class="rp-dot"></span>' +
                   '<span>' + esc(r.guardian_name) + '</span>' +
                   '<span class="rp-dot"></span>' +
-                  '<span>' + new Date(r.created_at).toLocaleDateString() + '</span>' +
+                  '<span>' + formatDashboardDate(r.created_at) + '</span>' +
                 '</div>' +
               '</div>' +
               '<div class="rp-right">' +
@@ -3987,6 +3987,14 @@ main {
       var d = document.createElement('div');
       d.textContent = s;
       return d.innerHTML;
+    }
+
+    function formatDashboardDate(dateValue) {
+      if (!dateValue) return '';
+      var parsedDate = new Date(dateValue);
+      if (Number.isNaN(parsedDate.getTime())) return '';
+      if (typeof formatDisplayDate === 'function') return formatDisplayDate(parsedDate);
+      return parsedDate.toLocaleDateString();
     }
 
     function formatScheduleTime(timeValue) {
@@ -4023,7 +4031,7 @@ main {
           html += '<div class="rd-info-grid">';
           html += '<div class="rd-info-item"><p class="rd-info-label">Student</p><p class="rd-info-value">' + esc(rp.student_name) + '</p></div>';
           html += '<div class="rd-info-item"><p class="rd-info-label">Guardian</p><p class="rd-info-value">' + esc(rp.guardian_name) + '</p></div>';
-          html += '<div class="rd-info-item"><p class="rd-info-label">Date</p><p class="rd-info-value">' + new Date(rp.created_at).toLocaleDateString('en-US', {year:'numeric',month:'short',day:'numeric'}) + '</p></div>';
+          html += '<div class="rd-info-item"><p class="rd-info-label">Date</p><p class="rd-info-value">' + formatDashboardDate(rp.created_at) + '</p></div>';
           html += '<div class="rd-info-item"><p class="rd-info-label">Status</p><p class="rd-info-value"><span class="rd-badge ' + statusCls + '">' + (rp.status || 'open').replace('_',' ') + '</span></p></div>';
           html += '<div class="rd-info-item"><p class="rd-info-label">Priority</p><p class="rd-info-value"><span class="rd-badge ' + prCls + '">' + esc(rp.priority || 'normal') + '</span></p></div>';
           html += '</div>';

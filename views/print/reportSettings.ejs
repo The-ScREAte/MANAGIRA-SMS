@@ -1090,7 +1090,7 @@
           </div>
           <div style="padding:10px;background:#f8fafc;border-radius:8px;">
             <div style="font-size:0.85rem;color:var(--muted);margin-bottom:4px;">School Reopen Date</div>
-            <div style="font-weight:600;color:var(--primary);">${data.school_reopen_date ? new Date(data.school_reopen_date).toLocaleDateString() : '-'}</div>
+            <div style="font-weight:600;color:var(--primary);">${data.school_reopen_date ? (window.formatDisplayDate ? window.formatDisplayDate(data.school_reopen_date) : new Date(data.school_reopen_date).toLocaleDateString()) : '-'}</div>
           </div>
         `;
       } else {

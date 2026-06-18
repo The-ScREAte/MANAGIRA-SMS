@@ -1890,18 +1890,19 @@
               </div>
               <div class="fin-chip-grid scroll" id="studentChips">
                 <% refs.students.forEach(s => { %>
+                  <% const financeStudentDisplayName = s.display_name || (typeof formatDisplayName === 'function' ? formatDisplayName(s) : [s.first_name, s.last_name].filter(Boolean).join(' ').trim()); %>
                   <label class="fin-chip student"
                          data-student-id="<%= s.student_id %>"
                          data-class-id="<%= s.class_id || '' %>"
                          data-school-year-ids="<%= (s.school_year_ids || []).join(',') %>"
                          data-term-ids="<%= (s.term_ids || []).join(',') %>"
-                         data-search="<%= ((s.first_name||'') + ' ' + (s.last_name||'') + ' ' + (s.class_name||'')).toLowerCase() %>">
+                         data-search="<%= ((financeStudentDisplayName||'') + ' ' + (s.class_name||'')).toLowerCase() %>">
                     <input type="checkbox" name="target_student_ids" value="<%= s.student_id %>" onchange="finChipChanged(this,'studentCount')">
                     <span class="fin-chip-avatar">
-                      <img src="<%= resolveAvatar(s.image_url) %>" alt="<%= s.first_name %> <%= s.last_name %>" onerror="this.onerror=null;this.src='<%= profilePlaceholder %>';">
+                      <img src="<%= resolveAvatar(s.image_url) %>" alt="<%= financeStudentDisplayName %>" onerror="this.onerror=null;this.src='<%= profilePlaceholder %>';">
                     </span>
                     <span class="fin-chip-text">
-                      <strong><%= s.first_name %> <%= s.last_name %></strong>
+                      <strong><%= financeStudentDisplayName %></strong>
                       <small><%= s.class_name || '—' %></small>
                     </span>
                   </label>
@@ -2069,13 +2070,14 @@
                       <td class="num fin-col-md fin-money-neutral"><%= b.assigned_count %></td>
                       <td class="fin-col-md">
                         <% if (b.assignee_first_name) { %>
+                          <% const assigneeDisplayName = (typeof formatDisplayName === 'function' ? formatDisplayName({ first_name: b.assignee_first_name, last_name: b.assignee_last_name }) : [b.assignee_first_name, b.assignee_last_name].filter(Boolean).join(' ').trim()); %>
                           <div class="assignee-chip">
                             <div class="avatar-xs"><%= ((b.assignee_first_name||'?').charAt(0)+(b.assignee_last_name||'').charAt(0)).toUpperCase() %></div>
-                            <%= b.assignee_first_name %> <%= b.assignee_last_name %>
+                            <%= assigneeDisplayName %>
                           </div>
                         <% } else { %><span style="color:var(--fin-muted);font-size:.8rem;">—</span><% } %>
                       </td>
-                      <td class="fin-col-md fin-date-muted"><%= b.due_date ? new Date(b.due_date).toLocaleDateString() : '—' %></td>
+                      <td class="fin-col-md fin-date-muted"><%= b.due_date ? (typeof formatDisplayDate === 'function' ? formatDisplayDate(b.due_date) : new Date(b.due_date).toLocaleDateString()) : '—' %></td>
                       <td><span class="badge <%= b.status %>"><%= b.status %></span></td>
                       <td class="num fin-money-neutral"><%= fmt(b.total_amount) %></td>
                       <td class="num fin-col-lg fin-money-positive"><%= fmt(b.total_paid) %></td>
@@ -2229,14 +2231,15 @@
                     else if (netOut === 0) st = 'paid';
                     else if (Number(s.total_paid||0) > 0 || credit > 0) st = 'partial';
                   %>
-                    <tr class="fin-click-row" onclick="openStudentDrawer(<%= s.student_id %>)" title="Open student billing detail" data-text="<%= ((s.first_name||'') + ' ' + (s.last_name||'') + ' ' + (s.class_name||'') + ' ' + (s.display_student_id||'')).toLowerCase() %>" data-class="<%= s.class_id || '' %>" data-status="<%= st %>" data-debt="<%= netOut > 0 ? 'has-debt' : 'clear' %>" data-credit="<%= credit > 0 ? 'has-credit' : 'no-credit' %>">
+                    <% const financeStudentDisplayName = s.display_name || (typeof formatDisplayName === 'function' ? formatDisplayName(s) : [s.first_name, s.last_name].filter(Boolean).join(' ').trim()); %>
+                    <tr class="fin-click-row" onclick="openStudentDrawer(<%= s.student_id %>)" title="Open student billing detail" data-text="<%= ((financeStudentDisplayName||'') + ' ' + (s.class_name||'') + ' ' + (s.display_student_id||'')).toLowerCase() %>" data-class="<%= s.class_id || '' %>" data-status="<%= st %>" data-debt="<%= netOut > 0 ? 'has-debt' : 'clear' %>" data-credit="<%= credit > 0 ? 'has-credit' : 'no-credit' %>">
                       <td>
                         <div class="fin-student-main">
                           <div class="fin-student-avatar">
-                            <img src="<%= resolveAvatar(s.image_url) %>" alt="<%= s.first_name %> <%= s.last_name %>" onerror="this.onerror=null;this.src='<%= profilePlaceholder %>';">
+                            <img src="<%= resolveAvatar(s.image_url) %>" alt="<%= financeStudentDisplayName %>" onerror="this.onerror=null;this.src='<%= profilePlaceholder %>';">
                           </div>
                           <div class="fin-student-copy">
-                            <strong class="fin-student-name"><%= s.first_name %> <%= s.last_name %></strong>
+                            <strong class="fin-student-name"><%= financeStudentDisplayName %></strong>
                             <div class="fin-student-meta">ID <%= s.display_student_id_text || ('#' + s.student_id) %></div>
                           </div>
                         </div>
@@ -2421,9 +2424,9 @@
               <table class="fin-table" id="signoffHistoryTable">
                 <thead><tr><th>Signed At</th><th>Bill <button type="button" class="fin-sort-btn" data-fin-sort-index="1" data-fin-default="true" aria-label="Sort bills Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th><th>Scope</th><th>Class <button type="button" class="fin-sort-btn" data-fin-sort-index="3" aria-label="Sort classes Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th><th>Signed By <button type="button" class="fin-sort-btn" data-fin-sort-index="4" aria-label="Sort signers Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th><th class="num">Students</th><th class="num">Collected</th><th>Actions</th></tr></thead>
                 <tbody>
-                  <% (signoffHistory || []).forEach(function(row) { const scopeLabel = row.occurrence_date ? new Date(row.occurrence_date).toLocaleDateString() : 'Whole bill'; const classLabel = Number(row.class_id || 0) > 0 ? (row.class_name || 'Class scope') : 'All assigned students'; const signerLabel = (row.signed_by_name || (((row.signer_first_name || '') + ' ' + (row.signer_last_name || '')).trim()) || 'Staff') + (row.signer_role ? (' · ' + row.signer_role) : ''); const searchText = [row.bill_title, scopeLabel, classLabel, signerLabel, row.occurrence_date || '', row.signer_role || ''].join(' ').toLowerCase(); %>
+                  <% (signoffHistory || []).forEach(function(row) { const scopeLabel = row.occurrence_date ? (typeof formatDisplayDate === 'function' ? formatDisplayDate(row.occurrence_date) : new Date(row.occurrence_date).toLocaleDateString()) : 'Whole bill'; const classLabel = Number(row.class_id || 0) > 0 ? (row.class_name || 'Class scope') : 'All assigned students'; const signerLabel = (row.signed_by_name || (typeof formatDisplayName === 'function' ? formatDisplayName({ first_name: row.signer_first_name, last_name: row.signer_last_name }) : (((row.signer_first_name || '') + ' ' + (row.signer_last_name || '')).trim())) || 'Staff') + (row.signer_role ? (' · ' + row.signer_role) : ''); const searchText = [row.bill_title, scopeLabel, classLabel, signerLabel, row.occurrence_date || '', row.signer_role || ''].join(' ').toLowerCase(); %>
                     <tr data-text="<%= searchText %>">
-                      <td><%= row.signed_at ? new Date(row.signed_at).toLocaleString() : '—' %></td>
+                      <td><%= row.signed_at ? (typeof formatDisplayDate === 'function' ? formatDisplayDate(row.signed_at) : new Date(row.signed_at).toLocaleString()) : '—' %></td>
                       <td>
                         <strong><%= row.bill_title || 'Bill' %></strong>
                         <% if (Number(row.reopened_count || 0) > 0) { %>
@@ -2911,7 +2914,7 @@
                                     <tr>
                                       <td><strong><%= bill.bill_title %></strong><div class="arrears-note"><%= bill.bill_type %></div></td>
                                       <td><%= bill.year_label %> · <%= bill.term_name %></td>
-                                      <td><%= bill.due_date ? new Date(bill.due_date).toLocaleDateString() : '—' %></td>
+                                      <td><%= bill.due_date ? (typeof formatDisplayDate === 'function' ? formatDisplayDate(bill.due_date) : new Date(bill.due_date).toLocaleDateString()) : '—' %></td>
                                       <td><%= bill.total_billed_display %></td>
                                       <td><%= bill.paid_display %></td>
                                       <td><%= bill.outstanding_display %></td>
@@ -4727,7 +4730,7 @@ Regards,
         <input type="hidden" name="target_student_ids" value="">
         <select id="ebl-target_student_ids" name="target_student_ids" class="fin-multi-select" multiple size="8">
           <% (refs.students || []).forEach(function(s) { %>
-            <option value="<%= s.student_id %>" data-school-year-ids="<%= (s.school_year_ids || []).join(',') %>" data-term-ids="<%= (s.term_ids || []).join(',') %>"><%= s.first_name %> <%= s.last_name %><%= s.class_name ? (' · ' + s.class_name) : '' %></option>
+            <option value="<%= s.student_id %>" data-school-year-ids="<%= (s.school_year_ids || []).join(',') %>" data-term-ids="<%= (s.term_ids || []).join(',') %>"><%= (s.display_name || (typeof formatDisplayName === 'function' ? formatDisplayName(s) : [s.first_name, s.last_name].filter(Boolean).join(' ').trim())) %><%= s.class_name ? (' · ' + s.class_name) : '' %></option>
           <% }) %>
         </select>
         <small style="color:var(--fin-muted);font-size:.72rem;">Click students to add or remove them.</small>

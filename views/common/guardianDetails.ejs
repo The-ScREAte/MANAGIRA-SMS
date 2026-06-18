@@ -740,7 +740,8 @@
              alt="Guardian" class="gd-avatar">
       </div>
       <div>
-        <h2 class="gd-name"><%= guardian.first_name %> <%= guardian.last_name || '' %></h2>
+        <% const guardianDisplayName = (typeof formatDisplayName === 'function' ? formatDisplayName(guardian) : [guardian.first_name, guardian.last_name].filter(Boolean).join(' ').trim()); %>
+        <h2 class="gd-name"><%= guardianDisplayName %></h2>
         <div class="gd-info-grid">
           <div class="gd-info-item"><strong>Email:</strong> <%= guardian.email || 'Not provided' %></div>
           <div class="gd-info-item"><strong>Phone:</strong> <%= guardian.phone || 'Not provided' %></div>
@@ -813,12 +814,13 @@
     <% } else { %>
       <div class="gd-students-grid" id="guardianLinkedStudentsGrid">
         <% students.forEach(student => { %>
-          <div class="gd-student-card" data-student-name="<%= (student.first_name + ' ' + student.last_name).toLowerCase() %>">
+          <% const linkedStudentDisplayName = (typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim()); %>
+          <div class="gd-student-card" data-student-name="<%= linkedStudentDisplayName.toLowerCase() %>">
             <div class="gd-student-top">
               <img src="<%= student.image_url && student.image_url !== 'profilePlaceholder.png' ? student.image_url : '/images/profilePlaceholder.png' %>" 
                    alt="Student" class="gd-student-avatar">
               <div>
-                <div class="gd-student-name"><%= student.first_name %> <%= student.last_name %></div>
+                <div class="gd-student-name"><%= linkedStudentDisplayName %></div>
                 <div class="gd-student-class"><%= student.class_name || 'No class' %></div>
                 <div class="gd-student-rel"><%= student.relationship || 'Guardian' %></div>
               </div>
@@ -829,9 +831,9 @@
               <div class="gd-dots-menu-wrapper">
                 <button type="button" class="gd-dots-btn" onclick="toggleDotsMenu(this)" title="More options">⋮</button>
                 <div class="gd-dots-dropdown">
-                  <button onclick="openReportModal('<%= student.student_id %>', '<%= student.first_name %> <%= student.last_name %>')">📝 File Report</button>
+                  <button onclick="openReportModal('<%= student.student_id %>', '<%= linkedStudentDisplayName.replace(/'/g, "\\'") %>')">📝 File Report</button>
                   <% if (canEdit) { %>
-                  <button class="gd-dropdown-danger" onclick="removeStudent('<%= student.student_id %>', '<%= student.first_name %> <%= student.last_name %>')">🗑 Remove Student</button>
+                  <button class="gd-dropdown-danger" onclick="removeStudent('<%= student.student_id %>', '<%= linkedStudentDisplayName.replace(/'/g, "\\'") %>')">🗑 Remove Student</button>
                   <% } %>
                 </div>
               </div>

@@ -18,6 +18,7 @@ const axios = require("axios");
 const { sendEmailSafely } = require("../utils/emailHelper");
 const { getOrganizationWebsiteInfo } = require("../utils/schoolWebsiteAccess");
 const { buildStudentDisplayId, getOrganizationStudentIdSettings } = require("../utils/studentIdDisplay");
+const { formatDisplayDate, formatDisplayName } = require("../utils/organizationDisplayPreferences");
 // Lightweight async wrapper to avoid dependency errors
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const organizationCache = {};
@@ -351,12 +352,14 @@ const printController = (db) => ({
 
       const statusSettings = statusSettingsResult.rows[0] || {};
       const cutOffPoint = statusSettings.cut_off_point || 50;
+      const orgDateDisplayFormat = req.session?.dateDisplayFormat;
+      const orgNameDisplayFormat = req.session?.nameDisplayFormat;
       const schoolReopenDate = statusSettings.school_reopen_date
-        ? new Date(statusSettings.school_reopen_date).toLocaleDateString()
+        ? formatDisplayDate(statusSettings.school_reopen_date, orgDateDisplayFormat)
         : "TBA";
       const termEndDate = statusSettings.term_end_date
-        ? new Date(statusSettings.term_end_date).toLocaleDateString()
-        : new Date(term.end_date).toLocaleDateString();
+        ? formatDisplayDate(statusSettings.term_end_date, orgDateDisplayFormat)
+        : formatDisplayDate(term.end_date, orgDateDisplayFormat);
 
       const promotedClassId = statusSettings.promoted_class;
       const repeatedClassId = statusSettings.repeated_class;
@@ -581,6 +584,9 @@ const printController = (db) => ({
 
       const students = studentsResult.rows.map((student) => ({
         ...student,
+        display_name:
+          formatDisplayName(student, orgNameDisplayFormat) ||
+          [student.first_name, student.last_name].filter(Boolean).join(" ").trim(),
         display_student_id: buildStudentDisplayId(student, studentIdSettings),
       }));
       const allSubjects = subjectsResult.rows;
@@ -2442,6 +2448,7 @@ students
       } = classDetailsResult.rows[0];
 
       const studentIdSettings = await getOrganizationStudentIdSettings(db, organizationId);
+      const orgNameDisplayFormat = req.session?.nameDisplayFormat;
 
       // Fetch subjects for the class
       const subjectsResult = await db.query(
@@ -2739,7 +2746,9 @@ students
 
         return {
           studentId: buildStudentDisplayId(student, studentIdSettings),
-          name: `${student.first_name} ${student.last_name}`,
+          name:
+            formatDisplayName(student, orgNameDisplayFormat) ||
+            [student.first_name, student.last_name].filter(Boolean).join(" ").trim(),
           scores: studentScores,
           totalScore: totalScore.toFixed(2),
           averageScore: averageScore.toFixed(2),

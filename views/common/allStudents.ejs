@@ -1295,6 +1295,7 @@
       </thead>
       <tbody id="asTableBody">
         <% students.forEach(s => {
+          const studentDisplayName = s.display_name || (typeof formatDisplayName === 'function' ? formatDisplayName(s) : [s.first_name, s.last_name].filter(Boolean).join(' ').trim());
           const initials = (s.first_name[0] || '') + (s.last_name[0] || '');
           const detailsHref = `/common/studentDetails?studentId=${s.student_id}${termId ? '&termId='+termId : ''}${s.class_id ? '&classId='+s.class_id : ''}`;
           const isGrad = s.graduated === true || s.graduated === 'true';
@@ -1302,7 +1303,7 @@
         %>
         <tr
           data-id="<%= s.student_id %>"
-          data-name="<%= String((s.display_name || (s.first_name + ' ' + s.last_name)) || '').toLowerCase() %>"
+          data-name="<%= String(studentDisplayName || '').toLowerCase() %>"
           data-search-id="<%= String(s.display_student_id || '').toLowerCase() %>"
           data-class-id="<%= s.class_id || '' %>"
           data-class-name="<%= String(s.class_name || '').toLowerCase() %>"
@@ -1319,11 +1320,11 @@
           <td>
             <div class="as-student-cell">
               <% if (s.image_url && s.image_url !== 'profilePlaceholder.png') { %>
-              <img class="as-avatar" src="<%= s.image_url %>" alt="<%= s.first_name %>" loading="lazy">
+              <img class="as-avatar" src="<%= s.image_url %>" alt="<%= studentDisplayName %>" loading="lazy">
               <% } else { %>
               <div class="as-avatar-placeholder"><%= initials %></div>
               <% } %>
-              <a href="<%= detailsHref %>" class="as-name-link"><%= s.display_name || (s.first_name + ' ' + s.last_name) %></a>
+              <a href="<%= detailsHref %>" class="as-name-link"><%= studentDisplayName %></a>
             </div>
           </td>
 
@@ -1353,7 +1354,7 @@
               </a>
               <button class="as-btn as-btn-edit js-edit-class icon-only"
                 data-student-id="<%= s.student_id %>"
-                data-student-name="<%= s.first_name %> <%= s.last_name %>"
+                data-student-name="<%= studentDisplayName %>"
                 data-class-id="<%= s.class_id || '' %>"
                 data-class-name="<%= s.class_name || '' %>"
                 data-school-year-id="<%= s.last_school_year_id || '' %>"
@@ -1377,6 +1378,7 @@
     <%- /* ─── Mobile Card List ───────────────────────────────────────────── */ '' %>
     <div class="as-card-list" id="asCardList">
       <% students.forEach(s => {
+        const studentDisplayName = s.display_name || (typeof formatDisplayName === 'function' ? formatDisplayName(s) : [s.first_name, s.last_name].filter(Boolean).join(' ').trim());
         const initials = (s.first_name[0] || '') + (s.last_name[0] || '');
         const detailsHref = `/common/studentDetails?studentId=${s.student_id}${termId ? '&termId='+termId : ''}${s.class_id ? '&classId='+s.class_id : ''}`;
         const isGrad = s.graduated === true || s.graduated === 'true';
@@ -1384,7 +1386,7 @@
       %>
       <div class="as-card"
         data-id="<%= s.student_id %>"
-        data-name="<%= (s.first_name + ' ' + s.last_name).toLowerCase() %>"
+        data-name="<%= studentDisplayName.toLowerCase() %>"
         data-search-id="<%= String(s.display_student_id || '').toLowerCase() %>"
         data-class-id="<%= s.class_id || '' %>"
         data-gender="<%= s.gender || '' %>"
@@ -1394,12 +1396,12 @@
         <div class="as-card-top">
           <input type="checkbox" class="as-cb as-card-cb" data-id="<%= s.student_id %>" style="margin-right:2px;">
           <% if (s.image_url && s.image_url !== 'profilePlaceholder.png') { %>
-          <img class="as-avatar" src="<%= s.image_url %>" alt="<%= s.first_name %>" loading="lazy">
+          <img class="as-avatar" src="<%= s.image_url %>" alt="<%= studentDisplayName %>" loading="lazy">
           <% } else { %>
           <div class="as-avatar-placeholder"><%= initials %></div>
           <% } %>
           <div class="as-card-info">
-            <a href="<%= detailsHref %>" class="as-card-name"><%= s.first_name %> <%= s.last_name %></a>
+            <a href="<%= detailsHref %>" class="as-card-name"><%= studentDisplayName %></a>
             <div class="as-card-sub">ID: <span class="js-student-display-id"><%= displayIdText %></span> &nbsp;·&nbsp; <%= s.gender || 'N/A' %></div>
           </div>
           <span class="as-badge <%= isGrad ? 'graduated' : 'active' %>" style="flex-shrink:0">
@@ -1423,7 +1425,7 @@
           </a>
           <button class="as-btn as-btn-edit js-edit-class icon-only"
             data-student-id="<%= s.student_id %>"
-            data-student-name="<%= s.first_name %> <%= s.last_name %>"
+            data-student-name="<%= studentDisplayName %>"
             data-class-id="<%= s.class_id || '' %>"
             data-class-name="<%= s.class_name || '' %>"
             data-school-year-id="<%= s.last_school_year_id || '' %>"

@@ -535,13 +535,14 @@
   <div class="student-header">
     <div class="student-header-content">
       <div style="display: flex; gap: 20px; align-items: center;">
+        <% const academicStudentDisplayName = (typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim()); %>
         <img 
           src="<%= student.image_url && student.image_url !== 'profilePlaceholder.png' ? student.image_url : '/images/profilePlaceholder.png' %>" 
-          alt="<%= student.first_name %> <%= student.last_name %>"
+          alt="<%= academicStudentDisplayName %>"
           class="student-avatar-large"
         />
         <div class="student-header-info">
-          <h1><%= student.first_name %> <%= student.last_name %></h1>
+          <h1><%= academicStudentDisplayName %></h1>
           <div class="student-info-grid">
             <p><strong>Class:</strong> <%= enrolledClassForTerm || 'Not enrolled' %></p>
             <p><strong>Term:</strong> <%= termNameForPage %></p>

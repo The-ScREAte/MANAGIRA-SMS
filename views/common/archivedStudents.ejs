@@ -47,14 +47,15 @@
             <!-- Students List -->
             <ul id="archived-group-<%= index %>" class="student-list hidden">
                 <% group.students.forEach(student => { %>
+                    <% const archivedStudentDisplayName = (typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim()); %>
                     <li
                         class="student-item"
-                        data-name="<%= student.first_name.toLowerCase() %> <%= student.last_name.toLowerCase() %>"
+                        data-name="<%= archivedStudentDisplayName.toLowerCase() %>"
                         data-group="<%= index %>"
                     >
                         <input type="checkbox" name="students" value="<%= student.student_id %>">
                         <a href="/common/studentInfo?studentId=<%= student.student_id %>">
-                            <%= student.first_name %> <%= student.last_name %>
+                            <%= archivedStudentDisplayName %>
                         </a>
                     </li>
                 <% }) %>

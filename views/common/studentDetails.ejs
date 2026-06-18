@@ -32,8 +32,7 @@
       main {
         margin: 0 auto;
         width: min(1100px, 94%);
-        text-align: left;
-        background: #fff;
+              <th>Guardian Name</th>
         border: 1px solid var(--border);
         border-radius: 14px;
         box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
@@ -43,8 +42,7 @@
       .btn {
         padding: 8px 12px;
         margin: 6px;
-        border: none;
-        border-radius: 8px;
+              <td><%= (typeof formatDisplayName === 'function' ? formatDisplayName(guardian) : [guardian.first_name, guardian.last_name].filter(Boolean).join(' ').trim()) %></td>
         cursor: pointer;
         text-decoration: none;
         font-size: 0.88rem;

@@ -345,7 +345,7 @@
               <span class="status-badge status-active">✓ Active</span>
             <% } %>
           </td>
-          <td data-label="Name"><strong><%= employee.first_name %> <%= employee.last_name %></strong></td>
+          <td data-label="Name"><strong><%= (typeof formatDisplayName === 'function' ? formatDisplayName(employee) : [employee.first_name, employee.last_name].filter(Boolean).join(' ').trim()) %></strong></td>
           <td data-label="Email"><%= employee.email %></td>
           <td data-label="Role"><%= employee.account_type %></td>
           <td data-label="Permissions">

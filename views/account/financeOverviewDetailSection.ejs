@@ -60,11 +60,12 @@
     <div class="section-head"><h2>Recent Activity</h2></div>
     <div class="activity">
       <% if (overview.recent && overview.recent.length) { overview.recent.forEach(r => { %>
+        <% const recentStudentDisplayName = r.display_student_name || (typeof formatDisplayName === 'function' ? formatDisplayName(r) : [r.first_name, r.last_name].filter(Boolean).join(' ').trim()); %>
         <div class="activity-item">
           <div class="avatar"><%= ((r.first_name||'?').charAt(0) + (r.last_name||'').charAt(0)).toUpperCase() %></div>
           <div style="min-width:0;flex:1;">
-            <div class="who"><%= (r.first_name||'') + ' ' + (r.last_name||'') %></div>
-            <div class="meta"><%= r.bill_title || 'Payment' %> · <%= r.method %> · <%= new Date(r.received_at).toLocaleString() %></div>
+            <div class="who"><%= recentStudentDisplayName %></div>
+            <div class="meta"><%= r.bill_title || 'Payment' %> · <%= r.method %> · <%= (typeof formatDisplayDate === 'function' ? formatDisplayDate(r.received_at) : new Date(r.received_at).toLocaleString()) %></div>
           </div>
           <div class="amt">+<%= fmt(r.amount) %></div>
         </div>
@@ -180,7 +181,7 @@
             <td class="num fin-money-neutral"><%= fmt(b.total_amount) %></td>
             <td class="num fin-col-lg fin-money-positive"><%= fmt(b.total_paid) %></td>
             <td class="num <%= out > 0 ? 'fin-money-negative' : 'fin-money-neutral' %>"><%= fmt(out) %></td>
-            <td class="fin-col-md fin-date-muted"><%= b.due_date ? new Date(b.due_date).toLocaleDateString() : '—' %></td>
+            <td class="fin-col-md fin-date-muted"><%= b.due_date ? (typeof formatDisplayDate === 'function' ? formatDisplayDate(b.due_date) : new Date(b.due_date).toLocaleDateString()) : '—' %></td>
           </tr>
         <% }) %>
         <% if (!bills.length) { %>
