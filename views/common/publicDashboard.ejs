@@ -72,7 +72,7 @@
       const _orgLogo = (orgDetails && orgDetails.logo)
         ? ((/^https?:\/\//i.test(orgDetails.logo)) ? orgDetails.logo : _canonicalOrigin + (orgDetails.logo.startsWith('/') ? '' : '/') + orgDetails.logo)
         : null;
-      const _schoolIcon = _sessionLogo || _orgLogo;
+      const _schoolIcon = _orgLogo || _sessionLogo;
     %>
     <meta property="og:image" content="<%= _ogImage %>">
     <meta property="og:image:width" content="<%= _ogImageWidth %>">
@@ -93,9 +93,12 @@
 
     <!-- Favicons -->
     <% if (_schoolIcon) { %>
-      <link rel="icon" href="<%= _schoolIcon %>" type="image/png" sizes="any" />
+      <link rel="icon" href="<%= _schoolIcon %>" type="image/png" sizes="48x48" />
+      <link rel="icon" href="<%= _schoolIcon %>" type="image/png" sizes="32x32" />
+      <link rel="icon" href="<%= _schoolIcon %>" type="image/png" sizes="16x16" />
       <link rel="shortcut icon" href="<%= _schoolIcon %>" type="image/png" />
-      <link rel="apple-touch-icon" href="<%= _schoolIcon %>" />
+      <link rel="apple-touch-icon" sizes="180x180" href="<%= _schoolIcon %>" />
+      <meta name="msapplication-TileColor" content="#01535b">
       <meta name="msapplication-TileImage" content="<%= _schoolIcon %>">
     <% } else { %>
       <link rel="icon" href="/favicon.ico" type="image/x-icon" sizes="any" />

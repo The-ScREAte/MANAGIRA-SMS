@@ -2330,13 +2330,16 @@ const commonController = {
         ? String(orgDetails.aboutus).replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim().substring(0, 160)
         : null;
 
+      const _publicAlias = orgDetails?.nickname_display || orgDetails?.nickname || "";
       const seoTitle = orgDetails?.organization_name
-        ? `${orgDetails.organization_name}${orgDetails?.nickname_display ? ` (${orgDetails.nickname_display})` : (orgDetails?.nickname ? ` (${orgDetails.nickname})` : "")} | Official School Website`
+        ? (_publicAlias
+          ? `${_publicAlias} | ${orgDetails.organization_name} | Official School Website`
+          : `${orgDetails.organization_name} | Official School Website`)
         : "Official School Website";
 
       const seoDescription = aboutusPlain
-        ? `${aboutusPlain}`
-        : `${orgDetails?.organization_name || "School"} official school website. View admissions, announcements, class information, and school updates.`;
+        ? `${aboutusPlain}${_publicAlias ? ` Also known as ${_publicAlias}.` : ""}`
+        : `${orgDetails?.organization_name || "School"}${_publicAlias ? ` (${_publicAlias})` : ""} official school website. View admissions, announcements, class information, and school updates.`;
 
       // Build rich keyword list: full name, every word, every partial combination,
       // nickname variations, and common school search terms — maximises chances of
@@ -2403,54 +2406,82 @@ const commonController = {
       ].filter(Boolean).join(", ");
 
       // Build rich Schema.org School structured data
-      const structuredDataSchema = orgDetails
+      const _logoAbs = toAbsoluteUrl(orgDetails?.logo);
+      const _schemaAliases = [..._nameVariants]
+        .map((v) => String(v || "").trim())
+        .filter(Boolean)
+        .slice(0, 40);
+
+      const structuredData = orgDetails
         ? {
             "@context": "https://schema.org",
-            "@type": ["School", "EducationalOrganization"],
-            name: orgDetails.organization_name,
-            ...(orgDetails.nickname ? { alternateName: [
-              orgDetails.nickname,
-              ...(orgDetails.nickname_display ? [orgDetails.nickname_display] : []),
-              ...(_acronym ? [_acronym] : []),
-              `${orgDetails.nickname}.managira.com`,
-              ...(orgDetails.organization_name || "").split(/\s+/).filter(w => w.length > 3)
-            ]} : {}),
-            url: canonicalUrl,
-            ...(toAbsoluteUrl(orgDetails.logo) ? {
-              logo: {
-                "@type": "ImageObject",
-                url: toAbsoluteUrl(orgDetails.logo)
+            "@graph": [
+              {
+                "@type": ["School", "EducationalOrganization"],
+                "@id": `${canonicalUrl}#school`,
+                name: orgDetails.organization_name,
+                ...(orgDetails.nickname ? { alternateName: [
+                  orgDetails.nickname,
+                  ...(orgDetails.nickname_display ? [orgDetails.nickname_display] : []),
+                  ...(_acronym ? [_acronym] : []),
+                  `${orgDetails.nickname}.managira.com`,
+                  ...(orgDetails.organization_name || "").split(/\s+/).filter(w => w.length > 3)
+                ]} : {}),
+                ...( _schemaAliases.length ? { keywords: _schemaAliases.join(", ") } : {}),
+                url: canonicalUrl,
+                ...( _logoAbs ? {
+                  logo: {
+                    "@type": "ImageObject",
+                    url: _logoAbs
+                  },
+                  image: _logoAbs
+                } : {}),
+                ...(aboutusPlain ? { description: aboutusPlain } : {}),
+                ...(orgDetails.motto ? { slogan: orgDetails.motto } : {}),
+                ...(orgDetails.organization_address ? { address: {
+                  "@type": "PostalAddress",
+                  streetAddress: orgDetails.organization_address,
+                  ...(orgDetails.organization_province ? { addressLocality: orgDetails.organization_province, addressRegion: orgDetails.organization_province } : {}),
+                  ...(orgDetails.organization_country ? { addressCountry: orgDetails.organization_country } : {}),
+                }} : {}),
+                ...(orgDetails.geo_lat != null && orgDetails.geo_lng != null ? {
+                  geo: {
+                    "@type": "GeoCoordinates",
+                    latitude: parseFloat(orgDetails.geo_lat),
+                    longitude: parseFloat(orgDetails.geo_lng),
+                  },
+                  hasMap: `https://www.google.com/maps?q=${orgDetails.geo_lat},${orgDetails.geo_lng}`,
+                } : {}),
+                ...(orgDetails.organization_phone ? { telephone: orgDetails.organization_phone } : {}),
+                ...(orgDetails.email ? { email: orgDetails.email } : {}),
+                sameAs: [canonicalUrl]
               },
-              image: toAbsoluteUrl(orgDetails.logo)
-            } : {}),
-            ...(aboutusPlain ? { description: aboutusPlain } : {}),
-            ...(orgDetails.motto ? { slogan: orgDetails.motto } : {}),
-            ...(orgDetails.organization_address ? { address: {
-              "@type": "PostalAddress",
-              streetAddress: orgDetails.organization_address,
-              ...(orgDetails.organization_province ? { addressLocality: orgDetails.organization_province, addressRegion: orgDetails.organization_province } : {}),
-              ...(orgDetails.organization_country ? { addressCountry: orgDetails.organization_country } : {}),
-            }} : {}),
-            ...(orgDetails.geo_lat != null && orgDetails.geo_lng != null ? {
-              geo: {
-                "@type": "GeoCoordinates",
-                latitude: parseFloat(orgDetails.geo_lat),
-                longitude: parseFloat(orgDetails.geo_lng),
+              {
+                "@type": "WebSite",
+                "@id": `${canonicalUrl}#website`,
+                url: canonicalUrl,
+                name: orgDetails.organization_name,
+                ...( _publicAlias ? { alternateName: _publicAlias } : {}),
+                inLanguage: "en",
+                potentialAction: {
+                  "@type": "SearchAction",
+                  target: `${canonicalUrl}?q={search_term_string}`,
+                  "query-input": "required name=search_term_string"
+                }
               },
-              hasMap: `https://www.google.com/maps?q=${orgDetails.geo_lat},${orgDetails.geo_lng}`,
-            } : {}),
-            ...(orgDetails.organization_phone ? { telephone: orgDetails.organization_phone } : {}),
-            ...(orgDetails.email ? { email: orgDetails.email } : {}),
-            sameAs: [canonicalUrl],
-            potentialAction: {
-              "@type": "SearchAction",
-              target: `${canonicalUrl}?q={search_term_string}`,
-              "query-input": "required name=search_term_string"
-            }
+              {
+                "@type": "WebPage",
+                "@id": `${canonicalUrl}#webpage`,
+                url: canonicalUrl,
+                name: seoTitle,
+                isPartOf: { "@id": `${canonicalUrl}#website` },
+                about: { "@id": `${canonicalUrl}#school` },
+                primaryImageOfPage: _logoAbs || undefined,
+                description: seoDescription
+              }
+            ]
           }
         : null;
-
-      const structuredData = structuredDataSchema;
 
       res.render("common/publicDashboard", {
         layout: false,

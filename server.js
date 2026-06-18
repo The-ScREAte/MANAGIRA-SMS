@@ -654,7 +654,8 @@ app.get("/favicon.ico", (req, res, next) => {
       }
     }
 
-    return res.redirect(302, logoUrl);
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    return res.redirect(301, logoUrl);
   } catch (error) {
     return next();
   }
