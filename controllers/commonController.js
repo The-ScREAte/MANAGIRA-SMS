@@ -5739,12 +5739,13 @@ const commonController = {
       subjectsResult.rows.forEach((subject) => {
         subjectsMap.set(subject.subject_id, {
           ...subject,
-          totalScore: 0,
+          totalScore: null,
           totalMaxScore: 0,
           totalPercentage: null,
           grade: null,
           position: null,
           scaleBase: 100,
+          hasEnteredScore: false,
           assessments: [],
         });
       });
@@ -5804,14 +5805,12 @@ const commonController = {
           const subject = subjectsMap.get(assessment.subject_id);
           subject.assessments.push(assessment);
           if (assessment.score !== null) {
+            if (subject.totalScore === null) {
+              subject.totalScore = 0;
+            }
+            subject.hasEnteredScore = true;
             subject.totalScore += parseFloat(assessment.score);
             subject.totalMaxScore += parseFloat(assessment.max_score);
-          }
-          if (assessment.total_percentage !== null) {
-            subject.totalPercentage = parseFloat(assessment.total_percentage);
-          }
-          if (assessment.grade) {
-            subject.grade = assessment.grade;
           }
           if (assessment.scale_base) {
             subject.scaleBase = parseInt(assessment.scale_base) || 100;
@@ -5834,9 +5833,25 @@ const commonController = {
         return acc;
       }, {});
 
-      subjectsMap.forEach((subject) => {
+      for (const subject of subjectsMap.values()) {
+        if (!subject.hasEnteredScore || !Number.isFinite(subject.totalScore) || subject.totalMaxScore <= 0) {
+          subject.totalScore = null;
+          subject.totalPercentage = null;
+          subject.grade = null;
+          subject.position = "-";
+          continue;
+        }
+
+        subject.totalPercentage = (subject.totalScore / subject.totalMaxScore) * 100;
+        subject.grade = await getGradeLabelFromScoreRemark(
+          db,
+          organizationId,
+          classId,
+          termId,
+          subject.totalPercentage
+        );
         subject.position = positions[subject.subject_id] || "-";
-      });
+      }
 
       const subjects = Array.from(subjectsMap.values());
 
