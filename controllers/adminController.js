@@ -4860,9 +4860,14 @@ const adminController = {
                              AND sr.class_id = ar.class_id
                              AND sr.term_id = ar.term_id
                              AND NULLIF(TRIM(sr.grade_label), '') IS NOT NULL
-                             AND ar.total_percentage IS NOT NULL
-                             AND ar.total_percentage::numeric BETWEEN sr.from_percentage AND sr.to_percentage
-                           ORDER BY sr.from_percentage DESC
+                           ORDER BY
+                             CASE
+                               WHEN ar.total_percentage IS NULL THEN 1000000000
+                               WHEN ar.total_percentage::numeric BETWEEN sr.from_percentage AND sr.to_percentage THEN 0
+                               WHEN ar.total_percentage::numeric < sr.from_percentage THEN sr.from_percentage - ar.total_percentage::numeric
+                               ELSE ar.total_percentage::numeric - sr.to_percentage
+                             END ASC,
+                             sr.from_percentage DESC
                            LIMIT 1
                          ),
                          CASE

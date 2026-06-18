@@ -59,6 +59,53 @@ async function ensureScoreRemarkGradeColumn(dbClient) {
   }
 }
 
+let ensuredScoreRemarkRangeUniqueConstraint = false;
+async function ensureScoreRemarkRangeUniqueConstraint(dbClient) {
+  if (ensuredScoreRemarkRangeUniqueConstraint) return;
+  try {
+    await dbClient.query(`
+      WITH ranked AS (
+        SELECT
+          ctid,
+          ROW_NUMBER() OVER (
+            PARTITION BY organization_id, class_id, term_id, from_percentage, to_percentage
+            ORDER BY id DESC
+          ) AS rn
+        FROM score_remarks
+      )
+      DELETE FROM score_remarks s
+      USING ranked r
+      WHERE s.ctid = r.ctid
+        AND r.rn > 1
+    `);
+
+    await dbClient.query("ALTER TABLE score_remarks DROP CONSTRAINT IF EXISTS score_remarks_unique");
+    await dbClient.query("ALTER TABLE score_remarks DROP CONSTRAINT IF EXISTS unique_organization_class_score");
+    await dbClient.query("ALTER TABLE score_remarks DROP CONSTRAINT IF EXISTS unique_score_remark");
+
+    await dbClient.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'score_remarks_unique'
+            AND conrelid = 'score_remarks'::regclass
+        ) THEN
+          ALTER TABLE score_remarks
+          ADD CONSTRAINT score_remarks_unique
+          UNIQUE (organization_id, class_id, term_id, from_percentage, to_percentage);
+        END IF;
+      END
+      $$;
+    `);
+
+    ensuredScoreRemarkRangeUniqueConstraint = true;
+  } catch (err) {
+    console.error("[ensureScoreRemarkRangeUniqueConstraint] Failed to ensure range-based unique constraint", err);
+  }
+}
+
 let ensuredScoreRemarkDefaultStateTable = false;
 async function ensureScoreRemarkDefaultStateTable(dbClient) {
   if (ensuredScoreRemarkDefaultStateTable) return;
@@ -130,6 +177,14 @@ async function setDefaultsSuppressedState(dbClient, organizationId, classId, ter
 async function seedDefaultRowsIfEmpty(dbClient, organizationId, classId, termId) {
   const defaults = buildDefaultScoreRemarkRows();
   const existingRows = await getClassScoreRemarksRows(dbClient, organizationId, classId, termId);
+
+  // Only seed defaults for a truly empty class/term configuration.
+  // If any row already exists, user has started customizing and we must not
+  // auto-create additional defaults that can clash with remark uniqueness.
+  if (existingRows.length > 0) {
+    return;
+  }
+
   const existingRangeKeys = new Set(
     existingRows.map((row) => `${Number(row.from_percentage)}-${Number(row.to_percentage)}`)
   );
@@ -140,19 +195,43 @@ async function seedDefaultRowsIfEmpty(dbClient, organizationId, classId, termId)
       continue;
     }
 
-    await dbClient.query(
+    // Constraint-independent upsert by exact range.
+    const existingRangeResult = await dbClient.query(
       `
-        INSERT INTO score_remarks (organization_id, class_id, term_id, remark, grade_label, from_percentage, to_percentage)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        ON CONFLICT (organization_id, class_id, remark)
-        DO UPDATE SET
-          term_id = EXCLUDED.term_id,
-          grade_label = EXCLUDED.grade_label,
-          from_percentage = EXCLUDED.from_percentage,
-          to_percentage = EXCLUDED.to_percentage
+        SELECT id
+        FROM score_remarks
+        WHERE organization_id = $1
+          AND class_id = $2
+          AND term_id = $3
+          AND from_percentage = $4
+          AND to_percentage = $5
+        ORDER BY id DESC
+        LIMIT 1
       `,
-      [organizationId, classId, termId, row.remark, row.gradeLabel, row.from, row.to]
+      [organizationId, classId, termId, row.from, row.to]
     );
+
+    const existingRangeRow = existingRangeResult.rows[0] || null;
+    if (existingRangeRow) {
+      await dbClient.query(
+        `
+          UPDATE score_remarks
+          SET remark = $1,
+              grade_label = $2
+          WHERE id = $3
+        `,
+        [row.remark, row.gradeLabel, existingRangeRow.id]
+      );
+    } else {
+      await dbClient.query(
+        `
+          INSERT INTO score_remarks (organization_id, class_id, term_id, remark, grade_label, from_percentage, to_percentage)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          ON CONFLICT DO NOTHING
+        `,
+        [organizationId, classId, termId, row.remark, row.gradeLabel, row.from, row.to]
+      );
+    }
   }
 
   await setDefaultsSuppressedState(dbClient, organizationId, classId, termId, false);
@@ -846,6 +925,7 @@ students
     await ensureSignatureMetaColumns(db);
     await ensureScoreRemarkGradeColumn(db);
     await ensureScoreRemarkDefaultStateTable(db);
+    await ensureScoreRemarkRangeUniqueConstraint(db);
 
     try {
       const organizationClassesResult = await db.query(
@@ -925,6 +1005,31 @@ students
   
       // Fetch enrolled classes
       const enrolledClasses = organizationClasses;
+
+      await ensureScoreRemarkDefaultStateTable(db);
+
+      // Ensure each class has real default rows (with DB ids) unless the class
+      // explicitly suppressed defaults by deleting all its rows.
+      const initialDefaultsStateResult = await db.query(
+        `
+          SELECT class_id, defaults_suppressed
+          FROM score_remark_default_state
+          WHERE organization_id = $1 AND term_id = $2
+        `,
+        [organizationId, parsedTermId]
+      );
+      const initialDefaultsSuppressedMap = {};
+      initialDefaultsStateResult.rows.forEach((row) => {
+        initialDefaultsSuppressedMap[String(row.class_id)] = !!row.defaults_suppressed;
+      });
+
+      for (const cls of enrolledClasses) {
+        const cid = Number(cls.class_id);
+        if (initialDefaultsSuppressedMap[String(cid)] === true) {
+          continue;
+        }
+        await seedDefaultRowsIfEmpty(db, organizationId, cid, parsedTermId);
+      }
   
       // Fetch remarks
       const remarksResult = await db.query(
@@ -1200,7 +1305,8 @@ students
         messages: req.flash(),
       });
     } catch (error) {
-            res.status(500).send("Failed to load report settings page.");
+      console.error("[reportSettingsPage] error", error);
+      res.status(500).send("Failed to load report settings page.");
     }
   },
 
@@ -1485,6 +1591,7 @@ students
 
   saveScoreRemarks: async (req, res) => {
     await ensureScoreRemarkGradeColumn(db);
+    await ensureScoreRemarkRangeUniqueConstraint(db);
     const { remark, grade_label, from_percentage, to_percentage, classId, entryType } = req.body;
     const organizationId = req.session.organizationId;
     const termId = req.body.termId;
@@ -1501,19 +1608,16 @@ students
 
     try {
       if (!organizationId) {
-        console.error("[saveScoreRemarks] Missing organizationId");
         req.flash("error", "Organization ID is not set in session.");
         return res.redirect(`/print/reportSettings?termId=${termId || ""}`);
       }
 
       if (!termId || isNaN(termId)) {
-        console.error("[saveScoreRemarks] Invalid or missing termId:", termId);
         req.flash("error", "Invalid or missing term ID.");
         return res.redirect(`/print/reportSettings`);
       }
 
       if (!classId || isNaN(classId)) {
-        console.error("[saveScoreRemarks] Invalid or missing classId:", classId);
         req.flash("error", "Invalid or missing class ID.");
         return res.redirect(`/print/reportSettings?termId=${termId}`);
       }
@@ -1522,41 +1626,46 @@ students
       const normalizedGradeLabelInput = String(grade_label || "").trim();
 
       if (entryType === "remark" && !normalizedRemark) {
-        console.error("[saveScoreRemarks] Missing remark");
         req.flash("error", "Remark text is required.");
         return res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
       }
 
       if (entryType === "grade" && !normalizedGradeLabelInput) {
-        console.error("[saveScoreRemarks] Missing grade label");
         req.flash("error", "Grade label is required.");
         return res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
       }
 
       const parsedTermId = parseInt(termId, 10);
       const parsedClassId = parseInt(classId, 10);
-
-      // Basic range validation
       const fromPct = parseFloat(from_percentage);
       const toPct = parseFloat(to_percentage);
-      
-      console.log("[saveScoreRemarks] parsed percentages:", { fromPct, toPct });
+      const formatRangeLabel = (fromValue, toValue) => `${Number(fromValue)}% - ${Number(toValue)}%`;
+
+      const classOwnershipCheck = await db.query(
+        `
+          SELECT class_id
+          FROM classes
+          WHERE class_id = $1
+            AND organization_id = $2
+          LIMIT 1
+        `,
+        [parsedClassId, organizationId]
+      );
+      if (!classOwnershipCheck.rows.length) {
+        req.flash("error", "Access denied: selected class does not belong to your organization.");
+        return res.redirect(`/print/reportSettings?classId=${parsedClassId}&termId=${parsedTermId}`);
+      }
 
       if (
         Number.isNaN(fromPct) ||
         Number.isNaN(toPct) ||
-        fromPct < 0 ||
-        toPct > 100 ||
         fromPct > toPct
       ) {
-        console.error("[saveScoreRemarks] Invalid percentage range:", { fromPct, toPct });
-        req.flash("error", "Provide a valid percentage range (0-100, from <= to).");
+        req.flash("error", "Provide a valid percentage range (numeric values, from <= to).");
         return res.redirect(`/print/reportSettings?classId=${parsedClassId}&termId=${parsedTermId}`);
       }
 
-      // Insert or update by (org,class,term,range) so grade and remark can be saved independently.
-      console.log("[saveScoreRemarks] Saving for class:", parsedClassId);
-      const existingRowResult = await db.query(
+      const existingRangeResult = await db.query(
         `
           SELECT id, remark, grade_label
           FROM score_remarks
@@ -1571,37 +1680,81 @@ students
         [organizationId, parsedClassId, parsedTermId, fromPct, toPct]
       );
 
-      const existingRow = existingRowResult.rows[0] || null;
-      const normalizedGradeLabel = normalizedGradeLabelInput || existingRow?.grade_label || getDefaultGradeLabel((fromPct + toPct) / 2);
-      const finalRemark = normalizedRemark || existingRow?.remark || "No Remark";
-
-      if (existingRow) {
-        await db.query(
-          `
-            UPDATE score_remarks
-            SET remark = $1,
-                grade_label = $2
-            WHERE id = $3
-          `,
-          [finalRemark, normalizedGradeLabel, existingRow.id]
+      const existingRangeRow = existingRangeResult.rows[0] || null;
+      if (existingRangeRow) {
+        req.flash(
+          "error",
+          `Range ${formatRangeLabel(fromPct, toPct)} already exists for this class/term (remark: ${existingRangeRow.remark || "-"}, grade: ${existingRangeRow.grade_label || "-"}). Use Edit to modify it.`
         );
-      } else {
-        await db.query(
-          `
-            INSERT INTO score_remarks (organization_id, class_id, term_id, remark, grade_label, from_percentage, to_percentage)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-          `,
-          [organizationId, parsedClassId, parsedTermId, finalRemark, normalizedGradeLabel, fromPct, toPct]
-        );
+        return res.redirect(`/print/reportSettings?classId=${parsedClassId}&termId=${parsedTermId}`);
       }
 
-      console.log("[saveScoreRemarks] Successfully saved");
+      const overlapRangeResult = await db.query(
+        `
+          SELECT id, from_percentage, to_percentage, remark, grade_label
+          FROM score_remarks
+          WHERE organization_id = $1
+            AND class_id = $2
+            AND term_id = $3
+            AND from_percentage <= $4
+            AND to_percentage >= $5
+          ORDER BY from_percentage ASC
+          LIMIT 1
+        `,
+        [organizationId, parsedClassId, parsedTermId, toPct, fromPct]
+      );
+      const overlapRangeRow = overlapRangeResult.rows[0] || null;
+      if (overlapRangeRow) {
+        req.flash(
+          "error",
+          `Range ${formatRangeLabel(fromPct, toPct)} overlaps existing range ${formatRangeLabel(overlapRangeRow.from_percentage, overlapRangeRow.to_percentage)} for this class/term (remark: ${overlapRangeRow.remark || "-"}, grade: ${overlapRangeRow.grade_label || "-"}).`
+        );
+        return res.redirect(`/print/reportSettings?classId=${parsedClassId}&termId=${parsedTermId}`);
+      }
+
+      const matchingDefaultRow = getDefaultRowForRange(fromPct, toPct);
+      const finalGradeLabel = normalizedGradeLabelInput || matchingDefaultRow?.gradeLabel || getDefaultGradeLabel((fromPct + toPct) / 2);
+      const finalRemark = normalizedRemark || matchingDefaultRow?.remark || getDefaultScoreRemark((fromPct + toPct) / 2);
+
+      if (entryType === "remark") {
+        const existingRemarkResult = await db.query(
+          `
+            SELECT id, from_percentage, to_percentage
+            FROM score_remarks
+            WHERE organization_id = $1
+              AND class_id = $2
+              AND term_id = $3
+              AND lower(trim(remark)) = lower(trim($4))
+            ORDER BY id DESC
+            LIMIT 1
+          `,
+          [organizationId, parsedClassId, parsedTermId, finalRemark]
+        );
+
+        const existingRemarkRow = existingRemarkResult.rows[0] || null;
+        if (existingRemarkRow) {
+          req.flash(
+            "error",
+            `Remark "${finalRemark}" already exists for range ${formatRangeLabel(existingRemarkRow.from_percentage, existingRemarkRow.to_percentage)} in this class/term. Use a different remark text.`
+          );
+          return res.redirect(`/print/reportSettings?classId=${parsedClassId}&termId=${parsedTermId}`);
+        }
+      }
+
+      await db.query(
+        `
+          INSERT INTO score_remarks (organization_id, class_id, term_id, remark, grade_label, from_percentage, to_percentage)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `,
+        [organizationId, parsedClassId, parsedTermId, finalRemark, finalGradeLabel, fromPct, toPct]
+      );
+
       req.flash("success", entryType === "grade" ? "Grade mapping saved successfully." : "Score remark saved successfully.");
-      res.redirect(`/print/reportSettings?classId=${parsedClassId}&termId=${parsedTermId}`);
+      return res.redirect(`/print/reportSettings?classId=${parsedClassId}&termId=${parsedTermId}`);
     } catch (error) {
       console.error("[saveScoreRemarks] error", error);
       req.flash("error", "Failed to save score remark.");
-      res.redirect(`/print/reportSettings?classId=${classId || ""}&termId=${termId || ""}`);
+      return res.redirect(`/print/reportSettings?classId=${classId || ""}&termId=${termId || ""}`);
     }
   },
 
@@ -1651,6 +1804,7 @@ students
   saveScoreRemarksAjax: async (req, res) => {
     await ensureScoreRemarkGradeColumn(db);
     await ensureScoreRemarkDefaultStateTable(db);
+    await ensureScoreRemarkRangeUniqueConstraint(db);
     const {
       remark,
       grade_label,
@@ -1660,13 +1814,14 @@ students
       selectedClasses,
       entryType,
       rowId,
-      materializeDefaults,
       action,
     } = req.body;
     const organizationId = req.session.organizationId;
 
     console.log("[saveScoreRemarksAjax] incoming", {
+      entryType,
       remark,
+      grade_label,
       from_percentage,
       to_percentage,
       termId,
@@ -1702,22 +1857,44 @@ students
       const fromPct = parseFloat(from_percentage);
       const toPct = parseFloat(to_percentage);
       const parsedRowId = Number(rowId);
-      const shouldMaterializeDefaults = !!materializeDefaults;
+      const formatRangeLabel = (fromValue, toValue) => `${Number(fromValue)}% - ${Number(toValue)}%`;
+      const parsedSelectedClassIds = selectedClasses
+        .map((classId) => parseInt(classId, 10))
+        .filter((classId) => Number.isInteger(classId) && classId > 0);
+
+      if (parsedSelectedClassIds.length !== selectedClasses.length) {
+        return res.json({ success: false, message: "Invalid class selection." });
+      }
+
+      const classOwnershipResult = await db.query(
+        `
+          SELECT class_id
+          FROM classes
+          WHERE organization_id = $1
+            AND class_id = ANY($2::int[])
+        `,
+        [organizationId, parsedSelectedClassIds]
+      );
+      const allowedClassIds = new Set(classOwnershipResult.rows.map((row) => Number(row.class_id)));
+      const unauthorizedClassId = parsedSelectedClassIds.find((classId) => !allowedClassIds.has(classId));
+      if (unauthorizedClassId) {
+        return res.json({
+          success: false,
+          message: `Access denied: class ${unauthorizedClassId} does not belong to your organization.`,
+        });
+      }
 
       if (
         Number.isNaN(fromPct) ||
         Number.isNaN(toPct) ||
-        fromPct < 0 ||
-        toPct > 100 ||
         fromPct > toPct
       ) {
-        return res.json({ success: false, message: "Provide a valid percentage range (0-100, from <= to)." });
+        return res.json({ success: false, message: "Provide a valid percentage range (numeric values, from <= to)." });
       }
 
       const savedRemarks = [];
       const classRowsMap = {};
 
-      // Edit mode: update one specific row by id and preserve the other field when omitted.
       if (Number.isInteger(parsedRowId) && parsedRowId > 0) {
         const editableRowResult = await db.query(
           `
@@ -1737,19 +1914,86 @@ students
         const targetClassId = Number(editableRow.class_id);
         const finalFromPct = Number.isNaN(fromPct) ? Number(editableRow.from_percentage) : fromPct;
         const finalToPct = Number.isNaN(toPct) ? Number(editableRow.to_percentage) : toPct;
+        const finalGradeLabel = normalizedGradeLabelInput || editableRow.grade_label || getDefaultGradeLabel((finalFromPct + finalToPct) / 2);
+        const finalRemark = normalizedRemark || editableRow.remark || "No Remark";
 
         if (
           Number.isNaN(finalFromPct) ||
           Number.isNaN(finalToPct) ||
-          finalFromPct < 0 ||
-          finalToPct > 100 ||
           finalFromPct > finalToPct
         ) {
-          return res.json({ success: false, message: "Provide a valid percentage range (0-100, from <= to)." });
+          return res.json({ success: false, message: "Provide a valid percentage range (numeric values, from <= to)." });
         }
 
-        const finalGradeLabel = normalizedGradeLabelInput || editableRow.grade_label || getDefaultGradeLabel((finalFromPct + finalToPct) / 2);
-        const finalRemark = normalizedRemark || editableRow.remark || "No Remark";
+        const rangeConflictResult = await db.query(
+          `
+            SELECT id, remark, grade_label
+            FROM score_remarks
+            WHERE organization_id = $1
+              AND class_id = $2
+              AND term_id = $3
+              AND from_percentage = $4
+              AND to_percentage = $5
+              AND id <> $6
+            ORDER BY id DESC
+            LIMIT 1
+          `,
+          [organizationId, targetClassId, parsedTermId, finalFromPct, finalToPct, parsedRowId]
+        );
+        const rangeConflictRow = rangeConflictResult.rows[0] || null;
+        if (rangeConflictRow) {
+          return res.json({
+            success: false,
+            message: `Class ${targetClassId}: range ${formatRangeLabel(finalFromPct, finalToPct)} already exists (remark: ${rangeConflictRow.remark || "-"}, grade: ${rangeConflictRow.grade_label || "-"}).`,
+          });
+        }
+
+        const overlapRangeResult = await db.query(
+          `
+            SELECT id, from_percentage, to_percentage, remark, grade_label
+            FROM score_remarks
+            WHERE organization_id = $1
+              AND class_id = $2
+              AND term_id = $3
+              AND from_percentage <= $4
+              AND to_percentage >= $5
+              AND id <> $6
+            ORDER BY from_percentage ASC
+            LIMIT 1
+          `,
+          [organizationId, targetClassId, parsedTermId, finalToPct, finalFromPct, parsedRowId]
+        );
+        const overlapRangeRow = overlapRangeResult.rows[0] || null;
+        if (overlapRangeRow) {
+          return res.json({
+            success: false,
+            message: `Class ${targetClassId}: range ${formatRangeLabel(finalFromPct, finalToPct)} overlaps existing range ${formatRangeLabel(overlapRangeRow.from_percentage, overlapRangeRow.to_percentage)} (remark: ${overlapRangeRow.remark || "-"}, grade: ${overlapRangeRow.grade_label || "-"}).`,
+          });
+        }
+
+        if (entryType === "remark") {
+          const remarkConflictResult = await db.query(
+            `
+              SELECT id, from_percentage, to_percentage
+              FROM score_remarks
+              WHERE organization_id = $1
+                AND class_id = $2
+                AND term_id = $3
+                AND lower(trim(remark)) = lower(trim($4))
+                AND id <> $5
+              ORDER BY id DESC
+              LIMIT 1
+            `,
+            [organizationId, targetClassId, parsedTermId, finalRemark, parsedRowId]
+          );
+          const remarkConflictRow = remarkConflictResult.rows[0] || null;
+          if (remarkConflictRow) {
+            return res.json({
+              success: false,
+              message: `Class ${targetClassId}: remark "${finalRemark}" already exists for range ${formatRangeLabel(remarkConflictRow.from_percentage, remarkConflictRow.to_percentage)}.`,
+            });
+          }
+        }
 
         const editedResult = await db.query(
           `
@@ -1766,20 +2010,8 @@ students
           [finalFromPct, finalToPct, finalRemark, finalGradeLabel, parsedTermId, targetClassId, parsedRowId]
         );
 
-        await setDefaultsSuppressedState(
-          db,
-          organizationId,
-          targetClassId,
-          parsedTermId,
-          false
-        );
-
-        classRowsMap[String(targetClassId)] = await getClassScoreRemarksRows(
-          db,
-          organizationId,
-          targetClassId,
-          parsedTermId
-        );
+        await setDefaultsSuppressedState(db, organizationId, targetClassId, parsedTermId, false);
+        classRowsMap[String(targetClassId)] = await getClassScoreRemarksRows(db, organizationId, targetClassId, parsedTermId);
 
         return res.json({
           success: true,
@@ -1789,12 +2021,83 @@ students
         });
       }
 
-      for (const classId of selectedClasses) {
-        const parsedClassId = parseInt(classId, 10);
+      for (const parsedClassId of parsedSelectedClassIds) {
 
-        if (shouldMaterializeDefaults) {
-          await seedDefaultRowsIfEmpty(db, organizationId, parsedClassId, parsedTermId);
+        if (action === "deleteDefault") {
+          continue;
         }
+
+        const existingRangeResult = await db.query(
+          `
+            SELECT id, remark, grade_label
+            FROM score_remarks
+            WHERE organization_id = $1
+              AND class_id = $2
+              AND term_id = $3
+              AND from_percentage = $4
+              AND to_percentage = $5
+            ORDER BY id DESC
+            LIMIT 1
+          `,
+          [organizationId, parsedClassId, parsedTermId, fromPct, toPct]
+        );
+        const existingRangeRow = existingRangeResult.rows[0] || null;
+        if (existingRangeRow) {
+          return res.json({
+            success: false,
+            message: `Class ${parsedClassId}: range ${formatRangeLabel(fromPct, toPct)} already exists (remark: ${existingRangeRow.remark || "-"}, grade: ${existingRangeRow.grade_label || "-"}).`,
+          });
+        }
+
+        const overlapRangeResult = await db.query(
+          `
+            SELECT id, from_percentage, to_percentage, remark, grade_label
+            FROM score_remarks
+            WHERE organization_id = $1
+              AND class_id = $2
+              AND term_id = $3
+              AND from_percentage <= $4
+              AND to_percentage >= $5
+            ORDER BY from_percentage ASC
+            LIMIT 1
+          `,
+          [organizationId, parsedClassId, parsedTermId, toPct, fromPct]
+        );
+        const overlapRangeRow = overlapRangeResult.rows[0] || null;
+        if (overlapRangeRow) {
+          return res.json({
+            success: false,
+            message: `Class ${parsedClassId}: range ${formatRangeLabel(fromPct, toPct)} overlaps existing range ${formatRangeLabel(overlapRangeRow.from_percentage, overlapRangeRow.to_percentage)} (remark: ${overlapRangeRow.remark || "-"}, grade: ${overlapRangeRow.grade_label || "-"}).`,
+          });
+        }
+
+        if (entryType === "remark") {
+          const matchingDefaultRow = getDefaultRowForRange(fromPct, toPct);
+          const finalRemarkForValidation = normalizedRemark || matchingDefaultRow?.remark || getDefaultScoreRemark((fromPct + toPct) / 2);
+          const existingRemarkResult = await db.query(
+            `
+              SELECT id, from_percentage, to_percentage
+              FROM score_remarks
+              WHERE organization_id = $1
+                AND class_id = $2
+                AND term_id = $3
+                AND lower(trim(remark)) = lower(trim($4))
+              ORDER BY id DESC
+              LIMIT 1
+            `,
+            [organizationId, parsedClassId, parsedTermId, finalRemarkForValidation]
+          );
+          const existingRemarkRow = existingRemarkResult.rows[0] || null;
+          if (existingRemarkRow) {
+            return res.json({
+              success: false,
+              message: `Class ${parsedClassId}: remark "${finalRemarkForValidation}" already exists for range ${formatRangeLabel(existingRemarkRow.from_percentage, existingRemarkRow.to_percentage)}.`,
+            });
+          }
+        }
+      }
+
+      for (const parsedClassId of parsedSelectedClassIds) {
 
         if (action === "deleteDefault") {
           await db.query(
@@ -1814,84 +2117,42 @@ students
             [organizationId, parsedClassId, parsedTermId, fromPct, toPct]
           );
 
-          const remainingRows = await getClassScoreRemarksRows(
-            db,
-            organizationId,
-            parsedClassId,
-            parsedTermId
-          );
-          await setDefaultsSuppressedState(
-            db,
-            organizationId,
-            parsedClassId,
-            parsedTermId,
-            remainingRows.length === 0
-          );
+          const remainingRows = await getClassScoreRemarksRows(db, organizationId, parsedClassId, parsedTermId);
+          await setDefaultsSuppressedState(db, organizationId, parsedClassId, parsedTermId, remainingRows.length === 0);
           classRowsMap[String(parsedClassId)] = remainingRows;
           continue;
         }
 
-        const existingRowResult = await db.query(
-          `
-            SELECT id, remark, grade_label
-            FROM score_remarks
-            WHERE organization_id = $1
-              AND class_id = $2
-              AND term_id = $3
-              AND from_percentage = $4
-              AND to_percentage = $5
-            ORDER BY id DESC
-            LIMIT 1
-          `,
-          [organizationId, parsedClassId, parsedTermId, fromPct, toPct]
-        );
-
-        const existingRow = existingRowResult.rows[0] || null;
         const matchingDefaultRow = getDefaultRowForRange(fromPct, toPct);
-        const normalizedGradeLabel = normalizedGradeLabelInput || existingRow?.grade_label || matchingDefaultRow?.gradeLabel || getDefaultGradeLabel((fromPct + toPct) / 2);
-        const finalRemark = normalizedRemark || existingRow?.remark || matchingDefaultRow?.remark || getDefaultScoreRemark((fromPct + toPct) / 2);
+        const finalGradeLabel = normalizedGradeLabelInput || matchingDefaultRow?.gradeLabel || getDefaultGradeLabel((fromPct + toPct) / 2);
+        const finalRemark = normalizedRemark || matchingDefaultRow?.remark || getDefaultScoreRemark((fromPct + toPct) / 2);
 
         let result;
-        if (existingRow) {
-          result = await db.query(
-            `
-              UPDATE score_remarks
-              SET remark = $1,
-                  grade_label = $2
-              WHERE id = $3
-              RETURNING *
-            `,
-            [finalRemark, normalizedGradeLabel, existingRow.id]
-          );
-        } else {
+        try {
           result = await db.query(
             `
               INSERT INTO score_remarks (organization_id, class_id, term_id, remark, grade_label, from_percentage, to_percentage)
               VALUES ($1, $2, $3, $4, $5, $6, $7)
               RETURNING *
             `,
-            [organizationId, parsedClassId, parsedTermId, finalRemark, normalizedGradeLabel, fromPct, toPct]
+            [organizationId, parsedClassId, parsedTermId, finalRemark, finalGradeLabel, fromPct, toPct]
           );
+        } catch (insertError) {
+          if (insertError?.code === "23505" && insertError?.constraint === "unique_score_remark") {
+            return res.json({
+              success: false,
+              message: `Class ${parsedClassId}: remark "${finalRemark}" already exists in this term. Use a different score remark text for this range.`,
+            });
+          }
+          throw insertError;
         }
 
         savedRemarks.push(result.rows[0]);
-        await setDefaultsSuppressedState(
-          db,
-          organizationId,
-          parsedClassId,
-          parsedTermId,
-          false
-        );
-        classRowsMap[String(parsedClassId)] = await getClassScoreRemarksRows(
-          db,
-          organizationId,
-          parsedClassId,
-          parsedTermId
-        );
+        await setDefaultsSuppressedState(db, organizationId, parsedClassId, parsedTermId, false);
+        classRowsMap[String(parsedClassId)] = await getClassScoreRemarksRows(db, organizationId, parsedClassId, parsedTermId);
       }
 
-      console.log("[saveScoreRemarksAjax] Successfully saved");
-      res.json({
+      return res.json({
         success: true,
         savedRemarks,
         classRowsMap,
@@ -1902,7 +2163,7 @@ students
       });
     } catch (error) {
       console.error("[saveScoreRemarksAjax] error", error);
-      res.json({ success: false, message: "Failed to save score remark." });
+      return res.json({ success: false, message: "Failed to save score remark." });
     }
   },
 
@@ -2644,44 +2905,32 @@ students
       );
 
       // Fetch students enrolled in the class for the given term
-      const enrolledStudentsResult = await db.query(
-        `
-            SELECT es.student_id, s.first_name, s.last_name, s.custom_student_id
-            FROM enrolled_students es
-            JOIN students s ON es.student_id = s.student_id
-            JOIN enrollments e ON es.enrollment_id = e.enrollment_id
-            WHERE es.class_id = $1 AND e.term_id = $2 AND e.organization_id = $3
-        `,
-        [parsedClassId, parsedTermId, organizationId]
-      );
-
-      const students = enrolledStudentsResult.rows;
-
       const scoresResult = await db.query(
         `
             SELECT
               ar.student_id,
               a.subject_id,
-              ar.score,
               a.title AS assessment_title,
+              ar.score,
               COALESCE(
                 (
-                  SELECT COALESCE(NULLIF(sr.grade_label, ''),
-                    CASE
-                      WHEN ar.total_percentage >= 90 THEN 'A'
-                      WHEN ar.total_percentage >= 80 THEN 'B'
-                      WHEN ar.total_percentage >= 70 THEN 'C'
-                      ELSE 'D'
-                    END
-                  )
+                  SELECT NULLIF(sr.grade_label, '')
                   FROM score_remarks sr
                   WHERE sr.organization_id = $3
                     AND sr.class_id = $1
                     AND sr.term_id = $2
-                    AND NULLIF(TRIM(sr.grade_label), '') IS NOT NULL
-                    AND ar.total_percentage IS NOT NULL
-                    AND ar.total_percentage::numeric BETWEEN sr.from_percentage AND sr.to_percentage
-                  ORDER BY sr.from_percentage DESC
+                  ORDER BY
+                    CASE
+                      WHEN ar.total_percentage >= sr.from_percentage
+                           AND ar.total_percentage <= sr.to_percentage THEN 0
+                      ELSE 1
+                    END,
+                    CASE
+                      WHEN ar.total_percentage > sr.to_percentage THEN ar.total_percentage - sr.to_percentage
+                      WHEN ar.total_percentage < sr.from_percentage THEN sr.from_percentage - ar.total_percentage
+                      ELSE 0
+                    END,
+                    sr.from_percentage DESC
                   LIMIT 1
                 ),
                 CASE

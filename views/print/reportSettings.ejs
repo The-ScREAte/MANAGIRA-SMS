@@ -292,11 +292,11 @@
                       </div>
                       <div class="form-group" style="margin-bottom:0;">
                         <label>From %</label>
-                        <input type="number" id="gradeFromPct" min="0" max="100" placeholder="70" required />
+                        <input type="number" id="gradeFromPct" placeholder="70" required />
                       </div>
                       <div class="form-group" style="margin-bottom:0;">
                         <label>To %</label>
-                        <input type="number" id="gradeToPct" min="0" max="100" placeholder="100" required />
+                        <input type="number" id="gradeToPct" placeholder="100" required />
                       </div>
                     </div>
                     <div class="form-group">
@@ -329,11 +329,11 @@
                       </div>
                       <div class="form-group" style="margin-bottom:0;">
                         <label>From %</label>
-                        <input type="number" id="remarkFromPct" min="0" max="100" placeholder="70" required />
+                        <input type="number" id="remarkFromPct" placeholder="70" required />
                       </div>
                       <div class="form-group" style="margin-bottom:0;">
                         <label>To %</label>
-                        <input type="number" id="remarkToPct" min="0" max="100" placeholder="100" required />
+                        <input type="number" id="remarkToPct" placeholder="100" required />
                       </div>
                     </div>
                     <div class="form-group">
@@ -619,22 +619,6 @@
     const allAssessmentsByCategoryMap = <%- JSON.stringify(allAssessmentsByCategoryMap) %>;
     const defaultsSuppressedMap = <%- JSON.stringify(defaultsSuppressedMap || {}) %>;
 
-    // Virtual defaults are shown in UI when no class/term config is saved yet.
-    // They are NOT persisted until the user submits a form.
-    const defaultGradeMappings = [
-      { grade_label: 'A', from_percentage: 90, to_percentage: 100 },
-      { grade_label: 'B', from_percentage: 80, to_percentage: 89 },
-      { grade_label: 'C', from_percentage: 70, to_percentage: 79 },
-      { grade_label: 'D', from_percentage: 0, to_percentage: 69 },
-    ];
-
-    const defaultScoreRemarks = [
-      { remark: 'Excellent', from_percentage: 90, to_percentage: 100 },
-      { remark: 'Very Good', from_percentage: 80, to_percentage: 89 },
-      { remark: 'Good', from_percentage: 70, to_percentage: 79 },
-      { remark: 'Needs Improvement', from_percentage: 0, to_percentage: 69 },
-    ];
-
     const classButtons = document.querySelectorAll('.class-button');
     const promotedSelect = document.getElementById('promotedClassSelect');
     const repeatedSelect = document.getElementById('repeatedClassSelect');
@@ -658,12 +642,18 @@
       // Update selected class name for score remarks
       const enrolledClasses = <%- JSON.stringify(enrolledClasses) %>;
       const selectedClass = enrolledClasses.find(c => c.class_id == classId);
-      document.getElementById('selectedClassName').textContent = selectedClass ? selectedClass.class_name : '';
+      const selectedClassNameEl = document.getElementById('selectedClassName');
+      if (selectedClassNameEl) {
+        selectedClassNameEl.textContent = selectedClass ? selectedClass.class_name : '';
+      }
       
       // Load grade mappings and score remarks for this class (kept as separate UI lists)
       const classRows = scoreRemarksMap[String(classId)] || [];
       const gradeListEl = document.getElementById('classGradeMappings');
       const remarksListEl = document.getElementById('classScoreRemarks');
+      if (!gradeListEl || !remarksListEl) {
+        return;
+      }
 
       const sortedRows = [...classRows].sort((a, b) => Number(a.from_percentage || 0) - Number(b.from_percentage || 0));
       const gradeRows = sortedRows.filter((r) => String(r.grade_label || '').trim() !== '');
@@ -673,64 +663,11 @@
         .replace(/"/g, '&quot;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
-      const rangeKey = (fromPct, toPct) => `${Number(fromPct)}-${Number(toPct)}`;
-
-      const isDefaultsSuppressed = !!defaultsSuppressedMap[String(classId)];
-      const savedGradeRangeKeys = new Set(gradeRows.map((row) => rangeKey(row.from_percentage, row.to_percentage)));
-      const savedRemarkRangeKeys = new Set(remarkRows.map((row) => rangeKey(row.from_percentage, row.to_percentage)));
-      const missingGradeDefaults = !isDefaultsSuppressed
-        ? defaultGradeMappings.filter((row) => !savedGradeRangeKeys.has(rangeKey(row.from_percentage, row.to_percentage)))
-        : [];
-      const missingRemarkDefaults = !isDefaultsSuppressed
-        ? defaultScoreRemarks.filter((row) => !savedRemarkRangeKeys.has(rangeKey(row.from_percentage, row.to_percentage)))
-        : [];
-
-      if(gradeRows.length === 0 && !isDefaultsSuppressed){
-        gradeListEl.innerHTML =
-          '<div style="margin-bottom:8px;padding:8px 10px;border:1px dashed var(--border);border-radius:8px;background:#f8fafc;color:var(--muted);font-size:0.86rem;">'
-          + 'Showing system defaults (not saved yet). Save any rule to customize this class.'
-          + '</div>'
-          + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;">'
-          + defaultGradeMappings.map(row => `
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border:1px dashed #cbd5e1;border-radius:8px;background:#f8fafc;">
-              <div style="flex:1;min-width:0;">
-                <div style="display:flex;gap:6px;align-items:center;">
-                  <div style="font-weight:700;color:var(--primary);">${row.grade_label}</div>
-                  <span style="font-size:0.72rem;color:#64748b;background:#e2e8f0;padding:2px 6px;border-radius:999px;">Not Saved</span>
-                </div>
-                <div style="font-size:0.85rem;color:var(--muted);white-space:nowrap;">${row.from_percentage}% - ${row.to_percentage}%</div>
-              </div>
-              <div class="kebab-menu" style="flex-shrink:0;">
-                <div class="kebab" aria-label="More actions">⋮</div>
-                <ul>
-                  <li>
-                    <a href="javascript:void(0)"
-                       class="edit-grade-default"
-                       data-grade="${escAttr(row.grade_label)}"
-                       data-class-id="${classId}"
-                       data-from="${row.from_percentage}"
-                       data-to="${row.to_percentage}">Edit</a>
-                  </li>
-                  <li>
-                    <a href="javascript:void(0)"
-                       class="delete-grade-default"
-                       data-class-id="${classId}"
-                       data-from="${row.from_percentage}"
-                       data-to="${row.to_percentage}">Delete</a>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          `).join('')
-          + '</div>';
-      } else if (gradeRows.length === 0 && isDefaultsSuppressed) {
+      if (gradeRows.length === 0) {
         gradeListEl.innerHTML = '<p style="color:var(--muted);font-size:0.9rem;margin-top:10px;">No grade mapping saved for this class.</p>';
       } else {
         gradeListEl.innerHTML =
-          (missingGradeDefaults.length > 0
-            ? '<div style="margin-bottom:8px;padding:8px 10px;border:1px dashed var(--border);border-radius:8px;background:#f8fafc;color:var(--muted);font-size:0.86rem;">Saved rules are shown below with remaining system defaults not yet saved for this class.</div>'
-            : '')
-          + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;">'
+          '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;">'
           + gradeRows.map(row => `
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;background:#fff;">
             <div style="flex:1;min-width:0;">
@@ -754,73 +691,14 @@
             </div>
           </div>
         `).join('')
-          + missingGradeDefaults.map(row => `
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border:1px dashed #cbd5e1;border-radius:8px;background:#f8fafc;">
-            <div style="flex:1;min-width:0;">
-              <div style="display:flex;gap:6px;align-items:center;">
-                <div style="font-weight:700;color:var(--primary);">${row.grade_label}</div>
-                <span style="font-size:0.72rem;color:#64748b;background:#e2e8f0;padding:2px 6px;border-radius:999px;">Not Saved</span>
-              </div>
-              <div style="font-size:0.85rem;color:var(--muted);white-space:nowrap;">${row.from_percentage}% - ${row.to_percentage}%</div>
-            </div>
-            <div class="kebab-menu" style="flex-shrink:0;">
-              <div class="kebab" aria-label="More actions">⋮</div>
-              <ul>
-                <li><a href="javascript:void(0)" class="edit-grade-default" data-grade="${escAttr(row.grade_label)}" data-class-id="${classId}" data-from="${row.from_percentage}" data-to="${row.to_percentage}">Edit</a></li>
-                <li><a href="javascript:void(0)" class="delete-grade-default" data-class-id="${classId}" data-from="${row.from_percentage}" data-to="${row.to_percentage}">Delete</a></li>
-              </ul>
-            </div>
-          </div>
-        `).join('')
           + '</div>';
       }
 
-      if(remarkRows.length === 0 && !isDefaultsSuppressed){
-        remarksListEl.innerHTML =
-          '<div style="margin-bottom:8px;padding:8px 10px;border:1px dashed var(--border);border-radius:8px;background:#f8fafc;color:var(--muted);font-size:0.86rem;">'
-          + 'Showing system defaults (not saved yet). Save any remark to customize this class.'
-          + '</div>'
-          + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;">'
-          + defaultScoreRemarks.map(row => `
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border:1px dashed #cbd5e1;border-radius:8px;background:#f8fafc;">
-              <div style="flex:1;min-width:0;">
-                <div style="display:flex;gap:6px;align-items:center;">
-                  <div style="font-weight:600;color:var(--primary);">${row.remark}</div>
-                  <span style="font-size:0.72rem;color:#64748b;background:#e2e8f0;padding:2px 6px;border-radius:999px;">Not Saved</span>
-                </div>
-                <div style="font-size:0.85rem;color:var(--muted);white-space:nowrap;">${row.from_percentage}% - ${row.to_percentage}%</div>
-              </div>
-              <div class="kebab-menu" style="flex-shrink:0;">
-                <div class="kebab" aria-label="More actions">⋮</div>
-                <ul>
-                  <li>
-                    <a href="javascript:void(0)"
-                       class="edit-score-default"
-                       data-class-id="${classId}"
-                       data-remark="${escAttr(row.remark)}"
-                       data-from="${row.from_percentage}"
-                       data-to="${row.to_percentage}">Edit</a>
-                  </li>
-                  <li>
-                    <a href="javascript:void(0)"
-                       class="delete-score-default"
-                       data-class-id="${classId}"
-                       data-from="${row.from_percentage}"
-                       data-to="${row.to_percentage}">Delete</a>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          `).join('')
-          + '</div>';
-      } else if (remarkRows.length === 0 && isDefaultsSuppressed) {
+      if (remarkRows.length === 0) {
         remarksListEl.innerHTML = '<p style="color:var(--muted);font-size:0.9rem;margin-top:10px;">No score remark saved for this class.</p>';
       } else {
         remarksListEl.innerHTML =
-          (missingRemarkDefaults.length > 0
-            ? '<div style="margin-bottom:8px;padding:8px 10px;border:1px dashed var(--border);border-radius:8px;background:#f8fafc;color:var(--muted);font-size:0.86rem;">Saved remarks are shown below with remaining system defaults not yet saved for this class.</div>'
-            : '')
-          + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;">'
+          '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;">'
           + remarkRows.map(row => `
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;background:#fff;">
             <div style="flex:1;min-width:0;">
@@ -844,29 +722,11 @@
             </div>
           </div>
         `).join('')
-          + missingRemarkDefaults.map(row => `
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border:1px dashed #cbd5e1;border-radius:8px;background:#f8fafc;">
-            <div style="flex:1;min-width:0;">
-              <div style="display:flex;gap:6px;align-items:center;">
-                <div style="font-weight:600;color:var(--primary);">${row.remark}</div>
-                <span style="font-size:0.72rem;color:#64748b;background:#e2e8f0;padding:2px 6px;border-radius:999px;">Not Saved</span>
-              </div>
-              <div style="font-size:0.85rem;color:var(--muted);white-space:nowrap;">${row.from_percentage}% - ${row.to_percentage}%</div>
-            </div>
-            <div class="kebab-menu" style="flex-shrink:0;">
-              <div class="kebab" aria-label="More actions">⋮</div>
-              <ul>
-                <li><a href="javascript:void(0)" class="edit-score-default" data-class-id="${classId}" data-remark="${escAttr(row.remark)}" data-from="${row.from_percentage}" data-to="${row.to_percentage}">Edit</a></li>
-                <li><a href="javascript:void(0)" class="delete-score-default" data-class-id="${classId}" data-from="${row.from_percentage}" data-to="${row.to_percentage}">Delete</a></li>
-              </ul>
-            </div>
-          </div>
-        `).join('')
           + '</div>';
       }
 
       // Re-bind kebab menus for dynamically added rows
-      [gradeListEl, remarksListEl].forEach((container) => {
+      [gradeListEl, remarksListEl].filter(Boolean).forEach((container) => {
         container.querySelectorAll('.kebab-menu').forEach(menu => {
           const trigger = menu.querySelector('.kebab');
           trigger?.addEventListener('click', (e) => {
@@ -928,129 +788,6 @@
           });
         });
 
-        container.querySelectorAll('.edit-grade-default').forEach((link) => {
-          link.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-
-            resetGradeEditMode();
-            gradeForm.dataset.materializeDefaults = 'true';
-            const grade = link.dataset.grade || '';
-            const fromPct = link.dataset.from || '';
-            const toPct = link.dataset.to || '';
-
-            document.getElementById('gradeLabelText').value = grade;
-            document.getElementById('gradeFromPct').value = fromPct;
-            document.getElementById('gradeToPct').value = toPct;
-
-            setCurrentClassAsDefaultChecked(gradeClassCheckboxes);
-            gradeFormContainer.style.display = 'block';
-            toggleGradeFormLink.textContent = '− Hide Form';
-          });
-        });
-
-        container.querySelectorAll('.edit-score-default').forEach((link) => {
-          link.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-
-            resetRemarkEditMode();
-            remarkForm.dataset.materializeDefaults = 'true';
-            const remark = link.dataset.remark || '';
-            const fromPct = link.dataset.from || '';
-            const toPct = link.dataset.to || '';
-
-            document.getElementById('scoreRemarkText').value = remark;
-            document.getElementById('remarkFromPct').value = fromPct;
-            document.getElementById('remarkToPct').value = toPct;
-
-            setCurrentClassAsDefaultChecked(remarkClassCheckboxes);
-            remarkFormContainer.style.display = 'block';
-            toggleRemarkFormLink.textContent = '− Hide Form';
-          });
-        });
-
-        container.querySelectorAll('.delete-grade-default').forEach((link) => {
-          link.addEventListener('click', async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-
-            const classIdToDelete = link.dataset.classId;
-            const fromPct = link.dataset.from;
-            const toPct = link.dataset.to;
-            const termId = '<%= termId %>';
-
-            if (!confirm('Delete this default grade rule for this class?')) return;
-
-            try {
-              const response = await fetch('/print/saveScoreRemarksAjax', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  action: 'deleteDefault',
-                  entryType: 'grade',
-                  materializeDefaults: true,
-                  from_percentage: fromPct,
-                  to_percentage: toPct,
-                  termId,
-                  selectedClasses: [classIdToDelete]
-                })
-              });
-              const result = await response.json();
-              if (result.success) {
-                applyClassRowsMap(result.classRowsMap);
-                loadClassSettings(classIdField.value);
-                showToast('Default grade rule deleted.');
-              } else {
-                alert(result.message || 'Failed to delete default grade rule.');
-              }
-            } catch (error) {
-              console.error('Error deleting default grade rule:', error);
-              alert('An error occurred while deleting default grade rule.');
-            }
-          });
-        });
-
-        container.querySelectorAll('.delete-score-default').forEach((link) => {
-          link.addEventListener('click', async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-
-            const classIdToDelete = link.dataset.classId;
-            const fromPct = link.dataset.from;
-            const toPct = link.dataset.to;
-            const termId = '<%= termId %>';
-
-            if (!confirm('Delete this default score remark for this class?')) return;
-
-            try {
-              const response = await fetch('/print/saveScoreRemarksAjax', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  action: 'deleteDefault',
-                  entryType: 'remark',
-                  materializeDefaults: true,
-                  from_percentage: fromPct,
-                  to_percentage: toPct,
-                  termId,
-                  selectedClasses: [classIdToDelete]
-                })
-              });
-              const result = await response.json();
-              if (result.success) {
-                applyClassRowsMap(result.classRowsMap);
-                loadClassSettings(classIdField.value);
-                showToast('Default score remark deleted.');
-              } else {
-                alert(result.message || 'Failed to delete default score remark.');
-              }
-            } catch (error) {
-              console.error('Error deleting default score remark:', error);
-              alert('An error occurred while deleting default score remark.');
-            }
-          });
-        });
       });
       
       const data = statusSettingsMap[String(classId)];
@@ -1131,7 +868,6 @@
     });
 
     classButtons.forEach(btn => { btn.addEventListener('click', () => loadClassSettings(btn.dataset.classId)); });
-    if(classButtons.length){ loadClassSettings(classIdField.value || classButtons[0].dataset.classId); }
 
     // Grade mapping + score remark forms (separate UI / separate save intent)
     const toggleGradeFormLink = document.getElementById('toggleGradeForm');
@@ -1160,10 +896,15 @@
         </div>
       `).join('');
 
-    gradeClassCheckboxes.innerHTML = buildClassCheckboxMarkup('grade-class');
-    remarkClassCheckboxes.innerHTML = buildClassCheckboxMarkup('remark-class');
+    if (gradeClassCheckboxes) {
+      gradeClassCheckboxes.innerHTML = buildClassCheckboxMarkup('grade-class');
+    }
+    if (remarkClassCheckboxes) {
+      remarkClassCheckboxes.innerHTML = buildClassCheckboxMarkup('remark-class');
+    }
 
     function setCurrentClassAsDefaultChecked(containerEl) {
+      if (!containerEl) return;
       const currentClassId = classIdField.value;
       containerEl.querySelectorAll('.score-class-checkbox').forEach(cb => {
         cb.checked = cb.value === currentClassId;
@@ -1189,18 +930,26 @@
     }
 
     function resetGradeEditMode() {
-      editingGradeRowIdInput.value = '';
-      delete gradeForm.dataset.materializeDefaults;
-      saveGradeMappingBtn.textContent = 'Save Grade Mapping';
+      if (editingGradeRowIdInput) {
+        editingGradeRowIdInput.value = '';
+      }
+      if (saveGradeMappingBtn) {
+        saveGradeMappingBtn.textContent = 'Save Grade Mapping';
+      }
     }
 
     function resetRemarkEditMode() {
-      editingRemarkRowIdInput.value = '';
-      delete remarkForm.dataset.materializeDefaults;
-      saveScoreRemarkBtn.textContent = 'Save Score Remark';
+      if (editingRemarkRowIdInput) {
+        editingRemarkRowIdInput.value = '';
+      }
+      if (saveScoreRemarkBtn) {
+        saveScoreRemarkBtn.textContent = 'Save Score Remark';
+      }
     }
 
-    toggleGradeFormLink?.addEventListener('click', () => {
+    toggleGradeFormLink?.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       const isVisible = gradeFormContainer.style.display !== 'none';
       gradeFormContainer.style.display = isVisible ? 'none' : 'block';
       toggleGradeFormLink.textContent = isVisible ? '+ Add Grade Rule' : '− Hide Form';
@@ -1214,7 +963,9 @@
       }
     });
 
-    toggleRemarkFormLink?.addEventListener('click', () => {
+    toggleRemarkFormLink?.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       const isVisible = remarkFormContainer.style.display !== 'none';
       remarkFormContainer.style.display = isVisible ? 'none' : 'block';
       toggleRemarkFormLink.textContent = isVisible ? '+ Add Score Remark' : '− Hide Form';
@@ -1253,8 +1004,6 @@
       const selectedClasses = Array.from(gradeClassCheckboxes.querySelectorAll('.score-class-checkbox:checked')).map(cb => cb.value);
       const termId = '<%= termId %>';
       const editingRowId = editingGradeRowIdInput.value ? Number(editingGradeRowIdInput.value) : null;
-      const materializeDefaults = gradeForm.dataset.materializeDefaults === 'true';
-
       if(!selectedClasses.length){
         alert('Please select at least one class.');
         return;
@@ -1272,7 +1021,6 @@
           body: JSON.stringify({
             entryType: 'grade',
             rowId: editingRowId,
-            materializeDefaults,
             grade_label: gradeLabel,
             from_percentage: fromPct,
             to_percentage: toPct,
@@ -1319,8 +1067,6 @@
       const selectedClasses = Array.from(remarkClassCheckboxes.querySelectorAll('.score-class-checkbox:checked')).map(cb => cb.value);
       const termId = '<%= termId %>';
       const editingRowId = editingRemarkRowIdInput.value ? Number(editingRemarkRowIdInput.value) : null;
-      const materializeDefaults = remarkForm.dataset.materializeDefaults === 'true';
-
       if(!selectedClasses.length){
         alert('Please select at least one class.');
         return;
@@ -1338,7 +1084,6 @@
           body: JSON.stringify({
             entryType: 'remark',
             rowId: editingRowId,
-            materializeDefaults,
             remark,
             from_percentage: fromPct,
             to_percentage: toPct,
@@ -1375,6 +1120,95 @@
         alert('An error occurred while saving score remark.');
       }
     });
+
+    if (!window.__reportSettingsGradeDelegatedBound) {
+      window.__reportSettingsGradeDelegatedBound = true;
+      document.addEventListener('click', (e) => {
+        if (e.defaultPrevented) return;
+        const toggleGrade = e.target.closest('#toggleGradeForm');
+        if (toggleGrade && gradeFormContainer) {
+          e.preventDefault();
+          const isVisible = gradeFormContainer.style.display !== 'none';
+          gradeFormContainer.style.display = isVisible ? 'none' : 'block';
+          if (toggleGradeFormLink) {
+            toggleGradeFormLink.textContent = isVisible ? '+ Add Grade Rule' : '− Hide Form';
+          }
+          if (!isVisible) {
+            setCurrentClassAsDefaultChecked(gradeClassCheckboxes);
+          }
+          return;
+        }
+
+        const editGrade = e.target.closest('.edit-grade-rule');
+        if (editGrade) {
+          e.preventDefault();
+          const rowId = editGrade.dataset.id || '';
+          const classIdToEdit = editGrade.dataset.classId || '';
+          const grade = editGrade.dataset.grade || '';
+          const fromPct = editGrade.dataset.from || '';
+          const toPct = editGrade.dataset.to || '';
+
+          if (editingGradeRowIdInput) editingGradeRowIdInput.value = rowId;
+          const gradeLabelEl = document.getElementById('gradeLabelText');
+          const gradeFromEl = document.getElementById('gradeFromPct');
+          const gradeToEl = document.getElementById('gradeToPct');
+          if (gradeLabelEl) gradeLabelEl.value = grade;
+          if (gradeFromEl) gradeFromEl.value = fromPct;
+          if (gradeToEl) gradeToEl.value = toPct;
+
+          if (gradeClassCheckboxes) {
+            gradeClassCheckboxes.querySelectorAll('.score-class-checkbox').forEach(cb => {
+              cb.checked = cb.value === String(classIdToEdit);
+              cb.disabled = true;
+            });
+          }
+
+          if (gradeFormContainer) gradeFormContainer.style.display = 'block';
+          if (toggleGradeFormLink) toggleGradeFormLink.textContent = '− Hide Form';
+          if (saveGradeMappingBtn) saveGradeMappingBtn.textContent = 'Update Grade Mapping';
+          return;
+        }
+
+        const editRemark = e.target.closest('.edit-score-remark');
+        if (editRemark) {
+          e.preventDefault();
+          const rowId = editRemark.dataset.id || '';
+          const classIdToEdit = editRemark.dataset.classId || '';
+          const remark = editRemark.dataset.remark || '';
+          const fromPct = editRemark.dataset.from || '';
+          const toPct = editRemark.dataset.to || '';
+
+          if (editingRemarkRowIdInput) editingRemarkRowIdInput.value = rowId;
+          const remarkTextEl = document.getElementById('scoreRemarkText');
+          const remarkFromEl = document.getElementById('remarkFromPct');
+          const remarkToEl = document.getElementById('remarkToPct');
+          if (remarkTextEl) remarkTextEl.value = remark;
+          if (remarkFromEl) remarkFromEl.value = fromPct;
+          if (remarkToEl) remarkToEl.value = toPct;
+
+          if (remarkClassCheckboxes) {
+            remarkClassCheckboxes.querySelectorAll('.score-class-checkbox').forEach(cb => {
+              cb.checked = cb.value === String(classIdToEdit);
+              cb.disabled = true;
+            });
+          }
+
+          if (remarkFormContainer) remarkFormContainer.style.display = 'block';
+          if (toggleRemarkFormLink) toggleRemarkFormLink.textContent = '− Hide Form';
+          if (saveScoreRemarkBtn) saveScoreRemarkBtn.textContent = 'Update Score Remark';
+        }
+      });
+    }
+
+    // Run initial class load last so earlier listener setup remains intact even if
+    // a class-specific rendering issue happens for some users.
+    if (classButtons.length) {
+      try {
+        loadClassSettings(classIdField.value || classButtons[0].dataset.classId);
+      } catch (err) {
+        console.error('Report settings initialization failed:', err);
+      }
+    }
 
     // Canvas signature
     const signatureFormContainer = document.getElementById('signatureFormContainer');

@@ -1492,8 +1492,13 @@ async function getGradeLabelFromScoreRemark(
        AND class_id = $2
        AND term_id = $3
        AND NULLIF(TRIM(grade_label), '') IS NOT NULL
-       AND $4::numeric BETWEEN from_percentage AND to_percentage
-     ORDER BY from_percentage DESC
+     ORDER BY
+       CASE
+         WHEN $4::numeric BETWEEN from_percentage AND to_percentage THEN 0
+         WHEN $4::numeric < from_percentage THEN from_percentage - $4::numeric
+         ELSE $4::numeric - to_percentage
+       END ASC,
+       from_percentage DESC
      LIMIT 1`,
     [organizationId, classId, termId, percentage]
   );
@@ -5765,9 +5770,14 @@ const commonController = {
                        AND sr.class_id = $2
                        AND sr.term_id = $4
                        AND NULLIF(TRIM(sr.grade_label), '') IS NOT NULL
-                       AND ar.total_percentage IS NOT NULL
-                       AND ar.total_percentage::numeric BETWEEN sr.from_percentage AND sr.to_percentage
-                     ORDER BY sr.from_percentage DESC
+                     ORDER BY
+                       CASE
+                         WHEN ar.total_percentage IS NULL THEN 1000000000
+                         WHEN ar.total_percentage::numeric BETWEEN sr.from_percentage AND sr.to_percentage THEN 0
+                         WHEN ar.total_percentage::numeric < sr.from_percentage THEN sr.from_percentage - ar.total_percentage::numeric
+                         ELSE ar.total_percentage::numeric - sr.to_percentage
+                       END ASC,
+                       sr.from_percentage DESC
                      LIMIT 1
                    ),
                    CASE
