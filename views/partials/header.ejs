@@ -692,7 +692,7 @@
     flex-direction: column;
     justify-content: center;
     align-items: center;
-      gap: 3px;
+    gap: 4px;
     cursor: pointer;
     min-width: 34px;
     min-height: 34px;
@@ -819,22 +819,15 @@
   @media (max-width: 1024px) {
     :root {
       --header-height: 60px;
-        padding: 4px;
+      --header-pad-x: 14px;
       --logo-size: 52px;
     }
-      header#top-header .nav-menu .nav-item {
-        margin: 0;
-      }
-      header#top-header .nav-menu .nav-item + .nav-item {
-        margin-top: 1px;
-      }
 
     body {
       padding-top: calc(var(--header-height) + 14px) !important;
     }
-        padding: 6px 8px;
-        gap: 6px;
-        line-height: 1.2;
+
+    .siteName {
       font-size: 1rem;
     }
 
@@ -982,8 +975,6 @@
 
     .mobile-welcome {
       display: block;
-        padding: 6px 8px 4px;
-        margin-bottom: 1px;
     }
 
     .nav-menu {
@@ -1045,14 +1036,14 @@
     }
 
     .hamburger {
-        padding: 4px 6px;
+      padding: 6px 8px;
       border-radius: 6px;
       box-sizing: border-box;
     }
 
     .hamburger-container {
       flex-shrink: 0;
-        margin-left: 4px;
+      margin-left: 8px;
       display: inline-flex;
       align-items: center;
       justify-content: center;

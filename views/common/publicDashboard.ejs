@@ -390,18 +390,15 @@ object-fit:contain;
   align-items:center;
   justify-content:center;
 
-  background:rgba(255,255,255,0.16);
-  border:1px solid rgba(255,255,255,0.55);
+  background:rgba(0,0,0,0.35);
   color:#fff;
-  font-size:1.1rem;
-  font-weight:700;
   cursor:pointer;
 
   transition:transform .12s ease, background .12s ease;
 }
 
 .carousel-control:hover{
-  background:rgba(255,255,255,0.28);
+  background:rgba(0,0,0,0.55);
   transform:translateY(-50%) scale(1.05);
 }
 
@@ -419,7 +416,7 @@ object-fit:contain;
     height:32px;
     width:32px;
     border-radius:8px;
-    font-size: 0.95rem;
+    font-size: 20px;
   }
 
   .slide .caption{
@@ -3803,7 +3800,7 @@ body[data-pd-theme] .gallery-card .caption{
   }
 
   .carousel-control{
-    font-size:0.9rem;
+    font-size:0;
     height:2.1rem;
     width:2.1rem;
     border-radius:0.65rem;
@@ -3811,6 +3808,28 @@ body[data-pd-theme] .gallery-card .caption{
     align-items:center;
     justify-content:center;
   }
+
+  #carouselPrevBtn::before,
+  #carouselNextBtn::before{
+    font-family: "Segoe UI Symbol", "Noto Sans Symbols2", "Arial Unicode MS", sans-serif;
+    font-weight: 900;
+    font-size: 0.95rem;
+    line-height: 1;
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    display: inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:1.3rem;
+    height:1.3rem;
+    border-radius:999px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.24), rgba(255,255,255,0.10));
+    border:1px solid rgba(255,255,255,0.35);
+    box-shadow:0 2px 6px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.28);
+  }
+
+  #carouselPrevBtn::before{ content: '\25C0'; }
+  #carouselNextBtn::before{ content: '\25B6'; }
 
   .slide-image{ padding:0px; }
   .slide-image img{
@@ -3877,8 +3896,15 @@ body[data-pd-theme] .gallery-card .caption{
   #carouselNextBtn{
     height:1.85rem !important;
     width:1.85rem !important;
-    font-size:0.82rem !important;
+    font-size:0 !important;
     border-radius:0.55rem !important;
+  }
+
+  #carouselPrevBtn::before,
+  #carouselNextBtn::before{
+    width:1.12rem !important;
+    height:1.12rem !important;
+    font-size:0.72rem !important;
   }
 
   #carouselPrevBtn{ left:8px !important; }
@@ -4608,14 +4634,12 @@ body[data-page="publicDashboard"] .public-dashboard-container .about-inline-text
         </div>
         <% }); %>
         <i
-          class="fa-solid fa-chevron-left carousel-control prev"
+          class="fa-solid fa-circle-arrow-left carousel-control prev"
           id="carouselPrevBtn"
-          aria-label="Previous slide"
         ></i>
         <i
-          class="fa-solid fa-chevron-right carousel-control next"
+          class="fa-solid fa-circle-arrow-right carousel-control next"
           id="carouselNextBtn"
-          aria-label="Next slide"
         ></i>
       </div>
       <% } %>
