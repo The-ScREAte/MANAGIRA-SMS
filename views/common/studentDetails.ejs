@@ -32,7 +32,6 @@
       main {
         margin: 0 auto;
         width: min(1100px, 94%);
-              <th>Guardian Name</th>
         border: 1px solid var(--border);
         border-radius: 14px;
         box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
@@ -42,7 +41,6 @@
       .btn {
         padding: 8px 12px;
         margin: 6px;
-              <td><%= (typeof formatDisplayName === 'function' ? formatDisplayName(guardian) : [guardian.first_name, guardian.last_name].filter(Boolean).join(' ').trim()) %></td>
         cursor: pointer;
         text-decoration: none;
         font-size: 0.88rem;
@@ -539,8 +537,7 @@
         <table>
           <thead>
             <tr>
-              <th>First Name</th>
-              <th>Last Name</th>
+              <th>Guardian Name</th>
               <th>Address</th>
               <th>Phone</th>
               <th>Email</th>
@@ -551,8 +548,7 @@
           <tbody>
             <% guardians.forEach(guardian => { %>
             <tr>
-              <td><%= guardian.first_name %></td>
-              <td><%= guardian.last_name %></td>
+              <td><%= (typeof formatDisplayName === 'function' ? formatDisplayName(guardian) : [guardian.first_name, guardian.last_name].filter(Boolean).join(' ').trim()) %></td>
               <td><%= guardian.address %></td>
               <td><%= guardian.phone %></td>
               <td><%= guardian.email %></td>

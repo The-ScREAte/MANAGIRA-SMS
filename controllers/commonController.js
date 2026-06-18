@@ -5747,7 +5747,6 @@ const commonController = {
                  ar.total_subject_score,
                  ar.total_percentage,
                  COALESCE(
-                   ar.grade,
                    (
                      SELECT COALESCE(NULLIF(sr.grade_label, ''),
                        CASE
@@ -8369,7 +8368,6 @@ const commonController = {
                        ar.total_subject_score,
                        ar.total_percentage,
                        COALESCE(
-                         ar.grade,
                          (
                            SELECT COALESCE(NULLIF(sr.grade_label, ''),
                              CASE
