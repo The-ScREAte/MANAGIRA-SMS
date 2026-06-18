@@ -1199,6 +1199,53 @@
       padding-left: 34px;
     }
   }
+
+  @media (max-width: 900px) {
+    header#top-header .sticky-nav {
+      position: fixed !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      top: auto !important;
+      width: 100% !important;
+      display: block !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      z-index: 10020 !important;
+    }
+
+    header#top-header .sticky-nav ul {
+      display: flex !important;
+      align-items: center;
+      justify-content: flex-start;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      gap: 2px;
+    }
+
+    header#top-header .sticky-nav ul li a {
+      display: inline-flex !important;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff !important;
+      background: var(--org-primary-color, #01535b) !important;
+      border-color: var(--org-primary-color, #01535b) !important;
+    }
+
+    header#top-header .sticky-nav ul li a .nav-icon {
+      display: block !important;
+      width: 18px !important;
+      height: 18px !important;
+      min-width: 18px;
+      min-height: 18px;
+      opacity: 1 !important;
+      visibility: visible !important;
+      fill: none !important;
+      stroke: currentColor !important;
+      stroke-width: 2.3 !important;
+      vector-effect: non-scaling-stroke;
+    }
+  }
 </style>
 
 <header id="top-header">
