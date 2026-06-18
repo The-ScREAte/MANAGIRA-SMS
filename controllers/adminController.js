@@ -4846,7 +4846,6 @@ const adminController = {
                        a.weight AS assessment_weight,
                        ar.score,
                        COALESCE(
-                         ar.grade,
                          (
                            SELECT COALESCE(NULLIF(sr.grade_label, ''),
                              CASE
@@ -4860,6 +4859,7 @@ const adminController = {
                            WHERE sr.organization_id = ar.organization_id
                              AND sr.class_id = ar.class_id
                              AND sr.term_id = ar.term_id
+                             AND NULLIF(TRIM(sr.grade_label), '') IS NOT NULL
                              AND ar.total_percentage IS NOT NULL
                              AND ar.total_percentage::numeric BETWEEN sr.from_percentage AND sr.to_percentage
                            ORDER BY sr.from_percentage DESC

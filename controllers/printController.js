@@ -2665,7 +2665,6 @@ students
               ar.score,
               a.title AS assessment_title,
               COALESCE(
-                ar.grade,
                 (
                   SELECT COALESCE(NULLIF(sr.grade_label, ''),
                     CASE
@@ -2679,6 +2678,7 @@ students
                   WHERE sr.organization_id = $3
                     AND sr.class_id = $1
                     AND sr.term_id = $2
+                    AND NULLIF(TRIM(sr.grade_label), '') IS NOT NULL
                     AND ar.total_percentage IS NOT NULL
                     AND ar.total_percentage::numeric BETWEEN sr.from_percentage AND sr.to_percentage
                   ORDER BY sr.from_percentage DESC

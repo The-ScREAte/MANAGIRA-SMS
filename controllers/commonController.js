@@ -1491,6 +1491,7 @@ async function getGradeLabelFromScoreRemark(
      WHERE organization_id = $1
        AND class_id = $2
        AND term_id = $3
+       AND NULLIF(TRIM(grade_label), '') IS NOT NULL
        AND $4::numeric BETWEEN from_percentage AND to_percentage
      ORDER BY from_percentage DESC
      LIMIT 1`,
@@ -5648,6 +5649,7 @@ const commonController = {
   studentDetails: async (req, res, db) => {
     const studentId = req.query.studentId;
     const termId = req.query.termId;
+    const requestedClassId = Number.parseInt(req.query.classId, 10);
     const organizationId = req.session.organizationId;
     const userRole = req.session.userRole;
     const userId = req.session.user ? req.session.user.user_id : null;
@@ -5679,7 +5681,9 @@ const commonController = {
       }
 
       const student = studentResult.rows[0];
-      const classId = student.class_id;
+      const classId = Number.isInteger(requestedClassId)
+        ? requestedClassId
+        : student.class_id;
 
       // **Check if user is the main teacher of the class**
       let isMainTeacher = false;
@@ -5760,6 +5764,7 @@ const commonController = {
                      WHERE sr.organization_id = $3
                        AND sr.class_id = $2
                        AND sr.term_id = $4
+                       AND NULLIF(TRIM(sr.grade_label), '') IS NOT NULL
                        AND ar.total_percentage IS NOT NULL
                        AND ar.total_percentage::numeric BETWEEN sr.from_percentage AND sr.to_percentage
                      ORDER BY sr.from_percentage DESC
@@ -8243,6 +8248,7 @@ const commonController = {
 
   assessment: async function (req, res, db) {
     const { classId, subjectId } = req.query;
+    const requestedTermId = Number.parseInt(req.query.termId || req.session.currentTermId, 10);
     const isEmbedded = String(req.query.embed || '').toLowerCase() === 'workspace';
 
     if (!classId || !subjectId) {
@@ -8262,24 +8268,41 @@ const commonController = {
         return res.redirect("/common/orgDashboard");
       }
 
-      // Fetch the current school year and term
-      const currentTermResult = await db.query(
-        `
+      // Resolve term context: prefer requested/session term, otherwise fall back to DB current term.
+      let currentTerm = null;
+      if (Number.isInteger(requestedTermId)) {
+        const requestedTermResult = await db.query(
+          `
+                SELECT term_id, term_name, start_date, end_date
+                FROM terms
+                WHERE term_id = $1 AND organization_id = $2
+                LIMIT 1
+            `,
+          [requestedTermId, organizationId]
+        );
+        currentTerm = requestedTermResult.rows[0] || null;
+      }
+
+      if (!currentTerm) {
+        const currentTermResult = await db.query(
+          `
                 SELECT t.term_id, t.term_name, t.start_date, t.end_date
                 FROM terms t
                 JOIN school_years sy ON t.school_year_id = sy.id
                 WHERE sy.organization_id = $1 AND sy.current = TRUE AND t.current = TRUE
                 LIMIT 1
             `,
-        [organizationId]
-      );
+          [organizationId]
+        );
 
-      if (currentTermResult.rows.length === 0) {
-        req.flash("error", "No current school year or term found.");
-        return res.redirect("/common/manageRecords");
+        if (currentTermResult.rows.length === 0) {
+          req.flash("error", "No current school year or term found.");
+          return res.redirect("/common/manageRecords");
+        }
+
+        currentTerm = currentTermResult.rows[0];
       }
-
-      const currentTerm = currentTermResult.rows[0];
+      req.session.currentTermId = currentTerm.term_id;
 
       // Fetch the class name and subject name
       const classNameResult = await db.query(
@@ -8365,35 +8388,6 @@ const commonController = {
                 SELECT ar.assessment_id,
                        ar.student_id,
                        ar.score,
-                       ar.total_subject_score,
-                       ar.total_percentage,
-                       COALESCE(
-                         (
-                           SELECT COALESCE(NULLIF(sr.grade_label, ''),
-                             CASE
-                               WHEN ar.total_percentage >= 90 THEN 'A'
-                               WHEN ar.total_percentage >= 80 THEN 'B'
-                               WHEN ar.total_percentage >= 70 THEN 'C'
-                               ELSE 'D'
-                             END
-                           )
-                           FROM score_remarks sr
-                           WHERE sr.organization_id = $3
-                             AND sr.class_id = $2
-                             AND sr.term_id = $4
-                             AND ar.total_percentage IS NOT NULL
-                             AND ar.total_percentage::numeric BETWEEN sr.from_percentage AND sr.to_percentage
-                           ORDER BY sr.from_percentage DESC
-                           LIMIT 1
-                         ),
-                         CASE
-                           WHEN ar.total_percentage IS NULL THEN NULL
-                           WHEN ar.total_percentage >= 90 THEN 'A'
-                           WHEN ar.total_percentage >= 80 THEN 'B'
-                           WHEN ar.total_percentage >= 70 THEN 'C'
-                           ELSE 'D'
-                         END
-                       ) AS grade,
                        sp.position
                 FROM assessment_results ar
                 LEFT JOIN student_positions sp
@@ -8415,6 +8409,12 @@ const commonController = {
       );
 
       const results = resultsResult.rows;
+      const maxScoreByAssessmentId = new Map(
+        assessments.map((assessmentRow) => [
+          Number(assessmentRow.assessment_id),
+          Number(assessmentRow.max_score || 0),
+        ])
+      );
 
       // Organize the scores by student and populate total scores and other details
       const studentScores = {};
@@ -8422,15 +8422,34 @@ const commonController = {
         if (!studentScores[result.student_id]) {
           studentScores[result.student_id] = {
             assessments: {},
-            total_subject_score: result.total_subject_score,
-            total_percentage: result.total_percentage,
-            grade: result.grade,
+            total_subject_score: 0,
+            total_percentage: null,
+            grade: '-',
             position: result.position,
+            max_total_score: 0,
           };
         }
-        studentScores[result.student_id].assessments[result.assessment_id] =
-          result.score;
+        studentScores[result.student_id].assessments[result.assessment_id] = result.score;
+        if (result.score !== null && result.score !== undefined && result.score !== '') {
+          const numericScore = Number(result.score);
+          const numericMax = maxScoreByAssessmentId.get(Number(result.assessment_id)) || 0;
+          studentScores[result.student_id].total_subject_score += numericScore;
+          studentScores[result.student_id].max_total_score += numericMax;
+        }
       });
+
+      for (const [studentIdKey, summary] of Object.entries(studentScores)) {
+        if (summary.max_total_score > 0) {
+          summary.total_percentage = (summary.total_subject_score / summary.max_total_score) * 100;
+          summary.grade = await getGradeLabelFromScoreRemark(
+            db,
+            organizationId,
+            classId,
+            currentTerm.term_id,
+            summary.total_percentage
+          );
+        }
+      }
 
       students.forEach((student) => {
         student.scores = studentScores[student.student_id]
@@ -8537,6 +8556,7 @@ const commonController = {
   saveAllScores: async function (req, res, db) {
     const { subjectId, classId } = req.query;
     const { scores } = req.body;
+    const requestedTermId = Number.parseInt(req.query.termId || req.session.currentTermId, 10);
 
     if (!subjectId || !classId) {
       res.status(400).send("Subject ID and Class ID are required.");
@@ -8546,24 +8566,27 @@ const commonController = {
     const organizationId = req.session.organizationId;
 
     try {
-      // Fetch the current term for the given class
-      const termResult = await db.query(
-        `
+      let currentTermId = Number.isInteger(requestedTermId) ? requestedTermId : null;
+      if (!currentTermId) {
+        const termResult = await db.query(
+          `
                 SELECT t.term_id
                 FROM terms t
                 JOIN classes c ON t.organization_id = c.organization_id
                 WHERE c.class_id = $1 AND t.organization_id = $2 AND t.current = TRUE
                 LIMIT 1
             `,
-        [classId, organizationId]
-      );
+          [classId, organizationId]
+        );
 
-      if (termResult.rows.length === 0) {
-        res.status(404).send("No current term found for this class.");
-        return;
+        if (termResult.rows.length === 0) {
+          res.status(404).send("No current term found for this class.");
+          return;
+        }
+
+        currentTermId = termResult.rows[0].term_id;
       }
-
-      const currentTermId = termResult.rows[0].term_id;
+      req.session.currentTermId = currentTermId;
 
       await ensureAssessmentControlSchema(db);
 
@@ -10199,6 +10222,7 @@ const commonController = {
 
   classDashboard: async (req, res, db, csrfToken) => {
     const classId = req.params.classId || req.query.classId;
+    const requestedTermId = Number.parseInt(req.query.termId || req.session.currentTermId, 10);
     if (!classId) {
       res.redirect("/common/orgDashboard");
       return;
@@ -10237,8 +10261,13 @@ const commonController = {
           })),
         };
 
-        // Find the current term
-        currentTerm = schoolYearResult.rows.find((row) => row.current);
+        // Prefer selected/session term when present; otherwise fall back to current.
+        currentTerm = Number.isInteger(requestedTermId)
+          ? schoolYearResult.rows.find((row) => Number(row.term_id) === requestedTermId)
+          : null;
+        if (!currentTerm) {
+          currentTerm = schoolYearResult.rows.find((row) => row.current) || schoolYearResult.rows[0] || null;
+        }
       }
 
       // If no current term is found, redirect to the org dashboard
@@ -10246,6 +10275,7 @@ const commonController = {
         req.flash("error", "No current term found.");
         return res.redirect("/common/orgDashboard");
       }
+      req.session.currentTermId = currentTerm.term_id;
 
       // Fetch class details
       const classResult = await db.query(

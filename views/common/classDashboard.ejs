@@ -3442,9 +3442,16 @@ main {
         if (subtextNode) subtextNode.textContent = tab.panelDescription || 'Focused work session';
       }
 
+      function appendWorkspaceTerm(targetPath) {
+        if (!targetPath) return targetPath;
+        var hasQuery = targetPath.indexOf('?') !== -1;
+        var separator = hasQuery ? '&' : '?';
+        return targetPath + separator + 'termId=' + encodeURIComponent(workspaceContext.termId);
+      }
+
       function syncWorkspaceHistory(tab, options) {
         if (!tab || (options && options.skipHistory)) return;
-        var targetPath = tab.routePath || workspaceContext.basePath;
+        var targetPath = appendWorkspaceTerm(tab.routePath || workspaceContext.basePath);
         var state = {
           workspaceTabId: tab.id,
           path: targetPath,
@@ -3504,7 +3511,8 @@ main {
           renderWorkspaceTabBar();
           updateWorkspaceChrome();
           syncWorkspaceSidebarState(null);
-          window.history.replaceState({ workspaceTabId: '', path: workspaceContext.basePath }, '', workspaceContext.basePath);
+          var overviewPath = appendWorkspaceTerm(workspaceContext.basePath);
+          window.history.replaceState({ workspaceTabId: '', path: overviewPath }, '', overviewPath);
           return;
         }
         var nextTab = workspaceState.tabs[tabIndex] || workspaceState.tabs[tabIndex - 1] || workspaceState.tabs[0];
@@ -3649,7 +3657,7 @@ main {
           sidebarKey: 'subjects',
           type: 'iframe',
           noFrameHeader: true,
-          iframeSrc: '/common/assessment?classId=' + encodeURIComponent(workspaceContext.classId) + '&subjectId=' + encodeURIComponent(match.id) + '&embed=workspace',
+          iframeSrc: '/common/assessment?classId=' + encodeURIComponent(workspaceContext.classId) + '&subjectId=' + encodeURIComponent(match.id) + '&termId=' + encodeURIComponent(workspaceContext.termId) + '&embed=workspace',
           panelDescription: 'Subject workspace for ' + match.name + '.',
         };
       }

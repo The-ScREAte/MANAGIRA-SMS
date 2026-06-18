@@ -289,7 +289,6 @@ module.exports = {
                  ar.total_subject_score,
                  ar.total_percentage,
                  COALESCE(
-                   ar.grade,
                    (
                      SELECT COALESCE(NULLIF(sr.grade_label, ''),
                        CASE
@@ -303,6 +302,7 @@ module.exports = {
                      WHERE sr.organization_id = $3
                        AND sr.class_id = $2
                        AND sr.term_id = $4
+                       AND NULLIF(TRIM(sr.grade_label), '') IS NOT NULL
                        AND ar.total_percentage IS NOT NULL
                        AND ar.total_percentage::numeric BETWEEN sr.from_percentage AND sr.to_percentage
                      ORDER BY sr.from_percentage DESC
@@ -554,7 +554,6 @@ module.exports = {
           ar.total_subject_score,
           ar.total_percentage,
           COALESCE(
-            ar.grade,
             (
               SELECT COALESCE(NULLIF(sr.grade_label, ''),
                 CASE
@@ -568,6 +567,7 @@ module.exports = {
               WHERE sr.organization_id = $2
                 AND sr.class_id = a.class_id
                 AND sr.term_id = $3
+                AND NULLIF(TRIM(sr.grade_label), '') IS NOT NULL
                 AND ar.total_percentage IS NOT NULL
                 AND ar.total_percentage::numeric BETWEEN sr.from_percentage AND sr.to_percentage
               ORDER BY sr.from_percentage DESC
@@ -1201,7 +1201,6 @@ module.exports = {
            ar.total_subject_score,
            ar.total_percentage,
            COALESCE(
-             ar.grade,
              (
                SELECT COALESCE(NULLIF(sr.grade_label, ''),
                  CASE
@@ -1215,6 +1214,7 @@ module.exports = {
                WHERE sr.organization_id = $3
                  AND sr.class_id = a.class_id
                  AND sr.term_id = $2
+                 AND NULLIF(TRIM(sr.grade_label), '') IS NOT NULL
                  AND ar.total_percentage IS NOT NULL
                  AND ar.total_percentage::numeric BETWEEN sr.from_percentage AND sr.to_percentage
                ORDER BY sr.from_percentage DESC
